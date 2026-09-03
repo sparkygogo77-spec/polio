@@ -1,0 +1,319 @@
+/**
+ * The shared contract every feature module and core system speaks.
+ *
+ * Agents: this file is the vocabulary of the template. If you add a new kind
+ * of contribution (e.g. a "widget" slot), add its type here, collect it in
+ * `core/registry.ts`, and render it from the shell. Keep everything
+ * serialisable except React components and callbacks.
+ */
+import type { ComponentType } from "react";
+import type { LucideIcon } from "lucide-react";
+
+/* ------------------------------------------------------------------ */
+/* Shared primitives                                                   */
+/* ------------------------------------------------------------------ */
+
+export type Level = "info" | "success" | "warn" | "error";
+
+export type CueName =
+  | "tap"
+  | "tick"
+  | "hover"
+  | "toggleOn"
+  | "toggleOff"
+  | "select"
+  | "navigate"
+  | "open"
+  | "close"
+  | "copy"
+  | "confirm"
+  | "deny"
+  | "success"
+  | "error"
+  | "warn"
+  | "alert"
+  | "notify"
+  | "newRow"
+  | "priceUp"
+  | "priceDown";
+
+export type CueCategory = "ui" | "feedback" | "alerts" | "feed";
+
+export type PanelName = "settings" | "news" | "commands" | "shortcuts";
+
+/* ------------------------------------------------------------------ */
+/* News / activity feed                                                */
+/* ------------------------------------------------------------------ */
+
+export interface NewsDiff {
+  /** What changed, e.g. "Slippage". Defaults to the item title. */
+  field?: string;
+  from: unknown;
+  to: unknown;
+  /** Optional formatter for both sides, e.g. (v) => `${v}%`. */
+  format?: (v: unknown) => string;
+}
+
+export interface NewsAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface NewsInput {
+  /**
+   * Coalescing key. Publishing again with the same key inside the coalesce
+   * window UPDATES the existing line instead of adding a new one. Use stable
+   * keys like "setting:audio.master" or "token:<address>:mc".
+   */
+  key?: string;
+  title: string;
+  body?: string;
+  level?: Level;
+  /** Module id or subsystem name. Used for filtering and rate limiting. */
+  source?: string;
+  icon?: LucideIcon;
+  diff?: NewsDiff;
+  /** Show as a transient toast as well as in the feed. */
+  toast?: boolean | { durationMs?: number };
+  /** Cue to play. `false` for silent. Defaults by level. */
+  sound?: CueName | false;
+  action?: NewsAction;
+  href?: string;
+  /** Auto-remove from the feed after this many ms. */
+  ttlMs?: number;
+  /** Override the coalesce window for this key. `Infinity` = always coalesce. */
+  coalesceMs?: number;
+  /** Don't count towards unread. */
+  quiet?: boolean;
+}
+
+export interface NewsItem {
+  id: string;
+  key: string | null;
+  title: string;
+  body: string | null;
+  level: Level;
+  source: string;
+  icon: LucideIcon | null;
+  diff: { field: string; fromLabel: string; toLabel: string; from: unknown; to: unknown } | null;
+  action: NewsAction | null;
+  href: string | null;
+  createdAt: number;
+  updatedAt: number;
+  /** How many publishes were folded into this line. */
+  count: number;
+  read: boolean;
+  pinned: boolean;
+  /** Bumped every update so rows can re-flash. */
+  rev: number;
+  expiresAt: number | null;
+}
+
+export interface ToastItem {
+  id: string;
+  key: string | null;
+  newsId: string;
+  title: string;
+  body: string | null;
+  level: Level;
+  icon: LucideIcon | null;
+  action: NewsAction | null;
+  diffLabel: string | null;
+  createdAt: number;
+  expiresAt: number;
+  rev: number;
+  count: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings                                                            */
+/* ------------------------------------------------------------------ */
+
+export type SettingType = "toggle" | "select" | "segmented" | "slider" | "number" | "text" | "color" | "hue";
+
+export interface SettingOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
+export interface SettingDef<V = unknown> {
+  /** Dotted id, e.g. "audio.master". Namespaced by group or module. */
+  id: string;
+  /** Group id. Must exist in core groups or a module's `settingGroups`. */
+  group: string;
+  label: string;
+  description?: string;
+  type: SettingType;
+  default: V;
+  options?: SettingOption[];
+  min?: number;
+  max?: number;
+  step?: number;
+  unit?: string;
+  /** Hidden until the user reveals advanced options. Put most knobs here. */
+  advanced?: boolean;
+  /** Extra search terms. */
+  tags?: string[];
+  order?: number;
+  /** Human formatter for news lines and slider readouts. */
+  format?: (v: V) => string;
+  /** Don't publish a feed line when this changes (e.g. very chatty values). */
+  silent?: boolean;
+}
+
+export interface SettingGroupDef {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: LucideIcon;
+  order?: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Commands, shortcuts, menus                                          */
+/* ------------------------------------------------------------------ */
+
+/** Everything a command / menu item / shortcut can reach without importing stores. */
+export interface ActionContext {
+  navigate: (href: string) => void;
+  publish: (input: NewsInput) => void;
+  play: (cue: CueName) => void;
+  getSetting: <T = unknown>(id: string) => T;
+  setSetting: (id: string, value: unknown) => void;
+  openPanel: (panel: PanelName) => void;
+  closePanel: (panel?: PanelName) => void;
+  togglePanel: (panel: PanelName) => void;
+  copy: (text: string, label?: string) => Promise<void>;
+  confirm: (opts: { title: string; body?: string; danger?: boolean; confirmLabel?: string }) => Promise<boolean>;
+}
+
+export interface CommandDef {
+  id: string;
+  label: string;
+  group?: string;
+  icon?: LucideIcon;
+  keywords?: string[];
+  /** Display-only hint; register a ShortcutDef to make it work. */
+  shortcut?: string;
+  run: (ctx: ActionContext) => void | Promise<void>;
+  when?: () => boolean;
+}
+
+export interface ShortcutDef {
+  keys: string;
+  label: string;
+  group?: string;
+  run: (ctx: ActionContext) => void;
+  when?: () => boolean;
+  /** Fire even while typing in an input. */
+  allowInInput?: boolean;
+  /** Don't call preventDefault. */
+  passive?: boolean;
+}
+
+export interface MenuItemDef {
+  id: string;
+  label: string;
+  icon?: LucideIcon;
+  shortcut?: string;
+  disabled?: boolean;
+  danger?: boolean;
+  /** When defined renders as a checkbox item. */
+  checked?: boolean;
+  hint?: string;
+  children?: MenuEntry[];
+  onSelect?: (target: ContextTarget, ctx: ActionContext) => void;
+}
+
+export type MenuEntry = MenuItemDef | { type: "separator"; id?: string } | { type: "label"; id?: string; label: string };
+
+export interface ContextTarget<T = unknown> {
+  scope: string;
+  id: string;
+  data: T;
+  /** The element carrying the scope. `Element`, not `HTMLElement`: SVG icons can carry scopes too. */
+  element: Element;
+  /** All scopes under the cursor, innermost first. */
+  stack: ContextTarget[];
+  x: number;
+  y: number;
+}
+
+export interface ContextMenuContribution {
+  /** Scope name from `ctxProps(scope, ...)`, or "*" for every right-click. */
+  scope: string;
+  order?: number;
+  items: (target: ContextTarget, ctx: ActionContext) => MenuEntry[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Routing, nav, status bar                                            */
+/* ------------------------------------------------------------------ */
+
+export interface RouteProps {
+  path: string;
+  params: Record<string, string>;
+}
+
+export interface RouteDef {
+  /** "/pulse", "/token/:address", "/docs/*" */
+  path: string;
+  component: ComponentType<RouteProps>;
+  title?: string;
+  /** Hide the sidebar for this route. */
+  fullBleed?: boolean;
+}
+
+export interface NavEntry {
+  label: string;
+  href: string;
+  icon?: LucideIcon;
+  /** Sidebar section. */
+  group?: string;
+  order?: number;
+  /** Where to show it. Default: both. */
+  placement?: "top" | "side" | "both";
+  /** Static badge text, e.g. "beta" or "live". */
+  badge?: string;
+  external?: boolean;
+}
+
+export interface StatusItemDef {
+  id: string;
+  side?: "left" | "right";
+  order?: number;
+  component: ComponentType;
+}
+
+/* ------------------------------------------------------------------ */
+/* Feature module                                                      */
+/* ------------------------------------------------------------------ */
+
+export interface FeatureModule {
+  /** Stable kebab-case id. Also the default news source and settings namespace. */
+  id: string;
+  name: string;
+  description?: string;
+  icon?: LucideIcon;
+  /** Shown on the home grid and in docs. */
+  tags?: string[];
+  routes?: RouteDef[];
+  nav?: NavEntry[];
+  commands?: CommandDef[];
+  shortcuts?: ShortcutDef[];
+  contextMenus?: ContextMenuContribution[];
+  settingGroups?: SettingGroupDef[];
+  settings?: SettingDef[];
+  statusItems?: StatusItemDef[];
+  /** Runs once on the client when the shell mounts. Return a cleanup. */
+  onMount?: (ctx: ActionContext) => void | (() => void);
+  /** Keep out of nav and the home grid (still routable). */
+  hidden?: boolean;
+  /** Removing this module is safe; used to mark demos. */
+  demo?: boolean;
+}
+
+export function defineFeature(mod: FeatureModule): FeatureModule {
+  return mod;
+}
