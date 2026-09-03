@@ -12,6 +12,7 @@
     "check": "npm run typecheck && npm run build"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "@tanstack/react-virtual": "^3.14.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

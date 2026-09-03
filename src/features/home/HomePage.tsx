@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Bell, Command, Keyboard, MousePointer2, Settings2, Sparkles, Terminal, Volume2, Zap } from "lucide-react";
+import { ArrowRight, Bell, Command, Keyboard, LayoutTemplate, MousePointer2, Settings2, Sparkles, Volume2, Wand2, Zap } from "lucide-react";
 import site from "@site";
 import { registry } from "@/core/registry";
 import { useActions } from "@/core/actions";
@@ -23,6 +23,8 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 const PILLARS = [
+  { icon: LayoutTemplate, title: "Draw the blueprint", body: "Drag features onto a canvas, sketch freehand, frame regions, connect elements with arrows, group what belongs together." },
+  { icon: Wand2, title: "A prompt per element", body: "Every icon, group, region and arrow carries its own instructions — and its position on the canvas is part of the spec." },
   { icon: MousePointer2, title: "Right-click everywhere", body: "Every element can declare a scope; modules contribute items. Nested scopes stack." },
   { icon: Zap, title: "Instant, tactile", body: "Cues fire on pointer-down, buttons compress, values flash by direction, actions read as done immediately." },
   { icon: Bell, title: "News that never repeats", body: "Same key updates the line in place: 1% → 2% → 3% is one row reading “1% → 3%”. Reverts vanish." },
@@ -67,7 +69,7 @@ export function HomePage() {
           {hero.primaryCta ? (
             <Button asChild variant="primary" size="lg" sound="confirm">
               <Link href={hero.primaryCta.href}>
-                <Terminal />
+                <LayoutTemplate />
                 {hero.primaryCta.label}
                 <ArrowRight />
               </Link>

@@ -1,0 +1,519 @@
+import {
+  ArrowUpRight, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
+  MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
+  Trash2, Undo2, Ungroup, Wand2, ZoomIn,
+} from "lucide-react";
+import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
+import { StudioPage } from "./StudioPage";
+import { CATEGORIES, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
+import { FORMAT_FIELDS } from "./format";
+import { compileSpec, specToJson, specToMarkdown } from "./spec";
+import { HUES, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
+import { addFeatureToCanvas, dropPoint } from "./Palette";
+
+const onStudio = () => typeof window !== "undefined" && window.location.pathname.startsWith("/studio");
+
+/** Right-click position in canvas space, so "add here" really means here. */
+function canvasPoint(target: ContextTarget) {
+  const { pan, zoom } = useStudio.getState();
+  const rect = target.element.getBoundingClientRect();
+  return { x: (target.x - rect.left - pan.x) / zoom, y: (target.y - rect.top - pan.y) / zoom };
+}
+
+function compile() {
+  const s = useStudio.getState();
+  return compileSpec({ pages: s.pages, nodes: s.nodes, groups: s.groups, shapes: s.shapes, format: s.format, brief: s.brief });
+}
+
+/** Add → category → feature. Every feature in the library is reachable by mouse alone. */
+function addFeatureMenu(at: { x: number; y: number } | null): MenuEntry {
+  return {
+    id: "studio.add",
+    label: "Add element",
+    icon: Plus,
+    children: CATEGORIES.map((cat) => ({
+      id: `studio.add.${cat.id}`,
+      label: cat.label,
+      icon: cat.icon,
+      children: featuresByCategory(cat.id).map((feature: FeatureDef) => ({
+        id: `studio.add.${feature.id}`,
+        label: feature.name,
+        icon: feature.icon,
+        hint: feature.blurb.length > 34 ? undefined : feature.blurb,
+        onSelect: () => {
+          if (at) useStudio.getState().addNode(feature.id, at.x - (feature.w ?? 132) / 2, at.y - (feature.h ?? 76) / 2);
+          else addFeatureToCanvas(feature.id);
+        },
+      })),
+    })),
+  };
+}
+
+const hueMenu = (current: number | null, apply: (h: number | null) => void): MenuEntry => ({
+  id: "studio.hue",
+  label: "Colour",
+  icon: PaletteIcon,
+  children: [
+    { id: "studio.hue.auto", label: "Category colour", checked: current === null, onSelect: () => apply(null) },
+    ...HUES.map((h) => ({ id: `studio.hue.${h}`, label: `Hue ${h}`, checked: current === h, onSelect: () => apply(h) })),
+  ],
+});
+
+export const studio = defineFeature({
+  id: "studio",
+  name: "Studio",
+  description: "Lay out what a site should be as icons, drawings and per-element prompts, then compile it into a build brief.",
+  icon: LayoutTemplate,
+  tags: ["builder", "canvas", "prompt", "blueprint"],
+  routes: [{ path: "/studio", component: StudioPage, title: "Studio", fullBleed: true }],
+  nav: [{ label: "Studio", href: "/studio", icon: LayoutTemplate, order: 5, group: "Build", badge: "new" }],
+
+  commands: [
+    { id: "studio.open", label: "Open the Studio", group: "Studio", icon: LayoutTemplate, keywords: ["builder", "canvas"], run: (c) => c.navigate("/studio") },
+    { id: "studio.compile", label: "Studio: compile the brief", group: "Studio", icon: Send, when: onStudio, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
+    {
+      id: "studio.copyBrief",
+      label: "Studio: copy the brief",
+      group: "Studio",
+      icon: Copy,
+      run: (c) => void c.copy(specToMarkdown(compile()), "build brief"),
+    },
+    { id: "studio.addPage", label: "Studio: add a page", group: "Studio", icon: Plus, run: () => { useStudio.getState().addPage(); } },
+    { id: "studio.newIdea", label: "Studio: drop a new idea", group: "Studio", icon: Lightbulb, when: onStudio, run: () => { addFeatureToCanvas("custom-idea"); } },
+    { id: "studio.undo", label: "Studio: undo", group: "Studio", icon: Undo2, when: onStudio, run: () => useStudio.getState().undo() },
+    { id: "studio.redo", label: "Studio: redo", group: "Studio", icon: Redo2, when: onStudio, run: () => useStudio.getState().redo() },
+    {
+      id: "studio.reset",
+      label: "Studio: clear everything",
+      group: "Studio",
+      icon: RotateCcw,
+      run: (c) =>
+        void c
+          .confirm({ title: "Clear the whole blueprint?", body: "Every page, element, drawing and prompt goes.", danger: true, confirmLabel: "Clear" })
+          .then((ok) => ok && useStudio.getState().resetAll()),
+    },
+  ],
+
+  shortcuts: [
+    { keys: "g u", label: "Go to Studio", group: "Navigate", run: (c) => c.navigate("/studio") },
+    { keys: "v", label: "Select tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("select") },
+    { keys: "d", label: "Draw tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("pen") },
+    { keys: "r", label: "Region tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("frame") },
+    { keys: "a", label: "Arrow tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("arrow") },
+    { keys: "e", label: "Erase tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("erase") },
+    { keys: "h", label: "Pan tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("pan") },
+    { keys: "mod+z", label: "Undo", group: "Studio", when: onStudio, run: () => useStudio.getState().undo() },
+    { keys: "mod+shift+z", label: "Redo", group: "Studio", when: onStudio, run: () => useStudio.getState().redo() },
+    { keys: "mod+g", label: "Group selection", group: "Studio", when: onStudio, run: () => useStudio.getState().groupSelection() },
+    { keys: "mod+d", label: "Duplicate selection", group: "Studio", when: onStudio, run: () => useStudio.getState().duplicateNodes(useStudio.getState().selection) },
+    { keys: "mod+a", label: "Select everything", group: "Studio", when: onStudio, run: () => useStudio.getState().selectAll() },
+    {
+      keys: "backspace",
+      label: "Delete selection",
+      group: "Studio",
+      when: onStudio,
+      run: () => {
+        const s = useStudio.getState();
+        s.removeNodes(s.selection);
+        s.removeShapes(s.selection);
+      },
+    },
+    { keys: "mod+enter", label: "Compile the brief", group: "Studio", when: onStudio, allowInInput: true, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
+  ],
+
+  contextMenus: [
+    /* ------------------------------------------------------------ element */
+    {
+      scope: "studio-node",
+      items: (target, ctx) => {
+        const node = target.data as StudioNode | undefined;
+        if (!node) return [];
+        const s = useStudio.getState();
+        const feature = getFeature(node.featureId);
+        const selection = s.selection.includes(node.id) ? s.selection : [node.id];
+        const multi = selection.length > 1;
+        const group = s.groups.find((g) => g.id === node.groupId);
+
+        const entries: MenuEntry[] = [
+          { type: "label", label: multi ? `${selection.length} elements` : node.label },
+          {
+            id: "studio.node.prompt",
+            label: node.prompt ? "Edit its prompt" : "Write its prompt",
+            icon: Wand2,
+            hint: node.prompt ? "written" : undefined,
+            onSelect: () => s.setSelection([node.id]),
+          },
+          {
+            id: "studio.node.priority",
+            label: "Priority",
+            icon: Star,
+            children: (["must", "nice", "idea"] as const).map((p) => ({
+              id: `studio.node.priority.${p}`,
+              label: p === "must" ? "Must have" : p === "nice" ? "Nice to have" : "Just an idea",
+              checked: node.priority === p,
+              onSelect: () => s.updateNodes(selection, { priority: p }),
+            })),
+          },
+        ];
+
+        if (feature?.options?.length) {
+          entries.push({
+            id: "studio.node.options",
+            label: "Options",
+            icon: Layers,
+            children: feature.options.map((opt) => ({
+              id: `studio.node.opt.${opt.id}`,
+              label: opt.label,
+              children: opt.values.map((v) => ({
+                id: `studio.node.opt.${opt.id}.${v}`,
+                label: v,
+                checked: (node.options[opt.id] ?? opt.values[0]) === v,
+                onSelect: () => s.updateNode(node.id, { options: { ...node.options, [opt.id]: v } }),
+              })),
+            })),
+          });
+        }
+
+        entries.push(
+          hueMenu(node.hue, (h) => s.updateNodes(selection, { hue: h })),
+          {
+            id: "studio.node.align",
+            label: "Align",
+            icon: Layers,
+            disabled: !multi,
+            children: [
+              { id: "align.left", label: "Left edges", onSelect: () => alignNodes(selection, "left") },
+              { id: "align.hcenter", label: "Horizontal centres", onSelect: () => alignNodes(selection, "hcenter") },
+              { id: "align.right", label: "Right edges", onSelect: () => alignNodes(selection, "right") },
+              { type: "separator" },
+              { id: "align.top", label: "Top edges", onSelect: () => alignNodes(selection, "top") },
+              { id: "align.vcenter", label: "Vertical centres", onSelect: () => alignNodes(selection, "vcenter") },
+              { id: "align.bottom", label: "Bottom edges", onSelect: () => alignNodes(selection, "bottom") },
+              { type: "separator" },
+              { id: "align.row", label: "Spread into a row", onSelect: () => alignNodes(selection, "row") },
+              { id: "align.column", label: "Stack into a column", onSelect: () => alignNodes(selection, "column") },
+            ],
+          },
+          { type: "separator" },
+          group
+            ? { id: "studio.node.ungroup", label: `Ungroup "${group.label}"`, icon: Ungroup, onSelect: () => s.ungroup(group.id) }
+            : { id: "studio.node.group", label: `Group these ${selection.length}`, icon: Group, disabled: !multi, shortcut: "mod+g", onSelect: () => s.groupSelection() },
+          { id: "studio.node.duplicate", label: "Duplicate", icon: Copy, shortcut: "mod+d", onSelect: () => s.duplicateNodes(selection) },
+          { id: "studio.node.lock", label: "Locked", icon: Lock, checked: node.locked, onSelect: () => s.updateNodes(selection, { locked: !node.locked }) },
+          {
+            id: "studio.node.convert",
+            label: "Turn into a new idea",
+            icon: Lightbulb,
+            hint: "keeps position",
+            onSelect: () => s.updateNode(node.id, { featureId: "custom-idea", custom: true, label: node.label }),
+          },
+          { id: "studio.node.copyName", label: "Copy name", icon: Copy, onSelect: () => void ctx.copy(node.label, "element name") },
+          { type: "separator" },
+          { id: "studio.node.delete", label: multi ? `Delete ${selection.length} elements` : "Delete", icon: Trash2, danger: true, onSelect: () => s.removeNodes(selection) },
+        );
+        return entries;
+      },
+    },
+
+    /* -------------------------------------------------------------- group */
+    {
+      scope: "studio-group",
+      items: (target, ctx) => {
+        const group = target.data as StudioGroup | undefined;
+        if (!group) return [];
+        const s = useStudio.getState();
+        const members = s.nodes.filter((n) => n.groupId === group.id);
+        return [
+          { type: "label", label: `${group.label} · ${members.length} elements` },
+          { id: "studio.group.select", label: "Select members", icon: Group, onSelect: () => s.setSelection(members.map((n) => n.id)) },
+          { id: "studio.group.prompt", label: group.prompt ? "Edit group prompt" : "Write group prompt", icon: Wand2, onSelect: () => s.setSelection(members.map((n) => n.id)) },
+          hueMenu(group.hue, (h) => s.updateGroup(group.id, { hue: h ?? 265 })),
+          { id: "studio.group.copy", label: "Copy member names", icon: Copy, onSelect: () => void ctx.copy(members.map((n) => n.label).join(", "), "member names") },
+          { type: "separator" },
+          { id: "studio.group.ungroup", label: "Ungroup", icon: Ungroup, onSelect: () => s.ungroup(group.id) },
+          {
+            id: "studio.group.delete",
+            label: "Delete group and members",
+            icon: Trash2,
+            danger: true,
+            onSelect: () =>
+              void ctx.confirm({ title: `Delete "${group.label}"?`, body: `${members.length} elements go with it.`, danger: true, confirmLabel: "Delete" }).then((ok) => {
+                if (ok) {
+                  s.removeNodes(members.map((n) => n.id));
+                  s.ungroup(group.id);
+                }
+              }),
+          },
+        ];
+      },
+    },
+
+    /* ---------------------------------------------------- drawing / arrow */
+    {
+      scope: "studio-shape",
+      items: (target) => {
+        const shape = target.data as StudioShape | undefined;
+        if (!shape) return [];
+        const s = useStudio.getState();
+        const kind = shape.kind === "frame" ? "Region" : shape.kind === "arrow" ? "Connection" : "Sketch";
+        return [
+          { type: "label", label: shape.label || kind },
+          { id: "studio.shape.prompt", label: shape.prompt ? "Edit its prompt" : "Write its prompt", icon: Wand2, onSelect: () => s.setSelection([shape.id]) },
+          hueMenu(shape.hue, (h) => s.updateShape(shape.id, { hue: h ?? 265 })),
+          {
+            id: "studio.shape.width",
+            label: "Stroke width",
+            icon: Pencil,
+            children: [1, 2, 3, 5, 8, 12].map((w) => ({
+              id: `studio.shape.width.${w}`,
+              label: `${w}px`,
+              checked: shape.width === w,
+              onSelect: () => s.updateShape(shape.id, { width: w }),
+            })),
+          },
+          { type: "separator" },
+          { id: "studio.shape.delete", label: `Delete ${kind.toLowerCase()}`, icon: Trash2, danger: true, onSelect: () => s.removeShapes([shape.id]) },
+        ];
+      },
+    },
+
+    /* ------------------------------------------------------------- canvas */
+    {
+      scope: "studio-canvas",
+      items: (target, ctx) => {
+        const s = useStudio.getState();
+        const at = canvasPoint(target);
+        const page = s.pages.find((p) => p.id === s.activePageId);
+        const count = s.nodes.filter((n) => n.pageId === s.activePageId).length;
+        return [
+          { type: "label", label: `${page?.name ?? "Page"} · ${count} elements` },
+          addFeatureMenu(at),
+          { id: "studio.canvas.idea", label: "Drop a new idea here", icon: Lightbulb, onSelect: () => { s.addNode("custom-idea", at.x - 66, at.y - 38); } },
+          { id: "studio.canvas.note", label: "Pin a note here", icon: Wand2, onSelect: () => { s.addNode("note", at.x - 66, at.y - 38); } },
+          { type: "separator" },
+          {
+            id: "studio.canvas.tool",
+            label: "Tool",
+            icon: MousePointer2,
+            children: [
+              { id: "tool.select", label: "Select & move", icon: MousePointer2, shortcut: "v", checked: s.tool === "select", onSelect: () => s.setTool("select") },
+              { id: "tool.pen", label: "Draw freehand", icon: Pencil, shortcut: "d", checked: s.tool === "pen", onSelect: () => s.setTool("pen") },
+              { id: "tool.frame", label: "Draw a region", icon: Frame, shortcut: "r", checked: s.tool === "frame", onSelect: () => s.setTool("frame") },
+              { id: "tool.arrow", label: "Connect elements", icon: ArrowUpRight, shortcut: "a", checked: s.tool === "arrow", onSelect: () => s.setTool("arrow") },
+              { id: "tool.erase", label: "Erase", icon: Eraser, shortcut: "e", checked: s.tool === "erase", onSelect: () => s.setTool("erase") },
+              { id: "tool.pan", label: "Pan", icon: Hand, shortcut: "h", checked: s.tool === "pan", onSelect: () => s.setTool("pan") },
+            ],
+          },
+          { id: "studio.canvas.selectAll", label: "Select everything", shortcut: "mod+a", onSelect: () => s.selectAll() },
+          { id: "studio.canvas.resetView", label: "Reset zoom & position", icon: ZoomIn, onSelect: () => s.resetView() },
+          { type: "separator" },
+          { id: "studio.canvas.compile", label: "Compile the brief", icon: Send, shortcut: "mod+enter", onSelect: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
+          { id: "studio.canvas.copyBrief", label: "Copy the brief", icon: Copy, onSelect: () => void ctx.copy(specToMarkdown(compile()), "build brief") },
+          { type: "separator" },
+          {
+            id: "studio.canvas.clear",
+            label: "Clear this page",
+            icon: Trash2,
+            danger: true,
+            disabled: count === 0,
+            onSelect: () =>
+              void ctx.confirm({ title: `Clear "${page?.name}"?`, body: "Elements, drawings and their prompts go.", danger: true, confirmLabel: "Clear" }).then((ok) => ok && s.clearPage(s.activePageId)),
+          },
+        ];
+      },
+    },
+
+    /* ------------------------------------------------------------ palette */
+    {
+      scope: "studio-palette",
+      items: (target, ctx) => {
+        const feature = target.data as FeatureDef | undefined;
+        if (!feature) return [];
+        return [
+          { type: "label", label: feature.name },
+          { id: "studio.palette.add", label: "Add to canvas", icon: Plus, onSelect: () => { addFeatureToCanvas(feature.id); } },
+          {
+            id: "studio.palette.add3",
+            label: "Add three",
+            icon: Copy,
+            onSelect: () => {
+              const p = dropPoint();
+              for (let i = 0; i < 3; i++) useStudio.getState().addNode(feature.id, p.x + i * 150, p.y);
+            },
+          },
+          {
+            id: "studio.palette.addIdea",
+            label: "Add as a new idea",
+            icon: Lightbulb,
+            hint: "blank prompt",
+            onSelect: () => {
+              const id = addFeatureToCanvas(feature.id);
+              useStudio.getState().updateNode(id, { priority: "idea" });
+            },
+          },
+          {
+            id: "studio.palette.addEvery",
+            label: `Add every ${feature.category} feature`,
+            icon: Sparkles,
+            onSelect: () => {
+              const p = dropPoint();
+              featuresByCategory(feature.category).forEach((f, i) => {
+                useStudio.getState().addNode(f.id, p.x + (i % 4) * 150, p.y + Math.floor(i / 4) * 96);
+              });
+            },
+          },
+          { type: "separator" },
+          { id: "studio.palette.copyId", label: "Copy feature id", icon: Copy, onSelect: () => void ctx.copy(feature.id, "feature id") },
+          { id: "studio.palette.copyBlurb", label: "Copy description", icon: Copy, onSelect: () => void ctx.copy(feature.blurb, "description") },
+        ];
+      },
+    },
+
+    /* --------------------------------------------------------------- page */
+    {
+      scope: "studio-page",
+      items: (target, ctx) => {
+        const page = target.data as PageType | undefined;
+        if (!page) return [];
+        const s = useStudio.getState();
+        const count = s.nodes.filter((n) => n.pageId === page.id).length;
+        return [
+          { type: "label", label: `${page.name} · ${page.path}` },
+          { id: "studio.page.open", label: "Open", onSelect: () => s.setActivePage(page.id) },
+          {
+            id: "studio.page.scroll",
+            label: "Scroll behaviour",
+            children: ["inherit", "normal", "snap to sections", "smooth / inertial", "horizontal", "scroll-driven story", "paged"].map((v) => ({
+              id: `studio.page.scroll.${v}`,
+              label: v === "inherit" ? "Site default" : v,
+              checked: page.scroll === v,
+              onSelect: () => s.updatePage(page.id, { scroll: v }),
+            })),
+          },
+          {
+            id: "studio.page.duplicate",
+            label: "Duplicate page",
+            icon: Copy,
+            onSelect: () => {
+              const newId = s.addPage(`${page.name} copy`);
+              const source = useStudio.getState().nodes.filter((n) => n.pageId === page.id);
+              for (const n of source) {
+                // Drop the source id and group so the copy gets its own.
+                const { id: _id, groupId: _groupId, ...rest } = n;
+                useStudio.getState().addNode(n.featureId, n.x, n.y, { ...rest, pageId: newId, groupId: null });
+              }
+            },
+          },
+          { id: "studio.page.up", label: "Move earlier", onSelect: () => s.movePage(page.id, -1) },
+          { id: "studio.page.down", label: "Move later", onSelect: () => s.movePage(page.id, 1) },
+          { id: "studio.page.copyPath", label: "Copy route", icon: Copy, onSelect: () => void ctx.copy(page.path, "route") },
+          { type: "separator" },
+          { id: "studio.page.clear", label: "Clear page", icon: Eraser, danger: true, disabled: !count, onSelect: () => s.clearPage(page.id) },
+          {
+            id: "studio.page.delete",
+            label: "Delete page",
+            icon: Trash2,
+            danger: true,
+            disabled: s.pages.length <= 1,
+            onSelect: () =>
+              void ctx.confirm({ title: `Delete "${page.name}"?`, body: `${count} elements go with it.`, danger: true, confirmLabel: "Delete" }).then((ok) => ok && s.removePage(page.id)),
+          },
+        ];
+      },
+    },
+
+    /* -------------------------------------------------------------- brief */
+    {
+      scope: "studio-brief",
+      items: (_target, ctx) => [
+        { type: "label", label: "Build brief" },
+        { id: "studio.brief.compile", label: "Compile", icon: Send, shortcut: "mod+enter", onSelect: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
+        { id: "studio.brief.copyMd", label: "Copy as markdown", icon: Copy, onSelect: () => void ctx.copy(specToMarkdown(compile()), "build brief") },
+        { id: "studio.brief.copyJson", label: "Copy as JSON", icon: Copy, onSelect: () => void ctx.copy(specToJson(compile()), "blueprint JSON") },
+        { type: "separator" },
+        {
+          id: "studio.brief.reset",
+          label: "Clear the whole blueprint",
+          icon: RotateCcw,
+          danger: true,
+          onSelect: () =>
+            void ctx.confirm({ title: "Clear everything?", body: "Every page, element, drawing and prompt.", danger: true, confirmLabel: "Clear" }).then((ok) => ok && useStudio.getState().resetAll()),
+        },
+      ],
+    },
+
+    /* ------------------------------------------------------- format group */
+    {
+      scope: "studio-format-group",
+      items: (target) => {
+        const group = target.data as { id: string; label: string } | undefined;
+        if (!group) return [];
+        const s = useStudio.getState();
+        const fields = FORMAT_FIELDS.filter((x) => x.group === group.id);
+        return [
+          { type: "label", label: group.label },
+          { id: "studio.format.showAll", label: "Show every option", checked: s.showAllFormat, onSelect: () => s.setShowAllFormat(!s.showAllFormat) },
+          {
+            id: "studio.format.reset",
+            label: `Reset ${group.label}`,
+            icon: RotateCcw,
+            onSelect: () => {
+              for (const field of fields) s.setFormat(field.id, field.default);
+            },
+          },
+        ];
+      },
+    },
+  ],
+});
+
+type AlignMode = "left" | "right" | "hcenter" | "top" | "bottom" | "vcenter" | "row" | "column";
+
+function alignNodes(ids: string[], mode: AlignMode) {
+  const s = useStudio.getState();
+  const nodes = s.nodes.filter((n) => ids.includes(n.id));
+  if (nodes.length < 2) return;
+  s.commit();
+  const minX = Math.min(...nodes.map((n) => n.x));
+  const maxX = Math.max(...nodes.map((n) => n.x + n.w));
+  const minY = Math.min(...nodes.map((n) => n.y));
+  const maxY = Math.max(...nodes.map((n) => n.y + n.h));
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const byX = [...nodes].sort((a, b) => a.x - b.x);
+  const byY = [...nodes].sort((a, b) => a.y - b.y);
+
+  const next = new Map<string, { x: number; y: number }>();
+  nodes.forEach((n) => next.set(n.id, { x: n.x, y: n.y }));
+
+  if (mode === "row") {
+    let x = minX;
+    for (const n of byX) {
+      next.set(n.id, { x, y: minY });
+      x += n.w + 24;
+    }
+  } else if (mode === "column") {
+    let y = minY;
+    for (const n of byY) {
+      next.set(n.id, { x: minX, y });
+      y += n.h + 24;
+    }
+  } else {
+    for (const n of nodes) {
+      const p = next.get(n.id)!;
+      if (mode === "left") p.x = minX;
+      if (mode === "right") p.x = maxX - n.w;
+      if (mode === "hcenter") p.x = cx - n.w / 2;
+      if (mode === "top") p.y = minY;
+      if (mode === "bottom") p.y = maxY - n.h;
+      if (mode === "vcenter") p.y = cy - n.h / 2;
+    }
+  }
+
+  useStudio.setState({
+    nodes: s.nodes.map((n) => {
+      const p = next.get(n.id);
+      return p ? { ...n, x: Math.round(p.x), y: Math.round(p.y) } : n;
+    }),
+  });
+}

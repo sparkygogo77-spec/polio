@@ -11,6 +11,7 @@ export { Dialog } from "./dialog";
 export { Popover } from "./popover";
 export { Select } from "./select";
 export { Input } from "./input";
+export { Textarea } from "./textarea";
 export { Card, CardHeader, CardTitle, CardDescription, CardContent } from "./card";
 export { Separator } from "./separator";
 export { ScrollArea } from "./scroll-area";

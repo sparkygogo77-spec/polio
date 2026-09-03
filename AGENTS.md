@@ -18,9 +18,14 @@ terminal.
 ```
 site.config.ts            ← one declarative spec: name, copy, theme, nav style, demos
 src/core/                 ← the shell. You rarely edit this.
+src/features/studio/      ← the visual builder (see §2b)
 src/features/<id>/        ← one folder per feature. This is where you build.
 src/features/index.ts     ← the module list (npm run new:feature edits it)
 ```
+
+The template is **not terminal-specific**. Dense, keyboard-first UI is one
+category in the feature catalog, not the house style — the same foundation is
+meant to carry a portfolio, a shop, a documentation site or a toy.
 
 A **feature module** is a plain object (`defineFeature({...})`) declaring:
 
@@ -62,6 +67,60 @@ Checklist before you say a feature is done:
 - [ ] Useful actions are also `commands` (so ⌘K finds them) and, if frequent, `shortcuts`.
 - [ ] Sensitive numbers are wrapped in `<Blur>`; identifiers get the `streamer-hidden` class.
 - [ ] Nothing imports a store directly from a page when `useActions()` can do it.
+
+---
+
+## 2b. The Studio (`/studio`)
+
+The Studio is the front door: a canvas where someone lays out what a site
+should be *before* writing the prompt that says what it is.
+
+```
+src/features/studio/
+  catalog.ts     218 universal web features, grouped into 14 categories
+  format.ts      ~70 declarative site-format options (pages, scroll, type, …)
+  store.ts       the document: pages, nodes, groups, shapes, format, brief
+  spec.ts        compiles the canvas into a build brief
+  Canvas.tsx     drag, draw, marquee-select, group, pan/zoom
+  Palette.tsx    the feature library
+  Inspector.tsx  per-element prompt and options
+  index.ts       routes, commands, shortcuts, and every context menu
+```
+
+**Position is meaning.** The compiler reads coordinates, so:
+
+| On the canvas | In the brief |
+|---|---|
+| Higher up | Earlier in the page |
+| Same horizontal band | One row, ordered left to right |
+| Inside a drawn frame | Belongs to that region |
+| Arrow from A to B | An explicit relationship |
+| In a group | Shares the group's prompt |
+
+**Extending it — all one-line changes:**
+
+- *A new feature in the library*: add one `f(...)` entry to `FEATURES` in
+  `catalog.ts`. It becomes draggable, searchable, right-clickable and part of
+  the brief immediately.
+- *A new site-format option*: add one entry to `FORMAT_FIELDS` in `format.ts`.
+  The panel renders it generically and the compiler emits it when changed.
+  Mark it `advanced: true` unless it belongs in the first screen.
+- *A new kind of mark on the canvas*: add a `ShapeKind` in `store.ts`, draw it
+  in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
+
+**Rules:**
+
+- Only *changed* format values reach the brief. Defaults are noise.
+- Every studio surface carries a right-click scope: `studio-node`,
+  `studio-group`, `studio-shape`, `studio-canvas`, `studio-palette`,
+  `studio-page`, `studio-brief`, `studio-format-group`. If you add a surface,
+  give it a scope and contribute a menu — that is the standing expectation.
+- The brief must stay self-contained: it explains its own conventions so any
+  agent can act on it without this app. If you change the compiler, keep the
+  "How to read this" section honest.
+- Calling Claude is optional. `src/app/api/studio/generate/route.ts` returns
+  `ok: false` with a reason when `ANTHROPIC_API_KEY` is absent, and the UI
+  falls back to copying the brief. Never make the API key load-bearing.
 
 ---
 

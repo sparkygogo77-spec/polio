@@ -8,6 +8,37 @@ feature modules, remove the demos, verify.** The shell stays.
 
 ---
 
+## 0. Start in the Studio (the intended route)
+
+Open `/studio`, then:
+
+1. **Place** the features you want from the palette — drag them where they
+   should sit on the page. Vertical order is reading order.
+2. **Draw** regions around groups of them, connect related elements with
+   arrows, sketch anything the catalogue has no icon for.
+3. **Prompt each element.** Select one and write instructions specific to that
+   placement ("sits flush against the hero, shares its accent, collapses on
+   mobile"). Group things and give the group its own prompt.
+4. **Set the format** — pages, scroll behaviour, typography and text-box
+   treatment, motion, palette, stack.
+5. **Write the master prompt**: the one sentence saying what the site is.
+6. **Compile**, then either hand the brief to Claude in-page, or copy it into
+   any agent with this line in front:
+
+```
+Read AGENTS.md, then build the site described in the brief below. Treat position,
+regions, arrows and per-element prompts as binding. Start with everything marked
+`must`. Ask me about anything the brief leaves genuinely ambiguous rather than
+guessing silently.
+
+<paste the brief>
+```
+
+The brief explains its own conventions, so it works in a fresh session with no
+other context.
+
+---
+
 ## A. Any site, from scratch
 
 ```

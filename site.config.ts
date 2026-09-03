@@ -11,9 +11,9 @@ import { defineSite } from "@/core/site";
 
 export default defineSite({
   name: "Polio",
-  tagline: "A terminal-grade UI foundation you can point an agent at.",
+  tagline: "Draw what a site should be, then say what it is.",
   description:
-    "Right-click everywhere, instant tactile feedback, audio cues, a news feed that never repeats itself, and every option tucked away until you need it.",
+    "A visual builder on top of a universal component foundation: place features on a canvas, give each one its own prompt, set the format, and compile it into a build brief any agent can act on.",
   logoMark: "P",
   version: "0.1.0",
 
@@ -45,10 +45,10 @@ export default defineSite({
   home: {
     hero: {
       eyebrow: "Template",
-      title: "Build the site you actually want on top of a terminal.",
+      title: "Lay out the site. Then tell it what to be.",
       subtitle:
-        "Every interaction is already tactile, every option already has a home, and every event is already deduplicated. Drop in a feature module and the shell picks it up.",
-      primaryCta: { label: "Open the live feed demo", href: "/pulse" },
+        "218 common web features you can drop onto a canvas, draw around, group and connect — each with its own prompt. Position carries meaning, so where you put something is part of the spec. Compile it and hand the brief to any agent.",
+      primaryCta: { label: "Open the Studio", href: "/studio" },
       secondaryCta: { label: "Browse every component", href: "/showcase" },
     },
     showModuleGrid: true,
