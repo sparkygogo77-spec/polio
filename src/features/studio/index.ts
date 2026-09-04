@@ -5,13 +5,16 @@ import {
 } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
+import { PickerPage } from "./PickerPage";
 import { CATEGORIES, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { HUES, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
-import { addFeatureToCanvas, dropPoint } from "./Palette";
+import { addFeatureToCanvas, dropPoint, placeAllPicks } from "./Palette";
 
 const onStudio = () => typeof window !== "undefined" && window.location.pathname.startsWith("/studio");
+/** Canvas-only shortcuts must not fire while shortlisting. */
+const onDesign = () => typeof window !== "undefined" && window.location.pathname.startsWith("/studio/design");
 
 /** Right-click position in canvas space, so "add here" really means here. */
 function canvasPoint(target: ContextTarget) {
@@ -65,11 +68,17 @@ export const studio = defineFeature({
   description: "Lay out what a site should be as icons, drawings and per-element prompts, then compile it into a build brief.",
   icon: LayoutTemplate,
   tags: ["builder", "canvas", "prompt", "blueprint"],
-  routes: [{ path: "/studio", component: StudioPage, title: "Studio", fullBleed: true }],
+  routes: [
+    // Two stages: pick what the site needs, then arrange and prompt only those.
+    { path: "/studio", component: PickerPage, title: "Studio — pick" },
+    { path: "/studio/design", component: StudioPage, title: "Studio — design", fullBleed: true },
+  ],
   nav: [{ label: "Studio", href: "/studio", icon: LayoutTemplate, order: 5, group: "Build", badge: "new" }],
 
   commands: [
-    { id: "studio.open", label: "Open the Studio", group: "Studio", icon: LayoutTemplate, keywords: ["builder", "canvas"], run: (c) => c.navigate("/studio") },
+    { id: "studio.open", label: "Open the Studio", group: "Studio", icon: LayoutTemplate, keywords: ["builder", "pick", "features"], run: (c) => c.navigate("/studio") },
+    { id: "studio.design", label: "Studio: go to the canvas", group: "Studio", icon: Layers, keywords: ["design", "arrange", "canvas"], run: (c) => c.navigate("/studio/design") },
+    { id: "studio.placeAll", label: "Studio: place all remaining picks", group: "Studio", icon: Plus, when: onDesign, run: () => { placeAllPicks(); } },
     { id: "studio.compile", label: "Studio: compile the brief", group: "Studio", icon: Send, when: onStudio, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
     {
       id: "studio.copyBrief",
@@ -96,22 +105,23 @@ export const studio = defineFeature({
 
   shortcuts: [
     { keys: "g u", label: "Go to Studio", group: "Navigate", run: (c) => c.navigate("/studio") },
-    { keys: "v", label: "Select tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("select") },
-    { keys: "d", label: "Draw tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("pen") },
-    { keys: "r", label: "Region tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("frame") },
-    { keys: "a", label: "Arrow tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("arrow") },
-    { keys: "e", label: "Erase tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("erase") },
-    { keys: "h", label: "Pan tool", group: "Studio", when: onStudio, run: () => useStudio.getState().setTool("pan") },
-    { keys: "mod+z", label: "Undo", group: "Studio", when: onStudio, run: () => useStudio.getState().undo() },
-    { keys: "mod+shift+z", label: "Redo", group: "Studio", when: onStudio, run: () => useStudio.getState().redo() },
-    { keys: "mod+g", label: "Group selection", group: "Studio", when: onStudio, run: () => useStudio.getState().groupSelection() },
-    { keys: "mod+d", label: "Duplicate selection", group: "Studio", when: onStudio, run: () => useStudio.getState().duplicateNodes(useStudio.getState().selection) },
-    { keys: "mod+a", label: "Select everything", group: "Studio", when: onStudio, run: () => useStudio.getState().selectAll() },
+    { keys: "g c", label: "Go to the canvas", group: "Navigate", run: (c) => c.navigate("/studio/design") },
+    { keys: "v", label: "Select tool", group: "Studio", when: onDesign, run: () => useStudio.getState().setTool("select") },
+    { keys: "d", label: "Draw tool", group: "Studio", when: onDesign, run: () => useStudio.getState().setTool("pen") },
+    { keys: "r", label: "Region tool", group: "Studio", when: onDesign, run: () => useStudio.getState().setTool("frame") },
+    { keys: "a", label: "Arrow tool", group: "Studio", when: onDesign, run: () => useStudio.getState().setTool("arrow") },
+    { keys: "e", label: "Erase tool", group: "Studio", when: onDesign, run: () => useStudio.getState().setTool("erase") },
+    { keys: "h", label: "Pan tool", group: "Studio", when: onDesign, run: () => useStudio.getState().setTool("pan") },
+    { keys: "mod+z", label: "Undo", group: "Studio", when: onDesign, run: () => useStudio.getState().undo() },
+    { keys: "mod+shift+z", label: "Redo", group: "Studio", when: onDesign, run: () => useStudio.getState().redo() },
+    { keys: "mod+g", label: "Group selection", group: "Studio", when: onDesign, run: () => useStudio.getState().groupSelection() },
+    { keys: "mod+d", label: "Duplicate selection", group: "Studio", when: onDesign, run: () => useStudio.getState().duplicateNodes(useStudio.getState().selection) },
+    { keys: "mod+a", label: "Select everything", group: "Studio", when: onDesign, run: () => useStudio.getState().selectAll() },
     {
       keys: "backspace",
       label: "Delete selection",
       group: "Studio",
-      when: onStudio,
+      when: onDesign,
       run: () => {
         const s = useStudio.getState();
         s.removeNodes(s.selection);
@@ -365,6 +375,102 @@ export const studio = defineFeature({
           { type: "separator" },
           { id: "studio.palette.copyId", label: "Copy feature id", icon: Copy, onSelect: () => void ctx.copy(feature.id, "feature id") },
           { id: "studio.palette.copyBlurb", label: "Copy description", icon: Copy, onSelect: () => void ctx.copy(feature.blurb, "description") },
+        ];
+      },
+    },
+
+    /* --------------------------------------------------------- pick stage */
+    {
+      scope: "studio-pick",
+      items: (target, ctx) => {
+        const feature = target.data as FeatureDef | undefined;
+        if (!feature) return [];
+        const s = useStudio.getState();
+        const picked = s.picks.includes(feature.id);
+        const siblings = featuresByCategory(feature.category);
+        const cat = CATEGORIES.find((c) => c.id === feature.category);
+        return [
+          { type: "label", label: feature.name },
+          { id: "studio.pick.toggle", label: picked ? "Remove from shortlist" : "Add to shortlist", icon: picked ? Trash2 : Plus, onSelect: () => s.togglePick(feature.id) },
+          {
+            id: "studio.pick.category",
+            label: `Add all of ${cat?.label ?? "this category"}`,
+            icon: Layers,
+            hint: `${siblings.length}`,
+            onSelect: () => s.addPicks(siblings.map((f) => f.id)),
+          },
+          {
+            id: "studio.pick.categoryOff",
+            label: `Remove all of ${cat?.label ?? "this category"}`,
+            onSelect: () => {
+              for (const f of siblings) if (useStudio.getState().picks.includes(f.id)) useStudio.getState().removePick(f.id);
+            },
+          },
+          { type: "separator" },
+          {
+            id: "studio.pick.straightToCanvas",
+            label: "Add and place it now",
+            icon: Sparkles,
+            onSelect: () => {
+              if (!picked) s.togglePick(feature.id);
+              addFeatureToCanvas(feature.id);
+              ctx.navigate("/studio/design");
+            },
+          },
+          { id: "studio.pick.copyId", label: "Copy feature id", icon: Copy, onSelect: () => void ctx.copy(feature.id, "feature id") },
+          { id: "studio.pick.copyBlurb", label: "Copy description", icon: Copy, onSelect: () => void ctx.copy(feature.blurb, "description") },
+        ];
+      },
+    },
+    {
+      scope: "studio-pick-category",
+      items: (target) => {
+        const cat = target.data as { id: string; label: string } | undefined;
+        if (!cat) return [];
+        const s = useStudio.getState();
+        const items = featuresByCategory(cat.id as FeatureDef["category"]);
+        const allPicked = items.every((f) => s.picks.includes(f.id));
+        return [
+          { type: "label", label: cat.label },
+          { id: "studio.cat.all", label: `Add all ${items.length}`, icon: Plus, disabled: allPicked, onSelect: () => s.addPicks(items.map((f) => f.id)) },
+          {
+            id: "studio.cat.none",
+            label: "Remove all",
+            icon: Trash2,
+            onSelect: () => {
+              for (const f of items) if (useStudio.getState().picks.includes(f.id)) useStudio.getState().removePick(f.id);
+            },
+          },
+        ];
+      },
+    },
+    {
+      scope: "studio-picks",
+      items: (_target, ctx) => {
+        const s = useStudio.getState();
+        return [
+          { type: "label", label: `${s.picks.length} picked` },
+          { id: "studio.picks.design", label: "Design these", icon: Layers, disabled: !s.picks.length, onSelect: () => ctx.navigate("/studio/design") },
+          {
+            id: "studio.picks.placeAll",
+            label: "Place them all on the canvas",
+            icon: Plus,
+            disabled: !s.picks.length,
+            onSelect: () => {
+              placeAllPicks();
+              ctx.navigate("/studio/design");
+            },
+          },
+          { id: "studio.picks.copy", label: "Copy the list", icon: Copy, onSelect: () => void ctx.copy(s.picks.map((id) => getFeature(id)?.name ?? id).join(", "), "shortlist") },
+          { type: "separator" },
+          {
+            id: "studio.picks.clear",
+            label: "Clear the shortlist",
+            icon: Trash2,
+            danger: true,
+            disabled: !s.picks.length,
+            onSelect: () => void ctx.confirm({ title: "Clear the shortlist?", body: "Anything already on the canvas stays.", danger: true, confirmLabel: "Clear" }).then((ok) => ok && useStudio.getState().clearPicks()),
+          },
         ];
       },
     },

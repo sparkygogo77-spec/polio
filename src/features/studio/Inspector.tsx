@@ -81,6 +81,7 @@ export function Inspector() {
             <Textarea
               autoGrow
               rows={4}
+              aria-label="Page prompt"
               placeholder="e.g. The whole page is one continuous scroll; nothing is clickable until the reader reaches the bottom."
               value={page.prompt}
               onChange={(e) => useStudio.getState().updatePage(page.id, { prompt: e.target.value })}
@@ -141,6 +142,7 @@ export function Inspector() {
               autoGrow
               rows={4}
               value={shape.prompt}
+              aria-label="Drawing prompt"
               placeholder={shape.kind === "arrow" ? "e.g. clicking the card expands it into this panel" : "Describe what this means…"}
               onChange={(e) => useStudio.getState().updateShape(shape.id, { prompt: e.target.value })}
             />
@@ -186,7 +188,8 @@ export function Inspector() {
                   autoGrow
                   rows={4}
                   value={sharedGroup.prompt}
-                  placeholder="e.g. These three share one card shell and animate in together."
+                  aria-label="Group prompt"
+              placeholder="e.g. These three share one card shell and animate in together."
                   onChange={(e) => useStudio.getState().updateGroup(sharedGroup.id, { prompt: e.target.value })}
                 />
               </Field>
@@ -274,6 +277,7 @@ export function Inspector() {
           <Textarea
             autoGrow
             rows={5}
+            aria-label="Element prompt"
             value={node.prompt}
             placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
             onChange={(e) => update({ prompt: e.target.value })}

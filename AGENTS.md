@@ -72,17 +72,28 @@ Checklist before you say a feature is done:
 
 ## 2b. The Studio (`/studio`)
 
-The Studio is the front door: a canvas where someone lays out what a site
-should be *before* writing the prompt that says what it is.
+The Studio is the front door, and it runs in **two stages**:
+
+| Stage | Route | The only question it asks |
+|---|---|---|
+| **Pick** | `/studio` | What should this site have? |
+| **Design** | `/studio/design` | Where does each of those go, and what does it do there? |
+
+Stage one is a browsable grid of all 218 features — click or right-click to
+shortlist, bulk-add a whole category, then hit **Design these**. Stage two is
+the canvas, and its palette shows **only what you picked**, so you never face
+the full library while arranging. The full catalogue stays one toggle away, and
+the shortlist round-trips: going back to Pick keeps everything.
 
 ```
 src/features/studio/
   catalog.ts     218 universal web features, grouped into 14 categories
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
-  store.ts       the document: pages, nodes, groups, shapes, format, brief
+  store.ts       the document: picks, pages, nodes, groups, shapes, format, brief
   spec.ts        compiles the canvas into a build brief
+  PickerPage.tsx stage one — shortlist what the site needs
   Canvas.tsx     drag, draw, marquee-select, group, pan/zoom
-  Palette.tsx    the feature library
+  Palette.tsx    stage two's library, filtered to the shortlist
   Inspector.tsx  per-element prompt and options
   index.ts       routes, commands, shortcuts, and every context menu
 ```
@@ -111,10 +122,14 @@ src/features/studio/
 **Rules:**
 
 - Only *changed* format values reach the brief. Defaults are noise.
-- Every studio surface carries a right-click scope: `studio-node`,
-  `studio-group`, `studio-shape`, `studio-canvas`, `studio-palette`,
-  `studio-page`, `studio-brief`, `studio-format-group`. If you add a surface,
-  give it a scope and contribute a menu — that is the standing expectation.
+- Every studio surface carries a right-click scope: `studio-pick`,
+  `studio-pick-category`, `studio-picks`, `studio-node`, `studio-group`,
+  `studio-shape`, `studio-canvas`, `studio-palette`, `studio-page`,
+  `studio-brief`, `studio-format-group`. If you add a surface, give it a scope
+  and contribute a menu — that is the standing expectation.
+- `picks` lives in the undoable, persisted document alongside everything else.
+  Stage two filters its palette by it but must never *require* it: with an empty
+  shortlist the palette falls back to the full library rather than stranding you.
 - The brief must stay self-contained: it explains its own conventions so any
   agent can act on it without this app. If you change the compiler, keep the
   "How to read this" section honest.

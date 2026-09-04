@@ -9,8 +9,8 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Eraser, FileText, Frame, Hand, Layers, MousePointer2, Pencil, Plus, Redo2,
-  Send, Settings2, Sparkles, Undo2, ZoomIn, ZoomOut,
+  ArrowUpRight, ChevronRight, Eraser, FileText, Frame, Hand, Layers, ListChecks, MousePointer2,
+  Pencil, Plus, Redo2, Send, Settings2, Sparkles, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { Palette } from "./Palette";
@@ -22,6 +22,7 @@ import { HUES, activePage, pageNodes, useStudio, type Tool } from "./store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
+import { useActions } from "@/core/actions";
 import { Button } from "@/core/ui/button";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
@@ -38,6 +39,30 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
 ];
 
+/** Where you are in the two-stage flow, and the way back. */
+function StageSwitch() {
+  const ctx = useActions();
+  const picks = useStudio((s) => s.picks.length);
+  return (
+    <div className="flex items-center gap-1 text-[11px]">
+      <button
+        type="button"
+        onClick={() => ctx.navigate("/studio")}
+        className="tactile flex items-center gap-1 rounded-md px-1.5 py-1 text-fg-muted hover:bg-hover hover:text-fg"
+      >
+        <ListChecks className="size-3.5" />
+        Pick
+        {picks ? <span className="num text-[10px] text-fg-faint">{picks}</span> : null}
+      </button>
+      <ChevronRight className="size-3 text-fg-faint" />
+      <span className="flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-1 text-accent">
+        <Layers className="size-3.5" />
+        Design
+      </span>
+    </div>
+  );
+}
+
 function Toolbar() {
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
@@ -48,6 +73,8 @@ function Toolbar() {
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
+      <StageSwitch />
+      <span className="mx-1 h-4 w-px bg-border" />
       <div className="flex items-center gap-0.5 rounded-md border border-border bg-elevated p-0.5">
         {TOOLS.map((t) => {
           const Icon = t.icon;

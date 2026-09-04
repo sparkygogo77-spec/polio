@@ -12,8 +12,11 @@ feature modules, remove the demos, verify.** The shell stays.
 
 Open `/studio`, then:
 
-1. **Place** the features you want from the palette — drag them where they
-   should sit on the page. Vertical order is reading order.
+0. **Pick** what the site needs. Click cards, or right-click one to add its
+   whole category at once. Hit **Design these** when the shortlist looks right —
+   the canvas then shows only what you picked.
+1. **Place** those picks — drag each where it should sit on the page, or hit
+   "Place all remaining" for a starting grid. Vertical order is reading order.
 2. **Draw** regions around groups of them, connect related elements with
    arrows, sketch anything the catalogue has no icon for.
 3. **Prompt each element.** Select one and write instructions specific to that

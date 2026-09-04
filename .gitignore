@@ -27,3 +27,6 @@ yarn-error.log*
 
 # local verification output
 .screenshots/
+
+# stray output from ad-hoc scripts with an unset output dir
+undefined/

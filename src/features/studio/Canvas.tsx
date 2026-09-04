@@ -394,8 +394,8 @@ export function Canvas() {
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <EmptyState
             icon={Shapes}
-            title="Drag features in from the left"
-            body="Drop icons where they should sit on the page, draw regions and arrows between them, then give each one its own prompt. Right-click anything."
+            title="Drag your picks in from the left"
+            body="Drop each one where it should sit on the page — position is part of the spec. Draw regions around them, connect them with arrows, and give every element its own prompt. Right-click anything."
           />
         </div>
       ) : null}
