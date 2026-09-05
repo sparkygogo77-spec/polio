@@ -17,37 +17,28 @@ import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
 import { Tooltip } from "@/core/ui/tooltip";
 
-/** Where a click-to-add lands: roughly the middle of the current viewport. */
+/** Where a right-click "add here" lands when no cursor is involved. */
 export function dropPoint() {
   const { pan, zoom } = useStudio.getState();
   return { x: (420 - pan.x) / zoom, y: (240 - pan.y) / zoom };
 }
 
 /**
- * Click-to-add lands in the first free slot near the viewport centre, walking a
- * grid outward — otherwise adding several in a row buries them in a stack.
+ * Click-to-add places the part inside the frame the way a page grows: full-width
+ * parts span the frame, everything else is centred, and it lands just below
+ * whatever is lowest so the page stacks downward.
  */
 export function addFeatureToCanvas(featureId: string) {
   const state = useStudio.getState();
   const feature = getFeature(featureId);
-  const w = feature?.w ?? 132;
-  const h = feature?.h ?? 76;
-  const start = dropPoint();
-  const occupied = state.nodes.filter((n) => n.pageId === state.activePageId);
-  const overlaps = (x: number, y: number) =>
-    occupied.some((n) => x < n.x + n.w + 12 && x + w + 12 > n.x && y < n.y + n.h + 12 && y + h + 12 > n.y);
-
-  let x = start.x;
-  let y = start.y;
-  for (let row = 0; row < 12 && overlaps(x, y); row++) {
-    for (let col = 0; col < 6; col++) {
-      x = start.x + col * (w + 24);
-      y = start.y + row * (h + 24);
-      if (!overlaps(x, y)) break;
-    }
-  }
-
-  const id = state.addNode(featureId, Math.round(x), Math.round(y));
+  const fw = state.frameWidth;
+  const w = Math.min(feature?.w ?? 420, fw);
+  const h = feature?.h ?? 88;
+  const onPage = state.nodes.filter((n) => n.pageId === state.activePageId);
+  const bottom = onPage.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+  const x = w >= fw ? 0 : Math.round((fw - w) / 2);
+  const y = onPage.length ? bottom + 24 : 0;
+  const id = state.addNode(featureId, x, y, { w, h });
   play("confirm");
   return id;
 }

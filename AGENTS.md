@@ -78,9 +78,9 @@ should be *before* writing the prompt that says what it is.
 | Panel | Where | What it does |
 |---|---|---|
 | **Library** | left, toggle with `l` | All 218 parts as visual tiles, searchable, by category. Drag onto the board or click to drop. Blurb lives in the tooltip and right-click. |
-| **Board** | centre | Arrange parts, draw regions, connect with arrows, group, and prompt each one. |
-| **Preview** | pinned on the board | The current page as a live miniature, wearing the Format settings. |
-| **Element / Format / Pages** | right | The selected part's prompt and options; ~70 site-wide format options; the page manager. |
+| **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
+| **Preview** | pinned on the board | The frame itself, scaled down, wearing the Format settings; at phone width the parts reflow into rows. |
+| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. |
 | **Blueprint** | Compile button | Everything as a self-describing brief, markdown or JSON; optionally handed to Claude. |
 
 The old addresses `/studio` and `/studio/design` still open the Builder.
@@ -90,16 +90,28 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     218 parts in 14 categories, plain names, one f(...) line each
+  catalog.ts     218 parts in 14 categories, plain names, one f(...) line each;
+                 CATEGORY_SIZE + DETAILS give each its real size, options, contents
+  blocks.tsx     draws any part at any size — the board and the preview share it
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
-  store.ts       the document: pages, nodes, groups, shapes, format, brief
+  store.ts       the document: pages, nodes, groups, shapes, format, brief, frame width
   spec.ts        compiles the board into a blueprint
-  Canvas.tsx     drag, draw, marquee-select, group, pan/zoom
-  Preview.tsx    live miniature of the current page
+  Canvas.tsx     the frame, drag with snapping, 8-way resize, draw, group, pan/zoom
+  Preview.tsx    the frame scaled (desktop) or reflowed (phone)
   Palette.tsx    the library
-  Inspector.tsx  per-part prompt and options
+  Inspector.tsx  per-part contents, size & position, options, prompt
   index.ts       routes, commands, shortcuts, and every context menu
 ```
+
+**The frame is the truth.** The board is not boundless space with icons on it.
+A page frame sits at the origin at the width you pick (Desktop 1440, Tablet
+834, Phone 390; height grows past the lowest part, never under 900, with a
+dashed line where the first screen ends). Parts land inside it at their real
+default size — a nav bar spans the full width, a search box is 420 × 48, tabs
+are 720 × 260 — and draw their `content` and `options` exactly (type
+"Episodes, Characters" into a tabs part and those are the tabs on the board).
+Nothing slips to fit: where a part sits and how big it is *in the frame* is
+the specification, and the blueprint says so ("do not reflow to fit").
 
 **Position is meaning.** The compiler reads coordinates, so:
 
@@ -107,16 +119,28 @@ src/features/studio/
 |---|---|
 | Higher up | Earlier in the page |
 | Same horizontal band | One row, ordered left to right |
+| Width in the frame | `full width` or `N% wide`, plus `left` / `centre` / `right` |
+| Contents typed in the inspector | `contains: …` — what the container holds |
 | Inside a drawn frame | Belongs to that region |
 | Arrow from A to B | An explicit relationship |
 | In a group | Shares the group's prompt |
 
+Dragging snaps to the frame's edges and centre and to other parts' edges, with
+guide lines; corners and edges resize; `f` fits the frame in view; the
+inspector has numeric X / Y / W / H and Full width / flush left / centre /
+flush right.
+
 **Extending it — all one-line changes:**
 
-- *A new part in the library*: add one `f(...)` entry to `FEATURES` in
+- *A new part in the library*: add one `f(...)` entry to `RAW` in
   `catalog.ts`. Use a plain name someone who doesn't build websites would say
-  ("Search box", not "Site Search"). It becomes draggable, searchable,
-  right-clickable and part of the blueprint immediately.
+  ("Search box", not "Site Search"). It gets its category's default size and
+  becomes draggable, searchable, right-clickable and part of the blueprint
+  immediately. To give it its own size, options, or a "what does it contain"
+  field, add a `DETAILS` entry (`w`, `h`, `options`, `content: { label,
+  placeholder }`). To make it *look* like itself on the board, add a branch to
+  `Block` in `blocks.tsx`; the wildcard fallback draws it as a labelled box
+  until you do.
 - *A new site-format option*: add one entry to `FORMAT_FIELDS` in `format.ts`.
   The panel renders it generically, the compiler emits it when changed, and the
   preview should honour it if it is visual. Mark it `advanced: true` unless it
@@ -134,9 +158,15 @@ src/features/studio/
 - The blueprint must stay self-contained: it explains its own conventions so
   any agent can act on it without this app. If you change the compiler, keep
   the "How to read this" section honest.
-- The preview is wireframe fidelity on purpose — shape, order and proportion
-  are truthful, the art is not. Don't add decoration to it that the format
-  options can't explain.
+- The board and the preview draw the same `Block`, so a part never looks
+  like one thing on the board and another in the preview. Blocks are size-
+  aware (they read `t.fontPx`, the node's `w`/`h`) and wireframe on purpose —
+  shape, order and proportion are truthful, the art is not. Don't add
+  decoration a format option or a content field can't explain.
+- A part that holds things (tabs, nav links, search scope, form fields, FAQ
+  rows, footer columns) should say what it holds through `content`, not only
+  through its prompt. Prompts describe behaviour; contents are the literal
+  list the board draws.
 - Calling Claude is optional. `src/app/api/studio/generate/route.ts` returns
   `ok: false` with a reason when `ANTHROPIC_API_KEY` is absent, and the UI
   falls back to copying the blueprint. Never make the API key load-bearing.

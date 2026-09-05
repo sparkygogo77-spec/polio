@@ -24,7 +24,7 @@ function canvasPoint(target: ContextTarget) {
 
 function compile() {
   const s = useStudio.getState();
-  return compileSpec({ pages: s.pages, nodes: s.nodes, groups: s.groups, shapes: s.shapes, format: s.format, brief: s.brief });
+  return compileSpec({ pages: s.pages, nodes: s.nodes, groups: s.groups, shapes: s.shapes, format: s.format, brief: s.brief, frameWidth: s.frameWidth });
 }
 
 /** Add → category → feature. Every feature in the library is reachable by mouse alone. */
@@ -111,6 +111,7 @@ export const studio = defineFeature({
     { keys: "a", label: "Arrow tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("arrow") },
     { keys: "e", label: "Erase tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("erase") },
     { keys: "h", label: "Pan tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("pan") },
+    { keys: "f", label: "Fit the frame in view", group: "Builder", when: onDesign, run: () => useStudio.getState().requestFit() },
     { keys: "mod+z", label: "Undo", group: "Builder", when: onDesign, run: () => useStudio.getState().undo() },
     { keys: "mod+shift+z", label: "Redo", group: "Builder", when: onDesign, run: () => useStudio.getState().redo() },
     { keys: "mod+g", label: "Group selection", group: "Builder", when: onDesign, run: () => useStudio.getState().groupSelection() },
@@ -186,8 +187,21 @@ export const studio = defineFeature({
         entries.push(
           hueMenu(node.hue, (h) => s.updateNodes(selection, { hue: h })),
           {
+            id: "studio.node.frame",
+            label: "In the frame",
+            icon: Layers,
+            children: [
+              { id: "frame.full", label: "Full width", onSelect: () => { for (const id of selection) s.updateNode(id, { x: 0, w: s.frameWidth }); } },
+              { id: "frame.left", label: "Flush left", onSelect: () => { for (const id of selection) s.updateNode(id, { x: 0 }); } },
+              { id: "frame.center", label: "Centre", onSelect: () => { for (const id of selection) { const n = useStudio.getState().nodes.find((x) => x.id === id); if (n) s.updateNode(id, { x: Math.round((s.frameWidth - n.w) / 2) }); } } },
+              { id: "frame.right", label: "Flush right", onSelect: () => { for (const id of selection) { const n = useStudio.getState().nodes.find((x) => x.id === id); if (n) s.updateNode(id, { x: s.frameWidth - n.w }); } } },
+              { type: "separator" },
+              { id: "frame.top", label: "Move to the top", onSelect: () => { for (const id of selection) s.updateNode(id, { y: 0 }); } },
+            ],
+          },
+          {
             id: "studio.node.align",
-            label: "Align",
+            label: "Align to each other",
             icon: Layers,
             disabled: !multi,
             children: [
@@ -314,7 +328,16 @@ export const studio = defineFeature({
             ],
           },
           { id: "studio.canvas.selectAll", label: "Select everything", shortcut: "mod+a", onSelect: () => s.selectAll() },
-          { id: "studio.canvas.resetView", label: "Reset zoom & position", icon: ZoomIn, onSelect: () => s.resetView() },
+          { id: "studio.canvas.fit", label: "Fit the frame in view", icon: ZoomIn, shortcut: "f", onSelect: () => s.requestFit() },
+          {
+            id: "studio.canvas.frame",
+            label: "Frame width",
+            children: [
+              { id: "fw.desktop", label: "Desktop · 1440", checked: s.frameWidth === 1440, onSelect: () => s.setFrameWidth(1440) },
+              { id: "fw.tablet", label: "Tablet · 834", checked: s.frameWidth === 834, onSelect: () => s.setFrameWidth(834) },
+              { id: "fw.phone", label: "Phone · 390", checked: s.frameWidth === 390, onSelect: () => s.setFrameWidth(390) },
+            ],
+          },
           { type: "separator" },
           { id: "studio.canvas.compile", label: "Compile the blueprint", icon: Send, shortcut: "mod+enter", onSelect: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
           { id: "studio.canvas.copyBrief", label: "Copy the blueprint", icon: Copy, onSelect: () => void ctx.copy(specToMarkdown(compile()), "blueprint") },

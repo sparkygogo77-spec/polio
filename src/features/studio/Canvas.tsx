@@ -1,19 +1,21 @@
 "use client";
 /**
- * The blueprint canvas.
+ * The board.
  *
- * Nodes are DOM elements (so they can carry right-click scopes and rich
- * content); ink lives in an SVG layer underneath them. Both sit inside one
- * transformed viewport so pan and zoom are a single transform.
+ * A page frame sits at the origin — it IS the website's viewport, at the width
+ * you pick — and parts render inside it as what they'll be, at the size
+ * they'll be. Space outside the frame is scratch. Nothing "slips to fit":
+ * where a part sits and how big it is in the frame is the specification.
  *
- * Tools: select (drag / marquee), pen (freehand), frame (named region),
- * arrow (relationship between two elements), erase.
+ * Drag snaps to the frame's edges and centre and to other parts' edges, with
+ * guide lines while it happens. Tools: select, pen, region, arrow, erase, pan.
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
+import { Block, themeFrom } from "./blocks";
 import {
-  activePage, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
+  activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
 } from "./store";
 import { cn } from "@/core/lib/cn";
@@ -24,19 +26,30 @@ import { EmptyState } from "@/core/ui/empty-state";
 import { Shapes } from "lucide-react";
 
 const GRID = 8;
-const snap = (v: number) => Math.round(v / GRID) * GRID;
+const snapGrid = (v: number) => Math.round(v / GRID) * GRID;
+const MIN_W = 40;
+const MIN_H = 24;
+
+type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 interface Drag {
   kind: "node" | "marquee" | "pan" | "draw" | "resize";
   startX: number;
   startY: number;
-  lastX: number;
-  lastY: number;
   ids?: string[];
+  /** Original rects at drag start, so positions are set absolutely (and snapped) each move. */
+  origin?: Record<string, { x: number; y: number; w: number; h: number }>;
   points?: [number, number][];
   nodeId?: string;
+  handle?: Handle;
   startPan?: { x: number; y: number };
   moved?: boolean;
+  snapped?: boolean;
+}
+
+interface Guides {
+  x: number[];
+  y: number[];
 }
 
 export function Canvas() {
@@ -51,10 +64,16 @@ export function Canvas() {
   const pan = useStudio((s) => s.pan);
   const inkHue = useStudio((s) => s.inkHue);
   const inkWidth = useStudio((s) => s.inkWidth);
+  const frameWidth = useStudio((s) => s.frameWidth);
+  const fitNonce = useStudio((s) => s.fitNonce);
+  const format = useStudio((s) => s.format);
+  const theme = React.useMemo(() => themeFrom(format), [format]);
+  const frameH = frameHeight(nodes);
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
   const [marquee, setMarquee] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ink, setInk] = React.useState<[number, number][] | null>(null);
+  const [guides, setGuides] = React.useState<Guides>({ x: [], y: [] });
 
   /** Screen → canvas coordinates. */
   const toCanvas = React.useCallback(
@@ -66,199 +85,17 @@ export function Canvas() {
     [pan.x, pan.y, zoom],
   );
 
-  /* ---------------------------------------------------------------- drop */
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const featureId = e.dataTransfer.getData("application/x-studio-feature");
-    if (!featureId) return;
-    const p = toCanvas(e.clientX, e.clientY);
-    const feature = getFeature(featureId);
-    const id = useStudio.getState().addNode(featureId, snap(p.x - (feature?.w ?? 132) / 2), snap(p.y - (feature?.h ?? 76) / 2));
-    play("confirm");
-    haptic();
-    // A brand-new idea wants its prompt written immediately.
-    if (featureId === "custom-idea") useStudio.getState().setSelection([id]);
-  };
+  /* ---------------------------------------------------- fit the frame */
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const vw = el.clientWidth;
+    const z = Math.max(0.2, Math.min(1, (vw - 96) / frameWidth));
+    useStudio.getState().setZoom(z);
+    useStudio.getState().setPan({ x: Math.round((vw - frameWidth * z) / 2), y: 36 });
+  }, [fitNonce, frameWidth]);
 
-  /* ------------------------------------------------------------- pointer */
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button === 2) return; // right-click belongs to the context menu
-    const p = toCanvas(e.clientX, e.clientY);
-    const target = e.target as HTMLElement;
-    const nodeEl = target.closest?.("[data-node-id]") as HTMLElement | null;
-    const handle = target.closest?.("[data-resize]") as HTMLElement | null;
-    const store = useStudio.getState();
-
-    // Middle mouse or the pan tool always pans.
-    if (e.button === 1 || tool === "pan" || (tool === "select" && e.altKey)) {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, startPan: pan });
-      return;
-    }
-
-    if (handle && nodeEl) {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      setDrag({ kind: "resize", startX: p.x, startY: p.y, lastX: p.x, lastY: p.y, nodeId: nodeEl.dataset.nodeId });
-      return;
-    }
-
-    if (tool === "select") {
-      if (nodeEl?.dataset.nodeId) {
-        const id = nodeEl.dataset.nodeId;
-        const node = store.nodes.find((n) => n.id === id);
-        let ids = store.selection;
-        if (e.shiftKey) {
-          store.toggleSelection(id);
-          ids = useStudio.getState().selection;
-        } else if (!ids.includes(id)) {
-          // Selecting a grouped node selects its whole group.
-          const groupMates = node?.groupId ? store.nodes.filter((n) => n.groupId === node.groupId).map((n) => n.id) : [id];
-          store.setSelection(groupMates);
-          ids = groupMates;
-        }
-        play("select");
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        setDrag({ kind: "node", startX: p.x, startY: p.y, lastX: p.x, lastY: p.y, ids });
-        return;
-      }
-      if (!e.shiftKey) store.clearSelection();
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      setDrag({ kind: "marquee", startX: p.x, startY: p.y, lastX: p.x, lastY: p.y });
-      return;
-    }
-
-    if (tool === "erase") {
-      const shapeEl = target.closest?.("[data-shape-id]") as HTMLElement | null;
-      if (shapeEl?.dataset.shapeId) store.removeShapes([shapeEl.dataset.shapeId]);
-      else if (nodeEl?.dataset.nodeId) store.removeNodes([nodeEl.dataset.nodeId]);
-      play("deny");
-      return;
-    }
-
-    // pen / frame / arrow
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    setInk([[p.x, p.y]]);
-    setDrag({ kind: "draw", startX: p.x, startY: p.y, lastX: p.x, lastY: p.y, points: [[p.x, p.y]] });
-  };
-
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!drag) return;
-    const store = useStudio.getState();
-
-    if (drag.kind === "pan") {
-      store.setPan({
-        x: (drag.startPan?.x ?? 0) + (e.clientX - drag.startX),
-        y: (drag.startPan?.y ?? 0) + (e.clientY - drag.startY),
-      });
-      return;
-    }
-
-    const p = toCanvas(e.clientX, e.clientY);
-
-    if (drag.kind === "node" && drag.ids?.length) {
-      const dx = p.x - drag.lastX;
-      const dy = p.y - drag.lastY;
-      if (dx || dy) {
-        // Checkpoint once, on the first movement: undo has to land on where the
-        // drag began, and a pointer-down that never moves shouldn't touch history.
-        if (!drag.moved) store.commit();
-        store.moveNodes(drag.ids, dx, dy);
-        setDrag({ ...drag, lastX: p.x, lastY: p.y, moved: true });
-      }
-      return;
-    }
-
-    if (drag.kind === "resize" && drag.nodeId) {
-      if (!drag.moved) store.commit();
-      const node = store.nodes.find((n) => n.id === drag.nodeId);
-      if (node) {
-        useStudio.setState({
-          nodes: store.nodes.map((n) =>
-            n.id === node.id ? { ...n, w: Math.max(88, snap(p.x - n.x)), h: Math.max(56, snap(p.y - n.y)) } : n,
-          ),
-        });
-      }
-      setDrag({ ...drag, moved: true });
-      return;
-    }
-
-    if (drag.kind === "marquee") {
-      setMarquee({
-        x: Math.min(drag.startX, p.x),
-        y: Math.min(drag.startY, p.y),
-        w: Math.abs(p.x - drag.startX),
-        h: Math.abs(p.y - drag.startY),
-      });
-      return;
-    }
-
-    if (drag.kind === "draw") {
-      if (tool === "pen") {
-        const pts = [...(drag.points ?? []), [p.x, p.y] as [number, number]];
-        setDrag({ ...drag, points: pts, lastX: p.x, lastY: p.y });
-        setInk(pts);
-      } else {
-        const pts: [number, number][] = [[drag.startX, drag.startY], [p.x, p.y]];
-        setDrag({ ...drag, points: pts, lastX: p.x, lastY: p.y });
-        setInk(pts);
-      }
-    }
-  };
-
-  const onPointerUp = () => {
-    if (!drag) return;
-    const store = useStudio.getState();
-
-    if (drag.kind === "node" && drag.moved && drag.ids?.length) {
-      // Snap to grid once, at the end, so dragging itself stays smooth.
-      useStudio.setState({
-        nodes: useStudio.getState().nodes.map((n) => (drag.ids!.includes(n.id) ? { ...n, x: snap(n.x), y: snap(n.y) } : n)),
-      });
-      play("tap");
-    } else if (drag.kind === "marquee" && marquee) {
-      const hits = [
-        ...nodes.filter((n) => n.x < marquee.x + marquee.w && n.x + n.w > marquee.x && n.y < marquee.y + marquee.h && n.y + n.h > marquee.y).map((n) => n.id),
-        ...shapes
-          .filter((sh) => {
-            const b = shapeBounds(sh);
-            return b.x < marquee.x + marquee.w && b.x + b.w > marquee.x && b.y < marquee.y + marquee.h && b.y + b.h > marquee.y;
-          })
-          .map((sh) => sh.id),
-      ];
-      if (hits.length) {
-        store.setSelection(hits);
-        play("select");
-      }
-    } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
-      const kind = tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow";
-      const pts = drag.points;
-      // An arrow drawn between two elements becomes an explicit relationship.
-      const from = kind === "arrow" ? hitNode(nodes, pts[0]![0], pts[0]![1]) : null;
-      const to = kind === "arrow" ? hitNode(nodes, pts[pts.length - 1]![0], pts[pts.length - 1]![1]) : null;
-      const dist = Math.hypot(pts[pts.length - 1]![0] - pts[0]![0], pts[pts.length - 1]![1] - pts[0]![1]);
-      if (kind === "pen" || dist > 16) {
-        store.addShape({
-          pageId: useStudio.getState().activePageId,
-          kind,
-          points: pts,
-          hue: inkHue,
-          width: inkWidth,
-          label: "",
-          prompt: "",
-          fromNodeId: from?.id ?? null,
-          toNodeId: to?.id ?? null,
-        });
-        play("tap");
-      }
-    }
-
-    setDrag(null);
-    setMarquee(null);
-    setInk(null);
-  };
-
-  // Native + non-passive: React's synthetic wheel listener cannot preventDefault,
-  // which let every pan gesture scroll the page underneath at the same time.
+  /* ------------------------------------------------------------- wheel */
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -272,8 +109,248 @@ export function Canvas() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  const cursor =
-    tool === "pan" ? "grab" : tool === "select" ? "default" : tool === "erase" ? "crosshair" : "crosshair";
+  /* ---------------------------------------------------------------- drop */
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const featureId = e.dataTransfer.getData("application/x-studio-feature");
+    if (!featureId) return;
+    const p = toCanvas(e.clientX, e.clientY);
+    const feature = getFeature(featureId);
+    const w = feature?.w ?? 420;
+    const h = feature?.h ?? 88;
+    // Full-width parts land flush; everything else lands centred on the cursor.
+    const x = w >= frameWidth ? 0 : snapGrid(p.x - w / 2);
+    useStudio.getState().addNode(featureId, x, snapGrid(p.y - h / 2), { w: Math.min(w, frameWidth), h });
+    play("confirm");
+    haptic();
+  };
+
+  /* ---------------------------------------------------------- snapping */
+  const snapSelection = React.useCallback(
+    (rects: { x: number; y: number; w: number; h: number }[], ids: Set<string>) => {
+      const thr = 6 / zoom;
+      const left = Math.min(...rects.map((r) => r.x));
+      const right = Math.max(...rects.map((r) => r.x + r.w));
+      const top = Math.min(...rects.map((r) => r.y));
+      const bottom = Math.max(...rects.map((r) => r.y + r.h));
+      const cx = (left + right) / 2;
+      const cy = (top + bottom) / 2;
+      const xs = [0, frameWidth / 2, frameWidth];
+      const ys = [0];
+      for (const n of nodes) {
+        if (ids.has(n.id)) continue;
+        xs.push(n.x, n.x + n.w / 2, n.x + n.w);
+        ys.push(n.y, n.y + n.h / 2, n.y + n.h);
+      }
+      let dx = 0;
+      let dy = 0;
+      let bestX = thr;
+      let bestY = thr;
+      const gx: number[] = [];
+      const gy: number[] = [];
+      for (const c of xs) {
+        for (const edge of [left, cx, right]) {
+          const d = c - edge;
+          if (Math.abs(d) < bestX) {
+            bestX = Math.abs(d);
+            dx = d;
+            gx.length = 0;
+            gx.push(c);
+          }
+        }
+      }
+      for (const c of ys) {
+        for (const edge of [top, cy, bottom]) {
+          const d = c - edge;
+          if (Math.abs(d) < bestY) {
+            bestY = Math.abs(d);
+            dy = d;
+            gy.length = 0;
+            gy.push(c);
+          }
+        }
+      }
+      return { dx, dy, guides: { x: gx, y: gy }, snapped: gx.length > 0 || gy.length > 0 };
+    },
+    [nodes, zoom, frameWidth],
+  );
+
+  /* ------------------------------------------------------------- pointer */
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button === 2) return;
+    const p = toCanvas(e.clientX, e.clientY);
+    const target = e.target as HTMLElement;
+    const nodeEl = target.closest?.("[data-node-id]") as HTMLElement | null;
+    const handleEl = target.closest?.("[data-resize]") as HTMLElement | null;
+    const store = useStudio.getState();
+    const capture = () => (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
+    if (e.button === 1 || tool === "pan" || (tool === "select" && e.altKey)) {
+      capture();
+      setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan });
+      return;
+    }
+
+    if (handleEl && nodeEl?.dataset.nodeId) {
+      const n = store.nodes.find((x) => x.id === nodeEl.dataset.nodeId);
+      if (n) {
+        capture();
+        setDrag({ kind: "resize", startX: p.x, startY: p.y, nodeId: n.id, handle: handleEl.dataset.resize as Handle, origin: { [n.id]: { x: n.x, y: n.y, w: n.w, h: n.h } } });
+      }
+      return;
+    }
+
+    if (tool === "select") {
+      if (nodeEl?.dataset.nodeId) {
+        const id = nodeEl.dataset.nodeId;
+        const node = store.nodes.find((n) => n.id === id);
+        let ids = store.selection;
+        if (e.shiftKey) {
+          store.toggleSelection(id);
+          ids = useStudio.getState().selection;
+        } else if (!ids.includes(id)) {
+          ids = node?.groupId ? store.nodes.filter((n) => n.groupId === node.groupId).map((n) => n.id) : [id];
+          store.setSelection(ids);
+        }
+        play("select");
+        capture();
+        const origin: Drag["origin"] = {};
+        for (const n of store.nodes) if (ids.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
+        setDrag({ kind: "node", startX: p.x, startY: p.y, ids, origin });
+        return;
+      }
+      if (!e.shiftKey) store.clearSelection();
+      capture();
+      setDrag({ kind: "marquee", startX: p.x, startY: p.y });
+      return;
+    }
+
+    if (tool === "erase") {
+      const shapeEl = target.closest?.("[data-shape-id]") as HTMLElement | null;
+      if (shapeEl?.dataset.shapeId) store.removeShapes([shapeEl.dataset.shapeId]);
+      else if (nodeEl?.dataset.nodeId) store.removeNodes([nodeEl.dataset.nodeId]);
+      play("deny");
+      return;
+    }
+
+    capture();
+    setInk([[p.x, p.y]]);
+    setDrag({ kind: "draw", startX: p.x, startY: p.y, points: [[p.x, p.y]] });
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!drag) return;
+    const store = useStudio.getState();
+
+    if (drag.kind === "pan") {
+      store.setPan({ x: (drag.startPan?.x ?? 0) + (e.clientX - drag.startX), y: (drag.startPan?.y ?? 0) + (e.clientY - drag.startY) });
+      return;
+    }
+
+    const p = toCanvas(e.clientX, e.clientY);
+    const dxRaw = p.x - drag.startX;
+    const dyRaw = p.y - drag.startY;
+
+    if (drag.kind === "node" && drag.ids?.length && drag.origin) {
+      if (!drag.moved) {
+        if (Math.abs(dxRaw) < 2 && Math.abs(dyRaw) < 2) return;
+        store.commit(); // undo lands where the drag began
+      }
+      const ids = new Set(drag.ids);
+      const rects = drag.ids.map((id) => ({ ...drag.origin![id]!, x: drag.origin![id]!.x + dxRaw, y: drag.origin![id]!.y + dyRaw }));
+      const snap = snapSelection(rects, ids);
+      const positions: Record<string, { x: number; y: number }> = {};
+      for (const id of drag.ids) positions[id] = { x: Math.round(drag.origin[id]!.x + dxRaw + snap.dx), y: Math.round(drag.origin[id]!.y + dyRaw + snap.dy) };
+      store.setPositions(positions);
+      setGuides(snap.guides);
+      setDrag({ ...drag, moved: true, snapped: snap.snapped });
+      return;
+    }
+
+    if (drag.kind === "resize" && drag.nodeId && drag.origin && drag.handle) {
+      if (!drag.moved) store.commit();
+      const o = drag.origin[drag.nodeId]!;
+      const h = drag.handle;
+      let { x, y, w, hgt } = { x: o.x, y: o.y, w: o.w, hgt: o.h };
+      if (h.includes("e")) w = Math.max(MIN_W, o.w + dxRaw);
+      if (h.includes("s")) hgt = Math.max(MIN_H, o.h + dyRaw);
+      if (h.includes("w")) {
+        w = Math.max(MIN_W, o.w - dxRaw);
+        x = o.x + (o.w - w);
+      }
+      if (h.includes("n")) {
+        hgt = Math.max(MIN_H, o.h - dyRaw);
+        y = o.y + (o.h - hgt);
+      }
+      // Right and bottom edges snap to the frame and to neighbours.
+      const thr = 6 / zoom;
+      const xs = [frameWidth, frameWidth / 2, ...nodes.filter((n) => n.id !== drag.nodeId).flatMap((n) => [n.x, n.x + n.w])];
+      const ys = nodes.filter((n) => n.id !== drag.nodeId).flatMap((n) => [n.y, n.y + n.h]);
+      const gx: number[] = [];
+      const gy: number[] = [];
+      if (h.includes("e")) for (const c of xs) if (Math.abs(c - (x + w)) < thr) { w = c - x; gx.push(c); break; }
+      if (h.includes("s")) for (const c of ys) if (Math.abs(c - (y + hgt)) < thr) { hgt = c - y; gy.push(c); break; }
+      useStudio.setState({ nodes: store.nodes.map((n) => (n.id === drag.nodeId ? { ...n, x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(hgt) } : n)) });
+      setGuides({ x: gx, y: gy });
+      setDrag({ ...drag, moved: true, snapped: gx.length > 0 || gy.length > 0 });
+      return;
+    }
+
+    if (drag.kind === "marquee") {
+      setMarquee({ x: Math.min(drag.startX, p.x), y: Math.min(drag.startY, p.y), w: Math.abs(dxRaw), h: Math.abs(dyRaw) });
+      return;
+    }
+
+    if (drag.kind === "draw") {
+      const pts: [number, number][] = tool === "pen" ? [...(drag.points ?? []), [p.x, p.y]] : [[drag.startX, drag.startY], [p.x, p.y]];
+      setDrag({ ...drag, points: pts });
+      setInk(pts);
+    }
+  };
+
+  const onPointerUp = () => {
+    if (!drag) return;
+    const store = useStudio.getState();
+
+    if ((drag.kind === "node" || drag.kind === "resize") && drag.moved) {
+      // Grid-snap only when no guide claimed the position: a guide is more exact than the grid.
+      if (!drag.snapped) {
+        const ids = new Set(drag.ids ?? [drag.nodeId!]);
+        useStudio.setState({
+          nodes: useStudio.getState().nodes.map((n) =>
+            ids.has(n.id) ? { ...n, x: snapGrid(n.x), y: snapGrid(n.y), w: drag.kind === "resize" ? snapGrid(n.w) : n.w, h: drag.kind === "resize" ? snapGrid(n.h) : n.h } : n,
+          ),
+        });
+      }
+      play("tap");
+    } else if (drag.kind === "marquee" && marquee) {
+      const hits = [
+        ...nodes.filter((n) => n.x < marquee.x + marquee.w && n.x + n.w > marquee.x && n.y < marquee.y + marquee.h && n.y + n.h > marquee.y).map((n) => n.id),
+        ...shapes.filter((sh) => { const b = shapeBounds(sh); return b.x < marquee.x + marquee.w && b.x + b.w > marquee.x && b.y < marquee.y + marquee.h && b.y + b.h > marquee.y; }).map((sh) => sh.id),
+      ];
+      if (hits.length) {
+        store.setSelection(hits);
+        play("select");
+      }
+    } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
+      const kind = tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow";
+      const pts = drag.points;
+      const from = kind === "arrow" ? hitNode(nodes, pts[0]![0], pts[0]![1]) : null;
+      const to = kind === "arrow" ? hitNode(nodes, pts[pts.length - 1]![0], pts[pts.length - 1]![1]) : null;
+      const dist = Math.hypot(pts[pts.length - 1]![0] - pts[0]![0], pts[pts.length - 1]![1] - pts[0]![1]);
+      if (kind === "pen" || dist > 16) {
+        store.addShape({ pageId: store.activePageId, kind, points: pts, hue: inkHue, width: inkWidth, label: "", prompt: "", fromNodeId: from?.id ?? null, toNodeId: to?.id ?? null });
+        play("tap");
+      }
+    }
+
+    setDrag(null);
+    setMarquee(null);
+    setInk(null);
+    setGuides({ x: [], y: [] });
+  };
+
+  const cursor = tool === "pan" ? "grab" : tool === "select" ? "default" : "crosshair";
 
   return (
     <div
@@ -288,9 +365,8 @@ export function Canvas() {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* dot grid */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-60"
+        className="pointer-events-none absolute inset-0 opacity-50"
         style={{
           backgroundImage: "radial-gradient(circle, var(--border-strong) 1px, transparent 1px)",
           backgroundSize: `${GRID * 3 * zoom}px ${GRID * 3 * zoom}px`,
@@ -298,57 +374,40 @@ export function Canvas() {
         }}
       />
 
-      <div
-        className="absolute left-0 top-0 origin-top-left"
-        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
-      >
+      <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+        {/* ---------- the page frame: this is the website ---------- */}
+        <div
+          className="absolute left-0 top-0 rounded-[3px] shadow-[0_20px_60px_oklch(0_0_0/0.45)]"
+          style={{ width: frameWidth, height: frameH, background: theme.backdrop, backgroundSize: "24px 24px", outline: "1px solid var(--border-strong)" }}
+        />
+        <div className="pointer-events-none absolute left-0 flex items-center gap-2 whitespace-nowrap text-fg-muted" style={{ top: -22, fontSize: 11 / zoom }}>
+          <span className="font-medium text-fg">{page.name}</span>
+          <span>{page.path}</span>
+          <span className="num">{frameWidth} × {Math.round(frameH)}</span>
+        </div>
+        {/* fold line: what fits on the first screen */}
+        <div className="pointer-events-none absolute left-0 border-t border-dashed border-accent/40" style={{ top: 900, width: frameWidth }}>
+          <span className="absolute right-0 -top-4 text-accent/70" style={{ fontSize: 10 / zoom }}>first screen ends</span>
+        </div>
+
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
           <defs>
             <marker id="studio-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
             </marker>
           </defs>
-
-          {/* group halos */}
           {groups.map((g) => {
             const b = groupBounds(nodes, g.id);
             if (!b) return null;
-            return (
-              <g key={g.id}>
-                <rect
-                  x={b.x - 14} y={b.y - 22} width={b.w + 28} height={b.h + 36} rx={12}
-                  fill={`oklch(0.7 0.15 ${g.hue} / 0.07)`}
-                  stroke={`oklch(0.7 0.15 ${g.hue} / 0.5)`}
-                  strokeDasharray="6 4"
-                />
-              </g>
-            );
+            return <rect key={g.id} x={b.x - 14} y={b.y - 22} width={b.w + 28} height={b.h + 36} rx={12} fill={`oklch(0.7 0.15 ${g.hue} / 0.07)`} stroke={`oklch(0.7 0.15 ${g.hue} / 0.5)`} strokeDasharray="6 4" />;
           })}
-
-          {shapes.map((sh) => (
-            <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} />
-          ))}
-
-          {/* live ink */}
-          {ink && ink.length >= 2 ? (
-            <ShapeView
-              shape={{
-                id: "live", pageId: "", kind: tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow",
-                points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "",
-              }}
-              selected
-            />
-          ) : null}
-
-          {marquee ? (
-            <rect
-              x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h}
-              fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3"
-            />
-          ) : null}
+          {shapes.map((sh) => <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} />)}
+          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
+          {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
+          {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
+          {guides.y.map((y) => <line key={`gy${y}`} y1={y} y2={y} x1={-40} x2={frameWidth + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
         </svg>
 
-        {/* group labels sit above the halo but below nodes */}
         {groups.map((g) => {
           const b = groupBounds(nodes, g.id);
           if (!b) return null;
@@ -357,10 +416,7 @@ export function Canvas() {
               key={g.id}
               {...ctxProps("studio-group", g.id, g)}
               className="absolute cursor-default rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
-              style={{
-                left: b.x - 14, top: b.y - 40, color: `oklch(0.75 0.15 ${g.hue})`,
-                background: `oklch(0.7 0.15 ${g.hue} / 0.12)`,
-              }}
+              style={{ left: b.x - 14, top: b.y - 40, color: `oklch(0.75 0.15 ${g.hue})`, background: `oklch(0.7 0.15 ${g.hue} / 0.12)` }}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 useStudio.getState().setSelection(nodes.filter((n) => n.groupId === g.id).map((n) => n.id));
@@ -373,34 +429,19 @@ export function Canvas() {
           );
         })}
 
-        {nodes.map((n) => (
-          <NodeView key={n.id} node={n} selected={selection.includes(n.id)} />
-        ))}
+        {nodes.map((n) => <NodeView key={n.id} node={n} selected={selection.includes(n.id)} theme={theme} zoom={zoom} />)}
 
-        {/* labels for named regions and arrows */}
-        {shapes
-          .filter((sh) => sh.label || sh.prompt)
-          .map((sh) => {
-            const b = shapeBounds(sh);
-            return (
-              <div
-                key={`label-${sh.id}`}
-                className="pointer-events-none absolute max-w-[180px] truncate rounded-sm px-1 text-[10px]"
-                style={{ left: b.x, top: b.y - 16, color: `oklch(0.78 0.15 ${sh.hue})` }}
-              >
-                {sh.label || "✎"}
-              </div>
-            );
-          })}
+        {shapes.filter((sh) => sh.label || sh.prompt).map((sh) => {
+          const b = shapeBounds(sh);
+          return <div key={`label-${sh.id}`} className="pointer-events-none absolute max-w-[180px] truncate rounded-sm px-1 text-[10px]" style={{ left: b.x, top: b.y - 16, color: `oklch(0.78 0.15 ${sh.hue})` }}>{sh.label || "✎"}</div>;
+        })}
       </div>
 
       {nodes.length === 0 && shapes.length === 0 ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <EmptyState
-            icon={Shapes}
-            title="Drag parts in from the library"
-            body="Drop each one where it should sit on the page — position is part of the spec. Draw regions around them, connect them with arrows, and give every element its own prompt. Right-click anything."
-          />
+        <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
+          <div className="pointer-events-auto rounded-lg border border-border bg-panel/90 backdrop-blur">
+            <EmptyState icon={Shapes} title="The frame is your page" body="Drag parts from the library into it. They land at real size, so what you see is the shape of the site. Snap to the edges, resize from the corners, right-click anything." />
+          </div>
         </div>
       ) : null}
     </div>
@@ -413,7 +454,6 @@ function hitNode(nodes: StudioNode[], x: number, y: number): StudioNode | null {
 
 function penPath(points: [number, number][]): string {
   if (points.length < 2) return "";
-  // Quadratic smoothing through midpoints keeps freehand strokes from looking polygonal.
   let d = `M ${points[0]![0]} ${points[0]![1]}`;
   for (let i = 1; i < points.length - 1; i++) {
     const a = points[i]!;
@@ -421,8 +461,7 @@ function penPath(points: [number, number][]): string {
     d += ` Q ${a[0]} ${a[1]} ${(a[0] + b[0]) / 2} ${(a[1] + b[1]) / 2}`;
   }
   const last = points[points.length - 1]!;
-  d += ` L ${last[0]} ${last[1]}`;
-  return d;
+  return d + ` L ${last[0]} ${last[1]}`;
 }
 
 const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: StudioShape; selected: boolean }) {
@@ -435,86 +474,68 @@ const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: St
     className: cn("pointer-events-auto", selected && "drop-shadow-[0_0_6px_var(--accent)]"),
     ...(shape.id !== "live" ? ctxProps("studio-shape", shape.id, shape) : {}),
   } as const;
-
   if (shape.kind === "frame" && shape.points.length >= 2) {
     const [p1, p2] = [shape.points[0]!, shape.points[1]!];
-    return (
-      <rect
-        {...common}
-        x={Math.min(p1[0], p2[0])}
-        y={Math.min(p1[1], p2[1])}
-        width={Math.abs(p2[0] - p1[0])}
-        height={Math.abs(p2[1] - p1[1])}
-        rx={10}
-        strokeDasharray="8 5"
-        fill={`oklch(0.78 0.16 ${shape.hue} / 0.05)`}
-      />
-    );
+    return <rect {...common} x={Math.min(p1[0], p2[0])} y={Math.min(p1[1], p2[1])} width={Math.abs(p2[0] - p1[0])} height={Math.abs(p2[1] - p1[1])} rx={10} strokeDasharray="8 5" fill={`oklch(0.78 0.16 ${shape.hue} / 0.05)`} />;
   }
-
   if (shape.kind === "arrow" && shape.points.length >= 2) {
     const [p1, p2] = [shape.points[0]!, shape.points[shape.points.length - 1]!];
-    return (
-      <line
-        {...common}
-        x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]}
-        markerEnd="url(#studio-arrow)"
-        style={{ color }}
-        strokeLinecap="round"
-      />
-    );
+    return <line {...common} x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} markerEnd="url(#studio-arrow)" style={{ color }} strokeLinecap="round" />;
   }
-
   return <path {...common} d={penPath(shape.points)} strokeLinecap="round" strokeLinejoin="round" />;
 });
 
-const NodeView = React.memo(function NodeView({ node, selected }: { node: StudioNode; selected: boolean }) {
+const HANDLES: { h: Handle; cls: string }[] = [
+  { h: "nw", cls: "-left-1 -top-1 cursor-nwse-resize" },
+  { h: "n", cls: "left-1/2 -top-1 -translate-x-1/2 cursor-ns-resize" },
+  { h: "ne", cls: "-right-1 -top-1 cursor-nesw-resize" },
+  { h: "e", cls: "-right-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+  { h: "se", cls: "-right-1 -bottom-1 cursor-nwse-resize" },
+  { h: "s", cls: "left-1/2 -bottom-1 -translate-x-1/2 cursor-ns-resize" },
+  { h: "sw", cls: "-left-1 -bottom-1 cursor-nesw-resize" },
+  { h: "w", cls: "-left-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+];
+
+const NodeView = React.memo(function NodeView({ node, selected, theme, zoom }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; zoom: number }) {
   const feature = getFeature(node.featureId);
-  const category = feature ? categoryOf(feature.category) : null;
-  const hue = node.hue ?? category?.hue ?? 265;
+  const cat = feature ? categoryOf(feature.category) : null;
+  const hue = node.hue ?? cat?.hue ?? 265;
   const Icon = feature?.icon;
   const hasPrompt = node.prompt.trim().length > 0;
+  const chipScale = Math.max(1, 1 / zoom);
 
   return (
     <div
       data-node-id={node.id}
       {...ctxProps("studio-node", node.id, node)}
-      className={cn(
-        "group absolute flex cursor-grab flex-col gap-1 rounded-lg border p-2 transition-shadow active:cursor-grabbing",
-        selected ? "border-accent shadow-[0_0_0_2px_var(--accent-soft)]" : "border-border hover:border-border-strong",
-        node.locked && "cursor-not-allowed opacity-70",
-      )}
-      style={{
-        left: node.x, top: node.y, width: node.w, height: node.h,
-        background: `linear-gradient(160deg, oklch(0.7 0.14 ${hue} / 0.16), var(--panel))`,
-      }}
+      className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed")}
+      style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
     >
-      <div className="flex items-center gap-1.5">
-        {node.glyph ? (
-          <span className="text-sm leading-none">{node.glyph}</span>
-        ) : Icon ? (
-          <Icon className="size-4 shrink-0" style={{ color: `oklch(0.8 0.15 ${hue})` }} />
-        ) : null}
-        <span className="truncate text-[11px] font-semibold text-fg">{node.label}</span>
+      {/* the part itself, at real size */}
+      <div className="absolute inset-0 overflow-hidden" style={{ outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}>
+        <Block node={node} t={theme} />
       </div>
-      <div className="line-clamp-2 text-[10px] leading-tight text-fg-muted">
-        {node.prompt.trim() || feature?.blurb || "No prompt yet"}
-      </div>
+      {/* hover outline so unselected parts still read as parts */}
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
 
-      <div className="mt-auto flex items-center gap-1">
+      {/* label chip: what this is, in the builder's words */}
+      <div
+        className={cn("pointer-events-none absolute left-0 flex origin-bottom-left items-center gap-1 whitespace-nowrap rounded-sm border border-border bg-panel/95 px-1.5 py-0.5 text-[10px] text-fg shadow-sm transition-opacity", selected ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
+        style={{ top: -6, transform: `translateY(-100%) scale(${chipScale})` }}
+      >
+        {node.glyph ? <span>{node.glyph}</span> : Icon ? <Icon className="size-3" style={{ color: `oklch(0.8 0.15 ${hue})` }} /> : null}
+        <span className="font-medium">{node.label}</span>
+        <span className="num text-fg-faint">{node.w}×{node.h}</span>
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
-        {node.priority !== "must" ? (
-          <span className="rounded-xs border border-border px-1 text-[9px] uppercase tracking-wide text-fg-faint">{node.priority}</span>
-        ) : null}
+        {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">{node.priority}</span> : null}
         {node.locked ? <span className="text-[9px] text-fg-faint">locked</span> : null}
       </div>
 
-      {selected && !node.locked ? (
-        <span
-          data-resize="br"
-          className="absolute -bottom-1 -right-1 size-3 cursor-se-resize rounded-sm border border-accent bg-panel"
-        />
-      ) : null}
+      {selected && !node.locked
+        ? HANDLES.map(({ h, cls }) => (
+            <span key={h} data-resize={h} className={cn("absolute size-2 rounded-[2px] border border-accent bg-panel", cls)} style={{ transform: `${cls.includes("translate") ? "" : ""} scale(${chipScale})` }} />
+          ))
+        : null}
     </div>
   );
 });

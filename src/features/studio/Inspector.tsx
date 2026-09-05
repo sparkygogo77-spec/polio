@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Trash2, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Trash2, Unlock } from "lucide-react";
 import { getFeature, categoryOf } from "./catalog";
 import { HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
@@ -63,6 +63,7 @@ export function Inspector() {
   const shapes = useStudio(useShallow(pageShapes));
   const groups = useStudio(useShallow(pageGroups));
   const page = useStudio(activePage);
+  const frameWidth = useStudio((s) => s.frameWidth);
 
   const selNodes = nodes.filter((n) => selection.includes(n.id));
   const selShapes = shapes.filter((s) => selection.includes(s.id));
@@ -270,6 +271,59 @@ export function Inspector() {
           <Input value={node.label} onChange={(e) => update({ label: e.target.value })} />
         </Field>
 
+        {feature?.content ? (
+          <Field label={feature.content.label} hint="Comma-separated. The board draws exactly this.">
+            <Textarea
+              autoGrow
+              rows={2}
+              aria-label={feature.content.label}
+              value={node.content}
+              placeholder={feature.content.placeholder}
+              onChange={(e) => update({ content: e.target.value })}
+            />
+          </Field>
+        ) : null}
+
+        <div className="rounded-md border border-border p-2">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Size & position</span>
+            <span className="num text-[10px] text-fg-faint">{Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% of frame</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {(["x", "y", "w", "h"] as const).map((k) => (
+              <label key={k} className="flex flex-col gap-0.5">
+                <span className="text-[9px] uppercase text-fg-faint">{k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}</span>
+                <Input
+                  type="number"
+                  inputSize="sm"
+                  className="px-1"
+                  value={String(Math.round(node[k]))}
+                  aria-label={k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v)) return;
+                    update({ [k]: k === "w" ? Math.max(40, v) : k === "h" ? Math.max(24, v) : v } as Partial<typeof node>);
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="mt-1.5 flex gap-1">
+            <Tooltip content="Span the whole frame">
+              <Button size="xs" variant="outline" className="flex-1" onClick={() => update({ x: 0, w: frameWidth })}>Full width</Button>
+            </Tooltip>
+            <Tooltip content="Flush left in the frame">
+              <Button size="xs" variant="outline" className="flex-1" aria-label="Flush left" onClick={() => update({ x: 0 })}><AlignLeft /></Button>
+            </Tooltip>
+            <Tooltip content="Centre in the frame">
+              <Button size="xs" variant="outline" className="flex-1" aria-label="Centre" onClick={() => update({ x: Math.round((frameWidth - node.w) / 2) })}><AlignCenter /></Button>
+            </Tooltip>
+            <Tooltip content="Flush right in the frame">
+              <Button size="xs" variant="outline" className="flex-1" aria-label="Flush right" onClick={() => update({ x: frameWidth - node.w })}><AlignRight /></Button>
+            </Tooltip>
+          </div>
+        </div>
+
         <Field
           label="Prompt for this element"
           hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."
@@ -373,7 +427,7 @@ export function Inspector() {
         ) : null}
 
         <div className="text-[10px] text-fg-faint">
-          Position: row order is set by where it sits on the canvas — {Math.round(node.x)}, {Math.round(node.y)}
+          Row order comes from where it sits in the frame. Width and height are built exactly, not reflowed.
         </div>
       </div>
     </div>

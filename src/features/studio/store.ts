@@ -31,6 +31,8 @@ export interface StudioNode {
   label: string;
   /** The element's own prompt — specific to this placement. */
   prompt: string;
+  /** What it contains: tab labels, links, placeholder text. The board draws this. */
+  content: string;
   x: number;
   y: number;
   w: number;
@@ -93,7 +95,21 @@ interface Doc {
   brief: StudioBrief;
 }
 
+/** Height of the frame: at least a screen, and always past the lowest part. */
+export function frameHeight(nodes: StudioNode[], min = 900): number {
+  const bottom = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+  return Math.max(min, bottom + 160);
+}
+
+/** Page widths the frame can take. Positions are absolute; the frame just shows what fits. */
+export const FRAME_WIDTHS = { desktop: 1440, tablet: 834, phone: 390 } as const;
+export type FrameKind = keyof typeof FRAME_WIDTHS;
+
 interface StudioState extends Doc {
+  /** Width of the page frame drawn on the board. */
+  frameWidth: number;
+  /** Bumped to ask the board to fit the frame into view. */
+  fitNonce: number;
   activePageId: string;
   selection: string[];
   tool: Tool;
@@ -140,6 +156,10 @@ interface StudioState extends Doc {
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
   resetView: () => void;
+  setFrameWidth: (w: number) => void;
+  requestFit: () => void;
+  /** Absolute positions during a drag; no history entry (commit() first). */
+  setPositions: (positions: Record<string, { x: number; y: number }>) => void;
 
   /* document */
   setFormat: (id: string, value: string | number | boolean) => void;
@@ -192,6 +212,8 @@ export const useStudio = create<StudioState>()(
 
       return {
         ...starterDoc(),
+        frameWidth: FRAME_WIDTHS.desktop,
+        fitNonce: 0,
         activePageId: "page_home",
         selection: [],
         tool: "select",
@@ -216,6 +238,7 @@ export const useStudio = create<StudioState>()(
                 featureId,
                 label: feature?.name ?? "Element",
                 prompt: "",
+                content: "",
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -403,7 +426,11 @@ export const useStudio = create<StudioState>()(
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setZoom: (z) => set({ zoom: Math.max(0.25, Math.min(2.5, z)) }),
         setPan: (p) => set({ pan: p }),
-        resetView: () => set({ zoom: 1, pan: { x: 0, y: 0 } }),
+        resetView: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
+        setFrameWidth: (w) => set((s) => ({ frameWidth: w, fitNonce: s.fitNonce + 1 })),
+        requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
+        setPositions: (positions) =>
+          set((s) => ({ nodes: s.nodes.map((n) => (positions[n.id] && !n.locked ? { ...n, ...positions[n.id]! } : n)) })),
 
         setFormat: (id, value) => {
           push();
@@ -484,6 +511,14 @@ export const useStudio = create<StudioState>()(
     {
       name: "polio.studio",
       storage: createJSONStorage(() => localStorage),
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<StudioState>;
+        return {
+          ...current,
+          ...p,
+          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "" })),
+        };
+      },
       partialize: (s) => ({
         pages: s.pages,
         nodes: s.nodes,
@@ -493,6 +528,7 @@ export const useStudio = create<StudioState>()(
         brief: s.brief,
         activePageId: s.activePageId,
         showAllFormat: s.showAllFormat,
+        frameWidth: s.frameWidth,
       }),
       skipHydration: true,
     },

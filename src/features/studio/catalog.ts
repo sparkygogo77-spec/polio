@@ -52,7 +52,13 @@ export interface FeatureDef {
   /** Seed text for the element's own prompt when it is dropped. */
   hint?: string;
   options?: FeatureOption[];
-  /** Default canvas footprint. */
+  /**
+   * What this part CONTAINS, typed as a comma-separated list or free text —
+   * tab labels, nav links, what a search box searches over. The board draws
+   * whatever is typed here, so the part looks like itself.
+   */
+  content?: { label: string; placeholder: string };
+  /** Default footprint on a 1440-wide page. Category defaults apply when unset. */
   w?: number;
   h?: number;
 }
@@ -89,7 +95,7 @@ export const CATEGORIES: CategoryDef[] = [
 const f = (
   id: string, name: string, category: CategoryId, icon: LucideIcon, blurb: string,
   extra: Partial<FeatureDef> = {},
-): FeatureDef => ({ id, name, category, icon, blurb, w: 132, h: 76, ...extra });
+): FeatureDef => ({ id, name, category, icon, blurb, ...extra });
 
 /** Reusable option sets. */
 const density: FeatureOption = { id: "density", label: "Density", values: ["balanced", "airy", "dense"] };
@@ -97,7 +103,7 @@ const emphasis: FeatureOption = { id: "emphasis", label: "Emphasis", values: ["s
 const columns: FeatureOption = { id: "columns", label: "Columns", values: ["3", "2", "4", "auto"] };
 const position: FeatureOption = { id: "position", label: "Position", values: ["top", "bottom", "left", "right", "inline"] };
 
-export const FEATURES: FeatureDef[] = [
+const RAW: FeatureDef[] = [
   /* ---------------------------------------------------------------- structure */
   f("section-stack", "Stacked sections", "structure", Rows3, "Full-width sections stacked down the page.", { options: [density], hint: "Sections in this order, each one screen tall unless noted." }),
   f("bento-grid", "Tile grid", "structure", Grid2x2, "Mixed-size tiles in one grid — the modern feature showcase.", { options: [columns, density] }),
@@ -346,6 +352,108 @@ export const FEATURES: FeatureDef[] = [
   f("graduation", "Simple then deep", "interact", GraduationCap, "Simple by default, deep when you dig.", {}),
   f("coin-economy", "Points / currency", "commerce", Coins, "An in-site economy.", {}),
 ];
+
+/* ------------------------------------------------------------------ */
+/* Real sizes, shapes and contents                                     */
+/* ------------------------------------------------------------------ */
+
+/** Footprints on a 1440-wide page: [width, height]. */
+const CATEGORY_SIZE: Record<CategoryId, [number, number]> = {
+  structure: [1440, 360],
+  nav: [1440, 64],
+  hero: [1440, 520],
+  content: [720, 260],
+  media: [1200, 360],
+  motion: [420, 88],
+  interact: [420, 88],
+  forms: [520, 340],
+  commerce: [1200, 420],
+  data: [680, 340],
+  social: [560, 260],
+  ai: [520, 320],
+  power: [420, 88],
+  platform: [420, 88],
+};
+
+const shape: FeatureOption = { id: "shape", label: "Shape", values: ["rounded", "pill", "square", "underlined"] };
+const yesNo = (id: string, label: string, def: "yes" | "no"): FeatureOption => ({ id, label, values: def === "yes" ? ["yes", "no"] : ["no", "yes"] });
+
+/** Per-part overrides: real size, shape options, and what it contains. */
+const DETAILS: Record<string, Partial<FeatureDef>> = {
+  "search-nav": { w: 420, h: 48, options: [shape, yesNo("button", "Search button", "no")], content: { label: "Searches over", placeholder: "pages, products, articles" } },
+  "search-autocomplete": { w: 420, h: 48, options: [shape], content: { label: "Suggests", placeholder: "products, categories, recent searches" } },
+  "ai-search": { w: 480, h: 48, options: [shape], content: { label: "Searches over", placeholder: "everything on the site" } },
+  "sticky-header": { w: 1440, h: 64, options: [{ id: "onScroll", label: "On scroll", values: ["shrink", "hide-then-show", "static", "blur"] }, yesNo("button", "Right-hand button", "yes")], content: { label: "Links", placeholder: "Home, Work, About, Contact" } },
+  "mega-menu": { w: 1440, h: 64, content: { label: "Top-level items", placeholder: "Products, Solutions, Pricing, Docs" } },
+  "mobile-nav": { w: 390, h: 56, content: { label: "Links", placeholder: "Home, Work, About" } },
+  breadcrumbs: { w: 480, h: 32, content: { label: "Trail", placeholder: "Home, Shop, Shoes" } },
+  "tabs-panel": { w: 720, h: 260, options: [{ id: "style", label: "Style", values: ["underline", "pill", "segmented", "boxed"] }], content: { label: "Tab labels", placeholder: "Overview, Details, Reviews" } },
+  accordion: { w: 720, h: 220, content: { label: "Row titles", placeholder: "How it works, Pricing, Support" } },
+  faq: { w: 720, h: 260, content: { label: "Questions", placeholder: "How does it work?, What does it cost?, Can I cancel?" } },
+  modal: { w: 520, h: 300, options: [{ id: "size", label: "Size", values: ["medium", "small", "large", "full"] }], content: { label: "Title", placeholder: "Confirm your order" } },
+  drawer: { w: 400, h: 560, options: [{ id: "position", label: "Slides in from", values: ["right", "left", "bottom", "top"] }], content: { label: "Title", placeholder: "Your cart" } },
+  "hero-split": { w: 1440, h: 520, content: { label: "Headline, subline", placeholder: "Build the site you mean, Then say what it is" } },
+  "hero-video": { w: 1440, h: 600, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
+  "hero-gradient": { w: 1440, h: 520, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
+  "hero-typewriter": { w: 1440, h: 480, content: { label: "Phrases it cycles through", placeholder: "Design faster, Ship sooner, Sleep better" } },
+  "hero-particles": { w: 1440, h: 560, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
+  "hero-3d": { w: 1440, h: 560, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
+  "value-prop": { w: 880, h: 120, content: { label: "The sentence", placeholder: "One line that says what this is and who it's for" } },
+  "cta-primary": { w: 220, h: 56, options: [shape, { id: "variant", label: "Look", values: ["solid", "outline", "ghost"] }, { id: "size", label: "Size", values: ["medium", "small", "large"] }], content: { label: "Label", placeholder: "Get started" } },
+  "quick-action": { w: 180, h: 48, options: [shape], content: { label: "Label", placeholder: "Buy now" } },
+  "social-proof-strip": { w: 1440, h: 96, content: { label: "Names or numbers", placeholder: "Acme, Globex, Initech, 12,000 users" } },
+  "logo-cloud": { w: 1200, h: 100, content: { label: "Logos", placeholder: "Acme, Globex, Initech, Umbrella" } },
+  prose: { w: 720, h: 320, content: { label: "Paragraphs", placeholder: "Type the actual words, one paragraph per line" } },
+  "pull-quote": { w: 720, h: 160, content: { label: "The quote", placeholder: "One line worth setting large" } },
+  "drop-cap": { w: 720, h: 260, content: { label: "Opening paragraph", placeholder: "The first paragraph…" } },
+  "textbox-format": { w: 720, h: 200, content: { label: "Sample text", placeholder: "A paragraph to show the box style" } },
+  marquee: { w: 1440, h: 56, options: [{ id: "speed", label: "Speed", values: ["slow", "medium", "fast"] }], content: { label: "Phrases", placeholder: "Ships fast, Reads well, Feels right" } },
+  "code-block": { w: 720, h: 180, content: { label: "Code", placeholder: "const x = 1;" } },
+  callout: { w: 720, h: 80, content: { label: "Note", placeholder: "Something the reader should not miss" } },
+  gallery: { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }], content: { label: "Captions", placeholder: "Optional, one per image" } },
+  carousel: { w: 1200, h: 480, options: [yesNo("autoplay", "Autoplay", "no")] },
+  "video-player": { w: 960, h: 540 },
+  "map-embed": { w: 960, h: 420 },
+  "audio-player": { w: 560, h: 96 },
+  "3d-viewer": { w: 720, h: 520 },
+  charts: { w: 680, h: 340, options: [{ id: "kind", label: "Kind", values: ["bar", "line", "area", "mixed"] }], content: { label: "Title", placeholder: "Revenue by month" } },
+  "stat-tiles": { w: 1200, h: 130, content: { label: "Tile labels", placeholder: "Users, Revenue, Uptime, Orders" } },
+  "data-table": { w: 1200, h: 320, content: { label: "Columns", placeholder: "Name, Status, Amount, Updated" } },
+  leaderboard: { w: 720, h: 320, content: { label: "Columns", placeholder: "Rank, Player, Score" } },
+  "contact-form": { w: 520, h: 420, options: [shape], content: { label: "Fields", placeholder: "Name, Email, Message" } },
+  "multi-step-form": { w: 640, h: 440, content: { label: "Steps", placeholder: "Details, Address, Payment, Confirm" } },
+  newsletter: { w: 520, h: 56, options: [shape], content: { label: "Field", placeholder: "Email" } },
+  booking: { w: 560, h: 400, content: { label: "Fields", placeholder: "Date, Time, Party size" } },
+  survey: { w: 640, h: 400, content: { label: "Questions", placeholder: "Question one, Question two" } },
+  "pricing-table": { w: 1200, h: 440, content: { label: "Tier names", placeholder: "Free, Pro, Team" } },
+  "product-grid": { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["4", "3", "2"] }], content: { label: "Product names", placeholder: "Optional, one per card" } },
+  "card-grid": { w: 1200, h: 460, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }], content: { label: "Card titles", placeholder: "Optional, one per card" } },
+  "bento-grid": { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "4", "2"] }], content: { label: "Tile titles", placeholder: "Optional, one per tile" } },
+  masonry: { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }] },
+  "blog-index": { w: 1200, h: 460, content: { label: "Article titles", placeholder: "Optional, one per card" } },
+  testimonials: { w: 1200, h: 300, content: { label: "Names", placeholder: "Ana, Ben, Chloe" } },
+  footer: { w: 1440, h: 240, content: { label: "Column headings", placeholder: "Product, Company, Resources, Legal" } },
+  "split-screen": { w: 1440, h: 520, content: { label: "Left side items", placeholder: "Section one, Section two" } },
+  "sidebar-layout": { w: 1440, h: 640, options: [{ id: "side", label: "Side", values: ["left", "right"] }], content: { label: "Sidebar items", placeholder: "Overview, Settings, Billing" } },
+  "section-stack": { w: 1440, h: 480, content: { label: "Sections in order", placeholder: "Intro, Details, Proof, Call to action" } },
+  "holy-grail": { w: 1440, h: 480, content: { label: "Bands", placeholder: "Header, Content, Footer" } },
+  "scan-region": { w: 720, h: 320, content: { label: "Name", placeholder: "Above the fold" } },
+  "ai-chat": { w: 420, h: 520, content: { label: "Opening line", placeholder: "How can I help?" } },
+  chat: { w: 420, h: 520, content: { label: "Opening line", placeholder: "Hey!" } },
+  "ai-prompt-box": { w: 640, h: 64, content: { label: "Placeholder", placeholder: "Describe what you want…" } },
+  comments: { w: 720, h: 320, content: { label: "Sample names", placeholder: "Ana, Ben" } },
+  "custom-idea": { w: 480, h: 200, content: { label: "What it is", placeholder: "Describe the idea in your own words" } },
+  gimmick: { w: 880, h: 120, content: { label: "The idea", placeholder: "The one unusual thing this site is built around" } },
+  note: { w: 320, h: 120, content: { label: "Note", placeholder: "Anything the builder should know" } },
+  mood: { w: 320, h: 140, content: { label: "References", placeholder: "Sites, eras, feelings" } },
+  constraint: { w: 320, h: 100, content: { label: "The rule", placeholder: "Must load in under a second" } },
+};
+
+export const FEATURES: FeatureDef[] = RAW.map((x) => {
+  const [cw, ch] = CATEGORY_SIZE[x.category];
+  const d = DETAILS[x.id] ?? {};
+  return { ...x, w: x.w ?? cw, h: x.h ?? ch, ...d, options: d.options ?? x.options };
+});
 
 export const FEATURES_BY_ID = new Map(FEATURES.map((x) => [x.id, x]));
 

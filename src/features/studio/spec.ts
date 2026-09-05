@@ -18,6 +18,8 @@ export interface CompileInput {
   shapes: StudioShape[];
   format: FormatValues;
   brief: StudioBrief;
+  /** Width of the page frame the positions are relative to. */
+  frameWidth?: number;
 }
 
 interface NodeSpec {
@@ -28,11 +30,16 @@ interface NodeSpec {
   category: string;
   priority: string;
   prompt: string;
+  content: string;
   options: Record<string, string>;
   group: string | null;
   region: string | null;
   row: number;
   column: number;
+  /** Share of the frame width this part takes, 0-100. */
+  widthPct: number;
+  heightPx: number;
+  align: "full" | "left" | "centre" | "right";
   leftOf: string | null;
   rightOf: string | null;
   above: string | null;
@@ -136,8 +143,16 @@ function whereOnPage(x: number, y: number, nodes: StudioNode[]): string {
   return `${vert}, ${horiz}`;
 }
 
+function alignOf(n: StudioNode, fw: number): NodeSpec["align"] {
+  if (n.w >= fw - 8) return "full";
+  const cx = n.x + n.w / 2;
+  if (Math.abs(cx - fw / 2) < fw * 0.06) return "centre";
+  return cx < fw / 2 ? "left" : "right";
+}
+
 export function compileSpec(input: CompileInput): Spec {
   const { pages, nodes, groups, shapes, format, brief } = input;
+  const fw = input.frameWidth ?? 1440;
 
   const formatRows = changedFormat(format).map((field) => ({
     group: FORMAT_GROUPS.find((g) => g.id === field.group)?.label ?? field.group,
@@ -167,7 +182,11 @@ export function compileSpec(input: CompileInput): Spec {
           category: feature ? categoryOf(feature.category).label : "Custom",
           priority: n.priority,
           prompt: n.prompt.trim(),
+          content: (n.content ?? "").trim(),
           options: n.options,
+          widthPct: Math.round((Math.min(n.w, fw) / fw) * 100),
+          heightPx: n.h,
+          align: alignOf(n, fw),
           group: pGroups.find((g) => g.id === n.groupId)?.label ?? null,
           region: frame ? frame.label || "unnamed region" : null,
           row: rowIndex + 1,
@@ -306,12 +325,13 @@ export function specToMarkdown(spec: Spec): string {
       for (const e of page.elements) {
         const opts = Object.entries(e.options).filter(([, v]) => v);
         L.push(`- **${e.label}** — ${e.feature} (${e.category}) · ${e.priority}`);
-        const place: string[] = [`row ${e.row}, position ${e.column}`];
+        const place: string[] = [`row ${e.row}, position ${e.column}`, e.align === "full" ? "full width" : `${e.widthPct}% wide, ${e.align}`, `about ${e.heightPx}px tall`];
         if (e.region) place.push(`inside "${e.region}"`);
         if (e.rightOf) place.push(`right of "${e.rightOf}"`);
         if (e.leftOf) place.push(`left of "${e.leftOf}"`);
         if (e.group) place.push(`in group "${e.group}"`);
         L.push(`  - placement: ${place.join("; ")}`);
+        if (e.content) L.push(`  - contains: ${e.content}`);
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
       }
@@ -341,10 +361,12 @@ export function specToMarkdown(spec: Spec): string {
 
   L.push("## How to read this", "");
   L.push(
-    "Vertical position is reading order and horizontal position is arrangement within a row.",
-    "Anything listed inside a region belongs to that region. Element prompts are specific to",
-    "that placement and override anything more general. Priorities: `must` ships first, `nice`",
-    "if it fits, `idea` is exploratory.",
+    "Positions are relative to a page frame. Vertical position is reading order; horizontal",
+    "position is arrangement within a row; width is given as a share of the frame and height",
+    "in pixels, and both are deliberate — build to them, do not reflow to fit. \"contains\"",
+    "lists what the part holds (tab labels, links, fields). Anything inside a region belongs to",
+    "that region. Element prompts are specific to that placement and override anything more",
+    "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",
     "",
   );
   return L.join("\n");

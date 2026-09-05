@@ -9,8 +9,8 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Eraser, FileText, Frame, Hand, Layers, MousePointer2, PanelLeft,
-  Pencil, Plus, Redo2, Send, Settings2, Sparkles, Undo2, ZoomIn, ZoomOut,
+  ArrowUpRight, Eraser, FileText, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  Pencil, Plus, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { PreviewWindow } from "./Preview";
@@ -19,7 +19,7 @@ import { Inspector } from "./Inspector";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog, useCompiledBrief } from "./BriefDialog";
-import { HUES, activePage, pageNodes, useStudio, type Tool } from "./store";
+import { FRAME_WIDTHS, HUES, activePage, pageNodes, useStudio, type Tool } from "./store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -44,6 +44,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   const setTool = useStudio((s) => s.setTool);
   const zoom = useStudio((s) => s.zoom);
   const inkHue = useStudio((s) => s.inkHue);
+  const frameWidth = useStudio((s) => s.frameWidth);
   const past = useStudio((s) => s.past.length);
   const future = useStudio((s) => s.future.length);
 
@@ -89,8 +90,30 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </div>
       ) : null}
 
+      <span className="mx-1 h-4 w-px bg-border" />
+      <Tooltip content="Page frame width — positions stay put, the frame shows what fits">
+        <div>
+          <Segmented
+            size="xs"
+            value={String(frameWidth)}
+            onChange={(v) => useStudio.getState().setFrameWidth(Number(v))}
+            options={[
+              { value: String(FRAME_WIDTHS.desktop), label: "Desktop", icon: <Monitor /> },
+              { value: String(FRAME_WIDTHS.tablet), label: "Tablet", icon: <Tablet /> },
+              { value: String(FRAME_WIDTHS.phone), label: "Phone", icon: <Smartphone /> },
+            ]}
+            aria-label="Frame width"
+          />
+        </div>
+      </Tooltip>
+
       <span className="flex-1" />
 
+      <Tooltip content="Fit the frame in view" shortcut="f">
+        <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => useStudio.getState().requestFit()}>
+          <Scan />
+        </Button>
+      </Tooltip>
       <Tooltip content="Undo" shortcut="mod+z">
         <Button variant="ghost" size="iconXs" aria-label="Undo" disabled={!past} onClick={() => useStudio.getState().undo()}>
           <Undo2 />
@@ -108,7 +131,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
         <button
           type="button"
-          onClick={() => useStudio.getState().resetView()}
+          onClick={() => useStudio.getState().requestFit()}
           className="num w-10 text-center text-[10px] text-fg-muted hover:text-fg"
         >
           {Math.round(zoom * 100)}%
