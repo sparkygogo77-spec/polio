@@ -95,6 +95,8 @@ src/features/studio/
   blocks.tsx     dispatcher: Block → parts/ (or parts/legacy.tsx until migrated)
   parts/         the real components, one archetype file per family; props only,
                  no store / Radix / core imports — a generated site ships this folder
+                 Layout Hero Text Media Forms Tabs Accordion Header SearchBox
+                 Cta Behaviour + legacy.tsx (not yet migrated) + the fallback
   live/          the live site: layout (absolute or reflowed), LiveSite renderer,
                  PreviewPage route at /builder/preview/<page>
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
@@ -157,7 +159,9 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   linkable part sends people; nav bars also resolve link labels to pages by
   name with no setup. The blueprint writes it as `links to:`.
 - Anything without an archetype yet draws through `parts/legacy.tsx`, then
-  the labelled-box fallback (`data-part-fallback`). Every part's root carries
+  the labelled-box fallback (`data-part-fallback`). Layout, navigation, first
+  screen, text, media and forms are migrated — 90 parts, no fallbacks; shop,
+  data, social, AI, dense and under-the-hood are still legacy. Every part's root carries
   `data-part={id}`; the live page wraps each in `[data-live-node=id]`.
 - The store is persisted with `skipHydration`; every Builder surface calls
   `useStudioHydration()` first so the saved board comes back before any

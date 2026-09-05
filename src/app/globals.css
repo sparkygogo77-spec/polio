@@ -285,3 +285,7 @@
 
 /* Board mode: parts render their initial state and hold still. */
 [data-mode="board"] * { animation-play-state: paused !important; }
+
+/* Live-site parts: the board holds them still, the preview lets them run. */
+@keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
+[data-mode="board"] * { animation-play-state: paused !important; }
