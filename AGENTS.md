@@ -8,8 +8,7 @@ keyboard shortcuts, tactile feedback, audio cues, settings, theming, and a
 news feed that never repeats itself.
 
 Everything below is the contract. Follow it and the shell picks up your work
-automatically. Break it and the site still runs, but it stops feeling like a
-terminal.
+automatically. Break it and the site still runs, but it stops feeling good.
 
 ---
 
@@ -52,9 +51,10 @@ npm run new:feature orders --name "Orders" --icon ListOrdered
 npm run dev
 ```
 
-Then fill in `src/features/orders/index.ts`. A complete, realistic example is
-`src/features/pulse/` (streaming feed, presets, filters, context menu, module
-settings, status item, onMount). A component reference is `src/features/showcase/`.
+Then fill in `src/features/orders/index.ts`. The complete, realistic example is
+`src/features/studio/` — the Builder itself (routes, commands, shortcuts, context
+menus, module settings). A component reference is `src/features/showcase/`,
+hidden from nav but routable at `/showcase`.
 
 Checklist before you say a feature is done:
 
@@ -70,37 +70,40 @@ Checklist before you say a feature is done:
 
 ---
 
-## 2b. The Studio (`/studio`)
+## 2b. The Builder (`/builder`)
 
-The Studio is the front door, and it runs in **two stages**:
+The Builder is the front door: **one workspace** where you lay out what a site
+should be *before* writing the prompt that says what it is.
 
-| Stage | Route | The only question it asks |
+| Panel | Where | What it does |
 |---|---|---|
-| **Pick** | `/studio` | What should this site have? |
-| **Design** | `/studio/design` | Where does each of those go, and what does it do there? |
+| **Library** | left, toggle with `l` | All 218 parts as visual tiles, searchable, by category. Drag onto the board or click to drop. Blurb lives in the tooltip and right-click. |
+| **Board** | centre | Arrange parts, draw regions, connect with arrows, group, and prompt each one. |
+| **Preview** | pinned on the board | The current page as a live miniature, wearing the Format settings. |
+| **Element / Format / Pages** | right | The selected part's prompt and options; ~70 site-wide format options; the page manager. |
+| **Blueprint** | Compile button | Everything as a self-describing brief, markdown or JSON; optionally handed to Claude. |
 
-Stage one is a browsable grid of all 218 features — click or right-click to
-shortlist, bulk-add a whole category, then hit **Design these**. Stage two is
-the canvas, and its palette shows **only what you picked**, so you never face
-the full library while arranging. The full catalogue stays one toggle away, and
-the shortlist round-trips: going back to Pick keeps everything.
+The old addresses `/studio` and `/studio/design` still open the Builder.
+Internally the module keeps its original id — the folder is
+`src/features/studio/` and right-click scopes are prefixed `studio-` — while
+everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     218 universal web features, grouped into 14 categories
+  catalog.ts     218 parts in 14 categories, plain names, one f(...) line each
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
-  store.ts       the document: picks, pages, nodes, groups, shapes, format, brief
-  spec.ts        compiles the canvas into a build brief
-  PickerPage.tsx stage one — shortlist what the site needs
+  store.ts       the document: pages, nodes, groups, shapes, format, brief
+  spec.ts        compiles the board into a blueprint
   Canvas.tsx     drag, draw, marquee-select, group, pan/zoom
-  Palette.tsx    stage two's library, filtered to the shortlist
-  Inspector.tsx  per-element prompt and options
+  Preview.tsx    live miniature of the current page
+  Palette.tsx    the library
+  Inspector.tsx  per-part prompt and options
   index.ts       routes, commands, shortcuts, and every context menu
 ```
 
 **Position is meaning.** The compiler reads coordinates, so:
 
-| On the canvas | In the brief |
+| On the board | In the blueprint |
 |---|---|
 | Higher up | Earlier in the page |
 | Same horizontal band | One row, ordered left to right |
@@ -110,32 +113,33 @@ src/features/studio/
 
 **Extending it — all one-line changes:**
 
-- *A new feature in the library*: add one `f(...)` entry to `FEATURES` in
-  `catalog.ts`. It becomes draggable, searchable, right-clickable and part of
-  the brief immediately.
+- *A new part in the library*: add one `f(...)` entry to `FEATURES` in
+  `catalog.ts`. Use a plain name someone who doesn't build websites would say
+  ("Search box", not "Site Search"). It becomes draggable, searchable,
+  right-clickable and part of the blueprint immediately.
 - *A new site-format option*: add one entry to `FORMAT_FIELDS` in `format.ts`.
-  The panel renders it generically and the compiler emits it when changed.
-  Mark it `advanced: true` unless it belongs in the first screen.
-- *A new kind of mark on the canvas*: add a `ShapeKind` in `store.ts`, draw it
+  The panel renders it generically, the compiler emits it when changed, and the
+  preview should honour it if it is visual. Mark it `advanced: true` unless it
+  belongs in the first screen.
+- *A new kind of mark on the board*: add a `ShapeKind` in `store.ts`, draw it
   in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
 
 **Rules:**
 
-- Only *changed* format values reach the brief. Defaults are noise.
-- Every studio surface carries a right-click scope: `studio-pick`,
-  `studio-pick-category`, `studio-picks`, `studio-node`, `studio-group`,
-  `studio-shape`, `studio-canvas`, `studio-palette`, `studio-page`,
-  `studio-brief`, `studio-format-group`. If you add a surface, give it a scope
-  and contribute a menu — that is the standing expectation.
-- `picks` lives in the undoable, persisted document alongside everything else.
-  Stage two filters its palette by it but must never *require* it: with an empty
-  shortlist the palette falls back to the full library rather than stranding you.
-- The brief must stay self-contained: it explains its own conventions so any
-  agent can act on it without this app. If you change the compiler, keep the
-  "How to read this" section honest.
+- Only *changed* format values reach the blueprint. Defaults are noise.
+- Every Builder surface carries a right-click scope: `studio-node`,
+  `studio-group`, `studio-shape`, `studio-canvas`, `studio-palette`,
+  `studio-page`, `studio-brief`, `studio-format-group`. If you add a surface,
+  give it a scope and contribute a menu — that is the standing expectation.
+- The blueprint must stay self-contained: it explains its own conventions so
+  any agent can act on it without this app. If you change the compiler, keep
+  the "How to read this" section honest.
+- The preview is wireframe fidelity on purpose — shape, order and proportion
+  are truthful, the art is not. Don't add decoration to it that the format
+  options can't explain.
 - Calling Claude is optional. `src/app/api/studio/generate/route.ts` returns
   `ok: false` with a reason when `ANTHROPIC_API_KEY` is absent, and the UI
-  falls back to copying the brief. Never make the API key load-bearing.
+  falls back to copying the blueprint. Never make the API key load-bearing.
 
 ---
 
@@ -263,9 +267,9 @@ Next.js code and call it from your module.
 
 ## 9. Removing the demos
 
-Set `demoModules: []` in `site.config.ts`. `pulse` and `showcase` will no
-longer load. Delete their folders and remove them from
-`src/features/index.ts` when you're sure.
+Set `demoModules: []` in `site.config.ts` and `showcase` will no longer load.
+The Builder is not a demo; it always loads. Delete the showcase folder and
+remove it from `src/features/index.ts` when you're sure.
 
 ---
 
@@ -275,7 +279,7 @@ longer load. Delete their folders and remove them from
 - Don't publish without a key from a loop or a stream.
 - Don't render more than ~100 DOM rows without `VirtualList`.
 - Don't add a global provider for feature state; a zustand store inside the
-  module folder is the pattern (see `pulse/sim.ts`).
+  module folder is the pattern (see `studio/store.ts`).
 - Don't put feature logic in `site.config.ts` or `src/core/`.
 - Don't hard-code shortcut labels in UI; pass `shortcut="mod+k"` and `Kbd`
   formats it per platform.

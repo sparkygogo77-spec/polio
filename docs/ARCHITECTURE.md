@@ -36,8 +36,11 @@ src/core/
 src/features/
   index.ts                     module list
   home/                        landing page from site config + registry
-  pulse/                       demo: three-column live feed (sim.ts is the fake stream)
-  showcase/                    demo: every primitive and subsystem
+  studio/                      the Builder (UI says Builder; internals keep the studio id)
+    catalog.ts / format.ts     the 218 parts and ~70 format options, as data
+    store.ts / spec.ts         the document and its compiler
+    Canvas / Palette / Preview / Inspector / FormatPanel / PagesPanel / BriefDialog
+  showcase/                    reference: every primitive live, hidden from nav
 scripts/new-feature.mjs        scaffolder
 docs/                          this file, PROMPTS.md, FEATURE-CATALOG.md
 ```

@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, ChevronRight, Eraser, FileText, Frame, Hand, Layers, ListChecks, MousePointer2,
+  ArrowUpRight, Eraser, FileText, Frame, Hand, Layers, MousePointer2, PanelLeft,
   Pencil, Plus, Redo2, Send, Settings2, Sparkles, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
@@ -23,7 +23,6 @@ import { HUES, activePage, pageNodes, useStudio, type Tool } from "./store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
-import { useActions } from "@/core/actions";
 import { Button } from "@/core/ui/button";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
@@ -40,31 +39,7 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
 ];
 
-/** Where you are in the two-stage flow, and the way back. */
-function StageSwitch() {
-  const ctx = useActions();
-  const picks = useStudio((s) => s.picks.length);
-  return (
-    <div className="flex items-center gap-1 text-[11px]">
-      <button
-        type="button"
-        onClick={() => ctx.navigate("/studio")}
-        className="tactile flex items-center gap-1 rounded-md px-1.5 py-1 text-fg-muted hover:bg-hover hover:text-fg"
-      >
-        <ListChecks className="size-3.5" />
-        Pick
-        {picks ? <span className="num text-[10px] text-fg-faint">{picks}</span> : null}
-      </button>
-      <ChevronRight className="size-3 text-fg-faint" />
-      <span className="flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-1 text-accent">
-        <Layers className="size-3.5" />
-        Design
-      </span>
-    </div>
-  );
-}
-
-function Toolbar() {
+function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
   const zoom = useStudio((s) => s.zoom);
@@ -74,7 +49,11 @@ function Toolbar() {
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
-      <StageSwitch />
+      <Tooltip content={libraryOpen ? "Hide library" : "Show library"} shortcut="l">
+        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle library" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
+          <PanelLeft />
+        </Button>
+      </Tooltip>
       <span className="mx-1 h-4 w-px bg-border" />
       <div className="flex items-center gap-0.5 rounded-md border border-border bg-elevated p-0.5">
         {TOOLS.map((t) => {
@@ -198,10 +177,10 @@ function PromptBar({ onOpenBrief }: { onOpenBrief: () => void }) {
         />
         <Input
           className="min-w-0 flex-1"
-          placeholder="The central gimmick — the one idea everything serves"
+          placeholder="The central idea — the one thing everything serves"
           value={brief.gimmick}
           onChange={(e) => setBrief({ gimmick: e.target.value })}
-          aria-label="Central gimmick"
+          aria-label="Central idea"
         />
         <Badge size="sm" variant={spec.stats.prompted ? "accent" : "warn"}>
           {spec.stats.elements} placed · {spec.stats.prompted} prompted
@@ -212,7 +191,7 @@ function PromptBar({ onOpenBrief }: { onOpenBrief: () => void }) {
           className="min-h-[38px] flex-1"
           autoGrow
           rows={1}
-          placeholder="Now say what you want it to be. Everything on the canvas is the context — this is the instruction."
+          placeholder="Now say what you want it to be. Everything on the board is the context — this is the instruction."
           value={brief.master}
           onChange={(e) => setBrief({ master: e.target.value })}
           aria-label="Master prompt"
@@ -234,6 +213,7 @@ function PromptBar({ onOpenBrief }: { onOpenBrief: () => void }) {
 
 export function StudioPage() {
   const [briefOpen, setBriefOpen] = React.useState(false);
+  const [libraryOpen, setLibraryOpen] = React.useState(true);
   const [panel, setPanel] = React.useState("inspector");
   const page = useStudio(activePage);
   const selection = useStudio((s) => s.selection);
@@ -244,9 +224,12 @@ export function StudioPage() {
   }, [selection]);
 
   React.useEffect(() => {
-    (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief = () => setBriefOpen(true);
+    const w = window as unknown as { __studioOpenBrief?: () => void; __studioToggleLibrary?: () => void };
+    w.__studioOpenBrief = () => setBriefOpen(true);
+    w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     return () => {
-      delete (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief;
+      delete w.__studioOpenBrief;
+      delete w.__studioToggleLibrary;
     };
   }, []);
 
@@ -254,12 +237,14 @@ export function StudioPage() {
     // Fixed height, never min-height: the board must fit the viewport exactly so
     // the page behind it cannot scroll while you are drawing on it.
     <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 overflow-hidden">
-      <aside className="hidden w-56 shrink-0 lg:block">
-        <Palette />
-      </aside>
+      {libraryOpen ? (
+        <aside className="hidden w-60 shrink-0 lg:block">
+          <Palette onClose={() => setLibraryOpen(false)} />
+        </aside>
+      ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Toolbar />
+        <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} />
         <PageTabs />
         <div className="relative min-h-0 flex-1">
           <Canvas />

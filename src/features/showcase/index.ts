@@ -13,8 +13,9 @@ export const showcase = defineFeature({
   icon: LayoutGrid,
   tags: ["components", "reference", "demo"],
   demo: true,
+  // Kept as a developer reference; the Builder's library is where components are browsed.
+  hidden: true,
   routes: [{ path: "/showcase", component: ShowcasePage, title: "Showcase" }],
-  nav: [{ label: "Showcase", href: "/showcase", icon: LayoutGrid, order: 20, group: "Reference" }],
   settingGroups: [{ id: "showcase", label: "Showcase", icon: Palette, order: 200, description: "Options owned by the showcase module." }],
   settings: [
     { id: "showcase.liveNumbers", group: "showcase", label: "Animate live numbers", type: "toggle", default: true, order: 1 },

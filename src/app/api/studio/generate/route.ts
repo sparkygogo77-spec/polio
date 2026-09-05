@@ -2,10 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 
 /**
- * Turns a Studio blueprint into something actionable.
+ * Turns a Builder blueprint into something actionable.
  *
- * This is optional: with no API key the Studio still works and you copy the
- * brief into whatever agent you like. When `ANTHROPIC_API_KEY` is set, the
+ * This is optional: with no API key the Builder still works and you copy the
+ * blueprint into whatever agent you like. When `ANTHROPIC_API_KEY` is set, the
  * "Generate" button calls through to Claude here instead.
  *
  * A missing key is a configuration state, not a failure, so it comes back as
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       ok: false,
       reason: "no-key",
       message:
-        "No ANTHROPIC_API_KEY is configured, so the Studio can't call Claude from here. Copy the brief and paste it into Claude, Claude Code, or any agent — the brief is designed to be self-contained.",
+        "No ANTHROPIC_API_KEY is configured, so the Builder can't call Claude from here. Copy the blueprint and paste it into Claude, Claude Code, or any agent — it is designed to be self-contained.",
     });
   }
 

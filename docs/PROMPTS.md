@@ -8,37 +8,36 @@ feature modules, remove the demos, verify.** The shell stays.
 
 ---
 
-## 0. Start in the Studio (the intended route)
+## 0. Start in the Builder (the intended route)
 
-Open `/studio`, then:
+Open `/builder`, then:
 
-0. **Pick** what the site needs. Click cards, or right-click one to add its
-   whole category at once. Hit **Design these** when the shortlist looks right —
-   the canvas then shows only what you picked.
-1. **Place** those picks — drag each where it should sit on the page, or hit
-   "Place all remaining" for a starting grid. Vertical order is reading order.
-2. **Draw** regions around groups of them, connect related elements with
-   arrows, sketch anything the catalogue has no icon for.
-3. **Prompt each element.** Select one and write instructions specific to that
+1. **Place** parts from the library — search or browse by category, drag each
+   one where it should sit on the page. Vertical order is reading order.
+2. **Draw** regions around groups of them, connect related parts with arrows,
+   sketch anything the library has no tile for.
+3. **Prompt each part.** Select one and write instructions specific to that
    placement ("sits flush against the hero, shares its accent, collapses on
    mobile"). Group things and give the group its own prompt.
-4. **Set the format** — pages, scroll behaviour, typography and text-box
+4. **Watch the preview** pinned on the board — it redraws as you move things
+   and as you change the format.
+5. **Set the format** — pages, scroll behaviour, typography and text-box
    treatment, motion, palette, stack.
-5. **Write the master prompt**: the one sentence saying what the site is.
-6. **Compile**, then either hand the brief to Claude in-page, or copy it into
-   any agent with this line in front:
+6. **Write the master prompt**: the one sentence saying what the site is.
+7. **Compile**, then either hand the blueprint to Claude in-page, or copy it
+   into any agent with this line in front:
 
 ```
-Read AGENTS.md, then build the site described in the brief below. Treat position,
-regions, arrows and per-element prompts as binding. Start with everything marked
-`must`. Ask me about anything the brief leaves genuinely ambiguous rather than
-guessing silently.
+Read AGENTS.md, then build the site described in the blueprint below. Treat
+position, regions, arrows and per-part prompts as binding. Start with everything
+marked `must`. Ask me about anything the blueprint leaves genuinely ambiguous
+rather than guessing silently.
 
-<paste the brief>
+<paste the blueprint>
 ```
 
-The brief explains its own conventions, so it works in a fresh session with no
-other context.
+The blueprint explains its own conventions, so it works in a fresh session with
+no other context.
 
 ---
 
@@ -63,11 +62,12 @@ Read AGENTS.md. Turn this template into [a portfolio site for a motion designer]
 ## B. Trading terminal for a specific chain / launchpad
 
 ```
-Read AGENTS.md and docs/FEATURE-CATALOG.md. Rebuild the "pulse" demo into a real terminal for [Pons on Robinhood Chain].
+Read AGENTS.md and docs/FEATURE-CATALOG.md. Build a real trading terminal for [Pons on Robinhood Chain] as a new module.
 
-Keep the module structure of src/features/pulse but replace sim.ts with a live source:
+- `npm run new:feature pulse --name "Pulse" --icon Activity`. Lean on the Dense & keyboard parts in the Builder library:
+  side-by-side feeds, huge list, saved presets, one-click action, status bar, privacy blur, live data stream.
 - Subscribe to factory TokenLaunched events (F01/F02) over websocket [endpoint], read pool reserves for liquidity (F14) and
-  graduation progress against 4.2 ETH (F18). Keep the three-column layout and pause-on-hover with queued rows.
+  graduation progress against 4.2 ETH (F18). Three columns, pause-on-hover with queued rows.
 - Add modules: token (route /token/:address — chart placeholder F40, holders table F24/F17, dev history F32),
   positions (/positions — F59-F61 with realised/unrealised split), watchlist (/watchlist — F74).
 - Row context menu must include quick buy P1/P2/P3 (F47/F48), copy CA (F20), open chart, watch, hide, blacklist dev (F77).

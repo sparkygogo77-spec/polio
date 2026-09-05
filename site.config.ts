@@ -26,11 +26,11 @@ export default defineSite({
 
   theme: {
     defaultMode: "dark",
-    accentHue: 160,
+    accentHue: 235,
     radius: 6,
     density: "compact",
     font: "system",
-    effects: { grid: true, glow: true, scanlines: false, noise: false },
+    effects: { grid: false, glow: false, scanlines: false, noise: false },
   },
 
   audio: { enabled: true, volume: 0.35 },
@@ -48,8 +48,8 @@ export default defineSite({
       title: "Lay out the site. Then tell it what to be.",
       subtitle:
         "218 common web features you can drop onto a canvas, draw around, group and connect — each with its own prompt. Position carries meaning, so where you put something is part of the spec. Compile it and hand the brief to any agent.",
-      primaryCta: { label: "Open the Studio", href: "/studio" },
-      secondaryCta: { label: "Browse every component", href: "/showcase" },
+      primaryCta: { label: "Open the Builder", href: "/builder" },
+      secondaryCta: { label: "See how it fits together", href: "/showcase" },
     },
     showModuleGrid: true,
     showAgentGuide: true,
@@ -58,5 +58,5 @@ export default defineSite({
   links: [{ label: "GitHub", href: "https://github.com/sparkygogo77-spec/polio", external: true }],
 
   // Demo modules are safe to remove once you have your own features.
-  demoModules: ["pulse", "showcase"],
+  demoModules: ["showcase"],
 });

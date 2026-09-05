@@ -91,12 +91,6 @@ interface Doc {
   shapes: StudioShape[];
   format: FormatValues;
   brief: StudioBrief;
-  /**
-   * Feature ids shortlisted in the Pick stage. The design stage shows these
-   * instead of the whole 218-item library, so you only ever arrange things you
-   * already decided you want.
-   */
-  picks: string[];
 }
 
 interface StudioState extends Doc {
@@ -148,10 +142,6 @@ interface StudioState extends Doc {
   resetView: () => void;
 
   /* document */
-  togglePick: (featureId: string) => void;
-  addPicks: (featureIds: string[]) => void;
-  removePick: (featureId: string) => void;
-  clearPicks: () => void;
   setFormat: (id: string, value: string | number | boolean) => void;
   resetFormat: () => void;
   setShowAllFormat: (v: boolean) => void;
@@ -175,7 +165,6 @@ function snapshot(s: StudioState): Doc {
     shapes: s.shapes,
     format: s.format,
     brief: s.brief,
-    picks: s.picks,
   };
 }
 
@@ -191,7 +180,6 @@ function starterDoc(): Doc {
     shapes: [],
     format: formatDefaults(),
     brief: { name: "", gimmick: "", master: "" },
-    picks: [],
   };
 }
 
@@ -417,25 +405,6 @@ export const useStudio = create<StudioState>()(
         setPan: (p) => set({ pan: p }),
         resetView: () => set({ zoom: 1, pan: { x: 0, y: 0 } }),
 
-        togglePick: (featureId) => {
-          push();
-          set((s) => ({
-            picks: s.picks.includes(featureId) ? s.picks.filter((x) => x !== featureId) : [...s.picks, featureId],
-          }));
-        },
-        addPicks: (featureIds) => {
-          push();
-          set((s) => ({ picks: [...s.picks, ...featureIds.filter((id) => !s.picks.includes(id))] }));
-        },
-        removePick: (featureId) => {
-          push();
-          set((s) => ({ picks: s.picks.filter((x) => x !== featureId) }));
-        },
-        clearPicks: () => {
-          push();
-          set({ picks: [] });
-        },
-
         setFormat: (id, value) => {
           push();
           set((s) => ({ format: { ...s.format, [id]: value } }));
@@ -476,7 +445,6 @@ export const useStudio = create<StudioState>()(
               shapes: doc.shapes ?? s.shapes,
               format: { ...formatDefaults(), ...(doc.format ?? {}) },
               brief: { ...s.brief, ...(doc.brief ?? {}) },
-              picks: doc.picks ?? s.picks,
               activePageId: pages[0]!.id,
               selection: [],
             };
@@ -523,7 +491,6 @@ export const useStudio = create<StudioState>()(
         shapes: s.shapes,
         format: s.format,
         brief: s.brief,
-        picks: s.picks,
         activePageId: s.activePageId,
         showAllFormat: s.showAllFormat,
       }),
@@ -547,10 +514,6 @@ export const pageNodes = (s: StudioState) => s.nodes.filter((n) => n.pageId === 
 export const pageShapes = (s: StudioState) => s.shapes.filter((sh) => sh.pageId === s.activePageId);
 export const pageGroups = (s: StudioState) => s.groups.filter((g) => g.pageId === s.activePageId);
 export const activePage = (s: StudioState) => s.pages.find((p) => p.id === s.activePageId) ?? s.pages[0]!;
-
-/** Picks that have not been put on any page yet. */
-export const unplacedPicks = (s: StudioState) =>
-  s.picks.filter((id) => !s.nodes.some((n) => n.featureId === id));
 
 export function groupBounds(nodes: StudioNode[], groupId: string) {
   const members = nodes.filter((n) => n.groupId === groupId);

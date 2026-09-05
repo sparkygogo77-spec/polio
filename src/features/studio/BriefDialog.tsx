@@ -83,7 +83,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       open={open}
       onOpenChange={onOpenChange}
       size="lg"
-      title="Build brief"
+      title="Blueprint"
       description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
       footer={
         <>
@@ -149,7 +149,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             busy && "opacity-60",
           )}
         >
-          {busy && view !== "result" ? null : body || "Nothing on the canvas yet."}
+          {busy && view !== "result" ? null : body || "Nothing on the board yet."}
           {busy ? (
             <span className="flex items-center gap-2 text-accent">
               <Loader2 className="size-3.5 animate-spin" />

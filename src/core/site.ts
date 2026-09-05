@@ -101,12 +101,12 @@ export function defineSite(input: SiteInput): SiteConfig {
     },
     theme: {
       defaultMode: "dark",
-      accentHue: 160,
+      accentHue: 235,
       radius: 6,
       density: "compact",
       font: "system",
       ...input.theme,
-      effects: { grid: true, glow: true, scanlines: false, noise: false, ...input.theme?.effects },
+      effects: { grid: false, glow: false, scanlines: false, noise: false, ...input.theme?.effects },
     },
     audio: { enabled: true, volume: 0.35, ...input.audio },
     feed: {
@@ -127,6 +127,6 @@ export function defineSite(input: SiteInput): SiteConfig {
       },
     },
     links: input.links ?? [],
-    demoModules: input.demoModules ?? ["pulse", "showcase"],
+    demoModules: input.demoModules ?? ["showcase"],
   };
 }
