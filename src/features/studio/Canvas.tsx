@@ -512,8 +512,13 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, zoom }: {
       style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
     >
       {/* the part itself, at real size */}
-      <div className="absolute inset-0 overflow-hidden" style={{ outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}>
-        <Block node={node} t={theme} />
+      <div
+        className="absolute inset-0 overflow-hidden"
+        data-mode="board"
+        inert
+        style={{ pointerEvents: "none", outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}
+      >
+        <Block node={node} t={theme} mode="board" />
       </div>
       {/* hover outline so unselected parts still read as parts */}
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />

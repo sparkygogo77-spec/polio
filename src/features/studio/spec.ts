@@ -32,6 +32,8 @@ interface NodeSpec {
   prompt: string;
   content: string;
   options: Record<string, string>;
+  /** Where it sends people, in words. */
+  link: string | null;
   group: string | null;
   region: string | null;
   row: number;
@@ -150,6 +152,14 @@ function alignOf(n: StudioNode, fw: number): NodeSpec["align"] {
   return cx < fw / 2 ? "left" : "right";
 }
 
+function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[]): string | null {
+  if (!link) return null;
+  if (link.kind === "url") return link.target;
+  if (link.kind === "node") return `element ${link.target}`;
+  const p = pages.find((x) => x.id === link.target);
+  return p ? `page "${p.name}" (${p.path})` : `page "${link.target}"`;
+}
+
 export function compileSpec(input: CompileInput): Spec {
   const { pages, nodes, groups, shapes, format, brief } = input;
   const fw = input.frameWidth ?? 1440;
@@ -184,6 +194,7 @@ export function compileSpec(input: CompileInput): Spec {
           prompt: n.prompt.trim(),
           content: (n.content ?? "").trim(),
           options: n.options,
+          link: describeLink(n.link, pages),
           widthPct: Math.round((Math.min(n.w, fw) / fw) * 100),
           heightPx: n.h,
           align: alignOf(n, fw),
@@ -333,6 +344,7 @@ export function specToMarkdown(spec: Spec): string {
         L.push(`  - placement: ${place.join("; ")}`);
         if (e.content) L.push(`  - contains: ${e.content}`);
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
+        if (e.link) L.push(`  - links to: ${e.link}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
       }
       L.push("");
@@ -364,8 +376,8 @@ export function specToMarkdown(spec: Spec): string {
     "Positions are relative to a page frame. Vertical position is reading order; horizontal",
     "position is arrangement within a row; width is given as a share of the frame and height",
     "in pixels, and both are deliberate — build to them, do not reflow to fit. \"contains\"",
-    "lists what the part holds (tab labels, links, fields). Anything inside a region belongs to",
-    "that region. Element prompts are specific to that placement and override anything more",
+    "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people.",
+    "Anything inside a region belongs to that region. Element prompts are specific to that placement and override anything more",
     "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",
     "",
   );

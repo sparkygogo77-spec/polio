@@ -1,0 +1,79 @@
+"use client";
+/**
+ * Small building blocks parts are made of. No Radix, no core imports — see
+ * types.ts for why.
+ */
+import * as React from "react";
+import type { PartMode } from "./types";
+import { radiusFor, type Theme } from "./theme";
+
+/** Fills the part's box and sets the type. `overflow` is visible for parts that open things. */
+export function Fill({
+  t, children, style, overflow = "hidden", ...rest
+}: { t: Theme; children: React.ReactNode; style?: React.CSSProperties; overflow?: "hidden" | "visible" } & Omit<React.HTMLAttributes<HTMLDivElement>, "style">) {
+  return (
+    <div
+      {...rest}
+      style={{
+        width: "100%", height: "100%", overflow, boxSizing: "border-box", position: "relative",
+        color: t.text, fontFamily: t.bodyFamily, fontSize: t.fontPx, lineHeight: t.lineHeight,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function Btn({
+  t, label, primary = true, shape, onClick, style, ...rest
+}: { t: Theme; label: React.ReactNode; primary?: boolean; shape?: string; onClick?: () => void; style?: React.CSSProperties } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "style" | "onClick">) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      {...rest}
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center", whiteSpace: "nowrap", cursor: "pointer",
+        padding: `${Math.round(t.fontPx * 0.55)}px ${Math.round(t.fontPx * 1.1)}px`,
+        fontSize: t.fontPx * 0.92, fontWeight: 600, fontFamily: t.bodyFamily, lineHeight: 1.2,
+        borderRadius: radiusFor(shape, t) || Math.min(t.radius, 12),
+        background: primary ? t.accent : "transparent", color: primary ? t.accentText : t.text,
+        border: primary ? "1px solid transparent" : `1px solid ${t.line}`,
+        ...style,
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function Placeholder({ t, label }: { t: Theme; label?: string }) {
+  return (
+    <div
+      style={{
+        width: "100%", height: "100%", minHeight: 24, borderRadius: Math.min(t.radius, 10),
+        background: `linear-gradient(140deg, ${t.accent}2a, ${t.muted}1f)`, border: `1px solid ${t.line}`,
+        display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.75,
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+/** A repeating timer that only runs in live mode. */
+export function useTicker(mode: PartMode, ms: number, tick: () => void, enabled = true) {
+  const ref = React.useRef(tick);
+  ref.current = tick;
+  React.useEffect(() => {
+    if (mode !== "live" || !enabled) return;
+    const id = window.setInterval(() => ref.current(), ms);
+    return () => window.clearInterval(id);
+  }, [mode, ms, enabled]);
+}
+
+/** Shared focus ring that reads on any theme. */
+export function focusRing(t: Theme): string {
+  return `0 0 0 2px ${t.bg}, 0 0 0 4px ${t.accent}`;
+}

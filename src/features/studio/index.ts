@@ -1,25 +1,52 @@
 import {
   ArrowUpRight, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
   MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
-  Trash2, Undo2, Ungroup, Wand2, ZoomIn,
+  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, Link2,
 } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
+import { PreviewPage } from "./live/PreviewPage";
+import { isLinkable } from "./parts";
 import { CATEGORIES, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { HUES, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
+import { HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
-const onDesign = onStudio;
+const onPreview = () => typeof window !== "undefined" && /^\/builder\/preview/.test(window.location.pathname);
+const onBoard = () => onStudio() && !onPreview();
+const onDesign = onBoard;
 
 /** Right-click position in canvas space, so "add here" really means here. */
 function canvasPoint(target: ContextTarget) {
   const { pan, zoom } = useStudio.getState();
   const rect = target.element.getBoundingClientRect();
   return { x: (target.x - rect.left - pan.x) / zoom, y: (target.y - rect.top - pan.y) / zoom };
+}
+
+/** Where a part sends people: nowhere, a page, or (in the inspector) a web address. */
+function linksMenu(node: StudioNode): MenuEntry {
+  const s = useStudio.getState();
+  const setLink = (link: StudioNode["link"]) => s.updateNode(node.id, { link });
+  const current = node.link;
+  return {
+    id: "studio.node.link",
+    label: "Links to",
+    icon: Link2,
+    hint: current ? (current.kind === "page" ? s.pages.find((p) => p.id === current.target)?.name ?? current.target : current.target) : undefined,
+    children: [
+      { id: "link.none", label: "Nowhere", checked: !current, onSelect: () => setLink(null) },
+      { type: "separator" },
+      ...s.pages.map((p) => ({
+        id: `link.page.${p.id}`,
+        label: `${p.name}  ${p.path}`,
+        checked: current?.kind === "page" && current.target === p.id,
+        onSelect: () => setLink({ kind: "page", target: p.id }),
+      })),
+    ],
+  };
 }
 
 function compile() {
@@ -69,6 +96,8 @@ export const studio = defineFeature({
   tags: ["builder", "board", "prompt", "blueprint"],
   routes: [
     { path: "/builder", component: StudioPage, title: "Builder", fullBleed: true },
+    { path: "/builder/preview", component: PreviewPage, title: "Live preview", fullBleed: true },
+    { path: "/builder/preview/*", component: PreviewPage, title: "Live preview", fullBleed: true },
     // Old addresses keep working.
     { path: "/studio", component: StudioPage, title: "Builder", fullBleed: true },
     { path: "/studio/design", component: StudioPage, title: "Builder", fullBleed: true },
@@ -87,6 +116,8 @@ export const studio = defineFeature({
       run: (c) => void c.copy(specToMarkdown(compile()), "blueprint"),
     },
     { id: "studio.addPage", label: "Builder: add a page", group: "Builder", icon: Plus, run: () => { useStudio.getState().addPage(); } },
+    { id: "studio.live", label: "Builder: open the live preview", group: "Builder", icon: Eye, run: (c) => c.navigate(livePath()) },
+    { id: "studio.board", label: "Builder: back to the board", group: "Builder", icon: LayoutTemplate, when: onPreview, run: (c) => c.navigate("/builder") },
     { id: "studio.newIdea", label: "Builder: drop a new idea", group: "Builder", icon: Lightbulb, when: onStudio, run: () => { addFeatureToCanvas("custom-idea"); } },
     { id: "studio.undo", label: "Builder: undo", group: "Builder", icon: Undo2, when: onStudio, run: () => useStudio.getState().undo() },
     { id: "studio.redo", label: "Builder: redo", group: "Builder", icon: Redo2, when: onStudio, run: () => useStudio.getState().redo() },
@@ -104,7 +135,9 @@ export const studio = defineFeature({
 
   shortcuts: [
     { keys: "g b", label: "Go to the Builder", group: "Navigate", run: (c) => c.navigate("/builder") },
-    { keys: "l", label: "Show / hide the library", group: "Builder", when: onStudio, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
+    { keys: "p", label: "Open the live preview", group: "Builder", when: onBoard, run: (c) => c.navigate(livePath()) },
+    { keys: "b", label: "Back to the board", group: "Builder", when: onPreview, run: (c) => c.navigate("/builder") },
+    { keys: "l", label: "Show / hide the library", group: "Builder", when: onBoard, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
     { keys: "v", label: "Select tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("select") },
     { keys: "d", label: "Draw tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("pen") },
     { keys: "r", label: "Region tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("frame") },
@@ -132,6 +165,63 @@ export const studio = defineFeature({
   ],
 
   contextMenus: [
+    /* ------------------------------------------------------- live preview */
+    {
+      scope: "studio-live",
+      items: (target, ctx) => {
+        const data = target.data as { pageId: string; device: string } | undefined;
+        const s = useStudio.getState();
+        const page = s.pages.find((p) => p.id === data?.pageId);
+        const setDevice = (d: string) => (window as unknown as { __studioLiveDevice?: (d: string) => void }).__studioLiveDevice?.(d);
+        return [
+          { type: "label", label: `Live · ${page?.name ?? "page"}` },
+          { id: "studio.live.board", label: "Back to the board", icon: LayoutTemplate, shortcut: "b", onSelect: () => ctx.navigate("/builder") },
+          {
+            id: "studio.live.device",
+            label: "Device",
+            icon: Layers,
+            children: (["desktop", "tablet", "phone"] as const).map((d) => ({
+              id: `studio.live.device.${d}`,
+              label: d.charAt(0).toUpperCase() + d.slice(1),
+              checked: data?.device === d,
+              onSelect: () => setDevice(d),
+            })),
+          },
+          {
+            id: "studio.live.pages",
+            label: "Go to page",
+            icon: Layers,
+            children: s.pages.map((p) => ({ id: `studio.live.page.${p.id}`, label: p.name, checked: p.id === page?.id, onSelect: () => ctx.navigate(livePath(p.id)) })),
+          },
+          { type: "separator" },
+          { id: "studio.live.copy", label: "Copy page route", icon: Copy, onSelect: () => void ctx.copy(page?.path ?? "/", "route") },
+        ];
+      },
+    },
+    {
+      scope: "studio-live-node",
+      items: (target, ctx) => {
+        const node = target.data as StudioNode | undefined;
+        if (!node) return [];
+        const s = useStudio.getState();
+        const entries: MenuEntry[] = [
+          { type: "label", label: node.label },
+          {
+            id: "studio.liveNode.edit",
+            label: "Edit on the board",
+            icon: Wand2,
+            onSelect: () => {
+              s.setActivePage(node.pageId);
+              s.setSelection([node.id]);
+              ctx.navigate("/builder");
+            },
+          },
+        ];
+        if (isLinkable(node.featureId)) entries.push(linksMenu(node));
+        entries.push({ id: "studio.liveNode.copyName", label: "Copy name", icon: Copy, onSelect: () => void ctx.copy(node.label, "element name") });
+        return entries;
+      },
+    },
     /* ------------------------------------------------------------ element */
     {
       scope: "studio-node",
@@ -183,6 +273,9 @@ export const studio = defineFeature({
             })),
           });
         }
+
+        if (!multi && isLinkable(node.featureId)) entries.push(linksMenu(node));
+        entries.push({ id: "studio.node.live", label: "Open in live preview", icon: Eye, shortcut: "p", onSelect: () => ctx.navigate(livePath(node.pageId)) });
 
         entries.push(
           hueMenu(node.hue, (h) => s.updateNodes(selection, { hue: h })),
@@ -329,6 +422,7 @@ export const studio = defineFeature({
           },
           { id: "studio.canvas.selectAll", label: "Select everything", shortcut: "mod+a", onSelect: () => s.selectAll() },
           { id: "studio.canvas.fit", label: "Fit the frame in view", icon: ZoomIn, shortcut: "f", onSelect: () => s.requestFit() },
+          { id: "studio.canvas.live", label: "Preview this page live", icon: Eye, shortcut: "p", onSelect: () => ctx.navigate(livePath()) },
           {
             id: "studio.canvas.frame",
             label: "Frame width",
@@ -412,6 +506,7 @@ export const studio = defineFeature({
         return [
           { type: "label", label: `${page.name} · ${page.path}` },
           { id: "studio.page.open", label: "Open", onSelect: () => s.setActivePage(page.id) },
+          { id: "studio.page.live", label: "Preview this page live", icon: Eye, onSelect: () => ctx.navigate(livePath(page.id)) },
           {
             id: "studio.page.scroll",
             label: "Scroll behaviour",

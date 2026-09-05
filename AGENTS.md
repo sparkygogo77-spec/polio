@@ -92,12 +92,16 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 src/features/studio/
   catalog.ts     218 parts in 14 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
-  blocks.tsx     draws any part at any size — the board and the preview share it
+  blocks.tsx     dispatcher: Block → parts/ (or parts/legacy.tsx until migrated)
+  parts/         the real components, one archetype file per family; props only,
+                 no store / Radix / core imports — a generated site ships this folder
+  live/          the live site: layout (absolute or reflowed), LiveSite renderer,
+                 PreviewPage route at /builder/preview/<page>
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
   store.ts       the document: pages, nodes, groups, shapes, format, brief, frame width
   spec.ts        compiles the board into a blueprint
   Canvas.tsx     the frame, drag with snapping, 8-way resize, draw, group, pan/zoom
-  Preview.tsx    the frame scaled (desktop) or reflowed (phone)
+  Preview.tsx    the pinned live preview: LiveSite scaled down, fully clickable
   Palette.tsx    the library
   Inspector.tsx  per-part contents, size & position, options, prompt
   index.ts       routes, commands, shortcuts, and every context menu
@@ -130,6 +134,35 @@ guide lines; corners and edges resize; `f` fits the frame in view; the
 inspector has numeric X / Y / W / H and Full width / flush left / centre /
 flush right.
 
+**Parts are real.** A part is one React component rendered in two modes.
+On the board it is `mode="board"`: initial state, held still (a global rule
+pauses animations under `[data-mode="board"]`), wrapped `inert` with
+`pointer-events: none` so dragging and selecting never fight it. In the live
+preview it is `mode="live"`: tabs switch, the search box filters the contents
+you typed, rows expand, links navigate. The pinned preview window is the live
+site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
+`b` comes back. The contract is `parts/types.ts` (`PartProps`, `PartDef`):
+
+- Parts fill the box they are given, draw `content` exactly, read `options`
+  with `opt()`, and never import the store, Radix, or `@/core` — the folder is
+  what a generated site ships. Hand-roll ARIA; no portals (the preview lives
+  inside a scaled transform); pointer maths as rect ratios; every non-typed
+  number comes from `parts/sample.ts`, seeded by the content, so board, live
+  preview and generated site agree.
+- Tiers: **A** visual part (a real component); **B** behaviour applied to the
+  whole live site (scroll effects, cursor, shortcuts — chip on the board, effect
+  in `live/`); **C** platform mock that cannot run in a browser (auth, checkout)
+  and shows a truthful state change instead.
+- `node.link` (`{ kind: "page" | "url" | "node", target }`) is where a
+  linkable part sends people; nav bars also resolve link labels to pages by
+  name with no setup. The blueprint writes it as `links to:`.
+- Anything without an archetype yet draws through `parts/legacy.tsx`, then
+  the labelled-box fallback (`data-part-fallback`). Every part's root carries
+  `data-part={id}`; the live page wraps each in `[data-live-node=id]`.
+- The store is persisted with `skipHydration`; every Builder surface calls
+  `useStudioHydration()` first so the saved board comes back before any
+  effect writes. Without it a reload wipes the document.
+
 **Extending it — all one-line changes:**
 
 - *A new part in the library*: add one `f(...)` entry to `RAW` in
@@ -138,9 +171,10 @@ flush right.
   becomes draggable, searchable, right-clickable and part of the blueprint
   immediately. To give it its own size, options, or a "what does it contain"
   field, add a `DETAILS` entry (`w`, `h`, `options`, `content: { label,
-  placeholder }`). To make it *look* like itself on the board, add a branch to
-  `Block` in `blocks.tsx`; the wildcard fallback draws it as a labelled box
-  until you do.
+  placeholder }`). To make it real, write or extend an archetype in `parts/`
+  and add the id to `DEFS` in `parts/index.ts` (one line: component, ids,
+  tier, linkable). Until then it draws through `parts/legacy.tsx` or the
+  labelled-box fallback.
 - *A new site-format option*: add one entry to `FORMAT_FIELDS` in `format.ts`.
   The panel renders it generically, the compiler emits it when changed, and the
   preview should honour it if it is visual. Mark it `advanced: true` unless it
@@ -153,16 +187,18 @@ flush right.
 - Only *changed* format values reach the blueprint. Defaults are noise.
 - Every Builder surface carries a right-click scope: `studio-node`,
   `studio-group`, `studio-shape`, `studio-canvas`, `studio-palette`,
-  `studio-page`, `studio-brief`, `studio-format-group`. If you add a surface,
+  `studio-page`, `studio-brief`, `studio-format-group`, `studio-live`,
+  `studio-live-node`. If you add a surface,
   give it a scope and contribute a menu — that is the standing expectation.
 - The blueprint must stay self-contained: it explains its own conventions so
   any agent can act on it without this app. If you change the compiler, keep
   the "How to read this" section honest.
-- The board and the preview draw the same `Block`, so a part never looks
-  like one thing on the board and another in the preview. Blocks are size-
-  aware (they read `t.fontPx`, the node's `w`/`h`) and wireframe on purpose —
-  shape, order and proportion are truthful, the art is not. Don't add
-  decoration a format option or a content field can't explain.
+- The board and the live preview render the same part component, so a part
+  never looks like one thing on the board and another in the preview. Parts
+  are size-aware (they read `t.fontPx` and the node's `w`/`h`) and plain on
+  purpose — shape, order, proportion and behaviour are truthful, the art comes
+  from Stage 4's skins. Don't add decoration a format option, a content field
+  or an asset can't explain.
 - A part that holds things (tabs, nav links, search scope, form fields, FAQ
   rows, footer columns) should say what it holds through `content`, not only
   through its prompt. Prompts describe behaviour; contents are the literal

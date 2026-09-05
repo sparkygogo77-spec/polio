@@ -12,8 +12,10 @@ them with arrows, group what belongs together, say what each container holds,
 and give every single part **its own prompt**. Where you put something is part
 of the specification: vertical position is reading order, a shared band is a
 row, width in the frame is width on the site, a drawn region is a region, an
-arrow is a relationship. Nothing is reflowed to fit. A live preview pinned to
-the board shows the frame as you work. Set the format (pages, scroll behaviour, typography and text-box
+arrow is a relationship. Nothing is reflowed to fit. The parts are real
+components: on the board they hold still, in the live preview pinned to the
+board tabs switch, the search box filters what you typed, rows expand and
+links move between pages. Press `p` for the live site full size. Set the format (pages, scroll behaviour, typography and text-box
 treatment, ~70 options), write the one prompt that says what the site *is*, and
 compile it into a blueprint any agent can act on — or hand it to Claude from
 the page.
@@ -42,7 +44,7 @@ cp .env.example .env.local && echo "ANTHROPIC_API_KEY=sk-ant-…" >> .env.local
 
 | Area | Highlights |
 |---|---|
-| Builder | One workspace: library of 218 plain-named parts, a page frame at desktop/tablet/phone width, parts at real size with typed contents and shape options, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, live preview, ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
+| Builder | One workspace: library of 218 plain-named parts, a page frame at desktop/tablet/phone width, parts as real components with typed contents, shape options and links, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, a clickable live preview (pinned, and full size at `/builder/preview`), ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
 | Shell | Top bar with route tabs, collapsible sidebar rail, status bar (latency, clock, density, sound), slide-over panels |
 | Interaction | Global right-click with stacked scopes, ⌘K palette (commands + pages + toggles), chords like `g p`, cheat sheet on `?` |
 | Feedback | Sound on pointer-down, haptics, press scale, flash-on-change, number tweening, optimistic done states |

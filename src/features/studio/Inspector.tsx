@@ -8,7 +8,8 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AlignCenter, AlignLeft, AlignRight, Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Trash2, Unlock } from "lucide-react";
 import { getFeature, categoryOf } from "./catalog";
-import { HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio } from "./store";
+import { isLinkable } from "./parts";
+import { HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
@@ -369,6 +370,8 @@ export function Inspector() {
           </div>
         ) : null}
 
+        {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
+
         <Field label="Colour">
           <HuePicker value={node.hue} onChange={(h) => update({ hue: h })} />
         </Field>
@@ -431,5 +434,26 @@ export function Inspector() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Where a part sends people. Pages by name, or a web address. */
+function LinkField({ node }: { node: StudioNode }) {
+  const pages = useStudio((s) => s.pages);
+  const link = node.link;
+  const value = !link ? "none" : link.kind === "page" ? `page:${link.target}` : link.kind === "url" ? "url" : "none";
+  const set = (l: StudioNode["link"]) => useStudio.getState().updateNode(node.id, { link: l });
+  return (
+    <Field label="Links to" hint="Where this sends people in the live preview and the finished site.">
+      <Select
+        value={value}
+        onChange={(v) => (v === "none" ? set(null) : v === "url" ? set({ kind: "url", target: link?.kind === "url" ? link.target : "https://" }) : set({ kind: "page", target: v.slice(5) }))}
+        options={[{ value: "none", label: "Nowhere" }, ...pages.map((p) => ({ value: `page:${p.id}`, label: `${p.name}  ${p.path}` })), { value: "url", label: "Web address…" }]}
+        aria-label="Links to"
+      />
+      {link?.kind === "url" ? (
+        <Input className="mt-1.5" value={link.target} placeholder="https://" aria-label="Web address" onChange={(e) => set({ kind: "url", target: e.target.value })} />
+      ) : null}
+    </Field>
   );
 }

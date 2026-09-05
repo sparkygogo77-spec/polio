@@ -282,3 +282,6 @@
 /* cmdk resets */
 [cmdk-input] { outline: none; }
 [cmdk-list] { scroll-padding-block: 6px; }
+
+/* Board mode: parts render their initial state and hold still. */
+[data-mode="board"] * { animation-play-state: paused !important; }

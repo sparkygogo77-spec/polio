@@ -7,9 +7,10 @@
  * Right — whatever is selected, the site format options, or the page list.
  */
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Eraser, FileText, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  ArrowUpRight, Eraser, Eye, FileText, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Pencil, Plus, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
@@ -19,7 +20,7 @@ import { Inspector } from "./Inspector";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog, useCompiledBrief } from "./BriefDialog";
-import { FRAME_WIDTHS, HUES, activePage, pageNodes, useStudio, type Tool } from "./store";
+import { FRAME_WIDTHS, HUES, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -47,6 +48,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   const frameWidth = useStudio((s) => s.frameWidth);
   const past = useStudio((s) => s.past.length);
   const future = useStudio((s) => s.future.length);
+  const router = useRouter();
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
@@ -112,6 +114,11 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <Tooltip content="Fit the frame in view" shortcut="f">
         <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => useStudio.getState().requestFit()}>
           <Scan />
+        </Button>
+      </Tooltip>
+      <Tooltip content="Open the live preview" shortcut="p">
+        <Button variant="ghost" size="iconXs" aria-label="Open live preview" onClick={() => { play("navigate"); router.push(livePath()); }}>
+          <Eye />
         </Button>
       </Tooltip>
       <Tooltip content="Undo" shortcut="mod+z">
@@ -235,10 +242,10 @@ function PromptBar({ onOpenBrief }: { onOpenBrief: () => void }) {
 }
 
 export function StudioPage() {
+  useStudioHydration();
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const [panel, setPanel] = React.useState("inspector");
-  const page = useStudio(activePage);
   const selection = useStudio((s) => s.selection);
 
   // Selecting something on the canvas should show it, not whatever tab you left open.
@@ -272,9 +279,6 @@ export function StudioPage() {
         <div className="relative min-h-0 flex-1">
           <Canvas />
           <PreviewWindow />
-          <div className="pointer-events-none absolute left-2 top-2 rounded-md border border-border bg-panel/80 px-2 py-1 text-[10px] text-fg-muted backdrop-blur">
-            {page.name} · <span className="font-mono">{page.path}</span>
-          </div>
         </div>
         <PromptBar onOpenBrief={() => setBriefOpen(true)} />
       </div>

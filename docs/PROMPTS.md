@@ -130,3 +130,12 @@ After any recipe, the agent should run the app and check, by hand or with
 Playwright: right-click on a row, ⌘K, change a setting three times and open
 the bell (one line), hover a feed column and confirm it freezes, toggle sound
 and hear the difference, switch density and theme.
+
+---
+
+## Motion assets
+
+When a blueprint carries a `MOTION ASSET BRIEF`, read `docs/MOTION.md` first:
+it defines what "interpolate these keyframes" must produce (checkpoint
+fidelity, frame counts, loop modes, the quality gate) and how the asset is
+used as a background layer or an element state.

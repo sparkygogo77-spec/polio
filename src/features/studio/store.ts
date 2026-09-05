@@ -19,6 +19,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
+import { useLayoutEffect } from "react";
+import type { NodeLink } from "./parts/types";
 
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
@@ -46,6 +48,8 @@ export interface StudioNode {
   glyph: string | null;
   hue: number | null;
   locked: boolean;
+  /** Where this part sends you (a page, a web address, another part). */
+  link: NodeLink | null;
 }
 
 export interface StudioGroup {
@@ -250,6 +254,7 @@ export const useStudio = create<StudioState>()(
                 glyph: null,
                 hue: null,
                 locked: false,
+                link: null,
                 ...patch,
               },
             ],
@@ -516,7 +521,7 @@ export const useStudio = create<StudioState>()(
         return {
           ...current,
           ...p,
-          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "" })),
+          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null })),
         };
       },
       partialize: (s) => ({
@@ -567,4 +572,28 @@ export function shapeBounds(shape: StudioShape) {
   const x = Math.min(...xs);
   const y = Math.min(...ys);
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+/* ------------------------------------------------------------------ */
+/* Hydration                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The store skips hydration so server and first client render agree; every
+ * Builder surface calls this once so the saved document comes back before the
+ * board's own effects write anything. A layout effect runs before children's
+ * passive effects (the board's fit-to-view), which is what makes it safe.
+ */
+export function useStudioHydration() {
+  useLayoutEffect(() => {
+    if (!useStudio.persist.hasHydrated()) void useStudio.persist.rehydrate();
+  }, []);
+}
+
+/** The live preview address for a page; the home page has no suffix. */
+export function livePath(pageId?: string): string {
+  const s = useStudio.getState();
+  const page = s.pages.find((p) => p.id === (pageId ?? s.activePageId)) ?? s.pages[0];
+  const path = page?.path ?? "/";
+  return "/builder/preview" + (path === "/" ? "" : path);
 }
