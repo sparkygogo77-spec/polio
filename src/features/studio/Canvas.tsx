@@ -257,15 +257,20 @@ export function Canvas() {
     setInk(null);
   };
 
-  const onWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
+  // Native + non-passive: React's synthetic wheel listener cannot preventDefault,
+  // which let every pan gesture scroll the page underneath at the same time.
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
       const store = useStudio.getState();
-      store.setZoom(store.zoom * (e.deltaY > 0 ? 0.92 : 1.08));
-      return;
-    }
-    const store = useStudio.getState();
-    store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY });
-  };
+      if (e.ctrlKey || e.metaKey) store.setZoom(store.zoom * (e.deltaY > 0 ? 0.92 : 1.08));
+      else store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const cursor =
     tool === "pan" ? "grab" : tool === "select" ? "default" : tool === "erase" ? "crosshair" : "crosshair";
@@ -274,7 +279,7 @@ export function Canvas() {
     <div
       ref={ref}
       {...ctxProps("studio-canvas", page.id, page)}
-      className="relative size-full touch-none overflow-hidden bg-bg select-none"
+      className="relative size-full touch-none overflow-hidden overscroll-contain bg-bg select-none"
       style={{ cursor }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
@@ -282,7 +287,6 @@ export function Canvas() {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onWheel={onWheel}
     >
       {/* dot grid */}
       <div

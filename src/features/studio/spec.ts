@@ -62,7 +62,7 @@ export interface Spec {
 }
 
 /** Nodes whose vertical spans overlap are one visual row, read left to right. */
-function toRows(nodes: StudioNode[]): StudioNode[][] {
+export function toRows(nodes: StudioNode[]): StudioNode[][] {
   const sorted = [...nodes].sort((a, b) => a.y - b.y || a.x - b.x);
   const rows: StudioNode[][] = [];
   for (const n of sorted) {

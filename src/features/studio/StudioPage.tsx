@@ -13,6 +13,7 @@ import {
   Pencil, Plus, Redo2, Send, Settings2, Sparkles, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
+import { PreviewWindow } from "./Preview";
 import { Palette } from "./Palette";
 import { Inspector } from "./Inspector";
 import { FormatPanel } from "./FormatPanel";
@@ -250,7 +251,9 @@ export function StudioPage() {
   }, []);
 
   return (
-    <div className="flex h-full min-h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0">
+    // Fixed height, never min-height: the board must fit the viewport exactly so
+    // the page behind it cannot scroll while you are drawing on it.
+    <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 overflow-hidden">
       <aside className="hidden w-56 shrink-0 lg:block">
         <Palette />
       </aside>
@@ -260,6 +263,7 @@ export function StudioPage() {
         <PageTabs />
         <div className="relative min-h-0 flex-1">
           <Canvas />
+          <PreviewWindow />
           <div className="pointer-events-none absolute left-2 top-2 rounded-md border border-border bg-panel/80 px-2 py-1 text-[10px] text-fg-muted backdrop-blur">
             {page.name} · <span className="font-mono">{page.path}</span>
           </div>
