@@ -12,7 +12,10 @@ them with arrows, group what belongs together, say what each container holds,
 and give every single part **its own prompt**. Where you put something is part
 of the specification: vertical position is reading order, a shared band is a
 row, width in the frame is width on the site, a drawn region is a region, an
-arrow is a relationship. Nothing is reflowed to fit. The parts are real
+arrow is a relationship. Say what each part *shows or does* in its data box —
+or draw a wire from one part to another and it fills itself in — and the
+blueprint gains a list of everything a backend would have to provide. Nothing
+is reflowed to fit. The parts are real
 components: on the board they hold still, in the live preview pinned to the
 board tabs switch, the search box filters what you typed, rows expand and
 links move between pages. Press `p` for the live site full size. Set the format (pages, scroll behaviour, typography and text-box

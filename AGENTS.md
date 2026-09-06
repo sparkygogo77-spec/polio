@@ -127,6 +127,8 @@ the specification, and the blueprint says so ("do not reflow to fit").
 | Same horizontal band | One row, ordered left to right |
 | Width in the frame | `full width` or `N% wide`, plus `left` / `centre` / `right` |
 | Contents typed in the inspector | `contains: …` — what the container holds |
+| Data typed in the inspector | `data: …` — what it shows or does |
+| A wire marked "carries data" | `reads from: …`, plus a backend section |
 | Inside a drawn frame | Belongs to that region |
 | Arrow from A to B | An explicit relationship |
 | In a group | Shares the group's prompt |
@@ -158,6 +160,16 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - `node.link` (`{ kind: "page" | "url" | "node", target }`) is where a
   linkable part sends people; nav bars also resolve link labels to pages by
   name with no setup. The blueprint writes it as `links to:`.
+- `node.data` is what a part shows or does, in the author's words — the values
+  and actions a backend has to provide ("live coin price, trader P&L", or
+  "join duel"). An arrow between two parts can be marked `relation: "data"`,
+  meaning the target reads from the source; marking it appends `from <source>`
+  to the target's data box, so the wire and the sentence never disagree.
+  `showWires` hides every arrow on the board (`w`) without deleting anything.
+  The compiler turns all of this into a **"What the backend must provide"**
+  section, so a final prompt that builds the server is written against a list
+  the board produced rather than from memory. None of it is domain-specific:
+  it is free text plus wires.
 - Anything without an archetype yet draws through `parts/legacy.tsx`, then
   the labelled-box fallback (`data-part-fallback`). Layout, navigation, first
   screen, text, media and forms are migrated — 90 parts, no fallbacks; shop,
