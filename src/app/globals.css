@@ -301,6 +301,19 @@
   position: absolute; inset: -14px -8px -10px; z-index: -1;
   border-radius: 18px; pointer-events: none; overflow: hidden;
 }
+/* The shelf's own fire: one of it, burning in the frame behind the scroller,
+   so it stays put while the parts scroll over it. */
+.ember-shelf { inset: 0; z-index: 0; border-radius: 0; }
+/* Wide and soft: one field, not a band. A tight gradient behind full-width
+   cards reads as a stripe in the gaps between them. */
+.ember-shelf > i { filter: blur(38px); }
+.ember-shelf .ember-base {
+  background:
+    radial-gradient(70% 58% at 50% 112%, oklch(0.58 0.19 250 / 0.34), transparent 78%),
+    radial-gradient(110% 34% at 50% 106%, oklch(0.5 0.17 262 / 0.22), transparent 84%);
+}
+.ember-shelf .ember-lick-a { background: radial-gradient(34% 56% at 26% 104%, oklch(0.68 0.2 248 / 0.28), transparent 76%); }
+.ember-shelf .ember-lick-b { background: radial-gradient(30% 50% at 74% 107%, oklch(0.64 0.21 236 / 0.24), transparent 78%); }
 .ember-light > i {
   position: absolute; inset: -10% -6% 0; display: block;
   /* Everything grows from the bottom edge — that is where a flame is fed. */

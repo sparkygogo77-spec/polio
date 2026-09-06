@@ -229,7 +229,37 @@ export interface TextureLayer {
    * covering, concentrated in the middle — coherent rather than repeated.
    */
   weave?: number;
+  /** Degrees to turn the colour, -180..180. Zero leaves the role alone. */
+  hue?: number;
+  /**
+   * Where this layer lands. Per layer, not per stack: one texture on the page
+   * and a different one on the cards is the normal case, and a single switch
+   * for the whole stack cannot say that.
+   */
+  target?: TextureTarget;
   on: boolean;
+}
+
+export type TextureTarget = "page" | "surfaces" | "both";
+
+export const TEXTURE_TARGETS: { value: TextureTarget; label: string }[] = [
+  { value: "page", label: "On the page" },
+  { value: "surfaces", label: "On surfaces" },
+  { value: "both", label: "Both" },
+];
+
+/** Does this layer land on the given surface? */
+export function lands(layer: TextureLayer, on: "page" | "surfaces"): boolean {
+  const t = layer.target ?? "page";
+  return t === "both" || t === on;
+}
+
+/** Turn a colour's hue, leaving its lightness and chroma alone. */
+export function shiftHue(colour: string, degrees: number): string {
+  if (!degrees) return colour;
+  const c = parseColor(colour);
+  if (!c) return colour;
+  return css({ ...c, h: (((c.h + degrees) % 360) + 360) % 360 });
 }
 
 /**
@@ -274,6 +304,8 @@ export function newLayer(kind: TextureKind = "noise"): TextureLayer {
     opacity: grainy ? 0.05 : picture ? 0.5 : 0.14,
     contrast: grainy ? 0.3 : picture ? 0.45 : 0.5,
     blend: grainy ? "overlay" : "normal",
+    hue: 0,
+    target: "page",
     // A picture arrives as a pattern by default: that is what makes the colour
     // roles, the scale and the background colour all mean something.
     ...(picture ? { pattern: true, cutout: false, tolerance: 0.35, weave: 0 } : {}),
@@ -384,7 +416,8 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
     // A generated pattern carries its opacity in its own colour; a picture
     // cannot, so it gets a veil of the background colour instead.
     const picture = l.kind === "image";
-    const colour = withAlpha(palette[l.role], GRAINY.has(l.kind) || picture ? 1 : l.opacity);
+    const role = shiftHue(palette[l.role], l.hue ?? 0);
+    const colour = withAlpha(role, GRAINY.has(l.kind) || picture ? 1 : l.opacity);
     const built = layerCss(l, colour);
     if (!built) continue;
     // Earlier in the list is nearer the front, so the veil goes in first: it

@@ -12,8 +12,8 @@ import * as React from "react";
 import { ChevronDown, ChevronUp, Copy, Pipette, Plus, Shuffle, Trash2 } from "lucide-react";
 import {
   affects, contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, textureCss, toHex, type BlendMode, type Harmony, type Oklch, type Palette,
-  type RoleId, type TextureKind, type TextureLayer,
+  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, shiftHue, type BlendMode, type Harmony,
+  type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
 import { treatImage, treatmentKey } from "./texture";
 import { resolvePalette } from "./parts/theme";
@@ -255,8 +255,9 @@ function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
       contrast: layer.contrast,
       tint,
       angle: layer.angle,
+      hue: layer.hue ?? 0,
     }),
-    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle],
+    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue],
   );
 
   React.useEffect(() => {
@@ -322,20 +323,7 @@ function TextureSection() {
         void readImage(file).then((src) => takeImage(src));
       }}
     >
-      <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
-        <Select
-          className="w-28"
-          value={look.target}
-          onChange={(v) => s().setLook({ target: v as "page" })}
-          options={[
-            { value: "page", label: "On the page" },
-            { value: "surfaces", label: "On surfaces" },
-            { value: "both", label: "Both" },
-          ]}
-          aria-label="Where the texture goes"
-        />
-      </div>
+      <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
 
       {look.texture.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-3 text-center text-[10px] leading-snug text-fg-muted">
@@ -354,7 +342,7 @@ function TextureSection() {
           const tintable = !picture || !!layer.pattern;
           return (
             <div key={layer.id} className={cn("rounded-md border", open ? "border-accent/60 bg-elevated/60" : "border-border")}>
-              {picture && layer.src ? <Baker layer={layer} tint={palette[layer.role]} /> : null}
+              {picture && layer.src ? <Baker layer={layer} tint={shiftHue(palette[layer.role], layer.hue ?? 0)} /> : null}
               <div className="flex items-center gap-2 p-1.5">
                 <input
                   type="checkbox"
@@ -367,7 +355,7 @@ function TextureSection() {
                 <button type="button" onClick={() => setOpenId(open ? null : layer.id)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[11px] text-fg">{kind?.label}</span>
                   <span className="block truncate text-[9px] text-fg-muted">
-                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {layer.scale}px · {Math.round(layer.opacity * 100)}%
+                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {TEXTURE_TARGETS.find((t) => t.value === (layer.target ?? "page"))?.label.replace("On ", "")} · {Math.round(layer.opacity * 100)}%
                   </span>
                 </button>
                 <Button variant="ghost" size="iconXs" aria-label="Move up" disabled={i === 0} onClick={() => s().moveTexture(layer.id, -1)}>
@@ -441,6 +429,22 @@ function TextureSection() {
                     </>
                   ) : null}
 
+                  <Select
+                    value={layer.target ?? "page"}
+                    onChange={(v) => s().updateTexture(layer.id, { target: v as TextureTarget })}
+                    options={TEXTURE_TARGETS}
+                    aria-label="Where this layer lands"
+                    className="w-full"
+                  />
+                  <Row label="Hue" value={(layer.hue ?? 0) === 0 ? `${ROLE_LABEL[layer.role]} as is` : `${(layer.hue ?? 0) > 0 ? "+" : ""}${Math.round(layer.hue ?? 0)}°`}>
+                    <Slider
+                      value={[layer.hue ?? 0]}
+                      min={-180}
+                      max={180}
+                      step={1}
+                      onValueChange={(v) => s().updateTexture(layer.id, { hue: v[0] ?? 0 })}
+                    />
+                  </Row>
                   <Row label={picture ? "Size" : "Scale"} value={`${layer.scale}px`}>
                     <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} />
                   </Row>

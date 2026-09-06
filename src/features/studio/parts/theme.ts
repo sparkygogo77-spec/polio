@@ -6,7 +6,7 @@
  */
 import type * as React from "react";
 import type { FormatValues } from "../format";
-import { paletteFromHue, parseColor, contrast, textureCss, ROLES, type Look, type Palette, type RoleId } from "../look";
+import { lands, paletteFromHue, parseColor, contrast, textureCss, ROLES, type Look, type Palette, type RoleId } from "../look";
 
 export interface Theme {
   bg: string;
@@ -64,23 +64,26 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
   const light = mode === "light" || mode === "both";
   const radius = Number(format["layout.radius"] ?? 10);
   const background = String(format["palette.background"] ?? "flat");
-  const bg = light ? `oklch(0.975 0.006 ${hue})` : `oklch(0.17 0.01 ${hue})`;
-  const backdrop =
-    background === "subtle gradient" || background === "mesh gradient"
-      ? `radial-gradient(120% 80% at 20% 0%, oklch(0.7 0.14 ${hue} / 0.2), transparent 70%), ${bg}`
-      : background === "grid"
-        ? `linear-gradient(${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), linear-gradient(90deg, ${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), ${bg}`
-        : bg;
   const align = String(format["type.align"] ?? "left");
 
-  // A palette override wins over anything derived from the hue, and the texture
-  // stack is painted over whatever the background ends up being.
+  // A palette override wins over anything derived from the hue. The background
+  // role is the background — the accent hue only fills in when nothing has been
+  // chosen, and the flourishes below are painted *over* whatever it ends up as.
   const roles = resolvePalette(format, look);
-  const target = look?.target ?? "page";
+  const backdrop =
+    background === "subtle gradient" || background === "mesh gradient"
+      ? `radial-gradient(120% 80% at 20% 0%, oklch(0.7 0.14 ${hue} / 0.2), transparent 70%), ${roles.bg}`
+      : background === "grid"
+        ? `linear-gradient(${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), linear-gradient(90deg, ${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), ${roles.bg}`
+        : roles.bg;
+
+  // Each layer says where it lands, so one texture can dress the page while
+  // another dresses the cards.
   const layers = look?.texture?.filter((l) => l.on) ?? [];
-  const painted = layers.length && target !== "surfaces" ? textureCss(layers, roles, roles.bg) : null;
-  // The same stack, over the surface colour, for cards and panels.
-  const onSurfaces = layers.length && target !== "page" ? textureCss(layers, roles, roles.surface) : null;
+  const onPage = layers.filter((l) => lands(l, "page"));
+  const onCards = layers.filter((l) => lands(l, "surfaces"));
+  const painted = onPage.length ? textureCss(onPage, roles, roles.bg) : null;
+  const onSurfaces = onCards.length ? textureCss(onCards, roles, roles.surface) : null;
 
   return {
     bg: roles.bg,

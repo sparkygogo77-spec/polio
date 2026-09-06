@@ -270,6 +270,16 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - `affects(kind)` says which controls a texture kind can actually use, and the
   panel only draws those. A slider that moves and changes nothing is worse
   than one that is not there.
+- **Where a texture lands is per layer**, not per stack (`layer.target`, read
+  through `lands()`): one texture on the page and a different one on the cards
+  is the normal case, and a single switch for the whole stack cannot say it.
+  `layer.hue` turns that layer's colour without touching the palette — the tint
+  for a pattern, a `hue-rotate` on the pixels for a picture that keeps its own
+  colours.
+- **The background role is the background.** `themeFrom` used to build the
+  board's backdrop from the accent hue and ignore `roles.bg` entirely, so the
+  background picker did nothing until a texture happened to force the other
+  path. The flourishes (gradient, grid) are painted *over* `roles.bg` now.
 - Background lists are split by `splitLayers`, which counts brackets. A regex
   cannot: `linear-gradient(oklch(…), oklch(…))` has a comma at depth two, and
   splitting there shifts every size and repeat one place along — which is why
@@ -309,6 +319,13 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   sub-groups beside it.
 - Parts that repeat a card show **two** on the shelf, not six (`previewContent`
   in `showcase.ts`). A grid of six thumbnails inside a thumbnail is mush.
+- A shelf preview shows the **surface**, never the page: `PartPreview` swaps
+  `bg` and `backdrop` for `surface` before drawing. A shelf full of page
+  backgrounds is a shelf of identical rectangles, and what you are choosing
+  between is the part. The previews float on one field the colour of the
+  surface's complement, dimmed, with a single flame burning behind the whole
+  scroller (`.ember-shelf`) rather than one under every card — a flame per part
+  reads as a bar once the cards are full width.
 - The phone companion starts **collapsed**. It floats over the board, and a
   panel covering a resize handle you cannot see is the bug the user hit; one
   click opens it.

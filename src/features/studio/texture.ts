@@ -37,13 +37,20 @@ export interface Treatment {
   tint: string;
   /** Degrees. The tile is rotated, and grown so nothing is clipped. */
   angle: number;
+  /** Degrees to turn the colour by, -180..180. */
+  hue: number;
 }
 
 /** The baked tile is small on purpose: the document lives in localStorage. */
 const MAX_TILE = 320;
 
 export function treatmentKey(t: Treatment): string {
-  return [t.cutout ? `cut${t.tolerance.toFixed(2)}` : "keep", t.pattern ? `pat${t.contrast.toFixed(2)}:${t.tint}` : "colour", `a${Math.round(t.angle)}`].join("|");
+  return [
+    t.cutout ? `cut${t.tolerance.toFixed(2)}` : "keep",
+    t.pattern ? `pat${t.contrast.toFixed(2)}:${t.tint}` : "colour",
+    `a${Math.round(t.angle)}`,
+    `h${Math.round(t.hue)}`,
+  ].join("|");
 }
 
 const cache = new Map<string, string>();
@@ -64,7 +71,11 @@ export async function treatImage(src: string, t: Treatment): Promise<string> {
   canvas.height = h;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return src;
+  // A pattern is repainted in the tint anyway, so only a picture keeping its
+  // own colours needs the hue turned here.
+  if (!t.pattern && t.hue) ctx.filter = `hue-rotate(${t.hue}deg)`;
   ctx.drawImage(img, 0, 0, w, h);
+  ctx.filter = "none";
 
   const data = ctx.getImageData(0, 0, w, h);
   if (t.cutout) keyOutBackground(data, t.tolerance);

@@ -10,6 +10,12 @@
  * scaled to 0.6 reads as a header, the same part magnified would read as a
  * giant word.
  *
+ * A preview shows the *surface*, never the page: a shelf full of page
+ * backgrounds is a shelf of identical rectangles, and what you are choosing
+ * between is the part, not the ground it happens to be standing on. So the
+ * page background and any texture aimed at it are swapped out for the surface
+ * colour before the part is drawn.
+ *
  * Off-screen tiles skip their layout and paint entirely (`content-visibility`),
  * so a library of 218 live previews costs about what a list of icons did.
  */
@@ -36,7 +42,12 @@ export function previewHeight(feature: FeatureDef, width: number): number {
 export function PartPreview({ feature, width, height, round }: { feature: FeatureDef; width: number; height: number; round?: boolean }) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
-  const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
+  const site = React.useMemo(() => themeFrom(format, look), [format, look]);
+  // Everything the part would paint as "the page" becomes the surface instead.
+  const theme = React.useMemo(
+    () => ({ ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined }),
+    [site],
+  );
 
   const { w: pw, h: ph } = previewSize(feature);
   // Fit, never crop. Most parts are wide and short, so the width decides; a
@@ -74,7 +85,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       aria-hidden
       inert
       className={round ? "pointer-events-none overflow-hidden rounded-full" : "pointer-events-none overflow-hidden rounded-sm border border-border/70"}
-      style={{ width, height, background: theme.bg, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
+      style={{ width, height, background: theme.surface, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
     >
       <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0", marginLeft: Math.max(0, (width - pw * scale) / 2) }}>
         <Block node={node} t={theme} mode="board" />

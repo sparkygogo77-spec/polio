@@ -631,7 +631,12 @@ export const useStudio = create<StudioState>()(
           nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null })),
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
-          look: { ...emptyLook(), ...(p.look ?? {}) },
+          look: (() => {
+            const look = { ...emptyLook(), ...(p.look ?? {}) };
+            // The target used to be one switch for the whole stack; each layer
+            // owns it now, so anything saved before inherits what was set.
+            return { ...look, texture: look.texture.map((l) => ({ ...l, target: l.target ?? look.target ?? "page" })) };
+          })(),
           companion: { ...current.companion, ...(p.companion ?? {}) },
         };
       },

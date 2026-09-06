@@ -9,8 +9,11 @@
  * The parts are laid out the way a page is. Anything that spans the page —
  * headers, footers, hero bands — is stacked in rows across the top. Everything
  * else goes into three columns underneath, spaced apart so nothing touches.
- * Nothing is in a box: each preview is lit by a blue flame rising from below
- * it, which is what separates it from the shelf without drawing a border.
+ *
+ * Nothing is in a box, and nothing shows a page background: a preview is the
+ * *surface* alone, floating on one continuous field the colour of the surface's
+ * complement, dimmed. One blue flame burns behind that whole field rather than
+ * under every card — a flame per part made a row of them read as a bar.
  *
  * Nothing here is interactive — every preview is `inert` — so a part only
  * comes alive once it is on the board. Drag it straight out, or click it.
@@ -26,6 +29,8 @@ import { useStudio } from "./store";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { PLANET } from "./planets";
 import { spanOf } from "./showcase";
+import { css, parseColor } from "./look";
+import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -86,11 +91,9 @@ function Card({ feature, width, tall = 96, removed }: { feature: FeatureDef; wid
   return (
     <Tooltip content={feature.explain ?? feature.blurb} side="top">
       <div className="ember group relative" style={{ width }} data-hot={dragging ? "1" : undefined}>
-        {/* The flame: a steady bed and two tongues, fed brighter when reached for. */}
+        {/* The ambient flame is behind the whole shelf; this is just the flare
+            that answers you when you reach for this one. */}
         <span aria-hidden className="ember-light">
-          <i className="ember-base" />
-          <i className="ember-lick-a" />
-          <i className="ember-lick-b" />
           <i className="ember-hot" />
         </span>
         <div
@@ -210,6 +213,16 @@ export function Palette() {
   const GAP = 16;
   const columnWidth = Math.round((shelfW - GAP * 2) / 3);
 
+  // The field the previews float on: the surface's complement, dimmed, so a
+  // surface-coloured part separates from it without needing a border.
+  const format = useStudio((st) => st.format);
+  const look = useStudio((st) => st.look);
+  const behind = React.useMemo(() => {
+    const surface = parseColor(resolvePalette(format, look).surface);
+    if (!surface) return "oklch(0.14 0.01 260)";
+    return css({ l: Math.max(0.11, surface.l * 0.62), c: Math.min(0.07, surface.c + 0.03), h: (surface.h + 180) % 360 });
+  }, [format, look]);
+
   return (
     <div data-drawer="" className="relative flex h-[264px] shrink-0 flex-col border-t border-border bg-panel/50">
       {/* ------------------------------------------------ where you are */}
@@ -277,10 +290,18 @@ export function Palette() {
       </div>
 
       {/* ------------------------------------------------ the parts */}
-      <div ref={shelfRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="relative min-h-0 flex-1" style={{ background: behind }}>
+        {/* One flame for the whole shelf, in the frame rather than in the
+            scroller, so it stays put while the parts move over it. */}
+        <span aria-hidden className="ember-light ember-shelf">
+          <i className="ember-base" />
+          <i className="ember-lick-a" />
+          <i className="ember-lick-b" />
+        </span>
+        <div ref={shelfRef} className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
         {!chosen && !searching ? (
           // Fourteen planets, all of them on screen, one per kind of part.
-          <div className="grid grid-cols-7 gap-2 p-4">
+          <div className="relative z-[1] grid grid-cols-7 gap-2 p-4">
             {categories.map((c) => (
               <Tooltip key={c.id} content={c.blurb} side="top">
                 <button
@@ -297,11 +318,15 @@ export function Palette() {
             ))}
           </div>
         ) : shown.length || removed.length ? (
-          <div className="px-4 py-3">
+          <div className="relative z-[1] px-4 py-3">
             {across.length ? (
               <Band title="Across the page">
-                <div className="flex flex-col gap-3">
-                  {across.map((f) => <Card key={f.id} feature={f} width={shelfW} tall={58} />)}
+                {/* One block, not a stack of separate slabs: these all span the
+                    page, so they belong together the way they would on it. The
+                    group is an outline rather than a fill, so no background
+                    colour creeps back into the shelf. */}
+                <div className="flex flex-col gap-1.5 rounded-lg border border-border/60 p-1.5">
+                  {across.map((f) => <Card key={f.id} feature={f} width={shelfW - 12} tall={44} />)}
                 </div>
               </Band>
             ) : null}
@@ -323,12 +348,13 @@ export function Palette() {
             <div className="h-6" />
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">
+          <div className="relative z-[1] flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">
             {searching
               ? <>Nothing by that name. Drop a <span className="text-accent">New idea</span> and describe it.</>
               : "Everything here is removed."}
           </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
