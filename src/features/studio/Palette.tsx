@@ -12,6 +12,7 @@ import { EyeOff, PanelLeftClose, RotateCcw, Search, Sparkles, X } from "lucide-r
 import { CATEGORIES, categoryOf, getFeature, searchFeatures, type CategoryId, type FeatureDef } from "./catalog";
 import { useShallow } from "zustand/react/shallow";
 import { useStudio } from "./store";
+import { PartPreview } from "./PartPreview";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -58,12 +59,12 @@ function Tile({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
             play("confirm");
             useStudio.getState().restoreFeature(feature.id);
           }}
-          className="tactile group flex h-[68px] w-full flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-1 text-center opacity-45 hover:opacity-100"
+          className="tactile group flex w-full flex-col items-center gap-1 rounded-md border border-dashed border-border p-1 text-center opacity-45 hover:opacity-100"
         >
-          <span className="flex size-7 items-center justify-center rounded-md text-fg-faint">
+          <span className="flex h-[54px] w-[104px] items-center justify-center rounded-sm border border-border/70 text-fg-faint">
             <RotateCcw className="size-4" />
           </span>
-          <span className="line-clamp-2 w-full text-[10px] leading-tight text-fg-muted">{feature.name}</span>
+          <span className="line-clamp-2 min-h-[24px] w-full text-[10px] leading-tight text-fg-muted">{feature.name}</span>
         </button>
       </Tooltip>
     );
@@ -72,8 +73,9 @@ function Tile({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
   return (
     <Tooltip content={feature.explain ?? feature.blurb} side="right">
       <div className="group relative">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         draggable
         {...ctxProps("studio-palette", feature.id, feature)}
         onDragStart={(e) => {
@@ -82,16 +84,25 @@ function Tile({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
           play("tap");
         }}
         onClick={() => addFeatureToCanvas(feature.id)}
-        className="tactile group flex h-[68px] w-full flex-col items-center justify-center gap-1.5 rounded-md border border-transparent px-1 text-center hover:border-border hover:bg-hover"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            addFeatureToCanvas(feature.id);
+          }
+        }}
+        className="tactile group flex w-full cursor-pointer flex-col items-center gap-1 rounded-md border border-transparent p-1 text-center hover:border-border hover:bg-hover"
       >
-        <span
-          className="flex size-7 items-center justify-center rounded-md"
-          style={{ background: `oklch(0.7 0.12 ${cat.hue} / 0.14)`, color: `oklch(0.78 0.13 ${cat.hue})` }}
-        >
-          <Icon className="size-4" />
-        </span>
-        <span className="line-clamp-2 w-full text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
-      </button>
+        <div className="relative">
+          <PartPreview feature={feature} width={104} height={54} />
+          <span
+            className="absolute -left-1 -top-1 flex size-4 items-center justify-center rounded-sm border border-border"
+            style={{ background: `oklch(0.7 0.12 ${cat.hue} / 0.22)`, color: `oklch(0.82 0.13 ${cat.hue})` }}
+          >
+            <Icon className="size-2.5" />
+          </span>
+        </div>
+        <span className="line-clamp-2 min-h-[24px] w-full text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
+      </div>
       <button
         type="button"
         aria-label={`Remove ${feature.name} from the library`}

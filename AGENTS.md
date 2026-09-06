@@ -77,7 +77,7 @@ should be *before* writing the prompt that says what it is.
 
 | Panel | Where | What it does |
 |---|---|---|
-| **Library** | left, toggle with `l` | All 218 parts as visual tiles, searchable, by category. Drag onto the board or click to drop. Blurb lives in the tooltip and right-click. |
+| **Library** | left, toggle with `l` | All 218 parts as **live previews** — each tile renders the real part, small, wearing the site's theme. Searchable, by category, prunable. Drag onto the board or click to drop; the explanation is in the tooltip. |
 | **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
 | **Companion** | floating, draggable | The same page as a phone or tablet — never desktop, since the board is the desktop view. Tap a part in it to select that part on the board. |
@@ -214,6 +214,13 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   Everything else keeps a short list menu; a wheel of three items is worse than
   a list. If you add controls to a part, put them in the right wedge rather than
   lengthening anything.
+- Library tiles render the real component through `PartPreview.tsx`, not an
+  icon — two grids that differ only in shape used to look identical. Previews
+  are `aria-hidden` **and** `inert` (they contain real buttons and inputs, which
+  would otherwise land in the tab order and the a11y tree), and the tile is a
+  `role="button"` div rather than a `<button>`, since a button inside a button
+  is invalid HTML and breaks hydration. `content-visibility: auto` keeps 218 of
+  them roughly as cheap as the icons were.
 - `FeatureDef.explain` is one sentence saying what a part is and when you would
   want it, for the parts whose name is not enough (all of motion, interaction,
   under-the-hood, AI and dense). It shows on hover on the board and in the
