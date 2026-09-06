@@ -51,7 +51,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       glyph: null,
       hue: null,
       locked: false,
-      link: null,
+      link: null, colour: null,
     }),
     [feature.id, feature.name, pw, ph],
   );

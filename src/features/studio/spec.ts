@@ -10,7 +10,7 @@
 import { getFeature, categoryOf } from "./catalog";
 import { resolvePart } from "./parts";
 import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
-import { describeLook, type Look } from "./look";
+import { describeLook, ROLES, ROLE_LABEL, type Look, type RoleId } from "./look";
 import { resolvePalette } from "./parts/theme";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape } from "./store";
 
@@ -41,6 +41,8 @@ interface NodeSpec {
   options: Record<string, string>;
   /** Where it sends people, in words. */
   link: string | null;
+  /** Roles this part repaints for itself, in words. */
+  colour: string | null;
   /** What it shows or does — what the backend must provide. */
   data: string;
   /** Parts this one reads from, via data wires. */
@@ -167,6 +169,17 @@ function alignOf(n: StudioNode, fw: number): NodeSpec["align"] {
   return cx < fw / 2 ? "left" : "right";
 }
 
+/** "background: the site's accent, text: #ffffff" — or nothing when it follows the site. */
+function describeColour(colour: StudioNode["colour"] | undefined): string | null {
+  if (!colour) return null;
+  const parts = ROLES.filter((r) => colour[r]).map((r) => {
+    const v = colour[r]!;
+    const named = (ROLES as readonly string[]).includes(v);
+    return `${ROLE_LABEL[r].toLowerCase()}: ${named ? `the site's ${ROLE_LABEL[v as RoleId].toLowerCase()}` : v}`;
+  });
+  return parts.length ? parts.join(", ") : null;
+}
+
 function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[]): string | null {
   if (!link) return null;
   if (link.kind === "url") return link.target;
@@ -215,6 +228,7 @@ export function compileSpec(input: CompileInput): Spec {
           content: (n.content ?? "").trim(),
           options: n.options,
           link: describeLink(n.link, pages),
+          colour: describeColour(n.colour),
           data: (n.data ?? "").trim(),
           feeds: pShapes
             .filter((sh) => sh.kind === "arrow" && sh.relation === "data" && sh.toNodeId === n.id)
@@ -388,6 +402,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.content) L.push(`  - contains: ${e.content}`);
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
         if (e.link) L.push(`  - links to: ${e.link}`);
+        if (e.colour) L.push(`  - colour, this part only: ${e.colour}`);
         if (e.data) L.push(`  - data: ${e.data}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
@@ -456,6 +471,7 @@ export function specToMarkdown(spec: Spec): string {
     "in pixels, and both are deliberate — build to them, do not reflow to fit. \"contains\"",
     "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people;",
     "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it.",
+    "A part with a \"colour\" line repaints those roles for itself; everything else follows the site palette.",
     "Anything inside a region belongs to that region. Behaviours are listed apart from the elements because they",
     "change how the whole page moves rather than occupying a place in it. Element prompts are specific to that placement and override anything more",
     "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",

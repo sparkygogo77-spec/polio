@@ -10,6 +10,8 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
+import { overrideTheme } from "./parts/theme";
+import type { Palette } from "./look";
 import type { StudioNode } from "./store";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
@@ -23,10 +25,14 @@ export interface BlockProps {
   size?: { w: number; h: number };
   onNavigate?: (link: NodeLink) => void;
   emit?: (e: PartEvent) => void;
+  /** The site's six roles, so a part that repaints itself can name one. */
+  palette?: Palette;
 }
 
-export function Block({ node, t, mode = "board", size, onNavigate, emit }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette }: BlockProps) {
   const def = resolvePart(node.featureId);
+  // A part can repaint any of the six roles for itself; everything else follows the site.
+  const t = node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme;
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
   return (

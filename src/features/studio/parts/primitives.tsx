@@ -18,6 +18,8 @@ export function Fill({
       style={{
         width: "100%", height: "100%", overflow, boxSizing: "border-box", position: "relative",
         color: t.text, fontFamily: t.bodyFamily, fontSize: t.fontPx, lineHeight: t.lineHeight,
+        // Only set when this part was told to repaint its own background.
+        background: t.ownBackground,
         ...style,
       }}
     >

@@ -14,6 +14,8 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { Block, themeFrom } from "./blocks";
+import { resolvePalette } from "./parts/theme";
+import type { Palette } from "./look";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -71,6 +73,7 @@ export function Canvas() {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const frameH = frameHeight(nodes);
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
@@ -443,7 +446,7 @@ export function Canvas() {
           );
         })}
 
-        {nodes.map((n) => <NodeView key={n.id} node={n} selected={selection.includes(n.id)} theme={theme} zoom={zoom} />)}
+        {nodes.map((n) => <NodeView key={n.id} node={n} selected={selection.includes(n.id)} theme={theme} palette={palette} zoom={zoom} />)}
 
         {shapes.filter((sh) => (sh.label || sh.prompt || sh.relation === "data") && (showWires || sh.kind !== "arrow")).map((sh) => {
           const b = shapeBounds(sh);
@@ -535,7 +538,7 @@ const HANDLES: { h: Handle; cls: string }[] = [
   { h: "w", cls: "-left-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
 ];
 
-const NodeView = React.memo(function NodeView({ node, selected, theme, zoom }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; zoom: number }) {
+const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number }) {
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
@@ -565,7 +568,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, zoom }: {
         inert
         style={{ pointerEvents: "none", outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}
       >
-        <Block node={node} t={theme} mode={selected ? "live" : "board"} />
+        <Block node={node} t={theme} palette={palette} mode={selected ? "live" : "board"} />
       </div>
       {/* hover outline so unselected parts still read as parts */}
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />

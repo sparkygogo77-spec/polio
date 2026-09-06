@@ -235,6 +235,21 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   the accent hue would derive; a texture layer compiles to a CSS background, so
   nothing is loaded and a generated site ships it as a stylesheet. Both reach
   the blueprint under "Colour and texture", written out exactly.
+- **Any one element can repaint itself.** `node.colour` is a partial map of the
+  six roles; a value is either a colour or the *name* of another role, so
+  "make this one's background the accent" stays inside the palette and follows
+  it when the palette changes. `Block` applies it with `overrideTheme`, `Fill`
+  paints `t.ownBackground` only when a part was told to, and the blueprint
+  writes a `colour, this part only:` line. `ColourOverride.tsx` is the one
+  control, used by both the wheel's Look wedge and the Inspector. `node.hue` is
+  a separate, board-only tint on the label chip and is labelled as such.
+- A texture aimed at `surfaces` (or `both`) is painted by `cardStyle(t)`, so
+  every card and panel in every part wears it without any part knowing.
+- Pictures come in three ways — choose, drag, paste — through
+  `ImageIntake.tsx`. Everything is shrunk to 640px on the long edge and
+  re-encoded before it is stored, because the document lives in localStorage
+  and one phone photo would fill it. `usePasteImage` ignores a paste aimed at
+  an input or textarea, so typing is never interrupted.
 - The parts drawer drills down rather than listing 218 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly

@@ -22,6 +22,7 @@ import { formatDefaults, type FormatValues } from "./format";
 import { emptyLook, type Look, type TextureLayer } from "./look";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
+import type { NodeColour } from "./parts/theme";
 
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
@@ -56,6 +57,8 @@ export interface StudioNode {
   link: NodeLink | null;
   /** What it shows or does — the values and actions the backend must provide. */
   data: string;
+  /** Roles this part repaints for itself. Empty or null means it follows the site. */
+  colour: NodeColour | null;
 }
 
 export interface StudioGroup {
@@ -293,6 +296,7 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
+                colour: null,
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -622,7 +626,7 @@ export const useStudio = create<StudioState>()(
         return {
           ...current,
           ...p,
-          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "" })),
+          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null })),
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
           look: { ...emptyLook(), ...(p.look ?? {}) },

@@ -10,6 +10,8 @@ import { AlignCenter, AlignLeft, AlignRight, Group, Layers, Lightbulb, Lock, Mou
 import { getFeature, categoryOf } from "./catalog";
 import { isLinkable } from "./parts";
 import { HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
+import { ColourOverride } from "./ColourOverride";
+import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
@@ -65,6 +67,9 @@ export function Inspector() {
   const groups = useStudio(useShallow(pageGroups));
   const page = useStudio(activePage);
   const frameWidth = useStudio((s) => s.frameWidth);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
 
   const selNodes = nodes.filter((n) => selection.includes(n.id));
   const selShapes = shapes.filter((s) => selection.includes(s.id));
@@ -235,8 +240,12 @@ export function Inspector() {
               ]}
             />
           </Field>
-          <Field label="Colour all">
-            <HuePicker value={selNodes[0]!.hue} onChange={(h) => useStudio.getState().updateNodes(selNodes.map((n) => n.id), { hue: h })} />
+          <Field label="Colour all" hint="Applies to every part selected.">
+            <ColourOverride
+              colour={selNodes[0]!.colour}
+              palette={palette}
+              onChange={(colour) => useStudio.getState().updateNodes(selNodes.map((n) => n.id), { colour })}
+            />
           </Field>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1" onClick={() => useStudio.getState().duplicateNodes(selNodes.map((n) => n.id))}>
@@ -403,7 +412,11 @@ export function Inspector() {
 
         {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
 
-        <Field label="Colour">
+        <Field label="Colour" hint="This part only. Naming a role keeps it inside the site's palette.">
+          <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
+        </Field>
+
+        <Field label="Board tint" hint="Marks this one on the board. Does not change the site.">
           <HuePicker value={node.hue} onChange={(h) => update({ hue: h })} />
         </Field>
 

@@ -51,7 +51,7 @@ cp .env.example .env.local && echo "ANTHROPIC_API_KEY=sk-ant-…" >> .env.local
 
 | Area | Highlights |
 |---|---|
-| Builder | One workspace: library of 218 plain-named parts — every one a working component — a page frame at desktop/tablet/phone width, typed contents, shape options and links, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, a clickable live preview (pinned, and full size at `/builder/preview`) that runs the page's behaviours, ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
+| Builder | One workspace: library of 218 plain-named parts — every one a working component — a page frame at desktop/tablet/phone width, typed contents, shape options and links, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, a clickable live preview (pinned, and full size at `/builder/preview`) that runs the page's behaviours, six colour roles any element can override for itself, a texture stack that compiles to CSS, ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
 | Shell | Top bar with route tabs, collapsible sidebar rail, status bar (latency, clock, density, sound), slide-over panels |
 | Interaction | Global right-click with stacked scopes, ⌘K palette (commands + pages + toggles), chords like `g p`, cheat sheet on `?` |
 | Feedback | Sound on pointer-down, haptics, press scale, flash-on-change, number tweening, optimistic done states |

@@ -15,6 +15,7 @@ import {
   TEXTURE_KINDS, toHex, withAlpha, type BlendMode, type Harmony, type Oklch, type RoleId, type TextureKind,
 } from "./look";
 import { resolvePalette } from "./parts/theme";
+import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -244,14 +245,38 @@ function TextureSection() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   const s = () => useStudio.getState();
 
-  const onFile = (id: string, file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => s().updateTexture(id, { src: String(reader.result), kind: "image" });
-    reader.readAsDataURL(file);
+  /**
+   * An image dropped or pasted anywhere on this section becomes a texture:
+   * it replaces the open image layer if there is one, and otherwise arrives
+   * as a new layer, so there is nothing to set up before dropping.
+   */
+  const takeImage = (src: string, id?: string) => {
+    const layers = useStudio.getState().look.texture;
+    const target = id ?? (openId && layers.find((l) => l.id === openId && l.kind === "image") ? openId : null);
+    if (target) {
+      s().updateTexture(target, { src, kind: "image" });
+      return;
+    }
+    const layer = { ...newLayer("image"), src };
+    s().addTexture(layer);
+    setOpenId(layer.id);
   };
+  const [dropping, setDropping] = React.useState(false);
+  usePasteImage(true, (src) => takeImage(src));
 
   return (
-    <section className="space-y-2 p-3">
+    <section
+      className={cn("space-y-2 p-3 transition-colors", dropping && "bg-accent/10")}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } }}
+      onDragLeave={() => setDropping(false)}
+      onDrop={(e) => {
+        const file = imageFrom(e.dataTransfer);
+        setDropping(false);
+        if (!file) return;
+        e.preventDefault();
+        void readImage(file).then((src) => takeImage(src));
+      }}
+    >
       <div className="flex items-center justify-between">
         <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
         <Select
@@ -322,16 +347,11 @@ function TextureSection() {
                     />
                   </div>
                   {layer.kind === "image" ? (
-                    <label className="flex cursor-pointer items-center justify-center rounded-md border border-dashed border-border p-2 text-[10px] text-fg-muted hover:border-accent hover:text-fg">
-                      {layer.src ? "Replace image" : "Choose an image"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        aria-label="Texture image"
-                        className="sr-only"
-                        onChange={(e) => e.target.files?.[0] && onFile(layer.id, e.target.files[0]!)}
-                      />
-                    </label>
+                    <ImageWell
+                      src={layer.src}
+                      onImage={(src) => takeImage(src, layer.id)}
+                      onClear={layer.src ? () => s().updateTexture(layer.id, { src: undefined }) : undefined}
+                    />
                   ) : null}
                   <Row label="Scale" value={`${layer.scale}px`}>
                     <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} />

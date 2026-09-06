@@ -6,7 +6,7 @@
  */
 import type * as React from "react";
 import type { FormatValues } from "../format";
-import { paletteFromHue, textureCss, type Look, type Palette } from "../look";
+import { paletteFromHue, parseColor, contrast, textureCss, ROLES, type Look, type Palette, type RoleId } from "../look";
 
 export interface Theme {
   bg: string;
@@ -20,6 +20,10 @@ export interface Theme {
   accentText: string;
   /** When a texture is set, the full background properties for the page. */
   surfaceStyle?: React.CSSProperties;
+  /** When the texture is painted on surfaces, the properties every card wears. */
+  surfacePaint?: React.CSSProperties;
+  /** Set only when a part overrides its own background, so `Fill` paints it. */
+  ownBackground?: string;
   radius: number;
   light: boolean;
   backdrop: string;
@@ -72,13 +76,18 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
   // A palette override wins over anything derived from the hue, and the texture
   // stack is painted over whatever the background ends up being.
   const roles = resolvePalette(format, look);
-  const painted = look?.texture?.length ? textureCss(look.texture, roles, roles.bg) : null;
+  const target = look?.target ?? "page";
+  const layers = look?.texture?.filter((l) => l.on) ?? [];
+  const painted = layers.length && target !== "surfaces" ? textureCss(layers, roles, roles.bg) : null;
+  // The same stack, over the surface colour, for cards and panels.
+  const onSurfaces = layers.length && target !== "page" ? textureCss(layers, roles, roles.surface) : null;
 
   return {
     bg: roles.bg,
     backdrop: painted ? "" : backdrop,
     /** When a texture is set, this is the whole set of background properties. */
     surfaceStyle: painted ?? undefined,
+    surfacePaint: onSurfaces ?? undefined,
     surface: roles.surface,
     line: light ? `oklch(0.88 0.01 ${hue})` : `oklch(0.31 0.014 ${hue})`,
     text: roles.text,
@@ -134,5 +143,47 @@ export function boxStyles(t: Theme): React.CSSProperties {
 
 /** The surface-card look every boxed part shares. */
 export function cardStyle(t: Theme): React.CSSProperties {
-  return { background: t.surface, border: `1px solid ${t.line}`, borderRadius: t.radius };
+  return { background: t.surface, ...(t.surfacePaint ?? {}), border: `1px solid ${t.line}`, borderRadius: t.radius };
+}
+
+/**
+ * A part can repaint any of the six roles for itself. A value is either a
+ * colour, or the name of another role — "make this one's background the
+ * accent" — which is how a single element is picked out without inventing a
+ * colour that belongs to nothing.
+ */
+export type NodeColour = Partial<Record<RoleId, string>>;
+
+export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): Theme {
+  const resolve = (v: string): string | null => {
+    const trimmed = v.trim();
+    if (!trimmed) return null;
+    if ((ROLES as readonly string[]).includes(trimmed)) return palette[trimmed as RoleId];
+    return parseColor(trimmed) ? trimmed : null;
+  };
+  const next: Theme = { ...t };
+  let touched = false;
+  for (const role of ROLES) {
+    const raw = colour[role];
+    if (!raw) continue;
+    const value = resolve(raw);
+    if (!value) continue;
+    touched = true;
+    next[role] = value;
+    if (role === "bg") {
+      next.ownBackground = value;
+      // The page's texture belongs to the page, not to a part that repaints itself.
+      next.surfaceStyle = undefined;
+    }
+    if (role === "surface") next.surfacePaint = undefined;
+  }
+  if (!touched) return t;
+  // Whatever sits on the accent has to stay readable against it.
+  const accent = parseColor(next.accent);
+  if (accent) {
+    const dark = parseColor("oklch(0.16 0.02 0)")!;
+    const light = parseColor("oklch(0.99 0 0)")!;
+    next.accentText = contrast(accent, dark) >= contrast(accent, light) ? "oklch(0.16 0.02 0)" : "oklch(0.99 0 0)";
+  }
+  return next;
 }

@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 import { getFeature } from "./catalog";
 import { isLinkable } from "./parts";
-import { HUES, useStudio, type StudioNode } from "./store";
+import { useStudio, type StudioNode } from "./store";
+import { ColourOverride } from "./ColourOverride";
+import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
@@ -177,6 +179,9 @@ function Panel({ wedge, node }: { wedge: WedgeId; node: StudioNode }) {
   const feature = getFeature(node.featureId);
   const frameWidth = useStudio((s) => s.frameWidth);
   const pages = useStudio((s) => s.pages);
+  const format = useStudio((st) => st.format);
+  const look = useStudio((st) => st.look);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const s = () => useStudio.getState();
   const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
 
@@ -247,19 +252,7 @@ function Panel({ wedge, node }: { wedge: WedgeId; node: StudioNode }) {
           <p className="mb-2 text-[11px] text-fg-muted">No options on this part yet.</p>
         )}
         <Row label="Colour">
-          <div className="flex flex-wrap gap-1">
-            <button type="button" onClick={() => update({ hue: null })} className={cn("tactile size-5 rounded-sm border text-[9px]", node.hue === null ? "border-fg" : "border-border")}>A</button>
-            {HUES.map((h) => (
-              <button
-                key={h}
-                type="button"
-                aria-label={`Hue ${h}`}
-                onClick={() => update({ hue: h })}
-                className={cn("tactile size-5 rounded-sm border", node.hue === h ? "border-fg" : "border-transparent")}
-                style={{ background: `oklch(0.72 0.16 ${h})` }}
-              />
-            ))}
-          </div>
+          <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
         </Row>
       </>
     );
