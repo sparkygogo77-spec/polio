@@ -15,10 +15,14 @@ row, width in the frame is width on the site, a drawn region is a region, an
 arrow is a relationship. Say what each part *shows or does* in its data box —
 or draw a wire from one part to another and it fills itself in — and the
 blueprint gains a list of everything a backend would have to provide. Nothing
-is reflowed to fit. The parts are real
-components: on the board they hold still, in the live preview pinned to the
-board tabs switch, the search box filters what you typed, rows expand and
-links move between pages. Press `p` for the live site full size. Set the format (pages, scroll behaviour, typography and text-box
+is reflowed to fit. **All 218 parts are real components** — every one of them:
+on the board they hold still, in the live preview tabs switch, the cart adds
+up, the checkout rejects a card that fails its checksum, a table of five
+thousand rows sorts and filters, the console answers `help`. The ones that are
+behaviours rather than boxes — snapping, parallax, a custom cursor, an opening
+sequence — draw a small moving picture of what they do on the board, then take
+no room at all in the live site, where they run for real. Press `p` for the
+live site full size. Set the format (pages, scroll behaviour, typography and text-box
 treatment, ~70 options), write the one prompt that says what the site *is*, and
 compile it into a blueprint any agent can act on — or hand it to Claude from
 the page.
@@ -47,7 +51,7 @@ cp .env.example .env.local && echo "ANTHROPIC_API_KEY=sk-ant-…" >> .env.local
 
 | Area | Highlights |
 |---|---|
-| Builder | One workspace: library of 218 plain-named parts, a page frame at desktop/tablet/phone width, parts as real components with typed contents, shape options and links, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, a clickable live preview (pinned, and full size at `/builder/preview`), ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
+| Builder | One workspace: library of 218 plain-named parts — every one a working component — a page frame at desktop/tablet/phone width, typed contents, shape options and links, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, a clickable live preview (pinned, and full size at `/builder/preview`) that runs the page's behaviours, ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
 | Shell | Top bar with route tabs, collapsible sidebar rail, status bar (latency, clock, density, sound), slide-over panels |
 | Interaction | Global right-click with stacked scopes, ⌘K palette (commands + pages + toggles), chords like `g p`, cheat sheet on `?` |
 | Feedback | Sound on pointer-down, haptics, press scale, flash-on-change, number tweening, optimistic done states |

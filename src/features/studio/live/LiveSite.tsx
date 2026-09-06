@@ -10,6 +10,8 @@ import type { FormatValues } from "../format";
 import { themeFrom, type NodeLink, type PartEvent } from "../parts";
 import type { Look } from "../look";
 import type { StudioNode, StudioPage } from "../store";
+import { deriveBehaviours } from "./behaviours";
+import { LiveShell } from "./LiveShell";
 import { placeNodes, type Device } from "./layout";
 
 export interface LiveSiteProps {
@@ -46,12 +48,14 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const t = React.useMemo(() => themeFrom(format, look), [format, look]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const { width, height, placed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
+  const behaviours = React.useMemo(() => deriveBehaviours(pageNodes), [pageNodes]);
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const seq = React.useRef(0);
 
   const emit = React.useCallback(
     (e: PartEvent) => {
       onEvent?.(e);
+      if (e.type === "success") window.dispatchEvent(new CustomEvent("builder:success"));
       const text = e.type === "toast" ? e.text : e.type === "success" ? "Done" : e.type === "cart" ? `${e.delta > 0 ? "Added" : "Removed"} ${e.item}` : e.type === "auth" ? (e.signedIn ? `Signed in${e.name ? ` as ${e.name}` : ""}` : "Signed out") : null;
       if (!text) return;
       const id = ++seq.current;
@@ -93,18 +97,20 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       data-live-page={pageId}
       style={{ width, height, position: "relative", overflow: "hidden", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
     >
-      <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
-        {placed.map((p) => (
-          <div key={p.node.id} data-live-node={p.node.id} {...nodeProps?.(p.node)} style={{ position: "absolute", left: p.x, top: p.y, width: p.w, height: p.h }}>
-            <Block node={p.node} t={t} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={emit} />
-          </div>
-        ))}
-        {placed.length === 0 ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontFamily: t.bodyFamily, fontSize: 14 }}>
-            Nothing on this page yet.
-          </div>
-        ) : null}
-      </div>
+      <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface}>
+        <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
+          {placed.map((p) => (
+            <div key={p.node.id} data-live-node={p.node.id} {...nodeProps?.(p.node)} style={{ position: "absolute", left: p.x, top: p.y, width: p.w, height: p.h }}>
+              <Block node={p.node} t={t} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={emit} />
+            </div>
+          ))}
+          {placed.length === 0 ? (
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontFamily: t.bodyFamily, fontSize: 14 }}>
+              Nothing on this page yet.
+            </div>
+          ) : null}
+        </div>
+      </LiveShell>
       {toasts.length ? (
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, pointerEvents: "none" }}>
           {toasts.map((x) => (

@@ -9,10 +9,11 @@ import { radiusFor, type Theme } from "./theme";
 
 /** Fills the part's box and sets the type. `overflow` is visible for parts that open things. */
 export function Fill({
-  t, children, style, overflow = "hidden", ...rest
-}: { t: Theme; children: React.ReactNode; style?: React.CSSProperties; overflow?: "hidden" | "visible" } & Omit<React.HTMLAttributes<HTMLDivElement>, "style">) {
+  t, children, style, overflow = "hidden", ref, ...rest
+}: { t: Theme; children: React.ReactNode; style?: React.CSSProperties; overflow?: "hidden" | "visible"; ref?: React.Ref<HTMLDivElement> } & Omit<React.HTMLAttributes<HTMLDivElement>, "style">) {
   return (
     <div
+      ref={ref}
       {...rest}
       style={{
         width: "100%", height: "100%", overflow, boxSizing: "border-box", position: "relative",

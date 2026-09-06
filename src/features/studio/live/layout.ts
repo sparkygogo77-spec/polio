@@ -6,6 +6,7 @@
  * in reading order at the device width, heights kept.
  */
 import { getFeature } from "../catalog";
+import { resolvePart } from "../parts";
 import type { StudioNode } from "../store";
 import { toRows } from "../spec";
 
@@ -25,7 +26,9 @@ export function frameHeightOf(nodes: StudioNode[], min = 900): number {
   return Math.max(min, bottom + 160);
 }
 
-export function placeNodes(nodes: StudioNode[], device: Device, frameWidth: number): { width: number; height: number; placed: Placed[]; reflowed: boolean } {
+export function placeNodes(all: StudioNode[], device: Device, frameWidth: number): { width: number; height: number; placed: Placed[]; reflowed: boolean } {
+  // Behaviours apply to the whole page; they take no room in it.
+  const nodes = all.filter((n) => resolvePart(n.featureId)?.tier !== "B");
   const target = device === "desktop" ? frameWidth : DEVICE_WIDTH[device];
   if (target >= frameWidth) {
     return {

@@ -119,7 +119,7 @@ export function PreviewWindow() {
       </header>
 
       {open ? (
-        <div className={cn("overflow-y-auto", size === "l" ? "max-h-[54vh]" : "max-h-[40vh]")} onClickCapture={onPick}>
+        <div data-live-scroller="" className={cn("relative overflow-y-auto", size === "l" ? "max-h-[54vh]" : "max-h-[40vh]")} onClickCapture={onPick}>
           {pageNodes.length ? (
             <div style={{ width: boxW, height: Math.round(height * scale), position: "relative", overflow: "hidden" }}>
               <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>

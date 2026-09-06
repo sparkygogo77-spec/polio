@@ -94,15 +94,16 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 src/features/studio/
   catalog.ts     218 parts in 14 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
-  blocks.tsx     dispatcher: Block → parts/ (or parts/legacy.tsx until migrated)
+  blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
                  no store / Radix / core imports — a generated site ships this folder
-                 Layout Hero Text Media Forms Tabs Accordion Header SearchBox
-                 Cta Behaviour + legacy.tsx (not yet migrated) + the fallback
+                 Layout Hero Text Media Forms Tabs Accordion Header SearchBox Cta
+                 Commerce Data Social Ai Power Platform Ops Interact Motion Behaviour
   look.ts        colour (OKLCH maths, harmony, contrast) and texture (layer → CSS)
   LookPanel.tsx  the mixer and the texture stack
   Palette.tsx    the parts drawer under the board
   live/          the live site: layout (absolute or reflowed), LiveSite renderer,
+                 behaviours.ts + LiveShell.tsx (tier B run for real),
                  PreviewPage route at /builder/preview/<page>
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
   store.ts       the document: pages, nodes, groups, shapes, format, brief, frame width
@@ -159,9 +160,19 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   number comes from `parts/sample.ts`, seeded by the content, so board, live
   preview and generated site agree.
 - Tiers: **A** visual part (a real component); **B** behaviour applied to the
-  whole live site (scroll effects, cursor, shortcuts — chip on the board, effect
-  in `live/`); **C** platform mock that cannot run in a browser (auth, checkout)
-  and shows a truthful state change instead.
+  whole live site; **C** platform mock that cannot run in a browser (auth,
+  checkout, an API) and shows a truthful state change instead.
+- A **tier-B part draws a small scene of what it does** on the board — snapping,
+  parallax, a wipe, a morph — rather than a nameless chip, because the name
+  ("Morphing transition") does not tell you anything on its own. In the live
+  site it is *not laid out at all*: `placeNodes` drops tier B, and `LiveShell`
+  turns the ones present into real effects — progress bar, back-to-top, reveal
+  on scroll, parallax on the page background, smooth scrolling, snap, the
+  opening wipe, a custom cursor, tilt on hover, confetti on success. The six
+  that cannot be run honestly in a preview (`sticky-story`, `scroll-video`,
+  `morph-transition`, `physics`, `horizontal-scroll`, `infinite-scroll`) are
+  named in the corner of the preview and written into the blueprint instead of
+  faked.
 - `node.link` (`{ kind: "page" | "url" | "node", target }`) is where a
   linkable part sends people; nav bars also resolve link labels to pages by
   name with no setup. The blueprint writes it as `links to:`.
@@ -175,11 +186,11 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   section, so a final prompt that builds the server is written against a list
   the board produced rather than from memory. None of it is domain-specific:
   it is free text plus wires.
-- Anything without an archetype yet draws through `parts/legacy.tsx`, then
-  the labelled-box fallback (`data-part-fallback`). Layout, navigation, first
-  screen, text, media and forms are migrated — 90 parts, no fallbacks; shop,
-  data, social, AI, dense and under-the-hood are still legacy. Every part's root carries
-  `data-part={id}`; the live page wraps each in `[data-live-node=id]`.
+- **All 218 ids are real components.** There is no legacy path: `blocks.tsx`
+  falls back to a labelled box (`data-part-fallback`) only if an id loses its
+  `DEFS` line, and `all.mjs` fails if that ever happens. Every part's root
+  carries `data-part={id}`, tier-B roots also carry `data-behaviour`, and the
+  live page wraps each laid-out part in `[data-live-node=id]`.
 - The store is persisted with `skipHydration`; every Builder surface calls
   `useStudioHydration()` first so the saved board comes back before any
   effect writes. Without it a reload wipes the document.
@@ -194,8 +205,8 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   field, add a `DETAILS` entry (`w`, `h`, `options`, `content: { label,
   placeholder }`). To make it real, write or extend an archetype in `parts/`
   and add the id to `DEFS` in `parts/index.ts` (one line: component, ids,
-  tier, linkable). Until then it draws through `parts/legacy.tsx` or the
-  labelled-box fallback.
+  tier, linkable). Every id must appear in `DEFS`; without a line it draws as
+  a labelled box and `all.mjs` fails.
 - *A new site-format option*: add one entry to `FORMAT_FIELDS` in `format.ts`.
   The panel renders it generically, the compiler emits it when changed, and the
   preview should honour it if it is visual. Mark it `advanced: true` unless it

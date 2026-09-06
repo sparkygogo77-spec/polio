@@ -38,6 +38,8 @@ src/features/
   home/                        landing page from site config + registry
   studio/                      the Builder (UI says Builder; internals keep the studio id)
     catalog.ts / format.ts     the 218 parts and ~70 format options, as data
+    parts/                     all 218 as real components, props only (see AGENTS.md)
+    live/                      LiveSite, LiveShell (tier-B behaviours), the preview route
     store.ts / spec.ts         the document and its compiler
     Canvas / Palette / Preview / Inspector / FormatPanel / PagesPanel / BriefDialog
   showcase/                    reference: every primitive live, hidden from nav

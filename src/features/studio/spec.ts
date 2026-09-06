@@ -8,6 +8,7 @@
  * specification rather than decoration.
  */
 import { getFeature, categoryOf } from "./catalog";
+import { resolvePart } from "./parts";
 import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
 import { describeLook, type Look } from "./look";
 import { resolvePalette } from "./parts/theme";
@@ -32,6 +33,8 @@ interface NodeSpec {
   feature: string;
   featureId: string;
   category: string;
+  /** A: a part in the layout. B: a behaviour applied to the whole page. C: needs a service behind it. */
+  tier: "A" | "B" | "C";
   priority: string;
   prompt: string;
   content: string;
@@ -187,22 +190,26 @@ export function compileSpec(input: CompileInput): Spec {
     const pNodes = nodes.filter((n) => n.pageId === page.id);
     const pShapes = shapes.filter((s) => s.pageId === page.id);
     const pGroups = groups.filter((g) => g.pageId === page.id);
-    const rows = toRows(pNodes);
+    // Behaviours apply to the whole page, so they are not part of its layout.
+    const tierOf = (n: StudioNode): NodeSpec["tier"] => resolvePart(n.featureId)?.tier ?? "A";
+    const laidOut = pNodes.filter((n) => tierOf(n) !== "B");
+    const behaving = pNodes.filter((n) => tierOf(n) === "B");
+    const rows = toRows(laidOut);
     const byId = new Map(pNodes.map((n) => [n.id, n]));
 
     const elements: NodeSpec[] = [];
-    rows.forEach((row, rowIndex) => {
-      row.forEach((n, colIndex) => {
-        const feature = getFeature(n.featureId);
-        const frame = frameContaining(pShapes, n);
-        const prevRow = rows[rowIndex - 1];
-        const nextRow = rows[rowIndex + 1];
-        elements.push({
+    const place = (n: StudioNode, rowIndex: number, colIndex: number, row: StudioNode[]) => {
+      const feature = getFeature(n.featureId);
+      const frame = frameContaining(pShapes, n);
+      const prevRow = rows[rowIndex - 1];
+      const nextRow = rows[rowIndex + 1];
+      elements.push({
           id: n.id,
           label: n.label,
           feature: feature?.name ?? n.label,
           featureId: n.featureId,
           category: feature ? categoryOf(feature.category).label : "Custom",
+          tier: tierOf(n),
           priority: n.priority,
           prompt: n.prompt.trim(),
           content: (n.content ?? "").trim(),
@@ -224,9 +231,11 @@ export function compileSpec(input: CompileInput): Spec {
           rightOf: row[colIndex - 1]?.label ?? null,
           above: nextRow?.[0]?.label ?? null,
           below: prevRow?.[0]?.label ?? null,
-        });
       });
-    });
+    };
+    rows.forEach((row, rowIndex) => row.forEach((n, colIndex) => place(n, rowIndex, colIndex, row)));
+    // Behaviours come last, at row 0 — they have no place in the layout.
+    behaving.forEach((n) => place(n, -1, -1, []));
 
     const connections = pShapes
       .filter((s) => s.kind === "arrow" && s.points.length >= 2)
@@ -363,9 +372,11 @@ export function specToMarkdown(spec: Spec): string {
       L.push("");
     }
 
-    if (page.elements.length) {
+    const behaviours = page.elements.filter((e) => e.tier === "B");
+    const laidOut = page.elements.filter((e) => e.tier !== "B");
+    if (laidOut.length) {
       L.push("Elements:", "");
-      for (const e of page.elements) {
+      for (const e of laidOut) {
         const opts = Object.entries(e.options).filter(([, v]) => v);
         L.push(`- **${e.label}** — ${e.feature} (${e.category}) · ${e.priority}`);
         const place: string[] = [`row ${e.row}, position ${e.column}`, e.align === "full" ? "full width" : `${e.widthPct}% wide, ${e.align}`, `about ${e.heightPx}px tall`];
@@ -380,6 +391,17 @@ export function specToMarkdown(spec: Spec): string {
         if (e.data) L.push(`  - data: ${e.data}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
+      }
+      L.push("");
+    }
+
+    if (behaviours.length) {
+      L.push("Behaviours on this page — these apply to the whole page and are not laid out in it:", "");
+      for (const b of behaviours) {
+        const opts = Object.entries(b.options).filter(([, v]) => v);
+        L.push(`- **${b.feature}**${b.content ? ` — ${b.content}` : ""}`);
+        if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
+        if (b.prompt) L.push(`  - prompt: ${b.prompt}`);
       }
       L.push("");
     }
@@ -434,7 +456,8 @@ export function specToMarkdown(spec: Spec): string {
     "in pixels, and both are deliberate — build to them, do not reflow to fit. \"contains\"",
     "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people;",
     "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it.",
-    "Anything inside a region belongs to that region. Element prompts are specific to that placement and override anything more",
+    "Anything inside a region belongs to that region. Behaviours are listed apart from the elements because they",
+    "change how the whole page moves rather than occupying a place in it. Element prompts are specific to that placement and override anything more",
     "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",
     "",
   );
