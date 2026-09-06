@@ -65,6 +65,7 @@ export function Canvas() {
   const inkHue = useStudio((s) => s.inkHue);
   const inkWidth = useStudio((s) => s.inkWidth);
   const frameWidth = useStudio((s) => s.frameWidth);
+  const showWires = useStudio((s) => s.showWires);
   const fitNonce = useStudio((s) => s.fitNonce);
   const format = useStudio((s) => s.format);
   const theme = React.useMemo(() => themeFrom(format), [format]);
@@ -219,6 +220,15 @@ export function Canvas() {
         setDrag({ kind: "node", startX: p.x, startY: p.y, ids, origin });
         return;
       }
+      // Drawings, regions and wires select on click too — not only by marquee.
+      const shapeEl = target.closest?.("[data-shape-id]") as SVGElement | HTMLElement | null;
+      const shapeId = shapeEl?.dataset?.shapeId;
+      if (shapeId && shapeId !== "live") {
+        if (e.shiftKey) store.toggleSelection(shapeId);
+        else store.setSelection([shapeId]);
+        play("select");
+        return;
+      }
       if (!e.shiftKey) store.clearSelection();
       capture();
       setDrag({ kind: "marquee", startX: p.x, startY: p.y });
@@ -339,7 +349,8 @@ export function Canvas() {
       const to = kind === "arrow" ? hitNode(nodes, pts[pts.length - 1]![0], pts[pts.length - 1]![1]) : null;
       const dist = Math.hypot(pts[pts.length - 1]![0] - pts[0]![0], pts[pts.length - 1]![1] - pts[0]![1]);
       if (kind === "pen" || dist > 16) {
-        store.addShape({ pageId: store.activePageId, kind, points: pts, hue: inkHue, width: inkWidth, label: "", prompt: "", fromNodeId: from?.id ?? null, toNodeId: to?.id ?? null });
+        store.addShape({ pageId: store.activePageId, kind, points: pts, hue: inkHue, width: inkWidth, label: "", prompt: "", relation: "flow",
+        fromNodeId: from?.id ?? null, toNodeId: to?.id ?? null });
         play("tap");
       }
     }
@@ -401,7 +412,7 @@ export function Canvas() {
             if (!b) return null;
             return <rect key={g.id} x={b.x - 14} y={b.y - 22} width={b.w + 28} height={b.h + 36} rx={12} fill={`oklch(0.7 0.15 ${g.hue} / 0.07)`} stroke={`oklch(0.7 0.15 ${g.hue} / 0.5)`} strokeDasharray="6 4" />;
           })}
-          {shapes.map((sh) => <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} />)}
+          {shapes.filter((sh) => showWires || sh.kind !== "arrow").map((sh) => <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} />)}
           {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
           {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
@@ -431,9 +442,14 @@ export function Canvas() {
 
         {nodes.map((n) => <NodeView key={n.id} node={n} selected={selection.includes(n.id)} theme={theme} zoom={zoom} />)}
 
-        {shapes.filter((sh) => sh.label || sh.prompt).map((sh) => {
+        {shapes.filter((sh) => (sh.label || sh.prompt || sh.relation === "data") && (showWires || sh.kind !== "arrow")).map((sh) => {
           const b = shapeBounds(sh);
-          return <div key={`label-${sh.id}`} className="pointer-events-none absolute max-w-[180px] truncate rounded-sm px-1 text-[10px]" style={{ left: b.x, top: b.y - 16, color: `oklch(0.78 0.15 ${sh.hue})` }}>{sh.label || "✎"}</div>;
+          const data = sh.relation === "data";
+          return (
+            <div key={`label-${sh.id}`} className="pointer-events-none absolute max-w-[180px] truncate rounded-sm px-1 text-[10px]" style={{ left: b.x + (data ? b.w / 2 - 20 : 0), top: b.y + (data ? b.h / 2 - 8 : -16), color: `oklch(0.78 0.15 ${sh.hue})` }}>
+              {data ? `⛓ ${sh.label || "data"}` : sh.label || "✎"}
+            </div>
+          );
         })}
       </div>
 
@@ -480,7 +496,27 @@ const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: St
   }
   if (shape.kind === "arrow" && shape.points.length >= 2) {
     const [p1, p2] = [shape.points[0]!, shape.points[shape.points.length - 1]!];
-    return <line {...common} x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} markerEnd="url(#studio-arrow)" style={{ color }} strokeLinecap="round" />;
+    const data = shape.relation === "data";
+    const { className, ...line } = common;
+    return (
+      <g className={className} {...(shape.id !== "live" ? ctxProps("studio-shape", shape.id, shape) : {})} data-shape-id={shape.id}>
+        {/* A wire is three pixels wide; this invisible one is easy to hit. */}
+        <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke="transparent" strokeWidth={16} fill="none" strokeLinecap="round" />
+        <line
+          {...line}
+          data-shape-id={undefined}
+          x1={p1[0]}
+          y1={p1[1]}
+          x2={p2[0]}
+          y2={p2[1]}
+          markerEnd="url(#studio-arrow)"
+          style={{ color }}
+          strokeLinecap="round"
+          strokeDasharray={data ? "2 6" : undefined}
+          strokeWidth={data ? shape.width + 1 : shape.width}
+        />
+      </g>
+    );
   }
   return <path {...common} d={penPath(shape.points)} strokeLinecap="round" strokeLinejoin="round" />;
 });

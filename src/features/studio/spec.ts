@@ -34,6 +34,10 @@ interface NodeSpec {
   options: Record<string, string>;
   /** Where it sends people, in words. */
   link: string | null;
+  /** What it shows or does — what the backend must provide. */
+  data: string;
+  /** Parts this one reads from, via data wires. */
+  feeds: string[];
   group: string | null;
   region: string | null;
   row: number;
@@ -55,6 +59,8 @@ export interface PageSpec {
   scroll: string;
   rows: { index: number; items: string[] }[];
   elements: NodeSpec[];
+  /** Data wires: which part feeds which. */
+  wires: { from: string; to: string; label: string }[];
   groups: { label: string; prompt: string; members: string[] }[];
   regions: { label: string; prompt: string; contains: string[] }[];
   connections: { from: string; to: string; label: string; prompt: string }[];
@@ -195,6 +201,11 @@ export function compileSpec(input: CompileInput): Spec {
           content: (n.content ?? "").trim(),
           options: n.options,
           link: describeLink(n.link, pages),
+          data: (n.data ?? "").trim(),
+          feeds: pShapes
+            .filter((sh) => sh.kind === "arrow" && sh.relation === "data" && sh.toNodeId === n.id)
+            .map((sh) => pNodes.find((x) => x.id === sh.fromNodeId)?.label)
+            .filter((x): x is string => !!x),
           widthPct: Math.round((Math.min(n.w, fw) / fw) * 100),
           heightPx: n.h,
           align: alignOf(n, fw),
@@ -249,6 +260,14 @@ export function compileSpec(input: CompileInput): Spec {
       scroll: page.scroll,
       rows: rows.map((r, i) => ({ index: i + 1, items: r.map((n) => n.label) })),
       elements,
+      wires: pShapes
+        .filter((sh) => sh.kind === "arrow" && sh.relation === "data")
+        .map((sh) => ({
+          from: (sh.fromNodeId && byId.get(sh.fromNodeId)?.label) || "somewhere",
+          to: (sh.toNodeId && byId.get(sh.toNodeId)?.label) || "somewhere",
+          label: sh.label.trim(),
+        }))
+        .filter((w) => w.from !== w.to),
       groups: pGroups
         .map((g) => ({
           label: g.label,
@@ -345,6 +364,8 @@ export function specToMarkdown(spec: Spec): string {
         if (e.content) L.push(`  - contains: ${e.content}`);
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
         if (e.link) L.push(`  - links to: ${e.link}`);
+        if (e.data) L.push(`  - data: ${e.data}`);
+        if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
       }
       L.push("");
@@ -371,12 +392,35 @@ export function specToMarkdown(spec: Spec): string {
     if (!page.elements.length && !page.sketches.length) L.push("_(empty page)_", "");
   });
 
+  const withData = spec.pages.flatMap((p) => p.elements.filter((e) => e.data || e.feeds.length).map((e) => ({ page: p, e })));
+  const wires = spec.pages.flatMap((p) => p.wires.map((w) => ({ page: p, w })));
+  if (withData.length || wires.length) {
+    L.push("## What the backend must provide", "");
+    L.push(
+      "Written from the data notes on each part. Everything below is something the",
+      "finished site needs from a server, a contract or a feed — the front end is",
+      "already specified above. Build these to fit the parts named, not the other way round.",
+      "",
+    );
+    for (const { page, e } of withData) {
+      const where = `${page.name}, row ${e.row}`;
+      L.push(`- **${e.label}** (${where}) — ${e.data || "reads from another part"}`);
+      if (e.feeds.length) L.push(`  - fed by: ${e.feeds.join(", ")}`);
+    }
+    if (wires.length) {
+      L.push("", "Wires between parts:", "");
+      for (const { page, w } of wires) L.push(`- ${w.from} → ${w.to}${w.label ? ` (${w.label})` : ""} — on ${page.name}`);
+    }
+    L.push("");
+  }
+
   L.push("## How to read this", "");
   L.push(
     "Positions are relative to a page frame. Vertical position is reading order; horizontal",
     "position is arrangement within a row; width is given as a share of the frame and height",
     "in pixels, and both are deliberate — build to them, do not reflow to fit. \"contains\"",
-    "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people.",
+    "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people;",
+    "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it.",
     "Anything inside a region belongs to that region. Element prompts are specific to that placement and override anything more",
     "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",
     "",

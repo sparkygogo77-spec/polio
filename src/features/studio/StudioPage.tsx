@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Eraser, Eye, FileText, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  ArrowUpRight, Eraser, Eye, FileText, Link2, Link2Off, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Pencil, Plus, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
@@ -46,6 +46,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   const zoom = useStudio((s) => s.zoom);
   const inkHue = useStudio((s) => s.inkHue);
   const frameWidth = useStudio((s) => s.frameWidth);
+  const showWires = useStudio((s) => s.showWires);
   const past = useStudio((s) => s.past.length);
   const future = useStudio((s) => s.future.length);
   const router = useRouter();
@@ -114,6 +115,11 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <Tooltip content="Fit the frame in view" shortcut="f">
         <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => useStudio.getState().requestFit()}>
           <Scan />
+        </Button>
+      </Tooltip>
+      <Tooltip content={showWires ? "Hide the wires between parts" : "Show the wires between parts"} shortcut="w">
+        <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>
+          {showWires ? <Link2 /> : <Link2Off />}
         </Button>
       </Tooltip>
       <Tooltip content="Open the live preview" shortcut="p">

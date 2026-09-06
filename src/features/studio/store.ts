@@ -25,6 +25,7 @@ import type { NodeLink } from "./parts/types";
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
 export type ShapeKind = "pen" | "frame" | "arrow";
+export type ShapeRelation = "flow" | "data";
 
 export interface StudioNode {
   id: string;
@@ -50,6 +51,8 @@ export interface StudioNode {
   locked: boolean;
   /** Where this part sends you (a page, a web address, another part). */
   link: NodeLink | null;
+  /** What it shows or does — the values and actions the backend must provide. */
+  data: string;
 }
 
 export interface StudioGroup {
@@ -73,6 +76,8 @@ export interface StudioShape {
   /** Arrows can bind two nodes into an explicit relation. */
   fromNodeId?: string | null;
   toNodeId?: string | null;
+  /** "flow" is a plain relationship; "data" means the target reads from the source. */
+  relation?: ShapeRelation;
 }
 
 export interface StudioPage {
@@ -122,6 +127,8 @@ interface StudioState extends Doc {
   zoom: number;
   pan: { x: number; y: number };
   showAllFormat: boolean;
+  /** Wires between parts can be hidden so the board reads as the page. */
+  showWires: boolean;
   past: Doc[];
   future: Doc[];
 
@@ -141,6 +148,8 @@ interface StudioState extends Doc {
   /* shapes */
   addShape: (shape: Omit<StudioShape, "id">) => string;
   updateShape: (id: string, patch: Partial<StudioShape>) => void;
+  /** Marking a wire as a data link fills the target part's data box. */
+  setShapeRelation: (id: string, relation: ShapeRelation) => void;
   removeShapes: (ids: string[]) => void;
 
   /* pages */
@@ -169,6 +178,7 @@ interface StudioState extends Doc {
   setFormat: (id: string, value: string | number | boolean) => void;
   resetFormat: () => void;
   setShowAllFormat: (v: boolean) => void;
+  setShowWires: (v: boolean) => void;
   setBrief: (patch: Partial<StudioBrief>) => void;
   clearPage: (pageId: string) => void;
   resetAll: () => void;
@@ -226,6 +236,7 @@ export const useStudio = create<StudioState>()(
         zoom: 1,
         pan: { x: 0, y: 0 },
         showAllFormat: false,
+        showWires: true,
         past: [],
         future: [],
 
@@ -243,6 +254,7 @@ export const useStudio = create<StudioState>()(
                 label: feature?.name ?? "Element",
                 prompt: "",
                 content: "",
+                data: "",
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -358,6 +370,25 @@ export const useStudio = create<StudioState>()(
           set((s) => ({ shapes: s.shapes.map((sh) => (sh.id === id ? { ...sh, ...patch } : sh)) }));
         },
 
+        setShapeRelation: (id, relation) => {
+          push();
+          set((s) => {
+            const shape = s.shapes.find((x) => x.id === id);
+            if (!shape) return {};
+            const shapes = s.shapes.map((x) => (x.id === id ? { ...x, relation } : x));
+            // A data wire says the target reads from the source, so write that
+            // into the target's data box — that is the sentence the backend needs.
+            if (relation !== "data" || !shape.fromNodeId || !shape.toNodeId) return { shapes };
+            const from = s.nodes.find((n) => n.id === shape.fromNodeId);
+            const to = s.nodes.find((n) => n.id === shape.toNodeId);
+            if (!from || !to) return { shapes };
+            const line = `from ${from.label}`;
+            if (to.data.toLowerCase().includes(line.toLowerCase())) return { shapes };
+            const data = to.data.trim() ? `${to.data.trim()}, ${line}` : line;
+            return { shapes, nodes: s.nodes.map((n) => (n.id === to.id ? { ...n, data } : n)) };
+          });
+        },
+
         removeShapes: (ids) => {
           push();
           const set_ = new Set(ids);
@@ -446,6 +477,7 @@ export const useStudio = create<StudioState>()(
           set({ format: formatDefaults() });
         },
         setShowAllFormat: (v) => set({ showAllFormat: v }),
+        setShowWires: (v) => set({ showWires: v }),
         setBrief: (patch) => {
           push();
           set((s) => ({ brief: { ...s.brief, ...patch } }));
@@ -521,7 +553,8 @@ export const useStudio = create<StudioState>()(
         return {
           ...current,
           ...p,
-          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null })),
+          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "" })),
+          shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
         };
       },
       partialize: (s) => ({
@@ -533,6 +566,7 @@ export const useStudio = create<StudioState>()(
         brief: s.brief,
         activePageId: s.activePageId,
         showAllFormat: s.showAllFormat,
+        showWires: s.showWires,
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,

@@ -1,7 +1,7 @@
 import {
   ArrowUpRight, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
   MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
-  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, Link2,
+  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, Link2, Link2Off,
 } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
@@ -136,6 +136,7 @@ export const studio = defineFeature({
   shortcuts: [
     { keys: "g b", label: "Go to the Builder", group: "Navigate", run: (c) => c.navigate("/builder") },
     { keys: "p", label: "Open the live preview", group: "Builder", when: onBoard, run: (c) => c.navigate(livePath()) },
+    { keys: "w", label: "Show / hide the wires", group: "Builder", when: onBoard, run: () => { const s = useStudio.getState(); s.setShowWires(!s.showWires); } },
     { keys: "b", label: "Back to the board", group: "Builder", when: onPreview, run: (c) => c.navigate("/builder") },
     { keys: "l", label: "Show / hide the library", group: "Builder", when: onBoard, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
     { keys: "v", label: "Select tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("select") },
@@ -376,6 +377,17 @@ export const studio = defineFeature({
           { type: "label", label: shape.label || kind },
           { id: "studio.shape.prompt", label: shape.prompt ? "Edit its prompt" : "Write its prompt", icon: Wand2, onSelect: () => s.setSelection([shape.id]) },
           hueMenu(shape.hue, (h) => s.updateShape(shape.id, { hue: h ?? 265 })),
+          ...(shape.kind === "arrow"
+            ? [
+                {
+                  id: "studio.shape.relation",
+                  label: "Carries data",
+                  icon: Link2,
+                  checked: shape.relation === "data",
+                  onSelect: () => s.setShapeRelation(shape.id, shape.relation === "data" ? "flow" : "data"),
+                } satisfies MenuEntry,
+              ]
+            : []),
           {
             id: "studio.shape.width",
             label: "Stroke width",
@@ -423,6 +435,7 @@ export const studio = defineFeature({
           { id: "studio.canvas.selectAll", label: "Select everything", shortcut: "mod+a", onSelect: () => s.selectAll() },
           { id: "studio.canvas.fit", label: "Fit the frame in view", icon: ZoomIn, shortcut: "f", onSelect: () => s.requestFit() },
           { id: "studio.canvas.live", label: "Preview this page live", icon: Eye, shortcut: "p", onSelect: () => ctx.navigate(livePath()) },
+          { id: "studio.canvas.wires", label: s.showWires ? "Hide the wires" : "Show the wires", icon: s.showWires ? Link2Off : Link2, shortcut: "w", onSelect: () => s.setShowWires(!s.showWires) },
           {
             id: "studio.canvas.frame",
             label: "Frame width",

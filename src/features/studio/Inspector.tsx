@@ -149,6 +149,23 @@ export function Inspector() {
               onChange={(e) => useStudio.getState().updateShape(shape.id, { prompt: e.target.value })}
             />
           </Field>
+          {shape.kind === "arrow" ? (
+            <Field
+              label="Carries data"
+              hint="A data wire means the part it points at reads from the part it starts on. Turning this on writes that into the target's data box."
+            >
+              <Segmented
+                size="xs"
+                value={shape.relation === "data" ? "data" : "flow"}
+                onChange={(v) => useStudio.getState().setShapeRelation(shape.id, v as "data")}
+                options={[
+                  { value: "flow", label: "Relationship" },
+                  { value: "data", label: "Data" },
+                ]}
+                aria-label="Carries data"
+              />
+            </Field>
+          ) : null}
           <Field label="Colour">
             <HuePicker value={shape.hue} onChange={(h) => useStudio.getState().updateShape(shape.id, { hue: h ?? 265 })} />
           </Field>
@@ -369,6 +386,20 @@ export function Inspector() {
             ))}
           </div>
         ) : null}
+
+        <Field
+          label="Data"
+          hint="What this shows or does, in your words — the values and actions the backend has to provide. Wires pointing at this part fill it in."
+        >
+          <Textarea
+            autoGrow
+            rows={2}
+            aria-label="Data"
+            value={node.data}
+            placeholder="e.g. live coin price, trader P&L, time left — or: join duel"
+            onChange={(e) => update({ data: e.target.value })}
+          />
+        </Field>
 
         {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
 
