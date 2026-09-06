@@ -1,4 +1,4 @@
-# Polio — draw a website, then say what it is
+# Builder — lay out a website, then say what it is
 
 A Next.js 16 template with two halves that fit together:
 

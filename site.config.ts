@@ -10,11 +10,11 @@
 import { defineSite } from "@/core/site";
 
 export default defineSite({
-  name: "Polio",
-  tagline: "Draw what a site should be, then say what it is.",
+  name: "Builder",
+  tagline: "Lay out a site, then say what it is.",
   description:
     "A visual builder on top of a universal component foundation: place features on a canvas, give each one its own prompt, set the format, and compile it into a build brief any agent can act on.",
-  logoMark: "P",
+  logoMark: "◆",
   version: "0.1.0",
 
   layout: {
@@ -44,7 +44,7 @@ export default defineSite({
 
   home: {
     hero: {
-      eyebrow: "Template",
+      eyebrow: "Builder",
       title: "Lay out the site. Then tell it what to be.",
       subtitle:
         "218 common web features you can drop onto a canvas, draw around, group and connect — each with its own prompt. Position carries meaning, so where you put something is part of the spec. Compile it and hand the brief to any agent.",
@@ -55,7 +55,6 @@ export default defineSite({
     showAgentGuide: true,
   },
 
-  links: [{ label: "GitHub", href: "https://github.com/sparkygogo77-spec/polio", external: true }],
 
   // Demo modules are safe to remove once you have your own features.
   demoModules: ["showcase"],

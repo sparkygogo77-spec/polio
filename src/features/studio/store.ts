@@ -129,6 +129,8 @@ interface StudioState extends Doc {
   showAllFormat: boolean;
   /** Wires between parts can be hidden so the board reads as the page. */
   showWires: boolean;
+  /** Parts removed from the library. Nothing is deleted; they can come back. */
+  hiddenFeatures: string[];
   past: Doc[];
   future: Doc[];
 
@@ -179,6 +181,9 @@ interface StudioState extends Doc {
   resetFormat: () => void;
   setShowAllFormat: (v: boolean) => void;
   setShowWires: (v: boolean) => void;
+  hideFeature: (id: string) => void;
+  restoreFeature: (id: string) => void;
+  restoreAllFeatures: () => void;
   setBrief: (patch: Partial<StudioBrief>) => void;
   clearPage: (pageId: string) => void;
   resetAll: () => void;
@@ -217,6 +222,18 @@ function starterDoc(): Doc {
   };
 }
 
+/** Storage moved from the old name; carry a saved document across once. */
+function migrateKey(from: string, to: string) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    if (!localStorage.getItem(to) && localStorage.getItem(from)) {
+      localStorage.setItem(to, localStorage.getItem(from)!);
+    }
+  } catch {
+    /* private mode */
+  }
+}
+
 export const useStudio = create<StudioState>()(
   persist(
     (set, get) => {
@@ -237,6 +254,7 @@ export const useStudio = create<StudioState>()(
         pan: { x: 0, y: 0 },
         showAllFormat: false,
         showWires: true,
+        hiddenFeatures: [],
         past: [],
         future: [],
 
@@ -478,6 +496,9 @@ export const useStudio = create<StudioState>()(
         },
         setShowAllFormat: (v) => set({ showAllFormat: v }),
         setShowWires: (v) => set({ showWires: v }),
+        hideFeature: (id) => set((s) => (s.hiddenFeatures.includes(id) ? {} : { hiddenFeatures: [...s.hiddenFeatures, id] })),
+        restoreFeature: (id) => set((s) => ({ hiddenFeatures: s.hiddenFeatures.filter((x) => x !== id) })),
+        restoreAllFeatures: () => set({ hiddenFeatures: [] }),
         setBrief: (patch) => {
           push();
           set((s) => ({ brief: { ...s.brief, ...patch } }));
@@ -546,7 +567,7 @@ export const useStudio = create<StudioState>()(
       };
     },
     {
-      name: "polio.studio",
+      name: "builder.studio",
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<StudioState>;
@@ -555,6 +576,7 @@ export const useStudio = create<StudioState>()(
           ...p,
           nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "" })),
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
+          hiddenFeatures: p.hiddenFeatures ?? [],
         };
       },
       partialize: (s) => ({
@@ -567,6 +589,7 @@ export const useStudio = create<StudioState>()(
         activePageId: s.activePageId,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
+        hiddenFeatures: s.hiddenFeatures,
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,
@@ -620,6 +643,7 @@ export function shapeBounds(shape: StudioShape) {
  */
 export function useStudioHydration() {
   useLayoutEffect(() => {
+    migrateKey("polio.studio", "builder.studio");
     if (!useStudio.persist.hasHydrated()) void useStudio.persist.rehydrate();
   }, []);
 }

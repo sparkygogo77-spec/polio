@@ -1,5 +1,5 @@
 {
-  "name": "polio",
+  "name": "builder",
   "version": "0.1.0",
   "private": true,
   "description": "Terminal-grade UI template: a foundation any prompt-driven agent can extend into any kind of website.",

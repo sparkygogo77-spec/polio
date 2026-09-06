@@ -1,13 +1,13 @@
 import {
   ArrowUpRight, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
   MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
-  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, Link2, Link2Off,
+  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, EyeOff, Link2, Link2Off,
 } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { PreviewPage } from "./live/PreviewPage";
 import { isLinkable } from "./parts";
-import { CATEGORIES, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
+import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
@@ -116,6 +116,7 @@ export const studio = defineFeature({
       run: (c) => void c.copy(specToMarkdown(compile()), "blueprint"),
     },
     { id: "studio.addPage", label: "Builder: add a page", group: "Builder", icon: Plus, run: () => { useStudio.getState().addPage(); } },
+    { id: "studio.restoreLibrary", label: "Builder: put every removed part back", group: "Builder", icon: RotateCcw, run: () => useStudio.getState().restoreAllFeatures() },
     { id: "studio.live", label: "Builder: open the live preview", group: "Builder", icon: Eye, run: (c) => c.navigate(livePath()) },
     { id: "studio.board", label: "Builder: back to the board", group: "Builder", icon: LayoutTemplate, when: onPreview, run: (c) => c.navigate("/builder") },
     { id: "studio.newIdea", label: "Builder: drop a new idea", group: "Builder", icon: Lightbulb, when: onStudio, run: () => { addFeatureToCanvas("custom-idea"); } },
@@ -501,6 +502,24 @@ export const studio = defineFeature({
               });
             },
           },
+          { type: "separator" },
+          ...(useStudio.getState().hiddenFeatures.includes(feature.id)
+            ? [{ id: "studio.palette.restore", label: "Put it back in the library", icon: Eye, onSelect: () => useStudio.getState().restoreFeature(feature.id) } satisfies MenuEntry]
+            : [
+                { id: "studio.palette.hide", label: "Remove from the library", icon: EyeOff, hint: "reversible", onSelect: () => useStudio.getState().hideFeature(feature.id) } satisfies MenuEntry,
+                {
+                  id: "studio.palette.hideCategory",
+                  label: `Remove every ${categoryOf(feature.category).label.toLowerCase()} part`,
+                  icon: EyeOff,
+                  onSelect: () => {
+                    const s = useStudio.getState();
+                    featuresByCategory(feature.category).forEach((f) => s.hideFeature(f.id));
+                  },
+                } satisfies MenuEntry,
+              ]),
+          ...(useStudio.getState().hiddenFeatures.length
+            ? [{ id: "studio.palette.restoreAll", label: `Put back all ${useStudio.getState().hiddenFeatures.length} removed`, icon: RotateCcw, onSelect: () => useStudio.getState().restoreAllFeatures() } satisfies MenuEntry]
+            : []),
           { type: "separator" },
           { id: "studio.palette.copyId", label: "Copy feature id", icon: Copy, onSelect: () => void ctx.copy(feature.id, "feature id") },
           { id: "studio.palette.copyBlurb", label: "Copy description", icon: Copy, onSelect: () => void ctx.copy(feature.blurb, "description") },

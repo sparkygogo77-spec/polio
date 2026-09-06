@@ -92,7 +92,7 @@ export const useSettings = create<SettingsState>()(
       markHydrated: () => set({ hydrated: true }),
     }),
     {
-      name: "polio.settings",
+      name: "builder.settings",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ values: s.values, advanced: s.advanced }),
       skipHydration: true,

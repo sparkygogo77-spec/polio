@@ -8,8 +8,9 @@
  * or click it to drop it in the middle.
  */
 import * as React from "react";
-import { PanelLeftClose, Search, Sparkles } from "lucide-react";
+import { EyeOff, PanelLeftClose, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import { CATEGORIES, categoryOf, getFeature, searchFeatures, type CategoryId, type FeatureDef } from "./catalog";
+import { useShallow } from "zustand/react/shallow";
 import { useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -43,11 +44,34 @@ export function addFeatureToCanvas(featureId: string) {
   return id;
 }
 
-function Tile({ feature }: { feature: FeatureDef }) {
+function Tile({ feature, removed }: { feature: FeatureDef; removed?: boolean }) {
   const Icon = feature.icon;
   const cat = categoryOf(feature.category);
+
+  if (removed) {
+    return (
+      <Tooltip content={`${feature.blurb} — removed from the library`} side="right">
+        <button
+          type="button"
+          {...ctxProps("studio-palette", feature.id, feature)}
+          onClick={() => {
+            play("confirm");
+            useStudio.getState().restoreFeature(feature.id);
+          }}
+          className="tactile group flex h-[68px] w-full flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-1 text-center opacity-45 hover:opacity-100"
+        >
+          <span className="flex size-7 items-center justify-center rounded-md text-fg-faint">
+            <RotateCcw className="size-4" />
+          </span>
+          <span className="line-clamp-2 w-full text-[10px] leading-tight text-fg-muted">{feature.name}</span>
+        </button>
+      </Tooltip>
+    );
+  }
+
   return (
     <Tooltip content={feature.blurb} side="right">
+      <div className="group relative">
       <button
         type="button"
         draggable
@@ -68,6 +92,19 @@ function Tile({ feature }: { feature: FeatureDef }) {
         </span>
         <span className="line-clamp-2 w-full text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
       </button>
+      <button
+        type="button"
+        aria-label={`Remove ${feature.name} from the library`}
+        onClick={(e) => {
+          e.stopPropagation();
+          play("deny");
+          useStudio.getState().hideFeature(feature.id);
+        }}
+        className="tactile absolute right-0.5 top-0.5 hidden rounded-sm p-0.5 text-fg-faint hover:bg-hover hover:text-fg group-hover:block"
+      >
+        <X className="size-3" />
+      </button>
+      </div>
     </Tooltip>
   );
 }
@@ -75,9 +112,16 @@ function Tile({ feature }: { feature: FeatureDef }) {
 export function Palette({ onClose }: { onClose?: () => void }) {
   const [query, setQuery] = React.useState("");
   const [category, setCategory] = React.useState<CategoryId | "all">("all");
+  const [showRemoved, setShowRemoved] = React.useState(false);
+  const hidden = useStudio(useShallow((s) => s.hiddenFeatures));
+  const hiddenSet = React.useMemo(() => new Set(hidden), [hidden]);
   const searching = query.trim().length > 0;
   const results = React.useMemo(() => searchFeatures(query), [query]);
-  const shown = searching || category === "all" ? results : results.filter((f) => f.category === category);
+  const inCategory = searching || category === "all" ? results : results.filter((f) => f.category === category);
+  const shown = inCategory.filter((f) => !hiddenSet.has(f.id));
+  const removed = showRemoved ? inCategory.filter((f) => hiddenSet.has(f.id)) : [];
+  // A category nobody kept anything in stops taking up space.
+  const liveCategories = CATEGORIES.filter((c) => results.some((f) => f.category === c.id && !hiddenSet.has(f.id)));
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-border bg-panel/50">
@@ -107,7 +151,7 @@ export function Palette({ onClose }: { onClose?: () => void }) {
           >
             All
           </button>
-          {CATEGORIES.map((cat) => (
+          {liveCategories.map((cat) => (
             <button
               key={cat.id}
               type="button"
@@ -132,13 +176,39 @@ export function Palette({ onClose }: { onClose?: () => void }) {
           </div>
         ) : (
           <div className="p-4 text-center text-[11px] text-fg-muted">
-            Nothing by that name. Drop a <span className="text-accent">New idea</span> and describe it.
+            {hidden.length && !searching ? "Everything here is removed." : <>Nothing by that name. Drop a <span className="text-accent">New idea</span> and describe it.</>}
           </div>
         )}
+        {removed.length ? (
+          <>
+            <div className="mt-3 mb-1 flex items-center gap-1.5 px-1 text-[10px] uppercase tracking-wider text-fg-faint">
+              <RotateCcw className="size-3" />
+              Removed — click one to bring it back
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {removed.map((f) => (
+                <Tile key={f.id} feature={f} removed />
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
 
       <div className="shrink-0 border-t border-border p-2">
-        <div className="mb-1.5 px-0.5 text-[10px] text-fg-faint">{shown.length} parts · drag or click</div>
+        <div className="mb-1.5 flex items-center gap-2 px-0.5 text-[10px] text-fg-faint">
+          <span>{shown.length} parts · drag or click</span>
+          {hidden.length ? (
+            <button
+              type="button"
+              onClick={() => { play("select"); setShowRemoved((v) => !v); }}
+              aria-pressed={showRemoved}
+              className="tactile ml-auto flex items-center gap-1 rounded-sm px-1 py-0.5 text-fg-muted hover:bg-hover hover:text-fg"
+            >
+              <EyeOff className="size-3" />
+              {hidden.length} removed
+            </button>
+          ) : null}
+        </div>
         <Tooltip content="A blank part you describe yourself">
           <button
             type="button"

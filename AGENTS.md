@@ -201,6 +201,12 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 **Rules:**
 
 - Only *changed* format values reach the blueprint. Defaults are noise.
+- The library is prunable. `hiddenFeatures` in the store holds ids removed from
+  the library — the ✕ on a tile, "Remove from the library" or "Remove every
+  <category> part" in its menu. Nothing is deleted: a counter in the panel
+  footer reveals them, clicking one restores it, and one command puts them all
+  back. An emptied category loses its chip. A part already on a board keeps
+  working when its tile is removed. Prefer pruning to shipping a crowded panel.
 - Every Builder surface carries a right-click scope: `studio-node`,
   `studio-group`, `studio-shape`, `studio-canvas`, `studio-palette`,
   `studio-page`, `studio-brief`, `studio-format-group`, `studio-live`,

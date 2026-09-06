@@ -72,7 +72,7 @@ export function AppBootstrap() {
           const c = m.onMount(getActions());
           if (typeof c === "function") cleanups.push(c);
         } catch (err) {
-          console.error(`[polio] module "${m.id}" onMount failed`, err);
+          console.error(`[builder] module "${m.id}" onMount failed`, err);
         }
       }
     }, 0);
