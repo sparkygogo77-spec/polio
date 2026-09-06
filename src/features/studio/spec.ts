@@ -9,6 +9,8 @@
  */
 import { getFeature, categoryOf } from "./catalog";
 import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
+import { describeLook, type Look } from "./look";
+import { resolvePalette } from "./parts/theme";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape } from "./store";
 
 export interface CompileInput {
@@ -20,6 +22,8 @@ export interface CompileInput {
   brief: StudioBrief;
   /** Width of the page frame the positions are relative to. */
   frameWidth?: number;
+  /** Colour roles and texture layers. */
+  look?: Look;
 }
 
 interface NodeSpec {
@@ -72,6 +76,8 @@ export interface Spec {
   gimmick: string;
   master: string;
   format: { group: string; label: string; value: string }[];
+  /** Colour and texture, spelled out. */
+  look: string[];
   pages: PageSpec[];
   stats: { pages: number; elements: number; groups: number; sketches: number; connections: number; prompted: number };
 }
@@ -168,6 +174,7 @@ function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[])
 
 export function compileSpec(input: CompileInput): Spec {
   const { pages, nodes, groups, shapes, format, brief } = input;
+  const look = input.look;
   const fw = input.frameWidth ?? 1440;
 
   const formatRows = changedFormat(format).map((field) => ({
@@ -286,6 +293,7 @@ export function compileSpec(input: CompileInput): Spec {
     gimmick: brief.gimmick.trim(),
     master: brief.master.trim(),
     format: formatRows,
+    look: look ? describeLook(look, resolvePalette(format, look)) : [],
     pages: pageSpecs,
     stats: {
       pages: pages.length,
@@ -318,6 +326,11 @@ export function specToMarkdown(spec: Spec): string {
       L.push(`- ${row.label}: ${row.value}`);
     }
     L.push("");
+  }
+
+  if (spec.look.length) {
+    L.push("## Colour and texture", "");
+    L.push(...spec.look, "");
   }
 
   L.push(`## Pages (${spec.pages.length})`, "");

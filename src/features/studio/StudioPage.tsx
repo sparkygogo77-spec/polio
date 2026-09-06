@@ -17,6 +17,7 @@ import { Canvas } from "./Canvas";
 import { PreviewWindow } from "./Preview";
 import { Palette } from "./Palette";
 import { Inspector } from "./Inspector";
+import { LookPanel } from "./LookPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog, useCompiledBrief } from "./BriefDialog";
@@ -119,8 +120,8 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
       <ModeSwitch />
       <span className="mx-1 h-4 w-px bg-border" />
-      <Tooltip content={libraryOpen ? "Hide library" : "Show library"} shortcut="l">
-        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle library" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
+      <Tooltip content={libraryOpen ? "Hide colour & texture" : "Show colour & texture"} shortcut="l">
+        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle look" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
           <PanelLeft />
         </Button>
       </Tooltip>
@@ -292,21 +293,30 @@ export function StudioPage() {
       <PageTabs onOpenBrief={() => setBriefOpen(true)} />
 
       <div className="flex min-h-0 flex-1">
-        {/* The library and the panels belong to designing; previewing hides them
-            without moving the site, which stays exactly where the frame was. */}
+        {/* Colour and texture on the left; the parts library lives under the
+            board now, so the board keeps the width. */}
         {design && libraryOpen ? (
-          <aside className="hidden w-60 shrink-0 lg:block">
-            <Palette onClose={() => setLibraryOpen(false)} />
+          <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-panel/50 lg:flex">
+            <div className="flex h-8 shrink-0 items-center justify-between border-b border-border px-3">
+              <span className="text-[11px] font-semibold text-fg">Look</span>
+              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide look" className="tactile rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
+                <PanelLeft className="size-3.5" />
+              </button>
+            </div>
+            <LookPanel />
           </aside>
         ) : null}
 
-        <div className="relative min-h-0 min-w-0 flex-1">
-          {design ? (
-            <Canvas />
-          ) : (
-            <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
-          )}
-          <PreviewWindow />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1">
+            {design ? (
+              <Canvas />
+            ) : (
+              <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
+            )}
+            <PreviewWindow />
+          </div>
+          {design ? <Palette /> : null}
         </div>
 
         {design ? (

@@ -568,3 +568,121 @@ export function searchFeatures(query: string): FeatureDef[] {
 export function categoryOf(id: CategoryId): CategoryDef {
   return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[0]!;
 }
+
+/** Sub-groups inside a category, so 218 parts are reachable in three clicks. */
+export interface SubGroup { id: string; emoji: string; label: string; ids: string[] }
+
+export const SUBGROUPS: Record<string, SubGroup[]> = {
+  "structure": [
+    { id: "page-shape", emoji: "\ud83e\uddf1", label: "Page shape", ids: ["section-stack", "holy-grail", "container-width", "multi-page", "waypoint", "scan-region"] },
+    { id: "grids", emoji: "\ud83d\udd32", label: "Grids", ids: ["card-grid", "bento-grid", "masonry"] },
+    { id: "split-layouts", emoji: "\u2194\ufe0f", label: "Split layouts", ids: ["split-screen", "sidebar-layout"] },
+    { id: "switchers", emoji: "\ud83d\uddc2\ufe0f", label: "Switchers", ids: ["tabs-panel", "accordion"] },
+    { id: "overlays", emoji: "\ud83e\ude9f", label: "Overlays", ids: ["modal", "drawer"] },
+    { id: "footer", emoji: "\ud83e\uddb6", label: "Footer", ids: ["footer"] },
+    { id: "your-notes", emoji: "\ud83d\udcdd", label: "Your notes", ids: ["custom-idea", "gimmick", "wildcard", "note", "mood", "constraint"] },
+  ],
+  "nav": [
+    { id: "top-bars", emoji: "\ud83e\udded", label: "Top bars", ids: ["sticky-header", "mega-menu", "mobile-nav", "home-anchor"] },
+    { id: "finding-things", emoji: "\ud83d\udd0e", label: "Finding things", ids: ["search-nav"] },
+    { id: "where-am-i", emoji: "\ud83e\ude9c", label: "Where am I", ids: ["breadcrumbs", "scrollspy-nav", "toc", "sitemap-page"] },
+    { id: "between-pages", emoji: "\ud83d\udcc4", label: "Between pages", ids: ["pagination", "page-transitions", "back-to-top"] },
+  ],
+  "hero": [
+    { id: "heroes", emoji: "\ud83c\udf05", label: "Heroes", ids: ["hero-split", "hero-video", "hero-gradient", "hero-typewriter", "hero-particles", "hero-3d", "hero-scroll-cue"] },
+    { id: "the-pitch", emoji: "\ud83d\udcac", label: "The pitch", ids: ["value-prop"] },
+    { id: "the-button", emoji: "\ud83d\ude80", label: "The button", ids: ["cta-primary"] },
+    { id: "proof", emoji: "\ud83c\udfc5", label: "Proof", ids: ["social-proof-strip"] },
+  ],
+  "content": [
+    { id: "body-text", emoji: "\ud83d\udcd6", label: "Body text", ids: ["prose", "drop-cap", "reading-time", "footnotes", "micro-copy", "textbox-format"] },
+    { id: "type-treatment", emoji: "\ud83d\udd20", label: "Type treatment", ids: ["heading-scale", "fluid-type", "kinetic-type", "highlight", "pull-quote"] },
+    { id: "lists-of-things", emoji: "\ud83d\udcf0", label: "Lists of things", ids: ["blog-index", "changelog", "tagging", "docs", "rss"] },
+    { id: "boxes", emoji: "\ud83d\udca1", label: "Boxes", ids: ["callout", "code-block", "faq", "marquee"] },
+  ],
+  "media": [
+    { id: "pictures", emoji: "\ud83d\uddbc\ufe0f", label: "Pictures", ids: ["gallery", "lightbox", "image-blur-up", "photo-credit"] },
+    { id: "moving-through", emoji: "\ud83c\udfa0", label: "Moving through", ids: ["carousel", "before-after"] },
+    { id: "sound-and-video", emoji: "\u25b6\ufe0f", label: "Sound & video", ids: ["video-player", "audio-player", "podcast"] },
+    { id: "embeds", emoji: "\ud83c\udf0d", label: "Embeds", ids: ["map-embed", "3d-viewer"] },
+    { id: "generated", emoji: "\ud83c\udfa8", label: "Generated", ids: ["generative-art", "avatar-stack"] },
+  ],
+  "motion": [
+    { id: "on-scroll", emoji: "\ud83d\udcdc", label: "On scroll", ids: ["scroll-snap", "parallax", "reveal-on-scroll", "sticky-story", "horizontal-scroll", "scroll-progress", "scroll-video", "infinite-scroll", "smooth-scroll"] },
+    { id: "on-pointer", emoji: "\ud83d\uddb1\ufe0f", label: "On pointer", ids: ["cursor-effects", "hover-tilt"] },
+    { id: "moments", emoji: "\u2728", label: "Moments", ids: ["page-load", "morph-transition", "confetti", "physics"] },
+  ],
+  "interact": [
+    { id: "keyboard-and-menus", emoji: "\u2328\ufe0f", label: "Keyboard & menus", ids: ["context-menus", "command-palette", "shortcuts"] },
+    { id: "feedback", emoji: "\ud83d\udd14", label: "Feedback", ids: ["toasts", "optimistic-ui", "sound-cues", "haptics", "skeletons"] },
+    { id: "direct-handling", emoji: "\u270b", label: "Direct handling", ids: ["drag-drop", "inline-edit", "undo-redo", "copy-button"] },
+    { id: "on-hover", emoji: "\ud83d\udc40", label: "On hover", ids: ["hover-card", "tooltips", "magnetic-buttons"] },
+    { id: "first-run", emoji: "\ud83e\uddd1\u200d\ud83c\udfeb", label: "First run", ids: ["onboarding-tour", "compass-onboard", "graduation", "empty-states"] },
+    { id: "play", emoji: "\ud83c\udfae", label: "Play", ids: ["gamification", "easter-egg", "workflow-builder", "cog-settings"] },
+  ],
+  "forms": [
+    { id: "forms", emoji: "\u2709\ufe0f", label: "Forms", ids: ["contact-form", "multi-step-form", "inline-validation", "autosave", "booking", "survey"] },
+    { id: "inputs", emoji: "\ud83d\udce5", label: "Inputs", ids: ["file-upload", "date-picker", "rating", "filter-panel", "search-autocomplete"] },
+    { id: "signup", emoji: "\ud83d\udce7", label: "Signup", ids: ["newsletter"] },
+    { id: "protection", emoji: "\ud83d\udee1\ufe0f", label: "Protection", ids: ["captcha"] },
+  ],
+  "commerce": [
+    { id: "browsing", emoji: "\ud83d\udecd\ufe0f", label: "Browsing", ids: ["product-grid", "product-detail", "wishlist", "comparison-table"] },
+    { id: "buying", emoji: "\ud83d\uded2", label: "Buying", ids: ["cart-drawer", "checkout", "discount", "invoice"] },
+    { id: "plans", emoji: "\ud83d\udcb3", label: "Plans", ids: ["pricing-table", "subscription"] },
+    { id: "persuasion", emoji: "\u2b50", label: "Persuasion", ids: ["testimonials", "countdown", "trust-badges", "logo-cloud"] },
+    { id: "economy", emoji: "\ud83e\ude99", label: "Economy", ids: ["affiliate", "coin-economy"] },
+  ],
+  "data": [
+    { id: "charts", emoji: "\ud83d\udcc8", label: "Charts", ids: ["charts", "pie-breakdown", "sparkline", "heatmap"] },
+    { id: "numbers", emoji: "\ud83d\udd22", label: "Numbers", ids: ["stat-tiles", "progress-tracker", "leaderboard"] },
+    { id: "tables", emoji: "\ud83d\udccb", label: "Tables", ids: ["data-table", "export"] },
+    { id: "arrangements", emoji: "\ud83d\uddfa\ufe0f", label: "Arrangements", ids: ["dashboard", "timeline", "kanban", "network-graph", "calendar-view"] },
+    { id: "live", emoji: "\ud83d\udce1", label: "Live", ids: ["live-feed"] },
+  ],
+  "social": [
+    { id: "people", emoji: "\ud83e\uddd1", label: "People", ids: ["profiles", "community-badges"] },
+    { id: "talking", emoji: "\ud83d\udcac", label: "Talking", ids: ["comments", "chat", "forum", "guestbook", "mentions"] },
+    { id: "reacting", emoji: "\u2764\ufe0f", label: "Reacting", ids: ["reactions", "share-sheet", "follow"] },
+    { id: "keeping-order", emoji: "\ud83d\udee0\ufe0f", label: "Keeping order", ids: ["moderation", "collab-cursors"] },
+    { id: "more", emoji: "\u2795", label: "More", ids: ["activity-feed"] },
+  ],
+  "ai": [
+    { id: "conversation", emoji: "\ud83e\udd16", label: "Conversation", ids: ["ai-chat", "ai-prompt-box", "ai-voice"] },
+    { id: "writing", emoji: "\u270d\ufe0f", label: "Writing", ids: ["ai-generate-content", "ai-summarize", "ai-translate"] },
+    { id: "suggesting", emoji: "\ud83c\udfaf", label: "Suggesting", ids: ["ai-recommend", "ai-search", "ai-autofill"] },
+    { id: "more", emoji: "\u2795", label: "More", ids: ["ai-moderation"] },
+  ],
+  "power": [
+    { id: "keyboard-first", emoji: "\u2328\ufe0f", label: "Keyboard-first", ids: ["hotkey-first", "presets", "quick-action"] },
+    { id: "dense-views", emoji: "\ud83d\udcca", label: "Dense views", ids: ["dense-tables", "virtualised-list", "multi-column-feed", "realtime-stream"] },
+    { id: "terminal", emoji: "\ud83d\udda5\ufe0f", label: "Terminal", ids: ["terminal-console", "status-bar", "split-panes"] },
+    { id: "privacy", emoji: "\ud83d\udd76\ufe0f", label: "Privacy", ids: ["blur-privacy"] },
+    { id: "more", emoji: "\u2795", label: "More", ids: ["diff-view"] },
+  ],
+  "platform": [
+    { id: "appearance", emoji: "\ud83c\udfa8", label: "Appearance", ids: ["dark-mode", "theming", "responsive", "brand-system", "print"] },
+    { id: "reach", emoji: "\ud83c\udf10", label: "Reach", ids: ["i18n", "seo", "a11y"] },
+    { id: "accounts-and-data", emoji: "\ud83d\udd10", label: "Accounts & data", ids: ["auth", "database", "api", "versioning", "cms"] },
+    { id: "running-it", emoji: "\ud83d\udcc9", label: "Running it", ids: ["analytics", "perf", "testing", "error-handling", "pwa"] },
+    { id: "talking-out", emoji: "\ud83d\udcec", label: "Talking out", ids: ["email", "cookie-consent", "integration", "qr-bridge", "weather-time", "archive-mode"] },
+  ],
+};
+
+/** An emoji for each top-level category, so the list reads at a glance. */
+export const CATEGORY_EMOJI: Record<string, string> = {
+  "structure": "🧱",
+  "nav": "🧭",
+  "hero": "🌅",
+  "content": "📖",
+  "media": "🖼️",
+  "motion": "🌀",
+  "interact": "✋",
+  "forms": "✉️",
+  "commerce": "🛍️",
+  "data": "📈",
+  "social": "💬",
+  "ai": "🤖",
+  "power": "⌨️",
+  "platform": "⚙️"
+};

@@ -77,7 +77,8 @@ should be *before* writing the prompt that says what it is.
 
 | Panel | Where | What it does |
 |---|---|---|
-| **Library** | left, toggle with `l` | All 218 parts as **live previews** — each tile renders the real part, small, wearing the site's theme. Searchable, by category, prunable. Drag onto the board or click to drop; the explanation is in the tooltip. |
+| **Look** | left, toggle with `l` | Colour and texture. Six roles every part reads, a mixer, harmony generators, contrast readouts; under it a stack of texture layers that compile to plain CSS. |
+| **Parts drawer** | under the board | Three steps: category (emoji, own colour) → sub-group → the parts as live previews on contrasting discs. Search cuts across all of it. Prunable; drag or click to place. |
 | **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
 | **Companion** | floating, draggable | The same page as a phone or tablet — never desktop, since the board is the desktop view. Tap a part in it to select that part on the board. |
@@ -98,6 +99,9 @@ src/features/studio/
                  no store / Radix / core imports — a generated site ships this folder
                  Layout Hero Text Media Forms Tabs Accordion Header SearchBox
                  Cta Behaviour + legacy.tsx (not yet migrated) + the fallback
+  look.ts        colour (OKLCH maths, harmony, contrast) and texture (layer → CSS)
+  LookPanel.tsx  the mixer and the texture stack
+  Palette.tsx    the parts drawer under the board
   live/          the live site: layout (absolute or reflowed), LiveSite renderer,
                  PreviewPage route at /builder/preview/<page>
   format.ts      ~70 declarative site-format options (pages, scroll, type, …)
@@ -214,7 +218,18 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   Everything else keeps a short list menu; a wheel of three items is worse than
   a list. If you add controls to a part, put them in the right wedge rather than
   lengthening anything.
-- Library tiles render the real component through `PartPreview.tsx`, not an
+- `look` in the store holds six colour roles and a texture stack, and every
+  `themeFrom(format, look)` call reads it — the board frame, the live site, the
+  companion and the library previews all repaint together. Roles override what
+  the accent hue would derive; a texture layer compiles to a CSS background, so
+  nothing is loaded and a generated site ships it as a stylesheet. Both reach
+  the blueprint under "Colour and texture", written out exactly.
+- The parts drawer drills down rather than listing 218 tiles: categories carry
+  an emoji and their category hue, picking one slides the rest away and reveals
+  its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
+  one), and the parts appear as previews on a disc tinted to the category so
+  each one reads as an object rather than a rectangle on a rectangle.
+- Library previews render the real component through `PartPreview.tsx`, not an
   icon — two grids that differ only in shape used to look identical. Previews
   are `aria-hidden` **and** `inert` (they contain real buttons and inputs, which
   would otherwise land in the tab order and the a11y tree), and the tile is a

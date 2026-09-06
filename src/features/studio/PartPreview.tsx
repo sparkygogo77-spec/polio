@@ -19,9 +19,10 @@ import { useStudio, type StudioNode } from "./store";
 /** Wide enough that a nav bar still reads as a nav bar, narrow enough to shrink well. */
 const PREVIEW_W = 420;
 
-export function PartPreview({ feature, width, height }: { feature: FeatureDef; width: number; height: number }) {
+export function PartPreview({ feature, width, height, round }: { feature: FeatureDef; width: number; height: number; round?: boolean }) {
   const format = useStudio((s) => s.format);
-  const theme = React.useMemo(() => themeFrom(format), [format]);
+  const look = useStudio((s) => s.look);
+  const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
 
   const w = feature.w ?? PREVIEW_W;
   const h = feature.h ?? 88;
@@ -59,7 +60,7 @@ export function PartPreview({ feature, width, height }: { feature: FeatureDef; w
     <div
       aria-hidden
       inert
-      className="pointer-events-none overflow-hidden rounded-sm border border-border/70"
+      className={round ? "pointer-events-none overflow-hidden rounded-full" : "pointer-events-none overflow-hidden rounded-sm border border-border/70"}
       style={{ width, height, background: theme.bg, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
     >
       <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0" }}>

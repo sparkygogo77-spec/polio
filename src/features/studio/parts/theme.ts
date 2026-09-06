@@ -6,6 +6,7 @@
  */
 import type * as React from "react";
 import type { FormatValues } from "../format";
+import { paletteFromHue, textureCss, type Look, type Palette } from "../look";
 
 export interface Theme {
   bg: string;
@@ -14,7 +15,11 @@ export interface Theme {
   text: string;
   muted: string;
   accent: string;
+  /** A second colour for emphasis, distinct from the accent. */
+  highlight: string;
   accentText: string;
+  /** When a texture is set, the full background properties for the page. */
+  surfaceStyle?: React.CSSProperties;
   radius: number;
   light: boolean;
   backdrop: string;
@@ -41,7 +46,15 @@ export const FAMILY: Record<string, string> = {
   "humanist sans": "'Segoe UI', 'Trebuchet MS', ui-sans-serif, sans-serif",
 };
 
-export function themeFrom(format: FormatValues): Theme {
+/** The six roles a part can paint with, after any overrides you set. */
+export function resolvePalette(format: FormatValues, look?: Look): Palette {
+  const hue = Number(format["palette.accentHue"] ?? 265);
+  const mode = String(format["palette.mode"] ?? "dark");
+  const base = paletteFromHue(hue, mode === "light" || mode === "both");
+  return { ...base, ...(look?.palette ?? {}) } as Palette;
+}
+
+export function themeFrom(format: FormatValues, look?: Look): Theme {
   const hue = Number(format["palette.accentHue"] ?? 265);
   const mode = String(format["palette.mode"] ?? "dark");
   const light = mode === "light" || mode === "both";
@@ -55,14 +68,23 @@ export function themeFrom(format: FormatValues): Theme {
         ? `linear-gradient(${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), linear-gradient(90deg, ${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), ${bg}`
         : bg;
   const align = String(format["type.align"] ?? "left");
+
+  // A palette override wins over anything derived from the hue, and the texture
+  // stack is painted over whatever the background ends up being.
+  const roles = resolvePalette(format, look);
+  const painted = look?.texture?.length ? textureCss(look.texture, roles, roles.bg) : null;
+
   return {
-    bg,
-    backdrop,
-    surface: light ? "oklch(1 0 0)" : `oklch(0.22 0.012 ${hue})`,
+    bg: roles.bg,
+    backdrop: painted ? "" : backdrop,
+    /** When a texture is set, this is the whole set of background properties. */
+    surfaceStyle: painted ?? undefined,
+    surface: roles.surface,
     line: light ? `oklch(0.88 0.01 ${hue})` : `oklch(0.31 0.014 ${hue})`,
-    text: light ? `oklch(0.25 0.02 ${hue})` : `oklch(0.93 0.01 ${hue})`,
-    muted: light ? `oklch(0.6 0.015 ${hue})` : `oklch(0.64 0.016 ${hue})`,
-    accent: light ? `oklch(0.55 0.16 ${hue})` : `oklch(0.75 0.15 ${hue})`,
+    text: roles.text,
+    muted: roles.muted,
+    accent: roles.accent,
+    highlight: roles.highlight,
     accentText: light ? `oklch(0.99 0.01 ${hue})` : `oklch(0.16 0.03 ${hue})`,
     radius,
     light,

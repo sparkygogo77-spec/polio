@@ -8,6 +8,7 @@ import * as React from "react";
 import { Block } from "../blocks";
 import type { FormatValues } from "../format";
 import { themeFrom, type NodeLink, type PartEvent } from "../parts";
+import type { Look } from "../look";
 import type { StudioNode, StudioPage } from "../store";
 import { placeNodes, type Device } from "./layout";
 
@@ -18,6 +19,7 @@ export interface LiveSiteProps {
   device: Device;
   frameWidth: number;
   format: FormatValues;
+  look?: Look;
   onNavigatePage?: (pageId: string) => void;
   onEvent?: (e: PartEvent) => void;
   /** Extra props for each part's wrapper (the builder hangs its right-click scope here). */
@@ -40,8 +42,8 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, onNavigatePage, onEvent, nodeProps }: LiveSiteProps) {
-  const t = React.useMemo(() => themeFrom(format), [format]);
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps }: LiveSiteProps) {
+  const t = React.useMemo(() => themeFrom(format, look), [format, look]);
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const { width, height, placed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
   const [toasts, setToasts] = React.useState<Toast[]>([]);
@@ -89,7 +91,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, onN
     <div
       data-live-root=""
       data-live-page={pageId}
-      style={{ width, height, position: "relative", overflow: "hidden", background: t.backdrop, backgroundSize: "16px 16px", userSelect: "text", color: t.text }}
+      style={{ width, height, position: "relative", overflow: "hidden", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
     >
       <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
         {placed.map((p) => (

@@ -19,6 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
+import { emptyLook, type Look, type TextureLayer } from "./look";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 
@@ -104,6 +105,8 @@ interface Doc {
   shapes: StudioShape[];
   format: FormatValues;
   brief: StudioBrief;
+  /** Colour roles and the texture stack. */
+  look: Look;
 }
 
 /** Height of the frame: at least a screen, and always past the lowest part. */
@@ -193,6 +196,11 @@ interface StudioState extends Doc {
   restoreFeature: (id: string) => void;
   restoreAllFeatures: () => void;
   setBrief: (patch: Partial<StudioBrief>) => void;
+  setLook: (patch: Partial<Look>) => void;
+  addTexture: (layer: TextureLayer) => void;
+  updateTexture: (id: string, patch: Partial<TextureLayer>) => void;
+  removeTexture: (id: string) => void;
+  moveTexture: (id: string, delta: number) => void;
   clearPage: (pageId: string) => void;
   resetAll: () => void;
   loadDoc: (doc: Partial<Doc>) => void;
@@ -212,6 +220,7 @@ function snapshot(s: StudioState): Doc {
     shapes: s.shapes,
     format: s.format,
     brief: s.brief,
+    look: s.look,
   };
 }
 
@@ -227,6 +236,7 @@ function starterDoc(): Doc {
     shapes: [],
     format: formatDefaults(),
     brief: { name: "", gimmick: "", master: "" },
+    look: emptyLook(),
   };
 }
 
@@ -504,6 +514,32 @@ export const useStudio = create<StudioState>()(
           push();
           set({ format: formatDefaults() });
         },
+        setLook: (patch) => {
+          push();
+          set((s) => ({ look: { ...s.look, ...patch } }));
+        },
+        addTexture: (layer) => {
+          push();
+          set((s) => ({ look: { ...s.look, texture: [...s.look.texture, layer] } }));
+        },
+        updateTexture: (id, patch) =>
+          set((s) => ({ look: { ...s.look, texture: s.look.texture.map((l) => (l.id === id ? { ...l, ...patch } : l)) } })),
+        removeTexture: (id) => {
+          push();
+          set((s) => ({ look: { ...s.look, texture: s.look.texture.filter((l) => l.id !== id) } }));
+        },
+        moveTexture: (id, delta) => {
+          push();
+          set((s) => {
+            const i = s.look.texture.findIndex((l) => l.id === id);
+            const j = i + delta;
+            if (i < 0 || j < 0 || j >= s.look.texture.length) return {};
+            const next = [...s.look.texture];
+            const [item] = next.splice(i, 1);
+            next.splice(j, 0, item!);
+            return { look: { ...s.look, texture: next } };
+          });
+        },
         setShowAllFormat: (v) => set({ showAllFormat: v }),
         setShowWires: (v) => set({ showWires: v }),
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
@@ -589,6 +625,7 @@ export const useStudio = create<StudioState>()(
           nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "" })),
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
+          look: { ...emptyLook(), ...(p.look ?? {}) },
           companion: { ...current.companion, ...(p.companion ?? {}) },
         };
       },
@@ -599,6 +636,7 @@ export const useStudio = create<StudioState>()(
         shapes: s.shapes,
         format: s.format,
         brief: s.brief,
+        look: s.look,
         activePageId: s.activePageId,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,

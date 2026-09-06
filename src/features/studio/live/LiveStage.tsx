@@ -28,6 +28,7 @@ export function LiveStage({
   const pages = useStudio((s) => s.pages);
   const nodes = useStudio((s) => s.nodes);
   const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
   const frameWidth = useStudio((s) => s.frameWidth);
 
   const ref = React.useRef<HTMLDivElement>(null);
@@ -62,6 +63,7 @@ export function LiveStage({
             device={device}
             frameWidth={frameWidth}
             format={format}
+            look={look}
             onNavigatePage={onNavigatePage}
             nodeProps={(n) => ctxProps("studio-live-node", n.id, n)}
           />

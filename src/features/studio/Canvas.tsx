@@ -69,7 +69,8 @@ export function Canvas() {
   const showWires = useStudio((s) => s.showWires);
   const fitNonce = useStudio((s) => s.fitNonce);
   const format = useStudio((s) => s.format);
-  const theme = React.useMemo(() => themeFrom(format), [format]);
+  const look = useStudio((s) => s.look);
+  const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
   const frameH = frameHeight(nodes);
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
@@ -389,8 +390,9 @@ export function Canvas() {
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
         {/* ---------- the page frame: this is the website ---------- */}
         <div
+          data-frame=""
           className="absolute left-0 top-0 rounded-[3px] shadow-[0_20px_60px_oklch(0_0_0/0.45)]"
-          style={{ width: frameWidth, height: frameH, background: theme.backdrop, backgroundSize: "24px 24px", outline: "1px solid var(--border-strong)" }}
+          style={{ width: frameWidth, height: frameH, ...(theme.surfaceStyle ?? { background: theme.backdrop, backgroundSize: "24px 24px" }), outline: "1px solid var(--border-strong)" }}
         />
         <div className="pointer-events-none absolute left-0 flex items-center gap-2 whitespace-nowrap text-fg-muted" style={{ top: -22, fontSize: 11 / zoom }}>
           <span className="font-medium text-fg">{page.name}</span>
