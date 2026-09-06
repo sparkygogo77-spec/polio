@@ -290,6 +290,66 @@
 @keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
 @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* ------------------------------------------------------------------ embers
+   The library's lighting. Each part sits over a low, blotchy red light that
+   never quite settles, and flares blue when you reach for it. Deliberately
+   nothing like the site's accent: the shelf is the workshop, not the thing
+   being built. Reaching for a part lights it in 180ms; letting go takes the
+   full 0.7s to die back down. */
+.ember { position: relative; isolation: isolate; }
+.ember-light {
+  position: absolute; inset: -18px -10px -14px; z-index: -1;
+  border-radius: 20px; pointer-events: none; overflow: hidden;
+}
+.ember-light > i {
+  position: absolute; inset: -20%; display: block; border-radius: inherit;
+  filter: blur(11px); will-change: opacity, transform;
+}
+/* Two blotches on different clocks, so the light is never even. */
+.ember-coal-a {
+  background:
+    radial-gradient(34% 46% at 26% 70%, oklch(0.58 0.2 32 / 0.62), transparent 68%),
+    radial-gradient(22% 30% at 68% 34%, oklch(0.52 0.21 22 / 0.5), transparent 70%);
+  animation: ember-flicker-a 3.7s ease-in-out infinite, ember-drift 9.3s ease-in-out infinite alternate;
+}
+.ember-coal-b {
+  background:
+    radial-gradient(28% 34% at 78% 72%, oklch(0.5 0.19 40 / 0.5), transparent 66%),
+    radial-gradient(46% 56% at 44% 48%, oklch(0.4 0.13 28 / 0.34), transparent 74%);
+  animation: ember-flicker-b 5.9s ease-in-out infinite, ember-drift 7.1s ease-in-out infinite alternate-reverse;
+}
+/* The hot layer. Off until reached for; 0.7s to cool. */
+.ember-hot {
+  background:
+    radial-gradient(40% 52% at 50% 55%, oklch(0.72 0.19 250 / 0.7), transparent 70%),
+    radial-gradient(26% 32% at 30% 34%, oklch(0.8 0.16 235 / 0.55), transparent 72%);
+  opacity: 0; transition: opacity 700ms cubic-bezier(0.4, 0, 0.6, 1);
+}
+.ember:hover .ember-hot,
+.ember:focus-within .ember-hot,
+.ember[data-hot="1"] .ember-hot { opacity: 1; transition-duration: 180ms; }
+.ember:hover .ember-coal-a, .ember:focus-within .ember-coal-a, .ember[data-hot="1"] .ember-coal-a,
+.ember:hover .ember-coal-b, .ember:focus-within .ember-coal-b, .ember[data-hot="1"] .ember-coal-b { opacity: 0.22; }
+
+@keyframes ember-flicker-a {
+  0% { opacity: 0.62; } 13% { opacity: 0.9; } 27% { opacity: 0.44; } 41% { opacity: 0.82; }
+  56% { opacity: 0.5; } 68% { opacity: 0.95; } 83% { opacity: 0.58; } 100% { opacity: 0.72; }
+}
+@keyframes ember-flicker-b {
+  0% { opacity: 0.34; } 19% { opacity: 0.68; } 33% { opacity: 0.26; } 52% { opacity: 0.74; }
+  71% { opacity: 0.3; } 89% { opacity: 0.6; } 100% { opacity: 0.4; }
+}
+@keyframes ember-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(3%, -4%, 0) scale(1.07); }
+  100% { transform: translate3d(-3%, 3%, 0) scale(0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ember-light > i { animation: none; }
+  .ember-coal-a { opacity: 0.7; }
+  .ember-coal-b { opacity: 0.45; }
+}
+
 /* Motion demonstrations. A motion part draws a small scene of what it does:
    held on its first frame on the board, running in the live preview. */
 @keyframes mo-snap { 0%, 20% { transform: translateY(0); } 30%, 53% { transform: translateY(-33.34%); } 63%, 86% { transform: translateY(-66.67%); } 96%, 100% { transform: translateY(0); } }

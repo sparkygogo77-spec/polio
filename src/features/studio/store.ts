@@ -141,7 +141,9 @@ interface StudioState extends Doc {
   hiddenFeatures: string[];
   /** Design surface, or the live site in the same place on screen. */
   mode: BoardMode;
-  /** The phone/tablet companion: which device, where it sits, whether it is open. */
+  /** The phone/tablet companion: which device, where it sits, whether it is open.
+   * Closed to start: it floats over the board, and a panel that covers a resize
+   * handle you cannot see is worse than one click to open it. */
   companion: { device: "phone" | "tablet"; x: number; y: number; open: boolean };
   past: Doc[];
   future: Doc[];
@@ -277,7 +279,7 @@ export const useStudio = create<StudioState>()(
         showWires: true,
         hiddenFeatures: [],
         mode: "design",
-        companion: { device: "phone", x: -18, y: -18, open: true },
+        companion: { device: "phone", x: -18, y: -18, open: false },
         past: [],
         future: [],
 

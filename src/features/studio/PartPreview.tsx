@@ -4,9 +4,11 @@
  *
  * The library used to show an icon, which told you the category and nothing
  * else — a "Tile grid" icon and a "Card grid" icon look the same. This renders
- * the actual part instead, at a narrow width so its shape still reads once it
- * is scaled down, wearing the site's own theme so the library looks like the
- * thing you are building.
+ * the actual part instead, at the size it would really be on a page and then
+ * scaled down to fit, wearing the site's own theme so the library looks like
+ * the thing you are building. It only ever shrinks: a header drawn at 1440 and
+ * scaled to 0.6 reads as a header, the same part magnified would read as a
+ * giant word.
  *
  * Off-screen tiles skip their layout and paint entirely (`content-visibility`),
  * so a library of 218 live previews costs about what a list of icons did.
@@ -16,20 +18,30 @@ import { Block, themeFrom } from "./blocks";
 import type { FeatureDef } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
 
-/** Wide enough that a nav bar still reads as a nav bar, narrow enough to shrink well. */
-const PREVIEW_W = 420;
+/** The size a part is drawn at before it is scaled down. Its own, within reason. */
+export function previewSize(feature: FeatureDef): { w: number; h: number } {
+  return {
+    w: Math.max(320, Math.min(1440, feature.w ?? 420)),
+    h: Math.max(40, Math.min(900, feature.h ?? 88)),
+  };
+}
+
+/** How tall the preview comes out at a given width, keeping the part's shape. */
+export function previewHeight(feature: FeatureDef, width: number): number {
+  const { w, h } = previewSize(feature);
+  return Math.max(36, Math.round(h * (width / w)));
+}
 
 export function PartPreview({ feature, width, height, round }: { feature: FeatureDef; width: number; height: number; round?: boolean }) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
 
-  const w = feature.w ?? PREVIEW_W;
-  const h = feature.h ?? 88;
-  // Keep the part's own proportions, but never so tall that one tile is a page.
-  const pw = PREVIEW_W;
-  const ph = Math.max(40, Math.min(260, Math.round(h * (pw / w))));
-  const scale = width / pw;
+  const { w: pw, h: ph } = previewSize(feature);
+  // Fit, never crop. Most parts are wide and short, so the width decides; a
+  // tall one shrinks rather than showing its top half, which for anything
+  // vertically centred is a box of empty space.
+  const scale = Math.min(width / pw, height / ph);
 
   const node = React.useMemo<StudioNode>(
     () => ({
@@ -63,7 +75,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       className={round ? "pointer-events-none overflow-hidden rounded-full" : "pointer-events-none overflow-hidden rounded-sm border border-border/70"}
       style={{ width, height, background: theme.bg, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
     >
-      <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+      <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0", marginLeft: Math.max(0, (width - pw * scale) / 2) }}>
         <Block node={node} t={theme} mode="board" />
       </div>
     </div>

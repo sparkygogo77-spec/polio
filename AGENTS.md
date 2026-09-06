@@ -253,8 +253,25 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - The parts drawer drills down rather than listing 218 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
-  one), and the parts appear as previews on a disc tinted to the category so
-  each one reads as an object rather than a rectangle on a rectangle.
+  one).
+- **The shelf is shaped like a page.** `showcase.ts` gives every part a band
+  (across the top / first screen / the body / further down / foot of the page)
+  and a column span, both derived from its category and its real width, so a
+  header spans the shelf and a search box sits centred under it. Nothing is
+  hand-placed; a new `f(...)` line lands somewhere sensible on its own. The
+  span is compressed rather than true to scale, because at true scale a product
+  grid would fill the shelf on its own.
+- `PartPreview` renders a part at its real width and only ever scales *down*.
+  Magnifying a 420px preview to fill a wide card turned a nav bar into one
+  enormous word.
+- The shelf lights parts instead of boxing them (`.ember*` in `globals.css`):
+  a low, blotchy red that never settles, flaring blue in 180ms when you reach
+  for one and taking the full 0.7s to cool. Deliberately not the site accent —
+  the shelf is the workshop, not the thing being built. Drag its top edge to
+  trade board height for shelf height.
+- The phone companion starts **collapsed**. It floats over the board, and a
+  panel covering a resize handle you cannot see is the bug the user hit; one
+  click opens it.
 - Library previews render the real component through `PartPreview.tsx`, not an
   icon — two grids that differ only in shape used to look identical. Previews
   are `aria-hidden` **and** `inert` (they contain real buttons and inputs, which

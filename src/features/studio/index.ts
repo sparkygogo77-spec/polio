@@ -472,6 +472,16 @@ export const studio = defineFeature({
         return [
           { type: "label", label: feature.name },
           { id: "studio.palette.add", label: "Add to canvas", icon: Plus, onSelect: () => { addFeatureToCanvas(feature.id); } },
+          ...(useStudio.getState().hiddenFeatures.includes(feature.id)
+            ? []
+            : [{
+                id: "studio.palette.delete",
+                label: "Delete",
+                icon: Trash2,
+                danger: true,
+                hint: "off the shelf",
+                onSelect: () => useStudio.getState().hideFeature(feature.id),
+              } satisfies MenuEntry]),
           {
             id: "studio.palette.add3",
             label: "Add three",

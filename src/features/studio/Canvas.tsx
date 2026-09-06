@@ -24,8 +24,6 @@ import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
-import { EmptyState } from "@/core/ui/empty-state";
-import { Shapes } from "lucide-react";
 import { openRadial } from "./RadialMenu";
 
 const GRID = 8;
@@ -459,13 +457,6 @@ export function Canvas() {
         })}
       </div>
 
-      {nodes.length === 0 && shapes.length === 0 ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-10 flex justify-center">
-          <div className="pointer-events-auto rounded-lg border border-border bg-panel/90 backdrop-blur">
-            <EmptyState icon={Shapes} title="The frame is your page" body="Drag parts from the library into it. They land at real size, so what you see is the shape of the site. Snap to the edges, resize from the corners, right-click anything." />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

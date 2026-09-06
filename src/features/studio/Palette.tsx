@@ -4,9 +4,16 @@
  *
  * Three steps, never more: a vertical list of categories, each with its own
  * colour and emoji → pick one and the rest slide away while it rises to the top
- * → its sub-groups appear beside it → the parts themselves scroll across as
- * live previews, each on a contrasting disc so you can see where the part ends
- * and the panel begins. Clicking the category or the sub-group chip walks back.
+ * → its sub-groups appear beside it → the parts appear on a shelf laid out the
+ * way a page is: navigation across the top, the search box centred under it,
+ * grids filling the body, the footer last. Clicking the category or the
+ * sub-group chip walks back.
+ *
+ * The shelf can be dragged taller by its top edge when you want to browse, and
+ * pushed back down when you want the board. Each preview is lit rather than boxed. A low, blotchy red ember sits under it
+ * and never quite settles; reaching for one flares it blue and letting go takes
+ * 0.7s to cool. Nothing here is interactive — every preview is `inert` — so a
+ * part only comes alive once it is on the board.
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -16,7 +23,8 @@ import {
   type CategoryId, type FeatureDef,
 } from "./catalog";
 import { useStudio } from "./store";
-import { PartPreview } from "./PartPreview";
+import { PartPreview, previewHeight } from "./PartPreview";
+import { BAND_LABEL, groupIntoBands, spanOf } from "./showcase";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -53,9 +61,10 @@ export function addFeatureToCanvas(featureId: string) {
 /* One part                                                            */
 /* ------------------------------------------------------------------ */
 
-function Card({ feature, removed }: { feature: FeatureDef; removed?: boolean }) {
-  const cat = categoryOf(feature.category);
-  const ring = `oklch(0.72 0.14 ${cat.hue})`;
+function Card({ feature, width, removed }: { feature: FeatureDef; width: number; removed?: boolean }) {
+  const [dragging, setDragging] = React.useState(false);
+  // The preview keeps the part's own proportions and is fitted, not cropped.
+  const height = Math.max(44, Math.min(96, previewHeight(feature, width - 8)));
 
   if (removed) {
     return (
@@ -64,12 +73,11 @@ function Card({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
           type="button"
           {...ctxProps("studio-palette", feature.id, feature)}
           onClick={() => { play("confirm"); useStudio.getState().restoreFeature(feature.id); }}
-          className="tactile flex w-[132px] shrink-0 flex-col items-center gap-1 rounded-lg border border-dashed border-border p-2 opacity-45 hover:opacity-100"
+          style={{ width }}
+          className="tactile flex shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border p-2 opacity-40 hover:opacity-100"
         >
-          <span className="flex size-[92px] items-center justify-center rounded-full border border-border text-fg-faint">
-            <RotateCcw className="size-4" />
-          </span>
-          <span className="line-clamp-2 min-h-[24px] text-center text-[10px] leading-tight text-fg-muted">{feature.name}</span>
+          <RotateCcw className="size-3.5 text-fg-faint" />
+          <span className="line-clamp-1 text-center text-[10px] text-fg-muted">{feature.name}</span>
         </button>
       </Tooltip>
     );
@@ -77,7 +85,13 @@ function Card({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
 
   return (
     <Tooltip content={feature.explain ?? feature.blurb} side="top">
-      <div className="group relative w-[132px] shrink-0">
+      <div className="ember group relative" style={{ width }} data-hot={dragging ? "1" : undefined}>
+        {/* The lighting. Two coals on different clocks, and the blue it flares to. */}
+        <span aria-hidden className="ember-light">
+          <i className="ember-coal-a" />
+          <i className="ember-coal-b" />
+          <i className="ember-hot" />
+        </span>
         <div
           role="button"
           tabIndex={0}
@@ -86,8 +100,10 @@ function Card({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
           onDragStart={(e) => {
             e.dataTransfer.setData("application/x-studio-feature", feature.id);
             e.dataTransfer.effectAllowed = "copy";
+            setDragging(true);
             play("tap");
           }}
+          onDragEnd={() => setDragging(false)}
           onClick={() => addFeatureToCanvas(feature.id)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -95,24 +111,16 @@ function Card({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
               addFeatureToCanvas(feature.id);
             }
           }}
-          className="tactile flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-transparent p-2 hover:border-border hover:bg-hover"
+          className="tactile flex cursor-pointer flex-col gap-1 rounded-md p-1 outline-none"
         >
-          {/* A disc in the category's own colour, so the part reads as an object
-              sitting on something rather than a rectangle on a rectangle. */}
-          <span
-            className="flex size-[92px] items-center justify-center rounded-full p-2.5"
-            style={{ background: `oklch(0.72 0.14 ${cat.hue} / 0.16)`, boxShadow: `inset 0 0 0 1px oklch(0.72 0.14 ${cat.hue} / 0.4)` }}
-          >
-            <PartPreview feature={feature} width={70} height={70} round />
-          </span>
-          <span className="line-clamp-2 min-h-[24px] text-center text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
+          <PartPreview feature={feature} width={width - 8} height={height} />
+          <span className="line-clamp-1 px-0.5 text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
         </div>
         <button
           type="button"
           aria-label={`Remove ${feature.name} from the library`}
           onClick={(e) => { e.stopPropagation(); play("deny"); useStudio.getState().hideFeature(feature.id); }}
-          className="tactile absolute right-1 top-1 hidden rounded-sm p-0.5 text-fg-faint hover:bg-hover hover:text-fg group-hover:block"
-          style={{ color: ring }}
+          className="tactile absolute right-0.5 top-0.5 hidden rounded-sm bg-panel/80 p-0.5 text-fg-faint hover:text-fg group-hover:block"
         >
           <X className="size-3" />
         </button>
@@ -164,8 +172,56 @@ export function Palette() {
     setSub(null);
   };
 
+  // One measurement for the whole shelf: the previews are real components, so
+  // they need a pixel width, and twelve columns of it is the page's own grid.
+  const shelfRef = React.useRef<HTMLDivElement>(null);
+  const [shelfW, setShelfW] = React.useState(880);
+  React.useEffect(() => {
+    const el = shelfRef.current;
+    if (!el) return;
+    const measure = () => setShelfW(Math.max(320, el.clientWidth - 24));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // The shelf borrows height from the board, so it gives it back on request.
+  const [height, setHeight] = React.useState(232);
+  const dragFrom = React.useRef<{ y: number; h: number } | null>(null);
+  React.useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const from = dragFrom.current;
+      if (!from) return;
+      setHeight(Math.max(140, Math.min(520, from.h + (from.y - e.clientY))));
+    };
+    const up = () => { dragFrom.current = null; };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+  }, []);
+
+  const GAP = 8;
+  const column = (shelfW - GAP * 11) / 12;
+  const cardWidth = (span: number) => Math.max(104, Math.round(column * span + GAP * (span - 1)));
+
+  const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
+
   return (
-    <div data-drawer="" className="flex h-[212px] shrink-0 border-t border-border bg-panel/50">
+    <div data-drawer="" style={{ height }} className="relative flex shrink-0 border-t border-border bg-panel/50">
+      {/* Drag the top edge to trade board for shelf. */}
+      <div
+        role="separator"
+        aria-label="Shelf height"
+        aria-orientation="horizontal"
+        aria-valuenow={height}
+        tabIndex={0}
+        onPointerDown={(e) => { dragFrom.current = { y: e.clientY, h: height }; }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp") setHeight((v) => Math.min(520, v + 24));
+          if (e.key === "ArrowDown") setHeight((v) => Math.max(140, v - 24));
+        }}
+        className="absolute inset-x-0 -top-1 z-10 h-2 cursor-ns-resize"
+      />
       {/* ------------------------------------------------ categories */}
       <div className="flex w-[168px] shrink-0 flex-col border-r border-border">
         <div className="shrink-0 p-2">
@@ -266,11 +322,31 @@ export function Palette() {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div ref={shelfRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           {shown.length || removed.length ? (
-            <div className="flex h-full items-start gap-1 p-2">
-              {shown.map((f) => <Card key={f.id} feature={f} />)}
-              {removed.map((f) => <Card key={f.id} feature={f} removed />)}
+            <div className="space-y-2 px-3 py-2">
+              {bands.map(({ band, items }) => (
+                <section key={band}>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="shrink-0 text-[9px] uppercase tracking-wider text-fg-faint">{BAND_LABEL[band]}</span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {items.map((f) => <Card key={f.id} feature={f} width={cardWidth(spanOf(f))} />)}
+                  </div>
+                </section>
+              ))}
+              {removed.length ? (
+                <section>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="shrink-0 text-[9px] uppercase tracking-wider text-fg-faint">Removed</span>
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {removed.map((f) => <Card key={f.id} feature={f} width={cardWidth(3)} removed />)}
+                  </div>
+                </section>
+              ) : null}
             </div>
           ) : (
             <div className="flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">
