@@ -136,7 +136,7 @@ export const studio = defineFeature({
 
   shortcuts: [
     { keys: "g b", label: "Go to the Builder", group: "Navigate", run: (c) => c.navigate("/builder") },
-    { keys: "p", label: "Open the live preview", group: "Builder", when: onBoard, run: (c) => c.navigate(livePath()) },
+    { keys: "p", label: "Design / Preview", group: "Builder", when: onBoard, run: () => { const s = useStudio.getState(); s.setMode(s.mode === "preview" ? "design" : "preview"); } },
     { keys: "w", label: "Show / hide the wires", group: "Builder", when: onBoard, run: () => { const s = useStudio.getState(); s.setShowWires(!s.showWires); } },
     { keys: "b", label: "Back to the board", group: "Builder", when: onPreview, run: (c) => c.navigate("/builder") },
     { keys: "l", label: "Show / hide the library", group: "Builder", when: onBoard, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },

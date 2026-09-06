@@ -31,10 +31,23 @@ export function PagesPanel() {
   const nodes = useStudio((s) => s.nodes);
   const activeId = useStudio((s) => s.activePageId);
   const ctx = useActions();
+  const brief = useStudio((s) => s.brief);
   const [expanded, setExpanded] = React.useState<string | null>(activeId);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* The two things that describe the whole site live here rather than
+          under the board, so the workspace is not two text boxes tall. */}
+      <div className="shrink-0 space-y-2 border-b border-border p-3" {...ctxProps("studio-brief", "brief", brief)}>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-fg-faint">Site name</span>
+          <Input value={brief.name} placeholder="Untitled" aria-label="Site name" onChange={(e) => useStudio.getState().setBrief({ name: e.target.value })} />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-fg-faint">Central idea</span>
+          <Textarea autoGrow rows={2} value={brief.gimmick} placeholder="The one thing everything serves" aria-label="Central idea" onChange={(e) => useStudio.getState().setBrief({ gimmick: e.target.value })} />
+        </label>
+      </div>
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
         <div>
           <div className="text-[11px] font-semibold text-fg">Pages</div>

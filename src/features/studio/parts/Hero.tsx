@@ -8,8 +8,9 @@ import { items, type Theme } from "./theme";
 import type { PartProps } from "./types";
 
 export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }: PartProps) {
-  const lines = items(content, ["Say the one thing this site does", "in a single line people remember."]);
   const typing = id === "hero-typewriter";
+  // The typewriter cycles phrases; every other hero is a headline plus a subline.
+  const lines = items(content, typing ? ["Design faster", "Ship sooner", "Sleep better"] : ["Say the one thing this site does", "in a single line people remember."]);
   const [phrase, setPhrase] = React.useState(0);
   useTicker(mode, 2200, () => setPhrase((p) => (p + 1) % Math.max(1, lines.length)), typing && lines.length > 1);
 

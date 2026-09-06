@@ -50,7 +50,7 @@ function Tile({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
 
   if (removed) {
     return (
-      <Tooltip content={`${feature.blurb} — removed from the library`} side="right">
+      <Tooltip content={`${feature.explain ?? feature.blurb} — removed from the library`} side="right">
         <button
           type="button"
           {...ctxProps("studio-palette", feature.id, feature)}
@@ -70,7 +70,7 @@ function Tile({ feature, removed }: { feature: FeatureDef; removed?: boolean }) 
   }
 
   return (
-    <Tooltip content={feature.blurb} side="right">
+    <Tooltip content={feature.explain ?? feature.blurb} side="right">
       <div className="group relative">
       <button
         type="button"

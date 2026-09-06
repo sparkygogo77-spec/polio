@@ -78,8 +78,9 @@ should be *before* writing the prompt that says what it is.
 | Panel | Where | What it does |
 |---|---|---|
 | **Library** | left, toggle with `l` | All 218 parts as visual tiles, searchable, by category. Drag onto the board or click to drop. Blurb lives in the tooltip and right-click. |
+| **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
-| **Preview** | pinned on the board | The frame itself, scaled down, wearing the Format settings; at phone width the parts reflow into rows. |
+| **Companion** | floating, draggable | The same page as a phone or tablet — never desktop, since the board is the desktop view. Tap a part in it to select that part on the board. |
 | **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. |
 | **Blueprint** | Compile button | Everything as a self-describing brief, markdown or JSON; optionally handed to Claude. |
 
@@ -207,6 +208,16 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   footer reveals them, clicking one restores it, and one command puts them all
   back. An emptied category loses its chip. A part already on a board keeps
   working when its tile is removed. Prefer pruning to shipping a crowded panel.
+- Right-clicking a **part** opens the wheel (`RadialMenu.tsx`), not a list: six
+  wedges — Contents, Size & place, Look, Links & data, Prompt, More — as a half
+  circle facing away from the nearest screen edge, each opening one small panel.
+  Everything else keeps a short list menu; a wheel of three items is worse than
+  a list. If you add controls to a part, put them in the right wedge rather than
+  lengthening anything.
+- `FeatureDef.explain` is one sentence saying what a part is and when you would
+  want it, for the parts whose name is not enough (all of motion, interaction,
+  under-the-hood, AI and dense). It shows on hover on the board and in the
+  library tooltip. Write one for any new part that is not self-evident.
 - Every Builder surface carries a right-click scope: `studio-node`,
   `studio-group`, `studio-shape`, `studio-canvas`, `studio-palette`,
   `studio-page`, `studio-brief`, `studio-format-group`, `studio-live`,

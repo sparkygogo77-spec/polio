@@ -25,6 +25,8 @@ import type { NodeLink } from "./parts/types";
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
 export type ShapeKind = "pen" | "frame" | "arrow";
+/** The board shows either the design surface or the site it describes. */
+export type BoardMode = "design" | "preview";
 export type ShapeRelation = "flow" | "data";
 
 export interface StudioNode {
@@ -131,6 +133,10 @@ interface StudioState extends Doc {
   showWires: boolean;
   /** Parts removed from the library. Nothing is deleted; they can come back. */
   hiddenFeatures: string[];
+  /** Design surface, or the live site in the same place on screen. */
+  mode: BoardMode;
+  /** The phone/tablet companion: which device, where it sits, whether it is open. */
+  companion: { device: "phone" | "tablet"; x: number; y: number; open: boolean };
   past: Doc[];
   future: Doc[];
 
@@ -181,6 +187,8 @@ interface StudioState extends Doc {
   resetFormat: () => void;
   setShowAllFormat: (v: boolean) => void;
   setShowWires: (v: boolean) => void;
+  setMode: (m: BoardMode) => void;
+  setCompanion: (patch: Partial<StudioState["companion"]>) => void;
   hideFeature: (id: string) => void;
   restoreFeature: (id: string) => void;
   restoreAllFeatures: () => void;
@@ -255,6 +263,8 @@ export const useStudio = create<StudioState>()(
         showAllFormat: false,
         showWires: true,
         hiddenFeatures: [],
+        mode: "design",
+        companion: { device: "phone", x: -18, y: -18, open: true },
         past: [],
         future: [],
 
@@ -496,6 +506,8 @@ export const useStudio = create<StudioState>()(
         },
         setShowAllFormat: (v) => set({ showAllFormat: v }),
         setShowWires: (v) => set({ showWires: v }),
+        setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
+        setCompanion: (patch) => set((s) => ({ companion: { ...s.companion, ...patch } })),
         hideFeature: (id) => set((s) => (s.hiddenFeatures.includes(id) ? {} : { hiddenFeatures: [...s.hiddenFeatures, id] })),
         restoreFeature: (id) => set((s) => ({ hiddenFeatures: s.hiddenFeatures.filter((x) => x !== id) })),
         restoreAllFeatures: () => set({ hiddenFeatures: [] }),
@@ -577,6 +589,7 @@ export const useStudio = create<StudioState>()(
           nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "" })),
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
+          companion: { ...current.companion, ...(p.companion ?? {}) },
         };
       },
       partialize: (s) => ({
@@ -590,6 +603,7 @@ export const useStudio = create<StudioState>()(
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,
+        companion: s.companion,
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,

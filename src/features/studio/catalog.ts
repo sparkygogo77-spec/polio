@@ -58,6 +58,8 @@ export interface FeatureDef {
    * whatever is typed here, so the part looks like itself.
    */
   content?: { label: string; placeholder: string };
+  /** What it is and when you would want it — shown on hover, for parts whose name isn't enough. */
+  explain?: string;
   /** Default footprint on a 1440-wide page. Category defaults apply when unset. */
   w?: number;
   h?: number;
@@ -449,10 +451,100 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   constraint: { w: 320, h: 100, content: { label: "The rule", placeholder: "Must load in under a second" } },
 };
 
+
+/** What a part is and when you would want it — for the ones whose name is not enough. */
+const EXPLAIN: Record<string, string> = {
+  "scroll-snap": "Sections lock to the top as you scroll, one screen at a time. Use it when each section is a statement and you want people to land on it squarely, not halfway.",
+  "parallax": "Background layers move slower than the content in front, so the page feels deep. Use it sparingly behind a hero; on a whole page it makes people seasick.",
+  "reveal-on-scroll": "Things fade or slide in as they come into view instead of being there already. Use it to pace a long page; skip it if people are scanning for information.",
+  "sticky-story": "A picture stays pinned while text scrolls past it, changing as you go. Use it to explain something in steps against one visual.",
+  "horizontal-scroll": "One section scrolls sideways while the page scrolls down. Use it for a gallery or a timeline; never for something people need to read.",
+  "scroll-progress": "A thin bar or ring showing how far down the page you are. Use it on long reading pages so people know how much is left.",
+  "scroll-video": "A video or animation whose playhead follows your scroll position \u2014 scroll down, it plays; scroll up, it rewinds. Heavy to make; use it for one showpiece.",
+  "infinite-scroll": "More items load when you reach the bottom instead of a Next button. Use it for feeds; avoid it when people need to find their way back to something.",
+  "smooth-scroll": "Scrolling eases and glides rather than jumping. Use it when the site should feel unhurried; some people find it disorienting.",
+  "cursor-effects": "The mouse pointer is replaced or followed by something \u2014 a dot, a trail, a spotlight. Purely a mood choice, and it does nothing on a phone.",
+  "hover-tilt": "Cards tip towards the pointer as it passes over them, like they are on a hinge. A small touch of life on a grid of cards.",
+  "page-load": "A short intro that plays the first time the site paints \u2014 a logo settling, a wipe. Use it once; people who visit often will hate a long one.",
+  "morph-transition": "One element appears to fly and reshape into another when you navigate \u2014 a small card growing into the full page you clicked. Use it to keep people oriented between two views.",
+  "confetti": "A burst of shapes on a moment of success. Use it once per journey, at the end.",
+  "physics": "Things carry weight and momentum: they overshoot, settle and bounce. Use it when the site should feel like objects rather than pages.",
+  "context-menus": "Your own menu when someone right-clicks, instead of the browser's. Use it when a site has real actions per item.",
+  "command-palette": "Ctrl/Cmd-K opens a search box that runs any action on the site. Use it when there is more to do than a nav bar can hold.",
+  "shortcuts": "Keyboard keys for the common actions, with a cheat sheet. Use it when people will be here every day.",
+  "toasts": "Small messages that appear, say one thing, and go \u2014 without stacking up or repeating.",
+  "optimistic-ui": "The screen shows the action as done immediately and quietly fixes itself if the server disagrees. Makes everything feel instant.",
+  "sound-cues": "Short sounds on key actions. Use it when the site is a tool people work in; default it off.",
+  "haptics": "A short vibration on phones that support it, for confirmations.",
+  "drag-drop": "Rearrange or move things by dragging them. Use it when order or grouping is the point.",
+  "inline-edit": "Click text and change it in place instead of opening a form. Use it when editing is frequent and small.",
+  "undo-redo": "Actions can be taken back, with a history. Use it anywhere a mistake would otherwise be permanent.",
+  "copy-button": "One click copies a value and says so. Use it for anything people retype.",
+  "hover-card": "A richer preview appears when you rest on a link or a name. Use it to answer \"what is this\" without a page load.",
+  "tooltips": "A short label on demand. For icons whose meaning is not obvious.",
+  "skeletons": "Grey shapes the size of the content that is loading, instead of a spinner. Makes waits feel shorter.",
+  "onboarding-tour": "A guided first run pointing at things in order. Use it only if the site cannot explain itself.",
+  "magnetic-buttons": "Buttons lean towards the cursor as it approaches. A playful touch on a small number of buttons.",
+  "gamification": "Points, streaks, levels and things to unlock. Use it when coming back regularly is the goal.",
+  "easter-egg": "Something hidden for people who poke around. One is charming; five is noise.",
+  "workflow-builder": "Let people wire steps together themselves, on the finished site. A big feature \u2014 say what the steps are.",
+  "cog-settings": "A place where visitors change how the site behaves for them \u2014 theme, density, sound.",
+  "compass-onboard": "What a brand-new visitor sees before they have done anything. Say what the empty state should teach them.",
+  "graduation": "Simple by default, with the depth appearing as people get comfortable. Say what is hidden at first and what reveals it.",
+  "empty-states": "What a list or page shows when there is nothing in it yet. Worth designing \u2014 it is the first thing new people see.",
+  "dark-mode": "Both a light and a dark version, following the visitor's system setting unless they choose.",
+  "theming": "Visitors can change colour and density themselves, and it is remembered.",
+  "responsive": "Deliberate phone, tablet and desktop layouts rather than one squeezed.",
+  "a11y": "Keyboard reachable, readable contrast, labelled controls, sensible focus order. Not optional if anyone else uses the site.",
+  "i18n": "More than one language, with dates and numbers in local form.",
+  "seo": "Titles, descriptions, share images and a sitemap so links look right and search can find it.",
+  "analytics": "Recording what people actually do, so you can tell what works.",
+  "auth": "Sign in, sessions and who is allowed to do what. Needs a server.",
+  "database": "Where the data actually lives between visits. Needs a server.",
+  "api": "Letting other software talk to your site.",
+  "pwa": "Installable to a home screen and usable with no connection.",
+  "perf": "A speed target \u2014 fast on a mid-range phone, not just on yours.",
+  "error-handling": "What people see when something breaks, instead of a blank page.",
+  "cookie-consent": "Asking before tracking, where the law requires it.",
+  "email": "Automatic email: receipts, password resets, notifications.",
+  "cms": "Letting someone who does not write code change the words.",
+  "versioning": "Draft, publish and roll back changes.",
+  "testing": "Automated checks that it still works after a change.",
+  "integration": "Connecting to a third-party service. Name the service.",
+  "weather-time": "The site changes with the visitor's clock or weather \u2014 a night theme after dark, rain on the header.",
+  "qr-bridge": "A code that hands the current thing from desktop to phone or back.",
+  "print": "Looks right on paper or saved as a PDF.",
+  "brand-system": "Logo, palette, type and voice applied consistently everywhere rather than page by page.",
+  "ai-chat": "A chat panel that answers using this site's own content. Needs a server and a model.",
+  "ai-prompt-box": "One input where someone describes what they want and the site makes it.",
+  "ai-summarize": "A button that condenses something long on demand.",
+  "ai-generate-content": "A section whose words the model writes, rather than you.",
+  "ai-recommend": "Suggests what to look at next based on what someone has done.",
+  "ai-moderation": "Screens what people submit before it appears.",
+  "ai-translate": "Translates content on the fly rather than keeping separate copies.",
+  "ai-voice": "Talk to it instead of typing.",
+  "virtualised-list": "Thousands of rows that scroll without slowing down, because only what is on screen exists.",
+  "dense-tables": "Rows packed tight, for people reading a lot at once rather than browsing.",
+  "multi-column-feed": "Several live streams side by side, each scrolling on its own.",
+  "presets": "Named setups people can switch between in one click.",
+  "hotkey-first": "Everything reachable from the keyboard, mouse optional.",
+  "status-bar": "A thin strip along the bottom that always shows the current state \u2014 connection, counts, mode.",
+  "blur-privacy": "A toggle that blurs sensitive numbers so you can share your screen.",
+  "split-panes": "Regions divided by a bar you can drag to give one more room.",
+  "terminal-console": "A place to type commands and see output, for people who prefer typing to clicking.",
+  "realtime-stream": "Updates pushed the instant they happen rather than checked for periodically.",
+  "page-transitions": "How one page becomes the next \u2014 a fade, a slide, a wipe. Set it once; it applies to every navigation.",
+  "back-to-top": "A button that appears once you have scrolled, taking you back to the start.",
+  "scan-region": "A named area you draw on the board so several parts can be referred to together.",
+  "waypoint": "A marker for a point where several journeys meet. Use it to note a junction rather than to draw one.",
+  "container-width": "How wide text and blocks are allowed to run before they stop growing.",
+  "wildcard": "Let the model choose. Use it when you want a suggestion rather than a decision.",
+};
+
 export const FEATURES: FeatureDef[] = RAW.map((x) => {
   const [cw, ch] = CATEGORY_SIZE[x.category];
   const d = DETAILS[x.id] ?? {};
-  return { ...x, w: x.w ?? cw, h: x.h ?? ch, ...d, options: d.options ?? x.options };
+  return { ...x, w: x.w ?? cw, h: x.h ?? ch, ...d, options: d.options ?? x.options, explain: d.explain ?? EXPLAIN[x.id] };
 });
 
 export const FEATURES_BY_ID = new Map(FEATURES.map((x) => [x.id, x]));

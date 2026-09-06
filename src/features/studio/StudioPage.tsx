@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Eraser, Eye, FileText, Link2, Link2Off, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  ArrowUpRight, Eraser, Eye, FileText, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Pencil, Plus, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
@@ -20,7 +20,9 @@ import { Inspector } from "./Inspector";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog, useCompiledBrief } from "./BriefDialog";
-import { FRAME_WIDTHS, HUES, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
+import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
+import { LiveStage } from "./live/LiveStage";
+import { RadialMenu } from "./RadialMenu";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -40,7 +42,53 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
 ];
 
-function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
+/** Design or Preview, in the same place on screen. */
+function ModeSwitch() {
+  const mode = useStudio((s) => s.mode);
+  return (
+    <Segmented
+      size="xs"
+      value={mode}
+      onChange={(v) => useStudio.getState().setMode(v as "design")}
+      options={[
+        { value: "design", label: "Design", icon: <PencilIcon /> },
+        { value: "preview", label: "Preview", icon: <PlayCircle /> },
+      ]}
+      aria-label="Design or preview"
+    />
+  );
+}
+
+/** The one prompt that says what the site is, and the button that compiles it. */
+function PromptStrip({ onOpenBrief }: { onOpenBrief: () => void }) {
+  const master = useStudio((s) => s.brief.master);
+  const spec = useCompiledBrief();
+  return (
+    <>
+      <Input
+        className="min-w-0 flex-1"
+        placeholder="Say what you want this to be — everything on the board is the context"
+        value={master}
+        onChange={(e) => useStudio.getState().setBrief({ master: e.target.value })}
+        aria-label="Master prompt"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            onOpenBrief();
+          }
+        }}
+      />
+      <Tooltip content={`${spec.stats.elements} placed · ${spec.stats.prompted} prompted`}>
+        <Button variant="primary" size="sm" onClick={onOpenBrief} shortcut="mod+enter">
+          <Send />
+          Finish
+        </Button>
+      </Tooltip>
+    </>
+  );
+}
+
+function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: boolean; onToggleLibrary: () => void; onOpenBrief: () => void }) {
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
   const zoom = useStudio((s) => s.zoom);
@@ -50,9 +98,27 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   const past = useStudio((s) => s.past.length);
   const future = useStudio((s) => s.future.length);
   const router = useRouter();
+  const mode = useStudio((s) => s.mode);
+
+  // In Preview the board is the site, so the drawing tools have nothing to act on.
+  if (mode === "preview") {
+    return (
+      <div className="flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
+        <ModeSwitch />
+        <span className="flex-1" />
+        <Tooltip content="Open the site on its own address">
+          <Button variant="ghost" size="iconXs" aria-label="Open live preview" onClick={() => { play("navigate"); router.push(livePath()); }}>
+            <Eye />
+          </Button>
+        </Tooltip>
+      </div>
+    );
+  }
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
+      <ModeSwitch />
+      <span className="mx-1 h-4 w-px bg-border" />
       <Tooltip content={libraryOpen ? "Hide library" : "Show library"} shortcut="l">
         <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle library" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
           <PanelLeft />
@@ -122,11 +188,6 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           {showWires ? <Link2 /> : <Link2Off />}
         </Button>
       </Tooltip>
-      <Tooltip content="Open the live preview" shortcut="p">
-        <Button variant="ghost" size="iconXs" aria-label="Open live preview" onClick={() => { play("navigate"); router.push(livePath()); }}>
-          <Eye />
-        </Button>
-      </Tooltip>
       <Tooltip content="Undo" shortcut="mod+z">
         <Button variant="ghost" size="iconXs" aria-label="Undo" disabled={!past} onClick={() => useStudio.getState().undo()}>
           <Undo2 />
@@ -157,12 +218,13 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   );
 }
 
-function PageTabs() {
+function PageTabs({ onOpenBrief }: { onOpenBrief: () => void }) {
   const pages = useStudio((s) => s.pages);
   const activeId = useStudio((s) => s.activePageId);
   const nodes = useStudio((s) => s.nodes);
   return (
-    <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-1 hide-scrollbar">
+    <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
+      <div className="flex min-w-0 items-center gap-1 overflow-x-auto hide-scrollbar">
       {pages.map((p) => {
         const count = nodes.filter((n) => n.pageId === p.id).length;
         const active = p.id === activeId;
@@ -191,58 +253,8 @@ function PageTabs() {
           <Plus />
         </Button>
       </Tooltip>
-    </div>
-  );
-}
-
-function PromptBar({ onOpenBrief }: { onOpenBrief: () => void }) {
-  const brief = useStudio((s) => s.brief);
-  const setBrief = useStudio((s) => s.setBrief);
-  const spec = useCompiledBrief();
-  const nodes = useStudio(useShallow(pageNodes));
-
-  return (
-    <div className="shrink-0 border-t border-border bg-panel/70 p-2" {...ctxProps("studio-brief", "brief", brief)}>
-      <div className="mb-1.5 flex items-center gap-2">
-        <Input
-          className="w-48"
-          placeholder="Site name"
-          value={brief.name}
-          onChange={(e) => setBrief({ name: e.target.value })}
-          aria-label="Site name"
-        />
-        <Input
-          className="min-w-0 flex-1"
-          placeholder="The central idea — the one thing everything serves"
-          value={brief.gimmick}
-          onChange={(e) => setBrief({ gimmick: e.target.value })}
-          aria-label="Central idea"
-        />
-        <Badge size="sm" variant={spec.stats.prompted ? "accent" : "warn"}>
-          {spec.stats.elements} placed · {spec.stats.prompted} prompted
-        </Badge>
       </div>
-      <div className="flex items-end gap-2">
-        <Textarea
-          className="min-h-[38px] flex-1"
-          autoGrow
-          rows={1}
-          placeholder="Now say what you want it to be. Everything on the board is the context — this is the instruction."
-          value={brief.master}
-          onChange={(e) => setBrief({ master: e.target.value })}
-          aria-label="Master prompt"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              onOpenBrief();
-            }
-          }}
-        />
-        <Button variant="primary" size="lg" onClick={onOpenBrief} shortcut="mod+enter" disabled={!nodes.length && !brief.master.trim()}>
-          <Send />
-          Compile
-        </Button>
-      </div>
+      <PromptStrip onOpenBrief={onOpenBrief} />
     </div>
   );
 }
@@ -253,6 +265,9 @@ export function StudioPage() {
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const [panel, setPanel] = React.useState("inspector");
   const selection = useStudio((s) => s.selection);
+  const mode = useStudio((s) => s.mode);
+  const page = useStudio(activePage);
+  const design = mode === "design";
 
   // Selecting something on the canvas should show it, not whatever tab you left open.
   React.useEffect(() => {
@@ -272,43 +287,52 @@ export function StudioPage() {
   return (
     // Fixed height, never min-height: the board must fit the viewport exactly so
     // the page behind it cannot scroll while you are drawing on it.
-    <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 overflow-hidden">
-      {libraryOpen ? (
-        <aside className="hidden w-60 shrink-0 lg:block">
-          <Palette onClose={() => setLibraryOpen(false)} />
-        </aside>
-      ) : null}
+    <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 flex-col overflow-hidden">
+      <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} onOpenBrief={() => setBriefOpen(true)} />
+      <PageTabs onOpenBrief={() => setBriefOpen(true)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} />
-        <PageTabs />
-        <div className="relative min-h-0 flex-1">
-          <Canvas />
+      <div className="flex min-h-0 flex-1">
+        {/* The library and the panels belong to designing; previewing hides them
+            without moving the site, which stays exactly where the frame was. */}
+        {design && libraryOpen ? (
+          <aside className="hidden w-60 shrink-0 lg:block">
+            <Palette onClose={() => setLibraryOpen(false)} />
+          </aside>
+        ) : null}
+
+        <div className="relative min-h-0 min-w-0 flex-1">
+          {design ? (
+            <Canvas />
+          ) : (
+            <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
+          )}
           <PreviewWindow />
         </div>
-        <PromptBar onOpenBrief={() => setBriefOpen(true)} />
+
+        {design ? (
+          <aside className="hidden w-72 shrink-0 flex-col border-l border-border bg-panel/50 xl:flex">
+            <div className="shrink-0 border-b border-border p-1.5">
+              <Segmented
+                className="w-full [&>*]:flex-1"
+                size="xs"
+                value={panel}
+                onChange={setPanel}
+                options={[
+                  { value: "inspector", label: "Element", icon: <Sparkles /> },
+                  { value: "format", label: "Format", icon: <Settings2 /> },
+                  { value: "pages", label: "Pages", icon: <Layers /> },
+                ]}
+                aria-label="Panel"
+              />
+            </div>
+            <div className="min-h-0 flex-1">
+              {panel === "inspector" ? <Inspector /> : panel === "format" ? <FormatPanel /> : <PagesPanel />}
+            </div>
+          </aside>
+        ) : null}
       </div>
 
-      <aside className="hidden w-72 shrink-0 flex-col border-l border-border bg-panel/50 xl:flex">
-        <div className="shrink-0 border-b border-border p-1.5">
-          <Segmented
-            className="w-full [&>*]:flex-1"
-            size="xs"
-            value={panel}
-            onChange={setPanel}
-            options={[
-              { value: "inspector", label: "Element", icon: <Sparkles /> },
-              { value: "format", label: "Format", icon: <Settings2 /> },
-              { value: "pages", label: "Pages", icon: <Layers /> },
-            ]}
-            aria-label="Panel"
-          />
-        </div>
-        <div className="min-h-0 flex-1">
-          {panel === "inspector" ? <Inspector /> : panel === "format" ? <FormatPanel /> : <PagesPanel />}
-        </div>
-      </aside>
-
+      <RadialMenu />
       <BriefDialog open={briefOpen} onOpenChange={setBriefOpen} />
     </div>
   );

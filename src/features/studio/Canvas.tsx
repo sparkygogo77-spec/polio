@@ -24,6 +24,7 @@ import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Shapes } from "lucide-react";
+import { openRadial } from "./RadialMenu";
 
 const GRID = 8;
 const snapGrid = (v: number) => Math.round(v / GRID) * GRID;
@@ -544,20 +545,39 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, zoom }: {
     <div
       data-node-id={node.id}
       {...ctxProps("studio-node", node.id, node)}
+      onContextMenu={(e) => {
+        // The wheel, not a twenty-item list. Stops the global menu from opening too.
+        e.preventDefault();
+        e.stopPropagation();
+        useStudio.getState().setSelection([node.id]);
+        openRadial(node.id, e.clientX, e.clientY);
+      }}
       className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed")}
       style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
     >
       {/* the part itself, at real size */}
+      {/* The selected part runs its own clocks, so you can see what it does. */}
       <div
         className="absolute inset-0 overflow-hidden"
-        data-mode="board"
+        data-mode={selected ? "live" : "board"}
         inert
         style={{ pointerEvents: "none", outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}
       >
-        <Block node={node} t={theme} mode="board" />
+        <Block node={node} t={theme} mode={selected ? "live" : "board"} />
       </div>
       {/* hover outline so unselected parts still read as parts */}
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
+
+      {/* What is this, and when would you want it? Answered without clicking. */}
+      {feature ? (
+        <div
+          className="pointer-events-none absolute left-0 z-10 hidden w-[280px] origin-top-left rounded-md border border-border bg-panel/95 p-2 text-[11px] leading-snug text-fg-muted shadow-panel backdrop-blur group-hover:block"
+          style={{ top: `calc(100% + 8px)`, transform: `scale(${chipScale})` }}
+        >
+          <span className="mb-0.5 block font-medium text-fg">{feature.name}</span>
+          {feature.explain ?? feature.blurb}
+        </div>
+      ) : null}
 
       {/* label chip: what this is, in the builder's words */}
       <div
