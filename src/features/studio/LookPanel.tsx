@@ -11,9 +11,11 @@
 import * as React from "react";
 import { ChevronDown, ChevronUp, Copy, Pipette, Plus, Shuffle, Trash2 } from "lucide-react";
 import {
-  contrast, css, HARMONIES, harmonise, layerCss, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, toHex, withAlpha, type BlendMode, type Harmony, type Oklch, type RoleId, type TextureKind,
+  affects, contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
+  TEXTURE_KINDS, textureCss, toHex, type BlendMode, type Harmony, type Oklch, type Palette,
+  type RoleId, type TextureKind, type TextureLayer,
 } from "./look";
+import { treatImage, treatmentKey } from "./texture";
 import { resolvePalette } from "./parts/theme";
 import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
@@ -223,19 +225,62 @@ function ColourSection() {
 /* The texture stack                                                   */
 /* ------------------------------------------------------------------ */
 
-function Swatch({ layer, palette }: { layer: ReturnType<typeof newLayer>; palette: Record<RoleId, string> }) {
-  const built = layerCss(layer, withAlpha(palette[layer.role], layer.opacity));
-  return (
-    <div
-      className="size-9 shrink-0 rounded-md border border-border"
-      style={{
-        backgroundColor: palette.bg,
-        backgroundImage: built?.image,
-        backgroundSize: built?.size === "auto" ? undefined : built?.size,
-        backgroundBlendMode: layer.blend,
-      }}
-    />
+function Swatch({ layer, palette }: { layer: TextureLayer; palette: Palette }) {
+  // The real compositor, on one layer, so the chip cannot drift from the page.
+  const style = textureCss([{ ...layer, on: true }], palette, palette.bg);
+  return <div className="size-9 shrink-0 rounded-md border border-border" style={style} />;
+}
+
+/** Blend modes, named for what they look like rather than for the maths. */
+const BLENDS: { value: BlendMode; label: string }[] = [
+  { value: "normal", label: "Normal" },
+  { value: "multiply", label: "Darken" },
+  { value: "screen", label: "Lighten" },
+  { value: "overlay", label: "Punch" },
+  { value: "soft-light", label: "Soft" },
+  { value: "difference", label: "Invert" },
+];
+
+/**
+ * Cooks a picture layer whenever anything that changes the tile changes.
+ * Renders nothing — it just keeps `layer.baked` honest.
+ */
+function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
+  const done = React.useRef<string | null>(null);
+  const treatment = React.useMemo(
+    () => ({
+      cutout: !!layer.cutout,
+      tolerance: layer.tolerance ?? 0.35,
+      pattern: !!layer.pattern,
+      contrast: layer.contrast,
+      tint,
+      angle: layer.angle,
+    }),
+    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle],
   );
+
+  React.useEffect(() => {
+    const src = layer.src;
+    if (!src) return;
+    const key = `${src.length}:${treatmentKey(treatment)}`;
+    if (done.current === key) return;
+    let live = true;
+    // Debounced, because these all sit under sliders.
+    const id = window.setTimeout(() => {
+      void treatImage(src, treatment)
+        .then((baked) => {
+          if (!live) return;
+          done.current = key;
+          useStudio.getState().updateTexture(layer.id, { baked });
+        })
+        .catch(() => {
+          /* an unreadable picture just stays as it came */
+        });
+    }, 120);
+    return () => { live = false; window.clearTimeout(id); };
+  }, [layer.id, layer.src, treatment]);
+
+  return null;
 }
 
 function TextureSection() {
@@ -254,7 +299,7 @@ function TextureSection() {
     const layers = useStudio.getState().look.texture;
     const target = id ?? (openId && layers.find((l) => l.id === openId && l.kind === "image") ? openId : null);
     if (target) {
-      s().updateTexture(target, { src, kind: "image" });
+      s().updateTexture(target, { src, baked: undefined, kind: "image" });
       return;
     }
     const layer = { ...newLayer("image"), src };
@@ -294,7 +339,8 @@ function TextureSection() {
 
       {look.texture.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-3 text-center text-[10px] leading-snug text-fg-muted">
-          Stack layers to build a surface. Everything here is plain CSS, so it tiles for ever and costs nothing to load.
+          Drop a picture here, or stack a layer. A picture is turned into a pattern you can paint in any
+          palette colour, so the background colour always shows through it.
         </p>
       ) : null}
 
@@ -302,8 +348,13 @@ function TextureSection() {
         {look.texture.map((layer, i) => {
           const open = openId === layer.id;
           const kind = TEXTURE_KINDS.find((k) => k.id === layer.kind);
+          const picture = layer.kind === "image";
+          const can = affects(layer.kind);
+          // A picture only takes the palette colour once it is a pattern.
+          const tintable = !picture || !!layer.pattern;
           return (
             <div key={layer.id} className={cn("rounded-md border", open ? "border-accent/60 bg-elevated/60" : "border-border")}>
+              {picture && layer.src ? <Baker layer={layer} tint={palette[layer.role]} /> : null}
               <div className="flex items-center gap-2 p-1.5">
                 <input
                   type="checkbox"
@@ -316,7 +367,7 @@ function TextureSection() {
                 <button type="button" onClick={() => setOpenId(open ? null : layer.id)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[11px] text-fg">{kind?.label}</span>
                   <span className="block truncate text-[9px] text-fg-muted">
-                    {ROLE_LABEL[layer.role]} · {layer.scale}px · {Math.round(layer.opacity * 100)}%
+                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {layer.scale}px · {Math.round(layer.opacity * 100)}%
                   </span>
                 </button>
                 <Button variant="ghost" size="iconXs" aria-label="Move up" disabled={i === 0} onClick={() => s().moveTexture(layer.id, -1)}>
@@ -335,7 +386,7 @@ function TextureSection() {
                   <div className="grid grid-cols-2 gap-1">
                     <Select
                       value={layer.kind}
-                      onChange={(v) => s().updateTexture(layer.id, { kind: v as TextureKind })}
+                      onChange={(v) => s().updateTexture(layer.id, { kind: v as TextureKind, baked: undefined })}
                       options={TEXTURE_KINDS.map((k) => ({ value: k.id, label: k.label }))}
                       aria-label="Texture kind"
                     />
@@ -344,34 +395,81 @@ function TextureSection() {
                       onChange={(v) => s().updateTexture(layer.id, { role: v as RoleId })}
                       options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
                       aria-label="Texture colour"
+                      disabled={!tintable}
                     />
                   </div>
-                  {layer.kind === "image" ? (
-                    <ImageWell
-                      src={layer.src}
-                      onImage={(src) => takeImage(src, layer.id)}
-                      onClear={layer.src ? () => s().updateTexture(layer.id, { src: undefined }) : undefined}
-                    />
+
+                  {picture ? (
+                    <>
+                      <ImageWell
+                        src={layer.src}
+                        onImage={(src) => takeImage(src, layer.id)}
+                        onClear={layer.src ? () => s().updateTexture(layer.id, { src: undefined, baked: undefined }) : undefined}
+                      />
+                      <Toggle
+                        label="Paint it in the palette"
+                        hint="Keeps the shape, drops the picture's own colours, so the background shows through."
+                        checked={!!layer.pattern}
+                        onChange={(v) => s().updateTexture(layer.id, { pattern: v })}
+                      />
+                      <Toggle
+                        label="Cut out the background"
+                        hint="Keys out whatever colour the edges are sitting on."
+                        checked={!!layer.cutout}
+                        onChange={(v) => s().updateTexture(layer.id, { cutout: v })}
+                      />
+                      {layer.cutout ? (
+                        <Row label="How much goes" value={`${Math.round((layer.tolerance ?? 0.35) * 100)}%`}>
+                          <Slider
+                            value={[Math.round((layer.tolerance ?? 0.35) * 100)]}
+                            min={0}
+                            max={100}
+                            step={1}
+                            onValueChange={(v) => s().updateTexture(layer.id, { tolerance: (v[0] ?? 35) / 100 })}
+                          />
+                        </Row>
+                      ) : null}
+                      <Row label="Weave" value={(layer.weave ?? 0) < 0.02 ? "tiled" : (layer.weave ?? 0) > 0.98 ? "one picture" : `${Math.round((layer.weave ?? 0) * 100)}%`}>
+                        <Slider
+                          value={[Math.round((layer.weave ?? 0) * 100)]}
+                          min={0}
+                          max={100}
+                          step={1}
+                          onValueChange={(v) => s().updateTexture(layer.id, { weave: (v[0] ?? 0) / 100 })}
+                        />
+                      </Row>
+                    </>
                   ) : null}
-                  <Row label="Scale" value={`${layer.scale}px`}>
+
+                  <Row label={picture ? "Size" : "Scale"} value={`${layer.scale}px`}>
                     <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} />
                   </Row>
-                  <Row label="Angle" value={`${layer.angle}°`}>
-                    <Slider value={[layer.angle]} min={0} max={180} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} />
-                  </Row>
+                  {can.angle ? (
+                    <Row label="Angle" value={`${layer.angle}°`}>
+                      <Slider value={[layer.angle]} min={0} max={180} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} />
+                    </Row>
+                  ) : null}
                   <Row label="Opacity" value={`${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} />
                   </Row>
-                  <Row label="Contrast" value={layer.contrast.toFixed(2)}>
-                    <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} />
-                  </Row>
+                  {can.contrast && (!picture || layer.pattern) ? (
+                    <Row label={picture ? "How much survives" : "Contrast"} value={layer.contrast.toFixed(2)}>
+                      <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} />
+                    </Row>
+                  ) : null}
                   <Select
                     value={layer.blend}
                     onChange={(v) => s().updateTexture(layer.id, { blend: v as BlendMode })}
-                    options={["normal", "multiply", "screen", "overlay", "soft-light", "difference"].map((b) => ({ value: b, label: b }))}
+                    options={BLENDS}
                     aria-label="Blend"
                   />
-                  <p className="text-[10px] leading-snug text-fg-faint">{kind?.hint}</p>
+                  <p className="text-[10px] leading-snug text-fg-faint">
+                    {picture
+                      ? layer.pattern
+                        ? "Painted in the palette, so it scales against the background colour instead of covering it."
+                        : "The picture as it came. Turn on painting to make the colour roles and the background apply."
+                      : kind?.hint}
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -384,6 +482,25 @@ function TextureSection() {
         Add a layer
       </Button>
     </section>
+  );
+}
+
+function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5"
+        style={{ accentColor: "var(--accent)" }}
+      />
+      <span className="min-w-0">
+        <span className="block text-[10px] text-fg">{label}</span>
+        <span className="block text-[9px] leading-snug text-fg-faint">{hint}</span>
+      </span>
+    </label>
   );
 }
 
@@ -403,7 +520,7 @@ function Row({ label, value, children }: { label: string; value: string; childre
 
 export function LookPanel() {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+    <div data-look-panel="" className="flex h-full min-h-0 flex-col overflow-y-auto">
       <ColourSection />
       <TextureSection />
     </div>

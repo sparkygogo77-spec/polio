@@ -74,6 +74,24 @@ export function spanOf(feature: FeatureDef, frameWidth = 1440): number {
   return Math.max(2, Math.min(6, Math.round((w / frameWidth) * 7)));
 }
 
+/**
+ * Parts that draw a repeating card. On the shelf they show two, not six: a
+ * grid of six thumbnails inside a thumbnail is mush, and two is enough to say
+ * "this repeats".
+ */
+const REPEATS = new Set([
+  "card-grid", "bento-grid", "masonry", "product-grid", "wishlist", "blog-index",
+  "gallery", "testimonials", "ai-recommend", "comparison-table", "community-badges",
+  "forum", "changelog", "archive-mode", "logo-cloud", "avatar-stack", "pricing-table",
+]);
+
+/** Two items, named after the part, so a shelf preview shows a quantity of two. */
+export function previewContent(feature: FeatureDef): string | undefined {
+  if (!REPEATS.has(feature.id)) return undefined;
+  const noun = feature.name.split(" ")[0] ?? "Item";
+  return `${noun} one, ${noun} two`;
+}
+
 /** The parts of one band, in the order they would appear down a page. */
 export function groupIntoBands(features: FeatureDef[]): { band: Band; items: FeatureDef[] }[] {
   const buckets = new Map<Band, FeatureDef[]>();

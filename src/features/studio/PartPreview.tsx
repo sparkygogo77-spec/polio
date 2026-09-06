@@ -17,6 +17,7 @@ import * as React from "react";
 import { Block, themeFrom } from "./blocks";
 import type { FeatureDef } from "./catalog";
 import { useStudio, type StudioNode } from "./store";
+import { previewContent } from "./showcase";
 
 /** The size a part is drawn at before it is scaled down. Its own, within reason. */
 export function previewSize(feature: FeatureDef): { w: number; h: number } {
@@ -50,7 +51,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       featureId: feature.id,
       label: feature.name,
       prompt: "",
-      content: "",
+      content: previewContent(feature) ?? "",
       data: "",
       x: 0,
       y: 0,
@@ -65,7 +66,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       locked: false,
       link: null, colour: null,
     }),
-    [feature.id, feature.name, pw, ph],
+    [feature, feature.id, feature.name, pw, ph],
   );
 
   return (

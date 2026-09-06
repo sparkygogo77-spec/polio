@@ -100,6 +100,9 @@ src/features/studio/
                  Layout Hero Text Media Forms Tabs Accordion Header SearchBox Cta
                  Commerce Data Social Ai Power Platform Ops Interact Motion Behaviour
   look.ts        colour (OKLCH maths, harmony, contrast) and texture (layer → CSS)
+  texture.ts     cooking a picture into a tile: cut-out, pattern, rotate
+  planets.tsx    fourteen outline category marks, one per kind of part
+  showcase.ts    where a part would sit on a page, and how wide
   LookPanel.tsx  the mixer and the texture stack
   Palette.tsx    the parts drawer under the board
   live/          the live site: layout (absolute or reflowed), LiveSite renderer,
@@ -250,6 +253,32 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   re-encoded before it is stored, because the document lives in localStorage
   and one phone photo would fill it. `usePasteImage` ignores a paste aimed at
   an input or textarea, so typing is never interrupted.
+- **A picture is cooked before it is a texture** (`texture.ts`). Dropped in
+  raw it tiles as a grid of photographs, covers the background colour, and
+  gives the colour role, the opacity and the contrast nothing to bite on.
+  So a canvas pass keys out the colour the edges sit on (free, in-browser)
+  and reduces the picture to a *pattern* — a mask of where it is light and
+  dark, painted in a palette role — which is what makes it tintable and lets
+  the background show through. The result is baked onto `layer.baked`, so
+  everything downstream stays a synchronous CSS lookup; `LookPanel`'s `Baker`
+  re-cooks on a debounce whenever an input changes.
+- `layer.weave` runs from a tiled grid to one picture covering the surface,
+  gathered in the middle by a veil of the background colour. That veil also
+  carries a picture's opacity, since a bitmap has no colour to fade — and it
+  is pushed *in front of* its own layer, because in CSS the first background
+  is the nearest.
+- `affects(kind)` says which controls a texture kind can actually use, and the
+  panel only draws those. A slider that moves and changes nothing is worse
+  than one that is not there.
+- Background lists are split by `splitLayers`, which counts brackets. A regex
+  cannot: `linear-gradient(oklch(…), oklch(…))` has a comma at depth two, and
+  splitting there shifts every size and repeat one place along — which is why
+  tiled textures silently came out as `cover` and most blend modes looked
+  identical.
+- Colours reach `texture.ts` as `oklch()`. Do not ask the browser to resolve
+  them — Chromium hands `oklch(...)` straight back from `getComputedStyle`, so
+  a regex looking for `rgb(` finds nothing and every pattern comes out white.
+  Convert with `parseColor` + `oklchToRgb` (which returns 0..1, not bytes).
 - The parts drawer drills down rather than listing 218 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
@@ -265,10 +294,21 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   Magnifying a 420px preview to fill a wide card turned a nav bar into one
   enormous word.
 - The shelf lights parts instead of boxing them (`.ember*` in `globals.css`):
-  a low, blotchy red that never settles, flaring blue in 180ms when you reach
-  for one and taking the full 0.7s to cool. Deliberately not the site accent —
-  the shelf is the workshop, not the thing being built. Drag its top edge to
-  trade board height for shelf height.
+  a blue flame rising from below each one — a steady bed and two tongues on
+  their own clocks, so it is always moving and never pulses in step. Reaching
+  for a part feeds it in 180ms; letting go takes the full 0.7s to die down.
+  Deliberately not the site accent — the shelf is the workshop, not the thing
+  being built.
+- The shelf has a **fixed height** and scrolls. The board keeps the rest and
+  never zooms out past fitting the page's width, so both side edges are always
+  on screen with a small gutter; a pane that grew just means a wider gutter,
+  and only a page that would be cut off triggers a re-fit.
+- Categories are the fourteen outline planets in `planets.tsx` — `currentColor`
+  only, no fills, one hue each. At 16px a filled planet is a blob; a ring and
+  two lines still read as Saturn. Pick one and it becomes a crumb with its
+  sub-groups beside it.
+- Parts that repeat a card show **two** on the shelf, not six (`previewContent`
+  in `showcase.ts`). A grid of six thumbnails inside a thumbnail is mush.
 - The phone companion starts **collapsed**. It floats over the board, and a
   panel covering a resize handle you cannot see is the bug the user hit; one
   click opens it.

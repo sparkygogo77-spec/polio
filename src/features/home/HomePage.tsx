@@ -1,206 +1,78 @@
 "use client";
+/**
+ * One screen, and then out of the way.
+ *
+ * The old landing page was a scroll of feature cards nobody read twice. What
+ * someone actually wants on arriving is the door to the Builder and a way to
+ * see what changed since they were last here, so that is all this is: the
+ * pitch in a sentence, the door, and the updates panel one click away.
+ */
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Bell, Command, Keyboard, LayoutTemplate, MousePointer2, Settings2, Sparkles, Volume2, Wand2, Zap } from "lucide-react";
+import { ArrowRight, LayoutTemplate, Sparkles } from "lucide-react";
 import site from "@site";
-import { registry } from "@/core/registry";
-import { useActions } from "@/core/actions";
-import { allSettingDefs } from "@/core/settings/store";
+import { useUi } from "@/core/ui-state/store";
 import { Button } from "@/core/ui/button";
-import { Badge } from "@/core/ui/badge";
-import { Card, CardContent } from "@/core/ui/card";
 import { Kbd } from "@/core/ui/kbd";
 import { ctxProps } from "@/core/context-menu/ctx";
-import { cn } from "@/core/lib/cn";
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="flex flex-col rounded-md border border-border bg-panel/60 px-3 py-2">
-      <span className="num text-lg font-semibold leading-tight text-fg">{value}</span>
-      <span className="text-[10px] uppercase tracking-wider text-fg-faint">{label}</span>
-    </div>
-  );
-}
-
-const PILLARS = [
-  { icon: LayoutTemplate, title: "Draw the blueprint", body: "Drag features onto a canvas, sketch freehand, frame regions, connect elements with arrows, group what belongs together." },
-  { icon: Wand2, title: "A prompt per element", body: "Every icon, group, region and arrow carries its own instructions — and its position on the canvas is part of the spec." },
-  { icon: MousePointer2, title: "Right-click everywhere", body: "Every element can declare a scope; modules contribute items. Nested scopes stack." },
-  { icon: Zap, title: "Instant, tactile", body: "Cues fire on pointer-down, buttons compress, values flash by direction, actions read as done immediately." },
-  { icon: Bell, title: "News that never repeats", body: "Same key updates the line in place: 1% → 2% → 3% is one row reading “1% → 3%”. Reverts vanish." },
-  { icon: Volume2, title: "Synthesised audio", body: "Twenty cues rendered by the Web Audio API. No asset files, per-category mutes, master volume." },
-  { icon: Settings2, title: "Every option, hidden well", body: "Dozens of settings, searchable, grouped, with an advanced switch so the default view stays calm." },
-  { icon: Keyboard, title: "Palette and chords", body: "⌘K reaches every command, page and toggle. Two-key chords like g p navigate without a mouse." },
-];
+import { RELEASES, CURRENT } from "@/features/updates/changelog";
 
 export function HomePage() {
-  const ctx = useActions();
-  const { hero } = site.home;
-  const modules = registry.modules.filter((m) => !m.hidden);
-  const [n, setN] = React.useState(1);
-
-  const demoPublish = () => {
-    const next = n + 1;
-    setN(next);
-    ctx.publish({
-      key: "home:demo-slippage",
-      title: "Slippage",
-      body: "Try pressing this a few times: one line, not many.",
-      diff: { field: "Slippage", from: n, to: next, format: (v) => `${v}%` },
-      level: "info",
-      source: "home",
-      toast: true,
-      coalesceMs: Infinity,
-    });
-  };
+  const openPanel = useUi((s) => s.openPanel);
+  const latest = RELEASES[0]!;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12" {...ctxProps("home", "hero")}>
-      <section className="relative">
-        {hero.eyebrow ? (
-          <Badge variant="accent" className="mb-3">
-            <Sparkles className="size-3" />
-            {hero.eyebrow}
-          </Badge>
-        ) : null}
-        <h1 className="max-w-3xl text-balance text-3xl font-semibold leading-[1.1] tracking-tight text-fg sm:text-4xl lg:text-5xl">{hero.title}</h1>
-        {hero.subtitle ? <p className="mt-4 max-w-2xl text-pretty text-sm leading-relaxed text-fg-muted sm:text-base">{hero.subtitle}</p> : null}
+    <div className="flex min-h-full items-center justify-center px-6 py-10" {...ctxProps("home", "page", null)}>
+      <div className="w-full max-w-2xl">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-panel/60 px-2.5 py-1 text-[11px] text-fg-muted">
+          <Sparkles className="size-3 text-accent" />
+          <span className="num">v{CURRENT}</span>
+          <span className="text-fg-faint">·</span>
+          {latest.title}
+        </span>
+
+        <h1 className="mt-4 text-balance text-3xl font-semibold leading-tight tracking-tight text-fg sm:text-4xl">
+          {site.home.hero.title}
+        </h1>
+        <p className="mt-3 max-w-xl text-balance text-sm leading-relaxed text-fg-muted">
+          Lay a page out at real size, say what each part is for, and hand the whole thing to a model as a
+          blueprint it can build from. Where you put something is part of the specification.
+        </p>
+
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          {hero.primaryCta ? (
-            <Button asChild variant="primary" size="lg" sound="confirm">
-              <Link href={hero.primaryCta.href}>
-                <LayoutTemplate />
-                {hero.primaryCta.label}
-                <ArrowRight />
-              </Link>
-            </Button>
-          ) : null}
-          {hero.secondaryCta ? (
-            <Button asChild variant="outline" size="lg">
-              <Link href={hero.secondaryCta.href}>{hero.secondaryCta.label}</Link>
-            </Button>
-          ) : null}
-          <Button variant="ghost" size="lg" onClick={() => ctx.openPanel("commands")} shortcut="mod+k">
-            <Command />
-            Command palette
+          <Button asChild size="md">
+            <Link href="/builder">
+              <LayoutTemplate />
+              Open the Builder
+              <ArrowRight />
+            </Link>
           </Button>
+          <Button variant="outline" size="md" onClick={() => openPanel("updates")}>
+            <Sparkles />
+            What&rsquo;s new
+          </Button>
+          <span className="text-[11px] text-fg-faint">
+            or press <Kbd>u</Kbd>
+          </span>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:max-w-2xl">
-          <Stat label="Modules" value={modules.length} />
-          <Stat label="Commands" value={registry.commands.length} />
-          <Stat label="Options" value={allSettingDefs().length} />
-          <Stat label="Shortcuts" value={registry.shortcuts.length} />
-        </div>
-      </section>
 
-      <section className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {PILLARS.map((p) => (
-          <Card key={p.title} className="tactile hover:border-border-strong" {...ctxProps("pillar", p.title, p)}>
-            <CardContent className="flex gap-3">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
-                <p.icon className="size-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-fg">{p.title}</div>
-                <div className="mt-1 text-[11px] leading-relaxed text-fg-muted">{p.body}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-
-      <section className="mt-10 rounded-lg border border-border bg-panel/60 p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-semibold text-fg">Feel it in ten seconds</div>
-            <div className="text-[11px] text-fg-muted">Right-click this box. Press ⌘K. Then hit the button below repeatedly and open the bell.</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="default" onClick={demoPublish} optimistic doneLabel="Updated ✓">
-              Change slippage to {n + 1}%
-            </Button>
-            <Button variant="ghost" onClick={() => ctx.openPanel("news")}>
-              <Bell />
-              Open news
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {site.home.showModuleGrid && modules.length ? (
-        <section className="mt-10">
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="text-sm font-semibold text-fg">Feature modules</h2>
-            <span className="text-[11px] text-fg-faint">Each one is a folder under src/features</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {modules.map((m) => {
-              const href = m.routes?.[0]?.path ?? "/";
-              const Icon = m.icon ?? Sparkles;
-              return (
-                <Link key={m.id} href={href} className={cn("group block")} {...ctxProps("module", m.id, m)}>
-                  <Card className="tactile h-full transition-colors group-hover:border-accent/40">
-                    <CardContent>
-                      <div className="flex items-center gap-2">
-                        <Icon className="size-4 text-accent" />
-                        <span className="text-xs font-semibold text-fg">{m.name}</span>
-                        {m.demo ? (
-                          <Badge size="sm" className="ml-auto">
-                            demo
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {m.description ? <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">{m.description}</p> : null}
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        {(m.tags ?? []).map((t) => (
-                          <Badge key={t} size="sm" variant="outline">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex items-center gap-1 text-[11px] text-accent">
-                        Open <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      {site.home.showAgentGuide ? (
-        <section className="mt-10">
-          <h2 className="text-sm font-semibold text-fg">Make it yours</h2>
-          <p className="mt-1 max-w-2xl text-[11px] text-fg-muted">
-            This is a foundation, not a finished site. Hand an agent <span className="font-mono text-fg">AGENTS.md</span> and one of the recipes in{" "}
-            <span className="font-mono text-fg">docs/PROMPTS.md</span>, or do it by hand:
-          </p>
-          <ol className="mt-4 grid gap-3 sm:grid-cols-3">
-            {[
-              { n: 1, t: "Re-centre the site", b: "Edit site.config.ts: name, copy, accent hue, nav style, which demos stay." },
-              { n: 2, t: "Add a feature", b: "npm run new:feature <id> scaffolds a module with routes, menus, commands and settings." },
-              { n: 3, t: "Remove the demos", b: "Set demoModules: [] once your own modules exist. Nothing else references them." },
-            ].map((s) => (
-              <li key={s.n} className="rounded-md border border-border bg-panel/60 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="num flex size-5 items-center justify-center rounded-sm bg-accent text-[10px] font-bold text-accent-fg">{s.n}</span>
-                  <span className="text-xs font-semibold text-fg">{s.t}</span>
-                </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">{s.b}</p>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-fg-faint">
-            <span>Try</span>
-            <Kbd>shift+/</Kbd>
-            <span>for every shortcut,</span>
-            <Kbd>g p</Kbd>
-            <span>to jump to the feed.</span>
-          </div>
-        </section>
-      ) : null}
+        {/* The most recent additions, as a taste of the panel rather than a copy of it. */}
+        <ul className="mt-8 space-y-1.5 border-t border-border pt-5">
+          {latest.added.slice(0, 3).map((line) => (
+            <li key={line} className="flex gap-2 text-[12px] leading-snug text-fg-muted">
+              <span aria-hidden className="mt-[7px] size-1 shrink-0 rounded-full bg-accent" />
+              {line}
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() => openPanel("updates")}
+          className="mt-3 text-[11px] text-accent hover:underline"
+        >
+          Everything that changed →
+        </button>
+      </div>
     </div>
   );
 }

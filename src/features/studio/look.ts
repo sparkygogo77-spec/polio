@@ -210,9 +210,53 @@ export interface TextureLayer {
   /** How hard the edges are, 0..1. */
   contrast: number;
   blend: BlendMode;
-  /** For "image": the asset's object URL or data URI. */
+  /** For "image": the picture as dropped in. */
   src?: string;
+  /**
+   * For "image": the cooked tile — background keyed out, reduced to a tintable
+   * pattern, rotated. `texture.ts` bakes it; everything downstream just uses it.
+   */
+  baked?: string;
+  /** For "image": key out whatever colour the edges sit on. */
+  cutout?: boolean;
+  /** How much of that colour goes, 0..1. */
+  tolerance?: number;
+  /** For "image": reduce to a mask so the role colour paints it. */
+  pattern?: boolean;
+  /**
+   * 0 tiles the picture as a grid. Turning it up grows the tile and draws the
+   * edges back into the background colour, until at 1 there is one picture,
+   * covering, concentrated in the middle — coherent rather than repeated.
+   */
+  weave?: number;
   on: boolean;
+}
+
+/**
+ * Which controls actually do something for a given kind. A slider that moves
+ * and changes nothing is worse than a slider that is not there, so the panel
+ * asks before it draws one.
+ */
+export function affects(kind: TextureKind): { angle: boolean; contrast: boolean } {
+  switch (kind) {
+    // Turbulence has no direction, and a scan line is horizontal by definition.
+    case "noise":
+    case "grain":
+    case "paper":
+    case "scanlines":
+      return { angle: false, contrast: true };
+    // Radial and conic gradients cannot be rotated.
+    case "dots":
+    case "halftone":
+      return { angle: false, contrast: true };
+    case "checks":
+      return { angle: false, contrast: false };
+    case "blobs":
+    case "mesh":
+      return { angle: false, contrast: false };
+    default:
+      return { angle: true, contrast: true };
+  }
 }
 
 /** Grain-like layers cover every pixel, so they start faint and blended; shapes start bolder. */
@@ -220,23 +264,27 @@ const GRAINY = new Set<TextureKind>(["noise", "grain", "paper"]);
 
 export function newLayer(kind: TextureKind = "noise"): TextureLayer {
   const grainy = GRAINY.has(kind);
+  const picture = kind === "image";
   return {
     id: `tx_${Math.random().toString(36).slice(2, 8)}`,
     kind,
     role: "accent",
-    scale: grainy ? 160 : 24,
-    angle: 45,
-    opacity: grainy ? 0.05 : 0.14,
-    contrast: grainy ? 0.3 : 0.5,
+    scale: grainy ? 160 : picture ? 60 : 24,
+    angle: picture ? 0 : 45,
+    opacity: grainy ? 0.05 : picture ? 0.5 : 0.14,
+    contrast: grainy ? 0.3 : picture ? 0.45 : 0.5,
     blend: grainy ? "overlay" : "normal",
+    // A picture arrives as a pattern by default: that is what makes the colour
+    // roles, the scale and the background colour all mean something.
+    ...(picture ? { pattern: true, cutout: false, tolerance: 0.35, weave: 0 } : {}),
     on: true,
   };
 }
 
 const svgUrl = (svg: string) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 
-/** One layer as a CSS background image, plus the size that tiles it. */
-export function layerCss(layer: TextureLayer, colour: string): { image: string; size: string } | null {
+/** One layer as a CSS background image, plus how it is laid out. */
+export function layerCss(layer: TextureLayer, colour: string): { image: string; size: string; repeat?: string } | null {
   const { kind, scale, angle, contrast: k } = layer;
   const s = Math.max(2, scale);
   const half = s / 2;
@@ -259,8 +307,8 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
       return { image: `repeating-linear-gradient(${angle}deg, ${colour} 0 ${line}px, transparent ${line}px ${half}px)`, size: "auto" };
     case "grid":
       return {
-        image: `linear-gradient(${colour} ${line}px, transparent ${line}px), linear-gradient(90deg, ${colour} ${line}px, transparent ${line}px)`,
-        size: `${s}px ${s}px, ${s}px ${s}px`,
+        image: `repeating-linear-gradient(${angle}deg, ${colour} 0 ${line}px, transparent ${line}px ${s}px), repeating-linear-gradient(${angle + 90}deg, ${colour} 0 ${line}px, transparent ${line}px ${s}px)`,
+        size: "auto",
       };
     case "hatch":
       return {
@@ -290,38 +338,114 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
         image: `radial-gradient(80% 80% at 10% 10%, ${colour}, transparent 60%), radial-gradient(70% 70% at 90% 20%, ${colour}, transparent 60%), radial-gradient(90% 90% at 50% 95%, ${colour}, transparent 60%)`,
         size: "cover",
       };
-    case "image":
-      return layer.src ? { image: `url(${JSON.stringify(layer.src)})`, size: `${s * 6}px auto` } : null;
+    case "image": {
+      const src = layer.baked ?? layer.src;
+      if (!src) return null;
+      const woven = Math.max(0, Math.min(1, layer.weave ?? 0));
+      // Turned all the way up there is one picture covering the surface;
+      // below that the tile simply grows, so the repeat gets harder to read.
+      if (woven >= 0.98) return { image: `url(${JSON.stringify(src)})`, size: "cover", repeat: "no-repeat" };
+      return { image: `url(${JSON.stringify(src)})`, size: `${Math.round(s * (1 + woven * 9))}px auto`, repeat: "repeat" };
+    }
     default:
       return null;
   }
 }
 
-/** The whole stack as one set of CSS properties, painted over `base`. */
+/**
+ * The whole stack as one set of CSS properties, painted over `base`.
+ *
+ * The background colour is never replaced — it is the bottom of the stack and
+ * every layer sits over it. A picture layer is veiled with that same colour to
+ * carry its opacity, and, when it is woven, to draw its edges back down into
+ * the background so the middle is where the texture concentrates.
+ */
 export function textureCss(layers: TextureLayer[], palette: Palette, base: string): React.CSSProperties {
   const on = layers.filter((l) => l.on);
   if (!on.length) return { background: base };
+
   const images: string[] = [];
   const sizes: string[] = [];
+  const repeats: string[] = [];
   const blends: string[] = [];
+
+  const push = (image: string, size: string, repeat: string, blend: string) => {
+    const parts = splitLayers(image);
+    const sizeParts = splitLayers(size);
+    parts.forEach((part, i) => {
+      images.push(part.trim());
+      sizes.push((sizeParts[i] ?? sizeParts[0]!).trim());
+      repeats.push(repeat);
+      blends.push(blend);
+    });
+  };
+
   for (const l of on) {
-    const colour = withAlpha(palette[l.role], GRAINY.has(l.kind) ? 1 : l.opacity);
+    // A generated pattern carries its opacity in its own colour; a picture
+    // cannot, so it gets a veil of the background colour instead.
+    const picture = l.kind === "image";
+    const colour = withAlpha(palette[l.role], GRAINY.has(l.kind) || picture ? 1 : l.opacity);
     const built = layerCss(l, colour);
     if (!built) continue;
-    for (const part of built.image.split(/,(?![^(]*\))/)) images.push(part.trim());
-    const sz = built.size === "auto" || built.size === "cover" ? built.size : built.size;
-    for (let i = 0; i < built.image.split(/,(?![^(]*\))/).length; i++) {
-      sizes.push(sz.split(/,(?![^(]*\))/)[i]?.trim() ?? sz.split(/,(?![^(]*\))/)[0]!.trim());
-      blends.push(l.blend);
+    // Earlier in the list is nearer the front, so the veil goes in first: it
+    // has to sit over its own picture to fade it, not behind it.
+    if (picture) {
+      const veil = veilFor(l, base);
+      if (veil) push(veil, "cover", "no-repeat", "normal");
     }
+    push(built.image, built.size, built.repeat ?? "repeat", l.blend);
   }
+
   if (!images.length) return { background: base };
   return {
     backgroundImage: images.join(", "),
     backgroundSize: sizes.join(", "),
+    backgroundRepeat: repeats.join(", "),
+    backgroundPosition: "center",
     backgroundBlendMode: blends.join(", "),
     backgroundColor: base,
   };
+}
+
+/**
+ * Split a background list on the commas that separate whole layers.
+ *
+ * A regex cannot do this: `linear-gradient(oklch(…), oklch(…))` has a comma at
+ * depth two, and any lookahead cheap enough to write splits the gradient in
+ * half — which then shifts every size and repeat one place along, so a tiled
+ * texture silently comes out as `cover`. Count the brackets instead.
+ */
+function splitLayers(value: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) {
+      out.push(value.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  out.push(value.slice(start).trim());
+  return out.filter(Boolean);
+}
+
+/**
+ * The background colour, laid back over a picture: flat, to carry its opacity,
+ * and stronger toward the rim the more it is woven.
+ */
+function veilFor(layer: TextureLayer, base: string): string | null {
+  const fade = 1 - Math.max(0, Math.min(1, layer.opacity));
+  const woven = Math.max(0, Math.min(1, layer.weave ?? 0));
+  if (fade <= 0.001 && woven <= 0.001) return null;
+  const inner = withAlpha(base, fade);
+  if (woven <= 0.001) return `linear-gradient(${inner}, ${inner})`;
+  // The hole in the middle closes as the weave goes up, so the picture ends up
+  // gathered in the centre with the background taking the edges.
+  const hole = Math.round(70 - woven * 62);
+  return `radial-gradient(circle at 50% 50%, ${inner} 0%, ${inner} ${hole}%, ${withAlpha(base, Math.max(fade, 0.92))} 100%)`;
 }
 
 /** Put an alpha on a colour however it was written. */

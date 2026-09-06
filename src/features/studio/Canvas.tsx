@@ -27,6 +27,8 @@ import { haptic } from "@/core/feedback/haptics";
 import { openRadial } from "./RadialMenu";
 
 const GRID = 8;
+/** Breathing room either side of the page. Small: the page is the point. */
+const FRAME_GUTTER = 48;
 const snapGrid = (v: number) => Math.round(v / GRID) * GRID;
 const MIN_W = 40;
 const MIN_H = 24;
@@ -89,15 +91,33 @@ export function Canvas() {
     [pan.x, pan.y, zoom],
   );
 
-  /* ---------------------------------------------------- fit the frame */
+  /* ---------------------------------------------------- fit the frame
+   *
+   * The page is the point, so both of its side edges are always on screen with
+   * only a small gutter, and the board never zooms out past that — shrinking
+   * the window narrows the gutter and then stops. Taller than the viewport is
+   * fine: that is what scrolling is for.
+   */
+  const fitZoom = React.useCallback((vw: number) => Math.max(0.2, Math.min(1, (vw - FRAME_GUTTER) / frameWidth)), [frameWidth]);
+
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const vw = el.clientWidth;
-    const z = Math.max(0.2, Math.min(1, (vw - 96) / frameWidth));
-    useStudio.getState().setZoom(z);
-    useStudio.getState().setPan({ x: Math.round((vw - frameWidth * z) / 2), y: 36 });
-  }, [fitNonce, frameWidth]);
+    const apply = (z: number) => {
+      useStudio.getState().setZoom(z);
+      useStudio.getState().setPan({ x: Math.round((el.clientWidth - frameWidth * z) / 2), y: 36 });
+    };
+    apply(fitZoom(el.clientWidth));
+    // Re-fit only when the page would actually be cut off. A pane that grew
+    // just means a wider gutter; snapping the view every time it did would
+    // move the board under your hands for no reason.
+    const ro = new ResizeObserver(() => {
+      const z = useStudio.getState().zoom;
+      if (frameWidth * z > el.clientWidth - 8) apply(fitZoom(el.clientWidth));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitNonce, frameWidth, fitZoom]);
 
   /* ------------------------------------------------------------- wheel */
   React.useEffect(() => {
@@ -106,7 +126,10 @@ export function Canvas() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const store = useStudio.getState();
-      if (e.ctrlKey || e.metaKey) store.setZoom(store.zoom * (e.deltaY > 0 ? 0.92 : 1.08));
+      if (e.ctrlKey || e.metaKey) {
+        const floor = ref.current ? fitZoom(ref.current.clientWidth) : 0.2;
+        store.setZoom(Math.max(floor, store.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+      }
       else store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY });
     };
     el.addEventListener("wheel", onWheel, { passive: false });

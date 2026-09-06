@@ -296,7 +296,7 @@ export function StudioPage() {
         {/* Colour and texture on the left; the parts library lives under the
             board now, so the board keeps the width. */}
         {design && libraryOpen ? (
-          <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-panel/50 lg:flex">
+          <aside className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 lg:flex">
             <div className="flex h-8 shrink-0 items-center justify-between border-b border-border px-3">
               <span className="text-[11px] font-semibold text-fg">Look</span>
               <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide look" className="tactile rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
@@ -320,7 +320,7 @@ export function StudioPage() {
         </div>
 
         {design ? (
-          <aside className="hidden w-72 shrink-0 flex-col border-l border-border bg-panel/50 xl:flex">
+          <aside className="hidden w-[260px] shrink-0 flex-col border-l border-border bg-panel/50 xl:flex">
             <div className="shrink-0 border-b border-border p-1.5">
               <Segmented
                 className="w-full [&>*]:flex-1"
