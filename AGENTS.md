@@ -334,6 +334,30 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   to the part's own default. The footer's social row is the first of these:
   one footer part, three shapes, and everything it holds on show — because a
   part with variations you cannot see is a part you have to guess at.
+- **The part menu is a wheel of shards** (`RadialMenu.tsx`). Nine annulus
+  sectors drawn as SVG polygons, each in its own neon hue; the polygon *is*
+  the hit area, and the icon and label ride on top with `pointer-events:
+  none`. Three shards are single actions that fire and close (duplicate, lock,
+  delete); the other six open one green panel placed at the point directly
+  opposite the shard you picked, so the ring stays readable and your hand is
+  never over the controls. It sits at `z-[68]`, above the top bar, or a wheel
+  opened near an edge has shards behind the chrome. Its outside-click handler
+  ignores Radix portals — a select's list is not a descendant of the wheel,
+  and closing on it shut the wheel the moment you picked an option.
+- **A part carries `anim`, `aura` and `texture` of its own** beside `colour`.
+  `anim` is a CSS animation name from `ENTRANCES` played on the live site
+  only — the board draws where a part ends up, so laying out a page never
+  becomes watching it. `aura` names a palette role and becomes a glow round
+  the element (`auraShadow`), applied at the node wrapper, not inside the
+  part. `texture` names one layer of the site's stack to wear instead of what
+  the site wears, or "none".
+- **One light over the page** (`Look.light`, `castFrom`, `liftTheme`). The
+  lamp has a position on the page, a height, a strength and a lift; every part
+  works out its own shadow from where its centre stands relative to it, so a
+  card on the left throws left and one under the lamp throws almost nothing.
+  `cardStyle` and `Btn` wear `t.shadow`, and a primary button also gets
+  `t.sheen` on the face turned toward the light. The blueprint says where the
+  light is and that shadows are per-element, not one shadow for everything.
 - **Frame interpolation lives in `motion.ts` and `MotionPanel.tsx`** — the
   crate on the left, beside Look. `planFrames` decides which two keyframes
   each output frame sits between and how far along it is (hold, gap weights,

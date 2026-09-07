@@ -6,7 +6,7 @@
  */
 import type * as React from "react";
 import type { FormatValues } from "../format";
-import { lands, paletteFromHue, parseColor, contrast, textureCss, ROLES, type Look, type Palette, type RoleId } from "../look";
+import { castFrom, lands, paletteFromHue, parseColor, contrast, textureCss, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
 
 export interface Theme {
   bg: string;
@@ -36,6 +36,15 @@ export interface Theme {
   overlayStyle?: React.CSSProperties;
   /** Set only when a part overrides its own background, so `Fill` paints it. */
   ownBackground?: string;
+  /**
+   * The shadow this part throws, worked out from where it stands relative to
+   * the page's light. Unset when there is no light, and then nothing changes.
+   */
+  shadow?: string;
+  /** A sheen on the face turned toward the light, as a CSS gradient. */
+  sheen?: string;
+  /** Which way the light is coming from, for a part drawing its own depth. */
+  lightFrom?: { x: number; y: number };
   radius: number;
   light: boolean;
   backdrop: string;
@@ -163,7 +172,13 @@ export function boxStyles(t: Theme): React.CSSProperties {
 
 /** The surface-card look every boxed part shares. */
 export function cardStyle(t: Theme): React.CSSProperties {
-  return { background: t.surface, ...(t.surfacePaint ?? {}), border: `1px solid ${t.line}`, borderRadius: t.radius };
+  return {
+    background: t.surface,
+    ...(t.surfacePaint ?? {}),
+    border: `1px solid ${t.line}`,
+    borderRadius: t.radius,
+    ...(t.shadow ? { boxShadow: t.shadow } : {}),
+  };
 }
 
 /**
@@ -173,6 +188,30 @@ export function cardStyle(t: Theme): React.CSSProperties {
  * colour that belongs to nothing.
  */
 export type NodeColour = Partial<Record<RoleId, string>>;
+
+/**
+ * The same theme, but knowing where this box stands under the page's light.
+ *
+ * `cx`/`cy` are the box's centre as fractions of the page. Everything a part
+ * needs — the shadow it throws, the sheen on its lit face — is worked out
+ * here, so a part never has to know about the lamp or its own position.
+ */
+export function liftTheme(t: Theme, light: Light | undefined, cx: number, cy: number): Theme {
+  if (!light?.on) return t;
+  const cast = castFrom(light, cx, cy);
+  if (!cast) return t;
+  const dark = Math.max(0, Math.min(0.9, light.strength));
+  const away = Math.hypot(cx - light.x, cy - light.y) || 0.0001;
+  const from = { x: (light.x - cx) / away, y: (light.y - cy) / away };
+  // Two shadows: a tight one that seats the box on the page, and a long one
+  // that carries the direction. Both point away from the lamp.
+  const near = `${Math.round(cast.dx * 0.35)}px ${Math.round(cast.dy * 0.35)}px ${Math.round(cast.blur * 0.4)}px oklch(0 0 0 / ${(dark * 0.5).toFixed(3)})`;
+  const far = `${cast.dx}px ${cast.dy}px ${cast.blur}px oklch(0 0 0 / ${(dark * 0.55).toFixed(3)})`;
+  // The lit face: a wash coming from the lamp's side, warm, and very slight.
+  const deg = Math.round((Math.atan2(from.x, from.y) * 180) / Math.PI + 180);
+  const lit = `linear-gradient(${deg}deg, oklch(1 0.02 ${Math.round(light.warmth)} / ${(0.1 + dark * 0.12).toFixed(3)}), transparent 62%)`;
+  return { ...t, shadow: `${near}, ${far}`, sheen: lit, lightFrom: from };
+}
 
 export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): Theme {
   const resolve = (v: string): string | null => {

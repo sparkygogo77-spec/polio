@@ -543,10 +543,99 @@ function Row({ label, value, children }: { label: string; value: string; childre
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * The lamp.
+ *
+ * Drag it around the little page below and every surface on the board relights
+ * itself: shadows swing round to point away from it, and the face turned
+ * toward it picks up a warm edge. One light for the whole site, because that
+ * is what a room has, and because a page whose shadows disagree with each
+ * other looks wrong in a way nobody can name.
+ */
+function LightSection() {
+  const light = useStudio((st) => st.look.light);
+  const s = () => useStudio.getState();
+  const set = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
+  const pad = React.useRef<HTMLDivElement>(null);
+
+  const place = (e: React.PointerEvent) => {
+    const el = pad.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    set({
+      on: true,
+      x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
+    });
+  };
+
+  return (
+    <section className="border-t border-border p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-[11px] font-semibold text-fg">Light &amp; depth</h3>
+        <Toggle
+          label=""
+          hint=""
+          checked={light.on}
+          onChange={(v) => { play(v ? "confirm" : "close"); set({ on: v }); }}
+        />
+      </div>
+
+      <div
+        ref={pad}
+        data-light-pad=""
+        role="application"
+        aria-label="Where the light is"
+        onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); place(e); }}
+        onPointerMove={(e) => { if (e.buttons) place(e); }}
+        className="relative mb-2 h-24 w-full cursor-crosshair rounded-md border border-border bg-bg"
+        style={{
+          backgroundImage: light.on
+            ? `radial-gradient(120px 90px at ${light.x * 100}% ${light.y * 100}%, oklch(0.95 0.06 ${Math.round(light.warmth)} / 0.5), transparent 70%)`
+            : undefined,
+        }}
+      >
+        {/* the page, so you can see where the lamp is in relation to it */}
+        <span aria-hidden className="pointer-events-none absolute inset-x-6 inset-y-3 rounded-sm border border-dashed border-border-strong/70" />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border"
+          style={{
+            left: `${light.x * 100}%`,
+            top: `${light.y * 100}%`,
+            borderColor: light.on ? `oklch(0.9 0.13 ${Math.round(light.warmth)})` : "var(--border-strong)",
+            background: light.on ? `oklch(0.95 0.1 ${Math.round(light.warmth)} / 0.7)` : "transparent",
+            boxShadow: light.on ? `0 0 10px 2px oklch(0.9 0.14 ${Math.round(light.warmth)} / 0.55)` : undefined,
+          }}
+        />
+      </div>
+
+      <Row label="How high it hangs" value={light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}>
+        <Slider value={[Math.round(light.height * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ height: (v[0] ?? 55) / 100 })} />
+      </Row>
+      <Row label="How far things stand off" value={`${light.lift}px`}>
+        <Slider value={[light.lift]} min={0} max={40} step={1} onValueChange={(v) => set({ lift: v[0] ?? 10 })} />
+      </Row>
+      <Row label="Shadow strength" value={`${Math.round(light.strength * 100)}%`}>
+        <Slider value={[Math.round(light.strength * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ strength: (v[0] ?? 45) / 100 })} />
+      </Row>
+      <Row label="Warmth" value={`${Math.round(light.warmth)}°`}>
+        <Slider value={[Math.round(light.warmth)]} min={0} max={360} step={1} onValueChange={(v) => set({ warmth: v[0] ?? 80 })} />
+      </Row>
+      <p className="text-[10px] leading-snug text-fg-faint">
+        Every surface works out its own shadow from where it stands relative to the lamp, so a card on
+        the left throws left and one underneath throws almost nothing. The blueprint says where the
+        light is, not what each shadow was.
+      </p>
+    </section>
+  );
+}
+
 export function LookPanel() {
   return (
     <div data-look-panel="" className="flex h-full min-h-0 flex-col overflow-y-auto">
       <ColourSection />
+      <LightSection />
       <TextureSection />
     </div>
   );

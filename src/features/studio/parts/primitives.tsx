@@ -44,8 +44,12 @@ export function Btn({
         padding: `${Math.round(t.fontPx * 0.55)}px ${Math.round(t.fontPx * 1.1)}px`,
         fontSize: t.fontPx * 0.92, fontWeight: 600, fontFamily: t.bodyFamily, lineHeight: 1.2,
         borderRadius: radiusFor(shape, t) || Math.min(t.radius, 12),
-        background: primary ? t.accent : "transparent", color: primary ? t.accentText : t.text,
+        background: primary ? (t.sheen ? `${t.sheen}, ${t.accent}` : t.accent) : "transparent",
+        color: primary ? t.accentText : t.text,
         border: primary ? "1px solid transparent" : `1px solid ${t.line}`,
+        // Under a light a button is a thing standing on the page, not a
+        // rectangle printed on it.
+        ...(t.shadow ? { boxShadow: t.shadow } : {}),
         ...style,
       }}
     >

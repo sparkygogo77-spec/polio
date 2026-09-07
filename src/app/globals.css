@@ -287,6 +287,18 @@
 [data-mode="board"] * { animation-play-state: paused !important; }
 
 /* Live-site parts: the board holds them still, the preview lets them run. */
+/* Per-element entrances, chosen on a part in the wheel's Animation shard. The
+   live site sets `animation` from `node.anim`; the board draws the finished
+   state, so nothing here runs while you are laying the page out. */
+@keyframes el-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes el-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes el-drop { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: none; } }
+@keyframes el-left { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes el-right { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes el-grow { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes el-blur { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+@keyframes el-flip { from { opacity: 0; transform: perspective(700px) rotateX(-24deg); } to { opacity: 1; transform: none; } }
+
 @keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
 @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 

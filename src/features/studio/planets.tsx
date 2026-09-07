@@ -85,28 +85,27 @@ export const Orbit = (p: IconProps) => (
 /** Interaction — a satellite: it answers you. */
 export const Satellite = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="9.5" y="9.5" width="5" height="5" rx="1" transform="rotate(45 12 12)" />
-    <path d="M6.4 6.4 3 3M17.6 17.6 21 21" />
-    <path d="M4.6 10.2 8 6.8M13.8 19.4l3.4-3.4" />
-    <path d="M15.5 5.5a4 4 0 0 1 3 3" />
+    <circle cx="12" cy="12" r="2.2" />
+    <path d="M8.1 8.1a5.5 5.5 0 0 0 0 7.8M15.9 8.1a5.5 5.5 0 0 1 0 7.8" />
+    <path d="M5.2 5.2a9.6 9.6 0 0 0 0 13.6M18.8 5.2a9.6 9.6 0 0 1 0 13.6" />
   </Svg>
 );
 
-/** Forms — a station module: panels either side of a body. */
+/** Forms — a manifest: the sheet you fill in and hand over. */
 export const Station = (p: IconProps) => (
   <Svg {...p}>
-    <rect x="9.5" y="7" width="5" height="10" rx="1.6" />
-    <path d="M9.5 12H3M14.5 12H21" />
-    <path d="M3 9v6M21 9v6M6 9.5v5M18 9.5v5" />
+    <rect x="4.5" y="3" width="15" height="18" rx="2" />
+    <path d="M8.5 3v2.4h7V3" />
+    <path d="M8 10.5h8M8 14h5" />
+    <path d="m8 17.6 1.4 1.4 2.6-2.8" />
   </Svg>
 );
 
-/** Shop — an asteroid: a thing you can hold. */
+/** Shop — a cargo pod with a handle: the thing you carry away. */
 export const Asteroid = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M12 3.5 18.5 6l2 6.5-4 6-6.5.8L5 15.5 4 9Z" />
-    <circle cx="10" cy="10" r="1.4" />
-    <circle cx="15" cy="14.5" r="1.8" />
+    <path d="M4.8 8.5h14.4l-1.1 11.2a1.4 1.4 0 0 1-1.4 1.3H7.3a1.4 1.4 0 0 1-1.4-1.3z" />
+    <path d="M8.8 10.5V6.9a3.2 3.2 0 0 1 6.4 0v3.6" />
   </Svg>
 );
 
@@ -130,31 +129,39 @@ export const Saucer = (p: IconProps) => (
   </Svg>
 );
 
-/** AI — a helmet: something looking back at you. */
+/** AI — a nucleus with three things in orbit: it puts them together. */
 export const Helmet = (p: IconProps) => (
   <Svg {...p}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M7.5 11.2a4.5 4.5 0 0 1 9 0v1.6a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1Z" />
-    <path d="M20.4 10.5h1.1M2.5 10.5h1.1" />
+    <circle cx="12" cy="12" r="2.6" />
+    <circle cx="12" cy="3.6" r="1.5" />
+    <circle cx="19.3" cy="16.2" r="1.5" />
+    <circle cx="4.7" cy="16.2" r="1.5" />
+    <path d="M12 5.1v4.3M14.3 13.4l3.7 2.1M9.7 13.4 6 15.5" />
   </Svg>
 );
 
-/** Dense & keyboard — a rocket: for people in a hurry. */
+/** Dense & keyboard — the keys themselves, and the bar under them. */
 export const Rocket = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M12 2.5c3 2.4 4.6 6 4.6 9.6L12 17l-4.6-4.9c0-3.6 1.6-7.2 4.6-9.6Z" />
-    <circle cx="12" cy="9.5" r="1.8" />
-    <path d="M7.6 11.5 5 14.2l1.4 3.4M16.4 11.5 19 14.2l-1.4 3.4" />
-    <path d="M10.5 18.5 12 21.5l1.5-3" />
+    <rect x="2.5" y="5.5" width="19" height="13" rx="2.2" />
+    <path d="M6 9h.01M9.5 9h.01M13 9h.01M16.5 9h.01M20 9h.01" />
+    <path d="M6 12.4h.01M9.5 12.4h.01M13 12.4h.01M16.5 12.4h.01" />
+    <path d="M7.5 15.6h9" />
   </Svg>
 );
 
-/** Under the hood — a telescope: the thing you look through. */
+/** Under the hood — the bonnet propped open. */
 export const Telescope = (p: IconProps) => (
   <Svg {...p}>
-    <path d="m4 13.5 12-7 2.6 4.5-12 7Z" />
-    <path d="m9.5 15.5 2 5M13 13.5l3.5 4.5" />
-    <path d="M3.5 12.2 2 14.8l2.6 1.5" />
+    {/* the car, seen from the side, with its nose to the right */}
+    <path d="M2.5 17.5h19" />
+    <path d="M3.5 17.5v-3.2l3.4-1" />
+    <circle cx="7" cy="17.6" r="1.9" />
+    <circle cx="18" cy="17.6" r="1.9" />
+    <path d="M10.5 17.5v-2.6l9.5-1.1v3.7" />
+    {/* the bonnet, propped up */}
+    <path d="M10.8 13.6 9.2 6.2l9.7 4.6" />
+    <path d="M13.4 12.1 12.6 8.6" />
   </Svg>
 );
 

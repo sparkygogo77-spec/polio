@@ -46,6 +46,10 @@ interface NodeSpec {
   link: string | null;
   /** Roles this part repaints for itself, in words. */
   colour: string | null;
+  /** How it arrives on the page, and what glows round it. */
+  anim: string | null;
+  aura: string | null;
+  texture: string | null;
   /** What it shows or does — what the backend must provide. */
   data: string;
   /** Parts this one reads from, via data wires. */
@@ -185,6 +189,18 @@ function describeColour(colour: StudioNode["colour"] | undefined): string | null
   return parts.length ? parts.join(", ") : null;
 }
 
+/** The entrance names, in words a reader can act on. */
+const ENTRANCE_WORD: Record<string, string> = {
+  "el-fade": "fades in",
+  "el-rise": "rises into place from below",
+  "el-drop": "drops in from above",
+  "el-left": "slides in from the left",
+  "el-right": "slides in from the right",
+  "el-grow": "grows from slightly smaller",
+  "el-blur": "comes into focus from a blur",
+  "el-flip": "tips up into place",
+};
+
 function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[]): string | null {
   if (!link) return null;
   if (link.kind === "url") return link.target;
@@ -235,6 +251,9 @@ export function compileSpec(input: CompileInput): Spec {
           options: n.options,
           link: describeLink(n.link, pages),
           colour: describeColour(n.colour),
+          anim: n.anim ? ENTRANCE_WORD[n.anim] ?? n.anim : null,
+          aura: n.aura ? `${ROLE_LABEL[n.aura as RoleId]?.toLowerCase() ?? n.aura} glowing round its edge` : null,
+          texture: !n.texture ? null : n.texture === "none" ? "no texture, whatever the site wears" : "its own texture layer",
           data: (n.data ?? "").trim(),
           feeds: pShapes
             .filter((sh) => sh.kind === "arrow" && sh.relation === "data" && sh.toNodeId === n.id)
@@ -422,6 +441,9 @@ export function specToMarkdown(spec: Spec): string {
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
         if (e.link) L.push(`  - links to: ${e.link}`);
         if (e.colour) L.push(`  - colour, this part only: ${e.colour}`);
+        if (e.aura) L.push(`  - aura: ${e.aura}`);
+        if (e.texture) L.push(`  - texture: ${e.texture}`);
+        if (e.anim) L.push(`  - on arrival: it ${e.anim}`);
         if (e.data) L.push(`  - data: ${e.data}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);

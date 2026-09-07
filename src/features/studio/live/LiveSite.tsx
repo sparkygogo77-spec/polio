@@ -9,7 +9,7 @@ import { Block } from "../blocks";
 import type { FormatValues } from "../format";
 import { themeFrom, type NodeLink, type PartEvent } from "../parts";
 import { resolvePalette } from "../parts/theme";
-import type { Look } from "../look";
+import { auraShadow, type Look } from "../look";
 import type { StudioNode, StudioPage } from "../store";
 import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
@@ -48,6 +48,7 @@ interface Toast { id: number; text: string; level: string }
 export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps }: LiveSiteProps) {
   const t = React.useMemo(() => themeFrom(format, look), [format, look]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const light = look?.light;
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const { width, height, placed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
   const behaviours = React.useMemo(() => deriveBehaviours(pageNodes), [pageNodes]);
@@ -102,8 +103,19 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface}>
         <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
           {placed.map((p) => (
-            <div key={p.node.id} data-live-node={p.node.id} {...nodeProps?.(p.node)} style={{ position: "absolute", left: p.x, top: p.y, width: p.w, height: p.h }}>
-              <Block node={p.node} t={t} palette={palette} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={emit} />
+            <div
+              key={p.node.id}
+              data-live-node={p.node.id}
+              {...nodeProps?.(p.node)}
+              style={{
+                position: "absolute", left: p.x, top: p.y, width: p.w, height: p.h,
+                boxShadow: auraShadow(p.node.aura, palette) ?? undefined,
+                // Its entrance. The board draws the finished state; this is the
+                // only place a part is seen arriving.
+                animation: p.node.anim ? `${p.node.anim} var(--motion-slow, 420ms) cubic-bezier(0.2, 0.8, 0.2, 1) both` : undefined,
+              }}
+            >
+              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={emit} />
             </div>
           ))}
           {placed.length === 0 ? (

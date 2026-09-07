@@ -508,15 +508,97 @@ export function withAlpha(colour: string, alpha: number): string {
 /* The whole look                                                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * One lamp, somewhere over the page.
+ *
+ * A flat site has every shadow pointing the same way, which is to say it has
+ * no shadows at all — just a soft grey smear under everything. Put the light
+ * somewhere and each part knows where it is standing relative to it: a card on
+ * the left throws its shadow left, one under the lamp throws almost none, and
+ * the lit edge of every button faces the same way across the whole page.
+ *
+ * `x` and `y` are fractions of the page, so the lamp stays where it was put
+ * when the frame changes width. `height` is how high above the page it hangs:
+ * low means long raking shadows, high means short ones straight down.
+ */
+export interface Light {
+  on: boolean;
+  x: number;
+  y: number;
+  /** 0 = at the page's own level, 1 = straight overhead. */
+  height: number;
+  /** How dark the shadows are, 0..1. */
+  strength: number;
+  /** How far a lit surface stands off the page, in px. Also the blur. */
+  lift: number;
+  /** Warmth of the lit face, in degrees around the wheel. */
+  warmth: number;
+}
+
+export const defaultLight = (): Light => ({ on: false, x: 0.5, y: 0.12, height: 0.55, strength: 0.45, lift: 10, warmth: 80 });
+
 export interface Look {
   /** Empty strings mean "derive it from the accent hue", as before. */
   palette: Partial<Palette>;
   texture: TextureLayer[];
   /** Where the texture is painted. */
   target: "page" | "surfaces" | "both";
+  /** The lamp, and the depth it gives everything under it. */
+  light: Light;
 }
 
-export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page" });
+export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page", light: defaultLight() });
+
+/**
+ * Where a box at `(cx, cy)` on the page sits relative to the lamp, and what
+ * that means for its shadow: a direction away from the light, a length that
+ * grows with distance and with how low the lamp hangs, and a blur that grows
+ * with both.
+ */
+export function castFrom(light: Light, cx: number, cy: number): { dx: number; dy: number; blur: number; spread: number } | null {
+  if (!light.on) return null;
+  const ox = cx - light.x;
+  const oy = cy - light.y;
+  const dist = Math.hypot(ox, oy) || 0.0001;
+  // Straight overhead the shadow is directly under the box; low and to one
+  // side it rakes across the page.
+  const reach = (1 - Math.max(0, Math.min(1, light.height))) * 2.4 + 0.25;
+  const len = Math.min(3, dist * reach) * light.lift;
+  return {
+    dx: Math.round((ox / dist) * len),
+    dy: Math.round((oy / dist) * len + light.lift * 0.4),
+    blur: Math.round(light.lift * 1.6 + len * 0.9),
+    spread: 0,
+  };
+}
+
+/**
+ * The aura: a role's colour glowing round an element's edge.
+ *
+ * Two shadows — a hairline that reads as a border and a wide soft one that
+ * reads as light coming off it — so it works on a dark page and a light one
+ * without a second setting.
+ */
+export function auraShadow(role: string | null | undefined, palette: Palette | undefined): string | null {
+  if (!role || !palette) return null;
+  const colour = (palette as Record<string, string>)[role];
+  if (!colour) return null;
+  return `0 0 0 1px ${withAlpha(colour, 0.75)}, 0 0 14px 2px ${withAlpha(colour, 0.5)}, 0 0 36px 6px ${withAlpha(colour, 0.22)}`;
+}
+
+/** Describe the lamp for the blueprint. */
+export function describeLight(light: Light): string[] {
+  if (!light.on) return [];
+  const where = `${Math.round(light.x * 100)}% across, ${Math.round(light.y * 100)}% down`;
+  const hang = light.height > 0.75 ? "high overhead" : light.height > 0.4 ? "at an angle" : "low and raking";
+  return [
+    "Light and depth:",
+    `  - One light source at ${where} of the page, ${hang}.`,
+    `  - Surfaces stand ${light.lift}px off the page; shadows point away from the light and lengthen with distance from it.`,
+    `  - Shadow strength ${Math.round(light.strength * 100)}%. The lit edge of every raised surface faces the light.`,
+    "  - Implement as CSS box-shadows computed per element from its position, not one shadow for everything.",
+  ];
+}
 
 const WHERE: Record<TextureTarget, string> = {
   page: "in the background only",
@@ -533,6 +615,7 @@ export function describeLook(look: Look, resolved: Palette): string[] {
     lines.push("Colour roles (use these exactly):");
     for (const r of ROLES) lines.push(`  - ${ROLE_LABEL[r]}: ${resolved[r]}${look.palette[r] ? "" : " (derived)"}`);
   }
+  lines.push(...describeLight(look.light ?? defaultLight()));
   const on = look.texture.filter((l) => l.on);
   if (on.length) {
     lines.push("Texture, bottom layer first:");

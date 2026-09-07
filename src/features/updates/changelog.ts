@@ -25,6 +25,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.9",
+    title: "The wheel, and a light",
+    summary: "Right-click became geometry, and the page got somewhere for its shadows to come from.",
+    sketch: "palette",
+    added: [
+      "Nine neon shards round the point you clicked; the shape you see is the button you press.",
+      "Duplicate, lock and delete fire on the spot. The other six open one green panel, opposite the shard you picked.",
+      "Looks: hue, a texture of this part's own, and an aura glowing round its edge.",
+      "Size: the numbers, and align left, centre or right.",
+      "Animation: how a part arrives — fade, rise, drop, in from either side, grow, focus, tip up.",
+      "One light source you drag around the page. Every surface works out its own shadow from where it stands relative to it, and lit faces pick up warmth.",
+      "New marks for Interaction, Shop, Forms, AI and Dense & keyboard — and Under the hood is a bonnet, propped open.",
+    ],
+  },
+  {
     version: "0.8",
     title: "Frames in between",
     summary: "Five keyframes go in and a second and a half of movement comes out.",

@@ -15,7 +15,7 @@ import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
-import type { Palette } from "./look";
+import { auraShadow, type Light, type Palette, type TextureLayer } from "./look";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -497,7 +497,19 @@ export function Canvas() {
           );
         })}
 
-        {nodes.map((n) => <NodeView key={n.id} node={n} selected={selection.includes(n.id)} theme={theme} palette={palette} zoom={zoom} />)}
+        {nodes.map((n) => (
+          <NodeView
+            key={n.id}
+            node={n}
+            selected={selection.includes(n.id)}
+            theme={theme}
+            palette={palette}
+            zoom={zoom}
+            light={look.light}
+            page={{ w: frameWidth, h: frameH }}
+            layers={look.texture}
+          />
+        ))}
 
         {/* A layer set to "over everything" washes across the finished page. */}
         {theme.overlayStyle ? (
@@ -592,7 +604,7 @@ const HANDLES: { h: Handle; cls: string }[] = [
   { h: "w", cls: "-left-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
 ];
 
-const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number }) {
+const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[] }) {
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
@@ -612,7 +624,11 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         openRadial(node.id, e.clientX, e.clientY);
       }}
       className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed")}
-      style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
+      style={{
+        left: node.x, top: node.y, width: node.w, height: node.h,
+        // The aura belongs to the element, not to anything inside it.
+        boxShadow: auraShadow(node.aura, palette) ?? undefined,
+      }}
     >
       {/* the part itself, at real size */}
       {/* The selected part runs its own clocks, so you can see what it does. */}
@@ -622,7 +638,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         inert
         style={{ pointerEvents: "none", outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}
       >
-        <Block node={node} t={theme} palette={palette} mode={selected ? "live" : "board"} />
+        <Block node={node} t={theme} palette={palette} light={light} page={page} layers={layers} mode={selected ? "live" : "board"} />
       </div>
       {/* hover outline so unselected parts still read as parts */}
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />

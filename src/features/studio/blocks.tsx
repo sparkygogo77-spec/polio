@@ -10,8 +10,8 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
-import { overrideTheme } from "./parts/theme";
-import type { Palette } from "./look";
+import { liftTheme, overrideTheme } from "./parts/theme";
+import { textureCss, type Light, type Palette, type TextureLayer } from "./look";
 import type { StudioNode } from "./store";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
@@ -27,12 +27,30 @@ export interface BlockProps {
   emit?: (e: PartEvent) => void;
   /** The site's six roles, so a part that repaints itself can name one. */
   palette?: Palette;
+  /** The page's lamp, and how big the page is, so the part can be lit by it. */
+  light?: Light;
+  page?: { w: number; h: number };
+  /** The site's texture stack, so a part can wear one layer of it on its own. */
+  layers?: TextureLayer[];
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers }: BlockProps) {
   const def = resolvePart(node.featureId);
   // A part can repaint any of the six roles for itself; everything else follows the site.
-  const t = node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme;
+  const painted = node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme;
+  // …and wear one texture layer of its own, or none, whatever the site does.
+  const dressed = React.useMemo(() => {
+    if (!node.texture) return painted;
+    if (node.texture === "none") return { ...painted, surfacePaint: undefined };
+    const layer = layers?.find((l) => l.id === node.texture);
+    if (!layer || !palette) return painted;
+    return { ...painted, surfacePaint: textureCss([{ ...layer, on: true }], palette, painted.surface) };
+  }, [node.texture, layers, palette, painted]);
+  // Then it is put where it stands under the page's light, so its shadow
+  // points the right way. No light, no change.
+  const t = light?.on && page
+    ? liftTheme(dressed, light, (node.x + (size?.w ?? node.w) / 2) / Math.max(1, page.w), (node.y + (size?.h ?? node.h) / 2) / Math.max(1, page.h))
+    : dressed;
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
   return (

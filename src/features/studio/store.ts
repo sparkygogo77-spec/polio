@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
-import { emptyLook, type Look, type TextureLayer } from "./look";
+import { defaultLight, emptyLook, type Look, type TextureLayer } from "./look";
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
@@ -60,6 +60,12 @@ export interface StudioNode {
   data: string;
   /** Roles this part repaints for itself. Empty or null means it follows the site. */
   colour: NodeColour | null;
+  /** How it arrives on the page — one of `ENTRANCES`, or null for no entrance. */
+  anim: string | null;
+  /** A palette role glowing round its edge, or null for none. */
+  aura: string | null;
+  /** A texture layer id this part wears on its own surface, or null. */
+  texture: string | null;
 }
 
 export interface StudioGroup {
@@ -308,7 +314,7 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
-                colour: null,
+                colour: null, anim: null, aura: null, texture: null,
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -669,14 +675,18 @@ export const useStudio = create<StudioState>()(
         return {
           ...current,
           ...p,
-          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null })),
+          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, anim: n.anim ?? null, aura: n.aura ?? null, texture: n.texture ?? null })),
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
           look: (() => {
             const look = { ...emptyLook(), ...(p.look ?? {}) };
             // The target used to be one switch for the whole stack; each layer
             // owns it now, so anything saved before inherits what was set.
-            return { ...look, texture: look.texture.map((l) => ({ ...l, target: l.target ?? look.target ?? "page" })) };
+            return {
+              ...look,
+              light: { ...defaultLight(), ...(look.light ?? {}) },
+              texture: look.texture.map((l) => ({ ...l, target: l.target ?? look.target ?? "page" })),
+            };
           })(),
           companion: { ...current.companion, ...(p.companion ?? {}) },
           // A crate saved before a setting existed still has to open.
