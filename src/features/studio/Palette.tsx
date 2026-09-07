@@ -69,9 +69,15 @@ export function addFeatureToCanvas(featureId: string) {
 /* One part                                                            */
 /* ------------------------------------------------------------------ */
 
-function Card({ feature, width, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
+function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
   const [dragging, setDragging] = React.useState(false);
-  const height = Math.max(44, Math.min(tall, previewHeight(feature, width)));
+  // Fit the whole card, not the preview inside it. A part taller than the cap
+  // is drawn narrower rather than letterboxed, so the box is always exactly
+  // the picture — no transparent margin for the fire to come through.
+  const natural = previewHeight(feature, slot);
+  const shrink = Math.min(1, tall / Math.max(1, natural));
+  const width = Math.max(120, Math.round(slot * shrink));
+  const height = Math.max(44, Math.round(natural * shrink));
 
   if (removed) {
     return (
@@ -330,7 +336,10 @@ export function Palette() {
           <div className="relative z-[1] px-3 py-3">
             {bands.map(({ band, items }) => (
               <Band key={band} title={BAND_LABEL[band]}>
-                <div className="flex flex-wrap gap-2.5" style={{ gap: GAP }}>
+                {/* items-start, or a flex line makes every card as tall as the
+                    tallest one in it — and the stretched-out part of a short
+                    card is empty space with the fire showing through it. */}
+                <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
                   {items.map((f) => {
                     const { width, tall } = sizeFor(f);
                     return <Card key={f.id} feature={f} width={width} tall={tall} />;
@@ -340,7 +349,7 @@ export function Palette() {
             ))}
             {removed.length ? (
               <Band title="Removed">
-                <div className="flex flex-wrap" style={{ gap: GAP }}>
+                <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
                   {removed.map((f) => <Card key={f.id} feature={f} width={sizeFor(f).width} tall={72} removed />)}
                 </div>
               </Band>
