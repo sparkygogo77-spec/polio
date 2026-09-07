@@ -248,6 +248,18 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   a separate, board-only tint on the label chip and is labelled as such.
 - A texture aimed at `surfaces` (or `both`) is painted by `cardStyle(t)`, so
   every card and panel in every part wears it without any part knowing.
+- **The page is behind the site, not through it.** A part is transparent by
+  default, so a texture on the page used to read straight through every
+  section, bar and card — which made `page`, `surfaces` and `both` all look
+  like the same wash. When a layer lands behind the page, `themeFrom` sets
+  `t.partGround` to the background colour and `Fill` paints it, so the picture
+  shows in the margins and the gaps and nowhere else. A part that paints its
+  own box (`cardStyle`, or an explicit `background` in its `style`) still
+  wins, and a part that repaints its own background role drops the floor.
+- `target: "over"` is the fourth option and the old behaviour, made
+  deliberate: the stack is compiled over `transparent` into `t.overlayStyle`
+  and painted above the finished page — `[data-frame-wash]` on the board,
+  `[data-live-wash]` on the live site. Keep it faint; it covers the words too.
 - Pictures come in three ways — choose, drag, paste — through
   `ImageIntake.tsx`. Everything is shrunk to 640px on the long edge and
   re-encoded before it is stored, because the document lives in localStorage
@@ -263,10 +275,14 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   everything downstream stays a synchronous CSS lookup; `LookPanel`'s `Baker`
   re-cooks on a debounce whenever an input changes.
 - `layer.weave` runs from a tiled grid to one picture covering the surface,
-  gathered in the middle by a veil of the background colour. That veil also
-  carries a picture's opacity, since a bitmap has no colour to fade — and it
-  is pushed *in front of* its own layer, because in CSS the first background
-  is the nearest.
+  gathered in the middle by a veil of the background colour, pushed *in front
+  of* its own layer because in CSS the first background is the nearest.
+- **A picture's opacity is baked into its own alpha**, not veiled. The veil
+  used to carry it — a flat wash of the background colour laid back over the
+  picture — which works for one layer on a flat page and is useless for two,
+  because the wash hides whatever is under it. `Treatment.alpha` multiplies
+  the tile's alpha in `texture.ts` instead, so a half-solid layer is half
+  see-through and a stack reads as a stack. The slider is "How solid".
 - `affects(kind)` says which controls a texture kind can actually use, and the
   panel only draws those. A slider that moves and changes nothing is worse
   than one that is not there.

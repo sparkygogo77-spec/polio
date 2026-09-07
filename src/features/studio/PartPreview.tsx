@@ -45,7 +45,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
   const site = React.useMemo(() => themeFrom(format, look), [format, look]);
   // Everything the part would paint as "the page" becomes the surface instead.
   const theme = React.useMemo(
-    () => ({ ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined }),
+    () => ({ ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined, partGround: undefined, overlayStyle: undefined }),
     [site],
   );
 

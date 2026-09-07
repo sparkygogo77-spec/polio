@@ -256,8 +256,9 @@ function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
       tint,
       angle: layer.angle,
       hue: layer.hue ?? 0,
+      alpha: layer.opacity,
     }),
-    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue],
+    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue, layer.opacity],
   );
 
   React.useEffect(() => {
@@ -355,7 +356,7 @@ function TextureSection() {
                 <button type="button" onClick={() => setOpenId(open ? null : layer.id)} className="min-w-0 flex-1 text-left">
                   <span className="block truncate text-[11px] text-fg">{kind?.label}</span>
                   <span className="block truncate text-[9px] text-fg-muted">
-                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {TEXTURE_TARGETS.find((t) => t.value === (layer.target ?? "page"))?.label.replace("On ", "")} · {Math.round(layer.opacity * 100)}%
+                    {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {WHERE_SHORT[layer.target ?? "page"]} · {Math.round(layer.opacity * 100)}% solid
                   </span>
                 </button>
                 <Button variant="ghost" size="iconXs" aria-label="Move up" disabled={i === 0} onClick={() => s().moveTexture(layer.id, -1)}>
@@ -436,6 +437,9 @@ function TextureSection() {
                     aria-label="Where this layer lands"
                     className="w-full"
                   />
+                  <p className="text-[10px] leading-snug text-fg-faint">
+                    {WHERE_HINT[layer.target ?? "page"]}
+                  </p>
                   <Row label="Hue" value={(layer.hue ?? 0) === 0 ? `${ROLE_LABEL[layer.role]} as is` : `${(layer.hue ?? 0) > 0 ? "+" : ""}${Math.round(layer.hue ?? 0)}°`}>
                     <Slider
                       value={[layer.hue ?? 0]}
@@ -453,9 +457,12 @@ function TextureSection() {
                       <Slider value={[layer.angle]} min={0} max={180} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} />
                     </Row>
                   ) : null}
-                  <Row label="Opacity" value={`${Math.round(layer.opacity * 100)}%`}>
+                  <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} />
                   </Row>
+                  <p className="text-[10px] leading-snug text-fg-faint">
+                    Turn it down to see the layer underneath — two textures stack, and so does a texture over a colour.
+                  </p>
                   {can.contrast && (!picture || layer.pattern) ? (
                     <Row label={picture ? "How much survives" : "Contrast"} value={layer.contrast.toFixed(2)}>
                       <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} />
@@ -488,6 +495,20 @@ function TextureSection() {
     </section>
   );
 }
+
+const WHERE_SHORT: Record<TextureTarget, string> = {
+  page: "behind",
+  surfaces: "surfaces",
+  both: "behind + on",
+  over: "over all",
+};
+
+const WHERE_HINT: Record<TextureTarget, string> = {
+  page: "The floor the site stands on. Sections, bars and cards paint over it, so it shows in the margins and the gaps.",
+  surfaces: "The cards, bars and panels themselves. The page keeps its flat colour.",
+  both: "The floor and the surfaces, each painted separately, so the two read as different materials.",
+  over: "Washed across the finished page, content included. Best kept faint — a grain, a fog, a scan line.",
+};
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (

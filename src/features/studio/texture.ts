@@ -39,6 +39,15 @@ export interface Treatment {
   angle: number;
   /** Degrees to turn the colour by, -180..180. */
   hue: number;
+  /**
+   * How solid the tile is, 0..1, multiplied into its own alpha.
+   *
+   * It used to be a wash of the background colour laid back over the picture,
+   * which is fine for one layer on a flat page and useless for two: the wash
+   * hid whatever was underneath. Baked into the alpha, a half-solid layer is
+   * half see-through, and a stack reads as a stack.
+   */
+  alpha: number;
 }
 
 /** The baked tile is small on purpose: the document lives in localStorage. */
@@ -50,6 +59,7 @@ export function treatmentKey(t: Treatment): string {
     t.pattern ? `pat${t.contrast.toFixed(2)}:${t.tint}` : "colour",
     `a${Math.round(t.angle)}`,
     `h${Math.round(t.hue)}`,
+    `o${clamp01(t.alpha).toFixed(2)}`,
   ].join("|");
 }
 
@@ -80,6 +90,7 @@ export async function treatImage(src: string, t: Treatment): Promise<string> {
   const data = ctx.getImageData(0, 0, w, h);
   if (t.cutout) keyOutBackground(data, t.tolerance);
   if (t.pattern) toPattern(data, t.contrast, t.tint);
+  fade(data, t.alpha);
   ctx.putImageData(data, 0, 0);
 
   const out = t.angle % 360 === 0 ? canvas : rotate(canvas, t.angle);
@@ -88,6 +99,16 @@ export async function treatImage(src: string, t: Treatment): Promise<string> {
   if (cache.size > 24) cache.clear();
   cache.set(key, url);
   return url;
+}
+
+const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 1));
+
+/** Multiply the whole tile's alpha, so the layer under it shows through. */
+function fade(data: ImageData, alpha: number) {
+  const a = clamp01(alpha);
+  if (a >= 0.999) return;
+  const px = data.data;
+  for (let i = 3; i < px.length; i += 4) px[i] = Math.round(px[i]! * a);
 }
 
 function load(src: string): Promise<HTMLImageElement> {

@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.7",
+    title: "Behind the page, not through it",
+    summary: "A texture now knows the difference between the floor and the furniture.",
+    sketch: "picture",
+    added: [
+      "Behind the page: the site's sections, bars and cards paint over it, so it shows in the margins and the gaps.",
+      "On surfaces: the cards, bars and panels wear it and the page stays flat.",
+      "Over everything: the old all-consuming wash, kept as its own choice.",
+      "Each of the four now looks different from the others, which is the whole point of choosing.",
+      "How solid: a layer's transparency is baked into the picture itself, so two textures stack and both are visible.",
+    ],
+  },
+  {
     version: "0.6",
     title: "Pictures become patterns",
     summary: "A photograph dropped in is now a texture you can paint in your own colours.",

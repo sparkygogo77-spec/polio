@@ -113,6 +113,9 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
           ) : null}
         </div>
       </LiveShell>
+      {t.overlayStyle ? (
+        <div aria-hidden data-live-wash="" style={{ position: "absolute", inset: 0, pointerEvents: "none", ...t.overlayStyle }} />
+      ) : null}
       {toasts.length ? (
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 16, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, pointerEvents: "none" }}>
           {toasts.map((x) => (

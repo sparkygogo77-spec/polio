@@ -22,6 +22,18 @@ export interface Theme {
   surfaceStyle?: React.CSSProperties;
   /** When the texture is painted on surfaces, the properties every card wears. */
   surfacePaint?: React.CSSProperties;
+  /**
+   * The opaque floor every part paints under itself.
+   *
+   * A texture behind the page is behind the *page* — the site stands on it.
+   * Parts are transparent by default, so without this the picture reads
+   * straight through every section, bar and card, and "behind the page",
+   * "on surfaces" and "both" all come out looking the same. Set only when a
+   * layer actually lands behind the page; otherwise nothing changes.
+   */
+  partGround?: string;
+  /** A layer set to "over everything", painted above the finished page. */
+  overlayStyle?: React.CSSProperties;
   /** Set only when a part overrides its own background, so `Fill` paints it. */
   ownBackground?: string;
   radius: number;
@@ -82,8 +94,10 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
   const layers = look?.texture?.filter((l) => l.on) ?? [];
   const onPage = layers.filter((l) => lands(l, "page"));
   const onCards = layers.filter((l) => lands(l, "surfaces"));
+  const onTop = layers.filter((l) => lands(l, "over"));
   const painted = onPage.length ? textureCss(onPage, roles, roles.bg) : null;
   const onSurfaces = onCards.length ? textureCss(onCards, roles, roles.surface) : null;
+  const over = onTop.length ? textureCss(onTop, roles, "transparent") : null;
 
   return {
     bg: roles.bg,
@@ -91,6 +105,9 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
     /** When a texture is set, this is the whole set of background properties. */
     surfaceStyle: painted ?? undefined,
     surfacePaint: onSurfaces ?? undefined,
+    overlayStyle: over ?? undefined,
+    // Only a texture behind the page needs to be covered up.
+    partGround: painted ? roles.bg : undefined,
     surface: roles.surface,
     line: light ? `oklch(0.88 0.01 ${hue})` : `oklch(0.31 0.014 ${hue})`,
     text: roles.text,
@@ -177,6 +194,7 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
       next.ownBackground = value;
       // The page's texture belongs to the page, not to a part that repaints itself.
       next.surfaceStyle = undefined;
+      next.partGround = undefined;
     }
     if (role === "surface") next.surfacePaint = undefined;
   }

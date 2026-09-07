@@ -240,17 +240,28 @@ export interface TextureLayer {
   on: boolean;
 }
 
-export type TextureTarget = "page" | "surfaces" | "both";
+/**
+ * Where a layer lands.
+ *
+ * "page" is the ground the site stands on: every part paints an opaque floor
+ * over it, so the texture shows in the margins and the gaps and nowhere else.
+ * "surfaces" is the cards, bars and panels themselves. "over" is the one that
+ * ignores all of that and washes across the finished page, which is what you
+ * want for a grain or a fog and nothing else.
+ */
+export type TextureTarget = "page" | "surfaces" | "both" | "over";
 
 export const TEXTURE_TARGETS: { value: TextureTarget; label: string }[] = [
-  { value: "page", label: "On the page" },
+  { value: "page", label: "Behind the page" },
   { value: "surfaces", label: "On surfaces" },
-  { value: "both", label: "Both" },
+  { value: "both", label: "Behind and on" },
+  { value: "over", label: "Over everything" },
 ];
 
 /** Does this layer land on the given surface? */
-export function lands(layer: TextureLayer, on: "page" | "surfaces"): boolean {
+export function lands(layer: TextureLayer, on: "page" | "surfaces" | "over"): boolean {
   const t = layer.target ?? "page";
+  if (on === "over") return t === "over";
   return t === "both" || t === on;
 }
 
@@ -466,19 +477,24 @@ function splitLayers(value: string): string[] {
 }
 
 /**
- * The background colour, laid back over a picture: flat, to carry its opacity,
- * and stronger toward the rim the more it is woven.
+ * The background colour, drawn back over a picture toward its rim the more it
+ * is woven, so the picture gathers in the middle.
+ *
+ * It used to carry the layer's opacity too, as a flat wash of the background
+ * colour — which meant a half-faded picture painted half a page of solid
+ * colour over anything beneath it, and two picture layers could never be seen
+ * at once. Opacity is baked into the tile's own alpha now (see `texture.ts`),
+ * so what is left here is only the weave, and layers stack.
  */
 function veilFor(layer: TextureLayer, base: string): string | null {
-  const fade = 1 - Math.max(0, Math.min(1, layer.opacity));
   const woven = Math.max(0, Math.min(1, layer.weave ?? 0));
-  if (fade <= 0.001 && woven <= 0.001) return null;
-  const inner = withAlpha(base, fade);
-  if (woven <= 0.001) return `linear-gradient(${inner}, ${inner})`;
+  // A layer painted over the finished page has nothing to fade back into.
+  if (woven <= 0.001 || base === "transparent") return null;
   // The hole in the middle closes as the weave goes up, so the picture ends up
   // gathered in the centre with the background taking the edges.
+  const clear = withAlpha(base, 0);
   const hole = Math.round(70 - woven * 62);
-  return `radial-gradient(circle at 50% 50%, ${inner} 0%, ${inner} ${hole}%, ${withAlpha(base, Math.max(fade, 0.92))} 100%)`;
+  return `radial-gradient(circle at 50% 50%, ${clear} 0%, ${clear} ${hole}%, ${withAlpha(base, 0.92)} 100%)`;
 }
 
 /** Put an alpha on a colour however it was written. */
@@ -502,6 +518,13 @@ export interface Look {
 
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page" });
 
+const WHERE: Record<TextureTarget, string> = {
+  page: "behind the page",
+  surfaces: "on surfaces (cards, bars, panels)",
+  both: "behind the page and on its surfaces",
+  over: "washed over the finished page",
+};
+
 /** Describe the look in words, for the blueprint. */
 export function describeLook(look: Look, resolved: Palette): string[] {
   const lines: string[] = [];
@@ -512,13 +535,14 @@ export function describeLook(look: Look, resolved: Palette): string[] {
   }
   const on = look.texture.filter((l) => l.on);
   if (on.length) {
-    lines.push(`Texture, painted on ${look.target === "both" ? "the page and its surfaces" : look.target === "surfaces" ? "surfaces" : "the page"}, bottom layer first:`);
+    lines.push("Texture, bottom layer first:");
     for (const l of on) {
       const kind = TEXTURE_KINDS.find((k) => k.id === l.kind);
       lines.push(
-        `  - ${kind?.label ?? l.kind} in ${ROLE_LABEL[l.role].toLowerCase()}, ${l.scale}px tile, ${l.angle}°, ${Math.round(l.opacity * 100)}% opacity, ${l.blend} blend${l.src ? " (your image)" : ""}`,
+        `  - ${kind?.label ?? l.kind} in ${ROLE_LABEL[l.role].toLowerCase()}, ${WHERE[l.target ?? "page"]}, ${l.scale}px tile, ${l.angle}°, ${Math.round(l.opacity * 100)}% solid, ${l.blend} blend${l.src ? " (your image)" : ""}`,
       );
     }
+    lines.push("  A layer behind the page is a floor: every section, card and bar paints over it, so it shows in the gutters and margins only.");
     lines.push("  Every layer above is plain CSS — no image files unless one is named.");
   }
   return lines;

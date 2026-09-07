@@ -18,8 +18,11 @@ export function Fill({
       style={{
         width: "100%", height: "100%", overflow, boxSizing: "border-box", position: "relative",
         color: t.text, fontFamily: t.bodyFamily, fontSize: t.fontPx, lineHeight: t.lineHeight,
-        // Only set when this part was told to repaint its own background.
-        background: t.ownBackground,
+        // The part's own background if it was given one, otherwise the floor
+        // that keeps a page texture behind the site rather than through it.
+        // Either way a part that paints its own box (see `cardStyle`) wins,
+        // because its `style` lands after this one.
+        background: t.ownBackground ?? t.partGround,
         ...style,
       }}
     >

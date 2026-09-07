@@ -469,6 +469,16 @@ export function Canvas() {
 
         {nodes.map((n) => <NodeView key={n.id} node={n} selected={selection.includes(n.id)} theme={theme} palette={palette} zoom={zoom} />)}
 
+        {/* A layer set to "over everything" washes across the finished page. */}
+        {theme.overlayStyle ? (
+          <div
+            aria-hidden
+            data-frame-wash=""
+            className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
+            style={{ width: frameWidth, height: frameH, ...theme.overlayStyle }}
+          />
+        ) : null}
+
         {shapes.filter((sh) => (sh.label || sh.prompt || sh.relation === "data") && (showWires || sh.kind !== "arrow")).map((sh) => {
           const b = shapeBounds(sh);
           const data = sh.relation === "data";
