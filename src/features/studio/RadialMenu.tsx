@@ -1,23 +1,28 @@
 "use client";
 /**
- * The part menu, cut into panes.
+ * The part menu, cut into panes around the pointer.
  *
- * Not a ring. Right-click a part and a slab of glass lands beside the pointer,
- * already broken into nine panes — a hand-cut mosaic, every seam wobbly,
- * every pane a different size, each outlined in its own neon colour and empty
- * in the middle. The pointer sits at one corner of the slab and the slab grows
- * away from it, so nothing you just clicked is under your hand.
+ * Right-click a part and a pane of glass breaks around where you clicked: nine
+ * pieces surrounding the point, every seam wobbly, every piece a different
+ * size because they run out to the edge of a square rather than a circle — the
+ * ones on the corners are big, the ones on the flats are small, the way glass
+ * actually breaks. Each is outlined in its own neon colour and empty in the
+ * middle.
+ *
+ * A circle of clear space is left in the centre, and the pointer's red dot
+ * sits in it: every pane's inner edge is an arc bowed away from the cursor, so
+ * the thing you just right-clicked is never under the menu.
  *
  * Picking a pane fills it with hatching in its own colour, the way you would
- * scribble the chosen one in. Three panes do their one thing and close.
- * The other six throw a second slab across the pointer — the same cut glass in
- * green — holding that group's choices, with the one control they need docked
- * under it.
+ * scribble the chosen one in. Three panes do their one thing and close. The
+ * other six break a second, smaller cluster across the pointer from the pane
+ * you picked — all one green, its marks drawn in white line — holding that
+ * group's choices, with a hairline of control hung under it.
  *
- * Everything is one SVG path per pane, drawn edge by edge with a seeded
- * wobble, so the geometry is the hit area and the whole thing looks drawn
- * rather than computed. The seed is the pane's index, so it wobbles the same
- * way every time you open it.
+ * Every pane is one SVG path: out along a seam, round the outside, back down
+ * the next seam, home along the arc. Each run is bowed by a seeded amount, so
+ * the geometry is the hit area and the whole thing looks cut rather than
+ * computed. The seed is the pane's index, so it breaks the same way every time.
  */
 import * as React from "react";
 import {
@@ -110,60 +115,35 @@ export const ENTRANCES: { value: string; label: string }[] = [
 /* The cut glass                                                       */
 /* ------------------------------------------------------------------ */
 
-type Pt = [number, number];
-
-/** The slab, in px. Nine panes fit in this at a readable size. */
-const SLAB = { w: 288, h: 246 };
-/** The second slab is smaller: it holds a handful of choices, not nine. */
-const SLAB2 = { w: 250, h: 128 };
-
 /**
- * Where the seams run, as fractions of the slab.
+ * The panes surround the pointer.
  *
- * Deliberately uneven, row by row and column by column: a pane the same size
- * as its neighbour reads as a grid, and this is meant to read as a pane of
- * glass somebody dropped. Four rows of four points bound nine quads.
+ * The pointer's red dot is the middle of the thing, and a circle of clear
+ * space is left around it — every pane's inner edge is an arc bowed away from
+ * the cursor, so the point you clicked is never covered and you can always see
+ * what you right-clicked on. Outwards, the panes run to the edge of a rough
+ * square rather than a circle, which is what makes them uneven: the ones on
+ * the corners are big, the ones on the flats are small, exactly as a pane of
+ * glass breaks.
  */
-const SEAM_X: number[][] = [
-  [0, 0.30, 0.64, 1],
-  [0, 0.38, 0.70, 1],
-  [0, 0.26, 0.58, 1],
-  [0, 0.34, 0.66, 1],
-];
-const SEAM_Y: number[][] = [
-  [0, 0.03, 0, 0.04],
-  [0.28, 0.34, 0.29, 0.35],
-  [0.64, 0.59, 0.67, 0.61],
-  [1, 0.97, 1, 0.98],
-];
 
-/** The four corners of pane (row, col), in fractions. */
-function pane(row: number, col: number): Pt[] {
-  const at = (r: number, c: number): Pt => [SEAM_X[r]![c]!, SEAM_Y[r]![c]!];
-  return [at(row, col), at(row, col + 1), at(row + 1, col + 1), at(row + 1, col)];
-}
-
-/** The nine panes, in reading order. */
-const PANES: Pt[][] = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => pane(r, c)));
+/** Clear space kept around the pointer, in px. */
+const HOLE = 40;
+/** Half the width of the square the panes break out to. */
+const REACH = 132;
+/** The second slab is smaller and sits clear of the first. */
+const HOLE2 = 22;
+const REACH2 = 78;
 
 /**
- * A second slab, cut into `n` panes across one row — the seams slanted, so it
- * is the same broken glass as the first and not a row of buttons.
+ * Where the seams fall, as turns round the circle.
+ *
+ * Uneven on purpose, and they do not start at a right angle: a mosaic whose
+ * seams line up with the screen reads as a grid.
  */
-function strip(n: number): Pt[][] {
-  const top = [0, ...Array.from({ length: n - 1 }, (_, i) => (i + 1) / n + (i % 2 ? 0.06 : -0.05)), 1];
-  const bot = [0, ...Array.from({ length: n - 1 }, (_, i) => (i + 1) / n + (i % 2 ? -0.055 : 0.05)), 1];
-  const ty = (i: number) => (i % 2 ? 0.1 : 0);
-  const by = (i: number) => (i % 2 ? 0.92 : 1);
-  return Array.from({ length: n }, (_, i): Pt[] => [
-    [top[i]!, ty(i)],
-    [top[i + 1]!, ty(i + 1)],
-    [bot[i + 1]!, by(i + 1)],
-    [bot[i]!, by(i)],
-  ]);
-}
+const SEAMS = [0.02, 0.13, 0.26, 0.36, 0.5, 0.6, 0.72, 0.85, 0.93];
 
-/** Deterministic noise, so a pane wobbles the same way every time. */
+/** Deterministic noise, so a pane breaks the same way every time. */
 function noise(seed: number): () => number {
   let t = seed * 1831565813 + 0x6d2b79f5;
   return () => {
@@ -173,34 +153,74 @@ function noise(seed: number): () => number {
   };
 }
 
+/** The point on a square of half-width `half` in the direction `turn`. */
+function onSquare(turn: number, half: number): [number, number] {
+  const a = turn * Math.PI * 2 - Math.PI / 2;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  const reach = 1 / Math.max(Math.abs(c), Math.abs(s));
+  return [c * half * reach, s * half * reach];
+}
+
+const onCircle = (turn: number, r: number): [number, number] => {
+  const a = turn * Math.PI * 2 - Math.PI / 2;
+  return [Math.cos(a) * r, Math.sin(a) * r];
+};
+
 /**
- * One pane as a path, drawn edge by edge with a bowed middle — the line a
- * hand makes, not the one a compass does.
+ * One pane: out along a seam, round the outside of the square, back down the
+ * next seam, and home along an arc that curves away from the pointer.
+ *
+ * Every straight run is drawn as a bowed quadratic with a seeded offset, so
+ * the whole thing looks cut by hand rather than swept by a compass.
  */
-function cutPath(points: Pt[], box: { w: number; h: number }, seed: number, bow = 3.2): string {
+function cutPane(from: number, to: number, hole: number, reach: number, seed: number, bow = 4.5): string {
   const rand = noise(seed);
-  const px = points.map(([x, y]): Pt => [x * box.w, y * box.h]);
-  let d = `M ${px[0]![0].toFixed(1)} ${px[0]![1].toFixed(1)}`;
-  for (let i = 0; i < px.length; i++) {
-    const a = px[i]!;
-    const b = px[(i + 1) % px.length]!;
+  const p = (v: [number, number]) => `${v[0].toFixed(1)} ${v[1].toFixed(1)}`;
+  /** A wobbled line from a to b. */
+  const wob = (a: [number, number], b: [number, number]) => {
     const mx = (a[0] + b[0]) / 2;
     const my = (a[1] + b[1]) / 2;
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const len = Math.hypot(dx, dy) || 1;
-    // Push the middle of the edge off to one side, along its normal.
     const off = rand() * bow;
-    d += ` Q ${(mx + (-dy / len) * off).toFixed(1)} ${(my + (dx / len) * off).toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+    return ` Q ${(mx + (-dy / len) * off).toFixed(1)} ${(my + (dx / len) * off).toFixed(1)} ${p(b)}`;
+  };
+
+  const span = (to - from + 1) % 1 || 1;
+  const startIn = onCircle(from, hole);
+  let d = `M ${p(startIn)}`;
+  // Out along the first seam.
+  d += wob(startIn, onSquare(from, reach));
+  // Round the outside. Four samples, so a pane that turns a corner of the
+  // square actually turns it instead of cutting it off.
+  let prev = onSquare(from, reach);
+  for (let i = 1; i <= 4; i++) {
+    const next = onSquare(from + (span * i) / 4, reach);
+    d += wob(prev, next);
+    prev = next;
   }
-  return `${d} Z`;
+  // Back down the next seam.
+  const endIn = onCircle(to, hole);
+  d += wob(prev, endIn);
+  // And home along the hole, bowed away from the pointer.
+  d += ` A ${hole} ${hole} 0 0 0 ${p(startIn)} Z`;
+  return d;
 }
 
-/** The middle of a pane, for the icon and the word that sit in it. */
-function centre(points: Pt[], box: { w: number; h: number }): { x: number; y: number } {
-  const x = points.reduce((n, p) => n + p[0], 0) / points.length;
-  const y = points.reduce((n, p) => n + p[1], 0) / points.length;
-  return { x: x * box.w, y: y * box.h };
+/** Where a pane's icon and word sit: mid-turn, between the hole and the edge. */
+function paneCentre(from: number, to: number, hole: number, reach: number): { x: number; y: number } {
+  const span = (to - from + 1) % 1 || 1;
+  const mid = from + span / 2;
+  const out = onSquare(mid, reach);
+  const inn = onCircle(mid, hole);
+  return { x: (out[0] + inn[0]) / 2, y: (out[1] + inn[1]) / 2 };
+}
+
+/** The `n` seams of a small slab, spread unevenly over one turn. */
+function seamsFor(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => (i / n + (i % 2 ? 0.035 : -0.03) + 1) % 1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -254,47 +274,33 @@ export function RadialMenu() {
   };
 
   /*
-    The pointer sits at a corner of the slab and the slab grows away from it —
-    up and left by default, flipped when that would run off the screen. The
-    green slab is thrown the other way across the pointer, so the two never
-    overlap and the first one stays readable while you work in the second.
+    The pointer is the middle of it. The panes are kept on screen by moving
+    the whole thing, never by rearranging it, so the shape you learn is the
+    shape you always get.
   */
-  // Both slabs have to fit: the first grows one way from the pointer and the
-  // second the other, so the pointer is kept a slab's width from either edge.
-  const margin = 16;
-  const px = Math.max(SLAB2.w + margin, Math.min(window.innerWidth - SLAB2.w - margin, open.x));
-  const py = Math.max(SLAB2.h + 96 + margin, Math.min(window.innerHeight - SLAB2.h - 96 - margin, open.y));
-  const room = { right: window.innerWidth - px, bottom: window.innerHeight - py };
-  const flipX = room.right > SLAB.w + 40 && px < SLAB.w + 40;
-  const flipY = room.bottom > SLAB.h + 40 && py < SLAB.h + 40;
-  const slabAt = {
-    x: flipX ? 12 : -SLAB.w - 12,
-    y: flipY ? 12 : -SLAB.h - 12,
-  };
-  const slab2At = {
-    x: flipX ? -SLAB2.w - 16 : 16,
-    y: flipY ? -SLAB2.h - 16 : 16,
-  };
+  const edge = (REACH + REACH2) * 1.42 + REACH2 + 60;
+  const px = Math.max(edge, Math.min(window.innerWidth - edge, open.x));
+  const py = Math.max(edge, Math.min(window.innerHeight - edge, open.y));
 
   const index = picked ? SHARDS.findIndex((w) => w.id === picked) : -1;
   const chosen = index >= 0 ? SHARDS[index] : null;
+  // The green cluster lands across the pointer from the pane you picked.
+  const turn = index >= 0 ? (SEAMS[index]! + ((SEAMS[(index + 1) % SEAMS.length]! - SEAMS[index]! + 1) % 1) / 2) : 0;
+  // Far enough out that the two clusters never touch: both reach to the
+  // corner of a square, which is √2 further than the flat.
+  const away = onSquare((turn + 0.5) % 1, (REACH + REACH2) * 1.42 + 14);
+  const subs = chosen ? subPanes(chosen.id, node) : [];
 
   return (
-    // Above the top bar and the status bar: a slab opened near an edge used to
+    // Above the top bar and the status bar: a menu opened near an edge used to
     // have panes behind the chrome, unreachable.
     <div data-radial className="pointer-events-none fixed inset-0 z-[68]">
       <div className="absolute" style={{ left: px, top: py }}>
-        {/* the pointer's own mark, at the corner the glass grew from */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -left-[3px] -top-[3px] size-1.5 rounded-full"
-          style={{ background: "oklch(0.72 0.22 28)", boxShadow: "0 0 8px 2px oklch(0.7 0.22 28 / 0.7)" }}
-        />
-
-        <Slab
-          box={SLAB}
-          at={slabAt}
-          panes={PANES}
+        <Cluster
+          hole={HOLE}
+          reach={REACH}
+          seams={SEAMS}
+          at={{ x: 0, y: 0 }}
           items={SHARDS.map((w) => ({
             id: w.id,
             label: w.id === "lock" && node.locked ? "Unlock" : w.label,
@@ -305,18 +311,22 @@ export function RadialMenu() {
           }))}
         />
 
+        {/* the cursor itself, in the clear circle the panes leave for it */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-[3px] -top-[3px] size-1.5 rounded-full"
+          style={{ background: "oklch(0.72 0.22 28)", boxShadow: "0 0 8px 2px oklch(0.7 0.22 28 / 0.7)" }}
+        />
+
         {chosen ? (
-          <div
-            data-radial-panel={chosen.id}
-            className="pointer-events-auto absolute"
-            style={{ left: slab2At.x, top: slab2At.y, width: SLAB2.w }}
-          >
-            <Slab
-              box={SLAB2}
-              at={{ x: 0, y: 0 }}
+          <div data-radial-panel={chosen.id} className="pointer-events-auto absolute" style={{ left: 0, top: 0 }}>
+            <Cluster
               green
-              panes={strip(Math.max(2, subPanes(chosen.id, node).length))}
-              items={subPanes(chosen.id, node).map((sub) => ({
+              hole={HOLE2}
+              reach={REACH2}
+              seams={seamsFor(Math.max(2, subs.length))}
+              at={{ x: away[0], y: away[1] }}
+              items={subs.map((sub) => ({
                 id: sub.id,
                 label: sub.label,
                 icon: sub.icon,
@@ -325,37 +335,20 @@ export function RadialMenu() {
                 onPick: () => { play("select"); sub.act ? sub.act() : setSubPick(sub.id); },
               }))}
             />
-            {/* the one control the chosen pane needs, docked under the glass */}
-            <div
-              // The slab is absolutely positioned and takes no room in the
-              // flow, so the strip is pushed clear of it by hand.
-              style={{ marginTop: SLAB2.h + 6 }}
-            >
+            {/* One line of control, hung under the green glass — a hairline,
+                not a card: the panes are the menu, this is only the value. */}
             <div
               data-radial-strip=""
+              className="absolute w-[224px] -translate-x-1/2 rounded-md px-2 py-1.5"
               style={{
-                background: "oklch(0.16 0.03 150 / 0.96)",
-                border: "1px solid oklch(0.7 0.18 150 / 0.8)",
-                borderRadius: 6,
-                padding: 8,
-                boxShadow: "0 0 16px oklch(0.7 0.2 150 / 0.28), 0 12px 34px oklch(0 0 0 / 0.5)",
+                left: away[0],
+                top: away[1] + REACH2 + 14,
+                background: "oklch(0.13 0.02 150 / 0.82)",
+                border: "1px solid oklch(0.78 0.19 150 / 0.55)",
+                boxShadow: "0 0 14px oklch(0.7 0.2 150 / 0.22)",
               }}
             >
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "oklch(0.88 0.16 150)" }}>
-                  {chosen.label}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Back to the wheel"
-                  onClick={() => { play("close"); setPicked(null); }}
-                  style={{ color: "oklch(0.8 0.14 150)" }}
-                >
-                  <X className="size-3" />
-                </button>
-              </div>
               <Panel shard={chosen.id} node={node} focus={subPick} />
-            </div>
             </div>
           </div>
         ) : null}
@@ -365,10 +358,10 @@ export function RadialMenu() {
 }
 
 /* ------------------------------------------------------------------ */
-/* One slab of cut glass                                               */
+/* One cluster of cut glass                                            */
 /* ------------------------------------------------------------------ */
 
-interface SlabItem {
+interface ClusterItem {
   id: string;
   label: string;
   icon: typeof Wand2;
@@ -377,65 +370,76 @@ interface SlabItem {
   onPick: () => void;
 }
 
-function Slab({
-  box, at, panes, items, green,
+function Cluster({
+  hole, reach, seams, items, at, green,
 }: {
-  box: { w: number; h: number };
+  hole: number;
+  reach: number;
+  seams: number[];
+  items: ClusterItem[];
   at: { x: number; y: number };
-  panes: Pt[][];
-  items: SlabItem[];
+  /** The second level is all one green, with its marks drawn in white line. */
   green?: boolean;
 }) {
-  const shown = items.slice(0, panes.length);
+  const shown = items.slice(0, seams.length);
   return (
-    <div className="absolute" style={{ left: at.x, top: at.y, width: box.w, height: box.h }}>
+    <div className="absolute" style={{ left: at.x, top: at.y }}>
       <svg
-        width={box.w}
-        height={box.h}
+        width={1}
+        height={1}
         className="absolute left-0 top-0 overflow-visible"
-        style={{ filter: "drop-shadow(0 10px 30px oklch(0 0 0 / 0.55))" }}
+        style={{ filter: "drop-shadow(0 8px 26px oklch(0 0 0 / 0.6))" }}
       >
         <defs>
-          {shown.map((it, i) =>
+          {shown.map((it) =>
             it.on ? (
               // The chosen pane is scribbled in, the way you would mark it.
               <pattern key={it.id} id={`hatch-${it.id}`} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(38)">
-                <line x1="0" y1="0" x2="0" y2="7" stroke={`oklch(0.78 0.21 ${green ? 350 : it.hue})`} strokeWidth="2.2" />
+                <line x1="0" y1="0" x2="0" y2="7" stroke={`oklch(0.8 0.2 ${green ? 150 : it.hue})`} strokeWidth="2.2" />
               </pattern>
             ) : null,
           )}
         </defs>
-        {shown.map((it, i) => (
-          <path
-            key={it.id}
-            role="button"
-            tabIndex={0}
-            aria-label={it.label}
-            aria-pressed={it.on}
-            data-shard={it.id}
-            d={cutPath(panes[i]!, box, i + 1 + (green ? 90 : 0))}
-            onClick={it.onPick}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); it.onPick(); } }}
-            className="pointer-events-auto cursor-pointer outline-none"
-            fill={it.on ? `url(#hatch-${it.id})` : "oklch(0.14 0.02 265 / 0.88)"}
-            stroke={`oklch(${it.on ? 0.92 : 0.8} 0.21 ${it.hue})`}
-            strokeWidth={it.on ? 2.4 : 1.6}
-            strokeLinejoin="round"
-            style={{ filter: it.on ? `drop-shadow(0 0 7px oklch(0.82 0.2 ${it.hue} / 0.8))` : undefined }}
-          />
-        ))}
+        {shown.map((it, i) => {
+          const stroke = green ? "oklch(0.84 0.2 150)" : `oklch(${it.on ? 0.92 : 0.8} 0.21 ${it.hue})`;
+          return (
+            <path
+              key={it.id}
+              role="button"
+              tabIndex={0}
+              aria-label={it.label}
+              aria-pressed={it.on}
+              data-shard={it.id}
+              d={cutPane(seams[i]!, seams[(i + 1) % seams.length]!, hole, reach, i + 1 + (green ? 90 : 0))}
+              onClick={it.onPick}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); it.onPick(); } }}
+              className="pointer-events-auto cursor-pointer outline-none"
+              fill={it.on ? `url(#hatch-${it.id})` : "oklch(0.13 0.02 265 / 0.9)"}
+              stroke={stroke}
+              strokeWidth={it.on ? 2.4 : 1.6}
+              strokeLinejoin="round"
+              style={{ filter: it.on ? `drop-shadow(0 0 7px ${stroke})` : undefined }}
+            />
+          );
+        })}
       </svg>
       {shown.map((it, i) => {
-        const c = centre(panes[i]!, box);
+        const c = paneCentre(seams[i]!, seams[(i + 1) % seams.length]!, hole, reach);
         const Icon = it.icon;
         return (
           <span
             key={it.id}
             aria-hidden
-            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 text-[9.5px] font-medium leading-tight"
-            style={{ left: c.x, top: c.y, color: `oklch(${it.on ? 0.96 : 0.88} 0.15 ${it.hue})` }}
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 text-[9px] font-medium leading-tight"
+            style={{
+              left: c.x,
+              top: c.y,
+              // Level two is one green; its marks are white line, so the
+              // colour says "second level" and the drawing says which one.
+              color: green ? "oklch(0.99 0 0)" : `oklch(${it.on ? 0.96 : 0.88} 0.15 ${it.hue})`,
+            }}
           >
-            <Icon className="size-4" />
+            <Icon className="size-4" strokeWidth={green ? 1.5 : 2} />
             <span className="whitespace-nowrap">{it.label}</span>
           </span>
         );

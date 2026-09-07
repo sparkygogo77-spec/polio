@@ -351,21 +351,24 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   blend modes, same order — drawn to a canvas and returned as a tile, which
   `mergeTexture` swaps in for both. A browser that will not render
   foreignObject returns null and the layers are left alone.
-- **The part menu is a slab of cut glass** (`RadialMenu.tsx`), drawn from the
-  reader's own sketch. Not a ring: a rectangle broken into nine uneven panes
-  by seams that are deliberately not a grid (`SEAM_X` / `SEAM_Y`), each pane a
-  path drawn edge by edge with a seeded wobble (`cutPath`) so it looks cut
-  rather than computed — and the path *is* the hit area, with the icon and
-  word riding on top at `pointer-events: none`. The pointer sits at a corner
-  and the slab grows away from it, flipping when an edge is close. A picked
-  pane fills with hatching in its own colour (an SVG `<pattern>`), the way you
-  would scribble the chosen one in. Three panes fire and close (duplicate,
-  lock, delete); the other six throw a second, smaller slab across the pointer
-  in green (`strip()`), holding that group's choices, with the one control
-  they need docked under it. It sits at `z-[68]`, above the top bar, or a slab
-  opened near an edge has panes behind the chrome. Its outside-click handler
-  ignores Radix portals — a select's list is not a descendant of the slab, and
-  closing on it shut the menu the moment you picked an option.
+- **The part menu breaks around the pointer** (`RadialMenu.tsx`), drawn from
+  the reader's own sketch. Nine panes surround the point you clicked, running
+  from a circle of clear space in the middle out to the edge of a *square* —
+  which is what makes them uneven, since the corner panes reach further than
+  the ones on the flats, the way glass actually breaks. The pointer's red dot
+  sits in that clear circle, so what you right-clicked is never covered.
+  Each pane is one path (`cutPane`): out along a seam, round the outside, back
+  down the next seam, home along an arc bowed away from the cursor — every run
+  offset by a seeded wobble, so the geometry is the hit area and it looks cut
+  rather than computed. The seed is the pane's index, so it breaks the same way
+  every time. A picked pane fills with hatching in its own colour. Three fire
+  and close (duplicate, lock, delete); the other six break a second, smaller
+  cluster across the pointer from the pane you picked — all one green, its
+  marks in white line — with a hairline of control hung under it, never a card.
+  It sits at `z-[68]`, above the top bar, or a menu opened near an edge has
+  panes behind the chrome. Its outside-click handler ignores Radix portals — a
+  select's list is not a descendant of the menu, and closing on it shut the
+  whole thing the moment you picked an option.
 - **A part carries `anim`, `aura` and `texture` of its own** beside `colour`.
   `anim` is a CSS animation name from `ENTRANCES` played on the live site
   only — the board draws where a part ends up, so laying out a page never
