@@ -39,6 +39,16 @@ export interface FeatureOption {
   label: string;
   /** First value is the default. */
   values: string[];
+  /**
+   * "one" (the default) is a pick from a list. "set" is any number of them at
+   * once, stored as a comma-separated string and drawn as chips you switch on
+   * and off — which is what "these links, and this one, not that one" needs
+   * to be. `values` is then the whole shelf of presets on offer, and
+   * `preset` is what a part arrives with.
+   */
+  kind?: "one" | "set";
+  /** For a set: what is on when the part is first placed. */
+  preset?: string;
 }
 
 export interface FeatureDef {
@@ -119,7 +129,13 @@ const RAW: FeatureDef[] = [
   f("modal", "Popup window", "structure", Box, "Focused overlay for one task.", { options: [{ id: "size", label: "Size", values: ["medium", "small", "large", "full"] }] }),
   f("drawer", "Slide-in panel", "structure", PanelTop, "Panel that slides in from an edge.", { options: [position] }),
   f("multi-page", "Several pages", "structure", Layers, "More than one route, with shared chrome.", { hint: "List each page and what lives on it." }),
-  f("footer", "Footer", "structure", Milestone, "Sitemap, legal, contact, social.", { options: [columns] }),
+  f("footer", "Footer", "structure", Milestone, "Links, legal, contact, social — as thin or as full as you want.", {
+    options: [
+      { id: "shape", label: "Shape", values: ["Thin bar", "Two rows", "Columns"] },
+      { id: "social", label: "Social", kind: "set", preset: "X, GitHub, Instagram", values: ["X", "GitHub", "Instagram", "YouTube", "LinkedIn", "TikTok", "Discord", "Mastodon", "Bluesky", "RSS", "Email"] },
+      { id: "legal", label: "Legal line", values: ["Copyright", "Copyright + policies", "None"] },
+    ],
+  }),
   f("container-width", "Content width", "structure", StretchHorizontal, "How wide text and blocks are allowed to run.", { options: [{ id: "width", label: "Width", values: ["readable", "wide", "full-bleed"] }] }),
 
   /* -------------------------------------------------------------------- nav */
@@ -434,7 +450,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   masonry: { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }] },
   "blog-index": { w: 1200, h: 460, content: { label: "Article titles", placeholder: "Optional, one per card" } },
   testimonials: { w: 1200, h: 300, content: { label: "Names", placeholder: "Ana, Ben, Chloe" } },
-  footer: { w: 1440, h: 240, content: { label: "Column headings", placeholder: "Product, Company, Resources, Legal" } },
+  footer: { w: 1440, h: 96, content: { label: "Links", placeholder: "About, Pricing, Docs, Contact, Privacy" } },
   "split-screen": { w: 1440, h: 520, content: { label: "Left side items", placeholder: "Section one, Section two" } },
   "sidebar-layout": { w: 1440, h: 640, options: [{ id: "side", label: "Side", values: ["left", "right"] }], content: { label: "Sidebar items", placeholder: "Overview, Settings, Billing" } },
   "section-stack": { w: 1440, h: 480, content: { label: "Sections in order", placeholder: "Intro, Details, Proof, Call to action" } },

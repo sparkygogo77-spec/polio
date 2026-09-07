@@ -25,9 +25,10 @@ export function useCompiledBrief() {
   const brief = useStudio((s) => s.brief);
   const frameWidth = useStudio((s) => s.frameWidth);
   const look = useStudio((s) => s.look);
+  const motion = useStudio((s) => s.motion);
   return React.useMemo(
-    () => compileSpec({ pages, nodes, groups, shapes, format, brief, frameWidth, look }),
-    [pages, nodes, groups, shapes, format, brief, frameWidth, look],
+    () => compileSpec({ pages, nodes, groups, shapes, format, brief, frameWidth, look, motion }),
+    [pages, nodes, groups, shapes, format, brief, frameWidth, look, motion],
   );
 }
 

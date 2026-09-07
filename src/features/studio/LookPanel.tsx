@@ -497,16 +497,16 @@ function TextureSection() {
 }
 
 const WHERE_SHORT: Record<TextureTarget, string> = {
-  page: "behind",
+  page: "background",
   surfaces: "surfaces",
-  both: "behind + on",
+  both: "background + surfaces",
   over: "over all",
 };
 
 const WHERE_HINT: Record<TextureTarget, string> = {
-  page: "The floor the site stands on. Sections, bars and cards paint over it, so it shows in the margins and the gaps.",
+  page: "The background and nothing else. Every section, bar and card stays its own opaque colour over it, so it shows in the margins and the gaps.",
   surfaces: "The cards, bars and panels themselves. The page keeps its flat colour.",
-  both: "The floor and the surfaces, each painted separately, so the two read as different materials.",
+  both: "The background and the surfaces, each painted separately, so the two read as different materials.",
   over: "Washed across the finished page, content included. Best kept faint — a grain, a fog, a scan line.",
 };
 

@@ -71,3 +71,14 @@ export function opt(options: Record<string, string>, id: string, def: string): s
   const v = options[id];
   return v && v.trim() ? v : def;
 }
+
+/**
+ * A "set" option: any number of presets at once, stored as one comma-separated
+ * string so the document stays flat. An empty string is a real answer — it
+ * means the reader turned them all off — so only a missing key falls back.
+ */
+export function set(options: Record<string, string>, id: string, def: string[]): string[] {
+  const v = options[id];
+  if (v === undefined) return def;
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}

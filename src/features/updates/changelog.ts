@@ -25,12 +25,28 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.8",
+    title: "Frames in between",
+    summary: "Five keyframes go in and a second and a half of movement comes out.",
+    sketch: "frame",
+    added: [
+      "The crate, on the left: five sleeves, per-gap timing, hold, easing and loop.",
+      "Every frame between your keyframes is worked out here — scrub it, play it, keep it as a sprite sheet or a WebM.",
+      "The brief goes into the blueprint on the same timing, so a generator can replace the dissolve with real motion.",
+      "The middle column scrolls: past the board into the parts, and back, without the page ever changing size.",
+      "Previews take the width they would take on a page — full width, or side by side — and are large enough to read.",
+      "A moon for every sub-group, drawn like the planets.",
+      "Each preview has its own fire again: red until you reach for it, then blue.",
+      "One footer, three shapes, and a social row you add to and take from.",
+    ],
+  },
+  {
     version: "0.7",
     title: "Behind the page, not through it",
     summary: "A texture now knows the difference between the floor and the furniture.",
     sketch: "picture",
     added: [
-      "Behind the page: the site's sections, bars and cards paint over it, so it shows in the margins and the gaps.",
+      "The background: the site's sections, bars and cards stay opaque over it, so it shows in the margins and the gaps.",
       "On surfaces: the cards, bars and panels wear it and the page stays flat.",
       "Over everything: the old all-consuming wash, kept as its own choice.",
       "Each of the four now looks different from the others, which is the whole point of choosing.",

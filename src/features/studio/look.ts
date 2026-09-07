@@ -252,9 +252,9 @@ export interface TextureLayer {
 export type TextureTarget = "page" | "surfaces" | "both" | "over";
 
 export const TEXTURE_TARGETS: { value: TextureTarget; label: string }[] = [
-  { value: "page", label: "Behind the page" },
+  { value: "page", label: "The background" },
   { value: "surfaces", label: "On surfaces" },
-  { value: "both", label: "Behind and on" },
+  { value: "both", label: "Background and surfaces" },
   { value: "over", label: "Over everything" },
 ];
 
@@ -519,9 +519,9 @@ export interface Look {
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page" });
 
 const WHERE: Record<TextureTarget, string> = {
-  page: "behind the page",
+  page: "in the background only",
   surfaces: "on surfaces (cards, bars, panels)",
-  both: "behind the page and on its surfaces",
+  both: "in the background and on its surfaces",
   over: "washed over the finished page",
 };
 
@@ -542,7 +542,7 @@ export function describeLook(look: Look, resolved: Palette): string[] {
         `  - ${kind?.label ?? l.kind} in ${ROLE_LABEL[l.role].toLowerCase()}, ${WHERE[l.target ?? "page"]}, ${l.scale}px tile, ${l.angle}°, ${Math.round(l.opacity * 100)}% solid, ${l.blend} blend${l.src ? " (your image)" : ""}`,
       );
     }
-    lines.push("  A layer behind the page is a floor: every section, card and bar paints over it, so it shows in the gutters and margins only.");
+    lines.push("  A background layer is a floor: every section, card and bar is opaque over it, so it shows in the gutters and margins only.");
     lines.push("  Every layer above is plain CSS — no image files unless one is named.");
   }
   return lines;

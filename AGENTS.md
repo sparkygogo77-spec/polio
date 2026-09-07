@@ -305,6 +305,43 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   them — Chromium hands `oklch(...)` straight back from `getComputedStyle`, so
   a regex looking for `rgb(` finds nothing and every pattern comes out white.
   Convert with `parseColor` + `oklchToRgb` (which returns 0..1, not bytes).
+- **The middle column is one scroller**: the board at full size, the shelf
+  under it (`[data-studio-scroll]` in `StudioPage.tsx`). The board pane is the
+  window's height less a strip, so a piece of the shelf always shows and the
+  page is always whole. Nothing scales the board — scrolling carries you past
+  it and back. The canvas's wheel handler pans until the page runs out and
+  then stops calling `preventDefault`, which hands the gesture to the column;
+  that is why `overscroll-contain` is gone from the canvas root. Note that
+  anything calling `scrollIntoView` inside the board now scrolls the column
+  (Playwright does this before a click) — put it back at the top first.
+- **The shelf is laid out like a page, in page order.** `groupIntoBands` puts
+  the parts in the bands they would occupy going down a page, and `spanOf`
+  decides how much of the shelf's width each takes: full-width parts get the
+  row to themselves, the rest sit two, three or four across with a 10px gap.
+  A preview you cannot read is not a preview, so the heights are generous.
+- **Every sub-group has a moon** (`moons.tsx`), drawn through the same `Svg`
+  shell as the planets: 24 grid, one stroke, no fill, `currentColor`. One
+  entry per id in `SUBGROUPS`; ids that repeat across categories share a mark.
+- **The fire belongs to the part, not the shelf.** There is no flame behind
+  the whole scroller any more — one big field lit a row of previews like a
+  bar. Each preview has a rim that just clears its edges (`.ember-rim`) and
+  tongues climbing out of its bottom, red at rest, blue within 180ms of being
+  reached for, back to red over 0.7s.
+- A **set option** (`FeatureOption.kind === "set"`) is any number of presets at
+  once, stored as one comma-separated string and drawn by the Inspector as
+  chips you switch on and off. `set(options, id, default)` in `parts/types.ts`
+  reads it; an empty string means "all off" and only a missing key falls back
+  to the part's own default. The footer's social row is the first of these:
+  one footer part, three shapes, and everything it holds on show — because a
+  part with variations you cannot see is a part you have to guess at.
+- **Frame interpolation lives in `motion.ts` and `MotionPanel.tsx`** — the
+  crate on the left, beside Look. `planFrames` decides which two keyframes
+  each output frame sits between and how far along it is (hold, gap weights,
+  easing, loop); the panel draws that to one canvas, so 45 frames cost nothing
+  to store. It is a cross-dissolve and says so: `motionBrief` writes the brief
+  from `docs/MOTION.md` on the identical timing, and `spec.ts` puts it in the
+  blueprint, so the Builder's own pass is the floor and a generator's is the
+  ceiling.
 - The parts drawer drills down rather than listing 218 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly

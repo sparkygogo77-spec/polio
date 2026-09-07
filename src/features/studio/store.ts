@@ -20,6 +20,7 @@ import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
 import { emptyLook, type Look, type TextureLayer } from "./look";
+import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { NodeColour } from "./parts/theme";
@@ -110,6 +111,8 @@ interface Doc {
   brief: StudioBrief;
   /** Colour roles and the texture stack. */
   look: Look;
+  /** Keyframe sets waiting to be interpolated. See `motion.ts`. */
+  motion: MotionAsset[];
 }
 
 /** Height of the frame: at least a screen, and always past the lowest part. */
@@ -202,6 +205,11 @@ interface StudioState extends Doc {
   restoreAllFeatures: () => void;
   setBrief: (patch: Partial<StudioBrief>) => void;
   setLook: (patch: Partial<Look>) => void;
+  addMotion: () => string;
+  updateMotion: (id: string, patch: Partial<MotionAsset>) => void;
+  removeMotion: (id: string) => void;
+  setMotionFrame: (id: string, at: number, src: string | null) => void;
+  moveMotionFrame: (id: string, at: number, delta: number) => void;
   addTexture: (layer: TextureLayer) => void;
   updateTexture: (id: string, patch: Partial<TextureLayer>) => void;
   removeTexture: (id: string) => void;
@@ -226,6 +234,7 @@ function snapshot(s: StudioState): Doc {
     format: s.format,
     brief: s.brief,
     look: s.look,
+    motion: s.motion,
   };
 }
 
@@ -242,6 +251,7 @@ function starterDoc(): Doc {
     format: formatDefaults(),
     brief: { name: "", gimmick: "", master: "" },
     look: emptyLook(),
+    motion: [],
   };
 }
 
@@ -520,6 +530,37 @@ export const useStudio = create<StudioState>()(
           push();
           set({ format: formatDefaults() });
         },
+        addMotion: () => {
+          push();
+          const asset = newMotion(`Motion ${useStudio.getState().motion.length + 1}`);
+          set((st) => ({ motion: [...st.motion, asset] }));
+          return asset.id;
+        },
+        updateMotion: (id, patch) =>
+          set((st) => ({ motion: st.motion.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
+        removeMotion: (id) => {
+          push();
+          set((st) => ({ motion: st.motion.filter((m) => m.id !== id) }));
+        },
+        setMotionFrame: (id, at, src) =>
+          set((st) => ({
+            motion: st.motion.map((m) =>
+              m.id === id ? { ...m, frames: m.frames.map((f, i) => (i === at ? src : f)) } : m,
+            ),
+          })),
+        // Sleeves swap rather than shuffle: pulling one out and putting it back
+        // one place along is what reordering a crate actually is.
+        moveMotionFrame: (id, at, delta) =>
+          set((st) => ({
+            motion: st.motion.map((m) => {
+              if (m.id !== id) return m;
+              const to = at + delta;
+              if (to < 0 || to >= m.frames.length) return m;
+              const frames = [...m.frames];
+              [frames[at], frames[to]] = [frames[to]!, frames[at]!];
+              return { ...m, frames };
+            }),
+          })),
         setLook: (patch) => {
           push();
           set((s) => ({ look: { ...s.look, ...patch } }));
@@ -638,6 +679,12 @@ export const useStudio = create<StudioState>()(
             return { ...look, texture: look.texture.map((l) => ({ ...l, target: l.target ?? look.target ?? "page" })) };
           })(),
           companion: { ...current.companion, ...(p.companion ?? {}) },
+          // A crate saved before a setting existed still has to open.
+          motion: (p.motion ?? []).map((m) => ({
+            ...newMotion(m.name),
+            ...m,
+            frames: Array.from({ length: SLEEVES }, (_, i) => m.frames?.[i] ?? null),
+          })),
         };
       },
       partialize: (s) => ({
@@ -648,6 +695,7 @@ export const useStudio = create<StudioState>()(
         format: s.format,
         brief: s.brief,
         look: s.look,
+        motion: s.motion,
         activePageId: s.activePageId,
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,

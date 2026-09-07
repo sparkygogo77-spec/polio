@@ -29,6 +29,8 @@ import { openRadial } from "./RadialMenu";
 const GRID = 8;
 /** Breathing room either side of the page. Small: the page is the point. */
 const FRAME_GUTTER = 48;
+/** How far below the top of the viewport the page rests. */
+const TOP_MARGIN = 36;
 const snapGrid = (v: number) => Math.round(v / GRID) * GRID;
 const MIN_W = 40;
 const MIN_H = 24;
@@ -105,7 +107,7 @@ export function Canvas() {
     if (!el) return;
     const apply = (z: number) => {
       useStudio.getState().setZoom(z);
-      useStudio.getState().setPan({ x: Math.round((el.clientWidth - frameWidth * z) / 2), y: 36 });
+      useStudio.getState().setPan({ x: Math.round((el.clientWidth - frameWidth * z) / 2), y: TOP_MARGIN });
     };
     apply(fitZoom(el.clientWidth));
     // Re-fit only when the page would actually be cut off. A pane that grew
@@ -120,21 +122,46 @@ export function Canvas() {
   }, [fitNonce, frameWidth, fitZoom]);
 
   /* ------------------------------------------------------------- wheel */
+  // The board pans until the page runs out, and then hands the wheel on to
+  // the column it sits in — so one gesture carries you down the page and
+  // straight into the shelf, and back up again, without the page ever being
+  // scaled to make room. `frameRef` keeps the current page height available
+  // to a listener that is attached once.
+  const frameRef = React.useRef(frameH);
+  frameRef.current = frameH;
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
       const store = useStudio.getState();
       if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
         const floor = ref.current ? fitZoom(ref.current.clientWidth) : 0.2;
         store.setZoom(Math.max(floor, store.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+        return;
       }
-      else store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY });
+      if (e.deltaX) {
+        e.preventDefault();
+        store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY });
+        return;
+      }
+      const outer = el.closest("[data-studio-scroll]") as HTMLElement | null;
+      const bottom = store.pan.y + frameRef.current * store.zoom;
+      const down = e.deltaY > 0;
+      // Down: pan while there is still page below the fold. Up: pan while the
+      // page has been pushed above its resting margin — but only once the
+      // column itself is back at the top, so the shelf closes first.
+      const more = down ? bottom > el.clientHeight : store.pan.y < TOP_MARGIN && (!outer || outer.scrollTop <= 0);
+      if (!more) return;
+      e.preventDefault();
+      const next = down
+        ? Math.max(el.clientHeight - frameRef.current * store.zoom, store.pan.y - e.deltaY)
+        : Math.min(TOP_MARGIN, store.pan.y - e.deltaY);
+      store.setPan({ x: store.pan.x, y: next });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [fitZoom]);
 
   /* ---------------------------------------------------------------- drop */
   const onDrop = (e: React.DragEvent) => {
@@ -218,7 +245,10 @@ export function Canvas() {
       return;
     }
 
-    if (handleEl && nodeEl?.dataset.nodeId) {
+    // A resize handle only wins while you are actually pointing at things. With
+    // the pen or the region tool in hand you are drawing, and a handle that
+    // happens to be under the first pixel of the stroke is not an instruction.
+    if (handleEl && nodeEl?.dataset.nodeId && tool === "select") {
       const n = store.nodes.find((x) => x.id === nodeEl.dataset.nodeId);
       if (n) {
         capture();
@@ -393,7 +423,7 @@ export function Canvas() {
     <div
       ref={ref}
       {...ctxProps("studio-canvas", page.id, page)}
-      className="relative size-full touch-none overflow-hidden overscroll-contain bg-bg select-none"
+      className="relative size-full touch-none overflow-hidden bg-bg select-none"
       style={{ cursor }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}

@@ -11,6 +11,7 @@ import { getFeature, categoryOf } from "./catalog";
 import { resolvePart } from "./parts";
 import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
 import { describeLook, ROLES, ROLE_LABEL, type Look, type RoleId } from "./look";
+import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape } from "./store";
 
@@ -25,6 +26,8 @@ export interface CompileInput {
   frameWidth?: number;
   /** Colour roles and texture layers. */
   look?: Look;
+  /** Keyframe crates, each of which becomes a motion brief. */
+  motion?: MotionAsset[];
 }
 
 interface NodeSpec {
@@ -83,6 +86,8 @@ export interface Spec {
   format: { group: string; label: string; value: string }[];
   /** Colour and texture, spelled out. */
   look: string[];
+  /** One brief per crate of keyframes, exactly as `docs/MOTION.md` specifies. */
+  motion: string[];
   pages: PageSpec[];
   stats: { pages: number; elements: number; groups: number; sketches: number; connections: number; prompted: number };
 }
@@ -191,6 +196,7 @@ function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[])
 export function compileSpec(input: CompileInput): Spec {
   const { pages, nodes, groups, shapes, format, brief } = input;
   const look = input.look;
+  const motion = input.motion;
   const fw = input.frameWidth ?? 1440;
 
   const formatRows = changedFormat(format).map((field) => ({
@@ -317,6 +323,8 @@ export function compileSpec(input: CompileInput): Spec {
     master: brief.master.trim(),
     format: formatRows,
     look: look ? describeLook(look, resolvePalette(format, look)) : [],
+    // Only a crate with something to interpolate is worth briefing.
+    motion: (motion ?? []).filter((m) => filled(m).length >= 2).map((m) => motionBrief(m)),
     pages: pageSpecs,
     stats: {
       pages: pages.length,
@@ -354,6 +362,17 @@ export function specToMarkdown(spec: Spec): string {
   if (spec.look.length) {
     L.push("## Colour and texture", "");
     L.push(...spec.look, "");
+  }
+
+  if (spec.motion.length) {
+    L.push("## Motion assets", "");
+    L.push(
+      "Each block below is a complete brief for one animation. The Builder already plays the",
+      "sequence as a cross-dissolve on this timing; match the timing exactly and replace the",
+      "dissolve with real in-between frames.",
+      "",
+    );
+    for (const brief of spec.motion) L.push("```", brief, "```", "");
   }
 
   L.push(`## Pages (${spec.pages.length})`, "");

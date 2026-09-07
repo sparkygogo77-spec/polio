@@ -11,13 +11,14 @@ import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
   ArrowUpRight, Eraser, Eye, FileText, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
-  Pencil, Plus, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
+  Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { PreviewWindow } from "./Preview";
 import { Palette } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
+import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog, useCompiledBrief } from "./BriefDialog";
@@ -265,6 +266,7 @@ export function StudioPage() {
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const [panel, setPanel] = React.useState("inspector");
+  const [leftPanel, setLeftPanel] = React.useState("look");
   const selection = useStudio((s) => s.selection);
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
@@ -297,18 +299,43 @@ export function StudioPage() {
             board now, so the board keeps the width. */}
         {design && libraryOpen ? (
           <aside className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 lg:flex">
-            <div className="flex h-8 shrink-0 items-center justify-between border-b border-border px-3">
-              <span className="text-[11px] font-semibold text-fg">Look</span>
-              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide look" className="tactile rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
+            <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
+              <Segmented
+                className="min-w-0 flex-1 [&>*]:flex-1"
+                size="xs"
+                value={leftPanel}
+                onChange={setLeftPanel}
+                options={[
+                  { value: "look", label: "Look", icon: <PaletteIcon /> },
+                  { value: "motion", label: "Motion", icon: <Clapperboard /> },
+                ]}
+                aria-label="Left panel"
+              />
+              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide look" className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
                 <PanelLeft className="size-3.5" />
               </button>
             </div>
-            <LookPanel />
+            {leftPanel === "look" ? <LookPanel /> : <MotionPanel />}
           </aside>
         ) : null}
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="relative min-h-0 flex-1">
+        {/*
+          One scroller down the middle: the board, then the shelf.
+
+          The board pane is the window's own height less a strip, so a piece of
+          the shelf is always showing and the page is always whole — scrolling
+          down carries you past the page into the parts, and scrolling back up
+          brings the page back at exactly the size it was. Nothing here shrinks
+          the board; that is the whole reason it is a scroll and not a split.
+        */}
+        <div
+          data-studio-scroll=""
+          className={cn("flex min-h-0 min-w-0 flex-1 flex-col", design ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden")}
+        >
+          <div
+            className="relative w-full shrink-0"
+            style={design ? { height: "calc(100% - 108px)" } : { height: "100%" }}
+          >
             {design ? (
               <Canvas />
             ) : (
@@ -316,7 +343,11 @@ export function StudioPage() {
             )}
             <PreviewWindow />
           </div>
-          {design ? <Palette /> : null}
+          {design ? (
+            <div className="w-full shrink-0" style={{ height: "100%" }}>
+              <Palette />
+            </div>
+          ) : null}
         </div>
 
         {design ? (

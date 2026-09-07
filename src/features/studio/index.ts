@@ -51,7 +51,7 @@ function linksMenu(node: StudioNode): MenuEntry {
 
 function compile() {
   const s = useStudio.getState();
-  return compileSpec({ pages: s.pages, nodes: s.nodes, groups: s.groups, shapes: s.shapes, format: s.format, brief: s.brief, frameWidth: s.frameWidth, look: s.look });
+  return compileSpec({ pages: s.pages, nodes: s.nodes, groups: s.groups, shapes: s.shapes, format: s.format, brief: s.brief, frameWidth: s.frameWidth, look: s.look, motion: s.motion });
 }
 
 /** Add → category → feature. Every feature in the library is reachable by mouse alone. */

@@ -10,9 +10,9 @@
 import * as React from "react";
 import type { CategoryId } from "./catalog";
 
-type IconProps = { className?: string; size?: number };
+export type IconProps = { className?: string; size?: number };
 
-function Svg({ children, size = 16, className }: IconProps & { children: React.ReactNode }) {
+export function Svg({ children, size = 16, className }: IconProps & { children: React.ReactNode }) {
   return (
     <svg
       viewBox="0 0 24 24"

@@ -7,7 +7,7 @@ import * as React from "react";
 import { Btn, Fill, Placeholder } from "./primitives";
 import { rng, hash, sample } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
-import { opt, type PartProps } from "./types";
+import { opt, set, type PartProps } from "./types";
 
 const cols = (options: Record<string, string>, def = 3) => Math.max(1, Math.min(6, Number(opt(options, "columns", String(def))) || def));
 
@@ -150,33 +150,134 @@ export function Overlay({ id, content, options, theme: t, emit }: PartProps) {
   );
 }
 
-/** Footer columns. Headings from content; links are generated per column. */
-export function Footer({ id, content, theme: t, onNavigate, w }: PartProps) {
-  const heads = items(content, ["Product", "Company", "Resources", "Legal"]);
+/**
+ * The footer. One part, three shapes, and everything it holds on show.
+ *
+ * There used to be nothing to see here but a column count: whatever you got,
+ * you got. Now the links come from `content`, the social row is a set you add
+ * to and take from, and the legal line is a choice — so the preview in the
+ * shelf is a picture of what this footer will actually say.
+ */
+export function Footer({ id, content, options, theme: t, onNavigate, w }: PartProps) {
+  const links = items(content, ["About", "Pricing", "Docs", "Contact", "Privacy"]);
+  const shape = opt(options, "shape", "Thin bar");
+  const legal = opt(options, "legal", "Copyright");
+  const social = set(options, "social", ["X", "GitHub", "Instagram"]);
+  const columns = shape === "Columns";
+  const rows = shape === "Two rows";
+
+  const link = (label: string, i: number) => (
+    <button
+      key={label + i}
+      type="button"
+      onClick={() => onNavigate?.({ kind: "page", target: label })}
+      style={{ background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: 0, color: t.muted, font: "inherit", fontSize: t.fontPx * 0.84 }}
+    >
+      {label}
+    </button>
+  );
+  const line = legal === "None" ? null : (
+    <span style={{ color: t.muted, fontSize: t.fontPx * 0.76, whiteSpace: "nowrap" }}>
+      © {new Date().getFullYear()} {legal === "Copyright + policies" ? "· Privacy · Terms" : ""}
+    </span>
+  );
+
+  const shell: React.CSSProperties = {
+    ...cardStyle(t), borderRadius: 0, borderBottom: "none", borderLeft: "none", borderRight: "none",
+    display: "flex", minWidth: 0,
+  };
+
+  if (columns) {
+    // The wide one: each link becomes a heading with its own short list under it.
+    const heads = links.slice(0, w < 560 ? 2 : 4);
+    return (
+      <Fill t={t} data-part={id} style={{ ...shell, flexDirection: "column", gap: t.fontPx, padding: `${t.fontPx * 1.4}px ${t.fontPx * 1.5}px` }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${heads.length}, 1fr)`, gap: t.fontPx, flex: 1, minHeight: 0 }}>
+          {heads.map((head) => {
+            const r = rng(hash(head));
+            return (
+              <div key={head} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: t.fontPx * 0.85, fontFamily: t.headingFamily }}>{head}</span>
+                {Array.from({ length: 3 }, (_, i) => link(sample.word(r), i))}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ borderTop: `1px solid ${t.line}`, paddingTop: t.fontPx * 0.6, display: "flex", alignItems: "center", gap: t.fontPx * 0.8 }}>
+          {line}
+          <span style={{ flex: 1 }} />
+          <Social t={t} names={social} />
+        </div>
+      </Fill>
+    );
+  }
+
+  if (rows) {
+    return (
+      <Fill t={t} data-part={id} style={{ ...shell, flexDirection: "column", justifyContent: "center", gap: t.fontPx * 0.6, padding: `${t.fontPx}px ${t.fontPx * 1.4}px` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.9, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 800, fontFamily: t.headingFamily }}>Logo</span>
+          {links.map(link)}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.8, borderTop: `1px solid ${t.line}`, paddingTop: t.fontPx * 0.55 }}>
+          {line}
+          <span style={{ flex: 1 }} />
+          <Social t={t} names={social} />
+        </div>
+      </Fill>
+    );
+  }
+
+  // The thin bar: one line, everything on it.
   return (
-    <Fill t={t} data-part={id} style={{ ...cardStyle(t), borderRadius: 0, borderBottom: "none", borderLeft: "none", borderRight: "none", padding: `${t.fontPx * 1.4}px ${t.fontPx * 1.5}px`, display: "flex", flexDirection: "column", gap: t.fontPx }}>
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${w < 560 ? 2 : heads.length}, 1fr)`, gap: t.fontPx, flex: 1, minHeight: 0 }}>
-        {heads.map((head) => {
-          const r = rng(hash(head));
-          return (
-            <div key={head} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-              <span style={{ fontWeight: 700, fontSize: t.fontPx * 0.85, fontFamily: t.headingFamily }}>{head}</span>
-              {Array.from({ length: 3 }, (_, i) => {
-                const label = sample.word(r);
-                return (
-                  <button key={i} type="button" onClick={() => onNavigate?.({ kind: "page", target: label })} style={{ background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: 0, color: t.muted, font: "inherit", fontSize: t.fontPx * 0.82, textTransform: "capitalize" }}>
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
+    <Fill t={t} data-part={id} style={{ ...shell, alignItems: "center", gap: t.fontPx * 0.9, padding: `0 ${t.fontPx * 1.4}px`, flexWrap: "nowrap", overflow: "hidden" }}>
+      <span style={{ fontWeight: 800, fontFamily: t.headingFamily, whiteSpace: "nowrap" }}>Logo</span>
+      {line}
+      <span style={{ flex: 1 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.8, minWidth: 0, overflow: "hidden" }}>
+        {links.slice(0, w < 640 ? 2 : links.length).map(link)}
       </div>
-      <div style={{ borderTop: `1px solid ${t.line}`, paddingTop: t.fontPx * 0.6, color: t.muted, fontSize: t.fontPx * 0.78 }}>© {new Date().getFullYear()}</div>
+      <Social t={t} names={social} />
     </Fill>
   );
 }
+
+/**
+ * The preset social row.
+ *
+ * Marks, not logos: a rounded square with the platform's initial in it. A part
+ * has to draw its own artwork — it cannot reach for an icon set — and a row of
+ * real brand marks in a wireframe is a licensing question nobody asked. These
+ * say "social links go here, these ones" and stay honest about being a stand-in.
+ */
+function Social({ t, names }: { t: Theme; names: string[] }) {
+  if (!names.length) return null;
+  const size = Math.round(t.fontPx * 1.7);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+      {names.map((n) => (
+        <span
+          key={n}
+          title={n}
+          aria-label={n}
+          style={{
+            width: size, height: size, borderRadius: Math.min(t.radius, 7),
+            border: `1px solid ${t.line}`, color: t.muted,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            fontSize: size * 0.5, fontWeight: 700, lineHeight: 1, letterSpacing: -0.2,
+          }}
+        >
+          {MARK[n] ?? n.slice(0, 1)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const MARK: Record<string, string> = {
+  X: "X", GitHub: "G", Instagram: "In", YouTube: "▶", LinkedIn: "in",
+  TikTok: "Tk", Discord: "D", Mastodon: "M", Bluesky: "B", RSS: "≈", Email: "@",
+};
 
 /** Notes, ideas, moods and rules — written to the board, not to the site. */
 export function Note({ id, label, content, theme: t }: PartProps) {

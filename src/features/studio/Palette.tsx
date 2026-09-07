@@ -3,17 +3,19 @@
  * The parts shelf, under the board.
  *
  * You walk in from the top: a row of planets, one per category. Pick one and
- * it becomes a crumb with its sub-groups beside it; pick one of those and the
- * list gets out of the way entirely, leaving the parts themselves.
+ * it becomes a crumb with its sub-groups beside it, each with its own moon in
+ * the same line-art; pick one of those and the list gets out of the way,
+ * leaving the parts themselves.
  *
- * The parts are laid out the way a page is. Anything that spans the page —
- * headers, footers, hero bands — is stacked in rows across the top. Everything
- * else goes into three columns underneath, spaced apart so nothing touches.
+ * The parts are laid out the way a page reads, top to bottom: what goes across
+ * the top first, then the first screen, the body, further down, the foot. A
+ * part takes as much of the shelf's width as it would take of a page's —
+ * something full-width gets the whole row on its own, and the rest sit side by
+ * side with a thin gap. That is the only way you can see what one contains.
  *
- * Nothing is in a box, and nothing shows a page background: a preview is the
- * *surface* alone, floating on one continuous field the colour of the surface's
- * complement, dimmed. One blue flame burns behind that whole field rather than
- * under every card — a flame per part made a row of them read as a bar.
+ * Nothing is in a box and nothing shows a page background: a preview is the
+ * *surface* alone, floating on one dim field, each lit by its own fire —
+ * red at rest, blue the moment you reach for it.
  *
  * Nothing here is interactive — every preview is `inert` — so a part only
  * comes alive once it is on the board. Drag it straight out, or click it.
@@ -28,10 +30,10 @@ import {
 import { useStudio } from "./store";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { PLANET } from "./planets";
-import { spanOf } from "./showcase";
+import { moonFor } from "./moons";
+import { BAND_LABEL, groupIntoBands, spanOf } from "./showcase";
 import { css, parseColor } from "./look";
 import { resolvePalette } from "./parts/theme";
-import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
@@ -67,9 +69,9 @@ export function addFeatureToCanvas(featureId: string) {
 /* One part                                                            */
 /* ------------------------------------------------------------------ */
 
-function Card({ feature, width, tall = 96, removed }: { feature: FeatureDef; width: number; tall?: number; removed?: boolean }) {
+function Card({ feature, width, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
   const [dragging, setDragging] = React.useState(false);
-  const height = Math.max(36, Math.min(tall, previewHeight(feature, width)));
+  const height = Math.max(44, Math.min(tall, previewHeight(feature, width)));
 
   if (removed) {
     return (
@@ -78,7 +80,7 @@ function Card({ feature, width, tall = 96, removed }: { feature: FeatureDef; wid
           type="button"
           {...ctxProps("studio-palette", feature.id, feature)}
           onClick={() => { play("confirm"); useStudio.getState().restoreFeature(feature.id); }}
-          style={{ width }}
+          style={{ width, height }}
           className="tactile flex shrink-0 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border p-2 opacity-40 hover:opacity-100"
         >
           <RotateCcw className="size-3.5 text-fg-faint" />
@@ -91,9 +93,13 @@ function Card({ feature, width, tall = 96, removed }: { feature: FeatureDef; wid
   return (
     <Tooltip content={feature.explain ?? feature.blurb} side="top">
       <div className="ember group relative" style={{ width }} data-hot={dragging ? "1" : undefined}>
-        {/* The ambient flame is behind the whole shelf; this is just the flare
-            that answers you when you reach for this one. */}
+        {/* The fire this one part sits in: a rim that just clears its edges,
+            and tongues that climb out of the bottom of it. */}
+        <span aria-hidden className="ember-rim" />
         <span aria-hidden className="ember-light">
+          <i className="ember-base" />
+          <i className="ember-lick-a" />
+          <i className="ember-lick-b" />
           <i className="ember-hot" />
         </span>
         <div
@@ -190,12 +196,9 @@ export function Palette() {
   const chosen = cat ? CATEGORIES.find((c) => c.id === cat) : null;
   const chosenSub = subs.find((g) => g.id === sub) ?? null;
 
-  // Across the page means wide *and* short — a header, a footer, a ticker. A
-  // part that is as tall as a page is page-shaped, so it goes in the columns
-  // where its proportions still read.
-  const isBand = (f: FeatureDef) => spanOf(f) >= 12 && (f.w ?? 420) / (f.h ?? 88) >= 5;
-  const across = React.useMemo(() => shown.filter(isBand), [shown]);
-  const columns = React.useMemo(() => shown.filter((f) => !isBand(f)), [shown]);
+  // In the order a page reads: what goes across the top, then the first
+  // screen, the body, further down, the foot.
+  const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
 
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
@@ -204,14 +207,24 @@ export function Palette() {
   React.useEffect(() => {
     const el = shelfRef.current;
     if (!el) return;
-    const measure = () => setShelfW(Math.max(320, el.clientWidth - 32));
+    const measure = () => setShelfW(Math.max(320, el.clientWidth - 24));
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const GAP = 16;
-  const columnWidth = Math.round((shelfW - GAP * 2) / 3);
+  // How wide a part is drawn: as much of the shelf as it would take of a page.
+  // Full-width parts get the row to themselves; the rest sit two, three or
+  // four across with a thin gap, because a preview you cannot read is not a
+  // preview. The height cap follows, so a wide part is also a tall one.
+  const GAP = 10;
+  const sizeFor = React.useCallback((f: FeatureDef) => {
+    const span = spanOf(f);
+    const per = span >= 12 ? 1 : span >= 6 ? 2 : span >= 4 ? 3 : 4;
+    const width = Math.max(150, Math.floor((shelfW - GAP * (per - 1)) / per));
+    const wide = (f.w ?? 420) / (f.h ?? 88) >= 5;
+    return { width, tall: per === 1 ? (wide ? 118 : 208) : per === 2 ? 208 : 168 };
+  }, [shelfW]);
 
   // The field the previews float on: the surface's complement, dimmed, so a
   // surface-coloured part separates from it without needing a border.
@@ -224,7 +237,7 @@ export function Palette() {
   }, [format, look]);
 
   return (
-    <div data-drawer="" className="relative flex h-[264px] shrink-0 flex-col border-t border-border bg-panel/50">
+    <div data-drawer="" className="relative flex h-full flex-col border-t border-border bg-panel/50">
       {/* ------------------------------------------------ where you are */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
         {chosen ? (
@@ -237,6 +250,7 @@ export function Palette() {
           <>
             <span aria-hidden className="shrink-0 text-fg-faint">›</span>
             <Crumb hue={chosen?.hue ?? 265} label={chosenSub.label} onClear={() => setSub(null)}>
+              {React.createElement(moonFor(chosenSub.id), { size: 13 })}
               {chosenSub.label}
             </Crumb>
           </>
@@ -249,8 +263,10 @@ export function Palette() {
                   key={g.id}
                   type="button"
                   onClick={() => { play("select"); setSub(g.id); }}
-                  className="tactile flex shrink-0 items-center gap-1 rounded-full border border-transparent px-2 py-1 text-[11px] text-fg-muted hover:border-border hover:text-fg"
+                  className="tactile flex shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 py-1 text-[11px] text-fg-muted hover:border-border hover:text-fg"
+                  style={{ color: `oklch(0.8 0.1 ${chosen?.hue ?? 265})` }}
                 >
+                  {React.createElement(moonFor(g.id), { size: 13 })}
                   <span className="whitespace-nowrap">{g.label}</span>
                   <span className="num text-[9px] opacity-60">{g.ids.filter((id) => live.some((f) => f.id === id)).length}</span>
                 </button>
@@ -291,13 +307,6 @@ export function Palette() {
 
       {/* ------------------------------------------------ the parts */}
       <div className="relative min-h-0 flex-1" style={{ background: behind }}>
-        {/* One flame for the whole shelf, in the frame rather than in the
-            scroller, so it stays put while the parts move over it. */}
-        <span aria-hidden className="ember-light ember-shelf">
-          <i className="ember-base" />
-          <i className="ember-lick-a" />
-          <i className="ember-lick-b" />
-        </span>
         <div ref={shelfRef} className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
         {!chosen && !searching ? (
           // Fourteen planets, all of them on screen, one per kind of part.
@@ -318,34 +327,26 @@ export function Palette() {
             ))}
           </div>
         ) : shown.length || removed.length ? (
-          <div className="relative z-[1] px-4 py-3">
-            {across.length ? (
-              <Band title="Across the page">
-                {/* One block, not a stack of separate slabs: these all span the
-                    page, so they belong together the way they would on it. The
-                    group is an outline rather than a fill, so no background
-                    colour creeps back into the shelf. */}
-                <div className="flex flex-col gap-1.5 rounded-lg border border-border/60 p-1.5">
-                  {across.map((f) => <Card key={f.id} feature={f} width={shelfW - 12} tall={44} />)}
+          <div className="relative z-[1] px-3 py-3">
+            {bands.map(({ band, items }) => (
+              <Band key={band} title={BAND_LABEL[band]}>
+                <div className="flex flex-wrap gap-2.5" style={{ gap: GAP }}>
+                  {items.map((f) => {
+                    const { width, tall } = sizeFor(f);
+                    return <Card key={f.id} feature={f} width={width} tall={tall} />;
+                  })}
                 </div>
               </Band>
-            ) : null}
-            {columns.length ? (
-              <Band title="In the middle">
-                <div className="flex flex-wrap justify-center gap-4">
-                  {columns.map((f) => <Card key={f.id} feature={f} width={columnWidth} />)}
-                </div>
-              </Band>
-            ) : null}
+            ))}
             {removed.length ? (
               <Band title="Removed">
-                <div className="flex flex-wrap justify-center gap-4">
-                  {removed.map((f) => <Card key={f.id} feature={f} width={columnWidth} removed />)}
+                <div className="flex flex-wrap" style={{ gap: GAP }}>
+                  {removed.map((f) => <Card key={f.id} feature={f} width={sizeFor(f).width} tall={72} removed />)}
                 </div>
               </Band>
             ) : null}
             {/* A little room past the last thing, so nothing sits on the edge. */}
-            <div className="h-6" />
+            <div className="h-10" />
           </div>
         ) : (
           <div className="relative z-[1] flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">

@@ -84,13 +84,15 @@ export function usePasteImage(active: boolean, onImage: (dataUrl: string) => voi
 
 /** Click, drop or paste. Shows what landed, and lets you take it out again. */
 export function ImageWell({
-  src, onImage, onClear, label = "image", className,
+  src, onImage, onClear, label = "image", className, compact,
 }: {
   src?: string | null;
   onImage: (dataUrl: string) => void;
   onClear?: () => void;
   label?: string;
   className?: string;
+  /** A thumbnail and nothing else — for a row of wells too narrow for words. */
+  compact?: boolean;
 }) {
   const [over, setOver] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -124,19 +126,24 @@ export function ImageWell({
       className={cn("space-y-1", className)}
     >
       <label
+        title={compact ? (src ? `Replace ${label}` : `Drop, paste or choose ${label}`) : undefined}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed p-2 text-center text-[10px] transition-colors",
+          "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-center text-[10px] transition-colors",
+          compact ? "h-11 p-0.5" : "p-2",
           over ? "border-accent bg-accent/10 text-fg" : "border-border text-fg-muted hover:border-accent hover:text-fg",
         )}
       >
         {src ? (
           <span
             aria-hidden
-            className="h-10 w-full rounded-sm border border-border"
+            className={cn("w-full rounded-sm border border-border", compact ? "h-full" : "h-10")}
             style={{ backgroundImage: `url(${src})`, backgroundSize: "cover", backgroundPosition: "center" }}
           />
         ) : null}
-        <span>{busy ? "Reading…" : src ? `Replace ${label}` : `Drop, paste or choose ${label === "image" ? "an image" : `a ${label}`}`}</span>
+        <span className={cn(compact && "sr-only")}>
+          {busy ? "Reading…" : src ? `Replace ${label}` : `Drop, paste or choose ${label === "image" ? "an image" : `a ${label}`}`}
+        </span>
+        {compact && !src ? <span aria-hidden className="text-fg-faint">+</span> : null}
         <input
           type="file"
           accept="image/*"

@@ -7,12 +7,13 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { AlignCenter, AlignLeft, AlignRight, Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Trash2, Unlock } from "lucide-react";
-import { getFeature, categoryOf } from "./catalog";
+import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
+import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
@@ -24,6 +25,49 @@ import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
 
 const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
+
+/**
+ * A set option: every preset on offer as a chip, the ones that are on filled
+ * in. Click to add, click to take away — which is what "these social links,
+ * not those" wants to be, and what a dropdown can never say.
+ */
+function OptionSet({ option, value, onChange }: { option: FeatureOption; value?: string; onChange: (v: string) => void }) {
+  const on = React.useMemo(
+    () => new Set((value === undefined ? option.preset ?? "" : value).split(",").map((s) => s.trim()).filter(Boolean)),
+    [value, option.preset],
+  );
+  const toggle = (name: string) => {
+    const next = new Set(on);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    // Keep the shelf order rather than the click order, so the row is stable.
+    onChange(option.values.filter((v) => next.has(v)).join(", "));
+  };
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-fg">{option.label}</span>
+        <span className="num text-[10px] text-fg-faint">{on.size} on</span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {option.values.map((v) => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={on.has(v)}
+            onClick={() => { play(on.has(v) ? "close" : "select"); toggle(v); }}
+            className={cn(
+              "tactile rounded-full border px-2 py-0.5 text-[10px]",
+              on.has(v) ? "border-accent/60 bg-accent-soft text-accent" : "border-border text-fg-muted hover:text-fg",
+            )}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -381,18 +425,27 @@ export function Inspector() {
         {feature?.options?.length ? (
           <div className="space-y-2 rounded-md border border-border p-2">
             <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Options</div>
-            {feature.options.map((opt) => (
-              <div key={opt.id} className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-fg">{opt.label}</span>
-                <Select
-                  className="w-32"
-                  value={node.options[opt.id] ?? opt.values[0]!}
+            {feature.options.map((opt) =>
+              opt.kind === "set" ? (
+                <OptionSet
+                  key={opt.id}
+                  option={opt}
+                  value={node.options[opt.id]}
                   onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                  options={opt.values.map((v) => ({ value: v, label: v }))}
-                  aria-label={opt.label}
                 />
-              </div>
-            ))}
+              ) : (
+                <div key={opt.id} className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-fg">{opt.label}</span>
+                  <Select
+                    className="w-32"
+                    value={node.options[opt.id] ?? opt.values[0]!}
+                    onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
+                    options={opt.values.map((v) => ({ value: v, label: v }))}
+                    aria-label={opt.label}
+                  />
+                </div>
+              ),
+            )}
           </div>
         ) : null}
 
