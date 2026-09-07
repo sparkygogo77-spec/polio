@@ -351,16 +351,21 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   blend modes, same order — drawn to a canvas and returned as a tile, which
   `mergeTexture` swaps in for both. A browser that will not render
   foreignObject returns null and the layers are left alone.
-- **The part menu is a wheel of shards** (`RadialMenu.tsx`). Nine annulus
-  sectors drawn as SVG polygons, each in its own neon hue; the polygon *is*
-  the hit area, and the icon and label ride on top with `pointer-events:
-  none`. Three shards are single actions that fire and close (duplicate, lock,
-  delete); the other six open one green panel placed at the point directly
-  opposite the shard you picked, so the ring stays readable and your hand is
-  never over the controls. It sits at `z-[68]`, above the top bar, or a wheel
-  opened near an edge has shards behind the chrome. Its outside-click handler
-  ignores Radix portals — a select's list is not a descendant of the wheel,
-  and closing on it shut the wheel the moment you picked an option.
+- **The part menu is a slab of cut glass** (`RadialMenu.tsx`), drawn from the
+  reader's own sketch. Not a ring: a rectangle broken into nine uneven panes
+  by seams that are deliberately not a grid (`SEAM_X` / `SEAM_Y`), each pane a
+  path drawn edge by edge with a seeded wobble (`cutPath`) so it looks cut
+  rather than computed — and the path *is* the hit area, with the icon and
+  word riding on top at `pointer-events: none`. The pointer sits at a corner
+  and the slab grows away from it, flipping when an edge is close. A picked
+  pane fills with hatching in its own colour (an SVG `<pattern>`), the way you
+  would scribble the chosen one in. Three panes fire and close (duplicate,
+  lock, delete); the other six throw a second, smaller slab across the pointer
+  in green (`strip()`), holding that group's choices, with the one control
+  they need docked under it. It sits at `z-[68]`, above the top bar, or a slab
+  opened near an edge has panes behind the chrome. Its outside-click handler
+  ignores Radix portals — a select's list is not a descendant of the slab, and
+  closing on it shut the menu the moment you picked an option.
 - **A part carries `anim`, `aura` and `texture` of its own** beside `colour`.
   `anim` is a CSS animation name from `ENTRANCES` played on the live site
   only — the board draws where a part ends up, so laying out a page never

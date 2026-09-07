@@ -43,8 +43,9 @@ export const RELEASES: Release[] = [
     summary: "Right-click became geometry, and the page got somewhere for its shadows to come from.",
     sketch: "palette",
     added: [
-      "Nine neon shards round the point you clicked; the shape you see is the button you press.",
-      "Duplicate, lock and delete fire on the spot. The other six open one green panel, opposite the shard you picked.",
+      "A slab of glass beside the pointer, broken into nine uneven panes — every seam wobbly, every pane its own neon colour, the shape you see is the button you press.",
+      "Picking one hatches it in, the way you would scribble the chosen one. Duplicate, lock and delete fire on the spot.",
+      "The other six throw a second slab of green glass across the pointer, holding that group's choices with its one control docked underneath.",
       "Looks: hue, a texture of this part's own, and an aura glowing round its edge.",
       "Size: the numbers, and align left, centre or right.",
       "Animation: how a part arrives — fade, rise, drop, in from either side, grow, focus, tip up.",

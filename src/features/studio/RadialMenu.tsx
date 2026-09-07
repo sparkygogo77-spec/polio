@@ -1,23 +1,28 @@
 "use client";
 /**
- * The part menu, as a wheel of shards.
+ * The part menu, cut into panes.
  *
- * Right-click a part and the ring opens around the point you clicked: nine
- * shards cut out of a disc, each in its own neon colour so you learn them by
- * where they are and what colour they are rather than by reading them. Three
- * of them do their one thing and close — duplicate, lock, delete. The other
- * six open a second panel, in green, on the *opposite* side of the centre from
- * the shard you picked: the ring stays visible, your hand is out of the way of
- * the controls, and the two levels never sit on top of each other.
+ * Not a ring. Right-click a part and a slab of glass lands beside the pointer,
+ * already broken into nine panes — a hand-cut mosaic, every seam wobbly,
+ * every pane a different size, each outlined in its own neon colour and empty
+ * in the middle. The pointer sits at one corner of the slab and the slab grows
+ * away from it, so nothing you just clicked is under your hand.
  *
- * The geometry is real geometry — annulus sectors with straight edges, drawn
- * as SVG polygons — so the hit area is the shape you can see, corner to
- * corner, rather than a rectangle pretending to be a wedge.
+ * Picking a pane fills it with hatching in its own colour, the way you would
+ * scribble the chosen one in. Three panes do their one thing and close.
+ * The other six throw a second slab across the pointer — the same cut glass in
+ * green — holding that group's choices, with the one control they need docked
+ * under it.
+ *
+ * Everything is one SVG path per pane, drawn edge by edge with a seeded
+ * wobble, so the geometry is the hit area and the whole thing looks drawn
+ * rather than computed. The seed is the pane's index, so it wobbles the same
+ * way every time you open it.
  */
 import * as React from "react";
 import {
-  AlignCenter, AlignLeft, AlignRight, Copy, Link2, ListTree, Lock, Move, Palette as PaletteIcon,
-  Play, Trash2, Unlock, Wand2, X,
+  AlignCenter, AlignLeft, AlignRight, Copy, Grid2x2, Link2, ListTree, Lock, Move,
+  Palette as PaletteIcon, Play, Sparkles, Trash2, Unlock, Wand2, X,
 } from "lucide-react";
 import { getFeature } from "./catalog";
 import { isLinkable } from "./parts";
@@ -101,27 +106,101 @@ export const ENTRANCES: { value: string; label: string }[] = [
   { value: "el-flip", label: "Tip up" },
 ];
 
-const IN = 46;
-const OUT = 118;
-const GAP = 2.6;
+/* ------------------------------------------------------------------ */
+/* The cut glass                                                       */
+/* ------------------------------------------------------------------ */
 
-/** One shard, as the polygon it looks like. */
-function shardPath(i: number, n: number): string {
-  const step = 360 / n;
-  const a0 = ((-90 + i * step + GAP) * Math.PI) / 180;
-  const a1 = ((-90 + (i + 1) * step - GAP) * Math.PI) / 180;
-  // Straight edges, not arcs: the shape is cut, not curved.
-  const p = (r: number, a: number) => `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`;
-  const mid = (a0 + a1) / 2;
-  return [p(IN, a0), p(OUT, a0), p(OUT * 1.04, mid), p(OUT, a1), p(IN, a1), p(IN * 0.98, mid)].join(" ");
+type Pt = [number, number];
+
+/** The slab, in px. Nine panes fit in this at a readable size. */
+const SLAB = { w: 288, h: 246 };
+/** The second slab is smaller: it holds a handful of choices, not nine. */
+const SLAB2 = { w: 250, h: 128 };
+
+/**
+ * Where the seams run, as fractions of the slab.
+ *
+ * Deliberately uneven, row by row and column by column: a pane the same size
+ * as its neighbour reads as a grid, and this is meant to read as a pane of
+ * glass somebody dropped. Four rows of four points bound nine quads.
+ */
+const SEAM_X: number[][] = [
+  [0, 0.30, 0.64, 1],
+  [0, 0.38, 0.70, 1],
+  [0, 0.26, 0.58, 1],
+  [0, 0.34, 0.66, 1],
+];
+const SEAM_Y: number[][] = [
+  [0, 0.03, 0, 0.04],
+  [0.28, 0.34, 0.29, 0.35],
+  [0.64, 0.59, 0.67, 0.61],
+  [1, 0.97, 1, 0.98],
+];
+
+/** The four corners of pane (row, col), in fractions. */
+function pane(row: number, col: number): Pt[] {
+  const at = (r: number, c: number): Pt => [SEAM_X[r]![c]!, SEAM_Y[r]![c]!];
+  return [at(row, col), at(row, col + 1), at(row + 1, col + 1), at(row + 1, col)];
 }
 
-/** The middle of a shard, in px from the centre. */
-function shardCentre(i: number, n: number, r = (IN + OUT) / 2): { x: number; y: number; angle: number } {
-  const step = 360 / n;
-  const deg = -90 + i * step + step / 2;
-  const a = (deg * Math.PI) / 180;
-  return { x: Math.cos(a) * r, y: Math.sin(a) * r, angle: deg };
+/** The nine panes, in reading order. */
+const PANES: Pt[][] = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => pane(r, c)));
+
+/**
+ * A second slab, cut into `n` panes across one row — the seams slanted, so it
+ * is the same broken glass as the first and not a row of buttons.
+ */
+function strip(n: number): Pt[][] {
+  const top = [0, ...Array.from({ length: n - 1 }, (_, i) => (i + 1) / n + (i % 2 ? 0.06 : -0.05)), 1];
+  const bot = [0, ...Array.from({ length: n - 1 }, (_, i) => (i + 1) / n + (i % 2 ? -0.055 : 0.05)), 1];
+  const ty = (i: number) => (i % 2 ? 0.1 : 0);
+  const by = (i: number) => (i % 2 ? 0.92 : 1);
+  return Array.from({ length: n }, (_, i): Pt[] => [
+    [top[i]!, ty(i)],
+    [top[i + 1]!, ty(i + 1)],
+    [bot[i + 1]!, by(i + 1)],
+    [bot[i]!, by(i)],
+  ]);
+}
+
+/** Deterministic noise, so a pane wobbles the same way every time. */
+function noise(seed: number): () => number {
+  let t = seed * 1831565813 + 0x6d2b79f5;
+  return () => {
+    t = Math.imul(t ^ (t >>> 15), 1 | t);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return (((t ^ (t >>> 14)) >>> 0) / 4294967296) * 2 - 1;
+  };
+}
+
+/**
+ * One pane as a path, drawn edge by edge with a bowed middle — the line a
+ * hand makes, not the one a compass does.
+ */
+function cutPath(points: Pt[], box: { w: number; h: number }, seed: number, bow = 3.2): string {
+  const rand = noise(seed);
+  const px = points.map(([x, y]): Pt => [x * box.w, y * box.h]);
+  let d = `M ${px[0]![0].toFixed(1)} ${px[0]![1].toFixed(1)}`;
+  for (let i = 0; i < px.length; i++) {
+    const a = px[i]!;
+    const b = px[(i + 1) % px.length]!;
+    const mx = (a[0] + b[0]) / 2;
+    const my = (a[1] + b[1]) / 2;
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    // Push the middle of the edge off to one side, along its normal.
+    const off = rand() * bow;
+    d += ` Q ${(mx + (-dy / len) * off).toFixed(1)} ${(my + (dx / len) * off).toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+  }
+  return `${d} Z`;
+}
+
+/** The middle of a pane, for the icon and the word that sit in it. */
+function centre(points: Pt[], box: { w: number; h: number }): { x: number; y: number } {
+  const x = points.reduce((n, p) => n + p[0], 0) / points.length;
+  const y = points.reduce((n, p) => n + p[1], 0) / points.length;
+  return { x: x * box.w, y: y * box.h };
 }
 
 /* ------------------------------------------------------------------ */
@@ -131,11 +210,13 @@ function shardCentre(i: number, n: number, r = (IN + OUT) / 2): { x: number; y: 
 export function RadialMenu() {
   const open = useRadial();
   const [picked, setPicked] = React.useState<ShardId | null>(null);
+  /** Which pane of the green glass is showing its control in the strip. */
+  const [subPick, setSubPick] = React.useState<string | null>(null);
   const nodes = useStudio((s) => s.nodes);
   const node = open ? nodes.find((n) => n.id === open.nodeId) : undefined;
 
   React.useEffect(() => {
-    if (!open) setPicked(null);
+    if (!open) { setPicked(null); setSubPick(null); }
   }, [open]);
 
   React.useEffect(() => {
@@ -163,6 +244,7 @@ export function RadialMenu() {
   const choose = (w: Shard) => {
     if (w.kind === "action") return fire(w.id);
     play("select");
+    setSubPick(null);
     setPicked((p) => (p === w.id ? null : w.id));
   };
   const fire = (id: ShardId) => {
@@ -171,107 +253,251 @@ export function RadialMenu() {
     if (id === "delete") { s().removeNodes([node.id]); play("deny"); closeRadial(); }
   };
 
-  // Keep the whole ring on screen; the panel is placed from the centre after.
-  const pad = OUT + 24;
-  const cx = Math.max(pad, Math.min(window.innerWidth - pad, open.x));
-  const cy = Math.max(pad, Math.min(window.innerHeight - pad, open.y));
+  /*
+    The pointer sits at a corner of the slab and the slab grows away from it —
+    up and left by default, flipped when that would run off the screen. The
+    green slab is thrown the other way across the pointer, so the two never
+    overlap and the first one stays readable while you work in the second.
+  */
+  // Both slabs have to fit: the first grows one way from the pointer and the
+  // second the other, so the pointer is kept a slab's width from either edge.
+  const margin = 16;
+  const px = Math.max(SLAB2.w + margin, Math.min(window.innerWidth - SLAB2.w - margin, open.x));
+  const py = Math.max(SLAB2.h + 96 + margin, Math.min(window.innerHeight - SLAB2.h - 96 - margin, open.y));
+  const room = { right: window.innerWidth - px, bottom: window.innerHeight - py };
+  const flipX = room.right > SLAB.w + 40 && px < SLAB.w + 40;
+  const flipY = room.bottom > SLAB.h + 40 && py < SLAB.h + 40;
+  const slabAt = {
+    x: flipX ? 12 : -SLAB.w - 12,
+    y: flipY ? 12 : -SLAB.h - 12,
+  };
+  const slab2At = {
+    x: flipX ? -SLAB2.w - 16 : 16,
+    y: flipY ? -SLAB2.h - 16 : 16,
+  };
 
   const index = picked ? SHARDS.findIndex((w) => w.id === picked) : -1;
-  // The green panel goes opposite the shard you chose: away from your hand,
-  // and never over the ring.
-  const away = index >= 0 ? shardCentre(index, SHARDS.length, OUT + 40) : null;
-  const panelAt = away ? { x: -away.x, y: -away.y } : null;
+  const chosen = index >= 0 ? SHARDS[index] : null;
 
   return (
-    // Above the top bar and the status bar: a wheel opened near an edge used to
-    // have its top shards behind the chrome, unreachable.
+    // Above the top bar and the status bar: a slab opened near an edge used to
+    // have panes behind the chrome, unreachable.
     <div data-radial className="pointer-events-none fixed inset-0 z-[68]">
-      <div className="absolute" style={{ left: cx, top: cy }}>
-        <svg className="absolute overflow-visible" width={1} height={1}>
-          {SHARDS.map((w, i) => {
-            const on = picked === w.id;
-            const locked = w.id === "lock" && node.locked;
-            return (
-              <polygon
-                key={w.id}
-                role="button"
-                tabIndex={0}
-                aria-label={locked ? "Unlock" : w.label}
-                aria-pressed={on}
-                data-shard={w.id}
-                points={shardPath(i, SHARDS.length)}
-                onClick={() => choose(w)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(w); } }}
-                className="pointer-events-auto cursor-pointer outline-none"
-                fill={`oklch(0.62 0.2 ${w.hue} / ${on ? 0.34 : 0.13})`}
-                stroke={`oklch(${on ? 0.9 : 0.78} 0.21 ${w.hue})`}
-                strokeWidth={on ? 1.8 : 1.1}
-                style={{ filter: on ? `drop-shadow(0 0 8px oklch(0.8 0.2 ${w.hue} / 0.75))` : undefined }}
-              />
-            );
-          })}
-        </svg>
+      <div className="absolute" style={{ left: px, top: py }}>
+        {/* the pointer's own mark, at the corner the glass grew from */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-[3px] -top-[3px] size-1.5 rounded-full"
+          style={{ background: "oklch(0.72 0.22 28)", boxShadow: "0 0 8px 2px oklch(0.7 0.22 28 / 0.7)" }}
+        />
 
-        {SHARDS.map((w, i) => {
-          const c = shardCentre(i, SHARDS.length);
-          const Icon = w.icon;
-          const on = picked === w.id;
-          const locked = w.id === "lock" && node.locked;
-          return (
-            <span
-              key={w.id}
-              aria-hidden
-              className="pointer-events-none absolute flex w-[72px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 text-[9.5px] font-medium leading-tight"
-              style={{ left: c.x, top: c.y, color: `oklch(${on ? 0.95 : 0.86} 0.16 ${w.hue})` }}
-            >
-              {locked ? <Unlock className="size-4" /> : <Icon className="size-4" />}
-              <span className="whitespace-nowrap">{locked ? "Unlock" : w.label}</span>
-            </span>
-          );
-        })}
+        <Slab
+          box={SLAB}
+          at={slabAt}
+          panes={PANES}
+          items={SHARDS.map((w) => ({
+            id: w.id,
+            label: w.id === "lock" && node.locked ? "Unlock" : w.label,
+            icon: w.id === "lock" && node.locked ? Unlock : w.icon,
+            hue: w.hue,
+            on: picked === w.id,
+            onPick: () => choose(w),
+          }))}
+        />
 
-        {/* the hub closes it */}
-        <button
-          type="button"
-          aria-label="Close the wheel"
-          onClick={closeRadial}
-          className="pointer-events-auto absolute -left-4 -top-4 flex size-8 items-center justify-center rounded-full border border-border bg-panel text-fg-muted shadow-panel hover:text-fg"
-        >
-          <X className="size-3.5" />
-        </button>
-
-        {picked && panelAt ? (
+        {chosen ? (
           <div
-            data-radial-panel={picked}
-            className="pointer-events-auto absolute w-64 -translate-x-1/2 -translate-y-1/2 rounded-lg p-2.5"
-            style={{
-              left: panelAt.x,
-              top: panelAt.y,
-              background: "oklch(0.18 0.03 150 / 0.96)",
-              border: "1px solid oklch(0.82 0.2 150)",
-              boxShadow: "0 0 18px oklch(0.7 0.2 150 / 0.35), 0 12px 40px oklch(0 0 0 / 0.5)",
-            }}
+            data-radial-panel={chosen.id}
+            className="pointer-events-auto absolute"
+            style={{ left: slab2At.x, top: slab2At.y, width: SLAB2.w }}
           >
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "oklch(0.9 0.17 150)" }}>
-                {SHARDS[index]?.label}
-              </span>
-              <button
-                type="button"
-                aria-label="Back to the wheel"
-                onClick={() => { play("close"); setPicked(null); }}
-                className="text-[10px]"
-                style={{ color: "oklch(0.8 0.14 150)" }}
-              >
-                <X className="size-3" />
-              </button>
+            <Slab
+              box={SLAB2}
+              at={{ x: 0, y: 0 }}
+              green
+              panes={strip(Math.max(2, subPanes(chosen.id, node).length))}
+              items={subPanes(chosen.id, node).map((sub) => ({
+                id: sub.id,
+                label: sub.label,
+                icon: sub.icon,
+                hue: 150,
+                on: sub.id === subPick,
+                onPick: () => { play("select"); sub.act ? sub.act() : setSubPick(sub.id); },
+              }))}
+            />
+            {/* the one control the chosen pane needs, docked under the glass */}
+            <div
+              // The slab is absolutely positioned and takes no room in the
+              // flow, so the strip is pushed clear of it by hand.
+              style={{ marginTop: SLAB2.h + 6 }}
+            >
+            <div
+              data-radial-strip=""
+              style={{
+                background: "oklch(0.16 0.03 150 / 0.96)",
+                border: "1px solid oklch(0.7 0.18 150 / 0.8)",
+                borderRadius: 6,
+                padding: 8,
+                boxShadow: "0 0 16px oklch(0.7 0.2 150 / 0.28), 0 12px 34px oklch(0 0 0 / 0.5)",
+              }}
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "oklch(0.88 0.16 150)" }}>
+                  {chosen.label}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Back to the wheel"
+                  onClick={() => { play("close"); setPicked(null); }}
+                  style={{ color: "oklch(0.8 0.14 150)" }}
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+              <Panel shard={chosen.id} node={node} focus={subPick} />
             </div>
-            <Panel shard={picked} node={node} />
+            </div>
           </div>
         ) : null}
       </div>
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* One slab of cut glass                                               */
+/* ------------------------------------------------------------------ */
+
+interface SlabItem {
+  id: string;
+  label: string;
+  icon: typeof Wand2;
+  hue: number;
+  on: boolean;
+  onPick: () => void;
+}
+
+function Slab({
+  box, at, panes, items, green,
+}: {
+  box: { w: number; h: number };
+  at: { x: number; y: number };
+  panes: Pt[][];
+  items: SlabItem[];
+  green?: boolean;
+}) {
+  const shown = items.slice(0, panes.length);
+  return (
+    <div className="absolute" style={{ left: at.x, top: at.y, width: box.w, height: box.h }}>
+      <svg
+        width={box.w}
+        height={box.h}
+        className="absolute left-0 top-0 overflow-visible"
+        style={{ filter: "drop-shadow(0 10px 30px oklch(0 0 0 / 0.55))" }}
+      >
+        <defs>
+          {shown.map((it, i) =>
+            it.on ? (
+              // The chosen pane is scribbled in, the way you would mark it.
+              <pattern key={it.id} id={`hatch-${it.id}`} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(38)">
+                <line x1="0" y1="0" x2="0" y2="7" stroke={`oklch(0.78 0.21 ${green ? 350 : it.hue})`} strokeWidth="2.2" />
+              </pattern>
+            ) : null,
+          )}
+        </defs>
+        {shown.map((it, i) => (
+          <path
+            key={it.id}
+            role="button"
+            tabIndex={0}
+            aria-label={it.label}
+            aria-pressed={it.on}
+            data-shard={it.id}
+            d={cutPath(panes[i]!, box, i + 1 + (green ? 90 : 0))}
+            onClick={it.onPick}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); it.onPick(); } }}
+            className="pointer-events-auto cursor-pointer outline-none"
+            fill={it.on ? `url(#hatch-${it.id})` : "oklch(0.14 0.02 265 / 0.88)"}
+            stroke={`oklch(${it.on ? 0.92 : 0.8} 0.21 ${it.hue})`}
+            strokeWidth={it.on ? 2.4 : 1.6}
+            strokeLinejoin="round"
+            style={{ filter: it.on ? `drop-shadow(0 0 7px oklch(0.82 0.2 ${it.hue} / 0.8))` : undefined }}
+          />
+        ))}
+      </svg>
+      {shown.map((it, i) => {
+        const c = centre(panes[i]!, box);
+        const Icon = it.icon;
+        return (
+          <span
+            key={it.id}
+            aria-hidden
+            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 text-[9.5px] font-medium leading-tight"
+            style={{ left: c.x, top: c.y, color: `oklch(${it.on ? 0.96 : 0.88} 0.15 ${it.hue})` }}
+          >
+            <Icon className="size-4" />
+            <span className="whitespace-nowrap">{it.label}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* What the green glass holds                                          */
+/* ------------------------------------------------------------------ */
+
+interface SubPane {
+  id: string;
+  label: string;
+  icon: typeof Wand2;
+  /** An immediate action; without one, the pane picks what the strip shows. */
+  act?: () => void;
+}
+
+function subPanes(shard: ShardId, node: StudioNode): SubPane[] {
+  const s = () => useStudio.getState();
+  const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
+  const fw = () => s().frameWidth;
+  switch (shard) {
+    case "look":
+      return [
+        { id: "hue", label: "Hue", icon: PaletteIcon },
+        { id: "texture", label: "Texture", icon: Grid2x2 },
+        { id: "aura", label: "Aura", icon: Sparkles },
+      ];
+    case "size":
+      return [
+        { id: "left", label: "Left", icon: AlignLeft, act: () => update({ x: 0 }) },
+        { id: "middle", label: "Middle", icon: AlignCenter, act: () => update({ x: Math.round((fw() - node.w) / 2) }) },
+        { id: "right", label: "Right", icon: AlignRight, act: () => update({ x: fw() - node.w }) },
+        { id: "full", label: "Full width", icon: Move, act: () => update({ x: 0, w: fw() }) },
+      ];
+    case "anim":
+      return [
+        { id: "el-fade", label: "Fade", icon: Play, act: () => update({ anim: "el-fade" }) },
+        { id: "el-rise", label: "Rise", icon: Play, act: () => update({ anim: "el-rise" }) },
+        { id: "el-grow", label: "Grow", icon: Play, act: () => update({ anim: "el-grow" }) },
+        { id: "none", label: "None", icon: X, act: () => update({ anim: null }) },
+      ];
+    case "wiring":
+      return [
+        { id: "link", label: "Goes to", icon: Link2 },
+        { id: "data", label: "Shows", icon: ListTree },
+      ];
+    case "prompt":
+      return [
+        { id: "must", label: "Must", icon: Wand2, act: () => update({ priority: "must" }) },
+        { id: "nice", label: "Nice", icon: Wand2, act: () => update({ priority: "nice" }) },
+        { id: "idea", label: "Idea", icon: Wand2, act: () => update({ priority: "idea" }) },
+      ];
+    default:
+      return [
+        { id: "name", label: "Name", icon: ListTree },
+        { id: "holds", label: "Holds", icon: ListTree },
+      ];
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -287,7 +513,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function Panel({ shard, node }: { shard: ShardId; node: StudioNode }) {
+function Panel({ shard, node, focus }: { shard: ShardId; node: StudioNode; focus: string | null }) {
   const feature = getFeature(node.featureId);
   const frameWidth = useStudio((s) => s.frameWidth);
   const pages = useStudio((s) => s.pages);
@@ -298,26 +524,21 @@ function Panel({ shard, node }: { shard: ShardId; node: StudioNode }) {
   const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
 
   if (shard === "contents") {
-    return (
-      <>
-        <Row label="Name">
-          <Input value={node.label} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
-        </Row>
-        {feature?.content ? (
-          <Row label={feature.content.label}>
-            <Textarea autoGrow rows={3} value={node.content} aria-label={feature.content.label} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
-          </Row>
-        ) : (
-          <p className="text-[11px] text-fg-muted">This part has nothing to list inside it.</p>
-        )}
-      </>
+    return focus === "holds" && feature?.content ? (
+      <Row label={feature.content.label}>
+        <Textarea autoGrow rows={3} value={node.content} aria-label={feature.content.label} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
+      </Row>
+    ) : (
+      <Row label="Name">
+        <Input value={node.label} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
+      </Row>
     );
   }
 
   if (shard === "size") {
     return (
       <>
-        <div className="mb-2 grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {(["x", "y", "w", "h"] as const).map((k) => (
             <label key={k} className="flex flex-col gap-0.5">
               <span className="text-[9px] uppercase text-fg-faint">{k === "w" ? "Width" : k === "h" ? "Height" : k}</span>
@@ -335,26 +556,15 @@ function Panel({ shard, node }: { shard: ShardId; node: StudioNode }) {
             </label>
           ))}
         </div>
-        <Row label="Align">
-          <div className="flex gap-1">
-            <Button size="xs" variant="outline" aria-label="Flush left" className="flex-1" onClick={() => update({ x: 0 })}><AlignLeft /></Button>
-            <Button size="xs" variant="outline" aria-label="Centre" className="flex-1" onClick={() => update({ x: Math.round((frameWidth - node.w) / 2) })}><AlignCenter /></Button>
-            <Button size="xs" variant="outline" aria-label="Flush right" className="flex-1" onClick={() => update({ x: frameWidth - node.w })}><AlignRight /></Button>
-          </div>
-        </Row>
-        <Button size="xs" variant="outline" className="w-full" onClick={() => update({ x: 0, w: frameWidth })}>Full width</Button>
-        <div className="mt-2 text-[10px] text-fg-faint">{Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% of the frame</div>
+        <div className="mt-1 text-[9px] text-fg-faint">{Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}% of the frame</div>
       </>
     );
   }
 
   if (shard === "look") {
     const layers = look.texture ?? [];
-    return (
-      <>
-        <Row label="Hue">
-          <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
-        </Row>
+    if (focus === "texture") {
+      return (
         <Row label="Texture">
           <Select
             value={node.texture ?? "site"}
@@ -370,51 +580,49 @@ function Panel({ shard, node }: { shard: ShardId; node: StudioNode }) {
             aria-label="Texture on this part"
           />
         </Row>
+      );
+    }
+    if (focus === "aura") {
+      return (
         <Row label="Border accent / aura">
           <Select
             value={node.aura ?? ""}
             onChange={(v) => update({ aura: v || null })}
             options={[{ value: "", label: "None" }, ...ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))]}
-            aria-label="Aura"
+            aria-label="Aura colour"
           />
         </Row>
-        {feature?.options?.length ? (
-          feature.options.slice(0, 2).map((opt) => (
-            <Row key={opt.id} label={opt.label}>
-              <Select
-                value={node.options[opt.id] ?? opt.values[0]!}
-                onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                options={opt.values.map((v) => ({ value: v, label: v }))}
-                aria-label={opt.label}
-              />
-            </Row>
-          ))
-        ) : null}
-      </>
+      );
+    }
+    return (
+      <Row label="Hue">
+        <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
+      </Row>
     );
   }
 
   if (shard === "anim") {
     return (
-      <>
-        <Row label="How it arrives">
-          <Select
-            value={node.anim ?? ""}
-            onChange={(v) => update({ anim: v || null })}
-            options={ENTRANCES}
-            aria-label="How it arrives"
-          />
-        </Row>
-        <p className="text-[10px] leading-snug text-fg-faint">
-          Plays on the live site and in the preview. The board draws the part where it ends up, so
-          laying the page out never turns into watching it.
-        </p>
-      </>
+      <Row label="How it arrives">
+        <Select
+          value={node.anim ?? ""}
+          onChange={(v) => update({ anim: v || null })}
+          options={ENTRANCES}
+          aria-label="How it arrives"
+        />
+      </Row>
     );
   }
 
   if (shard === "wiring") {
     const link = node.link;
+    if (focus === "data") {
+      return (
+        <Row label="Data">
+          <Textarea autoGrow rows={3} value={node.data} aria-label="Data" placeholder="What it shows or does" onChange={(e) => update({ data: e.target.value })} />
+        </Row>
+      );
+    }
     return (
       <>
         {isLinkable(node.featureId) ? (
@@ -426,34 +634,22 @@ function Panel({ shard, node }: { shard: ShardId; node: StudioNode }) {
               aria-label="Links to"
             />
           </Row>
-        ) : null}
+        ) : (
+          <p className="text-[10px] text-fg-muted">This part does not send anyone anywhere.</p>
+        )}
         {link?.kind === "url" ? (
           <Row label="Web address">
             <Input value={link.target} aria-label="Web address" onChange={(e) => update({ link: { kind: "url", target: e.target.value } })} />
           </Row>
         ) : null}
-        <Row label="Data">
-          <Textarea autoGrow rows={3} value={node.data} aria-label="Data" placeholder="What it shows or does" onChange={(e) => update({ data: e.target.value })} />
-        </Row>
       </>
     );
   }
 
-  // prompt
+  // prompt — the priority is on the glass, so only the words are left here
   return (
-    <>
-      <Row label="Prompt for this element">
-        <Textarea autoGrow rows={4} value={node.prompt} aria-label="Element prompt" placeholder={feature?.hint ?? "Specific to this placement…"} onChange={(e) => update({ prompt: e.target.value })} />
-      </Row>
-      <Row label="Priority">
-        <Segmented
-          size="xs"
-          value={node.priority}
-          onChange={(v) => update({ priority: v as "must" })}
-          options={[{ value: "must", label: "Must" }, { value: "nice", label: "Nice" }, { value: "idea", label: "Idea" }]}
-          aria-label="Priority"
-        />
-      </Row>
-    </>
+    <Row label="Prompt for this element">
+      <Textarea autoGrow rows={3} value={node.prompt} aria-label="Element prompt" placeholder={feature?.hint ?? "Specific to this placement…"} onChange={(e) => update({ prompt: e.target.value })} />
+    </Row>
   );
 }
