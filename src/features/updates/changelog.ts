@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.10",
+    title: "The stack, rebuilt",
+    summary: "Textures got a flat ground, a merge, and the same controls every time you open one.",
+    sketch: "picture",
+    added: [
+      "Flat colour: one solid colour at any opacity — the static background the stack was missing.",
+      "Every layer shows the same seven controls in the same order, whatever kind it is.",
+      "And all of them bite now: checks, dots and halftone turn, blobs and mesh swing round, a flat colour fades along its angle.",
+      "Merge a layer into the one below and the pair bakes into a single picture you can go on scaling and tinting.",
+      "New layers arrive on top, where you left off, already open.",
+    ],
+  },
+  {
     version: "0.9",
     title: "The wheel, and a light",
     summary: "Right-click became geometry, and the page got somewhere for its shadows to come from.",

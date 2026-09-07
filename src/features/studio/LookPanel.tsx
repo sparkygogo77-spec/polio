@@ -9,13 +9,13 @@
  * compiling to plain CSS so it costs nothing and tiles for ever.
  */
 import * as React from "react";
-import { ChevronDown, ChevronUp, Copy, Pipette, Plus, Shuffle, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2 } from "lucide-react";
 import {
-  affects, contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
+  contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
   TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, shiftHue, type BlendMode, type Harmony,
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
-import { treatImage, treatmentKey } from "./texture";
+import { flattenLayers, treatImage, treatmentKey } from "./texture";
 import { resolvePalette } from "./parts/theme";
 import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
@@ -311,6 +311,29 @@ function TextureSection() {
   const [dropping, setDropping] = React.useState(false);
   usePasteImage(true, (src) => takeImage(src));
 
+  /**
+   * Bake a layer and the one under it into one picture, in that order. It is
+   * painted exactly as the page paints it — same gradients, same blend — and
+   * comes back as a tile, so the pair stops being two things you have to keep
+   * in your head.
+   */
+  const [merging, setMerging] = React.useState<string | null>(null);
+  const merge = async (id: string) => {
+    const layers = useStudio.getState().look.texture;
+    const i = layers.findIndex((l) => l.id === id);
+    const top = layers[i];
+    const under = layers[i + 1];
+    if (!top || !under) return;
+    setMerging(id);
+    const css = textureCss([{ ...top, on: true }, { ...under, on: true }], palette, "transparent");
+    const src = await flattenLayers(css);
+    setMerging(null);
+    if (!src) return;
+    play("confirm");
+    s().mergeTexture(id, src);
+    setOpenId(null);
+  };
+
   return (
     <section
       className={cn("space-y-2 p-3 transition-colors", dropping && "bg-accent/10")}
@@ -338,7 +361,6 @@ function TextureSection() {
           const open = openId === layer.id;
           const kind = TEXTURE_KINDS.find((k) => k.id === layer.kind);
           const picture = layer.kind === "image";
-          const can = affects(layer.kind);
           // A picture only takes the palette colour once it is a pattern.
           const tintable = !picture || !!layer.pattern;
           return (
@@ -388,8 +410,66 @@ function TextureSection() {
                     />
                   </div>
 
+                  {/*
+                    The same seven controls, in the same order, on every layer,
+                    whatever kind it is. They used to come and go depending on
+                    what the kind could use, which meant the panel was a
+                    different shape every time you opened one and you could
+                    never learn where anything was. Every kind takes all of
+                    them now — see `layerCss`.
+                  */}
+                  <Select
+                    value={layer.target ?? "page"}
+                    onChange={(v) => s().updateTexture(layer.id, { target: v as TextureTarget })}
+                    options={TEXTURE_TARGETS}
+                    aria-label="Where this layer lands"
+                    className="w-full"
+                  />
+                  <p className="text-[10px] leading-snug text-fg-faint">{WHERE_HINT[layer.target ?? "page"]}</p>
+
+                  <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
+                    <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
+                  </Row>
+                  <Row label={picture ? "Size" : "Scale"} value={`${layer.scale}px`}>
+                    <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} aria-label="Scale" />
+                  </Row>
+                  <Row label="Angle" value={`${layer.angle}°`}>
+                    <Slider value={[layer.angle]} min={0} max={360} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} aria-label="Angle" />
+                  </Row>
+                  <Row label={layer.kind === "flat" ? "Fade" : picture ? "How much survives" : "Contrast"} value={`${Math.round(layer.contrast * 100)}%`}>
+                    <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} aria-label="Contrast" />
+                  </Row>
+                  <Row label="Hue" value={(layer.hue ?? 0) === 0 ? `${ROLE_LABEL[layer.role]} as is` : `${(layer.hue ?? 0) > 0 ? "+" : ""}${Math.round(layer.hue ?? 0)}°`}>
+                    <Slider value={[layer.hue ?? 0]} min={-180} max={180} step={1} onValueChange={(v) => s().updateTexture(layer.id, { hue: v[0] ?? 0 })} aria-label="Layer hue" />
+                  </Row>
+                  <Select
+                    value={layer.blend}
+                    onChange={(v) => s().updateTexture(layer.id, { blend: v as BlendMode })}
+                    options={BLENDS}
+                    aria-label="Blend"
+                  />
+                  <p className="text-[10px] leading-snug text-fg-faint">
+                    {layer.kind === "flat"
+                      ? "A flat colour. Solid at 0% fade — that is the static background — and it fades away along the angle as you turn it up."
+                      : kind?.hint}
+                  </p>
+
+                  {i < look.texture.length - 1 ? (
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="w-full"
+                      disabled={merging === layer.id}
+                      onClick={() => void merge(layer.id)}
+                    >
+                      <Layers2 />
+                      {merging === layer.id ? "Merging…" : "Merge into the layer below"}
+                    </Button>
+                  ) : null}
+
                   {picture ? (
-                    <>
+                    <div className="space-y-2 rounded-md border border-border p-2">
+                      <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">This picture</div>
                       <ImageWell
                         src={layer.src}
                         onImage={(src) => takeImage(src, layer.id)}
@@ -407,17 +487,15 @@ function TextureSection() {
                         checked={!!layer.cutout}
                         onChange={(v) => s().updateTexture(layer.id, { cutout: v })}
                       />
-                      {layer.cutout ? (
-                        <Row label="How much goes" value={`${Math.round((layer.tolerance ?? 0.35) * 100)}%`}>
-                          <Slider
-                            value={[Math.round((layer.tolerance ?? 0.35) * 100)]}
-                            min={0}
-                            max={100}
-                            step={1}
-                            onValueChange={(v) => s().updateTexture(layer.id, { tolerance: (v[0] ?? 35) / 100 })}
-                          />
-                        </Row>
-                      ) : null}
+                      <Row label="How much goes" value={`${Math.round((layer.tolerance ?? 0.35) * 100)}%`}>
+                        <Slider
+                          value={[Math.round((layer.tolerance ?? 0.35) * 100)]}
+                          min={0}
+                          max={100}
+                          step={1}
+                          onValueChange={(v) => s().updateTexture(layer.id, { tolerance: (v[0] ?? 35) / 100 })}
+                        />
+                      </Row>
                       <Row label="Weave" value={(layer.weave ?? 0) < 0.02 ? "tiled" : (layer.weave ?? 0) > 0.98 ? "one picture" : `${Math.round((layer.weave ?? 0) * 100)}%`}>
                         <Slider
                           value={[Math.round((layer.weave ?? 0) * 100)]}
@@ -427,60 +505,8 @@ function TextureSection() {
                           onValueChange={(v) => s().updateTexture(layer.id, { weave: (v[0] ?? 0) / 100 })}
                         />
                       </Row>
-                    </>
+                    </div>
                   ) : null}
-
-                  <Select
-                    value={layer.target ?? "page"}
-                    onChange={(v) => s().updateTexture(layer.id, { target: v as TextureTarget })}
-                    options={TEXTURE_TARGETS}
-                    aria-label="Where this layer lands"
-                    className="w-full"
-                  />
-                  <p className="text-[10px] leading-snug text-fg-faint">
-                    {WHERE_HINT[layer.target ?? "page"]}
-                  </p>
-                  <Row label="Hue" value={(layer.hue ?? 0) === 0 ? `${ROLE_LABEL[layer.role]} as is` : `${(layer.hue ?? 0) > 0 ? "+" : ""}${Math.round(layer.hue ?? 0)}°`}>
-                    <Slider
-                      value={[layer.hue ?? 0]}
-                      min={-180}
-                      max={180}
-                      step={1}
-                      onValueChange={(v) => s().updateTexture(layer.id, { hue: v[0] ?? 0 })}
-                    />
-                  </Row>
-                  <Row label={picture ? "Size" : "Scale"} value={`${layer.scale}px`}>
-                    <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} />
-                  </Row>
-                  {can.angle ? (
-                    <Row label="Angle" value={`${layer.angle}°`}>
-                      <Slider value={[layer.angle]} min={0} max={180} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} />
-                    </Row>
-                  ) : null}
-                  <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
-                    <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} />
-                  </Row>
-                  <p className="text-[10px] leading-snug text-fg-faint">
-                    Turn it down to see the layer underneath — two textures stack, and so does a texture over a colour.
-                  </p>
-                  {can.contrast && (!picture || layer.pattern) ? (
-                    <Row label={picture ? "How much survives" : "Contrast"} value={layer.contrast.toFixed(2)}>
-                      <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} />
-                    </Row>
-                  ) : null}
-                  <Select
-                    value={layer.blend}
-                    onChange={(v) => s().updateTexture(layer.id, { blend: v as BlendMode })}
-                    options={BLENDS}
-                    aria-label="Blend"
-                  />
-                  <p className="text-[10px] leading-snug text-fg-faint">
-                    {picture
-                      ? layer.pattern
-                        ? "Painted in the palette, so it scales against the background colour instead of covering it."
-                        : "The picture as it came. Turn on painting to make the colour roles and the background apply."
-                      : kind?.hint}
-                  </p>
                 </div>
               ) : null}
             </div>
@@ -488,10 +514,22 @@ function TextureSection() {
         })}
       </div>
 
-      <Button variant="outline" size="xs" className="w-full" onClick={() => { play("confirm"); s().addTexture(newLayer()); }}>
-        <Plus />
-        Add a layer
-      </Button>
+      <div className="flex flex-wrap gap-1">
+        {(["flat", "noise", "stripes", "dots", "grid", "mesh"] as TextureKind[]).map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => { play("confirm"); const l = newLayer(k); s().addTexture(l); setOpenId(l.id); }}
+            className="tactile rounded-full border border-border px-2 py-0.5 text-[10px] text-fg-muted hover:border-accent hover:text-fg"
+          >
+            + {TEXTURE_KINDS.find((x) => x.id === k)?.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[10px] leading-snug text-fg-faint">
+        Layers stack top to bottom — the first is nearest you. Turn one down to see through it, or
+        merge it into the one below to bake the pair into a single picture.
+      </p>
     </section>
   );
 }

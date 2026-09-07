@@ -177,10 +177,11 @@ export function harmonise(seed: Oklch, kind: Harmony, light: boolean): Palette {
 /* ------------------------------------------------------------------ */
 
 export type TextureKind =
-  | "noise" | "grain" | "paper" | "scanlines" | "halftone" | "hatch"
+  | "flat" | "noise" | "grain" | "paper" | "scanlines" | "halftone" | "hatch"
   | "stripes" | "checks" | "grid" | "dots" | "blobs" | "mesh" | "image";
 
 export const TEXTURE_KINDS: { id: TextureKind; label: string; hint: string }[] = [
+  { id: "flat", label: "Flat colour", hint: "One colour, at any opacity. Turn Contrast up to fade it along the angle." },
   { id: "noise", label: "Noise", hint: "Fine random speckle" },
   { id: "grain", label: "Grain", hint: "Coarser film grain" },
   { id: "paper", label: "Paper", hint: "Soft fibrous wash" },
@@ -274,30 +275,18 @@ export function shiftHue(colour: string, degrees: number): string {
 }
 
 /**
- * Which controls actually do something for a given kind. A slider that moves
- * and changes nothing is worse than a slider that is not there, so the panel
- * asks before it draws one.
+ * Every kind takes every control now.
+ *
+ * This used to say which sliders a kind could use, and the panel hid the rest.
+ * Hiding them made the panel different every time you opened a layer, which is
+ * worse than a slider that does little: you could never learn where anything
+ * was. So the kinds that could not be turned or hardened were given a way to
+ * be — the ones that are gradients get rotated as whole tiles, the flat colour
+ * fades along its angle as contrast comes up — and this now answers true for
+ * all of them. It is kept as a function so a future kind can still opt out.
  */
-export function affects(kind: TextureKind): { angle: boolean; contrast: boolean } {
-  switch (kind) {
-    // Turbulence has no direction, and a scan line is horizontal by definition.
-    case "noise":
-    case "grain":
-    case "paper":
-    case "scanlines":
-      return { angle: false, contrast: true };
-    // Radial and conic gradients cannot be rotated.
-    case "dots":
-    case "halftone":
-      return { angle: false, contrast: true };
-    case "checks":
-      return { angle: false, contrast: false };
-    case "blobs":
-    case "mesh":
-      return { angle: false, contrast: false };
-    default:
-      return { angle: true, contrast: true };
-  }
+export function affects(_kind: TextureKind): { angle: boolean; contrast: boolean } {
+  return { angle: true, contrast: true };
 }
 
 /** Grain-like layers cover every pixel, so they start faint and blended; shapes start bolder. */
@@ -306,14 +295,19 @@ const GRAINY = new Set<TextureKind>(["noise", "grain", "paper"]);
 export function newLayer(kind: TextureKind = "noise"): TextureLayer {
   const grainy = GRAINY.has(kind);
   const picture = kind === "image";
+  const flat = kind === "flat";
   return {
     id: `tx_${Math.random().toString(36).slice(2, 8)}`,
     kind,
-    role: "accent",
-    scale: grainy ? 160 : picture ? 60 : 24,
-    angle: picture ? 0 : 45,
-    opacity: grainy ? 0.05 : picture ? 0.5 : 0.14,
-    contrast: grainy ? 0.3 : picture ? 0.45 : 0.5,
+    // A flat layer is a ground, so it starts as one of the neutral roles
+    // rather than as the accent.
+    role: flat ? "surface" : "accent",
+    scale: flat ? 60 : grainy ? 160 : picture ? 60 : 24,
+    angle: picture || flat ? 0 : 45,
+    // Flat starts fully solid and completely even: that is the static
+    // background people reach for, and everything else is a turn away.
+    opacity: flat ? 1 : grainy ? 0.05 : picture ? 0.5 : 0.14,
+    contrast: flat ? 0 : grainy ? 0.3 : picture ? 0.45 : 0.5,
     blend: grainy ? "overlay" : "normal",
     hue: 0,
     target: "page",
@@ -334,6 +328,21 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
   const line = Math.max(0.5, s * (0.02 + k * 0.12));
 
   switch (kind) {
+    /**
+     * A flat colour. At contrast 0 it is exactly that — the static background
+     * this stack was missing — and as contrast comes up it fades away along
+     * the angle, over a distance the scale sets. So the two controls that
+     * mean nothing to a solid fill are given something honest to do.
+     */
+    case "flat": {
+      if (k < 0.02) return { image: `linear-gradient(${colour}, ${colour})`, size: "cover", repeat: "no-repeat" };
+      const reach = Math.round(30 + (1 - k) * 170 + s);
+      return {
+        image: `linear-gradient(${angle}deg, ${colour} 0, ${withAlpha(colour, 0)} ${reach}%)`,
+        size: "cover",
+        repeat: "no-repeat",
+      };
+    }
     case "noise":
     case "grain":
     case "paper": {
@@ -341,11 +350,13 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
       const freq = kind === "noise" ? 0.9 : kind === "grain" ? 0.42 : 0.02;
       const octaves = kind === "paper" ? 4 : 2;
       const alpha = ((0.25 + k * 0.75) * Math.max(0.02, layer.opacity) * 4).toFixed(3);
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><filter id="f"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${octaves}" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(%23f)" opacity="${alpha}"/></svg>`;
+      // Turbulence has no direction of its own, so the tile is turned instead —
+      // which does change the grain, because the field is not symmetric.
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><filter id="f"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${octaves}" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><g transform="rotate(${angle} ${s / 2} ${s / 2})"><rect x="${-s}" y="${-s}" width="${s * 3}" height="${s * 3}" filter="url(%23f)" opacity="${alpha}"/></g></svg>`;
       return { image: svgUrl(svg.replace("%23f", "#f")), size: `${s}px ${s}px` };
     }
     case "scanlines":
-      return { image: `repeating-linear-gradient(0deg, ${colour} 0 ${line}px, transparent ${line}px ${Math.max(line + 1, s / 4)}px)`, size: "auto" };
+      return { image: `repeating-linear-gradient(${angle}deg, ${colour} 0 ${line}px, transparent ${line}px ${Math.max(line + 1, s / 4)}px)`, size: "auto" };
     case "stripes":
       return { image: `repeating-linear-gradient(${angle}deg, ${colour} 0 ${line}px, transparent ${line}px ${half}px)`, size: "auto" };
     case "grid":
@@ -358,29 +369,58 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
         image: `repeating-linear-gradient(${angle}deg, ${colour} 0 ${line}px, transparent ${line}px ${half}px), repeating-linear-gradient(${angle + 90}deg, ${colour} 0 ${line}px, transparent ${line}px ${half}px)`,
         size: "auto",
       };
-    case "checks":
-      return {
-        image: `conic-gradient(${colour} 0 25%, transparent 0 50%, ${colour} 0 75%, transparent 0)`,
-        size: `${s}px ${s}px`,
-      };
+    case "checks": {
+      // Drawn as a tile rather than a conic gradient, so it can be turned; the
+      // squares shrink inside their cells as contrast comes down, which is
+      // what softens a check pattern without blurring it.
+      const inset = (1 - (0.35 + k * 0.65)) * (s / 4);
+      const q = s / 2;
+      const sq = (x: number, y: number) =>
+        `<rect x="${(x + inset).toFixed(2)}" y="${(y + inset).toFixed(2)}" width="${(q - inset * 2).toFixed(2)}" height="${(q - inset * 2).toFixed(2)}" fill="${colour}" rx="${(inset * 0.6).toFixed(2)}"/>`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><g transform="rotate(${angle} ${s / 2} ${s / 2})">${sq(0, 0)}${sq(q, q)}${sq(-s, 0)}${sq(s, 0)}${sq(0, -s)}${sq(0, s)}</g></svg>`;
+      return { image: svgUrl(svg), size: `${s}px ${s}px` };
+    }
     case "dots":
     case "halftone": {
       const r = Math.max(0.6, s * (kind === "halftone" ? 0.08 + k * 0.22 : 0.05 + k * 0.1));
-      const img = `radial-gradient(${colour} ${r}px, transparent ${r + 0.6}px)`;
-      return kind === "halftone"
-        ? { image: `${img}, ${img}`, size: `${s}px ${s}px, ${s}px ${s}px` }
-        : { image: img, size: `${s}px ${s}px` };
+      const half = kind === "halftone";
+      const dot = (x: number, y: number, rr: number) =>
+        `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${rr.toFixed(2)}" fill="${colour}"/>`;
+      // Nine of them, so the corners of the turned tile are still filled.
+      const points: string[] = [];
+      for (let gx = -1; gx <= 1; gx++) {
+        for (let gy = -1; gy <= 1; gy++) {
+          points.push(dot(s / 2 + gx * s, s / 2 + gy * s, r));
+          if (half) points.push(dot(gx * s, gy * s, r * 0.62));
+        }
+      }
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><g transform="rotate(${angle} ${s / 2} ${s / 2})">${points.join("")}</g></svg>`;
+      return { image: svgUrl(svg), size: `${s}px ${s}px` };
     }
-    case "blobs":
+    case "blobs": {
+      // Three fields on a circle: the angle turns the circle, contrast pulls
+      // their edges in, so both controls read on a shape that has no edges.
+      const stop = Math.round(80 - k * 45);
+      const at = (i: number) => {
+        const a = ((angle + i * 120) * Math.PI) / 180;
+        return `${(50 + Math.cos(a) * 30).toFixed(1)}% ${(50 + Math.sin(a) * 30).toFixed(1)}%`;
+      };
       return {
-        image: `radial-gradient(50% 60% at 20% 25%, ${colour}, transparent 70%), radial-gradient(45% 55% at 80% 70%, ${colour}, transparent 70%), radial-gradient(60% 50% at 50% 100%, ${colour}, transparent 70%)`,
+        image: [0, 1, 2].map((i) => `radial-gradient(50% 58% at ${at(i)}, ${colour}, transparent ${stop}%)`).join(", "),
         size: `${s * 8}px ${s * 8}px`,
       };
-    case "mesh":
+    }
+    case "mesh": {
+      const stop = Math.round(75 - k * 35);
+      const at = (i: number) => {
+        const a = ((angle + i * 137) * Math.PI) / 180;
+        return `${(50 + Math.cos(a) * 44).toFixed(1)}% ${(50 + Math.sin(a) * 44).toFixed(1)}%`;
+      };
       return {
-        image: `radial-gradient(80% 80% at 10% 10%, ${colour}, transparent 60%), radial-gradient(70% 70% at 90% 20%, ${colour}, transparent 60%), radial-gradient(90% 90% at 50% 95%, ${colour}, transparent 60%)`,
+        image: [0, 1, 2].map((i) => `radial-gradient(80% 80% at ${at(i)}, ${colour}, transparent ${stop}%)`).join(", "),
         size: "cover",
       };
+    }
     case "image": {
       const src = layer.baked ?? layer.src;
       if (!src) return null;

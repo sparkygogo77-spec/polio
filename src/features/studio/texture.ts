@@ -21,6 +21,7 @@
  * the board, the live site, the previews — stays a plain synchronous CSS
  * lookup.
  */
+import type * as React from "react";
 import { oklchToRgb, parseColor } from "./look";
 
 /** How a picture is cooked. Every field here changes the baked tile. */
@@ -110,6 +111,47 @@ function fade(data: ImageData, alpha: number) {
   const px = data.data;
   for (let i = 3; i < px.length; i += 4) px[i] = Math.round(px[i]! * a);
 }
+
+/**
+ * Flatten a stack of layers into one picture.
+ *
+ * Two textures you liked together used to have to stay two, which meant every
+ * later change to either one changed the pair, and the stack grew until you
+ * could not see what was doing what. Merging bakes them: the layers are
+ * painted into an SVG `foreignObject` exactly as the browser would paint them
+ * on the page — same gradients, same blend modes, same order — and the result
+ * comes back as a single tile that behaves like any dropped-in picture.
+ *
+ * The tile is square and small on purpose. A merged layer is a *pattern*, not
+ * a photograph of your page: it goes on to be scaled, turned and tinted like
+ * everything else.
+ */
+export async function flattenLayers(css: React.CSSProperties, size = 256): Promise<string | null> {
+  if (typeof document === "undefined") return null;
+  const style = Object.entries(css)
+    .map(([k, v]) => `${k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())}:${String(v)}`)
+    .join(";");
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
+    `<foreignObject width="100%" height="100%">` +
+    `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${size}px;height:${size}px;${escapeAttr(style)}"></div>` +
+    `</foreignObject></svg>`;
+  try {
+    const img = await load(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, size, size);
+    return canvas.toDataURL("image/png");
+  } catch {
+    // A browser that will not render foreignObject leaves the layers alone.
+    return null;
+  }
+}
+
+const escapeAttr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 function load(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {

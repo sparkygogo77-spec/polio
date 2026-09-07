@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
-import { defaultLight, emptyLook, type Look, type TextureLayer } from "./look";
+import { defaultLight, emptyLook, newLayer, type Look, type TextureLayer } from "./look";
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
@@ -220,6 +220,7 @@ interface StudioState extends Doc {
   updateTexture: (id: string, patch: Partial<TextureLayer>) => void;
   removeTexture: (id: string) => void;
   moveTexture: (id: string, delta: number) => void;
+  mergeTexture: (id: string, src: string) => void;
   clearPage: (pageId: string) => void;
   resetAll: () => void;
   loadDoc: (doc: Partial<Doc>) => void;
@@ -571,12 +572,41 @@ export const useStudio = create<StudioState>()(
           push();
           set((s) => ({ look: { ...s.look, ...patch } }));
         },
+        // A new layer goes on top, where every other layers panel puts one —
+        // index 0 is the front of the stack.
         addTexture: (layer) => {
           push();
-          set((s) => ({ look: { ...s.look, texture: [...s.look.texture, layer] } }));
+          set((s) => ({ look: { ...s.look, texture: [layer, ...s.look.texture] } }));
         },
         updateTexture: (id, patch) =>
           set((s) => ({ look: { ...s.look, texture: s.look.texture.map((l) => (l.id === id ? { ...l, ...patch } : l)) } })),
+        // A layer and the one under it become one baked picture, in that order.
+        mergeTexture: (id, src) => {
+          push();
+          set((st) => {
+            const i = st.look.texture.findIndex((l) => l.id === id);
+            if (i < 0 || i + 1 >= st.look.texture.length) return {};
+            const top = st.look.texture[i]!;
+            const merged: TextureLayer = {
+              ...newLayer("image"),
+              id: `tx_${Math.random().toString(36).slice(2, 8)}`,
+              src,
+              baked: src,
+              pattern: false,
+              cutout: false,
+              weave: 0,
+              scale: 200,
+              opacity: 1,
+              angle: 0,
+              target: top.target ?? "page",
+              blend: "normal",
+              on: true,
+            };
+            const next = [...st.look.texture];
+            next.splice(i, 2, merged);
+            return { look: { ...st.look, texture: next } };
+          });
+        },
         removeTexture: (id) => {
           push();
           set((s) => ({ look: { ...s.look, texture: s.look.texture.filter((l) => l.id !== id) } }));

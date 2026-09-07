@@ -334,6 +334,23 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   to the part's own default. The footer's social row is the first of these:
   one footer part, three shapes, and everything it holds on show — because a
   part with variations you cannot see is a part you have to guess at.
+- **The texture stack is a stack.** A new layer goes on top (index 0 is the
+  front, as `textureCss` reads it). Every layer shows the same seven controls
+  in the same order — where it lands, how solid, scale, angle, contrast, hue,
+  blend — whatever kind it is: a panel that changed shape with the kind meant
+  you could never learn where anything was. So the kinds that could not be
+  turned were given a way to be (checks, dots and halftone are SVG tiles with
+  a rotate; blobs and mesh swing their fields round; turbulence rotates its
+  tile), and `affects()` now answers true for everything.
+- **`kind: "flat"`** is a flat static colour with opacity — the ground the
+  stack was missing. At contrast 0 it is exactly flat; turning contrast up
+  fades it along the angle, so even there both controls do something real.
+- **Merging** bakes a layer and the one under it into one picture
+  (`flattenLayers` in `texture.ts`): the pair is painted into an SVG
+  `foreignObject` exactly as the browser paints it — same gradients, same
+  blend modes, same order — drawn to a canvas and returned as a tile, which
+  `mergeTexture` swaps in for both. A browser that will not render
+  foreignObject returns null and the layers are left alone.
 - **The part menu is a wheel of shards** (`RadialMenu.tsx`). Nine annulus
   sectors drawn as SVG polygons, each in its own neon hue; the polygon *is*
   the hit area, and the icon and label ride on top with `pointer-events:
