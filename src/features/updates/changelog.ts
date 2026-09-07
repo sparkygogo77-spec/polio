@@ -39,13 +39,14 @@ export const RELEASES: Release[] = [
   },
   {
     version: "0.9",
-    title: "The wheel, and a light",
+    title: "The quadrants, and a light",
     summary: "Right-click became geometry, and the page got somewhere for its shadows to come from.",
     sketch: "palette",
     added: [
-      "Glass breaking around the pointer: nine uneven panes, every seam wobbly, every pane its own neon colour, and a circle of clear space left in the middle with your cursor in it.",
-      "Picking one hatches it in, the way you would scribble the chosen one. Duplicate, lock and delete fire on the spot.",
-      "The other six break a second, smaller cluster across the pointer — all one green, marks in white line — with a hairline of control under it.",
+      "Four quadrants round the pointer, cut again into an inner band and an outer block — six buttons, none of them a sliver, and a clear circle in the middle with the lock in it.",
+      "The quadrant facing the middle of the screen stays empty, wherever you click; Delete is the whole slab beside it, undivided.",
+      "Picking a group replaces the first level with a green one in that empty quadrant, and its editor opens in amber opposite.",
+      "Lit faces with edges darker than the surface; reaching for one lifts it. The outer edge is square, or swept round with the ◻/◯ chip.",
       "Looks: hue, a texture of this part's own, and an aura glowing round its edge.",
       "Size: the numbers, and align left, centre or right.",
       "Animation: how a part arrives — fade, rise, drop, in from either side, grow, focus, tip up.",

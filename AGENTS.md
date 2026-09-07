@@ -351,23 +351,34 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   blend modes, same order — drawn to a canvas and returned as a tile, which
   `mergeTexture` swaps in for both. A browser that will not render
   foreignObject returns null and the layers are left alone.
-- **The part menu breaks around the pointer** (`RadialMenu.tsx`), drawn from
-  the reader's own sketch. Nine panes surround the point you clicked, running
-  from a circle of clear space in the middle out to the edge of a *square* —
-  which is what makes them uneven, since the corner panes reach further than
-  the ones on the flats, the way glass actually breaks. The pointer's red dot
-  sits in that clear circle, so what you right-clicked is never covered.
-  Each pane is one path (`cutPane`): out along a seam, round the outside, back
-  down the next seam, home along an arc bowed away from the cursor — every run
-  offset by a seeded wobble, so the geometry is the hit area and it looks cut
-  rather than computed. The seed is the pane's index, so it breaks the same way
-  every time. A picked pane fills with hatching in its own colour. Three fire
-  and close (duplicate, lock, delete); the other six break a second, smaller
-  cluster across the pointer from the pane you picked — all one green, its
-  marks in white line — with a hairline of control hung under it, never a card.
+- **The part menu is four quadrants round the pointer** (`RadialMenu.tsx`).
+  The quadrant facing the middle of the screen is left **empty** — that is
+  where the eye already is, and where level two opens. The pointer keeps a
+  clear circle with the **lock** in it as a tiny toggle. Each working quadrant
+  is cut once more at `MID`: an inner band and an outer block, which is how
+  three quadrants carry six buttons without a sliver.
+
+      empty  │  Animation (inner) · Prompt (outer)
+    ─────────●─────────
+     Delete  │  Duplicate · Edit (inner) · Looks (outer)
+
+  Delete is the whole quadrant beside the empty one, undivided, mirrored from
+  the quadrant opposite it (`quadrants()` picks the empty one from the
+  direction to the screen centre and vertically mirrors it for Delete).
+  Level 2 is **green**: it replaces the blue entirely and fills the quadrant
+  that was empty, cut the same way. Level 3 is **amber**: the one editor the
+  green choice needs, anchored at the outer corner of the quadrant opposite
+  green and clamped to the viewport. Escape steps back one level at a time.
+  `Edit` is the catch-all — name, contents, size, links, data.
+  Every piece is one path from `piece()`: arc in, out along a seam, round the
+  outside, back down the next seam. The outer edge is cut square by default
+  and can be swept round instead — `menuShape` in the store, toggled by the
+  ◻/◯ chip sitting in the empty quadrant, which is the draft option to
+  compare against. Faces are lit gradients with an edge always *darker* than
+  the face, and reaching for one lifts it a pixel.
   It sits at `z-[68]`, above the top bar, or a menu opened near an edge has
-  panes behind the chrome. Its outside-click handler ignores Radix portals — a
-  select's list is not a descendant of the menu, and closing on it shut the
+  pieces behind the chrome. Its outside-click handler ignores Radix portals —
+  a select's list is not a descendant of the menu, and closing on it shut the
   whole thing the moment you picked an option.
 - **A part carries `anim`, `aura` and `texture` of its own** beside `colour`.
   `anim` is a CSS animation name from `ENTRANCES` played on the live site

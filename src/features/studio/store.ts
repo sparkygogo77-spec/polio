@@ -150,6 +150,12 @@ interface StudioState extends Doc {
   hiddenFeatures: string[];
   /** Design surface, or the live site in the same place on screen. */
   mode: BoardMode;
+  /**
+   * The part menu's outer edge: cut to a square, or swept round like its
+   * inner edge. A draft toggle sits on the menu itself so the two can be
+   * compared live.
+   */
+  menuShape: "square" | "round";
   /** The phone/tablet companion: which device, where it sits, whether it is open.
    * Closed to start: it floats over the board, and a panel that covers a resize
    * handle you cannot see is worse than one click to open it. */
@@ -205,6 +211,7 @@ interface StudioState extends Doc {
   setShowAllFormat: (v: boolean) => void;
   setShowWires: (v: boolean) => void;
   setMode: (m: BoardMode) => void;
+  setMenuShape: (v: "square" | "round") => void;
   setCompanion: (patch: Partial<StudioState["companion"]>) => void;
   hideFeature: (id: string) => void;
   restoreFeature: (id: string) => void;
@@ -284,6 +291,7 @@ export const useStudio = create<StudioState>()(
       return {
         ...starterDoc(),
         frameWidth: FRAME_WIDTHS.desktop,
+        menuShape: "square",
         fitNonce: 0,
         activePageId: "page_home",
         selection: [],
@@ -626,6 +634,7 @@ export const useStudio = create<StudioState>()(
         setShowAllFormat: (v) => set({ showAllFormat: v }),
         setShowWires: (v) => set({ showWires: v }),
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
+        setMenuShape: (v) => set({ menuShape: v }),
         setCompanion: (patch) => set((s) => ({ companion: { ...s.companion, ...patch } })),
         hideFeature: (id) => set((s) => (s.hiddenFeatures.includes(id) ? {} : { hiddenFeatures: [...s.hiddenFeatures, id] })),
         restoreFeature: (id) => set((s) => ({ hiddenFeatures: s.hiddenFeatures.filter((x) => x !== id) })),
@@ -741,6 +750,7 @@ export const useStudio = create<StudioState>()(
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,
         companion: s.companion,
+        menuShape: s.menuShape,
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,
