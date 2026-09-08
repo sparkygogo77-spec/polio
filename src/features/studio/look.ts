@@ -233,6 +233,14 @@ export interface TextureLayer {
   /** Degrees to turn the colour, -180..180. Zero leaves the role alone. */
   hue?: number;
   /**
+   * A colour of this layer's own, off the spectrum, instead of a palette role.
+   *
+   * Six roles is the right answer for a texture that should follow the site.
+   * It is the wrong answer for the one people reach for first — a flat ground
+   * in a colour they have in mind — which had no way to be said at all.
+   */
+  colour?: string;
+  /**
    * Where this layer lands. Per layer, not per stack: one texture on the page
    * and a different one on the cards is the normal case, and a single switch
    * for the whole stack cannot say that.
@@ -459,10 +467,14 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
       const src = layer.baked ?? layer.src;
       if (!src) return null;
       const woven = Math.max(0, Math.min(1, layer.weave ?? 0));
-      // Turned all the way up there is one picture covering the surface;
-      // below that the tile simply grows, so the repeat gets harder to read.
+      // Weave used to grow the tile as well as soften it, which meant it and
+      // Size were two controls fighting over one number and neither of them
+      // did what it said. Size sets the tile. Weave thins its edges so the
+      // tiles bleed into each other (baked into the tile's alpha — see
+      // `texture.ts`), and only at the very top does it become one picture
+      // covering the whole surface.
       if (woven >= 0.98) return { image: `url(${JSON.stringify(src)})`, size: "cover", repeat: "no-repeat" };
-      return { image: `url(${JSON.stringify(src)})`, size: `${Math.round(s * (1 + woven * 9))}px auto`, repeat: "repeat" };
+      return { image: `url(${JSON.stringify(src)})`, size: `${Math.round(s)}px auto`, repeat: "repeat" };
     }
     default:
       return null;
@@ -508,7 +520,7 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
     // a grain carry theirs in the tile, because there is no single colour to
     // fade — see `texture.ts` and the grain case in `layerCss`.
     const picture = l.kind === "image";
-    const role = shiftHue(palette[l.role], l.hue ?? 0);
+    const role = shiftHue(l.colour ?? palette[l.role], l.hue ?? 0);
     const colour = withAlpha(role, GRAINY.has(l.kind) || picture ? 1 : l.opacity);
     const built = layerCss(l, colour);
     if (!built) continue;

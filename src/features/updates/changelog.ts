@@ -25,6 +25,24 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.13",
+    title: "Pull it, turn it, paint from it",
+    summary: "The menu is turned by a line you pull out of it, and its third level became a console.",
+    sketch: "palette",
+    added: [
+      "Hold the right button and pull: a line comes out of the pointer and fades up as it lengthens. At full strength it takes hold and the wheel follows your hand.",
+      "A second line runs the opposite way in the opposing colour, so you are turning a bar rather than dragging a string.",
+      "Push the menu aside by its middle and leave it there — clicking the part it belongs to no longer closes it.",
+      "Bigger middle, thicker buttons, and a wider gap between the inner and outer rings.",
+      "Looks, Texture and Aura open a console instead of a box: the choices ride an arc and the colour comes off a spectrum.",
+      "A drop-in picture joins the site's texture stack, so it is there for every other part too.",
+      "A texture layer can hold a colour of its own now, off the same spectrum — the flat background finally has a colour picker.",
+      "Size and Bleed stopped fighting: Size sets the tile, Bleed softens its edges.",
+      "Background and Highlight actually paint something on a part now. They were two of six swatches that did nothing.",
+      "The category bar reads: where you are is solid neon with black lettering, not a tint on a tint.",
+    ],
+  },
+  {
     version: "0.12",
     title: "The menu, lighter and locked",
     summary: "Flat colour, separated pieces, one fixed layout you can turn by hand — and the prompt bar is gone.",

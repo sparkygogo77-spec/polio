@@ -155,11 +155,19 @@ function Crumb({ hue, children, onClear, label }: { hue: number; children: React
       type="button"
       aria-label={`Back from ${label}`}
       onClick={() => { play("close"); onClear(); }}
-      className="tactile flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium"
-      style={{ borderColor: `oklch(0.72 0.16 ${hue} / 0.6)`, background: `oklch(0.72 0.16 ${hue} / 0.14)`, color: `oklch(0.84 0.13 ${hue})` }}
+      className="tactile flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+      // Where you are is solid and the writing on it is black. A tinted wash
+      // behind coloured text is the one combination that fails in both themes
+      // at once: too faint to see on the dark one, too pale to read on the
+      // light one, and never distinguishable from the places you are not.
+      style={{
+        background: `oklch(0.78 0.17 ${hue})`,
+        color: "oklch(0.16 0.04 0)",
+        boxShadow: `inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -1px 0 oklch(0 0 0 / 0.28), 0 0 12px oklch(0.78 0.17 ${hue} / 0.35)`,
+      }}
     >
       {children}
-      <X className="size-3 opacity-70" />
+      <X className="size-3 opacity-80" />
     </button>
   );
 }
@@ -269,8 +277,20 @@ export function Palette() {
                   key={g.id}
                   type="button"
                   onClick={() => { play("select"); setSub(g.id); }}
-                  className="tactile flex shrink-0 items-center gap-1.5 rounded-full border border-transparent px-2 py-1 text-[11px] text-fg-muted hover:border-border hover:text-fg"
-                  style={{ color: `oklch(0.8 0.1 ${chosen?.hue ?? 265})` }}
+                  className="tactile group/sub flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium"
+                  style={{
+                    background: `oklch(0.72 0.15 ${chosen?.hue ?? 265} / 0.16)`,
+                    color: `oklch(0.86 0.12 ${chosen?.hue ?? 265})`,
+                    boxShadow: `inset 0 0 0 1px oklch(0.72 0.15 ${chosen?.hue ?? 265} / 0.4)`,
+                  }}
+                  onPointerEnter={(e) => {
+                    e.currentTarget.style.background = `oklch(0.78 0.17 ${chosen?.hue ?? 265})`;
+                    e.currentTarget.style.color = "oklch(0.16 0.04 0)";
+                  }}
+                  onPointerLeave={(e) => {
+                    e.currentTarget.style.background = `oklch(0.72 0.15 ${chosen?.hue ?? 265} / 0.16)`;
+                    e.currentTarget.style.color = `oklch(0.86 0.12 ${chosen?.hue ?? 265})`;
+                  }}
                 >
                   {React.createElement(moonFor(g.id), { size: 13 })}
                   <span className="whitespace-nowrap">{g.label}</span>

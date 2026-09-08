@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import type { PartMode } from "./types";
-import { radiusFor, type Theme } from "./theme";
+import { radiusFor, withAlpha, type Theme } from "./theme";
 
 /** Fills the part's box and sets the type. `overflow` is visible for parts that open things. */
 export function Fill({
@@ -44,9 +44,13 @@ export function Btn({
         padding: `${Math.round(t.fontPx * 0.55)}px ${Math.round(t.fontPx * 1.1)}px`,
         fontSize: t.fontPx * 0.92, fontWeight: 600, fontFamily: t.bodyFamily, lineHeight: 1.2,
         borderRadius: radiusFor(shape, t) || Math.min(t.radius, 12),
-        background: primary ? (t.sheen ? `${t.sheen}, ${t.accent}` : t.accent) : "transparent",
+        // The secondary button is where the highlight role lives. It used to
+        // be a transparent box with a hairline, which meant `highlight` was
+        // set on eight parts out of seventy and changing it on the other
+        // sixty-two did nothing you could see.
+        background: primary ? (t.sheen ? `${t.sheen}, ${t.accent}` : t.accent) : withAlpha(t.highlight, 0.18),
         color: primary ? t.accentText : t.text,
-        border: primary ? "1px solid transparent" : `1px solid ${t.line}`,
+        border: primary ? "1px solid transparent" : `1px solid ${withAlpha(t.highlight, 0.85)}`,
         // Under a light a button is a thing standing on the page, not a
         // rectangle printed on it.
         ...(t.shadow ? { boxShadow: t.shadow } : {}),
@@ -63,7 +67,8 @@ export function Placeholder({ t, label }: { t: Theme; label?: string }) {
     <div
       style={{
         width: "100%", height: "100%", minHeight: 24, borderRadius: Math.min(t.radius, 10),
-        background: `linear-gradient(140deg, ${t.accent}2a, ${t.muted}1f)`, border: `1px solid ${t.line}`,
+        background: `linear-gradient(140deg, ${withAlpha(t.accent, 0.17)}, ${withAlpha(t.highlight, 0.13)})`,
+        border: `1px solid ${t.line}`,
         display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.75,
       }}
     >

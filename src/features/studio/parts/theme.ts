@@ -6,7 +6,11 @@
  */
 import type * as React from "react";
 import type { FormatValues } from "../format";
-import { castFrom, lands, paletteFromHue, parseColor, contrast, textureCss, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
+import { castFrom, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
+
+// Re-exported so the primitives can tint a role without reaching outside
+// `parts/` — see `types.ts` for why that line matters.
+export { withAlpha };
 
 export interface Theme {
   bg: string;
@@ -238,6 +242,23 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
     if (role === "surface") next.surfacePaint = undefined;
   }
   if (!touched) return t;
+  /*
+   * A ground with nothing standing on it.
+   *
+   * Most parts fill their own box with a card, so painting only the ground
+   * behind them changed nothing you could see and the control read as broken.
+   * When the background is set on its own, the surfaces and the lines that go
+   * with it move too — the same step apart the palette keeps them, in the same
+   * direction. Say what the surface should be and this stands aside.
+   */
+  if (colour.bg && !colour.surface) {
+    const ground = parseColor(next.bg);
+    if (ground) {
+      const step = t.light ? -0.035 : 0.05;
+      next.surface = cssColour({ ...ground, l: Math.max(0, Math.min(1, ground.l + step)) });
+      next.line = cssColour({ ...ground, l: Math.max(0, Math.min(1, ground.l + step * 2.6)) });
+    }
+  }
   // Whatever sits on the accent has to stay readable against it.
   const accent = parseColor(next.accent);
   if (accent) {

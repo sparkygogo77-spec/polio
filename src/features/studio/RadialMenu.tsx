@@ -40,7 +40,7 @@ import {
 import { getFeature } from "./catalog";
 import { isLinkable } from "./parts";
 import { useStudio, type StudioNode } from "./store";
-import { ColourOverride } from "./ColourOverride";
+import { AuraConsole, Console, HueConsole, TextureConsole } from "./MenuConsole";
 import { GLYPHS, HuePicker, OptionSet } from "./Inspector";
 import { resolvePalette } from "./parts/theme";
 import { ROLES, ROLE_LABEL, TEXTURE_KINDS } from "./look";
@@ -66,6 +66,12 @@ export function closeRadial() {
   current = null;
   listeners.forEach((l) => l(null));
 }
+/** Park the menu somewhere else without closing it or losing the part. */
+export function moveRadial(x: number, y: number) {
+  if (!current) return;
+  current = { ...current, x, y };
+  listeners.forEach((l) => l(current));
+}
 function useRadial(): Open {
   const [v, setV] = React.useState<Open>(current);
   React.useEffect(() => {
@@ -84,12 +90,26 @@ function useRadial(): Open {
 type Pt = [number, number];
 type Shape = "square" | "round";
 
+/**
+ * The three radii, and a second set for the level below.
+ *
+ * The hole is wide enough for the lock to sit in it with room to spare and for
+ * the pull-line to leave it cleanly; the bands are thick enough to hold an
+ * icon over a word without either touching an edge; and the seam between the
+ * inner band and the outer block is cut wider than the seams beside it,
+ * because that is the one gap you read the ring's two rings by.
+ *
+ * Level two gets its own, larger set: it holds more choices than level one and
+ * it is the only thing on screen when it is up, so it can afford the room.
+ */
+interface Rings { hole: number; mid: number; reach: number }
+const BLUE_RINGS: Rings = { hole: 40, mid: 82, reach: 124 };
+const GREEN_RINGS: Rings = { hole: 46, mid: 96, reach: 150 };
+
 /** Clear space kept around the pointer, and the lock that sits in it. */
-const HOLE = 32;
-/** Where a quadrant is cut in two: inner band inside this, outer block beyond. */
-const MID = 66;
-/** How far the ring reaches — half a square's width, or a circle's radius. */
-const REACH = 100;
+const HOLE = BLUE_RINGS.hole;
+/** How far the widest ring reaches, for the viewport clamp. */
+const REACH = GREEN_RINGS.reach;
 /**
  * Corner radius. Every piece is drawn inset by this and grown back out with a
  * round-joined stroke of its own colour, which is what curves every corner —
@@ -99,8 +119,18 @@ const REACH = 100;
 const ROUND = 5;
 /** Clear space along every seam, in px. No two pieces ever touch. */
 const SEAM = 7;
+/** The seam between the inner band and the outer block, cut wider than the rest. */
+const RING_SEAM = 12;
 /** How much of that seam a piece takes back when you reach for it. */
 const SWELL = 2;
+/**
+ * The pull: where the line starts showing, and how far out it takes hold.
+ *
+ * Between the two it fades up. At full strength it grips, and from there the
+ * wheel follows your hand.
+ */
+const PULL_FROM = BLUE_RINGS.hole + 6;
+const PULL_LOCK = BLUE_RINGS.reach + 16;
 /** The dark line round a face, in px. */
 const EDGE = 1.25;
 
@@ -128,16 +158,16 @@ const spun = (p: Pt, turns: number): Pt => {
 };
 
 /** Where a piece's outer edge sits in the direction `t`, and how far out. */
-function outerAt(t: number, rOut: number | "edge", shape: Shape, inset: number): { p: Pt; r: number } {
+function outerAt(t: number, rOut: number | "edge", shape: Shape, inset: number, rg: Rings): { p: Pt; r: number } {
   if (rOut !== "edge") {
     const r = rOut - inset;
     return { p: onCircle(t, r), r };
   }
   if (shape === "round") {
-    const r = REACH - inset;
+    const r = rg.reach - inset;
     return { p: onCircle(t, r), r };
   }
-  const r = squareR(t, REACH - inset);
+  const r = squareR(t, rg.reach - inset);
   return { p: onCircle(t, r), r };
 }
 
@@ -155,13 +185,14 @@ const CORNERS = [0.125, 0.375, 0.625, 0.875];
  * outside — and it is the reason a ring like this reads as one shape with
  * lines drawn on it instead of as separate slabs.
  */
-function piece(rawFrom: number, rawTo: number, rIn: number, rOut: number | "edge", shape: Shape): string {
+function piece(rawFrom: number, rawTo: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings): string {
   // The seam runs round the ring as well as along it: where an inner band
-  // meets the outer block above it, both have to give half of it up. The two
-  // edges with no neighbour — the hole at the pointer and the outside — keep
-  // their full reach.
-  const inSeam = rIn > HOLE ? SEAM / 2 : 0;
-  const outSeam = rOut === "edge" ? 0 : SEAM / 2;
+  // meets the outer block above it, both have to give half of it up. That one
+  // is cut wider than the seams beside it, because it is the gap you read the
+  // ring's two rings by. The two edges with no neighbour — the hole at the
+  // pointer and the outside — keep their full reach.
+  const inSeam = rIn > rg.hole ? RING_SEAM / 2 : 0;
+  const outSeam = rOut === "edge" ? 0 : RING_SEAM / 2;
   const rA = rIn + ROUND + inSeam;
   const pad = SEAM / 2 + ROUND;
   const turnPad = (r: number) => pad / (Math.PI * 2 * Math.max(12, r));
@@ -171,8 +202,8 @@ function piece(rawFrom: number, rawTo: number, rIn: number, rOut: number | "edge
   const aTo = rawTo - gA;
   // The outer end has its own inset, taken at the radius it actually reaches —
   // which on a square is much further out toward a corner.
-  const gFrom = turnPad(outerAt(rawFrom, rOut, shape, ROUND + outSeam).r);
-  const gTo = turnPad(outerAt(rawTo, rOut, shape, ROUND + outSeam).r);
+  const gFrom = turnPad(outerAt(rawFrom, rOut, shape, ROUND + outSeam, rg).r);
+  const gTo = turnPad(outerAt(rawTo, rOut, shape, ROUND + outSeam, rg).r);
   const bFrom = rawFrom + gFrom;
   const bTo = rawTo - gTo;
   // A piece too narrow to draw would fold inside out; collapse it to a sliver
@@ -183,26 +214,26 @@ function piece(rawFrom: number, rawTo: number, rIn: number, rOut: number | "edge
 
   let d = `M ${fmt(onCircle(iFrom, rA))}`;
   d += ` A ${rA} ${rA} 0 0 1 ${fmt(onCircle(iTo, rA))}`;
-  d += ` L ${fmt(outerAt(oTo, rOut, shape, ROUND + outSeam).p)}`;
+  d += ` L ${fmt(outerAt(oTo, rOut, shape, ROUND + outSeam, rg).p)}`;
   if (rOut === "edge" && shape === "square") {
     // Walk the square backwards, landing on every corner between the two ends,
     // so a piece that turns a corner turns it at a right angle instead of
     // cutting it off with a chord.
-    const half = REACH - ROUND;
+    const half = rg.reach - ROUND;
     for (const c of [...CORNERS].reverse()) if (c > oFrom && c < oTo) d += ` L ${fmt(onSquare(c, half))}`;
-    d += ` L ${fmt(outerAt(oFrom, rOut, shape, ROUND).p)}`;
+    d += ` L ${fmt(outerAt(oFrom, rOut, shape, ROUND, rg).p)}`;
   } else {
-    const r = outerAt(oFrom, rOut, shape, ROUND + outSeam).r;
-    d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, shape, ROUND + outSeam).p)}`;
+    const r = outerAt(oFrom, rOut, shape, ROUND + outSeam, rg).r;
+    d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, shape, ROUND + outSeam, rg).p)}`;
   }
   return `${d} Z`;
 }
 
 /** The middle of a piece, where its icon and word sit. */
-function middleOf(from: number, to: number, rIn: number, rOut: number | "edge", shape: Shape): Pt {
+function middleOf(from: number, to: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings): Pt {
   const mid = (from + to) / 2;
-  const a = onCircle(mid, rIn + ROUND + (rIn > HOLE ? SEAM / 2 : 0));
-  const b = outerAt(mid, rOut, shape, ROUND + (rOut === "edge" ? 0 : SEAM / 2)).p;
+  const a = onCircle(mid, rIn + ROUND + (rIn > rg.hole ? RING_SEAM / 2 : 0));
+  const b = outerAt(mid, rOut, shape, ROUND + (rOut === "edge" ? 0 : RING_SEAM / 2), rg).p;
   // Not quite the middle: a band is wider the further out you go, and a word
   // pushed a little outward stops hanging over its neighbours.
   return [a[0] * 0.4 + b[0] * 0.6, a[1] * 0.4 + b[1] * 0.6];
@@ -258,6 +289,11 @@ const SLOTS: Record<SlotId, Slot> = {
 };
 
 const GREEN = 148;
+/**
+ * The choices that open a console rather than a row of controls: the ones
+ * about *looks*, where picking from a drawn spectrum beats reading a list.
+ */
+const CONSOLES = new Set(["hue", "texture", "aura"]);
 /**
  * The third level. Red, because it is the only colour left that is neither the
  * blue of the first level nor the green of the second, and because the two are
@@ -362,11 +398,14 @@ export function RadialMenu() {
       // The right button is the turning handle, not a way out.
       if (e.button === 2) return;
       const el = e.target as HTMLElement;
-      // Two things outside the menu still belong to it: a select's list, which
-      // opens in a portal rather than inside the menu, and the toolbar's shape
-      // chip, which is only worth having where it is if you can flip it and
-      // watch the open menu change.
+      // Three things outside the menu still belong to it: a select's list,
+      // which opens in a portal rather than inside the menu; the toolbar's
+      // shape chip, which is only worth having where it is if you can flip it
+      // and watch the open menu change; and the part the menu is *about* —
+      // carry on clicking your own element and the menu stays, so it can be
+      // parked aside and worked against. Anything else puts it away.
       if (el.closest?.("[data-radial], [data-menu-shape], [data-radix-popper-content-wrapper], [role='listbox'], [role='option']")) return;
+      if (el.closest?.(`[data-node-id="${open.nodeId}"]`)) return;
       closeRadial();
     };
     window.addEventListener("keydown", onKey);
@@ -378,19 +417,26 @@ export function RadialMenu() {
   }, [open, picked, subPick]);
 
   /*
-   * Hold the right button and drag to turn the wheel.
+   * Pull a line out, then turn.
    *
-   * The menu comes up under a right button that is usually still held down, so
-   * carrying on into a drag turns it without a second gesture. The angle is
-   * chased rather than pinned to the pointer — a fifth of the way there each
-   * frame — which is the difference between a dial and a twitch. Nothing snaps:
-   * it stops where you let go, and it is remembered.
+   * Holding the right button and dragging used to start turning the moment you
+   * cleared the hole, which meant a right-click that wandered a few pixels
+   * spun the menu by accident. Now the drag has two halves you can see: pull a
+   * line out of the pointer and it fades up as it lengthens, and only when it
+   * reaches full strength does it take hold — from there the wheel follows
+   * your hand. A second line runs the opposite way in the opposing colour, so
+   * you are turning a bar through the middle rather than dragging a string.
+   *
+   * The angle is chased rather than pinned — a fifth of the way each frame —
+   * which is the difference between a dial and a twitch. Nothing snaps: it
+   * stops where you let go, and it is remembered.
    */
   const anchor = React.useRef({ x: 0, y: 0 });
   if (open) anchor.current = { x: open.x, y: open.y };
+  const [pull, setPull] = React.useState<{ dx: number; dy: number; grip: number } | null>(null);
   React.useEffect(() => {
     if (!open) return;
-    let turning = false;
+    let holding = false;
     // Set by a turn, cleared by the context menu it swallows.
     let turned = false;
     let grabbed = 0;
@@ -409,13 +455,17 @@ export function RadialMenu() {
       frame = requestAnimationFrame(step);
     };
     const onMove = (e: PointerEvent) => {
-      if (!(e.buttons & 2)) { turning = false; return; }
-      // Turning starts once you are clear of the hole, so a right-click that
-      // wobbles a pixel does not spin the menu.
-      const far = Math.hypot(e.clientX - anchor.current.x, e.clientY - anchor.current.y) > HOLE + 6;
-      if (!turning) {
-        if (!far) return;
-        turning = true;
+      if (!(e.buttons & 2)) { holding = false; setPull(null); return; }
+      const dx = e.clientX - anchor.current.x;
+      const dy = e.clientY - anchor.current.y;
+      const len = Math.hypot(dx, dy);
+      // 0 inside the hole, 1 once the line is at full length. That number is
+      // the line's opacity, and reaching 1 is what takes hold.
+      const grip = Math.max(0, Math.min(1, (len - PULL_FROM) / (PULL_LOCK - PULL_FROM)));
+      setPull({ dx, dy, grip });
+      if (grip < 1) { holding = false; return; }
+      if (!holding) {
+        holding = true;
         turned = true;
         grabbed = angle(e);
         was = useStudio.getState().menuSpin;
@@ -423,7 +473,7 @@ export function RadialMenu() {
       want = was + (angle(e) - grabbed);
       if (!frame) frame = requestAnimationFrame(step);
     };
-    const onUp = () => { turning = false; };
+    const onUp = () => { holding = false; setPull(null); };
     /*
      * The right button lets go at the end of a turn, and the browser answers
      * with a context menu — the app's own, over the wheel you were just
@@ -431,13 +481,24 @@ export function RadialMenu() {
      * anything still means what it always meant: put this menu away.
      */
     const onMenu = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
       if (turned) {
         turned = false;
         e.preventDefault();
         e.stopPropagation();
         return;
       }
-      if (!(e.target as HTMLElement).closest?.("[data-radial]")) closeRadial();
+      // A right press on the menu, or on the part the menu is about, is the
+      // start of a pull — not a request for another menu on top of this one.
+      // Swallowing it in the capture phase is the only place that works: the
+      // app's own context menu listens further down, and preventDefault alone
+      // does not stop it.
+      if (el.closest?.("[data-radial]") || el.closest?.(`[data-node-id="${open.nodeId}"]`)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      closeRadial();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -449,6 +510,33 @@ export function RadialMenu() {
       if (frame) cancelAnimationFrame(frame);
     };
   }, [open]);
+
+  /*
+   * Push the menu aside without closing it.
+   *
+   * A menu that sits over the part you are editing is a menu you have to shut
+   * to see your own work. Press the middle and drag and it moves, so it can be
+   * parked wherever there is room while you keep working on the same element.
+   */
+  const dragged = React.useRef(false);
+  const carry = (e: React.PointerEvent) => {
+    if (e.button !== 0 || !open) return;
+    const from = { x: e.clientX, y: e.clientY, ox: open.x, oy: open.y };
+    dragged.current = false;
+    const move = (m: PointerEvent) => {
+      const dx = m.clientX - from.x;
+      const dy = m.clientY - from.y;
+      if (!dragged.current && Math.hypot(dx, dy) < 4) return;
+      dragged.current = true;
+      moveRadial(from.ox + dx, from.oy + dy);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
 
   if (!open || !node) return null;
 
@@ -474,15 +562,16 @@ export function RadialMenu() {
   const [delA, delB] = QUADS[Q_DELETE]!;
   const botMid = (botA + botB) / 2;
 
+  const B = BLUE_RINGS;
   const level1: { slot: Slot; d: string; at: Pt }[] = [
-    { slot: SLOTS.anim, d: piece(topA, topB, HOLE, MID, shape), at: middleOf(topA, topB, HOLE, MID, shape) },
-    { slot: SLOTS.prompt, d: piece(topA, topB, MID, "edge", shape), at: middleOf(topA, topB, MID, "edge", shape) },
-    { slot: SLOTS.duplicate, d: piece(botA, botMid, HOLE, MID, shape), at: middleOf(botA, botMid, HOLE, MID, shape) },
-    { slot: SLOTS.edit, d: piece(botMid, botB, HOLE, MID, shape), at: middleOf(botMid, botB, HOLE, MID, shape) },
-    { slot: SLOTS.look, d: piece(botA, botB, MID, "edge", shape), at: middleOf(botA, botB, MID, "edge", shape) },
+    { slot: SLOTS.anim, d: piece(topA, topB, B.hole, B.mid, shape, B), at: middleOf(topA, topB, B.hole, B.mid, shape, B) },
+    { slot: SLOTS.prompt, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
+    { slot: SLOTS.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
+    { slot: SLOTS.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
+    { slot: SLOTS.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B) },
     // Delete is the whole quadrant, mirrored from the one opposite it and not
     // cut up: one slab, so it can never be hit as a sliver.
-    { slot: SLOTS.delete, d: piece(delA, delB, HOLE, "edge", shape), at: middleOf(delA, delB, HOLE, "edge", shape) },
+    { slot: SLOTS.delete, d: piece(delA, delB, B.hole, "edge", shape, B), at: middleOf(delA, delB, B.hole, "edge", shape, B) },
   ];
 
   /* ---------------------------------------------------------- level 2 */
@@ -502,6 +591,7 @@ export function RadialMenu() {
   const outerCount = Math.ceil(choices.length * 0.55);
   const innerCount = choices.length - outerCount;
   const span = greenTo - greenFrom;
+  const G = GREEN_RINGS;
   const greenPieces = choices.map((c, i) => {
     const outer = i >= innerCount;
     const n = outer ? outerCount : innerCount;
@@ -510,8 +600,8 @@ export function RadialMenu() {
     const b = greenFrom + (span * (k + 1)) / n;
     return {
       choice: c,
-      d: piece(a, b, outer ? MID : HOLE, outer ? "edge" : MID, shape),
-      at: middleOf(a, b, outer ? MID : HOLE, outer ? "edge" : MID, shape),
+      d: piece(a, b, outer ? G.mid : G.hole, outer ? "edge" : G.mid, shape, G),
+      at: middleOf(a, b, outer ? G.mid : G.hole, outer ? "edge" : G.mid, shape, G),
     };
   });
 
@@ -520,7 +610,7 @@ export function RadialMenu() {
   // the green goes away, and the same corner of the screen becomes the panel.
   const editing = subPick && !choicesFor(group?.id ?? "edit").find((c) => c.id === subPick)?.act ? subPick : null;
   const outward = spun(onCircle((greenFrom + greenTo) / 2, 1), spin);
-  const backAt = spun(onSquare((greenFrom + greenTo) / 2, REACH + 13), spin);
+  const backAt = spun(onSquare((greenFrom + greenTo) / 2, GREEN_RINGS.reach + 14), spin);
 
   return (
     // Above the top bar and the status bar, or a menu opened near an edge has
@@ -531,6 +621,42 @@ export function RadialMenu() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="absolute" style={{ left: px, top: py }}>
+        {/*
+          The line you pull, and the one that answers it.
+
+          Green runs to your hand and fades up as it lengthens; crimson runs
+          the same distance the other way, through the middle and out into the
+          quadrant opposite. Two lines make it a bar you are turning rather
+          than a string you are dragging, and the opposite end is the thing
+          your eye actually watches to judge the angle.
+        */}
+        {pull ? (
+          <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
+            <line
+              x1={0} y1={0} x2={-pull.dx} y2={-pull.dy}
+              stroke={`oklch(0.62 0.22 ${CRIMSON})`}
+              strokeOpacity={pull.grip * 0.85}
+              strokeWidth={pull.grip >= 1 ? 4 : 3}
+              strokeLinecap="round"
+              strokeDasharray={pull.grip >= 1 ? undefined : "7 6"}
+            />
+            <line
+              data-pull-line=""
+              x1={0} y1={0} x2={pull.dx} y2={pull.dy}
+              stroke={`oklch(0.74 0.2 ${GREEN})`}
+              strokeOpacity={pull.grip}
+              strokeWidth={pull.grip >= 1 ? 4 : 3}
+              strokeLinecap="round"
+              strokeDasharray={pull.grip >= 1 ? undefined : "7 6"}
+            />
+            <circle
+              cx={pull.dx} cy={pull.dy} r={pull.grip >= 1 ? 7 : 4}
+              fill={`oklch(0.78 0.2 ${GREEN})`}
+              fillOpacity={pull.grip}
+            />
+          </svg>
+        ) : null}
+
         {!picked ? (
           <Ring spin={spin} pieces={level1.map((p) => ({
             id: p.slot.id,
@@ -549,8 +675,14 @@ export function RadialMenu() {
           aria-label={node.locked ? "Unlock" : "Lock in place"}
           aria-pressed={node.locked}
           data-menu-lock=""
-          onClick={() => { play(node.locked ? "confirm" : "close"); s().updateNode(node.id, { locked: !node.locked }); }}
-          className="pointer-events-auto absolute flex size-[26px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-colors"
+          onPointerDown={carry}
+          onClick={() => {
+            // A drag moved the menu; it was not a press on the lock.
+            if (dragged.current) { dragged.current = false; return; }
+            play(node.locked ? "confirm" : "close");
+            s().updateNode(node.id, { locked: !node.locked });
+          }}
+          className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing"
           style={{
             background: node.locked ? `oklch(0.72 0.16 60)` : `oklch(0.28 0.02 250)`,
             border: `1px solid oklch(${node.locked ? "0.52 0.14 60" : "0.44 0.02 250"})`,
@@ -600,15 +732,10 @@ export function RadialMenu() {
       </div>
 
       {group && editing ? (
-        <QuadrantPanel
-          x={px}
-          y={py}
-          outward={outward}
-          title={choices.find((c) => c.id === editing)?.label ?? "Edit"}
-          which={editing}
-          onBack={() => { play("close"); setSubPick(null); }}
-        >
-          <Editor which={editing} node={node} />
+        <QuadrantPanel x={px} y={py} outward={outward} which={editing} wide={CONSOLES.has(editing)}>
+          <Console title={choices.find((c) => c.id === editing)?.label ?? "Edit"} onBack={() => { play("close"); setSubPick(null); }}>
+            <Editor which={editing} node={node} />
+          </Console>
         </QuadrantPanel>
       ) : null}
     </div>
@@ -625,10 +752,10 @@ export function RadialMenu() {
  * only ever one thing at a time.
  */
 function QuadrantPanel({
-  x, y, outward, title, which, onBack, children,
+  x, y, outward, which, wide, children,
 }: {
-  x: number; y: number; outward: Pt; title: string; which: string;
-  onBack: () => void; children: React.ReactNode;
+  x: number; y: number; outward: Pt; which: string; wide?: boolean;
+  children: React.ReactNode;
 }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const [h, setH] = React.useState(150);
@@ -638,7 +765,7 @@ function QuadrantPanel({
     const r = el.getBoundingClientRect();
     setH((prev) => (Math.abs(prev - r.height) > 1 ? r.height : prev));
   });
-  const W = 200;
+  const W = wide ? 340 : 232;
   // Clear of the pointer rather than over it, so the panel reads as standing
   // where the quadrant stood instead of sitting on the click.
   const rawLeft = x + (outward[0] >= 0 ? 8 : -8 - W);
@@ -654,25 +781,14 @@ function QuadrantPanel({
         width: W,
         left,
         top,
-        background: `oklch(0.42 0.16 ${CRIMSON})`,
-        border: `1.5px solid oklch(0.62 0.2 ${CRIMSON})`,
-        boxShadow: "0 10px 26px oklch(0 0 0 / 0.4)",
+        // Grey, not red: the console is a slab you work on, and the red is the
+        // aura round it saying which level you are on. A red panel with red
+        // controls on it had nothing left to say "this one is picked".
+        background: "oklch(0.29 0.02 20)",
+        border: `1.5px solid oklch(0.58 0.2 ${CRIMSON})`,
+        boxShadow: `0 0 0 1px oklch(0.2 0.05 ${CRIMSON}), 0 0 22px oklch(0.55 0.22 ${CRIMSON} / 0.45), 0 14px 32px oklch(0 0 0 / 0.5)`,
       }}
     >
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "oklch(0.96 0.05 20)" }}>
-          {title}
-        </span>
-        <button
-          type="button"
-          aria-label="Back to the menu"
-          onClick={onBack}
-          className="flex size-5 items-center justify-center rounded-full"
-          style={{ background: `oklch(0.62 0.2 ${CRIMSON})`, color: "oklch(0.99 0.02 20)" }}
-        >
-          <X className="size-3" />
-        </button>
-      </div>
       {children}
     </div>
   );
@@ -825,42 +941,20 @@ function Editor({ which, node }: { which: string; node: StudioNode }) {
   const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
 
   if (which === "hue") {
-    return (
-      <Row>
-        <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
-      </Row>
-    );
+    return <HueConsole colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />;
   }
   if (which === "texture") {
     return (
-      <Row>
-        <Select
-          value={node.texture ?? "site"}
-          onChange={(v) => update({ texture: v === "site" ? null : v })}
-          options={[
-            { value: "site", label: "Follow the site" },
-            { value: "none", label: "No texture" },
-            ...(look.texture ?? []).map((l, i) => ({
-              value: l.id,
-              label: `${TEXTURE_KINDS.find((k) => k.id === l.kind)?.label ?? l.kind} (layer ${i + 1})`,
-            })),
-          ]}
-          aria-label="Texture on this part"
-        />
-      </Row>
+      <TextureConsole
+        value={node.texture}
+        layers={look.texture ?? []}
+        palette={palette}
+        onChange={(texture) => update({ texture })}
+      />
     );
   }
   if (which === "aura") {
-    return (
-      <Row>
-        <Select
-          value={node.aura ?? ""}
-          onChange={(v) => update({ aura: v || null })}
-          options={[{ value: "", label: "None" }, ...ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))]}
-          aria-label="Aura colour"
-        />
-      </Row>
-    );
+    return <AuraConsole value={node.aura} palette={palette} onChange={(aura) => update({ aura })} />;
   }
   if (which === "tint") {
     return (

@@ -237,6 +237,14 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   to both, or to the wheel alone — never to the panel alone. What is still
   panel-only is what is not a part: a page's prompt, a drawn shape, a group's
   name and prompt, and the bulk edits that apply to a whole selection.
+- **Every role a part can repaint has to paint something.** `bg` used to set
+  only the ground behind a part, which most parts cover with a card of their
+  own, and `highlight` was read by eight of seventy parts — so two of the six
+  swatches did nothing you could see and the whole control read as broken.
+  Setting `bg` alone now carries `surface` and `line` with it, the same step
+  apart the palette keeps them (say what the surface should be and that stands
+  aside), and `highlight` is what the secondary `Btn` and every `Placeholder`
+  are drawn in. If you add a role, give it somewhere to land first.
 - `look` in the store holds six colour roles and a texture stack, and every
   `themeFrom(format, look)` call reads it — the board frame, the live site, the
   companion and the library previews all repaint together. Roles override what
@@ -299,6 +307,16 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   `opacity ** 0.7` on the tile — steep where a grain lives, and still reaching
   1, where a straight multiplier saturated halfway up the slider and the top
   half did nothing.
+- **A layer can hold a colour of its own** (`TextureLayer.colour`) instead of
+  naming a palette role, picked off the same `Spectrum` the menu uses. Six
+  roles is the right answer for a texture meant to follow the site and the
+  wrong answer for the thing people reach for first — a flat ground in a
+  colour they already have in mind — which could not be said at all.
+- **Size and Bleed are not the same control.** Weave used to grow the tile as
+  well as soften it, so it and Size were two sliders fighting over one number
+  and neither did what it said. Size sets the tile; Bleed thins its edges into
+  the tile's own alpha so tiles run into each other, and only at the very top
+  does it become one covering picture.
 - `affects(kind)` says which controls a texture kind can actually use, and the
   panel only draws those. A slider that moves and changes nothing is worse
   than one that is not there.
@@ -383,12 +401,24 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   It used to swing so the empty quadrant faced the middle of the screen, which
   meant the menu was a different shape depending on where you clicked and your
   hand could never learn it. Delete is bottom-left. Looks is bottom-right.
-  Always. The one thing that moves it is `menuSpin`: hold the **right button**
-  down on an open menu and drag, and the whole wheel turns to any orientation,
-  chased at a fifth of the way per frame rather than pinned to the pointer, and
-  remembered. A turn swallows the `contextmenu` the button's release would
-  otherwise fire, or the page's own menu lands on top of the wheel you were
-  arranging.
+  Always. The one thing that moves it is `menuSpin`.
+- **Pull, then turn.** Holding the right button and dragging used to start
+  turning the moment you cleared the hole, so a right-click that wandered a few
+  pixels spun the menu by accident. The drag has two halves you can see now:
+  pull a line out of the pointer and it *fades up* as it lengthens
+  (`PULL_FROM` → `PULL_LOCK`), and only at full strength does it take hold —
+  from there the wheel follows your hand, chased a fifth of the way per frame
+  rather than pinned, with no snapping. A second line runs the opposite way in
+  the opposing colour, so you are turning a bar through the middle rather than
+  dragging a string, and the far end is what the eye actually judges the angle
+  by. A turn swallows the `contextmenu` the button's release would otherwise
+  fire; so does a right press on the menu or on the part it is about, or the
+  page's own menu lands on top of the wheel you are arranging.
+- **The menu can be pushed aside and left there.** Press its middle and drag
+  (`moveRadial`) and it moves; clicking the part it belongs to no longer closes
+  it, so it can be parked where there is room and worked against. Anything else
+  clicked still puts it away. The lock and the handle are the same button — a
+  drag moves, a press without one toggles the lock.
 - Each working quadrant is cut once more at `MID` into an inner band and an
   outer block, which is how three quadrants carry six buttons. Delete is the
   whole quadrant beside the empty one, undivided. The pointer keeps a clear
@@ -414,6 +444,23 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   read as a lump of dark glass. One flat colour reads as one button: the old
   *hover* colour is the resting colour and hover goes a step brighter again,
   with an edge always darker than the face.
+- **The third level is a console, not a form** (`MenuConsole.tsx`). Two levels
+  of drawn geometry followed by a `<select>` broke the spell completely. The
+  choices ride an **arc** (`ArcRail`) bowed like a rainbow with each chip
+  turned to face out of the curve; colour comes off a **`Spectrum`** — a hue
+  bar with a white line on it, the same spectrum in steps underneath so a
+  colour can be hit rather than hunted for, and a lightness bar, because a hue
+  on its own is not a colour. The slab is grey with a red aura round it: a red
+  panel with red controls has nothing left to say "this one is picked". Edges
+  are lit by `litEdge(hue)` — a lighter line along the top inside edge, a
+  darker one along the bottom, leaning differently for warm, green and cool
+  faces. A shade either way, never a bevel.
+  `CONSOLES` names which choices get one: the three that are about looks. The
+  rest are still rows, and should follow.
+- **A dropped picture joins the site's stack.** The texture console's well
+  calls `addTexture`, so what you add lands in the same rail as everything
+  else and every other part can wear it. There is no separate library: the
+  site's stack *is* the library.
 - `menuShape` (square or swept round) is set from the **toolbar**, not from the
   menu — a toggle that only exists while the thing it changes is open is a
   toggle you can never find again. It lights up while a menu is open, and the

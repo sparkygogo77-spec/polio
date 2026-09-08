@@ -16,6 +16,7 @@ import {
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
 import { flattenLayers, treatImage, treatmentKey } from "./texture";
+import { Spectrum } from "./MenuConsole";
 import { resolvePalette } from "./parts/theme";
 import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
@@ -424,7 +425,7 @@ function TextureSection() {
           const tintable = !picture || !!layer.pattern;
           return (
             <div key={layer.id} className={cn("rounded-md border", open ? "border-accent/60 bg-elevated/60" : "border-border")}>
-              {picture && layer.src ? <Baker layer={layer} tint={shiftHue(palette[layer.role], layer.hue ?? 0)} /> : null}
+              {picture && layer.src ? <Baker layer={layer} tint={shiftHue(layer.colour ?? palette[layer.role], layer.hue ?? 0)} /> : null}
               <div className="flex items-center gap-1.5 p-1.5">
                 <input
                   type="checkbox"
@@ -489,7 +490,35 @@ function TextureSection() {
                   <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
                   </Row>
-                  <Row label={picture ? "Size" : "Scale"} value={`${layer.scale}px`}>
+                  {/*
+                    A colour of this layer's own, off the spectrum.
+
+                    Six palette roles is the right answer for a texture meant
+                    to follow the site, and the wrong answer for the thing
+                    people reach for first — a flat ground in a colour they
+                    already have in mind, which could not be said at all.
+                  */}
+                  {tintable ? (
+                    <div className="rounded-md border border-border p-2">
+                      <Spectrum
+                        value={layer.colour ?? palette[layer.role]}
+                        onChange={(colour) => s().updateTexture(layer.id, { colour })}
+                        label="This layer's colour"
+                      />
+                      {layer.colour ? (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="w-full"
+                          onClick={() => s().updateTexture(layer.id, { colour: undefined })}
+                        >
+                          Back to {ROLE_LABEL[layer.role].toLowerCase()}
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <Row label={picture ? "Tile size" : "Scale"} value={`${layer.scale}px`}>
                     <Slider value={[layer.scale]} min={2} max={400} step={1} onValueChange={(v) => s().updateTexture(layer.id, { scale: v[0] ?? 24 })} aria-label="Scale" />
                   </Row>
                   <Row label="Angle" value={`${layer.angle}°`}>
@@ -555,7 +584,7 @@ function TextureSection() {
                           onValueChange={(v) => s().updateTexture(layer.id, { tolerance: (v[0] ?? 35) / 100 })}
                         />
                       </Row>
-                      <Row label="Weave" value={(layer.weave ?? 0) < 0.02 ? "tiled" : (layer.weave ?? 0) > 0.98 ? "one picture" : `${Math.round((layer.weave ?? 0) * 100)}%`}>
+                      <Row label="Bleed" value={(layer.weave ?? 0) < 0.02 ? "hard edges" : (layer.weave ?? 0) > 0.98 ? "one picture" : `${Math.round((layer.weave ?? 0) * 100)}%`}>
                         <Slider
                           value={[Math.round((layer.weave ?? 0) * 100)]}
                           min={0}
