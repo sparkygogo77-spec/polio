@@ -131,6 +131,22 @@ const SWELL = 2;
  */
 const PULL_FROM = BLUE_RINGS.hole + 6;
 const PULL_LOCK = BLUE_RINGS.reach + 16;
+
+/**
+ * Where the gesture has got to.
+ *
+ * `pull` — coming out, fading up. `armed` — locked at full stretch, waiting to
+ * be taken across to the ring opposite. `turning` — loose, following your hand.
+ */
+type PullStage = "pull" | "armed" | "turning";
+interface Pull {
+  dx: number;
+  dy: number;
+  grip: number;
+  stage: PullStage;
+  /** The angle it locked at, in turns. The ring opposite sits half a turn on. */
+  armed: number | null;
+}
 /** The dark line round a face, in px. */
 const EDGE = 1.25;
 
@@ -417,32 +433,40 @@ export function RadialMenu() {
   }, [open, picked, subPick]);
 
   /*
-   * Pull a line out, then turn.
+   * Pull it out, take it across, then turn.
    *
    * Holding the right button and dragging used to start turning the moment you
    * cleared the hole, which meant a right-click that wandered a few pixels
-   * spun the menu by accident. Now the drag has two halves you can see: pull a
-   * line out of the pointer and it fades up as it lengthens, and only when it
-   * reaches full strength does it take hold — from there the wheel follows
-   * your hand. A second line runs the opposite way in the opposing colour, so
-   * you are turning a bar through the middle rather than dragging a string.
+   * spun the menu by accident. Reaching full stretch was not enough either —
+   * the pull and the turn were the same motion, so it still turned as soon as
+   * you had pulled.
    *
-   * The angle is chased rather than pinned — a fifth of the way each frame —
-   * which is the difference between a dial and a twitch. Nothing snaps: it
-   * stops where you let go, and it is remembered.
+   * So it arms in two moves, and both are drawn. Pull the green line out and
+   * it fades up as it lengthens; at full stretch it **locks**, and the only
+   * place it can go from there is the other side — a crimson ring appears
+   * exactly opposite to say where. Take it across, through the middle and out
+   * to that ring, and only then does the wheel come loose and follow your
+   * hand. Nothing snaps: it stops where you let go, and it is remembered.
    */
   const anchor = React.useRef({ x: 0, y: 0 });
   if (open) anchor.current = { x: open.x, y: open.y };
-  const [pull, setPull] = React.useState<{ dx: number; dy: number; grip: number } | null>(null);
+  const [pull, setPull] = React.useState<Pull | null>(null);
   React.useEffect(() => {
     if (!open) return;
-    let holding = false;
+    let stage: PullStage = "pull";
+    let armed = 0;
     // Set by a turn, cleared by the context menu it swallows.
     let turned = false;
     let grabbed = 0;
     let was = 0;
     let want = useStudio.getState().menuSpin;
     let frame = 0;
+    let showing = false;
+    const show = (v: Pull | null) => {
+      if (!v && !showing) return;
+      showing = !!v;
+      setPull(v);
+    };
     const angle = (e: PointerEvent) =>
       Math.atan2(e.clientY - anchor.current.y, e.clientX - anchor.current.x) / (Math.PI * 2);
     const step = () => {
@@ -454,26 +478,44 @@ export function RadialMenu() {
       useStudio.getState().setMenuSpin(now + d * 0.2);
       frame = requestAnimationFrame(step);
     };
+    const reset = () => { stage = "pull"; show(null); };
     const onMove = (e: PointerEvent) => {
-      if (!(e.buttons & 2)) { holding = false; setPull(null); return; }
+      if (!(e.buttons & 2)) return reset();
       const dx = e.clientX - anchor.current.x;
       const dy = e.clientY - anchor.current.y;
       const len = Math.hypot(dx, dy);
-      // 0 inside the hole, 1 once the line is at full length. That number is
-      // the line's opacity, and reaching 1 is what takes hold.
-      const grip = Math.max(0, Math.min(1, (len - PULL_FROM) / (PULL_LOCK - PULL_FROM)));
-      setPull({ dx, dy, grip });
-      if (grip < 1) { holding = false; return; }
-      if (!holding) {
-        holding = true;
-        turned = true;
-        grabbed = angle(e);
-        was = useStudio.getState().menuSpin;
+      const a = angle(e);
+
+      if (stage === "pull") {
+        // 0 inside the hole, 1 at full stretch. That number is the line's
+        // opacity, and reaching 1 is what locks it.
+        const grip = Math.max(0, Math.min(1, (len - PULL_FROM) / (PULL_LOCK - PULL_FROM)));
+        if (grip >= 1) { stage = "armed"; armed = a; play("select"); }
+        show({ dx, dy, grip, stage, armed: stage === "pull" ? null : armed });
+        return;
       }
-      want = was + (angle(e) - grabbed);
+
+      if (stage === "armed") {
+        // The only way on is the other side: far enough out, and turned
+        // most of the way round from where it locked.
+        const gap = Math.abs(a - armed) % 1;
+        const apart = Math.min(gap, 1 - gap);
+        if (len > PULL_LOCK * 0.82 && apart > 0.4) {
+          stage = "turning";
+          turned = true;
+          grabbed = a;
+          was = useStudio.getState().menuSpin;
+          play("confirm");
+        }
+        show({ dx, dy, grip: 1, stage, armed });
+        return;
+      }
+
+      show({ dx, dy, grip: 1, stage, armed });
+      want = was + (a - grabbed);
       if (!frame) frame = requestAnimationFrame(step);
     };
-    const onUp = () => { holding = false; setPull(null); };
+    const onUp = () => reset();
     /*
      * The right button lets go at the end of a turn, and the browser answers
      * with a context menu — the app's own, over the wheel you were just
@@ -621,41 +663,7 @@ export function RadialMenu() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="absolute" style={{ left: px, top: py }}>
-        {/*
-          The line you pull, and the one that answers it.
-
-          Green runs to your hand and fades up as it lengthens; crimson runs
-          the same distance the other way, through the middle and out into the
-          quadrant opposite. Two lines make it a bar you are turning rather
-          than a string you are dragging, and the opposite end is the thing
-          your eye actually watches to judge the angle.
-        */}
-        {pull ? (
-          <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
-            <line
-              x1={0} y1={0} x2={-pull.dx} y2={-pull.dy}
-              stroke={`oklch(0.62 0.22 ${CRIMSON})`}
-              strokeOpacity={pull.grip * 0.85}
-              strokeWidth={pull.grip >= 1 ? 4 : 3}
-              strokeLinecap="round"
-              strokeDasharray={pull.grip >= 1 ? undefined : "7 6"}
-            />
-            <line
-              data-pull-line=""
-              x1={0} y1={0} x2={pull.dx} y2={pull.dy}
-              stroke={`oklch(0.74 0.2 ${GREEN})`}
-              strokeOpacity={pull.grip}
-              strokeWidth={pull.grip >= 1 ? 4 : 3}
-              strokeLinecap="round"
-              strokeDasharray={pull.grip >= 1 ? undefined : "7 6"}
-            />
-            <circle
-              cx={pull.dx} cy={pull.dy} r={pull.grip >= 1 ? 7 : 4}
-              fill={`oklch(0.78 0.2 ${GREEN})`}
-              fillOpacity={pull.grip}
-            />
-          </svg>
-        ) : null}
+        {pull ? <PullLines pull={pull} /> : null}
 
         {!picked ? (
           <Ring spin={spin} pieces={level1.map((p) => ({
@@ -732,8 +740,12 @@ export function RadialMenu() {
       </div>
 
       {group && editing ? (
-        <QuadrantPanel x={px} y={py} outward={outward} which={editing} wide={CONSOLES.has(editing)}>
-          <Console title={choices.find((c) => c.id === editing)?.label ?? "Edit"} onBack={() => { play("close"); setSubPick(null); }}>
+        <QuadrantPanel x={px} y={py} which={editing}>
+          <Console
+            title={choices.find((c) => c.id === editing)?.label ?? "Edit"}
+            onGrip={carry}
+            onBack={() => { play("close"); setSubPick(null); }}
+          >
             <Editor which={editing} node={node} />
           </Console>
         </QuadrantPanel>
@@ -743,42 +755,110 @@ export function RadialMenu() {
 }
 
 /**
- * The third level: the editor, standing where the green quadrant stood.
+ * The gesture, drawn.
  *
- * It used to be a small box parked off to one side of the ring, which read as
- * a tooltip rather than as the next step, and left the green level sitting
- * behind it doing nothing. Now the green goes away and this takes the same
- * corner — same anchor, same direction, a different colour — so the menu is
- * only ever one thing at a time.
+ * Green runs to your hand and fades up as it lengthens; crimson runs the same
+ * distance the other way, through the middle, because you judge an angle by
+ * the far end of a bar and not by the end in your hand.
+ *
+ * Once it locks, a green ring marks where it locked and a crimson ring appears
+ * exactly opposite — that is the only place it can go, and it is drawn so you
+ * do not have to be told. Reaching that ring is what lets the wheel turn.
  */
-function QuadrantPanel({
-  x, y, outward, which, wide, children,
-}: {
-  x: number; y: number; outward: Pt; which: string; wide?: boolean;
-  children: React.ReactNode;
-}) {
+function PullLines({ pull }: { pull: Pull }) {
+  const solid = pull.stage !== "pull";
+  const lockAt = pull.armed === null ? null : onCircle(((pull.armed + 0.25) % 1 + 1) % 1, PULL_LOCK);
+  const cross = pull.armed === null ? null : onCircle(((pull.armed + 0.75) % 1 + 1) % 1, PULL_LOCK);
+  const done = pull.stage === "turning";
+  return (
+    <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
+      <line
+        x1={0} y1={0} x2={-pull.dx} y2={-pull.dy}
+        stroke={`oklch(0.62 0.22 ${CRIMSON})`}
+        strokeOpacity={pull.grip * 0.85}
+        strokeWidth={solid ? 4 : 3}
+        strokeLinecap="round"
+        strokeDasharray={solid ? undefined : "7 6"}
+      />
+      <line
+        data-pull-line=""
+        x1={0} y1={0} x2={pull.dx} y2={pull.dy}
+        stroke={`oklch(0.74 0.2 ${GREEN})`}
+        strokeOpacity={pull.grip}
+        strokeWidth={solid ? 4 : 3}
+        strokeLinecap="round"
+        strokeDasharray={solid ? undefined : "7 6"}
+      />
+      {/* where it locked */}
+      {lockAt ? (
+        <circle
+          cx={lockAt[0]} cy={lockAt[1]} r={9}
+          fill="none"
+          stroke={`oklch(0.8 0.2 ${GREEN})`}
+          strokeWidth={3}
+        />
+      ) : null}
+      {/* and the only place it can go from there */}
+      {cross ? (
+        <circle
+          data-pull-target=""
+          cx={cross[0]} cy={cross[1]} r={done ? 7 : 11}
+          fill={done ? `oklch(0.7 0.22 ${CRIMSON})` : "none"}
+          stroke={`oklch(0.72 0.22 ${CRIMSON})`}
+          strokeWidth={3}
+          strokeDasharray={done ? undefined : "5 4"}
+        >
+          {done ? null : (
+            <animate attributeName="r" values="11;14;11" dur="1.1s" repeatCount="indefinite" />
+          )}
+        </circle>
+      ) : null}
+      <circle
+        cx={pull.dx} cy={pull.dy} r={solid ? 7 : 4}
+        fill={`oklch(0.78 0.2 ${done ? CRIMSON : GREEN})`}
+        fillOpacity={pull.grip}
+      />
+    </svg>
+  );
+}
+
+/**
+ * The third level: the console, filling the wheel's own footprint.
+ *
+ * It was a box hung off one corner of the ring — a different size for every
+ * editor, sitting beside the menu rather than being it, with three empty
+ * quadrants left behind. Now it takes the square the wheel stood in: the same
+ * middle, the same reach, covering all four quadrants at once. One frame, one
+ * size, whatever is inside it. That is the whole difference between a menu
+ * that turns into an editor and a menu that spawns a dialog.
+ */
+const CONSOLE_W = GREEN_RINGS.reach * 2;
+
+function QuadrantPanel({ x, y, which, children }: { x: number; y: number; which: string; children: React.ReactNode }) {
   const ref = React.useRef<HTMLDivElement>(null);
-  const [h, setH] = React.useState(150);
+  const [h, setH] = React.useState(CONSOLE_W);
   React.useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     setH((prev) => (Math.abs(prev - r.height) > 1 ? r.height : prev));
   });
-  const W = wide ? 340 : 232;
-  // Clear of the pointer rather than over it, so the panel reads as standing
-  // where the quadrant stood instead of sitting on the click.
-  const rawLeft = x + (outward[0] >= 0 ? 8 : -8 - W);
-  const rawTop = y + (outward[1] >= 0 ? 8 : -8 - h);
-  const left = Math.max(10, Math.min((typeof window === "undefined" ? 1280 : window.innerWidth) - W - 10, rawLeft));
-  const top = Math.max(10, Math.min((typeof window === "undefined" ? 800 : window.innerHeight) - h - 10, rawTop));
+  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  // Centred on the click, then pushed back on screen if the click was near an
+  // edge — the wheel is clamped the same way, so the two land together.
+  const left = Math.max(10, Math.min(vw - CONSOLE_W - 10, x - CONSOLE_W / 2));
+  const top = Math.max(10, Math.min(vh - h - 10, y - h / 2));
   return (
     <div
       ref={ref}
       data-radial-editor={which}
-      className="pointer-events-auto fixed rounded-xl p-2.5"
+      className="pointer-events-auto fixed rounded-2xl p-3"
       style={{
-        width: W,
+        width: CONSOLE_W,
+        // The drawn editors want the whole footprint; a one-line name box does
+        // not, and stretching it to fill one is just a taller empty box.
+        minHeight: CONSOLES.has(which) ? CONSOLE_W * 0.62 : undefined,
         left,
         top,
         // Grey, not red: the console is a slab you work on, and the red is the

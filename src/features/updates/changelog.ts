@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.14",
+    title: "One bar, one console",
+    summary: "The pages and the way out moved on to the toolbar, and the menu's editor fills the wheel.",
+    sketch: "frame",
+    added: [
+      "Pages sit on the toolbar now, and Finish is a chip on the end of it. Two rows of chrome became board.",
+      "Turning the menu takes three moves you can see: pull the line out until it locks, take it across to the ring opposite, then turn. Swinging it while locked does nothing.",
+      "The editor fills the wheel's own footprint instead of hanging off a corner — one frame, one size, whatever is in it.",
+      "It covers what you are editing, so drag it clear by its head.",
+      "The colour picker gained a strength bar, and picking off the spectrum now gives you the colour you clicked instead of the same grey at a different hue.",
+    ],
+  },
+  {
     version: "0.13",
     title: "Pull it, turn it, paint from it",
     summary: "The menu is turned by a line you pull out of it, and its third level became a console.",

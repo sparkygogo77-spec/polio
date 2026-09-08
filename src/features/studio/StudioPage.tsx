@@ -61,13 +61,13 @@ function ModeSwitch() {
 }
 
 /**
- * The way out of the Builder: one round button, over the top right of the board.
+ * The way out of the Builder: one round button on the end of the toolbar.
  *
- * It used to be a text field stretched across the width of the page tabs with
- * a small button beside it — a permanent strip of chrome for something you
- * touch twice in a session, and the widest thing on the screen for the least
- * frequent thing on it. The prompt moved inside the blueprint, where it is
- * read, and what is left here is the door.
+ * It was a text field stretched across a row of its own, then a large orb
+ * floating over the board — which put it in front of the thing you were
+ * working on, which is the one place a door should not be. It is a chip on
+ * the end of the bar now, the same height as everything else on it, and the
+ * row it used to need is board again.
  */
 function FinishButton({ onOpenBrief }: { onOpenBrief: () => void }) {
   const spec = useCompiledBrief();
@@ -78,11 +78,53 @@ function FinishButton({ onOpenBrief }: { onOpenBrief: () => void }) {
         aria-label="Finish"
         data-finish=""
         onClick={() => { play("confirm"); onOpenBrief(); }}
-        className="finish-orb absolute right-4 top-4 z-30 flex size-14 items-center justify-center rounded-full text-white"
+        className="finish-orb ml-1 flex size-7 shrink-0 items-center justify-center rounded-full text-white"
       >
-        <Send className="size-6 translate-x-[-1px] translate-y-[1px]" strokeWidth={2.1} />
+        <Send className="size-3.5 translate-x-[-1px] translate-y-[0.5px]" strokeWidth={2.2} />
       </button>
     </Tooltip>
+  );
+}
+
+/**
+ * The pages, on the toolbar rather than on a row of their own.
+ *
+ * One page is the normal case and four is a lot, so a full-width strip for
+ * them was a band of empty chrome across the whole window. They scroll here
+ * if they ever need to.
+ */
+function PageChips() {
+  const pages = useStudio((s) => s.pages);
+  const activeId = useStudio((s) => s.activePageId);
+  const nodes = useStudio((s) => s.nodes);
+  return (
+    <div className="hide-scrollbar flex min-w-0 shrink items-center gap-0.5 overflow-x-auto">
+      {pages.map((p) => {
+        const count = nodes.filter((n) => n.pageId === p.id).length;
+        const active = p.id === activeId;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            {...ctxProps("studio-page", p.id, p)}
+            onClick={() => { play("navigate"); useStudio.getState().setActivePage(p.id); }}
+            className={cn(
+              "tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px]",
+              active ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
+            )}
+          >
+            <FileText className={cn("size-3 shrink-0", active && "text-accent")} />
+            <span className="max-w-[110px] truncate">{p.name}</span>
+            {count ? <span className="num text-[9px] text-fg-faint">{count}</span> : null}
+          </button>
+        );
+      })}
+      <Tooltip content="Add page">
+        <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => useStudio.getState().addPage()}>
+          <Plus />
+        </Button>
+      </Tooltip>
+    </div>
   );
 }
 
@@ -105,6 +147,8 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
     return (
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
         <ModeSwitch />
+        <span className="mx-1 h-4 w-px bg-border" />
+        <PageChips />
         <span className="flex-1" />
         <Tooltip content="Open the site on its own address">
           <Button variant="ghost" size="iconXs" aria-label="Open live preview" onClick={() => { play("navigate"); router.push(livePath()); }}>
@@ -118,6 +162,8 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
       <ModeSwitch />
+      <span className="mx-1 h-4 w-px bg-border" />
+      <PageChips />
       <span className="mx-1 h-4 w-px bg-border" />
       <Tooltip content={libraryOpen ? "Hide colour & texture" : "Show colour & texture"} shortcut="l">
         <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle look" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
@@ -234,46 +280,8 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
           <ZoomIn />
         </Button>
       </div>
-    </div>
-  );
-}
 
-function PageTabs() {
-  const pages = useStudio((s) => s.pages);
-  const activeId = useStudio((s) => s.activePageId);
-  const nodes = useStudio((s) => s.nodes);
-  return (
-    <div className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1">
-      <div className="flex min-w-0 items-center gap-1 overflow-x-auto hide-scrollbar">
-      {pages.map((p) => {
-        const count = nodes.filter((n) => n.pageId === p.id).length;
-        const active = p.id === activeId;
-        return (
-          <button
-            key={p.id}
-            type="button"
-            {...ctxProps("studio-page", p.id, p)}
-            onClick={() => {
-              play("navigate");
-              useStudio.getState().setActivePage(p.id);
-            }}
-            className={cn(
-              "tactile flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px]",
-              active ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
-            )}
-          >
-            <FileText className={cn("size-3", active && "text-accent")} />
-            {p.name}
-            {count ? <span className="num text-[9px] text-fg-faint">{count}</span> : null}
-          </button>
-        );
-      })}
-      <Tooltip content="Add page">
-        <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => useStudio.getState().addPage()}>
-          <Plus />
-        </Button>
-      </Tooltip>
-      </div>
+      <FinishButton onOpenBrief={onOpenBrief} />
     </div>
   );
 }
@@ -309,7 +317,6 @@ export function StudioPage() {
     // the page behind it cannot scroll while you are drawing on it.
     <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 flex-col overflow-hidden">
       <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} onOpenBrief={() => setBriefOpen(true)} />
-      <PageTabs />
 
       <div className="flex min-h-0 flex-1">
         {/* Colour and texture on the left; the parts library lives under the
@@ -359,7 +366,6 @@ export function StudioPage() {
               <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
             <PreviewWindow />
-            {design ? <FinishButton onOpenBrief={() => setBriefOpen(true)} /> : null}
           </div>
           {design ? (
             <div className="w-full shrink-0" style={{ height: "100%" }}>

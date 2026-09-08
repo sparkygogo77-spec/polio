@@ -56,16 +56,27 @@ export function litEdge(hue: number, strong = false): string {
 }
 
 export function Console({
-  title, onBack, children,
+  title, onBack, onGrip, children,
 }: {
   title: string;
   onBack: () => void;
+  /**
+   * The console stands where the wheel stood, so it covers the part it is
+   * editing. Its head is the handle you move it clear by — the head only, or
+   * dragging the spectrum would drag the whole console with it.
+   */
+  onGrip?: (e: React.PointerEvent) => void;
   children: React.ReactNode;
 }) {
   return (
     <>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: "oklch(0.97 0.05 20)" }}>
+        <span
+          data-console-grip=""
+          onPointerDown={onGrip}
+          className="flex-1 cursor-grab select-none text-[11px] font-semibold uppercase tracking-[0.14em] active:cursor-grabbing"
+          style={{ color: "oklch(0.97 0.05 20)" }}
+        >
           {title}
         </span>
         <button
@@ -177,7 +188,6 @@ export function Spectrum({
   label?: string;
 }) {
   const parsed = parseColor(value) ?? { l: 0.7, c: 0.18, h: 265 };
-  const barRef = React.useRef<HTMLDivElement>(null);
   const pick = (clientX: number, el: HTMLElement, apply: (f: number) => void) => {
     const r = el.getBoundingClientRect();
     apply(Math.max(0, Math.min(1, (clientX - r.left) / Math.max(1, r.width))));
@@ -193,8 +203,20 @@ export function Spectrum({
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
-  const setHue = (f: number) => onChange(oklchCss({ ...parsed, h: f * 360 }));
+  /*
+   * Picking off the bar gives you the colour on the bar.
+   *
+   * The hue slider used to change only the hue, so hitting the orange end of
+   * the spectrum while the current colour was a near-grey background handed
+   * back another near-grey — the right hue at a chroma of 0.01, which is to
+   * say no colour at all, and the control read as broken. A hue pick lifts a
+   * washed-out colour far enough to be the thing you just clicked; the bar
+   * under it is there to take it back down again.
+   */
+  const LIVE = 0.14;
+  const setHue = (f: number) => onChange(oklchCss({ ...parsed, c: Math.max(parsed.c, LIVE), h: f * 360 }));
   const setLight = (f: number) => onChange(oklchCss({ ...parsed, l: 0.08 + f * 0.9 }));
+  const setChroma = (f: number) => onChange(oklchCss({ ...parsed, c: f * 0.32 }));
 
   return (
     <div className="mb-2">
@@ -207,7 +229,6 @@ export function Spectrum({
       </div>
       {/* the spectrum, and the white line that says where on it you are */}
       <div
-        ref={barRef}
         data-spectrum=""
         role="slider"
         tabIndex={0}
@@ -217,8 +238,8 @@ export function Spectrum({
         aria-valuemax={360}
         onPointerDown={(e) => drag(e, setHue)}
         onKeyDown={(e) => {
-          if (e.key === "ArrowLeft") onChange(oklchCss({ ...parsed, h: (parsed.h + 355) % 360 }));
-          if (e.key === "ArrowRight") onChange(oklchCss({ ...parsed, h: (parsed.h + 5) % 360 }));
+          if (e.key === "ArrowLeft") setHue((((parsed.h + 355) % 360) / 360));
+          if (e.key === "ArrowRight") setHue((((parsed.h + 5) % 360) / 360));
         }}
         className="relative h-4 cursor-pointer rounded-full"
         style={{ background: HUE_BAR, boxShadow: litEdge(CONSOLE_HUE) }}
@@ -241,10 +262,10 @@ export function Spectrum({
               key={h}
               type="button"
               aria-label={`Hue ${h}`}
-              onClick={() => { play("tap"); onChange(oklchCss({ ...parsed, h })); }}
+              onClick={() => { play("tap"); onChange(oklchCss({ ...parsed, c: Math.max(parsed.c, LIVE), h })); }}
               className="size-[9px] rounded-full transition-transform"
               style={{
-                background: oklchCss({ l: parsed.l, c: Math.max(0.06, parsed.c), h }),
+                background: oklchCss({ l: Math.max(0.35, Math.min(0.85, parsed.l)), c: Math.max(LIVE, parsed.c), h }),
                 transform: near ? "scale(1.5)" : undefined,
                 outline: near ? "1px solid oklch(0.98 0.03 20)" : "none",
               }}
@@ -275,6 +296,32 @@ export function Spectrum({
         <span
           className="pointer-events-none absolute top-[-2px] h-4 w-[3px] rounded-full bg-white"
           style={{ left: `calc(${(((parsed.l - 0.08) / 0.9) * 100).toFixed(1)}% - 1.5px)`, boxShadow: "0 0 0 1px oklch(0 0 0 / 0.5)" }}
+        />
+      </div>
+      {/* and how much of it there is: grey at one end, as far as the screen
+          goes at the other */}
+      <div
+        data-chroma=""
+        role="slider"
+        tabIndex={0}
+        aria-label={`${label} strength`}
+        aria-valuenow={Math.round((parsed.c / 0.32) * 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        onPointerDown={(e) => drag(e, setChroma)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") onChange(oklchCss({ ...parsed, c: Math.max(0, parsed.c - 0.02) }));
+          if (e.key === "ArrowRight") onChange(oklchCss({ ...parsed, c: Math.min(0.32, parsed.c + 0.02) }));
+        }}
+        className="relative mt-1.5 h-3 cursor-pointer rounded-full"
+        style={{
+          background: `linear-gradient(90deg, ${oklchCss({ ...parsed, c: 0 })}, ${oklchCss({ ...parsed, c: 0.32 })})`,
+          boxShadow: litEdge(CONSOLE_HUE),
+        }}
+      >
+        <span
+          className="pointer-events-none absolute top-[-2px] h-4 w-[3px] rounded-full bg-white"
+          style={{ left: `calc(${Math.min(100, (parsed.c / 0.32) * 100).toFixed(1)}% - 1.5px)`, boxShadow: "0 0 0 1px oklch(0 0 0 / 0.5)" }}
         />
       </div>
     </div>

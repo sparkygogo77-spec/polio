@@ -402,18 +402,19 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   meant the menu was a different shape depending on where you clicked and your
   hand could never learn it. Delete is bottom-left. Looks is bottom-right.
   Always. The one thing that moves it is `menuSpin`.
-- **Pull, then turn.** Holding the right button and dragging used to start
-  turning the moment you cleared the hole, so a right-click that wandered a few
-  pixels spun the menu by accident. The drag has two halves you can see now:
-  pull a line out of the pointer and it *fades up* as it lengthens
-  (`PULL_FROM` → `PULL_LOCK`), and only at full strength does it take hold —
-  from there the wheel follows your hand, chased a fifth of the way per frame
-  rather than pinned, with no snapping. A second line runs the opposite way in
-  the opposing colour, so you are turning a bar through the middle rather than
-  dragging a string, and the far end is what the eye actually judges the angle
-  by. A turn swallows the `contextmenu` the button's release would otherwise
-  fire; so does a right press on the menu or on the part it is about, or the
-  page's own menu lands on top of the wheel you are arranging.
+- **Out, across, then turn** — three states, all drawn (`PullStage`). Dragging
+  used to start turning the moment you cleared the hole, so a right-click that
+  wandered a few pixels spun the menu; reaching full stretch was not enough
+  either, because then the pull and the turn were still one motion. So: pull
+  the green line out and it *fades up* as it lengthens (`PULL_FROM` →
+  `PULL_LOCK`); at full stretch it **locks**, and a crimson ring appears
+  exactly opposite — the only place it can go. Take it across, through the
+  middle and out to that ring, and only then does the wheel come loose and
+  follow your hand, chased a fifth of the way per frame rather than pinned,
+  with no snapping. Swinging it round while locked turns nothing. A turn
+  swallows the `contextmenu` the button's release would otherwise fire; so does
+  a right press on the menu or on the part it is about, or the page's own menu
+  lands on top of the wheel you are arranging.
 - **The menu can be pushed aside and left there.** Press its middle and drag
   (`moveRadial`) and it moves; clicking the part it belongs to no longer closes
   it, so it can be parked where there is room and worked against. Anything else
@@ -444,13 +445,22 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   read as a lump of dark glass. One flat colour reads as one button: the old
   *hover* colour is the resting colour and hover goes a step brighter again,
   with an edge always darker than the face.
-- **The third level is a console, not a form** (`MenuConsole.tsx`). Two levels
-  of drawn geometry followed by a `<select>` broke the spell completely. The
-  choices ride an **arc** (`ArcRail`) bowed like a rainbow with each chip
-  turned to face out of the curve; colour comes off a **`Spectrum`** — a hue
-  bar with a white line on it, the same spectrum in steps underneath so a
-  colour can be hit rather than hunted for, and a lightness bar, because a hue
-  on its own is not a colour. The slab is grey with a red aura round it: a red
+- **The third level is a console, not a form** (`MenuConsole.tsx`), and it
+  fills the wheel's own footprint: `CONSOLE_W = GREEN_RINGS.reach * 2`, centred
+  on the click, covering all four quadrants. One frame, one size, whatever is
+  inside it — it was a box hung off one corner, a different size per editor,
+  which is a menu spawning a dialog rather than a menu becoming an editor. It
+  covers the part it edits, so its head is a grip (`[data-console-grip]`, the
+  head only — gripping the whole slab would fight the spectrum drag).
+  Two levels of drawn geometry followed by a `<select>` broke the spell
+  completely. The choices ride an **arc** (`ArcRail`) bowed like a rainbow with
+  each chip turned to face out of the curve; colour comes off a **`Spectrum`**
+  — a hue bar with a white line on it, the same spectrum in steps underneath so
+  a colour can be hit rather than hunted for, then lightness and strength,
+  because a hue on its own is not a colour. **A hue pick lifts chroma to at
+  least `LIVE`**: picking the orange end of the bar while the current colour
+  was a near-grey used to hand back another near-grey — the right hue at a
+  chroma of 0.01 — and the control read as broken. The slab is grey with a red aura round it: a red
   panel with red controls has nothing left to say "this one is picked". Edges
   are lit by `litEdge(hue)` — a lighter line along the top inside edge, a
   darker one along the bottom, leaning differently for warm, green and cool
@@ -470,14 +480,16 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   the moment you picked an option.
   The menu sits at `z-[68]`, above the top bar, or one opened near an edge has
   pieces behind the chrome.
-- **There is no prompt bar.** The master prompt lives inside the blueprint
-  dialog, where it is read; the way in is one round blue button over the top
-  right of the board (`.finish-orb`, `[data-finish]`). A text field stretched
-  across the width of the page tabs was permanent chrome for something touched
-  twice in a session, and the widest thing on screen for the least frequent
-  thing on it. The orb is the only control in the Builder allowed to look like
-  an object rather than a control, and its light comes from the top left like
-  the page's own lamp.
+- **One bar, not three.** The master prompt lives inside the blueprint dialog
+  where it is read; the pages and the way out live on the toolbar. A prompt
+  field stretched across a row of its own was permanent chrome for something
+  touched twice a session; the page tabs had a full-width strip for a list that
+  is usually one item long; and the Finish orb floated over the board, which
+  put the door in front of the work. `PageChips` and `FinishButton`
+  (`.finish-orb`, `[data-finish]`) are both toolbar-height now, and the two
+  rows they cost are board. The orb is the only control in the Builder allowed
+  to look like an object rather than a control, and its light comes from the
+  top left like the page's own lamp.
 - **A part carries `anim`, `aura` and `texture` of its own** beside `colour`.
   `anim` is a CSS animation name from `ENTRANCES` played on the live site
   only — the board draws where a part ends up, so laying out a page never
