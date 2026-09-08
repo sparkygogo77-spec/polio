@@ -274,15 +274,26 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   the background show through. The result is baked onto `layer.baked`, so
   everything downstream stays a synchronous CSS lookup; `LookPanel`'s `Baker`
   re-cooks on a debounce whenever an input changes.
-- `layer.weave` runs from a tiled grid to one picture covering the surface,
-  gathered in the middle by a veil of the background colour, pushed *in front
-  of* its own layer because in CSS the first background is the nearest.
-- **A picture's opacity is baked into its own alpha**, not veiled. The veil
-  used to carry it — a flat wash of the background colour laid back over the
-  picture — which works for one layer on a flat page and is useless for two,
-  because the wash hides whatever is under it. `Treatment.alpha` multiplies
-  the tile's alpha in `texture.ts` instead, so a half-solid layer is half
-  see-through and a stack reads as a stack. The slider is "How solid".
+- **Nothing a layer emits may be an opaque wash of the base colour.** This is
+  the rule the whole stack rests on, and it was broken twice. A picture's
+  opacity used to be a flat veil of the background colour laid back over the
+  tile, and its weave a radial veil of the same — both fine on a single layer
+  over a flat page, both fatal to a stack, because a veil covers the layers
+  underneath exactly as well as it fades the picture. `Treatment.alpha` and
+  `Treatment.weave` cut into the tile's *own* alpha in `texture.ts` now
+  (`fade`, `weaveEdges`), `veilFor` is gone, and what shows through a
+  half-solid layer is the layer below it. The sliders are "How solid" and
+  "Weave"; `layer.weave` still runs from a tiled grid to one picture covering
+  the surface, thinning toward its edges so tiles bleed into each other.
+- **A grain is painted in its colour, like everything else.** `noise`, `grain`
+  and `paper` used to desaturate their turbulence and lay the grey straight
+  down, so three of the fourteen kinds silently ignored the colour role and,
+  turned up, became an opaque grey lid. The filter now takes the noise's
+  luminance as *alpha* and a `feColorMatrix` constant column as the colour, so
+  a grain is a scatter of holes in a palette colour. Its opacity is
+  `opacity ** 0.7` on the tile — steep where a grain lives, and still reaching
+  1, where a straight multiplier saturated halfway up the slider and the top
+  half did nothing.
 - `affects(kind)` says which controls a texture kind can actually use, and the
   panel only draws those. A slider that moves and changes nothing is worse
   than one that is not there.
@@ -334,6 +345,12 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   to the part's own default. The footer's social row is the first of these:
   one footer part, three shapes, and everything it holds on show — because a
   part with variations you cannot see is a part you have to guess at.
+- **The panel shows the stack, not just the layers.** `StackPreview` runs the
+  real compositor over the real layers, grouped by where they land, and every
+  swatch sits on a checkerboard — a column of chips over an opaque ground
+  tells you what each layer is and nothing about what they do together, which
+  is the only question worth asking once there is more than one of them, and
+  it makes a see-through layer and a lid look identical.
 - **The texture stack is a stack.** A new layer goes on top (index 0 is the
   front, as `textureCss` reads it). Every layer shows the same seven controls
   in the same order — where it lands, how solid, scale, angle, contrast, hue,

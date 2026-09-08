@@ -12,7 +12,7 @@ import * as React from "react";
 import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, shiftHue, type BlendMode, type Harmony,
+  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, shiftHue, lands, type BlendMode, type Harmony,
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
 import { flattenLayers, treatImage, treatmentKey } from "./texture";
@@ -225,10 +225,66 @@ function ColourSection() {
 /* The texture stack                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A checkerboard, so a hole in a layer looks like a hole.
+ *
+ * Every swatch used to be painted over the page's background colour, which
+ * meant a layer at 20% and a solid chip of tinted background looked the same
+ * and you could not tell, from the panel, which of your layers was see-through
+ * and which was a lid.
+ */
+const CHECKS: React.CSSProperties = {
+  backgroundImage:
+    "conic-gradient(var(--elevated) 25%, var(--bg) 0 50%, var(--elevated) 0 75%, var(--bg) 0)",
+  backgroundSize: "10px 10px",
+};
+
 function Swatch({ layer, palette }: { layer: TextureLayer; palette: Palette }) {
-  // The real compositor, on one layer, so the chip cannot drift from the page.
-  const style = textureCss([{ ...layer, on: true }], palette, palette.bg);
-  return <div className="size-9 shrink-0 rounded-md border border-border" style={style} />;
+  // The real compositor, on one layer, over nothing — so the chip shows the
+  // layer itself rather than the layer plus a ground it may not have.
+  const style = textureCss([{ ...layer, on: true }], palette, "transparent");
+  return (
+    <div className="size-8 shrink-0 overflow-hidden rounded-md border border-border" style={CHECKS}>
+      <div className="size-full" style={style} />
+    </div>
+  );
+}
+
+/**
+ * The stack as the page will actually paint it.
+ *
+ * A column of chips tells you what each layer is and nothing about what they
+ * do together, which is the only question worth asking once there is more than
+ * one of them. This is the same compositor on the same layers, grouped the way
+ * the page groups them — so a layer quietly covering the one beneath it shows
+ * up here, in the panel, instead of as a mystery on the board.
+ */
+function StackPreview({ layers, palette }: { layers: TextureLayer[]; palette: Palette }) {
+  const on = layers.filter((l) => l.on);
+  const groups = [
+    { key: "page" as const, label: "Background", base: palette.bg },
+    { key: "surfaces" as const, label: "Surfaces", base: palette.surface },
+    { key: "over" as const, label: "Over it all", base: "transparent" },
+  ];
+  const shown = groups
+    .map((g) => ({ ...g, list: on.filter((l) => lands(l, g.key)) }))
+    .filter((g) => g.list.length > 0);
+  if (!shown.length) return null;
+  return (
+    <div data-look-stack="" className="space-y-1">
+      {shown.map((g) => (
+        <div key={g.key} className="flex items-center gap-2">
+          <span className="w-[62px] shrink-0 truncate text-[9px] text-fg-muted">{g.label}</span>
+          <div className="h-6 min-w-0 flex-1 overflow-hidden rounded border border-border" style={CHECKS}>
+            <div className="size-full" style={textureCss(g.list, palette, g.base)} />
+          </div>
+          <span className="w-10 shrink-0 text-right text-[9px] tabular-nums text-fg-faint">
+            {g.list.length} up
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Blend modes, named for what they look like rather than for the maths. */
@@ -257,8 +313,9 @@ function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
       angle: layer.angle,
       hue: layer.hue ?? 0,
       alpha: layer.opacity,
+      weave: layer.weave ?? 0,
     }),
-    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue, layer.opacity],
+    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue, layer.opacity, layer.weave],
   );
 
   React.useEffect(() => {
@@ -349,6 +406,8 @@ function TextureSection() {
     >
       <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
 
+      <StackPreview layers={look.texture} palette={palette} />
+
       {look.texture.length === 0 ? (
         <p className="rounded-md border border-dashed border-border p-3 text-center text-[10px] leading-snug text-fg-muted">
           Drop a picture here, or stack a layer. A picture is turned into a pattern you can paint in any
@@ -366,7 +425,7 @@ function TextureSection() {
           return (
             <div key={layer.id} className={cn("rounded-md border", open ? "border-accent/60 bg-elevated/60" : "border-border")}>
               {picture && layer.src ? <Baker layer={layer} tint={shiftHue(palette[layer.role], layer.hue ?? 0)} /> : null}
-              <div className="flex items-center gap-2 p-1.5">
+              <div className="flex items-center gap-1.5 p-1.5">
                 <input
                   type="checkbox"
                   checked={layer.on}

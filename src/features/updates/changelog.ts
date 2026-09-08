@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.11",
+    title: "A stack that stacks",
+    summary: "Layers stopped painting the page colour over each other, so colour comes through transparency.",
+    sketch: "picture",
+    added: [
+      "Turn a layer down and what you see under it is the layer below, not a wash of the background.",
+      "Weaving a picture thins it toward its edges instead of laying a disc of background over the whole stack.",
+      "Noise, grain and paper take their colour role like every other kind — a grain was always grey, and turned up it was a lid.",
+      "Their solidity slider bites all the way up; it used to stop moving halfway.",
+      "The panel shows the stack as the page will paint it, grouped by where each layer lands.",
+      "Every swatch sits on a checkerboard, so a see-through layer and a solid one no longer look the same.",
+    ],
+  },
+  {
     version: "0.10",
     title: "The stack, rebuilt",
     summary: "Textures got a flat ground, a merge, and the same controls every time you open one.",

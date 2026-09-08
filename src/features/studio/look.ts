@@ -320,6 +320,13 @@ export function newLayer(kind: TextureKind = "noise"): TextureLayer {
 
 const svgUrl = (svg: string) => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 
+/** A colour as three 0..1 channels, for an SVG filter matrix. */
+function channels(colour: string): [string, string, string] {
+  const parsed = parseColor(colour);
+  const rgb = parsed ? oklchToRgb(parsed) : ([1, 1, 1] as [number, number, number]);
+  return rgb.map((v) => v.toFixed(4)) as [string, string, string];
+}
+
 /** One layer as a CSS background image, plus how it is laid out. */
 export function layerCss(layer: TextureLayer, colour: string): { image: string; size: string; repeat?: string } | null {
   const { kind, scale, angle, contrast: k } = layer;
@@ -343,17 +350,44 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
         repeat: "no-repeat",
       };
     }
+    /**
+     * Grain, in the layer's own colour.
+     *
+     * This used to desaturate the turbulence and lay the grey down as-is,
+     * which meant three of the fourteen kinds quietly ignored the colour role
+     * — a grain was always grey, and turned up it was an opaque grey lid over
+     * whatever was under it. Now the noise's brightness becomes the *alpha*
+     * and the role colour becomes the colour, so a grain is a scatter of holes
+     * in the palette: it tints, and the layers beneath it still read.
+     */
     case "noise":
     case "grain":
     case "paper": {
-      // Opacity lands in the SVG itself, since a grain layer has no colour to fade.
       const freq = kind === "noise" ? 0.9 : kind === "grain" ? 0.42 : 0.02;
       const octaves = kind === "paper" ? 4 : 2;
-      const alpha = ((0.25 + k * 0.75) * Math.max(0.02, layer.opacity) * 4).toFixed(3);
+      const [r, g, b] = channels(colour);
+      // Low contrast keeps the soft middle of the noise, so it reads as a
+      // wash; high keeps only the peaks, so it reads as specks.
+      const gamma = (0.5 + k * 2.5).toFixed(3);
+      // Opacity lands on the tile rather than in the colour, because the
+      // colour is already carrying the grain's own shape. The curve is steep
+      // at the bottom, where a grain lives, and still reaches 1 — a straight
+      // multiplier either made the useful end unusable or flattened out
+      // halfway up, so the top half of the slider did nothing.
+      const alpha = Math.pow(Math.max(0.01, Math.min(1, layer.opacity)), 0.7).toFixed(3);
       // Turbulence has no direction of its own, so the tile is turned instead —
       // which does change the grain, because the field is not symmetric.
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}"><filter id="f"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${octaves}" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><g transform="rotate(${angle} ${s / 2} ${s / 2})"><rect x="${-s}" y="${-s}" width="${s * 3}" height="${s * 3}" filter="url(%23f)" opacity="${alpha}"/></g></svg>`;
-      return { image: svgUrl(svg.replace("%23f", "#f")), size: `${s}px ${s}px` };
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}">` +
+        `<filter id="f" color-interpolation-filters="sRGB">` +
+        `<feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${octaves}" stitchTiles="stitch"/>` +
+        `<feColorMatrix type="matrix" values="0 0 0 0 ${r} 0 0 0 0 ${g} 0 0 0 0 ${b} 0.2126 0.7152 0.0722 0 0"/>` +
+        `<feComponentTransfer><feFuncA type="gamma" exponent="${gamma}" amplitude="1" offset="0"/></feComponentTransfer>` +
+        `</filter>` +
+        `<g transform="rotate(${angle} ${s / 2} ${s / 2})">` +
+        `<rect x="${-s}" y="${-s}" width="${s * 3}" height="${s * 3}" filter="url(#f)" opacity="${alpha}"/>` +
+        `</g></svg>`;
+      return { image: svgUrl(svg), size: `${s}px ${s}px` };
     }
     case "scanlines":
       return { image: `repeating-linear-gradient(${angle}deg, ${colour} 0 ${line}px, transparent ${line}px ${Math.max(line + 1, s / 4)}px)`, size: "auto" };
@@ -439,9 +473,15 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
  * The whole stack as one set of CSS properties, painted over `base`.
  *
  * The background colour is never replaced — it is the bottom of the stack and
- * every layer sits over it. A picture layer is veiled with that same colour to
- * carry its opacity, and, when it is woven, to draw its edges back down into
- * the background so the middle is where the texture concentrates.
+ * every layer sits over it.
+ *
+ * Nothing a layer emits is allowed to be an opaque wash of that background
+ * colour. It used to be: a picture was veiled with it to carry its opacity and
+ * its weave, which worked on a single layer over a flat page and destroyed
+ * every stack, because the veil covered the layers underneath as surely as it
+ * faded the picture. Opacity and weave are cut into the tile's own alpha now
+ * (`texture.ts`), so what is under a half-solid layer is the layer below it,
+ * not the page colour painted over the top of it.
  */
 export function textureCss(layers: TextureLayer[], palette: Palette, base: string): React.CSSProperties {
   const on = layers.filter((l) => l.on);
@@ -464,19 +504,14 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
   };
 
   for (const l of on) {
-    // A generated pattern carries its opacity in its own colour; a picture
-    // cannot, so it gets a veil of the background colour instead.
+    // A generated pattern carries its opacity in its own colour; a picture and
+    // a grain carry theirs in the tile, because there is no single colour to
+    // fade — see `texture.ts` and the grain case in `layerCss`.
     const picture = l.kind === "image";
     const role = shiftHue(palette[l.role], l.hue ?? 0);
     const colour = withAlpha(role, GRAINY.has(l.kind) || picture ? 1 : l.opacity);
     const built = layerCss(l, colour);
     if (!built) continue;
-    // Earlier in the list is nearer the front, so the veil goes in first: it
-    // has to sit over its own picture to fade it, not behind it.
-    if (picture) {
-      const veil = veilFor(l, base);
-      if (veil) push(veil, "cover", "no-repeat", "normal");
-    }
     push(built.image, built.size, built.repeat ?? "repeat", l.blend);
   }
 
@@ -514,27 +549,6 @@ function splitLayers(value: string): string[] {
   }
   out.push(value.slice(start).trim());
   return out.filter(Boolean);
-}
-
-/**
- * The background colour, drawn back over a picture toward its rim the more it
- * is woven, so the picture gathers in the middle.
- *
- * It used to carry the layer's opacity too, as a flat wash of the background
- * colour — which meant a half-faded picture painted half a page of solid
- * colour over anything beneath it, and two picture layers could never be seen
- * at once. Opacity is baked into the tile's own alpha now (see `texture.ts`),
- * so what is left here is only the weave, and layers stack.
- */
-function veilFor(layer: TextureLayer, base: string): string | null {
-  const woven = Math.max(0, Math.min(1, layer.weave ?? 0));
-  // A layer painted over the finished page has nothing to fade back into.
-  if (woven <= 0.001 || base === "transparent") return null;
-  // The hole in the middle closes as the weave goes up, so the picture ends up
-  // gathered in the centre with the background taking the edges.
-  const clear = withAlpha(base, 0);
-  const hole = Math.round(70 - woven * 62);
-  return `radial-gradient(circle at 50% 50%, ${clear} 0%, ${clear} ${hole}%, ${withAlpha(base, 0.92)} 100%)`;
 }
 
 /** Put an alpha on a colour however it was written. */

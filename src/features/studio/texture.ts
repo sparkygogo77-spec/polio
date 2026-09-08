@@ -49,6 +49,16 @@ export interface Treatment {
    * half see-through, and a stack reads as a stack.
    */
   alpha: number;
+  /**
+   * How much the tile thins toward its edges, 0..1.
+   *
+   * Same story as `alpha`, and the same fix: the weave used to be a radial
+   * wash of the *page* colour laid over the picture, so a woven layer painted
+   * an opaque disc over every layer beneath it. Cut into the tile's own alpha
+   * it is a hole, not a lid — tiles bleed into each other and into whatever is
+   * under them.
+   */
+  weave: number;
 }
 
 /** The baked tile is small on purpose: the document lives in localStorage. */
@@ -61,6 +71,7 @@ export function treatmentKey(t: Treatment): string {
     `a${Math.round(t.angle)}`,
     `h${Math.round(t.hue)}`,
     `o${clamp01(t.alpha).toFixed(2)}`,
+    `w${clamp01(t.weave).toFixed(2)}`,
   ].join("|");
 }
 
@@ -92,6 +103,7 @@ export async function treatImage(src: string, t: Treatment): Promise<string> {
   if (t.cutout) keyOutBackground(data, t.tolerance);
   if (t.pattern) toPattern(data, t.contrast, t.tint);
   fade(data, t.alpha);
+  weaveEdges(data, t.weave);
   ctx.putImageData(data, 0, 0);
 
   const out = t.angle % 360 === 0 ? canvas : rotate(canvas, t.angle);
@@ -110,6 +122,34 @@ function fade(data: ImageData, alpha: number) {
   if (a >= 0.999) return;
   const px = data.data;
   for (let i = 3; i < px.length; i += 4) px[i] = Math.round(px[i]! * a);
+}
+
+/**
+ * Thin the tile toward its edges, so a woven picture gathers in the middle.
+ *
+ * The clear circle in the centre shrinks as the weave goes up; outside it the
+ * alpha falls away to almost nothing at the corners. Because it is the tile's
+ * own alpha and not a wash of colour, what shows through the thin part is the
+ * layer underneath — which is the whole point of a stack.
+ */
+function weaveEdges(data: ImageData, weave: number) {
+  const w = clamp01(weave);
+  if (w <= 0.001) return;
+  const { width, height, data: px } = data;
+  const cx = (width - 1) / 2;
+  const cy = (height - 1) / 2;
+  const max = Math.max(1, Math.hypot(cx, cy));
+  const hole = 0.7 - w * 0.62;
+  const span = Math.max(0.001, 1 - hole);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const d = Math.hypot(x - cx, y - cy) / max;
+      if (d <= hole) continue;
+      const t = Math.min(1, (d - hole) / span);
+      const i = (y * width + x) * 4 + 3;
+      px[i] = Math.round(px[i]! * (1 - t * 0.92));
+    }
+  }
 }
 
 /**
