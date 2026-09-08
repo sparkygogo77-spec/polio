@@ -156,6 +156,17 @@ interface StudioState extends Doc {
    * compared live.
    */
   menuShape: "square" | "round";
+  /**
+   * How far the part menu is turned, in turns (0..1).
+   *
+   * The menu used to face the middle of the screen, which meant it was a
+   * different shape every time you opened it and your hand never learned
+   * where anything was. It is locked now — Delete is always bottom-left,
+   * Looks always bottom-right — and this is the one way it moves: hold the
+   * right button and drag to turn the whole wheel to wherever suits you. It
+   * is remembered, because a menu you rearranged once should stay that way.
+   */
+  menuSpin: number;
   /** The phone/tablet companion: which device, where it sits, whether it is open.
    * Closed to start: it floats over the board, and a panel that covers a resize
    * handle you cannot see is worse than one click to open it. */
@@ -212,6 +223,7 @@ interface StudioState extends Doc {
   setShowWires: (v: boolean) => void;
   setMode: (m: BoardMode) => void;
   setMenuShape: (v: "square" | "round") => void;
+  setMenuSpin: (turns: number) => void;
   setCompanion: (patch: Partial<StudioState["companion"]>) => void;
   hideFeature: (id: string) => void;
   restoreFeature: (id: string) => void;
@@ -292,6 +304,7 @@ export const useStudio = create<StudioState>()(
         ...starterDoc(),
         frameWidth: FRAME_WIDTHS.desktop,
         menuShape: "square",
+        menuSpin: 0,
         fitNonce: 0,
         activePageId: "page_home",
         selection: [],
@@ -635,6 +648,7 @@ export const useStudio = create<StudioState>()(
         setShowWires: (v) => set({ showWires: v }),
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
         setMenuShape: (v) => set({ menuShape: v }),
+        setMenuSpin: (turns) => set({ menuSpin: ((turns % 1) + 1) % 1 }),
         setCompanion: (patch) => set((s) => ({ companion: { ...s.companion, ...patch } })),
         hideFeature: (id) => set((s) => (s.hiddenFeatures.includes(id) ? {} : { hiddenFeatures: [...s.hiddenFeatures, id] })),
         restoreFeature: (id) => set((s) => ({ hiddenFeatures: s.hiddenFeatures.filter((x) => x !== id) })),
@@ -728,6 +742,7 @@ export const useStudio = create<StudioState>()(
             };
           })(),
           companion: { ...current.companion, ...(p.companion ?? {}) },
+          menuSpin: Number.isFinite(p.menuSpin) ? (p.menuSpin as number) : 0,
           // A crate saved before a setting existed still has to open.
           motion: (p.motion ?? []).map((m) => ({
             ...newMotion(m.name),
@@ -751,6 +766,7 @@ export const useStudio = create<StudioState>()(
         hiddenFeatures: s.hiddenFeatures,
         companion: s.companion,
         menuShape: s.menuShape,
+        menuSpin: s.menuSpin,
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,

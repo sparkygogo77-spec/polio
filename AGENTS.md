@@ -226,12 +226,17 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   footer reveals them, clicking one restores it, and one command puts them all
   back. An emptied category loses its chip. A part already on a board keeps
   working when its tile is removed. Prefer pruning to shipping a crowded panel.
-- Right-clicking a **part** opens the wheel (`RadialMenu.tsx`), not a list: six
-  wedges — Contents, Size & place, Look, Links & data, Prompt, More — as a half
-  circle facing away from the nearest screen edge, each opening one small panel.
-  Everything else keeps a short list menu; a wheel of three items is worse than
-  a list. If you add controls to a part, put them in the right wedge rather than
-  lengthening anything.
+- Right-clicking a **part** opens the wheel (`RadialMenu.tsx`), not a list —
+  see the geometry note below. Everything else keeps a short list menu; a wheel
+  of three items is worse than a list. If you add controls to a part, put them
+  in the right quadrant rather than lengthening anything.
+- **The wheel is the whole editor, and the right panel is the convenience.**
+  Anything the Inspector can do to one part, the wheel can do too: the per-part
+  options that used to be panel-only live under `Edit ▸ Options`, and the board
+  tint and glyph under `Edit ▸ Tint` and `Edit ▸ Glyph`. Add a per-part control
+  to both, or to the wheel alone — never to the panel alone. What is still
+  panel-only is what is not a part: a page's prompt, a drawn shape, a group's
+  name and prompt, and the bulk edits that apply to a whole selection.
 - `look` in the store holds six colour roles and a texture stack, and every
   `themeFrom(format, look)` call reads it — the board frame, the live site, the
   companion and the library previews all repaint together. Roles override what
@@ -368,35 +373,64 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   blend modes, same order — drawn to a canvas and returned as a tile, which
   `mergeTexture` swaps in for both. A browser that will not render
   foreignObject returns null and the layers are left alone.
-- **The part menu is four quadrants round the pointer** (`RadialMenu.tsx`).
-  The quadrant facing the middle of the screen is left **empty** — that is
-  where the eye already is, and where level two opens. The pointer keeps a
-  clear circle with the **lock** in it as a tiny toggle. Each working quadrant
-  is cut once more at `MID`: an inner band and an outer block, which is how
-  three quadrants carry six buttons without a sliver.
+- **The part menu is four quadrants round the pointer** (`RadialMenu.tsx`), and
+  the layout never moves:
 
       empty  │  Animation (inner) · Prompt (outer)
     ─────────●─────────
      Delete  │  Duplicate · Edit (inner) · Looks (outer)
 
-  Delete is the whole quadrant beside the empty one, undivided, mirrored from
-  the quadrant opposite it (`quadrants()` picks the empty one from the
-  direction to the screen centre and vertically mirrors it for Delete).
-  Level 2 is **green**: it replaces the blue entirely and fills the quadrant
-  that was empty, cut the same way. Level 3 is **amber**: the one editor the
-  green choice needs, anchored at the outer corner of the quadrant opposite
-  green and clamped to the viewport. Escape steps back one level at a time.
-  `Edit` is the catch-all — name, contents, size, links, data.
-  Every piece is one path from `piece()`: arc in, out along a seam, round the
-  outside, back down the next seam. The outer edge is cut square by default
-  and can be swept round instead — `menuShape` in the store, toggled by the
-  ◻/◯ chip sitting in the empty quadrant, which is the draft option to
-  compare against. Faces are lit gradients with an edge always *darker* than
-  the face, and reaching for one lifts it a pixel.
-  It sits at `z-[68]`, above the top bar, or a menu opened near an edge has
-  pieces behind the chrome. Its outside-click handler ignores Radix portals —
-  a select's list is not a descendant of the menu, and closing on it shut the
-  whole thing the moment you picked an option.
+  It used to swing so the empty quadrant faced the middle of the screen, which
+  meant the menu was a different shape depending on where you clicked and your
+  hand could never learn it. Delete is bottom-left. Looks is bottom-right.
+  Always. The one thing that moves it is `menuSpin`: hold the **right button**
+  down on an open menu and drag, and the whole wheel turns to any orientation,
+  chased at a fifth of the way per frame rather than pinned to the pointer, and
+  remembered. A turn swallows the `contextmenu` the button's release would
+  otherwise fire, or the page's own menu lands on top of the wheel you were
+  arranging.
+- Each working quadrant is cut once more at `MID` into an inner band and an
+  outer block, which is how three quadrants carry six buttons. Delete is the
+  whole quadrant beside the empty one, undivided. The pointer keeps a clear
+  circle with the **lock** in it. Level 2 is **green** and takes the quadrant
+  that was empty; a group of more than four takes the quadrant below it as
+  well, since the blue level is gone by then and there is nothing down there to
+  cover. Level 3 is **crimson** and *replaces* the green rather than opening
+  beside it — same anchor, same direction, different colour, and the menu is
+  only ever one thing at a time. Escape steps back one level.
+- **The geometry is drawn inset and grown back.** `piece()` pulls every path in
+  by `ROUND` and half a `SEAM` and the renderer strokes it back out with a
+  round-joined stroke of its own colour, which is what curves every corner —
+  including where a wedge narrows to a point at the pointer, which is where a
+  wedge otherwise looks sharpest and worst. Hovering just strokes *wider*,
+  taking a couple of pixels back out of the seam, which is why the seams are
+  cut wider than they need to look. The angular part of the seam is worked out
+  per radius, so it is the same number of pixels wide against the pointer as at
+  the outer edge; a fixed angle is a hairline inside and a canyon outside, and
+  that is what made the ring read as one shape with lines drawn on it. Square
+  outer edges land on the square's real corners, so a piece that turns a corner
+  turns it at a right angle instead of cutting it off with a chord.
+- **Flat colour, no gradient.** A vertical gradient under a heavy drop shadow
+  read as a lump of dark glass. One flat colour reads as one button: the old
+  *hover* colour is the resting colour and hover goes a step brighter again,
+  with an edge always darker than the face.
+- `menuShape` (square or swept round) is set from the **toolbar**, not from the
+  menu — a toggle that only exists while the thing it changes is open is a
+  toggle you can never find again. It lights up while a menu is open, and the
+  outside-click handler exempts `[data-menu-shape]` so flipping it does not
+  shut the menu you were comparing. It also exempts Radix portals: a select's
+  list is not a descendant of the menu, and closing on it shut the whole thing
+  the moment you picked an option.
+  The menu sits at `z-[68]`, above the top bar, or one opened near an edge has
+  pieces behind the chrome.
+- **There is no prompt bar.** The master prompt lives inside the blueprint
+  dialog, where it is read; the way in is one round blue button over the top
+  right of the board (`.finish-orb`, `[data-finish]`). A text field stretched
+  across the width of the page tabs was permanent chrome for something touched
+  twice in a session, and the widest thing on screen for the least frequent
+  thing on it. The orb is the only control in the Builder allowed to look like
+  an object rather than a control, and its light comes from the top left like
+  the page's own lamp.
 - **A part carries `anim`, `aura` and `texture` of its own** beside `colour`.
   `anim` is a CSS animation name from `ENTRANCES` played on the live site
   only — the board draws where a part ends up, so laying out a page never

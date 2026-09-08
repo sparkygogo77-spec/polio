@@ -10,8 +10,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Eraser, Eye, FileText, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
-  Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Tablet, Undo2, ZoomIn, ZoomOut,
+  ArrowUpRight, Circle, Eraser, Eye, FileText, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { PreviewWindow } from "./Preview";
@@ -24,13 +24,12 @@ import { PagesPanel } from "./PagesPanel";
 import { BriefDialog, useCompiledBrief } from "./BriefDialog";
 import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
-import { RadialMenu } from "./RadialMenu";
+import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Textarea } from "@/core/ui/textarea";
-import { Input } from "@/core/ui/input";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
@@ -61,32 +60,29 @@ function ModeSwitch() {
   );
 }
 
-/** The one prompt that says what the site is, and the button that compiles it. */
-function PromptStrip({ onOpenBrief }: { onOpenBrief: () => void }) {
-  const master = useStudio((s) => s.brief.master);
+/**
+ * The way out of the Builder: one round button, over the top right of the board.
+ *
+ * It used to be a text field stretched across the width of the page tabs with
+ * a small button beside it — a permanent strip of chrome for something you
+ * touch twice in a session, and the widest thing on the screen for the least
+ * frequent thing on it. The prompt moved inside the blueprint, where it is
+ * read, and what is left here is the door.
+ */
+function FinishButton({ onOpenBrief }: { onOpenBrief: () => void }) {
   const spec = useCompiledBrief();
   return (
-    <>
-      <Input
-        className="min-w-0 flex-1"
-        placeholder="Say what you want this to be — everything on the board is the context"
-        value={master}
-        onChange={(e) => useStudio.getState().setBrief({ master: e.target.value })}
-        aria-label="Master prompt"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            onOpenBrief();
-          }
-        }}
-      />
-      <Tooltip content={`${spec.stats.elements} placed · ${spec.stats.prompted} prompted`}>
-        <Button variant="primary" size="sm" onClick={onOpenBrief} shortcut="mod+enter">
-          <Send />
-          Finish
-        </Button>
-      </Tooltip>
-    </>
+    <Tooltip content={`Finish — ${spec.stats.elements} placed · ${spec.stats.prompted} prompted`} shortcut="mod+enter">
+      <button
+        type="button"
+        aria-label="Finish"
+        data-finish=""
+        onClick={() => { play("confirm"); onOpenBrief(); }}
+        className="finish-orb absolute right-4 top-4 z-30 flex size-14 items-center justify-center rounded-full text-white"
+      >
+        <Send className="size-6 translate-x-[-1px] translate-y-[1px]" strokeWidth={2.1} />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -99,6 +95,8 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
   const showWires = useStudio((s) => s.showWires);
   const past = useStudio((s) => s.past.length);
   const future = useStudio((s) => s.future.length);
+  const shape = useStudio((s) => s.menuShape);
+  const menuOpen = useRadialOpen();
   const router = useRouter();
   const mode = useStudio((s) => s.mode);
 
@@ -180,6 +178,26 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
 
       <span className="flex-1" />
 
+      {/*
+        The part menu's outer edge, set here rather than on the menu itself.
+        A toggle that only exists while the thing it changes is open is a
+        toggle you can never find again; and it lights up the moment a menu
+        opens, so which setting it belongs to needs no explaining.
+      */}
+      <Tooltip content={shape === "square" ? "Part menu: square edge — switch to round" : "Part menu: round edge — switch to square"}>
+        <Button
+          variant={menuOpen ? "subtle" : "ghost"}
+          size="iconXs"
+          aria-label={shape === "square" ? "Round the part menu" : "Square off the part menu"}
+          aria-pressed={shape === "round"}
+          data-menu-shape={shape}
+          className={cn(menuOpen && "ring-1 ring-accent")}
+          onClick={() => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); }}
+        >
+          {shape === "square" ? <Square /> : <Circle />}
+        </Button>
+      </Tooltip>
+
       <Tooltip content="Fit the frame in view" shortcut="f">
         <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => useStudio.getState().requestFit()}>
           <Scan />
@@ -220,7 +238,7 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
   );
 }
 
-function PageTabs({ onOpenBrief }: { onOpenBrief: () => void }) {
+function PageTabs() {
   const pages = useStudio((s) => s.pages);
   const activeId = useStudio((s) => s.activePageId);
   const nodes = useStudio((s) => s.nodes);
@@ -256,7 +274,6 @@ function PageTabs({ onOpenBrief }: { onOpenBrief: () => void }) {
         </Button>
       </Tooltip>
       </div>
-      <PromptStrip onOpenBrief={onOpenBrief} />
     </div>
   );
 }
@@ -292,7 +309,7 @@ export function StudioPage() {
     // the page behind it cannot scroll while you are drawing on it.
     <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 flex-col overflow-hidden">
       <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} onOpenBrief={() => setBriefOpen(true)} />
-      <PageTabs onOpenBrief={() => setBriefOpen(true)} />
+      <PageTabs />
 
       <div className="flex min-h-0 flex-1">
         {/* Colour and texture on the left; the parts library lives under the
@@ -342,6 +359,7 @@ export function StudioPage() {
               <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
             <PreviewWindow />
+            {design ? <FinishButton onOpenBrief={() => setBriefOpen(true)} /> : null}
           </div>
           {design ? (
             <div className="w-full shrink-0" style={{ height: "100%" }}>

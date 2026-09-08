@@ -11,6 +11,7 @@ import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Dialog } from "@/core/ui/dialog";
 import { Segmented } from "@/core/ui/segmented";
+import { Textarea } from "@/core/ui/textarea";
 import { Badge } from "@/core/ui/badge";
 import { useActions } from "@/core/actions";
 
@@ -34,6 +35,7 @@ export function useCompiledBrief() {
 
 export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const spec = useCompiledBrief();
+  const master = useStudio((s) => s.brief.master);
   const ctx = useActions();
   const [view, setView] = React.useState<"brief" | "json" | "result">("brief");
   const [mode, setMode] = React.useState<Mode>("plan");
@@ -105,6 +107,24 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       }
     >
       <div className="flex flex-col gap-2">
+        {/*
+          The master prompt lives here now rather than in a strip across the
+          top of the Builder. It is read at exactly this moment — with the
+          brief it heads sitting underneath it — and it was chrome everywhere
+          else.
+        */}
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">What this should be</span>
+          <Textarea
+            autoGrow
+            rows={2}
+            aria-label="Master prompt"
+            placeholder="Say what you want this to be — everything on the board is the context"
+            value={master}
+            onChange={(e) => useStudio.getState().setBrief({ master: e.target.value })}
+          />
+        </label>
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Segmented
             size="xs"

@@ -25,6 +25,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.12",
+    title: "The menu, lighter and locked",
+    summary: "Flat colour, separated pieces, one fixed layout you can turn by hand — and the prompt bar is gone.",
+    sketch: "palette",
+    added: [
+      "Every piece is one flat colour with rounded corners and a real gap round it, instead of a gradient in a dark box.",
+      "Reaching for one takes a couple of pixels back out of that gap and goes a shade brighter.",
+      "The layout never moves: Delete bottom-left, Looks bottom-right, wherever on the screen you click.",
+      "Hold the right button on an open menu and drag to turn the whole wheel to any orientation. It stays where you leave it.",
+      "Square edges turn real right angles at the corners, and the whole thing is smaller.",
+      "Picking an editor replaces the green quadrant with a red panel in the same place, rather than opening a box beside it.",
+      "Edit now holds everything the side panel held: options, board tint and glyph as well as name, contents, size, links and data.",
+      "The square/round toggle moved to the toolbar and lights up while a menu is open.",
+      "The prompt bar under the toolbar is gone. The master prompt is in the blueprint, and the way there is one round blue button over the board.",
+    ],
+  },
+  {
     version: "0.11",
     title: "A stack that stacks",
     summary: "Layers stopped painting the page colour over each other, so colour comes through transparency.",

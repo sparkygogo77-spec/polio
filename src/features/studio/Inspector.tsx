@@ -24,14 +24,14 @@ import { Badge } from "@/core/ui/badge";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
 
-const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
+export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
 /**
  * A set option: every preset on offer as a chip, the ones that are on filled
  * in. Click to add, click to take away — which is what "these social links,
  * not those" wants to be, and what a dropdown can never say.
  */
-function OptionSet({ option, value, onChange }: { option: FeatureOption; value?: string; onChange: (v: string) => void }) {
+export function OptionSet({ option, value, onChange }: { option: FeatureOption; value?: string; onChange: (v: string) => void }) {
   const on = React.useMemo(
     () => new Set((value === undefined ? option.preset ?? "" : value).split(",").map((s) => s.trim()).filter(Boolean)),
     [value, option.preset],
@@ -79,7 +79,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-function HuePicker({ value, onChange }: { value: number | null; onChange: (h: number | null) => void }) {
+export function HuePicker({ value, onChange }: { value: number | null; onChange: (h: number | null) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       <button
