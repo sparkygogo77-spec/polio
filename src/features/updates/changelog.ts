@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.19",
+    title: "The drawing board",
+    summary: "Draw is the outer top-right slab of the part menu, and it turns the whole wheel into a dark disc you draw the part's shape on.",
+    sketch: "frame",
+    added: [
+      "Draw sits on the outer block of the top-right quadrant; Prompt moves in beside Animation on the inner band, icon only, so both working quadrants are cut the same way.",
+      "Press it and the wheel is gone: one dark disc the size of the whole menu, no hole in the middle, every pixel of it drawing surface. Back and Clear sit on the top of its rim, Make real on the bottom.",
+      "Draw the shape the part should be, add words in the strip under it if the drawing alone would not say, and press Make real: Claude reads the picture, the part as it is, the words and the whole library, and answers with what the part becomes — size, kind, contents, options.",
+      "Without a key the board still works: the part takes the drawing's proportion, and the drawing is kept on the part and written into the blueprint as a \"drawn\" line, so the shape reaches whoever builds the site either way.",
+      "The board's own right-click menu has \"Draw a new part here\": the same disc with no part under it, and the drawing becomes a new part in that shape, at that spot.",
+    ],
+  },
+  {
     version: "0.18",
     title: "The aura, seen",
     summary: "Aura gets colour boxes, a spectrum, a sample block with styles and sizes; the middle button is the way back.",

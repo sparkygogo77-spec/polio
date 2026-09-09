@@ -1,5 +1,5 @@
 import {
-  ArrowUpRight, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
+  ArrowUpRight, Brush, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
   MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
   Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, EyeOff, Link2, Link2Off,
 } from "lucide-react";
@@ -12,6 +12,7 @@ import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
+import { openBoard } from "./RadialMenu";
 
 /** The Builder answers on /builder and keeps the old /studio addresses working. */
 const onStudio = () => typeof window !== "undefined" && /^\/(builder|studio)/.test(window.location.pathname);
@@ -419,6 +420,9 @@ export const studio = defineFeature({
           addFeatureMenu(at),
           { id: "studio.canvas.idea", label: "Drop a new idea here", icon: Lightbulb, onSelect: () => { s.addNode("custom-idea", at.x - 66, at.y - 38); } },
           { id: "studio.canvas.note", label: "Pin a note here", icon: Wand2, onSelect: () => { s.addNode("note", at.x - 66, at.y - 38); } },
+          // The same drawing board a part's wheel opens, with no part under
+          // it: draw a shape, and a new part lands here in that shape.
+          { id: "studio.canvas.draw", label: "Draw a new part here", icon: Brush, onSelect: () => openBoard(target.x, target.y, at) },
           { type: "separator" },
           {
             id: "studio.canvas.tool",

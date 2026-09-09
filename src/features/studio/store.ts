@@ -24,6 +24,7 @@ import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { NodeColour } from "./parts/theme";
+import { normaliseSketch, type Sketch } from "./sketch";
 
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
@@ -70,6 +71,12 @@ export interface StudioNode {
   auraStyle: AuraStyle;
   /** A texture layer id this part wears on its own surface, or null. */
   texture: string | null;
+  /**
+   * What was drawn for it on the drawing board, and the words beside it.
+   * Kept so the board reopens with the drawing still on it, the blueprint
+   * can say what was drawn, and "make real" can be run again later.
+   */
+  sketch: Sketch | null;
 }
 
 export interface StudioGroup {
@@ -350,7 +357,7 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
-                colour: null, anim: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null,
+                colour: null, anim: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -746,6 +753,7 @@ export const useStudio = create<StudioState>()(
           nodes: (p.nodes ?? current.nodes).map((n) => ({
             ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, anim: n.anim ?? null,
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
+            sketch: normaliseSketch(n.sketch),
           })),
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),

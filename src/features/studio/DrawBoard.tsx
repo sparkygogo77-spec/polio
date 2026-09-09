@@ -1,0 +1,537 @@
+"use client";
+/**
+ * The drawing board: one dark disc over the whole part menu.
+ *
+ * Press Draw and the wheel is gone. In its place is a disc the size of the
+ * whole menu, dark like empty space, with no hole in the middle — every
+ * pixel of it is drawing surface, and the middle is where a shape naturally
+ * starts. Draw the shape the part should be; add a few words under it if the
+ * drawing alone would not say; press **Make real** and the drawing is read
+ * and the part is reshaped to it — or, from the board's own menu, a new part
+ * is made in that shape.
+ *
+ * Reading the drawing is Claude's job (`/api/studio/reshape`): it sees a
+ * picture of the strokes and the numbers behind them, the part as it is now,
+ * the whole library, and the words, and answers with what the part should
+ * become — size, kind, contents, options. Without a key the board still
+ * works honestly: the part takes the drawing's proportion (the one thing a
+ * drawing says without being read), the drawing is kept on the part, and the
+ * blueprint writes it out in words, so the shape reaches whoever builds the
+ * site either way. A drawing is never lost to a missing key.
+ *
+ * The controls are on the rim, not in the middle: the way back and the
+ * eraser sit on the top edge, Make real sits on the bottom edge, and the
+ * words go in a thin strip in the bottom cap. The disc keeps its whole face.
+ */
+import * as React from "react";
+import { Eraser, LoaderCircle, Sparkles, Undo2 } from "lucide-react";
+import { play } from "@/core/audio/engine";
+import { useActions } from "@/core/actions";
+import { Input } from "@/core/ui/input";
+import { FEATURES, getFeature } from "./catalog";
+import { BOARD_R } from "./menuGeometry";
+import { CONSOLE, SLAB_AURA, litEdge } from "./RingConsole";
+import { fitToSketch, isBlankSketch, readSketch, tidyStroke, type Sketch, type SketchPoint } from "./sketch";
+import { useStudio, type StudioNode } from "./store";
+
+/** The blue the wheel's first level wears; the one action on the board wears it too. */
+const INK_HUE = 205;
+
+/** What the reshape route answers with, before it is checked against the catalog. */
+interface ReshapePatch {
+  featureId?: string;
+  label?: string;
+  w?: number;
+  h?: number;
+  content?: string;
+  prompt?: string;
+  options?: Record<string, string>;
+  note?: string;
+}
+
+export interface DrawBoardProps {
+  /** The part being reshaped, or null when the board is drawing a new one. */
+  node: StudioNode | null;
+  /** Where a new part lands, in canvas space. Only read when there is no part. */
+  at: { x: number; y: number } | null;
+  /** Leave the board: back to the wheel's first level, or away entirely. */
+  onBack: () => void;
+  /** The drawing has been made real; the menu can go. */
+  onDone: () => void;
+}
+
+export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
+  const ctx = useActions();
+  const frameWidth = useStudio((s) => s.frameWidth);
+  const [strokes, setStrokes] = React.useState<SketchPoint[][]>(() => node?.sketch?.strokes ?? []);
+  const [words, setWords] = React.useState(() => node?.sketch?.words ?? "");
+  const [busy, setBusy] = React.useState(false);
+  const [note, setNote] = React.useState<string | null>(null);
+  const canvas = React.useRef<HTMLCanvasElement>(null);
+  const live = React.useRef<SketchPoint[] | null>(null);
+  const frame = React.useRef(0);
+  const size = BOARD_R * 2;
+
+  /* ---------------------------------------------------------- painting */
+  const paint = React.useCallback(() => {
+    frame.current = 0;
+    const el = canvas.current;
+    const c = el?.getContext("2d");
+    if (!el || !c) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (el.width !== size * dpr || el.height !== size * dpr) {
+      el.width = size * dpr;
+      el.height = size * dpr;
+    }
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paintSpace(c, size);
+    for (const s of strokes) paintStroke(c, s, size);
+    if (live.current) paintStroke(c, live.current, size);
+  }, [strokes, size]);
+
+  React.useEffect(paint, [paint]);
+  const schedule = () => {
+    if (!frame.current) frame.current = requestAnimationFrame(paint);
+  };
+
+  /* ---------------------------------------------------------- drawing */
+  const toBoard = (e: React.PointerEvent<HTMLCanvasElement>): SketchPoint => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return [(e.clientX - r.left) / Math.max(1, r.width), (e.clientY - r.top) / Math.max(1, r.height)];
+  };
+  const begin = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0 || busy) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    live.current = [toBoard(e)];
+    schedule();
+  };
+  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!live.current) return;
+    live.current.push(toBoard(e));
+    schedule();
+  };
+  const end = () => {
+    const s = live.current;
+    live.current = null;
+    if (!s) return;
+    const tidy = tidyStroke(s);
+    if (tidy.length) setStrokes((prev) => [...prev, tidy]);
+    else schedule();
+  };
+  const clear = () => {
+    if (!strokes.length) return;
+    play("close");
+    setStrokes([]);
+    setNote(null);
+  };
+
+  /* ---------------------------------------------------------- make real */
+  const sketch = (): Sketch => ({ strokes, words: words.trim() });
+  const blank = isBlankSketch({ strokes, words });
+
+  const makeReal = async () => {
+    if (blank || busy) return;
+    const drawn = sketch();
+    setBusy(true);
+    setNote(null);
+    play("confirm");
+    const s = useStudio.getState();
+    const feature = node ? getFeature(node.featureId) : null;
+    try {
+      const res = await fetch("/api/studio/reshape", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sketch: drawn,
+          picture: pictureOf(drawn.strokes),
+          frameWidth,
+          node: node
+            ? {
+                featureId: node.featureId,
+                feature: feature?.name ?? node.label,
+                label: node.label,
+                w: node.w,
+                h: node.h,
+                prompt: node.prompt,
+                content: node.content,
+                data: node.data,
+                options: node.options,
+                optionsAllowed: (feature?.options ?? []).map((o) => ({ id: o.id, label: o.label, values: o.values, kind: o.kind ?? "one" })),
+                contentLabel: feature?.content?.label ?? null,
+              }
+            : null,
+          candidates: FEATURES.map((f) => ({ id: f.id, name: f.name, category: f.category, w: f.w, h: f.h, blurb: f.blurb })),
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string };
+      if (data.ok && data.patch) {
+        const made = apply(data.patch, drawn);
+        ctx.publish({
+          key: `studio:reshape:${made.id}`,
+          title: node ? `Reshaped ${made.label}` : `Drew ${made.label}`,
+          body: [`${made.w} × ${made.h}`, data.patch.note].filter(Boolean).join(" · "),
+          level: "success",
+          source: "studio",
+          toast: true,
+        });
+        onDone();
+        return;
+      }
+      // No key, a refusal, a bad reply: the drawing still shapes the part.
+      const made = applyProportion(drawn);
+      ctx.publish({
+        key: `studio:reshape:${made.id}`,
+        title: node ? `Reshaped ${made.label} from the drawing` : `Drew ${made.label} from the drawing`,
+        body:
+          data.reason === "no-key"
+            ? "Claude isn't set up here, so the part took the drawing's proportion and the drawing went into the blueprint."
+            : data.message ?? "Claude couldn't read it, so the part took the drawing's proportion.",
+        level: "warn",
+        source: "studio",
+        toast: true,
+      });
+      onDone();
+    } catch (err) {
+      // The request itself failed. Keep the drawing on the part and stay.
+      if (node) s.updateNode(node.id, { sketch: drawn });
+      setNote(err instanceof Error ? err.message : "Couldn't reach the reshape route.");
+      play("deny");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Claude answered: check every field against the catalog and the frame, then apply it. */
+  const apply = (patch: ReshapePatch, drawn: Sketch) => {
+    const s = useStudio.getState();
+    const nextFeatureId = patch.featureId && getFeature(patch.featureId) ? patch.featureId : node?.featureId ?? "custom-idea";
+    const feature = getFeature(nextFeatureId);
+    const w = clamp(Math.round(num(patch.w, node?.w ?? feature?.w ?? 132)), 40, frameWidth);
+    const h = clamp(Math.round(num(patch.h, node?.h ?? feature?.h ?? 76)), 24, 1600);
+    const label = text(patch.label, 60) || node?.label || feature?.name || "Part";
+    const content = text(patch.content, 2000);
+    const prompt = text(patch.prompt, 2000);
+    const options = allowedOptions(patch.options, feature?.options ?? [], node?.options ?? {});
+    const shared: Partial<StudioNode> = {
+      featureId: nextFeatureId,
+      label,
+      w,
+      h,
+      options,
+      sketch: drawn,
+      ...(content ? { content } : {}),
+      ...(prompt ? { prompt } : {}),
+    };
+    if (node) {
+      s.updateNode(node.id, { ...shared, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
+      return { id: node.id, label, w, h };
+    }
+    const where = at ?? { x: frameWidth / 2, y: 200 };
+    const id = s.addNode(nextFeatureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
+    return { id, label, w, h };
+  };
+
+  /** No reader: the drawing's proportion is the reshape, and the drawing is kept. */
+  const applyProportion = (drawn: Sketch) => {
+    const s = useStudio.getState();
+    if (node) {
+      const { w, h } = fitToSketch(drawn, node.w, node.h, frameWidth);
+      s.updateNode(node.id, { w, h, sketch: drawn, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
+      return { id: node.id, label: node.label, w, h };
+    }
+    // A new part with nothing to keep the area of: the board is read as the
+    // page, so a drawing across a third of it is a part across a third of
+    // the frame.
+    const r = readSketch(drawn);
+    const w = clamp(Math.round((r.box?.w ?? 0.3) * frameWidth), 80, frameWidth);
+    const h = clamp(Math.round(w / r.aspect), 24, 1600);
+    const label = text(drawn.words, 40) || "Drawn part";
+    const where = at ?? { x: frameWidth / 2, y: 200 };
+    const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
+      w, h, label, prompt: drawn.words, sketch: drawn,
+    });
+    return { id, label, w, h };
+  };
+
+  /* ---------------------------------------------------------- the disc */
+  const caption = node ? `Draw · ${node.label}` : "Draw a new part";
+  const arcR = BOARD_R - 13;
+  const a0 = (200 * Math.PI) / 180;
+  const a1 = (340 * Math.PI) / 180;
+  const captionPath = `M ${(BOARD_R + Math.cos(a0) * arcR).toFixed(1)} ${(BOARD_R + Math.sin(a0) * arcR).toFixed(1)} A ${arcR} ${arcR} 0 0 1 ${(BOARD_R + Math.cos(a1) * arcR).toFixed(1)} ${(BOARD_R + Math.sin(a1) * arcR).toFixed(1)}`;
+  const captionId = React.useId();
+  // Where the rim buttons sit: on the circle, half outside it.
+  const rimAt = (deg: number, r = BOARD_R): React.CSSProperties => ({
+    left: BOARD_R + Math.cos((deg * Math.PI) / 180) * r,
+    top: BOARD_R + Math.sin((deg * Math.PI) / 180) * r,
+  });
+
+  return (
+    <div
+      data-draw-board=""
+      className="pointer-events-auto absolute"
+      style={{ left: -BOARD_R, top: -BOARD_R, width: size, height: size, animation: "el-grow 160ms ease-out" }}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {/* the disc */}
+      <canvas
+        ref={canvas}
+        data-draw-surface=""
+        aria-label={node ? `Drawing board for ${node.label}` : "Drawing board for a new part"}
+        role="img"
+        className="absolute inset-0 touch-none rounded-full"
+        style={{
+          width: size,
+          height: size,
+          cursor: busy ? "progress" : "crosshair",
+          boxShadow: `0 0 0 1.5px oklch(0.4 0.03 265), 0 0 0 4px oklch(0.16 0.02 265), 0 0 28px oklch(0.7 0.16 ${INK_HUE} / 0.22), 0 14px 40px oklch(0 0 0 / 0.65)`,
+        }}
+        onPointerDown={begin}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerCancel={end}
+        onLostPointerCapture={end}
+      />
+
+      {/* the caption, engraved along the top of the rim */}
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="pointer-events-none absolute inset-0 overflow-visible">
+        <defs>
+          <path id={captionId} d={captionPath} fill="none" />
+        </defs>
+        <text fontSize={8} fontWeight={700} letterSpacing={1.4} fill="oklch(0.82 0.03 260)" stroke="oklch(0.1 0.02 265)" strokeWidth={2.5} strokeLinejoin="round" paintOrder="stroke" style={{ textTransform: "uppercase" }}>
+          <textPath href={`#${captionId}`} startOffset="50%" textAnchor="middle">{caption}</textPath>
+        </text>
+      </svg>
+
+      {/* a hint where the first stroke goes, gone once there is one */}
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[10px] leading-snug transition-opacity"
+        style={{ color: "oklch(0.62 0.03 260)", opacity: strokes.length || live.current ? 0 : 1, textShadow: "0 1px 3px oklch(0 0 0 / 0.8)" }}
+      >
+        <span className="max-w-[150px]">{node ? "Draw the shape it should be" : "Draw the shape of a new part"}</span>
+      </div>
+
+      {/* the way back and the eraser, on the top of the rim */}
+      <RimButton at={rimAt(225)} label={node ? "Back to the wheel" : "Close the board"} onClick={() => { play("close"); onBack(); }} testId="draw-back">
+        <Undo2 className="size-3.5" />
+      </RimButton>
+      <RimButton at={rimAt(315)} label="Clear the board" onClick={clear} disabled={!strokes.length || busy} testId="draw-clear">
+        <Eraser className="size-3.5" />
+      </RimButton>
+
+      {/* the words, in the bottom cap */}
+      <div className="absolute left-1/2 -translate-x-1/2" style={{ top: size - 66, width: 178 }}>
+        <Input
+          inputSize="sm"
+          data-draw-words=""
+          value={words}
+          disabled={busy}
+          aria-label="Words to go with the drawing"
+          placeholder="Words, if the drawing isn't enough"
+          className="h-6 border-[oklch(0.36_0.02_265)] bg-[oklch(0.17_0.02_265/0.85)] text-[10px] text-[oklch(0.92_0.01_260)] placeholder:text-[oklch(0.55_0.02_260)]"
+          onChange={(e) => setWords(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); void makeReal(); }
+            // The wheel's own Escape steps back a level; from a text field the
+            // first Escape should only leave the field.
+            if (e.key === "Escape") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
+          }}
+        />
+        {note ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p> : null}
+      </div>
+
+      {/* make real, on the bottom of the rim */}
+      <button
+        type="button"
+        data-draw-make=""
+        disabled={blank || busy}
+        aria-label={busy ? "Making it real" : "Make real"}
+        onClick={() => void makeReal()}
+        className="absolute flex h-7 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full px-3 text-[10px] font-bold tracking-wide outline-none transition-[transform,filter,opacity] disabled:opacity-60 enabled:hover:scale-[1.04] enabled:active:scale-[0.98]"
+        style={{
+          ...rimAt(90),
+          background: blank ? "oklch(0.31 0.005 260)" : `oklch(0.66 0.155 ${INK_HUE})`,
+          color: blank ? CONSOLE.muted : "oklch(0.99 0 0)",
+          border: `1px solid ${blank ? CONSOLE.rim : `oklch(0.44 0.14 ${INK_HUE})`}`,
+          boxShadow: blank ? undefined : `${litEdge(INK_HUE)}, 0 0 14px oklch(0.7 0.16 ${INK_HUE} / 0.55), 0 3px 8px oklch(0 0 0 / 0.5)`,
+          textShadow: blank ? undefined : `0 1px 2px oklch(0.25 0.08 ${INK_HUE} / 0.75)`,
+        }}
+      >
+        {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+        {busy ? "Making…" : "Make real"}
+      </button>
+    </div>
+  );
+}
+
+/** A small round button straddling the rim. */
+function RimButton({ at, label, onClick, disabled, children, testId }: { at: React.CSSProperties; label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode; testId: string }) {
+  return (
+    <button
+      type="button"
+      data-draw-button={testId}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="absolute flex size-[26px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition-[background,transform] enabled:hover:scale-[1.06] enabled:active:scale-[0.96] disabled:opacity-50"
+      style={{
+        ...at,
+        background: CONSOLE.face,
+        color: CONSOLE.text,
+        border: `1px solid ${CONSOLE.rim}`,
+        filter: disabled ? undefined : SLAB_AURA,
+        boxShadow: litEdge(27),
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Paint                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Empty space: a near-black disc, a little bluer toward the middle and darker
+ * at the rim, two faint drifts of colour, and a scatter of stars that is the
+ * same every time — seeded, so the board never twinkles under your hand.
+ */
+function paintSpace(c: CanvasRenderingContext2D, size: number) {
+  const r = size / 2;
+  c.clearRect(0, 0, size, size);
+  c.save();
+  c.beginPath();
+  c.arc(r, r, r, 0, Math.PI * 2);
+  c.clip();
+  const ground = c.createRadialGradient(r, r, r * 0.1, r, r, r);
+  ground.addColorStop(0, "oklch(0.16 0.025 265)");
+  ground.addColorStop(0.7, "oklch(0.12 0.02 265)");
+  ground.addColorStop(1, "oklch(0.075 0.015 265)");
+  c.fillStyle = ground;
+  c.fillRect(0, 0, size, size);
+  const drift = (x: number, y: number, rad: number, colour: string) => {
+    const g = c.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, colour);
+    g.addColorStop(1, "oklch(0 0 0 / 0)");
+    c.fillStyle = g;
+    c.fillRect(0, 0, size, size);
+  };
+  drift(r * 1.6, r * 0.5, r * 0.95, "oklch(0.34 0.09 280 / 0.26)");
+  drift(r * 0.45, r * 1.5, r * 0.8, "oklch(0.32 0.08 205 / 0.2)");
+  // Stars. A linear congruential generator, so they sit where they sat.
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  for (let i = 0; i < 96; i++) {
+    const x = rnd() * size;
+    const y = rnd() * size;
+    if (Math.hypot(x - r, y - r) > r - 6) continue;
+    const a = 0.18 + rnd() * 0.6;
+    const sz = 0.45 + rnd() * 0.85;
+    c.fillStyle = rnd() < 0.18 ? `oklch(0.86 0.07 230 / ${a.toFixed(2)})` : `oklch(0.93 0.01 90 / ${a.toFixed(2)})`;
+    c.beginPath();
+    c.arc(x, y, sz, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+}
+
+/** A stroke: a soft blue glow under a thin white line. */
+function paintStroke(c: CanvasRenderingContext2D, s: SketchPoint[], size: number) {
+  if (!s.length) return;
+  c.save();
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  const path = () => {
+    c.beginPath();
+    const [x0, y0] = s[0]!;
+    c.moveTo(x0 * size, y0 * size);
+    if (s.length === 1) c.lineTo(x0 * size + 0.01, y0 * size);
+    for (let i = 1; i < s.length; i++) c.lineTo(s[i]![0] * size, s[i]![1] * size);
+  };
+  path();
+  c.strokeStyle = `oklch(0.78 0.16 ${INK_HUE} / 0.38)`;
+  c.lineWidth = 7;
+  c.stroke();
+  path();
+  c.strokeStyle = `oklch(0.97 0.02 ${INK_HUE})`;
+  c.lineWidth = 2.4;
+  c.stroke();
+  c.restore();
+}
+
+/**
+ * The drawing as a picture for the reader: black lines on white, small.
+ * Cleaner to read than the starry board, and a few kilobytes.
+ */
+function pictureOf(strokes: SketchPoint[][], px = 384): string | null {
+  if (typeof document === "undefined") return null;
+  const el = document.createElement("canvas");
+  el.width = px;
+  el.height = px;
+  const c = el.getContext("2d");
+  if (!c) return null;
+  c.fillStyle = "#ffffff";
+  c.fillRect(0, 0, px, px);
+  c.strokeStyle = "#111111";
+  c.lineWidth = 4;
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  // The board's edge, faintly, so a shape's place on the disc can be read.
+  c.save();
+  c.strokeStyle = "#d0d0d0";
+  c.lineWidth = 2;
+  c.beginPath();
+  c.arc(px / 2, px / 2, px / 2 - 2, 0, Math.PI * 2);
+  c.stroke();
+  c.restore();
+  for (const s of strokes) {
+    if (!s.length) continue;
+    c.beginPath();
+    c.moveTo(s[0]![0] * px, s[0]![1] * px);
+    if (s.length === 1) c.lineTo(s[0]![0] * px + 0.01, s[0]![1] * px);
+    for (let i = 1; i < s.length; i++) c.lineTo(s[i]![0] * px, s[i]![1] * px);
+    c.stroke();
+  }
+  try {
+    return el.toDataURL("image/png").split(",")[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Checking an answer                                                  */
+/* ------------------------------------------------------------------ */
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+/** Only options the part actually has, with values it actually offers. */
+function allowedOptions(
+  proposed: unknown,
+  allowed: { id: string; values: string[]; kind?: "one" | "set" }[],
+  current: Record<string, string>,
+): Record<string, string> {
+  const next: Record<string, string> = { ...current };
+  if (!proposed || typeof proposed !== "object") return next;
+  for (const [k, v] of Object.entries(proposed as Record<string, unknown>)) {
+    const opt = allowed.find((o) => o.id === k);
+    if (!opt || typeof v !== "string") continue;
+    if (opt.kind === "set") {
+      const picked = v.split(",").map((x) => x.trim()).filter((x) => opt.values.includes(x));
+      next[k] = picked.join(", ");
+    } else if (opt.values.includes(v)) {
+      next[k] = v;
+    }
+  }
+  // A part that changed kind keeps none of the old kind's options.
+  for (const k of Object.keys(next)) if (!allowed.some((o) => o.id === k)) delete next[k];
+  return next;
+}

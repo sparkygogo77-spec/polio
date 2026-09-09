@@ -13,6 +13,7 @@ import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./
 import { AURA_WORD, describeLook, ROLES, ROLE_LABEL, type Look, type RoleId } from "./look";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
+import { describeSketch, isBlankSketch } from "./sketch";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape } from "./store";
 
 export interface CompileInput {
@@ -52,6 +53,8 @@ interface NodeSpec {
   texture: string | null;
   /** What it shows or does — what the backend must provide. */
   data: string;
+  /** What was drawn for it on the drawing board, in words. */
+  drawn: string | null;
   /** Parts this one reads from, via data wires. */
   feeds: string[];
   group: string | null;
@@ -258,6 +261,7 @@ export function compileSpec(input: CompileInput): Spec {
             : null,
           texture: !n.texture ? null : n.texture === "none" ? "no texture, whatever the site wears" : "its own texture layer",
           data: (n.data ?? "").trim(),
+          drawn: n.sketch && !isBlankSketch(n.sketch) ? describeSketch(n.sketch) : null,
           feeds: pShapes
             .filter((sh) => sh.kind === "arrow" && sh.relation === "data" && sh.toNodeId === n.id)
             .map((sh) => pNodes.find((x) => x.id === sh.fromNodeId)?.label)
@@ -449,6 +453,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.anim) L.push(`  - on arrival: it ${e.anim}`);
         if (e.data) L.push(`  - data: ${e.data}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
+        if (e.drawn) L.push(`  - drawn: ${e.drawn}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
       }
       L.push("");
@@ -516,6 +521,8 @@ export function specToMarkdown(spec: Spec): string {
     "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people;",
     "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it.",
     "A part with a \"colour\" line repaints those roles for itself; everything else follows the site palette.",
+    "\"drawn\" is the shape the author drew for the part on the drawing board, in words: its proportion and",
+    "outline are the specification for the part's shape, and the words beside it say what the drawing is.",
     "Anything inside a region belongs to that region. Behaviours are listed apart from the elements because they",
     "change how the whole page moves rather than occupying a place in it. Element prompts are specific to that placement and override anything more",
     "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",

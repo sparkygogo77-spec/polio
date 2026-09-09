@@ -112,6 +112,8 @@ src/features/studio/
   store.ts       the document: pages, nodes, groups, shapes, format, brief, frame width
   spec.ts        compiles the board into a blueprint
   Canvas.tsx     the frame, drag with snapping, 8-way resize, draw, group, pan/zoom
+  RadialMenu.tsx the part menu: the wheel, its levels, the pull; menuGeometry.ts cuts it
+  DrawBoard.tsx  the drawing board the wheel's Draw slab opens; sketch.ts reads a drawing
   Preview.tsx    the pinned live preview: LiveSite scaled down, fully clickable
   Palette.tsx    the library
   Inspector.tsx  per-part contents, size & position, options, prompt
@@ -394,14 +396,17 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - **The part menu is four quadrants round the pointer** (`RadialMenu.tsx`), and
   the layout never moves:
 
-      empty  │  Animation (inner) · Prompt (outer)
+      empty  │  Animation · Prompt (inner) · Draw (outer)
     ─────────●─────────
      Delete  │  Duplicate · Edit (inner) · Looks (outer)
 
   It used to swing so the empty quadrant faced the middle of the screen, which
   meant the menu was a different shape depending on where you clicked and your
   hand could never learn it. Delete is bottom-left. Looks is bottom-right.
-  Always. The one thing that moves it is `menuSpin`.
+  Draw is top-right. Always. The one thing that moves it is `menuSpin`. The
+  two working quadrants are cut the same way — two icons on the inner band,
+  one word on the outer block — so a hand that has learned one has learned
+  the other.
 - **One line, two ends: red moves, green turns** (`PullStage`: `pull`,
   `moving`, `turning`). The menu opens on the right **press**, so the hold that
   opened it is the hold that pulls — a click to open and a second press to pull
@@ -554,6 +559,27 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   thing about this texture at random" — scale, grain, colour, bleed — so a
   texture can be wandered through rather than set. The take-it-off-the-site
   button that was there is gone; the stack is edited from the Looks panel.
+- **Draw is the outer top-right slab, and it is the drawing board**
+  (`DrawBoard.tsx`, `sketch.ts`). It is not a level: press it and the wheel is
+  gone, and in its place is one dark disc the size of the whole menu
+  (`BOARD_R`), no hole in the middle, every pixel of it drawing surface. The
+  controls are on the rim, not in the middle — Back and Clear straddle the
+  top edge, Make real straddles the bottom, the words go in a thin strip in
+  the bottom cap — because a hole in a drawing board is a hole in the
+  drawing. Escape steps back to the wheel; the board does not turn with
+  `menuSpin`. What is drawn is kept on the part as `node.sketch` (strokes as
+  fractions of the board's width, plus the words), so the board reopens with
+  the drawing on it and the blueprint writes a `drawn:` line for it.
+  **Make real** posts the drawing — a small black-on-white picture and the
+  strokes as numbers — with the part as it is, the words, the frame width and
+  the whole library to `src/app/api/studio/reshape/route.ts`, and applies
+  what comes back after checking every field against the catalog
+  (`allowedOptions`, a real `featureId`, a size inside the frame). Without a
+  key the route says so and the board reshapes the part from the drawing's
+  proportion alone (`fitToSketch`, keeping the part's area); the drawing is
+  never lost to a missing key. The same disc opens with no part under it
+  from the canvas menu ("Draw a new part here", `openBoard`), and then Make
+  real adds a part in that shape at that spot.
 - **The eraser sweeps.** A press takes what is under it — a drawing first,
   else a part — and the hold that follows is a `Drag` of kind `erase`: every
   drawing the pointer crosses goes too, one history entry for the whole sweep.
@@ -678,7 +704,9 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   list the board draws.
 - Calling Claude is optional. `src/app/api/studio/generate/route.ts` returns
   `ok: false` with a reason when `ANTHROPIC_API_KEY` is absent, and the UI
-  falls back to copying the blueprint. Never make the API key load-bearing.
+  falls back to copying the blueprint; `reshape/route.ts` does the same and
+  the drawing board falls back to the drawing's proportion. Never make the
+  API key load-bearing.
 
 ---
 
