@@ -1093,3 +1093,21 @@ remove it from `src/features/index.ts` when you're sure.
 - Don't put feature logic in `site.config.ts` or `src/core/`.
 - Don't hard-code shortcut labels in UI; pass `shortcut="mod+k"` and `Kbd`
   formats it per platform.
+
+---
+
+## 11. More than one session works this repository
+
+Sessions run in parallel on their own branches, so the code you are looking at
+can be older than the code that is live. Before changing a shared file — the
+Builder's canvas, wheel, panels and store are the ones that move — fetch the
+default branch, read what is there now, and write your change to fit it.
+
+`.claude/hooks/catch-up.sh` does the fetch on every prompt and reports how far
+this branch has drifted. It only reports: whether to merge is yours to judge,
+because only you know what is half-finished in your tree. Nothing about it is
+required for the app to build; delete it and the rule above still stands.
+
+When two sessions want the same file, the one already holding it wins. Hand
+the other the change in words rather than editing behind it — a four-line fix
+made twice is a merge someone has to referee.

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/catch-up.sh\"",
+            "timeout": 30,
+            "statusMessage": "Checking the default branch…"
+          }
+        ]
+      }
+    ]
+  }
+}
