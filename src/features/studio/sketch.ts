@@ -223,3 +223,128 @@ export function normaliseSketch(v: unknown): Sketch | null {
     .filter((s) => s.length >= 1);
   return { strokes, words: typeof o.words === "string" ? o.words : "" };
 }
+
+/* ------------------------------------------------------------------ */
+/* Snapping and smoothing                                              */
+/* ------------------------------------------------------------------ */
+
+/** How a finished stroke is kept: snapped to the shape it nearly is, smoothed, or as drawn. */
+export type DrawMode = "snap" | "smooth" | "raw";
+
+/** Ramer–Douglas–Peucker: the few points that carry the stroke's corners. */
+function simplify(points: SketchPoint[], eps: number): SketchPoint[] {
+  if (points.length < 3) return points.slice();
+  const a = points[0]!;
+  const b = points[points.length - 1]!;
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  let far = 0;
+  let at = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i]!;
+    const d = len < 1e-6 ? Math.hypot(p[0] - a[0], p[1] - a[1]) : Math.abs((b[0] - a[0]) * (a[1] - p[1]) - (a[0] - p[0]) * (b[1] - a[1])) / len;
+    if (d > far) { far = d; at = i; }
+  }
+  if (far <= eps) return [a, b];
+  const left = simplify(points.slice(0, at + 1), eps);
+  const right = simplify(points.slice(at), eps);
+  return [...left.slice(0, -1), ...right];
+}
+
+/** Drop vertices that sit on a straight run between their neighbours. */
+function dropStraight(vertices: SketchPoint[], closed: boolean): SketchPoint[] {
+  if (vertices.length < 3) return vertices;
+  const keep: SketchPoint[] = [];
+  const n = vertices.length;
+  for (let i = 0; i < n; i++) {
+    if (!closed && (i === 0 || i === n - 1)) { keep.push(vertices[i]!); continue; }
+    const p = vertices[(i - 1 + n) % n]!, c = vertices[i]!, q = vertices[(i + 1) % n]!;
+    const ax = p[0] - c[0], ay = p[1] - c[1], bx = q[0] - c[0], by = q[1] - c[1];
+    const cos = (ax * bx + ay * by) / Math.max(1e-9, Math.hypot(ax, ay) * Math.hypot(bx, by));
+    // cos near -1 is a straight line through c
+    if (cos > -0.94) keep.push(c);
+  }
+  return keep;
+}
+
+/** A moving average that keeps the ends where they are. */
+export function smoothStroke(points: SketchPoint[], passes = 2): SketchPoint[] {
+  if (points.length < 3) return points.slice();
+  let pts = points.slice();
+  for (let k = 0; k < passes; k++) {
+    const out: SketchPoint[] = [pts[0]!];
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p = pts[i - 1]!, c = pts[i]!, q = pts[i + 1]!;
+      out.push([(p[0] + c[0] * 2 + q[0]) / 4, (p[1] + c[1] * 2 + q[1]) / 4]);
+    }
+    out.push(pts[pts.length - 1]!);
+    pts = out;
+  }
+  return pts.map(([x, y]) => [round3(x), round3(y)]);
+}
+
+function ellipsePoints(box: SketchBox, n = 40): SketchPoint[] {
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const out: SketchPoint[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    out.push([round3(cx + Math.cos(t) * box.w / 2), round3(cy + Math.sin(t) * box.h / 2)]);
+  }
+  return out;
+}
+
+function rectPoints(box: SketchBox): SketchPoint[] {
+  const r = (v: number) => round3(v);
+  return [[r(box.x), r(box.y)], [r(box.x + box.w), r(box.y)], [r(box.x + box.w), r(box.y + box.h)], [r(box.x), r(box.y + box.h)], [r(box.x), r(box.y)]];
+}
+
+/** What a snapped stroke was read as, for a note on the board. */
+export type SnapKind = "line" | "polyline" | "rectangle" | "triangle" | "ellipse" | "curve" | "loop" | "dot";
+
+/**
+ * The stroke as the shape it nearly is: a straight line (level or upright
+ * when it nearly was), a few straight legs, a box, a triangle, an ellipse;
+ * anything else smoothed and, if it came back to its start, closed.
+ */
+export function snapStroke(points: SketchPoint[]): { points: SketchPoint[]; kind: SnapKind } {
+  const box = sketchBox([points]);
+  if (!box || points.length < 2) return { points: points.slice(), kind: "dot" };
+  const diag = Math.hypot(box.w, box.h);
+  if (diag < 0.02) return { points: points.slice(), kind: "dot" };
+  const eps = Math.max(0.012, diag * 0.07);
+  const closed = strokeClosed(points);
+  const raw = simplify(points, eps);
+  const vertices = dropStraight(closed ? (Math.hypot(raw[0]![0] - raw[raw.length - 1]![0], raw[0]![1] - raw[raw.length - 1]![1]) < eps * 1.5 ? raw.slice(0, -1) : raw) : raw, closed);
+
+  if (!closed) {
+    if (vertices.length <= 2) {
+      const a = points[0]!, b = points[points.length - 1]!;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      // Nearly level or nearly upright: make it so.
+      if (Math.abs(dx) > Math.abs(dy) * 6) { const y = round3((a[1] + b[1]) / 2); return { points: [[round3(a[0]), y], [round3(b[0]), y]], kind: "line" }; }
+      if (Math.abs(dy) > Math.abs(dx) * 6) { const x = round3((a[0] + b[0]) / 2); return { points: [[x, round3(a[1])], [x, round3(b[1])]], kind: "line" }; }
+      return { points: [[round3(a[0]), round3(a[1])], [round3(b[0]), round3(b[1])]], kind: "line" };
+    }
+    if (vertices.length <= 5) return { points: vertices.map(([x, y]) => [round3(x), round3(y)]), kind: "polyline" };
+    return { points: smoothStroke(points), kind: "curve" };
+  }
+
+  const fill = fillOfBox(points);
+  if (vertices.length === 4 && fill > 0.72) return { points: rectPoints(box), kind: "rectangle" };
+  if (vertices.length === 3) { const v = vertices.map(([x, y]) => [round3(x), round3(y)] as SketchPoint); return { points: [...v, v[0]!], kind: "triangle" }; }
+  // Round: every point about the same normalised distance from the centre.
+  const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+  const radii = points.map(([x, y]) => Math.hypot((x - cx) / Math.max(1e-6, box.w / 2), (y - cy) / Math.max(1e-6, box.h / 2)));
+  const mean = radii.reduce((a, b) => a + b, 0) / radii.length;
+  const sd = Math.sqrt(radii.reduce((a, r) => a + (r - mean) * (r - mean), 0) / radii.length);
+  if (sd < 0.16 && fill > 0.6 && vertices.length >= 5) return { points: ellipsePoints(box), kind: "ellipse" };
+  const smoothed = smoothStroke(points);
+  smoothed[smoothed.length - 1] = smoothed[0]!;
+  return { points: smoothed, kind: "loop" };
+}
+
+/** A finished stroke, kept the way the board is set to keep it. */
+export function refineStroke(points: SketchPoint[], mode: DrawMode): { points: SketchPoint[]; kind: SnapKind | null } {
+  if (mode === "raw") return { points, kind: null };
+  if (mode === "smooth") return { points: smoothStroke(points), kind: null };
+  return snapStroke(points);
+}

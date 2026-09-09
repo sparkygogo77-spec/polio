@@ -6,6 +6,7 @@ import {
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { PreviewPage } from "./live/PreviewPage";
+import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./parts";
 import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
@@ -95,10 +96,26 @@ export const studio = defineFeature({
   description: "Lay out what a site should be as parts, drawings and per-part prompts on one board, then compile it into a blueprint.",
   icon: LayoutTemplate,
   tags: ["builder", "board", "prompt", "blueprint"],
+  settingGroups: [{ id: "studio", label: "Builder", icon: LayoutTemplate, order: 240, description: "The drawing board, and what goes to Claude with a prompt." }],
+  settings: [
+    {
+      id: "studio.drawMode", group: "studio", label: "Drawing board keeps strokes", type: "select", default: "snap", order: 1,
+      description: "Snap turns a wobbly box into a box, a loop into a circle, a slanted line level. The switch on the board's rim sets the same thing.",
+      options: [{ value: "snap", label: "Snapped to shapes" }, { value: "smooth", label: "Smoothed" }, { value: "raw", label: "As drawn" }],
+    },
+    {
+      id: "studio.screenshots", group: "studio", label: "Send screenshots to Claude", type: "toggle", default: true, order: 2,
+      description: "Every prompt from the blueprint dialog goes with a picture of each page as the live preview shows it, so Claude sees the site and not only a description of it. Needs Playwright on the server; without it the words go alone.",
+    },
+    { id: "studio.screenshotPages", group: "studio", label: "Pages per prompt", description: "How many pages are photographed for one prompt, in order.", type: "number", default: 4, min: 1, max: 12, step: 1, advanced: true, order: 3 },
+    { id: "studio.publishDeploy", group: "studio", label: "Publish also deploys", description: "After the push to GitHub, call the Vercel deploy hook when one is set.", type: "toggle", default: true, advanced: true, order: 4 },
+  ],
   routes: [
     { path: "/builder", component: StudioPage, title: "Builder", fullBleed: true },
     { path: "/builder/preview", component: PreviewPage, title: "Live preview", fullBleed: true },
     { path: "/builder/preview/*", component: PreviewPage, title: "Live preview", fullBleed: true },
+    { path: "/site", component: PublishedPage, title: "Site", fullBleed: true },
+    { path: "/site/*", component: PublishedPage, title: "Site", fullBleed: true },
     // Old addresses keep working.
     { path: "/studio", component: StudioPage, title: "Builder", fullBleed: true },
     { path: "/studio/design", component: StudioPage, title: "Builder", fullBleed: true },

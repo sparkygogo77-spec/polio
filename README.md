@@ -43,8 +43,11 @@ npm run dev              # http://localhost:3000 — the Builder is at /builder
 npm run new:feature blog # scaffold + register a module
 npm run check            # typecheck + build
 
-# optional: lets the Builder call Claude directly instead of copying the blueprint
-cp .env.example .env.local && echo "ANTHROPIC_API_KEY=sk-ant-…" >> .env.local
+# optional keys, each with a fallback that works without it — see .env.example:
+#   ANTHROPIC_API_KEY   the Builder asks Claude in-page (with screenshots of the pages)
+#   X_*                 the tweet console posts to X (docs/X-KEYS.md)
+#   GITHUB_TOKEN/REPO   Publish pushes the site to a repository; VERCEL_DEPLOY_HOOK deploys it
+cp .env.example .env.local
 ```
 
 ## What's inside
@@ -52,6 +55,7 @@ cp .env.example .env.local && echo "ANTHROPIC_API_KEY=sk-ant-…" >> .env.local
 | Area | Highlights |
 |---|---|
 | Builder | One workspace: library of 218 plain-named parts — every one a working component — a page frame at desktop/tablet/phone width, typed contents, shape options and links, snapping and resizing, freehand drawing, regions, arrows and groups, a prompt per part, a shelf that lays the parts out where they would live on a page and lights each one, a texture engine that turns a photograph into a pattern in your own colours, a clickable live preview (pinned, and full size at `/builder/preview`) that runs the page's behaviours, six colour roles any element can override for itself, a texture stack that compiles to CSS and layers honestly — turn one down and the layer below shows through it, one light source the whole page casts shadows from, a four-quadrant menu on every part that you can turn to any orientation and that does everything the side panel does, a drawing board in that menu that reshapes a part to the shape you draw (and draws new ones), frame interpolation (five keyframes in, every frame between them out, with the brief that goes with them), ~70 format options, page manager, compiled markdown/JSON blueprint, optional Claude call |
+| Claude on the site | Seven asks from the blueprint dialog (plan, critique, fill prompts, finish, ideas, ask anything, build the code), each with screenshots of the pages taken on the server from the live preview; Publish pushes `site/document.json`, the blueprint and generated code to GitHub in one commit and calls a Vercel deploy hook; the deployed app renders the published site at `/site` |
 | Tweet console | Press `T`: a dashboard over the screen that drafts posts to X (threads, media with alt text, polls, reply limits, quotes), previews them as X shows them, records a tour of the live site scrolling and working itself and attaches it as a GIF the app writes itself, queues posts with honest retries, and sends through the X API when keys are set — or opens X with the words when they are not |
 | Shell | Top bar with route tabs, collapsible sidebar rail, status bar (latency, clock, density, sound), slide-over panels |
 | Interaction | Global right-click with stacked scopes, ⌘K palette (commands + pages + toggles), chords like `g p`, cheat sheet on `?` |

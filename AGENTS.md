@@ -707,6 +707,28 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   falls back to copying the blueprint; `reshape/route.ts` does the same and
   the drawing board falls back to the drawing's proportion. Never make the
   API key load-bearing.
+- **Claude sees the site.** `api/studio/headless.ts` opens the preview route
+  in a headless browser with the author's document written into storage
+  first (`withPreview`), so a server render shows what the author sees;
+  `screenshot/route.ts` photographs a page with it and `generate` takes those
+  pictures as image blocks beside the blueprint. `generate` has seven modes
+  (plan, critique, expand, finish, ideas, ask, build); `build` answers with
+  files as fenced blocks whose info string is `lang path`, which
+  `features/studio/agent.ts` `filesFromMarkdown` reads back. Add a mode by
+  adding to `MODE_INSTRUCTIONS` and to `MODES` in `agent.ts`; nothing else
+  knows the list.
+- **Publish** (`publish/route.ts`) makes one commit on `GITHUB_BRANCH` of
+  `GITHUB_REPO` with `GITHUB_TOKEN` through the git data API, then calls
+  `VERCEL_DEPLOY_HOOK` when set. It pushes `site/document.json` (the
+  document; the app renders it at `/site`, and `next.config.ts` redirects
+  `/` there when it is non-empty), `site/BLUEPRINT.md`, `site/blueprint.json`
+  and any generated files. Paths are checked (`safePath`); files are capped.
+  The token never reaches the browser; `GET` says only what is set.
+- **The drawing board snaps.** `sketch.ts` `refineStroke(points, mode)`:
+  `snap` reads a finished stroke as a line (levelled when nearly level), a
+  polyline, a box, a triangle or an ellipse and replaces it with the clean
+  shape; `smooth` averages it; `raw` keeps it. The mode is the setting
+  `studio.drawMode` and the switch on the board's rim.
 
 ---
 

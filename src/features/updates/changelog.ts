@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.21",
+    title: "Claude sees the site",
+    summary: "Every prompt from the blueprint dialog goes with screenshots of the pages, seven kinds of ask including your own words and the code, and Publish pushes the site to GitHub and on to Vercel.",
+    sketch: "picture",
+    added: [
+      "Screenshots: the server opens the live preview with your document in place and photographs each page, top to bottom, and the pictures go to Claude beside the blueprint — so it reads what the site looks like, not only what it is for. A switch on the dialog, a setting for how many pages.",
+      "Seven asks: Plan, Critique, Fill prompts, Finish (a checklist with the prompt that fixes each item), Ideas (ten, placed and ranked), Ask (anything, in your words), Build (every file, complete). Ctrl-Enter sends.",
+      "Publish: the document the app renders at /site, the blueprint both ways, and whatever Build wrote, pushed to a GitHub repository in one commit with a token on the server; a Vercel deploy hook called after, when one is set. On a deployment made from that push, the root of the site is the site.",
+      "The drawing board snaps: a wobbly box becomes a box, a loop a circle, a slanted line level, three corners a triangle. Snap, smooth or raw, on the board's rim and in the settings.",
+      "The tour render and the screenshots see the real site: the document travels with the request, so a headless browser no longer opens an empty page.",
+    ],
+  },
+  {
     version: "0.20",
     title: "The tweet console",
     summary: "Press T: a dashboard comes down over the screen where posts to X are drafted, previewed, given a recorded tour of the site, queued, and sent.",

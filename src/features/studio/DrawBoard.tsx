@@ -28,10 +28,11 @@ import { Eraser, LoaderCircle, Sparkles, Undo2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
+import { useSetting } from "@/core/settings/useSetting";
 import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, SLAB_AURA, litEdge } from "./RingConsole";
-import { fitToSketch, isBlankSketch, readSketch, tidyStroke, type Sketch, type SketchPoint } from "./sketch";
+import { fitToSketch, isBlankSketch, readSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type StudioNode } from "./store";
 
 /** The blue the wheel's first level wears; the one action on the board wears it too. */
@@ -65,6 +66,9 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const frameWidth = useStudio((s) => s.frameWidth);
   const [strokes, setStrokes] = React.useState<SketchPoint[][]>(() => node?.sketch?.strokes ?? []);
   const [words, setWords] = React.useState(() => node?.sketch?.words ?? "");
+  // Snap, smooth or raw: a setting, so the board remembers, and a switch on the rim, so it is one press away.
+  const [drawMode, setDrawMode] = useSetting<DrawMode>("studio.drawMode");
+  const [read, setRead] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [note, setNote] = React.useState<string | null>(null);
   const canvas = React.useRef<HTMLCanvasElement>(null);
@@ -116,14 +120,17 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     live.current = null;
     if (!s) return;
     const tidy = tidyStroke(s);
-    if (tidy.length) setStrokes((prev) => [...prev, tidy]);
-    else schedule();
+    if (!tidy.length) { schedule(); return; }
+    const kept = refineStroke(tidy, drawMode ?? "snap");
+    setStrokes((prev) => [...prev, kept.points]);
+    setRead(kept.kind && kept.kind !== "dot" ? kept.kind : null);
   };
   const clear = () => {
     if (!strokes.length) return;
     play("close");
     setStrokes([]);
     setNote(null);
+    setRead(null);
   };
 
   /* ---------------------------------------------------------- make real */
@@ -320,6 +327,34 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         <Eraser className="size-3.5" />
       </RimButton>
 
+      {/* snap, smooth or raw: on the top of the rim, between the way back and the eraser */}
+      <div
+        data-draw-mode=""
+        role="radiogroup"
+        aria-label="How strokes are kept"
+        className="absolute flex h-[22px] -translate-x-1/2 -translate-y-1/2 items-center rounded-full p-[2px]"
+        style={{ ...rimAt(270), background: CONSOLE.face, border: `1px solid ${CONSOLE.rim}`, boxShadow: litEdge(27) }}
+      >
+        {(["snap", "smooth", "raw"] as DrawMode[]).map((m) => {
+          const on = (drawMode ?? "snap") === m;
+          return (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-draw-mode-option={m}
+              title={m === "snap" ? "Snap to the shape you nearly drew: lines, boxes, circles, triangles" : m === "smooth" ? "Smooth the line, keep its shape" : "Keep every wobble"}
+              onClick={() => { play("select"); setDrawMode(m); }}
+              className="h-full rounded-full px-2 text-[9px] font-bold uppercase tracking-wide outline-none transition-colors"
+              style={{ background: on ? `oklch(0.66 0.155 ${INK_HUE})` : "transparent", color: on ? "oklch(0.99 0 0)" : CONSOLE.muted }}
+            >
+              {m}
+            </button>
+          );
+        })}
+      </div>
+
       {/* the words, in the bottom cap */}
       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: size - 66, width: 178 }}>
         <Input
@@ -338,7 +373,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
             if (e.key === "Escape") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
           }}
         />
-        {note ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p> : null}
+        {note ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p> : read ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.muted }}>snapped to {/^[aeiou]/.test(read) ? "an" : "a"} {read}</p> : null}
       </div>
 
       {/* make real, on the bottom of the rim */}
