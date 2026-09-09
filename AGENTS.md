@@ -405,16 +405,23 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - **Out, across, then turn** — three states, all drawn (`PullStage`). Dragging
   used to start turning the moment you cleared the hole, so a right-click that
   wandered a few pixels spun the menu; reaching full stretch was not enough
-  either, because then the pull and the turn were still one motion. So: pull
-  the green line out and it *fades up* as it lengthens (`PULL_FROM` →
-  `PULL_LOCK`); at full stretch it **locks**, and a crimson ring appears
-  exactly opposite — the only place it can go. Take it across, through the
-  middle and out to that ring, and only then does the wheel come loose and
-  follow your hand, chased a fifth of the way per frame rather than pinned,
-  with no snapping. Swinging it round while locked turns nothing. A turn
-  swallows the `contextmenu` the button's release would otherwise fire; so does
-  a right press on the menu or on the part it is about, or the page's own menu
-  lands on top of the wheel you are arranging.
+  either, because then the pull and the turn were still one motion. So: the
+  **first real movement fixes a line**, and from there the handle is *on* that
+  line whatever your hand does — sliding, never steering, because a free hand
+  wobbles and a wobble on a dial is a mis-set dial. The line fades up as it
+  lengthens (`PULL_FROM` → `PULL_LOCK`); at full stretch it **pins**, a red
+  ring marks where, and a **green ring** appears at the other end of the same
+  line. Run back along it to the green ring and the wheel comes loose and
+  follows your hand, chased a fifth of the way per frame rather than pinned,
+  with no snapping. Swinging while pinned turns nothing.
+- **While the menu is open the right button belongs to it.** The `contextmenu`
+  is swallowed in the capture phase — the app's own menu listens further down
+  and `preventDefault` alone does not stop it — and then there are exactly
+  three outcomes: on the menu itself, nothing (that press is a pull); on any
+  part, including a different corner of the same one, the menu **moves there**
+  and starts again at its first level (`seq` on `Open` counts openings, not
+  moves, so carrying it across the screen does not reset it); on anything that
+  is not a part, it closes.
 - **The menu can be pushed aside and left there.** Press its middle and drag
   (`moveRadial`) and it moves; clicking the part it belongs to no longer closes
   it, so it can be parked where there is room and worked against. Anything else
@@ -445,22 +452,37 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   read as a lump of dark glass. One flat colour reads as one button: the old
   *hover* colour is the resting colour and hover goes a step brighter again,
   with an edge always darker than the face.
-- **The third level is a console, not a form** (`MenuConsole.tsx`), and it
-  fills the wheel's own footprint: `CONSOLE_W = GREEN_RINGS.reach * 2`, centred
-  on the click, covering all four quadrants. One frame, one size, whatever is
-  inside it — it was a box hung off one corner, a different size per editor,
-  which is a menu spawning a dialog rather than a menu becoming an editor. It
-  covers the part it edits, so its head is a grip (`[data-console-grip]`, the
-  head only — gripping the whole slab would fight the spectrum drag).
-  Two levels of drawn geometry followed by a `<select>` broke the spell
-  completely. The choices ride an **arc** (`ArcRail`) bowed like a rainbow with
-  each chip turned to face out of the curve; colour comes off a **`Spectrum`**
-  — a hue bar with a white line on it, the same spectrum in steps underneath so
-  a colour can be hit rather than hunted for, then lightness and strength,
-  because a hue on its own is not a colour. **A hue pick lifts chroma to at
-  least `LIVE`**: picking the orange end of the bar while the current colour
-  was a near-grey used to hand back another near-grey — the right hue at a
-  chroma of 0.01 — and the control read as broken. The slab is grey with a red aura round it: a red
+- **The third level is a ring** (`RingConsole.tsx` for the parts,
+  `RingEditors.tsx` for the bodies). It was a box three times — a tooltip
+  beside the wheel, a slab over it, a slab exactly the size of it — and a box
+  is wrong for the same reason each time: the first two levels are geometry you
+  throw a pointer at, and a rectangle full of form controls is a different
+  program wearing the same colours. It is an annulus wrapped **around** the
+  green level, taking the three quarters the green is not using (two, when the
+  group is wide). The green **stays up**, so you can see which choice you are
+  inside and step sideways to another without leaving.
+  Two bands: the outer carries the choices as `ArcChips`, the inner carries the
+  continuous controls as `ArcSlider`s — hue, lightness, strength — each an arc
+  you drag along. `ArcButton` cuts a sector out for an action. Everything is in
+  the wheel's local coordinates and turned by `spin` at the end, so the console
+  turns with the wheel; labels are HTML and stay upright, because a word bent
+  round a curve is a logo, not an interface.
+  **`ringPath` splits every sector at its halfway point and passes 0 for the
+  large-arc flag.** Passing 1 because the whole span is over half a turn sends
+  each half the long way round and the plate comes out inside out — which is
+  exactly what it did.
+  A few choices are text, and there is no honest way to bend a text field round
+  a curve: those get `RingPlateBox`, a flat plate *inscribed in* the band,
+  wearing the ring's fill and edge. It is the one rectangle, and it is still
+  part of the ring. The bare plate is the handle the whole menu is shoved aside
+  by; chips and arcs sit above it and take their own presses.
+  **A hue pick lifts chroma to at least `LIVE`**: picking the orange end while
+  the current colour was a near-grey used to hand back another near-grey — the
+  right hue at a chroma of 0.01 — and the control read as broken.
+- `ArcChips` spreads to about twice a chip's own width and no further, centred
+  in the sweep. Filling the whole arc whatever the count put two chips a
+  quarter turn apart with nothing between them, which reads as two unrelated
+  buttons rather than a choice of two. The slab is grey with a red aura round it: a red
   panel with red controls has nothing left to say "this one is picked". Edges
   are lit by `litEdge(hue)` — a lighter line along the top inside edge, a
   darker one along the bottom, leaning differently for warm, green and cool

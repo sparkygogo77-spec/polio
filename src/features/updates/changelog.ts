@@ -25,6 +25,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.15",
+    title: "The editor is a ring",
+    summary: "The third level wraps around the green instead of being a box, and the turn runs on rails.",
+    sketch: "palette",
+    added: [
+      "Hue, Texture and Aura open as a three-quarter ring around the green menu. The green stays up, so you can step sideways without leaving.",
+      "Colour comes off arcs bent round that ring — hue, lightness and strength — not sliders in a list.",
+      "The few choices that are really text sit on a plate inside the ring rather than in a box beside it.",
+      "The turn runs on rails: your first movement fixes a line, and after that the handle slides along it instead of steering.",
+      "Pull to the red ring and it pins; run back to the green ring at the other end and the wheel comes loose.",
+      "Right-click somewhere else and the menu goes there — a different part, or a different corner of the same one. Right-click off a part and it closes.",
+      "Shove the whole thing aside by the bare ring.",
+    ],
+  },
+  {
     version: "0.14",
     title: "One bar, one console",
     summary: "The pages and the way out moved on to the toolbar, and the menu's editor fills the wheel.",
