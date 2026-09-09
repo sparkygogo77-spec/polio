@@ -74,11 +74,15 @@ same boxes as everywhere else, in the screen's colours.
   top beside the hole carries the title and the part's name; the strip down
   the near side under the hole is the rail — the information key and
   whatever else the editor puts there (`PlateQuad`).
-- **The page's background is a thing.** Click the bare frame and it is
-  selected like a part; the panel shows its fill and the texture layers that
-  land on it; ⌘X cuts it bare and holds it, ⌘V puts it back, ⌫ strips it.
-  Cut and paste on parts work the same way, and paste puts back whatever
-  was cut last.
+- **The page's background is a thing, with the same wheel.** Click the bare
+  frame and it is selected like a part; right-press it and the wheel opens
+  about the page — the same seven pieces in the same places, with Picture,
+  Cut and Strip where a part has Draw, Duplicate and Delete. Its Looks are
+  the page's colour, its texture layers and a veil; its Edit is the fill;
+  the pencil holds the page's words. What makes no sense for a page is a
+  placeholder that taps, never a hole in the wheel. ⌘X cuts it bare and
+  holds it, ⌘V puts it back, ⌫ strips it. Cut and paste on parts work the
+  same way, and paste puts back whatever was cut last.
 - **Placeholders are cut and wired.** Priority, Reiterate, Make-it-a-prompt: the
   button exists, sits where it will live, plays a tap, and does nothing yet. A
   placeholder is a promise about the layout, not about the feature.

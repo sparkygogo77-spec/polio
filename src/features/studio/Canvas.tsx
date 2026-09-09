@@ -482,6 +482,21 @@ export function Canvas() {
         <div
           data-frame=""
           data-selected={selection.includes(BACKGROUND_ID) ? "" : undefined}
+          // The page's own wheel: a right press on the bare frame opens the
+          // same wheel a part gets, about the background. Parts are siblings
+          // of the frame, not children, so a press here is never on a part.
+          onPointerDown={(e) => {
+            if (e.button !== 2 || e.target !== e.currentTarget) return;
+            e.preventDefault();
+            e.stopPropagation();
+            useStudio.getState().selectBackground();
+            openRadial(BACKGROUND_ID, e.clientX, e.clientY);
+          }}
+          onContextMenu={(e) => {
+            if (e.target !== e.currentTarget) return;
+            e.preventDefault();
+            e.stopPropagation();
+          }}
           className="absolute left-0 top-0 rounded-[3px] shadow-[0_20px_60px_oklch(0_0_0/0.45)]"
           style={{
             width: frameWidth,
@@ -569,6 +584,15 @@ export function Canvas() {
             data-frame-wash=""
             className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
             style={{ width: frameWidth, height: frameH, ...theme.overlayStyle }}
+          />
+        ) : null}
+        {/* The veil: a dim over the whole page, set from the background's wheel. */}
+        {theme.veil ? (
+          <div
+            aria-hidden
+            data-frame-veil=""
+            className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
+            style={{ width: frameWidth, height: frameH, background: theme.veil }}
           />
         ) : null}
 

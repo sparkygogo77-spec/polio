@@ -35,6 +35,7 @@ export const RELEASES: Release[] = [
       "Every slab that carries settings is painted as a screen — the same glass, scanlines and bezel as the typing plate. Choices that are only words (a top bar's on-scroll, a type family) are a phosphor readout between two arrows, set in their own face. The aura's size is a slider too.",
       "The typing plate fills its slab: the screen runs out to the far edges, the title and the part's name sit in the strip above it, and a rail down the near side holds an information key — press it and the screen says what the part is — plus a reset on Options.",
       "Click the bare page and the background is selected like a part: the panel shows its fill and the texture layers on it, ⌘X cuts it bare, ⌫ strips it, ⌘V puts it back. ⌘X and ⌘V work on parts as well.",
+      "Right-press the bare page and the background gets the wheel: the same seven pieces about the page — Motion, the pencil, Picture, Cut, Edit, Looks and Strip. Looks holds the page's colour off the spectrum, the texture layers that land on it, and a veil that dims the whole page; Edit holds the fill as icon keys; the pencil holds the page's words.",
     ],
   },
   {

@@ -645,6 +645,24 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   `pasteNodes`); `cut()` and `paste()` pick by what is selected and what was
   cut last. What is held is a module variable, never persisted. The canvas
   menu has a Background submenu for the same three things.
+- **The background has the wheel too** (`SLOTS_BG`, `bgChoicesFor` in
+  `RadialMenu.tsx`; `BackgroundEditors.tsx`). A right press on the bare
+  frame opens the same seven pieces about the page, in the same places, so
+  a hand that has learned one has learned the other: Motion (a motion asset
+  behind the page — placeholder), the pencil (the page's Words on the plate;
+  Per page — placeholder), **Picture** on the outer block (a file, taken as
+  an image texture layer on the page), **Cut** and Edit (Fill: flat, soft
+  gradient, grid, mesh as icon keys on a screen, writing
+  `format["palette.background"]`), Looks (Colour: the bg role off the
+  spectrum, recent colours, "from the accent"; Texture: the stack's layers
+  as tiles, several on at once — `GridChips` with `values` — plus Add a
+  picture and Clear the page; **Veil**: a slider for `look.veil`, a black
+  overlay at that opacity painted by the board, the live site and the
+  blueprint), and **Strip** where Delete is. The middle is a plain handle
+  (`data-menu-handle`); the page has nothing to lock. The tray under it is
+  Preview here and Put the background back. Everything a part's wheel does
+  that makes no sense for a page is a placeholder that taps, not a missing
+  piece.
 - **The tray hangs under the wheel** (`HoverTray` in `RingConsole.tsx`,
   `[data-tray]`): a small tab under whichever level is up that opens on hover
   into the few things that are about the part but not about editing it —

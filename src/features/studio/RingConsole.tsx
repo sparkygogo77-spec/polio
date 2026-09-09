@@ -266,11 +266,13 @@ export function ArcChips({
  * to wherever this slab is, so every slab packs the same way.
  */
 export function GridChips({
-  slab, items, value, onPick, size = 22, gap = 6,
+  slab, items, value, values, onPick, size = 22, gap = 6,
 }: {
   slab: Slab;
   items: ArcItem[];
   value: string | null;
+  /** Several on at once — the page's texture layers, say — instead of one. */
+  values?: ReadonlySet<string>;
   onPick: (id: string) => void;
   size?: number;
   gap?: number;
@@ -297,7 +299,7 @@ export function GridChips({
     <>
       {items.slice(0, spots.length).map((item, i) => {
         const at = spun(spots[i]!, from);
-        const on = value === item.id;
+        const on = values ? values.has(item.id) : value === item.id;
         return (
           <foreignObject key={item.id} x={at[0] - size / 2 - 4} y={at[1] - size / 2 - 4} width={size + 8} height={size + 8} className="overflow-visible">
             <div className="flex h-full w-full items-center justify-center" style={{ transform: `rotate(${(-spin * 360).toFixed(2)}deg)` }}>

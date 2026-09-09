@@ -115,7 +115,7 @@ export function QuadrantConsole({
  * one chip further in, still clears the caption engraved by the hole; near
  * enough in that the chips at the ends of the row stay inside the slab.
  */
-const chipsAt = (s: Slab) => s.rings.mid + (s.rings.reach - s.rings.mid) * 0.56;
+export const chipsAt = (s: Slab) => s.rings.mid + (s.rings.reach - s.rings.mid) * 0.56;
 /** The middle of a whole quadrant, for a button that is the whole quadrant. */
 export const centreOf = (s: Slab, rIn: number, rOut: number | "edge") => middleOf(s.from, s.to, rIn, rOut, s.shape, s.rings, 0.5);
 /** A whole quadrant, cut as the console cuts its slabs. */
@@ -134,7 +134,7 @@ const LIVE = 0.14;
  * Aura editor draw the same one, so a hand that has learned it once has
  * learned it twice.
  */
-function SpectrumSlab({
+export function SpectrumSlab({
   slab, colour, onChange, onCommit, caption,
 }: {
   slab: Slab;

@@ -38,6 +38,8 @@ export interface Theme {
   partGround?: string;
   /** A layer set to "over everything", painted above the finished page. */
   overlayStyle?: React.CSSProperties;
+  /** A dim over the whole page — black at the look's veil opacity — when there is one. */
+  veil?: string;
   /** Set only when a part overrides its own background, so `Fill` paints it. */
   ownBackground?: string;
   /**
@@ -156,6 +158,7 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
     surfaceStyle: painted ?? undefined,
     surfacePaint: onSurfaces ?? undefined,
     overlayStyle: over ?? undefined,
+    veil: look?.veil && look.veil > 0.005 ? `oklch(0 0 0 / ${Math.min(0.85, look.veil).toFixed(2)})` : undefined,
     // Only a texture behind the page needs to be covered up.
     partGround: painted ? roles.bg : undefined,
     surface: roles.surface,

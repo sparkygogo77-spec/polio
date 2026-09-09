@@ -611,6 +611,8 @@ export interface Look {
   target: "page" | "surfaces" | "both";
   /** The lamp, and the depth it gives everything under it. */
   light: Light;
+  /** A dark veil over the whole page, 0..0.85. Nothing, when absent. */
+  veil?: number;
 }
 
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page", light: defaultLight() });
@@ -804,6 +806,9 @@ export function describeLook(look: Look, resolved: Palette): string[] {
     for (const r of ROLES) lines.push(`  - ${ROLE_LABEL[r]}: ${resolved[r]}${look.palette[r] ? "" : " (derived)"}`);
   }
   lines.push(...describeLight(look.light ?? defaultLight()));
+  if (look.veil && look.veil > 0.01) {
+    lines.push(`A dark veil dims the whole page by ${Math.round(look.veil * 100)}%: paint everything, then lay black at that opacity over all of it.`);
+  }
   const on = look.texture.filter((l) => l.on);
   if (on.length) {
     lines.push("Texture, bottom layer first:");

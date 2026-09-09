@@ -35,7 +35,7 @@ export const BACKGROUND_ID = "background";
  */
 type Held =
   | { kind: "nodes"; nodes: StudioNode[] }
-  | { kind: "background"; layerIds: string[]; fill: string };
+  | { kind: "background"; layerIds: string[]; fill: string; veil: number };
 let held: Held | null = null;
 export const heldBackground = () => (held?.kind === "background" ? held : null);
 export const heldNodes = () => (held?.kind === "nodes" ? held : null);
@@ -634,11 +634,12 @@ export const useStudio = create<StudioState>()(
           const layers = s.look.texture ?? [];
           const onPage = layers.filter((l) => l.on && lands(l, "page"));
           const fill = String(s.format["palette.background"] ?? "flat");
-          if (!onPage.length && fill === "flat") return false;
+          const veil = s.look.veil ?? 0;
+          if (!onPage.length && fill === "flat" && veil < 0.005) return false;
           push();
-          held = { kind: "background", layerIds: onPage.map((l) => l.id), fill };
+          held = { kind: "background", layerIds: onPage.map((l) => l.id), fill, veil };
           set({
-            look: { ...s.look, texture: layers.map((l) => (onPage.some((p) => p.id === l.id) ? { ...l, on: false } : l)) },
+            look: { ...s.look, veil: 0, texture: layers.map((l) => (onPage.some((p) => p.id === l.id) ? { ...l, on: false } : l)) },
             format: { ...s.format, "palette.background": "flat" },
             selection: [BACKGROUND_ID],
           });
@@ -650,7 +651,7 @@ export const useStudio = create<StudioState>()(
           const s = get();
           push();
           set({
-            look: { ...s.look, texture: (s.look.texture ?? []).map((l) => (h.layerIds.includes(l.id) ? { ...l, on: true } : l)) },
+            look: { ...s.look, veil: h.veil, texture: (s.look.texture ?? []).map((l) => (h.layerIds.includes(l.id) ? { ...l, on: true } : l)) },
             format: { ...s.format, "palette.background": h.fill },
             selection: [BACKGROUND_ID],
           });

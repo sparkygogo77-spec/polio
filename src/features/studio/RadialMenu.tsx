@@ -42,10 +42,12 @@
  */
 import * as React from "react";
 import {
-  Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eye, Flag, Gauge, Grid2x2, Link2, ListTree, Lock, Orbit,
-  Palette as PaletteIcon, Pencil, Pipette, Play, SlidersHorizontal, Sparkles, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
+  Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Layers, Link2, ListTree, Lock, Orbit,
+  Paintbrush, Palette as PaletteIcon, Pencil, Pipette, Play, Scissors, SlidersHorizontal, Sparkles, SunDim, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
-import { livePath, useStudio, type StudioNode } from "./store";
+import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
+import { BackgroundEditor } from "./BackgroundEditors";
+import { readImage } from "./ImageIntake";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import {
   BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
@@ -56,7 +58,7 @@ import { PlateEditor } from "./PlateEditors";
 import { DrawBoard } from "./DrawBoard";
 import { CONSOLE, HoverTray, type Slab, type TrayItem } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
-import { auraColour, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
+import { auraColour, newLayer, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 
@@ -231,7 +233,7 @@ interface Choice {
   label: string;
   icon: typeof Wand2;
   /** Fires on the spot; without one the choice opens its editor. */
-  act?: (n: StudioNode) => void;
+  act?: () => void;
 }
 
 /** The options a part offers that are about motion: they sit under Animation, not Edit. */
@@ -283,6 +285,52 @@ function choicesFor(group: SlotId, node: StudioNode): Choice[] {
 }
 
 /**
+ * The background's wheel: the same seven pieces, about the page.
+ *
+ * Right-press the bare frame and the wheel opens with the page as its
+ * subject. The pieces sit where a part's do, so a hand that has learned one
+ * has learned the other: Motion and the pencil on the inner top band,
+ * Picture on the outer block, Cut and Edit on the inner bottom band, Looks
+ * on the outer, and Strip where Delete is — the one red thing, and it takes
+ * the background bare the way ⌘X does, holding it so ⌘V puts it back.
+ */
+const SLOTS_BG: Record<SlotId, Slot> = {
+  anim: { id: "anim", label: "Motion", icon: Play, hue: 205, kind: "group" },
+  write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
+  draw: { id: "draw", label: "Picture", icon: ImagePlus, hue: 205, kind: "action" },
+  duplicate: { id: "duplicate", label: "Cut", icon: Scissors, hue: 205, kind: "action" },
+  edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
+  look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
+  delete: { id: "delete", label: "Strip", icon: Eraser, hue: 18, kind: "action" },
+};
+
+/** What the green level holds for each blue group, when the subject is the page. */
+function bgChoicesFor(group: SlotId): Choice[] {
+  switch (group) {
+    case "look":
+      // The page's colour, the texture layers that land on it, and a veil.
+      return [
+        { id: "bg-hue", label: "Colour", icon: PaletteIcon },
+        { id: "bg-texture", label: "Texture", icon: Grid2x2 },
+        { id: "veil", label: "Veil", icon: SunDim },
+      ];
+    case "anim":
+      // A motion asset behind the page: the place is here, the crate is not wired to it yet.
+      return [{ id: "motion-soon", label: "Motion asset (soon)", icon: Film, act: () => play("tap") }];
+    case "write":
+      // The page's own words, and (a placeholder) a background of its own per page.
+      return [
+        { id: "page-words", label: "Words", icon: Wand2 },
+        { id: "pages-soon", label: "Per page (soon)", icon: Files, act: () => play("tap") },
+      ];
+    case "edit":
+      return [{ id: "fill", label: "Fill", icon: Paintbrush }];
+    default:
+      return [];
+  }
+}
+
+/**
  * The looks carried from one part to another by the tray's Copy and Paste.
  * A module variable, not a store field: it is a hand holding something, not
  * a thing the site remembers.
@@ -313,7 +361,14 @@ export function RadialMenu() {
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const layers = look.texture ?? [];
-  const node = open?.nodeId ? nodes.find((n) => n.id === open.nodeId) : undefined;
+  // The subject: a part, or the page's background.
+  const bg = open?.nodeId === BACKGROUND_ID;
+  const node = open?.nodeId && !bg ? nodes.find((n) => n.id === open.nodeId) : undefined;
+  const activePageId = useStudio((s) => s.activePageId);
+  const pages = useStudio((s) => s.pages);
+  const page = pages.find((p) => p.id === activePageId) ?? pages[0]!;
+  // The background's Picture piece: a file, taken as a texture layer on the page.
+  const picture = React.useRef<HTMLInputElement>(null);
 
   const seq = open?.seq ?? 0;
   React.useEffect(() => {
@@ -341,6 +396,8 @@ export function RadialMenu() {
       // parked aside and worked against. Anything else puts it away.
       if (el.closest?.("[data-radial], [data-menu-shape], [data-radix-popper-content-wrapper], [role='listbox'], [role='option']")) return;
       if (el.closest?.(`[data-node-id="${open.nodeId}"]`)) return;
+      // The background's wheel stays up while you click the bare page it is about.
+      if (open.nodeId === BACKGROUND_ID && el.closest?.("[data-frame]")) return;
       closeRadial();
     };
     window.addEventListener("keydown", onKey);
@@ -483,6 +540,8 @@ export function RadialMenu() {
       const onNode = el.closest?.("[data-node-id]") as HTMLElement | null;
       const id = onNode?.getAttribute("data-node-id");
       if (id) openRadial(id, e.clientX, e.clientY);
+      // The bare frame is the page's background: the wheel moves there, about the page.
+      else if (el.closest?.("[data-frame]")) { useStudio.getState().selectBackground(); openRadial(BACKGROUND_ID, e.clientX, e.clientY); }
       else closeRadial();
     };
     window.addEventListener("pointerdown", onDown, true);
@@ -549,11 +608,30 @@ export function RadialMenu() {
       </div>
     );
   }
-  if (!node) return null;
+  if (!node && !bg) return null;
+  const slots = bg ? SLOTS_BG : SLOTS;
+  const choicesOf = (g: SlotId) => (bg ? bgChoicesFor(g) : choicesFor(g, node!));
 
   const fire = (id: SlotId) => {
-    if (id === "duplicate") { s().duplicateNodes([node.id]); play("confirm"); closeRadial(); }
-    if (id === "delete") { s().removeNodes([node.id]); play("deny"); closeRadial(); }
+    if (bg) {
+      if (id === "draw") { picture.current?.click(); return; }
+      if (id === "duplicate" || id === "delete") {
+        const took = s().cutBackground();
+        ctx.publish({
+          key: "studio:background",
+          title: took ? (id === "delete" ? "The background is stripped bare" : "Background cut") : "The background is already bare",
+          body: took ? "⌘V puts it back." : undefined,
+          level: took ? "success" : "info",
+          source: "studio",
+          toast: true,
+        });
+        play(took ? "deny" : "tap");
+        closeRadial();
+      }
+      return;
+    }
+    if (id === "duplicate") { s().duplicateNodes([node!.id]); play("confirm"); closeRadial(); }
+    if (id === "delete") { s().removeNodes([node!.id]); play("deny"); closeRadial(); }
   };
   const take = (slot: Slot) => {
     if (slot.kind === "action") return fire(slot.id);
@@ -573,15 +651,15 @@ export function RadialMenu() {
   const level1: { slot: Slot; d: string; at: Pt }[] = [
     // The top quadrant is cut like the bottom one: two icons on the inner
     // band — Animation and the pencil — and one word on the outer block, Draw.
-    { slot: SLOTS.anim, d: piece(topA, topMid, B.hole, B.mid, shape, B), at: middleOf(topA, topMid, B.hole, B.mid, shape, B) },
-    { slot: SLOTS.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
-    { slot: SLOTS.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
-    { slot: SLOTS.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
-    { slot: SLOTS.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
-    { slot: SLOTS.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B) },
+    { slot: slots.anim, d: piece(topA, topMid, B.hole, B.mid, shape, B), at: middleOf(topA, topMid, B.hole, B.mid, shape, B) },
+    { slot: slots.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
+    { slot: slots.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
+    { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
+    { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
+    { slot: slots.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B) },
     // Delete is the whole quadrant, mirrored from the one opposite it and not
     // cut up: one slab, so it can never be hit as a sliver.
-    { slot: SLOTS.delete, d: piece(delA, delB, B.hole, "edge", shape, B), at: middleOf(delA, delB, B.hole, "edge", shape, B) },
+    { slot: slots.delete, d: piece(delA, delB, B.hole, "edge", shape, B), at: middleOf(delA, delB, B.hole, "edge", shape, B) },
   ];
 
   /* ---------------------------------------------------------- the board */
@@ -592,24 +670,30 @@ export function RadialMenu() {
   // Under the wheel, whatever level it is on: the things a part's menu needs
   // that are not worth a piece of the wheel. Not while the board is up — the
   // board has a tray of its own.
-  const nodeIndex = nodes.indexOf(node);
-  const tray: TrayItem[] = [
-    { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node.pageId)}#${node.id}`); } },
-    { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node.id) },
-    { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node.id) },
-    {
-      id: "copy", label: "Copy looks", icon: <Pipette className="size-3" />,
-      onClick: () => {
-        carriedLooks = { colour: node.colour, font: node.font, texture: node.texture, aura: node.aura, auraSize: node.auraSize, auraStyle: node.auraStyle };
-        setCarried((n) => n + 1);
-      },
-    },
-    { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node.id, { ...carriedLooks }); } },
-  ];
+  const nodeIndex = node ? nodes.indexOf(node) : -1;
+  const tray: TrayItem[] = bg
+    ? [
+        { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(livePath(page.id)); } },
+        { id: "paste", label: "Put the background back", icon: <ClipboardPaste className="size-3" />, disabled: !heldBackground(), onClick: () => { s().pasteBackground(); } },
+      ]
+    : [
+        { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node!.pageId)}#${node!.id}`); } },
+        { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node!.id) },
+        { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node!.id) },
+        {
+          id: "copy", label: "Copy looks", icon: <Pipette className="size-3" />,
+          onClick: () => {
+            const n = node!;
+            carriedLooks = { colour: n.colour, font: n.font, texture: n.texture, aura: n.aura, auraSize: n.auraSize, auraStyle: n.auraStyle };
+            setCarried((k) => k + 1);
+          },
+        },
+        { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node!.id, { ...carriedLooks }); } },
+      ];
 
   /* ---------------------------------------------------------- level 2 */
-  const group = picked && !onBoard ? SLOTS[picked] : null;
-  const choices = picked ? choicesFor(picked, node) : [];
+  const group = picked && !onBoard ? slots[picked] : null;
+  const choices = picked ? choicesOf(picked) : [];
   // Green fills the quadrant that was empty, cut the same way the blue ones
   // are. More than four choices will not fit there without becoming slivers,
   // so it takes the quadrant below as well — the blue level is gone by then,
@@ -643,13 +727,13 @@ export function RadialMenu() {
   // when the group is wide enough to need a second — each a slab like Delete,
   // on the green level's own rings, in the console's own red. The green stays
   // up, so you can see which choice you are inside and step sideways.
-  const editing = subPick && !choicesFor(group?.id ?? "edit", node).find((c) => c.id === subPick)?.act ? subPick : null;
+  const editing = subPick && !choicesOf(group?.id ?? "edit").find((c) => c.id === subPick)?.act ? subPick : null;
   const freeQuads: [number, number][] = [];
   for (let t = greenTo; t < greenFrom + 1 - 0.001; t += 0.25) freeQuads.push([t, t + 0.25]);
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-hue", "bg-texture", "veil", "fill"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,
@@ -693,28 +777,42 @@ export function RadialMenu() {
           same thing with nothing to find. Escape still steps back one level.
           Either way the middle is also the handle the menu is carried by.
         */}
-        {!picked ? (
+        {!picked && bg ? (
+          // The page has nothing to lock: the middle is only the handle.
           <button
             type="button"
-            aria-label={node.locked ? "Unlock" : "Lock in place"}
-            aria-pressed={node.locked}
+            aria-label="Background"
+            title="The page's background · drag to move the wheel"
+            data-menu-handle=""
+            onPointerDown={carry}
+            onClick={() => { if (dragged.current) dragged.current = false; }}
+            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
+            style={{ background: CONSOLE.face, border: `1px solid ${CONSOLE.rim}`, color: CONSOLE.text, boxShadow: "0 2px 6px oklch(0 0 0 / 0.5)" }}
+          >
+            <Layers className="size-3" />
+          </button>
+        ) : !picked ? (
+          <button
+            type="button"
+            aria-label={node!.locked ? "Unlock" : "Lock in place"}
+            aria-pressed={node!.locked}
             data-menu-lock=""
             onPointerDown={carry}
             onClick={() => {
               // A drag moved the menu; it was not a press on the lock.
               if (dragged.current) { dragged.current = false; return; }
-              play(node.locked ? "confirm" : "close");
-              s().updateNode(node.id, { locked: !node.locked });
+              play(node!.locked ? "confirm" : "close");
+              s().updateNode(node!.id, { locked: !node!.locked });
             }}
             className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing"
             style={{
-              background: node.locked ? `oklch(0.72 0.16 60)` : CONSOLE.face,
-              border: `1px solid ${node.locked ? "oklch(0.52 0.14 60)" : CONSOLE.rim}`,
-              color: node.locked ? "oklch(0.2 0.06 60)" : CONSOLE.text,
+              background: node!.locked ? `oklch(0.72 0.16 60)` : CONSOLE.face,
+              border: `1px solid ${node!.locked ? "oklch(0.52 0.14 60)" : CONSOLE.rim}`,
+              color: node!.locked ? "oklch(0.2 0.06 60)" : CONSOLE.text,
               boxShadow: "0 2px 6px oklch(0 0 0 / 0.5)",
             }}
           >
-            {node.locked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
+            {node!.locked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
           </button>
         ) : onBoard ? null : (
           <button
@@ -754,15 +852,19 @@ export function RadialMenu() {
                 at: p.at,
                 on: p.choice.id === subPick,
                 preview:
-                  p.choice.id === "hue" ? <HueSwatch node={node} palette={palette} />
-                  : p.choice.id === "texture" ? <TextureSwatch node={node} palette={palette} layers={layers} />
-                  : undefined,
-                glow: p.choice.id === "aura" ? auraColour(node.aura, palette) : null,
+                  bg
+                    ? p.choice.id === "bg-hue"
+                      ? <span className="block size-[18px] rounded-[4px]" style={{ background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
+                      : undefined
+                    : p.choice.id === "hue" ? <HueSwatch node={node!} palette={palette} />
+                      : p.choice.id === "texture" ? <TextureSwatch node={node!} palette={palette} layers={layers} />
+                        : undefined,
+                glow: !bg && p.choice.id === "aura" ? auraColour(node!.aura, palette) : null,
                 onPick: () => {
                   play("select");
                   // A choice that fires on the spot is not somewhere you are:
                   // nothing opens, so nothing is left to step back out of.
-                  if (p.choice.act) { p.choice.act(node); return; }
+                  if (p.choice.act) { p.choice.act(); return; }
                   setSubPick(p.choice.id);
                 },
               }))}
@@ -777,14 +879,14 @@ export function RadialMenu() {
         */}
         {onBoard ? (
           <div data-radial-board="" className="pointer-events-none absolute left-0 top-0">
-            <DrawBoard node={node} at={null} onBack={() => setPicked(null)} onDone={closeRadial} />
+            <DrawBoard node={node!} at={null} onBack={() => setPicked(null)} onDone={closeRadial} />
           </div>
         ) : null}
 
         {group && editing ? (
           <div data-radial-editor={editing} className="pointer-events-none absolute left-0 top-0">
             <QuadrantConsole span={consoleSpan} onGrip={carry}>
-              {(slabs) => <Editor which={editing} node={node} slabs={slabs} />}
+              {(slabs) => (bg ? <BackgroundEditor which={editing} slabs={slabs} page={page} /> : <Editor which={editing} node={node!} slabs={slabs} />)}
             </QuadrantConsole>
           </div>
         ) : null}
@@ -797,13 +899,35 @@ export function RadialMenu() {
         */}
         {onBoard ? null : (
           <HoverTray
-            testId="part"
+            testId={bg ? "background" : "part"}
             at={[0, (picked ? GREEN_RINGS.reach : BLUE_RINGS.reach) + TRAY_DROP]}
             icon={<Ellipsis className="size-3.5" />}
-            label="More for this part"
+            label={bg ? "More for the page" : "More for this part"}
             items={tray}
           />
         )}
+
+        {/* The background's Picture piece: the file it takes becomes a texture layer on the page. */}
+        {bg ? (
+          <input
+            ref={picture}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            aria-label="Add a picture to the page"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) {
+                void readImage(f).then((src) => {
+                  s().addTexture({ ...newLayer("image"), src, target: "page" });
+                  play("confirm");
+                  ctx.publish({ key: "studio:background", title: "Picture on the page", body: "It is a layer of the site's stack now; Looks › Texture tunes it.", level: "success", source: "studio", toast: true });
+                });
+              }
+              e.target.value = "";
+            }}
+          />
+        ) : null}
 
         {pull ? <PullEnds pull={pull} /> : null}
       </div>
