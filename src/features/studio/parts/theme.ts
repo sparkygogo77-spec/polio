@@ -61,6 +61,43 @@ export interface Theme {
   boxPad: number;
   headingFamily: string;
   bodyFamily: string;
+  /** Set only when a part has its own type; `Fill` puts them on the root and text inherits them. */
+  fontWeight?: number;
+  letterSpacing?: string;
+}
+
+/**
+ * A part's own type, over the site's.
+ *
+ * Every field is optional and relative where it can be: `size` scales the
+ * site's base size rather than replacing it, so a part set a shade larger
+ * stays a shade larger when the site's type changes. `family` is one of the
+ * `FAMILY` keys and sets headings and body alike for this one part.
+ */
+export interface NodeFont {
+  family?: string;
+  /** Multiplier on the site's base size, 0.6..2. */
+  size?: number;
+  /** 300..800. Body text takes it; parts that set their own weights keep them. */
+  weight?: number;
+  /** In em, -0.05..0.3. */
+  spacing?: number;
+  /** Line height, 1..2. */
+  leading?: number;
+}
+
+export function applyFont(t: Theme, font: NodeFont | null | undefined): Theme {
+  if (!font) return t;
+  const next: Theme = { ...t };
+  if (font.family && FAMILY[font.family]) {
+    next.headingFamily = FAMILY[font.family]!;
+    next.bodyFamily = FAMILY[font.family]!;
+  }
+  if (typeof font.size === "number" && Number.isFinite(font.size)) next.fontPx = Math.round(t.fontPx * Math.max(0.6, Math.min(2, font.size)) * 10) / 10;
+  if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;
+  if (typeof font.spacing === "number" && Number.isFinite(font.spacing)) next.letterSpacing = `${Math.max(-0.05, Math.min(0.3, font.spacing)).toFixed(3)}em`;
+  if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(1, Math.min(2, font.leading));
+  return next;
 }
 
 export const FAMILY: Record<string, string> = {

@@ -47,6 +47,8 @@ interface NodeSpec {
   link: string | null;
   /** Roles this part repaints for itself, in words. */
   colour: string | null;
+  /** This part's own type, in words, or null when it follows the site. */
+  font: string | null;
   /** How it arrives on the page, and what glows round it. */
   anim: string | null;
   aura: string | null;
@@ -182,6 +184,17 @@ function alignOf(n: StudioNode, fw: number): NodeSpec["align"] {
 }
 
 /** "background: the site's accent, text: #ffffff" — or nothing when it follows the site. */
+function describeFont(font: StudioNode["font"] | undefined): string | null {
+  if (!font) return null;
+  const bits: string[] = [];
+  if (font.family) bits.push(`set in ${font.family}`);
+  if (typeof font.size === "number" && Math.abs(font.size - 1) > 0.02) bits.push(`${Math.round(font.size * 100)}% of the site's base size`);
+  if (typeof font.weight === "number") bits.push(`weight ${font.weight}`);
+  if (typeof font.spacing === "number" && Math.abs(font.spacing) > 0.004) bits.push(`letter spacing ${font.spacing.toFixed(2)}em`);
+  if (typeof font.leading === "number") bits.push(`line height ${font.leading.toFixed(2)}`);
+  return bits.length ? bits.join(", ") : null;
+}
+
 function describeColour(colour: StudioNode["colour"] | undefined): string | null {
   if (!colour) return null;
   const parts = ROLES.filter((r) => colour[r]).map((r) => {
@@ -254,6 +267,7 @@ export function compileSpec(input: CompileInput): Spec {
           options: n.options,
           link: describeLink(n.link, pages),
           colour: describeColour(n.colour),
+          font: describeFont(n.font),
           anim: n.anim
             ? `${ENTRANCE_WORD[n.anim] ?? n.anim}${n.animSpeed && n.animSpeed !== "normal" ? `, ${n.animSpeed}ly` : ""}${
               n.animDelay && n.animDelay !== "none" ? (n.animDelay === "short" ? ", a beat after the page" : ", a moment after the page") : ""}${
@@ -452,6 +466,7 @@ export function specToMarkdown(spec: Spec): string {
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
         if (e.link) L.push(`  - links to: ${e.link}`);
         if (e.colour) L.push(`  - colour, this part only: ${e.colour}`);
+        if (e.font) L.push(`  - type, this part only: ${e.font}`);
         if (e.aura) L.push(`  - aura: ${e.aura}`);
         if (e.texture) L.push(`  - texture: ${e.texture}`);
         if (e.anim) L.push(`  - on arrival: it ${e.anim}`);

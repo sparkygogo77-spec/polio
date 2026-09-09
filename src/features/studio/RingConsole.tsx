@@ -18,36 +18,39 @@ import * as React from "react";
 import { play } from "@/core/audio/engine";
 import { arcPath, fmt, onCircle, spun, type Pt, type Rings, type Shape } from "./menuGeometry";
 
-export const CONSOLE_HUE = 27;
+export const CONSOLE_HUE = 285;
 
 /**
- * The console's colours: a clean grey slab with a red aura round it.
+ * The console's colours: the void.
  *
- * A red slab with red controls had nothing left to say "this one is picked",
- * and a brown one read as mud. So the face is a neutral grey — barely cool,
- * so it sits with the rest of the chrome — and the red is kept for the aura
- * that surrounds the slabs and for the one thing on a slab that is *on*.
+ * The slabs are the same dark purple-blue as the drawing board's surface —
+ * near black, a little violet — with a thin lit rim, the way the first
+ * level's pieces have a darker rim round a flat face, only inverted: on
+ * something this dark the edge has to be the lighter line. There is no
+ * aura; the slab drops straight off into the board. Red is kept for the one
+ * thing on a slab that is *on*, and for nothing else. Grey went: a grey slab
+ * with red controls read as mud next to the blue and green above it.
  */
 export const CONSOLE = {
-  face: "oklch(0.36 0.008 260)",
-  faceLit: "oklch(0.44 0.012 260)",
-  rim: "oklch(0.27 0.01 260)",
-  well: "oklch(0.3 0.01 260)",
-  aura: `oklch(0.63 0.25 ${27})`,
+  face: "oklch(0.2 0.035 288)",
+  faceLit: "oklch(0.26 0.045 288)",
+  rim: "oklch(0.36 0.06 290)",
+  well: "oklch(0.14 0.03 288)",
+  /** A small box on a slab — a chip, a key, a tick. */
+  box: "oklch(0.27 0.04 286)",
+  aura: `oklch(0.64 0.23 ${27})`,
   on: `oklch(0.64 0.23 ${27})`,
-  text: "oklch(0.94 0.008 260)",
-  ink: "oklch(0.2 0.01 260)",
-  muted: "oklch(0.7 0.01 260)",
+  text: "oklch(0.92 0.02 285)",
+  ink: "oklch(0.1 0.02 285)",
+  muted: "oklch(0.62 0.03 285)",
 } as const;
 
 /**
- * The aura round a slab: tucked under, not blazing.
- *
- * Tight and a little dim, so it reads as the slab's own light on the board
- * and not as a halo that makes the whole menu look bigger than it is. The
- * slabs are cut back by `SHRINK` to leave a gap for it to be seen in.
+ * What a slab casts: not an aura, a shadow. The slab sits on the board and
+ * the board goes darker under its edge, which is what makes it read as a
+ * thing with a top rather than a shape with a glow.
  */
-export const SLAB_AURA = `drop-shadow(0 0 5px oklch(0.62 0.24 27 / 0.62)) drop-shadow(0 0 1.5px oklch(0.62 0.24 27 / 0.5))`;
+export const SLAB_AURA = `drop-shadow(0 3px 5px oklch(0 0 0 / 0.55))`;
 /** How much smaller than the green level the console's slabs are cut, per edge. */
 export const SHRINK = 5;
 /** The small red aura on whichever chip is picked. */
@@ -404,7 +407,7 @@ export function SectorButton({
   // brightens under the hand and goes red when it is on. Disabled is a
   // duller, *opaque* face — a translucent one showed the slab's rim through
   // it as a second outline.
-  const fill = disabled ? "oklch(0.31 0.005 260)" : on ? `oklch(0.64 0.23 ${hue})` : lit ? CONSOLE.faceLit : CONSOLE.face;
+  const fill = disabled ? "oklch(0.16 0.03 288)" : on ? `oklch(0.64 0.23 ${hue})` : lit ? CONSOLE.faceLit : CONSOLE.face;
   return (
     <>
       <path
@@ -450,6 +453,74 @@ export function SectorButton({
         </div>
       </Glued>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* A tray under the wheel                                              */
+/* ------------------------------------------------------------------ */
+
+export interface TrayItem {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  /** The one action the tray is really for, in the first level's blue. */
+  primary?: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * A small tab under the wheel that opens, on hover, into a row of actions.
+ *
+ * For the things a part's menu needs that are not worth a piece of the
+ * wheel: seeing the part live, moving it forward or back among the others,
+ * carrying its looks to another part. Under the wheel rather than on it, so
+ * the wheel stays the wheel; a tab rather than a row, so it is not chrome
+ * until it is wanted.
+ */
+export function HoverTray({ at, icon, label, items, testId, lit }: { at: Pt; icon: React.ReactNode; label: string; items: TrayItem[]; testId: string; lit?: boolean }) {
+  return (
+    <div
+      data-tray={testId}
+      data-lit={lit ? "" : undefined}
+      className="group/tray pointer-events-auto absolute flex -translate-x-1/2 items-center rounded-md transition-[box-shadow,border-color]"
+      style={{
+        left: at[0],
+        top: at[1],
+        background: CONSOLE.face,
+        // Lit, the tab wears the first level's blue: something in it is ready.
+        border: `1px solid ${lit ? "oklch(0.6 0.14 205)" : CONSOLE.rim}`,
+        boxShadow: lit ? "0 0 10px oklch(0.7 0.16 205 / 0.45), 0 3px 8px oklch(0 0 0 / 0.55)" : "0 3px 8px oklch(0 0 0 / 0.55)",
+      }}
+    >
+      <span className="flex h-5 w-8 items-center justify-center group-hover/tray:hidden" title={label} style={{ color: lit ? "oklch(0.82 0.13 205)" : CONSOLE.muted }}>
+        {icon}
+      </span>
+      <div className="hidden items-center gap-0.5 p-0.5 group-hover/tray:flex">
+        {items.map((it) => (
+          <button
+            key={it.id}
+            type="button"
+            data-tray-item={it.id}
+            aria-label={it.label}
+            title={it.label}
+            disabled={it.disabled}
+            onClick={() => { play(it.primary ? "confirm" : "tap"); it.onClick(); }}
+            className="flex h-6 items-center gap-1 whitespace-nowrap rounded-[4px] px-1.5 text-[9px] font-semibold transition-[filter] enabled:hover:brightness-125 disabled:opacity-40"
+            style={{
+              background: it.primary ? "oklch(0.66 0.155 205)" : CONSOLE.box,
+              color: it.primary ? "oklch(0.99 0 0)" : CONSOLE.text,
+              boxShadow: litEdge(it.primary ? 205 : CONSOLE_HUE),
+              outline: it.primary ? "1px solid oklch(0.44 0.14 205)" : `1px solid ${CONSOLE.ink}`,
+            }}
+          >
+            {it.icon}
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

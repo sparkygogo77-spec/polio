@@ -650,13 +650,15 @@ export function castFrom(light: Light, cx: number, cy: number): { dx: number; dy
  * than numbers because the blueprint has to say them and a reader has to
  * pick them off a slab.
  */
-export type AnimSpeed = "slow" | "normal" | "fast";
+export type AnimSpeed = "slow" | "normal" | "fast" | "faster" | "instant";
 export type AnimDelay = "none" | "short" | "long";
 export type AnimEase = "smooth" | "snappy" | "bouncy";
 export const ANIM_SPEED: { id: AnimSpeed; label: string; k: number }[] = [
   { id: "slow", label: "Slow", k: 1.8 },
   { id: "normal", label: "Normal", k: 1 },
   { id: "fast", label: "Fast", k: 0.55 },
+  { id: "faster", label: "Faster", k: 0.32 },
+  { id: "instant", label: "Instant", k: 0.14 },
 ];
 export const ANIM_DELAY: { id: AnimDelay; label: string; ms: number }[] = [
   { id: "none", label: "No wait", ms: 0 },

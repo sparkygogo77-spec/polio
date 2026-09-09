@@ -13,15 +13,19 @@
  * near the pointer and an outer block beyond it. That is what gives six
  * buttons out of three quadrants without any of them being a sliver.
  *
- *          empty  │  Animation · Prompt (inner) · Draw (outer)
+ *          empty  │  Animation · pencil (inner) · Draw (outer)
  *        ─────────●─────────
  *         Delete  │  Duplicate · Edit (inner) · Looks (outer)
+ *                 ⋯  the tray: preview here, forward, back, copy/paste looks
  *
  * Delete is the whole quadrant under the empty one, undivided — the same
  * outline as the quadrant opposite it, mirrored, so it reads as one slab and
  * never as a sliver you could hit by accident. The two working quadrants
  * are cut the same way: two icons on the inner band, one word on the outer
- * block, so a hand that has learned one has learned the other.
+ * block, so a hand that has learned one has learned the other. Under the
+ * wheel hangs a small tab that opens on hover: the few things that are about
+ * the part but not about editing it, kept off the wheel so the wheel stays
+ * the wheel.
  *
  * Levels:
  *   1  blue     the seven above, plus the lock in the middle
@@ -38,21 +42,23 @@
  */
 import * as React from "react";
 import {
-  Brush, Copy, FileText, Flag, Gauge, Grid2x2, Link2, ListTree, Lock, Palette as PaletteIcon, Pencil, Play, Shapes, SlidersHorizontal,
-  Sparkles, Tag, Trash2, Undo2, Unlock, Wand2, X,
+  Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eye, Flag, Gauge, Grid2x2, Link2, ListTree, Lock, Orbit,
+  Palette as PaletteIcon, Pencil, Pipette, Play, SlidersHorizontal, Sparkles, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
-import { useStudio, type StudioNode } from "./store";
+import { livePath, useStudio, type StudioNode } from "./store";
+import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import {
   BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
   type Pt,
 } from "./menuGeometry";
-import { AnimQuads, AuraQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
+import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { PlateEditor } from "./PlateEditors";
 import { DrawBoard } from "./DrawBoard";
-import { CONSOLE, type Slab } from "./RingConsole";
+import { CONSOLE, HoverTray, type Slab, type TrayItem } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { auraColour, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
+import { useActions } from "@/core/actions";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -87,11 +93,16 @@ const listeners = new Set<(v: Open) => void>();
 function keepOnScreen(x: number, y: number): [number, number] {
   if (typeof window === "undefined") return [x, y];
   // The drawing board is the widest thing the menu can become; its rim
-  // buttons reach a few pixels past its edge.
+  // button reaches a few pixels past its edge. Below, the tray hangs under
+  // the wheel or the board, so the bottom needs more room than the rest —
+  // and only the bottom: pushing the menu further from every edge for a
+  // thing on one edge moved a menu opened near the top away from the hand
+  // that opened it, and the pull that starts from that hold lost its line.
   const margin = Math.max(GREEN_RINGS.reach + 26, BOARD_R + 16);
+  const below = BOARD_R + TRAY_DROP + 28;
   return [
     Math.max(margin, Math.min(window.innerWidth - margin, x)),
-    Math.max(margin, Math.min(window.innerHeight - margin, y)),
+    Math.max(margin, Math.min(window.innerHeight - below, y)),
   ];
 }
 
@@ -146,6 +157,8 @@ function useRadial(): Open {
  */
 const PULL_FROM = BLUE_RINGS.hole + 6;
 const PULL_LOCK = BLUE_RINGS.reach + 16;
+/** How far below the wheel's edge the tray hangs. */
+export const TRAY_DROP = 22;
 
 /**
  * Where the gesture has got to.
@@ -221,7 +234,12 @@ interface Choice {
   act?: (n: StudioNode) => void;
 }
 
-function choicesFor(group: SlotId): Choice[] {
+/** The options a part offers that are about motion: they sit under Animation, not Edit. */
+function motionOptions(node: StudioNode) {
+  return (getFeature(node.featureId)?.options ?? []).filter((o) => MOTION_OPTION_IDS.has(o.id));
+}
+
+function choicesFor(group: SlotId, node: StudioNode): Choice[] {
   switch (group) {
     case "look":
       return [
@@ -230,38 +248,47 @@ function choicesFor(group: SlotId): Choice[] {
         { id: "aura", label: "Aura", icon: Sparkles },
       ];
     case "anim":
-      // Options, not entrances: each opens the animation slabs with its own lit.
+      // Options, not entrances: each opens the animation slabs with its own
+      // lit. Behaviour is the part's own motion options — a top bar's speed,
+      // a carousel's autoplay — and is only there when the part has some.
       return [
         { id: "entrance", label: "Entrance", icon: Play },
         { id: "speed", label: "Speed", icon: Gauge },
         { id: "extras", label: "Extras", icon: SlidersHorizontal },
+        ...(motionOptions(node).length ? [{ id: "behaviour", label: "Behaviour", icon: Orbit }] : []),
       ];
     case "write":
+      // Everything written *about* the part: its words, what is in it, where
+      // it sends people, the data it shows, and (a placeholder) its priority.
       return [
         { id: "words", label: "Words", icon: Wand2 },
         { id: "contents", label: "Contents", icon: ListTree },
         { id: "links", label: "Links", icon: Link2 },
+        { id: "data", label: "Data", icon: Database },
         // A placeholder: the flag is here, what it does is not, yet.
         { id: "priority", label: "Priority (soon)", icon: Flag, act: () => play("tap") },
       ];
     case "draw":
       // The board is not a list of choices; it has nothing on the green level.
       return [];
-    case "draw":
-      // The board is not a list of choices; it has nothing on the green level.
-      return [];
     default:
+      // Edit is how the part is *built*: its name, its layout options —
+      // columns, shape, density — and its own type.
       return [
         { id: "name", label: "Name", icon: Tag },
-        // The per-part options — shape, columns, autoplay — used to live only
-        // in the panel, which meant the panel was not optional.
         { id: "options", label: "Options", icon: SlidersHorizontal },
-        { id: "data", label: "Data", icon: FileText },
-        // The glyph marks a part on the board rather than on the site.
-        { id: "glyph", label: "Glyph", icon: Shapes },
+        { id: "font", label: "Font", icon: Type },
       ];
   }
 }
+
+/**
+ * The looks carried from one part to another by the tray's Copy and Paste.
+ * A module variable, not a store field: it is a hand holding something, not
+ * a thing the site remembers.
+ */
+type Looks = Pick<StudioNode, "colour" | "font" | "texture" | "aura" | "auraSize" | "auraStyle">;
+let carriedLooks: Looks | null = null;
 
 /* ------------------------------------------------------------------ */
 /* The menu                                                            */
@@ -274,8 +301,11 @@ export function useRadialOpen(): boolean {
 
 export function RadialMenu() {
   const open = useRadial();
+  const ctx = useActions();
   const [picked, setPicked] = React.useState<SlotId | null>(null);
   const [subPick, setSubPick] = React.useState<string | null>(null);
+  // Re-renders the tray when looks are copied, so Paste lights up.
+  const [, setCarried] = React.useState(0);
   const nodes = useStudio((s) => s.nodes);
   const shape = useStudio((s) => s.menuShape);
   const spin = useStudio((s) => s.menuSpin);
@@ -558,9 +588,28 @@ export function RadialMenu() {
   // Draw is not a level: the wheel is gone and the disc is in its place.
   const onBoard = picked === "draw";
 
+  /* ---------------------------------------------------------- the tray */
+  // Under the wheel, whatever level it is on: the things a part's menu needs
+  // that are not worth a piece of the wheel. Not while the board is up — the
+  // board has a tray of its own.
+  const nodeIndex = nodes.indexOf(node);
+  const tray: TrayItem[] = [
+    { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(`${livePath(node.pageId)}#${node.id}`); } },
+    { id: "forward", label: "Forward", icon: <ChevronsUp className="size-3" />, disabled: nodeIndex >= nodes.length - 1, onClick: () => s().raiseNode(node.id) },
+    { id: "back", label: "Backward", icon: <ChevronsDown className="size-3" />, disabled: nodeIndex <= 0, onClick: () => s().lowerNode(node.id) },
+    {
+      id: "copy", label: "Copy looks", icon: <Pipette className="size-3" />,
+      onClick: () => {
+        carriedLooks = { colour: node.colour, font: node.font, texture: node.texture, aura: node.aura, auraSize: node.auraSize, auraStyle: node.auraStyle };
+        setCarried((n) => n + 1);
+      },
+    },
+    { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node.id, { ...carriedLooks }); } },
+  ];
+
   /* ---------------------------------------------------------- level 2 */
   const group = picked && !onBoard ? SLOTS[picked] : null;
-  const choices = picked ? choicesFor(picked) : [];
+  const choices = picked ? choicesFor(picked, node) : [];
   // Green fills the quadrant that was empty, cut the same way the blue ones
   // are. More than four choices will not fit there without becoming slivers,
   // so it takes the quadrant below as well — the blue level is gone by then,
@@ -594,13 +643,13 @@ export function RadialMenu() {
   // when the group is wide enough to need a second — each a slab like Delete,
   // on the green level's own rings, in the console's own red. The green stays
   // up, so you can see which choice you are inside and step sideways.
-  const editing = subPick && !choicesFor(group?.id ?? "edit").find((c) => c.id === subPick)?.act ? subPick : null;
+  const editing = subPick && !choicesFor(group?.id ?? "edit", node).find((c) => c.id === subPick)?.act ? subPick : null;
   const freeQuads: [number, number][] = [];
   for (let t = greenTo; t < greenFrom + 1 - 0.001; t += 0.25) freeQuads.push([t, t + 0.25]);
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,
@@ -659,9 +708,10 @@ export function RadialMenu() {
             }}
             className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing"
             style={{
-              background: node.locked ? `oklch(0.72 0.16 60)` : `oklch(0.28 0.02 250)`,
-              border: `1px solid oklch(${node.locked ? "0.52 0.14 60" : "0.44 0.02 250"})`,
-              color: node.locked ? "oklch(0.2 0.06 60)" : "oklch(0.86 0.02 250)",
+              background: node.locked ? `oklch(0.72 0.16 60)` : CONSOLE.face,
+              border: `1px solid ${node.locked ? "oklch(0.52 0.14 60)" : CONSOLE.rim}`,
+              color: node.locked ? "oklch(0.2 0.06 60)" : CONSOLE.text,
+              boxShadow: "0 2px 6px oklch(0 0 0 / 0.5)",
             }}
           >
             {node.locked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
@@ -681,7 +731,7 @@ export function RadialMenu() {
             className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
             style={{
               background: editing ? CONSOLE.well : `oklch(0.32 0.06 ${GREEN})`,
-              border: `1px solid ${editing ? "oklch(0.5 0.01 260)" : `oklch(0.5 0.12 ${GREEN})`}`,
+              border: `1px solid ${editing ? CONSOLE.rim : `oklch(0.5 0.12 ${GREEN})`}`,
               color: editing ? CONSOLE.text : "oklch(0.9 0.05 148)",
               boxShadow: "0 2px 6px oklch(0 0 0 / 0.5)",
             }}
@@ -738,6 +788,22 @@ export function RadialMenu() {
             </QuadrantConsole>
           </div>
         ) : null}
+
+        {/*
+          The tray, under the wheel: a tab that opens on hover into the few
+          actions that are about the part but not about editing it — seeing
+          it live, its place among the others, carrying its looks. It hangs
+          under whichever level is up, and steps aside for the board.
+        */}
+        {onBoard ? null : (
+          <HoverTray
+            testId="part"
+            at={[0, (picked ? GREEN_RINGS.reach : BLUE_RINGS.reach) + TRAY_DROP]}
+            icon={<Ellipsis className="size-3.5" />}
+            label="More for this part"
+            items={tray}
+          />
+        )}
 
         {pull ? <PullEnds pull={pull} /> : null}
       </div>
@@ -1012,6 +1078,21 @@ function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs
   // one lit: how it comes in, how fast, and the rest.
   if (which in ANIM_SLAB) {
     return <AnimQuads slabs={slabs} node={node} focus={which as keyof typeof ANIM_SLAB} onChange={(patch) => update(patch)} />;
+  }
+  // The part's own motion options, one per slab.
+  if (which === "behaviour") {
+    return (
+      <BehaviourQuads
+        slabs={slabs}
+        options={motionOptions(node)}
+        values={node.options}
+        onChange={(id, value) => update({ options: { ...node.options, [id]: value } })}
+      />
+    );
+  }
+  // Its type: the sliders together on two slabs, the families on the third.
+  if (which === "font") {
+    return <FontQuads slabs={slabs} font={node.font} onChange={(font) => update({ font })} />;
   }
   // Everything else is words and lists, and there is no honest way to bend a
   // text field round a curve. They go on a plate, in the slab opposite the

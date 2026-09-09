@@ -29,6 +29,8 @@ import {
   type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette, type RoleId, type TextureLayer,
 } from "./look";
 import { useStudio, type StudioNode } from "./store";
+import { FAMILY, type NodeFont } from "./parts/theme";
+import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
   ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, SectorButton, SHRINK, SLAB_AURA, type ArcItem, type Slab,
@@ -298,7 +300,7 @@ export function TextureQuads({
         onPick={(id) => onChange(id === "site" ? null : id)}
         items={[
           { id: "site", label: "Follow the site", style: { background: CONSOLE.well }, glyph: <span className="text-[7px] font-bold" style={{ color: CONSOLE.text }}>SITE</span> },
-          { id: "none", label: "No texture", style: { background: "oklch(0.24 0.008 260)" }, glyph: <X className="size-3.5" style={{ color: CONSOLE.text }} /> },
+          { id: "none", label: "No texture", style: { background: CONSOLE.box }, glyph: <X className="size-3.5" style={{ color: CONSOLE.text }} /> },
           ...layers.map((l, i): ArcItem => ({
             id: l.id,
             label: `${TEXTURE_KINDS.find((k) => k.id === l.kind)?.label ?? l.kind} (layer ${i + 1})`,
@@ -400,13 +402,13 @@ export function AuraQuads({
     id: s.id,
     label: s.label,
     // Each style chip wears its own style, in the colour that is set.
-    style: { background: "oklch(0.24 0.008 260)", color: CONSOLE.text, ...(auraStyle(colour ?? palette.accent, palette, 0.45, s.id) ?? {}) } as React.CSSProperties,
+    style: { background: CONSOLE.box, color: CONSOLE.text, ...(auraStyle(colour ?? palette.accent, palette, 0.45, s.id) ?? {}) } as React.CSSProperties,
     glyph: STYLE_GLYPH[s.id],
   }));
   const sizeItems: ArcItem[] = SIZES.map((s) => ({
     id: s.id,
     label: s.label,
-    style: { background: "oklch(0.24 0.008 260)", color: CONSOLE.text },
+    style: { background: CONSOLE.box, color: CONSOLE.text },
     glyph: <span className="text-[8px] font-bold">{s.id.toUpperCase()}</span>,
   }));
   const sizeId = SIZES.reduce((best, s) => (Math.abs(s.k - size) < Math.abs(best.k - size) ? s : best), SIZES[1]!).id;
@@ -465,13 +467,13 @@ const SLIDE_IDS = new Set(SLIDES.map((s) => s.id));
 const word = (t: string) => <span className="text-[7px] font-bold uppercase tracking-tight">{t}</span>;
 const ENTRANCE_TYPES: ArcItem[] = [
   { id: "", label: "No entrance", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
-  { id: "el-fade", label: "Fade in", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Fade") },
-  { id: "slide", label: "Slide in", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Slide") },
-  { id: "el-grow", label: "Grow", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Grow") },
-  { id: "el-blur", label: "Come into focus", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Focus") },
-  { id: "el-flip", label: "Tip up", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Tip") },
+  { id: "el-fade", label: "Fade in", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Fade") },
+  { id: "slide", label: "Slide in", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Slide") },
+  { id: "el-grow", label: "Grow", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Grow") },
+  { id: "el-blur", label: "Come into focus", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Focus") },
+  { id: "el-flip", label: "Tip up", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Tip") },
 ];
-const plain = (id: string, label: string, text: string): ArcItem => ({ id, label, style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word(text) });
+const plain = (id: string, label: string, text: string): ArcItem => ({ id, label, style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word(text) });
 
 /**
  * The entrance, shown by a slab.
@@ -547,7 +549,7 @@ export function AnimQuads({
         onPick={(id) => onChange({ anim: id === "" ? null : id === "slide" ? (SLIDE_IDS.has(anim) ? anim : "el-rise") : id })} />
       <ArcChips
         slab={entrance}
-        items={SLIDES.map((s) => ({ id: s.id, label: s.label, style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: s.glyph }))}
+        items={SLIDES.map((s) => ({ id: s.id, label: s.label, style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: s.glyph }))}
         radius={hole + 20}
         size={18}
         value={SLIDE_IDS.has(anim) ? anim : null}
@@ -577,7 +579,7 @@ export function AnimQuads({
           onClick={() => { play("tap"); setRun((n) => n + 1); }}
           className="pointer-events-auto flex size-[18px] items-center justify-center rounded-[4px]"
           style={{
-            background: node.anim ? CONSOLE.on : "oklch(0.26 0.008 260)",
+            background: node.anim ? CONSOLE.on : CONSOLE.box,
             color: node.anim ? "oklch(0.16 0.04 27)" : CONSOLE.muted,
             boxShadow: "0 1px 3px oklch(0 0 0 / 0.5)",
             outline: node.anim ? undefined : `1px dashed ${CONSOLE.muted}`,
@@ -586,6 +588,98 @@ export function AnimQuads({
           <Play className="size-2.5" />
         </button>
       </Glued>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Font                                                                */
+/* ------------------------------------------------------------------ */
+
+const FAMILY_SHORT: Record<string, string> = {
+  "geometric sans": "Geo", "grotesque sans": "Grot", serif: "Serif", display: "Disp", condensed: "Cond",
+  monospace: "Mono", handwritten: "Hand", "system sans": "Sys", "humanist sans": "Hum",
+};
+const greys = (f: number) => `oklch(${(0.3 + f * 0.55).toFixed(3)} 0.02 285)`;
+
+/**
+ * A part's own type: the sliders together, on two slabs, and the families
+ * on the third. Size and weight share a slab (the inner and outer arcs),
+ * spacing and leading the next; the family is a box, with an X to follow
+ * the site again. Every value is relative to the site's where it can be, so
+ * the part stays a shade larger when the site's type changes.
+ */
+export function FontQuads({
+  slabs, font, onChange,
+}: {
+  slabs: Slab[];
+  font: NodeFont | null;
+  onChange: (next: NodeFont | null) => void;
+}) {
+  const [a, b, fam] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
+  const { hole, mid, reach } = a.rings;
+  const pad = 0.012;
+  const set = (patch: Partial<NodeFont>) => onChange({ ...(font ?? {}), ...patch });
+  const arc = (slab: Slab, inner: boolean) => (inner ? { rIn: hole + 18, rOut: mid - 6 } : { rIn: mid + 4, rOut: reach - 12 });
+  const size = font?.size ?? 1;
+  const weight = font?.weight ?? 400;
+  const spacing = font?.spacing ?? 0;
+  const leading = font?.leading ?? 1.55;
+  const families: ArcItem[] = [
+    { id: "", label: "Follow the site's type", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
+    ...Object.keys(FAMILY).map((k): ArcItem => ({ id: k, label: k, style: { background: CONSOLE.box, color: CONSOLE.text, fontFamily: FAMILY[k] }, glyph: <span className="text-[8px] font-bold">{FAMILY_SHORT[k] ?? k.slice(0, 4)}</span> })),
+  ];
+  return (
+    <>
+      <ArcSlider slab={a} from={a.from + pad} to={a.to - pad} {...arc(a, true)} label="Size" value={(size - 0.6) / 1.4} colourAt={greys}
+        onChange={(f) => set({ size: Math.round((0.6 + f * 1.4) * 100) / 100 })} />
+      <ArcSlider slab={a} from={a.from + pad} to={a.to - pad} {...arc(a, false)} label="Weight" value={(weight - 300) / 500} colourAt={greys}
+        onChange={(f) => set({ weight: Math.round((300 + f * 500) / 100) * 100 })} />
+      <Caption slab={a}>Size · weight</Caption>
+      <ArcSlider slab={b} from={b.from + pad} to={b.to - pad} {...arc(b, true)} label="Letter spacing" value={(spacing + 0.05) / 0.35} colourAt={greys}
+        onChange={(f) => set({ spacing: Math.round((-0.05 + f * 0.35) * 1000) / 1000 })} />
+      <ArcSlider slab={b} from={b.from + pad} to={b.to - pad} {...arc(b, false)} label="Line height" value={(leading - 1) / 1} colourAt={greys}
+        onChange={(f) => set({ leading: Math.round((1 + f) * 100) / 100 })} />
+      <Caption slab={b}>Spacing · lead</Caption>
+      <GridChips slab={fam} items={families} size={24} value={font?.family ?? ""} onPick={(id) => (id ? set({ family: id }) : onChange(null))} />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Behaviour: the part's own motion options                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The options a part offers that are about how it moves — a top bar's speed
+ * and what it does on scroll, a carousel's autoplay — one option per slab as
+ * boxes, captioned with the option's name. Everything else a part offers is
+ * under Edit; these are here because they are animation.
+ */
+export function BehaviourQuads({
+  slabs, options, values, onChange,
+}: {
+  slabs: Slab[];
+  options: FeatureOption[];
+  values: Record<string, string>;
+  onChange: (id: string, value: string) => void;
+}) {
+  return (
+    <>
+      {options.slice(0, slabs.length).map((opt, i) => {
+        const slab = slabs[i]!;
+        const current = values[opt.id] ?? opt.values[0]!;
+        return (
+          <React.Fragment key={opt.id}>
+            <ArcChips slab={slab} radius={chipsAt(slab)} size={26} value={current}
+              // A long value shows its first word — "hide-then-show" is
+              // "hide" on the box and the whole thing on the tooltip.
+              items={opt.values.map((v) => plain(v, `${opt.label}: ${v}`, v.length > 7 ? (v.split(/[-\s]/)[0] ?? v).slice(0, 6) : v))}
+              onPick={(v) => onChange(opt.id, v)} />
+            <Caption slab={slab}>{opt.label}</Caption>
+          </React.Fragment>
+        );
+      })}
     </>
   );
 }

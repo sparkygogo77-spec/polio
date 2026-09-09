@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.21",
+    title: "The void",
+    summary: "The console, the board and every button past the green level are one dark purple-blue; the drawing board moves; a tray hangs under the wheel.",
+    sketch: "frame",
+    added: [
+      "No more grey. The slabs, the middle button, the rim buttons and the tray are the void — the drawing board's own dark purple-blue with a thin lit rim — and no aura round them; red is kept for the one thing on a slab that is on.",
+      "The drawing board is the void proper: dark matter drifting under the surface slower than you can see, a handful of far stars, four warm points that breathe, a mark at the middle to start from, and an edge that drops off into a dark shadow like a hole in the screen.",
+      "Make real and Clear left the disc's face for a tray under it that opens when the hand goes to it, and lights blue the moment there is a stroke to make real. The same tray hangs under the wheel: Preview here, Bring forward, Send back, Copy looks, Paste looks.",
+      "Typing happens on a screen: every plate is a small console display set into its slab — teal glass, scanlines, a dot matrix, phosphor lettering — and its keys are the same boxes as everywhere else.",
+      "Edit is Name, Options and Font: size and weight on one slab, spacing and line height on the next, the families as boxes set in their own faces. Data moved under the pencil beside Words, Contents and Links; Glyph is gone.",
+      "Motion options are Behaviour, under Animation — a top bar's on-scroll, a ticker's speed, a slideshow's autoplay — and Edit's Options keeps only the layout ones. Speed has five steps now, up to instant.",
+    ],
+  },
+  {
     version: "0.20",
     title: "The drawing board",
     summary: "Draw is the outer top-right slab of the part menu, and it turns the whole wheel into a dark disc you draw the part's shape on.",

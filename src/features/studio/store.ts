@@ -23,7 +23,7 @@ import { defaultLight, emptyLook, newLayer, type AnimDelay, type AnimEase, type 
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
-import type { NodeColour } from "./parts/theme";
+import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type Sketch } from "./sketch";
 
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
@@ -61,6 +61,8 @@ export interface StudioNode {
   data: string;
   /** Roles this part repaints for itself. Empty or null means it follows the site. */
   colour: NodeColour | null;
+  /** This part's own type — family, size, weight, spacing, leading — or null to follow the site. */
+  font: NodeFont | null;
   /** How it arrives on the page — one of `ENTRANCES`, or null for no entrance. */
   anim: string | null;
   /** How quickly, how long after the page, and with what easing. */
@@ -201,6 +203,9 @@ interface StudioState extends Doc {
   addNode: (featureId: string, x: number, y: number, patch?: Partial<StudioNode>) => string;
   updateNode: (id: string, patch: Partial<StudioNode>) => void;
   updateNodes: (ids: string[], patch: Partial<StudioNode>) => void;
+  /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
+  raiseNode: (id: string, toTop?: boolean) => void;
+  lowerNode: (id: string, toBottom?: boolean) => void;
   moveNodes: (ids: string[], dx: number, dy: number) => void;
   removeNodes: (ids: string[]) => void;
   duplicateNodes: (ids: string[]) => void;
@@ -361,7 +366,7 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
-                colour: null, anim: null, animSpeed: "normal", animDelay: "none", animEase: "smooth",
+                colour: null, font: null, anim: null, animSpeed: "normal", animDelay: "none", animEase: "smooth",
                 aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 x: Math.round(x),
                 y: Math.round(y),
@@ -392,6 +397,29 @@ export const useStudio = create<StudioState>()(
           push();
           const set_ = new Set(ids);
           set((s) => ({ nodes: s.nodes.map((n) => (set_.has(n.id) ? { ...n, ...patch } : n)) }));
+        },
+
+        raiseNode: (id, toTop) => {
+          push();
+          set((s) => {
+            const i = s.nodes.findIndex((n) => n.id === id);
+            if (i < 0 || i === s.nodes.length - 1) return {};
+            const nodes = [...s.nodes];
+            const [n] = nodes.splice(i, 1);
+            nodes.splice(toTop ? nodes.length : i + 1, 0, n!);
+            return { nodes };
+          });
+        },
+        lowerNode: (id, toBottom) => {
+          push();
+          set((s) => {
+            const i = s.nodes.findIndex((n) => n.id === id);
+            if (i <= 0) return {};
+            const nodes = [...s.nodes];
+            const [n] = nodes.splice(i, 1);
+            nodes.splice(toBottom ? 0 : i - 1, 0, n!);
+            return { nodes };
+          });
         },
 
         // No history push: drags call commit() once at pointer-up instead.
@@ -756,7 +784,7 @@ export const useStudio = create<StudioState>()(
           ...current,
           ...p,
           nodes: (p.nodes ?? current.nodes).map((n) => ({
-            ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, anim: n.anim ?? null,
+            ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, font: n.font ?? null, anim: n.anim ?? null,
             animSpeed: n.animSpeed ?? "normal", animDelay: n.animDelay ?? "none", animEase: n.animEase ?? "smooth",
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
             sketch: normaliseSketch(n.sketch),

@@ -19,9 +19,14 @@
  * blueprint writes it out in words, so the shape reaches whoever builds the
  * site either way. A drawing is never lost to a missing key.
  *
- * The controls are on the rim, not in the middle: the way back and the
- * eraser sit on the top edge, Make real sits on the bottom edge, and the
- * words go in a thin strip in the bottom cap. The disc keeps its whole face.
+ * The disc is the void: a dark purple-blue with something slower than
+ * weather moving under it, a handful of far stars, a few warm points, and a
+ * mark at the middle to start from. It drops straight off at its edge — a
+ * thin lit rim, then dark, then a shadow that dims what is round it, the way
+ * a black hole dims its own sky. Nothing sits on its face but the way back,
+ * on the rim, and the words in a thin strip in the bottom cap. Make real and
+ * the eraser are in a tray under the disc that opens when the hand goes to
+ * it, the same tray the wheel has.
  */
 import * as React from "react";
 import { Eraser, LoaderCircle, Sparkles, Undo2 } from "lucide-react";
@@ -30,12 +35,16 @@ import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
 import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
-import { CONSOLE, SLAB_AURA, litEdge } from "./RingConsole";
+import { CONSOLE, HoverTray } from "./RingConsole";
 import { fitToSketch, isBlankSketch, readSketch, tidyStroke, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type StudioNode } from "./store";
 
-/** The blue the wheel's first level wears; the one action on the board wears it too. */
+/** The blue the wheel's first level wears; the strokes are drawn in it. */
 const INK_HUE = 205;
+/** How far under the disc's edge the tray hangs. */
+const TRAY_DROP = 22;
+/** How often the void moves. Slow enough to be nothing, often enough to be smooth. */
+const DRIFT_MS = 110;
 
 /** What the reshape route answers with, before it is checked against the catalog. */
 interface ReshapePatch {
@@ -70,6 +79,9 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const live = React.useRef<SketchPoint[] | null>(null);
   const frame = React.useRef(0);
+  // When the board was opened: the void's clock starts from there.
+  const born = React.useRef(0);
+  if (!born.current) born.current = typeof performance !== "undefined" ? performance.now() : 0;
   const size = BOARD_R * 2;
 
   /* ---------------------------------------------------------- painting */
@@ -84,7 +96,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       el.height = size * dpr;
     }
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintSpace(c, size);
+    paintSpace(c, size, (performance.now() - born.current) / 1000);
     for (const s of strokes) paintStroke(c, s, size);
     if (live.current) paintStroke(c, live.current, size);
   }, [strokes, size]);
@@ -93,6 +105,18 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const schedule = () => {
     if (!frame.current) frame.current = requestAnimationFrame(paint);
   };
+  // The void moves on its own, a frame every tenth of a second or so. The
+  // latest paint is read through a ref, so the ticker is set up once and
+  // never repaints a stale set of strokes.
+  const latest = React.useRef(paint);
+  latest.current = paint;
+  React.useEffect(() => {
+    const t = window.setInterval(() => {
+      if (document.hidden) return;
+      if (!frame.current) frame.current = requestAnimationFrame(() => latest.current());
+    }, DRIFT_MS);
+    return () => window.clearInterval(t);
+  }, []);
 
   /* ---------------------------------------------------------- drawing */
   const toBoard = (e: React.PointerEvent<HTMLCanvasElement>): SketchPoint => {
@@ -285,7 +309,15 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           width: size,
           height: size,
           cursor: busy ? "progress" : "crosshair",
-          boxShadow: `0 0 0 1.5px oklch(0.4 0.03 265), 0 0 0 4px oklch(0.16 0.02 265), 0 0 28px oklch(0.7 0.16 ${INK_HUE} / 0.22), 0 14px 40px oklch(0 0 0 / 0.65)`,
+          // The edge: a thin lit line, then black, then a wide dark shadow
+          // that dims what is round the disc — the horizon, not a glow.
+          boxShadow: [
+            "0 0 0 1.5px oklch(0.6 0.07 285)",
+            "0 0 0 4px oklch(0.05 0.02 290)",
+            "0 0 0 13px oklch(0 0 0 / 0.5)",
+            "0 0 36px 20px oklch(0 0 0 / 0.6)",
+            "0 0 90px 40px oklch(0.02 0.01 290 / 0.35)",
+          ].join(", "),
         }}
         onPointerDown={begin}
         onPointerMove={move}
@@ -304,20 +336,17 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         </text>
       </svg>
 
-      {/* a hint where the first stroke goes, gone once there is one */}
+      {/* a hint where the first stroke goes, gone once there is one; it sits just under the middle mark, not over it */}
       <div
         className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[10px] leading-snug transition-opacity"
-        style={{ color: "oklch(0.62 0.03 260)", opacity: strokes.length || live.current ? 0 : 1, textShadow: "0 1px 3px oklch(0 0 0 / 0.8)" }}
+        style={{ color: "oklch(0.62 0.03 285)", opacity: strokes.length || live.current ? 0 : 1, textShadow: "0 1px 3px oklch(0 0 0 / 0.8)", paddingTop: 44 }}
       >
         <span className="max-w-[150px]">{node ? "Draw the shape it should be" : "Draw the shape of a new part"}</span>
       </div>
 
-      {/* the way back and the eraser, on the top of the rim */}
+      {/* the way back, on the top of the rim */}
       <RimButton at={rimAt(225)} label={node ? "Back to the wheel" : "Close the board"} onClick={() => { play("close"); onBack(); }} testId="draw-back">
         <Undo2 className="size-3.5" />
-      </RimButton>
-      <RimButton at={rimAt(315)} label="Clear the board" onClick={clear} disabled={!strokes.length || busy} testId="draw-clear">
-        <Eraser className="size-3.5" />
       </RimButton>
 
       {/* the words, in the bottom cap */}
@@ -329,7 +358,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           disabled={busy}
           aria-label="Words to go with the drawing"
           placeholder="Words, if the drawing isn't enough"
-          className="h-6 border-[oklch(0.36_0.02_265)] bg-[oklch(0.17_0.02_265/0.85)] text-[10px] text-[oklch(0.92_0.01_260)] placeholder:text-[oklch(0.55_0.02_260)]"
+          className="h-6 border-[oklch(0.36_0.06_290)] bg-[oklch(0.13_0.03_288/0.85)] text-[10px] text-[oklch(0.92_0.02_285)] placeholder:text-[oklch(0.55_0.03_285)]"
           onChange={(e) => setWords(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") { e.preventDefault(); void makeReal(); }
@@ -341,31 +370,27 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         {note ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p> : null}
       </div>
 
-      {/* make real, on the bottom of the rim */}
-      <button
-        type="button"
-        data-draw-make=""
-        disabled={blank || busy}
-        aria-label={busy ? "Making it real" : "Make real"}
-        onClick={() => void makeReal()}
-        className="absolute flex h-7 -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 rounded-full px-3 text-[10px] font-bold tracking-wide outline-none transition-[transform,filter,opacity] disabled:opacity-60 enabled:hover:scale-[1.04] enabled:active:scale-[0.98]"
-        style={{
-          ...rimAt(90),
-          background: blank ? "oklch(0.31 0.005 260)" : `oklch(0.66 0.155 ${INK_HUE})`,
-          color: blank ? CONSOLE.muted : "oklch(0.99 0 0)",
-          border: `1px solid ${blank ? CONSOLE.rim : `oklch(0.44 0.14 ${INK_HUE})`}`,
-          boxShadow: blank ? undefined : `${litEdge(INK_HUE)}, 0 0 14px oklch(0.7 0.16 ${INK_HUE} / 0.55), 0 3px 8px oklch(0 0 0 / 0.5)`,
-          textShadow: blank ? undefined : `0 1px 2px oklch(0.25 0.08 ${INK_HUE} / 0.75)`,
-        }}
-      >
-        {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-        {busy ? "Making…" : "Make real"}
-      </button>
+      {/*
+        The tray, under the disc: Make real and the eraser. It is the same
+        tab the wheel hangs under itself, in the same place, and it lights
+        blue as soon as there is something on the board to make real.
+      */}
+      <HoverTray
+        testId="draw"
+        at={[BOARD_R, size + TRAY_DROP]}
+        lit={!blank && !busy}
+        icon={busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+        label={blank ? "Draw something first" : "Make real"}
+        items={[
+          { id: "make", label: busy ? "Making…" : "Make real", icon: busy ? <LoaderCircle className="size-3 animate-spin" /> : <Sparkles className="size-3" />, primary: true, disabled: blank || busy, onClick: () => void makeReal() },
+          { id: "clear", label: "Clear the board", icon: <Eraser className="size-3" />, disabled: !strokes.length || busy, onClick: clear },
+        ]}
+      />
     </div>
   );
 }
 
-/** A small round button straddling the rim. */
+/** A small round button straddling the rim, in the void's own colours. */
 function RimButton({ at, label, onClick, disabled, children, testId }: { at: React.CSSProperties; label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode; testId: string }) {
   return (
     <button
@@ -375,14 +400,13 @@ function RimButton({ at, label, onClick, disabled, children, testId }: { at: Rea
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="absolute flex size-[26px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition-[background,transform] enabled:hover:scale-[1.06] enabled:active:scale-[0.96] disabled:opacity-50"
+      className="absolute flex size-[26px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full outline-none transition-[background,transform] enabled:hover:scale-[1.06] enabled:hover:brightness-125 enabled:active:scale-[0.96] disabled:opacity-50"
       style={{
         ...at,
         background: CONSOLE.face,
         color: CONSOLE.text,
         border: `1px solid ${CONSOLE.rim}`,
-        filter: disabled ? undefined : SLAB_AURA,
-        boxShadow: litEdge(27),
+        boxShadow: "0 0 0 3px oklch(0.05 0.02 290), 0 2px 6px oklch(0 0 0 / 0.6)",
       }}
     >
       {children}
@@ -394,50 +418,119 @@ function RimButton({ at, label, onClick, disabled, children, testId }: { at: Rea
 /* Paint                                                               */
 /* ------------------------------------------------------------------ */
 
+/** The same numbers every time: a linear congruential generator from a fixed seed. */
+function seeded(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}
+
 /**
- * Empty space: a near-black disc, a little bluer toward the middle and darker
- * at the rim, two faint drifts of colour, and a scatter of stars that is the
- * same every time — seeded, so the board never twinkles under your hand.
+ * The void, at a moment `t` seconds after the board opened.
+ *
+ * A dark purple-blue over the whole face; under it, four wide clouds of
+ * slightly different dark violets and blues, each on its own very slow orbit
+ * — the fastest takes about a minute and a half to go round — so the surface
+ * moves the way deep water does, without ever being seen to move. A few dim
+ * stars, seeded, so they sit where they sat. Four warm points, small and
+ * bright, each with a little glow that breathes over half a minute. A ring
+ * and a dot at the middle, to start from. And the edge is dark: the last
+ * sixth of the radius falls off to near black, so the disc reads as a hole
+ * in the screen rather than a plate on it.
  */
-function paintSpace(c: CanvasRenderingContext2D, size: number) {
+function paintSpace(c: CanvasRenderingContext2D, size: number, t: number) {
   const r = size / 2;
   c.clearRect(0, 0, size, size);
   c.save();
   c.beginPath();
   c.arc(r, r, r, 0, Math.PI * 2);
   c.clip();
-  const ground = c.createRadialGradient(r, r, r * 0.1, r, r, r);
-  ground.addColorStop(0, "oklch(0.16 0.025 265)");
-  ground.addColorStop(0.7, "oklch(0.12 0.02 265)");
-  ground.addColorStop(1, "oklch(0.075 0.015 265)");
+
+  // The ground.
+  const ground = c.createRadialGradient(r, r, r * 0.05, r, r, r);
+  ground.addColorStop(0, "oklch(0.19 0.05 288)");
+  ground.addColorStop(0.55, "oklch(0.155 0.045 290)");
+  ground.addColorStop(1, "oklch(0.12 0.04 292)");
   c.fillStyle = ground;
   c.fillRect(0, 0, size, size);
-  const drift = (x: number, y: number, rad: number, colour: string) => {
-    const g = c.createRadialGradient(x, y, 0, x, y, rad);
+
+  // The dark matter: four clouds on slow orbits.
+  const cloud = (cx: number, cy: number, rad: number, colour: string) => {
+    const g = c.createRadialGradient(cx, cy, 0, cx, cy, rad);
     g.addColorStop(0, colour);
+    g.addColorStop(0.55, colour.replace(/\/ [\d.]+\)$/, "/ 0.1)"));
     g.addColorStop(1, "oklch(0 0 0 / 0)");
     c.fillStyle = g;
     c.fillRect(0, 0, size, size);
   };
-  drift(r * 1.6, r * 0.5, r * 0.95, "oklch(0.34 0.09 280 / 0.26)");
-  drift(r * 0.45, r * 1.5, r * 0.8, "oklch(0.32 0.08 205 / 0.2)");
-  // Stars. A linear congruential generator, so they sit where they sat.
-  let seed = 7;
-  const rnd = () => {
-    seed = (seed * 1664525 + 1013904223) % 4294967296;
-    return seed / 4294967296;
-  };
-  for (let i = 0; i < 96; i++) {
+  const TAU = Math.PI * 2;
+  const clouds: [number, number, number, number, number, string][] = [
+    // [orbit centre x, y, orbit radius, period in seconds, phase, colour]
+    [0.62, 0.38, 0.22, 96, 0.0, "oklch(0.3 0.1 300 / 0.3)"],
+    [0.36, 0.66, 0.2, 128, 0.35, "oklch(0.27 0.09 262 / 0.28)"],
+    [0.5, 0.5, 0.3, 160, 0.7, "oklch(0.22 0.07 320 / 0.26)"],
+    [0.7, 0.72, 0.16, 110, 0.15, "oklch(0.28 0.08 240 / 0.22)"],
+  ];
+  for (const [ox, oy, orbit, period, phase, colour] of clouds) {
+    const a = (t / period + phase) * TAU;
+    cloud(size * (ox + Math.cos(a) * orbit * 0.5), size * (oy + Math.sin(a) * orbit * 0.35), r * 0.85, colour);
+  }
+
+  // The stars: few and far.
+  const rnd = seeded(11);
+  for (let i = 0; i < 14; i++) {
     const x = rnd() * size;
     const y = rnd() * size;
-    if (Math.hypot(x - r, y - r) > r - 6) continue;
-    const a = 0.18 + rnd() * 0.6;
-    const sz = 0.45 + rnd() * 0.85;
-    c.fillStyle = rnd() < 0.18 ? `oklch(0.86 0.07 230 / ${a.toFixed(2)})` : `oklch(0.93 0.01 90 / ${a.toFixed(2)})`;
+    if (Math.hypot(x - r, y - r) > r * 0.9) continue;
+    const a = 0.14 + rnd() * 0.3;
+    c.fillStyle = `oklch(0.9 0.02 280 / ${a.toFixed(2)})`;
     c.beginPath();
-    c.arc(x, y, sz, 0, Math.PI * 2);
+    c.arc(x, y, 0.5 + rnd() * 0.6, 0, Math.PI * 2);
     c.fill();
   }
+
+  // The warm points: four, small, bright, each in a little glow that breathes.
+  const warm = seeded(23);
+  for (let i = 0; i < 4; i++) {
+    const a = warm() * TAU;
+    const d = (0.3 + warm() * 0.5) * r;
+    const x = r + Math.cos(a) * d;
+    const y = r + Math.sin(a) * d;
+    const hue = 62 + warm() * 26;
+    const breath = 0.8 + 0.2 * Math.sin((t / (26 + warm() * 14) + warm()) * TAU);
+    const glow = c.createRadialGradient(x, y, 0, x, y, 7);
+    glow.addColorStop(0, `oklch(0.85 0.16 ${hue.toFixed(0)} / ${(0.42 * breath).toFixed(2)})`);
+    glow.addColorStop(1, `oklch(0.85 0.16 ${hue.toFixed(0)} / 0)`);
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(x, y, 7, 0, TAU);
+    c.fill();
+    c.fillStyle = `oklch(0.9 0.15 ${hue.toFixed(0)} / ${(0.7 + 0.3 * breath).toFixed(2)})`;
+    c.beginPath();
+    c.arc(x, y, 1.25, 0, TAU);
+    c.fill();
+  }
+
+  // The middle: a ring and a dot, the same grey mark the board has.
+  c.strokeStyle = "oklch(0.6 0.04 285 / 0.55)";
+  c.lineWidth = 1;
+  c.beginPath();
+  c.arc(r, r, 5.5, 0, TAU);
+  c.stroke();
+  c.fillStyle = "oklch(0.7 0.04 285 / 0.8)";
+  c.beginPath();
+  c.arc(r, r, 1.4, 0, TAU);
+  c.fill();
+
+  // The horizon: the edge falls off to near black.
+  const edge = c.createRadialGradient(r, r, r * 0.8, r, r, r);
+  edge.addColorStop(0, "oklch(0 0 0 / 0)");
+  edge.addColorStop(0.7, "oklch(0.03 0.015 290 / 0.45)");
+  edge.addColorStop(1, "oklch(0.02 0.01 290 / 0.85)");
+  c.fillStyle = edge;
+  c.fillRect(0, 0, size, size);
   c.restore();
 }
 

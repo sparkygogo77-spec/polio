@@ -51,6 +51,13 @@ export interface FeatureOption {
   preset?: string;
 }
 
+/**
+ * The options that are about how a part *moves* rather than how it is laid
+ * out. The wheel puts these under Animation, as Behaviour; every other option
+ * is under Edit.
+ */
+export const MOTION_OPTION_IDS: ReadonlySet<string> = new Set(["speed", "autoplay", "motion", "sticky", "onScroll"]);
+
 export interface FeatureDef {
   id: string;
   name: string;

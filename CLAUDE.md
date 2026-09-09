@@ -15,3 +15,5 @@ npm run new:feature X  # scaffold src/features/X and register it
 ```
 
 Prompt recipes for turning this into a specific site live in `docs/PROMPTS.md`.
+Before changing anything a person sees in the Builder, read `docs/DESIGN.md`:
+the menu's design language, the rules it lives by, and how the owner works.

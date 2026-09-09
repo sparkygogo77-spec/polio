@@ -60,6 +60,18 @@ export function PreviewPage({ params }: RouteProps) {
   const scale = Math.min(1, (avail - 32) / width);
   const { height } = React.useMemo(() => placeNodes(nodes.filter((n) => n.pageId === page.id), device, frameWidth), [nodes, page.id, device, frameWidth]);
 
+  // Opened *at* a part — from the wheel's tray — the page scrolls to it and
+  // lets it play its entrance in view. The hash is the part's id.
+  React.useEffect(() => {
+    const id = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      const el = document.querySelector(`[data-live-node="${CSS.escape(id)}"]`);
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [page.id]);
+
   const goPage = React.useCallback(
     (id: string) => {
       play("navigate");

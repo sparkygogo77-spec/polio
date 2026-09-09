@@ -18,17 +18,37 @@ import { Wand2, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
-import { getFeature } from "./catalog";
+import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import { isLinkable } from "./parts";
 import { useStudio, type StudioNode } from "./store";
 import { onCircle } from "./menuGeometry";
-import { Caption, CONSOLE, CONSOLE_HUE, Glued, litEdge, PICKED, SectorButton, SHRINK, type Slab } from "./RingConsole";
+import { Caption, CONSOLE, Glued, PICKED, SectorButton, SHRINK, type Slab } from "./RingConsole";
 import { centreOf, wholeOf } from "./RingEditors";
-import { GLYPHS } from "./Inspector";
 
 /* ------------------------------------------------------------------ */
 /* The pieces                                                          */
 /* ------------------------------------------------------------------ */
+
+/**
+ * The screen: a small console display set into the slab.
+ *
+ * Words are typed on a screen, not on a slab, so the plate is one — a dark
+ * teal glass recessed into the slab, scanlines across it, a faint dot matrix
+ * under them, a lit bezel, phosphor lettering in a monospaced face. Nothing
+ * on it is a control of its own kind: the keys are the same boxes as
+ * everywhere else, only in the screen's colours.
+ */
+export const SCREEN = {
+  glass: "radial-gradient(ellipse at 50% 35%, oklch(0.2 0.05 195) 0%, oklch(0.135 0.04 200) 55%, oklch(0.09 0.03 205) 100%)",
+  scan: "repeating-linear-gradient(0deg, oklch(0 0 0 / 0.26) 0 1px, transparent 1px 3px)",
+  dots: "radial-gradient(circle, oklch(0.62 0.1 190 / 0.09) 0.55px, transparent 0.65px)",
+  key: "oklch(0.2 0.045 200)",
+  line: "oklch(0.36 0.07 195)",
+  ink: "oklch(0.88 0.09 175)",
+  dim: "oklch(0.6 0.06 180)",
+} as const;
+/** The classes a typed field wears on the screen. */
+export const SCREEN_FIELD = "border-[oklch(0.36_0.07_195)] bg-[oklch(0.1_0.03_200/0.75)] font-mono text-[oklch(0.88_0.09_175)] placeholder:text-[oklch(0.5_0.05_185)] focus-visible:ring-[oklch(0.6_0.1_185)]";
 
 /** A small box that is one value of one setting. Lit when it is the one. */
 export function Tick({ on, onClick, children, title }: { on: boolean; onClick: () => void; children: React.ReactNode; title?: string }) {
@@ -39,12 +59,14 @@ export function Tick({ on, onClick, children, title }: { on: boolean; onClick: (
       title={title}
       data-tick=""
       onClick={() => { play(on ? "close" : "select"); onClick(); }}
-      className="pointer-events-auto flex h-[20px] min-w-[20px] items-center justify-center whitespace-nowrap rounded-[4px] px-1.5 text-[8.5px] font-semibold leading-none"
+      className="pointer-events-auto flex h-[20px] min-w-[20px] items-center justify-center whitespace-nowrap rounded-[3px] px-1.5 text-[8.5px] font-semibold leading-none"
       style={{
-        background: on ? CONSOLE.on : "oklch(0.26 0.008 260)",
-        color: on ? "oklch(0.16 0.04 27)" : CONSOLE.text,
-        boxShadow: on ? PICKED : `${litEdge(CONSOLE_HUE)}, 0 1px 2px oklch(0 0 0 / 0.4)`,
-        outline: on ? "none" : `1px solid ${CONSOLE.ink}`,
+        // A key on the screen: dark teal glass, phosphor lettering, red when it is the one.
+        background: on ? CONSOLE.on : SCREEN.key,
+        color: on ? "oklch(0.16 0.04 27)" : SCREEN.ink,
+        boxShadow: on ? PICKED : `inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.5)`,
+        outline: on ? "none" : `1px solid ${SCREEN.line}`,
+        fontFamily: "var(--font-mono)",
       }}
     >
       {children}
@@ -56,7 +78,7 @@ export function Tick({ on, onClick, children, title }: { on: boolean; onClick: (
 function Row({ label, children }: { label?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      {label ? <span className="text-[7.5px] font-semibold uppercase tracking-wider" style={{ color: CONSOLE.muted }}>{label}</span> : null}
+      {label ? <span className="font-mono text-[7.5px] font-semibold uppercase tracking-wider" style={{ color: SCREEN.dim }}>{label}</span> : null}
       {children}
     </div>
   );
@@ -84,17 +106,33 @@ export function PlateQuad({ slab, title, children }: { slab: Slab; title?: strin
     <Glued at={at} spin={spin} w={size} h={size} className="flex h-full w-full">
       <div
         data-ring-plate-box=""
-        className="pointer-events-auto flex h-full w-full flex-col gap-1.5 overflow-y-auto rounded-md p-1.5"
-        style={{ background: CONSOLE.well, boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.12), inset 0 -1px 0 oklch(0 0 0 / 0.3)", scrollbarWidth: "thin" }}
+        className="pointer-events-auto flex h-full w-full flex-col gap-1.5 overflow-y-auto rounded-[5px] p-1.5"
+        style={{
+          backgroundImage: `${SCREEN.scan}, ${SCREEN.dots}, ${SCREEN.glass}`,
+          backgroundSize: "auto, 3px 3px, auto",
+          color: SCREEN.ink,
+          boxShadow: [
+            `inset 0 0 0 1px ${SCREEN.line}`,
+            "inset 0 2px 9px oklch(0 0 0 / 0.75)",
+            "inset 0 0 24px oklch(0.55 0.12 190 / 0.16)",
+            `0 0 0 2px ${CONSOLE.rim}`,
+            "0 1px 0 3px oklch(0.5 0.08 290 / 0.35)",
+          ].join(", "),
+          scrollbarWidth: "thin",
+        }}
       >
-        {title ? <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: CONSOLE.text }}>{title}</span> : null}
+        {title ? (
+          <span className="font-mono text-[8px] font-bold uppercase tracking-[0.18em]" style={{ color: SCREEN.ink, textShadow: `0 0 6px ${SCREEN.ink}` }}>
+            ▮ {title}
+          </span>
+        ) : null}
         {children}
       </div>
     </Glued>
   );
 }
 
-const field = "min-h-0 w-full text-[10px] leading-snug";
+const field = `min-h-0 w-full text-[10px] leading-snug ${SCREEN_FIELD}`;
 
 /* ------------------------------------------------------------------ */
 /* The editors                                                         */
@@ -133,7 +171,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
           {feature?.content ? (
             <Textarea rows={5} value={node.content} aria-label={feature.content.label} className={`${field} flex-1 resize-none`} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
           ) : (
-            <p className="text-[9px]" style={{ color: CONSOLE.muted }}>This part has nothing to list inside it.</p>
+            <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part has nothing to list inside it.</p>
           )}
         </PlateQuad>
         {/*
@@ -164,7 +202,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     if (!isLinkable(node.featureId)) {
       return (
         <PlateQuad slab={plate} title="Links">
-          <p className="text-[9px]" style={{ color: CONSOLE.muted }}>This part does not send anyone anywhere.</p>
+          <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part does not send anyone anywhere.</p>
         </PlateQuad>
       );
     }
@@ -186,10 +224,10 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
   }
 
   if (which === "options") {
-    const opts = feature?.options ?? [];
+    const opts = (feature?.options ?? []).filter((o) => !MOTION_OPTION_IDS.has(o.id));
     return (
       <PlateQuad slab={plate} title="Options">
-        {opts.length === 0 ? <p className="text-[9px]" style={{ color: CONSOLE.muted }}>This part has nothing to set.</p> : null}
+        {opts.length === 0 ? <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part has nothing to set.</p> : null}
         {opts.map((opt) => {
           if (opt.kind === "set") {
             const raw = node.options[opt.id];
@@ -221,20 +259,9 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     );
   }
 
-  if (which === "glyph") {
-    return (
-      <PlateQuad slab={plate} title="Glyph on the board">
-        <div className="flex flex-wrap gap-1">
-          <Tick on={node.glyph === null} onClick={() => update({ glyph: null })} title="No glyph"><X className="size-3" /></Tick>
-          {GLYPHS.map((g) => <Tick key={g} on={node.glyph === g} onClick={() => update({ glyph: g })} title={`Glyph ${g}`}>{g}</Tick>)}
-        </div>
-      </PlateQuad>
-    );
-  }
-
   return (
     <PlateQuad slab={plate} title={which}>
-      <p className="text-[9px]" style={{ color: CONSOLE.muted }}>Nothing to set here.</p>
+      <p className="text-[9px]" style={{ color: SCREEN.dim }}>Nothing to set here.</p>
     </PlateQuad>
   );
 }

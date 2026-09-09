@@ -525,15 +525,17 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   differently for warm, green and cool faces. A shade either way, never a
   bevel. `CONSOLES` names which choices get slabs of their own: the three that
   are about looks. The rest go on the plate.
-  **The slabs are grey with a red aura** (`CONSOLE` in `RingConsole.tsx`): a
-  neutral face, barely cool so it sits with the rest of the chrome, and the
-  red kept for the `drop-shadow` round each slab (`SLAB_AURA`, tight and a
-  little dim, tucked under rather than blazing) and for the one thing on a
-  slab that is *on* (`PICKED`). A red slab with red controls had nothing left
-  to say "this one is picked", and a brown one read as mud. The slabs are cut
-  `SHRINK` pixels smaller than the green level on every edge (`piece()`'s
-  last argument), which is what gives the aura a gap to be seen in and keeps
-  the menu from reading larger than it is.
+  **The slabs are the void** (`CONSOLE` in `RingConsole.tsx`): the same dark
+  purple-blue as the drawing board's surface, with a thin *lighter* rim —
+  on something that dark the edge has to be the lit line — and no aura at
+  all; a slab drops straight off into the board (`SLAB_AURA` is only a
+  plain dark drop shadow now). Red is kept for the one thing on a slab that
+  is *on* (`PICKED`) and for nothing else. Grey went: a grey slab with red
+  controls read as mud next to the blue and green above it, and a red slab
+  with red controls had nothing left to say "this one is picked". The slabs
+  are cut `SHRINK` pixels smaller than the green level on every edge
+  (`piece()`'s last argument), so the menu never reads larger than it is.
+  The rules behind all of this are in `docs/DESIGN.md`; read it first.
 - **The way back is the middle.** Past the first level the lock's spot holds
   one button (`data-menu-home`) that returns to the start; the green X on the
   rim and the red X on the console are gone. It is also still the handle the
@@ -554,24 +556,34 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   two things that show the aura, so they are the two things that swap.
   `recentColours` is filled by any spectrum's `onCommit` — the moment the
   hand lets go, not on every drag step.
-- **Words and lists go on a plate** (`PlateEditors.tsx`). Name, contents,
-  the part's prompt, its data, links, options and glyph are `PlateEditor`s:
-  a `PlateQuad` inscribed in the slab **opposite the green**, which the
+- **Words and lists go on a screen** (`PlateEditors.tsx`). Name, contents,
+  the part's prompt, its data, links and options are `PlateEditor`s: a
+  `PlateQuad` inscribed in the slab **opposite the green**, which the
   console cuts **square** for it whatever `menuShape` is (`ConsoleSpan.shapes`),
-  so the plate always has a square to sit in. At rest the plate is a hundred
+  so the plate always has a square to sit in. The plate is drawn as a small
+  console screen set into the slab (`SCREEN`): dark teal glass, scanlines, a
+  faint dot matrix, a lit bezel, phosphor lettering in a monospaced face —
+  because words are typed on a screen, not on a slab. At rest it is a hundred
   pixels on a side — its near corner clears the hole, its far corner the
   slab's edge; turned, it shrinks by the sum of the turn's cosine and sine so
   an upright square stays inside a tilted one. What is on it is not a form:
-  a setting with a handful of values is a row of `Tick` boxes, one lit; a set
-  is the same boxes switched on and off; only a name, a prompt, an address
-  and the data are typed. Contents carries **Make it a prompt** on the slab
-  beside it — a placeholder, cut and wired, doing nothing yet.
+  a setting with a handful of values is a row of `Tick` boxes (the screen's
+  keys), one lit; a set is the same boxes switched on and off; only a name,
+  a prompt, an address and the data are typed. Options shows **layout**
+  options only; the ones in `MOTION_OPTION_IDS` are Behaviour, under
+  Animation. Contents carries **Make it a prompt** on the slab beside it — a
+  placeholder, cut and wired, doing nothing yet. Glyph left the wheel: a
+  mark on the board is not a thing the site has.
 - **Animation is three slabs, not a list** (`AnimQuads`). Its green level is
-  options — Entrance, Speed, Extras — each opening the same three slabs with
-  its own lit (`ConsoleSpan.lit`, `ANIM_SLAB`): speed top-right, the entrance
-  bottom-right (the kinds as boxes, a four-way pad for where a slide comes
-  from; Slide with no direction means from below), delay and easing
-  bottom-left. `entranceCss()` in `look.ts` turns `anim` + `animSpeed` +
+  options — Entrance, Speed, Extras, and **Behaviour** when the part has
+  motion options of its own — the first three opening the same three slabs
+  with its own lit (`ConsoleSpan.lit`, `ANIM_SLAB`): speed top-right (five of
+  them, slow to instant, `ANIM_SPEED`), the entrance bottom-right (the kinds
+  as boxes, a four-way pad for where a slide comes from; Slide with no
+  direction means from below), delay and easing bottom-left. Behaviour
+  (`BehaviourQuads`) puts one motion option per slab as boxes, captioned
+  with the option's name: a top bar's on-scroll, a ticker's speed, a
+  slideshow's autoplay. `entranceCss()` in `look.ts` turns `anim` + `animSpeed` +
   `animDelay` + `animEase` into the one `animation` shorthand the live site,
   the blueprint's words and the demo all use. **The slab the motion comes
   across plays it**: `Ghost` is a path in the slab's own shape and grey that
@@ -581,15 +593,34 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   slab's hole replays it.
 - **The first level is seven pieces.** The top quadrant is cut like the
   bottom one: two icons on the inner band — Animation and the **pencil**
-  (`write`: Words, Contents, Links, and a Priority placeholder that does
-  nothing yet — everything you write about a part) — and one word on the
-  outer block, **Draw**. Edit keeps Name, Options, Data, Glyph. A green
-  choice that fires on the spot (one with `act`) never becomes `subPick`,
-  or Escape would have to clear it before it could leave the level. Size and Tint
-  are gone: every edge of a selected part is a resize bar (`HANDLES` with
-  `bar`), and `FillTab` under the part opens on hover into Fill width, Flush
-  left, Centre, Flush right. The board-tint field left the Inspector; `hueMenu`
+  (`write`: Words, Contents, Links, Data, and a Priority placeholder that
+  does nothing yet — everything you write *about* a part) — and one word on
+  the outer block, **Draw**. Edit is how the part is *built*: Name, Options
+  (layout only) and **Font** (`FontQuads`: size and weight as arcs on one
+  slab, spacing and leading on the next, the families as boxes set in their
+  own faces on the third; `NodeFont` on the node, `applyFont` in
+  `parts/theme.ts`, every value relative to the site's so a part stays a
+  shade larger when the site's type changes). A green choice that fires on
+  the spot (one with `act`) never becomes `subPick`, or Escape would have to
+  clear it before it could leave the level. Size and Tint are gone: every
+  edge of a selected part is a resize bar (`HANDLES` with `bar`), and
+  `FillTab` under the part opens on hover into Fill width, Flush left,
+  Centre, Flush right. The board-tint field left the Inspector; `hueMenu`
   stays for drawings and groups, which are only ever on the board.
+- **The tray hangs under the wheel** (`HoverTray` in `RingConsole.tsx`,
+  `[data-tray]`): a small tab under whichever level is up that opens on hover
+  into the few things that are about the part but not about editing it —
+  **Preview here** (the live page, scrolled to the part: `livePath` plus the
+  part's id as the hash, which `PreviewPage` reads), **Bring forward** and
+  **Send back** (`raiseNode`/`lowerNode`: the node list *is* the z-order),
+  **Copy looks** and **Paste looks** (colour, font, texture, aura, size and
+  style, held in a module variable rather than the store — a hand holding
+  something, not a thing the site remembers). Under the wheel rather than on
+  it, so the wheel stays the wheel; a tab rather than a row, so it is not
+  chrome until it is wanted. `keepOnScreen` gives the bottom edge extra room
+  for it and *only* the bottom: pushing the menu further from every edge
+  moved a menu opened near the top away from the hand that opened it, and
+  the pull that starts from that hold lost its line.
 - **Texture's third slab is Reiterate**, a placeholder: the button is cut and
   wired, and pressing it does nothing yet. It is the place for "change one
   thing about this texture at random" — scale, grain, colour, bleed — so a
@@ -597,13 +628,19 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   button that was there is gone; the stack is edited from the Looks panel.
 - **Draw is the outer top-right slab, and it is the drawing board**
   (`DrawBoard.tsx`, `sketch.ts`). It is not a level: press it and the wheel is
-  gone, and in its place is one dark disc the size of the whole menu
-  (`BOARD_R`), no hole in the middle, every pixel of it drawing surface. The
-  controls are on the rim, not in the middle — Back and Clear straddle the
-  top edge, Make real straddles the bottom, the words go in a thin strip in
-  the bottom cap — because a hole in a drawing board is a hole in the
-  drawing. Escape steps back to the wheel; the board does not turn with
-  `menuSpin`. What is drawn is kept on the part as `node.sketch` (strokes as
+  gone, and in its place is one disc the size of the whole menu (`BOARD_R`),
+  no hole in the middle, every pixel of it drawing surface. The disc is the
+  **void**: dark purple-blue, four clouds of darker violet and blue on
+  orbits of a minute and a half to nearly three (repainted on a slow ticker,
+  `DRIFT_MS`, sub-pixel per tick), a handful of far stars, four warm points
+  that breathe, a ring-and-dot at the middle to start from, and an edge that
+  falls to near black with a dark shadow past the rim — a hole in the
+  screen, not a plate on it. Nothing sits on its face: Back straddles the
+  top of the rim, the words go in a thin strip in the bottom cap, and Make
+  real and Clear are in the same tray the wheel has, hung under the disc,
+  which lights blue as soon as there is a stroke to make real. Escape steps
+  back to the wheel; the board does not turn with `menuSpin`. What is drawn
+  is kept on the part as `node.sketch` (strokes as
   fractions of the board's width, plus the words), so the board reopens with
   the drawing on it and the blueprint writes a `drawn:` line for it.
   **Make real** posts the drawing — a small black-on-white picture and the

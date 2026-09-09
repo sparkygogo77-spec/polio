@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
-import { liftTheme, overrideTheme } from "./parts/theme";
+import { applyFont, liftTheme, overrideTheme } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer } from "./look";
 import type { StudioNode } from "./store";
 
@@ -36,8 +36,9 @@ export interface BlockProps {
 
 export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers }: BlockProps) {
   const def = resolvePart(node.featureId);
-  // A part can repaint any of the six roles for itself; everything else follows the site.
-  const painted = node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme;
+  // A part can repaint any of the six roles for itself, and set its own type;
+  // everything else follows the site.
+  const painted = applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font);
   // …and wear one texture layer of its own, or none, whatever the site does.
   const dressed = React.useMemo(() => {
     if (!node.texture) return painted;
