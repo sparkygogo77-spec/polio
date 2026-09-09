@@ -24,8 +24,8 @@
  * Levels:
  *   1  blue     the six above, plus the lock in the middle
  *   2  green    replaces the blue entirely, in the quadrant that was empty
- *   3  amber    the one editor the green choice needs, in the quadrant
- *               opposite the green one
+ *   3  crimson  the editor the green choice needs, on the three quadrants
+ *               the green is not using — three more slabs like Delete
  *
  * Every piece is one SVG path — arc in, out along a seam, round the outside,
  * back down the next seam — so the geometry is the hit area. The outer edge is
@@ -40,11 +40,15 @@ import {
 import { getFeature } from "./catalog";
 import { isLinkable } from "./parts";
 import { useStudio, type StudioNode } from "./store";
-import { AuraRing, bandsFrom, HueRing, RingConsole, RingPlateBox, TextureRing } from "./RingEditors";
-import type { RingSpan } from "./RingConsole";
+import {
+  BLUE_RINGS, EDGE, GREEN_RINGS, middleOf, onCircle, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, spun, SWELL,
+  type Pt,
+} from "./menuGeometry";
+import { AuraQuads, HueQuads, PlateQuad, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
+import type { Slab } from "./RingConsole";
 import { GLYPHS, HuePicker, OptionSet } from "./Inspector";
-import { resolvePalette } from "./parts/theme";
-import { ROLES, ROLE_LABEL, TEXTURE_KINDS } from "./look";
+import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
+import { textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
@@ -65,8 +69,26 @@ let current: Open = null;
 let opened = 0;
 const listeners = new Set<(v: Open) => void>();
 
+/**
+ * Kept clear of the edges, so a menu opened by one has no pieces off screen.
+ *
+ * Clamped *here*, once, so that where the menu is drawn and where the pull is
+ * measured from are the same point. They were not: the drawing clamped and the
+ * gesture did not, and a menu opened near the top of the board pulled its line
+ * from a point some way above its own middle.
+ */
+function keepOnScreen(x: number, y: number): [number, number] {
+  if (typeof window === "undefined") return [x, y];
+  const margin = GREEN_RINGS.reach + 26;
+  return [
+    Math.max(margin, Math.min(window.innerWidth - margin, x)),
+    Math.max(margin, Math.min(window.innerHeight - margin, y)),
+  ];
+}
+
 export function openRadial(nodeId: string, x: number, y: number) {
-  current = { nodeId, x, y, seq: ++opened };
+  const [px, py] = keepOnScreen(x, y);
+  current = { nodeId, x: px, y: py, seq: ++opened };
   listeners.forEach((l) => l(current));
 }
 export function closeRadial() {
@@ -76,7 +98,8 @@ export function closeRadial() {
 /** Park the menu somewhere else without closing it or losing the part. */
 export function moveRadial(x: number, y: number) {
   if (!current) return;
-  current = { ...current, x, y };
+  const [px, py] = keepOnScreen(x, y);
+  current = { ...current, x: px, y: py };
   listeners.forEach((l) => l(current));
 }
 function useRadial(): Open {
@@ -94,47 +117,11 @@ function useRadial(): Open {
 /* The ring                                                            */
 /* ------------------------------------------------------------------ */
 
-type Pt = [number, number];
-type Shape = "square" | "round";
-
 /**
- * The three radii, and a second set for the level below.
+ * The pull: where the line starts showing, and how far out either end is.
  *
- * The hole is wide enough for the lock to sit in it with room to spare and for
- * the pull-line to leave it cleanly; the bands are thick enough to hold an
- * icon over a word without either touching an edge; and the seam between the
- * inner band and the outer block is cut wider than the seams beside it,
- * because that is the one gap you read the ring's two rings by.
- *
- * Level two gets its own, larger set: it holds more choices than level one and
- * it is the only thing on screen when it is up, so it can afford the room.
- */
-interface Rings { hole: number; mid: number; reach: number }
-const BLUE_RINGS: Rings = { hole: 40, mid: 82, reach: 124 };
-const GREEN_RINGS: Rings = { hole: 46, mid: 96, reach: 150 };
-
-/** Clear space kept around the pointer, and the lock that sits in it. */
-const HOLE = BLUE_RINGS.hole;
-/** How far the widest ring reaches, for the viewport clamp. */
-const REACH = GREEN_RINGS.reach;
-/**
- * Corner radius. Every piece is drawn inset by this and grown back out with a
- * round-joined stroke of its own colour, which is what curves every corner —
- * including the one where a wedge narrows to a point at the pointer, which is
- * exactly where a wedge otherwise looks sharpest and worst.
- */
-const ROUND = 5;
-/** Clear space along every seam, in px. No two pieces ever touch. */
-const SEAM = 7;
-/** The seam between the inner band and the outer block, cut wider than the rest. */
-const RING_SEAM = 12;
-/** How much of that seam a piece takes back when you reach for it. */
-const SWELL = 2;
-/**
- * The pull: where the line starts showing, and how far out it takes hold.
- *
- * Between the two it fades up. At full strength it grips, and from there the
- * wheel follows your hand.
+ * Between the hole and an end it fades up. The red end unlocks *moving*, the
+ * green end unlocks *turning*, and the line goes when either is reached.
  */
 const PULL_FROM = BLUE_RINGS.hole + 6;
 const PULL_LOCK = BLUE_RINGS.reach + 16;
@@ -142,10 +129,11 @@ const PULL_LOCK = BLUE_RINGS.reach + 16;
 /**
  * Where the gesture has got to.
  *
- * `pull` — coming out, fading up. `armed` — locked at full stretch, waiting to
- * be taken across to the ring opposite. `turning` — loose, following your hand.
+ * `pull` — on the line, fading up toward one end or the other.
+ * `moving` — reached the red end: the whole menu follows the hand.
+ * `turning` — reached the green end: the wheel turns under the hand.
  */
-type PullStage = "pull" | "armed" | "turning";
+type PullStage = "pull" | "moving" | "turning";
 interface Pull {
   /** Where the handle is, already projected onto the line. */
   dx: number;
@@ -155,135 +143,6 @@ interface Pull {
   /** The line itself, as a unit vector, once the first move has set it. */
   axis: Pt | null;
 }
-/** The dark line round a face, in px. */
-const EDGE = 1.25;
-
-const TURN = (t: number) => t * Math.PI * 2 - Math.PI / 2;
-
-const onCircle = (t: number, r: number): Pt => {
-  const a = TURN(t);
-  return [Math.cos(a) * r, Math.sin(a) * r];
-};
-
-/** How far a square of half-width `half` reaches in the direction `t`. */
-const squareR = (t: number, half: number): number => {
-  const a = TURN(t);
-  return half / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)));
-};
-
-const onSquare = (t: number, half: number): Pt => onCircle(t, squareR(t, half));
-
-/** Turning the whole wheel: the geometry is drawn straight and spun at the end. */
-const spun = (p: Pt, turns: number): Pt => {
-  const a = turns * Math.PI * 2;
-  const c = Math.cos(a);
-  const s = Math.sin(a);
-  return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
-};
-
-/** Where a piece's outer edge sits in the direction `t`, and how far out. */
-function outerAt(t: number, rOut: number | "edge", shape: Shape, inset: number, rg: Rings): { p: Pt; r: number } {
-  if (rOut !== "edge") {
-    const r = rOut - inset;
-    return { p: onCircle(t, r), r };
-  }
-  if (shape === "round") {
-    const r = rg.reach - inset;
-    return { p: onCircle(t, r), r };
-  }
-  const r = squareR(t, rg.reach - inset);
-  return { p: onCircle(t, r), r };
-}
-
-const fmt = (v: Pt) => `${v[0].toFixed(1)} ${v[1].toFixed(1)}`;
-
-/** The four corners of the square, as turns. */
-const CORNERS = [0.125, 0.375, 0.625, 0.875];
-
-/**
- * One piece of the ring, drawn inset by `ROUND` and half a seam.
- *
- * The angular inset is worked out per radius rather than fixed, so the seam is
- * the same number of pixels wide against the pointer as it is at the outer
- * edge. A fixed angle is wrong at both ends — a hairline inside and a canyon
- * outside — and it is the reason a ring like this reads as one shape with
- * lines drawn on it instead of as separate slabs.
- */
-function piece(rawFrom: number, rawTo: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings): string {
-  // The seam runs round the ring as well as along it: where an inner band
-  // meets the outer block above it, both have to give half of it up. That one
-  // is cut wider than the seams beside it, because it is the gap you read the
-  // ring's two rings by. The two edges with no neighbour — the hole at the
-  // pointer and the outside — keep their full reach.
-  const inSeam = rIn > rg.hole ? RING_SEAM / 2 : 0;
-  const outSeam = rOut === "edge" ? 0 : RING_SEAM / 2;
-  const rA = rIn + ROUND + inSeam;
-  const pad = SEAM / 2 + ROUND;
-  const turnPad = (r: number) => pad / (Math.PI * 2 * Math.max(12, r));
-
-  const gA = turnPad(rA);
-  const aFrom = rawFrom + gA;
-  const aTo = rawTo - gA;
-  // The outer end has its own inset, taken at the radius it actually reaches —
-  // which on a square is much further out toward a corner.
-  const gFrom = turnPad(outerAt(rawFrom, rOut, shape, ROUND + outSeam, rg).r);
-  const gTo = turnPad(outerAt(rawTo, rOut, shape, ROUND + outSeam, rg).r);
-  const bFrom = rawFrom + gFrom;
-  const bTo = rawTo - gTo;
-  // A piece too narrow to draw would fold inside out; collapse it to a sliver
-  // at its own middle instead, where it is simply invisible.
-  const mid = (rawFrom + rawTo) / 2;
-  const [iFrom, iTo] = aTo > aFrom ? [aFrom, aTo] : [mid - 0.0005, mid + 0.0005];
-  const [oFrom, oTo] = bTo > bFrom ? [bFrom, bTo] : [mid - 0.0005, mid + 0.0005];
-
-  let d = `M ${fmt(onCircle(iFrom, rA))}`;
-  d += ` A ${rA} ${rA} 0 0 1 ${fmt(onCircle(iTo, rA))}`;
-  d += ` L ${fmt(outerAt(oTo, rOut, shape, ROUND + outSeam, rg).p)}`;
-  if (rOut === "edge" && shape === "square") {
-    // Walk the square backwards, landing on every corner between the two ends,
-    // so a piece that turns a corner turns it at a right angle instead of
-    // cutting it off with a chord.
-    const half = rg.reach - ROUND;
-    for (const c of [...CORNERS].reverse()) if (c > oFrom && c < oTo) d += ` L ${fmt(onSquare(c, half))}`;
-    d += ` L ${fmt(outerAt(oFrom, rOut, shape, ROUND, rg).p)}`;
-  } else {
-    const r = outerAt(oFrom, rOut, shape, ROUND + outSeam, rg).r;
-    d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, shape, ROUND + outSeam, rg).p)}`;
-  }
-  return `${d} Z`;
-}
-
-/** The middle of a piece, where its icon and word sit. */
-function middleOf(from: number, to: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings): Pt {
-  const mid = (from + to) / 2;
-  const a = onCircle(mid, rIn + ROUND + (rIn > rg.hole ? RING_SEAM / 2 : 0));
-  const b = outerAt(mid, rOut, shape, ROUND + (rOut === "edge" ? 0 : RING_SEAM / 2), rg).p;
-  // Not quite the middle: a band is wider the further out you go, and a word
-  // pushed a little outward stops hanging over its neighbours.
-  return [a[0] * 0.4 + b[0] * 0.6, a[1] * 0.4 + b[1] * 0.6];
-}
-
-/* ------------------------------------------------------------------ */
-/* Which quadrant is which                                             */
-/* ------------------------------------------------------------------ */
-
-/** Quadrants as turn ranges, clockwise from straight up. */
-const QUADS: [number, number][] = [[0, 0.25], [0.25, 0.5], [0.5, 0.75], [0.75, 1]];
-
-/**
- * The layout never changes, and that is the point.
- *
- * It used to swing round so the empty quadrant faced the middle of the screen,
- * which meant the menu was a different shape depending on where you clicked
- * and your hand could never learn it. Delete is bottom-left. Looks is
- * bottom-right. Always. The one thing that moves it is `menuSpin` — hold the
- * right button down and drag, and the whole wheel turns to wherever you want
- * it, and stays there.
- */
-const Q_TOP = 0;
-const Q_BOTTOM = 1;
-const Q_DELETE = 2;
-const Q_EMPTY = 3;
 
 /* ------------------------------------------------------------------ */
 /* What is on it                                                       */
@@ -318,8 +177,6 @@ const GREEN = 148;
  * about *looks*, where picking from a drawn spectrum beats reading a list.
  */
 const CONSOLES = new Set(["hue", "texture", "aura"]);
-/** Where the console's two bands sit, just outside the green level. */
-const CONSOLE_BANDS = bandsFrom(GREEN_RINGS.reach);
 /**
  * The third level. Red, because it is the only colour left that is neither the
  * blue of the first level nor the green of the second, and because the two are
@@ -406,6 +263,10 @@ export function RadialMenu() {
   const nodes = useStudio((s) => s.nodes);
   const shape = useStudio((s) => s.menuShape);
   const spin = useStudio((s) => s.menuSpin);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const layers = look.texture ?? [];
   const node = open ? nodes.find((n) => n.id === open.nodeId) : undefined;
 
   const seq = open?.seq ?? 0;
@@ -445,20 +306,20 @@ export function RadialMenu() {
   }, [open, picked, subPick]);
 
   /*
-   * Pull it out, take it across, then turn.
+   * The line: one line, two ends, two things.
    *
-   * Holding the right button and dragging used to start turning the moment you
-   * cleared the hole, which meant a right-click that wandered a few pixels
-   * spun the menu by accident. Reaching full stretch was not enough either —
-   * the pull and the turn were the same motion, so it still turned as soon as
-   * you had pulled.
+   * Hold the right button and move, and the first real movement fixes a line
+   * through the pointer. From there the handle is *on* that line whatever your
+   * hand does — sliding, never steering. Both ends are drawn: a red ring at
+   * the end you pulled toward, a green ring at the other. Reach the **red**
+   * one and the whole menu comes loose and follows your hand. Run back along
+   * the line to the **green** one and the wheel turns under your hand instead.
+   * Either way the line goes the moment it has done its job; the green ring
+   * stays while you turn, so you can see what you are turning about.
    *
-   * So it arms in two moves, and both are drawn. Pull the green line out and
-   * it fades up as it lengthens; at full stretch it **locks**, and the only
-   * place it can go from there is the other side — a crimson ring appears
-   * exactly opposite to say where. Take it across, through the middle and out
-   * to that ring, and only then does the wheel come loose and follow your
-   * hand. Nothing snaps: it stops where you let go, and it is remembered.
+   * The menu opens on the press, so the hold that opened it is the hold that
+   * pulls. The angle is chased a fifth of the way per frame rather than
+   * pinned, which is the difference between a dial and a twitch; nothing snaps.
    */
   const anchor = React.useRef({ x: 0, y: 0 });
   if (open) anchor.current = { x: open.x, y: open.y };
@@ -467,20 +328,19 @@ export function RadialMenu() {
     if (!open) return;
     let stage: PullStage = "pull";
     let axis: Pt | null = null;
-    // Set by a turn, cleared by the context menu it swallows.
-    let turned = false;
+    // Set once the line has been used, cleared by the context menu it swallows.
+    let used = false;
     let grabbed = 0;
     let was = 0;
     let want = useStudio.getState().menuSpin;
     let frame = 0;
+    let hold = { x: 0, y: 0 };
     let showing = false;
     const show = (v: Pull | null) => {
       if (!v && !showing) return;
       showing = !!v;
       setPull(v);
     };
-    const angle = (e: PointerEvent) =>
-      Math.atan2(e.clientY - anchor.current.y, e.clientX - anchor.current.x) / (Math.PI * 2);
     const step = () => {
       const now = useStudio.getState().menuSpin;
       let d = want - now;
@@ -493,22 +353,26 @@ export function RadialMenu() {
     const reset = () => { stage = "pull"; axis = null; show(null); };
     const onMove = (e: PointerEvent) => {
       if (!(e.buttons & 2)) return reset();
+
+      if (stage === "moving") {
+        // Loose: the menu is under your hand, holding the offset it had when
+        // it came loose so it does not jump.
+        moveRadial(e.clientX - hold.x, e.clientY - hold.y);
+        return;
+      }
+
       const rx = e.clientX - anchor.current.x;
       const ry = e.clientY - anchor.current.y;
 
       if (stage === "turning") {
-        // Loose: the line is done and the wheel follows your hand.
         const a = Math.atan2(ry, rx) / (Math.PI * 2);
-        const r = Math.max(PULL_LOCK, Math.hypot(rx, ry));
-        show({ dx: Math.cos(a * Math.PI * 2) * r, dy: Math.sin(a * Math.PI * 2) * r, grip: 1, stage, axis });
+        show({ dx: rx, dy: ry, grip: 1, stage, axis });
         want = was + (a - grabbed);
         if (!frame) frame = requestAnimationFrame(step);
         return;
       }
 
-      // The first real movement sets the line, and after that the handle is
-      // *on* the line whatever your hand does — sliding, never steering. A
-      // free hand wobbles, and a wobble on a dial is a mis-set dial.
+      // The first real movement sets the line; after that the handle is on it.
       const raw = Math.hypot(rx, ry);
       if (!axis) {
         if (raw < PULL_FROM) return;
@@ -517,26 +381,27 @@ export function RadialMenu() {
       const along = rx * axis[0] + ry * axis[1];
       const dx = axis[0] * along;
       const dy = axis[1] * along;
+      // 0 in the hole, 1 at either end. That number is the line's opacity.
+      const grip = Math.max(0, Math.min(1, (Math.abs(along) - PULL_FROM) / (PULL_LOCK - PULL_FROM)));
 
-      if (stage === "pull") {
-        // 0 inside the hole, 1 at full stretch. That number is the line's
-        // opacity, and reaching 1 pins the line where it is.
-        const grip = Math.max(0, Math.min(1, (along - PULL_FROM) / (PULL_LOCK - PULL_FROM)));
-        if (grip >= 1) { stage = "armed"; play("select"); }
-        show({ dx, dy, grip, stage, axis });
+      if (along >= PULL_LOCK) {
+        // The red end: the menu comes loose.
+        stage = "moving";
+        used = true;
+        hold = { x: e.clientX - anchor.current.x, y: e.clientY - anchor.current.y };
+        play("confirm");
+        show(null);
         return;
       }
-
-      // Pinned. You can run either way along the line; the far end is the
-      // green ring, and reaching it is what lets go of the wheel.
-      if (along < -PULL_LOCK * 0.82) {
+      if (along <= -PULL_LOCK) {
+        // The green end: the wheel comes loose.
         stage = "turning";
-        turned = true;
+        used = true;
         grabbed = Math.atan2(ry, rx) / (Math.PI * 2);
         was = useStudio.getState().menuSpin;
         play("confirm");
       }
-      show({ dx, dy, grip: 1, stage, axis });
+      show({ dx, dy, grip, stage, axis });
     };
     const onUp = () => reset();
     /*
@@ -544,17 +409,18 @@ export function RadialMenu() {
      *
      * Swallowing the event in the capture phase is the only place that works —
      * the app's own context menu listens further down and `preventDefault`
-     * alone does not stop it — and once it is swallowed, this decides. On the
-     * menu itself, nothing: that press is the start of a pull. On any part,
-     * including a different corner of the same one, the menu **moves there**
-     * and starts again at its first level. On anything that is not a part, it
-     * closes. Those are the only three things a right-click can mean here.
+     * alone does not stop it — and once it is swallowed, this decides. After a
+     * pull that was used, nothing: that release is the end of a move or a
+     * turn. On the menu itself, nothing: that press is the start of a pull. On
+     * any part, including a different corner of the same one, the menu
+     * **moves there** and starts again at its first level. On anything that is
+     * not a part, it closes. Those are the only things a right-click can mean.
      */
     const onMenu = (e: MouseEvent) => {
       const el = e.target as HTMLElement;
       e.preventDefault();
       e.stopPropagation();
-      if (turned) { turned = false; return; }
+      if (used) { used = false; return; }
       if (el.closest?.("[data-radial]")) return;
       const onNode = el.closest?.("[data-node-id]") as HTMLElement | null;
       const id = onNode?.getAttribute("data-node-id");
@@ -570,7 +436,9 @@ export function RadialMenu() {
       window.removeEventListener("contextmenu", onMenu, true);
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [open]);
+    // A fresh opening starts the gesture over; the menu being carried does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open?.seq]);
 
   /*
    * Push the menu aside without closing it.
@@ -602,12 +470,9 @@ export function RadialMenu() {
   if (!open || !node) return null;
 
   const s = () => useStudio.getState();
-  // The ring reaches a long way further than the wheel, so the clamp grows
-  // with it — and the anchor is transitioned, so opening a console slides the
-  // menu into view instead of teleporting it.
-  const margin = (subPick ? CONSOLE_BANDS.b1 + 26 : REACH + 26);
-  const px = Math.max(margin, Math.min(window.innerWidth - margin, open.x));
-  const py = Math.max(margin, Math.min(window.innerHeight - margin, open.y));
+  // Already kept on screen by `openRadial` and `moveRadial`.
+  const px = open.x;
+  const py = open.y;
 
   const fire = (id: SlotId) => {
     if (id === "duplicate") { s().duplicateNodes([node.id]); play("confirm"); closeRadial(); }
@@ -670,13 +535,15 @@ export function RadialMenu() {
   });
 
   /* ---------------------------------------------------------- level 3 */
-  // The editor takes the green level's place rather than opening beside it:
-  // the green goes away, and the same corner of the screen becomes the panel.
+  // The editor is the three quadrants the green level is not using — two,
+  // when the group is wide enough to need a second — each a slab like Delete,
+  // on the green level's own rings, in the console's own red. The green stays
+  // up, so you can see which choice you are inside and step sideways.
   const editing = subPick && !choicesFor(group?.id ?? "edit").find((c) => c.id === subPick)?.act ? subPick : null;
-  // The console takes the quarters the green level is not using — three of
-  // them normally, two when the group is wide enough to need a second.
-  const ringSpan = { from: greenTo, to: greenFrom + 1, bands: CONSOLE_BANDS, spin };
-  const backAt = spun(onSquare((greenFrom + greenTo) / 2, GREEN_RINGS.reach + 14), spin);
+  const freeQuads: [number, number][] = [];
+  for (let t = greenTo; t < greenFrom + 1 - 0.001; t += 0.25) freeQuads.push([t, t + 0.25]);
+  const consoleSpan: ConsoleSpan = { quads: freeQuads, rings: GREEN_RINGS, shape, spin };
+  const backAt = spun(onCircle((greenFrom + greenTo) / 2, GREEN_RINGS.reach + 18), spin);
 
   return (
     // Above the top bar and the status bar, or a menu opened near an edge has
@@ -686,8 +553,8 @@ export function RadialMenu() {
       className="pointer-events-none fixed inset-0 z-[68]"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div className="absolute" style={{ left: px, top: py, transition: "left 170ms ease-out, top 170ms ease-out" }}>
-        {pull ? <PullLines pull={pull} /> : null}
+      <div className="absolute" style={{ left: px, top: py }}>
+        {pull ? <PullLine pull={pull} /> : null}
 
         {!picked ? (
           <Ring spin={spin} pieces={level1.map((p) => ({
@@ -697,6 +564,9 @@ export function RadialMenu() {
             hue: p.slot.hue,
             d: p.d,
             at: p.at,
+            // The inner band is too narrow for a word without it hanging over
+            // the neighbours; an icon says it, and the word is on the tooltip.
+            compact: p.slot.id === "anim" || p.slot.id === "duplicate" || p.slot.id === "edit",
             onPick: () => take(p.slot),
           }))} />
         ) : null}
@@ -737,6 +607,11 @@ export function RadialMenu() {
                 d: p.d,
                 at: p.at,
                 on: p.choice.id === subPick,
+                preview:
+                  p.choice.id === "hue" ? <HueSwatch node={node} palette={palette} />
+                  : p.choice.id === "texture" ? <TextureSwatch node={node} palette={palette} layers={layers} />
+                  : undefined,
+                glow: p.choice.id === "aura" && node.aura ? palette[node.aura as RoleId] : null,
                 onPick: () => {
                   play("select");
                   if (p.choice.act) p.choice.act(node);
@@ -764,83 +639,93 @@ export function RadialMenu() {
 
         {group && editing ? (
           <div data-radial-editor={editing} className="pointer-events-none absolute left-0 top-0">
-            <RingConsole
-              span={ringSpan}
-              title={choices.find((c) => c.id === editing)?.label ?? "Edit"}
-              onGrip={carry}
-              onBack={() => { play("close"); setSubPick(null); }}
-            >
-              <Editor which={editing} node={node} span={ringSpan} />
-            </RingConsole>
+            <QuadrantConsole span={consoleSpan} onGrip={carry} onBack={() => { play("close"); setSubPick(null); }}>
+              {(slabs) => <Editor which={editing} node={node} slabs={slabs} />}
+            </QuadrantConsole>
           </div>
         ) : null}
+
+        {pull ? <PullEnds pull={pull} /> : null}
       </div>
     </div>
   );
 }
 
 /**
- * The gesture, drawn.
+ * The line of the gesture, drawn *under* the wheel so it runs beneath the
+ * pieces rather than across their faces.
  *
- * Green runs to your hand and fades up as it lengthens; crimson runs the same
- * distance the other way, through the middle, because you judge an angle by
- * the far end of a bar and not by the end in your hand.
- *
- * Once it locks, a green ring marks where it locked and a crimson ring appears
- * exactly opposite — that is the only place it can go, and it is drawn so you
- * do not have to be told. Reaching that ring is what lets the wheel turn.
+ * The handle runs to your hand, red on the red side of the middle and green
+ * on the green, fading up as it lengthens. Reaching either end takes it away.
  */
-function PullLines({ pull }: { pull: Pull }) {
-  const solid = pull.stage !== "pull";
-  const done = pull.stage === "turning";
+function PullLine({ pull }: { pull: Pull }) {
   const ax = pull.axis;
-  // The two ends of the line. Red is where it pinned; green is the far one,
-  // and reaching it is what lets go of the wheel.
-  const near: Pt | null = ax && solid ? [ax[0] * PULL_LOCK, ax[1] * PULL_LOCK] : null;
-  const far: Pt | null = ax && solid ? [-ax[0] * PULL_LOCK, -ax[1] * PULL_LOCK] : null;
-  // Which side of the middle the handle is on decides what colour it is.
-  const behind = ax ? pull.dx * ax[0] + pull.dy * ax[1] < 0 : false;
-  const hue = behind || done ? GREEN : CRIMSON;
+  if (!ax || pull.stage !== "pull") return null;
+  const red: Pt = [ax[0] * PULL_LOCK, ax[1] * PULL_LOCK];
+  const green: Pt = [-ax[0] * PULL_LOCK, -ax[1] * PULL_LOCK];
+  const toGreen = pull.dx * ax[0] + pull.dy * ax[1] < 0;
+  const hue = toGreen ? GREEN : CRIMSON;
   return (
     <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
-      {/* the line itself, drawn end to end so the track is visible */}
-      {near && far ? (
-        <line
-          x1={near[0]} y1={near[1]} x2={far[0]} y2={far[1]}
-          stroke="oklch(0.72 0.02 260)"
-          strokeOpacity={0.35}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeDasharray="3 7"
-        />
-      ) : null}
+      {/* the track, end to end */}
+      <line
+        x1={red[0]} y1={red[1]} x2={green[0]} y2={green[1]}
+        stroke="oklch(0.72 0.02 260)"
+        strokeOpacity={0.3}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeDasharray="3 7"
+      />
       <line
         data-pull-line=""
         x1={0} y1={0} x2={pull.dx} y2={pull.dy}
         stroke={`oklch(0.74 0.2 ${hue})`}
-        strokeOpacity={pull.grip}
-        strokeWidth={solid ? 4 : 3}
+        strokeOpacity={Math.max(0.08, pull.grip)}
+        strokeWidth={3 + pull.grip}
         strokeLinecap="round"
-        strokeDasharray={solid ? undefined : "7 6"}
+        strokeDasharray={pull.grip >= 1 ? undefined : "7 6"}
       />
-      {/* where it pinned */}
-      {near ? (
-        <circle cx={near[0]} cy={near[1]} r={9} fill="none" stroke={`oklch(0.7 0.22 ${CRIMSON})`} strokeWidth={3} />
-      ) : null}
-      {/* and the end that lets go */}
-      {far ? (
+      <circle cx={pull.dx} cy={pull.dy} r={4 + pull.grip * 3} fill={`oklch(0.8 0.2 ${hue})`} fillOpacity={Math.max(0.2, pull.grip)} />
+    </svg>
+  );
+}
+
+/**
+ * The two ends of the line, drawn *over* the wheel: the line can run under a
+ * piece, but the ring you are reaching for cannot, or you would be reaching
+ * for something you cannot see. The red ring is at the end you pulled toward
+ * and the green ring at the other. The green one stays while you turn, so you
+ * can see what you are turning about; the red one goes with the line.
+ */
+function PullEnds({ pull }: { pull: Pull }) {
+  const ax = pull.axis;
+  if (!ax || pull.stage === "moving") return null;
+  const turning = pull.stage === "turning";
+  const red: Pt = [ax[0] * PULL_LOCK, ax[1] * PULL_LOCK];
+  const green: Pt = [-ax[0] * PULL_LOCK, -ax[1] * PULL_LOCK];
+  return (
+    <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
+      {turning ? null : (
         <circle
-          data-pull-target=""
-          cx={far[0]} cy={far[1]} r={done ? 7 : 11}
-          fill={done ? `oklch(0.78 0.2 ${GREEN})` : "none"}
-          stroke={`oklch(0.78 0.2 ${GREEN})`}
+          data-pull-move=""
+          cx={red[0]} cy={red[1]} r={10}
+          fill="none"
+          stroke={`oklch(0.7 0.22 ${CRIMSON})`}
           strokeWidth={3}
-          strokeDasharray={done ? undefined : "5 4"}
-        >
-          {done ? null : <animate attributeName="r" values="11;14;11" dur="1.1s" repeatCount="indefinite" />}
-        </circle>
-      ) : null}
-      <circle cx={pull.dx} cy={pull.dy} r={solid ? 7 : 4} fill={`oklch(0.8 0.2 ${hue})`} fillOpacity={pull.grip} />
+          strokeDasharray="5 4"
+        />
+      )}
+      <circle
+        data-pull-target=""
+        cx={green[0]} cy={green[1]} r={turning ? 8 : 10}
+        fill={turning ? `oklch(0.78 0.2 ${GREEN})` : "none"}
+        stroke={`oklch(0.78 0.2 ${GREEN})`}
+        strokeWidth={3}
+        strokeDasharray={turning ? undefined : "5 4"}
+        style={{ filter: turning ? `drop-shadow(0 0 5px oklch(0.78 0.2 ${GREEN}))` : undefined }}
+      >
+        {turning ? null : <animate attributeName="r" values="10;13;10" dur="1.1s" repeatCount="indefinite" />}
+      </circle>
     </svg>
   );
 }
@@ -857,6 +742,12 @@ interface RingPiece {
   d: string;
   at: Pt;
   on?: boolean;
+  /** A band too narrow for a word: icon only, the word on the tooltip. */
+  compact?: boolean;
+  /** Something small that shows what the piece is *about*, instead of its icon. */
+  preview?: React.ReactNode;
+  /** A colour to glow in — the piece wears the aura it would set. */
+  glow?: string | null;
   onPick: () => void;
 }
 
@@ -867,18 +758,16 @@ const rim = (hue: number, lit: boolean) => `oklch(${lit ? 0.38 : 0.44} ${lit ? 0
 /**
  * A slab of one colour with a darker line round it.
  *
- * It used to be a vertical gradient under a heavy drop shadow, which is a look
- * that has been dated for about fifteen years and made every piece read as a
- * lump of dark glass. One flat colour reads as one button. The old *hover*
- * colour is the resting colour now and hovering goes a step brighter again, so
- * the whole thing sits lighter on the page and reaching for something still
- * changes it.
- *
  * The rounded corners are the stroke: the path is drawn inset by `ROUND` and
  * grown back with a round-joined stroke of its own colour. That is also what
  * makes the swell work — a hovered piece just strokes wider, taking a couple
- * of pixels back out of the seam it was given, which is why the seams are cut
- * wider than they need to look.
+ * of pixels back out of the seam it was given.
+ *
+ * The word is a `foreignObject` inside the same rotated group as the slab,
+ * turned back upright. It used to be positioned HTML with a transition on
+ * `left`/`top`, which is why every word trailed its button round a turn — it
+ * was chasing a number the slab had already reached. Now it *is* part of the
+ * slab, and the only thing that eases is the hover nudge.
  */
 function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; spin: number }) {
   const [hot, setHot] = React.useState<string | null>(null);
@@ -888,76 +777,109 @@ function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; s
     return [(at[0] / len) * 1.5, (at[1] / len) * 1.5];
   };
   return (
-    <>
-      <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible">
-        <g transform={`rotate(${(spin * 360).toFixed(2)})`}>
-          {pieces.map((p) => {
-            const lit = hot === p.id || p.on;
-            const faceW = 2 * (ROUND + (lit ? SWELL : 0));
-            const n = nudge(p.at, !!lit);
-            return (
-              <g
-                key={p.id}
-                style={{ transform: `translate(${n[0]}px, ${n[1]}px)`, transition: "transform 130ms ease-out" }}
-              >
-                <path
-                  role="button"
-                  tabIndex={0}
-                  aria-label={p.label}
-                  aria-pressed={p.on}
-                  data-shard={p.id}
-                  d={p.d}
-                  onClick={p.onPick}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); p.onPick(); } }}
-                  onPointerEnter={() => setHot(p.id)}
-                  onPointerLeave={() => setHot((h) => (h === p.id ? null : h))}
-                  className="pointer-events-auto cursor-pointer outline-none"
-                  fill={rim(p.hue, !!lit)}
-                  stroke={rim(p.hue, !!lit)}
-                  strokeWidth={faceW + EDGE * 2}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  style={{ transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out" }}
-                />
-                <path
-                  d={p.d}
-                  className="pointer-events-none"
-                  fill={face(p.hue, !!lit)}
-                  stroke={face(p.hue, !!lit)}
-                  strokeWidth={faceW}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  style={{ transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out" }}
-                />
-              </g>
-            );
-          })}
-        </g>
-      </svg>
-      {pieces.map((p) => {
-        const Icon = p.icon;
-        const lit = hot === p.id || p.on;
-        const n = nudge(p.at, !!lit);
-        const at = spun([p.at[0] + n[0], p.at[1] + n[1]], spin);
-        return (
-          <span
-            key={p.id}
-            aria-hidden
-            className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 text-[8.5px] font-semibold leading-tight tracking-tight"
-            style={{
-              left: at[0],
-              top: at[1],
-              color: "oklch(0.99 0 0)",
-              textShadow: `0 1px 2px oklch(0.25 0.08 ${p.hue} / 0.75)`,
-              transition: "left 130ms ease-out, top 130ms ease-out",
-            }}
-          >
-            <Icon className="size-[14px]" strokeWidth={green ? 1.9 : 2.1} />
-            <span className="whitespace-nowrap">{p.label}</span>
-          </span>
-        );
-      })}
-    </>
+    <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible">
+      <g transform={`rotate(${(spin * 360).toFixed(2)})`}>
+        {pieces.map((p) => {
+          const lit = hot === p.id || p.on;
+          const faceW = 2 * (ROUND + (lit ? SWELL : 0));
+          const n = nudge(p.at, !!lit);
+          const Icon = p.icon;
+          const wide = p.compact ? 30 : 96;
+          return (
+            <g
+              key={p.id}
+              style={{ transform: `translate(${n[0]}px, ${n[1]}px)`, transition: "transform 130ms ease-out" }}
+            >
+              <path
+                role="button"
+                tabIndex={0}
+                aria-label={p.label}
+                aria-pressed={p.on}
+                data-shard={p.id}
+                d={p.d}
+                onClick={p.onPick}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); p.onPick(); } }}
+                onPointerEnter={() => setHot(p.id)}
+                onPointerLeave={() => setHot((h) => (h === p.id ? null : h))}
+                className="pointer-events-auto cursor-pointer outline-none"
+                fill={rim(p.hue, !!lit)}
+                stroke={rim(p.hue, !!lit)}
+                strokeWidth={faceW + EDGE * 2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                style={{
+                  transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out",
+                  // The Aura piece wears the aura it would set.
+                  filter: p.glow ? `drop-shadow(0 0 7px ${p.glow}) drop-shadow(0 0 2px ${p.glow})` : undefined,
+                }}
+              />
+              <path
+                d={p.d}
+                className="pointer-events-none"
+                fill={face(p.hue, !!lit)}
+                stroke={face(p.hue, !!lit)}
+                strokeWidth={faceW}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                style={{ transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out" }}
+              />
+              <foreignObject x={p.at[0] - wide / 2} y={p.at[1] - 18} width={wide} height={36} className="pointer-events-none overflow-visible">
+                <div
+                  className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-[8.5px] font-semibold leading-tight tracking-tight"
+                  title={p.label}
+                  style={{
+                    transform: `rotate(${(-spin * 360).toFixed(2)}deg)`,
+                    transformOrigin: "center",
+                    color: "oklch(0.99 0 0)",
+                    textShadow: `0 1px 2px oklch(0.25 0.08 ${p.hue} / 0.75)`,
+                  }}
+                >
+                  {p.preview ?? <Icon className={p.compact ? "size-[17px]" : "size-[14px]"} strokeWidth={green ? 1.9 : 2.1} />}
+                  {p.compact ? null : <span className="whitespace-nowrap">{p.label}</span>}
+                </div>
+              </foreignObject>
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* What the Looks pieces show                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The green Looks pieces show what they would change, not a symbol for it.
+ *
+ * Hue is a strip of the part's own six roles as it is painted right now;
+ * Texture is the tile it is wearing (or a plain square when it follows the
+ * site); Aura is left to the piece itself, which glows in the colour it has.
+ * Small — they have to be — but a swatch the size of a fingernail says more
+ * than a palette icon ever did.
+ */
+function HueSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
+  const t = overrideTheme(themeFrom(useStudio.getState().format), node.colour ?? {}, palette);
+  const roles: RoleId[] = ["bg", "surface", "accent", "highlight", "text"];
+  return (
+    <span className="flex h-[14px] w-[34px] overflow-hidden rounded-[3px]" style={{ outline: "1px solid oklch(0 0 0 / 0.45)" }}>
+      {roles.map((r) => <span key={r} className="flex-1" style={{ background: t[r] }} />)}
+    </span>
+  );
+}
+
+function TextureSwatch({ node, palette, layers }: { node: StudioNode; palette: Palette; layers: TextureLayer[] }) {
+  const layer = node.texture && node.texture !== "none" ? layers.find((l) => l.id === node.texture) : null;
+  const style: React.CSSProperties = layer
+    ? { ...textureCss([{ ...layer, on: true }], palette, palette.surface), backgroundSize: "18px 18px" }
+    : node.texture === "none"
+      ? { background: "oklch(0.3 0.03 148)" }
+      : { background: palette.surface };
+  return (
+    <span className="block size-[18px] rounded-[4px]" style={{ ...style, outline: "1px solid oklch(0 0 0 / 0.45)" }}>
+      {node.texture === "none" ? <X className="m-[3px] size-3" /> : null}
+    </span>
   );
 }
 
@@ -981,24 +903,21 @@ function Row({ label, children }: { label?: string; children: React.ReactNode })
   );
 }
 
-function Editor({ which, node, span }: { which: string; node: StudioNode; span: RingSpan }) {
-  const feature = getFeature(node.featureId);
-  const frameWidth = useStudio((s) => s.frameWidth);
-  const pages = useStudio((s) => s.pages);
+function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs: Slab[] }) {
   const format = useStudio((st) => st.format);
   const look = useStudio((st) => st.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const s = () => useStudio.getState();
   const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
 
-  // The three that are about looks are drawn on the ring itself.
+  // The three that are about looks are drawn on the slabs themselves.
   if (which === "hue") {
-    return <HueRing span={span} colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />;
+    return <HueQuads slabs={slabs} colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />;
   }
   if (which === "texture") {
     return (
-      <TextureRing
-        span={span}
+      <TextureQuads
+        slabs={slabs}
         value={node.texture}
         layers={look.texture ?? []}
         palette={palette}
@@ -1007,15 +926,15 @@ function Editor({ which, node, span }: { which: string; node: StudioNode; span: 
     );
   }
   if (which === "aura") {
-    return <AuraRing span={span} value={node.aura} palette={palette} onChange={(aura) => update({ aura })} />;
+    return <AuraQuads slabs={slabs} value={node.aura} palette={palette} onChange={(aura) => update({ aura })} />;
   }
   // Everything else is words and numbers, and there is no honest way to bend a
-  // text field round a curve. They go on a plate inscribed in the ring — the
-  // one rectangle, and still part of the ring rather than floating over it.
+  // text field round a curve. They go on a plate inscribed in the first slab —
+  // the one rectangle, and it is inside a quadrant rather than beside one.
   return (
-    <RingPlateBox span={span}>
+    <PlateQuad slabs={slabs}>
       <PlainEditor which={which} node={node} />
-    </RingPlateBox>
+    </PlateQuad>
   );
 }
 

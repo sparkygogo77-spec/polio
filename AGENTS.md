@@ -402,18 +402,28 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   meant the menu was a different shape depending on where you clicked and your
   hand could never learn it. Delete is bottom-left. Looks is bottom-right.
   Always. The one thing that moves it is `menuSpin`.
-- **Out, across, then turn** — three states, all drawn (`PullStage`). Dragging
-  used to start turning the moment you cleared the hole, so a right-click that
-  wandered a few pixels spun the menu; reaching full stretch was not enough
-  either, because then the pull and the turn were still one motion. So: the
-  **first real movement fixes a line**, and from there the handle is *on* that
-  line whatever your hand does — sliding, never steering, because a free hand
-  wobbles and a wobble on a dial is a mis-set dial. The line fades up as it
-  lengthens (`PULL_FROM` → `PULL_LOCK`); at full stretch it **pins**, a red
-  ring marks where, and a **green ring** appears at the other end of the same
-  line. Run back along it to the green ring and the wheel comes loose and
-  follows your hand, chased a fifth of the way per frame rather than pinned,
-  with no snapping. Swinging while pinned turns nothing.
+- **One line, two ends: red moves, green turns** (`PullStage`: `pull`,
+  `moving`, `turning`). The menu opens on the right **press**, so the hold that
+  opened it is the hold that pulls — a click to open and a second press to pull
+  was the bug. Dragging used to start turning the moment you cleared the hole,
+  so a right-click that wandered a few pixels spun the menu. So: the **first
+  real movement fixes a line** through the pointer, and from there the handle
+  is *on* that line whatever your hand does — sliding either way along it,
+  never steering, because a free hand wobbles and a wobble on a dial is a
+  mis-set dial. Both ends are marked at once: a **red ring** at the end you
+  pulled toward, a **green ring** at the other. The line fades up as it
+  lengthens (`PULL_FROM` → `PULL_LOCK`). Reach the **red** ring and the line
+  goes and the **whole menu comes loose** and follows your hand in any
+  direction, holding the offset it had when it came loose so it does not jump.
+  Reach the **green** ring instead and the line goes, the green ring stays lit
+  where it is, and the **wheel turns** under your hand, chased a fifth of the
+  way per frame rather than pinned, with no snapping. Either way, letting go
+  ends it and the line is gone. The line is drawn *under* the pieces
+  (`PullLine`) and the two rings *over* them (`PullEnds`), so the thing you are
+  reaching for is never hidden behind a slab. The pull is measured from the
+  same point the menu is drawn at: `openRadial`/`moveRadial` keep the menu on
+  screen, so a menu opened near an edge does not pull its line from a point
+  that is not its middle.
 - **While the menu is open the right button belongs to it.** The `contextmenu`
   is swallowed in the capture phase — the app's own menu listens further down
   and `preventDefault` alone does not stop it — and then there are exactly
@@ -433,9 +443,20 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   circle with the **lock** in it. Level 2 is **green** and takes the quadrant
   that was empty; a group of more than four takes the quadrant below it as
   well, since the blue level is gone by then and there is nothing down there to
-  cover. Level 3 is **crimson** and *replaces* the green rather than opening
-  beside it — same anchor, same direction, different colour, and the menu is
-  only ever one thing at a time. Escape steps back one level.
+  cover. Level 3 is **crimson** and takes the quadrants the green is *not*
+  using, with the green left up. Escape steps back one level.
+  The inner band is too narrow for a word without it hanging over the
+  neighbours, so its three pieces are **icon only** (`compact`), the word on
+  the tooltip. The green Looks pieces show what they would change rather than
+  a symbol for it: Hue is a strip of the part's own roles as painted right now
+  (`HueSwatch`), Texture is the tile it is wearing (`TextureSwatch`), and Aura
+  glows in the aura the part has (`glow`).
+- **Every word is part of its piece.** Each label is a `foreignObject` inside
+  the same rotated `<g>` as its path, turned back upright by `-spin`. It used
+  to be positioned HTML with a transition on `left`/`top`, which is why every
+  word trailed its button round a turn: it was chasing a number the slab had
+  already reached. Now the only thing that eases is the hover nudge, and a word
+  cannot be anywhere but on its piece. The same `Glued` does it for the console.
 - **The geometry is drawn inset and grown back.** `piece()` pulls every path in
   by `ROUND` and half a `SEAM` and the renderer strokes it back out with a
   round-joined stroke of its own colour, which is what curves every corner —
@@ -447,48 +468,55 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   the outer edge; a fixed angle is a hairline inside and a canyon outside, and
   that is what made the ring read as one shape with lines drawn on it. Square
   outer edges land on the square's real corners, so a piece that turns a corner
-  turns it at a right angle instead of cutting it off with a chord.
+  turns it at a right angle instead of cutting it off with a chord. `piece()`
+  brings its turns back under one before the corner walk: the console's
+  quadrants start where the green stops, at a full turn, and without that they
+  matched no corner and came out as triangles with the labels hanging outside.
 - **Flat colour, no gradient.** A vertical gradient under a heavy drop shadow
   read as a lump of dark glass. One flat colour reads as one button: the old
   *hover* colour is the resting colour and hover goes a step brighter again,
   with an edge always darker than the face.
-- **The third level is a ring** (`RingConsole.tsx` for the parts,
-  `RingEditors.tsx` for the bodies). It was a box three times — a tooltip
-  beside the wheel, a slab over it, a slab exactly the size of it — and a box
-  is wrong for the same reason each time: the first two levels are geometry you
-  throw a pointer at, and a rectangle full of form controls is a different
-  program wearing the same colours. It is an annulus wrapped **around** the
-  green level, taking the three quarters the green is not using (two, when the
-  group is wide). The green **stays up**, so you can see which choice you are
-  inside and step sideways to another without leaving.
-  Two bands: the outer carries the choices as `ArcChips`, the inner carries the
-  continuous controls as `ArcSlider`s — hue, lightness, strength — each an arc
-  you drag along. `ArcButton` cuts a sector out for an action. Everything is in
-  the wheel's local coordinates and turned by `spin` at the end, so the console
-  turns with the wheel; labels are HTML and stay upright, because a word bent
-  round a curve is a logo, not an interface.
-  **`ringPath` splits every sector at its halfway point and passes 0 for the
+- **The third level is three more quadrants** (`menuGeometry.ts` for the
+  shapes, `RingConsole.tsx` for what sits on a slab, `RingEditors.tsx` for the
+  editors). It was a box three times — a tooltip beside the wheel, a slab over
+  it, a slab exactly the size of it — then a ring outside the wheel, and each
+  was wrong for the same reason: the first two levels are geometry you throw a
+  pointer at, and anything else is a different program wearing the same
+  colours. Now it is the three quadrants the green is not using (two, when the
+  group is wide), each cut with the same `piece()` as everything else, on the
+  green level's own rings, in crimson — three more Delete-shaped slabs, and
+  the menu is one object. `QuadrantConsole` draws them and hands the editor
+  its `Slab`s; a bare slab is the handle the whole menu is shoved aside by.
+  What goes on a slab: `ArcChips` along the band (wrapping to a second row one
+  chip further in when there are more than fit), `ArcSlider`s bent round it —
+  hue, lightness, strength — `SectorButton` for a slab that *is* a button
+  (Add a picture, No aura; opaque even when disabled, or the slab's rim shows
+  through as a second outline), and `Caption`, the one word on a slab that is
+  not upright: it is **engraved along the slab's inner arc** as a `textPath`,
+  walked the other way and hung under the arc on the lower half of the screen
+  so it reads the right way up at any turn. Straight captions collided with
+  the chips as soon as the wheel was turned so a slab pointed sideways.
+  Everything is in the wheel's local coordinates inside the same rotated group
+  as the slab, so the console turns with the wheel and nothing trails.
+  **`arcPath` splits every sector at its halfway point and passes 0 for the
   large-arc flag.** Passing 1 because the whole span is over half a turn sends
-  each half the long way round and the plate comes out inside out — which is
-  exactly what it did.
+  each half the long way round and the shape comes out inside out.
   A few choices are text, and there is no honest way to bend a text field round
-  a curve: those get `RingPlateBox`, a flat plate *inscribed in* the band,
-  wearing the ring's fill and edge. It is the one rectangle, and it is still
-  part of the ring. The bare plate is the handle the whole menu is shoved aside
-  by; chips and arcs sit above it and take their own presses.
+  a curve: those get `PlateQuad`, a flat plate *inscribed in* the first slab,
+  wearing the slab's colour. It is the one rectangle, and it is inside a
+  quadrant.
   **A hue pick lifts chroma to at least `LIVE`**: picking the orange end while
   the current colour was a near-grey used to hand back another near-grey — the
   right hue at a chroma of 0.01 — and the control read as broken.
 - `ArcChips` spreads to about twice a chip's own width and no further, centred
   in the sweep. Filling the whole arc whatever the count put two chips a
   quarter turn apart with nothing between them, which reads as two unrelated
-  buttons rather than a choice of two. The slab is grey with a red aura round it: a red
-  panel with red controls has nothing left to say "this one is picked". Edges
-  are lit by `litEdge(hue)` — a lighter line along the top inside edge, a
-  darker one along the bottom, leaning differently for warm, green and cool
-  faces. A shade either way, never a bevel.
-  `CONSOLES` names which choices get one: the three that are about looks. The
-  rest are still rows, and should follow.
+  buttons rather than a choice of two. A chip wears the thing it sets — a
+  colour, a tile, a glow — and edges are lit by `litEdge(hue)`: a lighter line
+  along the top inside edge, a darker one along the bottom, leaning
+  differently for warm, green and cool faces. A shade either way, never a
+  bevel. `CONSOLES` names which choices get slabs of their own: the three that
+  are about looks. The rest go on the plate.
 - **A dropped picture joins the site's stack.** The texture console's well
   calls `addTexture`, so what you add lands in the same rail as everything
   else and every other part can wear it. There is no separate library: the

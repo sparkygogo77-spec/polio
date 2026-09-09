@@ -1,93 +1,22 @@
 "use client";
 /**
- * The third level, as a ring.
+ * Things that sit on a quadrant of the wheel.
  *
- * It has been a box three times now — a tooltip beside the ring, then a slab
- * over it, then a slab exactly the size of it — and a box is wrong for the
- * same reason each time: the first two levels are geometry you throw a pointer
- * at, and a rectangle full of form controls is a different program wearing the
- * same colours.
+ * The editor that opens off a green choice is not a panel: it is the three
+ * quadrants the green level is not using, cut with the same `piece()` as the
+ * rest of the wheel, each one a slab like Delete. What goes *on* a slab is
+ * built from these — chips along an arc, a slider bent round the band, a
+ * sector cut out as a button, a word glued to a spot.
  *
- * So the editor is an annulus wrapped **around** the green level, taking the
- * three quarters the green is not using. The green stays where it is, so you
- * can still see which choice you are inside and step sideways to another. Two
- * bands: the outer one carries the choices, the inner one carries the
- * continuous controls — a spectrum, a lightness, a strength — each an arc you
- * drag along rather than a slider in a list.
- *
- * Everything is drawn in the wheel's own local coordinates and turned by
- * `spin` at the end, exactly like the wheel, so the console turns with it.
- * Labels are HTML and stay upright: a word bent round a curve is a logo, not
- * an interface.
+ * Everything is drawn in the wheel's own local coordinates inside the same
+ * rotated group as the slab, so it moves with the slab, never after it. Words
+ * are counter-rotated inside that group so they move rigidly *and* stay
+ * upright — a word that trails its button on a turn reads as a bug, and a word
+ * bent round a curve reads as a logo.
  */
 import * as React from "react";
 import { play } from "@/core/audio/engine";
-
-export type Pt = [number, number];
-
-/* ------------------------------------------------------------------ */
-/* Geometry                                                            */
-/* ------------------------------------------------------------------ */
-
-const TURN = (t: number) => t * Math.PI * 2 - Math.PI / 2;
-
-export const onCircle = (t: number, r: number): Pt => {
-  const a = TURN(t);
-  return [Math.cos(a) * r, Math.sin(a) * r];
-};
-
-export const spun = (p: Pt, turns: number): Pt => {
-  const a = turns * Math.PI * 2;
-  const c = Math.cos(a);
-  const s = Math.sin(a);
-  return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
-};
-
-const fmt = (v: Pt) => `${v[0].toFixed(1)} ${v[1].toFixed(1)}`;
-
-/**
- * An annulus sector: out along one seam, round the outside, back down the
- * other, round the inside. Split at the halfway point so no single arc is ever
- * a full circle, which SVG cannot draw in one command.
- */
-export function ringPath(from: number, to: number, rIn: number, rOut: number): string {
-  const mid = from + (to - from) / 2;
-  // Split at the halfway point and both halves are under half a turn, so the
-  // large-arc flag is always 0. Passing 1 because the *whole* span is over half
-  // a turn sends each half the long way round instead, and the plate comes out
-  // inside out — which is exactly what it did.
-  let d = `M ${fmt(onCircle(from, rIn))}`;
-  d += ` L ${fmt(onCircle(from, rOut))}`;
-  d += ` A ${rOut} ${rOut} 0 0 1 ${fmt(onCircle(mid, rOut))}`;
-  d += ` A ${rOut} ${rOut} 0 0 1 ${fmt(onCircle(to, rOut))}`;
-  d += ` L ${fmt(onCircle(to, rIn))}`;
-  d += ` A ${rIn} ${rIn} 0 0 0 ${fmt(onCircle(mid, rIn))}`;
-  d += ` A ${rIn} ${rIn} 0 0 0 ${fmt(onCircle(from, rIn))}`;
-  return `${d} Z`;
-}
-
-/** Where the console sits: two bands, just outside the green level. */
-export interface Bands {
-  /** Inner edge of the inner band — the green level's outer edge plus a gap. */
-  in: number;
-  /** The two bands, as [inner start, inner end, outer start, outer end]. */
-  a0: number;
-  a1: number;
-  b0: number;
-  b1: number;
-}
-
-export function bandsFrom(greenReach: number): Bands {
-  const a0 = greenReach + 8;
-  const a1 = a0 + 36;
-  const b0 = a1 + 8;
-  const b1 = b0 + 44;
-  return { in: a0, a0, a1, b0, b1 };
-}
-
-/* ------------------------------------------------------------------ */
-/* The shell                                                           */
-/* ------------------------------------------------------------------ */
+import { arcPath, fmt, onCircle, spun, type Pt, type Rings, type Shape } from "./menuGeometry";
 
 export const CONSOLE_HUE = 18;
 
@@ -110,43 +39,41 @@ export function litEdge(hue: number, strong = false): string {
   ].join(", ");
 }
 
-export interface RingSpan {
+/** One quadrant the console has been given, and the wheel it sits on. */
+export interface Slab {
   from: number;
   to: number;
-  bands: Bands;
+  rings: Rings;
+  shape: Shape;
   spin: number;
 }
 
 /**
- * The plate the whole console is drawn on: one annulus, grey, with a red aura.
+ * Something upright at a point on the wheel, moving rigidly with it.
  *
- * The bare ring is also the handle. The console covers what it is editing and
- * the lock is gone while it is up, so without this there is no way to shove it
- * aside — and press-and-drag on the background of a panel is what everyone
- * tries first anyway. Chips and arcs sit above it and take their own presses.
+ * A `foreignObject` inside the rotated group, with its contents turned back by
+ * the same amount. Positioned HTML with a transition on `left`/`top` is what
+ * made every word trail its button round a turn.
  */
-export function RingPlate({ span, onGrip }: { span: RingSpan; onGrip?: (e: React.PointerEvent) => void }) {
-  const { from, to, bands, spin } = span;
+export function Glued({
+  at, spin, w = 120, h = 30, children, className,
+}: {
+  at: Pt;
+  spin: number;
+  w?: number;
+  h?: number;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
-      <g transform={`rotate(${(spin * 360).toFixed(2)})`}>
-        <path
-          data-ring-plate=""
-          onPointerDown={onGrip}
-          className="pointer-events-auto cursor-grab active:cursor-grabbing"
-          d={ringPath(from, to, bands.a0 - 6, bands.b1 + 6)}
-          // Light enough to read as a surface the controls are standing on.
-          // At a quarter of the screen across, the grey that worked on a small
-          // panel disappeared into the board.
-          fill="oklch(0.36 0.024 20)"
-          fillOpacity={0.97}
-          stroke={`oklch(0.62 0.21 ${CONSOLE_HUE})`}
-          strokeWidth={2}
-          strokeLinejoin="round"
-          style={{ filter: `drop-shadow(0 0 18px oklch(0.6 0.22 ${CONSOLE_HUE} / 0.5)) drop-shadow(0 10px 26px oklch(0 0 0 / 0.55))` }}
-        />
-      </g>
-    </svg>
+    <foreignObject x={at[0] - w / 2} y={at[1] - h / 2} width={w} height={h} className="pointer-events-none overflow-visible">
+      <div
+        className={className ?? "flex h-full w-full items-center justify-center"}
+        style={{ transform: `rotate(${(-spin * 360).toFixed(2)}deg)`, transformOrigin: "center" }}
+      >
+        {children}
+      </div>
+    </foreignObject>
   );
 }
 
@@ -164,69 +91,89 @@ export interface ArcItem {
 /**
  * The choices, sitting on the band.
  *
- * They are HTML squares placed at points on the arc rather than sectors cut
- * out of it, because a swatch has to show a colour or a tile honestly and a
- * wedge distorts both. The arc is what they are *on*; it is not what they are.
+ * HTML squares placed at points on the arc rather than sectors cut out of it,
+ * because a swatch has to show a colour or a tile honestly and a wedge
+ * distorts both. They take the room they need — the chip plus a gap, as an
+ * angle at this radius — and sit centred in the sweep, so a pair clusters and
+ * seven still fit.
  */
 export function ArcChips({
-  items, value, onPick, span, radius, size = 30,
+  slab, items, value, onPick, radius, size = 28,
 }: {
+  slab: Slab;
   items: ArcItem[];
   value: string | null;
   onPick: (id: string) => void;
-  span: RingSpan;
   radius: number;
   size?: number;
 }) {
   const n = Math.max(1, items.length);
-  const { from, to, spin } = span;
+  const { from, to, spin } = slab;
   /*
-   * Spread, but not to the horizon.
+   * Rows, when they are needed.
    *
-   * Filling the whole sweep whatever the count put two chips a quarter turn
-   * apart with nothing between them, which reads as two unrelated buttons
-   * rather than a choice of two. They take the room they need — the chip plus
-   * a gap, as an angle at this radius — and sit centred in the sweep, so a
-   * pair clusters and a dozen still fits.
+   * A quadrant's arc at this radius holds about five chips before the ones at
+   * the ends are sitting on the seams and hanging over the next slab. Past
+   * that they wrap on to a second, inner row — the same way a row of buttons
+   * wraps in a panel — rather than shrinking until they are not swatches.
    */
-  const room = (to - from) / n;
-  const want = (size + 16) / (Math.PI * 2 * Math.max(24, radius));
-  // Up to about twice a chip's own width of air before it stops spreading:
-  // enough that seven fill most of the sweep and two still read as a pair.
-  const step = Math.min(room, want * 1.9);
-  const first = (from + to) / 2 - (step * n) / 2;
+  const sweep = (to - from) * 0.8;
+  const fits = (r: number) => Math.max(1, Math.floor((sweep * Math.PI * 2 * r) / (size + 9)));
+  const rows: { r: number; items: ArcItem[] }[] = [];
+  if (n <= fits(radius)) rows.push({ r: radius, items });
+  else {
+    const outer = Math.min(fits(radius), Math.ceil(n / 2));
+    rows.push({ r: radius, items: items.slice(0, outer) });
+    // Just inside the first row — and no further, or it lands on the caption
+    // that sits by the hole.
+    rows.push({ r: radius - (size + 8), items: items.slice(outer) });
+  }
+  const place = (r: number, count: number) => {
+    const want = (size + 9) / (Math.PI * 2 * Math.max(24, r));
+    const step = Math.min(sweep / count, want * 1.4);
+    return { step, first: (from + to) / 2 - (step * count) / 2 };
+  };
   return (
     <>
-      {items.map((item, i) => {
+      {rows.flatMap((row) => row.items.map((item, i) => {
+        const { step, first } = place(row.r, row.items.length);
         const t = first + step * (i + 0.5);
-        const at = spun(onCircle(t, radius), spin);
+        const at = onCircle(t, row.r);
         const on = value === item.id;
         return (
-          <button
+          <foreignObject
             key={item.id}
-            type="button"
-            aria-label={item.label}
-            aria-pressed={on}
-            data-arc-chip={item.id}
-            title={item.label}
-            onClick={() => { play("select"); onPick(item.id); }}
-            className="pointer-events-auto absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[7px] transition-transform"
-            style={{
-              width: size,
-              height: size,
-              left: at[0],
-              top: at[1],
-              transform: `translate(-50%, -50%) scale(${on ? 1.18 : 1})`,
-              ...item.style,
-              boxShadow: `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`,
-              outline: on ? "2px solid oklch(0.98 0.05 20)" : "1px solid oklch(0.3 0.04 20)",
-              outlineOffset: on ? 1 : 0,
-            }}
+            x={at[0] - size / 2 - 4}
+            y={at[1] - size / 2 - 4}
+            width={size + 8}
+            height={size + 8}
+            className="overflow-visible"
           >
-            {item.glyph}
-          </button>
+            <div className="flex h-full w-full items-center justify-center" style={{ transform: `rotate(${(-spin * 360).toFixed(2)}deg)` }}>
+              <button
+                type="button"
+                aria-label={item.label}
+                aria-pressed={on}
+                data-arc-chip={item.id}
+                title={item.label}
+                onClick={() => { play("select"); onPick(item.id); }}
+                className="pointer-events-auto flex items-center justify-center rounded-[6px] transition-transform"
+                style={{
+                  width: size,
+                  height: size,
+                  transform: on ? "scale(1.18)" : undefined,
+                  ...item.style,
+                  boxShadow: `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`,
+                  outline: on ? "2px solid oklch(0.98 0.05 20)" : "1px solid oklch(0.25 0.05 20)",
+                  outlineOffset: on ? 1 : 0,
+                }}
+              >
+                {item.glyph}
+              </button>
+            </div>
+          </foreignObject>
         );
-      })}
+      }))}
     </>
   );
 }
@@ -236,17 +183,17 @@ export function ArcChips({
 /* ------------------------------------------------------------------ */
 
 /**
- * A slider bent round the ring.
+ * A slider bent round the band.
  *
  * The gradient is painted as a run of small sectors rather than as a real
  * gradient, because SVG has no conic one and a linear gradient across a curve
- * lies about where the colours are. Twenty-four steps across a quarter turn is
+ * lies about where the colours are. Twenty steps across a quarter turn is
  * past the point where the seams show.
  */
 export function ArcSlider({
-  span, from, to, rIn, rOut, value, onChange, colourAt, label,
+  slab, from, to, rIn, rOut, value, onChange, colourAt, label,
 }: {
-  span: RingSpan;
+  slab: Slab;
   from: number;
   to: number;
   rIn: number;
@@ -257,15 +204,14 @@ export function ArcSlider({
   colourAt: (f: number) => string;
   label: string;
 }) {
-  const { spin } = span;
-  const steps = 26;
+  const { spin } = slab;
+  const steps = 22;
   const grab = (e: React.PointerEvent<SVGGElement>) => {
     const host = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
     const read = (cx: number, cy: number) => {
       // Back out of the wheel's own turn, then read the angle off the arc.
       const p = spun([cx - host.left, cy - host.top], -spin);
       const t = ((Math.atan2(p[1], p[0]) / (Math.PI * 2) + 0.25) % 1 + 1) % 1;
-      // The arc may cross the seam at 1; unwrap so the reading is monotonic.
       let u = t;
       while (u < from) u += 1;
       onChange(Math.max(0, Math.min(1, (u - from) / (to - from))));
@@ -280,6 +226,8 @@ export function ArcSlider({
     window.addEventListener("pointerup", up);
   };
   const markAt = from + (to - from) * Math.max(0, Math.min(1, value));
+  const a = onCircle(markAt, rIn - 2);
+  const b = onCircle(markAt, rOut + 2);
   return (
     <g
       data-arc-slider={label}
@@ -297,15 +245,14 @@ export function ArcSlider({
       className="pointer-events-auto cursor-pointer outline-none"
     >
       {Array.from({ length: steps }, (_, i) => {
-        const a = from + ((to - from) * i) / steps;
+        const s0 = from + ((to - from) * i) / steps;
         // A hair of overlap, or the seams between the steps show as hairlines.
-        const b = from + ((to - from) * (i + 1)) / steps + 0.0006;
-        return <path key={i} d={ringPath(a, b, rIn, rOut)} fill={colourAt((i + 0.5) / steps)} />;
+        const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
+        return <path key={i} d={arcPath(s0, s1, rIn, rOut)} fill={colourAt((i + 0.5) / steps)} />;
       })}
-      <path d={ringPath(from, to, rIn, rOut)} fill="none" stroke="oklch(0.2 0.04 20)" strokeWidth={1.5} />
-      {/* where you are on it */}
-      <path
-        d={`M ${fmt(onCircle(markAt, rIn - 2))} L ${fmt(onCircle(markAt, rOut + 2))}`}
+      <path d={arcPath(from, to, rIn, rOut)} fill="none" stroke="oklch(0.18 0.04 20)" strokeWidth={1.5} />
+      <line
+        x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]}
         stroke="oklch(0.99 0 0)"
         strokeWidth={3.5}
         strokeLinecap="round"
@@ -316,25 +263,30 @@ export function ArcSlider({
 }
 
 /* ------------------------------------------------------------------ */
-/* A button cut out of the arc                                         */
+/* A button cut out of a slab                                          */
 /* ------------------------------------------------------------------ */
 
-export function ArcButton({
-  span, from, to, rIn, rOut, label, icon, on, onClick, hue = CONSOLE_HUE,
+export function SectorButton({
+  d, at, spin, label, icon, on, onClick, hue = CONSOLE_HUE, disabled,
 }: {
-  span: RingSpan;
-  from: number;
-  to: number;
-  rIn: number;
-  rOut: number;
+  /** The sector, already cut with `piece()`. */
+  d: string;
+  at: Pt;
+  spin: number;
   label: string;
   icon?: React.ReactNode;
   on?: boolean;
   onClick: () => void;
   hue?: number;
+  disabled?: boolean;
 }) {
-  const { spin } = span;
-  const at = spun(onCircle((from + to) / 2, (rIn + rOut) / 2), spin);
+  const [hot, setHot] = React.useState(false);
+  const lit = hot && !disabled;
+  // The button is the slab, so at rest it wears the slab's own colour; it
+  // brightens under the hand and goes bright when it is on. Disabled is a
+  // duller, *opaque* face — a translucent one showed the slab's rim through
+  // it as a second outline.
+  const fill = disabled ? `oklch(0.36 0.05 ${hue})` : on ? `oklch(0.7 0.19 ${hue})` : lit ? `oklch(0.52 0.15 ${hue})` : `oklch(0.44 0.13 ${hue})`;
   return (
     <>
       <path
@@ -343,51 +295,94 @@ export function ArcButton({
         tabIndex={0}
         aria-label={label}
         aria-pressed={on}
-        d={ringPath(from, to, rIn, rOut)}
-        transform={`rotate(${(spin * 360).toFixed(2)})`}
-        onClick={() => { play("select"); onClick(); }}
+        aria-disabled={disabled}
+        d={d}
+        onClick={() => { if (disabled) return; play("select"); onClick(); }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
-        className="pointer-events-auto cursor-pointer outline-none"
-        fill={on ? `oklch(0.68 0.2 ${hue})` : "oklch(0.26 0.03 20)"}
-        stroke="oklch(0.2 0.04 20)"
-        strokeWidth={1.5}
+        onPointerEnter={() => setHot(true)}
+        onPointerLeave={() => setHot(false)}
+        className={disabled ? "pointer-events-auto" : "pointer-events-auto cursor-pointer outline-none"}
+        fill={fill}
+        stroke={`oklch(0.28 0.1 ${hue})`}
+        strokeWidth={2 * 5 + 2.5}
         strokeLinejoin="round"
+        strokeLinecap="round"
+        style={{ transition: "fill 120ms ease-out" }}
       />
-      <foreignObject x={at[0] - 76} y={at[1] - 15} width={152} height={30} className="pointer-events-none">
+      <path
+        d={d}
+        className="pointer-events-none"
+        fill={fill}
+        stroke={fill}
+        strokeWidth={2 * 5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        style={{ transition: "fill 120ms ease-out, stroke 120ms ease-out" }}
+      />
+      <Glued at={at} spin={spin} w={100} h={34}>
         <div
-          className="flex h-full w-full items-center justify-center gap-1 text-[10px] font-semibold leading-tight"
-          style={{ color: on ? "oklch(0.16 0.05 20)" : "oklch(0.95 0.03 20)" }}
+          className="flex flex-col items-center gap-0.5 text-[9px] font-semibold leading-tight"
+          style={{
+            color: on ? "oklch(0.16 0.05 20)" : disabled ? "oklch(0.7 0.04 20)" : "oklch(0.97 0.03 20)",
+            textShadow: on ? undefined : "0 1px 2px oklch(0 0 0 / 0.6)",
+          }}
         >
           {icon}
-          <span className="truncate">{label}</span>
+          <span className="whitespace-nowrap">{label}</span>
         </div>
-      </foreignObject>
+      </Glued>
     </>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* A word on the ring                                                  */
+/* A word on a slab                                                    */
 /* ------------------------------------------------------------------ */
 
-/** A label sitting on the band, upright. */
-export function ArcLabel({
-  span, at, radius, children, width = 120,
-}: {
-  span: RingSpan;
-  at: number;
-  radius: number;
-  children: React.ReactNode;
-  width?: number;
-}) {
-  const p = spun(onCircle(at, radius), span.spin);
+/**
+ * A slab's caption, engraved along its inner arc.
+ *
+ * The one word on a slab that is not upright. It ran straight at first, glued
+ * to a spot by the hole, and that was fine until the wheel was turned so the
+ * slab pointed sideways: then the word ran *along* the slab instead of across
+ * it, straight into the chips. Bent round the arc it always takes the same
+ * band — just outside the hole, just inside the chips — whichever way the
+ * slab points. Two or three words; the arc holds about thirteen letters.
+ *
+ * On the lower half of the screen the arc is walked the other way and the
+ * letters hang from it instead of standing on it, so they are the right way
+ * up wherever the wheel has been turned to.
+ */
+export function Caption({ slab, children }: { slab: Slab; children: React.ReactNode }) {
+  const id = React.useId();
+  const { from, to, spin, rings } = slab;
+  // Where the slab is pointing on screen, once the wheel's turn is added.
+  const facing = (((from + to) / 2 + spin) % 1 + 1) % 1;
+  const low = facing > 0.25 && facing < 0.75;
+  const r = rings.hole + (low ? 20 : 13);
+  const d = low
+    ? `M ${fmt(onCircle(to, r))} A ${r} ${r} 0 0 0 ${fmt(onCircle(from, r))}`
+    : `M ${fmt(onCircle(from, r))} A ${r} ${r} 0 0 1 ${fmt(onCircle(to, r))}`;
   return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 text-center text-[9px] font-semibold uppercase leading-tight tracking-wider"
-      style={{ left: p[0], top: p[1], width, color: "oklch(0.93 0.05 20)", textShadow: "0 1px 2px oklch(0 0 0 / 0.7)" }}
-    >
-      {children}
-    </span>
+    <g className="pointer-events-none" data-arc-caption="">
+      <defs>
+        <path id={id} d={d} fill="none" />
+      </defs>
+      <text
+        fontSize={7.5}
+        fontWeight={700}
+        letterSpacing={0.7}
+        fill="oklch(0.96 0.03 20)"
+        stroke="oklch(0.2 0.06 20)"
+        strokeWidth={2}
+        strokeLinejoin="round"
+        paintOrder="stroke"
+        style={{ textTransform: "uppercase" }}
+      >
+        <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">
+          {children}
+        </textPath>
+      </text>
+    </g>
   );
 }

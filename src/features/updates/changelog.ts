@@ -25,6 +25,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.16",
+    title: "Three more slabs, and words that stay put",
+    summary: "The editor is three more quadrants of the wheel, every word is part of its button, and the line does two things.",
+    sketch: "palette",
+    added: [
+      "Hue, Texture and Aura open on the three quadrants the green is not using — three more slabs shaped like Delete, not a ring outside the wheel. The green stays up.",
+      "Every word is glued to its piece and turns with it; nothing trails round a turn any more. Captions are engraved along the slab's inner curve.",
+      "The inner band is icons only. Hue shows the part's own colours as a strip, Texture shows the tile it is wearing, and Aura glows in the aura it has.",
+      "One line, two ends. Pull to the red ring and the whole menu comes loose and follows your hand anywhere. Pull to the green ring and the wheel turns under your hand instead, with the green dot left lit where it was reached.",
+      "The hold that opens the menu is the hold that pulls: press, and go straight into moving or turning without a second click.",
+      "The line runs under the buttons; the two rings sit over them, so the one you are reaching for is never hidden behind a slab.",
+      "A menu opened near the edge of the screen now pulls its line from its own middle, not from where the click was.",
+    ],
+  },
+  {
     version: "0.15",
     title: "The editor is a ring",
     summary: "The third level wraps around the green instead of being a box, and the turn runs on rails.",

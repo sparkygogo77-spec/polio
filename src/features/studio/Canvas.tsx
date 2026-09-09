@@ -616,12 +616,21 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
     <div
       data-node-id={node.id}
       {...ctxProps("studio-node", node.id, node)}
-      onContextMenu={(e) => {
-        // The wheel, not a twenty-item list. Stops the global menu from opening too.
+      onPointerDown={(e) => {
+        // The wheel opens on the press, not on the release — so the same hold
+        // that opened it can carry straight on into pulling the line out. On
+        // the release it opened a beat late and you had to press again to get
+        // anywhere, which is two gestures for one thing.
+        if (e.button !== 2) return;
         e.preventDefault();
         e.stopPropagation();
         useStudio.getState().setSelection([node.id]);
         openRadial(node.id, e.clientX, e.clientY);
+      }}
+      onContextMenu={(e) => {
+        // The wheel, not a twenty-item list. Stops the global menu from opening too.
+        e.preventDefault();
+        e.stopPropagation();
       }}
       className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed")}
       style={{
