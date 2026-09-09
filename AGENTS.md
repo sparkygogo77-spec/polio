@@ -710,6 +710,50 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 
 ---
 
+## 2c. The tweet console (`src/features/tweets`)
+
+A dashboard, not a page: `T` (or the palette, or the status-bar count) brings
+it down over whatever is open, the way the updates panel does, and Escape
+takes it away. It drafts posts to X, previews them, records a tour of the
+live site to go with them, queues them, and sends them.
+
+- **Files.** `store.ts` is the document (drafts, the queue, the log), persisted
+  to `builder.tweets`; pictures go to IndexedDB through `media.ts` and the
+  draft keeps a thumbnail. `text.ts` counts the way X counts and cuts threads.
+  `tour.ts` drives the preview iframe and records the tab; `gif.ts` is a
+  dependency-free GIF writer (median-cut palette, delta frames, LZW) used by
+  both the server route and `gif-browser.ts`. `send.ts` is the three ways out
+  (API, X's compose page, clipboard) and `preflight`, the list of reasons a
+  draft cannot go yet. `index.ts` holds the manifest and the scheduler;
+  `TweetConsole.tsx` is the surface.
+- **Routes.** `/api/tweets/send` posts one post (multipart: `payload` JSON plus
+  `media_k` files) through OAuth 1.0a with `X_API_KEY`, `X_API_SECRET`,
+  `X_ACCESS_TOKEN`, `X_ACCESS_SECRET`; `/api/tweets/status` says whether they
+  are there (never what they are); `/api/tweets/preview-video` renders the
+  tour with whatever Playwright it can find (`PLAYWRIGHT_MODULE` to name one)
+  and returns a GIF, or the WebM with an `x-tour-note` when it could not.
+  Without keys every route answers `ok: false` with a reason and the console
+  falls back — Send opens X with the words. Keys are never load-bearing.
+- **The queue is honest.** It runs only while the app is open (a tick every
+  `tweets.tickSec`, and on visibility and `online`). A due post still goes
+  out up to `tweets.sendWindowMin` late; later it is marked `missed` and
+  offered again. Failures retry with `retryBackoffSec · 2^attempts` up to
+  `retryAttempts`; a thread that half-posted is final, never retried, because
+  a retry would post the first half again. Do not add a "background" mode
+  that pretends otherwise.
+- **The tour** is one page, scrolled at a walking pace, pressing what it
+  passes (`[role="tab"]`, `[aria-expanded="false"]`) and nothing that
+  navigates. The route mirrors `tour.ts`; change one, change both.
+- **Every surface has a scope**: drafts in the rail carry `tweet-draft`, whose
+  menu does what the buttons do (send now, schedule, duplicate, copy, open in
+  X, record a tour, delete with confirm). New actions go in both places.
+- **Settings** live under the `tweets` group, ids `tweets.<name>`; anything a
+  first-time user should not meet is `advanced: true`. Each one is read in the
+  console and the console says, next to the control it affects, what it is
+  doing.
+
+---
+
 ## 3. The news feed: never repeat yourself
 
 `ctx.publish(input)` is the only way to tell the user something happened. The

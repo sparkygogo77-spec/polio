@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.20",
+    title: "The tweet console",
+    summary: "Press T: a dashboard comes down over the screen where posts to X are drafted, previewed, given a recorded tour of the site, queued, and sent.",
+    sketch: "planets",
+    added: [
+      "One draft at a time in the middle, the way X will show it on the right, and on the left every draft as a stop on one line with the log under it, so what is queued and what happened to it reads like a feed.",
+      "Threads, four pictures or one GIF or video per post with alt text, a poll, who can reply, a post to quote or answer, the sensitive flag; the count is X's count, links as 23, and a Split button cuts a long draft into a thread at paragraphs and sentences.",
+      "Schedule it and the console sends it when it is due, retries with a growing wait when X refuses, and says so honestly: the queue runs while the app is open, a post still goes out up to three hours late, later it is marked missed and offered again.",
+      "The tour: the live site in a frame, scrolled top to bottom at a walking pace, pressing tabs and opening rows as it passes them. Record it from the tab, or render it on the server, and attach it to the first post as a GIF X will take — the GIF is written by the app itself, so nothing has to be installed for it.",
+      "No keys on the server and nothing is stuck: Send opens X with the words or copies them, and every draft's right-click menu does the same. With keys, media goes up through X's upload API and the thread is posted in order.",
+      "Thirty-one settings under their own group, most under advanced: your handle for the preview, the character limit, numbering, retries and their backoff, the queue's cadence and late window, picture size and quality, the tour's device, speed and passes, the console's size.",
+    ],
+  },
+  {
     version: "0.19",
     title: "The drawing board",
     summary: "Draw is the outer top-right slab of the part menu, and it turns the whole wheel into a dark disc you draw the part's shape on.",
