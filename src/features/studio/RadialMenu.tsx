@@ -34,26 +34,20 @@
  */
 import * as React from "react";
 import {
-  AlignCenter, AlignLeft, AlignRight, Copy, FileText, Grid2x2, Highlighter, Link2, ListTree, Lock,
-  Move, Palette as PaletteIcon, Play, Shapes, SlidersHorizontal, Sparkles, Tag, Trash2, Undo2, Unlock, Wand2, X,
+  Copy, FileText, Flag, Gauge, Grid2x2, Link2, ListTree, Lock, Palette as PaletteIcon, Pencil, Play, Shapes, SlidersHorizontal,
+  Sparkles, Tag, Trash2, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
-import { getFeature } from "./catalog";
-import { isLinkable } from "./parts";
 import { useStudio, type StudioNode } from "./store";
 import {
   BLUE_RINGS, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
   type Pt,
 } from "./menuGeometry";
-import { AuraQuads, HueQuads, PlateQuad, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
+import { AnimQuads, AuraQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
+import { PlateEditor } from "./PlateEditors";
 import { CONSOLE, type Slab } from "./RingConsole";
-import { GLYPHS, HuePicker, OptionSet } from "./Inspector";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { auraColour, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
-import { Input } from "@/core/ui/input";
-import { Textarea } from "@/core/ui/textarea";
-import { Select } from "@/core/ui/select";
-import { Segmented } from "@/core/ui/segmented";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -148,7 +142,7 @@ interface Pull {
 /* What is on it                                                       */
 /* ------------------------------------------------------------------ */
 
-type SlotId = "anim" | "prompt" | "duplicate" | "edit" | "look" | "delete";
+type SlotId = "anim" | "write" | "priority" | "duplicate" | "edit" | "look" | "delete";
 
 interface Slot {
   id: SlotId;
@@ -161,10 +155,16 @@ interface Slot {
 
 const SLOTS: Record<SlotId, Slot> = {
   // One neon blue for the whole first level, so it reads as one object.
-  // Prompt leans violet — far enough to find, near enough to belong — and
-  // Delete is the only red thing on the screen.
+  // The pencil and the flag lean violet — far enough to find, near enough to
+  // belong — and Delete is the only red thing on the screen.
   anim: { id: "anim", label: "Animation", icon: Play, hue: 205, kind: "group" },
-  prompt: { id: "prompt", label: "Prompt", icon: Wand2, hue: 258, kind: "group" },
+  // The pencil: everything you *write* about a part — its prompt, what is
+  // in it, where it sends people. It was "Prompt" with the word on it; the
+  // word said less than the pencil does.
+  write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
+  // Priority: a flag beside the pencil. A placeholder for now — it is where
+  // must / nice / idea will be set from the wheel; pressing it does nothing yet.
+  priority: { id: "priority", label: "Priority (soon)", icon: Flag, hue: 258, kind: "action" },
   duplicate: { id: "duplicate", label: "Duplicate", icon: Copy, hue: 205, kind: "action" },
   edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
   look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
@@ -173,41 +173,28 @@ const SLOTS: Record<SlotId, Slot> = {
 
 const GREEN = 148;
 /**
- * The choices that open a console rather than a row of controls: the ones
- * about *looks*, where picking from a drawn spectrum beats reading a list.
- */
-const CONSOLES = new Set(["hue", "texture", "aura"]);
-/**
  * The third level. Red, because it is the only colour left that is neither the
  * blue of the first level nor the green of the second, and because the two are
  * never on screen together — Delete is long gone by the time an editor opens.
  */
 const CRIMSON = 18;
-
-/** How a part arrives on the page. The values are CSS animation names. */
-export const ENTRANCES: { value: string; label: string }[] = [
-  { value: "", label: "No entrance" },
-  { value: "el-fade", label: "Fade in" },
-  { value: "el-rise", label: "Rise" },
-  { value: "el-drop", label: "Drop" },
-  { value: "el-left", label: "In from the left" },
-  { value: "el-right", label: "In from the right" },
-  { value: "el-grow", label: "Grow" },
-  { value: "el-blur", label: "Come into focus" },
-  { value: "el-flip", label: "Tip up" },
-];
+/**
+ * The three animation choices open the same three slabs, one lit for the
+ * choice: which slab, counting clockwise from the green. Speed is top-right,
+ * the entrance itself bottom-right, the rest bottom-left.
+ */
+const ANIM_SLAB = { speed: 0, entrance: 1, extras: 2 } as const;
 
 /** What the green level holds for each blue group. */
 interface Choice {
   id: string;
   label: string;
   icon: typeof Wand2;
-  /** Fires on the spot; without one the choice opens its editor in amber. */
+  /** Fires on the spot; without one the choice opens its editor. */
   act?: (n: StudioNode) => void;
 }
 
 function choicesFor(group: SlotId): Choice[] {
-  const s = () => useStudio.getState();
   switch (group) {
     case "look":
       return [
@@ -216,32 +203,26 @@ function choicesFor(group: SlotId): Choice[] {
         { id: "aura", label: "Aura", icon: Sparkles },
       ];
     case "anim":
+      // Options, not entrances: each opens the animation slabs with its own lit.
       return [
-        { id: "el-fade", label: "Fade", icon: Play, act: (n) => s().updateNode(n.id, { anim: "el-fade" }) },
-        { id: "el-rise", label: "Rise", icon: Play, act: (n) => s().updateNode(n.id, { anim: "el-rise" }) },
-        { id: "el-grow", label: "Grow", icon: Play, act: (n) => s().updateNode(n.id, { anim: "el-grow" }) },
-        { id: "entrance", label: "All of them", icon: ListTree },
+        { id: "entrance", label: "Entrance", icon: Play },
+        { id: "speed", label: "Speed", icon: Gauge },
+        { id: "extras", label: "Extras", icon: SlidersHorizontal },
       ];
-    case "prompt":
+    case "write":
       return [
         { id: "words", label: "Words", icon: Wand2 },
-        { id: "priority", label: "Priority", icon: Tag },
+        { id: "contents", label: "Contents", icon: ListTree },
+        { id: "links", label: "Links", icon: Link2 },
       ];
     default:
       return [
         { id: "name", label: "Name", icon: Tag },
-        { id: "contents", label: "Contents", icon: ListTree },
         // The per-part options — shape, columns, autoplay — used to live only
         // in the panel, which meant the panel was not optional.
         { id: "options", label: "Options", icon: SlidersHorizontal },
-        { id: "size", label: "Size", icon: Move },
-        { id: "links", label: "Links", icon: Link2 },
         { id: "data", label: "Data", icon: FileText },
-        // Edit is the catch-all — everything else the app lets you change
-        // about one part. The board tint and the glyph mark it on the canvas
-        // rather than on the site, and they were the last two things the
-        // right panel could do that the menu could not.
-        { id: "tint", label: "Tint", icon: Highlighter },
+        // The glyph marks a part on the board rather than on the site.
         { id: "glyph", label: "Glyph", icon: Shapes },
       ];
   }
@@ -493,6 +474,8 @@ export function RadialMenu() {
   const fire = (id: SlotId) => {
     if (id === "duplicate") { s().duplicateNodes([node.id]); play("confirm"); closeRadial(); }
     if (id === "delete") { s().removeNodes([node.id]); play("deny"); closeRadial(); }
+    // A placeholder: the flag is here, what it does is not, yet.
+    if (id === "priority") play("tap");
   };
   const take = (slot: Slot) => {
     if (slot.kind === "action") return fire(slot.id);
@@ -506,11 +489,14 @@ export function RadialMenu() {
   const [botA, botB] = QUADS[Q_BOTTOM]!;
   const [delA, delB] = QUADS[Q_DELETE]!;
   const botMid = (botA + botB) / 2;
+  const topMid = (topA + topB) / 2;
 
   const B = BLUE_RINGS;
   const level1: { slot: Slot; d: string; at: Pt }[] = [
     { slot: SLOTS.anim, d: piece(topA, topB, B.hole, B.mid, shape, B), at: middleOf(topA, topB, B.hole, B.mid, shape, B) },
-    { slot: SLOTS.prompt, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
+    // The outer block above is two: the pencil, and the flag beside it.
+    { slot: SLOTS.write, d: piece(topA, topMid, B.mid, "edge", shape, B), at: middleOf(topA, topMid, B.mid, "edge", shape, B) },
+    { slot: SLOTS.priority, d: piece(topMid, topB, B.mid, "edge", shape, B), at: middleOf(topMid, topB, B.mid, "edge", shape, B) },
     { slot: SLOTS.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
     { slot: SLOTS.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
     { slot: SLOTS.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B) },
@@ -558,7 +544,18 @@ export function RadialMenu() {
   const editing = subPick && !choicesFor(group?.id ?? "edit").find((c) => c.id === subPick)?.act ? subPick : null;
   const freeQuads: [number, number][] = [];
   for (let t = greenTo; t < greenFrom + 1 - 0.001; t += 0.25) freeQuads.push([t, t + 0.25]);
-  const consoleSpan: ConsoleSpan = { quads: freeQuads, rings: GREEN_RINGS, shape, spin };
+  // The plate editors want a square to sit in: the slab opposite the green
+  // is cut square for them whatever the wheel's shape is. The animation
+  // editor lights the slab its green choice is about.
+  const onPlate = !!editing && !["hue", "texture", "aura"].includes(editing) && !(editing in ANIM_SLAB);
+  const consoleSpan: ConsoleSpan = {
+    quads: freeQuads,
+    rings: GREEN_RINGS,
+    shape,
+    spin,
+    shapes: freeQuads.map(([f]) => (onPlate && Math.abs(((f % 1) + 1) % 1 - 0.25) < 0.001 ? "square" : shape)),
+    lit: editing && editing in ANIM_SLAB ? ANIM_SLAB[editing as keyof typeof ANIM_SLAB] : undefined,
+  };
 
   return (
     // Above the top bar and the status bar, or a menu opened near an edge has
@@ -580,8 +577,9 @@ export function RadialMenu() {
             d: p.d,
             at: p.at,
             // The inner band is too narrow for a word without it hanging over
-            // the neighbours; an icon says it, and the word is on the tooltip.
-            compact: p.slot.id === "anim" || p.slot.id === "duplicate" || p.slot.id === "edit",
+            // the neighbours, and the pencil and the flag are halves of a
+            // block; an icon says it, and the word is on the tooltip.
+            compact: p.slot.id !== "look" && p.slot.id !== "delete",
             onPick: () => take(p.slot),
           }))} />
         ) : null}
@@ -921,28 +919,11 @@ function TextureSwatch({ node, palette, layers }: { node: StudioNode; palette: P
 /* The one editor a green choice asked for                             */
 /* ------------------------------------------------------------------ */
 
-/**
- * A labelled row inside the editor. The label is optional, because the panel
- * already has the choice's name across the top of it and printing it twice
- * reads as a mistake.
- */
-function Row({ label, children }: { label?: string; children: React.ReactNode }) {
-  return (
-    <label className="mb-2 flex flex-col gap-1 last:mb-0">
-      {label ? (
-        <span className="text-[9px] uppercase tracking-wider" style={{ color: CONSOLE.text }}>{label}</span>
-      ) : null}
-      {children}
-    </label>
-  );
-}
-
 function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs: Slab[] }) {
   const format = useStudio((st) => st.format);
   const look = useStudio((st) => st.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
-  const s = () => useStudio.getState();
-  const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
+  const update = (patch: Partial<StudioNode>) => useStudio.getState().updateNode(node.id, patch);
 
   // The three that are about looks are drawn on the slabs themselves.
   if (which === "hue") {
@@ -962,191 +943,14 @@ function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs
   if (which === "aura") {
     return <AuraQuads slabs={slabs} node={node} palette={palette} onChange={(patch) => update(patch)} />;
   }
-  // Everything else is words and numbers, and there is no honest way to bend a
-  // text field round a curve. They go on a plate inscribed in the first slab —
-  // the one rectangle, and it is inside a quadrant rather than beside one.
-  return (
-    <PlateQuad slabs={slabs}>
-      <PlainEditor which={which} node={node} />
-    </PlateQuad>
-  );
-}
-
-function PlainEditor({ which, node }: { which: string; node: StudioNode }) {
-  const feature = getFeature(node.featureId);
-  const frameWidth = useStudio((s) => s.frameWidth);
-  const pages = useStudio((s) => s.pages);
-  const s = () => useStudio.getState();
-  const update = (patch: Partial<StudioNode>) => s().updateNode(node.id, patch);
-
-  if (which === "tint") {
-    return (
-      <Row>
-        <HuePicker value={node.hue} onChange={(h) => update({ hue: h })} />
-      </Row>
-    );
+  // The three animation choices open the same three slabs, with the chosen
+  // one lit: how it comes in, how fast, and the rest.
+  if (which in ANIM_SLAB) {
+    return <AnimQuads slabs={slabs} node={node} focus={which as keyof typeof ANIM_SLAB} onChange={(patch) => update(patch)} />;
   }
-  if (which === "glyph") {
-    return (
-      <Row>
-        <div className="flex flex-wrap gap-1">
-          <button
-            type="button"
-            aria-label="No glyph"
-            onClick={() => update({ glyph: null })}
-            className="flex size-6 items-center justify-center rounded-sm border text-[10px]"
-            style={{ borderColor: node.glyph === null ? CONSOLE.on : "oklch(0.52 0.01 260)" }}
-          >
-            <PaletteIcon className="size-3" />
-          </button>
-          {GLYPHS.map((g) => (
-            <button
-              key={g}
-              type="button"
-              aria-label={`Glyph ${g}`}
-              onClick={() => update({ glyph: g })}
-              className="flex size-6 items-center justify-center rounded-sm border text-xs"
-              style={{ borderColor: node.glyph === g ? CONSOLE.on : "oklch(0.52 0.01 260)" }}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-      </Row>
-    );
-  }
-  if (which === "options") {
-    return feature?.options?.length ? (
-      <div className="max-h-[280px] space-y-2 overflow-y-auto">
-        {feature.options.map((opt) =>
-          opt.kind === "set" ? (
-            <OptionSet
-              key={opt.id}
-              option={opt}
-              value={node.options[opt.id]}
-              onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-            />
-          ) : (
-            <Row key={opt.id} label={opt.label}>
-              <Select
-                value={node.options[opt.id] ?? opt.values[0]!}
-                onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
-                options={opt.values.map((v) => ({ value: v, label: v }))}
-                aria-label={opt.label}
-              />
-            </Row>
-          ),
-        )}
-      </div>
-    ) : (
-      <p className="text-[10px]" style={{ color: CONSOLE.text }}>This part has nothing to set.</p>
-    );
-  }
-  if (which === "entrance") {
-    return (
-      <Row>
-        <Select
-          value={node.anim ?? ""}
-          onChange={(v) => update({ anim: v || null })}
-          options={ENTRANCES}
-          aria-label="How it arrives"
-        />
-      </Row>
-    );
-  }
-  if (which === "words") {
-    return (
-      <Row>
-        <Textarea autoGrow rows={3} value={node.prompt} aria-label="Element prompt" placeholder={feature?.hint ?? "Specific to this placement…"} onChange={(e) => update({ prompt: e.target.value })} />
-      </Row>
-    );
-  }
-  if (which === "priority") {
-    return (
-      <Row>
-        <Segmented
-          size="xs"
-          value={node.priority}
-          onChange={(v) => update({ priority: v as "must" })}
-          options={[{ value: "must", label: "Must" }, { value: "nice", label: "Nice" }, { value: "idea", label: "Idea" }]}
-          aria-label="Priority"
-        />
-      </Row>
-    );
-  }
-  if (which === "name") {
-    return (
-      <Row>
-        <Input value={node.label} aria-label="Name" onChange={(e) => update({ label: e.target.value })} />
-      </Row>
-    );
-  }
-  if (which === "contents") {
-    return feature?.content ? (
-      <Row label={feature.content.label}>
-        <Textarea autoGrow rows={3} value={node.content} aria-label={feature.content.label} placeholder={feature.content.placeholder} onChange={(e) => update({ content: e.target.value })} />
-      </Row>
-    ) : (
-      <p className="text-[10px] text-fg-muted">This part has nothing to list inside it.</p>
-    );
-  }
-  if (which === "size") {
-    return (
-      <>
-        <div className="mb-1.5 grid grid-cols-4 gap-1">
-          {(["x", "y", "w", "h"] as const).map((k) => (
-            <label key={k} className="flex flex-col gap-0.5">
-              <span className="text-[9px] uppercase text-fg-faint">{k === "w" ? "Width" : k === "h" ? "Height" : k}</span>
-              <Input
-                type="number"
-                inputSize="sm"
-                className="px-1"
-                value={String(Math.round(node[k]))}
-                aria-label={k === "w" ? "Width" : k === "h" ? "Height" : k.toUpperCase()}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (Number.isFinite(v)) update({ [k]: k === "w" ? Math.max(40, v) : k === "h" ? Math.max(24, v) : v } as Partial<StudioNode>);
-                }}
-              />
-            </label>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          <button type="button" aria-label="Flush left" onClick={() => update({ x: 0 })} className="tactile flex-1 rounded-sm border border-border py-1 text-fg-muted hover:text-fg"><AlignLeft className="mx-auto size-3" /></button>
-          <button type="button" aria-label="Centre" onClick={() => update({ x: Math.round((frameWidth - node.w) / 2) })} className="tactile flex-1 rounded-sm border border-border py-1 text-fg-muted hover:text-fg"><AlignCenter className="mx-auto size-3" /></button>
-          <button type="button" aria-label="Flush right" onClick={() => update({ x: frameWidth - node.w })} className="tactile flex-1 rounded-sm border border-border py-1 text-fg-muted hover:text-fg"><AlignRight className="mx-auto size-3" /></button>
-          <button type="button" onClick={() => update({ x: 0, w: frameWidth })} className="tactile flex-[2] rounded-sm border border-border py-1 text-[10px] text-fg-muted hover:text-fg">Full width</button>
-        </div>
-      </>
-    );
-  }
-  if (which === "links") {
-    const link = node.link;
-    return (
-      <>
-        {isLinkable(node.featureId) ? (
-          <Row label="Links to">
-            <Select
-              value={!link ? "none" : link.kind === "page" ? `page:${link.target}` : "url"}
-              onChange={(v) => update({ link: v === "none" ? null : v === "url" ? { kind: "url", target: "https://" } : { kind: "page", target: v.slice(5) } })}
-              options={[{ value: "none", label: "Nowhere" }, ...pages.map((p) => ({ value: `page:${p.id}`, label: p.name })), { value: "url", label: "Web address…" }]}
-              aria-label="Links to"
-            />
-          </Row>
-        ) : (
-          <p className="text-[10px] text-fg-muted">This part does not send anyone anywhere.</p>
-        )}
-        {link?.kind === "url" ? (
-          <Row label="Web address">
-            <Input value={link.target} aria-label="Web address" onChange={(e) => update({ link: { kind: "url", target: e.target.value } })} />
-          </Row>
-        ) : null}
-      </>
-    );
-  }
-  return (
-    <Row>
-      <Textarea autoGrow rows={3} value={node.data} aria-label="Data" placeholder="What it shows or does" onChange={(e) => update({ data: e.target.value })} />
-    </Row>
-  );
+  // Everything else is words and lists, and there is no honest way to bend a
+  // text field round a curve. They go on a plate, in the slab opposite the
+  // green — cut square for it whatever the wheel's shape is.
+  const plate = slabs.find((s) => Math.abs(((s.from % 1) + 1) % 1 - 0.25) < 0.001) ?? slabs[0]!;
+  return <PlateEditor which={which} node={node} plate={plate} spare={slabs.filter((s) => s !== plate)} />;
 }

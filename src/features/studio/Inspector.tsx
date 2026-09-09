@@ -469,10 +469,6 @@ export function Inspector() {
           <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
         </Field>
 
-        <Field label="Board tint" hint="Marks this one on the board. Does not change the site.">
-          <HuePicker value={node.hue} onChange={(h) => update({ hue: h })} />
-        </Field>
-
         <Field label="Glyph" hint="Give a new idea its own mark so you can spot it on the canvas.">
           <div className="flex flex-wrap gap-1">
             <button

@@ -9,7 +9,7 @@ import { Block } from "../blocks";
 import type { FormatValues } from "../format";
 import { themeFrom, type NodeLink, type PartEvent } from "../parts";
 import { resolvePalette } from "../parts/theme";
-import { auraStyle, type Look } from "../look";
+import { auraStyle, entranceCss, type Look } from "../look";
 import type { StudioNode, StudioPage } from "../store";
 import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
@@ -112,7 +112,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
                 ...((auraStyle(p.node.aura, palette, p.node.auraSize, p.node.auraStyle) ?? {}) as React.CSSProperties),
                 // Its entrance. The board draws the finished state; this is the
                 // only place a part is seen arriving.
-                animation: p.node.anim ? `${p.node.anim} var(--motion-slow, 420ms) cubic-bezier(0.2, 0.8, 0.2, 1) both` : undefined,
+                animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
               }}
             >
               <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={emit} />

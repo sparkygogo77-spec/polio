@@ -20,12 +20,13 @@
  * quadrant.
  */
 import * as React from "react";
-import { Activity, Check, CircleDot, ImagePlus, Shuffle, Sparkles, X } from "lucide-react";
+import { Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, CircleDot, ImagePlus, Play, Shuffle, Sparkles, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { readImage } from "./ImageIntake";
 import {
-  auraColour, auraStyle, AURA_STYLES, css as oklchCss, newLayer, parseColor, textureCss, TEXTURE_KINDS, ROLES, ROLE_LABEL,
-  type AuraStyle, type Palette, type RoleId, type TextureLayer,
+  ANIM_DELAY, ANIM_EASE, ANIM_SPEED, auraColour, auraStyle, AURA_STYLES, css as oklchCss, ENTRANCE_MS, entranceCss, newLayer, parseColor, textureCss,
+  TEXTURE_KINDS, ROLES, ROLE_LABEL,
+  type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette, type RoleId, type TextureLayer,
 } from "./look";
 import { useStudio, type StudioNode } from "./store";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
@@ -39,6 +40,10 @@ export interface ConsoleSpan {
   rings: Rings;
   shape: Shape;
   spin: number;
+  /** A shape per quadrant, when one of them has to differ (the plate's is always square). */
+  shapes?: Shape[];
+  /** The one slab to draw a shade brighter: the one the green choice is about. */
+  lit?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -60,13 +65,14 @@ export function QuadrantConsole({
   onGrip?: (e: React.PointerEvent) => void;
   children: (slabs: Slab[]) => React.ReactNode;
 }) {
-  const { quads, rings, shape, spin } = span;
-  const slabs: Slab[] = quads.map(([from, to]) => ({ from, to, rings, shape, spin }));
+  const { quads, rings, shape, spin, shapes, lit } = span;
+  const slabs: Slab[] = quads.map(([from, to], i) => ({ from, to, rings, shape: shapes?.[i] ?? shape, spin }));
   return (
     <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
       <g transform={`rotate(${(spin * 360).toFixed(2)})`}>
         {slabs.map((s, i) => {
-          const d = piece(s.from, s.to, rings.hole, "edge", shape, rings, SHRINK);
+          const d = piece(s.from, s.to, rings.hole, "edge", s.shape, rings, SHRINK);
+          const face = lit === i ? CONSOLE.faceLit : CONSOLE.face;
           return (
             <g key={i} data-console-slab={i}>
               <path
@@ -83,11 +89,12 @@ export function QuadrantConsole({
               <path
                 d={d}
                 className="pointer-events-none"
-                fill={CONSOLE.face}
-                stroke={CONSOLE.face}
+                fill={face}
+                stroke={face}
                 strokeWidth={2 * 5}
                 strokeLinejoin="round"
                 strokeLinecap="round"
+                style={{ transition: "fill 160ms ease-out, stroke 160ms ease-out" }}
               />
             </g>
           );
@@ -105,9 +112,9 @@ export function QuadrantConsole({
  */
 const chipsAt = (s: Slab) => s.rings.mid + (s.rings.reach - s.rings.mid) * 0.56;
 /** The middle of a whole quadrant, for a button that is the whole quadrant. */
-const centreOf = (s: Slab, rIn: number, rOut: number | "edge") => middleOf(s.from, s.to, rIn, rOut, s.shape, s.rings, 0.5);
+export const centreOf = (s: Slab, rIn: number, rOut: number | "edge") => middleOf(s.from, s.to, rIn, rOut, s.shape, s.rings, 0.5);
 /** A whole quadrant, cut as the console cuts its slabs. */
-const wholeOf = (s: Slab) => piece(s.from, s.to, s.rings.hole, "edge", s.shape, s.rings, SHRINK);
+export const wholeOf = (s: Slab) => piece(s.from, s.to, s.rings.hole, "edge", s.shape, s.rings, SHRINK);
 
 /* ------------------------------------------------------------------ */
 /* The spectrum, on one slab                                           */
@@ -444,26 +451,141 @@ export function AuraQuads({
 }
 
 /* ------------------------------------------------------------------ */
-/* The one rectangle                                                   */
+/* Animation                                                           */
 /* ------------------------------------------------------------------ */
 
+/** The slide entrances, by where they come from. */
+const SLIDES: { id: string; label: string; glyph: React.ReactNode }[] = [
+  { id: "el-rise", label: "From below", glyph: <ArrowUp className="size-3" /> },
+  { id: "el-drop", label: "From above", glyph: <ArrowDown className="size-3" /> },
+  { id: "el-left", label: "From the left", glyph: <ArrowRight className="size-3" /> },
+  { id: "el-right", label: "From the right", glyph: <ArrowLeft className="size-3" /> },
+];
+const SLIDE_IDS = new Set(SLIDES.map((s) => s.id));
+const word = (t: string) => <span className="text-[7px] font-bold uppercase tracking-tight">{t}</span>;
+const ENTRANCE_TYPES: ArcItem[] = [
+  { id: "", label: "No entrance", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
+  { id: "el-fade", label: "Fade in", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Fade") },
+  { id: "slide", label: "Slide in", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Slide") },
+  { id: "el-grow", label: "Grow", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Grow") },
+  { id: "el-blur", label: "Come into focus", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Focus") },
+  { id: "el-flip", label: "Tip up", style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word("Tip") },
+];
+const plain = (id: string, label: string, text: string): ArcItem => ({ id, label, style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: word(text) });
+
 /**
- * A plate inscribed in the first slab, for the editors that are really text.
+ * The entrance, shown by a slab.
  *
- * Sized to the square the quadrant encloses and counter-rotated so the words
- * stay upright; it moves with the slab because it is drawn inside it.
+ * A ghost of the slab — its own shape, its own grey — arrives the way the
+ * part will: same entrance, speed, delay and easing. Then it dissolves, and
+ * the controls are there underneath as they were. It runs every time any of
+ * the four changes, and again from the small ▶ by the hole. It plays on the
+ * slab the motion comes *across*: bottom-left for anything that arrives from
+ * below or the left (and everything that does not move), top-right for what
+ * drops in or comes from the right.
  */
-export function PlateQuad({ slabs, children }: { slabs: Slab[]; children: React.ReactNode }) {
-  const s = slabs[0]!;
-  const { hole, reach } = s.rings;
-  // The square the quadrant encloses, less the hole's corner and the edge.
-  const w = reach - hole - 4;
-  const at = onCircle((s.from + s.to) / 2, (hole + reach) / 2 + 12);
+function Ghost({ slab, node, run }: { slab: Slab; node: Pick<StudioNode, "anim" | "animSpeed" | "animDelay" | "animEase">; run: number }) {
+  const css = entranceCss(node.anim, node.animSpeed, node.animDelay, node.animEase);
+  if (!css) return null;
+  // How long the arrival takes, so the ghost leaves just after it lands.
+  const k = ANIM_SPEED.find((s) => s.id === (node.animSpeed ?? "normal"))?.k ?? 1;
+  const wait = ANIM_DELAY.find((d) => d.id === (node.animDelay ?? "none"))?.ms ?? 0;
+  const gone = Math.round(ENTRANCE_MS * k + wait + 120);
   return (
-    <Glued at={at} spin={s.spin} w={w + 26} h={w - 2} className="flex h-full w-full items-center justify-center">
-      <div data-ring-plate-box="" className="pointer-events-auto w-full rounded-lg p-2" style={{ background: CONSOLE.well, boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.12), inset 0 -1px 0 oklch(0 0 0 / 0.3)" }}>
-        {children}
-      </div>
-    </Glued>
+    <path
+      key={run}
+      data-anim-ghost={node.anim ?? ""}
+      d={wholeOf(slab)}
+      className="pointer-events-none"
+      fill={CONSOLE.faceLit}
+      stroke={CONSOLE.faceLit}
+      strokeWidth={2 * 5}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      style={{
+        transformBox: "fill-box",
+        transformOrigin: "center",
+        animation: `${css}, ghost-out 320ms ease-out ${gone}ms forwards`,
+      }}
+    />
+  );
+}
+
+const SHORT_DELAY: Record<AnimDelay, string> = { none: "Now", short: "Beat", long: "Later" };
+const SHORT_EASE: Record<AnimEase, string> = { smooth: "Ease", snappy: "Snap", bouncy: "Bounce" };
+
+/**
+ * Three slabs: speed (top-right), the entrance itself (bottom-right), and
+ * the rest (bottom-left). The entrance slab holds the kinds as boxes and a
+ * four-way pad for the slides; the pad picks where a slide comes from, and
+ * picking Slide with no direction set means from below. One of the other two
+ * is the demo slab, and carries the ▶ instead of its caption.
+ */
+export function AnimQuads({
+  slabs, node, focus, onChange,
+}: {
+  slabs: Slab[];
+  node: Pick<StudioNode, "anim" | "animSpeed" | "animDelay" | "animEase">;
+  focus: "entrance" | "speed" | "extras";
+  onChange: (patch: Partial<Pick<StudioNode, "anim" | "animSpeed" | "animDelay" | "animEase">>) => void;
+}) {
+  const [speed, entrance, extras] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
+  const { hole } = entrance.rings;
+  const anim = node.anim ?? "";
+  const type = SLIDE_IDS.has(anim) ? "slide" : anim;
+  const fromTopRight = anim === "el-drop" || anim === "el-right";
+  const demo = fromTopRight ? speed : extras;
+  const [run, setRun] = React.useState(0);
+  React.useEffect(() => { setRun((n) => n + 1); }, [node.anim, node.animSpeed, node.animDelay, node.animEase]);
+  void focus;
+  const replayAt = onCircle((demo.from + demo.to) / 2, hole + 20);
+
+  return (
+    <>
+      {/* how it comes in */}
+      <ArcChips slab={entrance} items={ENTRANCE_TYPES} radius={chipsAt(entrance)} size={26} value={type}
+        onPick={(id) => onChange({ anim: id === "" ? null : id === "slide" ? (SLIDE_IDS.has(anim) ? anim : "el-rise") : id })} />
+      <ArcChips
+        slab={entrance}
+        items={SLIDES.map((s) => ({ id: s.id, label: s.label, style: { background: "oklch(0.26 0.008 260)", color: CONSOLE.text }, glyph: s.glyph }))}
+        radius={hole + 20}
+        size={18}
+        value={SLIDE_IDS.has(anim) ? anim : null}
+        onPick={(id) => onChange({ anim: id })}
+      />
+
+      {/* how fast */}
+      <ArcChips slab={speed} items={ANIM_SPEED.map((s) => plain(s.id, `${s.label} entrance`, s.label))} radius={chipsAt(speed)} size={28}
+        value={node.animSpeed ?? "normal"} onPick={(id) => onChange({ animSpeed: id as AnimSpeed })} />
+      {demo === speed ? null : <Caption slab={speed}>Speed</Caption>}
+
+      {/* the rest */}
+      <ArcChips slab={extras} items={ANIM_DELAY.map((d) => plain(d.id, `${d.label} before it starts`, SHORT_DELAY[d.id]))} radius={chipsAt(extras)} size={28}
+        value={node.animDelay ?? "none"} onPick={(id) => onChange({ animDelay: id as AnimDelay })} />
+      <ArcChips slab={extras} items={ANIM_EASE.map((e) => plain(e.id, `${e.label} easing`, SHORT_EASE[e.id]))} radius={chipsAt(extras) - 36} size={28}
+        value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
+      {demo === extras ? null : <Caption slab={extras}>Extras</Caption>}
+
+      {/* the demo, and the way to see it again */}
+      <Ghost slab={demo} node={node} run={run} />
+      <Glued at={replayAt} spin={demo.spin} w={26} h={26}>
+        <button
+          type="button"
+          data-anim-preview={node.anim ?? ""}
+          aria-label="Replay the entrance"
+          title={node.anim ? "See it again" : "No entrance yet"}
+          onClick={() => { play("tap"); setRun((n) => n + 1); }}
+          className="pointer-events-auto flex size-[18px] items-center justify-center rounded-[4px]"
+          style={{
+            background: node.anim ? CONSOLE.on : "oklch(0.26 0.008 260)",
+            color: node.anim ? "oklch(0.16 0.04 27)" : CONSOLE.muted,
+            boxShadow: "0 1px 3px oklch(0 0 0 / 0.5)",
+            outline: node.anim ? undefined : `1px dashed ${CONSOLE.muted}`,
+          }}
+        >
+          <Play className="size-2.5" />
+        </button>
+      </Glued>
+    </>
   );
 }

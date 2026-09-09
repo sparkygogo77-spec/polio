@@ -549,6 +549,39 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   two things that show the aura, so they are the two things that swap.
   `recentColours` is filled by any spectrum's `onCommit` — the moment the
   hand lets go, not on every drag step.
+- **Words and lists go on a plate** (`PlateEditors.tsx`). Name, contents,
+  the part's prompt, its data, links, options and glyph are `PlateEditor`s:
+  a `PlateQuad` inscribed in the slab **opposite the green**, which the
+  console cuts **square** for it whatever `menuShape` is (`ConsoleSpan.shapes`),
+  so the plate always has a square to sit in. At rest the plate is a hundred
+  pixels on a side — its near corner clears the hole, its far corner the
+  slab's edge; turned, it shrinks by the sum of the turn's cosine and sine so
+  an upright square stays inside a tilted one. What is on it is not a form:
+  a setting with a handful of values is a row of `Tick` boxes, one lit; a set
+  is the same boxes switched on and off; only a name, a prompt, an address
+  and the data are typed. Contents carries **Make it a prompt** on the slab
+  beside it — a placeholder, cut and wired, doing nothing yet.
+- **Animation is three slabs, not a list** (`AnimQuads`). Its green level is
+  options — Entrance, Speed, Extras — each opening the same three slabs with
+  its own lit (`ConsoleSpan.lit`, `ANIM_SLAB`): speed top-right, the entrance
+  bottom-right (the kinds as boxes, a four-way pad for where a slide comes
+  from; Slide with no direction means from below), delay and easing
+  bottom-left. `entranceCss()` in `look.ts` turns `anim` + `animSpeed` +
+  `animDelay` + `animEase` into the one `animation` shorthand the live site,
+  the blueprint's words and the demo all use. **The slab the motion comes
+  across plays it**: `Ghost` is a path in the slab's own shape and grey that
+  runs the entrance and then `ghost-out`s, on the bottom-left slab for
+  anything from below or the left (and anything that does not move), the
+  top-right for what drops or comes from the right; the small ▶ by that
+  slab's hole replays it.
+- **The first level is seven pieces.** The outer top block is two halves:
+  the **pencil** (`write`: Words, Contents, Links — everything you write about
+  a part) and the **flag** (`priority`, a placeholder that does nothing yet).
+  Both are icon-only. Edit keeps Name, Options, Data, Glyph. Size and Tint
+  are gone: every edge of a selected part is a resize bar (`HANDLES` with
+  `bar`), and `FillTab` under the part opens on hover into Fill width, Flush
+  left, Centre, Flush right. The board-tint field left the Inspector; `hueMenu`
+  stays for drawings and groups, which are only ever on the board.
 - **Texture's third slab is Reiterate**, a placeholder: the button is cut and
   wired, and pressing it does nothing yet. It is the place for "change one
   thing about this texture at random" — scale, grain, colour, bleed — so a

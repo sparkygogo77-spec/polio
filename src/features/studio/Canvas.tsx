@@ -15,6 +15,7 @@ import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
+import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
 import { auraStyle, type Light, type Palette, type TextureLayer } from "./look";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
@@ -660,16 +661,54 @@ const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: St
   return <path {...common} d={penPath(shape.points)} strokeLinecap="round" strokeLinejoin="round" />;
 });
 
-const HANDLES: { h: Handle; cls: string }[] = [
+/**
+ * The corners are squares; the edges are the edges.
+ *
+ * A dot in the middle of an edge is a target the size of a dot. The whole
+ * edge is a bar you can take hold of anywhere along it, drawn thin so it
+ * reads as the part's outline rather than as a frame round it.
+ */
+const HANDLES: { h: Handle; cls: string; bar?: boolean }[] = [
   { h: "nw", cls: "-left-1 -top-1 cursor-nwse-resize" },
-  { h: "n", cls: "left-1/2 -top-1 -translate-x-1/2 cursor-ns-resize" },
+  { h: "n", cls: "left-2 right-2 -top-[3px] h-[6px] cursor-ns-resize", bar: true },
   { h: "ne", cls: "-right-1 -top-1 cursor-nesw-resize" },
-  { h: "e", cls: "-right-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+  { h: "e", cls: "top-2 bottom-2 -right-[3px] w-[6px] cursor-ew-resize", bar: true },
   { h: "se", cls: "-right-1 -bottom-1 cursor-nwse-resize" },
-  { h: "s", cls: "left-1/2 -bottom-1 -translate-x-1/2 cursor-ns-resize" },
+  { h: "s", cls: "left-2 right-2 -bottom-[3px] h-[6px] cursor-ns-resize", bar: true },
   { h: "sw", cls: "-left-1 -bottom-1 cursor-nesw-resize" },
-  { h: "w", cls: "-left-1 top-1/2 -translate-y-1/2 cursor-ew-resize" },
+  { h: "w", cls: "top-2 bottom-2 -left-[3px] w-[6px] cursor-ew-resize", bar: true },
 ];
+
+/**
+ * Fill: a tab under the selected part that opens, on hover, into the four
+ * things you reach for while sizing — fill the width, centre it, push it to
+ * either edge. It used to be a Size choice in the menu with number fields,
+ * which is a form for something your hand is already doing on the board.
+ */
+function FillTab({ node, chipScale }: { node: StudioNode; chipScale: number }) {
+  const frameWidth = useStudio((s) => s.frameWidth);
+  const set = (patch: Partial<StudioNode>) => { play("tap"); useStudio.getState().updateNode(node.id, patch); };
+  const stop = (e: React.PointerEvent) => e.stopPropagation();
+  const btn = "tactile flex h-5 items-center justify-center gap-1 rounded-sm px-1.5 text-[9px] text-fg-muted hover:bg-panel hover:text-fg";
+  return (
+    <div
+      data-fill-tab=""
+      onPointerDown={stop}
+      className="group/fill absolute left-1/2 z-10 flex origin-top -translate-x-1/2 items-center rounded-md border border-border bg-panel/95 shadow-sm backdrop-blur"
+      style={{ top: "calc(100% + 3px)", transform: `translateX(-50%) scale(${chipScale})` }}
+    >
+      <span className="flex h-5 w-6 items-center justify-center text-fg-faint group-hover/fill:hidden" title="Fill and align">
+        <StretchHorizontal className="size-3" />
+      </span>
+      <div className="hidden items-center gap-0.5 p-0.5 group-hover/fill:flex">
+        <button type="button" aria-label="Fill width" title="Fill width" className={btn} onClick={() => set({ x: 0, w: frameWidth })}><StretchHorizontal className="size-3" />Fill</button>
+        <button type="button" aria-label="Flush left" title="Flush left" className={btn} onClick={() => set({ x: 0 })}><AlignLeft className="size-3" /></button>
+        <button type="button" aria-label="Centre" title="Centre" className={btn} onClick={() => set({ x: Math.round((frameWidth - node.w) / 2) })}><AlignCenter className="size-3" /></button>
+        <button type="button" aria-label="Flush right" title="Flush right" className={btn} onClick={() => set({ x: frameWidth - node.w })}><AlignRight className="size-3" /></button>
+      </div>
+    </div>
+  );
+}
 
 const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[] }) {
   const feature = getFeature(node.featureId);
@@ -719,8 +758,8 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       {/* hover outline so unselected parts still read as parts */}
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
 
-      {/* What is this, and when would you want it? Answered without clicking. */}
-      {feature ? (
+      {/* What is this, and when would you want it? Answered without clicking — and out of the way once it is picked. */}
+      {feature && !selected ? (
         <div
           className="pointer-events-none absolute left-0 z-10 hidden w-[280px] origin-top-left rounded-md border border-border bg-panel/95 p-2 text-[11px] leading-snug text-fg-muted shadow-panel backdrop-blur group-hover:block"
           style={{ top: `calc(100% + 8px)`, transform: `scale(${chipScale})` }}
@@ -744,10 +783,16 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       </div>
 
       {selected && !node.locked
-        ? HANDLES.map(({ h, cls }) => (
-            <span key={h} data-resize={h} className={cn("absolute size-2 rounded-[2px] border border-accent bg-panel", cls)} style={{ transform: `${cls.includes("translate") ? "" : ""} scale(${chipScale})` }} />
+        ? HANDLES.map(({ h, cls, bar }) => (
+            <span
+              key={h}
+              data-resize={h}
+              className={cn("absolute", bar ? "rounded-[3px] bg-accent/0 hover:bg-accent/35" : "size-2 rounded-[2px] border border-accent bg-panel", cls)}
+              style={bar ? undefined : { transform: `scale(${chipScale})` }}
+            />
           ))
         : null}
+      {selected && !node.locked ? <FillTab node={node} chipScale={chipScale} /> : null}
     </div>
   );
 });

@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.19",
+    title: "Plates, slabs, and a pencil",
+    summary: "Words and lists go on a square plate; Animation gets three slabs of its own; Prompt is a pencil and a flag.",
+    sketch: "frame",
+    added: [
+      "Every editor that is words or lists sits on a plate in the slab opposite the green — cut square whatever shape the wheel is, so it always fits. Settings are rows of small boxes, one lit, not dropdowns.",
+      "Animation opens on options, not entrances: Entrance, Speed, Extras. The entrance slab holds the kinds as boxes and a four-way pad for where a slide comes from; speed is its own slab; delay and easing are the third.",
+      "The slab the motion comes across plays it: a ghost of the slab arrives the way the part will and dissolves. Press the small ▶ to see it again.",
+      "Prompt is two pieces now: a pencil, with Words, Contents and Links under it, and a flag for Priority — a placeholder until it does something. Contents carries a Make-it-a-prompt slab, also a placeholder.",
+      "Size and Tint are gone from the menu. Every edge of a selected part drags to resize, and a tab under it opens into Fill width, Flush left, Centre and Flush right. The board-tint control left the side panel too.",
+    ],
+  },
+  {
     version: "0.18",
     title: "The aura, seen",
     summary: "Aura gets colour boxes, a spectrum, a sample block with styles and sizes; the middle button is the way back.",

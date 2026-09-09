@@ -251,7 +251,11 @@ export function compileSpec(input: CompileInput): Spec {
           options: n.options,
           link: describeLink(n.link, pages),
           colour: describeColour(n.colour),
-          anim: n.anim ? ENTRANCE_WORD[n.anim] ?? n.anim : null,
+          anim: n.anim
+            ? `${ENTRANCE_WORD[n.anim] ?? n.anim}${n.animSpeed && n.animSpeed !== "normal" ? `, ${n.animSpeed}ly` : ""}${
+              n.animDelay && n.animDelay !== "none" ? (n.animDelay === "short" ? ", a beat after the page" : ", a moment after the page") : ""}${
+              n.animEase && n.animEase !== "smooth" ? ` (${n.animEase} easing)` : ""}`
+            : null,
           aura: n.aura
             ? `${ROLE_LABEL[n.aura as RoleId]?.toLowerCase() ?? n.aura} ${AURA_WORD[n.auraStyle ?? "glow"]} round its edge${
               n.auraSize && Math.abs(n.auraSize - 1) > 0.05 ? `, ${n.auraSize < 1 ? "tight" : "wide"} (${Math.round(n.auraSize * 100)}% of the usual reach)` : ""}`

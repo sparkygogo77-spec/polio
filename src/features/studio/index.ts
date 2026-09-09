@@ -78,6 +78,7 @@ function addFeatureMenu(at: { x: number; y: number } | null): MenuEntry {
   };
 }
 
+/** A colour for a drawing or a group — the things that are only on the board. */
 const hueMenu = (current: number | null, apply: (h: number | null) => void): MenuEntry => ({
   id: "studio.hue",
   label: "Colour",
@@ -280,7 +281,6 @@ export const studio = defineFeature({
         entries.push({ id: "studio.node.live", label: "Open in live preview", icon: Eye, shortcut: "p", onSelect: () => ctx.navigate(livePath(node.pageId)) });
 
         entries.push(
-          hueMenu(node.hue, (h) => s.updateNodes(selection, { hue: h })),
           {
             id: "studio.node.frame",
             label: "In the frame",

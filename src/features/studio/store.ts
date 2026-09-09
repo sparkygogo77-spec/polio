@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
-import { defaultLight, emptyLook, newLayer, type AuraStyle, type Look, type TextureLayer } from "./look";
+import { defaultLight, emptyLook, newLayer, type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Look, type TextureLayer } from "./look";
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
@@ -62,6 +62,10 @@ export interface StudioNode {
   colour: NodeColour | null;
   /** How it arrives on the page — one of `ENTRANCES`, or null for no entrance. */
   anim: string | null;
+  /** How quickly, how long after the page, and with what easing. */
+  animSpeed: AnimSpeed;
+  animDelay: AnimDelay;
+  animEase: AnimEase;
   /** A colour round its edge — a palette role, or a colour of its own — or null for none. */
   aura: string | null;
   /** How far the aura reaches, as a multiple of the usual. */
@@ -350,7 +354,8 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
-                colour: null, anim: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null,
+                colour: null, anim: null, animSpeed: "normal", animDelay: "none", animEase: "smooth",
+                aura: null, auraSize: 1, auraStyle: "glow", texture: null,
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -745,6 +750,7 @@ export const useStudio = create<StudioState>()(
           ...p,
           nodes: (p.nodes ?? current.nodes).map((n) => ({
             ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, anim: n.anim ?? null,
+            animSpeed: n.animSpeed ?? "normal", animDelay: n.animDelay ?? "none", animEase: n.animEase ?? "smooth",
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
           })),
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],

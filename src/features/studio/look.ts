@@ -638,6 +638,48 @@ export function castFrom(light: Light, cx: number, cy: number): { dx: number; dy
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Entrances                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How a part arrives: which way, how fast, after how long, with what ease.
+ *
+ * The entrance itself is a CSS animation name (`el-rise` and the rest, in
+ * `globals.css`); these three are the words round it. Kept as words rather
+ * than numbers because the blueprint has to say them and a reader has to
+ * pick them off a slab.
+ */
+export type AnimSpeed = "slow" | "normal" | "fast";
+export type AnimDelay = "none" | "short" | "long";
+export type AnimEase = "smooth" | "snappy" | "bouncy";
+export const ANIM_SPEED: { id: AnimSpeed; label: string; k: number }[] = [
+  { id: "slow", label: "Slow", k: 1.8 },
+  { id: "normal", label: "Normal", k: 1 },
+  { id: "fast", label: "Fast", k: 0.55 },
+];
+export const ANIM_DELAY: { id: AnimDelay; label: string; ms: number }[] = [
+  { id: "none", label: "No wait", ms: 0 },
+  { id: "short", label: "A beat", ms: 180 },
+  { id: "long", label: "A moment", ms: 480 },
+];
+export const ANIM_EASE: { id: AnimEase; label: string; css: string }[] = [
+  { id: "smooth", label: "Smooth", css: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+  { id: "snappy", label: "Snappy", css: "cubic-bezier(0.3, 0, 0.1, 1)" },
+  { id: "bouncy", label: "Bouncy", css: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
+];
+/** The usual length of an entrance; the speeds scale it. */
+export const ENTRANCE_MS = 420;
+
+/** The `animation` shorthand for a part's entrance, or nothing if it has none. */
+export function entranceCss(anim: string | null | undefined, speed: AnimSpeed = "normal", delay: AnimDelay = "none", ease: AnimEase = "smooth"): string | undefined {
+  if (!anim) return undefined;
+  const k = ANIM_SPEED.find((s) => s.id === speed)?.k ?? 1;
+  const ms = ANIM_DELAY.find((d) => d.id === delay)?.ms ?? 0;
+  const curve = ANIM_EASE.find((e) => e.id === ease)?.css ?? ANIM_EASE[0]!.css;
+  return `${anim} ${Math.round(ENTRANCE_MS * k)}ms ${curve} ${ms}ms both`;
+}
+
 /**
  * The aura: a colour round an element's edge.
  *
