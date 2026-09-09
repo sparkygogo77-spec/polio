@@ -175,6 +175,13 @@ guess at:
    code. Those stages are "parts that expand into a spec", not code.
 8. **Never make the API key load-bearing.** Every Claude route returns
    `ok: false` with a reason and the UI does the honest fallback.
+9. **Check for updates before every commit, always.** Other sessions work
+   this repository on their own branches at the same time. Before a commit
+   is made — not after, not at the next prompt — fetch the remote, look at
+   every branch that moved (`git fetch --prune`, then ahead/behind against
+   each), read what arrived, merge what relates, and only then commit and
+   push. `.claude/hooks/catch-up.sh` does the fetch and the report at the
+   start of every turn; the check before the commit is the session's own.
 
 ## 5. Training an agent on this — what actually works
 

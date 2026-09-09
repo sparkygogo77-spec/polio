@@ -1104,9 +1104,18 @@ Builder's canvas, wheel, panels and store are the ones that move — fetch the
 default branch, read what is there now, and write your change to fit it.
 
 `.claude/hooks/catch-up.sh` does the fetch on every prompt and reports how far
-this branch has drifted. It only reports: whether to merge is yours to judge,
-because only you know what is half-finished in your tree. Nothing about it is
-required for the app to build; delete it and the rule above still stands.
+this branch has drifted — from the default branch, and from every other branch
+that has commits this one lacks, naming their newest work. It only reports:
+whether to merge is yours to judge, because only you know what is half-finished
+in your tree. Nothing about it is required for the app to build; delete it and
+the rule above still stands.
+
+**Check for updates before every commit, always.** The hook runs at the start
+of a turn; a turn can be long. Before you commit — not after, not at the next
+prompt — fetch again (`git fetch --prune origin`), compare against every remote
+branch, read what arrived, merge what relates, run the checks on the merged
+tree, and only then commit and push. A commit made against a branch that has
+since moved is a merge someone has to referee.
 
 When two sessions want the same file, the one already holding it wins. Hand
 the other the change in words rather than editing behind it — a four-line fix
