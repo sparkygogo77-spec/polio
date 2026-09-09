@@ -78,12 +78,15 @@ same boxes as everywhere else, in the screen's colours.
 ## 3. The drawing board
 
 The disc is the void with something slower than weather moving under it: four
-wide clouds on orbits of a minute and a half to nearly three, a handful of far
-stars, four warm points that breathe over half a minute, and a ring-and-dot at
-the middle to start from. The last sixth of the radius falls to near black and
-the box-shadow past the rim is dark, not glowing — a hole in the screen, not a
-plate on it. Repaint on a slow ticker (`DRIFT_MS`), never per frame; the drift
-is sub-pixel per tick, which is the point.
+wide clouds on orbits of a minute and a half to nearly three, and one warm
+point at the middle that breathes over half a minute, to start from. No stars
+and no crosshair — a scatter of points on a drawing surface is a scatter of
+things to draw round — and no caption on the rim. The last sixth of the radius
+falls to near black, and past the rim is a black hole's horizon: a hair of dim
+orange-red right at the edge, spread thin for a few tens of pixels and gone.
+Small and dim; never a lit rim, never dark bands. Repaint on a slow ticker
+(`DRIFT_MS`), never per frame; the drift is sub-pixel per tick, which is the
+point.
 
 The reader is Claude (`/api/studio/reshape`) and it may only ever pick catalog
 ids ("Never invent an id"); without a key the drawing's proportion is the

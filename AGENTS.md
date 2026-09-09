@@ -632,13 +632,17 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   no hole in the middle, every pixel of it drawing surface. The disc is the
   **void**: dark purple-blue, four clouds of darker violet and blue on
   orbits of a minute and a half to nearly three (repainted on a slow ticker,
-  `DRIFT_MS`, sub-pixel per tick), a handful of far stars, four warm points
-  that breathe, a ring-and-dot at the middle to start from, and an edge that
-  falls to near black with a dark shadow past the rim — a hole in the
-  screen, not a plate on it. Nothing sits on its face: Back straddles the
-  top of the rim, the words go in a thin strip in the bottom cap, and Make
-  real and Clear are in the same tray the wheel has, hung under the disc,
-  which lights blue as soon as there is a stroke to make real. Escape steps
+  `DRIFT_MS`, sub-pixel per tick), one warm point at the middle that
+  breathes, to start from — no stars, no crosshair, no caption: a scatter
+  of points on a drawing surface is a scatter of things to draw round. The
+  inside of the edge falls to near black, and past the rim is a black
+  hole's horizon: a hair of dim orange-red right at the edge, spread thin
+  for a few tens of pixels and gone. No lit rim and no dark bands — a hole
+  in the screen, not a plate on it. Nothing sits on its face: Back
+  straddles the top of the rim, the words go in a thin strip in the bottom
+  cap, and Make real and Clear are in the same tray the wheel has, hung
+  under the disc, which lights blue as soon as there is a stroke to make
+  real. Escape steps
   back to the wheel; the board does not turn with `menuSpin`. What is drawn
   is kept on the part as `node.sketch` (strokes as
   fractions of the board's width, plus the words), so the board reopens with

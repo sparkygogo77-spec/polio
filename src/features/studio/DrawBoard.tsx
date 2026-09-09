@@ -20,13 +20,13 @@
  * site either way. A drawing is never lost to a missing key.
  *
  * The disc is the void: a dark purple-blue with something slower than
- * weather moving under it, a handful of far stars, a few warm points, and a
- * mark at the middle to start from. It drops straight off at its edge — a
- * thin lit rim, then dark, then a shadow that dims what is round it, the way
- * a black hole dims its own sky. Nothing sits on its face but the way back,
- * on the rim, and the words in a thin strip in the bottom cap. Make real and
- * the eraser are in a tray under the disc that opens when the hand goes to
- * it, the same tray the wheel has.
+ * weather moving under it, and one warm point at the middle to start from.
+ * Its edge is a black hole's: a hair of dim orange-red light right at the
+ * rim, spreading thin for a few tens of pixels and gone — no lit line, no
+ * caption, nothing that says "board". Nothing sits on its face but the way
+ * back, on the rim, and the words in a thin strip in the bottom cap. Make
+ * real and the eraser are in a tray under the disc that opens when the hand
+ * goes to it, the same tray the wheel has.
  */
 import * as React from "react";
 import { Eraser, LoaderCircle, Sparkles, Undo2 } from "lucide-react";
@@ -279,12 +279,6 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   };
 
   /* ---------------------------------------------------------- the disc */
-  const caption = node ? `Draw · ${node.label}` : "Draw a new part";
-  const arcR = BOARD_R - 13;
-  const a0 = (200 * Math.PI) / 180;
-  const a1 = (340 * Math.PI) / 180;
-  const captionPath = `M ${(BOARD_R + Math.cos(a0) * arcR).toFixed(1)} ${(BOARD_R + Math.sin(a0) * arcR).toFixed(1)} A ${arcR} ${arcR} 0 0 1 ${(BOARD_R + Math.cos(a1) * arcR).toFixed(1)} ${(BOARD_R + Math.sin(a1) * arcR).toFixed(1)}`;
-  const captionId = React.useId();
   // Where the rim buttons sit: on the circle, half outside it.
   const rimAt = (deg: number, r = BOARD_R): React.CSSProperties => ({
     left: BOARD_R + Math.cos((deg * Math.PI) / 180) * r,
@@ -309,14 +303,17 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           width: size,
           height: size,
           cursor: busy ? "progress" : "crosshair",
-          // The edge: a thin lit line, then black, then a wide dark shadow
-          // that dims what is round the disc — the horizon, not a glow.
+          // The horizon: a black hole's ring, small and dim. A hair of
+          // orange-red right at the edge, and past it the same light spread
+          // thin and thinner, gone within a few tens of pixels. No lit rim,
+          // no dark bands: the disc is the hole and the glow is the only
+          // thing that says where it ends.
           boxShadow: [
-            "0 0 0 1.5px oklch(0.6 0.07 285)",
-            "0 0 0 4px oklch(0.05 0.02 290)",
-            "0 0 0 13px oklch(0 0 0 / 0.5)",
-            "0 0 36px 20px oklch(0 0 0 / 0.6)",
-            "0 0 90px 40px oklch(0.02 0.01 290 / 0.35)",
+            "0 0 0 1px oklch(0.58 0.17 38 / 0.55)",
+            "0 0 5px 1.5px oklch(0.62 0.19 35 / 0.32)",
+            "0 0 16px 5px oklch(0.52 0.17 30 / 0.2)",
+            "0 0 36px 12px oklch(0.42 0.14 26 / 0.12)",
+            "0 12px 40px oklch(0 0 0 / 0.45)",
           ].join(", "),
         }}
         onPointerDown={begin}
@@ -326,17 +323,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         onLostPointerCapture={end}
       />
 
-      {/* the caption, engraved along the top of the rim */}
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="pointer-events-none absolute inset-0 overflow-visible">
-        <defs>
-          <path id={captionId} d={captionPath} fill="none" />
-        </defs>
-        <text fontSize={8} fontWeight={700} letterSpacing={1.4} fill="oklch(0.82 0.03 260)" stroke="oklch(0.1 0.02 265)" strokeWidth={2.5} strokeLinejoin="round" paintOrder="stroke" style={{ textTransform: "uppercase" }}>
-          <textPath href={`#${captionId}`} startOffset="50%" textAnchor="middle">{caption}</textPath>
-        </text>
-      </svg>
-
-      {/* a hint where the first stroke goes, gone once there is one; it sits just under the middle mark, not over it */}
+      {/* a hint where the first stroke goes, gone once there is one; it sits just under the middle point, not over it */}
       <div
         className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[10px] leading-snug transition-opacity"
         style={{ color: "oklch(0.62 0.03 285)", opacity: strokes.length || live.current ? 0 : 1, textShadow: "0 1px 3px oklch(0 0 0 / 0.8)", paddingTop: 44 }}
@@ -418,27 +405,18 @@ function RimButton({ at, label, onClick, disabled, children, testId }: { at: Rea
 /* Paint                                                               */
 /* ------------------------------------------------------------------ */
 
-/** The same numbers every time: a linear congruential generator from a fixed seed. */
-function seeded(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 1664525 + 1013904223) % 4294967296;
-    return s / 4294967296;
-  };
-}
-
 /**
  * The void, at a moment `t` seconds after the board opened.
  *
  * A dark purple-blue over the whole face; under it, four wide clouds of
  * slightly different dark violets and blues, each on its own very slow orbit
  * — the fastest takes about a minute and a half to go round — so the surface
- * moves the way deep water does, without ever being seen to move. A few dim
- * stars, seeded, so they sit where they sat. Four warm points, small and
- * bright, each with a little glow that breathes over half a minute. A ring
- * and a dot at the middle, to start from. And the edge is dark: the last
- * sixth of the radius falls off to near black, so the disc reads as a hole
- * in the screen rather than a plate on it.
+ * moves the way deep water does, without ever being seen to move. No stars:
+ * a scatter of points on a drawing surface is a scatter of things to draw
+ * round. One warm point at the middle, small and bright, in a little glow
+ * that breathes over half a minute — the one place to start from. And the
+ * edge is dark: the last sixth of the radius falls off to near black, so
+ * the disc reads as a hole in the screen rather than a plate on it.
  */
 function paintSpace(c: CanvasRenderingContext2D, size: number, t: number) {
   const r = size / 2;
@@ -478,51 +456,21 @@ function paintSpace(c: CanvasRenderingContext2D, size: number, t: number) {
     cloud(size * (ox + Math.cos(a) * orbit * 0.5), size * (oy + Math.sin(a) * orbit * 0.35), r * 0.85, colour);
   }
 
-  // The stars: few and far.
-  const rnd = seeded(11);
-  for (let i = 0; i < 14; i++) {
-    const x = rnd() * size;
-    const y = rnd() * size;
-    if (Math.hypot(x - r, y - r) > r * 0.9) continue;
-    const a = 0.14 + rnd() * 0.3;
-    c.fillStyle = `oklch(0.9 0.02 280 / ${a.toFixed(2)})`;
-    c.beginPath();
-    c.arc(x, y, 0.5 + rnd() * 0.6, 0, Math.PI * 2);
-    c.fill();
-  }
-
-  // The warm points: four, small, bright, each in a little glow that breathes.
-  const warm = seeded(23);
-  for (let i = 0; i < 4; i++) {
-    const a = warm() * TAU;
-    const d = (0.3 + warm() * 0.5) * r;
-    const x = r + Math.cos(a) * d;
-    const y = r + Math.sin(a) * d;
-    const hue = 62 + warm() * 26;
-    const breath = 0.8 + 0.2 * Math.sin((t / (26 + warm() * 14) + warm()) * TAU);
-    const glow = c.createRadialGradient(x, y, 0, x, y, 7);
-    glow.addColorStop(0, `oklch(0.85 0.16 ${hue.toFixed(0)} / ${(0.42 * breath).toFixed(2)})`);
-    glow.addColorStop(1, `oklch(0.85 0.16 ${hue.toFixed(0)} / 0)`);
+  // The middle: one warm point in a little glow that breathes.
+  {
+    const breath = 0.8 + 0.2 * Math.sin((t / 32) * TAU);
+    const glow = c.createRadialGradient(r, r, 0, r, r, 8);
+    glow.addColorStop(0, `oklch(0.85 0.16 70 / ${(0.45 * breath).toFixed(2)})`);
+    glow.addColorStop(1, "oklch(0.85 0.16 70 / 0)");
     c.fillStyle = glow;
     c.beginPath();
-    c.arc(x, y, 7, 0, TAU);
+    c.arc(r, r, 8, 0, TAU);
     c.fill();
-    c.fillStyle = `oklch(0.9 0.15 ${hue.toFixed(0)} / ${(0.7 + 0.3 * breath).toFixed(2)})`;
+    c.fillStyle = `oklch(0.9 0.15 70 / ${(0.7 + 0.3 * breath).toFixed(2)})`;
     c.beginPath();
-    c.arc(x, y, 1.25, 0, TAU);
+    c.arc(r, r, 1.4, 0, TAU);
     c.fill();
   }
-
-  // The middle: a ring and a dot, the same grey mark the board has.
-  c.strokeStyle = "oklch(0.6 0.04 285 / 0.55)";
-  c.lineWidth = 1;
-  c.beginPath();
-  c.arc(r, r, 5.5, 0, TAU);
-  c.stroke();
-  c.fillStyle = "oklch(0.7 0.04 285 / 0.8)";
-  c.beginPath();
-  c.arc(r, r, 1.4, 0, TAU);
-  c.fill();
 
   // The horizon: the edge falls off to near black.
   const edge = c.createRadialGradient(r, r, r * 0.8, r, r, r);
