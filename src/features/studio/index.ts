@@ -1,7 +1,7 @@
 import {
   ArrowUpRight, Brush, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
   MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
-  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, EyeOff, Link2, Link2Off,
+  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, EyeOff, Link2, Link2Off, Scissors, ClipboardPaste,
 } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
@@ -10,7 +10,7 @@ import { isLinkable } from "./parts";
 import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef } from "./catalog";
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
+import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
 
@@ -154,6 +154,10 @@ export const studio = defineFeature({
     { keys: "mod+g", label: "Group selection", group: "Builder", when: onDesign, run: () => useStudio.getState().groupSelection() },
     { keys: "mod+d", label: "Duplicate selection", group: "Builder", when: onDesign, run: () => useStudio.getState().duplicateNodes(useStudio.getState().selection) },
     { keys: "mod+a", label: "Select everything", group: "Builder", when: onDesign, run: () => useStudio.getState().selectAll() },
+    // Cut takes the parts that are selected, or the background when that is
+    // what is picked; paste puts back whatever was cut last.
+    { keys: "mod+x", label: "Cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().cut(); } },
+    { keys: "mod+v", label: "Paste what was cut", group: "Builder", when: onDesign, run: () => { useStudio.getState().paste(); } },
     {
       keys: "backspace",
       label: "Delete selection",
@@ -161,6 +165,9 @@ export const studio = defineFeature({
       when: onDesign,
       run: () => {
         const s = useStudio.getState();
+        // On the background, delete strips it bare — and still holds it, so
+        // it can be put back.
+        if (s.selection.includes(BACKGROUND_ID)) { s.cutBackground(); return; }
         s.removeNodes(s.selection);
         s.removeShapes(s.selection);
       },
@@ -415,8 +422,21 @@ export const studio = defineFeature({
         const at = canvasPoint(target);
         const page = s.pages.find((p) => p.id === s.activePageId);
         const count = s.nodes.filter((n) => n.pageId === s.activePageId).length;
+        const bgHeld = heldBackground();
+        const nodesHeld = heldNodes();
         return [
           { type: "label", label: `${page?.name ?? "Page"} · ${count} elements` },
+          {
+            id: "studio.canvas.bg",
+            label: "Background",
+            icon: Layers,
+            children: [
+              { id: "bg.select", label: "Select the background", checked: s.selection.includes(BACKGROUND_ID), onSelect: () => s.selectBackground() },
+              { id: "bg.cut", label: "Cut the background", icon: Scissors, shortcut: "mod+x", onSelect: () => { if (!s.cutBackground()) ctx.publish({ key: "studio:background", title: "The background is already bare", level: "info", source: "studio", toast: true }); } },
+              { id: "bg.paste", label: "Put the background back", icon: ClipboardPaste, shortcut: "mod+v", disabled: !bgHeld, onSelect: () => s.pasteBackground() },
+            ],
+          },
+          ...(nodesHeld ? [{ id: "studio.canvas.paste", label: `Paste ${nodesHeld.nodes.length === 1 ? nodesHeld.nodes[0]!.label : `${nodesHeld.nodes.length} parts`}`, icon: ClipboardPaste, shortcut: "mod+v", onSelect: () => s.pasteNodes() } satisfies MenuEntry] : []),
           addFeatureMenu(at),
           { id: "studio.canvas.idea", label: "Drop a new idea here", icon: Lightbulb, onSelect: () => { s.addNode("custom-idea", at.x - 66, at.y - 38); } },
           { id: "studio.canvas.note", label: "Pin a note here", icon: Wand2, onSelect: () => { s.addNode("note", at.x - 66, at.y - 38); } },

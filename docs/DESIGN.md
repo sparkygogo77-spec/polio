@@ -54,12 +54,31 @@ same boxes as everywhere else, in the screen's colours.
   Texture shows the tile; Aura glows in the aura; the animation is played by the
   slab it comes across; the font chip is set in its own face. A palette icon
   where a swatch would fit is a mistake.
-- **Continuous things are arcs, discrete things are boxes.** Sliders bend along
-  the slab (`ArcSlider`); choices pack into it (`ArcChips`, `GridChips`,
-  nearest the pointer first). Never a dropdown, never a list.
-- **Words go on a screen, on the square slab.** The slab opposite the green is
-  cut square whatever the wheel's shape is, so a plate always has a square to
-  sit in.
+- **Continuous things are sliders; discrete things are icon keys or a readout
+  with arrows. Never a row of word-boxes.** A slider bends along the slab
+  (`ArcSlider`, smooth: the mark follows the hand from local state, one read
+  per frame, pointer captured, the part written where the hand lets go when
+  a replay would otherwise fire on every frame). A choice with a picture is
+  a key with an icon (`ArcChips` in the screen tone). A choice that is only
+  words — an option's values, a type family — is a readout between two
+  arrows (`ArcStepper`), shown in phosphor, set in its own face when it has
+  one. Colours stay boxes, because the box *is* the colour. Never a
+  dropdown, never a list.
+- **Settings sit on screens.** A slab that carries sliders or keys is painted
+  as a screen (`ScreenFace`): the same teal glass, scanlines and bezel as the
+  plate, in the slab's own shape. The caption under a slider reads its value
+  out.
+- **Words go on a screen, on the square slab, laid out round the hole.** The
+  slab opposite the green is cut square whatever the wheel's shape is. The
+  screen takes the far corner out to the slab's edges; the strip along the
+  top beside the hole carries the title and the part's name; the strip down
+  the near side under the hole is the rail — the information key and
+  whatever else the editor puts there (`PlateQuad`).
+- **The page's background is a thing.** Click the bare frame and it is
+  selected like a part; the panel shows its fill and the texture layers that
+  land on it; ⌘X cuts it bare and holds it, ⌘V puts it back, ⌫ strips it.
+  Cut and paste on parts work the same way, and paste puts back whatever
+  was cut last.
 - **Placeholders are cut and wired.** Priority, Reiterate, Make-it-a-prompt: the
   button exists, sits where it will live, plays a tap, and does nothing yet. A
   placeholder is a promise about the layout, not about the feature.

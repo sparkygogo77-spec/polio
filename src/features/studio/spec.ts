@@ -10,7 +10,18 @@
 import { getFeature, categoryOf } from "./catalog";
 import { resolvePart } from "./parts";
 import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
-import { AURA_WORD, describeLook, ROLES, ROLE_LABEL, type Look, type RoleId } from "./look";
+import { AURA_WORD, delayMs, describeLook, ENTRANCE_MS, ROLES, ROLE_LABEL, speedK, speedWord, type Look, type RoleId } from "./look";
+
+/** A speed as the blueprint says it: the nearest word, and the length in ms so nothing is lost. */
+function describeSpeed(v: number | string | null | undefined): string {
+  const k = speedK(v);
+  if (Math.abs(k - 1) < 0.06) return "";
+  return `, ${speedWord(k)} (${Math.round(ENTRANCE_MS * k)} ms)`;
+}
+function describeDelay(v: number | string | null | undefined): string {
+  const ms = delayMs(v);
+  return ms ? `, ${ms} ms after the page` : "";
+}
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
 import { describeSketch, isBlankSketch } from "./sketch";
@@ -269,8 +280,7 @@ export function compileSpec(input: CompileInput): Spec {
           colour: describeColour(n.colour),
           font: describeFont(n.font),
           anim: n.anim
-            ? `${ENTRANCE_WORD[n.anim] ?? n.anim}${n.animSpeed && n.animSpeed !== "normal" ? `, ${n.animSpeed}ly` : ""}${
-              n.animDelay && n.animDelay !== "none" ? (n.animDelay === "short" ? ", a beat after the page" : ", a moment after the page") : ""}${
+            ? `${ENTRANCE_WORD[n.anim] ?? n.anim}${describeSpeed(n.animSpeed)}${describeDelay(n.animDelay)}${
               n.animEase && n.animEase !== "smooth" ? ` (${n.animEase} easing)` : ""}`
             : null,
           aura: n.aura

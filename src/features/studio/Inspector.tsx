@@ -6,10 +6,11 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Trash2, Unlock } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, ClipboardPaste, Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Scissors, Trash2, Unlock } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
-import { HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
+import { lands } from "./look";
+import { BACKGROUND_ID, heldBackground, HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
@@ -23,6 +24,7 @@ import { Slider } from "@/core/ui/slider";
 import { Badge } from "@/core/ui/badge";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
+import { Switch } from "@/core/ui/switch";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -64,6 +66,80 @@ export function OptionSet({ option, value, onChange }: { option: FeatureOption; 
             {v}
           </button>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The background, picked: what the page is painted with before any part.
+ *
+ * The fill is the format's own background choice; the layers are the ones
+ * in the Looks stack that land on the page, switched here without leaving
+ * the board. Cut strips it bare and holds it; put back restores it.
+ */
+function BackgroundInspector() {
+  const look = useStudio((s) => s.look);
+  const format = useStudio((s) => s.format);
+  const s = useStudio.getState;
+  const fill = String(format["palette.background"] ?? "flat");
+  const layers = (look.texture ?? []).filter((l) => lands(l, "page"));
+  const held = heldBackground();
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-background-inspector="">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <Layers className="size-3.5 text-fg-muted" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-semibold text-fg">Background</div>
+          <div className="text-[10px] text-fg-muted">The page behind every part</div>
+        </div>
+        <Tooltip content="Cut the background" shortcut="mod+x">
+          <Button variant="ghost" size="iconXs" aria-label="Cut the background" onClick={() => s().cutBackground()}>
+            <Scissors />
+          </Button>
+        </Tooltip>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {/* Not a Field: a <label> round a radio group names its first radio after the field. */}
+        <div className="mb-3">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Fill</div>
+          <Segmented
+            size="xs"
+            aria-label="Background fill"
+            value={fill}
+            onChange={(v) => s().setFormat("palette.background", v)}
+            options={[
+              { value: "flat", label: "flat" },
+              { value: "subtle gradient", label: "gradient" },
+              { value: "grid", label: "grid" },
+              { value: "mesh gradient", label: "mesh" },
+            ]}
+          />
+          <p className="mt-1 text-[10px] text-fg-muted">What the page is painted with before any texture.</p>
+        </div>
+        <Field label="Texture on the page" hint="Layers from the Looks stack that land behind the page.">
+          {layers.length === 0 ? (
+            <p className="text-[10px] text-fg-muted">None. Add one under Looks › Texture and it shows up here.</p>
+          ) : (
+            layers.map((l) => (
+              <label key={l.id} className="flex items-center justify-between gap-2 py-0.5 text-[11px] text-fg">
+                <span className="truncate">{l.kind} · {l.role}</span>
+                <Switch
+                  size="sm"
+                  checked={l.on}
+                  aria-label={`Texture ${l.kind}`}
+                  onCheckedChange={(on) => s().setLook({ texture: (look.texture ?? []).map((x) => (x.id === l.id ? { ...x, on } : x)) })}
+                />
+              </label>
+            ))
+          )}
+        </Field>
+        {held ? (
+          <Button size="xs" variant="ghost" className="mt-2" onClick={() => s().pasteBackground()}>
+            <ClipboardPaste />
+            Put the cut background back
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -118,6 +194,9 @@ export function Inspector() {
   const selNodes = nodes.filter((n) => selection.includes(n.id));
   const selShapes = shapes.filter((s) => selection.includes(s.id));
   const store = useStudio.getState;
+
+  /* ----------------------------------------------------- the background */
+  if (selection.includes(BACKGROUND_ID)) return <BackgroundInspector />;
 
   /* ------------------------------------------------------- nothing picked */
   if (selNodes.length === 0 && selShapes.length === 0) {

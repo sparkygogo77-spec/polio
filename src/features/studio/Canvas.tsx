@@ -17,6 +17,7 @@ import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
 import { auraStyle, type Light, type Palette, type TextureLayer } from "./look";
+import { BACKGROUND_ID } from "./store";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -286,7 +287,12 @@ export function Canvas() {
         play("select");
         return;
       }
-      if (!e.shiftKey) store.clearSelection();
+      // The page itself is a thing you can pick: a press on the bare frame
+      // selects the background, and a drag from there is still a marquee.
+      if (!e.shiftKey) {
+        if (target.closest?.("[data-frame]")) { store.setSelection([BACKGROUND_ID]); play("select"); }
+        else store.clearSelection();
+      }
       capture();
       setDrag({ kind: "marquee", startX: p.x, startY: p.y });
       return;
@@ -475,9 +481,24 @@ export function Canvas() {
         {/* ---------- the page frame: this is the website ---------- */}
         <div
           data-frame=""
+          data-selected={selection.includes(BACKGROUND_ID) ? "" : undefined}
           className="absolute left-0 top-0 rounded-[3px] shadow-[0_20px_60px_oklch(0_0_0/0.45)]"
-          style={{ width: frameWidth, height: frameH, ...(theme.surfaceStyle ?? { background: theme.backdrop, backgroundSize: "24px 24px" }), outline: "1px solid var(--border-strong)" }}
+          style={{
+            width: frameWidth,
+            height: frameH,
+            ...(theme.surfaceStyle ?? { background: theme.backdrop, backgroundSize: "24px 24px" }),
+            outline: selection.includes(BACKGROUND_ID) ? `${2 / zoom}px solid var(--accent)` : "1px solid var(--border-strong)",
+          }}
         />
+        {selection.includes(BACKGROUND_ID) ? (
+          <div
+            data-background-selected=""
+            className="pointer-events-none absolute whitespace-nowrap rounded-sm px-1.5 py-0.5 font-medium"
+            style={{ left: 8, top: 8, fontSize: 10 / zoom, background: "var(--accent)", color: "oklch(0.99 0 0)" }}
+          >
+            Background · ⌘X cuts it, ⌫ strips it
+          </div>
+        ) : null}
         <div className="pointer-events-none absolute left-0 flex items-center gap-2 whitespace-nowrap text-fg-muted" style={{ top: -22, fontSize: 11 / zoom }}>
           <span className="font-medium text-fg">{page.name}</span>
           <span>{page.path}</span>

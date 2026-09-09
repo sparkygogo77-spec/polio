@@ -15,8 +15,9 @@
  * bent round a curve reads as a logo.
  */
 import * as React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
-import { arcPath, fmt, onCircle, spun, type Pt, type Rings, type Shape } from "./menuGeometry";
+import { arcPath, fmt, onCircle, piece, spun, type Pt, type Rings, type Shape } from "./menuGeometry";
 
 export const CONSOLE_HUE = 285;
 
@@ -55,6 +56,31 @@ export const SLAB_AURA = `drop-shadow(0 3px 5px oklch(0 0 0 / 0.55))`;
 export const SHRINK = 5;
 /** The small red aura on whichever chip is picked. */
 export const PICKED = `0 0 0 2px ${CONSOLE.on}, 0 0 8px 1px oklch(0.64 0.23 27 / 0.7)`;
+
+/**
+ * The screen: a small console display set into a slab.
+ *
+ * Words are typed on a screen, and settings are worked on one: dark teal
+ * glass recessed into the slab, scanlines across it, a faint dot matrix
+ * under them, a lit bezel, phosphor lettering in a monospaced face. Nothing
+ * on it is a control of its own kind — its keys are the same boxes as
+ * everywhere else, in the screen's colours; its sliders the same arcs, lit
+ * in phosphor. A slab that carries settings is painted as one (`ScreenFace`);
+ * the plate the typing happens on is one (`PlateQuad`).
+ */
+export const SCREEN = {
+  glass: "radial-gradient(ellipse at 50% 35%, oklch(0.2 0.05 195) 0%, oklch(0.135 0.04 200) 55%, oklch(0.09 0.03 205) 100%)",
+  scan: "repeating-linear-gradient(0deg, oklch(0 0 0 / 0.26) 0 1px, transparent 1px 3px)",
+  dots: "radial-gradient(circle, oklch(0.62 0.1 190 / 0.09) 0.55px, transparent 0.65px)",
+  key: "oklch(0.2 0.045 200)",
+  line: "oklch(0.36 0.07 195)",
+  ink: "oklch(0.88 0.09 175)",
+  dim: "oklch(0.6 0.06 180)",
+} as const;
+/** A key on the screen: the same box as everywhere else, in the screen's colours. */
+export const SCREEN_KEY: React.CSSProperties = { background: SCREEN.key, color: SCREEN.ink };
+/** A slider's phosphor: dim at one end, lit at the other. */
+export const phosphorAt = (f: number) => `oklch(${(0.3 + f * 0.44).toFixed(3)} ${(0.05 + f * 0.06).toFixed(3)} 180)`;
 
 /**
  * A shade either way, never a bevel — the amount the reader asked for. Which
@@ -134,7 +160,7 @@ export interface ArcItem {
  * seven still fit.
  */
 export function ArcChips({
-  slab, items, value, onPick, radius, size = 28,
+  slab, items, value, onPick, radius, size = 28, tone = "slab",
 }: {
   slab: Slab;
   items: ArcItem[];
@@ -142,9 +168,12 @@ export function ArcChips({
   onPick: (id: string) => void;
   radius: number;
   size?: number;
+  /** On a slab, or keys set into a screen. */
+  tone?: "slab" | "screen";
 }) {
   const n = Math.max(1, items.length);
   const { from, to, spin } = slab;
+  const screen = tone === "screen";
   /*
    * Rows, when they are needed.
    *
@@ -198,10 +227,14 @@ export function ArcChips({
                   width: size,
                   height: size,
                   transform: on ? "scale(1.18)" : undefined,
+                  ...(screen ? SCREEN_KEY : {}),
                   ...item.style,
                   // A chip that wears a shadow of its own (an aura, say) keeps it under the pick.
-                  boxShadow: [on ? PICKED : `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`, item.style.boxShadow].filter(Boolean).join(", "),
-                  outline: on ? "none" : `1px solid ${CONSOLE.ink}`,
+                  boxShadow: [
+                    on ? PICKED : screen ? "inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.5)" : `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`,
+                    item.style.boxShadow,
+                  ].filter(Boolean).join(", "),
+                  outline: on ? "none" : `1px solid ${screen ? SCREEN.line : CONSOLE.ink}`,
                 }}
               >
                 {item.glyph}
@@ -308,7 +341,7 @@ export function GridChips({
  * past the point where the seams show.
  */
 export function ArcSlider({
-  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label,
+  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label, live = true, tone = "slab",
 }: {
   slab: Slab;
   from: number;
@@ -322,39 +355,87 @@ export function ArcSlider({
   onCommit?: () => void;
   colourAt: (f: number) => string;
   label: string;
+  /**
+   * Whether every frame of the drag is written out, or only where the hand
+   * lets go. Colour wants to be seen as it moves; an entrance that replays
+   * on every change does not want sixty replays a second.
+   */
+  live?: boolean;
+  /** On a slab, or set into a screen. */
+  tone?: "slab" | "screen";
 }) {
   const { spin } = slab;
   const steps = 22;
+  /*
+   * Smooth: while the hand is on it, the mark follows the hand from *here* —
+   * one read per animation frame, kept in local state — rather than waiting
+   * for the number to go out to the store and come back through the whole
+   * menu. The pointer is captured by the slider itself, so a hand that
+   * strays off the band keeps hold of it, and the read wraps the short way
+   * round, so a hand that goes past the start does not jump to the end.
+   */
+  const [held, setHeld] = React.useState<number | null>(null);
+  const frame = React.useRef(0);
+  const pending = React.useRef<number | null>(null);
+  const sent = React.useRef<number | null>(null);
+  const shown = Math.max(0, Math.min(1, held ?? value));
   const grab = (e: React.PointerEvent<SVGGElement>) => {
-    const host = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+    if (e.button !== 0) return;
+    const el = e.currentTarget;
+    const host = (el.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
+    try { el.setPointerCapture(e.pointerId); } catch { /* a synthetic pointer; the window still delivers the moves */ }
+    const span = to - from;
     const read = (cx: number, cy: number) => {
       // Back out of the wheel's own turn, then read the angle off the arc.
       const p = spun([cx - host.left, cy - host.top], -spin);
       const t = ((Math.atan2(p[1], p[0]) / (Math.PI * 2) + 0.25) % 1 + 1) % 1;
       let u = t;
       while (u < from) u += 1;
-      onChange(Math.max(0, Math.min(1, (u - from) / (to - from))));
+      if (u - to > (1 - span) / 2) u -= 1;
+      return Math.max(0, Math.min(1, (u - from) / span));
     };
-    read(e.clientX, e.clientY);
-    const move = (m: PointerEvent) => read(m.clientX, m.clientY);
+    const settle = () => {
+      frame.current = 0;
+      const v = pending.current;
+      if (v === null) return;
+      setHeld(v);
+      if (live) { sent.current = v; onChange(v); }
+    };
+    const queue = (cx: number, cy: number) => {
+      pending.current = read(cx, cy);
+      if (!frame.current) frame.current = requestAnimationFrame(settle);
+    };
+    queue(e.clientX, e.clientY);
+    const move = (m: PointerEvent) => queue(m.clientX, m.clientY);
     const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      if (frame.current) { cancelAnimationFrame(frame.current); frame.current = 0; }
+      const v = pending.current;
+      pending.current = null;
+      setHeld(null);
+      if (v !== null && v !== sent.current) onChange(v);
+      sent.current = null;
       onCommit?.();
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
   };
-  const markAt = from + (to - from) * Math.max(0, Math.min(1, value));
-  const a = onCircle(markAt, rIn - 2);
-  const b = onCircle(markAt, rOut + 2);
+  const markAt = from + (to - from) * shown;
+  // The mark is drawn once at the start of the arc and turned to where the
+  // value is, so it can ease between values it did not see the hand set.
+  const a = onCircle(from, rIn - 2);
+  const b = onCircle(from, rOut + 2);
+  const screen = tone === "screen";
   return (
     <g
       data-arc-slider={label}
       role="slider"
       tabIndex={0}
       aria-label={label}
-      aria-valuenow={Math.round(value * 100)}
+      aria-valuenow={Math.round(shown * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
       onPointerDown={grab}
@@ -364,6 +445,7 @@ export function ArcSlider({
       }}
       onKeyUp={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") onCommit?.(); }}
       className="pointer-events-auto cursor-pointer outline-none"
+      style={{ touchAction: "none" }}
     >
       {Array.from({ length: steps }, (_, i) => {
         const s0 = from + ((to - from) * i) / steps;
@@ -371,15 +453,126 @@ export function ArcSlider({
         const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
         return <path key={i} d={arcPath(s0, s1, rIn, rOut)} fill={colourAt((i + 0.5) / steps)} />;
       })}
-      <path d={arcPath(from, to, rIn, rOut)} fill="none" stroke={CONSOLE.ink} strokeWidth={1.5} />
-      <line
-        x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]}
-        stroke="oklch(0.99 0 0)"
-        strokeWidth={3.5}
-        strokeLinecap="round"
-        style={{ filter: "drop-shadow(0 0 2px oklch(0 0 0 / 0.7))" }}
-      />
+      <path d={arcPath(from, to, rIn, rOut)} fill="none" stroke={screen ? SCREEN.line : CONSOLE.ink} strokeWidth={screen ? 1 : 1.5} />
+      <g
+        data-arc-mark=""
+        style={{
+          transform: `rotate(${((markAt - from) * 360).toFixed(3)}deg)`,
+          transformOrigin: "0 0",
+          transition: held === null ? "transform 110ms ease-out" : "none",
+        }}
+      >
+        <line
+          x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]}
+          stroke={screen ? SCREEN.ink : "oklch(0.99 0 0)"}
+          strokeWidth={3.5}
+          strokeLinecap="round"
+          style={{ filter: screen ? `drop-shadow(0 0 3px ${SCREEN.ink})` : "drop-shadow(0 0 2px oklch(0 0 0 / 0.7))" }}
+        />
+      </g>
     </g>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* A screen set into a slab                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The slab's face painted as a screen: the same shape, a few pixels in from
+ * the slab's own edge, in the screen's glass with the scanlines and the dot
+ * matrix over it and the bezel round it. What a slab full of settings sits
+ * on, so the sliders and keys on it read as one console rather than as
+ * boxes on a plate.
+ */
+export function ScreenFace({ slab, inset = 6 }: { slab: Slab; inset?: number }) {
+  const id = React.useId().replace(/[^a-zA-Z0-9]/g, "");
+  const { from, to, rings, shape } = slab;
+  const d = piece(from, to, rings.hole + inset, "edge", shape, rings, SHRINK + inset);
+  return (
+    <g data-screen-face="" className="pointer-events-none">
+      <defs>
+        <radialGradient id={`${id}g`} cx="45%" cy="40%" r="80%">
+          <stop offset="0%" stopColor="oklch(0.2 0.05 195)" />
+          <stop offset="55%" stopColor="oklch(0.135 0.04 200)" />
+          <stop offset="100%" stopColor="oklch(0.09 0.03 205)" />
+        </radialGradient>
+        <pattern id={`${id}s`} width="3" height="3" patternUnits="userSpaceOnUse">
+          <rect width="3" height="1" fill="oklch(0 0 0 / 0.26)" />
+          <circle cx="1.5" cy="2" r="0.55" fill="oklch(0.62 0.1 190 / 0.09)" />
+        </pattern>
+      </defs>
+      <path d={d} fill={`url(#${id}g)`} stroke={SCREEN.line} strokeWidth={3} strokeLinejoin="round" />
+      <path d={d} fill={`url(#${id}s)`} />
+      <path d={d} fill="none" stroke="oklch(0.5 0.08 290 / 0.35)" strokeWidth={1} strokeLinejoin="round" />
+    </g>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* A readout with arrows                                               */
+/* ------------------------------------------------------------------ */
+
+export interface StepItem {
+  id: string;
+  label: string;
+  /** How the readout is set when this one is showing — a family in its own face, say. */
+  style?: React.CSSProperties;
+}
+
+/**
+ * One setting with a handful of values, as a readout between two arrows.
+ *
+ * For the values that are words — a top bar's on-scroll, a type family —
+ * where a row of word-boxes read as a row of buttons. On a screen the value
+ * is *shown*, in phosphor, and the arrows step through the rest; the whole
+ * list is one press away in either direction and never sprawls across the
+ * slab.
+ */
+export function ArcStepper({
+  slab, radius, items, value, onChange, label, w = 104,
+}: {
+  slab: Slab;
+  radius: number;
+  items: StepItem[];
+  value: string | null;
+  onChange: (id: string) => void;
+  label: string;
+  w?: number;
+}) {
+  const { from, to, spin } = slab;
+  const at = onCircle((from + to) / 2, radius);
+  const n = items.length;
+  const i = Math.max(0, items.findIndex((it) => it.id === value));
+  const go = (d: number) => {
+    if (!n) return;
+    play("select");
+    onChange(items[(((i + d) % n) + n) % n]!.id);
+  };
+  const keyStyle: React.CSSProperties = { ...SCREEN_KEY, outline: `1px solid ${SCREEN.line}`, boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.5)" };
+  return (
+    <Glued at={at} spin={spin} w={w} h={26}>
+      <div
+        data-arc-stepper={label}
+        className="flex h-[22px] w-full items-center gap-0.5 rounded-[4px] p-0.5"
+        style={{ background: "oklch(0.1 0.03 200 / 0.75)", outline: `1px solid ${SCREEN.line}`, boxShadow: "inset 0 1px 6px oklch(0 0 0 / 0.6)" }}
+      >
+        <button type="button" aria-label={`Previous ${label}`} data-step="prev" onClick={() => go(-1)} className="pointer-events-auto flex size-[18px] shrink-0 items-center justify-center rounded-[3px]" style={keyStyle}>
+          <ChevronLeft className="size-3" />
+        </button>
+        <span
+          data-stepper-value={items[i]?.id ?? ""}
+          title={items[i]?.label}
+          className="min-w-0 flex-1 truncate text-center font-mono text-[8.5px] font-semibold uppercase tracking-wider"
+          style={{ color: SCREEN.ink, textShadow: `0 0 5px ${SCREEN.ink}`, ...items[i]?.style }}
+        >
+          {items[i]?.label ?? "—"}
+        </span>
+        <button type="button" aria-label={`Next ${label}`} data-step="next" onClick={() => go(1)} className="pointer-events-auto flex size-[18px] shrink-0 items-center justify-center rounded-[3px]" style={keyStyle}>
+          <ChevronRight className="size-3" />
+        </button>
+      </div>
+    </Glued>
   );
 }
 

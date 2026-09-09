@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.22",
+    title: "Sliders, screens, and the page itself",
+    summary: "No more word-boxes on the wheel: speed and delay are sliders, choices are icon keys or a readout with arrows, settings sit on screens — and the page's background can be picked, cut and put back.",
+    sketch: "frame",
+    added: [
+      "Speed is one slider, delay another, and the easing three icon keys; the caption under each slider reads the value out. Speed and delay are numbers now, so the blueprint says the length in ms beside the word.",
+      "Sliders are smooth: the mark follows the hand frame by frame from local state, the pointer is captured so a hand off the band keeps hold, and an entrance is written only where the hand lets go rather than replayed sixty times a second.",
+      "Every slab that carries settings is painted as a screen — the same glass, scanlines and bezel as the typing plate. Choices that are only words (a top bar's on-scroll, a type family) are a phosphor readout between two arrows, set in their own face. The aura's size is a slider too.",
+      "The typing plate fills its slab: the screen runs out to the far edges, the title and the part's name sit in the strip above it, and a rail down the near side holds an information key — press it and the screen says what the part is — plus a reset on Options.",
+      "Click the bare page and the background is selected like a part: the panel shows its fill and the texture layers on it, ⌘X cuts it bare, ⌫ strips it, ⌘V puts it back. ⌘X and ⌘V work on parts as well.",
+    ],
+  },
+  {
     version: "0.21",
     title: "The void",
     summary: "The console, the board and every button past the green level are one dark purple-blue; the drawing board moves; a tray hangs under the wheel.",

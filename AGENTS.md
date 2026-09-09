@@ -560,13 +560,20 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   the part's prompt, its data, links and options are `PlateEditor`s: a
   `PlateQuad` inscribed in the slab **opposite the green**, which the
   console cuts **square** for it whatever `menuShape` is (`ConsoleSpan.shapes`),
-  so the plate always has a square to sit in. The plate is drawn as a small
-  console screen set into the slab (`SCREEN`): dark teal glass, scanlines, a
-  faint dot matrix, a lit bezel, phosphor lettering in a monospaced face —
-  because words are typed on a screen, not on a slab. At rest it is a hundred
-  pixels on a side — its near corner clears the hole, its far corner the
-  slab's edge; turned, it shrinks by the sum of the turn's cosine and sine so
-  an upright square stays inside a tilted one. What is on it is not a form:
+  so the plate always has a square to sit in. The plate is a console screen
+  set into the slab (`SCREEN`, in `RingConsole.tsx`): dark teal glass,
+  scanlines, a faint dot matrix, a lit bezel, phosphor lettering in a
+  monospaced face — because words are typed on a screen, not on a slab.
+  **The whole slab is laid out round the hole**: the screen takes the far
+  corner, from the hole's tangents out to the slab's edges; the strip along
+  the top beside the hole carries the title and the part's name, above the
+  screen rather than on it; the strip down the near side under the hole is
+  the **rail** — an information key (`RailButton`) that shows what the part
+  is on the screen, and whatever else an editor adds (Options has a reset).
+  Which corner the hole is in follows where the slab points once the wheel's
+  turn is added, so the layout mirrors; between the four upright positions
+  the box shrinks by the sum of the turn's cosine and sine so an upright box
+  stays inside a tilted slab. What is on it is not a form:
   a setting with a handful of values is a row of `Tick` boxes (the screen's
   keys), one lit; a set is the same boxes switched on and off; only a name,
   a prompt, an address and the data are typed. Options shows **layout**
@@ -574,16 +581,32 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   Animation. Contents carries **Make it a prompt** on the slab beside it — a
   placeholder, cut and wired, doing nothing yet. Glyph left the wheel: a
   mark on the board is not a thing the site has.
-- **Animation is three slabs, not a list** (`AnimQuads`). Its green level is
-  options — Entrance, Speed, Extras, and **Behaviour** when the part has
-  motion options of its own — the first three opening the same three slabs
-  with its own lit (`ConsoleSpan.lit`, `ANIM_SLAB`): speed top-right (five of
-  them, slow to instant, `ANIM_SPEED`), the entrance bottom-right (the kinds
-  as boxes, a four-way pad for where a slide comes from; Slide with no
-  direction means from below), delay and easing bottom-left. Behaviour
-  (`BehaviourQuads`) puts one motion option per slab as boxes, captioned
-  with the option's name: a top bar's on-scroll, a ticker's speed, a
-  slideshow's autoplay. `entranceCss()` in `look.ts` turns `anim` + `animSpeed` +
+- **Animation is three screens, not a list** (`AnimQuads`). Its green level
+  is options — Entrance, Speed, Extras, and **Behaviour** when the part has
+  motion options of its own — the first three opening the same three slabs,
+  each painted as a screen (`ScreenFace`), with its own lit
+  (`ConsoleSpan.lit`, `ANIM_SLAB`): **speed top-right, as one slider**
+  (`animSpeed` is a number now — a multiplier on `ENTRANCE_MS`, log-scaled
+  along the slider so the middle feels like the middle; `speedWord` names
+  the nearest stop for the caption and the blueprint), the entrance
+  bottom-right (the kinds as icon keys, a four-way pad for where a slide
+  comes from; Slide with no direction means from below), and bottom-left the
+  **delay as a slider** (`animDelay`, milliseconds) with the easing as three
+  icon keys. A saved board with the old words is read by `speedK`/`delayMs`.
+  Behaviour (`BehaviourQuads`) puts one motion option per screen as a
+  readout with arrows (`ArcStepper`), captioned with the option's name: a
+  top bar's on-scroll, a ticker's speed, a slideshow's autoplay. **No
+  word-boxes anywhere on a slab**: a choice with a picture is an icon key,
+  a choice that is only words is a stepper, and anything continuous — the
+  aura's size included — is a slider.
+- **Sliders are smooth** (`ArcSlider`). The mark follows the hand from local
+  state, one read per animation frame, with the pointer captured by the
+  slider so a hand that strays off the band keeps hold of it, and the read
+  wraps the short way round so a hand past the start does not jump to the
+  end. `live={false}` writes the part only where the hand lets go — for the
+  entrance, which replays on every change and does not want sixty replays
+  a second. The mark is drawn once and turned to the value, so it eases
+  between values it did not see the hand set. `entranceCss()` in `look.ts` turns `anim` + `animSpeed` +
   `animDelay` + `animEase` into the one `animation` shorthand the live site,
   the blueprint's words and the demo all use. **The slab the motion comes
   across plays it**: `Ghost` is a path in the slab's own shape and grey that
@@ -607,6 +630,21 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   `FillTab` under the part opens on hover into Fill width, Flush left,
   Centre, Flush right. The board-tint field left the Inspector; `hueMenu`
   stays for drawings and groups, which are only ever on the board.
+- **Font is three screens** (`FontQuads`): size and weight as two arcs on
+  the first, spacing and leading on the second, the family as a readout with
+  arrows on the third, set in its own face, with "the site's" as the first
+  stop. The captions read the numbers out.
+- **The page's background is a thing you can pick** (`BACKGROUND_ID` in
+  `store.ts`). A press on the bare frame puts it in `selection` (a drag from
+  there is still a marquee); the frame wears the accent outline and a label,
+  and the Inspector shows `BackgroundInspector` — the fill (the format's
+  `palette.background`) and the texture layers that land on the page,
+  switched there. **⌘X cuts it** (`cutBackground`: every page layer off, the
+  fill flat, what went held), **⌘V puts it back** (`pasteBackground`), ⌫
+  strips it the same way. Cut and paste on parts work too (`cutNodes` /
+  `pasteNodes`); `cut()` and `paste()` pick by what is selected and what was
+  cut last. What is held is a module variable, never persisted. The canvas
+  menu has a Background submenu for the same three things.
 - **The tray hangs under the wheel** (`HoverTray` in `RingConsole.tsx`,
   `[data-tray]`): a small tab under whichever level is up that opens on hover
   into the few things that are about the part but not about editing it —

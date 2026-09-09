@@ -19,7 +19,26 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
-import { defaultLight, emptyLook, newLayer, type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Look, type TextureLayer } from "./look";
+import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Look, type TextureLayer } from "./look";
+
+/**
+ * The page's background is a thing you can pick: click the bare frame and
+ * it is selected, like a part. This is the id that stands for it in
+ * `selection`; nothing else ever has it.
+ */
+export const BACKGROUND_ID = "background";
+
+/**
+ * What was cut last, held until it is put back — parts, or the background.
+ * A module variable, not store state: a hand holding something, not a thing
+ * the site remembers, and never written to disk.
+ */
+type Held =
+  | { kind: "nodes"; nodes: StudioNode[] }
+  | { kind: "background"; layerIds: string[]; fill: string };
+let held: Held | null = null;
+export const heldBackground = () => (held?.kind === "background" ? held : null);
+export const heldNodes = () => (held?.kind === "nodes" ? held : null);
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
@@ -66,8 +85,10 @@ export interface StudioNode {
   /** How it arrives on the page — one of `ENTRANCES`, or null for no entrance. */
   anim: string | null;
   /** How quickly, how long after the page, and with what easing. */
-  animSpeed: AnimSpeed;
-  animDelay: AnimDelay;
+  /** A multiplier on the usual entrance length (`ENTRANCE_MS`): 1.8 is slow, 0.14 instant. */
+  animSpeed: number;
+  /** Milliseconds before the entrance starts. */
+  animDelay: number;
   animEase: AnimEase;
   /** A colour round its edge — a palette role, or a colour of its own — or null for none. */
   aura: string | null;
@@ -234,6 +255,15 @@ interface StudioState extends Doc {
   toggleSelection: (id: string) => void;
   selectAll: () => void;
   clearSelection: () => void;
+  /** The page's background: picked like a part, cut, and put back. */
+  selectBackground: () => void;
+  cutBackground: () => boolean;
+  pasteBackground: () => boolean;
+  /** Cut takes what is selected — parts or the background — and paste puts back whatever was cut last. */
+  cutNodes: (ids: string[]) => boolean;
+  pasteNodes: () => boolean;
+  cut: () => boolean;
+  paste: () => boolean;
   setTool: (t: Tool) => void;
   setInk: (patch: { hue?: number; width?: number }) => void;
   setZoom: (z: number) => void;
@@ -366,7 +396,7 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
-                colour: null, font: null, anim: null, animSpeed: "normal", animDelay: "none", animEase: "smooth",
+                colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
                 aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 x: Math.round(x),
                 y: Math.round(y),
@@ -594,6 +624,64 @@ export const useStudio = create<StudioState>()(
             ],
           })),
         clearSelection: () => set({ selection: [] }),
+
+        selectBackground: () => set({ selection: [BACKGROUND_ID] }),
+        // Cutting the background strips the page bare: every texture layer
+        // that lands on the page goes off, and the fill goes flat. What went
+        // is held, so paste puts exactly it back.
+        cutBackground: () => {
+          const s = get();
+          const layers = s.look.texture ?? [];
+          const onPage = layers.filter((l) => l.on && lands(l, "page"));
+          const fill = String(s.format["palette.background"] ?? "flat");
+          if (!onPage.length && fill === "flat") return false;
+          push();
+          held = { kind: "background", layerIds: onPage.map((l) => l.id), fill };
+          set({
+            look: { ...s.look, texture: layers.map((l) => (onPage.some((p) => p.id === l.id) ? { ...l, on: false } : l)) },
+            format: { ...s.format, "palette.background": "flat" },
+            selection: [BACKGROUND_ID],
+          });
+          return true;
+        },
+        pasteBackground: () => {
+          if (held?.kind !== "background") return false;
+          const h = held;
+          const s = get();
+          push();
+          set({
+            look: { ...s.look, texture: (s.look.texture ?? []).map((l) => (h.layerIds.includes(l.id) ? { ...l, on: true } : l)) },
+            format: { ...s.format, "palette.background": h.fill },
+            selection: [BACKGROUND_ID],
+          });
+          return true;
+        },
+        cutNodes: (ids) => {
+          const s = get();
+          const nodes = s.nodes.filter((n) => ids.includes(n.id));
+          if (!nodes.length) return false;
+          held = { kind: "nodes", nodes };
+          s.removeNodes(nodes.map((n) => n.id));
+          return true;
+        },
+        pasteNodes: () => {
+          if (held?.kind !== "nodes") return false;
+          const h = held;
+          push();
+          set((s) => {
+            const copies = h.nodes.map((n) => ({ ...n, id: uid("n"), pageId: s.activePageId, x: n.x + 24, y: n.y + 24, groupId: null }));
+            return { nodes: [...s.nodes, ...copies], selection: copies.map((c) => c.id) };
+          });
+          return true;
+        },
+        cut: () => {
+          const s = get();
+          return s.selection.includes(BACKGROUND_ID) ? s.cutBackground() : s.cutNodes(s.selection);
+        },
+        paste: () => {
+          const s = get();
+          return held?.kind === "nodes" ? s.pasteNodes() : s.pasteBackground();
+        },
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setZoom: (z) => set({ zoom: Math.max(0.25, Math.min(2.5, z)) }),
@@ -785,7 +873,8 @@ export const useStudio = create<StudioState>()(
           ...p,
           nodes: (p.nodes ?? current.nodes).map((n) => ({
             ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, font: n.font ?? null, anim: n.anim ?? null,
-            animSpeed: n.animSpeed ?? "normal", animDelay: n.animDelay ?? "none", animEase: n.animEase ?? "smooth",
+            // Speed and delay were words once; a saved board still has them.
+            animSpeed: speedK(n.animSpeed as number | string | undefined), animDelay: delayMs(n.animDelay as number | string | undefined), animEase: n.animEase ?? "smooth",
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
             sketch: normaliseSketch(n.sketch),
           })),

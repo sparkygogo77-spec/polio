@@ -646,9 +646,11 @@ export function castFrom(light: Light, cx: number, cy: number): { dx: number; dy
  * How a part arrives: which way, how fast, after how long, with what ease.
  *
  * The entrance itself is a CSS animation name (`el-rise` and the rest, in
- * `globals.css`); these three are the words round it. Kept as words rather
- * than numbers because the blueprint has to say them and a reader has to
- * pick them off a slab.
+ * `globals.css`). Speed and delay are **numbers** — a multiplier on the usual
+ * length, and a wait in milliseconds — because they come off sliders; the
+ * named stops below are what the blueprint calls them and where the slider's
+ * ends and middle are. Easing stays a word: there are three, and they are
+ * keys, not a scale.
  */
 export type AnimSpeed = "slow" | "normal" | "fast" | "faster" | "instant";
 export type AnimDelay = "none" | "short" | "long";
@@ -670,14 +672,43 @@ export const ANIM_EASE: { id: AnimEase; label: string; css: string }[] = [
   { id: "snappy", label: "Snappy", css: "cubic-bezier(0.3, 0, 0.1, 1)" },
   { id: "bouncy", label: "Bouncy", css: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
 ];
-/** The usual length of an entrance; the speeds scale it. */
+/** The usual length of an entrance; the speed multiplies it. */
 export const ENTRANCE_MS = 420;
+/** The speed slider's two ends: the slowest named stop to the fastest. */
+export const SPEED_K: [number, number] = [1.8, 0.14];
+/** The delay slider's far end, in milliseconds. */
+export const DELAY_MS = 900;
+
+/** A speed as its multiplier, from a number or from one of the old words. */
+export function speedK(v: number | string | null | undefined): number {
+  if (typeof v === "number" && Number.isFinite(v)) return Math.min(SPEED_K[0], Math.max(SPEED_K[1], v));
+  return ANIM_SPEED.find((s) => s.id === v)?.k ?? 1;
+}
+/** A delay in milliseconds, from a number or from one of the old words. */
+export function delayMs(v: number | string | null | undefined): number {
+  if (typeof v === "number" && Number.isFinite(v)) return Math.min(DELAY_MS, Math.max(0, Math.round(v)));
+  return ANIM_DELAY.find((d) => d.id === v)?.ms ?? 0;
+}
+/** The nearest named speed — compared on a log scale, which is how speed is felt. */
+export function speedWord(k: number): AnimSpeed {
+  let best = ANIM_SPEED[1]!;
+  for (const s of ANIM_SPEED) if (Math.abs(Math.log(s.k) - Math.log(k)) < Math.abs(Math.log(best.k) - Math.log(k))) best = s;
+  return best.id;
+}
+/** 0..1 along the speed slider to the multiplier, on a log scale so the middle of the slider is the middle speed. */
+export function speedFromSlider(f: number): number {
+  const t = Math.min(1, Math.max(0, f));
+  return Math.round(SPEED_K[0] * Math.pow(SPEED_K[1] / SPEED_K[0], t) * 100) / 100;
+}
+export function sliderFromSpeed(k: number): number {
+  return Math.log(speedK(k) / SPEED_K[0]) / Math.log(SPEED_K[1] / SPEED_K[0]);
+}
 
 /** The `animation` shorthand for a part's entrance, or nothing if it has none. */
-export function entranceCss(anim: string | null | undefined, speed: AnimSpeed = "normal", delay: AnimDelay = "none", ease: AnimEase = "smooth"): string | undefined {
+export function entranceCss(anim: string | null | undefined, speed: number | AnimSpeed = 1, delay: number | AnimDelay = 0, ease: AnimEase = "smooth"): string | undefined {
   if (!anim) return undefined;
-  const k = ANIM_SPEED.find((s) => s.id === speed)?.k ?? 1;
-  const ms = ANIM_DELAY.find((d) => d.id === delay)?.ms ?? 0;
+  const k = speedK(speed);
+  const ms = delayMs(delay);
   const curve = ANIM_EASE.find((e) => e.id === ease)?.css ?? ANIM_EASE[0]!.css;
   return `${anim} ${Math.round(ENTRANCE_MS * k)}ms ${curve} ${ms}ms both`;
 }

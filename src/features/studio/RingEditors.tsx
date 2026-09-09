@@ -20,20 +20,23 @@
  * quadrant.
  */
 import * as React from "react";
-import { Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, CircleDot, ImagePlus, Play, Shuffle, Sparkles, X } from "lucide-react";
+import {
+  Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Ban, Blend, Check, CircleDot, Expand, FlipVertical2, Focus, ImagePlus, MoveRight, Play, Shuffle, Sparkles, Spline, X, Zap,
+} from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { readImage } from "./ImageIntake";
 import {
-  ANIM_DELAY, ANIM_EASE, ANIM_SPEED, auraColour, auraStyle, AURA_STYLES, css as oklchCss, ENTRANCE_MS, entranceCss, newLayer, parseColor, textureCss,
+  ANIM_EASE, auraColour, auraStyle, AURA_STYLES, css as oklchCss, DELAY_MS, delayMs, ENTRANCE_MS, entranceCss, newLayer, parseColor, sliderFromSpeed, speedFromSlider, speedK, speedWord, textureCss,
   TEXTURE_KINDS, ROLES, ROLE_LABEL,
-  type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette, type RoleId, type TextureLayer,
+  type AnimEase, type AuraStyle, type Palette, type RoleId, type TextureLayer,
 } from "./look";
 import { useStudio, type StudioNode } from "./store";
 import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
-  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, SectorButton, SHRINK, SLAB_AURA, type ArcItem, type Slab,
+  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, phosphorAt, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA,
+  type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
 
 /** The quadrants the console has been given, clockwise from the green. */
@@ -354,12 +357,8 @@ const STYLE_GLYPH: Record<AuraStyle, React.ReactNode> = {
   ring: <CircleDot className="size-3" />,
   pulse: <Activity className="size-3" />,
 };
-const SIZES: { id: string; label: string; k: number }[] = [
-  { id: "s", label: "Small aura", k: 0.6 },
-  { id: "m", label: "Medium aura", k: 1 },
-  { id: "l", label: "Large aura", k: 1.5 },
-  { id: "xl", label: "Huge aura", k: 2.2 },
-];
+/** How far the aura's size slider runs: from tight to huge, as a multiple of the usual reach. */
+const AURA_SIZE: [number, number] = [0.5, 2.2];
 
 /**
  * Three slabs: the colour boxes, the spectrum, and the sample.
@@ -405,18 +404,10 @@ export function AuraQuads({
     style: { background: CONSOLE.box, color: CONSOLE.text, ...(auraStyle(colour ?? palette.accent, palette, 0.45, s.id) ?? {}) } as React.CSSProperties,
     glyph: STYLE_GLYPH[s.id],
   }));
-  const sizeItems: ArcItem[] = SIZES.map((s) => ({
-    id: s.id,
-    label: s.label,
-    style: { background: CONSOLE.box, color: CONSOLE.text },
-    glyph: <span className="text-[8px] font-bold">{s.id.toUpperCase()}</span>,
-  }));
-  const sizeId = SIZES.reduce((best, s) => (Math.abs(s.k - size) < Math.abs(best.k - size) ? s : best), SIZES[1]!).id;
   // Three bands on the sample slab: the styles by the hole, the block in the
-  // middle of the band, the four sizes along the outer edge — four, so none
-  // of them sits on the diagonal where the block's corner is.
+  // middle of the band, and the size as a slider along the outer edge.
   const { reach } = sample.rings;
-  const blockAt = onCircle((sample.from + sample.to) / 2, mid + 4);
+  const blockAt = onCircle((sample.from + sample.to) / 2, mid - 2);
 
   return (
     <>
@@ -432,7 +423,17 @@ export function AuraQuads({
 
       {/* the sample: what the part wears, and the ways to wear it */}
       <ArcChips slab={sample} items={styleItems} radius={hole + 18} size={18} value={style} onPick={(id) => onChange({ auraStyle: id as AuraStyle })} />
-      <ArcChips slab={sample} items={sizeItems} radius={reach - SHRINK - 14} size={18} value={sizeId} onPick={(id) => onChange({ auraSize: SIZES.find((s) => s.id === id)?.k ?? 1 })} />
+      <ArcSlider
+        slab={sample}
+        from={sample.from + 0.014}
+        to={sample.to - 0.014}
+        rIn={reach - SHRINK - 24}
+        rOut={reach - SHRINK - 10}
+        label="Aura size"
+        value={(size - AURA_SIZE[0]) / (AURA_SIZE[1] - AURA_SIZE[0])}
+        colourAt={(f) => `oklch(${(0.3 + f * 0.5).toFixed(3)} 0.02 285)`}
+        onChange={(f) => onChange({ auraSize: Math.round((AURA_SIZE[0] + f * (AURA_SIZE[1] - AURA_SIZE[0])) * 20) / 20 })}
+      />
       <Glued at={blockAt} spin={sample.spin} w={44} h={44}>
         <div
           data-aura-sample=""
@@ -464,16 +465,20 @@ const SLIDES: { id: string; label: string; glyph: React.ReactNode }[] = [
   { id: "el-right", label: "From the right", glyph: <ArrowLeft className="size-3" /> },
 ];
 const SLIDE_IDS = new Set(SLIDES.map((s) => s.id));
-const word = (t: string) => <span className="text-[7px] font-bold uppercase tracking-tight">{t}</span>;
+/** The kinds of entrance, as keys on the screen: an icon each, the word on the tooltip. */
 const ENTRANCE_TYPES: ArcItem[] = [
-  { id: "", label: "No entrance", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
-  { id: "el-fade", label: "Fade in", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Fade") },
-  { id: "slide", label: "Slide in", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Slide") },
-  { id: "el-grow", label: "Grow", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Grow") },
-  { id: "el-blur", label: "Come into focus", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Focus") },
-  { id: "el-flip", label: "Tip up", style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word("Tip") },
+  { id: "", label: "No entrance", style: SCREEN_KEY, glyph: <Ban className="size-3" /> },
+  { id: "el-fade", label: "Fade in", style: SCREEN_KEY, glyph: <Blend className="size-3" /> },
+  { id: "slide", label: "Slide in", style: SCREEN_KEY, glyph: <MoveRight className="size-3" /> },
+  { id: "el-grow", label: "Grow", style: SCREEN_KEY, glyph: <Expand className="size-3" /> },
+  { id: "el-blur", label: "Come into focus", style: SCREEN_KEY, glyph: <Focus className="size-3" /> },
+  { id: "el-flip", label: "Tip up", style: SCREEN_KEY, glyph: <FlipVertical2 className="size-3" /> },
 ];
-const plain = (id: string, label: string, text: string): ArcItem => ({ id, label, style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: word(text) });
+const EASE_GLYPH: Record<AnimEase, React.ReactNode> = {
+  smooth: <Spline className="size-3" />,
+  snappy: <Zap className="size-3" />,
+  bouncy: <Activity className="size-3" />,
+};
 
 /**
  * The entrance, shown by a slab.
@@ -490,17 +495,17 @@ function Ghost({ slab, node, run }: { slab: Slab; node: Pick<StudioNode, "anim" 
   const css = entranceCss(node.anim, node.animSpeed, node.animDelay, node.animEase);
   if (!css) return null;
   // How long the arrival takes, so the ghost leaves just after it lands.
-  const k = ANIM_SPEED.find((s) => s.id === (node.animSpeed ?? "normal"))?.k ?? 1;
-  const wait = ANIM_DELAY.find((d) => d.id === (node.animDelay ?? "none"))?.ms ?? 0;
-  const gone = Math.round(ENTRANCE_MS * k + wait + 120);
+  const gone = Math.round(ENTRANCE_MS * speedK(node.animSpeed) + delayMs(node.animDelay) + 120);
+  // The ghost is the screen's own glass, a shade up, arriving.
+  const glass = "oklch(0.26 0.06 195)";
   return (
     <path
       key={run}
       data-anim-ghost={node.anim ?? ""}
       d={wholeOf(slab)}
       className="pointer-events-none"
-      fill={CONSOLE.faceLit}
-      stroke={CONSOLE.faceLit}
+      fill={glass}
+      stroke={glass}
       strokeWidth={2 * 5}
       strokeLinejoin="round"
       strokeLinecap="round"
@@ -513,15 +518,20 @@ function Ghost({ slab, node, run }: { slab: Slab; node: Pick<StudioNode, "anim" 
   );
 }
 
-const SHORT_DELAY: Record<AnimDelay, string> = { none: "Now", short: "Beat", long: "Later" };
-const SHORT_EASE: Record<AnimEase, string> = { smooth: "Ease", snappy: "Snap", bouncy: "Bounce" };
+/** Where a screen's slider band runs: across the slab's middle radius. */
+const bandOf = (s: Slab) => ({ rIn: s.rings.mid - 6, rOut: s.rings.mid + 12 });
+/** A hair in from each seam, so a slider's ends are not on the corner. */
+const PAD = 0.014;
 
 /**
- * Three slabs: speed (top-right), the entrance itself (bottom-right), and
- * the rest (bottom-left). The entrance slab holds the kinds as boxes and a
- * four-way pad for the slides; the pad picks where a slide comes from, and
- * picking Slide with no direction set means from below. One of the other two
- * is the demo slab, and carries the ▶ instead of its caption.
+ * Three screens: speed (top-right), the entrance itself (bottom-right), and
+ * the rest (bottom-left). Speed is **one slider**. The entrance screen holds
+ * the kinds as keys — icons, not words — on its outer band and a four-way
+ * pad for the slides on its inner one; picking Slide with no direction set
+ * means from below. The third screen is the wait, as a slider, and the
+ * easing as three keys. The caption under each slider reads the value out.
+ * One of the slabs is the demo slab and plays the ghost; its replay sits in
+ * its outer corner.
  */
 export function AnimQuads({
   slabs, node, focus, onChange,
@@ -532,41 +542,51 @@ export function AnimQuads({
   onChange: (patch: Partial<Pick<StudioNode, "anim" | "animSpeed" | "animDelay" | "animEase">>) => void;
 }) {
   const [speed, entrance, extras] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
-  const { hole } = entrance.rings;
+  const { hole, reach } = entrance.rings;
   const anim = node.anim ?? "";
   const type = SLIDE_IDS.has(anim) ? "slide" : anim;
   const fromTopRight = anim === "el-drop" || anim === "el-right";
   const demo = fromTopRight ? speed : extras;
+  const k = speedK(node.animSpeed);
+  const wait = delayMs(node.animDelay);
   const [run, setRun] = React.useState(0);
   React.useEffect(() => { setRun((n) => n + 1); }, [node.anim, node.animSpeed, node.animDelay, node.animEase]);
   void focus;
-  const replayAt = onCircle((demo.from + demo.to) / 2, hole + 20);
+  // The replay sits in the demo slab's far corner on a square wheel — past
+  // the keys' arc, where the corner is empty — and by the leading seam on a
+  // round one, which has no corner.
+  const replayAt = demo.shape === "round" ? onCircle(demo.from + 0.03, reach - SHRINK - 30) : onCircle((demo.from + demo.to) / 2, reach + 6);
 
   return (
     <>
-      {/* how it comes in */}
-      <ArcChips slab={entrance} items={ENTRANCE_TYPES} radius={chipsAt(entrance)} size={26} value={type}
+      <ScreenFace slab={speed} />
+      <ScreenFace slab={entrance} />
+      <ScreenFace slab={extras} />
+
+      {/* how it comes in: the kinds, and where a slide comes from */}
+      <ArcChips slab={entrance} tone="screen" items={ENTRANCE_TYPES} radius={chipsAt(entrance)} size={24} value={type}
         onPick={(id) => onChange({ anim: id === "" ? null : id === "slide" ? (SLIDE_IDS.has(anim) ? anim : "el-rise") : id })} />
       <ArcChips
         slab={entrance}
-        items={SLIDES.map((s) => ({ id: s.id, label: s.label, style: { background: CONSOLE.box, color: CONSOLE.text }, glyph: s.glyph }))}
-        radius={hole + 20}
+        tone="screen"
+        items={SLIDES.map((s) => ({ id: s.id, label: s.label, style: SCREEN_KEY, glyph: s.glyph }))}
+        radius={hole + 24}
         size={18}
         value={SLIDE_IDS.has(anim) ? anim : null}
         onPick={(id) => onChange({ anim: id })}
       />
 
-      {/* how fast */}
-      <ArcChips slab={speed} items={ANIM_SPEED.map((s) => plain(s.id, `${s.label} entrance`, s.label))} radius={chipsAt(speed)} size={28}
-        value={node.animSpeed ?? "normal"} onPick={(id) => onChange({ animSpeed: id as AnimSpeed })} />
-      {demo === speed ? null : <Caption slab={speed}>Speed</Caption>}
+      {/* how fast: one slider, read out under it */}
+      <ArcSlider slab={speed} tone="screen" live={false} from={speed.from + PAD} to={speed.to - PAD} {...bandOf(speed)} label="Speed"
+        value={sliderFromSpeed(k)} colourAt={phosphorAt} onChange={(f) => onChange({ animSpeed: speedFromSlider(f) })} />
+      <Caption slab={speed}>{`Speed · ${speedWord(k)}`}</Caption>
 
-      {/* the rest */}
-      <ArcChips slab={extras} items={ANIM_DELAY.map((d) => plain(d.id, `${d.label} before it starts`, SHORT_DELAY[d.id]))} radius={chipsAt(extras)} size={28}
-        value={node.animDelay ?? "none"} onPick={(id) => onChange({ animDelay: id as AnimDelay })} />
-      <ArcChips slab={extras} items={ANIM_EASE.map((e) => plain(e.id, `${e.label} easing`, SHORT_EASE[e.id]))} radius={chipsAt(extras) - 36} size={28}
-        value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
-      {demo === extras ? null : <Caption slab={extras}>Extras</Caption>}
+      {/* the rest: the wait as a slider, the easing as keys */}
+      <ArcSlider slab={extras} tone="screen" live={false} from={extras.from + PAD} to={extras.to - PAD} {...bandOf(extras)} label="Delay"
+        value={wait / DELAY_MS} colourAt={phosphorAt} onChange={(f) => onChange({ animDelay: Math.round((f * DELAY_MS) / 10) * 10 })} />
+      <ArcChips slab={extras} tone="screen" items={ANIM_EASE.map((e) => ({ id: e.id, label: `${e.label} easing`, style: SCREEN_KEY, glyph: EASE_GLYPH[e.id] }))}
+        radius={chipsAt(extras)} size={24} value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
+      <Caption slab={extras}>{`Delay · ${wait ? `${wait} ms` : "none"}`}</Caption>
 
       {/* the demo, and the way to see it again */}
       <Ghost slab={demo} node={node} run={run} />
@@ -596,18 +616,12 @@ export function AnimQuads({
 /* Font                                                                */
 /* ------------------------------------------------------------------ */
 
-const FAMILY_SHORT: Record<string, string> = {
-  "geometric sans": "Geo", "grotesque sans": "Grot", serif: "Serif", display: "Disp", condensed: "Cond",
-  monospace: "Mono", handwritten: "Hand", "system sans": "Sys", "humanist sans": "Hum",
-};
-const greys = (f: number) => `oklch(${(0.3 + f * 0.55).toFixed(3)} 0.02 285)`;
-
 /**
- * A part's own type: the sliders together, on two slabs, and the families
- * on the third. Size and weight share a slab (the inner and outer arcs),
- * spacing and leading the next; the family is a box, with an X to follow
- * the site again. Every value is relative to the site's where it can be, so
- * the part stays a shade larger when the site's type changes.
+ * A part's own type: three screens. Size and weight share the first (the
+ * inner and outer arcs), spacing and leading the next; the family is a
+ * readout with arrows on the third, set in its own face, with "the site's"
+ * as the first stop. Every value is relative to the site's where it can be,
+ * so the part stays a shade larger when the site's type changes.
  */
 export function FontQuads({
   slabs, font, onChange,
@@ -618,30 +632,37 @@ export function FontQuads({
 }) {
   const [a, b, fam] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
   const { hole, mid, reach } = a.rings;
-  const pad = 0.012;
   const set = (patch: Partial<NodeFont>) => onChange({ ...(font ?? {}), ...patch });
-  const arc = (slab: Slab, inner: boolean) => (inner ? { rIn: hole + 18, rOut: mid - 6 } : { rIn: mid + 4, rOut: reach - 12 });
+  // Two bands: one just past the caption, one just past the middle.
+  const inner = { rIn: hole + 32, rOut: mid - 4 };
+  const outer = { rIn: mid + 6, rOut: mid + 22 };
   const size = font?.size ?? 1;
   const weight = font?.weight ?? 400;
   const spacing = font?.spacing ?? 0;
   const leading = font?.leading ?? 1.55;
-  const families: ArcItem[] = [
-    { id: "", label: "Follow the site's type", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
-    ...Object.keys(FAMILY).map((k): ArcItem => ({ id: k, label: k, style: { background: CONSOLE.box, color: CONSOLE.text, fontFamily: FAMILY[k] }, glyph: <span className="text-[8px] font-bold">{FAMILY_SHORT[k] ?? k.slice(0, 4)}</span> })),
+  const families: StepItem[] = [
+    { id: "", label: "Site's type" },
+    ...Object.keys(FAMILY).map((k): StepItem => ({ id: k, label: k, style: { fontFamily: FAMILY[k], textTransform: "none", fontSize: 10 } })),
   ];
+  void reach;
   return (
     <>
-      <ArcSlider slab={a} from={a.from + pad} to={a.to - pad} {...arc(a, true)} label="Size" value={(size - 0.6) / 1.4} colourAt={greys}
+      <ScreenFace slab={a} />
+      <ScreenFace slab={b} />
+      <ScreenFace slab={fam} />
+      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...inner} label="Size" value={(size - 0.6) / 1.4} colourAt={phosphorAt}
         onChange={(f) => set({ size: Math.round((0.6 + f * 1.4) * 100) / 100 })} />
-      <ArcSlider slab={a} from={a.from + pad} to={a.to - pad} {...arc(a, false)} label="Weight" value={(weight - 300) / 500} colourAt={greys}
+      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...outer} label="Weight" value={(weight - 300) / 500} colourAt={phosphorAt}
         onChange={(f) => set({ weight: Math.round((300 + f * 500) / 100) * 100 })} />
-      <Caption slab={a}>Size · weight</Caption>
-      <ArcSlider slab={b} from={b.from + pad} to={b.to - pad} {...arc(b, true)} label="Letter spacing" value={(spacing + 0.05) / 0.35} colourAt={greys}
+      <Caption slab={a}>{`${Math.round(size * 100)}% · w${weight}`}</Caption>
+      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...inner} label="Letter spacing" value={(spacing + 0.05) / 0.35} colourAt={phosphorAt}
         onChange={(f) => set({ spacing: Math.round((-0.05 + f * 0.35) * 1000) / 1000 })} />
-      <ArcSlider slab={b} from={b.from + pad} to={b.to - pad} {...arc(b, false)} label="Line height" value={(leading - 1) / 1} colourAt={greys}
+      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...outer} label="Line height" value={(leading - 1) / 1} colourAt={phosphorAt}
         onChange={(f) => set({ leading: Math.round((1 + f) * 100) / 100 })} />
-      <Caption slab={b}>Spacing · lead</Caption>
-      <GridChips slab={fam} items={families} size={24} value={font?.family ?? ""} onPick={(id) => (id ? set({ family: id }) : onChange(null))} />
+      <Caption slab={b}>{`${spacing}em · ${leading}`}</Caption>
+      <ArcStepper slab={fam} radius={chipsAt(fam) - 4} items={families} value={font?.family ?? ""} label="Family"
+        onChange={(id) => set({ family: id || undefined })} />
+      <Caption slab={fam}>Family</Caption>
     </>
   );
 }
@@ -652,9 +673,10 @@ export function FontQuads({
 
 /**
  * The options a part offers that are about how it moves — a top bar's speed
- * and what it does on scroll, a carousel's autoplay — one option per slab as
- * boxes, captioned with the option's name. Everything else a part offers is
- * under Edit; these are here because they are animation.
+ * and what it does on scroll, a carousel's autoplay — one option per screen
+ * as a readout with arrows, captioned with the option's name. Everything
+ * else a part offers is under Edit; these are here because they are
+ * animation.
  */
 export function BehaviourQuads({
   slabs, options, values, onChange,
@@ -666,16 +688,14 @@ export function BehaviourQuads({
 }) {
   return (
     <>
+      {slabs.map((slab, i) => <ScreenFace key={i} slab={slab} />)}
       {options.slice(0, slabs.length).map((opt, i) => {
         const slab = slabs[i]!;
         const current = values[opt.id] ?? opt.values[0]!;
         return (
           <React.Fragment key={opt.id}>
-            <ArcChips slab={slab} radius={chipsAt(slab)} size={26} value={current}
-              // A long value shows its first word — "hide-then-show" is
-              // "hide" on the box and the whole thing on the tooltip.
-              items={opt.values.map((v) => plain(v, `${opt.label}: ${v}`, v.length > 7 ? (v.split(/[-\s]/)[0] ?? v).slice(0, 6) : v))}
-              onPick={(v) => onChange(opt.id, v)} />
+            <ArcStepper slab={slab} radius={chipsAt(slab) - 4} items={opt.values.map((v) => ({ id: v, label: v }))} value={current} label={opt.label}
+              onChange={(v) => onChange(opt.id, v)} />
             <Caption slab={slab}>{opt.label}</Caption>
           </React.Fragment>
         );
