@@ -18,7 +18,27 @@ import * as React from "react";
 import { play } from "@/core/audio/engine";
 import { arcPath, fmt, onCircle, spun, type Pt, type Rings, type Shape } from "./menuGeometry";
 
-export const CONSOLE_HUE = 18;
+export const CONSOLE_HUE = 27;
+
+/**
+ * The console's colours: a clean grey slab with a red aura round it.
+ *
+ * A red slab with red controls had nothing left to say "this one is picked",
+ * and a brown one read as mud. So the face is a neutral grey — barely cool,
+ * so it sits with the rest of the chrome — and the red is kept for the aura
+ * that surrounds the slabs and for the one thing on a slab that is *on*.
+ */
+export const CONSOLE = {
+  face: "oklch(0.36 0.008 260)",
+  faceLit: "oklch(0.44 0.012 260)",
+  rim: "oklch(0.27 0.01 260)",
+  well: "oklch(0.3 0.01 260)",
+  aura: `oklch(0.63 0.25 ${27})`,
+  on: `oklch(0.64 0.23 ${27})`,
+  text: "oklch(0.94 0.008 260)",
+  ink: "oklch(0.2 0.01 260)",
+  muted: "oklch(0.7 0.01 260)",
+} as const;
 
 /**
  * A shade either way, never a bevel — the amount the reader asked for. Which
@@ -164,7 +184,7 @@ export function ArcChips({
                   transform: on ? "scale(1.18)" : undefined,
                   ...item.style,
                   boxShadow: `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`,
-                  outline: on ? "2px solid oklch(0.98 0.05 20)" : "1px solid oklch(0.25 0.05 20)",
+                  outline: on ? `2px solid ${CONSOLE.on}` : `1px solid ${CONSOLE.ink}`,
                   outlineOffset: on ? 1 : 0,
                 }}
               >
@@ -250,7 +270,7 @@ export function ArcSlider({
         const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
         return <path key={i} d={arcPath(s0, s1, rIn, rOut)} fill={colourAt((i + 0.5) / steps)} />;
       })}
-      <path d={arcPath(from, to, rIn, rOut)} fill="none" stroke="oklch(0.18 0.04 20)" strokeWidth={1.5} />
+      <path d={arcPath(from, to, rIn, rOut)} fill="none" stroke={CONSOLE.ink} strokeWidth={1.5} />
       <line
         x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]}
         stroke="oklch(0.99 0 0)"
@@ -282,11 +302,11 @@ export function SectorButton({
 }) {
   const [hot, setHot] = React.useState(false);
   const lit = hot && !disabled;
-  // The button is the slab, so at rest it wears the slab's own colour; it
-  // brightens under the hand and goes bright when it is on. Disabled is a
+  // The button is the slab, so at rest it wears the slab's own grey; it
+  // brightens under the hand and goes red when it is on. Disabled is a
   // duller, *opaque* face — a translucent one showed the slab's rim through
   // it as a second outline.
-  const fill = disabled ? `oklch(0.36 0.05 ${hue})` : on ? `oklch(0.7 0.19 ${hue})` : lit ? `oklch(0.52 0.15 ${hue})` : `oklch(0.44 0.13 ${hue})`;
+  const fill = disabled ? "oklch(0.31 0.005 260)" : on ? `oklch(0.64 0.23 ${hue})` : lit ? CONSOLE.faceLit : CONSOLE.face;
   return (
     <>
       <path
@@ -303,11 +323,11 @@ export function SectorButton({
         onPointerLeave={() => setHot(false)}
         className={disabled ? "pointer-events-auto" : "pointer-events-auto cursor-pointer outline-none"}
         fill={fill}
-        stroke={`oklch(0.28 0.1 ${hue})`}
+        stroke={CONSOLE.rim}
         strokeWidth={2 * 5 + 2.5}
         strokeLinejoin="round"
         strokeLinecap="round"
-        style={{ transition: "fill 120ms ease-out" }}
+        style={{ transition: "fill 120ms ease-out", filter: `drop-shadow(0 0 9px ${CONSOLE.aura}) drop-shadow(0 0 2px ${CONSOLE.aura})` }}
       />
       <path
         d={d}
@@ -323,7 +343,7 @@ export function SectorButton({
         <div
           className="flex flex-col items-center gap-0.5 text-[9px] font-semibold leading-tight"
           style={{
-            color: on ? "oklch(0.16 0.05 20)" : disabled ? "oklch(0.7 0.04 20)" : "oklch(0.97 0.03 20)",
+            color: on ? "oklch(0.16 0.04 27)" : disabled ? CONSOLE.muted : CONSOLE.text,
             textShadow: on ? undefined : "0 1px 2px oklch(0 0 0 / 0.6)",
           }}
         >
@@ -372,8 +392,8 @@ export function Caption({ slab, children }: { slab: Slab; children: React.ReactN
         fontSize={7.5}
         fontWeight={700}
         letterSpacing={0.7}
-        fill="oklch(0.96 0.03 20)"
-        stroke="oklch(0.2 0.06 20)"
+        fill={CONSOLE.text}
+        stroke={CONSOLE.ink}
         strokeWidth={2}
         strokeLinejoin="round"
         paintOrder="stroke"

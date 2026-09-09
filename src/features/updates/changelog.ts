@@ -25,6 +25,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.17",
+    title: "Grey slabs, red aura, and a sweep",
+    summary: "The editor's slabs are a clean grey with a redder aura, and the eraser takes everything you drag it across.",
+    sketch: "palette",
+    added: [
+      "The three editor slabs are a clean grey now, not brown; the red is in the aura round them and on whatever is switched on.",
+      "The eraser: press to take what is under it, keep holding and sweep to take every drawing you cross. One undo brings the whole sweep back. A part is only ever erased by pressing on it.",
+      "The menu's line works the same on a Mac, where the browser announces a right-click on the press rather than the release.",
+    ],
+  },
+  {
     version: "0.16",
     title: "Three more slabs, and words that stay put",
     summary: "The editor is three more quadrants of the wheel, every word is part of its button, and the line does two things.",

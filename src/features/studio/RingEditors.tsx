@@ -28,7 +28,7 @@ import {
 } from "./look";
 import { useStudio } from "./store";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
-import { ArcChips, ArcSlider, Caption, CONSOLE_HUE, Glued, SectorButton, type ArcItem, type Slab } from "./RingConsole";
+import { ArcChips, ArcSlider, Caption, CONSOLE, Glued, SectorButton, type ArcItem, type Slab } from "./RingConsole";
 
 /** The quadrants the console has been given, clockwise from the green. */
 export interface ConsoleSpan {
@@ -38,8 +38,8 @@ export interface ConsoleSpan {
   spin: number;
 }
 
-const face = (lit: boolean) => `oklch(${lit ? 0.5 : 0.44} ${lit ? 0.15 : 0.13} ${CONSOLE_HUE})`;
-const rim = `oklch(0.28 0.1 ${CONSOLE_HUE})`;
+/** The slab: grey, with the red kept for the aura round it. */
+const AURA = `drop-shadow(0 0 9px ${CONSOLE.aura}) drop-shadow(0 0 2px ${CONSOLE.aura})`;
 
 /* ------------------------------------------------------------------ */
 /* The shell                                                           */
@@ -77,17 +77,18 @@ export function QuadrantConsole({
                 d={d}
                 onPointerDown={onGrip}
                 className="pointer-events-auto cursor-grab active:cursor-grabbing"
-                fill={rim}
-                stroke={rim}
+                fill={CONSOLE.rim}
+                stroke={CONSOLE.rim}
                 strokeWidth={2 * 5 + 2.5}
                 strokeLinejoin="round"
                 strokeLinecap="round"
+                style={{ filter: AURA }}
               />
               <path
                 d={d}
                 className="pointer-events-none"
-                fill={face(false)}
-                stroke={face(false)}
+                fill={CONSOLE.face}
+                stroke={CONSOLE.face}
                 strokeWidth={2 * 5}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -102,7 +103,7 @@ export function QuadrantConsole({
             aria-label="Back to the menu"
             onClick={() => { play("close"); onBack(); }}
             className="pointer-events-auto flex size-6 items-center justify-center rounded-full"
-            style={{ background: `oklch(0.66 0.21 ${CONSOLE_HUE})`, color: "oklch(0.99 0.02 20)", boxShadow: "0 2px 5px oklch(0 0 0 / 0.5)" }}
+            style={{ background: CONSOLE.on, color: "oklch(0.99 0.02 27)", boxShadow: "0 2px 5px oklch(0 0 0 / 0.5)" }}
           >
             <X className="size-3.5" />
           </button>
@@ -157,7 +158,7 @@ export function HueQuads({
   const half = (sFrom + sTo) / 2;
 
   const targetItems: ArcItem[] = [
-    { id: "", label: "Follow the site", style: { background: "oklch(0.3 0.05 20)" }, glyph: <X className="size-3.5" style={{ color: "oklch(0.95 0.03 20)" }} /> },
+    { id: "", label: "Follow the site", style: { background: CONSOLE.well }, glyph: <X className="size-3.5" style={{ color: CONSOLE.text }} /> },
     ...ROLES.map((r): ArcItem => ({
       id: r,
       label: `Use the site's ${ROLE_LABEL[r].toLowerCase()}`,
@@ -211,7 +212,7 @@ export function HueQuads({
       <Glued at={[0, 0]} spin={spec.spin} w={64} h={22}>
         <span
           className="rounded-full px-2 py-0.5 text-[8.5px] font-semibold uppercase tracking-wider"
-          style={{ background: "oklch(0.22 0.04 20 / 0.9)", color: "oklch(0.96 0.04 20)", boxShadow: "0 1px 3px oklch(0 0 0 / 0.5)" }}
+          style={{ background: "oklch(0.2 0.01 260 / 0.9)", color: CONSOLE.text, boxShadow: "0 1px 3px oklch(0 0 0 / 0.5)" }}
         >
           {ROLE_LABEL[role]}
         </span>
@@ -271,8 +272,8 @@ export function TextureQuads({
         value={value ?? "site"}
         onPick={(id) => onChange(id === "site" ? null : id)}
         items={[
-          { id: "site", label: "Follow the site", style: { background: "oklch(0.34 0.05 20)" }, glyph: <span className="text-[7px] font-bold" style={{ color: "oklch(0.95 0.03 20)" }}>SITE</span> },
-          { id: "none", label: "No texture", style: { background: "oklch(0.24 0.03 20)" }, glyph: <X className="size-3.5" style={{ color: "oklch(0.9 0.03 20)" }} /> },
+          { id: "site", label: "Follow the site", style: { background: CONSOLE.well }, glyph: <span className="text-[7px] font-bold" style={{ color: CONSOLE.text }}>SITE</span> },
+          { id: "none", label: "No texture", style: { background: "oklch(0.24 0.008 260)" }, glyph: <X className="size-3.5" style={{ color: CONSOLE.text }} /> },
           ...layers.map((l, i): ArcItem => ({
             id: l.id,
             label: `${TEXTURE_KINDS.find((k) => k.id === l.kind)?.label ?? l.kind} (layer ${i + 1})`,
@@ -343,7 +344,7 @@ export function AuraQuads({
           label: `${ROLE_LABEL[r]} aura`,
           // The chip wears the thing it sets: a ring and a glow, not a fill.
           style: {
-            background: "oklch(0.24 0.03 20)",
+            background: "oklch(0.24 0.008 260)",
             border: `2px solid ${palette[r]}`,
             boxShadow: `0 0 10px ${palette[r]}, inset 0 0 6px ${palette[r]}`,
           },
@@ -366,7 +367,7 @@ export function AuraQuads({
             d={piece(show.from, show.to, hole, "edge", show.shape, show.rings)}
             className="pointer-events-none"
             fill="none"
-            stroke={glow ?? "oklch(0.5 0.05 20)"}
+            stroke={glow ?? "oklch(0.5 0.01 260)"}
             strokeWidth={glow ? 6 : 2}
             strokeLinejoin="round"
             strokeOpacity={glow ? 0.9 : 0.5}
@@ -397,7 +398,7 @@ export function PlateQuad({ slabs, children }: { slabs: Slab[]; children: React.
   const at = onCircle((s.from + s.to) / 2, (hole + reach) / 2 + 12);
   return (
     <Glued at={at} spin={s.spin} w={w + 32} h={w + 4} className="flex h-full w-full items-center justify-center">
-      <div data-ring-plate-box="" className="pointer-events-auto w-full rounded-lg p-2" style={{ background: `oklch(0.34 0.06 ${CONSOLE_HUE})`, boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.14), inset 0 -1px 0 oklch(0 0 0 / 0.3)" }}>
+      <div data-ring-plate-box="" className="pointer-events-auto w-full rounded-lg p-2" style={{ background: CONSOLE.well, boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.12), inset 0 -1px 0 oklch(0 0 0 / 0.3)" }}>
         {children}
       </div>
     </Glued>

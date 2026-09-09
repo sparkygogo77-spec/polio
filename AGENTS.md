@@ -423,7 +423,10 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   reaching for is never hidden behind a slab. The pull is measured from the
   same point the menu is drawn at: `openRadial`/`moveRadial` keep the menu on
   screen, so a menu opened near an edge does not pull its line from a point
-  that is not its middle.
+  that is not its middle. The right button being down is kept by hand (`held`)
+  as well as read off `buttons`, and the "swallow the next context menu" flag
+  is also cleared by the next press: on a Mac the browser fires `contextmenu`
+  on the press, and there is none on the release to swallow.
 - **While the menu is open the right button belongs to it.** The `contextmenu`
   is swallowed in the capture phase — the app's own menu listens further down
   and `preventDefault` alone does not stop it — and then there are exactly
@@ -517,6 +520,19 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   differently for warm, green and cool faces. A shade either way, never a
   bevel. `CONSOLES` names which choices get slabs of their own: the three that
   are about looks. The rest go on the plate.
+  **The slabs are grey with a red aura** (`CONSOLE` in `RingConsole.tsx`): a
+  neutral face, barely cool so it sits with the rest of the chrome, and the
+  red kept for the `drop-shadow` round each slab and for the one thing on a
+  slab that is *on*. A red slab with red controls had nothing left to say
+  "this one is picked", and a brown one read as mud.
+- **The eraser sweeps.** A press takes what is under it — a drawing first,
+  else a part — and the hold that follows is a `Drag` of kind `erase`: every
+  drawing the pointer crosses goes too, one history entry for the whole sweep.
+  Hits are measured by geometry (`hitShape`: distance to a pen polyline, an
+  arrow's segment, or a region's four edges) rather than by asking the browser
+  what is under the pointer, because a one-pixel pen line is not something a
+  moving pointer lands on. A sweep never takes a part: a part under a passing
+  eraser is not an instruction, and a part is erased by pressing on it.
 - **A dropped picture joins the site's stack.** The texture console's well
   calls `addTexture`, so what you add lands in the same rail as everything
   else and every other part can wear it. There is no separate library: the

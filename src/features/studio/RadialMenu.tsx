@@ -45,7 +45,7 @@ import {
   type Pt,
 } from "./menuGeometry";
 import { AuraQuads, HueQuads, PlateQuad, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
-import type { Slab } from "./RingConsole";
+import { CONSOLE, type Slab } from "./RingConsole";
 import { GLYPHS, HuePicker, OptionSet } from "./Inspector";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
@@ -328,8 +328,13 @@ export function RadialMenu() {
     if (!open) return;
     let stage: PullStage = "pull";
     let axis: Pt | null = null;
-    // Set once the line has been used, cleared by the context menu it swallows.
+    // Set once the line has been used, cleared by the context menu it swallows
+    // — or by the next press, on a Mac, where that event comes on the press
+    // and there is none on the release to swallow.
     let used = false;
+    // Whether the right button is down, kept by hand as well as read off
+    // `buttons`: a pen or a trackpad does not always report it.
+    let held = false;
     let grabbed = 0;
     let was = 0;
     let want = useStudio.getState().menuSpin;
@@ -350,9 +355,14 @@ export function RadialMenu() {
       useStudio.getState().setMenuSpin(now + d * 0.2);
       frame = requestAnimationFrame(step);
     };
-    const reset = () => { stage = "pull"; axis = null; show(null); };
+    const reset = () => { stage = "pull"; axis = null; held = false; show(null); };
+    const onDown = (e: PointerEvent) => {
+      if (e.button === 2) held = true;
+      // Whatever the last gesture was, this press is not its release.
+      used = false;
+    };
     const onMove = (e: PointerEvent) => {
-      if (!(e.buttons & 2)) return reset();
+      if (!(e.buttons & 2) && !held) return reset();
 
       if (stage === "moving") {
         // Loose: the menu is under your hand, holding the offset it had when
@@ -403,7 +413,9 @@ export function RadialMenu() {
       }
       show({ dx, dy, grip, stage, axis });
     };
-    const onUp = () => reset();
+    const onUp = (e: PointerEvent) => {
+      if (e.type === "pointercancel" || e.button === 2 || !(e.buttons & 2)) reset();
+    };
     /*
      * While the menu is open, the right button belongs to it.
      *
@@ -427,12 +439,16 @@ export function RadialMenu() {
       if (id) openRadial(id, e.clientX, e.clientY);
       else closeRadial();
     };
+    window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     window.addEventListener("contextmenu", onMenu, true);
     return () => {
+      window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("contextmenu", onMenu, true);
       if (frame) cancelAnimationFrame(frame);
     };
@@ -896,7 +912,7 @@ function Row({ label, children }: { label?: string; children: React.ReactNode })
   return (
     <label className="mb-2 flex flex-col gap-1 last:mb-0">
       {label ? (
-        <span className="text-[9px] uppercase tracking-wider" style={{ color: "oklch(0.94 0.06 20)" }}>{label}</span>
+        <span className="text-[9px] uppercase tracking-wider" style={{ color: CONSOLE.text }}>{label}</span>
       ) : null}
       {children}
     </label>
@@ -961,7 +977,7 @@ function PlainEditor({ which, node }: { which: string; node: StudioNode }) {
             aria-label="No glyph"
             onClick={() => update({ glyph: null })}
             className="flex size-6 items-center justify-center rounded-sm border text-[10px]"
-            style={{ borderColor: node.glyph === null ? "oklch(0.92 0.05 20)" : "oklch(0.62 0.2 18)" }}
+            style={{ borderColor: node.glyph === null ? CONSOLE.on : "oklch(0.52 0.01 260)" }}
           >
             <PaletteIcon className="size-3" />
           </button>
@@ -972,7 +988,7 @@ function PlainEditor({ which, node }: { which: string; node: StudioNode }) {
               aria-label={`Glyph ${g}`}
               onClick={() => update({ glyph: g })}
               className="flex size-6 items-center justify-center rounded-sm border text-xs"
-              style={{ borderColor: node.glyph === g ? "oklch(0.92 0.05 20)" : "oklch(0.62 0.2 18)" }}
+              style={{ borderColor: node.glyph === g ? CONSOLE.on : "oklch(0.52 0.01 260)" }}
             >
               {g}
             </button>
@@ -1005,7 +1021,7 @@ function PlainEditor({ which, node }: { which: string; node: StudioNode }) {
         )}
       </div>
     ) : (
-      <p className="text-[10px]" style={{ color: "oklch(0.92 0.05 20)" }}>This part has nothing to set.</p>
+      <p className="text-[10px]" style={{ color: CONSOLE.text }}>This part has nothing to set.</p>
     );
   }
   if (which === "entrance") {

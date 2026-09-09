@@ -38,7 +38,7 @@ const MIN_H = 24;
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 interface Drag {
-  kind: "node" | "marquee" | "pan" | "draw" | "resize";
+  kind: "node" | "marquee" | "pan" | "draw" | "resize" | "erase";
   startX: number;
   startY: number;
   ids?: string[];
@@ -292,10 +292,22 @@ export function Canvas() {
     }
 
     if (tool === "erase") {
+      // A press erases what is under it — a drawing first, else a part. Then
+      // the hold is a sweep: everything drawn that the pointer passes over
+      // goes too, and the whole sweep is one step back for undo.
       const shapeEl = target.closest?.("[data-shape-id]") as HTMLElement | null;
-      if (shapeEl?.dataset.shapeId) store.removeShapes([shapeEl.dataset.shapeId]);
+      const near = hitShape(shapes, p.x, p.y, 10 / zoom);
+      let took = true;
+      if (shapeEl?.dataset.shapeId && shapeEl.dataset.shapeId !== "live") store.removeShapes([shapeEl.dataset.shapeId]);
+      else if (near) store.removeShapes([near.id]);
       else if (nodeEl?.dataset.nodeId) store.removeNodes([nodeEl.dataset.nodeId]);
-      play("deny");
+      else took = false;
+      if (took) play("deny");
+      capture();
+      // `moved` here means "a history step has been written": a press that
+      // took something wrote one, and the sweep joins it; a press on nothing
+      // leaves it to the sweep's first hit.
+      setDrag({ kind: "erase", startX: p.x, startY: p.y, moved: took });
       return;
     }
 
@@ -371,6 +383,23 @@ export function Canvas() {
       const pts: [number, number][] = tool === "pen" ? [...(drag.points ?? []), [p.x, p.y]] : [[drag.startX, drag.startY], [p.x, p.y]];
       setDrag({ ...drag, points: pts });
       setInk(pts);
+      return;
+    }
+
+    if (drag.kind === "erase") {
+      // The sweep. Drawings only: a part under a passing eraser is not an
+      // instruction, and a part is erased by pressing on it.
+      const live = store.shapes.filter((sh) => sh.pageId === page.id);
+      const hit = hitShape(live, p.x, p.y, 10 / zoom);
+      if (!hit) return;
+      // One step back for the whole sweep, written by whichever came first:
+      // the press, or this hit.
+      if (!drag.moved) {
+        store.commit();
+        setDrag({ ...drag, moved: true });
+      }
+      useStudio.setState((s) => ({ shapes: s.shapes.filter((sh) => sh.id !== hit.id), selection: s.selection.filter((id) => id !== hit.id) }));
+      play("tap");
     }
   };
 
@@ -538,6 +567,44 @@ export function Canvas() {
 
 function hitNode(nodes: StudioNode[], x: number, y: number): StudioNode | null {
   return nodes.find((n) => x >= n.x - 8 && x <= n.x + n.w + 8 && y >= n.y - 8 && y <= n.y + n.h + 8) ?? null;
+}
+
+/** Distance from a point to a segment. */
+function toSegment(px: number, py: number, a: [number, number], b: [number, number]): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / len2));
+  return Math.hypot(px - (a[0] + t * dx), py - (a[1] + t * dy));
+}
+
+/**
+ * The drawing within `tol` of a point, by geometry rather than by pixels.
+ *
+ * The eraser used to ask the browser what was under the pointer, which for a
+ * one-pixel pen line meant hitting the line exactly. A sweep has to catch the
+ * line it crosses, so the shapes are measured instead: a pen stroke as its
+ * polyline, an arrow as its one segment, a region as the four edges of its
+ * box (its inside is empty, and a sweep across an empty region should not
+ * take the region).
+ */
+function hitShape(shapes: StudioShape[], x: number, y: number, tol: number): StudioShape | null {
+  let best: StudioShape | null = null;
+  let bestD = tol;
+  for (const sh of shapes) {
+    const pts = sh.points;
+    if (pts.length < 2) continue;
+    let d = Infinity;
+    if (sh.kind === "frame") {
+      const [a, b] = [pts[0]!, pts[pts.length - 1]!];
+      const corners: [number, number][] = [a, [b[0], a[1]], b, [a[0], b[1]]];
+      for (let i = 0; i < 4; i++) d = Math.min(d, toSegment(x, y, corners[i]!, corners[(i + 1) % 4]!));
+    } else {
+      for (let i = 1; i < pts.length; i++) d = Math.min(d, toSegment(x, y, pts[i - 1]!, pts[i]!));
+    }
+    if (d < bestD) { bestD = d; best = sh; }
+  }
+  return best;
 }
 
 function penPath(points: [number, number][]): string {
