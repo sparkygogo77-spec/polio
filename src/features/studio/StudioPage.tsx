@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  ArrowUpRight, Circle, Eraser, Eye, FileText, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Canvas } from "./Canvas";
@@ -38,7 +38,7 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "select", label: "Select & move", icon: MousePointer2, shortcut: "v" },
   { id: "pen", label: "Draw freehand", icon: Pencil, shortcut: "d" },
   { id: "frame", label: "Draw a region", icon: Frame, shortcut: "r" },
-  { id: "arrow", label: "Connect two elements", icon: ArrowUpRight, shortcut: "a" },
+  { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
   { id: "erase", label: "Erase", icon: Eraser, shortcut: "e" },
   { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
 ];

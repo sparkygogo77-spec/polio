@@ -6,10 +6,14 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { AlignCenter, AlignLeft, AlignRight, ClipboardPaste, Group, Layers, Lightbulb, Lock, MousePointerClick, Palette as PaletteIcon, Scissors, Trash2, Unlock } from "lucide-react";
+import {
+  AlignCenter, AlignLeft, AlignRight, Brush, ClipboardPaste, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Paintbrush, Palette as PaletteIcon, Play,
+  Scissors, SlidersHorizontal, Sparkles, SunDim, Trash2, Type, Unlock, Wand2,
+} from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
-import { lands } from "./look";
+import { lands, speedWord, type Look } from "./look";
+import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
 import { resolvePalette } from "./parts/theme";
@@ -72,6 +76,56 @@ export function OptionSet({ option, value, onChange }: { option: FeatureOption; 
 }
 
 /**
+ * What has been set on a thing, as a row of coloured keys.
+ *
+ * Every design decision the wheel writes — an entrance, an aura, a font, a
+ * colour, a texture, a link, the options, a drawing; the page's fill, veil,
+ * colour and layers — is tracked here where it can be seen, each marked
+ * with an icon in its own colour, so nothing set on the board is invisible
+ * in the panel.
+ */
+interface Design { icon: React.ReactNode; label: string; hue: number }
+function Designs({ items }: { items: Design[] }) {
+  if (!items.length) return null;
+  return (
+    <div data-designs="" className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
+      {items.map((it, i) => (
+        <span key={i} data-design="" className="flex h-5 items-center gap-1 rounded-[4px] bg-elevated pl-0.5 pr-1.5 text-[10px] text-fg" style={{ border: "1px solid var(--border)" }}>
+          <span className="flex size-4 items-center justify-center rounded-[3px] [&_svg]:size-2.5" style={{ background: `oklch(0.66 0.17 ${it.hue})`, color: "oklch(0.99 0 0)" }}>
+            {it.icon}
+          </span>
+          {it.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+function nodeDesigns(n: StudioNode): Design[] {
+  const out: Design[] = [];
+  if (n.anim) out.push({ icon: <Play />, label: `${n.anim.replace(/^el-/, "")} · ${speedWord(n.animSpeed)}`, hue: 205 });
+  if (n.aura) out.push({ icon: <Sparkles />, label: `aura · ${n.auraStyle}`, hue: 330 });
+  if (n.font) out.push({ icon: <Type />, label: n.font.family ?? "type", hue: 62 });
+  if (n.colour && Object.keys(n.colour).length) out.push({ icon: <PaletteIcon />, label: "colour", hue: 150 });
+  if (n.texture) out.push({ icon: <Grid2x2 />, label: n.texture === "none" ? "no texture" : "texture", hue: 278 });
+  if (n.link) out.push({ icon: <Link2 />, label: `links to a ${n.link.kind}`, hue: 22 });
+  const opts = Object.keys(n.options ?? {}).length;
+  if (opts) out.push({ icon: <SlidersHorizontal />, label: `${opts} option${opts === 1 ? "" : "s"}`, hue: 100 });
+  if (n.sketch?.strokes.length) out.push({ icon: <Brush />, label: "drawn", hue: 245 });
+  if (n.prompt.trim()) out.push({ icon: <Wand2 />, label: "words", hue: 350 });
+  return out;
+}
+function backgroundDesigns(look: Look, format: FormatValues): Design[] {
+  const out: Design[] = [];
+  const fill = String(format["palette.background"] ?? "flat");
+  if (fill !== "flat") out.push({ icon: <Paintbrush />, label: fill, hue: 205 });
+  if (look.veil && look.veil > 0.005) out.push({ icon: <SunDim />, label: `veil ${Math.round(look.veil * 100)}%`, hue: 278 });
+  if (look.palette.bg) out.push({ icon: <PaletteIcon />, label: "page colour", hue: 150 });
+  const layers = (look.texture ?? []).filter((l) => l.on && lands(l, "page")).length;
+  if (layers) out.push({ icon: <Layers />, label: `${layers} texture${layers === 1 ? "" : "s"}`, hue: 330 });
+  return out;
+}
+
+/**
  * The background, picked: what the page is painted with before any part.
  *
  * The fill is the format's own background choice; the layers are the ones
@@ -99,6 +153,7 @@ function BackgroundInspector() {
           </Button>
         </Tooltip>
       </div>
+      <Designs items={backgroundDesigns(look, format)} />
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {/* Not a Field: a <label> round a radio group names its first radio after the field. */}
         <div className="mb-3">
@@ -416,6 +471,7 @@ export function Inspector() {
         </Button>
       </div>
 
+      <Designs items={nodeDesigns(node)} />
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         <Field label="Name">
           <Input value={node.label} onChange={(e) => update({ label: e.target.value })} />

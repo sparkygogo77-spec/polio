@@ -25,6 +25,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.25",
+    title: "More on the wheel, and the chain",
+    summary: "The tray under the wheel is a piece of it; the page's editors waste no slab; icon keys wear their own colours; a wire between two parts seats with a snap; the palette is a console.",
+    sketch: "planets",
+    added: [
+      "More is the eighth piece of the wheel, beside the pencil: Preview here, Forward, Backward, Copy looks and Paste looks open as green pieces that fire on the spot. Nothing hangs under the wheel any more.",
+      "The page's Looks are Color and Texture, and Color is one editor with no empty slab: the spectrum, the fill keys with the recent colours inside them, and the veil. Edit is the page's width as keys, with Fit in view and the wires beside it.",
+      "Every icon key wears its own colour — opaque, a shade bright, white lines on it and dark ones on the yellows — so a row of kinds reads as a row of different things.",
+      "Connect is a chain now: the wire's ends seat on the two parts' edges, it draws itself on with a snap, both parts ring once, and the source sends people to the target when it is a thing that links.",
+      "Everything set on a part or the page is tracked in the panel as a row of coloured keys — entrance, aura, font, colour, texture, link, options, drawing, words; fill, veil, page colour, layers.",
+      "The command palette is a console: a void panel with a lit rim, the search field a screen, every entry an icon key in its own colour. The chrome round everything leans into the void too — a shade, not a colour.",
+      "The drawing board's snap, smooth and raw are three icon keys on the rim.",
+    ],
+  },
+  {
     version: "0.24",
     title: "Claude sees the site",
     summary: "Every prompt from the blueprint dialog goes with screenshots of the pages, seven kinds of ask including your own words and the code, and Publish pushes the site to GitHub and on to Vercel.",

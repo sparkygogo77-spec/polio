@@ -13,19 +13,19 @@
  * near the pointer and an outer block beyond it. That is what gives six
  * buttons out of three quadrants without any of them being a sliver.
  *
- *          empty  │  Animation · pencil (inner) · Draw (outer)
+ *          empty  │  Animation · pencil · More (inner) · Draw (outer)
  *        ─────────●─────────
  *         Delete  │  Duplicate · Edit (inner) · Looks (outer)
- *                 ⋯  the tray: preview here, forward, back, copy/paste looks
  *
  * Delete is the whole quadrant under the empty one, undivided — the same
  * outline as the quadrant opposite it, mirrored, so it reads as one slab and
  * never as a sliver you could hit by accident. The two working quadrants
- * are cut the same way: two icons on the inner band, one word on the outer
- * block, so a hand that has learned one has learned the other. Under the
- * wheel hangs a small tab that opens on hover: the few things that are about
- * the part but not about editing it, kept off the wheel so the wheel stays
- * the wheel.
+ * are cut the same way: icons on the inner band, one word on the outer
+ * block, so a hand that has learned one has learned the other. More is the
+ * few things that are about the part but not about editing it — seeing it
+ * live, its place among the others, carrying its looks — as a piece of the
+ * wheel: they hung under it on a tab once, and a tab outside the wheel was
+ * a bar sticking out of an object.
  *
  * Levels:
  *   1  blue     the seven above, plus the lock in the middle
@@ -43,7 +43,7 @@
 import * as React from "react";
 import {
   Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Layers, Link2, ListTree, Lock, Orbit,
-  Paintbrush, Palette as PaletteIcon, Pencil, Pipette, Play, Scissors, SlidersHorizontal, Sparkles, SunDim, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
+  Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Scissors, SlidersHorizontal, Sparkles, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
 import { BackgroundEditor } from "./BackgroundEditors";
@@ -56,7 +56,7 @@ import {
 import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { PlateEditor } from "./PlateEditors";
 import { DrawBoard } from "./DrawBoard";
-import { CONSOLE, HoverTray, type Slab, type TrayItem } from "./RingConsole";
+import { CONSOLE, type Slab, type TrayItem } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { auraColour, newLayer, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
@@ -184,7 +184,7 @@ interface Pull {
 /* What is on it                                                       */
 /* ------------------------------------------------------------------ */
 
-type SlotId = "anim" | "write" | "draw" | "duplicate" | "edit" | "look" | "delete";
+type SlotId = "anim" | "write" | "more" | "draw" | "duplicate" | "edit" | "look" | "delete";
 
 interface Slot {
   id: SlotId;
@@ -204,6 +204,11 @@ const SLOTS: Record<SlotId, Slot> = {
   // in it, where it sends people, and (a placeholder for now) its priority.
   // It was "Prompt" with the word on it; the word said less than the pencil.
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
+  // More: the few things that are about the part but not about editing it —
+  // seeing it live, its place among the others, carrying its looks. They
+  // hung under the wheel on a tab once; a tab outside the wheel was a
+  // bar sticking out of an object, so they are a piece of it now.
+  more: { id: "more", label: "More", icon: Ellipsis, hue: 205, kind: "group" },
   // The outer top-right slab. It does not open a level: the whole wheel
   // becomes the drawing board, and what is drawn there reshapes the part.
   draw: { id: "draw", label: "Draw", icon: Brush, hue: 205, kind: "board" },
@@ -234,7 +239,12 @@ interface Choice {
   icon: typeof Wand2;
   /** Fires on the spot; without one the choice opens its editor. */
   act?: () => void;
+  /** Drawn dimmer: there is nothing for it to do right now. */
+  dim?: boolean;
 }
+
+/** The icons the More pieces wear, by the tray item they came from. */
+const TRAY_ICON: Record<string, typeof Wand2> = { preview: Eye, forward: ChevronsUp, back: ChevronsDown, copy: Pipette, paste: ClipboardPaste };
 
 /** The options a part offers that are about motion: they sit under Animation, not Edit. */
 function motionOptions(node: StudioNode) {
@@ -297,6 +307,7 @@ function choicesFor(group: SlotId, node: StudioNode): Choice[] {
 const SLOTS_BG: Record<SlotId, Slot> = {
   anim: { id: "anim", label: "Motion", icon: Play, hue: 205, kind: "group" },
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
+  more: { id: "more", label: "More", icon: Ellipsis, hue: 205, kind: "group" },
   draw: { id: "draw", label: "Picture", icon: ImagePlus, hue: 205, kind: "action" },
   duplicate: { id: "duplicate", label: "Cut", icon: Scissors, hue: 205, kind: "action" },
   edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
@@ -308,23 +319,25 @@ const SLOTS_BG: Record<SlotId, Slot> = {
 function bgChoicesFor(group: SlotId): Choice[] {
   switch (group) {
     case "look":
-      // The page's colour, the texture layers that land on it, and a veil.
+      // Color is one editor: the page's colour off the spectrum, the fill
+      // and the veil beside it — three slabs, none empty. Texture is the
+      // layers that land on the page.
       return [
-        { id: "bg-hue", label: "Colour", icon: PaletteIcon },
+        { id: "bg-color", label: "Color", icon: PaletteIcon },
         { id: "bg-texture", label: "Texture", icon: Grid2x2 },
-        { id: "veil", label: "Veil", icon: SunDim },
       ];
     case "anim":
       // A motion asset behind the page: the place is here, the crate is not wired to it yet.
       return [{ id: "motion-soon", label: "Motion asset (soon)", icon: Film, act: () => play("tap") }];
     case "write":
-      // The page's own words, and (a placeholder) a background of its own per page.
+      // The page's own words.
+      return [{ id: "page-words", label: "Words", icon: Wand2 }];
+    case "edit":
+      // How the page is built: its width, and (a placeholder) a background of its own per page.
       return [
-        { id: "page-words", label: "Words", icon: Wand2 },
+        { id: "width", label: "Width", icon: Monitor },
         { id: "pages-soon", label: "Per page (soon)", icon: Files, act: () => play("tap") },
       ];
-    case "edit":
-      return [{ id: "fill", label: "Fill", icon: Paintbrush }];
     default:
       return [];
   }
@@ -610,7 +623,6 @@ export function RadialMenu() {
   }
   if (!node && !bg) return null;
   const slots = bg ? SLOTS_BG : SLOTS;
-  const choicesOf = (g: SlotId) => (bg ? bgChoicesFor(g) : choicesFor(g, node!));
 
   const fire = (id: SlotId) => {
     if (bg) {
@@ -648,11 +660,16 @@ export function RadialMenu() {
   const topMid = (topA + topB) / 2;
 
   const B = BLUE_RINGS;
+  // The top quadrant's inner band carries three icons — Animation, the
+  // pencil, and More — where the bottom one carries two; the outer block is
+  // still one word, Draw.
+  const t1 = topA + (topB - topA) / 3;
+  const t2 = topA + (2 * (topB - topA)) / 3;
+  void topMid;
   const level1: { slot: Slot; d: string; at: Pt }[] = [
-    // The top quadrant is cut like the bottom one: two icons on the inner
-    // band — Animation and the pencil — and one word on the outer block, Draw.
-    { slot: slots.anim, d: piece(topA, topMid, B.hole, B.mid, shape, B), at: middleOf(topA, topMid, B.hole, B.mid, shape, B) },
-    { slot: slots.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
+    { slot: slots.anim, d: piece(topA, t1, B.hole, B.mid, shape, B), at: middleOf(topA, t1, B.hole, B.mid, shape, B) },
+    { slot: slots.write, d: piece(t1, t2, B.hole, B.mid, shape, B), at: middleOf(t1, t2, B.hole, B.mid, shape, B) },
+    { slot: slots.more, d: piece(t2, topB, B.hole, B.mid, shape, B), at: middleOf(t2, topB, B.hole, B.mid, shape, B) },
     { slot: slots.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
     { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
     { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
@@ -690,6 +707,12 @@ export function RadialMenu() {
         },
         { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node!.id, { ...carriedLooks }); } },
       ];
+
+  // More is the tray's items as green pieces, each firing on the spot.
+  const choicesOf = (g: SlotId): Choice[] => {
+    if (g === "more") return tray.map((it) => ({ id: it.id, label: it.label, icon: TRAY_ICON[it.id] ?? Ellipsis, dim: it.disabled, act: () => { if (!it.disabled) it.onClick(); else play("deny"); } }));
+    return bg ? bgChoicesFor(g) : choicesFor(g, node!);
+  };
 
   /* ---------------------------------------------------------- level 2 */
   const group = picked && !onBoard ? slots[picked] : null;
@@ -733,7 +756,7 @@ export function RadialMenu() {
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-hue", "bg-texture", "veil", "fill"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "width"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,
@@ -851,9 +874,10 @@ export function RadialMenu() {
                 d: p.d,
                 at: p.at,
                 on: p.choice.id === subPick,
+                dim: p.choice.dim,
                 preview:
                   bg
-                    ? p.choice.id === "bg-hue"
+                    ? p.choice.id === "bg-color"
                       ? <span className="block size-[18px] rounded-[4px]" style={{ background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
                       : undefined
                     : p.choice.id === "hue" ? <HueSwatch node={node!} palette={palette} />
@@ -897,16 +921,6 @@ export function RadialMenu() {
           it live, its place among the others, carrying its looks. It hangs
           under whichever level is up, and steps aside for the board.
         */}
-        {onBoard ? null : (
-          <HoverTray
-            testId={bg ? "background" : "part"}
-            at={[0, (picked ? GREEN_RINGS.reach : BLUE_RINGS.reach) + TRAY_DROP]}
-            icon={<Ellipsis className="size-3.5" />}
-            label={bg ? "More for the page" : "More for this part"}
-            items={tray}
-          />
-        )}
-
         {/* The background's Picture piece: the file it takes becomes a texture layer on the page. */}
         {bg ? (
           <input
@@ -1032,6 +1046,8 @@ interface RingPiece {
   preview?: React.ReactNode;
   /** A colour to glow in — the piece wears the aura it would set. */
   glow?: string | null;
+  /** Nothing to do right now: drawn dimmer, still there. */
+  dim?: boolean;
   onPick: () => void;
 }
 
@@ -1075,7 +1091,7 @@ function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; s
           return (
             <g
               key={p.id}
-              style={{ transform: `translate(${n[0]}px, ${n[1]}px)`, transition: "transform 130ms ease-out" }}
+              style={{ transform: `translate(${n[0]}px, ${n[1]}px)`, transition: "transform 130ms ease-out", opacity: p.dim ? 0.45 : 1 }}
             >
               <path
                 role="button"

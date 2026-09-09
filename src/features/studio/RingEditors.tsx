@@ -35,7 +35,7 @@ import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
-  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, phosphorAt, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA,
+  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, phosphorAt, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA,
   type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
 
@@ -465,20 +465,21 @@ const SLIDES: { id: string; label: string; glyph: React.ReactNode }[] = [
   { id: "el-right", label: "From the right", glyph: <ArrowLeft className="size-3" /> },
 ];
 const SLIDE_IDS = new Set(SLIDES.map((s) => s.id));
-/** The kinds of entrance, as keys on the screen: an icon each, the word on the tooltip. */
+/** The kinds of entrance, as keys on the screen: an icon each in its own colour, the word on the tooltip. */
 const ENTRANCE_TYPES: ArcItem[] = [
   { id: "", label: "No entrance", style: SCREEN_KEY, glyph: <Ban className="size-3" /> },
-  { id: "el-fade", label: "Fade in", style: SCREEN_KEY, glyph: <Blend className="size-3" /> },
-  { id: "slide", label: "Slide in", style: SCREEN_KEY, glyph: <MoveRight className="size-3" /> },
-  { id: "el-grow", label: "Grow", style: SCREEN_KEY, glyph: <Expand className="size-3" /> },
-  { id: "el-blur", label: "Come into focus", style: SCREEN_KEY, glyph: <Focus className="size-3" /> },
-  { id: "el-flip", label: "Tip up", style: SCREEN_KEY, glyph: <FlipVertical2 className="size-3" /> },
+  { id: "el-fade", label: "Fade in", style: keyOf(0), glyph: <Blend className="size-3" /> },
+  { id: "slide", label: "Slide in", style: keyOf(1), glyph: <MoveRight className="size-3" /> },
+  { id: "el-grow", label: "Grow", style: keyOf(2), glyph: <Expand className="size-3" /> },
+  { id: "el-blur", label: "Come into focus", style: keyOf(3), glyph: <Focus className="size-3" /> },
+  { id: "el-flip", label: "Tip up", style: keyOf(4), glyph: <FlipVertical2 className="size-3" /> },
 ];
 const EASE_GLYPH: Record<AnimEase, React.ReactNode> = {
   smooth: <Spline className="size-3" />,
   snappy: <Zap className="size-3" />,
   bouncy: <Activity className="size-3" />,
 };
+const EASE_KEY: Record<AnimEase, React.CSSProperties> = { smooth: keyOf(5), snappy: keyOf(6), bouncy: keyOf(7) };
 
 /**
  * The entrance, shown by a slab.
@@ -569,7 +570,7 @@ export function AnimQuads({
       <ArcChips
         slab={entrance}
         tone="screen"
-        items={SLIDES.map((s) => ({ id: s.id, label: s.label, style: SCREEN_KEY, glyph: s.glyph }))}
+        items={SLIDES.map((s, i) => ({ id: s.id, label: s.label, style: keyOf(8 + i), glyph: s.glyph }))}
         radius={hole + 24}
         size={18}
         value={SLIDE_IDS.has(anim) ? anim : null}
@@ -584,7 +585,7 @@ export function AnimQuads({
       {/* the rest: the wait as a slider, the easing as keys */}
       <ArcSlider slab={extras} tone="screen" live={false} from={extras.from + PAD} to={extras.to - PAD} {...bandOf(extras)} label="Delay"
         value={wait / DELAY_MS} colourAt={phosphorAt} onChange={(f) => onChange({ animDelay: Math.round((f * DELAY_MS) / 10) * 10 })} />
-      <ArcChips slab={extras} tone="screen" items={ANIM_EASE.map((e) => ({ id: e.id, label: `${e.label} easing`, style: SCREEN_KEY, glyph: EASE_GLYPH[e.id] }))}
+      <ArcChips slab={extras} tone="screen" items={ANIM_EASE.map((e) => ({ id: e.id, label: `${e.label} easing`, style: EASE_KEY[e.id], glyph: EASE_GLYPH[e.id] }))}
         radius={chipsAt(extras)} size={24} value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
       <Caption slab={extras}>{`Delay · ${wait ? `${wait} ms` : "none"}`}</Caption>
 

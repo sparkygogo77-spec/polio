@@ -29,17 +29,20 @@
   --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --font-body: var(--font-sans);
 
-  /* Dark palette (default) */
-  --bg: oklch(0.135 0.003 var(--accent-h));
-  --panel: oklch(0.16 0.004 var(--accent-h));
-  --elevated: oklch(0.19 0.005 var(--accent-h));
-  --hover: oklch(0.225 0.006 var(--accent-h));
-  --active: oklch(0.265 0.007 var(--accent-h));
-  --border: oklch(0.26 0.006 var(--accent-h));
-  --border-strong: oklch(0.36 0.008 var(--accent-h));
-  --fg: oklch(0.93 0.005 var(--accent-h));
-  --fg-muted: oklch(0.68 0.008 var(--accent-h));
-  --fg-faint: oklch(0.5 0.008 var(--accent-h));
+  /* Dark palette (default): the chrome leans into the void — the Builder's
+     dark purple-blue — a shade, not a colour. Grey went from the wheel; it
+     goes from the walls too. */
+  --void-h: 288;
+  --bg: oklch(0.13 0.012 var(--void-h));
+  --panel: oklch(0.155 0.016 var(--void-h));
+  --elevated: oklch(0.19 0.02 var(--void-h));
+  --hover: oklch(0.23 0.026 var(--void-h));
+  --active: oklch(0.27 0.03 var(--void-h));
+  --border: oklch(0.27 0.03 var(--void-h));
+  --border-strong: oklch(0.38 0.045 var(--void-h));
+  --fg: oklch(0.93 0.008 var(--void-h));
+  --fg-muted: oklch(0.68 0.016 var(--void-h));
+  --fg-faint: oklch(0.5 0.02 var(--void-h));
   --accent: oklch(0.76 0.13 var(--accent-h));
   --accent-strong: oklch(0.83 0.15 var(--accent-h));
   --accent-fg: oklch(0.14 0.03 var(--accent-h));
@@ -306,6 +309,21 @@
 
 /* The menu's demo of an entrance: a ghost of the slab arrives, then goes. */
 @keyframes ghost-out { to { opacity: 0; } }
+
+/* A wire that has just joined two parts: drawn on, then a small overshoot as it seats. */
+@keyframes wire-snap {
+  0% { stroke-dashoffset: var(--wire-len, 400); opacity: 0.6; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  85% { stroke-width: calc(var(--wire-w, 3px) * 1.8); }
+  100% { stroke-dashoffset: 0; stroke-width: var(--wire-w, 3px); opacity: 1; }
+}
+/* The part a wire has just seated into: a quick ring of the accent that settles. */
+@keyframes node-snap {
+  0% { box-shadow: 0 0 0 0 var(--accent); }
+  35% { box-shadow: 0 0 0 5px var(--accent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.node-snap { animation: node-snap 520ms cubic-bezier(0.2, 0.9, 0.2, 1) both; }
 
 @keyframes marquee-scroll { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
 @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

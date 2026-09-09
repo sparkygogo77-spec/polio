@@ -1,5 +1,5 @@
 import {
-  ArrowUpRight, Brush, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Lock,
+  Brush, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Link, Lock,
   MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
   Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, EyeOff, Link2, Link2Off, Scissors, ClipboardPaste,
 } from "lucide-react";
@@ -469,7 +469,7 @@ export const studio = defineFeature({
               { id: "tool.select", label: "Select & move", icon: MousePointer2, shortcut: "v", checked: s.tool === "select", onSelect: () => s.setTool("select") },
               { id: "tool.pen", label: "Draw freehand", icon: Pencil, shortcut: "d", checked: s.tool === "pen", onSelect: () => s.setTool("pen") },
               { id: "tool.frame", label: "Draw a region", icon: Frame, shortcut: "r", checked: s.tool === "frame", onSelect: () => s.setTool("frame") },
-              { id: "tool.arrow", label: "Connect elements", icon: ArrowUpRight, shortcut: "a", checked: s.tool === "arrow", onSelect: () => s.setTool("arrow") },
+              { id: "tool.arrow", label: "Connect elements", icon: Link, shortcut: "a", checked: s.tool === "arrow", onSelect: () => s.setTool("arrow") },
               { id: "tool.erase", label: "Erase", icon: Eraser, shortcut: "e", checked: s.tool === "erase", onSelect: () => s.setTool("erase") },
               { id: "tool.pan", label: "Pan", icon: Hand, shortcut: "h", checked: s.tool === "pan", onSelect: () => s.setTool("pan") },
             ],

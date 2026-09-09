@@ -91,9 +91,30 @@ same boxes as everywhere else, in the screen's colours.
   Behaviour slabs; columns, density, shape stay on the Options screen.
 - **Nothing on the disc's face.** The drawing board's whole face is drawing
   surface. Back is on the rim; Make real and Clear are in the tray under it.
-- **The tray is for what is about the part but not about editing it.** Preview
-  here, forward, back, copy and paste looks. A tab, not a row, until the hand
-  goes to it.
+- **Nothing hangs off the wheel.** What is about the part but not about
+  editing it — preview here, forward, back, copy and paste looks — is the
+  More piece, the third icon on the top inner band, opening into green
+  pieces that fire on the spot. A tab outside the wheel was a bar sticking
+  out of an object. The drawing board keeps its tray under the disc, because
+  the disc has no band to put a piece on.
+- **Never an empty slab.** An editor that would leave a slab bare is folded
+  into its neighbour: the page's colour, fill and veil are one Color editor;
+  its width comes with Fit in view and the wires beside it. A slab with only
+  an X on it is a slab wasted.
+- **Icon keys wear their own colours.** Opaque, a shade bright, far enough
+  apart round the wheel to tell at a glance (`KEY_HUES`, `keyOf`), white
+  lines on them and dark ones on the yellows. A row of kinds reads as a row
+  of different things.
+- **A wire seats.** Connect is a chain: the ends snap to the two parts'
+  edges, the wire draws itself on, both parts ring once, and the source
+  links to the target when it can. A connection that does nothing is a
+  drawing, not a connection.
+- **Every design is tracked where it can be seen.** What the wheel writes on
+  a part or the page shows in the panel as a row of coloured keys, each with
+  an icon. If a setting cannot be seen in the preview, it is still there.
+- **The chrome is the void too.** The palette, the panels and the walls
+  lean into the same dark purple-blue, a shade rather than a colour; the
+  command palette is a console with a screen for its search field.
 - **The blueprint is the product.** Every field a part gains must reach
   `spec.ts` in words an agent can act on the same session. If the board can set
   it and the blueprint cannot say it, it is not done.

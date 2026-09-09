@@ -13,6 +13,7 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
+import { isLinkable } from "./parts";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
@@ -83,6 +84,14 @@ export function Canvas() {
   const [drag, setDrag] = React.useState<Drag | null>(null);
   const [marquee, setMarquee] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ink, setInk] = React.useState<[number, number][] | null>(null);
+  // A wire that has just joined two parts: the wire draws itself on and
+  // both parts ring once. Kept for half a second, then forgotten.
+  const [fresh, setFresh] = React.useState<{ wire: string; nodes: string[] } | null>(null);
+  React.useEffect(() => {
+    if (!fresh) return;
+    const t = window.setTimeout(() => setFresh(null), 700);
+    return () => window.clearTimeout(t);
+  }, [fresh]);
   const [guides, setGuides] = React.useState<Guides>({ x: [], y: [] });
 
   /** Screen → canvas coordinates. */
@@ -441,9 +450,18 @@ export function Canvas() {
       const to = kind === "arrow" ? hitNode(nodes, pts[pts.length - 1]![0], pts[pts.length - 1]![1]) : null;
       const dist = Math.hypot(pts[pts.length - 1]![0] - pts[0]![0], pts[pts.length - 1]![1] - pts[0]![1]);
       if (kind === "pen" || dist > 16) {
-        store.addShape({ pageId: store.activePageId, kind, points: pts, hue: inkHue, width: inkWidth, label: "", prompt: "", relation: "flow",
-        fromNodeId: from?.id ?? null, toNodeId: to?.id ?? null });
-        play("tap");
+        // A wire between two parts seats itself: its ends snap to the two
+        // edges, it draws itself on, both parts ring, and the source now
+        // sends people to the target when it is a thing that links.
+        const joined = kind === "arrow" && from && to && from.id !== to.id ? { from, to } : null;
+        const points = joined ? [edgePoint(joined.from, midOf(joined.to)), edgePoint(joined.to, midOf(joined.from))] : pts;
+        const id = store.addShape({ pageId: store.activePageId, kind, points, hue: inkHue, width: inkWidth, label: "", prompt: "", relation: "flow",
+          fromNodeId: from?.id ?? null, toNodeId: to?.id ?? null });
+        if (joined) {
+          play("confirm");
+          setFresh({ wire: id, nodes: [joined.from.id, joined.to.id] });
+          if (isLinkable(joined.from.featureId)) store.updateNode(joined.from.id, { link: { kind: "node", target: joined.to.id } });
+        } else play("tap");
       }
     }
 
@@ -535,7 +553,7 @@ export function Canvas() {
             if (!b) return null;
             return <rect key={g.id} x={b.x - 14} y={b.y - 22} width={b.w + 28} height={b.h + 36} rx={12} fill={`oklch(0.7 0.15 ${g.hue} / 0.07)`} stroke={`oklch(0.7 0.15 ${g.hue} / 0.5)`} strokeDasharray="6 4" />;
           })}
-          {shapes.filter((sh) => showWires || sh.kind !== "arrow").map((sh) => <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} />)}
+          {shapes.filter((sh) => showWires || sh.kind !== "arrow").map((sh) => <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} fresh={fresh?.wire === sh.id} />)}
           {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
           {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
@@ -574,6 +592,7 @@ export function Canvas() {
             light={look.light}
             page={{ w: frameWidth, h: frameH }}
             layers={look.texture}
+            flash={!!fresh && fresh.nodes.includes(n.id)}
           />
         ))}
 
@@ -609,6 +628,20 @@ export function Canvas() {
 
     </div>
   );
+}
+
+const midOf = (n: StudioNode): [number, number] => [n.x + n.w / 2, n.y + n.h / 2];
+
+/** Where a line from a part's middle toward a point leaves the part's box: where a wire seats. */
+function edgePoint(n: StudioNode, toward: [number, number]): [number, number] {
+  const [cx, cy] = midOf(n);
+  const dx = toward[0] - cx;
+  const dy = toward[1] - cy;
+  if (!dx && !dy) return [cx, cy];
+  const sx = dx ? n.w / 2 / Math.abs(dx) : Infinity;
+  const sy = dy ? n.h / 2 / Math.abs(dy) : Infinity;
+  const t = Math.min(sx, sy);
+  return [cx + dx * t, cy + dy * t];
 }
 
 function hitNode(nodes: StudioNode[], x: number, y: number): StudioNode | null {
@@ -665,7 +698,7 @@ function penPath(points: [number, number][]): string {
   return d + ` L ${last[0]} ${last[1]}`;
 }
 
-const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: StudioShape; selected: boolean }) {
+const ShapeView = React.memo(function ShapeView({ shape, selected, fresh }: { shape: StudioShape; selected: boolean; fresh?: boolean }) {
   const color = `oklch(0.78 0.16 ${shape.hue})`;
   const common = {
     "data-shape-id": shape.id,
@@ -682,9 +715,13 @@ const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: St
   if (shape.kind === "arrow" && shape.points.length >= 2) {
     const [p1, p2] = [shape.points[0]!, shape.points[shape.points.length - 1]!];
     const data = shape.relation === "data";
+    // A wire with a part at each end is a chain: a link at either end, and
+    // when it has just been made it draws itself on and seats with a snap.
+    const chained = !!shape.fromNodeId && !!shape.toNodeId && shape.id !== "live";
+    const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
     const { className, ...line } = common;
     return (
-      <g className={className} {...(shape.id !== "live" ? ctxProps("studio-shape", shape.id, shape) : {})} data-shape-id={shape.id}>
+      <g className={className} {...(shape.id !== "live" ? ctxProps("studio-shape", shape.id, shape) : {})} data-shape-id={shape.id} data-chained={chained ? "" : undefined}>
         {/* A wire is three pixels wide; this invisible one is easy to hit. */}
         <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke="transparent" strokeWidth={16} fill="none" strokeLinecap="round" />
         <line
@@ -694,12 +731,21 @@ const ShapeView = React.memo(function ShapeView({ shape, selected }: { shape: St
           y1={p1[1]}
           x2={p2[0]}
           y2={p2[1]}
-          markerEnd="url(#studio-arrow)"
-          style={{ color }}
+          markerEnd={chained ? undefined : "url(#studio-arrow)"}
+          style={{
+            color,
+            ...(fresh ? { "--wire-len": `${Math.ceil(len)}`, "--wire-w": `${data ? shape.width + 1 : shape.width}px`, strokeDasharray: data ? undefined : Math.ceil(len), animation: "wire-snap 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both" } : {}),
+          } as React.CSSProperties}
           strokeLinecap="round"
           strokeDasharray={data ? "2 6" : undefined}
           strokeWidth={data ? shape.width + 1 : shape.width}
         />
+        {chained ? (
+          <>
+            <circle cx={p1[0]} cy={p1[1]} r={4} fill="var(--bg)" stroke={color} strokeWidth={2} />
+            <circle cx={p2[0]} cy={p2[1]} r={4} fill={color} stroke={color} strokeWidth={2} />
+          </>
+        ) : null}
       </g>
     );
   }
@@ -755,7 +801,7 @@ function FillTab({ node, chipScale }: { node: StudioNode; chipScale: number }) {
   );
 }
 
-const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[] }) {
+const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
@@ -783,7 +829,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         e.preventDefault();
         e.stopPropagation();
       }}
-      className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed")}
+      className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: node.x, top: node.y, width: node.w, height: node.h,
         // The aura belongs to the element, not to anything inside it.

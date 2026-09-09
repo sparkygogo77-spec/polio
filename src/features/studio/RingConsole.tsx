@@ -79,6 +79,18 @@ export const SCREEN = {
 } as const;
 /** A key on the screen: the same box as everywhere else, in the screen's colours. */
 export const SCREEN_KEY: React.CSSProperties = { background: SCREEN.key, color: SCREEN.ink };
+/**
+ * Keys in their own colours: opaque, a shade bright, far enough apart round
+ * the wheel to tell at a glance, with white lines on them — or dark ones on
+ * the yellows, where white would not read. A row of icon keys reads as a
+ * row of different things rather than one thing repeated.
+ */
+export const KEY_HUES = [205, 330, 62, 150, 278, 22, 100, 245, 350, 180];
+export function keyOf(i: number): React.CSSProperties {
+  const hue = KEY_HUES[i % KEY_HUES.length]!;
+  const yellow = hue >= 40 && hue <= 115;
+  return { background: `oklch(${yellow ? 0.78 : 0.66} 0.17 ${hue})`, color: yellow ? "oklch(0.22 0.06 60)" : "oklch(0.99 0 0)" };
+}
 /** A slider's phosphor: dim at one end, lit at the other. */
 export const phosphorAt = (f: number) => `oklch(${(0.3 + f * 0.44).toFixed(3)} ${(0.05 + f * 0.06).toFixed(3)} 180)`;
 

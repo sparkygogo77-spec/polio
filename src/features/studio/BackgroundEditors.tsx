@@ -11,7 +11,7 @@
  * wheels are one object with two subjects.
  */
 import * as React from "react";
-import { Blend, Eraser, Grid2x2, ImagePlus, Sparkles, Square, Waves, X } from "lucide-react";
+import { Blend, Eraser, Grid2x2, ImagePlus, Link2, Maximize2, Monitor, Smartphone, Square, Tablet, Waves, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Textarea } from "@/core/ui/textarea";
 import { readImage } from "./ImageIntake";
@@ -19,17 +19,17 @@ import { lands, newLayer, parseColor, textureCss, TEXTURE_KINDS, type TextureLay
 import { useStudio, type StudioPage } from "./store";
 import { resolvePalette } from "./parts/theme";
 import {
-  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, phosphorAt, ScreenFace, SCREEN_KEY, SectorButton, type ArcItem, type Slab,
+  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, phosphorAt, ScreenFace, SectorButton, type ArcItem, type Slab,
 } from "./RingConsole";
 import { centreOf, chipsAt, SpectrumSlab, wholeOf } from "./RingEditors";
 import { PlateQuad, SCREEN, SCREEN_FIELD } from "./PlateEditors";
 
-/** The fills the format paints under the page, as keys on a screen. */
+/** The fills the format paints under the page, as keys on a screen, each in its own colour. */
 const FILLS: ArcItem[] = [
-  { id: "flat", label: "Flat colour", style: SCREEN_KEY, glyph: <Square className="size-3" /> },
-  { id: "subtle gradient", label: "Soft gradient", style: SCREEN_KEY, glyph: <Blend className="size-3" /> },
-  { id: "grid", label: "Fine grid", style: SCREEN_KEY, glyph: <Grid2x2 className="size-3" /> },
-  { id: "mesh gradient", label: "Mesh gradient", style: SCREEN_KEY, glyph: <Waves className="size-3" /> },
+  { id: "flat", label: "Flat color", style: keyOf(4), glyph: <Square className="size-3" /> },
+  { id: "subtle gradient", label: "Soft gradient", style: keyOf(5), glyph: <Blend className="size-3" /> },
+  { id: "grid", label: "Fine grid", style: keyOf(6), glyph: <Grid2x2 className="size-3" /> },
+  { id: "mesh gradient", label: "Mesh gradient", style: keyOf(7), glyph: <Waves className="size-3" /> },
 ];
 /** How dark the veil can go. Past this the page is gone. */
 const VEIL_MAX = 0.85;
@@ -45,34 +45,70 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
   const { hole, mid } = a.rings;
   const file = React.useRef<HTMLInputElement>(null);
 
-  /* ------------------------------------------------------ the colour */
-  if (which === "bg-hue") {
+  /* ------------------------------------------------------- the color */
+  // One editor, three slabs, none empty: the page's colour off the
+  // spectrum; the fill as keys with the recent colours and "from the
+  // accent" on the band inside them; the veil as a slider.
+  if (which === "bg-color") {
     const override = look.palette.bg;
     const col = parseColor(palette.bg) ?? { l: 0.15, c: 0.02, h: 265 };
     const set = (next: string | null) => s().setLook({ palette: { ...look.palette, bg: next ?? undefined } });
-    const items: ArcItem[] = [
-      { id: "", label: "Derived from the accent", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
-      ...recent.map((r): ArcItem => ({ id: r, label: `Recent colour ${r}`, style: { background: r } })),
+    const swatches: ArcItem[] = [
+      { id: "", label: "From the accent", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
+      ...recent.slice(0, 5).map((r): ArcItem => ({ id: r, label: `Recent colour ${r}`, style: { background: r } })),
     ];
+    const fill = String(format["palette.background"] ?? "flat");
+    const v = look.veil ?? 0;
     return (
       <>
         <SpectrumSlab
           slab={a}
           colour={col}
           onChange={(next) => set(next)}
-          onCommit={() => { const v = s().look.palette.bg; if (v) s().rememberColour(v); }}
-          caption="Page colour"
+          onCommit={() => { const cur = s().look.palette.bg; if (cur) s().rememberColour(cur); }}
+          caption="Page color"
         />
-        <GridChips slab={b} items={items} value={override ?? ""} onPick={(id) => set(id || null)} />
-        <SectorButton
-          d={wholeOf(c)}
-          at={centreOf(c, hole, "edge")}
-          spin={c.spin}
-          label="From the accent"
-          icon={<Sparkles className="size-3.5" />}
-          on={!override}
-          onClick={() => set(null)}
+        <ScreenFace slab={b} />
+        <ArcChips slab={b} tone="screen" items={FILLS} radius={chipsAt(b)} size={24} value={fill} onPick={(id) => s().setFormat("palette.background", id)} />
+        <ArcChips slab={b} tone="screen" items={swatches} radius={hole + 26} size={16} value={override ?? ""} onPick={(id) => set(id || null)} />
+        <Caption slab={b}>{`Fill · ${FILLS.find((f) => f.id === fill)?.label ?? fill}`}</Caption>
+        <ScreenFace slab={c} />
+        <ArcSlider
+          slab={c}
+          tone="screen"
+          from={c.from + PAD}
+          to={c.to - PAD}
+          rIn={mid - 6}
+          rOut={mid + 12}
+          label="Veil"
+          value={v / VEIL_MAX}
+          colourAt={phosphorAt}
+          onChange={(f) => s().setLook({ veil: Math.round(f * VEIL_MAX * 100) / 100 })}
         />
+        <Caption slab={c}>{`Veil · ${v > 0.005 ? `${Math.round(v * 100)}%` : "none"}`}</Caption>
+      </>
+    );
+  }
+
+  /* ------------------------------------------------------- the width */
+  // How the page is built: the frame's width as three keys, and beside it
+  // the two things the board does to the frame — fit it in view, and show
+  // or hide the wires — so no slab is bare.
+  if (which === "width") {
+    const fw = useStudio.getState().frameWidth;
+    const widths: ArcItem[] = [
+      { id: "1440", label: "Desktop · 1440", style: keyOf(0), glyph: <Monitor className="size-3" /> },
+      { id: "834", label: "Tablet · 834", style: keyOf(1), glyph: <Tablet className="size-3" /> },
+      { id: "390", label: "Phone · 390", style: keyOf(2), glyph: <Smartphone className="size-3" /> },
+    ];
+    const wires = useStudio.getState().showWires;
+    return (
+      <>
+        <ScreenFace slab={a} />
+        <ArcChips slab={a} tone="screen" items={widths} radius={chipsAt(a)} size={24} value={String(fw)} onPick={(id) => s().setFrameWidth(Number(id))} />
+        <Caption slab={a}>{`Width · ${fw}`}</Caption>
+        <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} label="Fit in view" icon={<Maximize2 className="size-3.5" />} onClick={() => s().requestFit()} />
+        <SectorButton d={wholeOf(c)} at={centreOf(c, hole, "edge")} spin={c.spin} label={wires ? "Hide the wires" : "Show the wires"} icon={<Link2 className="size-3.5" />} on={wires} onClick={() => s().setShowWires(!wires)} />
       </>
     );
   }
@@ -131,45 +167,6 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
             }}
           />
         </Glued>
-      </>
-    );
-  }
-
-  /* -------------------------------------------------------- the veil */
-  if (which === "veil") {
-    const v = look.veil ?? 0;
-    return (
-      <>
-        <ScreenFace slab={a} />
-        <ScreenFace slab={b} />
-        <ScreenFace slab={c} />
-        <ArcSlider
-          slab={a}
-          tone="screen"
-          from={a.from + PAD}
-          to={a.to - PAD}
-          rIn={mid - 6}
-          rOut={mid + 12}
-          label="Veil"
-          value={v / VEIL_MAX}
-          colourAt={phosphorAt}
-          onChange={(f) => s().setLook({ veil: Math.round(f * VEIL_MAX * 100) / 100 })}
-        />
-        <Caption slab={a}>{`Veil · ${v > 0.005 ? `${Math.round(v * 100)}%` : "none"}`}</Caption>
-      </>
-    );
-  }
-
-  /* -------------------------------------------------------- the fill */
-  if (which === "fill") {
-    const fill = String(format["palette.background"] ?? "flat");
-    return (
-      <>
-        <ScreenFace slab={a} />
-        <ScreenFace slab={b} />
-        <ScreenFace slab={c} />
-        <ArcChips slab={a} tone="screen" items={FILLS} radius={chipsAt(a)} size={24} value={fill} onPick={(id) => s().setFormat("palette.background", id)} />
-        <Caption slab={a}>{`Fill · ${FILLS.find((f) => f.id === fill)?.label ?? fill}`}</Caption>
       </>
     );
   }

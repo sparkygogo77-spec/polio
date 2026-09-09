@@ -649,23 +649,48 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   `RadialMenu.tsx`; `BackgroundEditors.tsx`). A right press on the bare
   frame opens the same seven pieces about the page, in the same places, so
   a hand that has learned one has learned the other: Motion (a motion asset
-  behind the page — placeholder), the pencil (the page's Words on the plate;
-  Per page — placeholder), **Picture** on the outer block (a file, taken as
-  an image texture layer on the page), **Cut** and Edit (Fill: flat, soft
-  gradient, grid, mesh as icon keys on a screen, writing
-  `format["palette.background"]`), Looks (Colour: the bg role off the
-  spectrum, recent colours, "from the accent"; Texture: the stack's layers
-  as tiles, several on at once — `GridChips` with `values` — plus Add a
-  picture and Clear the page; **Veil**: a slider for `look.veil`, a black
-  overlay at that opacity painted by the board, the live site and the
-  blueprint), and **Strip** where Delete is. The middle is a plain handle
-  (`data-menu-handle`); the page has nothing to lock. The tray under it is
-  Preview here and Put the background back. Everything a part's wheel does
-  that makes no sense for a page is a placeholder that taps, not a missing
-  piece.
-- **The tray hangs under the wheel** (`HoverTray` in `RingConsole.tsx`,
-  `[data-tray]`): a small tab under whichever level is up that opens on hover
-  into the few things that are about the part but not about editing it —
+  behind the page — placeholder), the pencil (the page's Words on the
+  plate), More (Preview here, Put the background back), **Picture** on the
+  outer block (a file, taken as an image texture layer on the page), **Cut**
+  and Edit (**Width**: the frame's width as three keys, with Fit in view and
+  the wires beside it so no slab is bare; Per page — placeholder), Looks
+  (**Color**: one editor, three slabs — the bg role off the spectrum; the
+  fill as icon keys writing `format["palette.background"]` with the recent
+  colours and "from the accent" on the band inside them; the **veil**, a
+  slider for `look.veil`, a black overlay at that opacity painted by the
+  board, the live site and the blueprint; **Texture**: the stack's layers as
+  tiles, several on at once — `GridChips` with `values` — plus Add a picture
+  and Clear the page), and **Strip** where Delete is. The middle is a plain
+  handle (`data-menu-handle`); the page has nothing to lock. Everything a
+  part's wheel does that makes no sense for a page is a placeholder that
+  taps, not a missing piece; and no editor leaves a slab empty.
+- **Icon keys wear their own colours** (`KEY_HUES`, `keyOf` in
+  `RingConsole.tsx`): opaque, a shade bright, white lines on them and dark
+  on the yellows. The entrance kinds, the easings, the slide directions,
+  the fills and the widths each take one. The picked key still wears the
+  red ring.
+- **Connect is a chain** (`Canvas.tsx`, the arrow branch of pointer-up;
+  `edgePoint`). A wire drawn from one part to another seats: its points are
+  moved to the two parts' edges, it draws itself on (`wire-snap`, dash
+  offset over the wire's own length), both parts ring once (`node-snap`),
+  the confirm cue plays, and when the source is a linkable part its `link`
+  becomes `{ kind: "node", target }`. A chained wire has a hollow link at
+  its tail and a filled one at its head and no arrowhead; a wire to nowhere
+  is still an arrow. The tool's icon is a chain (`Link`) everywhere it
+  appears.
+- **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
+  `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
+  header for everything the wheel has set. Add a line there when a part or
+  the page gains a new thing to set; a setting that cannot be seen is a
+  setting that will be set twice.
+- **The command palette is a console** (`CommandPalette.tsx`) and the
+  chrome leans into the void (`--void-h` and the dark tokens in
+  `globals.css`): a shade, not a colour. Keep new chrome on the tokens.
+- **More is a piece of the wheel** (`SLOTS.more`; the top inner band is
+  three icons — Animation, the pencil, More). It opens into green pieces
+  built from the same list the tray held, each firing on the spot and dimmed
+  when it has nothing to do (`Choice.dim`). The `HoverTray` stays only under
+  the drawing board, which has no band to put a piece on. What More holds —
   **Preview here** (the live page, scrolled to the part: `livePath` plus the
   part's id as the hash, which `PreviewPage` reads), **Bring forward** and
   **Send back** (`raiseNode`/`lowerNode`: the node list *is* the z-order),
