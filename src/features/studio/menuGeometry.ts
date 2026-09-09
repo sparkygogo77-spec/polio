@@ -29,6 +29,17 @@ export const BLUE_RINGS: Rings = { hole: 40, mid: 82, reach: 124 };
 export const GREEN_RINGS: Rings = { hole: 46, mid: 96, reach: 150 };
 
 /**
+ * The drawing board's radius: one disc over the whole menu, with no hole.
+ *
+ * Out past the green level's reach, so it covers every piece that could be
+ * under it, and inside the margin `keepOnScreen` leaves, so a board opened
+ * near an edge is whole. There is no hole in it — the middle is drawing
+ * space like everywhere else on it — which is why the way back is on its
+ * rim and not at the pointer.
+ */
+export const BOARD_R = 160;
+
+/**
  * Corner radius. Every piece is drawn inset by this and grown back out with a
  * round-joined stroke of its own colour, which is what curves every corner —
  * including the one where a wedge narrows to a point at the pointer, which is

@@ -13,19 +13,23 @@
  * near the pointer and an outer block beyond it. That is what gives six
  * buttons out of three quadrants without any of them being a sliver.
  *
- *          empty  │  Animation (inner) · Prompt (outer)
+ *          empty  │  Animation · Prompt (inner) · Draw (outer)
  *        ─────────●─────────
  *         Delete  │  Duplicate · Edit (inner) · Looks (outer)
  *
  * Delete is the whole quadrant under the empty one, undivided — the same
  * outline as the quadrant opposite it, mirrored, so it reads as one slab and
- * never as a sliver you could hit by accident.
+ * never as a sliver you could hit by accident. The two working quadrants
+ * are cut the same way: two icons on the inner band, one word on the outer
+ * block, so a hand that has learned one has learned the other.
  *
  * Levels:
- *   1  blue     the six above, plus the lock in the middle
+ *   1  blue     the seven above, plus the lock in the middle
  *   2  green    replaces the blue entirely, in the quadrant that was empty
  *   3  crimson  the editor the green choice needs, on the three quadrants
  *               the green is not using — three more slabs like Delete
+ *   —  board    Draw skips the levels: the whole wheel becomes one dark disc
+ *               to draw on (`DrawBoard.tsx`), with no hole in the middle
  *
  * Every piece is one SVG path — arc in, out along a seam, round the outside,
  * back down the next seam — so the geometry is the hit area. The outer edge is
@@ -34,16 +38,17 @@
  */
 import * as React from "react";
 import {
-  Copy, FileText, Flag, Gauge, Grid2x2, Link2, ListTree, Lock, Palette as PaletteIcon, Pencil, Play, Shapes, SlidersHorizontal,
+  Brush, Copy, FileText, Flag, Gauge, Grid2x2, Link2, ListTree, Lock, Palette as PaletteIcon, Pencil, Play, Shapes, SlidersHorizontal,
   Sparkles, Tag, Trash2, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
 import { useStudio, type StudioNode } from "./store";
 import {
-  BLUE_RINGS, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
+  BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
   type Pt,
 } from "./menuGeometry";
 import { AnimQuads, AuraQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { PlateEditor } from "./PlateEditors";
+import { DrawBoard } from "./DrawBoard";
 import { CONSOLE, type Slab } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { auraColour, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
@@ -58,7 +63,15 @@ import { play } from "@/core/audio/engine";
  * different part, or a different corner of the same one — is a new opening and
  * puts the menu back to its first level; carrying it across the screen is not.
  */
-type Open = { nodeId: string; x: number; y: number; seq: number } | null;
+type Open = {
+  /** The part the menu is about, or null when only the drawing board is up. */
+  nodeId: string | null;
+  x: number;
+  y: number;
+  seq: number;
+  /** Where a part drawn on a nodeless board lands, in canvas space. */
+  at: { x: number; y: number } | null;
+} | null;
 let current: Open = null;
 let opened = 0;
 const listeners = new Set<(v: Open) => void>();
@@ -73,7 +86,9 @@ const listeners = new Set<(v: Open) => void>();
  */
 function keepOnScreen(x: number, y: number): [number, number] {
   if (typeof window === "undefined") return [x, y];
-  const margin = GREEN_RINGS.reach + 26;
+  // The drawing board is the widest thing the menu can become; its rim
+  // buttons reach a few pixels past its edge.
+  const margin = Math.max(GREEN_RINGS.reach + 26, BOARD_R + 16);
   return [
     Math.max(margin, Math.min(window.innerWidth - margin, x)),
     Math.max(margin, Math.min(window.innerHeight - margin, y)),
@@ -82,7 +97,19 @@ function keepOnScreen(x: number, y: number): [number, number] {
 
 export function openRadial(nodeId: string, x: number, y: number) {
   const [px, py] = keepOnScreen(x, y);
-  current = { nodeId, x: px, y: py, seq: ++opened };
+  current = { nodeId, x: px, y: py, seq: ++opened, at: null };
+  listeners.forEach((l) => l(current));
+}
+/**
+ * The drawing board on its own, for a part that does not exist yet.
+ *
+ * Opened from the board's own right-click menu: no wheel, no part, just the
+ * disc at the pointer. `at` is the same spot in canvas space, which is where
+ * the part drawn on it lands.
+ */
+export function openBoard(x: number, y: number, at: { x: number; y: number }) {
+  const [px, py] = keepOnScreen(x, y);
+  current = { nodeId: null, x: px, y: py, seq: ++opened, at };
   listeners.forEach((l) => l(current));
 }
 export function closeRadial() {
@@ -142,15 +169,15 @@ interface Pull {
 /* What is on it                                                       */
 /* ------------------------------------------------------------------ */
 
-type SlotId = "anim" | "write" | "priority" | "duplicate" | "edit" | "look" | "delete";
+type SlotId = "anim" | "write" | "draw" | "duplicate" | "edit" | "look" | "delete";
 
 interface Slot {
   id: SlotId;
   label: string;
   icon: typeof Wand2;
   hue: number;
-  /** A group opens the green level; an action fires and closes. */
-  kind: "group" | "action";
+  /** A group opens the green level; an action fires and closes; the board replaces the wheel. */
+  kind: "group" | "action" | "board";
 }
 
 const SLOTS: Record<SlotId, Slot> = {
@@ -159,12 +186,12 @@ const SLOTS: Record<SlotId, Slot> = {
   // belong — and Delete is the only red thing on the screen.
   anim: { id: "anim", label: "Animation", icon: Play, hue: 205, kind: "group" },
   // The pencil: everything you *write* about a part — its prompt, what is
-  // in it, where it sends people. It was "Prompt" with the word on it; the
-  // word said less than the pencil does.
+  // in it, where it sends people, and (a placeholder for now) its priority.
+  // It was "Prompt" with the word on it; the word said less than the pencil.
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
-  // Priority: a flag beside the pencil. A placeholder for now — it is where
-  // must / nice / idea will be set from the wheel; pressing it does nothing yet.
-  priority: { id: "priority", label: "Priority (soon)", icon: Flag, hue: 258, kind: "action" },
+  // The outer top-right slab. It does not open a level: the whole wheel
+  // becomes the drawing board, and what is drawn there reshapes the part.
+  draw: { id: "draw", label: "Draw", icon: Brush, hue: 205, kind: "board" },
   duplicate: { id: "duplicate", label: "Duplicate", icon: Copy, hue: 205, kind: "action" },
   edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
   look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
@@ -214,7 +241,15 @@ function choicesFor(group: SlotId): Choice[] {
         { id: "words", label: "Words", icon: Wand2 },
         { id: "contents", label: "Contents", icon: ListTree },
         { id: "links", label: "Links", icon: Link2 },
+        // A placeholder: the flag is here, what it does is not, yet.
+        { id: "priority", label: "Priority (soon)", icon: Flag, act: () => play("tap") },
       ];
+    case "draw":
+      // The board is not a list of choices; it has nothing on the green level.
+      return [];
+    case "draw":
+      // The board is not a list of choices; it has nothing on the green level.
+      return [];
     default:
       return [
         { id: "name", label: "Name", icon: Tag },
@@ -248,7 +283,7 @@ export function RadialMenu() {
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const layers = look.texture ?? [];
-  const node = open ? nodes.find((n) => n.id === open.nodeId) : undefined;
+  const node = open?.nodeId ? nodes.find((n) => n.id === open.nodeId) : undefined;
 
   const seq = open?.seq ?? 0;
   React.useEffect(() => {
@@ -464,22 +499,35 @@ export function RadialMenu() {
     window.addEventListener("pointerup", up);
   };
 
-  if (!open || !node) return null;
+  if (!open) return null;
 
   const s = () => useStudio.getState();
   // Already kept on screen by `openRadial` and `moveRadial`.
   const px = open.x;
   const py = open.y;
 
+  // Opened for a part that does not exist yet: the disc alone, with no wheel
+  // under it to go back to. Back and done both put it away.
+  if (open.nodeId === null) {
+    return (
+      <div data-radial className="pointer-events-none fixed inset-0 z-[68]" onContextMenu={(e) => e.preventDefault()}>
+        <div className="absolute" style={{ left: px, top: py }}>
+          <div data-radial-board="" className="pointer-events-none absolute left-0 top-0">
+            <DrawBoard node={null} at={open.at} onBack={closeRadial} onDone={closeRadial} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!node) return null;
+
   const fire = (id: SlotId) => {
     if (id === "duplicate") { s().duplicateNodes([node.id]); play("confirm"); closeRadial(); }
     if (id === "delete") { s().removeNodes([node.id]); play("deny"); closeRadial(); }
-    // A placeholder: the flag is here, what it does is not, yet.
-    if (id === "priority") play("tap");
   };
   const take = (slot: Slot) => {
     if (slot.kind === "action") return fire(slot.id);
-    play("select");
+    play(slot.kind === "board" ? "open" : "select");
     setSubPick(null);
     setPicked(slot.id);
   };
@@ -493,10 +541,11 @@ export function RadialMenu() {
 
   const B = BLUE_RINGS;
   const level1: { slot: Slot; d: string; at: Pt }[] = [
-    { slot: SLOTS.anim, d: piece(topA, topB, B.hole, B.mid, shape, B), at: middleOf(topA, topB, B.hole, B.mid, shape, B) },
-    // The outer block above is two: the pencil, and the flag beside it.
-    { slot: SLOTS.write, d: piece(topA, topMid, B.mid, "edge", shape, B), at: middleOf(topA, topMid, B.mid, "edge", shape, B) },
-    { slot: SLOTS.priority, d: piece(topMid, topB, B.mid, "edge", shape, B), at: middleOf(topMid, topB, B.mid, "edge", shape, B) },
+    // The top quadrant is cut like the bottom one: two icons on the inner
+    // band — Animation and the pencil — and one word on the outer block, Draw.
+    { slot: SLOTS.anim, d: piece(topA, topMid, B.hole, B.mid, shape, B), at: middleOf(topA, topMid, B.hole, B.mid, shape, B) },
+    { slot: SLOTS.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
+    { slot: SLOTS.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
     { slot: SLOTS.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
     { slot: SLOTS.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
     { slot: SLOTS.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B) },
@@ -505,8 +554,12 @@ export function RadialMenu() {
     { slot: SLOTS.delete, d: piece(delA, delB, B.hole, "edge", shape, B), at: middleOf(delA, delB, B.hole, "edge", shape, B) },
   ];
 
+  /* ---------------------------------------------------------- the board */
+  // Draw is not a level: the wheel is gone and the disc is in its place.
+  const onBoard = picked === "draw";
+
   /* ---------------------------------------------------------- level 2 */
-  const group = picked ? SLOTS[picked] : null;
+  const group = picked && !onBoard ? SLOTS[picked] : null;
   const choices = picked ? choicesFor(picked) : [];
   // Green fills the quadrant that was empty, cut the same way the blue ones
   // are. More than four choices will not fit there without becoming slivers,
@@ -577,9 +630,8 @@ export function RadialMenu() {
             d: p.d,
             at: p.at,
             // The inner band is too narrow for a word without it hanging over
-            // the neighbours, and the pencil and the flag are halves of a
-            // block; an icon says it, and the word is on the tooltip.
-            compact: p.slot.id !== "look" && p.slot.id !== "delete",
+            // the neighbours; an icon says it, and the word is on the tooltip.
+            compact: p.slot.id !== "look" && p.slot.id !== "delete" && p.slot.id !== "draw",
             onPick: () => take(p.slot),
           }))} />
         ) : null}
@@ -614,7 +666,7 @@ export function RadialMenu() {
           >
             {node.locked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
           </button>
-        ) : (
+        ) : onBoard ? null : (
           <button
             type="button"
             aria-label="Back to the start"
@@ -658,11 +710,24 @@ export function RadialMenu() {
                 glow: p.choice.id === "aura" ? auraColour(node.aura, palette) : null,
                 onPick: () => {
                   play("select");
-                  if (p.choice.act) p.choice.act(node);
+                  // A choice that fires on the spot is not somewhere you are:
+                  // nothing opens, so nothing is left to step back out of.
+                  if (p.choice.act) { p.choice.act(node); return; }
                   setSubPick(p.choice.id);
                 },
               }))}
             />
+          </div>
+        ) : null}
+
+        {/*
+          The board: the whole menu, as one disc with no hole. There is no
+          middle button while it is up — the middle is drawing space — so its
+          way back is on its own rim. Escape steps back to the wheel as well.
+        */}
+        {onBoard ? (
+          <div data-radial-board="" className="pointer-events-none absolute left-0 top-0">
+            <DrawBoard node={node} at={null} onBack={() => setPicked(null)} onDone={closeRadial} />
           </div>
         ) : null}
 
