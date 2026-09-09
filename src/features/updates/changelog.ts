@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.18",
+    title: "The aura, seen",
+    summary: "Aura gets colour boxes, a spectrum, a sample block with styles and sizes; the middle button is the way back.",
+    sketch: "palette",
+    added: [
+      "Aura's colour comes off boxes packed into the slab — an X for none, the colours you picked lately, then the site's six — and the box is the colour, with the picked one wearing a small red aura.",
+      "The spectrum from the Hue editor is on Aura too, so an aura can be any colour, not only a role.",
+      "A sample block shows exactly what the part wears. Beside it: soft glow, hard ring, or pulse, each chip wearing its own, and four sizes.",
+      "Only the sample block and the green Aura piece take the chosen colour. The slabs keep their red aura, now tighter and dimmer, with a gap to be seen in: the grey slabs are cut a shade smaller.",
+      "One button in the middle takes you back to the start from any level. The green X and the red X are gone.",
+      "Texture: the take-it-off-the-site button is gone, and Reiterate stands in its place — a placeholder for changing one thing about the texture at random.",
+    ],
+  },
+  {
     version: "0.17",
     title: "Grey slabs, red aura, and a sweep",
     summary: "The editor's slabs are a clean grey with a redder aura, and the eraser takes everything you drag it across.",

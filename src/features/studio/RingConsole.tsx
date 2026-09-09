@@ -41,6 +41,19 @@ export const CONSOLE = {
 } as const;
 
 /**
+ * The aura round a slab: tucked under, not blazing.
+ *
+ * Tight and a little dim, so it reads as the slab's own light on the board
+ * and not as a halo that makes the whole menu look bigger than it is. The
+ * slabs are cut back by `SHRINK` to leave a gap for it to be seen in.
+ */
+export const SLAB_AURA = `drop-shadow(0 0 5px oklch(0.62 0.24 27 / 0.62)) drop-shadow(0 0 1.5px oklch(0.62 0.24 27 / 0.5))`;
+/** How much smaller than the green level the console's slabs are cut, per edge. */
+export const SHRINK = 5;
+/** The small red aura on whichever chip is picked. */
+export const PICKED = `0 0 0 2px ${CONSOLE.on}, 0 0 8px 1px oklch(0.64 0.23 27 / 0.7)`;
+
+/**
  * A shade either way, never a bevel — the amount the reader asked for. Which
  * way it leans depends on the family, because the same pair of white and black
  * lines reads differently against a warm face and a cool one.
@@ -183,9 +196,9 @@ export function ArcChips({
                   height: size,
                   transform: on ? "scale(1.18)" : undefined,
                   ...item.style,
-                  boxShadow: `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`,
-                  outline: on ? `2px solid ${CONSOLE.on}` : `1px solid ${CONSOLE.ink}`,
-                  outlineOffset: on ? 1 : 0,
+                  // A chip that wears a shadow of its own (an aura, say) keeps it under the pick.
+                  boxShadow: [on ? PICKED : `${litEdge(CONSOLE_HUE, on)}, 0 2px 5px oklch(0 0 0 / 0.45)`, item.style.boxShadow].filter(Boolean).join(", "),
+                  outline: on ? "none" : `1px solid ${CONSOLE.ink}`,
                 }}
               >
                 {item.glyph}
@@ -194,6 +207,87 @@ export function ArcChips({
           </foreignObject>
         );
       }))}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Chips packed into a slab                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Colour boxes filling a slab, not riding an arc.
+ *
+ * A quadrant is mostly square, and an arc through it leaves the corner
+ * empty. These are laid on a grid in the slab's own frame — rows and columns
+ * from the outer corner in, pitch one chip and a gap — and kept where the
+ * slab is: clear of the hole, inside the outer edge (the square's, or the
+ * circle's when the wheel is swept round). Then they are dealt out nearest
+ * the pointer first, so the first few things in the list are the first few
+ * things your hand reaches.
+ *
+ * The grid is worked out for the quadrant that starts straight up and turned
+ * to wherever this slab is, so every slab packs the same way.
+ */
+export function GridChips({
+  slab, items, value, onPick, size = 22, gap = 6,
+}: {
+  slab: Slab;
+  items: ArcItem[];
+  value: string | null;
+  onPick: (id: string) => void;
+  size?: number;
+  gap?: number;
+}) {
+  const { from, spin, rings, shape } = slab;
+  const pitch = size + gap;
+  // The slab is cut back by SHRINK and its edge grown out by the rounding;
+  // the chips stay a few pixels inside what is drawn.
+  const half = rings.reach - SHRINK - 8;
+  const inner = rings.hole + 16 + size / 2;
+  const spots: Pt[] = [];
+  // Columns in from the right edge, rows down from the top edge, of the
+  // quadrant up-and-right of the pointer.
+  for (let cx = half - size / 2; cx > size / 2; cx -= pitch) {
+    for (let cy = -(half - size / 2); cy < -size / 2; cy += pitch) {
+      const r = Math.hypot(cx, cy);
+      if (r < inner) continue;
+      if (shape === "round" && Math.hypot(Math.abs(cx) + size / 2, Math.abs(cy) + size / 2) > rings.reach - SHRINK - 4) continue;
+      spots.push([cx, cy]);
+    }
+  }
+  spots.sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]));
+  return (
+    <>
+      {items.slice(0, spots.length).map((item, i) => {
+        const at = spun(spots[i]!, from);
+        const on = value === item.id;
+        return (
+          <foreignObject key={item.id} x={at[0] - size / 2 - 4} y={at[1] - size / 2 - 4} width={size + 8} height={size + 8} className="overflow-visible">
+            <div className="flex h-full w-full items-center justify-center" style={{ transform: `rotate(${(-spin * 360).toFixed(2)}deg)` }}>
+              <button
+                type="button"
+                aria-label={item.label}
+                aria-pressed={on}
+                data-arc-chip={item.id}
+                title={item.label}
+                onClick={() => { play("select"); onPick(item.id); }}
+                className="pointer-events-auto flex items-center justify-center rounded-[5px] transition-transform"
+                style={{
+                  width: size,
+                  height: size,
+                  transform: on ? "scale(1.12)" : undefined,
+                  ...item.style,
+                  boxShadow: [on ? PICKED : `${litEdge(CONSOLE_HUE)}, 0 1px 3px oklch(0 0 0 / 0.45)`, item.style.boxShadow].filter(Boolean).join(", "),
+                  outline: on ? "none" : `1px solid ${CONSOLE.ink}`,
+                }}
+              >
+                {item.glyph}
+              </button>
+            </div>
+          </foreignObject>
+        );
+      })}
     </>
   );
 }
@@ -211,7 +305,7 @@ export function ArcChips({
  * past the point where the seams show.
  */
 export function ArcSlider({
-  slab, from, to, rIn, rOut, value, onChange, colourAt, label,
+  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label,
 }: {
   slab: Slab;
   from: number;
@@ -221,6 +315,8 @@ export function ArcSlider({
   /** 0..1 along the arc. */
   value: number;
   onChange: (v: number) => void;
+  /** The hand has let go: what it settled on is worth remembering. */
+  onCommit?: () => void;
   colourAt: (f: number) => string;
   label: string;
 }) {
@@ -241,6 +337,7 @@ export function ArcSlider({
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      onCommit?.();
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -262,6 +359,7 @@ export function ArcSlider({
         if (e.key === "ArrowLeft") onChange(Math.max(0, value - 0.04));
         if (e.key === "ArrowRight") onChange(Math.min(1, value + 0.04));
       }}
+      onKeyUp={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") onCommit?.(); }}
       className="pointer-events-auto cursor-pointer outline-none"
     >
       {Array.from({ length: steps }, (_, i) => {
@@ -327,7 +425,7 @@ export function SectorButton({
         strokeWidth={2 * 5 + 2.5}
         strokeLinejoin="round"
         strokeLinecap="round"
-        style={{ transition: "fill 120ms ease-out", filter: `drop-shadow(0 0 9px ${CONSOLE.aura}) drop-shadow(0 0 2px ${CONSOLE.aura})` }}
+        style={{ transition: "fill 120ms ease-out", filter: SLAB_AURA }}
       />
       <path
         d={d}

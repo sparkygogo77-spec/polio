@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
-import { defaultLight, emptyLook, newLayer, type Look, type TextureLayer } from "./look";
+import { defaultLight, emptyLook, newLayer, type AuraStyle, type Look, type TextureLayer } from "./look";
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
@@ -62,8 +62,12 @@ export interface StudioNode {
   colour: NodeColour | null;
   /** How it arrives on the page — one of `ENTRANCES`, or null for no entrance. */
   anim: string | null;
-  /** A palette role glowing round its edge, or null for none. */
+  /** A colour round its edge — a palette role, or a colour of its own — or null for none. */
   aura: string | null;
+  /** How far the aura reaches, as a multiple of the usual. */
+  auraSize: number;
+  /** Soft glow, hard ring, or a glow that pulses. */
+  auraStyle: AuraStyle;
   /** A texture layer id this part wears on its own surface, or null. */
   texture: string | null;
 }
@@ -167,6 +171,14 @@ interface StudioState extends Doc {
    * is remembered, because a menu you rearranged once should stay that way.
    */
   menuSpin: number;
+  /**
+   * The colours picked off a spectrum lately, newest first.
+   *
+   * The aura's chips offer them, so a colour chosen for one part's background
+   * is one press away for another part's glow. Kept short: past a dozen it is
+   * a palette nobody chose.
+   */
+  recentColours: string[];
   /** The phone/tablet companion: which device, where it sits, whether it is open.
    * Closed to start: it floats over the board, and a panel that covers a resize
    * handle you cannot see is worse than one click to open it. */
@@ -224,6 +236,7 @@ interface StudioState extends Doc {
   setMode: (m: BoardMode) => void;
   setMenuShape: (v: "square" | "round") => void;
   setMenuSpin: (turns: number) => void;
+  rememberColour: (colour: string) => void;
   setCompanion: (patch: Partial<StudioState["companion"]>) => void;
   hideFeature: (id: string) => void;
   restoreFeature: (id: string) => void;
@@ -305,6 +318,7 @@ export const useStudio = create<StudioState>()(
         frameWidth: FRAME_WIDTHS.desktop,
         menuShape: "square",
         menuSpin: 0,
+        recentColours: [],
         fitNonce: 0,
         activePageId: "page_home",
         selection: [],
@@ -336,7 +350,7 @@ export const useStudio = create<StudioState>()(
                 prompt: "",
                 content: "",
                 data: "",
-                colour: null, anim: null, aura: null, texture: null,
+                colour: null, anim: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null,
                 x: Math.round(x),
                 y: Math.round(y),
                 w: feature?.w ?? 132,
@@ -649,6 +663,7 @@ export const useStudio = create<StudioState>()(
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
         setMenuShape: (v) => set({ menuShape: v }),
         setMenuSpin: (turns) => set({ menuSpin: ((turns % 1) + 1) % 1 }),
+        rememberColour: (colour) => set((s) => ({ recentColours: [colour, ...s.recentColours.filter((c) => c !== colour)].slice(0, 12) })),
         setCompanion: (patch) => set((s) => ({ companion: { ...s.companion, ...patch } })),
         hideFeature: (id) => set((s) => (s.hiddenFeatures.includes(id) ? {} : { hiddenFeatures: [...s.hiddenFeatures, id] })),
         restoreFeature: (id) => set((s) => ({ hiddenFeatures: s.hiddenFeatures.filter((x) => x !== id) })),
@@ -728,7 +743,11 @@ export const useStudio = create<StudioState>()(
         return {
           ...current,
           ...p,
-          nodes: (p.nodes ?? current.nodes).map((n) => ({ ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, anim: n.anim ?? null, aura: n.aura ?? null, texture: n.texture ?? null })),
+          nodes: (p.nodes ?? current.nodes).map((n) => ({
+            ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, anim: n.anim ?? null,
+            aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
+          })),
+          recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
           look: (() => {
@@ -767,6 +786,7 @@ export const useStudio = create<StudioState>()(
         companion: s.companion,
         menuShape: s.menuShape,
         menuSpin: s.menuSpin,
+        recentColours: s.recentColours,
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,

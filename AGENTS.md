@@ -522,9 +522,38 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   are about looks. The rest go on the plate.
   **The slabs are grey with a red aura** (`CONSOLE` in `RingConsole.tsx`): a
   neutral face, barely cool so it sits with the rest of the chrome, and the
-  red kept for the `drop-shadow` round each slab and for the one thing on a
-  slab that is *on*. A red slab with red controls had nothing left to say
-  "this one is picked", and a brown one read as mud.
+  red kept for the `drop-shadow` round each slab (`SLAB_AURA`, tight and a
+  little dim, tucked under rather than blazing) and for the one thing on a
+  slab that is *on* (`PICKED`). A red slab with red controls had nothing left
+  to say "this one is picked", and a brown one read as mud. The slabs are cut
+  `SHRINK` pixels smaller than the green level on every edge (`piece()`'s
+  last argument), which is what gives the aura a gap to be seen in and keeps
+  the menu from reading larger than it is.
+- **The way back is the middle.** Past the first level the lock's spot holds
+  one button (`data-menu-home`) that returns to the start; the green X on the
+  rim and the red X on the console are gone. It is also still the handle the
+  menu is carried by. Escape steps back one level at a time.
+- **An aura is a colour, a size and a style** (`AuraStyle` in `look.ts`:
+  `glow`, `ring`, `pulse`; `auraStyle()` returns everything the element
+  wears, including the `aura-pulse` animation driven off two custom
+  properties). The colour is a palette role or a colour of its own
+  (`auraColour()` resolves either); the board, the live site and the blueprint
+  all read it the same way. The Aura editor is three slabs: **boxes**
+  (`GridChips` — packed into the square of the quadrant, not strung on an
+  arc, dealt nearest the pointer first: an X for none, then `recentColours`,
+  then the six roles; the box *is* the colour, and the picked one wears the
+  small red aura), the **spectrum** (the same `SpectrumSlab` the Hue editor
+  draws), and the **sample** — one block wearing exactly what the part wears,
+  three style chips each wearing its own style, four sizes. Nothing else on
+  the menu changes colour: the green Aura piece and the sample block are the
+  two things that show the aura, so they are the two things that swap.
+  `recentColours` is filled by any spectrum's `onCommit` — the moment the
+  hand lets go, not on every drag step.
+- **Texture's third slab is Reiterate**, a placeholder: the button is cut and
+  wired, and pressing it does nothing yet. It is the place for "change one
+  thing about this texture at random" — scale, grain, colour, bleed — so a
+  texture can be wandered through rather than set. The take-it-off-the-site
+  button that was there is gone; the stack is edited from the Looks panel.
 - **The eraser sweeps.** A press takes what is under it — a drawing first,
   else a part — and the hold that follows is a `Drag` of kind `erase`: every
   drawing the pointer crosses goes too, one history entry for the whole sweep.

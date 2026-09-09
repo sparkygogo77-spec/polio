@@ -15,7 +15,7 @@ import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
-import { auraShadow, type Light, type Palette, type TextureLayer } from "./look";
+import { auraStyle, type Light, type Palette, type TextureLayer } from "./look";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -703,7 +703,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       style={{
         left: node.x, top: node.y, width: node.w, height: node.h,
         // The aura belongs to the element, not to anything inside it.
-        boxShadow: auraShadow(node.aura, palette) ?? undefined,
+        ...((auraStyle(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties),
       }}
     >
       {/* the part itself, at real size */}

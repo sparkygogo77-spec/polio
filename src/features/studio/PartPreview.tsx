@@ -75,7 +75,7 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       glyph: null,
       hue: null,
       locked: false,
-      link: null, colour: null, anim: null, aura: null, texture: null,
+      link: null, colour: null, anim: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null,
     }),
     [feature, feature.id, feature.name, pw, ph],
   );

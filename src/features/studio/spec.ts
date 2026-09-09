@@ -10,7 +10,7 @@
 import { getFeature, categoryOf } from "./catalog";
 import { resolvePart } from "./parts";
 import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
-import { describeLook, ROLES, ROLE_LABEL, type Look, type RoleId } from "./look";
+import { AURA_WORD, describeLook, ROLES, ROLE_LABEL, type Look, type RoleId } from "./look";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape } from "./store";
@@ -252,7 +252,10 @@ export function compileSpec(input: CompileInput): Spec {
           link: describeLink(n.link, pages),
           colour: describeColour(n.colour),
           anim: n.anim ? ENTRANCE_WORD[n.anim] ?? n.anim : null,
-          aura: n.aura ? `${ROLE_LABEL[n.aura as RoleId]?.toLowerCase() ?? n.aura} glowing round its edge` : null,
+          aura: n.aura
+            ? `${ROLE_LABEL[n.aura as RoleId]?.toLowerCase() ?? n.aura} ${AURA_WORD[n.auraStyle ?? "glow"]} round its edge${
+              n.auraSize && Math.abs(n.auraSize - 1) > 0.05 ? `, ${n.auraSize < 1 ? "tight" : "wide"} (${Math.round(n.auraSize * 100)}% of the usual reach)` : ""}`
+            : null,
           texture: !n.texture ? null : n.texture === "none" ? "no texture, whatever the site wears" : "its own texture layer",
           data: (n.data ?? "").trim(),
           feeds: pShapes

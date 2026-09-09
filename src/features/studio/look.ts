@@ -639,17 +639,64 @@ export function castFrom(light: Light, cx: number, cy: number): { dx: number; dy
 }
 
 /**
- * The aura: a role's colour glowing round an element's edge.
+ * The aura: a colour round an element's edge.
  *
- * Two shadows — a hairline that reads as a border and a wide soft one that
- * reads as light coming off it — so it works on a dark page and a light one
- * without a second setting.
+ * An aura is a colour — a palette role, so it follows the site, or a colour
+ * of its own off the spectrum — a size, and a style: a soft **glow**, a hard
+ * **ring**, or a glow that **pulses**.
  */
-export function auraShadow(role: string | null | undefined, palette: Palette | undefined): string | null {
-  if (!role || !palette) return null;
-  const colour = (palette as Record<string, string>)[role];
+export type AuraStyle = "glow" | "ring" | "pulse";
+export const AURA_STYLES: { id: AuraStyle; label: string }[] = [
+  { id: "glow", label: "Soft glow" },
+  { id: "ring", label: "Hard ring" },
+  { id: "pulse", label: "Pulse" },
+];
+export const AURA_WORD: Record<AuraStyle, string> = { glow: "glowing softly", ring: "as a hard ring", pulse: "pulsing" };
+
+/** The colour an aura resolves to: a role's colour, or the colour itself. */
+export function auraColour(aura: string | null | undefined, palette: Palette | undefined): string | null {
+  if (!aura) return null;
+  const named = palette ? (palette as Record<string, string>)[aura] : undefined;
+  if (named) return named;
+  return aura.includes("(") ? aura : null;
+}
+
+/**
+ * The shadow that draws it.
+ *
+ * A glow is two shadows — a hairline that reads as a border and a wide soft
+ * one that reads as light coming off it — so it works on a dark page and a
+ * light one without a second setting. A ring is one hard band. `size` scales
+ * how far either reaches.
+ */
+export function auraShadow(aura: string | null | undefined, palette: Palette | undefined, size = 1, style: AuraStyle = "glow"): string | null {
+  const colour = auraColour(aura, palette);
   if (!colour) return null;
-  return `0 0 0 1px ${withAlpha(colour, 0.75)}, 0 0 14px 2px ${withAlpha(colour, 0.5)}, 0 0 36px 6px ${withAlpha(colour, 0.22)}`;
+  const k = Math.max(0.3, Math.min(2.5, size || 1));
+  if (style === "ring") {
+    return `0 0 0 ${(2.5 * k).toFixed(1)}px ${withAlpha(colour, 0.95)}, 0 0 ${(6 * k).toFixed(1)}px 0 ${withAlpha(colour, 0.35)}`;
+  }
+  return `0 0 0 1px ${withAlpha(colour, 0.75)}, 0 0 ${(14 * k).toFixed(1)}px ${(2 * k).toFixed(1)}px ${withAlpha(colour, 0.5)}, 0 0 ${(36 * k).toFixed(1)}px ${(6 * k).toFixed(1)}px ${withAlpha(colour, 0.22)}`;
+}
+
+/**
+ * Everything an element wears for its aura, as style.
+ *
+ * The shadow, and for a pulse the animation that breathes it: `aura-pulse`
+ * in `globals.css` animates the shadow between two reaches off two custom
+ * properties, so the one keyframe serves every colour and size.
+ */
+export function auraStyle(aura: string | null | undefined, palette: Palette | undefined, size = 1, style: AuraStyle = "glow"): Record<string, string | number> | null {
+  const shadow = auraShadow(aura, palette, size, style);
+  if (!shadow) return null;
+  if (style !== "pulse") return { boxShadow: shadow };
+  const colour = auraColour(aura, palette)!;
+  return {
+    boxShadow: shadow,
+    animation: "aura-pulse 1.8s ease-in-out infinite",
+    "--aura": withAlpha(colour, 0.6),
+    "--aura-k": Math.max(0.3, Math.min(2.5, size || 1)),
+  };
 }
 
 /** Describe the lamp for the blueprint. */

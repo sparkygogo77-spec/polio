@@ -111,7 +111,7 @@ const CORNERS = [0.125, 0.375, 0.625, 0.875];
  * outside — and it is the reason a ring like this reads as one shape with
  * lines drawn on it instead of as separate slabs.
  */
-export function piece(from: number, to: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings): string {
+export function piece(from: number, to: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings, shrink = 0): string {
   // Turns are periodic, but the corner walk below is not: it looks for corners
   // by value. The console's quadrants start where the green stops, at a full
   // turn, and without this they missed every corner and came out as triangles.
@@ -122,11 +122,13 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
   // meets the outer block above it, both have to give half of it up. That one
   // is cut wider than the seams beside it, because it is the gap you read the
   // ring's two rings by. The two edges with no neighbour — the hole at the
-  // pointer and the outside — keep their full reach.
+  // pointer and the outside — keep their full reach. `shrink` pulls every
+  // edge in by that many more pixels: the console's slabs wear an aura, and
+  // an aura needs a gap to be seen in.
   const inSeam = rIn > rg.hole ? RING_SEAM / 2 : 0;
   const outSeam = rOut === "edge" ? 0 : RING_SEAM / 2;
-  const rA = rIn + ROUND + inSeam;
-  const pad = SEAM / 2 + ROUND;
+  const rA = rIn + ROUND + inSeam + shrink;
+  const pad = SEAM / 2 + ROUND + shrink;
   const turnPad = (r: number) => pad / (Math.PI * 2 * Math.max(12, r));
 
   const gA = turnPad(rA);
@@ -134,8 +136,8 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
   const aTo = rawTo - gA;
   // The outer end has its own inset, taken at the radius it actually reaches —
   // which on a square is much further out toward a corner.
-  const gFrom = turnPad(outerAt(rawFrom, rOut, shape, ROUND + outSeam, rg).r);
-  const gTo = turnPad(outerAt(rawTo, rOut, shape, ROUND + outSeam, rg).r);
+  const gFrom = turnPad(outerAt(rawFrom, rOut, shape, ROUND + outSeam + shrink, rg).r);
+  const gTo = turnPad(outerAt(rawTo, rOut, shape, ROUND + outSeam + shrink, rg).r);
   const bFrom = rawFrom + gFrom;
   const bTo = rawTo - gTo;
   // A piece too narrow to draw would fold inside out; collapse it to a sliver
@@ -146,19 +148,19 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
 
   let d = `M ${fmt(onCircle(iFrom, rA))}`;
   d += ` A ${rA} ${rA} 0 0 1 ${fmt(onCircle(iTo, rA))}`;
-  d += ` L ${fmt(outerAt(oTo, rOut, shape, ROUND + outSeam, rg).p)}`;
+  d += ` L ${fmt(outerAt(oTo, rOut, shape, ROUND + outSeam + shrink, rg).p)}`;
   if (rOut === "edge" && shape === "square") {
     // Walk the square backwards, landing on every corner between the two ends,
     // so a piece that turns a corner turns it at a right angle instead of
     // cutting it off with a chord.
-    const half = rg.reach - ROUND;
+    const half = rg.reach - ROUND - shrink;
     // A piece can straddle the top of the turn, so the corners past it count too.
     const corners = [...CORNERS, ...CORNERS.map((c) => c + 1)];
     for (const c of corners.reverse()) if (c > oFrom && c < oTo) d += ` L ${fmt(onSquare(c, half))}`;
-    d += ` L ${fmt(outerAt(oFrom, rOut, shape, ROUND, rg).p)}`;
+    d += ` L ${fmt(outerAt(oFrom, rOut, shape, ROUND + shrink, rg).p)}`;
   } else {
-    const r = outerAt(oFrom, rOut, shape, ROUND + outSeam, rg).r;
-    d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, shape, ROUND + outSeam, rg).p)}`;
+    const r = outerAt(oFrom, rOut, shape, ROUND + outSeam + shrink, rg).r;
+    d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, shape, ROUND + outSeam + shrink, rg).p)}`;
   }
   return `${d} Z`;
 }

@@ -35,20 +35,20 @@
 import * as React from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, Copy, FileText, Grid2x2, Highlighter, Link2, ListTree, Lock,
-  Move, Palette as PaletteIcon, Play, Shapes, SlidersHorizontal, Sparkles, Tag, Trash2, Unlock, Wand2, X,
+  Move, Palette as PaletteIcon, Play, Shapes, SlidersHorizontal, Sparkles, Tag, Trash2, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
 import { getFeature } from "./catalog";
 import { isLinkable } from "./parts";
 import { useStudio, type StudioNode } from "./store";
 import {
-  BLUE_RINGS, EDGE, GREEN_RINGS, middleOf, onCircle, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, spun, SWELL,
+  BLUE_RINGS, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
   type Pt,
 } from "./menuGeometry";
 import { AuraQuads, HueQuads, PlateQuad, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { CONSOLE, type Slab } from "./RingConsole";
 import { GLYPHS, HuePicker, OptionSet } from "./Inspector";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
-import { textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
+import { auraColour, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
@@ -559,7 +559,6 @@ export function RadialMenu() {
   const freeQuads: [number, number][] = [];
   for (let t = greenTo; t < greenFrom + 1 - 0.001; t += 0.25) freeQuads.push([t, t + 0.25]);
   const consoleSpan: ConsoleSpan = { quads: freeQuads, rings: GREEN_RINGS, shape, spin };
-  const backAt = spun(onCircle((greenFrom + greenTo) / 2, GREEN_RINGS.reach + 18), spin);
 
   return (
     // Above the top bar and the status bar, or a menu opened near an edge has
@@ -587,28 +586,59 @@ export function RadialMenu() {
           }))} />
         ) : null}
 
-        {/* the lock lives in the clear circle, at the pointer */}
-        {editing ? null : <button
-          type="button"
-          aria-label={node.locked ? "Unlock" : "Lock in place"}
-          aria-pressed={node.locked}
-          data-menu-lock=""
-          onPointerDown={carry}
-          onClick={() => {
-            // A drag moved the menu; it was not a press on the lock.
-            if (dragged.current) { dragged.current = false; return; }
-            play(node.locked ? "confirm" : "close");
-            s().updateNode(node.id, { locked: !node.locked });
-          }}
-          className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing"
-          style={{
-            background: node.locked ? `oklch(0.72 0.16 60)` : `oklch(0.28 0.02 250)`,
-            border: `1px solid oklch(${node.locked ? "0.52 0.14 60" : "0.44 0.02 250"})`,
-            color: node.locked ? "oklch(0.2 0.06 60)" : "oklch(0.86 0.02 250)",
-          }}
-        >
-          {node.locked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
-        </button>}
+        {/*
+          The middle: the lock on the first level, and past it the one way
+          back. There used to be a green X for leaving the green level and a
+          red one for leaving an editor, each somewhere on the rim; one button
+          where the pointer already is, that takes you to the start, is the
+          same thing with nothing to find. Escape still steps back one level.
+          Either way the middle is also the handle the menu is carried by.
+        */}
+        {!picked ? (
+          <button
+            type="button"
+            aria-label={node.locked ? "Unlock" : "Lock in place"}
+            aria-pressed={node.locked}
+            data-menu-lock=""
+            onPointerDown={carry}
+            onClick={() => {
+              // A drag moved the menu; it was not a press on the lock.
+              if (dragged.current) { dragged.current = false; return; }
+              play(node.locked ? "confirm" : "close");
+              s().updateNode(node.id, { locked: !node.locked });
+            }}
+            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing"
+            style={{
+              background: node.locked ? `oklch(0.72 0.16 60)` : `oklch(0.28 0.02 250)`,
+              border: `1px solid oklch(${node.locked ? "0.52 0.14 60" : "0.44 0.02 250"})`,
+              color: node.locked ? "oklch(0.2 0.06 60)" : "oklch(0.86 0.02 250)",
+            }}
+          >
+            {node.locked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="Back to the start"
+            data-menu-home=""
+            onPointerDown={carry}
+            onClick={() => {
+              if (dragged.current) { dragged.current = false; return; }
+              play("close");
+              setPicked(null);
+              setSubPick(null);
+            }}
+            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
+            style={{
+              background: editing ? CONSOLE.well : `oklch(0.32 0.06 ${GREEN})`,
+              border: `1px solid ${editing ? "oklch(0.5 0.01 260)" : `oklch(0.5 0.12 ${GREEN})`}`,
+              color: editing ? CONSOLE.text : "oklch(0.9 0.05 148)",
+              boxShadow: "0 2px 6px oklch(0 0 0 / 0.5)",
+            }}
+          >
+            <Undo2 className="size-3.5" />
+          </button>
+        )}
 
         {group ? (
           <div data-radial-panel={group.id} className="pointer-events-auto absolute left-0 top-0">
@@ -627,7 +657,7 @@ export function RadialMenu() {
                   p.choice.id === "hue" ? <HueSwatch node={node} palette={palette} />
                   : p.choice.id === "texture" ? <TextureSwatch node={node} palette={palette} layers={layers} />
                   : undefined,
-                glow: p.choice.id === "aura" && node.aura ? palette[node.aura as RoleId] : null,
+                glow: p.choice.id === "aura" ? auraColour(node.aura, palette) : null,
                 onPick: () => {
                   play("select");
                   if (p.choice.act) p.choice.act(node);
@@ -635,27 +665,12 @@ export function RadialMenu() {
                 },
               }))}
             />
-            {/* back out of the green level without closing the whole thing */}
-            <button
-              type="button"
-              aria-label="Back to the menu"
-              onClick={() => { play("close"); setPicked(null); setSubPick(null); }}
-              className="pointer-events-auto absolute flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
-              style={{
-                left: backAt[0],
-                top: backAt[1],
-                background: `oklch(0.66 0.15 ${GREEN})`,
-                color: "oklch(0.18 0.05 148)",
-              }}
-            >
-              <X className="size-3" />
-            </button>
           </div>
         ) : null}
 
         {group && editing ? (
           <div data-radial-editor={editing} className="pointer-events-none absolute left-0 top-0">
-            <QuadrantConsole span={consoleSpan} onGrip={carry} onBack={() => { play("close"); setSubPick(null); }}>
+            <QuadrantConsole span={consoleSpan} onGrip={carry}>
               {(slabs) => <Editor which={editing} node={node} slabs={slabs} />}
             </QuadrantConsole>
           </div>
@@ -793,7 +808,10 @@ function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; s
     return [(at[0] / len) * 1.5, (at[1] / len) * 1.5];
   };
   return (
-    <svg width={1} height={1} className="absolute left-0 top-0 overflow-visible">
+    // The svg itself takes no presses: its one-pixel box sits exactly on the
+    // middle of the wheel, and it was the one pixel the middle button could
+    // not be pressed on.
+    <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
       <g transform={`rotate(${(spin * 360).toFixed(2)})`}>
         {pieces.map((p) => {
           const lit = hot === p.id || p.on;
@@ -942,7 +960,7 @@ function Editor({ which, node, slabs }: { which: string; node: StudioNode; slabs
     );
   }
   if (which === "aura") {
-    return <AuraQuads slabs={slabs} value={node.aura} palette={palette} onChange={(aura) => update({ aura })} />;
+    return <AuraQuads slabs={slabs} node={node} palette={palette} onChange={(patch) => update(patch)} />;
   }
   // Everything else is words and numbers, and there is no honest way to bend a
   // text field round a curve. They go on a plate inscribed in the first slab —
