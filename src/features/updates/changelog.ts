@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.26",
+    title: "The add disc",
+    summary: "The page's wheel has Add in its middle: press it and the wheel is a hole the parts roll through, with the categories as coloured tabs round its rim.",
+    sketch: "planets",
+    added: [
+      "Right-press the bare page and the middle of its wheel is a blue Add. Press it and the wheel becomes a disc like the drawing board's, only alive: the clouds go round and faint motes fall in toward the middle.",
+      "Down the middle of the hole run the parts of one category, drawn as themselves at a good size with a long gap between each. Scroll and they roll through the middle: the one at the centre is full size, the rest shrink and dim toward it, and the column settles on whichever is nearest.",
+      "The fourteen categories are tabs down the left of the rim, top to bottom, each a round key in its category's own colour with the library's planet mark on it; the open one is a size larger with a white ring.",
+      "The search is a short bar in the top cap and no more: type and the hole shows what it found from every category, with the count above it. Enter takes the first.",
+      "Press a part and it lands on the page centred where the wheel was opened, kept inside the frame; the disc goes. Back is on the rim, top right, and Escape steps back to the wheel.",
+    ],
+  },
+  {
     version: "0.25",
     title: "More on the wheel, and the chain",
     summary: "The tray under the wheel is a piece of it; the page's editors waste no slab; icon keys wear their own colours; a wire between two parts seats with a snap; the palette is a console.",

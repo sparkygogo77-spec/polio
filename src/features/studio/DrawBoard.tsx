@@ -419,8 +419,8 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   );
 }
 
-/** A small round button straddling the rim, in the void's own colours. */
-function RimButton({ at, label, onClick, disabled, children, testId }: { at: React.CSSProperties; label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode; testId: string }) {
+/** A small round button straddling the rim, in the void's own colours. The add disc borrows it. */
+export function RimButton({ at, label, onClick, disabled, children, testId }: { at: React.CSSProperties; label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode; testId: string }) {
   return (
     <button
       type="button"
@@ -459,9 +459,17 @@ function RimButton({ at, label, onClick, disabled, children, testId }: { at: Rea
  * that breathes over half a minute — the one place to start from. And the
  * edge is dark: the last sixth of the radius falls off to near black, so
  * the disc reads as a hole in the screen rather than a plate on it.
+ *
+ * `mood` is how alive it is. The drawing board is `still`: nothing on it
+ * should compete with a line being drawn. The add disc is `lively`: the
+ * clouds go round several times faster and a scatter of faint motes falls
+ * in toward the middle — the hole is pulling, and what it pulls in is
+ * what you scroll past.
  */
-function paintSpace(c: CanvasRenderingContext2D, size: number, t: number) {
+export function paintSpace(c: CanvasRenderingContext2D, size: number, t: number, mood: "still" | "lively" = "still") {
   const r = size / 2;
+  const lively = mood === "lively";
+  const tempo = lively ? 6 : 1;
   c.clearRect(0, 0, size, size);
   c.save();
   c.beginPath();
@@ -494,13 +502,37 @@ function paintSpace(c: CanvasRenderingContext2D, size: number, t: number) {
     [0.7, 0.72, 0.16, 110, 0.15, "oklch(0.28 0.08 240 / 0.22)"],
   ];
   for (const [ox, oy, orbit, period, phase, colour] of clouds) {
-    const a = (t / period + phase) * TAU;
+    const a = ((t * tempo) / period + phase) * TAU;
     cloud(size * (ox + Math.cos(a) * orbit * 0.5), size * (oy + Math.sin(a) * orbit * 0.35), r * 0.85, colour);
+  }
+
+  // The infall: faint motes spiralling in from the rim, each on its own
+  // fall, brightest halfway in and gone before the middle. Nothing is kept
+  // between frames — every mote is a function of its index and the clock.
+  if (lively) {
+    const MOTES = 44;
+    // Two numbers per mote that do not run in step with its neighbour's.
+    const hash = (n: number) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
+    for (let i = 0; i < MOTES; i++) {
+      const seed = hash(i * 12.9898 + 1.3);
+      const seed2 = hash(i * 78.233 + 7.1);
+      const fall = 9 + seed * 14; // seconds from the rim to the middle
+      const p = ((t / fall + seed2) % 1 + 1) % 1; // 0 at the rim, 1 at the middle
+      const dist = r * (1 - p) * 0.97;
+      const a = (seed * TAU + t * (0.12 + seed2 * 0.1) + p * 2.2) % TAU;
+      const x = r + Math.cos(a) * dist;
+      const y = r + Math.sin(a) * dist;
+      const bright = Math.sin(p * Math.PI);
+      c.fillStyle = `oklch(${(0.55 + 0.3 * bright).toFixed(2)} 0.1 ${i % 3 === 0 ? 60 : 280} / ${(0.16 + 0.42 * bright).toFixed(2)})`;
+      c.beginPath();
+      c.arc(x, y, 0.7 + bright * 0.9, 0, TAU);
+      c.fill();
+    }
   }
 
   // The middle: one warm point in a little glow that breathes.
   {
-    const breath = 0.8 + 0.2 * Math.sin((t / 32) * TAU);
+    const breath = 0.8 + 0.2 * Math.sin(((t * tempo) / 32) * TAU);
     const glow = c.createRadialGradient(r, r, 0, r, r, 8);
     glow.addColorStop(0, `oklch(0.85 0.16 70 / ${(0.45 * breath).toFixed(2)})`);
     glow.addColorStop(1, "oklch(0.85 0.16 70 / 0)");

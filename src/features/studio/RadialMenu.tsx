@@ -42,9 +42,10 @@
  */
 import * as React from "react";
 import {
-  Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Layers, Link2, ListTree, Lock, Orbit,
-  Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Scissors, SlidersHorizontal, Sparkles, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
+  Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit,
+  Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
+import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
 import { BackgroundEditor } from "./BackgroundEditors";
 import { readImage } from "./ImageIntake";
@@ -108,9 +109,10 @@ function keepOnScreen(x: number, y: number): [number, number] {
   ];
 }
 
-export function openRadial(nodeId: string, x: number, y: number) {
+/** Open the wheel about a part or the page. `at` is the same spot in canvas space, where the page's Add lands a part. */
+export function openRadial(nodeId: string, x: number, y: number, at: { x: number; y: number } | null = null) {
   const [px, py] = keepOnScreen(x, y);
-  current = { nodeId, x: px, y: py, seq: ++opened, at: null };
+  current = { nodeId, x: px, y: py, seq: ++opened, at };
   listeners.forEach((l) => l(current));
 }
 /**
@@ -365,6 +367,8 @@ export function RadialMenu() {
   const ctx = useActions();
   const [picked, setPicked] = React.useState<SlotId | null>(null);
   const [subPick, setSubPick] = React.useState<string | null>(null);
+  // The page's wheel turned into the add disc: pressed from its middle.
+  const [adding, setAdding] = React.useState(false);
   // Re-renders the tray when looks are copied, so Paste lights up.
   const [, setCarried] = React.useState(0);
   const nodes = useStudio((s) => s.nodes);
@@ -387,6 +391,7 @@ export function RadialMenu() {
   React.useEffect(() => {
     setPicked(null);
     setSubPick(null);
+    setAdding(false);
   }, [seq]);
 
   React.useEffect(() => {
@@ -395,6 +400,7 @@ export function RadialMenu() {
       if (e.key !== "Escape") return;
       if (subPick) setSubPick(null);
       else if (picked) setPicked(null);
+      else if (adding) setAdding(false);
       else closeRadial();
     };
     const onDown = (e: PointerEvent) => {
@@ -419,7 +425,7 @@ export function RadialMenu() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onDown, true);
     };
-  }, [open, picked, subPick]);
+  }, [open, picked, subPick, adding]);
 
   /*
    * The line: one line, two ends, two things.
@@ -777,7 +783,7 @@ export function RadialMenu() {
       <div className="absolute" style={{ left: px, top: py }}>
         {pull ? <PullLine pull={pull} /> : null}
 
-        {!picked ? (
+        {!picked && !adding ? (
           <Ring spin={spin} pieces={level1.map((p) => ({
             id: p.slot.id,
             label: p.slot.label,
@@ -800,19 +806,26 @@ export function RadialMenu() {
           same thing with nothing to find. Escape still steps back one level.
           Either way the middle is also the handle the menu is carried by.
         */}
-        {!picked && bg ? (
-          // The page has nothing to lock: the middle is only the handle.
+        {adding ? null : !picked && bg ? (
+          // The page has nothing to lock: its middle is Add. Press it and the
+          // wheel becomes the add disc, with the parts rolling down its hole.
+          // It is still the handle the wheel is carried by.
           <button
             type="button"
-            aria-label="Background"
-            title="The page's background · drag to move the wheel"
+            aria-label="Add a part here"
+            title="Add a part here · drag to move the wheel"
             data-menu-handle=""
+            data-menu-add=""
             onPointerDown={carry}
-            onClick={() => { if (dragged.current) dragged.current = false; }}
-            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
-            style={{ background: CONSOLE.face, border: `1px solid ${CONSOLE.rim}`, color: CONSOLE.text, boxShadow: "0 2px 6px oklch(0 0 0 / 0.5)" }}
+            onClick={() => {
+              if (dragged.current) { dragged.current = false; return; }
+              play("open");
+              setAdding(true);
+            }}
+            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-[filter] hover:brightness-110 active:cursor-grabbing"
+            style={{ background: "oklch(0.66 0.155 205)", border: "1px solid oklch(0.44 0.14 205)", color: "oklch(0.99 0 0)", boxShadow: "0 0 10px oklch(0.7 0.16 205 / 0.45), 0 2px 6px oklch(0 0 0 / 0.5)" }}
           >
-            <Layers className="size-3" />
+            <Plus className="size-3.5" strokeWidth={2.5} />
           </button>
         ) : !picked ? (
           <button
@@ -904,6 +917,13 @@ export function RadialMenu() {
         {onBoard ? (
           <div data-radial-board="" className="pointer-events-none absolute left-0 top-0">
             <DrawBoard node={node!} at={null} onBack={() => setPicked(null)} onDone={closeRadial} />
+          </div>
+        ) : null}
+
+        {/* The add disc: the page's wheel as a hole the parts roll through. Back is on its rim; Escape steps back too. */}
+        {adding ? (
+          <div data-radial-board="add" className="pointer-events-none absolute left-0 top-0">
+            <AddDisc at={open.at} onBack={() => setAdding(false)} onDone={closeRadial} />
           </div>
         ) : null}
 

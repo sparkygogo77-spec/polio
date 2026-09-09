@@ -83,6 +83,19 @@ same boxes as everywhere else, in the screen's colours.
   placeholder that taps, never a hole in the wheel. ⌘X cuts it bare and
   holds it, ⌘V puts it back, ⌫ strips it. Cut and paste on parts work the
   same way, and paste puts back whatever was cut last.
+- **The page's middle is Add, and Add is a hole.** The page has nothing to
+  lock, so the middle of its wheel is a blue Add. Press it and the wheel is
+  the add disc (`AddDisc.tsx`): the drawing board's void, alive — clouds
+  going round, motes falling in — with the parts of one category rolling
+  down the middle of it, drawn as themselves at a good size with a long gap
+  between each. The one at the centre is full size; the rest shrink and dim
+  toward it, so the column reads as a drum turning inside the hole, and the
+  scroll settles on the nearest. The categories are tabs round the left of
+  the rim, top to bottom, each a key in its category's own colour with the
+  library's planet mark on it. The search is a short bar in the top cap and
+  never more: the parts are what you are there to see, and they stay large.
+  A press lands the part where the wheel was opened, kept inside the frame,
+  and the disc goes. Back is on the rim, top right; Escape steps back.
 - **Placeholders are cut and wired.** Priority, Reiterate, Make-it-a-prompt: the
   button exists, sits where it will live, plays a tap, and does nothing yet. A
   placeholder is a promise about the layout, not about the feature.

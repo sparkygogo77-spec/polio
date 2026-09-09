@@ -508,7 +508,9 @@ export function Canvas() {
             e.preventDefault();
             e.stopPropagation();
             useStudio.getState().selectBackground();
-            openRadial(BACKGROUND_ID, e.clientX, e.clientY);
+            // The same spot on the page, so the wheel's Add lands a part where the hand was.
+            const r = e.currentTarget.getBoundingClientRect();
+            openRadial(BACKGROUND_ID, e.clientX, e.clientY, { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom });
           }}
           onContextMenu={(e) => {
             if (e.target !== e.currentTarget) return;

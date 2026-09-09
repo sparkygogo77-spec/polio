@@ -660,10 +660,29 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   slider for `look.veil`, a black overlay at that opacity painted by the
   board, the live site and the blueprint; **Texture**: the stack's layers as
   tiles, several on at once — `GridChips` with `values` — plus Add a picture
-  and Clear the page), and **Strip** where Delete is. The middle is a plain
-  handle (`data-menu-handle`); the page has nothing to lock. Everything a
-  part's wheel does that makes no sense for a page is a placeholder that
-  taps, not a missing piece; and no editor leaves a slab empty.
+  and Clear the page), and **Strip** where Delete is. The middle is **Add**
+  (`data-menu-add`, still the handle `data-menu-handle`); the page has
+  nothing to lock. Everything a part's wheel does that makes no sense for a
+  page is a placeholder that taps, not a missing piece; and no editor
+  leaves a slab empty.
+- **The add disc** (`AddDisc.tsx`, `data-add-disc`): pressed from the
+  page's middle, the wheel becomes a disc the size of the drawing board,
+  painted with `paintSpace(…, "lively")` — the same void with the clouds
+  several times faster and motes falling in. The hole (`data-add-scroll`,
+  clipped to `WELL_R`, no scrollbar, `scroll-snap-type: y proximity`) holds
+  one category's parts as `PartPreview`s at `COLUMN_W` with a `GAP` between
+  them and each sub-group's name as a phosphor heading (`data-add-head`);
+  on every scroll frame each row is scaled to the hole's chord where it is
+  and to a drum curve of its distance from the middle, and dimmed with it.
+  A new category scrolls its first part to the middle. The categories are
+  tabs (`data-add-tab`, `role="tab"`) round the left of the rim from
+  `TABS_FROM` to `TABS_TO` degrees, top to bottom, in `keyForHue(c.hue)`
+  with the `PLANET` mark; the search (`data-add-search`) is a short bar in
+  the top cap and searches every category. A press (`data-add-item`) calls
+  `addNode` centred on `open.at` — the canvas point `Canvas.tsx` now passes
+  to `openRadial` — clamped inside the frame, or `addFeatureToCanvas` when
+  there is no point; then the menu closes. Back is a `RimButton` (exported
+  from `DrawBoard.tsx`) at 318°; Escape steps back to the wheel.
 - **Icon keys wear their own colours** (`KEY_HUES`, `keyOf` in
   `RingConsole.tsx`): opaque, a shade bright, white lines on them and dark
   on the yellows. The entrance kinds, the easings, the slide directions,

@@ -87,7 +87,10 @@ export const SCREEN_KEY: React.CSSProperties = { background: SCREEN.key, color: 
  */
 export const KEY_HUES = [205, 330, 62, 150, 278, 22, 100, 245, 350, 180];
 export function keyOf(i: number): React.CSSProperties {
-  const hue = KEY_HUES[i % KEY_HUES.length]!;
+  return keyForHue(KEY_HUES[i % KEY_HUES.length]!);
+}
+/** The same key in a given hue — a category's own, say. Yellows go lighter and take dark lines. */
+export function keyForHue(hue: number): React.CSSProperties {
   const yellow = hue >= 40 && hue <= 115;
   return { background: `oklch(${yellow ? 0.78 : 0.66} 0.17 ${hue})`, color: yellow ? "oklch(0.22 0.06 60)" : "oklch(0.99 0 0)" };
 }

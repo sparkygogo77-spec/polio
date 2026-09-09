@@ -267,6 +267,9 @@
 
 [data-show-scopes="on"] [data-ctx] { outline: 1px dashed var(--accent); outline-offset: -1px; }
 
+/* The add disc's hole scrolls without a bar: the roll is the scroll indicator. */
+[data-add-scroll]::-webkit-scrollbar { display: none; }
+
 /* Ambient overlays toggled by ThemeProvider attributes. */
 .ambient-glow {
   position: fixed;
