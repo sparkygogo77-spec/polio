@@ -25,6 +25,33 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.24",
+    title: "Claude sees the site",
+    summary: "Every prompt from the blueprint dialog goes with screenshots of the pages, seven kinds of ask including your own words and the code, and Publish pushes the site to GitHub and on to Vercel.",
+    sketch: "picture",
+    added: [
+      "Screenshots: the server opens the live preview with your document in place and photographs each page, top to bottom, and the pictures go to Claude beside the blueprint — so it reads what the site looks like, not only what it is for. A switch on the dialog, a setting for how many pages.",
+      "Seven asks: Plan, Critique, Fill prompts, Finish (a checklist with the prompt that fixes each item), Ideas (ten, placed and ranked), Ask (anything, in your words), Build (every file, complete). Ctrl-Enter sends.",
+      "Publish: the document the app renders at /site, the blueprint both ways, and whatever Build wrote, pushed to a GitHub repository in one commit with a token on the server; a Vercel deploy hook called after, when one is set. On a deployment made from that push, the root of the site is the site.",
+      "The drawing board snaps: a wobbly box becomes a box, a loop a circle, a slanted line level, three corners a triangle. Snap, smooth or raw, on the board's rim and in the settings.",
+      "The tour render and the screenshots see the real site: the document travels with the request, so a headless browser no longer opens an empty page.",
+    ],
+  },
+  {
+    version: "0.23",
+    title: "The tweet console",
+    summary: "Press T: a dashboard comes down over the screen where posts to X are drafted, previewed, given a recorded tour of the site, queued, and sent.",
+    sketch: "planets",
+    added: [
+      "One draft at a time in the middle, the way X will show it on the right, and on the left every draft as a stop on one line with the log under it, so what is queued and what happened to it reads like a feed.",
+      "Threads, four pictures or one GIF or video per post with alt text, a poll, who can reply, a post to quote or answer, the sensitive flag; the count is X's count, links as 23, and a Split button cuts a long draft into a thread at paragraphs and sentences.",
+      "Schedule it and the console sends it when it is due, retries with a growing wait when X refuses, and says so honestly: the queue runs while the app is open, a post still goes out up to three hours late, later it is marked missed and offered again.",
+      "The tour: the live site in a frame, scrolled top to bottom at a walking pace, pressing tabs and opening rows as it passes them. Record it from the tab, or render it on the server, and attach it to the first post as a GIF X will take — the GIF is written by the app itself, so nothing has to be installed for it.",
+      "No keys on the server and nothing is stuck: Send opens X with the words or copies them, and every draft's right-click menu does the same. With keys, media goes up through X's upload API and the thread is posted in order.",
+      "Thirty-one settings under their own group, most under advanced: your handle for the preview, the character limit, numbering, retries and their backoff, the queue's cadence and late window, picture size and quality, the tour's device, speed and passes, the console's size.",
+    ],
+  },
+  {
     version: "0.22",
     title: "Sliders, screens, and the page itself",
     summary: "No more word-boxes on the wheel: speed and delay are sliders, choices are icon keys or a readout with arrows, settings sit on screens — and the page's background can be picked, cut and put back.",

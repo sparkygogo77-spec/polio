@@ -12,6 +12,7 @@ import { NewsPanel } from "@/core/news/NewsPanel";
 import { Toaster } from "@/core/news/Toaster";
 import { SettingsDrawer } from "@/core/settings/SettingsDrawer";
 import { UpdatesPanel } from "@/features/updates/UpdatesPanel";
+import { TweetConsole } from "@/features/tweets/TweetConsole";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { useUi } from "@/core/ui-state/store";
 import { cn } from "@/core/lib/cn";
@@ -62,6 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NewsPanel />
           <SettingsDrawer />
           <UpdatesPanel />
+          <TweetConsole />
           <CommandPalette />
           <ShortcutsSheet />
           <ConfirmDialog />

@@ -22,7 +22,7 @@ import { LiveSite } from "./LiveSite";
 
 const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
-export function PreviewPage({ params }: RouteProps) {
+export function PreviewPage({ params, published }: RouteProps & { published?: boolean }) {
   useStudioHydration();
   const router = useRouter();
   const pages = useStudio((s) => s.pages);
@@ -82,7 +82,7 @@ export function PreviewPage({ params }: RouteProps) {
 
   return (
     <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
+      <div className={cn("flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5", published && "hidden")}>
         <Tooltip content="Back to the board" shortcut="b">
           <Button variant="ghost" size="xs" aria-label="Back to board" onClick={() => router.push("/builder")}>
             <ArrowLeft />

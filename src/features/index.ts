@@ -8,6 +8,7 @@ import type { FeatureModule } from "@/core/types";
 import { home } from "./home";
 import { showcase } from "./showcase";
 import { studio } from "./studio";
+import { tweets } from "./tweets";
 import { updates } from "./updates";
 
-export const modules: FeatureModule[] = [home, studio, showcase, updates];
+export const modules: FeatureModule[] = [home, studio, showcase, tweets, updates];

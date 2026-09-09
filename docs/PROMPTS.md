@@ -24,8 +24,14 @@ Open `/builder`, then:
 5. **Set the format** — pages, scroll behaviour, typography and text-box
    treatment, motion, palette, stack.
 6. **Write the master prompt**: the one sentence saying what the site is.
-7. **Compile**, then either hand the blueprint to Claude in-page, or copy it
-   into any agent with this line in front:
+7. **Compile**, then ask Claude in-page — Plan, Critique, Fill prompts,
+   Finish, Ideas, Ask anything, or Build the code — with a screenshot of each
+   page going along (the server photographs the live preview when it has
+   Playwright; the switch on the dialog turns it off). **Publish** pushes the
+   document, the blueprint and any generated code to GitHub in one commit
+   and calls a Vercel deploy hook; a deployment made from that push shows
+   the site at its root. Or copy the blueprint into any agent with this line
+   in front:
 
 ```
 Read AGENTS.md, then build the site described in the blueprint below. Treat
