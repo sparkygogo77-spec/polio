@@ -25,6 +25,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.31",
+    title: "Embers",
+    summary: "The red in the nebula is sparks now: small, quick, blown through the near cloud on a wind that gusts, streaking when a gust takes them.",
+    sketch: "flame",
+    added: [
+      "Fifty-odd embers ride one wind. The wind's direction wanders over a minute, its strength breathes, and a little local swirl keeps the sparks from moving as one. Each leans into it with a lag and falls a little.",
+      "A spark is a dot when it drifts and a short streak when a gust takes it — the streak is its own speed. It burns a few seconds, fades in and out, and where it dies another is lit. Small and dim on purpose: you should not be sure it moved, only that it is not where it was.",
+      "The red flakes that repeated with the cloud's tile are gone. The camo paints thirty times a second now, so an ember streaks rather than hops.",
+    ],
+  },
+  {
     version: "0.30",
     title: "A key and a repository",
     summary: "Two buttons in the top bar: the mark that opens your repository, and a key that opens a vault behind four digits.",

@@ -40,8 +40,8 @@ import { PLANET } from "./planets";
 import { CONSOLE, keyForHue, SCREEN } from "./RingConsole";
 import { useStudio } from "./store";
 
-/** How often the camo moves. Alive, so faster than the board's; still not every frame. */
-const DRIFT_MS = 40;
+/** How often the camo moves: thirty times a second, enough for an ember to streak rather than hop. */
+const DRIFT_MS = 33;
 /** The hole the parts roll in: the disc less its dark edge. */
 const WELL_R = BOARD_R - 8;
 /** A part's width when it is at the middle. */
@@ -481,20 +481,21 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
 
 /**
  * The camo: nebula clouds in violet and magenta over black, in two depths,
- * with a few red flakes drifting in the near clouds.
+ * with embers blown through the near cloud.
  *
- * Four tiles of fractal noise are made once, each already coloured and cut
+ * Two tiles of fractal noise are made once, each already coloured and cut
  * to its own alpha — a soft mask for the violet, a sharper one for the
- * magenta, a sparse hard one for the flakes — and every frame lays them
- * over the black ground as repeating patterns, screened together so where
- * they cross they bloom. The far depth is one huge slow mass, drawn large
- * and barely moving, turning about the middle over minutes: a planet at
- * the back with no edge to see, only weather. The near depth is cloud you
- * can watch pass: smaller, drifting across the hole in a few tens of
- * seconds, turning the other way. Nothing blinks; nothing is white.
+ * magenta — and every frame lays them over the black ground as repeating
+ * patterns, screened together so where they cross they bloom. The far
+ * depth is one huge slow mass, drawn large and barely moving, turning
+ * about the middle over minutes: a planet at the back with no edge to see,
+ * only weather. The near depth is cloud you can watch pass: smaller,
+ * drifting across the hole in a few tens of seconds, turning the other
+ * way. Over it, the embers (`paintEmbers`). Nothing blinks; nothing is
+ * white.
  */
 const TILE = 256;
-let tiles: { violet: HTMLCanvasElement; magenta: HTMLCanvasElement; flake: HTMLCanvasElement } | null = null;
+let tiles: { violet: HTMLCanvasElement; magenta: HTMLCanvasElement } | null = null;
 
 function noiseTile(seed: number): Float32Array {
   // Value noise, four octaves, smooth-stepped, on a grid that wraps so the tile repeats.
@@ -547,8 +548,6 @@ function darkMatterTiles() {
   tiles = {
     violet: colourTile(a, [112, 50, 204], 0.3, 0.78, 1.35),
     magenta: colourTile(b, [176, 58, 198], 0.42, 0.84, 1.6),
-    // The noise tops out near 0.77, so this keeps the top few percent: sparse specks.
-    flake: colourTile(b, [214, 38, 66], 0.66, 0.76, 0.9),
   };
   return tiles;
 }
@@ -571,16 +570,15 @@ function paintDarkMatter(c: CanvasRenderingContext2D, size: number, t: number) {
   c.fillRect(0, 0, size, size);
 
   // A pattern laid over the hole: drawn `scale` times its tile, shifted by
-  // (dx, dy) tile-pixels and turned `turn` degrees about the middle. Clouds
-  // are screened so they bloom where they cross; the flakes are painted on
-  // top as they are, or the violet under them would turn them pink.
-  const lay = (tile: HTMLCanvasElement, scale: number, dx: number, dy: number, turn: number, alpha: number, over = false) => {
+  // (dx, dy) tile-pixels and turned `turn` degrees about the middle,
+  // screened so the clouds bloom where they cross.
+  const lay = (tile: HTMLCanvasElement, scale: number, dx: number, dy: number, turn: number, alpha: number) => {
     const p = c.createPattern(tile, "repeat");
     if (!p) return;
     const m = new DOMMatrix().translate(r, r).rotate(turn).scale(scale).translate(dx, dy);
     p.setTransform(m);
     c.globalAlpha = alpha;
-    c.globalCompositeOperation = over ? "source-over" : "screen";
+    c.globalCompositeOperation = "screen";
     c.fillStyle = p;
     c.fillRect(0, 0, size, size);
   };
@@ -590,10 +588,11 @@ function paintDarkMatter(c: CanvasRenderingContext2D, size: number, t: number) {
   // The near depth: cloud you can see pass, across the hole in half a minute or so.
   lay(T.violet, 0.95, t * 7.5, t * -2.5, t * -0.8 + 30, 0.55);
   lay(T.magenta, 0.75, t * 5.5, t * 3.5, t * 0.6 + 150, 0.45);
-  // The flakes: a few small red specks riding the near cloud — drawn small, or they read as red smoke.
-  lay(T.flake, 0.3, t * 7.5, t * -2.5, t * -0.8 + 30, 0.78, true);
   c.globalAlpha = 1;
   c.globalCompositeOperation = "source-over";
+
+  // The embers, blown through the near cloud.
+  paintEmbers(c, size, t);
 
   // The horizon: the edge falls off to near black.
   const edge = c.createRadialGradient(r, r, r * 0.78, r, r, r);
@@ -602,5 +601,94 @@ function paintDarkMatter(c: CanvasRenderingContext2D, size: number, t: number) {
   edge.addColorStop(1, "rgba(3,1,6,0.9)");
   c.fillStyle = edge;
   c.fillRect(0, 0, size, size);
+  c.restore();
+}
+
+/* ------------------------------------------------------------------ */
+/* Embers                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The embers: small red sparks blown through the hole on a wind that gusts.
+ *
+ * One wind for the whole hole — a direction that wanders over a minute or
+ * so, a strength that breathes — and a little local swirl on top, so the
+ * sparks are carried the same way without moving as one. Each spark leans
+ * into the wind with a lag, falls a little, and streaks by its own speed:
+ * a dot when it drifts, a short line when a gust takes it. It burns for a
+ * few seconds, fading in and out, and where it dies another is lit. Small
+ * and dim on purpose: you should not be sure it moved, only that it is
+ * not where it was.
+ */
+const SPARKS = 56;
+const TAU = Math.PI * 2;
+type Spark = { x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; warm: number };
+let sparks: Spark[] | null = null;
+let sparkClock = 0;
+
+function lightSpark(r: number, into?: Spark): Spark {
+  const a = Math.random() * TAU;
+  const d = Math.sqrt(Math.random()) * r * 0.92;
+  const s: Spark = into ?? { x: 0, y: 0, vx: 0, vy: 0, age: 0, life: 0, size: 0, warm: 0 };
+  s.x = r + Math.cos(a) * d;
+  s.y = r + Math.sin(a) * d;
+  s.vx = 0;
+  s.vy = 0;
+  s.age = 0;
+  s.life = 1.8 + Math.random() * 2.6;
+  s.size = 0.5 + Math.random() * 0.65;
+  s.warm = Math.random();
+  return s;
+}
+
+/** The wind at a point, in pixels per second: the gust of the moment plus a local swirl, and a little fall. */
+function windAt(x: number, y: number, t: number): [number, number] {
+  const dir = 0.4 + 0.9 * Math.sin(t * 0.11) + 0.6 * Math.sin(t * 0.031 + 1.7);
+  const breath = 0.5 + 0.5 * Math.sin(t * 0.19 + Math.sin(t * 0.05) * 2);
+  const gust = 0.3 + 0.7 * breath * breath;
+  const swirl = 0.45 * Math.sin(x * 0.021 + t * 0.4) * Math.cos(y * 0.017 - t * 0.27);
+  const a = dir + swirl;
+  const speed = 24 + 116 * gust;
+  return [Math.cos(a) * speed, Math.sin(a) * speed + 14];
+}
+
+function paintEmbers(c: CanvasRenderingContext2D, size: number, t: number) {
+  const r = size / 2;
+  if (!sparks) sparks = Array.from({ length: SPARKS }, () => lightSpark(r));
+  // The clock restarts with every disc; a step backwards is no step.
+  const dt = Math.min(0.1, Math.max(0.001, t - sparkClock));
+  sparkClock = t;
+  c.save();
+  c.lineCap = "round";
+  for (const s of sparks) {
+    const [wx, wy] = windAt(s.x, s.y, t);
+    const lag = Math.min(1, dt * 3.2);
+    s.vx += (wx - s.vx) * lag;
+    s.vy += (wy - s.vy) * lag;
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    s.age += dt;
+    const dx = s.x - r;
+    const dy = s.y - r;
+    if (s.age > s.life || dx * dx + dy * dy > r * r * 0.9) { lightSpark(r, s); continue; }
+    const fade = Math.min(1, s.age / 0.5, (s.life - s.age) / 0.7);
+    const speed = Math.hypot(s.vx, s.vy);
+    const tail = Math.min(7, speed * 0.05);
+    const ux = speed ? s.vx / speed : 0;
+    const uy = speed ? s.vy / speed : 0;
+    const tone = s.warm > 0.7 ? "255,138,68" : s.warm > 0.35 ? "240,78,58" : "212,40,60";
+    if (tail > 1) {
+      c.strokeStyle = `rgba(${tone},${(0.5 * fade).toFixed(2)})`;
+      c.lineWidth = s.size * 1.3;
+      c.beginPath();
+      c.moveTo(s.x - ux * tail, s.y - uy * tail);
+      c.lineTo(s.x, s.y);
+      c.stroke();
+    }
+    c.fillStyle = `rgba(${tone},${(0.82 * fade).toFixed(2)})`;
+    c.beginPath();
+    c.arc(s.x, s.y, s.size, 0, TAU);
+    c.fill();
+  }
   c.restore();
 }

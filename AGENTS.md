@@ -667,12 +667,14 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   leaves a slab empty.
 - **The add disc** (`AddDisc.tsx`, `data-add-disc`): pressed from the
   page's middle, the wheel becomes a disc the size of the drawing board
-  painted by `paintDarkMatter` — three tiles of fractal value noise made
-  once (`darkMatterTiles`: violet soft, magenta sharper, a sparse red
-  flake), laid each frame as repeating patterns in two depths — huge and
-  barely moving at the back, smaller and passing in front — screened
-  together, the flakes painted over as they are, under a dark edge. No
-  stars, nothing blinks. The hole (`data-add-scroll`, `overflow: clip`
+  painted by `paintDarkMatter` — two tiles of fractal value noise made
+  once (`darkMatterTiles`: violet soft, magenta sharper), laid each frame
+  as repeating patterns in two depths — huge and barely moving at the
+  back, smaller and passing in front — screened together, then the embers
+  (`paintEmbers`: `SPARKS` particles kept between frames at module level,
+  each leaning with a lag into `windAt`, one gust for the hole plus a
+  local swirl, streaked by its own speed, relit where it dies), under a
+  dark edge. No stars, nothing blinks. The hole (`data-add-scroll`, `overflow: clip`
   so nothing inside can scroll it, clipped to `WELL_R`) holds one category's
   parts as `PartPreview`s at `COLUMN_W` with a `GAP` between them and each
   sub-group's name as a phosphor heading (`data-add-head`). The column is
