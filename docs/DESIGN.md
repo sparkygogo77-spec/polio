@@ -313,8 +313,11 @@ You do not fine-tune a model on a chat log. What carries across sessions is:
   to one session, so a check that must outlive it goes in `tests/` in the
   repository — `tests/wheel-dismiss.mjs` is the first. Run one against a
   server you started: `node tests/wheel-dismiss.mjs http://localhost:3000`.
-- **The changelog** (`src/features/updates/changelog.ts`), newest first,
-  which says *why* each thing arrived, so a later session does not undo it.
+- **The commit messages.** They carry *why* each thing arrived, so a later
+  session does not undo it. There was a changelog in the app doing that job
+  and it is retired: the owner reads the work, not a log of it, and a file
+  every session has to append to becomes a file every session argues with.
+  Do not add entries to it and do not start another.
 - **The prompt recipes** in `docs/PROMPTS.md`, which say how to hand a
   blueprint to a fresh agent.
 

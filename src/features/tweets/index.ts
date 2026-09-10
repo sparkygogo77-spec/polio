@@ -9,7 +9,7 @@ import { TweetsStatus } from "./TweetConsole";
  * The tweet console.
  *
  * Not a page: it comes down over whatever you were doing, the way the
- * updates panel does, and goes away with Escape. The module exists to give
+ * key vault does, and goes away with Escape. The module exists to give
  * it a command, a shortcut, a right-click menu on its drafts, a status-bar
  * count, its settings, and the one thing that has to run whether or not the
  * console is open — the scheduler that sends what is due and retries what

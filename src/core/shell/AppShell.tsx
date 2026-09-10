@@ -11,7 +11,6 @@ import { ShortcutsSheet } from "@/core/commands/ShortcutsSheet";
 import { NewsPanel } from "@/core/news/NewsPanel";
 import { Toaster } from "@/core/news/Toaster";
 import { SettingsDrawer } from "@/core/settings/SettingsDrawer";
-import { UpdatesPanel } from "@/features/updates/UpdatesPanel";
 import { TweetConsole } from "@/features/tweets/TweetConsole";
 import { KeysPanel } from "@/features/keys/KeysPanel";
 import { useSettingValue } from "@/core/settings/useSetting";
@@ -63,7 +62,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <NewsPanel />
           <SettingsDrawer />
-          <UpdatesPanel />
           <TweetConsole />
           <KeysPanel />
           <CommandPalette />

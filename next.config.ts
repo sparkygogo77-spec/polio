@@ -27,6 +27,20 @@ const nextConfig: NextConfig = {
    * path the bundler can see: it is required from outside the project.
    */
   serverExternalPackages: ["playwright-core", "@sparticuz/chromium"],
+  /*
+   * ...and pulled into the function anyway.
+   *
+   * External is not the same as present. A serverless host builds each route
+   * into its own bundle and copies in only the files the trace found, and the
+   * packed browser is not a file anything imports: `@sparticuz/chromium`
+   * reads it off disk beside itself at run time. Without this the deployment
+   * has the package's code and not its browser, which is the same as not
+   * having it.
+   */
+  outputFileTracingIncludes: {
+    "/api/studio/**": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/tweets/**": ["./node_modules/@sparticuz/chromium/bin/**"],
+  },
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.
   typedRoutes: false,

@@ -39,7 +39,7 @@ export type CueName =
 
 export type CueCategory = "ui" | "feedback" | "alerts" | "feed";
 
-export type PanelName = "settings" | "news" | "commands" | "shortcuts" | "updates" | "tweets" | "keys";
+export type PanelName = "settings" | "news" | "commands" | "shortcuts" | "tweets" | "keys";
 
 /* ------------------------------------------------------------------ */
 /* News / activity feed                                                */

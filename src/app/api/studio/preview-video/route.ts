@@ -123,7 +123,7 @@ async function webmToGif(videoPath: string, dir: string, gifWidth: number): Prom
 }
 
 export async function POST(request: Request) {
-  const found = findPlaywright();
+  const found = await findPlaywright();
   if (!found.pw) {
     return NextResponse.json({ ok: false, reason: "no-playwright", message: `${NO_PLAYWRIGHT} Record the tab from the console instead.`, tried: found.tried });
   }
