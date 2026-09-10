@@ -699,13 +699,12 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           {ask}
           {queued}
           <PinnedThreads />
-          <Card
-            title={threads.length ? `The trail · ${threads.length} thread${threads.length === 1 ? "" : "s"}` : "The trail"}
-            note="Every ask that came back, in the order it landed. Open one to read the prompt above it and the answer below it; pin one to keep it up here."
-            right={<Button variant="ghost" size="xs" onClick={() => void ctx.copy(trailText, "the trail")}><Copy className="size-3" /> Copy</Button>}
-          >
-            <ThreadTree />
-          </Card>
+          {/*
+            No trail here: the page's timeline is above this, and drawing
+            the same history twice on one screen is the wall this replaced.
+            The dialog and the panel keep their Trail tab — there is no
+            timeline over those.
+          */}
           {result ? text(`The answer · ${MODES.find((m) => m.value === result.mode)?.label} · ${result.model ?? "Claude"}`, result.text, "response.md", "text/markdown", "max-h-[50vh]") : null}
           {filesCard}
         </div>
