@@ -191,7 +191,18 @@ export function Overlay({ id, content, options, theme: t, emit }: PartProps) {
  * shelf is a picture of what this footer will actually say.
  */
 export function Footer({ id, content, options, theme: t, onNavigate, w }: PartProps) {
-  const links = items(content, ["About", "Pricing", "Docs", "Contact", "Privacy"]);
+  /*
+   * The foot of the page carries the same wordmark the top of it does, and
+   * for the same reason: "Logo" is not the name of anybody's site. An item
+   * written `logo: $BORB` is the wordmark, exactly as in the top bar, and
+   * everything else is a link — so a footer typed the plain way is
+   * unchanged, and a site that has said its name once can say it twice.
+   */
+  const typed = items(content, ["About", "Pricing", "Docs", "Contact", "Privacy"]).map(titled);
+  const wordmark = typed.find((x) => x.body && ["logo", "wordmark"].includes(x.title.toLowerCase()))?.body ?? "Logo";
+  const links = typed
+    .filter((x) => !(x.body && ["logo", "wordmark"].includes(x.title.toLowerCase())))
+    .map((x) => (x.body ? `${x.title}: ${x.body}` : x.title));
   const shape = opt(options, "shape", "Thin bar");
   const legal = opt(options, "legal", "Copyright");
   const social = set(options, "social", ["X", "GitHub", "Instagram"]);
@@ -248,7 +259,7 @@ export function Footer({ id, content, options, theme: t, onNavigate, w }: PartPr
     return (
       <Fill t={t} data-part={id} style={{ ...shell, flexDirection: "column", justifyContent: "center", gap: t.fontPx * 0.6, padding: `${t.fontPx}px ${t.fontPx * 1.4}px` }}>
         <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.9, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 800, fontFamily: t.headingFamily }}>Logo</span>
+          <span style={{ fontWeight: 800, fontFamily: t.headingFamily }}>{wordmark}</span>
           {links.map(link)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.8, borderTop: `1px solid ${t.line}`, paddingTop: t.fontPx * 0.55 }}>
@@ -263,7 +274,7 @@ export function Footer({ id, content, options, theme: t, onNavigate, w }: PartPr
   // The thin bar: one line, everything on it.
   return (
     <Fill t={t} data-part={id} style={{ ...shell, alignItems: "center", gap: t.fontPx * 0.9, padding: `0 ${t.fontPx * 1.4}px`, flexWrap: "nowrap", overflow: "hidden" }}>
-      <span style={{ fontWeight: 800, fontFamily: t.headingFamily, whiteSpace: "nowrap" }}>Logo</span>
+      <span style={{ fontWeight: 800, fontFamily: t.headingFamily, whiteSpace: "nowrap" }}>{wordmark}</span>
       {line}
       <span style={{ flex: 1 }} />
       <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.8, minWidth: 0, overflow: "hidden" }}>

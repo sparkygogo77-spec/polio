@@ -227,7 +227,9 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 BLACKORB rebuild could only fake, each fixed where it lived rather than
 worked around on the board: a header's wordmark and its button are read out
 of its contents (`logo: $BORB`, `button: Connect wallet`) instead of being
-"Logo" and "Get started" on every site ever built from this; a display line
+"Logo" and "Get started" on every site ever built from this, and the footer
+reads `logo:` the same way, because the foot of a page carries the same name
+the top of it does; a display line
 can turn colour at its last word or its last sentence (`turn`, `splitTurn`),
 which is what a headline on a dark page nearly always does and could only be
 had before by butting two parts together; a card grid can be `ruled` — a
