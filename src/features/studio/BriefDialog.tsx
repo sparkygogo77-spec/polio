@@ -15,7 +15,9 @@
 import * as React from "react";
 import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { PromptTrail, trailToMarkdown, useLanes } from "./PromptTrail";
+import { trailToMarkdown, useLanes } from "./PromptTrail";
+import { ThreadTree } from "./ThreadTree";
+import { threadsToMarkdown } from "./threads";
 import { useStudio } from "./store";
 import { askClaude, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { cn } from "@/core/lib/cn";
@@ -56,6 +58,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const master = useStudio((s) => s.brief.master);
   const siteName = useStudio((s) => s.brief.name);
   const trailCount = useStudio((s) => s.trail.filter((e) => e.stage === "critique").length);
+  // The Trail is the threads now; the tab counts them, and the findings from
+  // before threads were kept are still reachable underneath the tree.
+  const threads = useStudio((s) => s.threads);
   const lanes = useLanes();
   const ctx = useActions();
   const wantShots = useSettingValue<boolean>("studio.screenshots");
@@ -82,7 +87,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
   const json = React.useMemo(() => specToJson(spec), [spec]);
-  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? trailToMarkdown(lanes) : markdown;
+  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? (threads.length ? threadsToMarkdown(threads) : trailToMarkdown(lanes)) : markdown;
 
   React.useEffect(() => { setSendShots(wantShots); }, [wantShots]);
   React.useEffect(() => { setPubDeploy(deployDefault); }, [deployDefault]);
@@ -124,6 +129,20 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       if (ac.signal.aborted) return;
       if (r.ok) {
         setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
+        // The call landed, so it is a thread: what was asked, what came back,
+        // and the board as it stood. Everything the answer goes on to do —
+        // a finding taken, a file written — is recorded against it.
+        useStudio.getState().landThread({
+          mode,
+          model: r.model,
+          ask: [MODES.find((m) => m.value === mode)?.blurb ?? mode, prompt.trim()].filter(Boolean).join("\n"),
+          answer: r.text,
+          changes: [
+            r.revisions.length ? `${r.revisions.length} finding${r.revisions.length === 1 ? "" : "s"}` : "",
+            r.files.length ? `${r.files.length} file${r.files.length === 1 ? "" : "s"} written` : "",
+            r.pictures ? `${r.pictures} page${r.pictures === 1 ? "" : "s"} seen` : "",
+          ].filter(Boolean),
+        });
         // Each finding goes on the trail beside the prompt it was about, so
         // the map is where a critique is read and acted on, not the box.
         if (r.revisions.length) useStudio.getState().recordAsk({ mode, model: r.model, revisions: r.revisions });
@@ -187,7 +206,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           {busy ? (
             <Button variant="ghost" size="sm" onClick={() => abort.current?.abort()}><X /> Stop</Button>
           ) : (
-            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "prompt-trail.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
+            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "threads.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
               <Download />
               {view === "files" ? "Download all" : "Download"}
             </Button>
@@ -265,7 +284,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             options={[
               { value: "brief", label: "Brief" },
               { value: "json", label: "JSON" },
-              { value: "trail", label: trailCount ? `Trail (${trailCount})` : "Trail" },
+              { value: "trail", label: threads.length ? `Trail (${threads.length})` : trailCount ? `Trail (${trailCount})` : "Trail" },
               ...(result ? [{ value: "result", label: "Response" }] : []),
               ...(files.length ? [{ value: "files", label: `Files (${files.length})` }] : []),
             ]}
@@ -289,7 +308,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         ) : null}
 
         {view === "trail" ? (
-          <PromptTrail />
+          <ThreadTree />
         ) : view === "files" ? (
           <div className="max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated">
             <ul className="divide-y divide-border">

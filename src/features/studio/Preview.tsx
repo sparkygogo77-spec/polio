@@ -32,7 +32,10 @@ export function PreviewWindow() {
   const frameWidth = useStudio((s) => s.frameWidth);
   const activeId = useStudio((s) => s.activePageId);
   const page = useStudio(activePage);
-  const { device, x, y, open } = useStudio((s) => s.companion);
+  // A document that arrived without one (a published site, a thread the
+  // board stood back on) leaves this null; the window simply is not there.
+  const companion = useStudio((s) => s.companion);
+  const { device, x, y, open } = companion ?? { device: "phone" as const, x: 0, y: 0, open: false };
   const set = useStudio((s) => s.setCompanion);
 
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === activeId), [nodes, activeId]);

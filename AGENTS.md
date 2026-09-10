@@ -263,6 +263,21 @@ a kicker with a rule, and label-and-value rows that copy.
 - A drawn region with words on it and nothing inside is a *section*: it takes
   a row in "Layout, top to bottom" and is built from its prompt. A region with
   parts in it groups them; an empty, unnamed one is ignored.
+- **A landed API call is a thread, not an update.** Every ask that comes back
+  — a plan, a critique, the code, a drawing read — lands a `Thread`
+  (`threads.ts`, `store.landThread`): what was asked, what came back, what it
+  put on the board, and the board as it stood. Threads hang off whichever was
+  live, so the Trail view is the tree of how the site was reasoned about
+  (`ThreadTree.tsx`), all of them visible at once, each collapsed to one line
+  — asked → did — and opening one shows the prompt, the answer and what
+  changed. **Prune cuts one node only:** its children re-hang from its parent,
+  because they happened, and the board goes to whatever is live after the cut
+  (`liveAfterPrune`). Standing on a thread applies its document, and only its
+  document's own fields — a thread's `doc` has been through localStorage and
+  can carry keys a snapshot does not, and spreading those blindly set things
+  nobody meant to set. The vines between the cards are painted on a canvas
+  and move: a history drawn as a static diagram is the thing this replaced.
+  `tests/threads.mjs` holds the tree, the cut and the diff to their rules.
 - Critique, Fill prompts and Finish come back with a `json revisions` block:
   one item per finding, each naming its target and carrying the target's whole
   prompt as it should now read. `recordAsk` in the store puts each beside the

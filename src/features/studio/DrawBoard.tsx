@@ -40,7 +40,7 @@ import { useSetting } from "@/core/settings/useSetting";
 import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
-import { fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { describeSketch, fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { keyHeader, noKeyMessage } from "./agent";
 import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { useStudio, type StudioNode } from "./store";
@@ -202,9 +202,19 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           candidates: FEATURES.map((f) => ({ id: f.id, name: f.name, category: f.category, w: f.w, h: f.h, blurb: f.blurb })),
         }),
       });
-      const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string };
+      const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string; usage?: { model?: string } };
       if (data.ok && data.patch) {
         const made = apply(data.patch, drawn);
+        // A drawing read is an API call that landed, so it is a thread too:
+        // the words that went with the drawing, the note that came back, and
+        // what it did to the part.
+        s.landThread({
+          mode: "drawing",
+          model: data.usage?.model,
+          ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
+          answer: data.patch.note ?? "",
+          changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : [])],
+        });
         ctx.publish({
           key: `studio:reshape:${made.id}`,
           title: node ? `Reshaped ${made.label}` : `Drew ${made.label}`,
