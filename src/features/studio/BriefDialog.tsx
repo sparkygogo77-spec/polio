@@ -14,10 +14,10 @@
  */
 import * as React from "react";
 import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Sparkles, Wand2, X } from "lucide-react";
-import { compileSpec, specToJson, specToMarkdown } from "./spec";
+import { briefPrefix, compileSpec, specToJson, specToMarkdown } from "./spec";
 import { trailToMarkdown, useLanes } from "./PromptTrail";
-import { ThreadTree } from "./ThreadTree";
-import { threadsToMarkdown } from "./threads";
+import { ThreadTree, usePieces } from "./ThreadTree";
+import { piecesToSend, threadsToMarkdown } from "./threads";
 import { useStudio } from "./store";
 import { askClaude, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { activeProject, useBuilds } from "@/features/builds/store";
@@ -62,6 +62,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   // The Trail is the threads now; the tab counts them, and the findings from
   // before threads were kept are still reachable underneath the tree.
   const threads = useStudio((s) => s.threads);
+  const draftPieces = useStudio((s) => s.draftPieces);
+  const sentPieces = useStudio((s) => s.sentPieces);
+  const pieces = usePieces();
   const lanes = useLanes();
   const ctx = useActions();
   const wantShots = useSettingValue<boolean>("studio.screenshots");
@@ -129,14 +132,30 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         if (!pictures.length) setNote("The server could not photograph the pages, so the words went alone.");
       }
       setBusy(mode === "build" ? "Claude is writing the files…" : "Claude is working through the blueprint…");
-      const r = await askClaude({ markdown, mode, prompt: prompt.trim(), pictures });
+      /*
+       * What goes up. With pieces vined to this thread the brief goes as the
+       * cached prefix and only those pieces follow it — and only the ones
+       * whose fingerprint has moved since this thread last sent them. With
+       * nothing vined the whole blueprint goes, exactly as before.
+       */
+      const { send, skipped } = piecesToSend(pieces, draftPieces, sentPieces);
+      const vined = draftPieces.length > 0;
+      const r = await askClaude({
+        markdown: vined ? "" : markdown,
+        brief: vined ? briefPrefix(markdown) : "",
+        pieces: vined ? send : [],
+        skipped: vined ? skipped.length : 0,
+        mode,
+        prompt: prompt.trim(),
+        pictures,
+      });
       if (ac.signal.aborted) return;
       if (r.ok) {
         setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
         // The call landed, so it is a thread: what was asked, what came back,
         // and the board as it stood. Everything the answer goes on to do —
         // a finding taken, a file written — is recorded against it.
-        useStudio.getState().landThread({
+        const threadId = useStudio.getState().landThread({
           mode,
           model: r.model,
           ask: [MODES.find((m) => m.value === mode)?.blurb ?? mode, prompt.trim()].filter(Boolean).join("\n"),
@@ -145,8 +164,20 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             r.revisions.length ? `${r.revisions.length} finding${r.revisions.length === 1 ? "" : "s"}` : "",
             r.files.length ? `${r.files.length} file${r.files.length === 1 ? "" : "s"} written` : "",
             r.pictures ? `${r.pictures} page${r.pictures === 1 ? "" : "s"} seen` : "",
+            vined ? `${send.length} piece${send.length === 1 ? "" : "s"} sent${skipped.length ? `, ${skipped.length} unchanged` : ""}` : "",
           ].filter(Boolean),
         });
+        // What went, and what the cache gave back. The second call of a
+        // thread reads its brief rather than sending it, and that number is
+        // the whole point of splitting the two apart.
+        if (vined) {
+          useStudio.getState().recordSent(
+            threadId,
+            Object.fromEntries(send.map((x) => [x.id, x.fingerprint])),
+            { sent: send.length, skipped: skipped.length, cached: r.cached, input: r.input },
+          );
+          if (r.cached) setNote(`The brief was read from the cache: ${r.cached.toLocaleString()} tokens not sent again.`);
+        }
         // Each finding goes on the trail beside the prompt it was about, so
         // the map is where a critique is read and acted on, not the box.
         if (r.revisions.length) useStudio.getState().recordAsk({ mode, model: r.model, revisions: r.revisions });

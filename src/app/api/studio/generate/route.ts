@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 /**
  * Claude, on the site: every kind of prompt the Builder can make.
  *
- * The blueprint goes with every call — the canvas in words, self-contained.
+ * The blueprint goes with every call — the canvas in words, self-contained —
+ * or, when the trail has vined pieces to this thread, the brief alone as a
+ * cached prefix with those pieces after it.
  * When the server can open the site in a browser, a screenshot of each page
  * goes too, so Claude sees the site the way the author does and not only a
  * description of it. Seven things can be asked: a plan, a critique, the
@@ -117,6 +119,7 @@ function splitRevisions(text: string): { text: string; revisions: Revision[] } {
 }
 
 interface PictureIn { data?: string; mediaType?: string; label?: string }
+interface PieceIn { id?: string; label?: string; where?: string; prompt?: string; size?: { w?: number; h?: number }; neighbours?: string[] }
 
 /**
  * The key to use: the server's if it has one, otherwise whatever the browser
@@ -141,7 +144,7 @@ export async function POST(request: Request) {
     });
   }
 
-  let body: { markdown?: string; mode?: Mode; prompt?: string; pictures?: PictureIn[] };
+  let body: { markdown?: string; mode?: Mode; prompt?: string; pictures?: PictureIn[]; brief?: string; pieces?: PieceIn[]; skipped?: number };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -151,7 +154,7 @@ export async function POST(request: Request) {
   const markdown = (body.markdown ?? "").slice(0, 200_000);
   const mode: Mode = body.mode && body.mode in MODE_INSTRUCTIONS ? body.mode : "plan";
   const prompt = (body.prompt ?? "").trim().slice(0, 20_000);
-  if (!markdown.trim()) {
+  if (!markdown.trim() && !(body.brief ?? "").trim()) {
     return NextResponse.json({ ok: false, reason: "empty", message: "The blueprint is empty — add something to the canvas first." }, { status: 400 });
   }
   if (mode === "ask" && !prompt) {
@@ -163,7 +166,37 @@ export async function POST(request: Request) {
     .slice(0, 12)
     .map((p) => ({ data: p.data, mediaType: p.mediaType as "image/png" | "image/jpeg" | "image/webp", label: typeof p.label === "string" ? p.label.slice(0, 200) : "" }));
 
+  /*
+   * The brief first, marked for the cache, then only the pieces this thread
+   * vined to the call.
+   *
+   * The blueprint used to go whole on every ask: the same tens of thousands
+   * of tokens each time, and no two calls sharing a prefix. Split in two,
+   * the brief is the same bytes on every call of a thread — so the second
+   * one reads it from the cache instead of sending it — and what changes is
+   * a handful of pieces. A piece this thread has already sent unchanged is
+   * left out upstream; `skipped` is only how many, so the answer knows they
+   * exist and were not forgotten.
+   */
+  const brief = (body.brief ?? "").slice(0, 200_000);
+  const pieces = (Array.isArray(body.pieces) ? body.pieces : [])
+    .filter((x): x is PieceIn => !!x && typeof x.prompt === "string")
+    .slice(0, 400);
+  const skipped = Number.isFinite(body.skipped) ? Math.max(0, Math.min(999, Number(body.skipped))) : 0;
+
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  if (brief.trim()) content.push({ type: "text", text: brief, cache_control: { type: "ephemeral" } });
+  if (pieces.length || skipped) {
+    const lines = pieces.map((x) => {
+      const head = [x.label ?? "A part", x.where ? `on ${x.where}` : "", x.size?.w ? `${Math.round(x.size.w)}\u00d7${Math.round(x.size.h ?? 0)}` : ""].filter(Boolean).join(" \u00b7 ");
+      const near = (x.neighbours ?? []).filter((n) => typeof n === "string").slice(0, 4);
+      return `- ${head}${near.length ? ` \u00b7 between ${near.join(" and ")}` : ""}\n  prompt: ${String(x.prompt).slice(0, 4000)}`;
+    });
+    content.push({
+      type: "text",
+      text: [`The parts this question is about (${pieces.length}${skipped ? `, and ${skipped} more you already have, unchanged` : ""}):`, ...lines].join("\n"),
+    });
+  }
   if (pictures.length) {
     content.push({ type: "text", text: `The site as the live preview shows it right now, ${pictures.length} picture${pictures.length === 1 ? "" : "s"}:` });
     for (const p of pictures) {
@@ -174,7 +207,7 @@ export async function POST(request: Request) {
   if (!pictures.length) content.push({ type: "text", text: WORDS_ONLY });
   const wantsRevisions = mode === "critique" || mode === "expand" || mode === "finish";
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
-  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}\n\n---\n\n${markdown}` });
+  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}${markdown.trim() ? `\n\n---\n\n${markdown}` : ""}` });
 
   const client = new Anthropic({ apiKey });
 
@@ -212,7 +245,17 @@ export async function POST(request: Request) {
       revisions,
       pictures: pictures.length,
       truncated: message.stop_reason === "max_tokens",
-      usage: { input: message.usage.input_tokens, output: message.usage.output_tokens, model: message.model },
+      usage: {
+        input: message.usage.input_tokens,
+        output: message.usage.output_tokens,
+        // What the brief cost this time: nothing, on the second call of a
+        // thread, because the prefix in front of the pieces has not moved.
+        cached: message.usage.cache_read_input_tokens ?? 0,
+        written: message.usage.cache_creation_input_tokens ?? 0,
+        model: message.model,
+      },
+      pieces: pieces.length,
+      skipped,
     });
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError) {

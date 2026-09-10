@@ -283,6 +283,22 @@ interface StudioState extends Doc {
   threads: Thread[];
   /** The thread the board is standing on. */
   liveThreadId: string | null;
+  /**
+   * Where a thread or a piece has been dragged to on the trail, when it has
+   * been. Anything not in here sits where the staircase puts it.
+   */
+  threadSpots: Record<string, { x: number; y: number }>;
+  /**
+   * The pieces vined to the next call: what will be sent with it, beside the
+   * brief. Empty means the whole blueprint goes, the way it always did.
+   */
+  draftPieces: string[];
+  /**
+   * What has already gone up this thread, piece by piece, as the fingerprint
+   * it had when it went. A piece whose fingerprint has not moved is not
+   * resent: the model has it from the turn before.
+   */
+  sentPieces: Record<string, string>;
   past: Doc[];
   future: Doc[];
 
@@ -380,6 +396,16 @@ interface StudioState extends Doc {
   pruneThread: (id: string) => void;
   /** Put the board back on a thread. */
   standOn: (id: string) => void;
+  /** Move one thread or piece on the trail. Only that one moves. */
+  moveThread: (id: string, x: number, y: number) => void;
+  /** Vine a piece to the next call, or cut it loose. */
+  toggleDraftPiece: (id: string) => void;
+  /** Nothing is vined to the next call. */
+  clearDraft: () => void;
+  /** After a call: what went, and what it cost. */
+  recordSent: (threadId: string, sent: Record<string, string>, usage: { sent: number; skipped: number; cached?: number; input?: number }) => void;
+  /** Put the trail back on its staircase. */
+  resetThreadSpots: () => void;
   /** Take a critique's proposed prompt as the prompt, and note that it was taken. */
   applyRevision: (entryId: string) => void;
   clearTrail: () => void;
@@ -551,6 +577,9 @@ export const useStudio = create<StudioState>()(
         trail: [],
         threads: [],
         liveThreadId: null,
+        threadSpots: {},
+        draftPieces: [],
+        sentPieces: {},
         past: [],
         future: [],
 
@@ -1034,6 +1063,8 @@ export const useStudio = create<StudioState>()(
                 id, parentId: s.liveThreadId, at: Date.now(), mode, model,
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 doc: snapshot(s) as ThreadDoc,
+                // What was vined to the call is what the thread was about.
+                pieces: [...s.draftPieces],
               },
             ].slice(-THREAD_LIMIT),
             liveThreadId: id,
@@ -1053,14 +1084,32 @@ export const useStudio = create<StudioState>()(
           const live = liveAfterPrune(s.threads, id, s.liveThreadId);
           const stand = threads.find((t) => t.id === live);
           push();
+          const spots = { ...s.threadSpots };
+          delete spots[id];
           set(() => ({
             threads,
             liveThreadId: live,
+            threadSpots: spots,
             trail: s.trail.filter((e) => e.threadId !== id),
             ...docPatch(stand?.doc),
             selection: [],
           }));
         },
+
+        moveThread: (id, x, y) => set((s) => ({ threadSpots: { ...s.threadSpots, [id]: { x: Math.round(x), y: Math.round(y) } } })),
+
+        toggleDraftPiece: (id) =>
+          set((s) => ({ draftPieces: s.draftPieces.includes(id) ? s.draftPieces.filter((x) => x !== id) : [...s.draftPieces, id] })),
+
+        clearDraft: () => set({ draftPieces: [] }),
+
+        recordSent: (threadId, sent, usage) =>
+          set((s) => ({
+            sentPieces: { ...s.sentPieces, ...sent },
+            threads: s.threads.map((t) => (t.id === threadId ? { ...t, usage } : t)),
+          })),
+
+        resetThreadSpots: () => set({ threadSpots: {} }),
 
         standOn: (id) => {
           const s = get();
@@ -1115,7 +1164,7 @@ export const useStudio = create<StudioState>()(
 
         resetAll: () => {
           push();
-          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null });
+          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, threadSpots: {}, draftPieces: [], sentPieces: {} });
         },
 
         loadDoc: (doc) => {
@@ -1193,6 +1242,9 @@ export const useStudio = create<StudioState>()(
           trail: Array.isArray(p.trail) ? p.trail : [],
           threads: Array.isArray(p.threads) ? p.threads : [],
           liveThreadId: typeof p.liveThreadId === "string" ? p.liveThreadId : null,
+          threadSpots: p.threadSpots && typeof p.threadSpots === "object" ? (p.threadSpots as Record<string, { x: number; y: number }>) : {},
+          draftPieces: Array.isArray(p.draftPieces) ? p.draftPieces : [],
+          sentPieces: p.sentPieces && typeof p.sentPieces === "object" ? (p.sentPieces as Record<string, string>) : {},
           look: (() => {
             const look = { ...emptyLook(), ...(p.look ?? {}) };
             // The target used to be one switch for the whole stack; each layer
@@ -1229,6 +1281,9 @@ export const useStudio = create<StudioState>()(
         trail: s.trail,
         threads: s.threads,
         liveThreadId: s.liveThreadId,
+        threadSpots: s.threadSpots,
+        draftPieces: s.draftPieces,
+        sentPieces: s.sentPieces,
         companion: s.companion,
         menuShape: s.menuShape,
         menuSpin: s.menuSpin,

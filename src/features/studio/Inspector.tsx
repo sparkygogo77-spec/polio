@@ -303,13 +303,13 @@ export function Inspector() {
               onChange={(e) => useStudio.getState().updatePage(page.id, { prompt: e.target.value })}
             />
           </Field>
-          <div className="mt-4">
-            <EmptyState
-              icon={MousePointerClick}
-              title="Select something to prompt it"
-              body="Click an element on the canvas, or drag a box around several. Every element, group, region and arrow gets its own instructions."
-            />
-          </div>
+          {/*
+            The "select something to prompt it" block stood here and told the
+            reader what they were already doing. A prompt lives on the element
+            and in the trail, where it can be read against what it produced;
+            a panel that nags about the absence of a selection is not a place
+            prompts live.
+          */}
         </div>
       </div>
     );

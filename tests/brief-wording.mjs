@@ -76,6 +76,14 @@ check("all-must gets the no-cut-list line", has(/no cut list/) === false, "only 
 // The trail: written → found → now, and Take it writes the prompt.
 await page.getByRole("radio", { name: /^Trail/ }).click();
 await page.waitForTimeout(600);
+// The Trail is a tree of threads now, and a finding kept before threads
+// existed sits behind a disclosure. The behaviour under it is the same, so
+// this opens it rather than dropping the check.
+const older = page.locator("summary", { hasText: /from before threads were kept/ });
+if (await older.count()) {
+  await older.first().click();
+  await page.waitForTimeout(400);
+}
 const map = page.locator("[data-prompt-trail]");
 check("the Trail view lists the written prompt and the finding", (await map.locator('[data-bubble="author:node:n_nav"]').count()) === 1 && (await map.locator('[data-bubble="t2"]').count()) === 1);
 check("a line joins the finding to the prompt it is about", (await map.locator("svg path").count()) >= 1);

@@ -6,6 +6,7 @@
  * words when it cannot, so nothing here is load-bearing.
  */
 import { heldKeys, useKeys, vaultExists } from "@/features/keys/store";
+import type { Piece } from "./threads";
 import { useStudio, type Revision } from "./store";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
@@ -193,10 +194,32 @@ export async function screenshotPages(limit: number, device: Device, onProgress?
 /* ------------------------------------------------------------------ */
 
 export type AskResult =
-  | { ok: true; text: string; model?: string; pictures: number; truncated: boolean; files: GeneratedFile[]; /** Findings with the prompt that settles each, from critique, fill and finish. */ revisions: Revision[] }
+  | { ok: true; text: string; model?: string; pictures: number; truncated: boolean; files: GeneratedFile[]; cached: number; input: number; /** Findings with the prompt that settles each, from critique, fill and finish. */ revisions: Revision[] }
   | { ok: false; message: string; reason?: string };
 
-export async function askClaude(input: { markdown: string; mode: AskMode; prompt?: string; pictures?: Picture[] }): Promise<AskResult> {
+/**
+ * Ask Claude.
+ *
+ * Two shapes, one route. With nothing vined to the thread the whole
+ * blueprint goes, as it always has. With pieces vined, the *brief* goes
+ * first and is marked for the cache — the same bytes on every call of a
+ * thread — and after it only those pieces, and only the ones whose
+ * fingerprint has moved since this thread last sent them. The answer says
+ * how many were sent, how many were skipped, and how much of the prefix the
+ * cache gave back.
+ */
+export async function askClaude(input: {
+  markdown: string;
+  mode: AskMode;
+  prompt?: string;
+  pictures?: Picture[];
+  /** The stable prefix: the site's brief, without the per-part detail. */
+  brief?: string;
+  /** The pieces vined to this thread, already filtered to what changed. */
+  pieces?: Piece[];
+  /** How many vined pieces were left out because they have not changed. */
+  skipped?: number;
+}): Promise<AskResult> {
   try {
     const res = await fetch("/api/studio/generate", {
       method: "POST",
@@ -205,15 +228,20 @@ export async function askClaude(input: { markdown: string; mode: AskMode; prompt
         markdown: input.markdown,
         mode: input.mode,
         prompt: input.prompt ?? "",
+        brief: input.brief ?? "",
+        pieces: (input.pieces ?? []).map((x) => ({ id: x.id, label: x.label, where: x.where, prompt: x.prompt, size: x.size, neighbours: x.neighbours })),
+        skipped: input.skipped ?? 0,
         pictures: (input.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType, label: p.label })),
       }),
     });
-    const data = (await res.json()) as { ok: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string }; revisions?: Revision[] };
+    const data = (await res.json()) as { ok: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; cached?: number; written?: number }; revisions?: Revision[] };
     if (data.ok && typeof data.text === "string") {
       return {
         ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, truncated: !!data.truncated,
         files: input.mode === "build" ? filesFromMarkdown(data.text) : [],
         revisions: Array.isArray(data.revisions) ? data.revisions : [],
+        cached: data.usage?.cached ?? 0,
+        input: data.usage?.input ?? 0,
       };
     }
     return { ok: false, message: data.message ?? "Couldn't reach Claude.", reason: data.reason };
