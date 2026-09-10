@@ -35,7 +35,7 @@ import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
-  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, phosphorAt, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA,
+  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA,
   type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
 
@@ -431,7 +431,6 @@ export function AuraQuads({
         rOut={reach - SHRINK - 10}
         label="Aura size"
         value={(size - AURA_SIZE[0]) / (AURA_SIZE[1] - AURA_SIZE[0])}
-        colourAt={(f) => `oklch(${(0.3 + f * 0.5).toFixed(3)} 0.02 285)`}
         onChange={(f) => onChange({ auraSize: Math.round((AURA_SIZE[0] + f * (AURA_SIZE[1] - AURA_SIZE[0])) * 20) / 20 })}
       />
       <Glued at={blockAt} spin={sample.spin} w={44} h={44}>
@@ -579,12 +578,12 @@ export function AnimQuads({
 
       {/* how fast: one slider, read out under it */}
       <ArcSlider slab={speed} tone="screen" live={false} from={speed.from + PAD} to={speed.to - PAD} {...bandOf(speed)} label="Speed"
-        value={sliderFromSpeed(k)} colourAt={phosphorAt} onChange={(f) => onChange({ animSpeed: speedFromSlider(f) })} />
+        value={sliderFromSpeed(k)} onChange={(f) => onChange({ animSpeed: speedFromSlider(f) })} />
       <Caption slab={speed}>{`Speed · ${speedWord(k)}`}</Caption>
 
       {/* the rest: the wait as a slider, the easing as keys */}
       <ArcSlider slab={extras} tone="screen" live={false} from={extras.from + PAD} to={extras.to - PAD} {...bandOf(extras)} label="Delay"
-        value={wait / DELAY_MS} colourAt={phosphorAt} onChange={(f) => onChange({ animDelay: Math.round((f * DELAY_MS) / 10) * 10 })} />
+        value={wait / DELAY_MS} onChange={(f) => onChange({ animDelay: Math.round((f * DELAY_MS) / 10) * 10 })} />
       <ArcChips slab={extras} tone="screen" items={ANIM_EASE.map((e) => ({ id: e.id, label: `${e.label} easing`, style: EASE_KEY[e.id], glyph: EASE_GLYPH[e.id] }))}
         radius={chipsAt(extras)} size={24} value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
       <Caption slab={extras}>{`Delay · ${wait ? `${wait} ms` : "none"}`}</Caption>
@@ -651,14 +650,14 @@ export function FontQuads({
       <ScreenFace slab={a} />
       <ScreenFace slab={b} />
       <ScreenFace slab={fam} />
-      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...inner} label="Size" value={(size - 0.6) / 1.4} colourAt={phosphorAt}
+      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...inner} label="Size" value={(size - 0.6) / 1.4}
         onChange={(f) => set({ size: Math.round((0.6 + f * 1.4) * 100) / 100 })} />
-      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...outer} label="Weight" value={(weight - 300) / 500} colourAt={phosphorAt}
+      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...outer} label="Weight" value={(weight - 300) / 500}
         onChange={(f) => set({ weight: Math.round((300 + f * 500) / 100) * 100 })} />
       <Caption slab={a}>{`${Math.round(size * 100)}% · w${weight}`}</Caption>
-      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...inner} label="Letter spacing" value={(spacing + 0.05) / 0.35} colourAt={phosphorAt}
+      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...inner} label="Letter spacing" value={(spacing + 0.05) / 0.35}
         onChange={(f) => set({ spacing: Math.round((-0.05 + f * 0.35) * 1000) / 1000 })} />
-      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...outer} label="Line height" value={(leading - 1) / 1} colourAt={phosphorAt}
+      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...outer} label="Line height" value={(leading - 1) / 1}
         onChange={(f) => set({ leading: Math.round((1 + f) * 100) / 100 })} />
       <Caption slab={b}>{`${spacing}em · ${leading}`}</Caption>
       <ArcStepper slab={fam} radius={chipsAt(fam) - 4} items={families} value={font?.family ?? ""} label="Family"
