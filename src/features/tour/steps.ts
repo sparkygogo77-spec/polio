@@ -42,7 +42,7 @@ export interface Step {
   title: string;
   /** One line under the title, about the step rather than any one feature. */
   blurb: string;
-  route: "/" | "/builder";
+  route: "/builds" | "/builder";
   spots: Spot[];
   /** Put the screen in the state this step is about. */
   arrive?: () => Promise<void> | void;
@@ -281,7 +281,9 @@ export const STEPS: Step[] = [
     id: "builds",
     title: "Builds, and going live",
     blurb: "More than one site in one browser, each with somewhere of its own to publish.",
-    route: "/",
+    // /builds, not /: once a site has been published into this repository "/"
+    // redirects to the site itself, and a tour cannot end on a redirect.
+    route: "/builds",
     arrive: async () => {
       builder().__studioSetBrief?.(false);
       closeRadial();

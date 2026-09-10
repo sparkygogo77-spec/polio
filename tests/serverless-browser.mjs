@@ -15,6 +15,13 @@
  * 'playwright-core'" — a host installs what the manifest lists and nothing
  * else. So the first check here is the manifest itself.
  *
+ * The same lesson arrived a second time from the other end: installed and
+ * still missing, because a serverless host copies into each function only the
+ * files the build's trace found, and neither package is only its code —
+ * `playwright-core` reads `browsers.json` as it loads, `@sparticuz/chromium`
+ * reads a packed browser off disk. So the second check reads the trace the
+ * build wrote and looks for the files no import mentions.
+ *
  *   node tests/serverless-browser.mjs [url]    # default http://localhost:3000
  */
 import { createRequire } from "node:module";
@@ -38,6 +45,28 @@ check("package.json lists playwright-core", listed("playwright-core"),
   pkg.dependencies?.["playwright-core"] ?? "missing — the deployment will not install it");
 check("package.json lists @sparticuz/chromium", listed("@sparticuz/chromium"),
   pkg.dependencies?.["@sparticuz/chromium"] ?? "missing — the deployment will not install it");
+
+// 0b. The trace. What a serverless host will actually have in the function.
+const TRACES = [
+  "src/app/api/studio/screenshot → .next/server/app/api/studio/screenshot/route.js.nft.json",
+  "src/app/api/tweets/preview-video → .next/server/app/api/tweets/preview-video/route.js.nft.json",
+];
+for (const entry of TRACES) {
+  const [label, file] = entry.split(" → ");
+  let files = null;
+  try {
+    files = JSON.parse(readFileSync(join(process.cwd(), file), "utf8")).files;
+  } catch {
+    check(`${label}: the build's trace is there to read`, false, "run npm run build first");
+    continue;
+  }
+  const hasBrowsersJson = files.some((f) => f.endsWith("playwright-core/browsers.json"));
+  const hasPacked = files.some((f) => /@sparticuz\/chromium\/bin\/chromium\.br$/.test(f));
+  check(`${label}: playwright-core goes in whole, browsers.json and all`, hasBrowsersJson,
+    `${files.filter((f) => f.includes("playwright-core")).length} of its files traced`);
+  check(`${label}: the packed browser goes with it`, hasPacked,
+    `${files.filter((f) => f.includes("sparticuz")).length} of its files traced`);
+}
 
 // The routes import these by name; this reaches them the same way.
 const outside = createRequire(process.cwd() + "/");
