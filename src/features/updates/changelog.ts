@@ -25,6 +25,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.43",
+    title: "The brief, read back",
+    summary: "The blueprint is reworded from what Claude misread in it; Critique, Fill and Finish come back as prompts you can take; and a Trail view maps every prompt from written to found to now.",
+    sketch: "parts",
+    added: [
+      "Every plain Format value is in the brief now, resolved, with * on the ones you set. A default that was left out was being read as undecided, and the whole visual system got inferred from six colours.",
+      "Heights are minimums, widths are shares of a desktop frame, and the brief says rows stack in reading order on narrower screens — so a phone audience and a 1200px table stop contradicting each other. The Claude routes repeat the same rules in their system prompt.",
+      "A drawn region with a prompt and nothing inside is a section: it takes its row in the layout list and is built from its words, instead of falling out as \"(nothing yet)\".",
+      "The site's name reaches the wordmark, the browser title, the description and the link preview in a new \"The site\" section; a part that sends people nowhere yet says so, so a placeholder gets built and not a guess.",
+      "Critique, Fill prompts and Finish end with a revisions block: each finding names the prompt it is about and carries that prompt as it should now read. Take it writes it onto the part.",
+      "Trail, beside Brief and JSON in the Blueprint dialog: a map of every prompt on the board, what was found about it and what stands now, joined by lines — the paper trail, account to account. Copy or download it as markdown; it also rides in the JSON.",
+      "When the server cannot photograph the pages the dialog says what that costs: findings about layout, colour and overflow are inferred, not seen — and Claude is told the same.",
+    ],
+  },
+  {
     version: "0.42",
     title: "The drawing does what it says",
     summary: "Make real is held to the drawing: the reader's answer is checked against the library, the frame and the shape drawn, a new part keeps its words, and the library is cached between reads.",

@@ -13,12 +13,12 @@ export interface DialogProps {
   description?: React.ReactNode;
   children?: React.ReactNode;
   footer?: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
 export function Dialog({ open, onOpenChange, title, description, children, footer, size = "md", className }: DialogProps) {
-  const width = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-2xl" : "max-w-md";
+  const width = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-2xl" : size === "xl" ? "max-w-5xl" : "max-w-md";
   return (
     <D.Root
       open={open}

@@ -6,7 +6,7 @@
  * words when it cannot, so nothing here is load-bearing.
  */
 import { heldKeys, useKeys, vaultExists } from "@/features/keys/store";
-import { useStudio } from "./store";
+import { useStudio, type Revision } from "./store";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
 export type Device = "desktop" | "tablet" | "phone";
@@ -170,7 +170,7 @@ export async function screenshotPages(limit: number, device: Device, onProgress?
 /* ------------------------------------------------------------------ */
 
 export type AskResult =
-  | { ok: true; text: string; model?: string; pictures: number; truncated: boolean; files: GeneratedFile[] }
+  | { ok: true; text: string; model?: string; pictures: number; truncated: boolean; files: GeneratedFile[]; /** Findings with the prompt that settles each, from critique, fill and finish. */ revisions: Revision[] }
   | { ok: false; message: string; reason?: string };
 
 export async function askClaude(input: { markdown: string; mode: AskMode; prompt?: string; pictures?: Picture[] }): Promise<AskResult> {
@@ -185,9 +185,13 @@ export async function askClaude(input: { markdown: string; mode: AskMode; prompt
         pictures: (input.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType, label: p.label })),
       }),
     });
-    const data = (await res.json()) as { ok: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string } };
+    const data = (await res.json()) as { ok: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string }; revisions?: Revision[] };
     if (data.ok && typeof data.text === "string") {
-      return { ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, truncated: !!data.truncated, files: input.mode === "build" ? filesFromMarkdown(data.text) : [] };
+      return {
+        ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, truncated: !!data.truncated,
+        files: input.mode === "build" ? filesFromMarkdown(data.text) : [],
+        revisions: Array.isArray(data.revisions) ? data.revisions : [],
+      };
     }
     return { ok: false, message: data.message ?? "Couldn't reach Claude.", reason: data.reason };
   } catch (err) {

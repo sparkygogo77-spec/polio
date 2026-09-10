@@ -15,6 +15,7 @@
 import * as React from "react";
 import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
+import { PromptTrail, trailToMarkdown, useLanes } from "./PromptTrail";
 import { useStudio } from "./store";
 import { askClaude, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { cn } from "@/core/lib/cn";
@@ -39,13 +40,14 @@ export function useCompiledBrief() {
   const frameWidth = useStudio((s) => s.frameWidth);
   const look = useStudio((s) => s.look);
   const motion = useStudio((s) => s.motion);
+  const trail = useStudio((s) => s.trail);
   return React.useMemo(
-    () => compileSpec({ pages, nodes, groups, shapes, format, brief, frameWidth, look, motion }),
-    [pages, nodes, groups, shapes, format, brief, frameWidth, look, motion],
+    () => compileSpec({ pages, nodes, groups, shapes, format, brief, frameWidth, look, motion, trail }),
+    [pages, nodes, groups, shapes, format, brief, frameWidth, look, motion, trail],
   );
 }
 
-type View = "brief" | "json" | "result" | "files";
+type View = "brief" | "json" | "trail" | "result" | "files";
 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
@@ -53,6 +55,8 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const spec = useCompiledBrief();
   const master = useStudio((s) => s.brief.master);
   const siteName = useStudio((s) => s.brief.name);
+  const trailCount = useStudio((s) => s.trail.filter((e) => e.stage === "critique").length);
+  const lanes = useLanes();
   const ctx = useActions();
   const wantShots = useSettingValue<boolean>("studio.screenshots");
   const shotPages = useSettingValue<number>("studio.screenshotPages");
@@ -78,7 +82,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
   const json = React.useMemo(() => specToJson(spec), [spec]);
-  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : markdown;
+  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? trailToMarkdown(lanes) : markdown;
 
   React.useEffect(() => { setSendShots(wantShots); }, [wantShots]);
   React.useEffect(() => { setPubDeploy(deployDefault); }, [deployDefault]);
@@ -120,11 +124,14 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       if (ac.signal.aborted) return;
       if (r.ok) {
         setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
+        // Each finding goes on the trail beside the prompt it was about, so
+        // the map is where a critique is read and acted on, not the box.
+        if (r.revisions.length) useStudio.getState().recordAsk({ mode, model: r.model, revisions: r.revisions });
         if (mode === "build") {
           setFiles(r.files);
           setView(r.files.length ? "files" : "result");
           if (!r.files.length) setNote("Claude answered, but no files could be read out of it. The response is shown as it came.");
-        } else setView("result");
+        } else setView(r.revisions.length ? "trail" : "result");
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
         ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
       } else {
@@ -172,7 +179,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     <Dialog
       open={open}
       onOpenChange={(v) => { if (!v) abort.current?.abort(); onOpenChange(v); }}
-      size="lg"
+      size="xl"
       title="Blueprint"
       description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
       footer={
@@ -180,13 +187,13 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           {busy ? (
             <Button variant="ghost" size="sm" onClick={() => abort.current?.abort()}><X /> Stop</Button>
           ) : (
-            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
+            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "prompt-trail.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
               <Download />
               {view === "files" ? "Download all" : "Download"}
             </Button>
           )}
-          <Button variant="outline" size="sm" disabled={!!busy} onClick={() => void ctx.copy(view === "files" ? publishFiles.map((f) => `# ${f.path}\n\n${f.content}`).join("\n\n") : body, view === "json" ? "blueprint JSON" : view === "result" ? "response" : view === "files" ? "files" : "brief")}>
-            Copy {view === "json" ? "JSON" : view === "result" ? "response" : view === "files" ? "files" : "brief"}
+          <Button variant="outline" size="sm" disabled={!!busy} onClick={() => void ctx.copy(view === "files" ? publishFiles.map((f) => `# ${f.path}\n\n${f.content}`).join("\n\n") : body, view === "json" ? "blueprint JSON" : view === "result" ? "response" : view === "files" ? "files" : view === "trail" ? "prompt trail" : "brief")}>
+            Copy {view === "json" ? "JSON" : view === "result" ? "response" : view === "files" ? "files" : view === "trail" ? "trail" : "brief"}
           </Button>
           <Button variant="primary" size="sm" loading={!!busy} disabled={mode === "ask" && !prompt.trim()} onClick={() => void generate()}>
             <Sparkles />
@@ -232,7 +239,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             <Switch size="sm" checked={sendShots && canShoot !== false} disabled={canShoot === false} onCheckedChange={setSendShots} aria-label="Send screenshots" />
             <Camera className="size-3.5 text-fg-muted" />
             <span className="text-[11px] text-fg-muted">
-              {canShoot === null ? "Checking whether the server can photograph the pages…" : canShoot ? `Send a screenshot of ${shotPages === 1 ? "the first page" : `the first ${shotPages} pages`}, as the live preview shows them` : "This server cannot photograph the pages (no Playwright), so the words go alone."}
+              {canShoot === null ? "Checking whether the server can photograph the pages…" : canShoot ? `Send a screenshot of ${shotPages === 1 ? "the first page" : `the first ${shotPages} pages`}, as the live preview shows them` : "This server cannot photograph the pages (no Playwright), so the words go alone: anything Claude says about layout, colour or overflow is inferred from the brief, not seen."}
             </span>
             {canShoot ? (
               <Segmented size="xs" value={device} onChange={(v) => setDevice(v as Device)} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} aria-label="Screenshot device" />
@@ -258,6 +265,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             options={[
               { value: "brief", label: "Brief" },
               { value: "json", label: "JSON" },
+              { value: "trail", label: trailCount ? `Trail (${trailCount})` : "Trail" },
               ...(result ? [{ value: "result", label: "Response" }] : []),
               ...(files.length ? [{ value: "files", label: `Files (${files.length})` }] : []),
             ]}
@@ -280,7 +288,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           </div>
         ) : null}
 
-        {view === "files" ? (
+        {view === "trail" ? (
+          <PromptTrail />
+        ) : view === "files" ? (
           <div className="max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated">
             <ul className="divide-y divide-border">
               {files.map((f) => (
