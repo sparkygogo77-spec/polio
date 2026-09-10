@@ -113,8 +113,7 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
   // A note may already be up here: claudeReady() is asked before the run and,
   // finding no key configured in this environment, leads with that reason —
   // "It does not stop the run" (BriefDialog.tsx), so the note and the hung
-  // request coexist honestly. What Stop must not do is add to it.
-  const beforeStop = await noteOn(page);
+  // request coexist honestly. What Stop must not do is add a failure to it.
   const stop = page.getByRole("button", { name: /^Stop/ }).first();
   check("and there is a Stop to press", (await stop.count()) === 1);
   if (await stop.count()) {
