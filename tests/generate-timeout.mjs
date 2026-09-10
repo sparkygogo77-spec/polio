@@ -46,7 +46,10 @@ async function openBlueprint() {
   await page.waitForTimeout(400);
   await page.locator('[data-ctx="studio-palette"]').first().click();
   await page.waitForTimeout(400);
-  await page.getByRole("button", { name: "Finish" }).click();
+  // The blue Finish orb is a purple process counter now (`DrawQueue.tsx`),
+  // which kept `data-finish` as its handle: press the thing that opens the
+  // iteration book, whatever it is called this week.
+  await page.locator("[data-finish]").first().click();
   await page.waitForTimeout(600);
   // Words only, as reported: the photographs are a separate call and not
   // what hung.
@@ -64,7 +67,10 @@ async function openBlueprint() {
   return page;
 }
 
-const spinning = (page) => page.locator("[role=dialog]").getByText(/Claude is (working through the blueprint|writing the files)/).count();
+// Not scoped to [role=dialog] any more: the blueprint and the trail are one
+// iteration book now, and the book is not always a modal. The line either
+// says a call is in flight or it does not, wherever it is drawn.
+const spinning = (page) => page.getByText(/Claude is (working through the blueprint|writing the files)/).count();
 const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextContents()).join(" ").trim();
 
 /* 1. The route answers, the reason is shown, and it is the route's own words. */
