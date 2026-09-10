@@ -40,7 +40,11 @@ export function DrawQueue() {
     store.updateJob(job.id, { status: "running", started: Date.now(), step: "Reading the drawing…" });
     void runDrawJob(job, {
       publish: (n) => ctx.publish(n),
-      onNoKey: () => ctx.openPanel("keys"),
+      // A queued job is background work: it says what happened in the news
+      // and on the counter, and does not throw a panel over whatever is
+      // being drawn now. Pressing the counter, or the key button, is the
+      // person's move to make.
+      onNoKey: () => {},
       onStep: (step) => useStudio.getState().updateJob(job.id, { step }),
     })
       .then((r) => {
@@ -88,7 +92,7 @@ export function ProcessCounter() {
         type="button"
         data-finish=""
         data-process-counter=""
-        aria-label={busy ? `${pending.length} drawings pending, ${done} done` : `${done} drawings made real`}
+        aria-label={`${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}
         data-busy={busy ? "1" : "0"}
         onClick={() => {
           play("confirm");
@@ -101,6 +105,9 @@ export function ProcessCounter() {
           {pending.length}
           <span style={{ opacity: 0.6 }}> / </span>
           {done}
+          {/* A drawing that could not be read is not a drawing that landed:
+              it is said here rather than hidden in the done count. */}
+          {failed ? <span style={{ color: "oklch(0.86 0.14 30)" }}> · {failed}!</span> : null}
         </span>
       </button>
     </Tooltip>
