@@ -172,6 +172,12 @@ same boxes as everywhere else, in the screen's colours.
   what the two parts already say. A connection that does nothing is a
   drawing, not a connection; a connection that says nothing about why is a
   fact nobody can build from.
+- **The tour points, it does not perform.** A card that had to sit away from
+  the thing it names is joined to it by a thread: one bend, bowed a fixed
+  share of its own length, faded out of the card and full strength at the
+  hole, drawing itself on as the step arrives the way a wire seats on the
+  board, and ending in a ring rather than a blob on the thing being shown.
+  A tour that draws attention to its own pointing is a tour about itself.
 - **Every design is tracked where it can be seen.** What the wheel writes on
   a part or the page shows in the panel as a row of coloured keys, each with
   an icon. If a setting cannot be seen in the preview, it is still there.

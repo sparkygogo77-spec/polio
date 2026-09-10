@@ -308,18 +308,19 @@ export function Tour() {
           const line = thread(new DOMRect(p.card.x, p.card.y, CARD_W, cardH[i] ?? CARD_H), p.box);
           if (!line) return null;
           return (
-            <g key={`thread-${i}`}>
+            <g key={`thread-${step}-${i}`} data-tour-thread="">
               <defs>
                 <linearGradient id={`tour-thread-${i}`} x1={line.from.x} y1={line.from.y} x2={line.to.x} y2={line.to.y} gradientUnits="userSpaceOnUse">
                   <stop offset="0" stopColor="var(--accent)" stopOpacity="0.12" />
                   <stop offset="1" stopColor="var(--accent)" stopOpacity="0.7" />
                 </linearGradient>
               </defs>
-              <path d={line.d} fill="none" stroke={`url(#tour-thread-${i})`} strokeWidth="1.25" strokeLinecap="round" />
+              {/* It draws itself on, the way a wire seats on the board. */}
+              <path className="tour-thread" pathLength={1} d={line.d} fill="none" stroke={`url(#tour-thread-${i})`} strokeWidth="1.25" strokeLinecap="round" />
               {/* It arrives at a ring rather than a blob: the hole is the
                   subject, and a filled dot on the edge of it reads as a
                   blemish on the thing being shown. */}
-              <circle cx={line.to.x} cy={line.to.y} r="2.5" fill="none" stroke="var(--accent)" strokeWidth="1.25" opacity="0.75" />
+              <circle className="tour-arrive" cx={line.to.x} cy={line.to.y} r="2.5" fill="none" stroke="var(--accent)" strokeWidth="1.25" opacity="0.75" />
             </g>
           );
         })}

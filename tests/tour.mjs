@@ -87,6 +87,8 @@ check("the command palette opens it too", (await tour.count()) === 1);
 
 /* 2. Every step, all the way through. */
 const seen = [];
+/** How many threads the whole tour drew: checks over none pass over nothing. */
+let drawn = 0;
 for (let i = 1; i <= 8; i++) {
   await page.waitForTimeout(1800);
   if (!(await tour.count())) break;
@@ -110,6 +112,30 @@ for (let i = 1; i <= 8; i++) {
   const lit = await page.locator("[data-tour] svg rect[stroke]").count();
   check(`${id}: something on the real screen is lit`, lit > 0, `${lit} holes`);
 
+  /*
+   * The thread from a card to the thing it names.
+   *
+   * It was a dashed straight line — the diagram a spreadsheet draws. It is a
+   * curve now, faded out of the card and full strength at the hole, drawing
+   * itself on when the step arrives the way a wire seats on the board, and
+   * arriving at a ring rather than a blob on the thing being shown. A thread
+   * is only drawn where a card had to sit away from its hole, so a step whose
+   * cards all sit on their holes has none, and that is not a failure.
+   */
+  const threads = await page.locator("[data-tour] [data-tour-thread] path").evaluateAll((els) =>
+    els.map((e) => ({
+      curved: /\bQ\b/.test(e.getAttribute("d") ?? ""),
+      drawn: e.classList.contains("tour-thread") && e.getAttribute("pathLength") === "1" && getComputedStyle(e).strokeDasharray !== "none",
+      gradient: /^url\(/.test(e.getAttribute("stroke") ?? ""),
+      thin: parseFloat(e.getAttribute("stroke-width") ?? "9") <= 1.5,
+    })),
+  );
+  drawn += threads.length;
+  check(`${id}: every thread is a curve, not a ruled line`, threads.every((t) => t.curved), `${threads.length} threads`);
+  check(`${id}: it fades out of the card and draws itself on`, threads.every((t) => t.gradient && t.drawn && t.thin));
+  const blobs = await page.locator("[data-tour] [data-tour-thread] circle").evaluateAll((els) => els.filter((e) => (e.getAttribute("fill") ?? "none") !== "none" || !e.classList.contains("tour-arrive")).length);
+  check(`${id}: it arrives at a ring, not a blob on the thing`, blobs === 0, `${blobs} filled`);
+
   const nav = await page.locator("[data-tour]").innerText();
   const hasCount = /Step \d+ of \d+/.test(nav);
   const hasBack = await page.locator("[data-tour]").getByRole("button", { name: /Back/ }).count();
@@ -123,6 +149,7 @@ for (let i = 1; i <= 8; i++) {
   await on.click();
 }
 
+check("the tour draws threads at all, so the checks above were about something", drawn > 0, `${drawn} threads`);
 check("it covers the wheel, Looks, the board, the Blueprint and Builds",
   ["wheel", "looks", "board", "blueprint", "builds"].every((s) => seen.includes(s)), seen.join(" › "));
 
