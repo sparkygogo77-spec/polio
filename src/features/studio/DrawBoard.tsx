@@ -40,7 +40,7 @@ import { useSetting } from "@/core/settings/useSetting";
 import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
-import { fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { describeSketch, fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { keyHeader, noKeyMessage } from "./agent";
 import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { useStudio, type StudioNode } from "./store";
@@ -55,7 +55,11 @@ const DRIFT_MS = 110;
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
   const f = getFeature(id);
-  return f ? { id: f.id, name: f.name, w: f.w ?? 132, h: f.h ?? 76, options: f.options } : null;
+  if (!f) return null;
+  return {
+    id: f.id, name: f.name, w: f.w ?? 132, h: f.h ?? 76,
+    options: (f.options ?? []).map((o) => ({ id: o.id, values: o.values, kind: o.kind, range: o.range ? { min: o.range.min, max: o.range.max } : undefined })),
+  };
 };
 
 export interface DrawBoardProps {
@@ -187,16 +191,30 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
                 content: node.content,
                 data: node.data,
                 options: node.options,
-                optionsAllowed: (feature?.options ?? []).map((o) => ({ id: o.id, label: o.label, values: o.values, kind: o.kind ?? "one" })),
+                optionsAllowed: (feature?.options ?? []).map((o) => ({
+                  id: o.id, label: o.label, kind: o.kind ?? "one",
+                  // A range has no list of values to offer: it has two ends.
+                  values: o.kind === "range" && o.range ? [`${o.range.min}\u2013${o.range.max}${o.range.unit ?? ""}`] : o.values,
+                })),
                 contentLabel: feature?.content?.label ?? null,
               }
             : null,
           candidates: FEATURES.map((f) => ({ id: f.id, name: f.name, category: f.category, w: f.w, h: f.h, blurb: f.blurb })),
         }),
       });
-      const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string };
+      const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string; usage?: { model?: string } };
       if (data.ok && data.patch) {
         const made = apply(data.patch, drawn);
+        // A drawing read is an API call that landed, so it is a thread too:
+        // the words that went with the drawing, the note that came back, and
+        // what it did to the part.
+        s.landThread({
+          mode: "drawing",
+          model: data.usage?.model,
+          ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
+          answer: data.patch.note ?? "",
+          changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : [])],
+        });
         ctx.publish({
           key: `studio:reshape:${made.id}`,
           title: node ? `Reshaped ${made.label}` : `Drew ${made.label}`,

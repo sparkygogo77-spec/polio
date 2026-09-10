@@ -223,8 +223,37 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - *A new kind of mark on the board*: add a `ShapeKind` in `store.ts`, draw it
   in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
 
+**The orbs, and what they are for.** `orb-css`, `orb-webgl` and `orb-image`
+are one object drawn three ways — layered gradients, a three.js sphere, a
+picture — with the same four sliders on each (size, tilt, colour, glow) and
+the same rings and tag around them, so the difference between the three
+techniques is visible rather than argued about. `parts/Orb.tsx` holds all
+three. Two things in there are worth keeping: a crescent on a sphere is a
+*conic* gradient masked to the outer band, never a radial one (a circle of
+light is a blob, and a blob reads as a stain); and the WebGL orb is lit by an
+environment — a canvas with two wide coloured lamps painted into it, wrapped
+round the scene — because point lights on a smooth black sphere give three
+white pinpricks and nothing else. three.js is imported dynamically, so a page
+with no orb never loads it, and any failure (no WebGL, no chunk) falls back
+to the drawn orb and says so in the tag. `corner-glow`, `eyebrow-rule` and
+`details-table` came from the same rebuild: a light off the edge of the page,
+a kicker with a rule, and label-and-value rows that copy.
+
 **Rules:**
 
+- **A part's own splitting rule beats the shared one.** `items()` splits on
+  commas *and* newlines, which is right for tab labels and wrong for anything
+  whose values contain commas: a paragraph ("for the builders, believers, and
+  bold thinkers") came out as three paragraphs, and a supply figure
+  ("1,000,000,000") as three rows. Prose splits on lines only; the details
+  table splits on lines, and on commas only when there are no lines. If a
+  part's content is prose or figures, split it yourself and say why.
+- **A document is its look as well as its parts.** `loadDoc` used to drop
+  `look` and `motion`, and `PreviewPage` never passed `look` to `LiveSite`,
+  so a published site came back in the palette derived from the accent hue —
+  the board, the pinned preview and `/site` disagreed about the colour of the
+  same document. Anything that loads or renders a document carries the whole
+  of it.
 - Every plain format value reaches the blueprint, resolved; advanced ones only
   when changed; `*` marks what the author set. A default left out was read as
   "not decided" and the whole visual system got inferred from six colours.
@@ -234,6 +263,21 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - A drawn region with words on it and nothing inside is a *section*: it takes
   a row in "Layout, top to bottom" and is built from its prompt. A region with
   parts in it groups them; an empty, unnamed one is ignored.
+- **A landed API call is a thread, not an update.** Every ask that comes back
+  — a plan, a critique, the code, a drawing read — lands a `Thread`
+  (`threads.ts`, `store.landThread`): what was asked, what came back, what it
+  put on the board, and the board as it stood. Threads hang off whichever was
+  live, so the Trail view is the tree of how the site was reasoned about
+  (`ThreadTree.tsx`), all of them visible at once, each collapsed to one line
+  — asked → did — and opening one shows the prompt, the answer and what
+  changed. **Prune cuts one node only:** its children re-hang from its parent,
+  because they happened, and the board goes to whatever is live after the cut
+  (`liveAfterPrune`). Standing on a thread applies its document, and only its
+  document's own fields — a thread's `doc` has been through localStorage and
+  can carry keys a snapshot does not, and spreading those blindly set things
+  nobody meant to set. The vines between the cards are painted on a canvas
+  and move: a history drawn as a static diagram is the thing this replaced.
+  `tests/threads.mjs` holds the tree, the cut and the diff to their rules.
 - Critique, Fill prompts and Finish come back with a `json revisions` block:
   one item per finding, each naming its target and carrying the target's whole
   prompt as it should now read. `recordAsk` in the store puts each beside the
@@ -381,6 +425,16 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   bar. Each preview has a rim that just clears its edges (`.ember-rim`) and
   tongues climbing out of its bottom, red at rest, blue within 180ms of being
   reached for, back to red over 0.7s.
+- A **range option** (`FeatureOption.kind === "range"`, built with `range(id,
+  label, default, min, max)`) is a number on a slider rather than a pick from
+  a list, read with `num(options, id, def, min, max)` in `parts/types.ts`.
+  `values` keeps one entry — the default — so everything that reads
+  `values[0]` is unaffected, and the value is stored as a string like every
+  other option. The Inspector draws it with the core `Slider`, the wheel's
+  Options plate with a range input, and the drawing board's reader may set it
+  to any number inside the ends (`reshape.ts` clamps). Reach for it when the
+  thing being set is a quantity — how big, how far over, what colour, how
+  much glow — where a list of five values is a list of five compromises.
 - A **set option** (`FeatureOption.kind === "set"`) is any number of presets at
   once, stored as one comma-separated string and drawn by the Inspector as
   chips you switch on and off. `set(options, id, default)` in `parts/types.ts`

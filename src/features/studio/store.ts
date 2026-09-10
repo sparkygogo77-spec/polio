@@ -44,6 +44,7 @@ import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type Sketch } from "./sketch";
+import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
@@ -185,6 +186,8 @@ export interface TrailEntry {
   model?: string;
   /** critique only: whether its prompt was applied. */
   applied?: boolean;
+  /** The thread this came out of, when it came out of one. */
+  threadId?: string;
 }
 
 interface Doc {
@@ -272,6 +275,14 @@ interface StudioState extends Doc {
   companion: { device: "phone" | "tablet"; x: number; y: number; open: boolean };
   /** Every prompt as written, critiqued and revised. Not part of undo: it is the record of the document, not the document. */
   trail: TrailEntry[];
+  /**
+   * Every prompt that reached Claude and landed, as a tree. A thread is an
+   * iteration, not an update: it holds what was asked, what came back, what
+   * it put on the board, and the board as it stood when it landed.
+   */
+  threads: Thread[];
+  /** The thread the board is standing on. */
+  liveThreadId: string | null;
   past: Doc[];
   future: Doc[];
 
@@ -363,6 +374,12 @@ interface StudioState extends Doc {
   clearPage: (pageId: string) => void;
   /** Keep what Claude found, each finding beside the prompt it was about. */
   recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
+  /** An API call came back: hang a thread off the live one and stand on it. */
+  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[] }) => string;
+  /** Cut one thread; its children re-hang from its parent and the board goes to whatever is live after. */
+  pruneThread: (id: string) => void;
+  /** Put the board back on a thread. */
+  standOn: (id: string) => void;
   /** Take a critique's proposed prompt as the prompt, and note that it was taken. */
   applyRevision: (entryId: string) => void;
   clearTrail: () => void;
@@ -428,6 +445,36 @@ function promptOf(s: Pick<StudioState, "brief" | "pages" | "nodes" | "groups">, 
     case "group": return s.groups.find((g) => g.id === t.id)?.prompt.trim() ?? "";
     default: return "";
   }
+}
+
+/**
+ * The document out of a thread, and nothing else.
+ *
+ * A thread's `doc` is a snapshot, but one that has been through
+ * localStorage — a published document carries keys a snapshot does not
+ * (`companion`, `activePageId`, `hiddenFeatures`) — and spreading whatever
+ * it happens to hold straight into the state sets fields nobody meant to
+ * set. `companion: null` arriving that way took the pinned preview down
+ * with it. Only the document's own eight fields are applied, the way
+ * `loadDoc` applies them.
+ */
+function docPatch(doc: ThreadDoc | undefined): Partial<StudioState> {
+  if (!doc) return {};
+  const d = doc as Partial<Doc>;
+  const patch: Partial<StudioState> = {};
+  if (Array.isArray(d.pages) && d.pages.length) patch.pages = d.pages;
+  if (Array.isArray(d.nodes)) patch.nodes = d.nodes;
+  if (Array.isArray(d.groups)) patch.groups = d.groups;
+  if (Array.isArray(d.shapes)) patch.shapes = d.shapes;
+  if (d.format) patch.format = { ...formatDefaults(), ...d.format };
+  if (d.brief) patch.brief = d.brief;
+  if (d.look) patch.look = { ...emptyLook(), ...d.look };
+  if (Array.isArray(d.motion)) patch.motion = d.motion;
+  if (patch.pages && !patch.pages.some((p) => p.id === undefined)) {
+    // Standing on a thread whose pages no longer include the open one.
+    patch.activePageId = patch.pages[0]!.id;
+  }
+  return patch;
 }
 
 function snapshot(s: StudioState): Doc {
@@ -502,6 +549,8 @@ export const useStudio = create<StudioState>()(
         mode: "design",
         companion: { device: "phone", x: -18, y: -18, open: false },
         trail: [],
+        threads: [],
+        liveThreadId: null,
         past: [],
         future: [],
 
@@ -969,11 +1018,56 @@ export const useStudio = create<StudioState>()(
               }
               entries.push({
                 id: uid("t"), at: now, stage: "critique", target, text: r.finding.trim(), prompt: r.prompt.trim(),
-                kind: r.kind, mode, model, parentId: author.id, applied: false,
+                kind: r.kind, mode, model, parentId: author.id, applied: false, threadId: s.liveThreadId ?? undefined,
               });
             }
             return { trail: entries.slice(-TRAIL_LIMIT) };
           });
+        },
+
+        landThread: ({ mode, model, ask, answer, changes }) => {
+          const id = uid("th");
+          set((s) => ({
+            threads: [
+              ...s.threads,
+              {
+                id, parentId: s.liveThreadId, at: Date.now(), mode, model,
+                ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
+                doc: snapshot(s) as ThreadDoc,
+              },
+            ].slice(-THREAD_LIMIT),
+            liveThreadId: id,
+          }));
+          return id;
+        },
+
+        /**
+         * Cut one thread. Its children re-hang from its parent — they
+         * happened, and removing the step underneath them does not unhappen
+         * them — and the board goes back to whatever is live after the cut.
+         */
+        pruneThread: (id) => {
+          const s = get();
+          if (!s.threads.some((t) => t.id === id)) return;
+          const threads = cutThread(s.threads, id);
+          const live = liveAfterPrune(s.threads, id, s.liveThreadId);
+          const stand = threads.find((t) => t.id === live);
+          push();
+          set(() => ({
+            threads,
+            liveThreadId: live,
+            trail: s.trail.filter((e) => e.threadId !== id),
+            ...docPatch(stand?.doc),
+            selection: [],
+          }));
+        },
+
+        standOn: (id) => {
+          const s = get();
+          const t = s.threads.find((x) => x.id === id);
+          if (!t?.doc) return;
+          push();
+          set({ ...docPatch(t.doc), liveThreadId: id, selection: [] });
         },
 
         applyRevision: (entryId) => {
@@ -996,6 +1090,13 @@ export const useStudio = create<StudioState>()(
                 ...st.trail.map((x) => (x.id === entryId ? { ...x, applied: true } : x)),
                 { id: uid("t"), at: Date.now(), stage: "final" as const, target: t, text: prompt, parentId: entryId },
               ].slice(-TRAIL_LIMIT),
+              // Taking a finding is the thread doing something, so the thread
+              // says so and keeps the board it produced.
+              threads: st.threads.map((x) =>
+                x.id === (e.threadId ?? st.liveThreadId)
+                  ? { ...x, changes: [...x.changes, `took the prompt for ${t.label}`], doc: { ...(x.doc ?? {}), ...patch, nodes: (patch.nodes ?? st.nodes), pages: (patch.pages ?? st.pages), brief: (patch.brief ?? st.brief) } as ThreadDoc }
+                  : x,
+              ),
             };
           });
         },
@@ -1014,7 +1115,7 @@ export const useStudio = create<StudioState>()(
 
         resetAll: () => {
           push();
-          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [] });
+          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null });
         },
 
         loadDoc: (doc) => {
@@ -1028,6 +1129,13 @@ export const useStudio = create<StudioState>()(
               shapes: doc.shapes ?? s.shapes,
               format: { ...formatDefaults(), ...(doc.format ?? {}) },
               brief: { ...s.brief, ...(doc.brief ?? {}) },
+              // The look and the behaviours are the document too. Leaving
+              // them out meant a published site came back in the template's
+              // colours: the palette, the texture stack, the lamp and every
+              // tier-B behaviour were dropped on the way in, and the page
+              // that had been designed dark green arrived default purple.
+              look: doc.look ? { ...emptyLook(), ...doc.look } : s.look,
+              motion: doc.motion ?? s.motion,
               activePageId: pages[0]!.id,
               selection: [],
             };
@@ -1083,6 +1191,8 @@ export const useStudio = create<StudioState>()(
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
           trail: Array.isArray(p.trail) ? p.trail : [],
+          threads: Array.isArray(p.threads) ? p.threads : [],
+          liveThreadId: typeof p.liveThreadId === "string" ? p.liveThreadId : null,
           look: (() => {
             const look = { ...emptyLook(), ...(p.look ?? {}) };
             // The target used to be one switch for the whole stack; each layer
@@ -1117,6 +1227,8 @@ export const useStudio = create<StudioState>()(
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,
         trail: s.trail,
+        threads: s.threads,
+        liveThreadId: s.liveThreadId,
         companion: s.companion,
         menuShape: s.menuShape,
         menuSpin: s.menuSpin,

@@ -17,13 +17,13 @@ import type { LucideIcon } from "lucide-react";
 import {
   Accessibility, Activity, AlignLeft, Archive, ArrowDown, AtSign, Award, BadgeCheck, BarChart3,
   Bell, Blend, Bookmark, BookOpen, Bot, Box, Boxes, Brain, Brush, Calendar, Camera, CaseSensitive,
-  Check, CheckSquare, ChevronsDown, Clapperboard, Clock, Cloud, Code2, Cog, Coins, Columns3,
+  Check, CheckSquare, ChevronsDown, Circle, Clapperboard, Clock, Cloud, Code2, Cog, Coins, Columns3,
   Command, Component, Compass, Contrast, Copy, CreditCard, Crown, Database, Dices, DollarSign,
   Download, Droplet, Eye, Feather, Film, Filter, Fingerprint, Flag, FlaskConical, Footprints,
   Gamepad2, Gauge, Ghost, GitBranch, Globe, GraduationCap, Grid2x2, Hand, Hash, Heading, Heart,
   HelpCircle, Highlighter, History as HistoryIcon, Home, Hourglass, Image as ImageIcon, Images, Inbox, Info, Keyboard,
   Languages, Layers, LayoutGrid, LayoutTemplate, Lightbulb, LineChart, Link2, List, ListOrdered,
-  Lock, LoaderCircle, Magnet, Mail, Map as MapIcon, MapPin, Menu, MessageSquare, Mic, Milestone, Monitor,
+  Lock, LoaderCircle, Magnet, Mail, Map as MapIcon, MapPin, Menu, MessageSquare, Mic, Milestone, Minus, Monitor,
   Moon, MousePointer2, MousePointerClick, Move, Music, Navigation as NavigationIcon, Network, Newspaper, Orbit,
   Package, Palette, PanelLeft, PanelTop, Paperclip, PenTool, Percent, PieChart, Pin, Podcast,
   Printer, Puzzle, QrCode, Quote, Radar, Radio, RefreshCw, Rocket, RotateCw, Route, Rows3, Rss,
@@ -46,9 +46,25 @@ export interface FeatureOption {
    * to be. `values` is then the whole shelf of presets on offer, and
    * `preset` is what a part arrives with.
    */
-  kind?: "one" | "set";
+  kind?: "one" | "set" | "range";
   /** For a set: what is on when the part is first placed. */
   preset?: string;
+  /**
+   * For a range: a number on a slider rather than a pick from a list.
+   *
+   * Some things a part can be told are not a short list of names — how big,
+   * how far over, what colour, how much glow — and a list of five sizes is a
+   * list of five compromises. A range keeps `values` as a single entry, the
+   * default, so everything that reads `values[0]` still works; the slider
+   * runs from `min` to `max` and the value is stored as the number in a
+   * string, like every other option.
+   */
+  range?: { min: number; max: number; step?: number; unit?: string };
+}
+
+/** A range option, written the way the parts read it. */
+export function range(id: string, label: string, def: number, min: number, max: number, extra: { step?: number; unit?: string } = {}): FeatureOption {
+  return { id, label, kind: "range", values: [String(def)], range: { min, max, step: extra.step ?? 1, unit: extra.unit } };
 }
 
 /**
@@ -176,6 +192,7 @@ const RAW: FeatureDef[] = [
 
   /* ---------------------------------------------------------------- content */
   f("prose", "Text block", "content", AlignLeft, "Long-form text with proper rhythm and hierarchy.", { options: [{ id: "measure", label: "Measure", values: ["66ch", "58ch", "76ch", "full"] }] }),
+  f("eyebrow-rule", "Eyebrow label", "content", Minus, "A small line of type over a heading, with a rule beside it.", { tags: ["kicker", "label", "overline", "mono"] }),
   f("heading-scale", "Heading sizes", "content", Heading, "Consistent heading sizes and weights.", { options: [{ id: "ratio", label: "Ratio", values: ["1.25 major third", "1.2 minor third", "1.333 perfect fourth", "1.5 perfect fifth"] }] }),
   f("fluid-type", "Text that scales", "content", WrapText, "Type that scales smoothly with the viewport.", {}),
   f("drop-cap", "Big first letter", "content", Type, "Oversized opening letter.", {}),
@@ -278,6 +295,7 @@ const RAW: FeatureDef[] = [
   /* ------------------------------------------------------------------ data */
   f("charts", "Charts", "data", LineChart, "Lines, bars, areas — legible in both themes.", { options: [{ id: "kind", label: "Kind", values: ["line", "bar", "area", "mixed"] }] }),
   f("stat-tiles", "Number tiles", "data", TrendingUp, "Headline numbers with change indicators.", { options: [columns] }),
+  f("details-table", "Details table", "data", ListOrdered, "Label and value down a page, ruled, each one copyable.", { tags: ["facts", "specs", "contract", "copy", "key value"] }),
   f("data-table", "Data table", "data", Table2, "Sortable, filterable, paginated rows.", { options: [{ id: "rows", label: "Row count", values: ["hundreds", "dozens", "thousands+"] }] }),
   f("pie-breakdown", "Pie chart", "data", PieChart, "How a whole splits into parts.", {}),
   f("sparkline", "Mini trend lines", "data", Activity, "Tiny trend inline with a number.", {}),
@@ -363,6 +381,10 @@ const RAW: FeatureDef[] = [
   f("gamification", "Points & levels", "interact", Gamepad2, "Points, streaks, levels, unlocks.", {}),
   f("easter-egg", "Hidden surprise", "interact", Ghost, "A hidden thing for people who poke around.", {}),
   f("generative-art", "Generated artwork", "media", Shapes, "Code-drawn artwork, seeded and unique.", {}),
+  f("orb-css", "Orb, drawn", "media", Circle, "A lit sphere drawn in CSS and SVG, with orbit rings and a tag.", { tags: ["sphere", "ball", "planet", "gradient", "css"] }),
+  f("orb-webgl", "Orb, in 3D", "media", Globe, "A real sphere in WebGL that turns and relights under the pointer.", { tags: ["sphere", "three", "webgl", "3d", "planet"] }),
+  f("orb-image", "Orb, from a picture", "media", Orbit, "A picture of a sphere with orbit rings, a glow and a tag around it.", { tags: ["sphere", "photo", "render", "planet"] }),
+  f("corner-glow", "Corner glow", "media", Sun, "A wash of colour blurred into a corner, the way a light off-screen falls on a dark page.", { tags: ["vignette", "glow", "gradient", "atmosphere"] }),
   f("physics", "Physics", "motion", Orbit, "Things that move like they have mass.", {}),
   f("weather-time", "Time & weather aware", "platform", Sun, "Changes with the visitor's clock or weather.", {}),
   f("qr-bridge", "QR code hand-off", "platform", QrCode, "Hand off between phone and desktop.", {}),
@@ -403,6 +425,15 @@ const CATEGORY_SIZE: Record<CategoryId, [number, number]> = {
 };
 
 const shape: FeatureOption = { id: "shape", label: "Shape", values: ["rounded", "pill", "square", "underlined"] };
+/*
+ * The button's own two options. They are read by the one component behind
+ * cta-primary, quick-action and follow, and were offered by the first alone,
+ * so the other two could be drawn solid and nothing else — an option a part
+ * honours and the catalog does not offer is a control nobody can reach.
+ */
+const variant: FeatureOption = { id: "variant", label: "Variant", values: ["solid", "outline", "ghost"] };
+const btnSize: FeatureOption = { id: "size", label: "Size", values: ["medium", "small", "large"] };
+
 const yesNo = (id: string, label: string, def: "yes" | "no"): FeatureOption => ({ id, label, values: def === "yes" ? ["yes", "no"] : ["no", "yes"] });
 
 /** Per-part overrides: real size, shape options, and what it contains. */
@@ -435,6 +466,82 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "wildcard": { w: 1440, h: 360 },
   "page-transitions": { w: 1440, h: 64 },
   "back-to-top": { w: 1440, h: 64 },
+  /*
+   * The orbs. Three ways to draw the same object, so what each way can do is
+   * a comparison rather than an argument: the same four sliders on all three
+   * — how big it sits in its box, how far it leans, what colour the light is,
+   * how far the glow reaches — and the same rings and tag around it.
+   */
+  "orb-css": {
+    w: 560, h: 560,
+    options: [
+      range("size", "Size", 76, 30, 100, { unit: "%" }),
+      range("tilt", "Tilt", -22, -60, 60, { unit: "\u00b0" }),
+      range("hue", "Colour", 96, 0, 360, { unit: "\u00b0" }),
+      range("glow", "Glow", 55, 0, 100, { unit: "%" }),
+      { id: "rings", label: "Rings", values: ["two", "one", "three", "none"] },
+      yesNo("spin", "Turning", "yes"),
+    ],
+    content: { label: "The tag", placeholder: "The signal is live" },
+  },
+  "orb-webgl": {
+    w: 560, h: 560,
+    options: [
+      range("size", "Size", 76, 30, 100, { unit: "%" }),
+      range("tilt", "Tilt", -22, -60, 60, { unit: "\u00b0" }),
+      range("hue", "Colour", 96, 0, 360, { unit: "\u00b0" }),
+      range("glow", "Glow", 55, 0, 100, { unit: "%" }),
+      { id: "rings", label: "Rings", values: ["two", "one", "three", "none"] },
+      { id: "surface", label: "Surface", values: ["glass", "metal", "matte"] },
+      yesNo("spin", "Turning", "yes"),
+    ],
+    content: { label: "The tag", placeholder: "The signal is live" },
+  },
+  "orb-image": {
+    w: 560, h: 560,
+    options: [
+      range("size", "Size", 76, 30, 100, { unit: "%" }),
+      range("tilt", "Tilt", -22, -60, 60, { unit: "\u00b0" }),
+      range("hue", "Colour", 96, 0, 360, { unit: "\u00b0" }),
+      range("glow", "Glow", 55, 0, 100, { unit: "%" }),
+      { id: "rings", label: "Rings", values: ["two", "one", "three", "none"] },
+      { id: "recolour", label: "Recolour the picture", values: ["no", "yes"] },
+      yesNo("float", "Floating", "yes"),
+    ],
+    content: { label: "Picture, then the tag", placeholder: "/orb.png, The signal is live" },
+  },
+  "corner-glow": {
+    w: 1440, h: 900,
+    options: [
+      { id: "corner", label: "Corner", values: ["top right", "top left", "bottom left", "bottom right", "middle"] },
+      range("hue", "Colour", 96, 0, 360, { unit: "\u00b0" }),
+      range("reach", "Reach", 46, 10, 100, { unit: "%" }),
+      range("strength", "Strength", 22, 0, 100, { unit: "%" }),
+      { id: "second", label: "A second light", values: ["opposite", "none", "beside it"] },
+    ],
+  },
+  "eyebrow-rule": {
+    w: 420, h: 24,
+    options: [
+      { id: "rule", label: "Rule", values: ["before", "after", "both", "none"] },
+      { id: "type", label: "Type", values: ["monospace", "the site's"] },
+      range("tracking", "Letter spacing", 25, 0, 60, { unit: "/100em" }),
+    ],
+    content: { label: "The words", placeholder: "Built for the next block" },
+  },
+  "details-table": {
+    w: 720, h: 300,
+    options: [
+      { id: "rules", label: "Rules", values: ["between", "under each", "none"] },
+      { id: "values", label: "Values", values: ["monospace", "the site's"] },
+      yesNo("copy", "Copy button", "yes"),
+    ],
+    content: { label: "Label: value, one a line", placeholder: "Contract: 0x0000…0000\nNetwork: Robinhood Chain 4663\nSupply: 1,000,000,000" },
+  },
+  // These three are one component, and it has read `variant` and `size`
+  // since it was written; only cta-primary offered them, so the other two
+  // could be drawn solid and nothing else. An option a part honours and the
+  // catalog does not offer is a control nobody can reach.
   "search-nav": { w: 420, h: 48, options: [shape, yesNo("button", "Search button", "no")], content: { label: "Searches over", placeholder: "pages, products, articles" } },
   "search-autocomplete": { w: 420, h: 48, options: [shape], content: { label: "Suggests", placeholder: "products, categories, recent searches" } },
   "ai-search": { w: 480, h: 48, options: [shape], content: { label: "Searches over", placeholder: "everything on the site" } },
@@ -455,7 +562,8 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "hero-3d": { w: 1440, h: 560, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
   "value-prop": { w: 880, h: 120, content: { label: "The sentence", placeholder: "One line that says what this is and who it's for" } },
   "cta-primary": { w: 220, h: 56, options: [shape, { id: "variant", label: "Look", values: ["solid", "outline", "ghost"] }, { id: "size", label: "Size", values: ["medium", "small", "large"] }], content: { label: "Label", placeholder: "Get started" } },
-  "quick-action": { w: 180, h: 48, options: [shape], content: { label: "Label", placeholder: "Buy now" } },
+  "quick-action": { w: 180, h: 48, options: [shape, variant, btnSize], content: { label: "Label", placeholder: "Buy now" } },
+  "follow": { w: 180, h: 48, options: [shape, { id: "variant", label: "Variant", values: ["outline", "solid", "ghost"] }, btnSize], content: { label: "Label", placeholder: "Follow" } },
   "social-proof-strip": { w: 1440, h: 96, content: { label: "Names or numbers", placeholder: "Acme, Globex, Initech, 12,000 users" } },
   "logo-cloud": { w: 1200, h: 100, content: { label: "Logos", placeholder: "Acme, Globex, Initech, Umbrella" } },
   prose: { w: 720, h: 320, content: { label: "Paragraphs", placeholder: "Type the actual words, one paragraph per line" } },
@@ -782,7 +890,7 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
   ],
   "content": [
     { id: "body-text", emoji: "\ud83d\udcd6", label: "Body text", ids: ["prose", "drop-cap", "reading-time", "footnotes", "micro-copy", "textbox-format"] },
-    { id: "type-treatment", emoji: "\ud83d\udd20", label: "Type treatment", ids: ["heading-scale", "fluid-type", "kinetic-type", "highlight", "pull-quote"] },
+    { id: "type-treatment", emoji: "\ud83d\udd20", label: "Type treatment", ids: ["heading-scale", "fluid-type", "kinetic-type", "highlight", "pull-quote", "eyebrow-rule"] },
     { id: "lists-of-things", emoji: "\ud83d\udcf0", label: "Lists of things", ids: ["blog-index", "changelog", "tagging", "docs", "rss"] },
     { id: "boxes", emoji: "\ud83d\udca1", label: "Boxes", ids: ["callout", "code-block", "faq", "marquee"] },
     { id: "your-notes", emoji: "\ud83d\udcdd", label: "Your notes", ids: ["custom-idea", "gimmick", "wildcard", "note", "mood", "constraint"] },
@@ -792,7 +900,8 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
     { id: "moving-through", emoji: "\ud83c\udfa0", label: "Moving through", ids: ["carousel", "before-after"] },
     { id: "sound-and-video", emoji: "\u25b6\ufe0f", label: "Sound & video", ids: ["video-player", "audio-player", "podcast"] },
     { id: "embeds", emoji: "\ud83c\udf0d", label: "Embeds", ids: ["map-embed", "3d-viewer"] },
-    { id: "generated", emoji: "\ud83c\udfa8", label: "Generated", ids: ["generative-art", "avatar-stack"] },
+    { id: "generated", emoji: "\ud83c\udfa8", label: "Generated", ids: ["generative-art", "avatar-stack", "corner-glow"] },
+    { id: "orbs", emoji: "\ud83d\udd2e", label: "Orbs", ids: ["orb-css", "orb-webgl", "orb-image"] },
   ],
   "motion": [
     { id: "on-scroll", emoji: "\ud83d\udcdc", label: "On scroll", ids: ["scroll-snap", "parallax", "reveal-on-scroll", "sticky-story", "horizontal-scroll", "scroll-progress", "scroll-video", "infinite-scroll", "smooth-scroll"] },
@@ -821,7 +930,7 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
   "data": [
     { id: "charts", emoji: "\ud83d\udcc8", label: "Charts", ids: ["charts", "pie-breakdown", "sparkline", "heatmap"] },
     { id: "numbers", emoji: "\ud83d\udd22", label: "Numbers", ids: ["stat-tiles", "progress-tracker", "leaderboard"] },
-    { id: "tables", emoji: "\ud83d\udccb", label: "Tables", ids: ["data-table", "export"] },
+    { id: "tables", emoji: "\ud83d\udccb", label: "Tables", ids: ["data-table", "export", "details-table"] },
     { id: "arrangements", emoji: "\ud83d\uddfa\ufe0f", label: "Arrangements", ids: ["dashboard", "timeline", "kanban", "network-graph", "calendar-view"] },
     { id: "live", emoji: "\ud83d\udce1", label: "Live", ids: ["live-feed"] },
     { id: "dense-views", emoji: "\ud83d\udcca", label: "Dense views", ids: ["dense-tables", "virtualised-list", "multi-column-feed", "realtime-stream"] },

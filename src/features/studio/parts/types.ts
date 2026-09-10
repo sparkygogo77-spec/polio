@@ -73,6 +73,17 @@ export function opt(options: Record<string, string>, id: string, def: string): s
 }
 
 /**
+ * A range option: a number on a slider, stored as a string like every other
+ * option. Anything that is not a number falls back to the default, so a part
+ * is never handed NaN, and the ends clamp what a bad value can do.
+ */
+export function num(options: Record<string, string>, id: string, def: number, min = -Infinity, max = Infinity): number {
+  const v = Number.parseFloat(options[id] ?? "");
+  if (!Number.isFinite(v)) return def;
+  return Math.max(min, Math.min(max, v));
+}
+
+/**
  * A "set" option: any number of presets at once, stored as one comma-separated
  * string so the document stays flat. An empty string is a real answer — it
  * means the reader turned them all off — so only a missing key falls back.
