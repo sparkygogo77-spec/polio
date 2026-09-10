@@ -29,7 +29,7 @@ import { Badge } from "@/core/ui/badge";
 import { Input } from "@/core/ui/input";
 import { Tooltip } from "@/core/ui/tooltip";
 import { guessCostMs, isPin } from "./crypto";
-import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys } from "./store";
+import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type ServiceId } from "./store";
 
 /* ------------------------------------------------------------------ */
 /* The screen                                                          */
@@ -218,6 +218,8 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
 interface ServerStatus { set: Record<string, boolean>; repo: string | null; branch: string }
 
 type Tried = { ok: boolean; message: string; source?: string } | { busy: true } | null;
+/** One answer per service: trying Claude says nothing about Vercel. */
+type TriedBy = Partial<Record<ServiceId, Tried>>;
 
 function Vault({ server }: { server: ServerStatus | null }) {
   const { values, save, busy, lock, changePin, destroy, touch, held, create } = useKeys();
@@ -226,7 +228,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
   const [shown, setShown] = React.useState<Record<string, boolean>>({});
   const [saved, setSaved] = React.useState(false);
   const [pinning, setPinning] = React.useState("");
-  const [tried, setTried] = React.useState<Tried>(null);
+  const [tried, setTried] = React.useState<TriedBy>({});
   const sealable = canSeal();
 
   React.useEffect(() => { setDraft(values); }, [values]);
@@ -240,21 +242,25 @@ function Vault({ server }: { server: ServerStatus | null }) {
     }
   };
 
-  /** Ask Anthropic whether the key the next request would use actually works. */
-  const tryKey = async () => {
-    setTried({ busy: true });
-    const key = (draft.ANTHROPIC_API_KEY ?? "").trim();
+  /** Ask the service itself whether the key the next request would use works. */
+  const tryKey = async (service: ServiceId) => {
+    setTried((t) => ({ ...t, [service]: { busy: true } }));
+    const header: Record<string, string> = {};
+    const typed = (id: string) => (draft[id] ?? "").trim();
+    if (service === "anthropic" && typed("ANTHROPIC_API_KEY")) header["x-anthropic-key"] = typed("ANTHROPIC_API_KEY");
+    if (service === "vercel" && typed("VERCEL_TOKEN")) header["x-vercel-token"] = typed("VERCEL_TOKEN");
     try {
-      const res = await fetch("/api/keys/test", { method: "POST", headers: key ? { "x-anthropic-key": key } : {} });
+      const res = await fetch("/api/keys/test", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...header },
+        body: JSON.stringify({ service }),
+      });
       const data = (await res.json()) as { ok: boolean; message: string; source?: string };
-      setTried({ ok: !!data.ok, message: data.message ?? (data.ok ? "It works." : "It did not work."), source: data.source });
+      setTried((t) => ({ ...t, [service]: { ok: !!data.ok, message: data.message ?? (data.ok ? "It works." : "It did not work."), source: data.source } }));
     } catch (err) {
-      setTried({ ok: false, message: err instanceof Error ? err.message : "Could not reach the server." });
+      setTried((t) => ({ ...t, [service]: { ok: false, message: err instanceof Error ? err.message : "Could not reach the server." } }));
     }
   };
-
-  const serverHasClaude = !!server?.set.ANTHROPIC_API_KEY;
-  const canTry = serverHasClaude || !!(draft.ANTHROPIC_API_KEY ?? "").trim();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onPointerDown={touch} onKeyDown={touch}>
@@ -272,6 +278,12 @@ function Vault({ server }: { server: ServerStatus | null }) {
 
         {SERVICES.map((s) => {
           const onServer = s.fields.some((f) => server?.set[f.id]);
+          // The first field of a service is the one that is the key; a team
+          // slug on its own is nothing to try.
+          const keyField = s.fields[0]!.id;
+          const answer = tried[s.id] ?? null;
+          const waiting = answer !== null && "busy" in answer;
+          const canTry = !!server?.set[keyField] || !!(draft[keyField] ?? "").trim();
           return (
             <section key={s.id} className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
               <header className="mb-2 flex flex-wrap items-center gap-2">
@@ -317,16 +329,20 @@ function Vault({ server }: { server: ServerStatus | null }) {
                 })}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="xs" disabled={!canTry || (tried !== null && "busy" in tried)} loading={tried !== null && "busy" in tried} onClick={() => void tryKey()}>
+                <Button variant="outline" size="xs" disabled={!canTry || waiting} loading={waiting} onClick={() => void tryKey(s.id)}>
                   <Sparkles /> Try it
                 </Button>
-                {tried && !("busy" in tried) ? (
-                  <span className={cn("flex items-center gap-1 text-[10px]", tried.ok ? "text-up" : "text-down")}>
-                    {tried.ok ? <Check className="size-3" /> : <AlertTriangle className="size-3" />}
-                    {tried.message}
+                {answer && !("busy" in answer) ? (
+                  <span className={cn("flex items-center gap-1 text-[10px]", answer.ok ? "text-up" : "text-down")}>
+                    {answer.ok ? <Check className="size-3" /> : <AlertTriangle className="size-3" />}
+                    {answer.message}
                   </span>
                 ) : (
-                  <span className="text-[10px] text-fg-faint">{serverHasClaude ? "Asks Anthropic whether the server's key works." : "Asks Anthropic whether this key works, before you save it."}</span>
+                  <span className="text-[10px] text-fg-faint">
+                    {server?.set[keyField]
+                      ? `Asks ${s.label} whether the server's ${s.fields[0]!.label.toLowerCase()} works.`
+                      : `Asks ${s.label} whether this ${s.fields[0]!.label.toLowerCase()} works, before you save it.`}
+                  </span>
                 )}
               </div>
             </section>
@@ -437,7 +453,7 @@ export function KeysPanel() {
         data-keys-panel=""
         data-open={open ? "1" : "0"}
         aria-hidden={!open}
-        {...(open ? {} : { inert: "" as unknown as boolean })}
+        inert={!open}
         className={cn(
           "fixed right-0 top-0 z-[76] flex h-dvh w-[min(460px,94vw)] flex-col border-l border-border bg-panel shadow-panel transition-transform duration-(--motion-slow) ease-out",
           open ? "translate-x-0" : "translate-x-full",

@@ -13,11 +13,14 @@
  * things and hand them to any agent, and the dialog says so where it matters.
  */
 import * as React from "react";
-import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Loader2, Sparkles, Wand2, X } from "lucide-react";
+import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
-import { PromptTrail, trailToMarkdown, useLanes } from "./PromptTrail";
+import { trailToMarkdown, useLanes } from "./PromptTrail";
+import { ThreadTree } from "./ThreadTree";
+import { threadsToMarkdown } from "./threads";
 import { useStudio } from "./store";
-import { askClaude, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
+import { askClaude, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
+import { activeProject, useBuilds } from "@/features/builds/store";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { Button } from "@/core/ui/button";
@@ -56,6 +59,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const master = useStudio((s) => s.brief.master);
   const siteName = useStudio((s) => s.brief.name);
   const trailCount = useStudio((s) => s.trail.filter((e) => e.stage === "critique").length);
+  // The Trail is the threads now; the tab counts them, and the findings from
+  // before threads were kept are still reachable underneath the tree.
+  const threads = useStudio((s) => s.threads);
   const lanes = useLanes();
   const ctx = useActions();
   const wantShots = useSettingValue<boolean>("studio.screenshots");
@@ -78,11 +84,13 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const [pubMessage, setPubMessage] = React.useState("");
   const [pubDeploy, setPubDeploy] = React.useState(true);
   const [pubResult, setPubResult] = React.useState<{ url: string; files: number; deployed: boolean; hook: boolean; note?: string } | null>(null);
+  const [live, setLive] = React.useState<DeployStatus | null>(null);
+  const [liveRun, setLiveRun] = React.useState<{ state: string; url: string | null; inspectorUrl: string | null; done: boolean; message?: string } | null>(null);
   const abort = React.useRef<AbortController | null>(null);
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
   const json = React.useMemo(() => specToJson(spec), [spec]);
-  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? trailToMarkdown(lanes) : markdown;
+  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? (threads.length ? threadsToMarkdown(threads) : trailToMarkdown(lanes)) : markdown;
 
   React.useEffect(() => { setSendShots(wantShots); }, [wantShots]);
   React.useEffect(() => { setPubDeploy(deployDefault); }, [deployDefault]);
@@ -90,6 +98,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     if (!open) return;
     void screenshotsAvailable().then(setCanShoot);
     void publishStatus().then(setPub);
+    void deployStatus().then(setLive);
     setPubMessage(`Builder: publish ${siteName.trim() || "the site"}`);
   }, [open, siteName]);
   React.useEffect(() => () => abort.current?.abort(), []);
@@ -124,6 +133,20 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       if (ac.signal.aborted) return;
       if (r.ok) {
         setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
+        // The call landed, so it is a thread: what was asked, what came back,
+        // and the board as it stood. Everything the answer goes on to do —
+        // a finding taken, a file written — is recorded against it.
+        useStudio.getState().landThread({
+          mode,
+          model: r.model,
+          ask: [MODES.find((m) => m.value === mode)?.blurb ?? mode, prompt.trim()].filter(Boolean).join("\n"),
+          answer: r.text,
+          changes: [
+            r.revisions.length ? `${r.revisions.length} finding${r.revisions.length === 1 ? "" : "s"}` : "",
+            r.files.length ? `${r.files.length} file${r.files.length === 1 ? "" : "s"} written` : "",
+            r.pictures ? `${r.pictures} page${r.pictures === 1 ? "" : "s"} seen` : "",
+          ].filter(Boolean),
+        });
         // Each finding goes on the trail beside the prompt it was about, so
         // the map is where a critique is read and acted on, not the box.
         if (r.revisions.length) useStudio.getState().recordAsk({ mode, model: r.model, revisions: r.revisions });
@@ -155,13 +178,75 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     setNote(null);
     setBusy(`Pushing ${publishFiles.length} files to GitHub…`);
     try {
-      const r = await publish({ files: publishFiles, message: pubMessage.trim() || "Builder: publish the site", deploy: pubDeploy });
+      const project = activeProject();
+      const r = await publish({
+        files: publishFiles,
+        message: pubMessage.trim() || "Builder: publish the site",
+        deploy: pubDeploy,
+        repo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
+        branch: project?.repo?.branch,
+      });
       if (r.ok) {
         setPubResult({ url: r.commitUrl, files: r.files, deployed: r.deployed, hook: r.hook, note: r.deployNote });
         ctx.publish({ key: "studio:publish", title: `Published to ${r.repo}`, body: `${r.files} files on ${r.branch}${r.deployed ? " · Vercel deploy started" : ""}`, level: "success", source: "studio", toast: true, href: r.commitUrl });
       } else {
         setNote(r.message);
         ctx.publish({ key: "studio:publish", title: "Publish failed", body: r.message, level: "error", source: "studio", toast: true });
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /**
+   * One button: the files go up, and the address comes back.
+   *
+   * Push and deploy are one act — a commit nobody deployed is not published —
+   * so this does both and waits, rather than leaving someone to guess whether
+   * a connected project noticed. The project's own repository wins over the
+   * server's, so each site goes where the Builds page says it goes, and the
+   * address is written back to the project when it is live.
+   */
+  const goLive = async () => {
+    if (busy) return;
+    setNote(null);
+    setLiveRun(null);
+    const project = activeProject();
+    const repo = project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined;
+    const branch = project?.repo?.branch;
+    try {
+      setBusy(`Pushing ${publishFiles.length} files to GitHub…`);
+      const pushed = await publish({ files: publishFiles, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch });
+      if (!pushed.ok) {
+        setNote(pushed.message);
+        ctx.publish({ key: "studio:publish", title: "Publish failed", body: pushed.message, level: "error", source: "studio", toast: true });
+        return;
+      }
+      setPubResult({ url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook });
+
+      setBusy("Asking Vercel to build it…");
+      const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch });
+      if (!started.ok) {
+        setNote(started.message);
+        ctx.publish({ key: "studio:live", title: "Not deployed", body: started.message, level: "warn", source: "studio", toast: true });
+        return;
+      }
+      setLiveRun({ state: started.state, url: started.url, inspectorUrl: started.inspectorUrl, done: false });
+
+      setBusy("Building…");
+      const end = await watchDeploy(started.id, {
+        team: started.team,
+        onState: (st) => {
+          setLiveRun({ state: st.state, url: st.url, inspectorUrl: st.inspectorUrl ?? started.inspectorUrl, done: st.done, message: st.message });
+          setBusy(st.state === "BUILDING" ? "Building…" : st.state === "QUEUED" ? "Queued…" : "Finishing…");
+        },
+      });
+      if (end.state === "READY" && end.url) {
+        const id = project?.id;
+        if (id) useBuilds.getState().setLive(id, end.url);
+        ctx.publish({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
+      } else {
+        ctx.publish({ key: "studio:live", title: `The build ${end.state.toLowerCase()}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
       }
     } finally {
       setBusy(null);
@@ -187,7 +272,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           {busy ? (
             <Button variant="ghost" size="sm" onClick={() => abort.current?.abort()}><X /> Stop</Button>
           ) : (
-            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "prompt-trail.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
+            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "threads.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
               <Download />
               {view === "files" ? "Download all" : "Download"}
             </Button>
@@ -265,7 +350,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             options={[
               { value: "brief", label: "Brief" },
               { value: "json", label: "JSON" },
-              { value: "trail", label: trailCount ? `Trail (${trailCount})` : "Trail" },
+              { value: "trail", label: threads.length ? `Trail (${threads.length})` : trailCount ? `Trail (${trailCount})` : "Trail" },
               ...(result ? [{ value: "result", label: "Response" }] : []),
               ...(files.length ? [{ value: "files", label: `Files (${files.length})` }] : []),
             ]}
@@ -289,7 +374,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         ) : null}
 
         {view === "trail" ? (
-          <PromptTrail />
+          <ThreadTree />
         ) : view === "files" ? (
           <div className="max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated">
             <ul className="divide-y divide-border">
@@ -336,7 +421,11 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 <Badge size="sm" variant="warn">no GitHub token · download instead</Badge>
               </Tooltip>
             )}
-            {pub?.vercel.hook ? <Badge size="sm" variant="info">Vercel hook set</Badge> : null}
+            {live?.configured ? (
+              <Badge size="sm" variant="info">Vercel: {live.source === "server" ? "the server's token" : "your token"}</Badge>
+            ) : pub?.vercel.hook ? (
+              <Badge size="sm" variant="info">Vercel hook set</Badge>
+            ) : null}
             <span className="flex-1" />
             <span className="text-[10px] text-fg-faint">{publishFiles.length} files: the document the app renders at /site, the blueprint, {files.length ? `and ${files.length} generated` : "no generated code yet"}</span>
           </div>
@@ -347,10 +436,37 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 <Switch size="sm" checked={pubDeploy} onCheckedChange={setPubDeploy} /> deploy
               </label>
             ) : null}
-            <Button variant={github?.configured ? "primary" : "outline"} size="sm" disabled={!!busy || !github?.configured} onClick={() => void doPublish()}>
+            <Button variant="outline" size="sm" disabled={!!busy || !github?.configured} onClick={() => void doPublish()}>
               <GitBranch /> Push to GitHub
             </Button>
+            <Tooltip content={
+              live?.configured
+                ? "Push the files, build the site on Vercel, and hand back the address."
+                : "Needs a Vercel token: put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server."
+            }>
+              <span>
+                <Button variant="primary" size="sm" disabled={!!busy || !github?.configured || !live?.configured} onClick={() => void goLive()}>
+                  <Globe /> Go live
+                </Button>
+              </span>
+            </Tooltip>
           </div>
+          {liveRun ? (
+            <p className={cn("flex flex-wrap items-center gap-1.5 text-[11px]", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
+              {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
+              {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : `${liveRun.state.toLowerCase()}…`}
+              {liveRun.state === "READY" && liveRun.url ? (
+                <a className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
+                  {liveRun.url.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />
+                </a>
+              ) : liveRun.inspectorUrl ? (
+                <a className="underline underline-offset-2 text-fg-faint" href={liveRun.inspectorUrl} target="_blank" rel="noopener noreferrer">
+                  watch the build <ExternalLink className="inline size-3" />
+                </a>
+              ) : null}
+              {liveRun.message ? <span className="text-fg-faint">{liveRun.message}</span> : null}
+            </p>
+          ) : null}
           {pubResult ? (
             <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-up">
               <Check className="size-3" /> {pubResult.files} files committed.
