@@ -92,17 +92,26 @@ same boxes as everywhere else, in the screen's colours.
   does Escape. `tests/wheel-dismiss.mjs` holds this to it.
 - **The page's middle is Add, and Add is a hole.** The page has nothing to
   lock, so the middle of its wheel is a blue Add. Press it and the wheel is
-  the add disc (`AddDisc.tsx`): the drawing board's void, alive — clouds
-  going round, motes falling in — with the parts of one category rolling
-  down the middle of it, drawn as themselves at a good size with a long gap
-  between each. The one at the centre is full size; the rest shrink and dim
-  toward it, so the column reads as a drum turning inside the hole, and the
-  scroll settles on the nearest. The categories are tabs round the left of
-  the rim, top to bottom, each a key in its category's own colour with the
-  library's planet mark on it. The search is a short bar in the top cap and
-  never more: the parts are what you are there to see, and they stay large.
-  A press lands the part where the wheel was opened, kept inside the frame,
-  and the disc goes. Back is on the rim, top right; Escape steps back.
+  the add disc (`AddDisc.tsx`): a disc the size of the drawing board whose
+  ground is the **dark matter camo** — violet and magenta nebula clouds
+  over black voids, drifting and turning, with a vein of hot lilac and
+  flecks that glint — with the parts of one category rolling down the
+  middle of it, drawn as themselves, big, with a long gap between each. The
+  one at the centre is full size; the rest shrink and dim toward it, so the
+  column reads as a drum turning inside the hole. The categories are tabs
+  round the left of the rim, top to bottom, each a key in its category's
+  own colour with the library's planet mark on it. The search is a short
+  bar in the top cap and never more: the parts are what you are there to
+  see, and they stay large. A press on the chosen part lands it where the
+  wheel was opened, kept inside the frame, and the disc goes; a press on
+  another rolls to it. Back is on the rim, top right; Escape steps back.
+- **The drum turns like a slot machine's, gently.** The column is on a
+  spring, never on the browser's scroll, so nothing teleports. One notch of
+  the wheel pushes the chosen part down and it rolls back up into place;
+  two notches within half a second and it flies on to the next part and
+  settles there with a small overshoot. A flick of several notches goes
+  several parts. Not exaggerated: the lean is a few tens of pixels, the
+  settle well under a second.
 - **Placeholders are cut and wired.** Priority, Reiterate, Make-it-a-prompt: the
   button exists, sits where it will live, plays a tap, and does nothing yet. A
   placeholder is a promise about the layout, not about the feature.

@@ -666,23 +666,33 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   page is a placeholder that taps, not a missing piece; and no editor
   leaves a slab empty.
 - **The add disc** (`AddDisc.tsx`, `data-add-disc`): pressed from the
-  page's middle, the wheel becomes a disc the size of the drawing board,
-  painted with `paintSpace(…, "lively")` — the same void with the clouds
-  several times faster and motes falling in. The hole (`data-add-scroll`,
-  clipped to `WELL_R`, no scrollbar, `scroll-snap-type: y proximity`) holds
-  one category's parts as `PartPreview`s at `COLUMN_W` with a `GAP` between
-  them and each sub-group's name as a phosphor heading (`data-add-head`);
-  on every scroll frame each row is scaled to the hole's chord where it is
-  and to a drum curve of its distance from the middle, and dimmed with it.
-  A new category scrolls its first part to the middle. The categories are
-  tabs (`data-add-tab`, `role="tab"`) round the left of the rim from
-  `TABS_FROM` to `TABS_TO` degrees, top to bottom, in `keyForHue(c.hue)`
-  with the `PLANET` mark; the search (`data-add-search`) is a short bar in
-  the top cap and searches every category. A press (`data-add-item`) calls
-  `addNode` centred on `open.at` — the canvas point `Canvas.tsx` now passes
-  to `openRadial` — clamped inside the frame, or `addFeatureToCanvas` when
-  there is no point; then the menu closes. Back is a `RimButton` (exported
-  from `DrawBoard.tsx`) at 318°; Escape steps back to the wheel.
+  page's middle, the wheel becomes a disc the size of the drawing board
+  painted by `paintDarkMatter` — three tiles of fractal value noise made
+  once (`darkMatterTiles`: violet soft, magenta sharper, a hot lilac vein),
+  laid each frame as repeating patterns that drift and turn about the
+  middle, screened together, under seventy glinting flecks and a dark edge.
+  The hole (`data-add-scroll`, clipped to `WELL_R`) holds one category's
+  parts as `PartPreview`s at `COLUMN_W` with a `GAP` between them and each
+  sub-group's name as a phosphor heading (`data-add-head`). The column is
+  never scrolled by the browser: it is a **drum** on a spring (`drum` ref:
+  `pos`, `vel`, `target`; `SPRING_K`, `SPRING_ZETA`) and `apply()` writes
+  its transform and every row's roll — scaled to the hole's chord where it
+  is and to a drum curve of its distance from the middle, dimmed with it —
+  once per frame. The wheel listener is non-passive: `NOTCH` pixels is one
+  notch; a lone notch adds `NUDGE` to the velocity so the drum leans and
+  springs back; the second within `NOTCH_MS` commits `sel` to the next part
+  (`choose`), and a flick commits once per pair. A new column jumps its
+  first part to the middle. The chosen part (`data-add-chosen`,
+  `aria-selected`) wears a blue rim; a press on it calls `addNode` centred
+  on `open.at` — the canvas point `Canvas.tsx` passes to `openRadial` —
+  clamped inside the frame, or `addFeatureToCanvas` when there is no point,
+  then the menu closes; a press on another rolls to it. Arrows move the
+  drum, Enter adds. The categories are tabs (`data-add-tab`, `role="tab"`)
+  round the left of the rim from `TABS_FROM` to `TABS_TO` degrees, top to
+  bottom, in `keyForHue(c.hue)` with the `PLANET` mark; the search
+  (`data-add-search`) is a short bar in the top cap and searches every
+  category. Back is a `RimButton` (exported from `DrawBoard.tsx`) at 318°;
+  Escape steps back to the wheel.
 - **Icon keys wear their own colours** (`KEY_HUES`, `keyOf` in
   `RingConsole.tsx`): opaque, a shade bright, white lines on them and dark
   on the yellows. The entrance kinds, the easings, the slide directions,

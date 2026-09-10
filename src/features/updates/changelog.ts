@@ -25,6 +25,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.28",
+    title: "Dark matter, and the drum",
+    summary: "The add disc's ground is the dark matter camo, its column turns like a slot machine's drum instead of a scroll bar, and the parts and the tabs are bigger.",
+    sketch: "planets",
+    added: [
+      "The hole's ground is dark matter: violet and magenta nebula clouds over black voids, three layers of noise drifting their own ways and slowly turning about the middle so they shear into new shapes, with a vein of hot lilac where they are densest and seventy flecks that glint on their own beats.",
+      "The column is on a spring, not on the browser's scroll. One notch of the wheel pushes the chosen part down and it rolls back up into place; two notches within half a second and it flies on to the next and settles with a small overshoot. A flick of several notches goes several parts. Nothing teleports.",
+      "The chosen part wears a blue rim and its name in blue. Press it and it is added; press another and the drum rolls to it first. Arrows move the drum; Enter adds.",
+      "The parts are drawn wider and taller in the hole, and the category tabs are bigger with bigger marks, spread a little further round the rim.",
+    ],
+  },
+  {
     version: "0.27",
     title: "Click off and it goes",
     summary: "The page's wheel closed only when you found the grid at the very edge. Now anything outside it puts it away, and a check in the repository keeps it that way.",
