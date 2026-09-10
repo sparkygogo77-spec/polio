@@ -16,6 +16,7 @@ import {
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
 import { flattenLayers, treatImage, treatmentKey } from "./texture";
+import { CropPicker } from "./CropPicker";
 import { Spectrum } from "./MenuConsole";
 import { resolvePalette } from "./parts/theme";
 import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
@@ -315,8 +316,9 @@ function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
       hue: layer.hue ?? 0,
       alpha: layer.opacity,
       weave: layer.weave ?? 0,
+      crop: layer.crop,
     }),
-    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue, layer.opacity, layer.weave],
+    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue, layer.opacity, layer.weave, layer.crop],
   );
 
   React.useEffect(() => {
@@ -328,10 +330,10 @@ function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
     // Debounced, because these all sit under sliders.
     const id = window.setTimeout(() => {
       void treatImage(src, treatment)
-        .then((baked) => {
+        .then(({ url, aspect }) => {
           if (!live) return;
           done.current = key;
-          useStudio.getState().updateTexture(layer.id, { baked });
+          useStudio.getState().updateTexture(layer.id, { baked: url, aspect });
         })
         .catch(() => {
           /* an unreadable picture just stays as it came */
@@ -524,6 +526,23 @@ function TextureSection() {
                   <Row label="Angle" value={`${layer.angle}°`}>
                     <Slider value={[layer.angle]} min={0} max={360} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} aria-label="Angle" />
                   </Row>
+                  {/*
+                    Drift: the same idea as the clouds behind the add disc —
+                    tiles of noise laid over each other and moved at different
+                    speeds. Every cycle carries a layer a whole number of its
+                    own tiles along its own angle, so there is no seam where
+                    the loop comes round. A stack at different speeds reads as
+                    weather rather than as one thing sliding.
+                  */}
+                  <Row label="Drift" value={(layer.drift ?? 0) < 0.02 ? "still" : `${Math.round((layer.drift ?? 0) * 100)}%`}>
+                    <Slider
+                      value={[Math.round((layer.drift ?? 0) * 100)]}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={(v) => s().updateTexture(layer.id, { drift: (v[0] ?? 0) / 100 })}
+                    />
+                  </Row>
                   <Row label={layer.kind === "flat" ? "Fade" : picture ? "How much survives" : "Contrast"} value={`${Math.round(layer.contrast * 100)}%`}>
                     <Slider value={[Math.round(layer.contrast * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { contrast: (v[0] ?? 50) / 100 })} aria-label="Contrast" />
                   </Row>
@@ -561,8 +580,18 @@ function TextureSection() {
                       <ImageWell
                         src={layer.src}
                         onImage={(src) => takeImage(src, layer.id)}
-                        onClear={layer.src ? () => s().updateTexture(layer.id, { src: undefined, baked: undefined }) : undefined}
+                        onClear={layer.src ? () => s().updateTexture(layer.id, { src: undefined, baked: undefined, crop: undefined }) : undefined}
                       />
+                      {layer.src ? (
+                        <>
+                          <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Where the texture is in it</div>
+                          <CropPicker
+                            src={layer.src}
+                            crop={layer.crop}
+                            onChange={(crop) => s().updateTexture(layer.id, { crop })}
+                          />
+                        </>
+                      ) : null}
                       <Toggle
                         label="Paint it in the palette"
                         hint="Keeps the shape, drops the picture's own colours, so the background shows through."

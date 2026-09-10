@@ -199,6 +199,12 @@ export const TEXTURE_KINDS: { id: TextureKind; label: string; hint: string }[] =
 
 export type BlendMode = "normal" | "multiply" | "screen" | "overlay" | "soft-light" | "difference";
 
+/** A rectangle on a picture, in fractions of it. */
+export interface Crop { x: number; y: number; w: number; h: number }
+
+/** How long a drifting layer takes to come back to where it started. */
+export const DRIFT_CYCLE = 90;
+
 export interface TextureLayer {
   id: string;
   kind: TextureKind;
@@ -213,6 +219,33 @@ export interface TextureLayer {
   blend: BlendMode;
   /** For "image": the picture as dropped in. */
   src?: string;
+  /**
+   * For "image": which part of the picture the texture is taken from.
+   *
+   * In fractions of the picture, so it survives the picture being replaced by
+   * a bigger copy of itself. Absent means the whole thing — which is almost
+   * never what a photograph of a surface wants: the useful part is a patch in
+   * the middle of it, and everything round that patch is a lamp, a hand, or a
+   * corner of the table.
+   */
+  crop?: Crop;
+  /**
+   * The baked tile's width divided by its height.
+   *
+   * Written down because CSS can work it out and a drift cannot: a tile of
+   * `Npx auto` moves by a whole tile across and by nobody-knows-how-much
+   * down, and a drift that is not a whole tile jumps when it loops.
+   */
+  aspect?: number;
+  /**
+   * How fast the layer drifts, 0..1. Still, at 0.
+   *
+   * Every cycle carries the tile a whole number of tiles along its own angle,
+   * so the loop has no seam in it, and a stack of layers at different speeds
+   * and angles reads as depth the way the add-disc's clouds do — near cloud
+   * you can watch pass, far cloud that only turns.
+   */
+  drift?: number;
   /**
    * For "image": the cooked tile — background keyed out, reduced to a tintable
    * pattern, rotated. `texture.ts` bakes it; everything downstream just uses it.
@@ -247,6 +280,32 @@ export interface TextureLayer {
    */
   target?: TextureTarget;
   on: boolean;
+}
+
+/**
+ * One thing about a layer, changed at random.
+ *
+ * Not everything at once: a re-roll that changes every number gives a
+ * different texture each press and you never learn what any of the controls
+ * do. Changing one thing is a step sideways — you can see what moved, keep
+ * pressing while it is interesting, and stop where you like. It is the way
+ * anyone actually finds a texture they did not already have in mind.
+ */
+export function reiterate(l: TextureLayer): Partial<TextureLayer> {
+  const some = <T,>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
+  const between = (a: number, b: number) => a + Math.random() * (b - a);
+  switch (some(["scale", "angle", "contrast", "opacity", "hue", "weave", "drift", "role"] as const)) {
+    case "scale": return { scale: Math.round(between(10, 260)) };
+    case "angle": return { angle: Math.round(between(0, 359)) };
+    case "contrast": return { contrast: Number(between(0, 1).toFixed(2)) };
+    case "opacity": return { opacity: Number(between(0.2, 1).toFixed(2)) };
+    case "hue": return { hue: Math.round(between(-180, 180)) };
+    case "weave": return { weave: Number(between(0, 0.9).toFixed(2)) };
+    // Still, half the time: a texture that always moves is as tiring as one
+    // that never can.
+    case "drift": return { drift: Math.random() < 0.5 ? 0 : Number(between(0.15, 1).toFixed(2)) };
+    default: return { role: some(ROLES) };
+  }
 }
 
 /**
@@ -474,7 +533,10 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
       // `texture.ts`), and only at the very top does it become one picture
       // covering the whole surface.
       if (woven >= 0.98) return { image: `url(${JSON.stringify(src)})`, size: "cover", repeat: "no-repeat" };
-      return { image: `url(${JSON.stringify(src)})`, size: `${Math.round(s)}px auto`, repeat: "repeat" };
+      // An explicit height where the tile's shape is known: the same number
+      // `auto` would work out, said out loud so a drift can move by a tile.
+      const h = layer.aspect ? `${Math.max(1, Math.round(s / layer.aspect))}px` : "auto";
+      return { image: `url(${JSON.stringify(src)})`, size: `${Math.round(s)}px ${h}`, repeat: "repeat" };
     }
     default:
       return null;
@@ -499,22 +561,32 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
   const on = layers.filter((l) => l.on);
   if (!on.length) return { background: base };
 
-  const images: string[] = [];
-  const sizes: string[] = [];
-  const repeats: string[] = [];
-  const blends: string[] = [];
-
-  const push = (image: string, size: string, repeat: string, blend: string) => {
-    const parts = splitLayers(image);
-    const sizeParts = splitLayers(size);
-    parts.forEach((part, i) => {
-      images.push(part.trim());
-      sizes.push((sizeParts[i] ?? sizeParts[0]!).trim());
-      repeats.push(repeat);
-      blends.push(blend);
-    });
+  const parts = compose(on, palette);
+  if (!parts.length) return { background: base };
+  const moving = parts.some((p) => p.dx || p.dy);
+  return {
+    backgroundImage: parts.map((p) => p.image).join(", "),
+    backgroundSize: parts.map((p) => p.size).join(", "),
+    backgroundRepeat: parts.map((p) => p.repeat).join(", "),
+    backgroundPosition: parts.map(() => "center").join(", "),
+    backgroundBlendMode: parts.map((p) => p.blend).join(", "),
+    backgroundColor: base,
+    ...(moving ? { animation: `${driftName(parts)} ${DRIFT_CYCLE}s linear infinite` } : {}),
   };
+}
 
+/** One background layer as CSS, and how far it travels in a cycle. */
+interface Part { image: string; size: string; repeat: string; blend: string; dx: number; dy: number }
+
+/**
+ * The stack, walked once.
+ *
+ * Both the style and the keyframes that move it have to agree on the order and
+ * the count of the background layers — a layer can push more than one — so
+ * there is one walk and they both read it.
+ */
+function compose(on: TextureLayer[], palette: Palette): Part[] {
+  const parts: Part[] = [];
   for (const l of on) {
     // A generated pattern carries its opacity in its own colour; a picture and
     // a grain carry theirs in the tile, because there is no single colour to
@@ -524,18 +596,57 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
     const colour = withAlpha(role, GRAINY.has(l.kind) || picture ? 1 : l.opacity);
     const built = layerCss(l, colour);
     if (!built) continue;
-    push(built.image, built.size, built.repeat ?? "repeat", l.blend);
+    const repeat = built.repeat ?? "repeat";
+    const images = splitLayers(built.image);
+    const sizes = splitLayers(built.size);
+    images.forEach((image, i) => {
+      const size = (sizes[i] ?? sizes[0]!).trim();
+      parts.push({ image: image.trim(), size, repeat, blend: l.blend, ...travel(l, size, repeat) });
+    });
   }
+  return parts;
+}
 
-  if (!images.length) return { background: base };
-  return {
-    backgroundImage: images.join(", "),
-    backgroundSize: sizes.join(", "),
-    backgroundRepeat: repeats.join(", "),
-    backgroundPosition: "center",
-    backgroundBlendMode: blends.join(", "),
-    backgroundColor: base,
-  };
+/**
+ * How far a layer moves in one cycle: a whole number of its own tiles, along
+ * its own angle.
+ *
+ * Whole tiles, because a repeating background that has moved by exactly one
+ * tile is the picture it started as — so the loop has no seam. A layer whose
+ * tile is not a known size in both directions (one picture stretched to cover,
+ * a tile with no shape written down) cannot be moved by a whole tile, so it
+ * stays where it is rather than jumping once a cycle.
+ */
+function travel(l: TextureLayer, size: string, repeat: string): { dx: number; dy: number } {
+  const drift = Math.max(0, Math.min(1, l.drift ?? 0));
+  if (!drift || repeat !== "repeat") return { dx: 0, dy: 0 };
+  const [w, h] = size.split(/\s+/).map((v) => (/^-?[\d.]+px$/.test(v) ? parseFloat(v) : NaN));
+  if (!w || !h || !Number.isFinite(w) || !Number.isFinite(h)) return { dx: 0, dy: 0 };
+  const tiles = Math.max(1, Math.round(drift * 6));
+  const a = ((l.angle ?? 0) * Math.PI) / 180;
+  return { dx: Math.round(Math.cos(a) * tiles) * w, dy: Math.round(Math.sin(a) * tiles) * h };
+}
+
+/** A name that changes when the movement does, so the keyframes are replaced with it. */
+function driftName(parts: Part[]): string {
+  let hash = 0;
+  for (const p of parts) hash = (hash * 31 + p.dx * 7 + p.dy * 13) | 0;
+  return `tex-drift-${(hash >>> 0).toString(36)}`;
+}
+
+/**
+ * The keyframes a drifting stack needs, or nothing when it is still.
+ *
+ * Written out rather than kept in the stylesheet because there is one set per
+ * stack: every layer has its own distance and they all have to be listed in
+ * the one `background-position` the browser animates.
+ */
+export function driftKeyframes(layers: TextureLayer[], palette: Palette): { name: string; css: string } | null {
+  const parts = compose(layers.filter((l) => l.on), palette);
+  if (!parts.some((p) => p.dx || p.dy)) return null;
+  const to = parts.map((p) => `calc(50% + ${p.dx}px) calc(50% + ${p.dy}px)`).join(", ");
+  const name = driftName(parts);
+  return { name, css: `@keyframes ${name}{to{background-position:${to}}}` };
 }
 
 /**

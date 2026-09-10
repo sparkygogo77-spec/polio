@@ -8,6 +8,7 @@ import * as React from "react";
 import { Block } from "../blocks";
 import type { FormatValues } from "../format";
 import { themeFrom, type NodeLink, type PartEvent } from "../parts";
+import { TextureDrift } from "../TextureDrift";
 import { resolvePalette } from "../parts/theme";
 import { auraStyle, entranceCss, type Look } from "../look";
 import type { StudioNode, StudioPage } from "../store";
@@ -100,6 +101,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
       data-live-page={pageId}
       style={{ width, height, position: "relative", overflow: "hidden", ...(t.surfaceStyle ?? { background: t.backdrop, backgroundSize: "16px 16px" }), userSelect: "text", color: t.text }}
     >
+      <TextureDrift layers={look?.texture} palette={palette} />
       <LiveShell behaviours={behaviours} accent={t.accent} surface={t.surface}>
         <div key={pageId} style={{ position: "absolute", inset: 0, animation }}>
           {placed.map((p) => (

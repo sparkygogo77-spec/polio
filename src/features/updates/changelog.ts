@@ -25,6 +25,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.39",
+    title: "Which part of the picture, and whether it moves",
+    summary: "A selection over the picture says where the texture is taken from, Reiterate really rolls, and a layer can drift the way the clouds behind the add disc do.",
+    sketch: "picture",
+    added: [
+      "A photograph of a surface is almost never a tile: the useful patch is somewhere in the middle and everything round it is a lamp, a hand, or the edge of the table. Dropped in whole it repeated as a grid of photographs with a hand in every one of them. There is a selection over the picture now — drag anywhere to draw one, drag inside it to move it, drag a corner to resize, everything outside goes dark, and Whole picture puts it back. The patch is what gets cooked into the tile.",
+      "A layer can drift. Every cycle carries it a whole number of its own tiles along its own angle, so the loop has no seam where it comes round; a stack at different speeds and angles reads as weather rather than as one thing sliding, which is the trick the add disc's clouds have always used.",
+      "Reiterate does something. It changes one thing about the texture at random — the scale, the angle, the grain, the colour, the bleed, whether it drifts — and one thing only, because a re-roll that changes everything gives a different texture each press and teaches you nothing. A step sideways lets you see what moved and keep pressing while it is interesting.",
+      "A baked tile now writes down its own shape. CSS could work the height out from `auto` and a drift cannot, and a drift that is not a whole tile jumps once a cycle.",
+    ],
+  },
+  {
     version: "0.38",
     title: "Point at where the light is",
     summary: "A third choice under the page's Looks: the board hands itself over, the pointer becomes the lamp, and the press that puts it down also says how hard the shadows are.",

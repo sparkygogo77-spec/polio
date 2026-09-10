@@ -18,6 +18,7 @@ import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
 import { auraStyle, washCss, type Light, type Palette, type TextureLayer } from "./look";
+import { TextureDrift } from "./TextureDrift";
 import { BACKGROUND_ID } from "./store";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
@@ -525,6 +526,7 @@ export function Canvas() {
             outline: selection.includes(BACKGROUND_ID) ? `${2 / zoom}px solid var(--accent)` : "1px solid var(--border-strong)",
           }}
         />
+        <TextureDrift layers={look.texture} palette={palette} />
         {/* The pool the lamp puts on the page, when it has been asked for. Under
             the parts, because a lamp lights a table and the things on it cast
             their shadows down on to it. */}

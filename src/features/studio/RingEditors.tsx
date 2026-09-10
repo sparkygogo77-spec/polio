@@ -27,7 +27,7 @@ import { play } from "@/core/audio/engine";
 import { readImage } from "./ImageIntake";
 import {
   ANIM_EASE, auraColour, auraStyle, AURA_STYLES, css as oklchCss, DELAY_MS, delayMs, ENTRANCE_MS, entranceCss, newLayer, parseColor, sliderFromSpeed, speedFromSlider, speedK, speedWord, textureCss,
-  TEXTURE_KINDS, ROLES, ROLE_LABEL,
+  reiterate, TEXTURE_KINDS, ROLES, ROLE_LABEL,
   type AnimEase, type AuraStyle, type Palette, type RoleId, type TextureLayer,
 } from "./look";
 import { useStudio, type StudioNode } from "./store";
@@ -336,6 +336,8 @@ export function TextureQuads({
     return { ...css, backgroundSize: css.backgroundSize ?? "cover" };
   };
   const [pick, add, again] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
+  /** The layer this part is wearing, when it is wearing one of its own. */
+  const current = layers.find((l) => l.id === value) ?? null;
   const { hole, mid } = pick.rings;
   const sharing = slabs.length < 3;
   const addD = sharing ? piece(add.from, add.to, hole, mid, add.shape, add.rings, SHRINK) : wholeOf(add);
@@ -364,11 +366,12 @@ export function TextureQuads({
 
       <SectorButton d={addD} at={addAt} spin={add.spin} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
       {/*
-        Reiterate: the place for a button that takes the texture this part is
-        wearing and changes *one* thing about it at random — the scale, the
-        grain, the colour, the bleed — so you can wander through variations
-        without setting anything. The slab is here and wired; what it does
-        when pressed is not, yet.
+        Reiterate takes the texture this part is wearing and changes *one*
+        thing about it at random — the scale, the grain, the colour, the bleed,
+        whether it drifts. One thing, because a re-roll that changes everything
+        gives you a different texture each press and teaches you nothing: a
+        step sideways lets you see what moved and keep pressing while it is
+        interesting. There is nothing to re-roll until a layer is picked.
       */}
       <SectorButton
         d={againD}
@@ -376,9 +379,26 @@ export function TextureQuads({
         spin={again.spin}
         label="Reiterate"
         icon={<Shuffle className="size-3.5" />}
-        onClick={() => play("tap")}
+        disabled={!current}
+        onClick={() => {
+          if (!current) return;
+          useStudio.getState().updateTexture(current.id, reiterate(current));
+        }}
       />
-      {sharing ? null : <Caption slab={again}>Random · soon</Caption>}
+      {/* And what a re-roll can land on: the drift, on the band under it. */}
+      {sharing ? null : (
+        <ArcSlider
+          slab={again}
+          {...runOf(again)}
+          rIn={hole + 16}
+          rOut={mid - 8}
+          label="Drift"
+          value={current?.drift ?? 0}
+          live={false}
+          onChange={(f) => { if (current) useStudio.getState().updateTexture(current.id, { drift: f }); }}
+        />
+      )}
+      {sharing ? null : <Caption slab={again}>{current ? `Drift · ${(current.drift ?? 0) < 0.02 ? "still" : `${Math.round((current.drift ?? 0) * 100)}%`}` : "Pick a layer first"}</Caption>}
       <Glued at={[0, 0]} spin={0} w={1} h={1}>
         <input
           ref={file}

@@ -38,6 +38,15 @@ export interface Treatment {
   tint: string;
   /** Degrees. The tile is rotated, and grown so nothing is clipped. */
   angle: number;
+  /**
+   * Which part of the picture the tile is taken from, in fractions of it.
+   *
+   * A photograph of a surface is almost never a tile: the useful patch is
+   * somewhere in the middle and everything round it is a lamp, a hand, or the
+   * edge of the table. Cutting to the patch is what turns the photograph into
+   * something that repeats without a seam every time.
+   */
+  crop?: { x: number; y: number; w: number; h: number };
   /** Degrees to turn the colour by, -180..180. */
   hue: number;
   /**
@@ -68,6 +77,7 @@ export function treatmentKey(t: Treatment): string {
   return [
     t.cutout ? `cut${t.tolerance.toFixed(2)}` : "keep",
     t.pattern ? `pat${t.contrast.toFixed(2)}:${t.tint}` : "colour",
+    t.crop ? `c${[t.crop.x, t.crop.y, t.crop.w, t.crop.h].map((v) => v.toFixed(3)).join(",")}` : "whole",
     `a${Math.round(t.angle)}`,
     `h${Math.round(t.hue)}`,
     `o${clamp01(t.alpha).toFixed(2)}`,
@@ -75,28 +85,39 @@ export function treatmentKey(t: Treatment): string {
   ].join("|");
 }
 
-const cache = new Map<string, string>();
+/** A cooked tile: the picture, and the shape it came out — the drift needs the shape. */
+export interface Tile { url: string; aspect: number }
+
+const cache = new Map<string, Tile>();
 
 /** Cook a picture into a tile. Resolves to a PNG data URL, alpha and all. */
-export async function treatImage(src: string, t: Treatment): Promise<string> {
+export async function treatImage(src: string, t: Treatment): Promise<Tile> {
   const key = `${src.length}:${src.slice(-64)}:${treatmentKey(t)}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
   const img = await load(src);
-  const scale = Math.min(1, MAX_TILE / Math.max(img.width, img.height));
-  const w = Math.max(1, Math.round(img.width * scale));
-  const h = Math.max(1, Math.round(img.height * scale));
+  // The patch of the picture the tile comes from. Clamped to the picture and
+  // never smaller than a pixel, so a selection dragged off the edge — or
+  // dragged to nothing — still cooks.
+  const c = t.crop;
+  const sx = c ? Math.max(0, Math.min(1, c.x)) * img.width : 0;
+  const sy = c ? Math.max(0, Math.min(1, c.y)) * img.height : 0;
+  const sw = Math.max(1, c ? Math.min(img.width - sx, c.w * img.width) : img.width);
+  const sh = Math.max(1, c ? Math.min(img.height - sy, c.h * img.height) : img.height);
+  const scale = Math.min(1, MAX_TILE / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * scale));
+  const h = Math.max(1, Math.round(sh * scale));
 
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return src;
+  if (!ctx) return { url: src, aspect: sw / sh };
   // A pattern is repainted in the tint anyway, so only a picture keeping its
   // own colours needs the hue turned here.
   if (!t.pattern && t.hue) ctx.filter = `hue-rotate(${t.hue}deg)`;
-  ctx.drawImage(img, 0, 0, w, h);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
   ctx.filter = "none";
 
   const data = ctx.getImageData(0, 0, w, h);
@@ -107,11 +128,11 @@ export async function treatImage(src: string, t: Treatment): Promise<string> {
   ctx.putImageData(data, 0, 0);
 
   const out = t.angle % 360 === 0 ? canvas : rotate(canvas, t.angle);
-  const url = out.toDataURL("image/png");
+  const tile: Tile = { url: out.toDataURL("image/png"), aspect: out.width / out.height };
   // A handful of tiles is plenty; the panel re-bakes as you drag a slider.
   if (cache.size > 24) cache.clear();
-  cache.set(key, url);
-  return url;
+  cache.set(key, tile);
+  return tile;
 }
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, Number.isFinite(n) ? n : 1));
