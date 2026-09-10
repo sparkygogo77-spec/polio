@@ -101,8 +101,19 @@ function keepOnScreen(x: number, y: number): [number, number] {
   // and only the bottom: pushing the menu further from every edge for a
   // thing on one edge moved a menu opened near the top away from the hand
   // that opened it, and the pull that starts from that hold lost its line.
-  const margin = Math.max(GREEN_RINGS.reach + 26, BOARD_R + 16);
-  const below = BOARD_R + TRAY_DROP + 28;
+  //
+  // The square is the trap. A round menu reaches `reach` in every direction,
+  // so a clamp of `reach` holds it. A square of the same half-width reaches
+  // `reach` on its flats and `reach × √2` into its corners — forty per cent
+  // further — and `menuSpin` can turn any corner at any edge. Sizing the
+  // clamp for the circle is why a square menu opened near a side hung off it.
+  // The board is round, so it only ever needs its own radius.
+  const square = useStudio.getState().menuShape === "square";
+  const spread = square ? GREEN_RINGS.reach * Math.SQRT2 : GREEN_RINGS.reach;
+  // Touching the edge is fine; going past it is not. The pad is the rim
+  // button and the edge stroke, nothing more.
+  const margin = Math.max(spread + 8, BOARD_R + 16);
+  const below = Math.max(margin, BOARD_R + TRAY_DROP + 28);
   return [
     Math.max(margin, Math.min(window.innerWidth - margin, x)),
     Math.max(margin, Math.min(window.innerHeight - below, y)),

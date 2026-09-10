@@ -310,6 +310,26 @@ interface StudioState extends Doc {
 const HISTORY_LIMIT = 60;
 export const HUES = [265, 200, 160, 30, 340, 90, 240, 15];
 
+/**
+ * Where a new part may land: inside the page, always.
+ *
+ * Every way a part comes into being funnels through `addNode`, and none of
+ * them used to check this — a part added near an edge simply kept the
+ * coordinate it was handed and sat half off the page. Dragging one out
+ * afterwards is still allowed, because that is someone saying where they
+ * want it; arriving outside is nobody saying anything.
+ *
+ * A part wider than the page lines up with its left edge rather than being
+ * centred, because centring something too big hangs it off both sides at
+ * once.
+ */
+export function placeInFrame(x: number, y: number, w: number, frameWidth: number): { x: number; y: number } {
+  return {
+    x: Math.round(w >= frameWidth ? 0 : Math.min(Math.max(0, x), frameWidth - w)),
+    y: Math.round(Math.max(0, y)),
+  };
+}
+
 function snapshot(s: StudioState): Doc {
   return {
     pages: s.pages,
@@ -381,11 +401,27 @@ export const useStudio = create<StudioState>()(
         past: [],
         future: [],
 
+        /**
+         * Every way a part comes into being goes through here — the library,
+         * the add disc, paste, the drawing board, "drop an idea here" — so
+         * this is the one place that has to keep a new part inside the page.
+         *
+         * It did not, and nothing else did either: the coordinates were
+         * rounded and stored as given, so a part added near an edge sat half
+         * off the page and every later path inherited the same habit. A part
+         * may still be *dragged* out afterwards, because dragging is someone
+         * saying where they want it; arriving outside the page is nobody
+         * saying anything.
+         */
         addNode: (featureId, x, y, patch) => {
           const feature = getFeature(featureId);
           const id = uid("n");
           push();
-          set((s) => ({
+          set((s) => {
+            const w = patch?.w ?? feature?.w ?? 132;
+            const h = patch?.h ?? feature?.h ?? 76;
+            const home = placeInFrame(x, y, w, s.frameWidth);
+            return ({
             nodes: [
               ...s.nodes,
               {
@@ -398,10 +434,8 @@ export const useStudio = create<StudioState>()(
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
                 aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
-                x: Math.round(x),
-                y: Math.round(y),
-                w: feature?.w ?? 132,
-                h: feature?.h ?? 76,
+                w,
+                h,
                 groupId: null,
                 options: {},
                 priority: "must",
@@ -411,10 +445,16 @@ export const useStudio = create<StudioState>()(
                 locked: false,
                 link: null,
                 ...patch,
+                // A patch may carry its own size, but never a place outside
+                // the page: the clamp above is computed from the final size.
+                ...(patch?.x != null || patch?.y != null
+                  ? placeInFrame(patch.x ?? home.x, patch.y ?? home.y, w, s.frameWidth)
+                  : home),
               },
             ],
             selection: [id],
-          }));
+          });
+          });
           return id;
         },
 
