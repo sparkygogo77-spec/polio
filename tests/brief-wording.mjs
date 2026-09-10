@@ -74,8 +74,16 @@ check("hairlines, anchors and reduced motion are stated once", has(/Text role at
 check("all-must gets the no-cut-list line", has(/no cut list/) === false, "only two elements, so the line stays off");
 
 // The trail: written → found → now, and Take it writes the prompt.
+//
+// The Trail tab is the thread tree now (ThreadTree.tsx); a finding from
+// before threads were kept — which is what this fixture seeds, with no
+// threads of its own — sits under a collapsed "N findings from before
+// threads were kept" <details>, so it exists in the DOM before it is opened
+// but is not visible or clickable until it is.
 await page.getByRole("radio", { name: /^Trail/ }).click();
 await page.waitForTimeout(600);
+await page.locator("details", { hasText: /finding.*from before threads were kept/ }).locator("summary").click();
+await page.waitForTimeout(300);
 const map = page.locator("[data-prompt-trail]");
 check("the Trail view lists the written prompt and the finding", (await map.locator('[data-bubble="author:node:n_nav"]').count()) === 1 && (await map.locator('[data-bubble="t2"]').count()) === 1);
 check("a line joins the finding to the prompt it is about", (await map.locator("svg path").count()) >= 1);
