@@ -95,6 +95,34 @@ if (await word.count()) {
 await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
 
+/*
+ * 7. And what the middle opens: the add disc, whose parts are drawn as
+ *    themselves.
+ *
+ * A part is its real component, and a real card or tab bar has buttons in it,
+ * so the row that holds one cannot itself be a button: the browser closes the
+ * outer one where the inner one starts and the tree the server sent is not
+ * the tree the browser built, which is a hydration error. It was one, and the
+ * console said so on every open. The row is an option in a listbox now, and
+ * the press still lands a part.
+ */
+await openOnFrame();
+const middle = page.locator("[data-radial] [data-menu-add]").first();
+if (await middle.count()) {
+  await middle.click({ force: true });
+  await page.waitForTimeout(1500);
+}
+check("the middle of the page's wheel opens the add disc", (await page.locator("[data-add-disc]").count()) === 1);
+check("no part row is a button, or inside one",
+  await page.evaluate(() => [...document.querySelectorAll("[data-add-item]")].every((el) => el.tagName !== "BUTTON" && !el.closest("button"))),
+  `${await page.locator("[data-add-item]").count()} parts`);
+
+const nodesBefore = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") ?? "{}")?.state?.nodes?.length ?? 0);
+const pick = page.locator("[data-add-chosen]").first();
+if (await pick.count()) { await pick.click({ force: true }); await page.waitForTimeout(1200); }
+const nodesAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") ?? "{}")?.state?.nodes?.length ?? 0);
+check("pressing a part still lands it on the board", nodesAfter === nodesBefore + 1, `${nodesBefore} → ${nodesAfter}`);
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
