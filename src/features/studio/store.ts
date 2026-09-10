@@ -44,6 +44,7 @@ import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
+import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
 
@@ -111,6 +112,14 @@ export interface StudioNode {
    * is cropped to it. Null when the drawing said nothing a box does not.
    */
   outline: OutlineClip | null;
+  /**
+   * A body written for this part, when the drawing asked for something no
+   * part in the library is: a helix of sentences, a spiral of names. SVG or
+   * HTML with inline styles, rendered in a frame with no permissions
+   * (`snippet.ts`), cropped by `outline` like everything else. It lives in
+   * the document, so it survives publish and goes to Build with the rest.
+   */
+  code: PartCode | null;
   /** A colour round its edge — a palette role, or a colour of its own — or null for none. */
   aura: string | null;
   /** How far the aura reaches, as a multiple of the usual. */
@@ -675,7 +684,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,
@@ -1325,6 +1334,7 @@ export const useStudio = create<StudioState>()(
             animSpeed: speedK(n.animSpeed as number | string | undefined), animDelay: delayMs(n.animDelay as number | string | undefined), animEase: n.animEase ?? "smooth",
             shape: n.shape ?? null,
             outline: n.outline && typeof n.outline === "object" && typeof (n.outline as OutlineClip).cut === "string" ? (n.outline as OutlineClip) : null,
+            code: n.code && typeof n.code === "object" && typeof (n.code as PartCode).html === "string" ? (n.code as PartCode) : null,
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
             sketch: normaliseSketch(n.sketch),
           })),

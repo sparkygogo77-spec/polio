@@ -26,6 +26,7 @@ import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape"
 import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
+import { writeBody } from "./bodyRun";
 
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
@@ -161,7 +162,8 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         source: "studio",
         toast: true,
       });
-      return { ok: true, madeId: made.id, note: body };
+      const bodied = await bodyFor(made.id, drawn, deps);
+      return { ok: true, madeId: made.id, note: [body, bodied].filter(Boolean).join(" · ") };
     }
 
     // No key, a refusal, a bad reply: the drawing still shapes the part.
@@ -195,6 +197,37 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     });
     return { ok: false, madeId: made.id, note: body };
   }
+}
+
+/**
+ * An Idea part is the one part with nothing in it: whatever was drawn, the
+ * library had no entry for it. So it gets a body written for it, and the
+ * body is judged against the drawing before it is kept (`bodyRun.ts`).
+ *
+ * Only the Idea part. Every other part in the library already knows what it
+ * is, and a heading that quietly became a hand-written SVG would be a part
+ * nobody could edit again.
+ */
+async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<string> {
+  const s = useStudio.getState();
+  const node = s.nodes.find((n) => n.id === nodeId);
+  if (!node || node.featureId !== "custom-idea") return "";
+  const palette = s.look?.palette as Record<string, string> | undefined;
+  const written = await writeBody(
+    {
+      label: node.label,
+      prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim() || node.label,
+      w: node.w,
+      h: node.h,
+      outline: node.outline,
+      picture: pictureOf(drawn.strokes),
+      palette: palette ? { bg: palette.bg, text: palette.text, accent: palette.accent, muted: palette.muted } : undefined,
+    },
+    { onStep: deps.onStep },
+  );
+  if (!written.ok || !written.code) return "";
+  useStudio.getState().updateNode(nodeId, { code: written.code });
+  return written.message;
 }
 
 /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */
