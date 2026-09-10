@@ -25,6 +25,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.32",
+    title: "Nothing arrives outside the page",
+    summary: "A new part lands inside the frame whatever it is added by, a square menu stays on screen, and a slider about an amount stops pretending to be about colour.",
+    sketch: "frame",
+    added: [
+      "Every way a part comes into being funnels through one call, and that call kept whatever coordinate it was handed. A part added near an edge sat half off the page, and every path inherited it. It now clamps once, in that funnel: narrower than the page sits fully inside, wider lines up with the left edge. Dragging one out afterwards still works, because that is you saying where you want it.",
+      "The menu's on-screen clamp was sized for a circle while the menu defaults to a square, which reaches forty per cent further into its corners — and the spin can point a corner at any edge. It measures the shape it is drawing now.",
+      "A slider about an amount — speed, delay, size, weight, spacing, leading, aura size — showed that amount as a green ramp, which said nothing about the amount and made every slab in the console green. It shows shape instead: the band thickens along its run and lights up behind the mark. Hue, lightness and saturation keep their colour, because there the colour is the subject.",
+    ],
+  },
+  {
     version: "0.31",
     title: "Embers",
     summary: "The red in the nebula is sparks now: small, quick, blown through the near cloud on a wind that gusts, streaking when a gust takes them.",

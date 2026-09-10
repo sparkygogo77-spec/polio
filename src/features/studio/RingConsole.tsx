@@ -370,7 +370,11 @@ export function ArcSlider({
   onChange: (v: number) => void;
   /** The hand has let go: what it settled on is worth remembering. */
   onCommit?: () => void;
-  colourAt: (f: number) => string;
+  /**
+   * Only for a slider whose subject *is* colour — hue, lightness. Everything
+   * else leaves this out and gets the level face instead.
+   */
+  colourAt?: (f: number) => string;
   label: string;
   /**
    * Whether every frame of the drag is written out, or only where the hand
@@ -440,12 +444,12 @@ export function ArcSlider({
     el.addEventListener("pointerup", up);
     el.addEventListener("pointercancel", up);
   };
+  const screen = tone === "screen";
   const markAt = from + (to - from) * shown;
   // The mark is drawn once at the start of the arc and turned to where the
   // value is, so it can ease between values it did not see the hand set.
   const a = onCircle(from, rIn - 2);
   const b = onCircle(from, rOut + 2);
-  const screen = tone === "screen";
   return (
     <g
       data-arc-slider={label}
@@ -468,9 +472,30 @@ export function ArcSlider({
         const s0 = from + ((to - from) * i) / steps;
         // A hair of overlap, or the seams between the steps show as hairlines.
         const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
-        return <path key={i} d={arcPath(s0, s1, rIn, rOut)} fill={colourAt((i + 0.5) / steps)} />;
+        const f = (i + 0.5) / steps;
+        // A slider about colour shows the colour. Everything else — speed,
+        // delay, size, strength — shows its amount as *shape*: the band
+        // thickens along its run and lights up behind the mark. Painting a
+        // quantity in a colour ramp said nothing about the quantity and made
+        // every slab in the console green.
+        if (colourAt) return <path key={i} d={arcPath(s0, s1, rIn, rOut)} fill={colourAt(f)} />;
+        const inner = rOut - (rOut - rIn) * (0.34 + 0.66 * f);
+        const lit = f <= shown;
+        return (
+          <path
+            key={i}
+            d={arcPath(s0, s1, inner, rOut)}
+            fill={lit ? (screen ? SCREEN.ink : CONSOLE.text) : screen ? SCREEN.key : CONSOLE.well}
+            opacity={lit ? 1 : 0.9}
+          />
+        );
       })}
-      <path d={arcPath(from, to, rIn, rOut)} fill="none" stroke={screen ? SCREEN.line : CONSOLE.ink} strokeWidth={screen ? 1 : 1.5} />
+      <path
+        d={colourAt ? arcPath(from, to, rIn, rOut) : arcPath(from, to, rOut - (rOut - rIn) * 0.34, rOut)}
+        fill="none"
+        stroke={screen ? SCREEN.line : CONSOLE.ink}
+        strokeWidth={screen ? 1 : 1.5}
+      />
       <g
         data-arc-mark=""
         style={{

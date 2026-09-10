@@ -19,7 +19,7 @@ import { lands, newLayer, parseColor, textureCss, TEXTURE_KINDS, type TextureLay
 import { useStudio, type StudioPage } from "./store";
 import { resolvePalette } from "./parts/theme";
 import {
-  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, phosphorAt, ScreenFace, SectorButton, type ArcItem, type Slab,
+  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SectorButton, type ArcItem, type Slab,
 } from "./RingConsole";
 import { centreOf, chipsAt, SpectrumSlab, wholeOf } from "./RingEditors";
 import { PlateQuad, SCREEN, SCREEN_FIELD } from "./PlateEditors";
@@ -82,7 +82,7 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
           rOut={mid + 12}
           label="Veil"
           value={v / VEIL_MAX}
-          colourAt={phosphorAt}
+         
           onChange={(f) => s().setLook({ veil: Math.round(f * VEIL_MAX * 100) / 100 })}
         />
         <Caption slab={c}>{`Veil · ${v > 0.005 ? `${Math.round(v * 100)}%` : "none"}`}</Caption>
