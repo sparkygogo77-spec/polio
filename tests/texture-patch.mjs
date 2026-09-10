@@ -181,6 +181,102 @@ check("and it moves in both directions once it is turned", Math.abs(dx) > 0 && M
 const anim = await page.locator("[data-frame]").first().evaluate((el) => getComputedStyle(el).animationName);
 check("the page's own background is the thing moving", /tex-drift/.test(anim), anim);
 
+/* ------------------------------------------------------------------ */
+/* Reiterate: the patch, re-rolled                                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * On a picture, the one thing a re-roll changes is which patch of it is the
+ * texture — a photograph carries more textures than the whole generated set,
+ * and the window is what gets at them. What makes it worth pressing twice is
+ * *how* the patch is drawn, which is the thing checked here: every press
+ * somewhere genuinely else, and the sizes spread across the kinds rather
+ * than all landing in the middle of the range.
+ */
+// Put the drift back to nothing first, so that "the first re-roll sets a
+// still picture going" is a claim about the re-roll and not about the slider
+// this test moved a moment ago.
+if (await drift.count()) {
+  await drift.focus();
+  await page.keyboard.press("Home");
+  await page.waitForTimeout(600);
+}
+check("the picture is still again before the re-rolls", ((await layerOf())?.drift ?? 0) === 0);
+
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+
+// Reiterate lives on a *part's* Looks › Texture, where the part is wearing a
+// layer out of the site's stack — so a part is dropped and pointed at the
+// picture already in it.
+await page.keyboard.press("Control+k");
+await page.waitForTimeout(400);
+await page.keyboard.type("drop a new idea");
+await page.waitForTimeout(500);
+await page.keyboard.press("Enter");
+await page.waitForTimeout(900);
+const part = page.locator("[data-node-id]").first();
+check("a part to wear the picture", (await part.count()) === 1);
+const pb = await part.boundingBox();
+await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2, { button: "right" });
+await page.waitForTimeout(700);
+for (const word of [/^Looks$/, /^Texture$/]) {
+  const el = page.locator("[data-radial]").getByText(word).first();
+  if (await el.count()) { await el.click({ force: true }); await page.waitForTimeout(700); }
+}
+// The chips are Follow the site, No texture, then the stack; the picture is
+// the third, and picking it is what gives Reiterate something to re-roll.
+const chips = page.locator("[data-radial] [data-arc-chip]");
+if ((await chips.count()) >= 3) { await chips.nth(2).click({ force: true }); await page.waitForTimeout(700); }
+// The wheel's buttons are SVG paths that carry their name, not text nodes.
+const again = page.locator('[data-radial] [data-arc-button="Reiterate"]').first();
+check("Reiterate is on the wheel with the picture", (await again.count()) === 1 && (await again.getAttribute("aria-disabled")) !== "true");
+
+const before = await layerOf();
+const rolls = [];
+for (let i = 0; i < 8 && (await again.count()); i++) {
+  await again.click({ force: true });
+  await page.waitForTimeout(420);
+  const l = await layerOf();
+  if (l?.crop) rolls.push({ ...l.crop, baked: l.baked, scale: l.scale, angle: l.angle, hue: l.hue ?? 0, drift: l.drift ?? 0 });
+}
+check("every press re-rolls the patch", rolls.length === 8, `${rolls.length} of 8`);
+
+const key = (c) => `${c.x},${c.y},${c.w},${c.h}`;
+check("no two presses give the same patch", rolls.length > 0 && new Set(rolls.map(key)).size === rolls.length,
+  `${new Set(rolls.map(key)).size} distinct`);
+
+// The hub's lesson: kinds, not one distribution. A close crop, a middling
+// one, a wide one and a strip are different textures out of one picture, so
+// eight presses should not all be the same size of window.
+const widths = rolls.map((c) => c.w);
+const bands = new Set(widths.map((w) => (w < 0.25 ? "close" : w < 0.5 ? "middle" : "wide")));
+check("the patches come in more than one size", rolls.length > 0 && bands.size >= 2, [...bands].join(", "));
+check("and none of them runs off the picture",
+  rolls.length > 0 && rolls.every((c) => c.x >= 0 && c.y >= 0 && c.x + c.w <= 1.001 && c.y + c.h <= 1.001));
+
+// Consecutive presses have to move: a re-roll that lands where it was is a
+// press that taught you nothing.
+const hops = rolls.slice(1).map((c, i) => {
+  const p0 = rolls[i];
+  return Math.hypot(c.x + c.w / 2 - (p0.x + p0.w / 2), c.y + c.h / 2 - (p0.y + p0.h / 2));
+});
+check("each press lands somewhere else on the picture", hops.length > 0 && hops.every((d) => d > 0.02),
+  `smallest hop ${(Math.min(...hops) * 100).toFixed(1)}% of the picture`);
+
+// And the tile is actually cooked from the new patch, from the wheel, with
+// the Look panel shut behind it.
+const last = rolls[rolls.length - 1];
+check("the new patch is cooked into the tile", !!last?.baked && last.baked !== before?.baked);
+check("a still picture is set moving by the first re-roll", (rolls[0]?.drift ?? 0) > 0, `${Math.round((rolls[0]?.drift ?? 0) * 100)}%`);
+// ...and the speed it was set going at is left alone by the presses after it.
+check("and the presses after it leave that speed alone", rolls.every((c) => c.drift === rolls[0]?.drift), `${rolls.map((c) => Math.round(c.drift * 100)).join(", ")}`);
+
+// One thing at a time still holds: the patch is the thing, and the tint and
+// the scale are left where they were.
+check("nothing else about the layer is re-rolled",
+  rolls.length > 0 && rolls.every((c) => c.scale === before?.scale && c.angle === before?.angle && c.hue === (before?.hue ?? 0)));
+
 await browser.close();
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);

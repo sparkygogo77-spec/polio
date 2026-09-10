@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import { Fill } from "./primitives";
-import { cardStyle, items } from "./theme";
+import { cardStyle, items, ghostStyle} from "./theme";
 import type { PartProps } from "./types";
 
 /** A behaviour that applies to the whole page rather than sitting in it. */
@@ -23,7 +23,7 @@ export function Behaviour({ id, label, content, theme: t }: PartProps) {
       t={t}
       data-part={id}
       data-behaviour=""
-      style={{ ...cardStyle(t), borderStyle: "dashed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: t.fontPx, color: t.muted, fontSize: t.fontPx * 0.9, textAlign: "center" }}
+      style={{ ...ghostStyle(t), display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: t.fontPx, color: t.muted, fontSize: t.fontPx * 0.9, textAlign: "center" }}
     >
       <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: t.accent, flexShrink: 0 }} />
       <span>

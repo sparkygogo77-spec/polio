@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { Fill } from "./primitives";
-import { cardStyle, items, type Theme } from "./theme";
+import { cardStyle, items, type Theme, ghostStyle} from "./theme";
 import { opt, type PartProps } from "./types";
 
 /** What each motion does, in one line, for anyone who has not met the name. */
@@ -213,7 +213,7 @@ export function MotionPart({ id, label, content, options, theme: t, h }: PartPro
       t={t}
       data-part={id}
       data-behaviour=""
-      style={{ ...cardStyle(t), borderStyle: "dashed", padding: t.fontPx * 0.5, display: "flex", flexDirection: "column", gap: t.fontPx * 0.35, overflow: "hidden" }}
+      style={{ ...ghostStyle(t), padding: t.fontPx * 0.5, display: "flex", flexDirection: "column", gap: t.fontPx * 0.35, overflow: "hidden" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
         <span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: t.accent, flexShrink: 0 }} />

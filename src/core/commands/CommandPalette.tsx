@@ -20,15 +20,8 @@ import { allSettingDefs, allSettingGroups, useSettings } from "@/core/settings/s
 import { Kbd } from "@/core/ui/kbd";
 import { cn } from "@/core/lib/cn";
 
-/* The void and the screen, as the Builder's console paints them. */
-const VOID = { face: "oklch(0.17 0.035 288)", faceLit: "oklch(0.24 0.045 288)", rim: "oklch(0.38 0.07 290)", text: "oklch(0.92 0.02 285)", muted: "oklch(0.62 0.03 285)" };
-const SCREEN = {
-  glass: "radial-gradient(ellipse at 50% 35%, oklch(0.2 0.05 195) 0%, oklch(0.135 0.04 200) 55%, oklch(0.09 0.03 205) 100%)",
-  scan: "repeating-linear-gradient(0deg, oklch(0 0 0 / 0.26) 0 1px, transparent 1px 3px)",
-  line: "oklch(0.36 0.07 195)",
-  ink: "oklch(0.88 0.09 175)",
-  dim: "oklch(0.6 0.06 180)",
-};
+/* The void and the screen. One definition, in core, for everything that wears them. */
+import { SCREEN, VOID } from "@/core/ui/void";
 /** Keys in their own colours, round the wheel, white lines on them; dark on the yellows. */
 const KEY_HUES = [205, 330, 62, 150, 278, 22, 100, 245, 350, 180];
 function keyOf(i: number): React.CSSProperties {
@@ -99,7 +92,7 @@ export function CommandPalette() {
             background: VOID.face,
             color: VOID.text,
             border: `1px solid ${VOID.rim}`,
-            boxShadow: "0 0 0 3px oklch(0.05 0.02 290), 0 24px 60px oklch(0 0 0 / 0.6)",
+            boxShadow: VOID.drop,
           }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >

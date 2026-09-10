@@ -301,6 +301,64 @@ export interface TextureLayer {
   on: boolean;
 }
 
+const some = <T,>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
+const between = (a: number, b: number) => a + Math.random() * (b - a);
+
+/**
+ * A patch of a picture, rolled the way the add disc rolls its sparks.
+ *
+ * A photograph of a surface is not one texture, it is thirty: the weave in
+ * the corner, the grain across the middle, the shadow under the fold. What
+ * makes a re-roll worth pressing twice is that each press lands somewhere
+ * genuinely else, and that is a property of *how* the number is drawn, not
+ * of drawing one at all — which is the hub's lesson. Its embers are not
+ * sixteen copies of one random walk: they come in kinds that behave
+ * differently, they are lit evenly across the disc rather than clumped in
+ * the middle, and where one dies another is lit somewhere new.
+ *
+ * So a patch is rolled in kinds — a **close** crop reads as weave, a
+ * **middling** one as grain, a **wide** one as the whole surface with its
+ * lighting, and a **strip** takes a long thin bite that tiles quite unlike
+ * any of them — with a shape drawn per kind, and a place that is required to
+ * be a real distance from the patch before it. Ten tries at the spacing, and
+ * then it takes what it has: better a near repeat than a hang.
+ */
+export function rollPatch(prev?: Crop): Crop {
+  const kind = some(["close", "close", "middle", "middle", "middle", "wide", "strip"] as const);
+  const w =
+    kind === "close" ? between(0.1, 0.24)
+    : kind === "middle" ? between(0.24, 0.48)
+    : kind === "wide" ? between(0.5, 0.86)
+    : between(0.45, 0.95);
+  // Square-ish for the crops that are about the surface; long for a strip,
+  // either way up, because a strip's whole point is that it does not tile
+  // like the others.
+  const ratio = kind === "strip" ? (Math.random() < 0.5 ? between(0.18, 0.4) : between(2.5, 5.5)) : between(0.8, 1.25);
+  const h = Math.min(0.95, w * ratio);
+  const fit = (v: number) => Math.max(0.02, Math.min(0.95, v));
+  const cw = fit(w);
+  const ch = fit(h);
+
+  // Somewhere else than last time. The distance asked for is a share of what
+  // is left to move in — on a patch that nearly fills the picture there is
+  // nowhere to go, and asking anyway would spin.
+  const roomX = Math.max(0, 1 - cw);
+  const roomY = Math.max(0, 1 - ch);
+  const want = Math.hypot(roomX, roomY) * 0.32;
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < 10; i++) {
+    x = Math.random() * roomX;
+    y = Math.random() * roomY;
+    if (!prev) break;
+    const dx = x + cw / 2 - (prev.x + prev.w / 2);
+    const dy = y + ch / 2 - (prev.y + prev.h / 2);
+    if (Math.hypot(dx, dy) >= want) break;
+  }
+  const round = (v: number) => Number(v.toFixed(3));
+  return { x: round(x), y: round(y), w: round(cw), h: round(ch) };
+}
+
 /**
  * One thing about a layer, changed at random.
  *
@@ -309,10 +367,22 @@ export interface TextureLayer {
  * do. Changing one thing is a step sideways — you can see what moved, keep
  * pressing while it is interesting, and stop where you like. It is the way
  * anyone actually finds a texture they did not already have in mind.
+ *
+ * On a picture the one thing is **the patch**. Nothing else in the list
+ * comes close: a photograph carries more textures than the whole of the
+ * generated set, and moving the window over it is what gets at them, where
+ * turning the tint or the scale only dresses the same square differently. It
+ * is set drifting at the same time if it was still, because a patch of a
+ * picture is a thing that wants to pass rather than sit — and that is the one
+ * exception to one-thing-at-a-time, paid for once, on the first press.
  */
 export function reiterate(l: TextureLayer): Partial<TextureLayer> {
-  const some = <T,>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
-  const between = (a: number, b: number) => a + Math.random() * (b - a);
+  if (l.kind === "image" && l.src) {
+    const crop = rollPatch(l.crop);
+    // Still layers are set going; a layer already drifting keeps its speed,
+    // so pressing on does not fight the speed you settled on.
+    return l.drift ? { crop } : { crop, drift: Number(between(0.2, 0.6).toFixed(2)) };
+  }
   switch (some(["scale", "angle", "contrast", "opacity", "hue", "weave", "drift", "role"] as const)) {
     case "scale": return { scale: Math.round(between(10, 260)) };
     case "angle": return { angle: Math.round(between(0, 359)) };
@@ -891,6 +961,46 @@ export function auraColour(aura: string | null | undefined, palette: Palette | u
   const named = palette ? (palette as Record<string, string>)[aura] : undefined;
   if (named) return named;
   return aura.includes("(") ? aura : null;
+}
+
+/**
+ * The line that says a part is picked, in a colour that is not the app's.
+ *
+ * It used to be two solid pixels of the accent — the same blue as every
+ * button in the shell — drawn round whatever you had selected. Two things
+ * were wrong with that. It was the loudest thing on the board, so a part
+ * being *edited* was the one part you could not see; and it sat on top of
+ * the aura, which is the one thing you are most often editing when the mark
+ * is up, so turning an aura on and off changed nothing you could see.
+ *
+ * The mark is the part's own colour, turned to the far side of the wheel:
+ * a hue that cannot be confused with what it is drawn around, at a lightness
+ * and chroma that read on both a dark page and a light one. A part with an
+ * aura is marked against its aura; a part with a fill of its own is marked
+ * against that; a part that has said nothing takes the site's accent, turned.
+ *
+ * It is one line, and thin, and offset inwards so the aura's own hairline is
+ * still outside it and still visible.
+ */
+export function complementOf(colour: string | null | undefined): string {
+  const c = colour ? parseColor(colour) : null;
+  // Nothing to answer: a warm yellow, which is nobody's accent here.
+  if (!c) return "oklch(0.82 0.19 90)";
+  // The far side, lifted to something that reads: a complement borrowed at
+  // the part's own lightness would vanish into a dark part.
+  return css({ l: 0.82, c: Math.max(0.16, Math.min(0.2, c.c + 0.05)), h: (c.h + 180) % 360 });
+}
+
+export function markColour(
+  node: { aura?: string | null; colour?: Record<string, string> | null },
+  palette: Palette | undefined,
+): string {
+  const own =
+    auraColour(node.aura, palette)
+    ?? (node.colour ? Object.values(node.colour).map((v) => (palette as Record<string, string> | undefined)?.[v] ?? v).find((v) => !!parseColor(v)) : undefined)
+    ?? palette?.accent
+    ?? "oklch(0.72 0.16 205)";
+  return complementOf(own);
 }
 
 /**

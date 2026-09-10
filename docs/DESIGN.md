@@ -33,6 +33,16 @@ same boxes as everywhere else, in the screen's colours.
 
 ## 2. The rules the menu lives by
 
+- **A piece that wears something does not take a tint.** Every piece of the
+  wheel answers a hover by going a brighter blue; Looks *is* the part's colour
+  or texture, so a blue wash over it under the hand says the button is blue
+  after all. A worn piece keeps its paint and answers with the lift it already
+  had, and its edge catches a little more light — a brighten, never a swap.
+- **A mark is the far side of what it marks.** The line round a picked part
+  is the complement of that part's own aura or fill — never the app's accent,
+  which was the loudest thing on the board and covered the aura it was drawn
+  over. Thin, one line, and offset inwards so the aura's hairline stays
+  outside it. The same rule holds for the page and for ink.
 - **The wheel is the whole editor; the panel is the convenience.** Anything the
   Inspector can do to one part, the wheel does too. Add to both or to the wheel
   alone; never to the panel alone.

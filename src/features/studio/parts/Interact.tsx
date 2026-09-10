@@ -8,7 +8,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, titled, FAMILY, type Theme } from "./theme";
+import { cardStyle, items, titled, FAMILY, type Theme, ghostStyle} from "./theme";
 import type { PartProps } from "./types";
 
 const soft = (t: Theme): React.CSSProperties => ({ ...cardStyle(t), padding: t.fontPx * 0.7 });
@@ -187,7 +187,7 @@ export function ContextMenus({ id, content, theme: t, mode, emit }: PartProps) {
         setAt({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 });
       } : undefined}
       onClick={() => setAt(null)}
-      style={{ ...cardStyle(t), borderStyle: "dashed", display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.85, textAlign: "center", padding: t.fontPx * 0.5 }}
+      style={{ ...ghostStyle(t), display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.85, textAlign: "center", padding: t.fontPx * 0.5 }}
     >
       Right-click anywhere in here
       {at ? (
@@ -426,7 +426,7 @@ export function WorkflowBuilder({ id, content, theme: t, emit }: PartProps) {
       <button
         type="button"
         onClick={() => { setSteps((xs) => [...xs, `Then ${sample.word(rng(hash(String(steps.length))))}`]); emit?.({ type: "toast", text: "Step added" }); }}
-        style={{ ...cardStyle(t), borderStyle: "dashed", padding: t.fontPx * 0.4, color: t.muted, font: "inherit", fontSize: t.fontPx * 0.8, cursor: "pointer", background: "transparent" }}
+        style={{ ...ghostStyle(t), padding: t.fontPx * 0.4, color: t.muted, font: "inherit", fontSize: t.fontPx * 0.8, cursor: "pointer", background: "transparent" }}
       >
         + Add a step
       </button>

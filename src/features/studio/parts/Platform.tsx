@@ -7,7 +7,7 @@
 import * as React from "react";
 import { Btn, Fill, focusRing, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, FAMILY, type Theme } from "./theme";
+import { cardStyle, items, FAMILY, type Theme, ghostStyle} from "./theme";
 import { opt, type PartProps } from "./types";
 
 const field = (t: Theme): React.CSSProperties => ({
@@ -126,7 +126,7 @@ export function ErrorScreen({ id, content, options, theme: t, emit, onNavigate }
   const typed = items(content, []);
 
   return (
-    <Fill t={t} data-part={id} style={{ ...cardStyle(t), borderStyle: "dashed", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: t.fontPx * 0.4, padding: t.fontPx, textAlign: "center" }}>
+    <Fill t={t} data-part={id} style={{ ...ghostStyle(t), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: t.fontPx * 0.4, padding: t.fontPx, textAlign: "center" }}>
       <span style={{ fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 2.6, color: t.accent, lineHeight: 1 }}>{kind}</span>
       <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.1 }}>{typed[0] ?? title}</strong>
       <span style={{ color: t.muted, fontSize: t.fontPx * 0.88, maxWidth: t.measurePx }}>{typed[1] ?? body}</span>

@@ -238,8 +238,8 @@ export const STEPS: Step[] = [
 
   {
     id: "blueprint",
-    title: "The Blueprint",
-    blurb: "What the canvas says, in words any agent can act on — and the record of every ask.",
+    title: "The iteration book",
+    blurb: "What the canvas says in words any agent can act on, the record of every ask, and the pin that keeps it open beside the board.",
     route: "/builder",
     arrive: async () => {
       closeRadial();
@@ -263,8 +263,8 @@ export const STEPS: Step[] = [
       },
       {
         name: "The Trail",
-        line: "Every ask and every answer, kept as threads, so a decision can be found again months later.",
-        where: "The Trail tab.",
+        line: "Every ask and every answer, kept as threads, so a decision can be found again months later. Pin the book open, or open it as a page beside Design and Preview.",
+        where: "The Trail tab, and Book on the toolbar.",
         at: "[data-brief-views]",
         pad: 4,
       },
