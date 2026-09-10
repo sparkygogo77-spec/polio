@@ -104,13 +104,18 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
   await page.getByRole("button", { name: "Critique it" }).click();
   await page.waitForTimeout(2000);
   check("a call that never comes back leaves the spinner up", (await spinning(page)) === 1);
+  // A note may already be up here: claudeReady() is asked before the run and,
+  // finding no key configured in this environment, leads with that reason —
+  // "It does not stop the run" (BriefDialog.tsx), so the note and the hung
+  // request coexist honestly. What Stop must not do is add to it.
+  const beforeStop = await noteOn(page);
   const stop = page.getByRole("button", { name: /^Stop/ }).first();
   check("and there is a Stop to press", (await stop.count()) === 1);
   if (await stop.count()) {
     await stop.click();
     await page.waitForTimeout(1200);
     check("Stop actually stops it", (await spinning(page)) === 0);
-    check("and stopping is not reported as a failure", !(await noteOn(page)), await noteOn(page));
+    check("and stopping is not reported as a failure", (await noteOn(page)) === beforeStop, await noteOn(page));
   }
   await page.close();
 }
