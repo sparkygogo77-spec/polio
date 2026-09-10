@@ -89,19 +89,42 @@ export function studioDoc(): Record<string, unknown> {
 /* Screenshots                                                         */
 /* ------------------------------------------------------------------ */
 
-let shotsAvailable: { at: number; value: boolean } | null = null;
+/**
+ * What the server's browser can do.
+ *
+ * Two different answers, because there are two different browsers it might
+ * have found. A full Playwright install opens pages and records them. The
+ * cut-down Chromium a serverless function can carry opens pages and cannot
+ * record a frame — recording is written by the ffmpeg a full install ships —
+ * so anything that wants a video has to ask separately and say so plainly.
+ */
+export interface BrowserThere {
+  /** Can it open the site at all? */
+  open: boolean;
+  /** Can it record the site being worked? */
+  video: boolean;
+  /** Which browser it found, for a tooltip that does not have to be vague. */
+  from: string | null;
+}
 
-/** Can the server open the site in a browser? Asked once a minute at most. */
-export async function screenshotsAvailable(force = false): Promise<boolean> {
-  if (!force && shotsAvailable && Date.now() - shotsAvailable.at < 60_000) return shotsAvailable.value;
+let browserThere: { at: number; value: BrowserThere } | null = null;
+
+/** What the server can do with a browser. Asked once a minute at most. */
+export async function serverBrowser(force = false): Promise<BrowserThere> {
+  if (!force && browserThere && Date.now() - browserThere.at < 60_000) return browserThere.value;
   try {
     const res = await fetch("/api/studio/screenshot", { cache: "no-store" });
-    const data = (await res.json()) as { available?: boolean };
-    shotsAvailable = { at: Date.now(), value: !!data.available };
+    const data = (await res.json()) as { available?: boolean; video?: boolean; from?: string | null };
+    browserThere = { at: Date.now(), value: { open: !!data.available, video: !!data.video, from: data.from ?? null } };
   } catch {
-    shotsAvailable = { at: Date.now(), value: false };
+    browserThere = { at: Date.now(), value: { open: false, video: false, from: null } };
   }
-  return shotsAvailable.value;
+  return browserThere.value;
+}
+
+/** Can the server open the site in a browser? */
+export async function screenshotsAvailable(force = false): Promise<boolean> {
+  return (await serverBrowser(force)).open;
 }
 
 const blobToDataUrl = (blob: Blob) =>

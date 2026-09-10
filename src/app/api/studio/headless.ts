@@ -10,8 +10,20 @@ import { createRequire } from "node:module";
  * so what the server opens is exactly what the author sees.
  *
  * Playwright is found wherever it is (the project, `PLAYWRIGHT_MODULE`, or
- * the box's own) and never bundled; with none to be found the routes that
- * need one answer `ok: false` with a reason, and the console does without.
+ * the box's own) and never bundled. Failing that — which is every serverless
+ * host, where a six-hundred-megabyte Chromium cannot go in a function bundle —
+ * it falls to `playwright-core` driving `@sparticuz/chromium`, a Chromium cut
+ * down to something a function can carry.
+ *
+ * The fallback is second on purpose. A box with a real Playwright on it should
+ * keep using it: the full install is the one the tests run against, and it is
+ * the only one that can record video. `@sparticuz/chromium` is a browser and
+ * nothing else — no bundled ffmpeg — so `recordVideo` has nothing to write the
+ * file with, and a route that needs video says so rather than launching and
+ * failing halfway through a tour.
+ *
+ * With neither to be found the routes that need one answer `ok: false` with a
+ * reason, and the console does without.
  */
 
 export type PW = { chromium: { launch: (o?: Record<string, unknown>) => Promise<PWBrowser> } };
@@ -28,21 +40,74 @@ export type PWPage = {
   video: () => { path: () => Promise<string> } | null;
 };
 
-export function findPlaywright(): { pw: PW; from: string } | { pw: null; tried: string[] } {
-  const req = createRequire(process.cwd() + "/");
-  const candidates = [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright", "/usr/lib/node_modules/playwright"].filter(Boolean) as string[];
+/** A browser this server can drive, and what it can be asked to do. */
+export interface Found {
+  pw: PW;
+  /** Where it came from, for the status route to be honest about. */
+  from: string;
+  /**
+   * Can it record video? Only a full Playwright install can: video is written
+   * by the ffmpeg that install ships, and the serverless pairing has none.
+   */
+  video: boolean;
+  /**
+   * What to launch it with. Async because the serverless Chromium unpacks its
+   * binary on first use and hands back the path afterwards.
+   */
+  launchOptions: () => Promise<Record<string, unknown>>;
+}
+
+/** A module required at run time from outside the project, never bundled. */
+const outside = (id: string): unknown => createRequire(process.cwd() + "/")(/* turbopackIgnore: true */ id);
+
+export function findPlaywright(): Found | { pw: null; tried: string[] } {
   const tried: string[] = [];
+  const candidates = [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright", "/usr/lib/node_modules/playwright"].filter(Boolean) as string[];
   for (const c of candidates) {
     try {
-      return { pw: req(/* turbopackIgnore: true */ c) as PW, from: c };
+      return {
+        pw: outside(c) as PW,
+        from: c,
+        video: true,
+        launchOptions: async () => ({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined }),
+      };
     } catch (err) {
       tried.push(`${c}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
     }
   }
+  // Nothing installed: the serverless pairing, if this deployment carries it.
+  try {
+    const pw = outside("playwright-core") as PW;
+    const mod = outside("@sparticuz/chromium") as { default?: SparticuzChromium } & SparticuzChromium;
+    const chromium = mod.default ?? mod;
+    return {
+      pw,
+      from: "playwright-core + @sparticuz/chromium",
+      video: false,
+      launchOptions: async () => ({
+        headless: true,
+        args: chromium.args,
+        executablePath: process.env.PLAYWRIGHT_CHROMIUM || (await chromium.executablePath()),
+      }),
+    };
+  } catch (err) {
+    tried.push(`playwright-core + @sparticuz/chromium: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+  }
   return { pw: null, tried };
 }
 
-export const NO_PLAYWRIGHT = "There is no Playwright on this server, so the site cannot be opened here.";
+/** The shape of `@sparticuz/chromium` this uses, so it need not be a build-time dependency. */
+interface SparticuzChromium {
+  args: string[];
+  executablePath: (input?: string) => Promise<string>;
+}
+
+export const NO_PLAYWRIGHT =
+  "There is no browser on this server, so the site cannot be opened here. "
+  + "On a machine you control: npm i -D playwright && npx playwright install chromium. "
+  + "On a serverless host: npm i playwright-core @sparticuz/chromium.";
+/** What a route that needs video says when the browser it found cannot make any. */
+export const NO_VIDEO = "The browser on this server can open the site but cannot record it: recording needs the ffmpeg a full Playwright install ships, and this one is the cut-down Chromium a serverless function can carry.";
 
 /** The shell round the live site, hidden: top bar, status bar, the preview's own toolbar. */
 export const HIDE_CHROME = `
@@ -75,8 +140,8 @@ export interface OpenOptions {
 }
 
 /** Open the preview with the document in place, chrome hidden, device set; hand the page over; close after. */
-export async function withPreview<T>(pw: PW, opts: OpenOptions, run: (page: PWPage, context: PWContext) => Promise<T>): Promise<T> {
-  const browser = await pw.chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined });
+export async function withPreview<T>(found: Found, opts: OpenOptions, run: (page: PWPage, context: PWContext) => Promise<T>): Promise<T> {
+  const browser = await found.pw.chromium.launch(await found.launchOptions());
   try {
     const context = await browser.newContext({
       viewport: { width: opts.width, height: opts.height },

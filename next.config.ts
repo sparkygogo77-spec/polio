@@ -13,6 +13,20 @@ function published(): boolean {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  /*
+   * The headless browser, kept out of the bundle.
+   *
+   * `playwright-core` and `@sparticuz/chromium` are required at run time by
+   * the routes that open the site — the second is a hundred-odd megabytes of
+   * packed Chromium — and neither survives being traced and bundled: the
+   * bundler rewrites the paths the binary is unpacked from and the launch then
+   * looks for a browser that is not there. Named here they are left alone and
+   * required from `node_modules` at run time, which is what they expect.
+   *
+   * A full Playwright install is not listed because it is never imported by
+   * path the bundler can see: it is required from outside the project.
+   */
+  serverExternalPackages: ["playwright-core", "@sparticuz/chromium"],
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.
   typedRoutes: false,

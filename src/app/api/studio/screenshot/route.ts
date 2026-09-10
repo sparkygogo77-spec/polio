@@ -19,7 +19,7 @@ const MAX_HEIGHT = 6000;
 
 export async function GET() {
   const found = findPlaywright();
-  return NextResponse.json({ available: !!found.pw, from: found.pw ? found.from : null, tried: found.pw ? undefined : found.tried });
+  return NextResponse.json({ available: !!found.pw, from: found.pw ? found.from : null, video: found.pw ? found.video : false, tried: found.pw ? undefined : found.tried });
 }
 
 export async function POST(request: Request) {
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const fullPage = body.fullPage !== false;
 
   try {
-    const png = await withPreview(found.pw, { origin, path, doc: takeDoc(body.doc), device, width, height }, async (page) => {
+    const png = await withPreview(found, { origin, path, doc: takeDoc(body.doc), device, width, height }, async (page) => {
       if (fullPage) {
         // The site scrolls inside its own box, not the window: the box is let
         // grow to its content and the window sized to it, then the picture is

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createRequire } from "node:module";
 import { existsSync, readdirSync, readFileSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -7,6 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { encodeGif } from "@/features/tweets/gif";
 import { decodePng } from "../png";
+import { findPlaywright, NO_PLAYWRIGHT, NO_VIDEO } from "../../studio/headless";
 
 /**
  * A recording of the live site being scrolled and worked, made on the server.
@@ -18,9 +18,16 @@ import { decodePng } from "../png";
  * cannot write a GIF) and written as a GIF here, which X does take. The
  * response says which it is.
  *
- * Optional, like everything that needs more than a browser: with no
- * Playwright to be found this is HTTP 200 and `ok: false` with a reason, and
- * the console records the tab in the browser instead.
+ * Optional, like everything that needs more than a browser: with no browser
+ * to be found this is HTTP 200 and `ok: false` with a reason, and the console
+ * records the tab in the browser instead.
+ *
+ * It needs a *full* Playwright, not only a browser. Where there is none the
+ * screenshot routes fall to the cut-down Chromium a serverless function can
+ * carry, and that one opens pages perfectly well and cannot record a frame of
+ * them: the recording is written by the ffmpeg a full install ships. So this
+ * says so before it launches anything, rather than running a whole tour and
+ * finding out at the end that there is no file.
  */
 
 export const runtime = "nodejs";
@@ -28,6 +35,7 @@ export const maxDuration = 180;
 
 const run = promisify(execFile);
 
+/** The handle a launch gives back, and what this route asks of it. */
 type PW = { chromium: { launch: (o?: Record<string, unknown>) => Promise<{ newContext: (o: Record<string, unknown>) => Promise<PWContext>; close: () => Promise<void> }> } };
 type PWContext = { newPage: () => Promise<PWPage>; close: () => Promise<void> };
 type PWPage = {
@@ -38,22 +46,6 @@ type PWPage = {
   waitForTimeout: (ms: number) => Promise<void>;
   video: () => { path: () => Promise<string> } | null;
 };
-
-/** Playwright, from wherever it is: the project, a path in the environment, or the box's own. */
-function findPlaywright(): { pw: PW; from: string } | { pw: null; tried: string[] } {
-  // The bundler must not try to resolve these at build time: they are outside the project on purpose.
-  const req = createRequire(process.cwd() + "/");
-  const candidates = [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright", "/usr/lib/node_modules/playwright"].filter(Boolean) as string[];
-  const tried: string[] = [];
-  for (const c of candidates) {
-    try {
-      return { pw: req(/* turbopackIgnore: true */ c) as PW, from: c };
-    } catch (err) {
-      tried.push(`${c}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
-    }
-  }
-  return { pw: null, tried };
-}
 
 /** An ffmpeg, if there is one: named, on the path, or the one Playwright ships. */
 function findFfmpeg(): string | null {
@@ -165,8 +157,16 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false,
       reason: "no-playwright",
-      message: "There is no Playwright on this server, so the tour cannot be rendered here. Record the tab from the console instead.",
+      message: `${NO_PLAYWRIGHT} Record the tab from the console instead.`,
       tried: found.tried,
+    });
+  }
+  if (!found.video) {
+    return NextResponse.json({
+      ok: false,
+      reason: "no-video",
+      message: `${NO_VIDEO} Record the tab from the console instead.`,
+      from: found.from,
     });
   }
 
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
   const dir = mkdtempSync(join(tmpdir(), "tour-"));
   let browser: Awaited<ReturnType<PW["chromium"]["launch"]>> | null = null;
   try {
-    browser = await found.pw.chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined });
+    browser = await found.pw.chromium.launch(await found.launchOptions());
     const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1, recordVideo: { dir, size: { width, height } } });
     const page = await context.newPage();
     await page.goto(`${origin}${path}`, { waitUntil: "networkidle", timeout: 60_000 });

@@ -25,6 +25,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.45",
+    title: "A browser a function can carry",
+    summary: "Where there is no Playwright the server now falls to the cut-down Chromium a serverless host can carry — and says plainly that it cannot record a tour.",
+    sketch: "picture",
+    added: [
+      "Photographing the site needed a full Playwright, which is six hundred megabytes of browser and will not go in a serverless function bundle — so on a deployed site the screenshots the Builder sends Claude simply were not there. Failing the usual lookup, the server now falls to `playwright-core` driving `@sparticuz/chromium`, a Chromium packed down to something a function can carry.",
+      "In that order, and only in that order. A box with a real Playwright on it keeps using it: it is the install the tests run against, and it is the only one that can record video.",
+      "The tweet console's tour is video, and the serverless browser cannot make any — recording is written by an ffmpeg the full install ships and the cut-down pairing has none. So Render on server greys out with the reason on it, rather than running a whole tour and finding no file at the end of it.",
+      "Neither package is a dependency of this template and neither is ever bundled: both are required at run time from outside it. A deployment that wants server screenshots installs them; the message when there is no browser at all now names both ways of fixing it.",
+    ],
+  },
+  {
     version: "0.44",
     title: "The brief, read back",
     summary: "The blueprint is reworded from what Claude misread in it; Critique, Fill and Finish come back as prompts you can take; and a Trail view maps every prompt from written to found to now.",
