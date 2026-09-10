@@ -16,7 +16,7 @@ import * as React from "react";
 import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Loader2, Sparkles, Wand2, X } from "lucide-react";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { useStudio } from "./store";
-import { askClaude, filesFromMarkdown, MODES, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
+import { askClaude, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, type AskMode, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { Button } from "@/core/ui/button";
@@ -128,8 +128,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
         ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
       } else {
-        setNote(r.message);
-        ctx.publish({ key: "studio:generate", title: "Generation unavailable", body: r.message, level: "warn", source: "studio", toast: true });
+        const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.") : r.message;
+        setNote(why);
+        ctx.publish({ key: "studio:generate", title: "Generation unavailable", body: why, level: "warn", source: "studio", toast: true });
       }
     } catch (err) {
       if (!(err instanceof DOMException && err.name === "AbortError")) setNote(err instanceof Error ? err.message : "Request failed.");
