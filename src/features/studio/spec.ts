@@ -8,8 +8,8 @@
  * specification rather than decoration.
  */
 import { getFeature, categoryOf } from "./catalog";
-import { resolvePart } from "./parts";
-import { changedFormat, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
+import { isLinkable, resolvePart } from "./parts";
+import { FORMAT_FIELDS, formatLabel, FORMAT_GROUPS, type FormatValues } from "./format";
 import { AURA_WORD, delayMs, describeLook, ENTRANCE_MS, ROLES, ROLE_LABEL, speedK, speedWord, type Look, type RoleId } from "./look";
 
 /** A speed as the blueprint says it: the nearest word, and the length in ms so nothing is lost. */
@@ -25,7 +25,7 @@ function describeDelay(v: number | string | null | undefined): string {
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
 import { describeSketch, isBlankSketch } from "./sketch";
-import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape } from "./store";
+import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
 
 export interface CompileInput {
   pages: StudioPage[];
@@ -40,6 +40,8 @@ export interface CompileInput {
   look?: Look;
   /** Keyframe crates, each of which becomes a motion brief. */
   motion?: MotionAsset[];
+  /** Every prompt as it was written, critiqued and revised — the paper trail. JSON only. */
+  trail?: TrailEntry[];
 }
 
 interface NodeSpec {
@@ -89,12 +91,13 @@ export interface PageSpec {
   path: string;
   prompt: string;
   scroll: string;
-  rows: { index: number; items: string[] }[];
+  /** Reading order. A row is one horizontal band of parts; a section is a drawn region with words and nothing inside it, built from its prompt. */
+  rows: { index: number; items: string[]; section?: { prompt: string; widthPct: number; heightPx: number; align: NodeSpec["align"] } }[];
   elements: NodeSpec[];
   /** Data wires: which part feeds which. */
   wires: { from: string; to: string; label: string }[];
   groups: { label: string; prompt: string; members: string[] }[];
-  regions: { label: string; prompt: string; contains: string[] }[];
+  regions: { label: string; prompt: string; contains: string[]; /** Row number when the region is a section of its own. */ row: number | null }[];
   connections: { from: string; to: string; label: string; prompt: string }[];
   sketches: { where: string; label: string; prompt: string }[];
 }
@@ -103,13 +106,20 @@ export interface Spec {
   name: string;
   gimmick: string;
   master: string;
-  format: { group: string; label: string; value: string }[];
+  /** The page frame the positions are relative to, in px. */
+  frameWidth: number;
+  /** Title, wordmark, description and link preview — what the name and the idea imply for the head of every page. */
+  head: string[];
+  /** Every format value that matters, resolved. `changed` marks the ones the author set. */
+  format: { group: string; label: string; value: string; changed: boolean }[];
   /** Colour and texture, spelled out. */
   look: string[];
   /** One brief per crate of keyframes, exactly as `docs/MOTION.md` specifies. */
   motion: string[];
   pages: PageSpec[];
-  stats: { pages: number; elements: number; groups: number; sketches: number; connections: number; prompted: number };
+  stats: { pages: number; elements: number; groups: number; sketches: number; connections: number; prompted: number; must: number };
+  /** The prompts' paper trail, when the document keeps one. */
+  trail?: TrailEntry[];
 }
 
 /** Nodes whose vertical spans overlap are one visual row, read left to right. */
@@ -158,6 +168,12 @@ function frameContaining(shapes: StudioShape[], n: StudioNode): StudioShape | nu
   return best;
 }
 
+/** A drawn region as a box. */
+function frameBox(f: StudioShape): { x: number; y: number; w: number; h: number } {
+  const [p1, p2] = [f.points[0]!, f.points[1]!];
+  return { x: Math.min(p1[0], p2[0]), y: Math.min(p1[1], p2[1]), w: Math.abs(p2[0] - p1[0]), h: Math.abs(p2[1] - p1[1]) };
+}
+
 function nearestNode(nodes: StudioNode[], x: number, y: number, maxDist = 140): StudioNode | null {
   let best: StudioNode | null = null;
   let bestD = maxDist;
@@ -187,7 +203,7 @@ function whereOnPage(x: number, y: number, nodes: StudioNode[]): string {
   return `${vert}, ${horiz}`;
 }
 
-function alignOf(n: StudioNode, fw: number): NodeSpec["align"] {
+function alignOf(n: { x: number; w: number }, fw: number): NodeSpec["align"] {
   if (n.w >= fw - 8) return "full";
   const cx = n.x + n.w / 2;
   if (Math.abs(cx - fw / 2) < fw * 0.06) return "centre";
@@ -242,11 +258,22 @@ export function compileSpec(input: CompileInput): Spec {
   const motion = input.motion;
   const fw = input.frameWidth ?? 1440;
 
-  const formatRows = changedFormat(format).map((field) => ({
-    group: FORMAT_GROUPS.find((g) => g.id === field.group)?.label ?? field.group,
-    label: field.label,
-    value: formatLabel(field, format[field.id]!),
-  }));
+  // Every value the agent would otherwise have to guess, resolved: the plain
+  // fields always, the advanced ones only when the author set them. A default
+  // left out of the brief was read as "not decided", and the whole visual
+  // system got inferred from six colours.
+  const formatRows = FORMAT_FIELDS.flatMap((field) => {
+    const changed = field.id in format && format[field.id] !== field.default;
+    if (field.advanced && !changed) return [];
+    const value = format[field.id] ?? field.default;
+    if (field.type === "text" && !String(value).trim()) return [];
+    return [{
+      group: FORMAT_GROUPS.find((g) => g.id === field.group)?.label ?? field.group,
+      label: field.label,
+      value: formatLabel(field, value),
+      changed,
+    }];
+  });
 
   const pageSpecs: PageSpec[] = pages.map((page) => {
     const pNodes = nodes.filter((n) => n.pageId === page.id);
@@ -258,6 +285,19 @@ export function compileSpec(input: CompileInput): Spec {
     const behaving = pNodes.filter((n) => tierOf(n) === "B");
     const rows = toRows(laidOut);
     const byId = new Map(pNodes.map((n) => [n.id, n]));
+    const frames = pShapes.filter((s) => s.kind === "frame" && s.points.length >= 2);
+    const inside = (f: StudioShape) => pNodes.filter((n) => frameContaining(pShapes, n)?.id === f.id);
+    // A drawn region with words on it and nothing inside is a section of its
+    // own — it was falling out of the reading order and into a "(nothing yet)".
+    const sections = frames.filter((f) => !inside(f).length && (f.prompt.trim() || f.label.trim()));
+    type Ordered = { kind: "row"; row: StudioNode[]; y: number } | { kind: "section"; frame: StudioShape; y: number };
+    const ordered: Ordered[] = [
+      ...rows.map((row) => ({ kind: "row" as const, row, y: Math.min(...row.map((n) => n.y)) })),
+      ...sections.map((frame) => ({ kind: "section" as const, frame, y: frameBox(frame).y })),
+    ].sort((a, b) => a.y - b.y);
+    const rowNumber = new Map<StudioNode[], number>();
+    const sectionRow = new Map<string, number>();
+    ordered.forEach((o, i) => (o.kind === "row" ? rowNumber.set(o.row, i + 1) : sectionRow.set(o.frame.id, i + 1)));
 
     const elements: NodeSpec[] = [];
     const place = (n: StudioNode, rowIndex: number, colIndex: number, row: StudioNode[]) => {
@@ -276,7 +316,9 @@ export function compileSpec(input: CompileInput): Spec {
           prompt: n.prompt.trim(),
           content: (n.content ?? "").trim(),
           options: n.options,
-          link: describeLink(n.link, pages),
+          // A part that sends people somewhere and has nowhere to send them yet
+          // says so, so the agent builds a placeholder rather than a guess.
+          link: describeLink(n.link, pages) ?? (isLinkable(n.featureId) ? "nowhere yet — a visible placeholder that says so, never an invented target" : null),
           colour: describeColour(n.colour),
           font: describeFont(n.font),
           anim: n.anim
@@ -299,7 +341,7 @@ export function compileSpec(input: CompileInput): Spec {
           align: alignOf(n, fw),
           group: pGroups.find((g) => g.id === n.groupId)?.label ?? null,
           region: frame ? frame.label || "unnamed region" : null,
-          row: rowIndex + 1,
+          row: rowIndex < 0 ? 0 : rowNumber.get(rows[rowIndex]!) ?? rowIndex + 1,
           column: colIndex + 1,
           leftOf: row[colIndex + 1]?.label ?? null,
           rightOf: row[colIndex - 1]?.label ?? null,
@@ -325,13 +367,12 @@ export function compileSpec(input: CompileInput): Spec {
       })
       .filter((c) => c.from !== c.to);
 
-    const regions = pShapes
-      .filter((s) => s.kind === "frame")
-      .map((s) => ({
-        label: s.label.trim() || "unnamed region",
-        prompt: s.prompt.trim(),
-        contains: pNodes.filter((n) => frameContaining(pShapes, n)?.id === s.id).map((n) => n.label),
-      }));
+    const regions = frames.map((s) => ({
+      label: s.label.trim() || "unnamed region",
+      prompt: s.prompt.trim(),
+      contains: inside(s).map((n) => n.label),
+      row: sectionRow.get(s.id) ?? null,
+    }));
 
     const sketches = pShapes
       .filter((s) => s.kind === "pen")
@@ -348,7 +389,15 @@ export function compileSpec(input: CompileInput): Spec {
       path: page.path,
       prompt: page.prompt.trim(),
       scroll: page.scroll,
-      rows: rows.map((r, i) => ({ index: i + 1, items: r.map((n) => n.label) })),
+      rows: ordered.map((o, i) => {
+        if (o.kind === "row") return { index: i + 1, items: o.row.map((n) => n.label) };
+        const b = frameBox(o.frame);
+        return {
+          index: i + 1,
+          items: [o.frame.label.trim() || "unnamed region"],
+          section: { prompt: o.frame.prompt.trim(), widthPct: Math.round((Math.min(b.w, fw) / fw) * 100), heightPx: Math.round(b.h), align: alignOf(b, fw) },
+        };
+      }),
       elements,
       wires: pShapes
         .filter((sh) => sh.kind === "arrow" && sh.relation === "data")
@@ -371,10 +420,21 @@ export function compileSpec(input: CompileInput): Spec {
     };
   });
 
+  const name = brief.name.trim();
+  const gimmick = brief.gimmick.trim();
+  const firstSentence = (t: string) => (t.match(/^[^.!?]+[.!?]?/)?.[0] ?? t).trim();
   return {
-    name: brief.name.trim() || "Untitled site",
-    gimmick: brief.gimmick.trim(),
+    name: name || "Untitled site",
+    gimmick,
     master: brief.master.trim(),
+    frameWidth: fw,
+    head: name
+      ? [
+          `The site is called **${name}**. Wherever a logo or wordmark is drawn it reads "${name}" — never "Logo".`,
+          `Browser title: "${name}". Meta description: ${gimmick ? `"${firstSentence(gimmick)}"` : "one sentence from the idea, once it is written"}.`,
+          "Link preview (Open Graph and Twitter card): the first page's first screen at 1200×630 with the wordmark on it; the favicon is the wordmark's mark.",
+        ]
+      : [],
     format: formatRows,
     look: look ? describeLook(look, resolvePalette(format, look)) : [],
     // Only a crate with something to interpolate is worth briefing.
@@ -387,7 +447,9 @@ export function compileSpec(input: CompileInput): Spec {
       sketches: shapes.filter((s) => s.kind === "pen").length,
       connections: shapes.filter((s) => s.kind === "arrow").length,
       prompted: nodes.filter((n) => n.prompt.trim()).length + groups.filter((g) => g.prompt.trim()).length,
+      must: nodes.filter((n) => n.priority === "must").length,
     },
+    ...(input.trail?.length ? { trail: input.trail } : {}),
   };
 }
 
@@ -400,15 +462,22 @@ export function specToMarkdown(spec: Spec): string {
   if (spec.master) L.push(spec.master, "");
   if (!spec.gimmick && !spec.master) L.push("## The idea", "", "_(not written yet — say what this site is)_", "");
 
+  if (spec.head.length) {
+    L.push("## The site", "");
+    for (const line of spec.head) L.push(`- ${line}`);
+    L.push("");
+  }
+
   if (spec.format.length) {
     L.push("## Format", "");
+    L.push("Every value here is binding. `*` marks what the author set by hand; the rest are the defaults, and a default still applies.", "");
     let lastGroup = "";
     for (const row of spec.format) {
       if (row.group !== lastGroup) {
         L.push(`**${row.group}**`);
         lastGroup = row.group;
       }
-      L.push(`- ${row.label}: ${row.value}`);
+      L.push(`- ${row.label}: ${row.value}${row.changed ? " *" : ""}`);
     }
     L.push("");
   }
@@ -437,14 +506,21 @@ export function specToMarkdown(spec: Spec): string {
 
     if (page.rows.length) {
       L.push("Layout, top to bottom:", "");
-      for (const row of page.rows) L.push(`${row.index}. ${row.items.map((x) => `**${x}**`).join("  ·  ")}`);
+      for (const row of page.rows) {
+        if (row.section) {
+          const s = row.section;
+          L.push(`${row.index}. **${row.items[0]}** — a section of its own, drawn as a region; ${s.align === "full" ? "full width" : `${s.widthPct}% of the frame, ${s.align}`}, at least ${s.heightPx}px tall`);
+          if (s.prompt) L.push(`   - build it from this: ${s.prompt}`);
+        } else L.push(`${row.index}. ${row.items.map((x) => `**${x}**`).join("  ·  ")}`);
+      }
       L.push("");
     }
 
-    if (page.regions.length) {
+    const grouping = page.regions.filter((r) => r.contains.length || r.row === null);
+    if (grouping.length) {
       L.push("Regions:", "");
-      for (const r of page.regions) {
-        L.push(`- **${r.label}** — contains ${r.contains.length ? r.contains.join(", ") : "(nothing yet)"}`);
+      for (const r of grouping) {
+        L.push(`- **${r.label}** — ${r.contains.length ? `contains ${r.contains.join(", ")}` : "drawn but empty and unnamed; ignore it"}`);
         if (r.prompt) L.push(`  - ${r.prompt}`);
       }
       L.push("");
@@ -465,8 +541,8 @@ export function specToMarkdown(spec: Spec): string {
       L.push("Elements:", "");
       for (const e of laidOut) {
         const opts = Object.entries(e.options).filter(([, v]) => v);
-        L.push(`- **${e.label}** — ${e.feature} (${e.category}) · ${e.priority}`);
-        const place: string[] = [`row ${e.row}, position ${e.column}`, e.align === "full" ? "full width" : `${e.widthPct}% wide, ${e.align}`, `about ${e.heightPx}px tall`];
+        L.push(`- **${e.label}** — ${e.feature} · ${e.priority}`);
+        const place: string[] = [`row ${e.row}, position ${e.column}`, e.align === "full" ? "full width" : `${e.widthPct}% of the frame, ${e.align}`, `at least ${e.heightPx}px tall`];
         if (e.region) place.push(`inside "${e.region}"`);
         if (e.rightOf) place.push(`right of "${e.rightOf}"`);
         if (e.leftOf) place.push(`left of "${e.leftOf}"`);
@@ -543,18 +619,31 @@ export function specToMarkdown(spec: Spec): string {
   }
 
   L.push("## How to read this", "");
+  const allMust = spec.stats.elements > 2 && spec.stats.must === spec.stats.elements;
   L.push(
-    "Positions are relative to a page frame. Vertical position is reading order; horizontal",
-    "position is arrangement within a row; width is given as a share of the frame and height",
-    "in pixels, and both are deliberate — build to them, do not reflow to fit. \"contains\"",
-    "lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people;",
-    "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it.",
-    "A part with a \"colour\" line repaints those roles for itself; everything else follows the site palette.",
-    "\"drawn\" is the shape the author drew for the part on the drawing board, in words: its proportion and",
-    "outline are the specification for the part's shape, and the words beside it say what the drawing is.",
-    "Anything inside a region belongs to that region. Behaviours are listed apart from the elements because they",
-    "change how the whole page moves rather than occupying a place in it. Element prompts are specific to that placement and override anything more",
-    "general. Priorities: `must` ships first, `nice` if it fits, `idea` is exploratory.",
+    `Positions are relative to a page frame ${spec.frameWidth}px wide. Vertical position is reading order; horizontal`,
+    "position is arrangement within a row. Width is a share of that frame and is deliberate. Height is a minimum:",
+    "the content decides the rest, and nothing is ever clipped to the number. Narrower than the frame, each row",
+    "stacks top to bottom in reading order, full-width parts stay full-width and type steps down to fit, unless an",
+    "element's own prompt says otherwise — the frame is the desktop specification, not a fixed canvas.",
+    "",
+    "\"contains\" lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people — a part",
+    "that sends people nowhere yet is built as a visible placeholder that says so, never given an invented target;",
+    "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it. A part with a \"colour\" line",
+    "repaints those roles for itself; everything else follows the site palette exactly. \"drawn\" is the shape the",
+    "author drew for the part on the drawing board, in words: its proportion and outline are the specification for",
+    "the part's shape, and the words beside it say what the drawing is.",
+    "",
+    "Every Format value listed is binding; `*` marks the ones the author set, the rest are defaults that still apply.",
+    "Hairlines, rules and borders are one token — the Text role at 12% opacity — unless Format › Borders says otherwise,",
+    "and two rules never stack into a double line. When a sticky top bar exists, anchor targets clear it",
+    "(scroll-margin-top) and the bar marks the current section. Everything that moves — entrances, loops, glows,",
+    "parallax — respects prefers-reduced-motion.",
+    "",
+    "Anything inside a region belongs to that region; a region listed as a section of its own is built from its",
+    "prompt at its row. Behaviours are listed apart from the elements because they change how the whole page moves",
+    "rather than occupying a place in it. Element prompts are specific to that placement and override anything more",
+    `general. Priorities: \`must\` ships first, \`nice\` if it fits, \`idea\` is exploratory.${allMust ? " Every element here is marked must, so there is no cut list: the row order is the priority." : ""}`,
     "",
   );
   return L.join("\n");

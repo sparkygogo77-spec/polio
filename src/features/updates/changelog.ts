@@ -25,6 +25,33 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.43",
+    title: "The brief, read back",
+    summary: "The blueprint is reworded from what Claude misread in it; Critique, Fill and Finish come back as prompts you can take; and a Trail view maps every prompt from written to found to now.",
+    sketch: "parts",
+    added: [
+      "Every plain Format value is in the brief now, resolved, with * on the ones you set. A default that was left out was being read as undecided, and the whole visual system got inferred from six colours.",
+      "Heights are minimums, widths are shares of a desktop frame, and the brief says rows stack in reading order on narrower screens — so a phone audience and a 1200px table stop contradicting each other. The Claude routes repeat the same rules in their system prompt.",
+      "A drawn region with a prompt and nothing inside is a section: it takes its row in the layout list and is built from its words, instead of falling out as \"(nothing yet)\".",
+      "The site's name reaches the wordmark, the browser title, the description and the link preview in a new \"The site\" section; a part that sends people nowhere yet says so, so a placeholder gets built and not a guess.",
+      "Critique, Fill prompts and Finish end with a revisions block: each finding names the prompt it is about and carries that prompt as it should now read. Take it writes it onto the part.",
+      "Trail, beside Brief and JSON in the Blueprint dialog: a map of every prompt on the board, what was found about it and what stands now, joined by lines — the paper trail, account to account. Copy or download it as markdown; it also rides in the JSON.",
+      "When the server cannot photograph the pages the dialog says what that costs: findings about layout, colour and overflow are inferred, not seen — and Claude is told the same.",
+    ],
+  },
+  {
+    version: "0.42",
+    title: "The drawing does what it says",
+    summary: "Make real is held to the drawing: the reader's answer is checked against the library, the frame and the shape drawn, a new part keeps its words, and the library is cached between reads.",
+    sketch: "parts",
+    added: [
+      "The answer from the drawing board is checked in one place now (reshape.ts): an id not in the library is dropped, an option the part does not offer is dropped, a value it does not offer is dropped, and the size is clamped to the frame. tests/reshape-answer.mjs holds it to each rule.",
+      "A size that ignored the drawing's proportion — a third or more off, with no words beside the drawing that could have asked for that — is brought back to the proportion drawn, at the area answered. The toast says so. A reply that kept the old shape read as the drawing doing nothing.",
+      "A new part drawn on the bare page always gets the author's words as its prompt, and, when it is an idea, as its name; the reader is told a new part has nothing to keep and to read the board as the page for its size. A part that becomes another kind drops the old kind's options and is a custom idea exactly when Add would have made it one.",
+      "The library goes to Claude first, with a note on it, on every read, and is marked for the cache: after the first read only the drawing is new. The read is streamed and assembled on the server, so a slow one never runs into the request timeout. The words are given once, not twice.",
+    ],
+  },
+  {
     version: "0.41",
     title: "Drag the sun onto the page",
     summary: "Opening Light dims the board and lights the sun on its button; drag it out and drop it where it goes. The bars underneath are bars again, each with its own word beside it.",

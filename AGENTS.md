@@ -127,8 +127,12 @@ dashed line where the first screen ends). Parts land inside it at their real
 default size — a nav bar spans the full width, a search box is 420 × 48, tabs
 are 720 × 260 — and draw their `content` and `options` exactly (type
 "Episodes, Characters" into a tabs part and those are the tabs on the board).
-Nothing slips to fit: where a part sits and how big it is *in the frame* is
-the specification, and the blueprint says so ("do not reflow to fit").
+Nothing slips to fit on the board: where a part sits and how big it is *in
+the frame* is the specification. The blueprint says it as an agent can act on
+it — width as a share of the frame, height as a minimum, the frame as the
+desktop layout with rows stacking in reading order on narrower screens — so
+"fast on mid-range mobile" and a 1200px pricing table stop contradicting each
+other in the same brief.
 
 **Position is meaning.** The compiler reads coordinates, so:
 
@@ -221,7 +225,21 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 
 **Rules:**
 
-- Only *changed* format values reach the blueprint. Defaults are noise.
+- Every plain format value reaches the blueprint, resolved; advanced ones only
+  when changed; `*` marks what the author set. A default left out was read as
+  "not decided" and the whole visual system got inferred from six colours.
+- The blueprint explains its own conventions in "How to read this" and the
+  Claude routes repeat them in their system prompt. Change one, change both:
+  a critique that reports what the brief already answered is the tell.
+- A drawn region with words on it and nothing inside is a *section*: it takes
+  a row in "Layout, top to bottom" and is built from its prompt. A region with
+  parts in it groups them; an empty, unnamed one is ignored.
+- Critique, Fill prompts and Finish come back with a `json revisions` block:
+  one item per finding, each naming its target and carrying the target's whole
+  prompt as it should now read. `recordAsk` in the store puts each beside the
+  prompt it was about; `applyRevision` takes one. The Blueprint dialog's Trail
+  view draws the lot as a map — written → found → now — and is where a
+  critique is read. Any new ask that produces prompts must use the same block.
 - The library is prunable. `hiddenFeatures` in the store holds ids removed from
   the library — the ✕ on a tile, "Remove from the library" or "Remove every
   <category> part" in its menu. Nothing is deleted: a counter in the panel

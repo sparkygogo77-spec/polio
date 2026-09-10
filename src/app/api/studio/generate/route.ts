@@ -30,18 +30,19 @@ const MODE_INSTRUCTIONS: Record<Mode, string> = {
     "End with a build order grouped by priority (must / nice / idea).",
   critique:
     "Review the blueprint as an experienced designer and engineer would before any code is written. Identify: " +
-    "contradictions between elements, missing pieces the stated idea implies but the canvas omits, places where two " +
-    "features will fight each other, and anything that will be expensive relative to its value. Be specific and " +
-    "reference elements by name. Do not rewrite the whole thing — critique it.",
+    "the one thing that blocks everything else, contradictions between elements, missing pieces the stated idea implies " +
+    "but the canvas omits, places where two features will fight each other, and anything that will be expensive relative " +
+    "to its value. Be specific and reference elements by the names the brief prints in bold. Do not rewrite the whole " +
+    "thing — critique it. Then, for every finding that a better prompt would settle, write that prompt: the element's " +
+    "whole prompt as it should now read, not a diff, keeping everything in the current one that still holds.",
   expand:
     "Write the missing prompts. For every element that has no prompt of its own, propose one or two sentences that " +
-    "are specific to that element's placement, its neighbours, and the central idea. Output a markdown list keyed by " +
-    "element name so each line can be pasted straight back onto the canvas. Leave already-written prompts alone.",
+    "are specific to that element's placement, its neighbours, and the central idea. Leave already-written prompts alone.",
   finish:
     "Say what it would take to finish this site, as a checklist in the order it should be done. Start from what is " +
     "on the canvas and in the pictures: what is missing that the idea needs (pages, parts, states, copy, data), what " +
     "is there but underspecified, what is there and should go. For each item say which page and which part, and " +
-    "write the prompt that would fix it, ready to paste onto that part. Finish with the three things that matter most.",
+    "write the prompt that would fix it — the part's whole prompt as it should now read. Finish with the three things that matter most.",
   ideas:
     "Give ideas for this site: ten of them, specific to this idea and this canvas, not generic. Each one in two or " +
     "three sentences: what it is, where on which page it goes, why it fits the central idea, and roughly what it " +
@@ -64,7 +65,9 @@ The blueprint comes from a canvas where the author placed feature icons, drew re
 - An arrow from A to B is a real relationship the author drew deliberately.
 - An element's own prompt is the most specific instruction available and overrides anything more general.
 - Priorities are load-bearing: "must" ships first, "nice" if it fits, "idea" is exploratory.
-- Format options that appear were deliberately changed from their defaults; ones that do not appear are at their defaults and are not worth discussing.
+- Every Format value in the brief is binding. Ones marked * were set by the author by hand; the rest are defaults, and a default is a decision too — read it, rely on it, and flag it only when it fights the idea.
+- Heights in the brief are minimums, widths are shares of the frame, and the frame is the desktop layout: narrower screens stack each row in reading order unless a prompt says otherwise. Do not report a fixed-height or a fixed-width problem the brief has already answered this way.
+- A part whose "links to" says "nowhere yet" is not a bug to report: it is a placeholder the author knows about.
 - When pictures are given, they are the pages as the live preview draws them right now, top to bottom, in the same order as the blueprint. They show what is actually there; the blueprint says what it is for. Where they disagree, say so.
 
 Write for a competent developer who will implement this. Be concrete and specific, never generic. Do not pad, do not restate the blueprint back at length, and do not produce a wall of boilerplate advice that would apply to any website.`;
@@ -75,6 +78,43 @@ const REPO_CONTRACT = `The repository the files are for:
 - Route components are "use client" React components taking { path, params }. UI primitives come from "@/core/ui": Button, Input, Textarea, Select, Switch, Segmented, Badge, Card, CardHeader, CardTitle, CardContent, Tabs, Separator, ScrollArea, EmptyState. Icons from "lucide-react". Class merging with cn from "@/core/lib/cn".
 - No new dependencies. Data the site needs goes in a plain TypeScript file beside the component.
 - The site's own document is also rendered by the app at /site from site/document.json; code you write is for what the document cannot express.`;
+
+/**
+ * The asks that come back with prompts attach them in one JSON block at the
+ * end, so the Builder can put each one beside the prompt it answers and the
+ * author can take it with one press. The prose stays the critique; the block
+ * is the part of it that is a prompt.
+ */
+const REVISIONS_CONTRACT = `After the prose, end with exactly one fenced block whose info string is \`json revisions\`, holding {"revisions": [...]}. Each item: "target" — "site" for the master idea, "page: <name>" for a page's own prompt, or an element's name exactly as the brief prints it in bold; "kind" — one of "blocks", "contradiction", "missing", "fights", "cost", "note"; "finding" — one or two sentences saying what is wrong or missing, in the words you used above; "prompt" — the target's complete prompt as it should now read, ready to paste, or "" when the fix is not a matter of prompting. One item per finding; nothing outside the block after it.`;
+
+const WORDS_ONLY = "No pictures accompany this. Nothing here has been seen rendered: anything you conclude about layout, colour, overflow or type size is inferred from the words, and you say so where you rely on it.";
+
+const REVISION_KINDS = new Set(["blocks", "contradiction", "missing", "fights", "cost", "note"]);
+interface Revision { target: string; kind: string; finding: string; prompt: string }
+
+/** The revisions block out of an answer, and the answer without it. */
+function splitRevisions(text: string): { text: string; revisions: Revision[] } {
+  const re = /```json\s+revisions\s*\n([\s\S]*?)\n```\s*$/i;
+  const m = re.exec(text);
+  if (!m) return { text, revisions: [] };
+  try {
+    const parsed = JSON.parse(m[1]!) as { revisions?: unknown };
+    const list = Array.isArray(parsed.revisions) ? parsed.revisions : [];
+    const revisions = list
+      .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+      .map((r) => ({
+        target: String(r.target ?? "").slice(0, 200),
+        kind: REVISION_KINDS.has(String(r.kind)) ? String(r.kind) : "note",
+        finding: String(r.finding ?? "").slice(0, 2000),
+        prompt: String(r.prompt ?? "").slice(0, 6000),
+      }))
+      .filter((r) => r.target && (r.finding || r.prompt))
+      .slice(0, 80);
+    return { text: text.slice(0, m.index).trimEnd(), revisions };
+  } catch {
+    return { text, revisions: [] };
+  }
+}
 
 interface PictureIn { data?: string; mediaType?: string; label?: string }
 
@@ -131,8 +171,10 @@ export async function POST(request: Request) {
       content.push({ type: "image", source: { type: "base64", media_type: p.mediaType, data: p.data } });
     }
   }
+  if (!pictures.length) content.push({ type: "text", text: WORDS_ONLY });
+  const wantsRevisions = mode === "critique" || mode === "expand" || mode === "finish";
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
-  content.push({ type: "text", text: `${ask}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}\n\n---\n\n${markdown}` });
+  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}\n\n---\n\n${markdown}` });
 
   const client = new Anthropic({ apiKey });
 
@@ -156,16 +198,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined this request. Adjust the blueprint and try again." });
     }
 
-    const text = message.content
+    const raw = message.content
       .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
       .map((block) => block.text)
       .join("\n")
       .trim();
+    const { text, revisions } = wantsRevisions ? splitRevisions(raw) : { text: raw, revisions: [] };
 
     return NextResponse.json({
       ok: true,
       mode,
       text,
+      revisions,
       pictures: pictures.length,
       truncated: message.stop_reason === "max_tokens",
       usage: { input: message.usage.input_tokens, output: message.usage.output_tokens, model: message.model },

@@ -13,6 +13,11 @@ import { describeSketch, isBlankSketch, normaliseSketch, sketchToText } from "@/
  * proportion, the kind of part if the drawing is plainly something else, and
  * whatever the drawing shows inside the shape as contents and options.
  *
+ * The library goes first and is marked for caching: it is the same on every
+ * call, so after the first it is read from the cache and only the drawing is
+ * new. The answer is streamed and assembled here, so a slow read never runs
+ * into the request timeout.
+ *
  * Optional, like the blueprint route: with no `ANTHROPIC_API_KEY` this comes
  * back as HTTP 200 with `ok: false` and a reason, and the board reshapes the
  * part from the drawing's proportion on its own. The key is never
@@ -61,23 +66,24 @@ interface Body {
 }
 
 /**
- * What comes back. Every field is optional; the board checks each one against
- * the catalog.
+ * What comes back. Every field is optional but the size and the note; the
+ * board checks each one against the catalog (`reshape.ts`).
  *
  * Structured output only takes `additionalProperties: false` on an object, so
  * the options are a list of id–value pairs here and folded into the record the
  * board expects before the answer goes back. A map with open keys was rejected
  * by the API with a 400, which read on the board as the drawing doing nothing.
+ * `tests/reshape-schema.mjs` holds this to the rule.
  */
 const ANSWER_SCHEMA = {
   type: "object",
   properties: {
-    featureId: { type: "string", description: "The id of the part this should be, from the library. Keep the current one unless the drawing is plainly a different kind of part." },
-    label: { type: "string", description: "A short plain name for the part, only if it should change." },
+    featureId: { type: "string", description: "The id of the part this should be, from the library. Keep the current one unless the drawing is plainly a different kind of part. For a new part, the id the drawing and the words fit best." },
+    label: { type: "string", description: "A short plain name for the part: only if it should change, or for a new part." },
     w: { type: "number", description: "Width in pixels inside the page frame, in the drawing's proportion." },
     h: { type: "number", description: "Height in pixels, in the drawing's proportion." },
     content: { type: "string", description: "What the part contains, as a comma-separated list or a line of text, if the drawing shows it (three boxes in a row, a list of lines, a field and a button)." },
-    prompt: { type: "string", description: "One or two sentences for the builder about this part's shape and what the drawing shows, in the author's terms. Keep what the current prompt says unless the drawing contradicts it." },
+    prompt: { type: "string", description: "One or two sentences for the builder about this part's shape and what the drawing shows, in the author's terms. Keep what the current prompt says unless the drawing contradicts it. A new part always gets one." },
     options: {
       type: "array",
       description: "Option values to set, only ids and values the part offers.",
@@ -102,11 +108,11 @@ const SYSTEM = `You read a rough freehand drawing made on a round drawing board 
 The board is a disc; the picture shows it as a circle with the strokes inside it. The strokes are also given as numbers, in percent of the board's width, so the shape can be read off them when the picture is ambiguous. The author drew the shape they want the part to have — its proportion first of all, and sometimes what it holds: boxes inside a box are items in a row or a grid, a line of short marks is a list or a row of links, a small box beside a long one is a button beside a field, an arrow or a triangle at one end is a dropdown.
 
 Rules:
-- The drawing's proportion (width over height) is the part's proportion. Keep the part's area roughly what it was unless the drawing or the words say otherwise; a new part gets a size sensible for its kind, no wider than the frame.
-- Keep the part's kind unless the drawing is plainly something else, in which case pick the closest id from the library list. Never invent an id.
+- The drawing's proportion (width over height) is the part's proportion: answer with a width and a height in that proportion. Keep the part's area roughly what it was unless the drawing or the words say otherwise.
+- Keep the part's kind unless the drawing is plainly something else, in which case pick the closest id from the library. Never invent an id.
+- A new part has nothing to keep. Pick the library id the drawing and the words fit best — custom-idea only when nothing else fits — and give it a name and a prompt. Read the board as the page for its size: a drawing across a third of the board is a part across a third of the frame, no wider than the frame.
 - Only set options the part offers, with values it offers. Only write contents when the drawing or the words show what the part holds.
-- The words beside the drawing win over your reading of the picture.
-- Answer with the JSON object only.`;
+- The words beside the drawing win over your reading of the picture.`;
 
 /**
  * The key to use: the server's if it has one, otherwise whatever the browser
@@ -143,7 +149,7 @@ export async function POST(request: Request) {
   }
   const frameWidth = Number.isFinite(body.frameWidth) ? Math.max(200, Math.min(4000, body.frameWidth as number)) : 1440;
   const node = body.node ?? null;
-  const candidates = (body.candidates ?? []).slice(0, 400);
+  const candidates = (Array.isArray(body.candidates) ? body.candidates : []).filter((c) => c && typeof c.id === "string").slice(0, 400);
   const picture = typeof body.picture === "string" && /^[A-Za-z0-9+/=]+$/.test(body.picture) && body.picture.length < 400_000 ? body.picture : null;
 
   const lines: string[] = [];
@@ -161,25 +167,31 @@ export async function POST(request: Request) {
     if (node.optionsAllowed?.length) {
       lines.push("- options this part offers:");
       for (const o of node.optionsAllowed) lines.push(`    ${o.id} (${o.label}, ${o.kind === "set" ? "any number of" : "one of"}): ${o.values.join(" | ")}`);
+    } else {
+      lines.push("- this part offers no options");
     }
   } else {
     lines.push("", "There is no part yet: the drawing is a new part, to be placed where the board was opened.");
   }
-  lines.push("", `The drawing, measured: ${describeSketch(sketch)}.`);
+  // The words go in once, on their own line; the measurement leaves them out.
+  lines.push("", `The drawing, measured: ${describeSketch({ strokes: sketch.strokes, words: "" })}.`);
   lines.push("", "The strokes, in percent of the board:", sketchToText(sketch));
   if (sketch.words.trim()) lines.push("", `Words the author typed beside it: "${sketch.words.trim()}"`);
-  if (candidates.length) {
-    lines.push("", "The library (id — name · category · default size):");
-    for (const c of candidates) lines.push(`${c.id} — ${c.name} · ${c.category} · ${c.w}×${c.h}`);
-  }
 
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  if (candidates.length) {
+    // The same text on every call, first, so it is the cached prefix.
+    const library = ["The library (id — name · category · default size · what it is):", ...candidates.map((c) => `${c.id} — ${c.name} · ${c.category} · ${c.w}×${c.h}${c.blurb ? ` · ${String(c.blurb).slice(0, 140)}` : ""}`)].join("\n");
+    content.push({ type: "text", text: library, cache_control: { type: "ephemeral" } });
+  }
   if (picture) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture } });
   content.push({ type: "text", text: lines.join("\n") });
 
   const client = new Anthropic({ apiKey });
   try {
-    const message = await client.beta.messages.create({
+    // Streamed and assembled here: the answer is short, but the reading
+    // before it is not always, and a long pause must not become a timeout.
+    const stream = client.beta.messages.stream({
       model: "claude-opus-5",
       // Thinking counts toward this, so it has to be roomy even though the answer is short.
       max_tokens: 16000,
@@ -190,6 +202,7 @@ export async function POST(request: Request) {
       system: SYSTEM,
       messages: [{ role: "user", content }],
     });
+    const message = await stream.finalMessage();
 
     if (message.stop_reason === "refusal") {
       return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to read this drawing." });
@@ -211,7 +224,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       patch,
-      usage: { input: message.usage.input_tokens, output: message.usage.output_tokens, model: message.model },
+      usage: {
+        input: message.usage.input_tokens,
+        output: message.usage.output_tokens,
+        cached: message.usage.cache_read_input_tokens ?? 0,
+        model: message.model,
+      },
     });
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError) {
@@ -220,8 +238,10 @@ export async function POST(request: Request) {
     if (error instanceof Anthropic.RateLimitError) {
       return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited — try again in a moment." });
     }
-    const detail = error instanceof Anthropic.APIError ? `${error.status}: ${error.message}` : error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ ok: false, reason: "error", message: `Couldn't read the drawing (${detail}).` });
+    if (error instanceof Anthropic.APIError) {
+      return NextResponse.json({ ok: false, reason: "api", message: `Couldn't read the drawing (${error.status}: ${error.message}).` });
+    }
+    return NextResponse.json({ ok: false, reason: "error", message: `Couldn't read the drawing (${error instanceof Error ? error.message : "unknown error"}).` });
   }
 }
 

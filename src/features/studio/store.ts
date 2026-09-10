@@ -146,6 +146,47 @@ export interface StudioBrief {
   master: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* The prompts' paper trail                                            */
+/* ------------------------------------------------------------------ */
+
+/** What Claude found wrong, or missing, about one target — and the words that would fix it. */
+export type RevisionKind = "blocks" | "contradiction" | "missing" | "fights" | "cost" | "note";
+export interface Revision {
+  /** "site", "page: Home", or an element's name as the brief printed it. */
+  target: string;
+  kind: RevisionKind;
+  finding: string;
+  /** The revised prompt for that target, complete, or empty when the fix is not a prompt. */
+  prompt: string;
+}
+
+export type TrailStage = "author" | "critique" | "final";
+export type TrailTargetKind = "site" | "page" | "node" | "group" | "loose";
+export interface TrailTarget { kind: TrailTargetKind; id: string; label: string }
+/**
+ * One step in a prompt's life: what the author wrote (`author`), what Claude
+ * said about it (`critique`, carrying the prompt it proposed), and what the
+ * author accepted (`final`). Each step points at the one it answers, so the
+ * trail reads account to account: this was said, this was found, this is
+ * what stands now.
+ */
+export interface TrailEntry {
+  id: string;
+  at: number;
+  stage: TrailStage;
+  target: TrailTarget;
+  text: string;
+  parentId: string | null;
+  /** critique only: the prompt Claude proposed. */
+  prompt?: string;
+  kind?: RevisionKind;
+  mode?: string;
+  model?: string;
+  /** critique only: whether its prompt was applied. */
+  applied?: boolean;
+}
+
 interface Doc {
   pages: StudioPage[];
   nodes: StudioNode[];
@@ -229,6 +270,8 @@ interface StudioState extends Doc {
    * Closed to start: it floats over the board, and a panel that covers a resize
    * handle you cannot see is worse than one click to open it. */
   companion: { device: "phone" | "tablet"; x: number; y: number; open: boolean };
+  /** Every prompt as written, critiqued and revised. Not part of undo: it is the record of the document, not the document. */
+  trail: TrailEntry[];
   past: Doc[];
   future: Doc[];
 
@@ -318,6 +361,11 @@ interface StudioState extends Doc {
   moveTexture: (id: string, delta: number) => void;
   mergeTexture: (id: string, src: string) => void;
   clearPage: (pageId: string) => void;
+  /** Keep what Claude found, each finding beside the prompt it was about. */
+  recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
+  /** Take a critique's proposed prompt as the prompt, and note that it was taken. */
+  applyRevision: (entryId: string) => void;
+  clearTrail: () => void;
   resetAll: () => void;
   loadDoc: (doc: Partial<Doc>) => void;
   undo: () => void;
@@ -346,6 +394,40 @@ export function placeInFrame(x: number, y: number, w: number, frameWidth: number
     x: Math.round(w >= frameWidth ? 0 : Math.min(Math.max(0, x), frameWidth - w)),
     y: Math.round(Math.max(0, y)),
   };
+}
+
+const TRAIL_LIMIT = 400;
+
+/** Which prompt a revision is about, from the name the brief printed for it. */
+function resolveTarget(s: Pick<StudioState, "brief" | "pages" | "nodes" | "groups">, target: string): TrailTarget {
+  const t = target.trim();
+  const low = t.toLowerCase();
+  if (!t || low === "site" || low === "the site" || low === "master" || low === "the idea") return { kind: "site", id: "site", label: s.brief.name.trim() || "The site" };
+  const pm = /^page\s*[:—–-]\s*(.+)$/i.exec(t);
+  if (pm) {
+    const want = pm[1]!.trim().toLowerCase();
+    const page = s.pages.find((p) => p.name.trim().toLowerCase() === want || p.path.toLowerCase() === want);
+    if (page) return { kind: "page", id: page.id, label: page.name };
+  }
+  const exact = (label: string) => label.trim().toLowerCase() === low;
+  const node = s.nodes.find((n) => exact(n.label)) ?? s.nodes.find((n) => n.label.trim().length > 2 && low.includes(n.label.trim().toLowerCase()));
+  if (node) return { kind: "node", id: node.id, label: node.label };
+  const group = s.groups.find((g) => exact(g.label));
+  if (group) return { kind: "group", id: group.id, label: group.label };
+  const page = s.pages.find((p) => exact(p.name));
+  if (page) return { kind: "page", id: page.id, label: page.name };
+  return { kind: "loose", id: `loose:${low}`, label: t };
+}
+
+/** The prompt that target carries right now. */
+function promptOf(s: Pick<StudioState, "brief" | "pages" | "nodes" | "groups">, t: TrailTarget): string {
+  switch (t.kind) {
+    case "site": return s.brief.master.trim();
+    case "page": return s.pages.find((p) => p.id === t.id)?.prompt.trim() ?? "";
+    case "node": return s.nodes.find((n) => n.id === t.id)?.prompt.trim() ?? "";
+    case "group": return s.groups.find((g) => g.id === t.id)?.prompt.trim() ?? "";
+    default: return "";
+  }
 }
 
 function snapshot(s: StudioState): Doc {
@@ -419,6 +501,7 @@ export const useStudio = create<StudioState>()(
         hiddenFeatures: [],
         mode: "design",
         companion: { device: "phone", x: -18, y: -18, open: false },
+        trail: [],
         past: [],
         future: [],
 
@@ -869,6 +952,56 @@ export const useStudio = create<StudioState>()(
           set((s) => ({ brief: { ...s.brief, ...patch } }));
         },
 
+        recordAsk: ({ mode, model, revisions }) => {
+          if (!revisions.length) return;
+          set((s) => {
+            const now = Date.now();
+            const entries = [...s.trail];
+            for (const r of revisions) {
+              const target = resolveTarget(s, r.target);
+              const text = promptOf(s, target);
+              // The prompt as it stood when it was sent, kept once; a later ask
+              // on the same unchanged words joins the same account.
+              let author = [...entries].reverse().find((e) => e.stage !== "critique" && e.target.kind === target.kind && e.target.id === target.id && e.text === text);
+              if (!author) {
+                author = { id: uid("t"), at: now, stage: "author", target, text, parentId: null };
+                entries.push(author);
+              }
+              entries.push({
+                id: uid("t"), at: now, stage: "critique", target, text: r.finding.trim(), prompt: r.prompt.trim(),
+                kind: r.kind, mode, model, parentId: author.id, applied: false,
+              });
+            }
+            return { trail: entries.slice(-TRAIL_LIMIT) };
+          });
+        },
+
+        applyRevision: (entryId) => {
+          const s = get();
+          const e = s.trail.find((x) => x.id === entryId);
+          if (!e || e.stage !== "critique" || !e.prompt || e.applied) return;
+          const t = e.target;
+          const prompt = e.prompt;
+          push();
+          set((st) => {
+            const patch: Partial<StudioState> =
+              t.kind === "site" ? { brief: { ...st.brief, master: prompt } }
+              : t.kind === "page" ? { pages: st.pages.map((p) => (p.id === t.id ? { ...p, prompt } : p)) }
+              : t.kind === "node" ? { nodes: st.nodes.map((n) => (n.id === t.id ? { ...n, prompt } : n)) }
+              : t.kind === "group" ? { groups: st.groups.map((g) => (g.id === t.id ? { ...g, prompt } : g)) }
+              : {};
+            return {
+              ...patch,
+              trail: [
+                ...st.trail.map((x) => (x.id === entryId ? { ...x, applied: true } : x)),
+                { id: uid("t"), at: Date.now(), stage: "final" as const, target: t, text: prompt, parentId: entryId },
+              ].slice(-TRAIL_LIMIT),
+            };
+          });
+        },
+
+        clearTrail: () => set({ trail: [] }),
+
         clearPage: (pageId) => {
           push();
           set((s) => ({
@@ -881,7 +1014,7 @@ export const useStudio = create<StudioState>()(
 
         resetAll: () => {
           push();
-          set({ ...starterDoc(), activePageId: "page_home", selection: [] });
+          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [] });
         },
 
         loadDoc: (doc) => {
@@ -949,6 +1082,7 @@ export const useStudio = create<StudioState>()(
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           hiddenFeatures: p.hiddenFeatures ?? [],
+          trail: Array.isArray(p.trail) ? p.trail : [],
           look: (() => {
             const look = { ...emptyLook(), ...(p.look ?? {}) };
             // The target used to be one switch for the whole stack; each layer
@@ -982,6 +1116,7 @@ export const useStudio = create<StudioState>()(
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,
+        trail: s.trail,
         companion: s.companion,
         menuShape: s.menuShape,
         menuSpin: s.menuSpin,
