@@ -32,7 +32,9 @@ export interface ReshapePatch {
 export interface OptionAllowed {
   id: string;
   values: string[];
-  kind?: "one" | "set";
+  kind?: "one" | "set" | "range";
+  /** For a range: the ends the answer is held to. */
+  range?: { min: number; max: number };
 }
 
 /** What the check needs to know about a kind of part: the catalog entry, without the icon. */
@@ -158,7 +160,14 @@ export function allowedOptions(proposed: unknown, allowed: OptionAllowed[], curr
   for (const [k, v] of entries) {
     const opt = allowed.find((o) => o.id === k);
     if (!opt || typeof v !== "string") continue;
-    if (opt.kind === "set") {
+    if (opt.kind === "range") {
+      // A range is a number, not a name: anything that parses is allowed,
+      // clamped to the slider's own ends, and anything else is dropped.
+      const n = Number.parseFloat(v);
+      if (!Number.isFinite(n)) continue;
+      const r = opt.range ?? { min: -Infinity, max: Infinity };
+      next[k] = String(Math.round(Math.max(r.min, Math.min(r.max, n)) * 100) / 100);
+    } else if (opt.kind === "set") {
       const picked = v.split(",").map((x) => x.trim()).filter((x) => opt.values.includes(x));
       if (picked.length) next[k] = picked.join(", ");
     } else {

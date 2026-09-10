@@ -119,6 +119,15 @@ const tabs = { featureId: "tabs-panel", label: "Product tabs", prompt: "Three ta
   check("a library kind with no name or words is called what the library calls it", bare.label === "Search" && bare.prompt === null, bare.label);
 }
 
+/* 6b. A range option is a number on a slider, held to its ends. */
+{
+  const dial = [{ id: "hue", kind: "range", values: ["96"], range: { min: 0, max: 360 } }, { id: "rings", values: ["two", "one", "none"] }];
+  check("a number inside the ends is set", allowedOptions({ hue: "210" }, dial, {}).hue === "210");
+  check("a number past the end is brought back to it", allowedOptions({ hue: "900" }, dial, {}).hue === "360", JSON.stringify(allowedOptions({ hue: "900" }, dial, {})));
+  check("a value that is not a number leaves what was set", allowedOptions({ hue: "very green" }, dial, { hue: "96" }).hue === "96");
+  check("a list option beside a range still takes names only", allowedOptions({ rings: "four" }, dial, {}).rings === undefined);
+}
+
 /* 7. The boundary rule: the outline is the part's edge, the part fills it, nothing crosses it. */
 {
   // A box three times wider than tall with two boxes drawn inside it.

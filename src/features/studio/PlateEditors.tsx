@@ -323,6 +323,27 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
               </Row>
             );
           }
+          if (opt.kind === "range") {
+            const r = opt.range ?? { min: 0, max: 100, step: 1 };
+            const fallback = Number.parseFloat(opt.values[0] ?? "0") || 0;
+            const at = Number.parseFloat(node.options[opt.id] ?? "");
+            const now = Number.isFinite(at) ? Math.max(r.min, Math.min(r.max, at)) : fallback;
+            return (
+              <Row key={opt.id} label={`${opt.label} · ${now}${r.unit ?? ""}`}>
+                <input
+                  type="range"
+                  min={r.min}
+                  max={r.max}
+                  step={r.step ?? 1}
+                  value={now}
+                  aria-label={opt.label}
+                  onChange={(e) => update({ options: { ...node.options, [opt.id]: e.target.value } })}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+                  style={{ background: `linear-gradient(to right, ${SCREEN.ink} ${((now - r.min) / Math.max(1e-6, r.max - r.min)) * 100}%, ${SCREEN.key} 0%)` }}
+                />
+              </Row>
+            );
+          }
           const value = node.options[opt.id] ?? opt.values[0]!;
           return (
             <Row key={opt.id} label={opt.label}>

@@ -1028,6 +1028,13 @@ export const useStudio = create<StudioState>()(
               shapes: doc.shapes ?? s.shapes,
               format: { ...formatDefaults(), ...(doc.format ?? {}) },
               brief: { ...s.brief, ...(doc.brief ?? {}) },
+              // The look and the behaviours are the document too. Leaving
+              // them out meant a published site came back in the template's
+              // colours: the palette, the texture stack, the lamp and every
+              // tier-B behaviour were dropped on the way in, and the page
+              // that had been designed dark green arrived default purple.
+              look: doc.look ? { ...emptyLook(), ...doc.look } : s.look,
+              motion: doc.motion ?? s.motion,
               activePageId: pages[0]!.id,
               selection: [],
             };

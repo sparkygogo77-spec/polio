@@ -7,11 +7,16 @@ import * as React from "react";
 import { Fill, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
 import { boxStyles, cardStyle, FAMILY, items, titled } from "./theme";
-import { opt, type PartProps } from "./types";
+import { num, opt, type PartProps } from "./types";
 
 /** Paragraphs, quotes, drop caps, highlights — one component, several looks. */
 export function Prose({ id, content, theme: t, mode }: PartProps) {
-  const paras = items(content, [sample.sentence(rng(hash(id)), 22), sample.sentence(rng(hash(id + "2")), 18)]);
+  // Paragraphs break on lines, and only on lines. A comma inside prose is
+  // punctuation, not a separator: "for the builders, believers, and bold
+  // thinkers" was being drawn as three paragraphs, one clause each, which is
+  // what the shared comma split does to every real sentence it is given.
+  const typed = content.split("\n").map((x) => x.trim()).filter(Boolean);
+  const paras = typed.length ? typed : [sample.sentence(rng(hash(id)), 22), sample.sentence(rng(hash(id + "2")), 18)];
   const quote = id === "pull-quote";
   const dropCap = id === "drop-cap";
   const kinetic = id === "kinetic-type";
@@ -30,8 +35,21 @@ export function Prose({ id, content, theme: t, mode }: PartProps) {
   }
 
   const scale = id === "heading-scale" || id === "fluid-type";
+  /*
+   * A hair of room on the left when the box style has none: `Fill` clips what
+   * leaves its box, and text set flush against the edge loses the side
+   * bearing of its first glyph — a capital B came out looking like a small
+   * one on every plain paragraph, which is most of them.
+   */
+  const box = boxStyles(t);
   return (
-    <Fill t={t} data-part={id} style={{ ...boxStyles(t), overflow: "auto" }}>
+    /*
+     * A hair of room on the left: `Fill` clips what leaves its box, and text
+     * set flush against the edge loses the side bearing of its first glyph —
+     * a capital B came out looking like a lowercase one on every paragraph
+     * whose box style is plain, which is most of them.
+     */
+    <Fill t={t} data-part={id} style={{ ...box, overflow: "auto", paddingLeft: Math.max(2, Number(box.padding ?? 0)) }}>
       <div style={{ maxWidth: t.measurePx, textAlign: t.textAlign, display: "flex", flexDirection: "column", gap: t.fontPx * 0.7 }}>
         {scale ? (
           <>
@@ -169,6 +187,42 @@ export function ArticleList({ id, content, theme: t, onNavigate, w }: PartProps)
           </button>
         );
       })}
+    </Fill>
+  );
+}
+
+/**
+ * The eyebrow: the small line of type that sits over a heading and says
+ * which part of the argument you are in.
+ *
+ * It is a heading's label rather than a heading, so it is set small, wide
+ * and upper case, usually in the monospace face, and a rule runs off it to
+ * the edge of nothing in particular. The rule is the whole reason this is a
+ * part and not a line of prose: it has to sit on the type's centre line and
+ * stop where the words start, at every size, which is not something a
+ * paragraph does on its own.
+ */
+export function Eyebrow({ id, content, options, theme: t }: PartProps) {
+  const text = items(content, ["Built for the next block"]).join(" · ");
+  const rule = opt(options, "rule", "before");
+  const mono = opt(options, "type", "monospace") === "monospace";
+  const tracking = num(options, "tracking", 25, 0, 60) / 100;
+  const line = (
+    <span aria-hidden style={{ display: "block", width: t.fontPx * 2.6, height: 1, background: t.accent, opacity: 0.85, flex: "none" }} />
+  );
+  return (
+    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.9, overflow: "visible" }}>
+      {rule === "before" || rule === "both" ? line : null}
+      <span
+        style={{
+          fontFamily: mono ? "ui-monospace, SFMono-Regular, Menlo, monospace" : t.headingFamily,
+          fontSize: Math.max(9, t.fontPx * 0.75), fontWeight: 600, textTransform: "uppercase",
+          letterSpacing: `${tracking}em`, color: t.accent, whiteSpace: "nowrap",
+        }}
+      >
+        {text}
+      </span>
+      {rule === "after" || rule === "both" ? line : null}
     </Fill>
   );
 }
