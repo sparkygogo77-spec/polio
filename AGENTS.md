@@ -921,6 +921,19 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   falls back to copying the blueprint; `reshape/route.ts` does the same and
   the drawing board falls back to the drawing's proportion. Never make the
   API key load-bearing.
+- **A Claude route answers within a budget of its own.** `generate` keeps
+  `ANSWER_BUDGET_MS`, a few seconds inside its `maxDuration`, and answers
+  itself when it runs out rather than being killed mid-call with nothing sent;
+  the SDK client gets `timeout` and `maxRetries: 0` inside that, so the
+  default ten-minute wait and two retries cannot outlive the function. Set
+  `STUDIO_ANSWER_BUDGET_MS` where the deployment allows less than
+  `maxDuration` asks for — a Vercel hobby plan stops a function at 60 seconds
+  whatever the file says, and a budget above the real ceiling never fires.
+  Every failure is HTTP 200 with a reason, the seconds it took, and the API's
+  own status and request id where there is one. On the other side
+  `askClaude()` takes the caller's abort signal and keeps a deadline of its
+  own, and reads the body as text before parsing, so a gateway's error page
+  reads as the timeout it is instead of a JSON parse error.
 - **Two browsers, in that order.** `api/studio/headless.ts` `findPlaywright()`
   looks for a full Playwright install first (`PLAYWRIGHT_MODULE`, the project,
   the box's own) and only when there is none falls to `playwright-core`
