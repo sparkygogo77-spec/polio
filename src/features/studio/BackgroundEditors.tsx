@@ -22,7 +22,8 @@ import {
   ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SectorButton, SHRINK, type ArcItem, type Slab,
 } from "./RingConsole";
 import { centreOf, chipsAt, runOf, SpectrumSlab, stackedRuns, wholeOf } from "./RingEditors";
-import { piece } from "./menuGeometry";
+import { carryLight } from "./LightPlacer";
+import { middleOf, piece } from "./menuGeometry";
 import { PlateQuad, SCREEN, SCREEN_FIELD } from "./PlateEditors";
 
 /** The fills the format paints under the page, as keys on a screen, each in its own colour. */
@@ -32,6 +33,82 @@ const FILLS: ArcItem[] = [
   { id: "grid", label: "Fine grid", style: keyOf(6), glyph: <Grid2x2 className="size-3" /> },
   { id: "mesh gradient", label: "Mesh gradient", style: keyOf(7), glyph: <Waves className="size-3" /> },
 ];
+/**
+ * The light editor.
+ *
+ * A component of its own rather than a branch, because it has something to do
+ * on the way in and on the way out: opening it arms the moment — the board
+ * dims, the light comes up on its button — and closing it puts the board back
+ * without touching the lamp.
+ */
+function LightEditor({ a, b, c }: { a: Slab; b: Slab; c: Slab }) {
+  const light = useStudio((st) => st.look.light);
+  const placing = useStudio((st) => st.placingLight);
+  const s = useStudio.getState;
+  const { hole, mid } = a.rings;
+  const set = (patch: Partial<typeof light>) => s().setLook({ light: { ...s().look.light, ...patch } });
+
+  React.useEffect(() => {
+    s().setPlacingLight(true);
+    return () => { if (useStudio.getState().placingLight) useStudio.getState().setPlacingLight(false); };
+  }, [s]);
+
+  // Two runs a slab, not three. Three fit on a square box and are slivers on a
+  // round one, and the wheel is for the decisions you make while looking at the
+  // page — where the lamp is, how hard it is, what colour, and whether any of
+  // it lands on the background. How far things stand off is a number you set
+  // once; it stays in the panel.
+  const [dark, tall] = stackedRuns(b, 2, 16) as [Band, Band];
+  const [warm, onPage] = stackedRuns(c, 2, 16) as [Band, Band];
+  const wash = light.wash ?? 0;
+  // Short: a caption bent round a quadrant's inner arc holds about thirteen
+  // letters, and past that the two slabs' captions run into each other across
+  // the middle of the wheel. The square layout names each band beside it, so
+  // the caption only ever has to carry the numbers.
+  const height = light.height > 0.75 ? "overhead" : light.height > 0.4 ? "angled" : "raking";
+  const placeD = piece(a.from, a.to, mid, "edge", a.shape, a.rings, SHRINK);
+  const lampD = piece(a.from, a.to, hole, mid, a.shape, a.rings, SHRINK);
+
+  return (
+    <>
+      <SectorButton
+        d={placeD}
+        at={middleOf(a.from, a.to, mid, "edge", a.shape, a.rings, 0.42)}
+        spin={a.spin}
+        label="Drag the sun"
+        icon={<Sun className="size-4" />}
+        on={placing}
+        hue={70}
+        onClick={() => useStudio.getState().setPlacingLight(true)}
+        onGrab={carryLight}
+      />
+      <SectorButton
+        d={lampD}
+        at={centreOf(a, hole, mid)}
+        spin={a.spin}
+        label={light.on ? "Lamp on" : "Lamp off"}
+        icon={<Lightbulb className="size-3.5" />}
+        on={light.on}
+        onClick={() => set({ on: !light.on })}
+      />
+
+      <ArcSlider slab={b} {...runOf(b)} {...dark} name="Shadows" label="Shadow strength"
+        value={light.strength} onChange={(f) => set({ strength: f })} />
+      <ArcSlider slab={b} {...runOf(b)} {...tall} name="Height" label="How high it hangs"
+        value={light.height} onChange={(f) => set({ height: f })} />
+      <Caption slab={b}>{`${Math.round(light.strength * 100)}% · ${height}`}</Caption>
+
+      <ArcSlider slab={c} {...runOf(c)} {...warm} name="Warmth" label="Warmth"
+        value={(((light.warmth % 360) + 360) % 360) / 360}
+        colourAt={(f) => `oklch(0.86 0.13 ${Math.round(f * 360)})`}
+        onChange={(f) => set({ warmth: Math.round(f * 360) })} />
+      <ArcSlider slab={c} {...runOf(c)} {...onPage} name="On the page" label="Light on the page"
+        value={wash} onChange={(f) => set({ wash: f })} />
+      <Caption slab={c}>{`${Math.round(light.warmth)}° · page ${Math.round(wash * 100)}%`}</Caption>
+    </>
+  );
+}
+
 /** One run on a slab: the two radii it lives between. */
 type Band = { rIn: number; rOut: number };
 
@@ -128,66 +205,22 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
    * One lamp over the page, and the two decisions worth making about it: where
    * it is, and how hard it is.
    *
-   * Where it is is not a pair of numbers anyone can picture, so the big button
-   * hands the board over instead — the workspace goes dark but the page, the
-   * pointer becomes the light, and you point at the place. The numbers are
-   * still here on the other two slabs for the times you want to nudge one.
+   * Where it is is not a pair of numbers anyone can picture, so opening this
+   * dims the board everywhere but the page and puts the light on its button,
+   * lit, waiting to be picked up. Drag it out and drop it where it goes. The
+   * numbers are still here on the other two slabs, each band with its own word
+   * beside it, for the times you want to nudge one.
+   *
+   * No screen on these slabs. The glass is for a slab you type on; under three
+   * bars it is a teal rectangle behind a control that has nothing to do with
+   * it, and the bars stop reading as bars.
    *
    * "On the page" is the setting kept deliberately apart from the rest: the
    * lamp throws shadows on its own, and whether any of its light lands on the
    * background is a separate answer, off unless it is asked for.
    */
   if (which === "bg-light") {
-    const light = look.light;
-    const placing = useStudio.getState().placingLight;
-    const setLight = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
-    const [tall, deep, dark] = stackedRuns(b, 3) as [Band, Band, Band];
-    const [warm, onPage] = stackedRuns(c, 2) as [Band, Band];
-    const wash = light.wash ?? 0;
-    const height = light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking";
-    // Placing turns the lamp on: pointing at a place is asking for one.
-    const placeD = piece(a.from, a.to, mid, "edge", a.shape, a.rings, SHRINK);
-    const lampD = piece(a.from, a.to, hole, mid, a.shape, a.rings, SHRINK);
-    return (
-      <>
-        <SectorButton
-          d={placeD}
-          at={centreOf(a, mid, "edge")}
-          spin={a.spin}
-          label="Place the light"
-          icon={<Sun className="size-3.5" />}
-          on={placing}
-          onClick={() => useStudio.getState().setPlacingLight(true)}
-        />
-        <SectorButton
-          d={lampD}
-          at={centreOf(a, hole, mid)}
-          spin={a.spin}
-          label={light.on ? "Lamp on" : "Lamp off"}
-          icon={<Lightbulb className="size-3.5" />}
-          on={light.on}
-          onClick={() => setLight({ on: !light.on })}
-        />
-
-        <ScreenFace slab={b} />
-        <ArcSlider slab={b} tone="screen" {...runOf(b)} {...tall} label="How high it hangs"
-          value={light.height} onChange={(f) => setLight({ height: f })} />
-        <ArcSlider slab={b} tone="screen" {...runOf(b)} {...deep} label="How far things stand off"
-          value={light.lift / 40} onChange={(f) => setLight({ lift: Math.round(f * 40) })} />
-        <ArcSlider slab={b} tone="screen" {...runOf(b)} {...dark} label="Shadow strength"
-          value={light.strength} onChange={(f) => setLight({ strength: f })} />
-        <Caption slab={b}>{`${height} · ${light.lift}px · ${Math.round(light.strength * 100)}%`}</Caption>
-
-        <ScreenFace slab={c} />
-        <ArcSlider slab={c} tone="screen" {...runOf(c)} {...warm} label="Warmth"
-          value={(((light.warmth % 360) + 360) % 360) / 360}
-          colourAt={(f) => `oklch(0.86 0.13 ${Math.round(f * 360)})`}
-          onChange={(f) => setLight({ warmth: Math.round(f * 360) })} />
-        <ArcSlider slab={c} tone="screen" {...runOf(c)} {...onPage} label="Light on the page"
-          value={wash} onChange={(f) => setLight({ wash: f })} />
-        <Caption slab={c}>{`Warmth ${Math.round(light.warmth)}° · page ${Math.round(wash * 100)}%`}</Caption>
-      </>
-    );
+    return <LightEditor a={a} b={b} c={c} />;
   }
 
   /* ----------------------------------------------------- the texture */

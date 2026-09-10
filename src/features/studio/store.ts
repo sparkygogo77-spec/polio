@@ -204,6 +204,8 @@ interface StudioState extends Doc {
    */
   placingLight: boolean;
   placedLight: Light | null;
+  /** Where the light is while it is being carried out of the menu, or nothing. */
+  lightCarry: { x: number; y: number } | null;
   /**
    * How far the part menu is turned, in turns (0..1).
    *
@@ -295,6 +297,8 @@ interface StudioState extends Doc {
   setPlacingLight: (v: boolean) => void;
   /** Give up on placing it and put the lamp back where it was. */
   cancelPlacingLight: () => void;
+  /** The light, mid-air between the menu and the page. */
+  setLightCarry: (at: { x: number; y: number } | null) => void;
   setMenuSpin: (turns: number) => void;
   rememberColour: (colour: string) => void;
   setCompanion: (patch: Partial<StudioState["companion"]>) => void;
@@ -399,6 +403,7 @@ export const useStudio = create<StudioState>()(
         menuShape: "square",
         placingLight: false,
         placedLight: null,
+        lightCarry: null,
         menuSpin: 0,
         recentColours: [],
         fitNonce: 0,
@@ -847,10 +852,11 @@ export const useStudio = create<StudioState>()(
         setShowWires: (v) => set({ showWires: v }),
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
         setMenuShape: (v) => set({ menuShape: v }),
-        setPlacingLight: (v) => set({ placingLight: v, placedLight: v ? get().look.light : null }),
+        setPlacingLight: (v) => set({ placingLight: v, placedLight: v ? get().look.light : null, lightCarry: null }),
+        setLightCarry: (at) => set({ lightCarry: at }),
         cancelPlacingLight: () => {
           const was = get().placedLight;
-          set({ placingLight: false, placedLight: null, ...(was ? { look: { ...get().look, light: was } } : {}) });
+          set({ placingLight: false, placedLight: null, lightCarry: null, ...(was ? { look: { ...get().look, light: was } } : {}) });
         },
         setMenuSpin: (turns) => set({ menuSpin: ((turns % 1) + 1) % 1 }),
         rememberColour: (colour) => set((s) => ({ recentColours: [colour, ...s.recentColours.filter((c) => c !== colour)].slice(0, 12) })),

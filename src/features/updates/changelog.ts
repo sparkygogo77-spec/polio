@@ -26,6 +26,20 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     version: "0.41",
+    title: "Drag the sun onto the page",
+    summary: "Opening Light dims the board and lights the sun on its button; drag it out and drop it where it goes. The bars underneath are bars again, each with its own word beside it.",
+    sketch: "planets",
+    added: [
+      "Opening Light is the whole of the arming. The board dims everywhere but the page and the sun comes up on its button, ready — there is nothing to press first. Drag the sun out and the page lights and shadows under it as it goes; let go over the page and the lamp is there, let go anywhere else and it is exactly as it was. The menu stays up the whole time, which is why the dim now sits under it: you have to be able to see the thing you are dragging out of.",
+      "A straight slider is a straight bar. The level face thickened along its run, which reads as depth on an arc — where it was designed — and on a straight bar reads as a rectangle somebody drew crooked. Square slabs get flat bars, lit up to the mark.",
+      "No screen glass under a row of sliders. The glass is for a slab you type on; under three bars it is a teal rectangle behind a control that has nothing to do with it, and the bars stop reading as bars.",
+      "Each bar has its own word beside it — Shadows, Height, Warmth, On the page — so which slider is which stops being something you count out from the caption.",
+      "An empty track is drawn in the rim's line rather than the ink's, which is darker than the slab: a slider at zero used to be invisible until something was in it.",
+      "Two runs to a slab instead of three. Three fit a square box and are slivers on a round one. How far things stand off is a number you set once, so it stays in the panel; the wheel keeps the four you decide while looking at the page.",
+    ],
+  },
+  {
+    version: "0.41",
     title: "A key with no PIN",
     summary: "The key can be held for the tab without a PIN, works where the PIN pad cannot, can be tried against Anthropic in one press; GitHub leaves the vault and the mark just opens the repository.",
     sketch: "flame",

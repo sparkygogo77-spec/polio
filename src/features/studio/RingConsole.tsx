@@ -43,6 +43,12 @@ export const CONSOLE = {
   well: "oklch(0.14 0.03 288)",
   /** A small box on a slab — a chip, a key, a tick. */
   box: "oklch(0.27 0.04 286)",
+  /**
+   * The lit part of a level bar. Bright enough to be the lit part and no
+   * brighter: a bar in the text colour is a slab of white paper on a near
+   * black console, and there are three of them on a slab.
+   */
+  level: "oklch(0.7 0.028 288)",
   aura: `oklch(0.64 0.23 ${27})`,
   on: `oklch(0.64 0.23 ${27})`,
   text: "oklch(0.92 0.02 285)",
@@ -68,6 +74,8 @@ export const SHRINK = 5;
  * the slab measures it or the two will not agree.
  */
 export const RUN_END = 11.5;
+/** How much room a run's name is given. Two short words, no more. */
+const NAME_W = 74;
 /**
  * How much further in something sits when it is set into a screen.
  *
@@ -455,7 +463,7 @@ export function GridChips({
  * past the point where the seams show.
  */
 export function ArcSlider({
-  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label, live = true, tone = "slab", ends,
+  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label, live = true, tone = "slab", ends, name,
 }: {
   slab: Slab;
   from: number;
@@ -481,6 +489,15 @@ export function ArcSlider({
   live?: boolean;
   /** On a slab, or set into a screen. */
   tone?: "slab" | "screen";
+  /**
+   * A short word for the run, drawn upright just before it starts.
+   *
+   * Three bands stacked on one slab are three bands: which one is the shadow
+   * and which one is the height is not something a caption underneath can say
+   * without naming them in order and trusting you to count. A word beside each
+   * one costs a few pixels of the gap and answers it outright.
+   */
+  name?: string;
   /**
    * How far each end is pulled in, in pixels. Defaults to the gap a run that
    * ends on the slab's own edge wants. A run that ends against *another* run —
@@ -636,14 +653,18 @@ export function ArcSlider({
         // quantity in a colour ramp said nothing about the quantity and made
         // every slab in the console green.
         if (colourAt) return <path key={i} d={stepPath(i, square ? dNear : rIn)} fill={colourAt(f)} />;
+        // A wedge that thickens along its run reads as depth on an arc, which
+        // is where it was designed. Laid out straight it does not read as an
+        // amount at all — it reads as a rectangle somebody drew crooked. So a
+        // straight bar is a straight bar: full height, lit up to the mark.
         const grown = 0.34 + 0.66 * f;
-        const near = square ? dFar - (dFar - dNear) * grown : rOut - (rOut - rIn) * grown;
+        const near = square ? dNear : rOut - (rOut - rIn) * grown;
         const lit = f <= shown;
         return (
           <path
             key={i}
             d={stepPath(i, near)}
-            fill={lit ? (screen ? SCREEN.ink : CONSOLE.text) : screen ? SCREEN.key : CONSOLE.well}
+            fill={lit ? (screen ? SCREEN.ink : CONSOLE.level) : screen ? SCREEN.key : CONSOLE.well}
             opacity={lit ? 1 : 0.9}
           />
         );
@@ -651,13 +672,45 @@ export function ArcSlider({
       <path
         d={
           square
-            ? slabRect(slab.from, x0, x1, colourAt ? dNear : dFar - (dFar - dNear) * 0.34, dFar, rings)
+            ? slabRect(slab.from, x0, x1, dNear, dFar, rings)
             : bandPath(0, 1, colourAt ? rIn : rOut - (rOut - rIn) * 0.34, rOut, ang)
         }
         fill="none"
-        stroke={screen ? SCREEN.line : CONSOLE.ink}
+        // A level bar takes the rim's line, not the ink's: the ink is darker
+        // than the slab, so an empty track drawn in it is a track you cannot
+        // see until something is in it. A spectrum keeps the dark line, since
+        // it is never empty.
+        stroke={screen ? SCREEN.line : colourAt ? CONSOLE.ink : CONSOLE.rim}
         strokeWidth={screen ? 1 : 1.5}
       />
+      {/*
+        The word for the run, square only.
+        
+        A straight bar has a gap above it that a straight word fits in exactly.
+        An arc has neither: a horizontal word over a curved band crosses it,
+        and bent round the band it is a second thing to read on the same line
+        as the amount. Round slabs name their runs in the caption instead, in
+        the order the runs are in.
+      */}
+      {name && square ? (
+        <Glued
+          // `Glued` centres its box on a point, so the anchor is pushed along
+          // by half the box: the word starts where the run starts instead of
+          // hanging half its length off the edge of the slab.
+          at={onSlab(slab.from, x0 + 2 + NAME_W / 2, dNear - 7, rings)}
+          spin={spin}
+          w={NAME_W}
+          h={11}
+          className="flex h-full w-full items-center justify-start"
+        >
+          <span
+            className="whitespace-nowrap text-[7px] font-bold uppercase tracking-wider"
+            style={{ color: screen ? SCREEN.dim : CONSOLE.muted, textShadow: "0 1px 2px oklch(0 0 0 / 0.7)" }}
+          >
+            {name}
+          </span>
+        </Glued>
+      ) : null}
       <g
         data-arc-mark=""
         style={{
@@ -838,7 +891,7 @@ export function ArcStepper({
 /* ------------------------------------------------------------------ */
 
 export function SectorButton({
-  d, at, spin, label, icon, on, onClick, hue = CONSOLE_HUE, disabled,
+  d, at, spin, label, icon, on, onClick, onGrab, hue = CONSOLE_HUE, disabled,
 }: {
   /** The sector, already cut with `piece()`. */
   d: string;
@@ -848,6 +901,12 @@ export function SectorButton({
   icon?: React.ReactNode;
   on?: boolean;
   onClick: () => void;
+  /**
+   * The button is a thing you can pick up, not only press. Given this, a press
+   * starts a drag out of it and the click never fires — for the one case where
+   * *where you let go* is the answer, and no number could have been.
+   */
+  onGrab?: (e: React.PointerEvent) => void;
   hue?: number;
   disabled?: boolean;
 }) {
@@ -868,11 +927,12 @@ export function SectorButton({
         aria-pressed={on}
         aria-disabled={disabled}
         d={d}
-        onClick={() => { if (disabled) return; play("select"); onClick(); }}
+        onPointerDown={(e) => { if (disabled || !onGrab) return; onGrab(e); }}
+        onClick={() => { if (disabled || onGrab) return; play("select"); onClick(); }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
         onPointerEnter={() => setHot(true)}
         onPointerLeave={() => setHot(false)}
-        className={disabled ? "pointer-events-auto" : "pointer-events-auto cursor-pointer outline-none"}
+        className={disabled ? "pointer-events-auto" : `pointer-events-auto outline-none ${onGrab ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
         fill={fill}
         stroke={CONSOLE.rim}
         strokeWidth={2 * 5 + 2.5}

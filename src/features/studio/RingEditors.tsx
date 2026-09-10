@@ -148,7 +148,10 @@ export const runOf = (s: Slab) => ({ from: s.from, to: s.to });
  */
 export function stackedRuns(slab: Slab, n: number, gap = 8): { rIn: number; rOut: number }[] {
   if (slab.shape === "square") return straightBands(slab.rings, n, gap);
-  const lo = slab.rings.hole + 24;
+  // Round, the runs start well clear of the caption engraved along the inner
+  // arc — which sits further out on the lower half of the wheel, where the
+  // letters hang from the line instead of standing on it.
+  const lo = slab.rings.hole + 30;
   const hi = slab.rings.reach - 9;
   const h = (hi - lo - gap * (n - 1)) / n;
   return Array.from({ length: n }, (_, i) => ({ rIn: lo + i * (h + gap), rOut: lo + i * (h + gap) + h }));

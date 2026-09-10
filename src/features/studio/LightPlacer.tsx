@@ -1,31 +1,26 @@
 "use client";
 /**
- * Putting the page's lamp down by hand.
+ * Carrying the page's lamp out of the menu and dropping it where it goes.
  *
  * A lamp has a place in a room, and the honest way to say where is to point at
- * it. So this takes the board over for a moment: everything on the workspace
- * but the page goes dark, the pointer becomes the light itself — a small warm
- * ball with its own glow — and the page underneath it lights and shadows as
- * the ball moves, before anything is committed. Press on the page to put the
- * lamp down; press anywhere else and the lamp goes back to where it was.
+ * it. So opening Light dims the board everywhere but the page — that is the
+ * whole of the mode, arrived at by opening the tab rather than by pressing
+ * anything — and the light sits on its button waiting to be picked up. Drag it
+ * out, and it is in your hand: a small warm ball with its own glow, with the
+ * page lighting and shadowing under it as it goes. Let go over the page and it
+ * is placed; let go anywhere else and the lamp is exactly as it was.
  *
- * The press does not end it. Keep hold and drag: up for heavier shadows, down
- * for lighter, with the number showing under the ball. That is one gesture for
- * the two things you actually decide about a light — where it is and how hard
- * it is — and it ends when you let go.
+ * The menu stays up the whole time, which is the reason the dim sits *under*
+ * it: you have to be able to see the thing you are dragging out of.
  *
- * What it never does is turn the page's own light on. The lamp throws shadows;
- * whether any of it lands on the background is a separate setting, off by
- * default, because a warm pool under a palette someone chose is the fastest
- * way to make that palette look like a mistake.
+ * What this never does is turn the page's own light on. The lamp throws
+ * shadows; whether any of it lands on the background is a separate setting,
+ * off by default, because a warm pool under a palette someone chose is the
+ * fastest way to make that palette look like a mistake.
  */
 import * as React from "react";
 import { play } from "@/core/audio/engine";
-import { closeRadial } from "./RadialMenu";
 import { useStudio } from "./store";
-
-/** How far you drag for the shadows to go from nothing to as dark as they get. */
-const DRAG_FOR_FULL = 260;
 
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -36,21 +31,85 @@ const rectOf = (sel: string): Rect | null => {
   return r.width > 0 && r.height > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
 };
 
+const inside = (r: Rect | null, p: { x: number; y: number }) =>
+  !!r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+/**
+ * Pick the light up.
+ *
+ * Called from whatever the light is sitting on — the button on the menu — with
+ * that button's own pointer event, so the press that starts the drag is the
+ * same press that would have been a click. The window is listened to rather
+ * than the button, because the hand leaves the button immediately and has to
+ * be followed all the way to the page.
+ */
+export function carryLight(e: React.PointerEvent) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const st = useStudio.getState;
+  if (!st().placingLight) st().setPlacingLight(true);
+  play("tap");
+
+  let dropped = false;
+  const put = (p: { x: number; y: number }, commit: boolean) => {
+    const page = rectOf("[data-frame]");
+    if (!inside(page, p) || !page) return false;
+    const light = st().look.light;
+    st().setLook({
+      light: {
+        ...light,
+        on: true,
+        x: Math.max(0, Math.min(1, (p.x - page.x) / page.w)),
+        y: Math.max(0, Math.min(1, (p.y - page.y) / page.h)),
+      },
+    });
+    if (commit) dropped = true;
+    return true;
+  };
+
+  const move = (m: PointerEvent) => {
+    const p = { x: m.clientX, y: m.clientY };
+    st().setLightCarry(p);
+    // The page lights under the ball as it passes, so what you are choosing is
+    // the thing you are looking at rather than a pair of numbers.
+    put(p, false);
+  };
+  const up = (m: PointerEvent) => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+    const landed = put({ x: m.clientX, y: m.clientY }, true);
+    st().setLightCarry(null);
+    if (landed && dropped) {
+      play("confirm");
+      st().setPlacingLight(false);
+    } else {
+      // Dropped off the page: the lamp goes back, and the light is put back on
+      // its button rather than the whole moment ending — it was a miss, not a
+      // change of mind.
+      play("close");
+      const was = st().placedLight;
+      if (was) st().setLook({ light: was });
+    }
+  };
+  st().setLightCarry({ x: e.clientX, y: e.clientY });
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+}
+
 export function LightPlacer() {
   const placing = useStudio((s) => s.placingLight);
+  const carry = useStudio((s) => s.lightCarry);
   const light = useStudio((s) => s.look.light);
-  const [page, setPage] = React.useState<Rect | null>(null);
-  const [board, setBoard] = React.useState<Rect | null>(null);
-  const [at, setAt] = React.useState<{ x: number; y: number } | null>(null);
-  // Held: where the lamp was put down, and how dark the shadows were then.
-  const held = React.useRef<{ y: number; strength: number } | null>(null);
-  const [anchor, setAnchor] = React.useState<{ x: number; y: number } | null>(null);
-
-  // The page moves under pan and zoom, so it is measured again whenever either
-  // changes as well as on the way in. Nothing can pan while this is up — the
-  // board is behind the overlay — so that is every way it can move.
   const zoom = useStudio((s) => s.zoom);
   const pan = useStudio((s) => s.pan);
+  const [page, setPage] = React.useState<Rect | null>(null);
+  const [board, setBoard] = React.useState<Rect | null>(null);
+
+  // The page moves under pan and zoom, so it is measured again whenever either
+  // changes as well as on the way in.
   React.useEffect(() => {
     if (!placing) return;
     const measure = () => {
@@ -61,12 +120,6 @@ export function LightPlacer() {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [placing, zoom, pan]);
-
-  // The wheel goes away for the duration: it is a menu about the page and it
-  // is sitting on top of the page you are about to point at.
-  React.useEffect(() => {
-    if (placing) closeRadial();
-  }, [placing]);
 
   React.useEffect(() => {
     if (!placing) return;
@@ -81,82 +134,24 @@ export function LightPlacer() {
   }, [placing]);
 
   if (!placing) return null;
-
-  const inside = (p: { x: number; y: number }) =>
-    !!page && p.x >= page.x && p.x <= page.x + page.w && p.y >= page.y && p.y <= page.y + page.h;
-
-  /** Where the pointer is on the page, as fractions, so the lamp keeps its place when the frame changes width. */
-  const onPage = (p: { x: number; y: number }) => ({
-    x: page ? Math.max(-1, Math.min(2, (p.x - page.x) / page.w)) : 0.5,
-    y: page ? Math.max(-1, Math.min(2, (p.y - page.y) / page.h)) : 0.12,
-  });
-
-  const set = (patch: Partial<typeof light>) => {
-    const st = useStudio.getState();
-    st.setLook({ light: { ...st.look.light, ...patch } });
-  };
-
-  const move = (e: React.PointerEvent) => {
-    const p = { x: e.clientX, y: e.clientY };
-    setAt(p);
-    const grip = held.current;
-    if (grip) {
-      // Up is heavier. The lamp itself stays where it was put down.
-      const next = Math.max(0, Math.min(1, grip.strength + (grip.y - p.y) / DRAG_FOR_FULL));
-      set({ strength: next });
-      return;
-    }
-    // Before it is put down the page still lights up under the ball, so what
-    // you are choosing is the thing you are looking at.
-    if (inside(p)) set({ on: true, ...onPage(p) });
-  };
-
-  const down = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    const p = { x: e.clientX, y: e.clientY };
-    if (!inside(p)) {
-      play("close");
-      useStudio.getState().cancelPlacingLight();
-      return;
-    }
-    e.currentTarget.setPointerCapture(e.pointerId);
-    play("confirm");
-    set({ on: true, ...onPage(p) });
-    held.current = { y: p.y, strength: useStudio.getState().look.light.strength };
-    setAnchor(p);
-  };
-
-  const up = () => {
-    if (!held.current) return;
-    held.current = null;
-    setAnchor(null);
-    play("select");
-    useStudio.getState().setPlacingLight(false);
-  };
-
   const warm = Math.round(light.warmth);
-  const ball = 12 + light.strength * 10;
-  const glow = 26 + light.strength * 46;
-  const ballAt = anchor ?? at;
-  const dragging = !!anchor;
+  const ball = 14 + light.strength * 10;
+  const glow = 30 + light.strength * 46;
 
   return (
-    <div
-      data-light-placer=""
-      role="application"
-      aria-label="Put the light where you want it"
-      className="fixed inset-0 z-[70] cursor-none"
-      onPointerDown={down}
-      onPointerMove={move}
-      onPointerUp={up}
-      onPointerCancel={up}
-      onContextMenu={(e) => { e.preventDefault(); useStudio.getState().cancelPlacingLight(); }}
-      style={{ touchAction: "none" }}
-    >
-      {/* The dark: the workspace, with the page cut out of it. Clipped to the
-          board, so the panels and the bars stay lit and readable. */}
+    <>
+      {/*
+        The dark: the workspace, with the page cut out of it. Clipped to the
+        board so the panels and the bars stay lit, under the menu so the light
+        can be dragged out of it, and untouchable so a press meant for the
+        board is still a press on the board.
+      */}
       {board ? (
-        <div className="pointer-events-none absolute overflow-hidden" style={{ left: board.x, top: board.y, width: board.w, height: board.h }}>
+        <div
+          data-light-dim=""
+          className="pointer-events-none fixed z-[60] overflow-hidden"
+          style={{ left: board.x, top: board.y, width: board.w, height: board.h }}
+        >
           <div
             className="absolute rounded-[3px]"
             style={{
@@ -165,7 +160,7 @@ export function LightPlacer() {
               width: page?.w ?? 0,
               height: page?.h ?? 0,
               boxShadow: "0 0 0 9999px oklch(0.05 0.01 280 / 0.86)",
-              // A hairline round the hole, in the lamp's own colour: on a dark
+              // A hairline round the hole in the lamp's own colour: on a dark
               // board a dark dim is not much of a difference, and the point of
               // the moment is that the page is the thing being lit.
               outline: `1px solid oklch(0.85 0.12 ${warm} / 0.55)`,
@@ -175,55 +170,35 @@ export function LightPlacer() {
         </div>
       ) : null}
 
-      {/* While the strength is being dragged the lamp stays where it was put
-          down and a line runs to the hand, because the lamp is not the thing
-          moving. */}
-      {anchor && at ? (
-        <svg className="pointer-events-none absolute inset-0 size-full">
-          <line
-            x1={anchor.x} y1={anchor.y} x2={at.x} y2={at.y}
-            stroke={`oklch(0.85 0.12 ${warm} / 0.5)`}
-            strokeWidth={1.5}
-            strokeDasharray="3 4"
+      {/* The light, in the hand, over everything including the menu. */}
+      {carry ? (
+        <div className="pointer-events-none fixed inset-0 z-[80]">
+          <div
+            data-light-ball=""
+            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              left: carry.x,
+              top: carry.y,
+              width: ball,
+              height: ball,
+              background: `radial-gradient(circle at 38% 34%, oklch(1 0.05 ${warm}), oklch(0.88 0.17 ${warm}) 62%, oklch(0.74 0.19 ${warm}))`,
+              boxShadow: `0 0 ${glow}px ${glow / 3}px oklch(0.9 0.17 ${warm} / 0.55), 0 0 2px 1px oklch(0.99 0.05 ${warm})`,
+            }}
           />
-        </svg>
-      ) : null}
-
-      {/* The light itself, under the hand. */}
-      {ballAt ? (
-        <div
-          data-light-ball=""
-          className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{
-            left: ballAt.x,
-            top: ballAt.y,
-            width: ball,
-            height: ball,
-            background: `radial-gradient(circle at 38% 34%, oklch(1 0.05 ${warm}), oklch(0.88 0.17 ${warm}) 62%, oklch(0.74 0.19 ${warm}))`,
-            boxShadow: `0 0 ${glow}px ${glow / 3}px oklch(0.9 0.17 ${warm} / 0.55), 0 0 2px 1px oklch(0.99 0.05 ${warm})`,
-          }}
-        />
-      ) : null}
-
-      {/* What it is doing, beside the hand rather than in a corner. */}
-      {at ? (
-        <div
-          className="pointer-events-none absolute whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
-          style={{
-            left: at.x + 16,
-            top: at.y + 14,
-            background: "oklch(0.16 0.02 280 / 0.9)",
-            color: `oklch(0.92 0.06 ${warm})`,
-            outline: "1px solid oklch(0.4 0.04 280)",
-          }}
-        >
-          {dragging
-            ? `Shadows ${Math.round(light.strength * 100)}% — drag up for more`
-            : inside(at)
-              ? "Press to put the light here"
-              : "Press to leave it as it was"}
+          <div
+            className="absolute whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+            style={{
+              left: carry.x + 16,
+              top: carry.y + 14,
+              background: "oklch(0.16 0.02 280 / 0.9)",
+              color: `oklch(0.92 0.06 ${warm})`,
+              outline: "1px solid oklch(0.4 0.04 280)",
+            }}
+          >
+            {inside(page, carry) ? "Let go to put the light here" : "Let go off the page to leave it"}
+          </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
