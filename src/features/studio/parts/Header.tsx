@@ -6,11 +6,24 @@
 import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { sample, rng, hash } from "./sample";
-import { cardStyle, items, type Theme } from "./theme";
+import { cardStyle, items, titled, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
 
 export function Header({ id, content, options, theme: t, mode, link, onNavigate, emit, w }: PartProps) {
-  const links = items(content, id === "mega-menu" ? ["Products", "Solutions", "Pricing", "Docs"] : ["Home", "Work", "About", "Contact"]);
+  /*
+   * The bar's own two words, taken out of its contents.
+   *
+   * A header is a wordmark, some links and a button, and only the links
+   * could be typed: the other two were "Logo" and "Get started" on every
+   * site ever built from this. An item written `logo: $BORB` or
+   * `button: Connect wallet` is that thing; everything else is a link, so
+   * a header typed the plain way still behaves exactly as it did.
+   */
+  const typed = items(content, id === "mega-menu" ? ["Products", "Solutions", "Pricing", "Docs"] : ["Home", "Work", "About", "Contact"]).map(titled);
+  const keyed = (key: string) => typed.find((x) => x.body && x.title.toLowerCase() === key)?.body ?? null;
+  const wordmark = keyed("logo") ?? keyed("wordmark") ?? "Logo";
+  const buttonLabel = keyed("button") ?? keyed("cta") ?? "Get started";
+  const links = typed.filter((x) => !(x.body && ["logo", "wordmark", "button", "cta"].includes(x.title.toLowerCase()))).map((x) => (x.body ? `${x.title}: ${x.body}` : x.title));
   const compact = id === "mobile-nav" || w < 640;
   const withButton = opt(options, "button", "yes") === "yes" && id !== "home-anchor" && id !== "mobile-nav";
   const [openMenu, setOpenMenu] = React.useState<number | null>(null);
@@ -20,20 +33,20 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
     setSheet(false);
     onNavigate?.({ kind: "page", target: label });
   };
-  const button = () => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: "Get started" }));
+  const button = () => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: buttonLabel }));
   const linkStyle: React.CSSProperties = { background: "transparent", border: "none", cursor: "pointer", color: t.muted, font: "inherit", fontSize: t.fontPx * 0.95, padding: `${t.fontPx * 0.3}px ${t.fontPx * 0.4}px`, borderRadius: Math.min(t.radius, 8) };
 
   if (compact) {
     return (
       <Fill t={t} data-part={id} overflow="visible" style={{ ...cardStyle(t), borderRadius: 0, borderLeft: "none", borderRight: "none", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "space-between", padding: `0 ${t.fontPx}px` }}>
-        <span style={{ fontWeight: 800, fontFamily: t.headingFamily }}>Logo</span>
+        <span style={{ fontWeight: 800, fontFamily: t.headingFamily }}>{wordmark}</span>
         <button type="button" aria-label="Menu" aria-expanded={sheet} onClick={() => setSheet(!sheet)} style={{ ...linkStyle, color: t.text, display: "flex", flexDirection: "column", gap: 4 }}>
           {[0, 1, 2].map((i) => <span key={i} style={{ display: "block", width: 20, height: 2, background: "currentColor", borderRadius: 2 }} />)}
         </button>
         {sheet && mode === "live" ? (
           <nav aria-label="Menu" style={{ position: "absolute", left: 0, right: 0, top: "100%", zIndex: 20, background: t.surface, borderBottom: `1px solid ${t.line}`, padding: t.fontPx * 0.5, display: "flex", flexDirection: "column" }}>
             {links.map((l) => <button key={l} type="button" onClick={() => go(l)} style={{ ...linkStyle, color: t.text, textAlign: "left", padding: `${t.fontPx * 0.6}px ${t.fontPx * 0.6}px` }}>{l}</button>)}
-            {withButton ? <div style={{ padding: t.fontPx * 0.6 }}><Btn t={t} label="Get started" onClick={button} style={{ width: "100%" }} /></div> : null}
+            {withButton ? <div style={{ padding: t.fontPx * 0.6 }}><Btn t={t} label={buttonLabel} onClick={button} style={{ width: "100%" }} /></div> : null}
           </nav>
         ) : null}
       </Fill>
@@ -43,7 +56,7 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
   return (
     <Fill t={t} data-part={id} overflow="visible" style={{ ...cardStyle(t), borderRadius: 0, borderLeft: "none", borderRight: "none", borderTop: "none", display: "flex", alignItems: "center", gap: t.fontPx * 1.2, padding: `0 ${t.fontPx * 1.5}px` }}>
       <button type="button" onClick={() => go("Home")} style={{ ...linkStyle, color: t.text, fontWeight: 800, fontFamily: t.headingFamily, letterSpacing: -0.3, fontSize: t.fontPx, padding: 0 }}>
-        Logo
+        {wordmark}
       </button>
       <span style={{ flex: 1 }} />
       {id === "home-anchor" ? (
@@ -66,7 +79,7 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
           ))}
         </nav>
       )}
-      {withButton ? <Btn t={t} label="Get started" onClick={button} /> : null}
+      {withButton ? <Btn t={t} label={buttonLabel} onClick={button} /> : null}
     </Fill>
   );
 }

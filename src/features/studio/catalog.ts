@@ -23,7 +23,7 @@ import {
   Gamepad2, Gauge, Ghost, GitBranch, Globe, GraduationCap, Grid2x2, Hand, Hash, Heading, Heart,
   HelpCircle, Highlighter, History as HistoryIcon, Home, Hourglass, Image as ImageIcon, Images, Inbox, Info, Keyboard,
   Languages, Layers, LayoutGrid, LayoutTemplate, Lightbulb, LineChart, Link2, List, ListOrdered,
-  Lock, LoaderCircle, Magnet, Mail, Map as MapIcon, MapPin, Menu, MessageSquare, Mic, Milestone, Minus, Monitor,
+  Lock, LoaderCircle, Magnet, Mail, Map as MapIcon, MapPin, Megaphone, Menu, MessageSquare, Mic, Milestone, Minus, Monitor,
   Moon, MousePointer2, MousePointerClick, Move, Music, Navigation as NavigationIcon, Network, Newspaper, Orbit,
   Package, Palette, PanelLeft, PanelTop, Paperclip, PenTool, Percent, PieChart, Pin, Podcast,
   Printer, Puzzle, QrCode, Quote, Radar, Radio, RefreshCw, Rocket, RotateCw, Route, Rows3, Rss,
@@ -188,6 +188,7 @@ const RAW: FeatureDef[] = [
   f("hero-scroll-cue", "Scroll hint", "hero", ChevronsDown, "A hint that there's more below.", {}),
   f("value-prop", "One-line pitch", "hero", Target, "One sentence saying what this is and who it's for.", { hint: "Say the promise in one sentence." }),
   f("cta-primary", "Main button", "hero", Rocket, "The single most important button.", { options: [emphasis] }),
+  f("invite-panel", "Invitation panel", "hero", Megaphone, "The panel a page ends on: a label, a headline and one button, in a box.", { tags: ["cta", "banner", "join", "newsletter", "footer call"] }),
   f("social-proof-strip", "Trust strip", "hero", Verified, "Logos or numbers right under the fold.", {}),
 
   /* ---------------------------------------------------------------- content */
@@ -434,6 +435,17 @@ const shape: FeatureOption = { id: "shape", label: "Shape", values: ["rounded", 
 const variant: FeatureOption = { id: "variant", label: "Variant", values: ["solid", "outline", "ghost"] };
 const btnSize: FeatureOption = { id: "size", label: "Size", values: ["medium", "small", "large"] };
 
+/**
+ * Where a display line changes colour: nowhere, at its last word, or at its
+ * last sentence. Two lines that turn on the second is what a headline on a
+ * dark page nearly always does, and it could not be said at all.
+ */
+const turnOption = (def: string): FeatureOption => ({
+  id: "turn",
+  label: "Turns colour",
+  values: [def, ...["none", "last word accent", "last word muted", "second sentence accent", "second sentence muted"].filter((v) => v !== def)],
+});
+
 const yesNo = (id: string, label: string, def: "yes" | "no"): FeatureOption => ({ id, label, values: def === "yes" ? ["yes", "no"] : ["no", "yes"] });
 
 /** Per-part overrides: real size, shape options, and what it contains. */
@@ -542,10 +554,15 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   // since it was written; only cta-primary offered them, so the other two
   // could be drawn solid and nothing else. An option a part honours and the
   // catalog does not offer is a control nobody can reach.
+  "invite-panel": {
+    w: 1280, h: 240,
+    options: [shape, turnOption("second sentence accent"), { id: "variant", label: "Button", values: ["outline", "solid"] }],
+    content: { label: "Label, heading, button", placeholder: "label: Join the transmission, heading: Stay in the loop., button: Follow on X" },
+  },
   "search-nav": { w: 420, h: 48, options: [shape, yesNo("button", "Search button", "no")], content: { label: "Searches over", placeholder: "pages, products, articles" } },
   "search-autocomplete": { w: 420, h: 48, options: [shape], content: { label: "Suggests", placeholder: "products, categories, recent searches" } },
   "ai-search": { w: 480, h: 48, options: [shape], content: { label: "Searches over", placeholder: "everything on the site" } },
-  "sticky-header": { w: 1440, h: 64, options: [{ id: "onScroll", label: "On scroll", values: ["shrink", "hide-then-show", "static", "blur"] }, yesNo("button", "Right-hand button", "yes")], content: { label: "Links", placeholder: "Home, Work, About, Contact" } },
+  "sticky-header": { w: 1440, h: 64, options: [{ id: "onScroll", label: "On scroll", values: ["shrink", "hide-then-show", "static", "blur"] }, yesNo("button", "Right-hand button", "yes")], content: { label: "Links, and the wordmark", placeholder: "logo: $BORB, Vision, Token, Community, button: Connect wallet" } },
   "mega-menu": { w: 1440, h: 64, content: { label: "Top-level items", placeholder: "Products, Solutions, Pricing, Docs" } },
   "mobile-nav": { w: 390, h: 56, content: { label: "Links", placeholder: "Home, Work, About" } },
   breadcrumbs: { w: 480, h: 32, content: { label: "Trail", placeholder: "Home, Shop, Shoes" } },
@@ -560,7 +577,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "hero-typewriter": { w: 1440, h: 480, content: { label: "Phrases it cycles through", placeholder: "Design faster, Ship sooner, Sleep better" } },
   "hero-particles": { w: 1440, h: 560, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
   "hero-3d": { w: 1440, h: 560, content: { label: "Headline, subline", placeholder: "Headline, One supporting line" } },
-  "value-prop": { w: 880, h: 120, content: { label: "The sentence", placeholder: "One line that says what this is and who it's for" } },
+  "value-prop": { w: 880, h: 120, options: [turnOption("none")], content: { label: "The sentence", placeholder: "One line that says what this is and who it's for" } },
   "cta-primary": { w: 220, h: 56, options: [shape, { id: "variant", label: "Look", values: ["solid", "outline", "ghost"] }, { id: "size", label: "Size", values: ["medium", "small", "large"] }], content: { label: "Label", placeholder: "Get started" } },
   "quick-action": { w: 180, h: 48, options: [shape, variant, btnSize], content: { label: "Label", placeholder: "Buy now" } },
   "follow": { w: 180, h: 48, options: [shape, { id: "variant", label: "Variant", values: ["outline", "solid", "ghost"] }, btnSize], content: { label: "Label", placeholder: "Follow" } },
@@ -590,7 +607,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   survey: { w: 640, h: 400, content: { label: "Questions", placeholder: "Question one, Question two" } },
   "pricing-table": { w: 1200, h: 440, content: { label: "Tier names", placeholder: "Free, Pro, Team" } },
   "product-grid": { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["4", "3", "2"] }], content: { label: "Product names", placeholder: "Optional, one per card" } },
-  "card-grid": { w: 1200, h: 460, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }], content: { label: "Card titles", placeholder: "Optional, one per card" } },
+  "card-grid": { w: 1200, h: 460, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }, { id: "card", label: "Card", values: ["boxed", "ruled", "plain"] }], content: { label: "Card titles", placeholder: "Fast by design: Move at the speed of the network" } },
   "bento-grid": { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "4", "2"] }], content: { label: "Tile titles", placeholder: "Optional, one per tile" } },
   masonry: { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }] },
   "blog-index": { w: 1200, h: 460, content: { label: "Article titles", placeholder: "Optional, one per card" } },
@@ -884,7 +901,7 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
   "hero": [
     { id: "heroes", emoji: "\ud83c\udf05", label: "Heroes", ids: ["hero-split", "hero-video", "hero-gradient", "hero-typewriter", "hero-particles", "hero-3d", "hero-scroll-cue"] },
     { id: "the-pitch", emoji: "\ud83d\udcac", label: "The pitch", ids: ["value-prop"] },
-    { id: "the-button", emoji: "\ud83d\ude80", label: "The button", ids: ["cta-primary"] },
+    { id: "the-button", emoji: "\ud83d\ude80", label: "The button", ids: ["cta-primary", "invite-panel"] },
     { id: "proof", emoji: "\ud83c\udfc5", label: "Proof", ids: ["social-proof-strip"] },
     { id: "persuasion", emoji: "\u2b50", label: "Persuasion", ids: ["testimonials", "countdown", "trust-badges", "logo-cloud"] },
   ],
