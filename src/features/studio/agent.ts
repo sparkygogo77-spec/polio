@@ -77,6 +77,31 @@ export function noKeyMessage(then: string): string {
   }
 }
 
+/**
+ * Is there a Claude key anywhere a call could use — the server's or this
+ * browser's?
+ *
+ * Asked before a run rather than after it, so a locked vault is named as the
+ * reason at the top of the banner instead of being guessed at from whatever
+ * failed next. The server never says what its key is, only whether it has
+ * one. When the question cannot be reached, the answer is yes: better to make
+ * the call and hear the route's own reason than to refuse on a hunch.
+ */
+let serverKey: { at: number; value: boolean } | null = null;
+
+export async function claudeReady(force = false): Promise<boolean> {
+  if (keyState() === "held") return true;
+  if (!force && serverKey && Date.now() - serverKey.at < 60_000) return serverKey.value;
+  try {
+    const res = await fetch("/api/keys/status", { cache: "no-store" });
+    const data = (await res.json()) as { set?: Record<string, boolean> };
+    serverKey = { at: Date.now(), value: !!data.set?.ANTHROPIC_API_KEY };
+  } catch {
+    return true;
+  }
+  return serverKey.value;
+}
+
 /** The document as the Builder saves it: what a headless browser needs to show the same site. */
 export function studioDoc(): Record<string, unknown> {
   const s = useStudio.getState();
@@ -152,18 +177,33 @@ async function thumb(dataUrl: string, width = 240): Promise<string> {
   }
 }
 
+/**
+ * How long one page may take before the browser stops waiting for it.
+ *
+ * A deployment can kill the route mid-shot, and a request nothing is ever
+ * going to answer leaves the caller on "Photographing the pages…" for good.
+ * So the wait ends here: the page counts as one the server could not do, and
+ * the ask goes on with the words.
+ */
+const SHOT_DEADLINE_MS = 90_000;
+
 /** One page, photographed on the server with the document in place. Null when the server cannot. */
 export async function screenshotPage(pageId: string, opts: { device?: Device; width?: number; signal?: AbortSignal } = {}): Promise<Picture | null> {
   const s = useStudio.getState();
   const page = s.pages.find((p) => p.id === pageId) ?? s.pages[0];
   if (!page) return null;
   const path = "/builder/preview" + (page.path === "/" ? "" : page.path);
+  const mine = new AbortController();
+  const ran = setTimeout(
+    () => mine.abort(new DOMException(`The server did not answer within ${Math.round(SHOT_DEADLINE_MS / 1000)}s.`, "TimeoutError")),
+    SHOT_DEADLINE_MS,
+  );
   const res = await fetch("/api/studio/screenshot", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ doc: studioDoc(), path, device: opts.device ?? "desktop", width: opts.width }),
-    signal: opts.signal,
-  });
+    signal: opts.signal ? AbortSignal.any([opts.signal, mine.signal]) : mine.signal,
+  }).finally(() => clearTimeout(ran));
   if (!(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
   const blob = await res.blob();
   const dataUrl = await blobToDataUrl(blob);
@@ -176,17 +216,36 @@ export async function screenshotPage(pageId: string, opts: { device?: Device; wi
   };
 }
 
-/** The first `limit` pages, photographed in order. Pages the server could not do are left out. */
-export async function screenshotPages(limit: number, device: Device, onProgress?: (done: number, total: number) => void, signal?: AbortSignal): Promise<Picture[]> {
+/**
+ * The first `limit` pages, photographed in order.
+ *
+ * Pages the server could not do are left out, and the count of the ones it
+ * simply never answered for comes back too, so the caller can say which of
+ * the two happened rather than blaming the camera for a silence.
+ */
+export async function screenshotPages(
+  limit: number,
+  device: Device,
+  onProgress?: (done: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<{ pictures: Picture[]; timedOut: number }> {
   const pages = useStudio.getState().pages.slice(0, Math.max(1, limit));
   const out: Picture[] = [];
+  let timedOut = 0;
   for (let i = 0; i < pages.length; i++) {
     signal?.throwIfAborted();
-    const p = await screenshotPage(pages[i]!.id, { device, signal }).catch(() => null);
+    // A page the server could not do is left out, but a request the caller
+    // let go of is not that: it ends the loop rather than being counted as a
+    // camera that failed.
+    const p = await screenshotPage(pages[i]!.id, { device, signal }).catch((err) => {
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+      if (err instanceof DOMException && err.name === "TimeoutError") timedOut++;
+      return null;
+    });
     if (p) out.push(p);
     onProgress?.(i + 1, pages.length);
   }
-  return out;
+  return { pictures: out, timedOut };
 }
 
 /* ------------------------------------------------------------------ */

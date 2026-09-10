@@ -42,9 +42,10 @@ export const keys = defineFeature({
   shortcuts: [{ keys: "mod+shift+k", label: "Keys", group: "Keys", run: (ctx) => ctx.togglePanel("keys") }],
   onMount: () => {
     // A vault open when the tab goes away is a vault open on a shared machine.
-    // A key held for the tab is the tab's own: sessionStorage ends with it,
-    // and pagehide also fires on a plain reload, which it should survive.
-    const shut = () => void import("./store").then((m) => { const s = m.useKeys.getState(); if (!s.held) s.lock(); });
+    // A key held for the tab — or a sealed one kept for it — is the tab's own:
+    // sessionStorage ends with it, and pagehide also fires on a plain reload,
+    // which both should survive.
+    const shut = () => void import("./store").then((m) => { const s = m.useKeys.getState(); if (!s.held && !s.kept) s.lock(); });
     window.addEventListener("pagehide", shut);
     return () => window.removeEventListener("pagehide", shut);
   },

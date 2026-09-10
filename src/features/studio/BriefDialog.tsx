@@ -19,7 +19,7 @@ import { trailToMarkdown, useLanes } from "./PromptTrail";
 import { ThreadTree, usePieces } from "./ThreadTree";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { useStudio } from "./store";
-import { askClaude, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
+import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { activeProject, useBuilds } from "@/features/builds/store";
 import { cn } from "@/core/lib/cn";
 import { useSettingValue } from "@/core/settings/useSetting";
@@ -123,13 +123,39 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     setPubResult(null);
     const ac = new AbortController();
     abort.current = ac;
+    /*
+     * The banner, in the order a reader needs it. A missing or locked key is
+     * why nothing was asked at all, so it goes first and stays there: the
+     * pictures failing is a detail underneath it, not the headline, and the
+     * old order left a locked vault reading as a broken camera.
+     */
+    const said: { key?: string; run?: string; shots?: string } = {};
+    const say = () => setNote([said.key, said.run, said.shots].filter(Boolean).join(" ") || null);
+    // The keys panel takes the focus, and this dialog closes when it loses
+    // it — which lets go of whatever request is in flight. So the panel is
+    // opened when the run is over, never during it.
+    let openKeys = false;
     try {
+      // Asked before the camera, so the reason reaches the banner even if
+      // everything after this is let go of. It does not stop the run: the
+      // call is still made and the route's own answer still wins.
+      if (!(await claudeReady())) {
+        said.key = noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.");
+        openKeys = true;
+        say();
+      }
       let pictures: Picture[] = [];
       if (sendShots && canShoot) {
         setBusy("Photographing the pages…");
-        pictures = await screenshotPages(shotPages, device, (done, total) => setBusy(`Photographing page ${done} of ${total}…`), ac.signal);
+        const shot = await screenshotPages(shotPages, device, (done, total) => setBusy(`Photographing page ${done} of ${total}…`), ac.signal);
+        pictures = shot.pictures;
         setShots(pictures);
-        if (!pictures.length) setNote("The server could not photograph the pages, so the words went alone.");
+        if (!pictures.length) {
+          said.shots = shot.timedOut
+            ? "The server never answered for the photographs, so the words went alone."
+            : "The server could not photograph the pages, so the words went alone.";
+          say();
+        }
       }
       setBusy(mode === "build" ? "Claude is writing the files…" : "Claude is working through the blueprint…");
       /*
@@ -152,8 +178,18 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         },
         { signal: ac.signal },
       );
+      // The camera step is over the moment there is an answer, whatever the
+      // answer is. Leaving it to the end left a failure that returns at once
+      // — no key, most of all — showing "Photographing the pages…" until Stop
+      // was pressed, because everything after this can be interrupted and
+      // this cannot.
+      setBusy(null);
       if (ac.signal.aborted) return;
       if (r.ok) {
+        // The call went through, so whatever was said about the key before it
+        // was wrong — the server had one after all.
+        said.key = undefined;
+        say();
         setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
         // The call landed, so it is a thread: what was asked, what came back,
         // and the board as it stood. Everything the answer goes on to do —
@@ -193,15 +229,22 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
       } else if (r.reason !== "stopped") {
         const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.") : r.message;
-        setNote(why);
-        if (r.reason === "no-key") ctx.openPanel("keys");
+        if (r.reason === "no-key") {
+          said.key = why;
+          openKeys = true;
+        } else said.run = why;
+        say();
         ctx.publish({ key: "studio:generate", title: "Generation unavailable", body: why, level: "warn", source: "studio", toast: true });
       }
     } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) setNote(err instanceof Error ? err.message : "Request failed.");
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        said.run = err instanceof Error ? err.message : "Request failed.";
+        say();
+      }
     } finally {
       setBusy(null);
       abort.current = null;
+      if (openKeys) ctx.openPanel("keys");
     }
   };
 
