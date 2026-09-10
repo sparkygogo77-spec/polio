@@ -249,7 +249,7 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
         */}
         {beside ? (
           <>
-            <SectorButton d={wholeOf(beside)} at={centreOf(beside, beside.rings.hole, "edge")} spin={beside.spin} label="Make it a prompt" icon={<Wand2 className="size-3.5" />} onClick={() => play("tap")} />
+            <SectorButton d={wholeOf(beside)} at={centreOf(beside, beside.rings.hole, "edge")} spin={beside.spin} shape={beside.shape} label="Make it a prompt" icon={<Wand2 className="size-3.5" />} onClick={() => play("tap")} />
             <Caption slab={beside}>Soon</Caption>
           </>
         ) : null}

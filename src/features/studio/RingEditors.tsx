@@ -33,7 +33,7 @@ import {
 import { useStudio, type StudioNode } from "./store";
 import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
-import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
+import { joinFor, middleOf, onCircle, piece, slabFar, slabRadius, SLAB_PAD, type Rings, type Shape } from "./menuGeometry";
 import {
   ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, RUN_END, SectorButton, SHRINK, SLAB_AURA, slabMiddle, spotOn, straightBands,
   type ArcItem, type Slab, type StepItem,
@@ -87,8 +87,9 @@ export function QuadrantConsole({
                 fill={CONSOLE.rim}
                 stroke={CONSOLE.rim}
                 strokeWidth={2 * 5 + 2.5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
+                strokeLinejoin={joinFor(s.shape)}
+                strokeMiterlimit={2}
+                strokeLinecap={s.shape === "square" ? "butt" : "round"}
                 style={{ filter: SLAB_AURA }}
               />
               <path
@@ -97,8 +98,9 @@ export function QuadrantConsole({
                 fill={face}
                 stroke={face}
                 strokeWidth={2 * 5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
+                strokeLinejoin={joinFor(s.shape)}
+                strokeMiterlimit={2}
+                strokeLinecap={s.shape === "square" ? "butt" : "round"}
                 style={{ transition: "fill 160ms ease-out, stroke 160ms ease-out" }}
               />
             </g>
@@ -115,7 +117,13 @@ export function QuadrantConsole({
  * one chip further in, still clears the caption engraved by the hole; near
  * enough in that the chips at the ends of the row stay inside the slab.
  */
-export const chipsAt = (s: Slab) => s.rings.mid + (s.rings.reach - s.rings.mid) * 0.56;
+export const chipsAt = (s: Slab) =>
+  s.shape === "square"
+    // Square: the middle of the box. The radius that reads as "well out along
+    // the band" on a ring is most of the way to the far edge of a box, which
+    // put every grid of chips down at the bottom of its panel.
+    ? slabRadius((SLAB_PAD + slabFar(s.rings)) / 2, s.rings)
+    : s.rings.mid + (s.rings.reach - s.rings.mid) * 0.56;
 /** The middle of a whole quadrant, for a button that is the whole quadrant. */
 /**
  * The middle of a piece, for the word that names it.
@@ -147,7 +155,7 @@ export const runOf = (s: Slab) => ({ from: s.from, to: s.to });
  * number deserves the whole width rather than half of it.
  */
 export function stackedRuns(slab: Slab, n: number, gap = 8): { rIn: number; rOut: number }[] {
-  if (slab.shape === "square") return straightBands(slab.rings, n, gap);
+  if (slab.shape === "square") return straightBands(slab.rings, n, gap, slab.from);
   // Round, the runs start well clear of the caption engraved along the inner
   // arc — which sits further out on the lower half of the wheel, where the
   // letters hang from the line instead of standing on it.
@@ -201,7 +209,7 @@ export function SpectrumSlab({
   /** Where two runs meet halfway along a band, they leave less room than an edge does. */
   const JOIN = 5;
   const square = slab.shape === "square";
-  const bands = square ? straightBands(slab.rings, 3) : null;
+  const bands = square ? straightBands(slab.rings, 3, 8, slab.from) : null;
   /** The band a run rides: one of the three straight ones, or the arc it was written for. */
   const on = (i: number, rIn: number, rOut: number) => bands?.[i] ?? { rIn, rOut };
   /** How far it runs: the whole width of the box, or the stretch of arc it was given. */
@@ -367,7 +375,7 @@ export function TextureQuads({
       />
       <Caption slab={pick}>{layers.length ? "Site stack" : "No site stack"}</Caption>
 
-      <SectorButton d={addD} at={addAt} spin={add.spin} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
+      <SectorButton d={addD} at={addAt} spin={add.spin} shape={add.shape} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
       {/*
         Reiterate takes the texture this part is wearing and changes *one*
         thing about it at random — the scale, the grain, the colour, the bleed,
@@ -379,7 +387,7 @@ export function TextureQuads({
       <SectorButton
         d={againD}
         at={againAt}
-        spin={again.spin}
+        spin={again.spin} shape={again.shape}
         label="Reiterate"
         icon={<Shuffle className="size-3.5" />}
         disabled={!current}

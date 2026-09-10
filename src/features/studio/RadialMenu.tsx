@@ -45,21 +45,22 @@ import {
   Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit,
   Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
+import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
 import { BackgroundEditor } from "./BackgroundEditors";
 import { readImage } from "./ImageIntake";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import {
-  BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
-  type Pt,
+  BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, joinFor, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
+  type Pt, type Shape,
 } from "./menuGeometry";
 import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { PlateEditor } from "./PlateEditors";
 import { DrawBoard } from "./DrawBoard";
 import { CONSOLE, type Slab, type TrayItem } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
-import { auraColour, newLayer, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
+import { auraColour, auraStyle, lands, newLayer, parseColor, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 
@@ -252,6 +253,8 @@ const SLOTS: Record<SlotId, Slot> = {
 };
 
 const GREEN = 148;
+/** How much smaller than the level below it the green level is cut, per edge. */
+const GREEN_SHRINK = 3;
 /**
  * The third level. Red, because it is the only colour left that is neither the
  * blue of the first level nor the green of the second, and because the two are
@@ -406,6 +409,15 @@ export function RadialMenu() {
   const [, setCarried] = React.useState(0);
   const nodes = useStudio((s) => s.nodes);
   const shape = useStudio((s) => s.menuShape);
+  /*
+   * The middle matches the outside.
+   *
+   * A round button in the middle of a square menu is the last round thing left
+   * on it, and the eye goes straight to it — the hole it sits in is a square
+   * notch now, so a disc in a square socket reads as a part from another
+   * machine. Not a hard square either: the same corner the pieces round to.
+   */
+  const hubCorner = shape === "square" ? "rounded-[6px]" : "rounded-full";
   const spin = useStudio((s) => s.menuSpin);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
@@ -414,6 +426,39 @@ export function RadialMenu() {
   // The subject: a part, or the page's background.
   const bg = open?.nodeId === BACKGROUND_ID;
   const node = open?.nodeId && !bg ? nodes.find((n) => n.id === open.nodeId) : undefined;
+
+  /*
+   * What Looks is wearing: the part's own surface, or the texture on it.
+   *
+   * The button that opens a part's looks may as well *be* the part's looks. It
+   * is cut a shade larger than the face it sits on — negative shrink, the same
+   * cutter — so the fill reaches almost the whole way out and what is left is a
+   * line of the piece's own colour round it, which is what keeps it a button.
+   *
+   * Only for a part. The page's own menu has the whole page behind it already.
+   */
+  const worn = React.useMemo(() => {
+    // The page wears its own ground and whatever texture lands on it; a part
+    // wears its surface and whatever it has been given.
+    const base = node ? overrideTheme(themeFrom(format), node.colour ?? {}, palette).surface : palette.bg;
+    const own = node?.texture && node.texture !== "none" ? layers.find((l) => l.id === node.texture) : null;
+    const site = node
+      ? (!node.texture ? layers.filter((l) => l.on && lands(l, "surfaces")) : [])
+      : layers.filter((l) => l.on && lands(l, "page"));
+    const tile = own ? [{ ...own, on: true }] : site;
+    return {
+      // Cut out to the face's own edge — negative shrink, the same cutter — so
+      // what is left round it is the piece's thin dark rim and no band of the
+      // menu's colour. A button that shows you a look should not be showing you
+      // a frame as well.
+      d: piece(QUADS[Q_BOTTOM]![0], QUADS[Q_BOTTOM]![1], BLUE_RINGS.mid, "edge", shape, BLUE_RINGS, -ROUND),
+      css: tile.length
+        ? { ...textureCss(tile, palette, base), backgroundSize: "26px 26px" }
+        : { background: base },
+      ink: inkOn(base),
+    };
+  }, [node, format, palette, layers, shape]);
+
   const activePageId = useStudio((s) => s.activePageId);
   const pages = useStudio((s) => s.pages);
   const page = pages.find((p) => p.id === activePageId) ?? pages[0]!;
@@ -722,14 +767,17 @@ export function RadialMenu() {
   const t1 = topA + (topB - topA) / 3;
   const t2 = topA + (2 * (topB - topA)) / 3;
   void topMid;
-  const level1: { slot: Slot; d: string; at: Pt }[] = [
+  const level1: { slot: Slot; d: string; at: Pt; wear?: RingPiece["wear"]; glow?: string | null }[] = [
     { slot: slots.anim, d: piece(topA, t1, B.hole, B.mid, shape, B), at: middleOf(topA, t1, B.hole, B.mid, shape, B) },
     { slot: slots.write, d: piece(t1, t2, B.hole, B.mid, shape, B), at: middleOf(t1, t2, B.hole, B.mid, shape, B) },
     { slot: slots.more, d: piece(t2, topB, B.hole, B.mid, shape, B), at: middleOf(t2, topB, B.hole, B.mid, shape, B) },
     { slot: slots.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
     { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
     { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
-    { slot: slots.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B) },
+    // Looks wears the whole of what it opens: the colour or texture on its
+    // face, and the aura round it, which is the one part of a look that is not
+    // *on* the thing but around it.
+    { slot: slots.look, d: piece(botA, botB, B.mid, "edge", shape, B), at: middleOf(botA, botB, B.mid, "edge", shape, B), wear: worn, glow: node ? auraColour(node.aura, palette) : null },
     // Delete is the whole quadrant, mirrored from the one opposite it and not
     // cut up: one slab, so it can never be hit as a sliver.
     { slot: slots.delete, d: piece(delA, delB, B.hole, "edge", shape, B), at: middleOf(delA, delB, B.hole, "edge", shape, B) },
@@ -794,10 +842,18 @@ export function RadialMenu() {
     const k = outer ? i - innerCount : i;
     const a = greenFrom + (span * k) / n;
     const b = greenFrom + (span * (k + 1)) / n;
+    const rIn = outer ? G.mid : G.hole;
+    const rOut = outer ? ("edge" as const) : G.mid;
     return {
       choice: c,
-      d: piece(a, b, outer ? G.mid : G.hole, outer ? "edge" : G.mid, shape, G),
-      at: middleOf(a, b, outer ? G.mid : G.hole, outer ? "edge" : G.mid, shape, G),
+      // Cut a shade smaller than the level it sits on. It used to reach five
+      // pixels past the console's slabs and that is enough to read as a
+      // mistake — the two levels are the same object, one on top of the other.
+      d: piece(a, b, rIn, rOut, shape, G, GREEN_SHRINK),
+      at: middleOf(a, b, rIn, rOut, shape, G),
+      // The same piece cut out to just inside its own face, for a choice that
+      // shows what it would set rather than a picture of it.
+      fill: piece(a, b, rIn, rOut, shape, G, GREEN_SHRINK - ROUND + 2),
     };
   });
 
@@ -834,13 +890,15 @@ export function RadialMenu() {
         {pull ? <PullLine pull={pull} /> : null}
 
         {!picked && !adding ? (
-          <Ring spin={spin} pieces={level1.map((p) => ({
+          <Ring spin={spin} shape={shape} pieces={level1.map((p) => ({
             id: p.slot.id,
             label: p.slot.label,
             icon: p.slot.icon,
             hue: p.slot.hue,
             d: p.d,
             at: p.at,
+            wear: p.wear,
+            glow: p.glow,
             // The inner band is too narrow for a word without it hanging over
             // the neighbours; an icon says it, and the word is on the tooltip.
             compact: p.slot.id !== "look" && p.slot.id !== "delete" && p.slot.id !== "draw",
@@ -872,7 +930,7 @@ export function RadialMenu() {
               play("open");
               setAdding(true);
             }}
-            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-[filter] hover:brightness-110 active:cursor-grabbing"
+            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center transition-[filter] hover:brightness-110 active:cursor-grabbing", hubCorner)}
             style={{ background: "oklch(0.66 0.155 205)", border: "1px solid oklch(0.44 0.14 205)", color: "oklch(0.99 0 0)", boxShadow: "0 0 10px oklch(0.7 0.16 205 / 0.45), 0 2px 6px oklch(0 0 0 / 0.5)" }}
           >
             <Plus className="size-3.5" strokeWidth={2.5} />
@@ -890,7 +948,7 @@ export function RadialMenu() {
               play(node!.locked ? "confirm" : "close");
               s().updateNode(node!.id, { locked: !node!.locked });
             }}
-            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing"
+            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center transition-colors active:cursor-grabbing", hubCorner)}
             style={{
               background: node!.locked ? `oklch(0.72 0.16 60)` : CONSOLE.face,
               border: `1px solid ${node!.locked ? "oklch(0.52 0.14 60)" : CONSOLE.rim}`,
@@ -912,7 +970,7 @@ export function RadialMenu() {
               setPicked(null);
               setSubPick(null);
             }}
-            className="pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full active:cursor-grabbing"
+            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center active:cursor-grabbing", hubCorner)}
             style={{
               background: editing ? CONSOLE.well : `oklch(0.32 0.06 ${GREEN})`,
               border: `1px solid ${editing ? CONSOLE.rim : `oklch(0.5 0.12 ${GREEN})`}`,
@@ -928,6 +986,7 @@ export function RadialMenu() {
           <div data-radial-panel={group.id} className="pointer-events-auto absolute left-0 top-0">
             <Ring
               spin={spin}
+              shape={shape}
               green
               pieces={greenPieces.map((p) => ({
                 id: p.choice.id,
@@ -944,8 +1003,14 @@ export function RadialMenu() {
                       ? <span className="block size-[18px] rounded-[4px]" style={{ background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
                       : undefined
                     : p.choice.id === "hue" ? <HueSwatch node={node!} palette={palette} />
-                      : p.choice.id === "texture" ? <TextureSwatch node={node!} palette={palette} layers={layers} />
+                      // Aura shows the aura this part has, worn the way it wears
+                      // it — the glow, the ring, the pulse — not a word for it.
+                      : p.choice.id === "aura" ? <AuraSwatch node={node!} palette={palette} />
                         : undefined,
+                // Texture wears its texture over almost the whole tile, with a
+                // line of green left round it. A fingernail swatch in the middle
+                // of a green square was a picture of the answer; this is it.
+                wear: !bg && p.choice.id === "texture" ? textureWear(p.fill, node!, palette, layers) : null,
                 glow: !bg && p.choice.id === "aura" ? auraColour(node!.aura, palette) : null,
                 onPick: () => {
                   play("select");
@@ -1117,12 +1182,40 @@ interface RingPiece {
   preview?: React.ReactNode;
   /** A colour to glow in — the piece wears the aura it would set. */
   glow?: string | null;
+  /**
+   * What this piece is *wearing*: the look it would open, painted on it.
+   *
+   * `d` is the piece cut a shade larger than the face it is drawn on, so the
+   * fill reaches almost the whole way out and leaves the piece's own colour as
+   * a line round it. `ink` is the colour its icon and word are drawn in, picked
+   * from the fill so they read on it whatever it is.
+   */
+  wear?: { d: string; css: React.CSSProperties; ink: string } | null;
   /** Nothing to do right now: drawn dimmer, still there. */
   dim?: boolean;
   onPick: () => void;
 }
 
 /** One flat colour, and a darker line round it. */
+export const LIGHT_INK = "oklch(0.99 0 0)";
+const DARK_INK = "oklch(0.15 0.02 0)";
+
+/**
+ * Which ink reads on a given fill.
+ *
+ * Not `mix-blend-mode: difference`, and not a computed complement, though both
+ * were on the table: each of them lands on the fill itself at mid grey — the
+ * difference of 0.5 with 0.5 is 0, and the complement of a neutral is the same
+ * neutral — so on exactly the fills where legibility is hardest they vanish.
+ * Lightness decides instead, which cannot fail, and a shadow the other way up
+ * carries the glyph over a texture that is light in one place and dark in the
+ * next.
+ */
+function inkOn(colour: string): string {
+  const c = parseColor(colour);
+  return !c || c.l > 0.62 ? DARK_INK : LIGHT_INK;
+}
+
 const face = (hue: number, lit: boolean) => `oklch(${lit ? 0.74 : 0.66} ${lit ? 0.17 : 0.155} ${hue})`;
 const rim = (hue: number, lit: boolean) => `oklch(${lit ? 0.38 : 0.44} ${lit ? 0.16 : 0.14} ${hue})`;
 
@@ -1140,8 +1233,9 @@ const rim = (hue: number, lit: boolean) => `oklch(${lit ? 0.38 : 0.44} ${lit ? 0
  * was chasing a number the slab had already reached. Now it *is* part of the
  * slab, and the only thing that eases is the hover nudge.
  */
-function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; spin: number }) {
+function Ring({ pieces, green, spin, shape }: { pieces: RingPiece[]; green?: boolean; spin: number; shape: Shape }) {
   const [hot, setHot] = React.useState<string | null>(null);
+  const clipId = React.useId().replace(/[^a-zA-Z0-9]/g, "");
   const nudge = (at: Pt, lit: boolean): Pt => {
     if (!lit) return [0, 0];
     const len = Math.max(1, Math.hypot(at[0], at[1]));
@@ -1179,8 +1273,9 @@ function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; s
                 fill={rim(p.hue, !!lit)}
                 stroke={rim(p.hue, !!lit)}
                 strokeWidth={faceW + EDGE * 2}
-                strokeLinejoin="round"
-                strokeLinecap="round"
+                strokeLinejoin={joinFor(shape)}
+                strokeMiterlimit={2}
+                strokeLinecap={joinFor(shape) === "miter" ? "butt" : "round"}
                 style={{
                   transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out",
                   // The Aura piece wears the aura it would set.
@@ -1193,10 +1288,33 @@ function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; s
                 fill={face(p.hue, !!lit)}
                 stroke={face(p.hue, !!lit)}
                 strokeWidth={faceW}
-                strokeLinejoin="round"
-                strokeLinecap="round"
+                strokeLinejoin={joinFor(shape)}
+                strokeMiterlimit={2}
+                strokeLinecap={joinFor(shape) === "miter" ? "butt" : "round"}
                 style={{ transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out" }}
               />
+              {p.wear ? (
+                <>
+                  <defs>
+                    <clipPath id={`${clipId}-${p.id}`}>
+                      <path d={p.wear.d} />
+                    </clipPath>
+                  </defs>
+                  {/* The look itself, cut to the shape of the piece. A texture
+                      is CSS — gradients, a tiled picture — and no SVG fill
+                      takes CSS, so it is an HTML box clipped to the path. */}
+                  <foreignObject
+                    x={-260}
+                    y={-260}
+                    width={520}
+                    height={520}
+                    clipPath={`url(#${clipId}-${p.id})`}
+                    className="pointer-events-none"
+                  >
+                    <div data-worn={p.id} style={{ width: "100%", height: "100%", ...p.wear.css }} />
+                  </foreignObject>
+                </>
+              ) : null}
               <foreignObject x={p.at[0] - wide / 2} y={p.at[1] - 18} width={wide} height={36} className="pointer-events-none overflow-visible">
                 <div
                   className="flex h-full w-full flex-col items-center justify-center gap-0.5 text-[8.5px] font-semibold leading-tight tracking-tight"
@@ -1204,8 +1322,14 @@ function Ring({ pieces, green, spin }: { pieces: RingPiece[]; green?: boolean; s
                   style={{
                     transform: `rotate(${(-spin * 360).toFixed(2)}deg)`,
                     transformOrigin: "center",
-                    color: "oklch(0.99 0 0)",
-                    textShadow: `0 1px 2px oklch(0.25 0.08 ${p.hue} / 0.75)`,
+                    // On a piece wearing a look, the ink is picked from what it
+                    // is wearing, and the shadow behind it is the other way up,
+                    // so the word survives a busy texture as well as a flat
+                    // colour.
+                    color: p.wear ? p.wear.ink : "oklch(0.99 0 0)",
+                    textShadow: p.wear
+                      ? `0 1px 2px ${p.wear.ink === LIGHT_INK ? "oklch(0 0 0 / 0.75)" : "oklch(1 0 0 / 0.7)"}`
+                      : `0 1px 2px oklch(0.25 0.08 ${p.hue} / 0.75)`,
                   }}
                 >
                   {p.preview ?? <Icon className={p.compact ? "size-[17px]" : "size-[14px]"} strokeWidth={green ? 1.9 : 2.1} />}
@@ -1243,17 +1367,50 @@ function HueSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
   );
 }
 
-function TextureSwatch({ node, palette, layers }: { node: StudioNode; palette: Palette; layers: TextureLayer[] }) {
-  const layer = node.texture && node.texture !== "none" ? layers.find((l) => l.id === node.texture) : null;
-  const style: React.CSSProperties = layer
-    ? { ...textureCss([{ ...layer, on: true }], palette, palette.surface), backgroundSize: "18px 18px" }
-    : node.texture === "none"
-      ? { background: "oklch(0.3 0.03 148)" }
-      : { background: palette.surface };
+/**
+ * A hatch, for a tile with no texture on it yet.
+ *
+ * A flat square of the surface colour is what the tile used to show when a part
+ * follows the site and the site has no texture — which is a swatch of nothing,
+ * on a button whose whole job is to say what texture this is. A fine diagonal
+ * hatch says "texture, none set" in the space a fingernail has, and it cannot
+ * be mistaken for a colour.
+ */
+const HATCH: React.CSSProperties = {
+  backgroundImage: "repeating-linear-gradient(45deg, oklch(1 0 0 / 0.22) 0 1px, transparent 1px 4px)",
+  backgroundSize: "6px 6px",
+};
+
+/**
+ * What a Texture tile wears: the tile itself, over the whole face.
+ *
+ * Following the site means wearing what the site puts on its surfaces, and
+ * wearing nothing at all means the hatch — a swatch of the surface colour is a
+ * swatch of nothing on a button whose whole job is to say what texture this is.
+ */
+function textureWear(d: string, node: StudioNode, palette: Palette, layers: TextureLayer[]): RingPiece["wear"] {
+  const own = node.texture && node.texture !== "none" ? layers.find((l) => l.id === node.texture) : null;
+  const site = !node.texture ? layers.filter((l) => l.on && lands(l, "surfaces")) : [];
+  const tile = own ? [{ ...own, on: true }] : site;
+  const base = node.texture === "none" ? "oklch(0.3 0.03 148)" : palette.surface;
+  return {
+    d,
+    css: tile.length
+      ? { ...textureCss(tile, palette, base), backgroundSize: "22px 22px" }
+      : { background: base, ...HATCH },
+    ink: inkOn(base),
+  };
+}
+
+/** The aura this part is wearing, on a block wearing it the way the part does. */
+function AuraSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
+  const worn = auraStyle(node.aura, palette, node.auraSize, node.auraStyle);
   return (
-    <span className="block size-[18px] rounded-[4px]" style={{ ...style, outline: "1px solid oklch(0 0 0 / 0.45)" }}>
-      {node.texture === "none" ? <X className="m-[3px] size-3" /> : null}
-    </span>
+    <span
+      data-aura-swatch=""
+      className="block size-[15px] rounded-[4px]"
+      style={{ background: palette.surface, outline: `1px solid ${worn ? "transparent" : "oklch(1 0 0 / 0.45)"}`, ...((worn ?? {}) as React.CSSProperties) }}
+    />
   );
 }
 

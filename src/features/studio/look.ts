@@ -117,22 +117,41 @@ export type Palette = Record<RoleId, string>;
 
 /** A palette built the way the app has always derived one, so nothing jumps when you first open the mixer. */
 export function paletteFromHue(hue: number, light: boolean): Palette {
+  /*
+   * Six roles anyone can tell apart, without lying about what they are for.
+   *
+   * They used to be one hue at six lightnesses with almost no colour in five of
+   * them, and two of those five — the page and the cards on it — were four
+   * hundredths apart. Six chips of it in a row read as one colour repeated,
+   * which is no use when the row is how you pick between them.
+   *
+   * So: the ground and the surface are pulled apart until a card is plainly a
+   * card, the muted role carries real colour instead of a rumour of it, and the
+   * highlight sits far enough round the wheel from the accent to be a second
+   * colour rather than a shade of the first.
+   *
+   * What is *not* done is making the ground bright and the text some other
+   * colour entirely. A page's background and its body text are near-neutral in
+   * every site worth reading, and a palette that starts elsewhere makes every
+   * site built on it worse. Distinct is the ask; garish is not the same ask.
+   */
+  const away = (hue + 62) % 360;
   return light
     ? {
-        bg: css({ l: 0.975, c: 0.006, h: hue }),
+        bg: css({ l: 0.955, c: 0.012, h: hue }),
         surface: css({ l: 1, c: 0, h: hue }),
-        text: css({ l: 0.25, c: 0.02, h: hue }),
-        muted: css({ l: 0.6, c: 0.015, h: hue }),
-        accent: css({ l: 0.55, c: 0.16, h: hue }),
-        highlight: css({ l: 0.72, c: 0.14, h: (hue + 40) % 360 }),
+        text: css({ l: 0.22, c: 0.024, h: hue }),
+        muted: css({ l: 0.56, c: 0.038, h: hue }),
+        accent: css({ l: 0.55, c: 0.17, h: hue }),
+        highlight: css({ l: 0.68, c: 0.16, h: away }),
       }
     : {
-        bg: css({ l: 0.17, c: 0.01, h: hue }),
-        surface: css({ l: 0.22, c: 0.012, h: hue }),
-        text: css({ l: 0.93, c: 0.01, h: hue }),
-        muted: css({ l: 0.64, c: 0.016, h: hue }),
-        accent: css({ l: 0.75, c: 0.15, h: hue }),
-        highlight: css({ l: 0.8, c: 0.14, h: (hue + 40) % 360 }),
+        bg: css({ l: 0.145, c: 0.014, h: hue }),
+        surface: css({ l: 0.26, c: 0.022, h: hue }),
+        text: css({ l: 0.95, c: 0.012, h: hue }),
+        muted: css({ l: 0.62, c: 0.042, h: hue }),
+        accent: css({ l: 0.76, c: 0.16, h: hue }),
+        highlight: css({ l: 0.82, c: 0.155, h: away }),
       };
 }
 

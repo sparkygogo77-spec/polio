@@ -73,6 +73,25 @@ if (w) {
   await page.waitForTimeout(400);
   check("clicking the wheel itself keeps it open", await wheelOpen());
 } else check("clicking the wheel itself keeps it open", false, "no wheel geometry found");
+
+/*
+ * 6. And a press on a *piece* keeps it open, pressed where the word is.
+ *
+ * A square menu's outer pieces wrap a corner of the hole, so the middle of the
+ * box that contains one is the hole — press there and you have pressed the
+ * board through the gap, which is a press that closes the menu. The word is
+ * always on the piece.
+ */
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+await openOnFrame();
+const word = page.locator("[data-radial]").getByText(/^Looks$/).first();
+if (await word.count()) {
+  const b = await word.boundingBox();
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await page.waitForTimeout(450);
+  check("pressing a piece where its word is keeps the wheel open", await wheelOpen());
+} else check("pressing a piece where its word is keeps the wheel open", false, "no Looks piece found");
 await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
 

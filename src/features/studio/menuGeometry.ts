@@ -165,14 +165,15 @@ export const walkSquare = (t: number, h: number, px: number): Pt =>
  * corner instead. That is the one place a cut is not perpendicular, and it is
  * the one place a square has nothing perpendicular to offer.
  */
-function cutInward(outer: Pt, hIn: number, hOut: number): Pt {
+function cutInward(outer: Pt, hIn: number, hOut: number): { p: Pt; mitred: boolean } {
   const [x, y] = outer;
+  const mitred = Math.max(Math.abs(x), Math.abs(y)) > hOut - hOut * 1e-6 && Math.min(Math.abs(x), Math.abs(y)) > hIn;
   const clamp = (v: number) => Math.max(-hIn, Math.min(hIn, v));
   const e = hOut * 1e-6;
-  if (y <= -hOut + e) return [clamp(x), -hIn];
-  if (x >= hOut - e) return [hIn, clamp(y)];
-  if (y >= hOut - e) return [clamp(x), hIn];
-  return [-hIn, clamp(y)];
+  if (y <= -hOut + e) return { p: [clamp(x), -hIn], mitred };
+  if (x >= hOut - e) return { p: [hIn, clamp(y)], mitred };
+  if (y >= hOut - e) return { p: [clamp(x), hIn], mitred };
+  return { p: [-hIn, clamp(y)], mitred };
 }
 
 /** Where every corner strictly between two perimeter positions sits, in order. */
@@ -216,7 +217,7 @@ function squareLabelSpot(from: number, to: number, hIn: number, hOut: number, bi
     if (score > bestScore) { bestScore = score; bestMid = mid; }
   }
   const b = atPerimeter(bestMid, hOut);
-  const a = cutInward(b, hIn, hOut);
+  const a = cutInward(b, hIn, hOut).p;
   return [a[0] * (1 - bias) + b[0] * bias, a[1] * (1 - bias) + b[1] * bias];
 }
 
@@ -268,8 +269,22 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
     if (s1 - s0 < 1) { const m = (s0 + s1) / 2; s0 = m - 0.25; s1 = m + 0.25; }
     const pFrom = atPerimeter(s0, hOut);
     const pTo = atPerimeter(s1, hOut);
-    const qFrom = cutInward(pFrom, hIn, hOut);
-    const qTo = cutInward(pTo, hIn, hOut);
+    /*
+     * The inner ends, and the seam that has to survive them.
+     *
+     * Two pieces meeting over a corner both mitre to the *same* inner corner,
+     * so however wide their seam is out at the edge it closes to nothing on the
+     * way in — and what you see along the mitre is not a gap but the two rims
+     * touching, a dark line where every other seam is a dark space. Where a cut
+     * mitres, its inner end is walked back along the inner square by the same
+     * seam, so the gap is a gap all the way down.
+     */
+    const cutFrom = cutInward(pFrom, hIn, hOut);
+    const cutTo = cutInward(pTo, hIn, hOut);
+    const nudge = (c: { p: Pt; mitred: boolean }, px: number): Pt =>
+      c.mitred ? atPerimeter(perimeterOf(c.p, hIn) + px, hIn) : c.p;
+    const qFrom = nudge(cutFrom, pad);
+    const qTo = nudge(cutTo, -pad);
     /*
      * The inner edge, which can be no edge at all.
      *
@@ -415,6 +430,19 @@ export function bandPath(u0: number, u1: number, rIn: number, rOut: number, ang:
  * are drawn to. The whole lot still sits inside the wheel's rotated group, so
  * a spun wheel carries its rows round with it.
  */
+
+/**
+ * How a piece's stroke turns a corner.
+ *
+ * The rounded corners of this menu *are* the stroke: every path is drawn inset
+ * and grown back with a wide stroke of its own colour, so a round join is what
+ * curves them. A square menu wants them sharp — the pieces are rectangles and
+ * an L or two, and a rounded inside corner on a rectangle reads as a smudge —
+ * so it mitres instead, which lands the corner exactly where the geometry put
+ * it. The angles here are right angles and forty-fives, so no mitre ever
+ * spikes.
+ */
+export const joinFor = (shape: Shape): "miter" | "round" => (shape === "square" ? "miter" : "round");
 
 /** Clear space between what is drawn on a slab and the slab's own edge. */
 export const SLAB_PAD = 11;

@@ -19,7 +19,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import {
-  bandPath, fmt, onCircle, onSlab, piece, ROUND, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
+  bandPath, fmt, joinFor, onCircle, onSlab, piece, ROUND, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
   type Pt, type Rings, type Shape,
 } from "./menuGeometry";
 
@@ -87,8 +87,14 @@ const NAME_W = 74;
 export const SCREEN_INSET = 8;
 /** The clear space a control keeps, given what it is sitting on. */
 export const padFor = (tone: "slab" | "screen"): number => SLAB_PAD + (tone === "screen" ? SCREEN_INSET : 0);
-/** The small red aura on whichever chip is picked. */
-export const PICKED = `0 0 0 2px ${CONSOLE.on}, 0 0 8px 1px oklch(0.64 0.23 27 / 0.7)`;
+/**
+ * The mark on whichever chip is picked.
+ *
+ * A line round it and a breath of light, and no more than that: it is saying
+ * "this one", not "look out". It wore a two-pixel ring and an eight-pixel glow,
+ * which on a small dark chip was more aura than chip.
+ */
+export const PICKED = `0 0 0 1.5px ${CONSOLE.on}, 0 0 4px 0 oklch(0.64 0.23 27 / 0.45)`;
 
 /**
  * The screen: a small console display set into a slab.
@@ -250,6 +256,7 @@ export function ArcChips({
   };
   const d0 = slabDepth(radius, rings, pad);
   const rows: { r: number; d: number; items: ArcItem[] }[] = [];
+
   if (n <= fits(radius, d0)) rows.push({ r: radius, d: d0, items });
   else {
     const outer = Math.min(fits(radius, d0), Math.ceil(n / 2));
@@ -257,6 +264,14 @@ export function ArcChips({
     // Just inside the first row — and no further, or it lands on the caption
     // that sits by the hole.
     rows.push({ r: radius - (size + 8), d: Math.max(pad + size / 2, d0 - pitch), items: items.slice(outer) });
+  }
+  // Square: the depth asked for is where the *block* sits, not its first row.
+  // Lifted here, before anything measures a row — a row measured at the depth
+  // it is not going to be at is a row whose width belongs to another row, and
+  // the narrowest of them was setting the spacing for all of them.
+  if (square && rows.length > 1) {
+    const lift = (pitch * (rows.length - 1)) / 2;
+    for (const row of rows) row.d += lift;
   }
   /*
    * One step for every row, so the chips line up along radii on a round wheel
@@ -316,7 +331,7 @@ export function ArcChips({
                 style={{
                   width: size,
                   height: size,
-                  transform: on ? "scale(1.18)" : undefined,
+                  transform: on ? "scale(1.09)" : undefined,
                   ...(screen ? SCREEN_KEY : {}),
                   ...item.style,
                   // A chip that wears a shadow of its own (an aura, say) keeps it under the pick.
@@ -434,7 +449,7 @@ export function GridChips({
                 style={{
                   width: size,
                   height: size,
-                  transform: on ? "scale(1.12)" : undefined,
+                  transform: on ? "scale(1.07)" : undefined,
                   ...item.style,
                   boxShadow: [on ? PICKED : `${litEdge(CONSOLE_HUE)}, 0 1px 3px oklch(0 0 0 / 0.45)`, item.style.boxShadow].filter(Boolean).join(", "),
                   outline: on ? "none" : `1px solid ${CONSOLE.ink}`,
@@ -766,11 +781,14 @@ export function slabMiddle(slab: Slab): Pt {
  * the full width of the box — which is the whole reason for stacking them
  * rather than putting two side by side.
  */
-export function straightBands(rg: Rings, n: number, gap = 8): { rIn: number; rOut: number }[] {
+export function straightBands(rg: Rings, n: number, gap = 8, from = 0): { rIn: number; rOut: number }[] {
   // Clear of the hole's notch, so every band in the stack runs the full width
-  // of the box. A stack whose first band is short reads as a mistake.
+  // of the box. A stack whose first band is short reads as a mistake. And clear
+  // of the caption, which sits along whichever edge of the box is the top on
+  // screen — the near one in two of the four boxes and the far one in the
+  // other two, because that is where "top" is in each.
   const base = rg.hole + ROUND + 8;
-  const top = slabFar(rg);
+  const top = slabFar(rg) - (slabFrame(from).sy > 0 ? 0 : 16);
   const h = (top - base - gap * (n - 1)) / n;
   return Array.from({ length: n }, (_, i) => {
     const d = base + i * (h + gap);
@@ -806,9 +824,9 @@ export function ScreenFace({ slab, inset = 6 }: { slab: Slab; inset?: number }) 
           <circle cx="1.5" cy="2" r="0.55" fill="oklch(0.62 0.1 190 / 0.09)" />
         </pattern>
       </defs>
-      <path d={d} fill={`url(#${id}g)`} stroke={SCREEN.line} strokeWidth={3} strokeLinejoin="round" />
+      <path d={d} fill={`url(#${id}g)`} stroke={SCREEN.line} strokeWidth={3} strokeLinejoin={joinFor(shape)} />
       <path d={d} fill={`url(#${id}s)`} />
-      <path d={d} fill="none" stroke="oklch(0.5 0.08 290 / 0.35)" strokeWidth={1} strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="oklch(0.5 0.08 290 / 0.35)" strokeWidth={1} strokeLinejoin={joinFor(shape)} />
     </g>
   );
 }
@@ -893,12 +911,14 @@ export function ArcStepper({
 /* ------------------------------------------------------------------ */
 
 export function SectorButton({
-  d, at, spin, label, icon, on, onClick, onGrab, hue = CONSOLE_HUE, disabled,
+  d, at, spin, shape, label, icon, on, onClick, onGrab, hue = CONSOLE_HUE, disabled,
 }: {
   /** The sector, already cut with `piece()`. */
   d: string;
   at: Pt;
   spin: number;
+  /** Which way its corners turn: sharp on a square menu, rounded on a round one. */
+  shape: Shape;
   label: string;
   icon?: React.ReactNode;
   on?: boolean;
@@ -913,6 +933,7 @@ export function SectorButton({
   disabled?: boolean;
 }) {
   const [hot, setHot] = React.useState(false);
+  const join = joinFor(shape);
   const lit = hot && !disabled;
   // The button is the slab, so at rest it wears the slab's own grey; it
   // brightens under the hand and goes red when it is on. Disabled is a
@@ -938,8 +959,9 @@ export function SectorButton({
         fill={fill}
         stroke={CONSOLE.rim}
         strokeWidth={2 * 5 + 2.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
+        strokeLinejoin={join}
+        strokeMiterlimit={2}
+        strokeLinecap={join === "miter" ? "butt" : "round"}
         style={{ transition: "fill 120ms ease-out", filter: SLAB_AURA }}
       />
       <path
@@ -948,8 +970,9 @@ export function SectorButton({
         fill={fill}
         stroke={fill}
         strokeWidth={2 * 5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
+        strokeLinejoin={join}
+        strokeMiterlimit={2}
+        strokeLinecap={join === "miter" ? "butt" : "round"}
         style={{ transition: "fill 120ms ease-out, stroke 120ms ease-out" }}
       />
       <Glued at={at} spin={spin} w={100} h={34}>
@@ -1069,16 +1092,22 @@ export function Caption({ slab, children }: { slab: Slab; children: React.ReactN
     style: { textTransform: "uppercase" as const },
   };
   if (shape === "square") {
-    // A square slab has a strip along its bottom edge, past the bite the hole
-    // takes out of the corner, that a bent word never reaches. The caption
-    // goes there and stays straight, turned back upright by whatever the
-    // wheel has been spun to — the same trick every word on a slab uses.
-    const depth = SLAB_PAD + 7;
-    const { a0, a1 } = slabRun(from, depth, rings);
-    const at = onSlab(from, (a0 + a1) / 2, depth, rings);
+    /*
+     * Top left of the panel, in every panel.
+     *
+     * Which is not the same place in the wheel's own coordinates: two of the
+     * boxes have their depth running down the screen and one has it running
+     * up, so "top" is the near edge in one and the far edge in the other. Read
+     * off the frame rather than assumed, the labels line up — before this they
+     * sat in three different corners and there was no rule you could name.
+     */
+    const { sy } = slabFrame(from);
+    const depth = sy > 0 ? SLAB_PAD + 7 : slabFar(rings) - 7;
+    const { a0 } = slabRun(from, depth, rings);
+    const at = onSlab(from, a0 + 3, depth, rings);
     return (
       <g className="pointer-events-none" data-arc-caption="" transform={`rotate(${(-spin * 360).toFixed(2)} ${fmt(at)})`}>
-        <text x={at[0]} y={at[1]} textAnchor="middle" dominantBaseline="middle" {...ink}>
+        <text x={at[0]} y={at[1]} textAnchor="start" dominantBaseline="middle" {...ink}>
           {children}
         </text>
       </g>
