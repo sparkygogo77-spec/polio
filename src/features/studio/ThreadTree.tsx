@@ -21,7 +21,7 @@
  * disagreeing with the page.
  */
 import * as React from "react";
-import { ChevronRight, Circle, GitBranch, MapPin, Scissors } from "lucide-react";
+import { ChevronRight, Circle, GitBranch, GripVertical, MapPin, Scissors } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
@@ -34,47 +34,46 @@ import { PromptTrail } from "./PromptTrail";
 /** The green a live thread glows. Dark ground, one colour, nothing else. */
 const VINE = { core: "oklch(0.92 0.2 145)", body: "oklch(0.72 0.22 148)", dim: "oklch(0.42 0.1 150)", dead: "oklch(0.3 0.02 150)" };
 
-const CARD_W = 330;
-const GAP_X = 26;
-const GAP_Y = 76;
+const CARD_W = 320;
+/**
+ * How far right a generation steps, and how far down each thread does. The
+ * step is wider than a card on purpose: the vine between two threads has to
+ * be seen, and at a step narrower than the card it runs behind the next one.
+ */
+const COL_STEP = 384;
+const ROW_STEP = 132;
+const PAD = 16;
 
-interface Placed {
-  node: ThreadNode;
-  x: number;
-  /** Set after the cards are measured. */
-  y: number;
-}
+interface Spot { x: number; y: number }
 
 /**
- * Where each thread sits: a column per leaf, a parent centred over its
- * children, a row per generation. The rows' heights come from the cards
- * themselves once they are on the page, so an opened thread pushes the ones
- * below it down instead of overlapping them.
+ * Where the threads sit before anyone moves them: a trail that reads left to
+ * right and staircases down. Every thread is one step lower than the one
+ * before it, and a child is one step further right than its parent, so the
+ * line of descent runs down and across the page the way a trail does — and a
+ * fork simply carries on down, at its own depth.
  */
-function layout(roots: ThreadNode[]): { placed: Placed[]; columns: number } {
-  const placed: Placed[] = [];
-  let column = 0;
-  const walk = (n: ThreadNode): number => {
-    if (!n.children.length) {
-      const x = column++;
-      placed.push({ node: n, x, y: 0 });
-      return x;
-    }
-    const kids = n.children.map(walk);
-    const x = (kids[0]! + kids[kids.length - 1]!) / 2;
-    placed.push({ node: n, x, y: 0 });
-    return x;
+function staircase(roots: ThreadNode[]): Map<string, Spot> {
+  const spots = new Map<string, Spot>();
+  let row = 0;
+  const walk = (n: ThreadNode) => {
+    spots.set(n.thread.id, { x: PAD + n.depth * COL_STEP, y: PAD + row * ROW_STEP });
+    row++;
+    for (const c of n.children) walk(c);
   };
   for (const r of roots) walk(r);
-  return { placed, columns: Math.max(1, column) };
+  return spots;
 }
 
 export function ThreadTree() {
   const threads = useStudio((s) => s.threads);
   const liveThreadId = useStudio((s) => s.liveThreadId);
   const trail = useStudio((s) => s.trail);
+  const spotsSaved = useStudio((s) => s.threadSpots);
   const prune = useStudio((s) => s.pruneThread);
   const standOn = useStudio((s) => s.standOn);
+  const moveThread = useStudio((s) => s.moveThread);
+  const resetSpots = useStudio((s) => s.resetThreadSpots);
 
   const [open, setOpen] = React.useState<Set<string>>(() => new Set());
   const box = React.useRef<HTMLDivElement>(null);
@@ -83,10 +82,20 @@ export function ThreadTree() {
   const [size, setSize] = React.useState({ w: 900, h: 400 });
 
   const roots = React.useMemo(() => threadTree(threads), [threads]);
-  const { placed, columns } = React.useMemo(() => layout(roots), [roots]);
   const all = React.useMemo(() => flatten(roots), [roots]);
   const byId = React.useMemo(() => new Map(threads.map((t) => [t.id, t])), [threads]);
   const loose = trail.filter((e) => !e.threadId && e.stage === "critique");
+
+  // Where each thread is: the staircase, unless it has been dragged. A thread
+  // that has been moved stays where it was put and nothing else shifts —
+  // moving one is not a re-layout.
+  const stairs = React.useMemo(() => staircase(roots), [roots]);
+  const [dragging, setDragging] = React.useState<{ id: string; at: Spot } | null>(null);
+  const spotOf = React.useCallback(
+    (id: string): Spot => (dragging?.id === id ? dragging.at : spotsSaved[id] ?? stairs.get(id) ?? { x: PAD, y: PAD }),
+    [dragging, spotsSaved, stairs],
+  );
+  const moved = Object.keys(spotsSaved).length;
 
   /** The line from a root down to the thread the board is standing on. */
   const liveLine = React.useMemo(() => {
@@ -108,33 +117,64 @@ export function ThreadTree() {
       return n;
     });
 
+  /** Dragging one card. The rest of the trail does not move. */
+  const startDrag = (id: string, e: React.PointerEvent) => {
+    const plot = grid.current;
+    if (!plot || e.button !== 0) return;
+    const origin = plot.getBoundingClientRect();
+    const from = spotOf(id);
+    const grab = { x: e.clientX - origin.left - from.x, y: e.clientY - origin.top - from.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+    const move = (ev: PointerEvent) => {
+      const r = plot.getBoundingClientRect();
+      setDragging({ id, at: { x: Math.max(0, ev.clientX - r.left - grab.x), y: Math.max(0, ev.clientY - r.top - grab.y) } });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      const r = plot.getBoundingClientRect();
+      moveThread(id, Math.max(0, ev.clientX - r.left - grab.x), Math.max(0, ev.clientY - r.top - grab.y));
+      setDragging(null);
+      play("tap");
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
   /* ------------------------------------------------------- the vines */
-  // Where each card actually is, read off the page after every change of shape.
-  const anchors = React.useRef(new Map<string, { x: number; top: number; bottom: number }>());
+  // Where each card actually is, read off the page after every change of
+  // shape. Measured against the grid of cards, never against the scroller:
+  // the canvas lives inside the scroller, so sizing it from `scrollHeight`
+  // makes it push out the very number it was measured from.
+  const anchors = React.useRef(new Map<string, { left: number; right: number; top: number; bottom: number; mid: number }>());
   const measure = React.useCallback(() => {
-    // Measured against the grid of cards, never against the scroller: the
-    // canvas lives inside the scroller, so sizing it from `scrollHeight`
-    // makes it push out the very number it was measured from, and the two
-    // grow past each other for as long as anything is watching.
     const plot = grid.current;
     if (!plot) return;
     const origin = plot.getBoundingClientRect();
-    const next = new Map<string, { x: number; top: number; bottom: number }>();
+    const next = new Map<string, { left: number; right: number; top: number; bottom: number; mid: number }>();
+    let w = 0;
+    let h = 0;
     for (const el of plot.querySelectorAll<HTMLElement>("[data-thread]")) {
       const r = el.getBoundingClientRect();
-      next.set(el.dataset.thread!, {
-        x: r.left - origin.left + r.width / 2,
+      const a = {
+        left: r.left - origin.left,
+        right: r.right - origin.left,
         top: r.top - origin.top,
         bottom: r.bottom - origin.top,
-      });
+        mid: r.top - origin.top + Math.min(r.height / 2, 34),
+      };
+      next.set(el.dataset.thread!, a);
+      w = Math.max(w, a.right);
+      h = Math.max(h, a.bottom);
     }
     anchors.current = next;
-    const w = Math.max(320, Math.round(plot.offsetWidth));
-    const h = Math.max(200, Math.round(plot.offsetHeight));
-    setSize((s) => (s.w === w && s.h === h ? s : { w, h }));
+    const width = Math.max(360, Math.round(w + PAD));
+    const height = Math.max(220, Math.round(h + PAD));
+    setSize((s) => (s.w === width && s.h === height ? s : { w: width, h: height }));
   }, []);
 
-  React.useLayoutEffect(measure, [measure, threads, open, columns]);
+  React.useLayoutEffect(measure, [measure, threads, open, spotsSaved, dragging]);
   React.useEffect(() => {
     const plot = grid.current;
     if (!plot) return;
@@ -155,8 +195,8 @@ export function ThreadTree() {
 
     const paint = (now: number) => {
       raf = requestAnimationFrame(paint);
-      // Vines are slow; thirty frames a second is more than enough and
-      // leaves the dialog's own scrolling alone.
+      // Vines are slow; thirty frames a second is plenty and leaves the
+      // dialog's own scrolling alone.
       if (now - last < 33) return;
       last = now;
       const t = (now - born) / 1000;
@@ -171,10 +211,15 @@ export function ThreadTree() {
         const child = anchors.current.get(n.thread.id);
         if (!child) continue;
         const parent = n.thread.parentId ? anchors.current.get(n.thread.parentId) : null;
-        const from = parent ? { x: parent.x, y: parent.bottom } : { x: child.x, y: Math.max(0, child.top - 26) };
-        const to = { x: child.x, y: child.top };
-        const alive = liveLine.has(n.thread.id);
-        vine(c, from, to, still ? 0 : t, alive, n.depth);
+        // The trail runs left to right: out of the parent's right side, into
+        // the child's left. A child dragged back behind its parent is joined
+        // the other way round rather than through the card.
+        const backwards = parent ? child.left < parent.left : false;
+        const from = parent
+          ? { x: backwards ? parent.left : parent.right, y: parent.mid }
+          : { x: Math.max(0, child.left - 22), y: child.mid };
+        const to = { x: backwards ? child.right : child.left, y: child.mid };
+        vine(c, from, to, still ? 0 : t, liveLine.has(n.thread.id), n.depth);
       }
     };
     raf = requestAnimationFrame(paint);
@@ -203,46 +248,46 @@ export function ThreadTree() {
       <div
         ref={box}
         data-thread-tree=""
-        className="relative overflow-auto rounded-lg border border-border bg-[oklch(0.13_0.012_150)] p-4"
-        style={{ minHeight: 260 }}
+        className="relative overflow-auto rounded-lg border border-border bg-[oklch(0.13_0.012_150)]"
+        style={{ minHeight: 280, maxHeight: "62vh" }}
       >
-        <div
-          ref={grid}
-          className="relative"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(${columns}, ${CARD_W}px)`,
-            gap: `${GAP_Y}px ${GAP_X}px`,
-            alignItems: "start",
-            width: columns * CARD_W + (columns - 1) * GAP_X,
-          }}
-        >
-          {/* The vines are drawn under the cards, in the grid's own frame. */}
+        <div ref={grid} className="relative" style={{ width: size.w, height: size.h }}>
+          {/* The vines are drawn under the cards, in the trail's own frame. */}
           <canvas
             ref={canvas}
             aria-hidden
             className="pointer-events-none absolute left-0 top-0"
             style={{ width: size.w, height: size.h }}
           />
-          {placed
-            .slice()
-            .sort((a, b) => a.node.depth - b.node.depth || a.x - b.x)
-            .map((p) => (
+          {all.map((n) => {
+            const at = spotOf(n.thread.id);
+            return (
               <ThreadCard
-                key={p.node.thread.id}
-                node={p.node}
-                parent={p.node.thread.parentId ? byId.get(p.node.thread.parentId) ?? null : null}
-                live={p.node.thread.id === liveThreadId}
-                onLine={liveLine.has(p.node.thread.id)}
-                open={open.has(p.node.thread.id)}
-                onToggle={() => toggle(p.node.thread.id)}
-                onPrune={() => { play("close"); prune(p.node.thread.id); }}
-                onStand={() => { play("confirm"); standOn(p.node.thread.id); }}
-                style={{ gridColumn: `${Math.floor(p.x) + 1} / span 1`, gridRow: p.node.depth + 1 }}
+                key={n.thread.id}
+                node={n}
+                parent={n.thread.parentId ? byId.get(n.thread.parentId) ?? null : null}
+                live={n.thread.id === liveThreadId}
+                onLine={liveLine.has(n.thread.id)}
+                open={open.has(n.thread.id)}
+                dragging={dragging?.id === n.thread.id}
+                onToggle={() => toggle(n.thread.id)}
+                onPrune={() => { play("close"); prune(n.thread.id); }}
+                onStand={() => { play("confirm"); standOn(n.thread.id); }}
+                onDragStart={(e) => startDrag(n.thread.id, e)}
+                style={{ position: "absolute", left: at.x, top: at.y, width: CARD_W }}
               />
-            ))}
+            );
+          })}
         </div>
       </div>
+      <p className="flex items-center justify-between text-[10px] text-fg-faint">
+        <span>Drag a thread to move it. Only that one moves.</span>
+        {moved ? (
+          <Button variant="ghost" size="xs" onClick={() => { play("close"); resetSpots(); }}>
+            Put the trail back on its staircase
+          </Button>
+        ) : null}
+      </p>
       {loose.length ? (
         <details className="rounded-lg border border-border bg-elevated p-3">
           <summary className="cursor-pointer text-xs text-fg-muted">
@@ -262,16 +307,18 @@ export function ThreadTree() {
 /* ------------------------------------------------------------------ */
 
 function ThreadCard({
-  node, parent, live, onLine, open, onToggle, onPrune, onStand, style,
+  node, parent, live, onLine, open, dragging, onToggle, onPrune, onStand, onDragStart, style,
 }: {
   node: ThreadNode;
   parent: Thread | null;
   live: boolean;
   onLine: boolean;
   open: boolean;
+  dragging: boolean;
   onToggle: () => void;
   onPrune: () => void;
   onStand: () => void;
+  onDragStart: (e: React.PointerEvent) => void;
   style?: React.CSSProperties;
 }) {
   const t = node.thread;
@@ -285,7 +332,8 @@ function ThreadCard({
       data-thread={t.id}
       style={style}
       className={cn(
-        "relative z-10 rounded-lg border p-3 transition-colors",
+        "z-10 rounded-lg border p-3 transition-colors",
+        dragging && "z-20 cursor-grabbing shadow-[0_10px_30px_oklch(0_0_0/0.5)]",
         live
           ? "border-[oklch(0.72_0.22_148)] bg-[oklch(0.17_0.03_150)] shadow-[0_0_22px_oklch(0.72_0.22_148/0.18)]"
           : onLine
@@ -294,6 +342,16 @@ function ThreadCard({
       )}
     >
       <div className="flex items-start gap-2">
+        {/* The grip: the one place a drag starts, so opening and pruning still work. */}
+        <button
+          type="button"
+          onPointerDown={onDragStart}
+          aria-label="Move this thread"
+          title="Drag to move this thread. Nothing else moves."
+          className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-fg-faint hover:text-fg active:cursor-grabbing"
+        >
+          <GripVertical className="size-3.5" />
+        </button>
         <button
           type="button"
           onClick={onToggle}
@@ -330,7 +388,7 @@ function ThreadCard({
       </div>
 
       {open ? (
-        <div className="mt-3 space-y-3 border-t border-border pt-3">
+        <div className="mt-3 max-h-[320px] space-y-3 overflow-auto border-t border-border pt-3">
           <Section label="Asked">
             <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-fg-muted">{t.ask || "—"}</p>
           </Section>
@@ -409,14 +467,16 @@ function vine(
   const amp = Math.max(3, Math.min(14, span * 0.09));
   const seed = (from.x * 0.013 + to.y * 0.007 + depth * 1.7) % (Math.PI * 2);
 
-  // The spine leaves the parent downward and enters the child downward, so a
-  // cord that has to cross the tree bows out instead of cutting the corner.
-  const bend = Math.max(26, Math.abs(to.y - from.y) * 0.6);
+  // The trail runs left to right and steps down, so the spine leaves the
+  // parent sideways and enters the child sideways: the cord makes the tread
+  // and the riser of the stair rather than cutting the corner between them.
+  const bend = Math.max(30, Math.abs(to.x - from.x) * 0.55, Math.abs(to.y - from.y) * 0.3);
+  const dir = to.x >= from.x ? 1 : -1;
   const at = (u: number) => {
     const v = 1 - u;
     return {
-      x: v * v * v * from.x + 3 * v * v * u * from.x + 3 * v * u * u * to.x + u * u * u * to.x,
-      y: v * v * v * from.y + 3 * v * v * u * (from.y + bend) + 3 * v * u * u * (to.y - bend) + u * u * u * to.y,
+      x: v * v * v * from.x + 3 * v * v * u * (from.x + bend * dir) + 3 * v * u * u * (to.x - bend * dir) + u * u * u * to.x,
+      y: v * v * v * from.y + 3 * v * v * u * from.y + 3 * v * u * u * to.y + u * u * u * to.y,
     };
   };
   /** A point on a strand: the spine, pushed sideways by its own winding. */

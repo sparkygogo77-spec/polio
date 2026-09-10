@@ -283,6 +283,11 @@ interface StudioState extends Doc {
   threads: Thread[];
   /** The thread the board is standing on. */
   liveThreadId: string | null;
+  /**
+   * Where a thread has been dragged to on the trail, when it has been.
+   * Anything not in here sits where the staircase puts it.
+   */
+  threadSpots: Record<string, { x: number; y: number }>;
   past: Doc[];
   future: Doc[];
 
@@ -380,6 +385,10 @@ interface StudioState extends Doc {
   pruneThread: (id: string) => void;
   /** Put the board back on a thread. */
   standOn: (id: string) => void;
+  /** Move one thread on the trail. Only that one moves. */
+  moveThread: (id: string, x: number, y: number) => void;
+  /** Put the trail back on its staircase. */
+  resetThreadSpots: () => void;
   /** Take a critique's proposed prompt as the prompt, and note that it was taken. */
   applyRevision: (entryId: string) => void;
   clearTrail: () => void;
@@ -551,6 +560,7 @@ export const useStudio = create<StudioState>()(
         trail: [],
         threads: [],
         liveThreadId: null,
+        threadSpots: {},
         past: [],
         future: [],
 
@@ -1053,14 +1063,21 @@ export const useStudio = create<StudioState>()(
           const live = liveAfterPrune(s.threads, id, s.liveThreadId);
           const stand = threads.find((t) => t.id === live);
           push();
+          const spots = { ...s.threadSpots };
+          delete spots[id];
           set(() => ({
             threads,
             liveThreadId: live,
+            threadSpots: spots,
             trail: s.trail.filter((e) => e.threadId !== id),
             ...docPatch(stand?.doc),
             selection: [],
           }));
         },
+
+        moveThread: (id, x, y) => set((s) => ({ threadSpots: { ...s.threadSpots, [id]: { x: Math.round(x), y: Math.round(y) } } })),
+
+        resetThreadSpots: () => set({ threadSpots: {} }),
 
         standOn: (id) => {
           const s = get();
@@ -1115,7 +1132,7 @@ export const useStudio = create<StudioState>()(
 
         resetAll: () => {
           push();
-          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null });
+          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, threadSpots: {} });
         },
 
         loadDoc: (doc) => {
@@ -1193,6 +1210,7 @@ export const useStudio = create<StudioState>()(
           trail: Array.isArray(p.trail) ? p.trail : [],
           threads: Array.isArray(p.threads) ? p.threads : [],
           liveThreadId: typeof p.liveThreadId === "string" ? p.liveThreadId : null,
+          threadSpots: p.threadSpots && typeof p.threadSpots === "object" ? (p.threadSpots as Record<string, { x: number; y: number }>) : {},
           look: (() => {
             const look = { ...emptyLook(), ...(p.look ?? {}) };
             // The target used to be one switch for the whole stack; each layer
@@ -1229,6 +1247,7 @@ export const useStudio = create<StudioState>()(
         trail: s.trail,
         threads: s.threads,
         liveThreadId: s.liveThreadId,
+        threadSpots: s.threadSpots,
         companion: s.companion,
         menuShape: s.menuShape,
         menuSpin: s.menuSpin,
