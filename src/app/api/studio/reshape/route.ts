@@ -60,7 +60,15 @@ interface Body {
   candidates?: Candidate[];
 }
 
-/** What comes back. Every field is optional; the board checks each one against the catalog. */
+/**
+ * What comes back. Every field is optional; the board checks each one against
+ * the catalog.
+ *
+ * Structured output only takes `additionalProperties: false` on an object, so
+ * the options are a list of id–value pairs here and folded into the record the
+ * board expects before the answer goes back. A map with open keys was rejected
+ * by the API with a 400, which read on the board as the drawing doing nothing.
+ */
 const ANSWER_SCHEMA = {
   type: "object",
   properties: {
@@ -70,7 +78,19 @@ const ANSWER_SCHEMA = {
     h: { type: "number", description: "Height in pixels, in the drawing's proportion." },
     content: { type: "string", description: "What the part contains, as a comma-separated list or a line of text, if the drawing shows it (three boxes in a row, a list of lines, a field and a button)." },
     prompt: { type: "string", description: "One or two sentences for the builder about this part's shape and what the drawing shows, in the author's terms. Keep what the current prompt says unless the drawing contradicts it." },
-    options: { type: "object", additionalProperties: { type: "string" }, description: "Option values to set, only ids and values the part offers." },
+    options: {
+      type: "array",
+      description: "Option values to set, only ids and values the part offers.",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "The option's id, from the list the part offers." },
+          value: { type: "string", description: "One of the values that option offers; for an option that takes any number, the picked values separated by commas." },
+        },
+        required: ["id", "value"],
+        additionalProperties: false,
+      },
+    },
     note: { type: "string", description: "One short sentence saying what you read in the drawing." },
   },
   required: ["w", "h", "note"],
@@ -161,7 +181,8 @@ export async function POST(request: Request) {
   try {
     const message = await client.beta.messages.create({
       model: "claude-opus-5",
-      max_tokens: 4000,
+      // Thinking counts toward this, so it has to be roomy even though the answer is short.
+      max_tokens: 16000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       thinking: { type: "adaptive" },
@@ -180,8 +201,13 @@ export async function POST(request: Request) {
       .trim();
     const patch = parseAnswer(text);
     if (!patch) {
-      return NextResponse.json({ ok: false, reason: "unreadable", message: "Claude's answer wasn't a shape." });
+      return NextResponse.json({
+        ok: false,
+        reason: message.stop_reason === "max_tokens" ? "truncated" : "unreadable",
+        message: message.stop_reason === "max_tokens" ? "Claude ran out of room before it answered." : "Claude's answer wasn't a shape.",
+      });
     }
+    patch.options = optionsRecord(patch.options);
     return NextResponse.json({
       ok: true,
       patch,
@@ -197,6 +223,21 @@ export async function POST(request: Request) {
     const detail = error instanceof Anthropic.APIError ? `${error.status}: ${error.message}` : error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ ok: false, reason: "error", message: `Couldn't read the drawing (${detail}).` });
   }
+}
+
+/** The options as the board reads them: a record of id → value, whichever way the answer listed them. */
+function optionsRecord(value: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string" && typeof (item as { value?: unknown }).value === "string") {
+        out[(item as { id: string }).id] = (item as { value: string }).value;
+      }
+    }
+  } else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) if (typeof v === "string") out[k] = v;
+  }
+  return out;
 }
 
 /** The answer is JSON, but a fence or a stray word round it should not lose the shape. */

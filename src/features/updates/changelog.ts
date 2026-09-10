@@ -25,7 +25,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "0.33",
+    version: "0.35",
     title: "A square menu, square all the way in",
     summary: "The controls inside a square menu stop being arcs: straight bars, straight rows, and a colour spectrum that uses the whole face of the box.",
     sketch: "palette",
@@ -35,6 +35,29 @@ export const RELEASES: Release[] = [
       "Colour gets the biggest gain. Round, lightness and saturation share the outer band, half a quadrant each. Square, hue, lightness and saturation are three straight bands stacked up the box and every one of them runs the full width — so each has half again as much travel as before, and colour is the one place where the length of the run is the amount of control you have.",
       "Chips clear the hole by their nearest corner rather than by their middle plus a guess, which gave back a whole row of places along the two straight sides where there was room all along.",
       "Round menus are untouched: the arcs are still arcs, and the same hand movement still works on both.",
+    ],
+  },
+  {
+    version: "0.34",
+    title: "The drawing is read",
+    summary: "Make real reaches Claude again: the answer's shape was being refused by the API, so every drawing fell back to its proportion; and a locked vault now says so.",
+    sketch: "frame",
+    added: [
+      "The reshape route asked for the options as a map with open keys, which structured output does not allow, so the API answered 400 and the board quietly took the drawing's proportion instead. The options are a list of id–value pairs now and folded back into the record the board reads. tests/reshape-schema.mjs holds the schema to the rule.",
+      "The reader has room to think: the answer's token ceiling was low enough that thinking alone could spend it, which came back as no shape at all.",
+      "When a route has no key, the board and the blueprint dialog say which case it is: the vault is locked after five quiet minutes (press ⌘⇧K and enter the PIN), or there is no key anywhere yet. \"Claude isn't set up here\" was untrue the moment a key had been pasted.",
+    ],
+  },
+  {
+    version: "0.33",
+    title: "Embers, each its own",
+    summary: "Sixteen embers instead of fifty, and no two ways of moving alike: two small knots on gusts of their own, and the rest wandering, falling, rising or darting.",
+    sketch: "flame",
+    added: [
+      "Two knots of three ride a gust each — a gust that lives near its knot, wanders, and blows now and then — so three sparks in one corner lean one way while three in another do something else.",
+      "Four drifters wander alone on headings of their own and are almost always a dot. Three fallers sink with a sway. Two risers climb, gathering speed and flickering, and burn out sooner. Two darters sit still, go in a short quick dart, and sit again.",
+      "Where one dies another of its kind is lit, so the mix holds. Still small, still dim.",
+      "The pull that frees or turns the wheel is measured from where the hand pressed, not from the menu's middle. Near an edge the menu is kept on screen some way from the hand, and the pull used to lose its line there; the line is drawn from the hand now too.",
     ],
   },
   {

@@ -78,12 +78,27 @@ type Open = {
   x: number;
   y: number;
   seq: number;
+  /**
+   * Where the hand pressed, unclamped. The menu itself is kept on screen,
+   * so near an edge it sits some way from the hand; the pull that starts
+   * from that same hold is measured from here, not from the menu.
+   */
+  hand: { x: number; y: number };
   /** Where a part drawn on a nodeless board lands, in canvas space. */
   at: { x: number; y: number } | null;
 } | null;
 let current: Open = null;
 let opened = 0;
+/** When the menu was last opened, so the context-menu event that trails the opening press can be told from a new one. */
+let openedAt = 0;
 const listeners = new Set<(v: Open) => void>();
+
+/** A point on the page frame in canvas space — where the page's Add lands a part. */
+export function spotOn(frame: Element, clientX: number, clientY: number): { x: number; y: number } {
+  const r = frame.getBoundingClientRect();
+  const zoom = useStudio.getState().zoom || 1;
+  return { x: (clientX - r.left) / zoom, y: (clientY - r.top) / zoom };
+}
 
 /**
  * Kept clear of the edges, so a menu opened by one has no pieces off screen.
@@ -123,7 +138,8 @@ function keepOnScreen(x: number, y: number): [number, number] {
 /** Open the wheel about a part or the page. `at` is the same spot in canvas space, where the page's Add lands a part. */
 export function openRadial(nodeId: string, x: number, y: number, at: { x: number; y: number } | null = null) {
   const [px, py] = keepOnScreen(x, y);
-  current = { nodeId, x: px, y: py, seq: ++opened, at };
+  current = { nodeId, x: px, y: py, seq: ++opened, hand: { x, y }, at };
+  openedAt = performance.now();
   listeners.forEach((l) => l(current));
 }
 /**
@@ -135,7 +151,8 @@ export function openRadial(nodeId: string, x: number, y: number, at: { x: number
  */
 export function openBoard(x: number, y: number, at: { x: number; y: number }) {
   const [px, py] = keepOnScreen(x, y);
-  current = { nodeId: null, x: px, y: py, seq: ++opened, at };
+  current = { nodeId: null, x: px, y: py, seq: ++opened, hand: { x, y }, at };
+  openedAt = performance.now();
   listeners.forEach((l) => l(current));
 }
 export function closeRadial() {
@@ -191,6 +208,9 @@ interface Pull {
   stage: PullStage;
   /** The line itself, as a unit vector, once the first move has set it. */
   axis: Pt | null;
+  /** Where the line starts, from the menu's middle: the hand's press, which near an edge is elsewhere. */
+  ox: number;
+  oy: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -476,6 +496,10 @@ export function RadialMenu() {
     let want = useStudio.getState().menuSpin;
     let frame = 0;
     let hold = { x: 0, y: 0 };
+    // Where the pull is measured from: the hand's press. For the hold that
+    // opened the menu that is where the menu was asked to open, which near
+    // an edge is not where it was put; a later press is wherever it lands.
+    let origin = open.hand ?? { x: open.x, y: open.y };
     let showing = false;
     const show = (v: Pull | null) => {
       if (!v && !showing) return;
@@ -493,7 +517,7 @@ export function RadialMenu() {
     };
     const reset = () => { stage = "pull"; axis = null; held = false; show(null); };
     const onDown = (e: PointerEvent) => {
-      if (e.button === 2) held = true;
+      if (e.button === 2) { held = true; origin = { x: e.clientX, y: e.clientY }; }
       // Whatever the last gesture was, this press is not its release.
       used = false;
     };
@@ -507,12 +531,17 @@ export function RadialMenu() {
         return;
       }
 
-      const rx = e.clientX - anchor.current.x;
-      const ry = e.clientY - anchor.current.y;
+      // Turning is about the wheel's own centre; the pull is from the hand.
+      const arx = e.clientX - anchor.current.x;
+      const ary = e.clientY - anchor.current.y;
+      const rx = e.clientX - origin.x;
+      const ry = e.clientY - origin.y;
+      const ox = origin.x - anchor.current.x;
+      const oy = origin.y - anchor.current.y;
 
       if (stage === "turning") {
-        const a = Math.atan2(ry, rx) / (Math.PI * 2);
-        show({ dx: rx, dy: ry, grip: 1, stage, axis });
+        const a = Math.atan2(ary, arx) / (Math.PI * 2);
+        show({ dx: arx, dy: ary, grip: 1, stage, axis, ox: 0, oy: 0 });
         want = was + (a - grabbed);
         if (!frame) frame = requestAnimationFrame(step);
         return;
@@ -534,7 +563,7 @@ export function RadialMenu() {
         // The red end: the menu comes loose.
         stage = "moving";
         used = true;
-        hold = { x: e.clientX - anchor.current.x, y: e.clientY - anchor.current.y };
+        hold = { x: arx, y: ary };
         play("confirm");
         show(null);
         return;
@@ -543,11 +572,11 @@ export function RadialMenu() {
         // The green end: the wheel comes loose.
         stage = "turning";
         used = true;
-        grabbed = Math.atan2(ry, rx) / (Math.PI * 2);
+        grabbed = Math.atan2(ary, arx) / (Math.PI * 2);
         was = useStudio.getState().menuSpin;
         play("confirm");
       }
-      show({ dx, dy, grip, stage, axis });
+      show({ dx, dy, grip, stage, axis, ox, oy });
     };
     const onUp = (e: PointerEvent) => {
       if (e.type === "pointercancel" || e.button === 2 || !(e.buttons & 2)) reset();
@@ -570,11 +599,16 @@ export function RadialMenu() {
       e.stopPropagation();
       if (used) { used = false; return; }
       if (el.closest?.("[data-radial]")) return;
+      // The context-menu event that trails the press that opened the menu
+      // is that press, not a new one: opening again from here would throw
+      // away what the press knew — where on the page it landed.
+      if (current && performance.now() - openedAt < 500 && Math.hypot(e.clientX - current.hand.x, e.clientY - current.hand.y) < 6) return;
       const onNode = el.closest?.("[data-node-id]") as HTMLElement | null;
       const id = onNode?.getAttribute("data-node-id");
+      const frame = el.closest?.("[data-frame]");
       if (id) openRadial(id, e.clientX, e.clientY);
-      // The bare frame is the page's background: the wheel moves there, about the page.
-      else if (el.closest?.("[data-frame]")) { useStudio.getState().selectBackground(); openRadial(BACKGROUND_ID, e.clientX, e.clientY); }
+      // The bare frame is the page's background: the wheel moves there, about the page, and Add lands a part on that spot.
+      else if (frame) { useStudio.getState().selectBackground(); openRadial(BACKGROUND_ID, e.clientX, e.clientY, spotOn(frame, e.clientX, e.clientY)); }
       else closeRadial();
     };
     window.addEventListener("pointerdown", onDown, true);
@@ -998,7 +1032,8 @@ function PullLine({ pull }: { pull: Pull }) {
   const toGreen = pull.dx * ax[0] + pull.dy * ax[1] < 0;
   const hue = toGreen ? GREEN : CRIMSON;
   return (
-    <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
+    // Drawn from the hand's press, which near an edge is not the menu's middle.
+    <svg width={1} height={1} className="pointer-events-none absolute overflow-visible" style={{ left: pull.ox, top: pull.oy }}>
       {/* the track, end to end */}
       <line
         x1={red[0]} y1={red[1]} x2={green[0]} y2={green[1]}
@@ -1036,7 +1071,7 @@ function PullEnds({ pull }: { pull: Pull }) {
   const red: Pt = [ax[0] * PULL_LOCK, ax[1] * PULL_LOCK];
   const green: Pt = [-ax[0] * PULL_LOCK, -ax[1] * PULL_LOCK];
   return (
-    <svg width={1} height={1} className="pointer-events-none absolute left-0 top-0 overflow-visible">
+    <svg width={1} height={1} className="pointer-events-none absolute overflow-visible" style={{ left: pull.ox, top: pull.oy }}>
       {turning ? null : (
         <circle
           data-pull-move=""

@@ -49,7 +49,10 @@ same boxes as everywhere else, in the screen's colours.
 - **The middle is the way back**, and the handle the menu is carried by. No X
   on the rim, no X on the console.
 - **One line, two ends.** Hold right and move: red end frees the menu, green end
-  turns the wheel. The line goes the moment it has done its job.
+  turns the wheel. The line goes the moment it has done its job. The line is
+  measured from the **hand's press**, not the menu's middle: near an edge the
+  menu is kept on screen some way from the hand, and a pull measured from the
+  menu never found its line. Turning is still about the wheel's own centre.
 - **What you are choosing is shown, not named.** Hue shows the strip of roles;
   Texture shows the tile; Aura glows in the aura; the animation is played by the
   slab it comes across; the font chip is set in its own face. A palette icon
@@ -96,11 +99,12 @@ same boxes as everywhere else, in the screen's colours.
   ground is the **dark matter camo** — violet and magenta nebula clouds
   over black voids in two depths: a huge slow mass at the back, a planet
   with no edge to see, and cloud you can watch pass in front; no stars,
-  nothing blinks, nothing white; embers instead — small quick red sparks
-  blown through the near cloud on one wind that gusts and wanders, each a
-  dot when it drifts and a short streak when a gust takes it, dim enough
-  that you are not sure it moved; the peaks kept dim — with the parts of
-  one category rolling down the
+  nothing white; embers instead — sixteen small red sparks, never all on
+  one wind: two knots of three on gusts of their own, and the rest
+  wandering alone, falling with a sway, rising and flickering out, or
+  sitting still and darting; each a dot when it drifts and a short streak
+  when it goes, dim enough that you are not sure it moved; the peaks kept
+  dim — with the parts of one category rolling down the
   middle of it, drawn as themselves, big, with a long gap between each. The
   one at the centre is full size; the rest shrink and dim toward it, so the
   column reads as a drum turning inside the hole. The categories are tabs
