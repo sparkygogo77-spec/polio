@@ -84,7 +84,7 @@ export function SwitchButton() {
         </>
       }
     >
-      <Button variant="ghost" size="sm" className="max-w-40 gap-1.5" aria-label="Switch site">
+      <Button variant="ghost" size="sm" className="max-w-40 gap-1.5" aria-label="Switch site" data-builds-switch="">
         <Layers />
         <span className="truncate">{active?.name ?? "Sites"}</span>
       </Button>

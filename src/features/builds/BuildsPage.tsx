@@ -21,6 +21,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Check,
+  Compass,
   Copy,
   ExternalLink,
   FolderGit2,
@@ -39,6 +40,7 @@ import { EmptyState } from "@/core/ui/empty-state";
 import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
+import { useTour } from "@/features/tour/store";
 import { shapeOf, useBuilds, type Project } from "./store";
 
 /** "owner/name" if it looks like one, else nothing. */
@@ -309,13 +311,20 @@ export function BuildsPage() {
             re-reads the document you press and nothing is lost on the way out.
           </p>
         </div>
-        <Button size="md" variant="primary" onClick={() => create()}>
-          <Plus />
-          New site
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* The tour is offered where arriving happens, not buried in a menu. */}
+          <Button size="md" variant="outline" onClick={() => useTour.getState().start()}>
+            <Compass />
+            Take the tour
+          </Button>
+          <Button size="md" variant="primary" onClick={() => create()}>
+            <Plus />
+            New site
+          </Button>
+        </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-between gap-3 border-b border-border pb-3">
+      <div data-builds-views="" className="mt-6 flex items-center justify-between gap-3 border-b border-border pb-3">
         <Segmented
           value={view}
           onChange={setView}
@@ -340,7 +349,7 @@ export function BuildsPage() {
           action={<Button size="sm" variant="primary" onClick={() => create()}><Plus /> New site</Button>}
         />
       ) : view === "sites" ? (
-        <ul className="mt-4 space-y-2">
+        <ul data-builds-list="" className="mt-4 space-y-2">
           {projects.map((p) => (
             <SiteRow key={p.id} project={p} active={p.id === activeId} />
           ))}

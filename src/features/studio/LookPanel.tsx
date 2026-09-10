@@ -141,7 +141,7 @@ function ColourSection() {
   };
 
   return (
-    <section className="space-y-2 border-b border-border p-3">
+    <section data-look-colour="" className="space-y-2 border-b border-border p-3">
       <div className="flex items-center justify-between">
         <h3 className="text-[11px] font-semibold text-fg">Colour</h3>
         {look.palette && Object.keys(look.palette).length ? (
@@ -396,6 +396,7 @@ function TextureSection() {
 
   return (
     <section
+      data-look-texture=""
       className={cn("space-y-2 p-3 transition-colors", dropping && "bg-accent/10")}
       onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } }}
       onDragLeave={() => setDropping(false)}
@@ -713,7 +714,7 @@ function LightSection() {
   const set = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
 
   return (
-    <section className="border-t border-border p-3">
+    <section data-look-light="" className="border-t border-border p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-[11px] font-semibold text-fg">Light &amp; depth</h3>
         <Toggle

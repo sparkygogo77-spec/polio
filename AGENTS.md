@@ -1109,6 +1109,33 @@ carry why a thing arrived.
 
 ---
 
+## 2b-iii. The tour (`src/features/tour`)
+
+Opened from Builds and from the palette (`?`). One layer over the app, an SVG
+mask with a hole cut for each thing a step is about, and a card beside each
+hole. It is not a slideshow: each step **stages the real screen** first — opens
+the wheel, opens the drawing board, opens the Blueprint — and then lights what
+is actually there.
+
+- **At most four things per step, each with three facts**: a name, one line of
+  what it is for, and where it lives. Five is a list, and a list is what a tour
+  exists to avoid. `tests/tour.mjs` holds both.
+- **A spot whose thing is not on this screen keeps its card and loses its
+  hole.** Some of what the tour names lives somewhere the tour is not standing;
+  saying so is the job, not a failure.
+- **Navigation is on screen the whole way**: which step of how many, back,
+  next, skip, and a pip per step. A tour you cannot leave is a trap.
+- **What it stages must stay staged.** The wheel closes on a press anywhere
+  else and a modal dialog closes on a press outside it, so both ask
+  `document.documentElement.dataset.tourOn` before acting. A modal dialog also
+  marks everything else `inert`, so the tour is portalled to `document.body`
+  and takes that mark off itself each frame.
+- **Adding a step** is an entry in `STEPS` (`steps.ts`): a route, an `arrive`
+  that puts the screen in the right state, a `leave` that undoes it, and its
+  spots. Anchor spots on `data-` attributes, never on text or on a class.
+
+---
+
 ## 2c. The tweet console (`src/features/tweets`)
 
 A dashboard, not a page: `T` (or the palette, or the status-bar count) brings

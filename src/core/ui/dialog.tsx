@@ -30,6 +30,12 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
       <D.Portal>
         <D.Overlay className="fixed inset-0 z-[75] bg-overlay animate-fade-in backdrop-blur-[2px]" />
         <D.Content
+          // A tour stands over the app and points into an open dialog, so
+          // while one is running the dialog does not treat the tour's own
+          // presses — or the Escape that ends it — as a reason to close.
+          onPointerDownOutside={(e) => { if (document.documentElement.dataset.tourOn) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (document.documentElement.dataset.tourOn) e.preventDefault(); }}
+          onEscapeKeyDown={(e) => { if (document.documentElement.dataset.tourOn) e.preventDefault(); }}
           className={cn(
             "fixed left-1/2 top-1/2 z-[76] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-panel shadow-panel animate-pop outline-none",
             width,
