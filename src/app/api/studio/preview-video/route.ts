@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { encodeGif } from "@/features/tweets/gif";
 import { decodePng } from "../../tweets/png";
-import { asDevice, findPlaywright, NO_PLAYWRIGHT, takeDoc, withPreview } from "../headless";
+import { asDevice, findPlaywright, NO_PLAYWRIGHT, NO_VIDEO, takeDoc, withPreview } from "../headless";
 
 /**
  * A recording of the live site being scrolled and worked, made on the server.
@@ -127,6 +127,12 @@ export async function POST(request: Request) {
   if (!found.pw) {
     return NextResponse.json({ ok: false, reason: "no-playwright", message: `${NO_PLAYWRIGHT} Record the tab from the console instead.`, tried: found.tried });
   }
+  // A tour is a video, and the cut-down Chromium a serverless function carries
+  // cannot make one. Said before anything is launched, rather than found out
+  // halfway through a scroll.
+  if (!found.video) {
+    return NextResponse.json({ ok: false, reason: "no-video", message: `${NO_VIDEO} Record the tab from the console instead.`, from: found.from });
+  }
 
   let body: { doc?: unknown; path?: string; device?: string; speed?: string; interact?: boolean; loops?: number; width?: number; format?: string };
   try {
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
 
   const dir = mkdtempSync(join(tmpdir(), "tour-"));
   try {
-    const videoPath = await withPreview(found.pw, { origin, path, doc: takeDoc(body.doc), device, width, height, record: { dir } }, async (page) => {
+    const videoPath = await withPreview(found, { origin, path, doc: takeDoc(body.doc), device, width, height, record: { dir } }, async (page) => {
       await page.evaluate(tourInPage, { pxPerSec, interact: body.interact !== false, loops: Math.max(1, Math.min(4, body.loops ?? 1)) });
       await page.waitForTimeout(300);
       return page.video()?.path() ?? null;

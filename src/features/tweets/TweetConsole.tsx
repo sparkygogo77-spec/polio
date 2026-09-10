@@ -17,7 +17,7 @@
 import * as React from "react";
 import {
   AlertTriangle, BarChart3, Check, ChevronDown, Clock, Copy, ExternalLink, Feather, FileImage, Film, Image as ImageIcon, KeyRound, Link2, Loader2, MessageCircle,
-  MonitorPlay, Plus, RefreshCw, Scissors, Send, Settings2, Sparkles, Square, Trash2, Upload, Video, X,
+  Info, MonitorPlay, Plus, RefreshCw, Scissors, Send, Settings2, Sparkles, Square, Trash2, Upload, Video, X,
 } from "lucide-react";
 import site from "@site";
 import { useUi } from "@/core/ui-state/store";
@@ -36,7 +36,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { Progress } from "@/core/ui/progress";
 import { EmptyState } from "@/core/ui/empty-state";
 import { livePath, useStudio, useStudioHydration } from "@/features/studio/store";
-import { studioDoc } from "@/features/studio/agent";
+import { serverBrowser, studioDoc } from "@/features/studio/agent";
 import { draftTitle, selectQueued, useTweets, useTweetsHydration, type Draft, type DraftStatus, type LogEntry, type ReplySetting, type TweetMedia } from "./store";
 import { firstUrl, relativeTime, splitThread, tokenise, toLocalInput, weighedLength, intentUrl } from "./text";
 import { intake, kindOf, LIMITS } from "./media";
@@ -756,6 +756,32 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
     }
   }, [state, localDevice, localSpeed, interact, loops, fps]);
 
+  /*
+   * Whether the server can record at all, asked once when the tour opens.
+   *
+   * `null` while it is being asked: the button stays live rather than flashing
+   * off and on, and a press in that moment gets the route's own answer.
+   */
+  const [canRender, setCanRender] = React.useState<boolean | null>(null);
+  const [serverNote, setServerNote] = React.useState("");
+  React.useEffect(() => {
+    let alive = true;
+    void serverBrowser()
+      .then((b) => {
+        if (!alive) return;
+        setCanRender(b.video);
+        setServerNote(
+          b.video
+            ? ""
+            : b.open
+              ? `The browser on this server (${b.from ?? "unknown"}) can open the site but cannot record it — recording needs the ffmpeg a full Playwright install ships. Record the tab instead.`
+              : "There is no browser on this server, so it cannot play the tour. Record the tab instead.",
+        );
+      })
+      .catch(() => { if (alive) setCanRender(null); });
+    return () => { alive = false; };
+  }, []);
+
   const render = React.useCallback(async () => {
     if (state !== "idle") return;
     const ac = new AbortController();
@@ -860,8 +886,18 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
             <Tooltip content="Asks the browser for this tab, hides the console, plays the tour, keeps the video. WebM, or MP4 in Safari.">
               <Button variant="default" size="sm" onClick={() => void record()} disabled={typeof navigator === "undefined" || !navigator.mediaDevices?.getDisplayMedia}><Video /> Record tab</Button>
             </Tooltip>
-            <Tooltip content={`A headless browser on the server plays the tour at ${renderWidth} px and makes a ${renderFormat.toUpperCase()}. Needs Playwright there.`}>
-              <Button variant="default" size="sm" onClick={() => void render()}><Sparkles /> Render on server</Button>
+            <Tooltip
+              content={
+                canRender === false
+                  ? serverNote
+                  : `A headless browser on the server plays the tour at ${renderWidth} px and makes a ${renderFormat.toUpperCase()}. Needs a full Playwright there.`
+              }
+            >
+              {/* A disabled button inside a tooltip still needs something that
+                  takes a pointer, or there is nothing to hover for the reason. */}
+              <span className="inline-flex">
+                <Button variant="default" size="sm" disabled={canRender === false} onClick={() => void render()}><Sparkles /> Render on server</Button>
+              </span>
             </Tooltip>
           </>
         )}
@@ -869,6 +905,17 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
         {busy ? <span className="flex items-center gap-1 text-[11px] text-fg-muted"><Loader2 className="size-3 animate-spin" />{state === "rendering" ? "Rendering…" : state === "recording" ? "Recording…" : state === "converting" ? "Making the GIF…" : "Playing…"}</span> : null}
       </div>
       {busy ? <Progress value={progress} tone="accent" /> : null}
+      {/*
+        Said before the press, not after it. A tour that cannot be recorded
+        here is not an error you find out about at the end of one — the button
+        is off and this says which of the two reasons it is.
+      */}
+      {canRender === false ? (
+        <p className="flex gap-1.5 rounded-md border border-border bg-elevated p-2 text-[11px] text-fg-muted">
+          <Info className="mt-px size-3 shrink-0" />
+          {serverNote}
+        </p>
+      ) : null}
       {error ? <p className="flex gap-1.5 rounded-md border border-down/30 bg-down/8 p-2 text-[11px] text-down"><AlertTriangle className="mt-px size-3 shrink-0" />{error}</p> : null}
 
       {result ? (

@@ -25,7 +25,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "0.45",
+    version: "0.46",
     title: "Twelve places a visitor could point at",
     summary: "The library is regrouped round what a visitor sees: Dense & keyboard is dissolved, Shop lives inside Forms, and every sub-group is named for what it holds.",
     sketch: "planets",
@@ -35,6 +35,18 @@ export const RELEASES: Release[] = [
       "Persuasion — testimonials, countdown, trust badges, logo cloud — sits beside Proof on First screen, where the arguments for the site are made. Your notes moved out of Layout into Text, because a note is words.",
       "The three sub-groups called More are gone: the activity feed is with People, AI moderation is Keeping order, the diff view is in Terminal. Page transitions and back-to-top are Moments under Motion rather than Between pages under Navigation.",
       "No part changed its id, so nothing saved changes, the drawing board's reader still validates against the same library, and every check on it stands. Twelve tabs on the add disc instead of fourteen.",
+    ],
+  },
+  {
+    version: "0.45",
+    title: "A browser a function can carry",
+    summary: "Where there is no Playwright the server now falls to the cut-down Chromium a serverless host can carry — and says plainly that it cannot record a tour.",
+    sketch: "picture",
+    added: [
+      "Photographing the site needed a full Playwright, which is six hundred megabytes of browser and will not go in a serverless function bundle — so on a deployed site the screenshots the Builder sends Claude simply were not there. Failing the usual lookup, the server now falls to `playwright-core` driving `@sparticuz/chromium`, a Chromium packed down to something a function can carry.",
+      "In that order, and only in that order. A box with a real Playwright on it keeps using it: it is the install the tests run against, and it is the only one that can record video.",
+      "The tweet console's tour is video, and the serverless browser cannot make any — recording is written by an ffmpeg the full install ships and the cut-down pairing has none. So Render on server greys out with the reason on it, rather than running a whole tour and finding no file at the end of it.",
+      "Neither package is a dependency of this template and neither is ever bundled: both are required at run time from outside it. A deployment that wants server screenshots installs them; the message when there is no browser at all now names both ways of fixing it.",
     ],
   },
   {
