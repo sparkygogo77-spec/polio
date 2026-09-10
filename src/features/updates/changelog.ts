@@ -25,7 +25,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "0.39",
+    version: "0.40",
     title: "Which part of the picture, and whether it moves",
     summary: "A selection over the picture says where the texture is taken from, Reiterate really rolls, and a layer can drift the way the clouds behind the add disc do.",
     sketch: "picture",
@@ -34,6 +34,16 @@ export const RELEASES: Release[] = [
       "A layer can drift. Every cycle carries it a whole number of its own tiles along its own angle, so the loop has no seam where it comes round; a stack at different speeds and angles reads as weather rather than as one thing sliding, which is the trick the add disc's clouds have always used.",
       "Reiterate does something. It changes one thing about the texture at random — the scale, the angle, the grain, the colour, the bleed, whether it drifts — and one thing only, because a re-roll that changes everything gives a different texture each press and teaches you nothing. A step sideways lets you see what moved and keep pressing while it is interesting.",
       "A baked tile now writes down its own shape. CSS could work the height out from `auto` and a drift cannot, and a drift that is not a whole tile jumps once a cycle.",
+    ],
+  },
+  {
+    version: "0.39",
+    title: "From the accent, without the crash",
+    summary: "The X key on the page's Color editor took the whole page down; it takes the page colour override away now and nothing else.",
+    sketch: "palette",
+    added: [
+      "Pressing From the accent wrote the page's colour role as nothing rather than removing it, and the first reader to meet that nothing tried to trim it as a colour. The key removes the role now, and a role that is not a string is skipped rather than read.",
+      "The wheel suite sets a page colour off the spectrum, presses the key, and checks the override is gone, the editor is still up, and no error reached the page.",
     ],
   },
   {
