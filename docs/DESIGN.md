@@ -253,6 +253,14 @@ guess at:
    each), read what arrived, merge what relates, and only then commit and
    push. `.claude/hooks/catch-up.sh` does the fetch and the report at the
    start of every turn; the check before the commit is the session's own.
+10. **A check presses a wheel piece by its label, never by its bounding
+    box.** On a square wheel the outer blocks are L-shaped, and an L's box
+    centre is the empty corner it wraps: a click aimed there lands on
+    something else and Playwright retries until it times out. The word or
+    icon on a piece is glued inside the piece's own group, so its centre
+    is always on the piece. `tests/light-placer.mjs` grabs the sun by its
+    label for this reason, and the scratchpad suites press every piece
+    through one helper that does the same.
 
 ## 5. Training an agent on this — what actually works
 
