@@ -48,10 +48,18 @@ async function openLightEditor() {
   }
 }
 
-/** Drag the sun out of the button and let go at a point on the screen. */
+/**
+ * Drag the sun out of the button and let go at a point on the screen.
+ *
+ * Pressed where the word is, not in the middle of the button's bounding box:
+ * a square menu's outer pieces wrap a corner, so the middle of the box that
+ * contains one is the empty corner it wraps, and a press there lands on
+ * nothing at all.
+ */
 async function dropAt(x, y) {
-  const b = await sun.first().boundingBox();
-  await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.35);
+  const word = page.locator("[data-radial]").getByText("Drag the sun").first();
+  const b = await ((await word.count()) ? word : sun.first()).boundingBox();
+  await page.mouse.move(b.x + b.width * 0.5, b.y + b.height * 0.5);
   await page.mouse.down();
   await page.mouse.move(x, y, { steps: 12 });
   await page.waitForTimeout(150);

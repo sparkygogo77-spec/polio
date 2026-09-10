@@ -94,24 +94,131 @@ export const spun = (p: Pt, turns: number): Pt => {
   return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
 };
 
-/** Where a piece's outer edge sits in the direction `t`, and how far out. */
-export function outerAt(t: number, rOut: number | "edge", shape: Shape, inset: number, rg: Rings): { p: Pt; r: number } {
-  if (rOut !== "edge") {
-    const r = rOut - inset;
-    return { p: onCircle(t, r), r };
-  }
-  if (shape === "round") {
-    const r = rg.reach - inset;
-    return { p: onCircle(t, r), r };
-  }
-  const r = squareR(t, rg.reach - inset);
+/**
+ * Where a round piece's outer edge sits in the direction `t`, and how far out.
+ *
+ * Round only. A square piece is not a sector with a different outer edge on
+ * it — it is cut along the square's own perimeter from end to end — so it has
+ * no use for a radius in a direction, and the square cutter never asks.
+ */
+export function outerAt(t: number, rOut: number | "edge", rg: Rings, inset: number): { p: Pt; r: number } {
+  const r = (rOut === "edge" ? rg.reach : rOut) - inset;
   return { p: onCircle(t, r), r };
 }
 
 export const fmt = (v: Pt) => `${v[0].toFixed(1)} ${v[1].toFixed(1)}`;
 
-/** The four corners of the square, as turns. */
-const CORNERS = [0.125, 0.375, 0.625, 0.875];
+/* ------------------------------------------------------------------ */
+/* Walking the square                                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A square menu, cut square.
+ *
+ * Every ring here used to be a circle except the outermost one: the hole was
+ * round, the band between the levels was round, and only the outside followed
+ * the square. And every cut between two pieces was a radius — a line from the
+ * middle — so it met the square's edge at whatever angle the edge happened to
+ * be at there. The result reads as a round menu with a square lid on it, which
+ * is the "crooked" that survived making the controls straight.
+ *
+ * Square, then: every ring is a square ring, and a cut runs *into* the outline
+ * rather than out from the middle. A cut is placed by walking the perimeter,
+ * not by turning an angle, so a seam is the same number of pixels wide on a
+ * side as it is at a corner — the same rule the round cutter follows with its
+ * per-radius angle, said in the units a square has.
+ */
+
+/** How far round the perimeter a point on the square of half-width `h` is, clockwise from the top middle. */
+function perimeterOf(p: Pt, h: number): number {
+  const [x, y] = p;
+  const e = h * 1e-6;
+  if (y <= -h + e && x >= 0) return x;                 // top, right half
+  if (x >= h - e) return h + (y + h);                  // right side
+  if (y >= h - e) return 3 * h + (h - x);              // bottom
+  if (x <= -h + e) return 5 * h + (h - y);             // left side
+  return 7 * h + (x + h);                              // top, left half
+}
+
+/** The point that far round the perimeter of the square of half-width `h`. */
+function atPerimeter(s: number, h: number): Pt {
+  const t = ((s % (8 * h)) + 8 * h) % (8 * h);
+  if (t <= h) return [t, -h];
+  if (t <= 3 * h) return [h, t - 2 * h];
+  if (t <= 5 * h) return [4 * h - t, h];
+  if (t <= 7 * h) return [-h, 6 * h - t];
+  return [t - 8 * h, -h];
+}
+
+/** A point on the square, moved `px` pixels along its edge — clockwise when positive. */
+export const walkSquare = (t: number, h: number, px: number): Pt =>
+  atPerimeter(perimeterOf(onSquare(t, h), h) + px, h);
+
+/**
+ * Where a cut at turn `t` meets the inner square, given where it meets the
+ * outer one.
+ *
+ * Straight in, perpendicular to the side it started from, which is what makes
+ * it meet the outline square-on. Where that perpendicular would miss the inner
+ * square altogether — the corner quarter of the band, where the outer point is
+ * further along its side than the inner square reaches — it runs to the inner
+ * corner instead. That is the one place a cut is not perpendicular, and it is
+ * the one place a square has nothing perpendicular to offer.
+ */
+function cutInward(outer: Pt, hIn: number, hOut: number): Pt {
+  const [x, y] = outer;
+  const clamp = (v: number) => Math.max(-hIn, Math.min(hIn, v));
+  const e = hOut * 1e-6;
+  if (y <= -hOut + e) return [clamp(x), -hIn];
+  if (x >= hOut - e) return [hIn, clamp(y)];
+  if (y >= hOut - e) return [clamp(x), hIn];
+  return [-hIn, clamp(y)];
+}
+
+/** Where every corner strictly between two perimeter positions sits, in order. */
+function cornerStops(s0: number, s1: number, h: number): number[] {
+  const out: number[] = [];
+  for (let k = 0; k < 8; k++) {
+    const c = h + 2 * h * k;
+    if (c > s0 && c < s1) out.push(c);
+  }
+  return out;
+}
+
+/** Every corner of the square strictly between two perimeter positions, in order. */
+const cornersBetween = (s0: number, s1: number, h: number): Pt[] =>
+  cornerStops(s0, s1, h).map((c) => atPerimeter(c, h));
+
+/**
+ * Where the word goes on a square piece.
+ *
+ * A piece that wraps a corner of the square is an L, and the middle of an L is
+ * its corner — which is the one place a word does not fit: the band is at its
+ * thinnest there and the inside corner cuts into it from behind. So the run is
+ * split at every corner it passes and the word goes in the middle of one leg.
+ *
+ * The leg along the top or the bottom, given the choice, because a word is
+ * wider than it is tall and those are the legs that are wide the same way. On
+ * a piece that turns no corner there is one leg and this is its middle, which
+ * is where the word would have gone anyway.
+ */
+function squareLabelSpot(from: number, to: number, hIn: number, hOut: number, bias: number): Pt {
+  const s0 = perimeterOf(onSquare(from, hOut), hOut);
+  let s1 = perimeterOf(onSquare(to, hOut), hOut);
+  if (s1 <= s0) s1 += 8 * hOut;
+  const stops = [s0, ...cornerStops(s0, s1, hOut), s1];
+  let bestMid = (s0 + s1) / 2;
+  let bestScore = -1;
+  for (let i = 0; i < stops.length - 1; i++) {
+    const mid = (stops[i]! + stops[i + 1]!) / 2;
+    const flat = Math.abs(atPerimeter(mid, hOut)[1]) >= hOut - 1e-6;
+    const score = (stops[i + 1]! - stops[i]!) + (flat ? 1e6 : 0);
+    if (score > bestScore) { bestScore = score; bestMid = mid; }
+  }
+  const b = atPerimeter(bestMid, hOut);
+  const a = cutInward(b, hIn, hOut);
+  return [a[0] * (1 - bias) + b[0] * bias, a[1] * (1 - bias) + b[1] * bias];
+}
 
 /**
  * One piece of the ring, drawn inset by `ROUND` and half a seam.
@@ -142,13 +249,57 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
   const pad = SEAM / 2 + ROUND + shrink;
   const turnPad = (r: number) => pad / (Math.PI * 2 * Math.max(12, r));
 
+  if (shape === "square") {
+    /*
+     * Square: both rings are squares and both cuts run into the outline.
+     *
+     * The seams are walked along the perimeter rather than turned as an angle,
+     * so a cut a third of the way along a side and a cut sitting on a corner
+     * leave the same gap. Everything else is the round path's arithmetic with
+     * `A` swapped for `L`.
+     */
+    const hOut = (rOut === "edge" ? rg.reach : rOut) - ROUND - outSeam - shrink;
+    const hIn = rIn + ROUND + inSeam + shrink;
+    let s0 = perimeterOf(onSquare(rawFrom, hOut), hOut) + pad;
+    let s1 = perimeterOf(onSquare(rawTo, hOut), hOut) - pad;
+    if (s1 <= s0) s1 += 8 * hOut;
+    // Too narrow to draw: a sliver at its own middle, where it is invisible,
+    // rather than a shape folded inside out.
+    if (s1 - s0 < 1) { const m = (s0 + s1) / 2; s0 = m - 0.25; s1 = m + 0.25; }
+    const pFrom = atPerimeter(s0, hOut);
+    const pTo = atPerimeter(s1, hOut);
+    const qFrom = cutInward(pFrom, hIn, hOut);
+    const qTo = cutInward(pTo, hIn, hOut);
+    /*
+     * The inner edge, which can be no edge at all.
+     *
+     * Both cuts of a piece sitting over a corner of the hole run to that same
+     * inner corner, so its inner edge is a point — and a point is where this
+     * went wrong first: read as a wrap it walked the whole way round the inner
+     * square and came out as a slab covering the middle of the menu. Equal is
+     * equal, and a walk longer than half the perimeter is not a piece.
+     */
+    const t0 = perimeterOf(qFrom, hIn);
+    let t1 = perimeterOf(qTo, hIn);
+    if (t1 < t0 - 0.5) t1 += 8 * hIn;
+    const innerRun = t1 - t0;
+
+    let d = `M ${fmt(qFrom)}`;
+    // In along the inner square, out along the outer one, each turning every
+    // corner it passes at a right angle instead of cutting it off.
+    if (innerRun > 0.5 && innerRun <= 4 * hIn) for (const c of cornersBetween(t0, t1, hIn)) d += ` L ${fmt(c)}`;
+    d += ` L ${fmt(qTo)} L ${fmt(pTo)}`;
+    for (const c of cornersBetween(s0, s1, hOut).reverse()) d += ` L ${fmt(c)}`;
+    return `${d} L ${fmt(pFrom)} Z`;
+  }
+
   const gA = turnPad(rA);
   const aFrom = rawFrom + gA;
   const aTo = rawTo - gA;
   // The outer end has its own inset, taken at the radius it actually reaches —
   // which on a square is much further out toward a corner.
-  const gFrom = turnPad(outerAt(rawFrom, rOut, shape, ROUND + outSeam + shrink, rg).r);
-  const gTo = turnPad(outerAt(rawTo, rOut, shape, ROUND + outSeam + shrink, rg).r);
+  const gFrom = turnPad(outerAt(rawFrom, rOut, rg, ROUND + outSeam + shrink).r);
+  const gTo = turnPad(outerAt(rawTo, rOut, rg, ROUND + outSeam + shrink).r);
   const bFrom = rawFrom + gFrom;
   const bTo = rawTo - gTo;
   // A piece too narrow to draw would fold inside out; collapse it to a sliver
@@ -157,22 +308,12 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
   const [iFrom, iTo] = aTo > aFrom ? [aFrom, aTo] : [mid - 0.0005, mid + 0.0005];
   const [oFrom, oTo] = bTo > bFrom ? [bFrom, bTo] : [mid - 0.0005, mid + 0.0005];
 
+  // Round, from here: two arcs and the two cuts between them.
   let d = `M ${fmt(onCircle(iFrom, rA))}`;
   d += ` A ${rA} ${rA} 0 0 1 ${fmt(onCircle(iTo, rA))}`;
-  d += ` L ${fmt(outerAt(oTo, rOut, shape, ROUND + outSeam + shrink, rg).p)}`;
-  if (rOut === "edge" && shape === "square") {
-    // Walk the square backwards, landing on every corner between the two ends,
-    // so a piece that turns a corner turns it at a right angle instead of
-    // cutting it off with a chord.
-    const half = rg.reach - ROUND - shrink;
-    // A piece can straddle the top of the turn, so the corners past it count too.
-    const corners = [...CORNERS, ...CORNERS.map((c) => c + 1)];
-    for (const c of corners.reverse()) if (c > oFrom && c < oTo) d += ` L ${fmt(onSquare(c, half))}`;
-    d += ` L ${fmt(outerAt(oFrom, rOut, shape, ROUND + shrink, rg).p)}`;
-  } else {
-    const r = outerAt(oFrom, rOut, shape, ROUND + outSeam + shrink, rg).r;
-    d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, shape, ROUND + outSeam + shrink, rg).p)}`;
-  }
+  d += ` L ${fmt(outerAt(oTo, rOut, rg, ROUND + outSeam + shrink).p)}`;
+  const r = outerAt(oFrom, rOut, rg, ROUND + outSeam + shrink).r;
+  d += ` A ${r} ${r} 0 0 0 ${fmt(outerAt(oFrom, rOut, rg, ROUND + outSeam + shrink).p)}`;
   return `${d} Z`;
 }
 
@@ -186,8 +327,13 @@ export function piece(from: number, to: number, rIn: number, rOut: number | "edg
  */
 export function middleOf(from: number, to: number, rIn: number, rOut: number | "edge", shape: Shape, rg: Rings, bias = 0.6): Pt {
   const mid = (from + to) / 2;
-  const a = onCircle(mid, rIn + ROUND + (rIn > rg.hole ? RING_SEAM / 2 : 0));
-  const b = outerAt(mid, rOut, shape, ROUND + (rOut === "edge" ? 0 : RING_SEAM / 2), rg).p;
+  const inset = ROUND + (rIn > rg.hole ? RING_SEAM / 2 : 0);
+  if (shape === "square") {
+    const hOut = (rOut === "edge" ? rg.reach : rOut) - ROUND - (rOut === "edge" ? 0 : RING_SEAM / 2);
+    return squareLabelSpot(from, to, rIn + inset, hOut, bias);
+  }
+  const a = onCircle(mid, rIn + inset);
+  const b = outerAt(mid, rOut, rg, ROUND + (rOut === "edge" ? 0 : RING_SEAM / 2)).p;
   return [a[0] * (1 - bias) + b[0] * bias, a[1] * (1 - bias) + b[1] * bias];
 }
 
@@ -302,12 +448,18 @@ export const slabFar = (rg: Rings, pad = SLAB_PAD): number => rg.reach - pad;
  * Where a row at this depth begins and ends.
  *
  * Deep rows run the full width. The shallow ones — the strip along the near
- * edge, which a round layout throws away — have the hole's quarter circle
- * taken out of one end, whichever end the pointer is at.
+ * edge, which a round layout throws away — start past the hole's notch,
+ * whichever end of the row the pointer is at.
  */
 export function slabRun(from: number, depth: number, rg: Rings, pad = SLAB_PAD): { a0: number; a1: number } {
-  const d = Math.max(0, Math.min(rg.hole, depth));
-  const cut = pad + Math.sqrt(Math.max(0, rg.hole * rg.hole - d * d));
+  // The hole is a square notch now, like everything else on a square menu, so
+  // a row either clears it outright or starts past it — no quarter circle to
+  // follow, and the rows that do clear it are all the same length.
+  const notch = rg.hole + ROUND;
+  // Past the notch by a hair is past it: the threshold is where the row stops
+  // overlapping the corner, not where it stops being near it, or the innermost
+  // band of every stack starts half a slab along for no reason anyone can see.
+  const cut = depth < notch + 2 ? notch + pad : pad;
   return slabFrame(from).flip ? { a0: pad, a1: rg.reach - cut } : { a0: cut, a1: rg.reach - pad };
 }
 

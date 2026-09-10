@@ -492,12 +492,24 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   cut wider than they need to look. The angular part of the seam is worked out
   per radius, so it is the same number of pixels wide against the pointer as at
   the outer edge; a fixed angle is a hairline inside and a canyon outside, and
-  that is what made the ring read as one shape with lines drawn on it. Square
-  outer edges land on the square's real corners, so a piece that turns a corner
-  turns it at a right angle instead of cutting it off with a chord. `piece()`
-  brings its turns back under one before the corner walk: the console's
-  quadrants start where the green stops, at a full turn, and without that they
-  matched no corner and came out as triangles with the labels hanging outside.
+  that is what made the ring read as one shape with lines drawn on it. `piece()`
+  brings its turns back under one first: the console's quadrants start where the
+  green stops, at a full turn, and without that they matched no corner and came
+  out as triangles with the labels hanging outside.
+- **Square is a different cut, not a different edge.** In square mode `piece()`
+  leaves the arc arithmetic alone and walks the square's perimeter instead:
+  every ring is a square ring (the hole is a square notch), and a cut runs
+  *into* the outline — perpendicular to the side it lands on, except in the
+  corner quarter of a band where it runs to the inner corner as a mitre, which
+  is the one place a square has nothing perpendicular to offer. Seams are
+  measured in pixels along the perimeter, which is the square's version of the
+  per-radius angle above. `middleOf()` follows: a word on a piece that wraps a
+  corner goes in the middle of one of its legs — the flat one, given the choice
+  — because the middle of an L is the corner, and that is where the band is
+  thinnest. `outerAt()` is round-only now; a square piece has no use for a
+  radius in a direction. The check is blunt: `tests/square-console.mjs` counts
+  arc commands on the menu's own paths and wants zero in square at every level,
+  and more than zero in round.
 - **Flat colour, no gradient.** A vertical gradient under a heavy drop shadow
   read as a lump of dark glass. One flat colour reads as one button: the old
   *hover* colour is the resting colour and hover goes a step brighter again,
