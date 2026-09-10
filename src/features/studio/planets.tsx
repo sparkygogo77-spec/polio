@@ -101,14 +101,6 @@ export const Station = (p: IconProps) => (
   </Svg>
 );
 
-/** Shop — a cargo pod with a handle: the thing you carry away. */
-export const Asteroid = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4.8 8.5h14.4l-1.1 11.2a1.4 1.4 0 0 1-1.4 1.3H7.3a1.4 1.4 0 0 1-1.4-1.3z" />
-    <path d="M8.8 10.5V6.9a3.2 3.2 0 0 1 6.4 0v3.6" />
-  </Svg>
-);
-
 /** Data — a constellation: points, and the lines you draw between them. */
 export const Constellation = (p: IconProps) => (
   <Svg {...p}>
@@ -140,16 +132,6 @@ export const Helmet = (p: IconProps) => (
   </Svg>
 );
 
-/** Dense & keyboard — the keys themselves, and the bar under them. */
-export const Rocket = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="2.5" y="5.5" width="19" height="13" rx="2.2" />
-    <path d="M6 9h.01M9.5 9h.01M13 9h.01M16.5 9h.01M20 9h.01" />
-    <path d="M6 12.4h.01M9.5 12.4h.01M13 12.4h.01M16.5 12.4h.01" />
-    <path d="M7.5 15.6h9" />
-  </Svg>
-);
-
 /** Under the hood — the bonnet propped open. */
 export const Telescope = (p: IconProps) => (
   <Svg {...p}>
@@ -175,10 +157,8 @@ export const PLANET: Record<CategoryId, (p: IconProps) => React.JSX.Element> = {
   motion: Orbit,
   interact: Satellite,
   forms: Station,
-  commerce: Asteroid,
   data: Constellation,
   social: Saucer,
   ai: Helmet,
-  power: Rocket,
   platform: Telescope,
 };

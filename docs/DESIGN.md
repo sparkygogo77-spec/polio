@@ -121,6 +121,17 @@ same boxes as everywhere else, in the screen's colours.
   settles there with a small overshoot. A flick of several notches goes
   several parts. Not exaggerated: the lean is a few tens of pixels, the
   settle well under a second.
+- **The library is grouped by what a visitor could point at.** Twelve
+  categories, each a place on a page or a thing a visitor does there —
+  never a category named for the kind of person who builds it ("Dense &
+  keyboard" went for that reason). A sub-group is named for what it holds,
+  never "More"; a part that belongs to two places goes where a visitor
+  would look for it (Persuasion beside Proof on First screen, Shop inside
+  Forms, the terminal with Data). Regrouping never moves an id: a saved
+  page holds ids, not categories, and the drawing board's reader validates
+  ids, so the library can be re-sorted without a migration. Collapsing
+  ids into fewer parts, or moving the behaviours into the page's wheel,
+  are separate decisions and were not approved.
 - **Placeholders are cut and wired.** Priority, Reiterate, Make-it-a-prompt: the
   button exists, sits where it will live, plays a tap, and does nothing yet. A
   placeholder is a promise about the layout, not about the feature.

@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.45",
+    title: "Twelve places a visitor could point at",
+    summary: "The library is regrouped round what a visitor sees: Dense & keyboard is dissolved, Shop lives inside Forms, and every sub-group is named for what it holds.",
+    sketch: "planets",
+    added: [
+      "Dense & keyboard is gone as a place. The dense tables, the virtual list, the multi-column feed, the live stream and the terminal, status bar, split panes and diff view live with Data; hotkey-first, presets, quick action and blur privacy live with Interaction. Nobody could point at \"Dense & keyboard\" on a page.",
+      "Shop lives inside Forms — both are the visitor handing you something — with Browsing, Buying, Plans and Ads & economy kept as their own rows.",
+      "Persuasion — testimonials, countdown, trust badges, logo cloud — sits beside Proof on First screen, where the arguments for the site are made. Your notes moved out of Layout into Text, because a note is words.",
+      "The three sub-groups called More are gone: the activity feed is with People, AI moderation is Keeping order, the diff view is in Terminal. Page transitions and back-to-top are Moments under Motion rather than Between pages under Navigation.",
+      "No part changed its id, so nothing saved changes, the drawing board's reader still validates against the same library, and every check on it stands. Twelve tabs on the add disc instead of fourteen.",
+    ],
+  },
+  {
     version: "0.44",
     title: "The brief, read back",
     summary: "The blueprint is reworded from what Claude misread in it; Critique, Fill and Finish come back as prompts you can take; and a Trail view maps every prompt from written to found to now.",

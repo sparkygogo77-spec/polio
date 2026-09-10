@@ -32,12 +32,10 @@ const BY_CATEGORY: Record<CategoryId, Band> = {
   content: "middle",
   media: "middle",
   forms: "middle",
-  commerce: "middle",
   data: "middle",
   social: "lower",
   ai: "lower",
   interact: "lower",
-  power: "lower",
   motion: "lower",
   platform: "bottom",
 };
