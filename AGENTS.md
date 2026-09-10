@@ -1004,6 +1004,13 @@ a kicker with a rule, and label-and-value rows that copy.
   `/` there when it is non-empty), `site/BLUEPRINT.md`, `site/blueprint.json`
   and any generated files. Paths are checked (`safePath`); files are capped.
   The token never reaches the browser; `GET` says only what is set.
+- **`/builds` is `/`'s survivor.** `features/builds` (the Sites/Repos front
+  door) answers at both `/` and `/builds`, and anything that has to keep
+  working after a publish links to `/builds`: once `site/document.json` is
+  non-empty the redirect above sends `/` to `/site` before the router ever
+  gets it, so a link to bare `/` stops reaching Builds the moment the site it
+  is inside goes live. `/` stays the unpublished front door; `/builds` is the
+  one path the redirect does not touch.
 - **The drawing board snaps.** `sketch.ts` `refineStroke(points, mode)`:
   `snap` reads a finished stroke as a line (levelled when nearly level), a
   polyline, a box, a triangle or an ellipse and replaces it with the clean
