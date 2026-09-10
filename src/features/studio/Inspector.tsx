@@ -14,7 +14,7 @@ import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
-import { BACKGROUND_ID, heldBackground, HUES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
+import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
@@ -572,6 +572,15 @@ export function Inspector() {
             value={node.prompt}
             placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
             onChange={(e) => update({ prompt: e.target.value })}
+          />
+        </Field>
+
+        <Field label="Shape" hint="What the part is cut to. A circle drawn round it on the board sets this.">
+          <Segmented
+            size="xs"
+            value={node.shape ?? "box"}
+            onChange={(v) => update({ shape: v === "box" ? null : (v as "circle") })}
+            options={NODE_SHAPES.map((v) => ({ value: v, label: v }))}
           />
         </Field>
 

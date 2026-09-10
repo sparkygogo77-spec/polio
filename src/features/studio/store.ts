@@ -53,6 +53,10 @@ export type ShapeKind = "pen" | "frame" | "arrow";
 export type BoardMode = "design" | "preview";
 export type ShapeRelation = "flow" | "data";
 
+/** What a part is cut to: a box unless something says otherwise. */
+export type NodeShape = "circle" | "ellipse" | "rounded" | "box";
+export const NODE_SHAPES: NodeShape[] = ["box", "rounded", "circle", "ellipse"];
+
 export interface StudioNode {
   id: string;
   pageId: string;
@@ -91,6 +95,13 @@ export interface StudioNode {
   /** Milliseconds before the entrance starts. */
   animDelay: number;
   animEase: AnimEase;
+  /**
+   * The shape the part is cut to, or null for the box every part is by
+   * default. A circle drawn round something on the drawing board sets this;
+   * without it the drawing's outline was measured for its size and its
+   * shape thrown away, so a circle came back as a rectangle.
+   */
+  shape: NodeShape | null;
   /** A colour round its edge — a palette role, or a colour of its own — or null for none. */
   aura: string | null;
   /** How far the aura reaches, as a multiple of the usual. */
@@ -615,7 +626,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,
@@ -1233,6 +1244,7 @@ export const useStudio = create<StudioState>()(
             ...n, content: n.content ?? "", link: n.link ?? null, data: n.data ?? "", colour: n.colour ?? null, font: n.font ?? null, anim: n.anim ?? null,
             // Speed and delay were words once; a saved board still has them.
             animSpeed: speedK(n.animSpeed as number | string | undefined), animDelay: delayMs(n.animDelay as number | string | undefined), animEase: n.animEase ?? "smooth",
+            shape: n.shape ?? null,
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
             sketch: normaliseSketch(n.sketch),
           })),

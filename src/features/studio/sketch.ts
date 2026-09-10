@@ -161,9 +161,24 @@ export const BOUNDARY_SHARE = 0.6;
 /** How far past the boundary a point may sit and still be called inside: a hair, in board widths. */
 const BOUNDARY_SLOP = 0.012;
 
+/**
+ * What the outline *is*, not just how big it is.
+ *
+ * A circle drawn round a part used to come back as a 380×351 box: the
+ * boundary was measured as the box round the outline and the outline's own
+ * shape was thrown away, so every drawing became a rectangle. The shape is
+ * read here, sent with the measurement, and applied to the part.
+ */
+export type BoundaryShape = "circle" | "ellipse" | "box" | "rounded box" | "path" | "none";
+
+/** How round is round: how far a circle's proportion may be off 1:1. */
+const CIRCLE_TOLERANCE = 1.18;
+
 export interface Boundary {
   /** The box the part fills, edge to edge. */
   box: SketchBox;
+  /** The shape of the outline that bounds it. */
+  shape: BoundaryShape;
   /** Width over height of that box: the proportion the part is held to. */
   aspect: number;
   /** True when a closed outline set it; false when it is only the box round the ink. */
@@ -199,6 +214,7 @@ export function readBoundary(sketch: Sketch): Boundary | null {
   }
   const outlined = !!box && box.w * box.h >= all.w * all.h * BOUNDARY_SHARE;
   const bound = outlined ? box! : all;
+  const shape = outlined && outline ? outlineShape(outline, bound) : "none";
 
   let inside = 0;
   let crossing = 0;
@@ -208,17 +224,45 @@ export function readBoundary(sketch: Sketch): Boundary | null {
     if (out) crossing++;
     else inside++;
   }
-  return { box: bound, aspect: boxAspect(bound), outlined, inside, crossing };
+  return { box: bound, shape, aspect: boxAspect(bound), outlined, inside, crossing };
+}
+
+/**
+ * Which shape a closed stroke is: how much of its own box it fills, and how
+ * even its distance from the middle is.
+ *
+ * A rectangle fills its box; an ellipse fills π/4 of it, about 0.79; a box
+ * with rounded corners lands between. Roundness settles the rest — every
+ * point of an ellipse is the same normalised distance from the centre, and
+ * a rounded rectangle's corners are not — and the proportion says whether a
+ * round thing is a circle or an ellipse.
+ */
+export function outlineShape(stroke: SketchPoint[], box: SketchBox): BoundaryShape {
+  const fill = fillOfBox(stroke);
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const radii = stroke.map(([x, y]) => Math.hypot((x - cx) / Math.max(1e-6, box.w / 2), (y - cy) / Math.max(1e-6, box.h / 2)));
+  const mean = radii.reduce((a, b) => a + b, 0) / Math.max(1, radii.length);
+  const spread = Math.sqrt(radii.reduce((a, r) => a + (r - mean) * (r - mean), 0) / Math.max(1, radii.length));
+  const round = spread < 0.14 && fill > 0.6 && fill < 0.92;
+  if (round) {
+    const aspect = boxAspect(box);
+    return aspect < CIRCLE_TOLERANCE && aspect > 1 / CIRCLE_TOLERANCE ? "circle" : "ellipse";
+  }
+  if (fill > 0.93) return "box";
+  if (fill > 0.82) return "rounded box";
+  return "path";
 }
 
 /** The boundary in words, in percent of the board: where it is, how big, what proportion, what it holds. */
 export function describeBoundary(b: Boundary): string {
   const pc = (v: number) => Math.round(v * 100);
   const where = `${pc(b.box.x)}%,${pc(b.box.y)}% to ${pc(b.box.x + b.box.w)}%,${pc(b.box.y + b.box.h)}% of the board`;
+  const drawn = b.outlined ? `a closed ${b.shape === "path" ? "outline" : b.shape}` : "no closed outline, so the box round everything drawn";
   const size = `${pc(b.box.w)}% wide by ${pc(b.box.h)}% tall, proportion ${aspectWords(b.aspect)} (aspect ${b.aspect.toFixed(2)})`;
   const holds = b.inside ? `${b.inside} stroke${b.inside === 1 ? "" : "s"} inside it` : "nothing inside it";
   const leaks = b.crossing ? `; ${b.crossing} stroke${b.crossing === 1 ? "" : "s"} cross it` : "";
-  return `${b.outlined ? "a closed outline" : "no closed outline, so the box round everything drawn"}, ${where}, ${size}, with ${holds}${leaks}`;
+  return `${drawn}, ${where}, ${size}, with ${holds}${leaks}`;
 }
 
 /** "3:1" or "1:2" — the proportion, in small whole numbers. */
