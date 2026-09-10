@@ -446,9 +446,25 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
   const width = Math.max(110, Math.round(COLUMN_W * shrink));
   const height = Math.max(40, Math.round(natural * shrink));
   return (
-    <button
-      type="button"
+    /*
+       A div, not a button.
+
+       A part is drawn as itself — the preview is the real component, and a
+       real card, tab bar or form has buttons in it. A button inside a button
+       is not HTML: the browser closes the outer one where the inner one
+       starts, so what the server sends and what the browser builds are
+       different trees, and React calls that a hydration error. The library
+       hit the same wall and answered it the same way (`Palette.tsx`).
+
+       Nothing is lost. `role="option"` is what this should have carried
+       anyway inside a listbox, and the keys never came from being a button
+       in the first place: the disc holds the focus and works the column with
+       the arrows and Enter (`aria-activedescendant` above), which is the
+       listbox pattern. What is left is the press.
+    */
+    <div
       role="option"
+      tabIndex={-1}
       id={`add-part-${feature.id}`}
       aria-selected={chosen}
       data-roll=""
@@ -456,7 +472,7 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
       data-add-chosen={chosen ? "" : undefined}
       title={chosen ? `Add ${feature.name}` : feature.explain ?? feature.blurb}
       onClick={onPress}
-      className="group/part flex flex-col items-center gap-1.5 rounded-md outline-none"
+      className="group/part flex cursor-pointer flex-col items-center gap-1.5 rounded-md outline-none"
       style={{ width: COLUMN_W, willChange: "transform, opacity" }}
     >
       <span
@@ -474,6 +490,6 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
       <span className="line-clamp-1 text-[11px] font-semibold leading-tight" style={{ color: chosen ? "oklch(0.85 0.12 205)" : CONSOLE.text, textShadow: "0 1px 3px oklch(0 0 0 / 0.85)" }}>
         {feature.name}
       </span>
-    </button>
+    </div>
   );
 }
