@@ -5,7 +5,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
 import { items, type Theme } from "./theme";
-import type { PartProps } from "./types";
+import { opt, type PartProps } from "./types";
 
 export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }: PartProps) {
   const typing = id === "hero-typewriter";
@@ -61,15 +61,42 @@ function Caret({ t, mode }: { t: Theme; mode: PartProps["mode"] }) {
   return <span style={{ color: t.accent, opacity: on ? 1 : 0.15 }}>|</span>;
 }
 
-/** The one sentence a site is about. */
-export function ValueProp({ id, content, theme: t }: PartProps) {
+/**
+ * The one sentence a site is about — and, when it is asked for, the turn at
+ * the end of it.
+ *
+ * A headline of two sentences that changes colour on the second ("Not a
+ * trend. **A transmission.**"), or one whose last word carries the accent
+ * ("Power in the **dark.**"), is the commonest thing a display line does,
+ * and it could not be said here at all: the part drew one colour and the
+ * only way to get the turn was two parts butted together, which wraps
+ * wrongly the moment anything changes width.
+ */
+export function ValueProp({ id, content, options, theme: t }: PartProps) {
+  const line = items(content, ["One sentence that says what this is and who it's for."])[0]!;
+  const turn = opt(options, "turn", "none");
+  const parts = splitTurn(line, turn);
+  const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
   return (
     <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.fontPx * 0.5 }}>
       <p style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: 1.2, maxWidth: t.measurePx, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
-        {items(content, ["One sentence that says what this is and who it's for."])[0]}
+        {parts.head}
+        {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}
       </p>
     </Fill>
   );
+}
+
+/** Where the line turns: nowhere, at the last word, or at the last sentence. */
+export function splitTurn(line: string, turn: string): { head: string; tail: string | null } {
+  if (turn === "none" || !line.trim()) return { head: line, tail: null };
+  if (turn.startsWith("last word")) {
+    const at = line.trimEnd().lastIndexOf(" ");
+    return at < 0 ? { head: "", tail: line } : { head: line.slice(0, at + 1), tail: line.slice(at + 1) };
+  }
+  // The last sentence: everything after the full stop before it.
+  const at = line.trimEnd().replace(/[.!?]\s*$/, "").lastIndexOf(".");
+  return at < 0 ? { head: "", tail: line } : { head: line.slice(0, at + 1), tail: line.slice(at + 1) };
 }
 
 /** Logos, numbers, badges — the strip under the fold. */

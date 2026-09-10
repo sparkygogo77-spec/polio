@@ -17,7 +17,7 @@ import { A11y, Auth, BrandKit, CookieConsent, ErrorScreen, Languages, PrintLayou
 import { BlurPrivacy, Console, HotkeyFirst, MultiColumnFeed, Presets, SplitPanes, StatusBar, VirtualList } from "./Power";
 import { CommandPalette, ContextMenus, CopyButton, DragDrop, EasterEgg, Gamification, Graduation, Haptics, HoverCard, MagneticButton, Onboarding, OptimisticUi, SettingsPanel, Skeletons, SoundCues, Toasts, Tooltips, UndoRedo, WorkflowBuilder } from "./Interact";
 import { MotionPart } from "./Motion";
-import { Cta } from "./Cta";
+import { Cta, InvitePanel } from "./Cta";
 import { Header } from "./Header";
 import { Hero, ProofStrip, ValueProp } from "./Hero";
 import { Breadcrumbs, Footer, Grid, Note, Outline, Overlay, Pagination, Sections, Split } from "./Layout";
@@ -51,6 +51,7 @@ export const DEFS: PartDef[] = [
   { component: Hero, ids: ["hero-split", "hero-video", "hero-gradient", "hero-typewriter", "hero-particles", "hero-3d", "hero-scroll-cue"], tier: "A", linkable: true },
   { component: ValueProp, ids: ["value-prop", "gimmick"], tier: "A" },
   { component: Cta, ids: ["cta-primary", "quick-action", "follow"], tier: "A", linkable: true },
+  { component: InvitePanel, ids: ["invite-panel"], tier: "A", linkable: true },
   { component: ProofStrip, ids: ["social-proof-strip", "logo-cloud", "trust-badges"], tier: "A" },
 
   /* --------------------------------------------------------------- text */

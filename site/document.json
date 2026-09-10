@@ -60,7 +60,7 @@
       "featureId": "sticky-header",
       "label": "Top bar",
       "prompt": "The orb mark and $BORB set in monospace at 0.26em on the left, three links in the middle in uppercase at 0.2em, and a Connect wallet pill on the right with a hairline border. Nothing fills; the bar is the page showing through.",
-      "content": "Vision, Token, Community",
+      "content": "logo: $BORB, Vision, Token, Community, button: Connect wallet",
       "data": "wallet connection state",
       "x": 0,
       "y": 24,
@@ -138,7 +138,9 @@
       "w": 620,
       "h": 190,
       "groupId": null,
-      "options": {},
+      "options": {
+        "turn": "last word accent"
+      },
       "priority": "must",
       "custom": false,
       "glyph": null,
@@ -393,7 +395,9 @@
       "w": 420,
       "h": 172,
       "groupId": null,
-      "options": {},
+      "options": {
+        "turn": "second sentence muted"
+      },
       "priority": "must",
       "custom": false,
       "glyph": null,
@@ -431,7 +435,8 @@
       "h": 210,
       "groupId": null,
       "options": {
-        "columns": "3"
+        "columns": "3",
+        "card": "ruled"
       },
       "priority": "must",
       "custom": false,
@@ -500,7 +505,9 @@
       "w": 470,
       "h": 162,
       "groupId": null,
-      "options": {},
+      "options": {
+        "turn": "last word muted"
+      },
       "priority": "must",
       "custom": false,
       "glyph": null,
@@ -668,126 +675,23 @@
       "sketch": null
     },
     {
-      "id": "n_scanregion_19",
+      "id": "n_invitepanel_19",
       "pageId": "page_home",
-      "featureId": "scan-region",
+      "featureId": "invite-panel",
       "label": "Join the transmission",
-      "prompt": "A single bordered panel, corner radius about 24px, on the card colour a shade off the page, holding the eyebrow, the headline and the button. Nothing else in this band.",
-      "content": "Join the transmission",
+      "prompt": "A single bordered panel, corner radius about 24px, on the card colour a shade off the page: the label in monospace accent at 0.22em, the headline in two lines with the second in the accent green, and the button out to the right in outline.",
+      "content": "label: Join the transmission, heading: Stay in the loop., button: Follow on X",
       "data": "",
       "x": 80,
       "y": 1840,
       "w": 1280,
-      "h": 260,
-      "groupId": null,
-      "options": {},
-      "priority": "must",
-      "custom": false,
-      "glyph": null,
-      "hue": null,
-      "locked": false,
-      "link": null,
-      "colour": null,
-      "font": null,
-      "anim": null,
-      "animSpeed": 1,
-      "animDelay": 0,
-      "animEase": "smooth",
-      "aura": null,
-      "auraSize": 1,
-      "auraStyle": "glow",
-      "texture": null,
-      "sketch": null
-    },
-    {
-      "id": "n_eyebrowrule_20",
-      "pageId": "page_home",
-      "featureId": "eyebrow-rule",
-      "label": "CTA eyebrow",
-      "prompt": "",
-      "content": "Join the transmission",
-      "data": "",
-      "x": 129,
-      "y": 1880,
-      "w": 300,
-      "h": 22,
+      "h": 240,
       "groupId": null,
       "options": {
-        "rule": "none",
-        "type": "monospace",
-        "tracking": "25"
+        "shape": "rounded",
+        "turn": "last word accent",
+        "variant": "outline"
       },
-      "priority": "must",
-      "custom": false,
-      "glyph": null,
-      "hue": null,
-      "locked": false,
-      "link": null,
-      "colour": null,
-      "font": null,
-      "anim": null,
-      "animSpeed": 1,
-      "animDelay": 0,
-      "animEase": "smooth",
-      "aura": null,
-      "auraSize": 1,
-      "auraStyle": "glow",
-      "texture": null,
-      "sketch": null
-    },
-    {
-      "id": "n_valueprop_21",
-      "pageId": "page_home",
-      "featureId": "value-prop",
-      "label": "CTA headline",
-      "prompt": "Two lines, bold, 60px; the second line is the accent green.",
-      "content": "Stay in the loop.",
-      "data": "",
-      "x": 129,
-      "y": 1906,
-      "w": 430,
-      "h": 152,
-      "groupId": null,
-      "options": {},
-      "priority": "must",
-      "custom": false,
-      "glyph": null,
-      "hue": null,
-      "locked": false,
-      "link": null,
-      "colour": {
-        "accent": "#b8ff24"
-      },
-      "font": {
-        "size": 2.6,
-        "weight": 700,
-        "spacing": -0.02,
-        "leading": 1.05
-      },
-      "anim": null,
-      "animSpeed": 1,
-      "animDelay": 0,
-      "animEase": "smooth",
-      "aura": null,
-      "auraSize": 1,
-      "auraStyle": "glow",
-      "texture": null,
-      "sketch": null
-    },
-    {
-      "id": "n_follow_22",
-      "pageId": "page_home",
-      "featureId": "follow",
-      "label": "Follow on X",
-      "prompt": "",
-      "content": "Follow on X",
-      "data": "",
-      "x": 1129,
-      "y": 1966,
-      "w": 182,
-      "h": 50,
-      "groupId": null,
-      "options": {},
       "priority": "must",
       "custom": false,
       "glyph": null,
@@ -810,7 +714,7 @@
       "sketch": null
     },
     {
-      "id": "n_footer_23",
+      "id": "n_footer_20",
       "pageId": "page_home",
       "featureId": "footer",
       "label": "Footer",
@@ -846,7 +750,7 @@
       "sketch": null
     },
     {
-      "id": "n_revealonscroll_24",
+      "id": "n_revealonscroll_21",
       "pageId": "page_home",
       "featureId": "reveal-on-scroll",
       "label": "Sections appear",
@@ -880,7 +784,7 @@
       "sketch": null
     },
     {
-      "id": "n_cornerglow_25",
+      "id": "n_cornerglow_22",
       "pageId": "page_orbs",
       "featureId": "corner-glow",
       "label": "Lab vignette",
@@ -918,7 +822,7 @@
       "sketch": null
     },
     {
-      "id": "n_eyebrowrule_26",
+      "id": "n_eyebrowrule_23",
       "pageId": "page_orbs",
       "featureId": "eyebrow-rule",
       "label": "Lab eyebrow",
@@ -954,7 +858,7 @@
       "sketch": null
     },
     {
-      "id": "n_valueprop_27",
+      "id": "n_valueprop_24",
       "pageId": "page_orbs",
       "featureId": "value-prop",
       "label": "Lab headline",
@@ -991,7 +895,7 @@
       "sketch": null
     },
     {
-      "id": "n_eyebrowrule_28",
+      "id": "n_eyebrowrule_25",
       "pageId": "page_orbs",
       "featureId": "eyebrow-rule",
       "label": "Drawn in CSS label",
@@ -1027,7 +931,7 @@
       "sketch": null
     },
     {
-      "id": "n_orbcss_29",
+      "id": "n_orbcss_26",
       "pageId": "page_orbs",
       "featureId": "orb-css",
       "label": "Drawn in CSS",
@@ -1066,7 +970,7 @@
       "sketch": null
     },
     {
-      "id": "n_prose_30",
+      "id": "n_prose_27",
       "pageId": "page_orbs",
       "featureId": "prose",
       "label": "Drawn in CSS note",
@@ -1100,7 +1004,7 @@
       "sketch": null
     },
     {
-      "id": "n_eyebrowrule_31",
+      "id": "n_eyebrowrule_28",
       "pageId": "page_orbs",
       "featureId": "eyebrow-rule",
       "label": "A sphere in WebGL label",
@@ -1136,7 +1040,7 @@
       "sketch": null
     },
     {
-      "id": "n_orbwebgl_32",
+      "id": "n_orbwebgl_29",
       "pageId": "page_orbs",
       "featureId": "orb-webgl",
       "label": "A sphere in WebGL",
@@ -1176,7 +1080,7 @@
       "sketch": null
     },
     {
-      "id": "n_prose_33",
+      "id": "n_prose_30",
       "pageId": "page_orbs",
       "featureId": "prose",
       "label": "A sphere in WebGL note",
@@ -1210,7 +1114,7 @@
       "sketch": null
     },
     {
-      "id": "n_eyebrowrule_34",
+      "id": "n_eyebrowrule_31",
       "pageId": "page_orbs",
       "featureId": "eyebrow-rule",
       "label": "From a picture label",
@@ -1246,7 +1150,7 @@
       "sketch": null
     },
     {
-      "id": "n_orbimage_35",
+      "id": "n_orbimage_32",
       "pageId": "page_orbs",
       "featureId": "orb-image",
       "label": "From a picture",
@@ -1286,7 +1190,7 @@
       "sketch": null
     },
     {
-      "id": "n_prose_36",
+      "id": "n_prose_33",
       "pageId": "page_orbs",
       "featureId": "prose",
       "label": "From a picture note",

@@ -39,6 +39,16 @@ export function Grid({ id, content, options, theme: t, mode, onNavigate, w }: Pa
   const titles = items(content, Array.from({ length: n * 2 }, (_, i) => `Card ${i + 1}`)).map(titled);
   const bento = id === "bento-grid";
   const masonry = id === "masonry";
+  /*
+   * What a card is. "boxed" is the card everyone knows: a filled box with a
+   * picture at the top. "ruled" is the other kind, which this could not
+   * draw at all — a hairline across the top, a small accent mark under it,
+   * a title and two lines, and no box — and which is what a row of three
+   * arguments looks like on almost every dark site. "plain" is neither.
+   */
+  const look = opt(options, "card", "boxed");
+  const ruled = look === "ruled";
+  const bare = look === "plain";
   const r = rng(hash(id + content));
   return (
     <Fill
@@ -55,18 +65,40 @@ export function Grid({ id, content, options, theme: t, mode, onNavigate, w }: Pa
           type="button"
           onClick={() => (mode === "live" ? onNavigate?.({ kind: "page", target: card.title }) : undefined)}
           style={{
-            ...cardStyle(t), padding: t.fontPx, textAlign: "left", cursor: mode === "live" ? "pointer" : "default",
+            ...(ruled || bare ? { background: "transparent", border: "none", borderTop: ruled ? `1px solid ${t.line}` : "none", borderRadius: 0 } : cardStyle(t)),
+            padding: ruled || bare ? `${t.fontPx * 0.9}px 0 0` : t.fontPx,
+            textAlign: "left", cursor: mode === "live" ? "pointer" : "default",
             color: t.text, font: "inherit", display: "flex", flexDirection: "column", gap: 6, minHeight: 0, overflow: "hidden",
             gridColumn: bento && i === 0 ? "span 2" : undefined,
             gridRow: masonry ? `span ${1 + Math.round(r())}` : undefined,
           }}
         >
-          <Placeholder t={t} />
-          <span style={{ fontWeight: 600, fontFamily: t.headingFamily, fontSize: t.fontPx * 0.98 }}>{card.title}</span>
+          {ruled ? <Mark t={t} seed={card.title} /> : bare ? null : <Placeholder t={t} />}
+          <span style={{ fontWeight: 600, fontFamily: t.headingFamily, fontSize: t.fontPx * 0.98, textTransform: ruled ? "uppercase" : undefined, letterSpacing: ruled ? "0.1em" : undefined }}>{card.title}</span>
           <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{card.body ?? sample.sentence(rng(hash(card.title)), 6)}</span>
         </button>
       ))}
     </Fill>
+  );
+}
+
+/**
+ * The mark over a ruled card: a bolt, a shield or an arrow, picked from the
+ * card's own title so the three in a row are three different marks and the
+ * same card keeps the same one. Drawn rather than imported, because the
+ * parts folder ships without an icon set.
+ */
+function Mark({ t, seed }: { t: Theme; seed: string }) {
+  const which = hash(seed) % 3;
+  const d = which === 0
+    ? "M8.5 1.5 3 9h4l-.5 5.5L13 7H9l-.5-5.5Z"
+    : which === 1
+      ? "M8 1.5 2.5 4v5c0 3 2.4 5 5.5 5.5 3.1-.5 5.5-2.5 5.5-5.5V4L8 1.5Z"
+      : "M4 12 12 4M6 4h6v6";
+  return (
+    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke={t.accent} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
   );
 }
 
