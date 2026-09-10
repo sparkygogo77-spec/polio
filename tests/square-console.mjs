@@ -177,6 +177,40 @@ const shapeOf = await rChip.evaluate((el) => {
   return { r, w: el.getBoundingClientRect().width };
 });
 check("round: chips are circles", shapeOf.r >= shapeOf.w / 2 - 0.5, `${shapeOf.r}px on ${shapeOf.w}px`);
+
+/*
+ * The ends of a run are parallel to the slab's own seam, not cut along a
+ * radius.
+ *
+ * A radial cut is a line through the middle of the wheel, so the distance from
+ * the middle to it is zero; a cut that keeps the same number of pixels of
+ * clearance all the way along is a line beside that one, and the distance from
+ * the middle to it is exactly that clearance. The path is drawn in the wheel's
+ * own coordinates with the middle at the origin, so the two ends of the first
+ * command are all it takes to tell which of the two it is.
+ */
+/** Every point a path command lands on, in order: its last two numbers. */
+const pointsOf = (d) => d.split(/(?=[MLA])/).map((cmd) => {
+  const n = cmd.match(/-?[\d.]+/g)?.map(Number) ?? [];
+  return n.length >= 2 ? [n[n.length - 2], n[n.length - 1]] : null;
+}).filter(Boolean);
+
+/** How far the middle of the wheel is from the line through two points. */
+const offOf = ([x0, y0], [x1, y1]) => Math.abs(x0 * y1 - x1 * y0) / Math.hypot(x1 - x0, y1 - y0);
+
+// The run's two ends against the slab's edge: 11.5px of clearance where the run
+// ends on the slab, 5px where two runs meet halfway along a band.
+const want = { Hue: [11.5, 11.5], Lightness: [11.5, 5], Strength: [5, 11.5] };
+for (const label of sqLabels) {
+  const d = (await outlineOf(rd, label).getAttribute("d")) ?? "";
+  const p = pointsOf(d);
+  if (p.length < 5) { check(`round: ${label}'s ends are readable`, false, `${p.length} points`); continue; }
+  const got = [offOf(p[0], p[1]), offOf(p[3], p[4])];
+  const [a, b] = want[label];
+  check(`round: ${label} ends beside the slab's seam, not along a radius`,
+    Math.abs(got[0] - a) < 2 && Math.abs(got[1] - b) < 2,
+    `${got[0].toFixed(1)} / ${got[1].toFixed(1)}px from the middle, wanted ${a} / ${b}`);
+}
 await rd.close();
 
 await browser.close();

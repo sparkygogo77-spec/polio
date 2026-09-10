@@ -25,13 +25,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "0.37",
+    version: "0.38",
     title: "From the accent, without the crash",
     summary: "The X key on the page's Color editor took the whole page down; it takes the page colour override away now and nothing else.",
     sketch: "palette",
     added: [
       "Pressing From the accent wrote the page's colour role as nothing rather than removing it, and the first reader to meet that nothing tried to trim it as a colour. The key removes the role now, and a role that is not a string is skipped rather than read.",
       "The wheel suite sets a page colour off the spectrum, presses the key, and checks the override is gone, the editor is still up, and no error reached the page.",
+    ],
+  },
+  {
+    version: "0.37",
+    title: "The spectrum meets the edge",
+    summary: "A colour run on a round wheel now ends the same distance from the slab's edge at every radius, and reaches out to it.",
+    sketch: "palette",
+    added: [
+      "The ends of a run were cut along a radius, and a radius converges on the middle: the end sat closer to the slab's seam at the inner edge of the band than at the outer one, by however much the radius had changed. So the gap between a spectrum and the slab it is on was a wedge — over the edge at one radius, short of it at the other. The ends are given in pixels now and turned into an angle at whatever radius is being drawn, so each one is a straight line the same distance from the seam all the way along.",
+      "Where two runs meet halfway along a band — lightness and saturation — they leave a narrower gap than an end that lands on the slab does, so the join reads as a join and not as two runs that missed each other.",
+      "The bands reach further out: the outer one now stops a few pixels inside the slab's own edge instead of a dozen, which is what makes the whole thing sit in the box rather than float in it.",
+      "The hand-tuned angle every editor added to its own sliders is gone — it was the same wedge, three more times.",
     ],
   },
   {

@@ -33,7 +33,6 @@ const FILLS: ArcItem[] = [
 ];
 /** How dark the veil can go. Past this the page is gone. */
 const VEIL_MAX = 0.85;
-const PAD = 0.014;
 
 export function BackgroundEditor({ which, slabs, page }: { which: string; slabs: Slab[]; page: StudioPage }) {
   const look = useStudio((st) => st.look);
@@ -83,8 +82,8 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
         <ArcSlider
           slab={c}
           tone="screen"
-          from={c.from + PAD}
-          to={c.to - PAD}
+          from={c.from}
+          to={c.to}
           rIn={mid - 6}
           rOut={mid + 12}
           label="Veil"
