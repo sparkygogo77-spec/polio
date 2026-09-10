@@ -612,7 +612,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   masonry: { w: 1200, h: 520, options: [{ id: "columns", label: "Columns", values: ["3", "2", "4"] }] },
   "blog-index": { w: 1200, h: 460, content: { label: "Article titles", placeholder: "Optional, one per card" } },
   testimonials: { w: 1200, h: 300, content: { label: "Names", placeholder: "Ana, Ben, Chloe" } },
-  footer: { w: 1440, h: 96, content: { label: "Links", placeholder: "About, Pricing, Docs, Contact, Privacy" } },
+  footer: { w: 1440, h: 96, content: { label: "Links, and the wordmark", placeholder: "logo: $BORB, About, Docs, Contact" } },
   "split-screen": { w: 1440, h: 520, content: { label: "Left side items", placeholder: "Section one, Section two" } },
   "sidebar-layout": { w: 1440, h: 640, options: [{ id: "side", label: "Side", values: ["left", "right"] }], content: { label: "Sidebar items", placeholder: "Overview, Settings, Billing" } },
   "section-stack": { w: 1440, h: 480, content: { label: "Sections in order", placeholder: "Intro, Details, Proof, Call to action" } },
