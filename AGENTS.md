@@ -914,6 +914,22 @@ a kicker with a rule, and label-and-value rows that copy.
   header for everything the wheel has set. Add a line there when a part or
   the page gains a new thing to set; a setting that cannot be seen is a
   setting that will be set twice.
+- **Two materials, defined once** (`core/ui/void.ts`; `tests/surfaces.mjs`).
+  Every surface of the Builder's console is the void or the screen, and both
+  live in core so nothing can drift: a feature that wants either imports it.
+  A private copy is the bug — the key vault kept its own five-value screen
+  with every number a little away from the shared one — and so is a surface
+  painted out of a third family: the trail's canvas was the shell's ground
+  with its hue typed as 150, a green nothing else in the app is near. The
+  suite measures the hue of every painted surface in the book and holds the
+  vault to importing rather than redefining.
+- **Nothing is sliced by a fold.** A panel that scrolls scrolls its *reading
+  matter*: the rows you act on — Publish, Download, Copy — sit below the
+  scroller, not at the end of it, or the panel's own edge cuts one in half on
+  open with nothing to say there is more. Same rule on a card: a row of
+  options is pushed to the foot (`mt-auto`, which needs the column above it
+  to be `flex-1`) so the bars line up across a row of cards whatever each one
+  had to say above them.
 - **The command palette is a console** (`CommandPalette.tsx`) and the
   chrome leans into the void (`--void-h` and the dark tokens in
   `globals.css`): a shade, not a colour. Keep new chrome on the tokens.
