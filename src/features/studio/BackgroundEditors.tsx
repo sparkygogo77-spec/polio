@@ -74,7 +74,7 @@ function LightEditor({ a, b, c }: { a: Slab; b: Slab; c: Slab }) {
       <SectorButton
         d={placeD}
         at={middleOf(a.from, a.to, mid, "edge", a.shape, a.rings, 0.42)}
-        spin={a.spin}
+        spin={a.spin} shape={a.shape}
         label="Drag the sun"
         icon={<Sun className="size-4" />}
         on={placing}
@@ -85,7 +85,7 @@ function LightEditor({ a, b, c }: { a: Slab; b: Slab; c: Slab }) {
       <SectorButton
         d={lampD}
         at={centreOf(a, hole, mid)}
-        spin={a.spin}
+        spin={a.spin} shape={a.shape}
         label={light.on ? "Lamp on" : "Lamp off"}
         icon={<Lightbulb className="size-3.5" />}
         on={light.on}
@@ -194,8 +194,8 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
         <ScreenFace slab={a} />
         <ArcChips slab={a} tone="screen" items={widths} radius={chipsAt(a)} size={24} value={String(fw)} onPick={(id) => s().setFrameWidth(Number(id))} />
         <Caption slab={a}>{`Width · ${fw}`}</Caption>
-        <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} label="Fit in view" icon={<Maximize2 className="size-3.5" />} onClick={() => s().requestFit()} />
-        <SectorButton d={wholeOf(c)} at={centreOf(c, hole, "edge")} spin={c.spin} label={wires ? "Hide the wires" : "Show the wires"} icon={<Link2 className="size-3.5" />} on={wires} onClick={() => s().setShowWires(!wires)} />
+        <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} shape={b.shape} label="Fit in view" icon={<Maximize2 className="size-3.5" />} onClick={() => s().requestFit()} />
+        <SectorButton d={wholeOf(c)} at={centreOf(c, hole, "edge")} spin={c.spin} shape={c.shape} label={wires ? "Hide the wires" : "Show the wires"} icon={<Link2 className="size-3.5" />} on={wires} onClick={() => s().setShowWires(!wires)} />
       </>
     );
   }
@@ -253,11 +253,11 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
       <>
         {items.length ? <GridChips slab={a} items={items} value={null} values={onPage} onPick={toggle} /> : null}
         <Caption slab={a}>{items.length ? `${onPage.size} of ${items.length} on the page` : "No layers yet"}</Caption>
-        <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
+        <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} shape={b.shape} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
         <SectorButton
           d={wholeOf(c)}
           at={centreOf(c, hole, "edge")}
-          spin={c.spin}
+          spin={c.spin} shape={c.shape}
           label="Clear the page"
           icon={<Eraser className="size-3.5" />}
           disabled={!onPage.size}

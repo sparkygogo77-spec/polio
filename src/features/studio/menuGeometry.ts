@@ -270,6 +270,23 @@ export function bandPath(u0: number, u1: number, rIn: number, rOut: number, ang:
  * a spun wheel carries its rows round with it.
  */
 
+/**
+ * How a piece's stroke turns a corner.
+ *
+ * The rounded corners of this menu *are* the stroke: every path is drawn inset
+ * and grown back with a wide stroke of its own colour, so a round join is what
+ * curves them. A square menu wants the corners where a piece meets the square's
+ * own edge to be sharp — that edge is a straight line and a bead of radius on
+ * the end of it reads as a smudge — so it mitres instead, which lands the
+ * corner exactly where the geometry put it.
+ *
+ * With a low miter limit, because a piece narrowing toward the pointer makes an
+ * acute angle and a mitre there would shoot out a spike several times the width
+ * of the stroke. The limit turns exactly those joins back into a bevel and
+ * leaves the right angles alone.
+ */
+export const joinFor = (shape: Shape): "miter" | "round" => (shape === "square" ? "miter" : "round");
+
 /** Clear space between what is drawn on a slab and the slab's own edge. */
 export const SLAB_PAD = 11;
 

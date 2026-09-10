@@ -87,6 +87,198 @@ async function press(page, label, x, y) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Square mode: what a panel looks like                                */
+/* ------------------------------------------------------------------ */
+{
+  const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+  await page.goto(`${URL}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  const toggle = page.locator("[data-menu-shape]").first();
+  if ((await toggle.getAttribute("data-menu-shape")) !== "square") { await toggle.click(); await page.waitForTimeout(350); }
+  /*
+   * A part's wheel, not the page's: the page has no six roles to show, no
+   * texture tile and nothing of its own to wear on the Looks button. Square
+   * mode, because that is the layout these were laid out for — the panels are
+   * boxes and the questions are about where things sit in a box.
+   */
+  await page.keyboard.press("Control+k");
+  await page.waitForTimeout(250);
+  await page.keyboard.type("drop a new idea");
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(650);
+  const nb = await page.locator("[data-node-id]").first().boundingBox();
+  await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2, { button: "right" });
+  await page.waitForTimeout(650);
+
+  // Looks wears the part's own look, which is the point of it.
+  const worn = page.locator("[data-worn='look']").first();
+  check("the Looks piece is wearing something", (await worn.count()) === 1);
+  if (await worn.count()) {
+    const paint = await worn.evaluate((el) => {
+      const st = getComputedStyle(el);
+      return { bg: st.backgroundColor, img: st.backgroundImage };
+    });
+    check("and what it wears is the part's own surface or texture",
+      (paint.bg !== "rgba(0, 0, 0, 0)" && paint.bg !== "transparent") || paint.img !== "none",
+      `${paint.bg} / ${paint.img.slice(0, 40)}`);
+  }
+  const looks = page.locator("[data-radial]").getByText(/^Looks$/).first();
+  if (await looks.count()) { await looks.click({ force: true }); await page.waitForTimeout(700); }
+
+  // A tile with no texture set says "texture, none" rather than showing a
+  // swatch of the surface colour, which is a swatch of nothing.
+  const tex = page.locator("[data-worn='texture']").first();
+  if (await tex.count()) {
+    const img = await tex.evaluate((el) => getComputedStyle(el).backgroundImage);
+    check("a tile with no texture wears a pattern, not a blank", img !== "none", img.slice(0, 60));
+  } else check("a tile with no texture wears a pattern, not a blank", false, "no texture tile on the wheel");
+  const aura = page.locator("[data-aura-swatch]").first();
+  check("the aura tile shows the aura the part is wearing", (await aura.count()) === 1);
+  const colour = page.locator("[data-radial]").getByText(/^Hue$/).first();
+  if (await colour.count()) { await colour.click({ force: true }); await page.waitForTimeout(700); }
+
+  /*
+   * Every panel wears its label in the same corner of itself.
+   *
+   * Which is not one place in the wheel's coordinates — the boxes mirror — so
+   * it is measured against each panel's own box: above its middle and left of
+   * it. They used to sit in three different corners, one per panel, with no
+   * rule you could name.
+   */
+  /*
+   * Each caption and each chip belongs to whichever panel's box contains it —
+   * they are all siblings in one group, so asking a slab for "its" caption
+   * hands you the first caption on the wheel three times over. Ask the
+   * geometry instead.
+   */
+  const panels = await page.evaluate(() => {
+    const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; };
+    const boxes = [...document.querySelectorAll("[data-console-slab]")].map(rect);
+    const home = (el) => {
+      const r = rect(el);
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      return boxes.findIndex((b) => cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h);
+    };
+    const out = boxes.map((b) => ({ b, caption: null, chips: [] }));
+    for (const cap of document.querySelectorAll("[data-arc-caption] text")) {
+      const i = home(cap);
+      if (i >= 0) out[i].caption = rect(cap);
+    }
+    for (const chip of document.querySelectorAll("[data-arc-chip]")) {
+      const i = home(chip);
+      if (i >= 0) out[i].chips.push(rect(chip));
+    }
+    return out;
+  });
+
+  // Where a label *starts*, not where its middle lands: it is set from its left
+  // end, so a long word in a narrow panel has its middle past the halfway mark
+  // while still plainly being the top-left label.
+  const corners = panels.filter((p) => p.caption).map((p) => ({
+    up: p.caption.y + p.caption.h / 2 < p.b.y + p.b.h / 2,
+    left: p.caption.x < p.b.x + p.b.w / 2,
+  }));
+  check("square: every panel's label is in the same corner of it",
+    corners.length >= 2 && corners.every((c) => c.up && c.left), JSON.stringify(corners));
+
+  // And the chips sit in the middle of the panel rather than down one end.
+  const centred = panels.filter((p) => p.chips.length >= 3).map((p) => {
+    const mid = p.chips.reduce((a, c) => a + c.y + c.h / 2, 0) / p.chips.length;
+    return Math.round(mid - (p.b.y + p.b.h / 2));
+  });
+  check("square: the chips sit in the middle of their panel", centred.length > 0 && centred.every((d) => Math.abs(d) < 26),
+    `${centred.join(", ")}px off centre`);
+
+  // The mark on a picked chip is a mark, not a halo.
+  const picked = page.locator("[data-arc-chip][aria-pressed='true']").first();
+  if (await picked.count()) {
+    const grown = await picked.evaluate((el) => {
+      const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+      return Math.max(m.a, m.d);
+    });
+    check("square: a picked chip is marked, not haloed", grown <= 1.12, `${grown.toFixed(2)}× its size`);
+  }
+
+  /*
+   * The six roles are six colours.
+   *
+   * They were one hue at six lightnesses with almost no colour in five of
+   * them — a row of chips you pick between, in which two of the six were four
+   * hundredths of a lightness apart. Measured as the closest pair in the row.
+   */
+  const spread = await page.evaluate(() => {
+    // Only the row that *is* the six roles. The row beside it says what to set
+    // one to, and two chips there being the same colour is the two of them
+    // meaning the same colour, which is not the thing being measured.
+    const rect = (el) => el.getBoundingClientRect();
+    let box = null;
+    for (const cap of document.querySelectorAll("[data-arc-caption] text")) {
+      if (!/painting/i.test(cap.textContent ?? "")) continue;
+      // By its middle: a line of text has ascender space above it, so its top
+      // edge can sit a pixel outside the panel it plainly belongs to.
+      const c = rect(cap);
+      const cx = c.x + c.width / 2, cy = c.y + c.height / 2;
+      for (const slab of document.querySelectorAll("[data-console-slab]")) {
+        const b = rect(slab);
+        if (cx >= b.x && cx <= b.x + b.width && cy >= b.y && cy <= b.y + b.height) box = b;
+      }
+    }
+    if (!box) return { n: 0, closest: 0 };
+    /*
+     * The browser hands these back as `oklch(...)`, not as rgb — it is what
+     * they were written in and there is nothing to convert them to on the way
+     * out. Distance measured in oklch's own units is meaningless (a hue is
+     * degrees, a chroma is hundredths), so they are taken the rest of the way
+     * to sRGB here and compared where a difference means what it looks like.
+     */
+    const toRgb = (str) => {
+      const n = (str.match(/[-\d.]+/g) ?? []).map(Number);
+      if (/oklch/i.test(str) && n.length >= 3) {
+        const [L, C, h] = n;
+        const a = C * Math.cos((h * Math.PI) / 180);
+        const b2 = C * Math.sin((h * Math.PI) / 180);
+        const l = (L + 0.3963377774 * a + 0.2158037573 * b2) ** 3;
+        const m = (L - 0.1055613458 * a - 0.0638541728 * b2) ** 3;
+        const s2 = (L - 0.0894841775 * a - 1.291485548 * b2) ** 3;
+        const lin = [
+          4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s2,
+          -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s2,
+          -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s2,
+        ];
+        return lin.map((v) => {
+          const c = Math.max(0, Math.min(1, v));
+          return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055));
+        });
+      }
+      return n.slice(0, 3);
+    };
+    const rgb = [...document.querySelectorAll("[data-arc-chip]")]
+      .filter((el) => {
+        const r = rect(el);
+        const x = r.x + r.width / 2, y = r.y + r.height / 2;
+        return x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+      })
+      .map((el) => toRgb(getComputedStyle(el).backgroundColor))
+      .filter((v) => v.length === 3);
+    let closest = Infinity;
+    for (let i = 0; i < rgb.length; i++) {
+      for (let j = i + 1; j < rgb.length; j++) {
+        const d = Math.hypot(rgb[i][0] - rgb[j][0], rgb[i][1] - rgb[j][1], rgb[i][2] - rgb[j][2]);
+        if (d < closest) closest = d;
+      }
+    }
+    return { n: rgb.length, closest: Math.round(closest) };
+  });
+  // Thirty-two, because the palette this replaced measured twenty: a threshold
+  // under that would have passed on the thing being fixed. It measures 47 now.
+  check("the six roles are six colours you can tell apart", spread.n >= 6 && spread.closest >= 32,
+    `${spread.n} chips, closest pair ${spread.closest} apart`);
+
+  await page.close();
+}
+
+/* ------------------------------------------------------------------ */
 /* Square                                                              */
 /* ------------------------------------------------------------------ */
 const sq = await openSpectrum("square");
