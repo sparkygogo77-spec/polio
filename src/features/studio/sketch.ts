@@ -79,9 +79,17 @@ export function boxAspect(box: SketchBox): number {
   return Math.max(0.05, Math.min(20, box.w / Math.max(0.002, box.h)));
 }
 
-/** Does the stroke come back to where it started? */
+/**
+ * Does the stroke come back to where it started?
+ *
+ * Four points is the fewest that can enclose anything — three corners and the
+ * return — and a snapped box is exactly five, a snapped triangle exactly
+ * four. Asking for eight, as this once did, meant every shape the board
+ * snapped read as an open line: no outline, so no boundary, so the part was
+ * fitted to the box round the ink instead of to the line drawn round it.
+ */
 export function strokeClosed(stroke: SketchPoint[]): boolean {
-  if (stroke.length < 8) return false;
+  if (stroke.length < 4) return false;
   const box = sketchBox([stroke]);
   if (!box) return false;
   const diag = Math.hypot(box.w, box.h);
@@ -140,6 +148,79 @@ export function readSketch(sketch: Sketch): SketchReading {
   return { strokes: strokes.length, box, aspect, shape, closed: closedStrokes.length, open: strokes.length - closedStrokes.length, outline, inside };
 }
 
+/* ------------------------------------------------------------------ */
+/* The boundary                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How much of everything drawn an outline must enclose before it counts as
+ * the part's boundary rather than one mark among many.
+ */
+export const BOUNDARY_SHARE = 0.6;
+
+/** How far past the boundary a point may sit and still be called inside: a hair, in board widths. */
+const BOUNDARY_SLOP = 0.012;
+
+export interface Boundary {
+  /** The box the part fills, edge to edge. */
+  box: SketchBox;
+  /** Width over height of that box: the proportion the part is held to. */
+  aspect: number;
+  /** True when a closed outline set it; false when it is only the box round the ink. */
+  outlined: boolean;
+  /** Strokes wholly within the boundary — the barriers and the things the part holds. */
+  inside: number;
+  /** Strokes that leave the boundary. A drawing meant as one shape has none. */
+  crossing: number;
+}
+
+/**
+ * The part's boundary: the outermost closed outline, or, when nothing was
+ * drawn closed, the box round everything.
+ *
+ * The lines drawn are the barriers and the boundary of the part — the outline
+ * is the part's edge, the part fills it, and nothing crosses it. This is
+ * where that is measured: the outline that bounds it, the proportion it is
+ * held to, what sits inside, and what leaks out. An outline only bounds the
+ * part when it holds most of what is drawn (`BOUNDARY_SHARE`), so a small
+ * circle beside a big scrawl is a mark inside the drawing, not its edge.
+ */
+export function readBoundary(sketch: Sketch): Boundary | null {
+  const strokes = sketch.strokes.filter((s) => s.length >= 2);
+  const all = sketchBox(strokes);
+  if (!all) return null;
+
+  let outline: SketchPoint[] | null = null;
+  let box: SketchBox | null = null;
+  for (const s of strokes) {
+    if (!strokeClosed(s)) continue;
+    const b = sketchBox([s])!;
+    if (!box || b.w * b.h > box.w * box.h) { outline = s; box = b; }
+  }
+  const outlined = !!box && box.w * box.h >= all.w * all.h * BOUNDARY_SHARE;
+  const bound = outlined ? box! : all;
+
+  let inside = 0;
+  let crossing = 0;
+  for (const s of strokes) {
+    if (outlined && s === outline) continue;
+    const out = s.some(([x, y]) => x < bound.x - BOUNDARY_SLOP || y < bound.y - BOUNDARY_SLOP || x > bound.x + bound.w + BOUNDARY_SLOP || y > bound.y + bound.h + BOUNDARY_SLOP);
+    if (out) crossing++;
+    else inside++;
+  }
+  return { box: bound, aspect: boxAspect(bound), outlined, inside, crossing };
+}
+
+/** The boundary in words, in percent of the board: where it is, how big, what proportion, what it holds. */
+export function describeBoundary(b: Boundary): string {
+  const pc = (v: number) => Math.round(v * 100);
+  const where = `${pc(b.box.x)}%,${pc(b.box.y)}% to ${pc(b.box.x + b.box.w)}%,${pc(b.box.y + b.box.h)}% of the board`;
+  const size = `${pc(b.box.w)}% wide by ${pc(b.box.h)}% tall, proportion ${aspectWords(b.aspect)} (aspect ${b.aspect.toFixed(2)})`;
+  const holds = b.inside ? `${b.inside} stroke${b.inside === 1 ? "" : "s"} inside it` : "nothing inside it";
+  const leaks = b.crossing ? `; ${b.crossing} stroke${b.crossing === 1 ? "" : "s"} cross it` : "";
+  return `${b.outlined ? "a closed outline" : "no closed outline, so the box round everything drawn"}, ${where}, ${size}, with ${holds}${leaks}`;
+}
+
 /** "3:1" or "1:2" — the proportion, in small whole numbers. */
 export function aspectWords(aspect: number): string {
   if (aspect >= 1) {
@@ -176,21 +257,21 @@ export function describeSketch(sketch: Sketch): string {
 }
 
 /**
- * A size in the drawing's proportion, keeping the part's area.
+ * A size in the boundary's proportion, keeping the part's area.
  *
- * The one reshape that needs no model: the drawing's width over height
+ * The one reshape that needs no model: the outline's width over height
  * becomes the part's, and the part keeps the room it had. Clamped to the
  * frame and to the smallest a part can be.
  */
 export function fitToSketch(sketch: Sketch, w: number, h: number, frameWidth: number): { w: number; h: number } {
-  const r = readSketch(sketch);
-  if (!r.box) return { w, h };
+  const b = readBoundary(sketch);
+  if (!b) return { w, h };
   const area = Math.max(40 * 24, w * h);
-  let nw = Math.sqrt(area * r.aspect);
-  let nh = Math.sqrt(area / r.aspect);
+  let nw = Math.sqrt(area * b.aspect);
+  let nh = Math.sqrt(area / b.aspect);
   if (nw > frameWidth) {
     nw = frameWidth;
-    nh = nw / r.aspect;
+    nh = nw / b.aspect;
   }
   return { w: Math.round(Math.max(40, nw)), h: Math.round(Math.max(24, Math.min(1600, nh))) };
 }

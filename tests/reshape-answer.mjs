@@ -9,11 +9,18 @@
  * proportion is brought back to it when no words could have asked for that,
  * and a new part keeps the author's words as its prompt.
  *
+ * And the boundary rule the route is written to (`sketch.ts`, `readBoundary`):
+ * the outermost closed line is the part's edge, the part fills it, what is
+ * drawn inside it is inside it, a stroke that leaves it is counted as
+ * crossing, and the proportion held is the outline's — never the box round
+ * every mark that fell outside it.
+ *
  *   node tests/reshape-answer.mjs
  *
  * Runs the TypeScript straight from source: Node strips the types (22.18+).
  */
 import { checkAnswer, allowedOptions, PROPORTION_HOLD } from "../src/features/studio/reshape.ts";
+import { BOUNDARY_SHARE, fitToSketch, readBoundary, readSketch, strokeClosed } from "../src/features/studio/sketch.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -110,6 +117,44 @@ const tabs = { featureId: "tabs-panel", label: "Product tabs", prompt: "Three ta
   check("an answered kind, name, prompt and contents all arrive", named.featureId === "search-bar" && named.label === "Site search" && named.prompt === "One field, one button." && named.content === "Search…, Go" && !named.custom);
   const bare = checkAnswer({ patch: { featureId: "search-bar", w: 480, h: 160, note: "" }, node: null, drawn: wide, aspect: WIDE, frameWidth: FRAME, kind });
   check("a library kind with no name or words is called what the library calls it", bare.label === "Search" && bare.prompt === null, bare.label);
+}
+
+/* 7. The boundary rule: the outline is the part's edge, the part fills it, nothing crosses it. */
+{
+  // A box three times wider than tall with two boxes drawn inside it.
+  const box = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+  const framed = { strokes: [box(0.15, 0.4, 0.85, 0.6), box(0.2, 0.44, 0.45, 0.56), box(0.5, 0.44, 0.75, 0.56)], words: "" };
+  const b = readBoundary(framed);
+  check("a snapped box — five points — reads as closed", strokeClosed(box(0.15, 0.4, 0.85, 0.6)) && !strokeClosed([[0.2, 0.5], [0.8, 0.5]]));
+  check("the outermost closed line is the boundary", b.outlined && near(b.box.w, 0.7) && near(b.box.h, 0.2), `${b.box.w}×${b.box.h}`);
+  check("its proportion is the part's", near(b.aspect, 3.5, 0.03), `${b.aspect}`);
+  check("what is drawn inside it is inside it", b.inside === 2 && b.crossing === 0, `${b.inside} in, ${b.crossing} across`);
+
+  // The marks inside do not move the proportion: a square answer is still held to the outline.
+  const held = checkAnswer({ patch: { w: 200, h: 200, note: "" }, node: tabs, drawn: framed, aspect: b.aspect, frameWidth: FRAME, kind });
+  check("a square answer to a framed drawing is held to the outline", held.reproportioned && near(held.w / held.h, b.aspect, 0.06), `${held.w}×${held.h}`);
+  const filled = checkAnswer({ patch: { w: 700, h: 200, note: "" }, node: tabs, drawn: framed, aspect: b.aspect, frameWidth: FRAME, kind });
+  check("an answer already in the outline's proportion stands", !filled.reproportioned && filled.w === 700 && filled.h === 200);
+
+  // A stroke that leaves the outline is counted, and the outline still bounds the part.
+  const leaky = { strokes: [box(0.15, 0.4, 0.85, 0.6), [[0.3, 0.65], [0.6, 0.72]]], words: "" };
+  const lb = readBoundary(leaky);
+  check("a stroke that leaves the outline is counted as crossing it", lb.crossing === 1 && lb.inside === 0, `${lb.crossing} across`);
+  check("the outline still bounds the part", lb.outlined && near(lb.aspect, 3.5, 0.03), `${lb.aspect}`);
+  check("and the ink box, which is not the boundary, says otherwise", !near(readSketch(leaky).aspect, lb.aspect, 0.1), `ink ${readSketch(leaky).aspect.toFixed(2)} vs boundary ${lb.aspect.toFixed(2)}`);
+  check("the part is fitted to the outline, not to the ink", near(fitToSketch(leaky, 300, 100, FRAME).w / fitToSketch(leaky, 300, 100, FRAME).h, lb.aspect, 0.06), JSON.stringify(fitToSketch(leaky, 300, 100, FRAME)));
+
+  // A small closed mark beside a big scrawl is a mark, not the part's edge.
+  const marked = { strokes: [[[0.1, 0.3], [0.9, 0.35], [0.15, 0.7], [0.9, 0.72]], box(0.2, 0.4, 0.3, 0.5)], words: "" };
+  const mb = readBoundary(marked);
+  check(`a closed mark holding less than ${BOUNDARY_SHARE} of the drawing is not the boundary`, !mb.outlined, `${mb.box.w.toFixed(2)}×${mb.box.h.toFixed(2)}`);
+  check("with no outline the box round everything drawn is the boundary", near(mb.aspect, readSketch(marked).aspect, 0.01));
+
+  // Two open lines: nothing closed, so the boundary is the ink box and nothing crosses it.
+  const open = { strokes: [[[0.2, 0.45], [0.8, 0.45]], [[0.2, 0.55], [0.8, 0.55]]], words: "" };
+  const ob = readBoundary(open);
+  check("with nothing drawn closed nothing can cross the boundary", !ob.outlined && ob.crossing === 0 && ob.inside === 2);
+  check("a drawing with nothing on it has no boundary", readBoundary({ strokes: [], words: "" }) === null);
 }
 
 const ok = results.every(Boolean);
