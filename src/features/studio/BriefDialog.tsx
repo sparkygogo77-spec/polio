@@ -130,6 +130,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       } else {
         const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.") : r.message;
         setNote(why);
+        if (r.reason === "no-key") ctx.openPanel("keys");
         ctx.publish({ key: "studio:generate", title: "Generation unavailable", body: why, level: "warn", source: "studio", toast: true });
       }
     } catch (err) {

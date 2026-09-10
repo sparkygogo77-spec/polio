@@ -29,6 +29,11 @@ export interface SiteConfig {
   /** One or two characters shown in the logo tile. */
   logoMark: string;
   version: string;
+  /**
+   * Where this site's code lives, as a URL. The GitHub mark in the top bar
+   * opens it. Nothing else reads it: publishing needs a token on the server.
+   */
+  repository?: string;
   /** Where the top-level nav lives. */
   layout: {
     /** Show route tabs in the top bar. */
@@ -92,6 +97,7 @@ export function defineSite(input: SiteInput): SiteConfig {
     description: input.description ?? input.tagline,
     logoMark: input.logoMark ?? input.name.slice(0, 1).toUpperCase(),
     version: input.version ?? "0.1.0",
+    ...(input.repository ? { repository: input.repository } : {}),
     layout: {
       topTabs: true,
       sidebar: "collapsible",

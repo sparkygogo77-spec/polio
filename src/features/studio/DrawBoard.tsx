@@ -212,6 +212,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       }
       // No key, a refusal, a bad reply: the drawing still shapes the part.
       const made = applyProportion(drawn);
+      if (data.reason === "no-key") ctx.openPanel("keys");
       ctx.publish({
         key: `studio:reshape:${made.id}`,
         title: node ? `Reshaped ${made.label} from the drawing` : `Drew ${made.label} from the drawing`,

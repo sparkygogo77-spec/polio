@@ -68,11 +68,11 @@ export function keyState(): KeyState {
 export function noKeyMessage(then: string): string {
   switch (keyState()) {
     case "locked":
-      return `Your keys are locked. Open the key button in the top bar (⌘⇧K) and enter the PIN, then try again. ${then}`;
+      return `Your key is locked. Enter the PIN under the key button (⌘⇧K), or hold the key for this tab instead, then try again. ${then}`;
     case "held":
-      return `The key this browser holds didn't reach the server. Try again; if it keeps happening, put ANTHROPIC_API_KEY on the server. ${then}`;
+      return `The key this browser holds didn't reach the server. Press Try it under the key button (⌘⇧K); if it keeps happening, put ANTHROPIC_API_KEY on the server. ${then}`;
     default:
-      return `No Claude key yet. Put ANTHROPIC_API_KEY on the server, or keep one in this browser under the key button in the top bar (⌘⇧K). ${then}`;
+      return `No Claude key yet. Put ANTHROPIC_API_KEY on the server, or paste one under the key button (⌘⇧K) and press Try it. ${then}`;
   }
 }
 

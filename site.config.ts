@@ -16,6 +16,9 @@ export default defineSite({
     "A visual builder on top of a universal component foundation: place features on a canvas, give each one its own prompt, set the format, and compile it into a build brief any agent can act on.",
   logoMark: "◆",
   version: "0.1.0",
+  // The GitHub mark in the top bar opens this. Publishing to it still needs
+  // GITHUB_TOKEN and GITHUB_REPO on the server; see .env.example.
+  repository: "https://github.com/sparkygogo77-spec/polio",
 
   layout: {
     topTabs: true,

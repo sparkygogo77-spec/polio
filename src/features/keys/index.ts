@@ -16,7 +16,7 @@ import { KeysButton } from "./KeysPanel";
 export const keys = defineFeature({
   id: "keys",
   name: "Keys",
-  description: "API keys held in this browser, sealed under a four-digit PIN, with what the server already has shown beside them.",
+  description: "The Claude key, held in this browser — sealed under a four-digit PIN, or for this tab only — with what the server already has shown beside it.",
   icon: KeyRound,
   hidden: true,
   topBarItems: [{ id: "keys.button", order: 10, component: KeysButton }],
@@ -42,7 +42,9 @@ export const keys = defineFeature({
   shortcuts: [{ keys: "mod+shift+k", label: "Keys", group: "Keys", run: (ctx) => ctx.togglePanel("keys") }],
   onMount: () => {
     // A vault open when the tab goes away is a vault open on a shared machine.
-    const shut = () => void import("./store").then((m) => m.useKeys.getState().lock());
+    // A key held for the tab is the tab's own: sessionStorage ends with it,
+    // and pagehide also fires on a plain reload, which it should survive.
+    const shut = () => void import("./store").then((m) => { const s = m.useKeys.getState(); if (!s.held) s.lock(); });
     window.addEventListener("pagehide", shut);
     return () => window.removeEventListener("pagehide", shut);
   },
