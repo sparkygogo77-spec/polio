@@ -409,15 +409,6 @@ export function RadialMenu() {
   const [, setCarried] = React.useState(0);
   const nodes = useStudio((s) => s.nodes);
   const shape = useStudio((s) => s.menuShape);
-  /*
-   * The middle matches the outside.
-   *
-   * A round button in the middle of a square menu is the last round thing left
-   * on it, and the eye goes straight to it — the hole it sits in is a square
-   * notch now, so a disc in a square socket reads as a part from another
-   * machine. Not a hard square either: the same corner the pieces round to.
-   */
-  const hubCorner = shape === "square" ? "rounded-[6px]" : "rounded-full";
   const spin = useStudio((s) => s.menuSpin);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
@@ -930,7 +921,7 @@ export function RadialMenu() {
               play("open");
               setAdding(true);
             }}
-            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center transition-[filter] hover:brightness-110 active:cursor-grabbing", hubCorner)}
+            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-[filter] hover:brightness-110 active:cursor-grabbing")}
             style={{ background: "oklch(0.66 0.155 205)", border: "1px solid oklch(0.44 0.14 205)", color: "oklch(0.99 0 0)", boxShadow: "0 0 10px oklch(0.7 0.16 205 / 0.45), 0 2px 6px oklch(0 0 0 / 0.5)" }}
           >
             <Plus className="size-3.5" strokeWidth={2.5} />
@@ -948,7 +939,7 @@ export function RadialMenu() {
               play(node!.locked ? "confirm" : "close");
               s().updateNode(node!.id, { locked: !node!.locked });
             }}
-            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center transition-colors active:cursor-grabbing", hubCorner)}
+            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full transition-colors active:cursor-grabbing")}
             style={{
               background: node!.locked ? `oklch(0.72 0.16 60)` : CONSOLE.face,
               border: `1px solid ${node!.locked ? "oklch(0.52 0.14 60)" : CONSOLE.rim}`,
@@ -970,7 +961,7 @@ export function RadialMenu() {
               setPicked(null);
               setSubPick(null);
             }}
-            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center active:cursor-grabbing", hubCorner)}
+            className={cn("pointer-events-auto absolute flex size-[30px] -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center rounded-full active:cursor-grabbing")}
             style={{
               background: editing ? CONSOLE.well : `oklch(0.32 0.06 ${GREEN})`,
               border: `1px solid ${editing ? CONSOLE.rim : `oklch(0.5 0.12 ${GREEN})`}`,

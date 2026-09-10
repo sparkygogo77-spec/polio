@@ -54,23 +54,6 @@ async function openSpectrum(shape) {
   return page;
 }
 
-/**
- * How many of the menu's own pieces are drawn with an arc in them.
- *
- * Every piece at every level is cut by `piece()`, and on a square menu not one
- * of them should carry an SVG arc command: a square ring, and cuts that run
- * into the outline rather than out from the middle. Icons are skipped — they
- * live in foreignObjects and are full of arcs, being drawings of things.
- */
-const arcedPieces = (page) => page.evaluate(() => {
-  let n = 0;
-  for (const el of document.querySelectorAll("[data-radial] path")) {
-    if (el.closest("foreignObject")) continue;
-    if (/[Aa]\s/.test(el.getAttribute("d") ?? "")) n++;
-  }
-  return n;
-});
-
 /** The outline drawn round a slider's run: the one path on it that is not filled. */
 const outlineOf = (page, label) => page.locator(`[data-arc-slider="${label}"] path[fill="none"]`).first();
 
@@ -104,7 +87,7 @@ async function press(page, label, x, y) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Square: the menu's own cuts, at every level                         */
+/* Square mode: what a panel looks like                                */
 /* ------------------------------------------------------------------ */
 {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
@@ -112,8 +95,12 @@ async function press(page, label, x, y) {
   await page.waitForTimeout(800);
   const toggle = page.locator("[data-menu-shape]").first();
   if ((await toggle.getAttribute("data-menu-shape")) !== "square") { await toggle.click(); await page.waitForTimeout(350); }
-  // A part's wheel, not the page's: the page has no six roles to show, no
-  // texture tile and nothing of its own to wear on the Looks button.
+  /*
+   * A part's wheel, not the page's: the page has no six roles to show, no
+   * texture tile and nothing of its own to wear on the Looks button. Square
+   * mode, because that is the layout these were laid out for — the panels are
+   * boxes and the questions are about where things sit in a box.
+   */
   await page.keyboard.press("Control+k");
   await page.waitForTimeout(250);
   await page.keyboard.type("drop a new idea");
@@ -123,7 +110,6 @@ async function press(page, label, x, y) {
   const nb = await page.locator("[data-node-id]").first().boundingBox();
   await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2, { button: "right" });
   await page.waitForTimeout(650);
-  check("square: level one is cut square", (await arcedPieces(page)) === 0);
 
   // Looks wears the part's own look, which is the point of it.
   const worn = page.locator("[data-worn='look']").first();
@@ -139,7 +125,6 @@ async function press(page, label, x, y) {
   }
   const looks = page.locator("[data-radial]").getByText(/^Looks$/).first();
   if (await looks.count()) { await looks.click({ force: true }); await page.waitForTimeout(700); }
-  check("square: level two is cut square", (await arcedPieces(page)) === 0);
 
   // A tile with no texture set says "texture, none" rather than showing a
   // swatch of the surface colour, which is a swatch of nothing.
@@ -152,7 +137,6 @@ async function press(page, label, x, y) {
   check("the aura tile shows the aura the part is wearing", (await aura.count()) === 1);
   const colour = page.locator("[data-radial]").getByText(/^Hue$/).first();
   if (await colour.count()) { await colour.click({ force: true }); await page.waitForTimeout(700); }
-  check("square: the console is cut square", (await arcedPieces(page)) === 0);
 
   /*
    * Every panel wears its label in the same corner of itself.
@@ -291,11 +275,6 @@ async function press(page, label, x, y) {
   check("the six roles are six colours you can tell apart", spread.n >= 6 && spread.closest >= 32,
     `${spread.n} chips, closest pair ${spread.closest} apart`);
 
-  // The middle matches the outside.
-  const hub = page.locator("[data-menu-home], [data-menu-lock], [data-menu-add]").first();
-  const hubR = await hub.evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
-  const hubW = await hub.evaluate((el) => el.getBoundingClientRect().width);
-  check("square: the button in the middle is square too", hubR < hubW / 2 - 1, `${hubR}px on ${hubW}px`);
   await page.close();
 }
 
@@ -378,7 +357,6 @@ for (const l of sqLabels) {
   if (/[Aa]\s/.test(d)) arced.push(l);
 }
 check("round: the sliders are still arcs", arced.length === 3, arced.join(", "));
-check("round: the menu's own pieces are still arcs", (await arcedPieces(rd)) > 0, `${await arcedPieces(rd)} of them`);
 const rLow = await dragToStep(rd, "Hue", 3);
 const rHigh = await dragToStep(rd, "Hue", 18);
 check("round: dragging round the arc still follows the hand", rLow < rHigh - 25, `${rLow} then ${rHigh}`);

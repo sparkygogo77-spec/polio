@@ -37,19 +37,6 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    version: "0.47",
-    title: "A square menu, square all the way out",
-    summary: "The wheel's own cuts go square too: every ring is a square ring and every cut runs into the outline instead of out from the middle.",
-    sketch: "parts",
-    added: [
-      "The controls went straight a few releases ago and the menu still read as crooked, because the pieces they sat on had not. Every ring but the outermost was a circle — the hole was round, the band between the two rings was round — and every cut between two pieces was a radius, so it met the square's edge at whatever angle the edge happened to be at there. A round menu with a square lid on it.",
-      "Square, now, at all three levels: the choices, the groups under them, and the console. Every ring is a square ring, the hole is a square notch, and a cut runs into the outline rather than out from the middle. Seams are walked along the perimeter rather than turned as an angle, so the gap is the same width on a side as it is at a corner — the same rule the round cutter follows, said in the units a square has.",
-      "The one diagonal left is a mitre: two pieces meeting at a corner of the hole, joined the way two lengths of a picture frame are. There is nothing perpendicular for a cut to be there.",
-      "A word on a piece that wraps a corner goes in the middle of one of its legs, not on the corner, which is the one place on an L where the band is thinnest and a word does not fit.",
-      "Round menus are untouched, and the check that holds the line is the honest one: not a single piece of a square menu carries an arc command at any level, and a round one carries sixteen.",
-    ],
-  },
-  {
     version: "0.46",
     title: "Twelve places a visitor could point at",
     summary: "The library is regrouped round what a visitor sees: Dense & keyboard is dissolved, Shop lives inside Forms, and every sub-group is named for what it holds.",
