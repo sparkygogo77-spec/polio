@@ -223,6 +223,19 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - *A new kind of mark on the board*: add a `ShapeKind` in `store.ts`, draw it
   in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
 
+**A part draws what the page needs, or it is not the part.** Four things the
+BLACKORB rebuild could only fake, each fixed where it lived rather than
+worked around on the board: a header's wordmark and its button are read out
+of its contents (`logo: $BORB`, `button: Connect wallet`) instead of being
+"Logo" and "Get started" on every site ever built from this; a display line
+can turn colour at its last word or its last sentence (`turn`, `splitTurn`),
+which is what a headline on a dark page nearly always does and could only be
+had before by butting two parts together; a card grid can be `ruled` — a
+hairline, a drawn mark, an uppercase title, no box — as well as boxed; and
+the panel a page ends on is `invite-panel`, a real part with a label, a
+turning headline and a button, where a dashed region with its name printed
+in the middle used to stand in for it.
+
 **The orbs, and what they are for.** `orb-css`, `orb-webgl` and `orb-image`
 are one object drawn three ways — layered gradients, a three.js sphere, a
 picture — with the same four sliders on each (size, tilt, colour, glow) and
