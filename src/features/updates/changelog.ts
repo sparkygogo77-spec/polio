@@ -25,6 +25,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.32",
+    title: "Embers, each its own",
+    summary: "Sixteen embers instead of fifty, and no two ways of moving alike: two small knots on gusts of their own, and the rest wandering, falling, rising or darting.",
+    sketch: "flame",
+    added: [
+      "Two knots of three ride a gust each — a gust that lives near its knot, wanders, and blows now and then — so three sparks in one corner lean one way while three in another do something else.",
+      "Four drifters wander alone on headings of their own and are almost always a dot. Three fallers sink with a sway. Two risers climb, gathering speed and flickering, and burn out sooner. Two darters sit still, go in a short quick dart, and sit again.",
+      "Where one dies another of its kind is lit, so the mix holds. Still small, still dim.",
+      "The pull that frees or turns the wheel is measured from where the hand pressed, not from the menu's middle. Near an edge the menu is kept on screen some way from the hand, and the pull used to lose its line there; the line is drawn from the hand now too.",
+    ],
+  },
+  {
     version: "0.31",
     title: "Embers",
     summary: "The red in the nebula is sparks now: small, quick, blown through the near cloud on a wind that gusts, streaking when a gust takes them.",

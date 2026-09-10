@@ -277,10 +277,10 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
     const st = useStudio.getState();
     let id: string;
     if (at) {
-      const fw = st.frameWidth;
-      const w = Math.min(f.w ?? 420, fw);
+      // Centred on the spot; the store keeps every new part inside the page.
+      const w = Math.min(f.w ?? 420, st.frameWidth);
       const h = f.h ?? 88;
-      id = st.addNode(f.id, Math.max(0, Math.min(fw - w, Math.round(at.x - w / 2))), Math.max(0, Math.round(at.y - h / 2)), { w, h });
+      id = st.addNode(f.id, Math.round(at.x - w / 2), Math.round(at.y - h / 2), { w, h });
       play("confirm");
     } else {
       id = addFeatureToCanvas(f.id);
@@ -491,8 +491,7 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
  * about the middle over minutes: a planet at the back with no edge to see,
  * only weather. The near depth is cloud you can watch pass: smaller,
  * drifting across the hole in a few tens of seconds, turning the other
- * way. Over it, the embers (`paintEmbers`). Nothing blinks; nothing is
- * white.
+ * way. Over it, the embers (`paintEmbers`). Nothing is white.
  */
 const TILE = 256;
 let tiles: { violet: HTMLCanvasElement; magenta: HTMLCanvasElement } | null = null;
@@ -609,69 +608,144 @@ function paintDarkMatter(c: CanvasRenderingContext2D, size: number, t: number) {
 /* ------------------------------------------------------------------ */
 
 /**
- * The embers: small red sparks blown through the hole on a wind that gusts.
+ * The embers: a handful of small red sparks, no two ways of moving alike.
  *
- * One wind for the whole hole — a direction that wanders over a minute or
- * so, a strength that breathes — and a little local swirl on top, so the
- * sparks are carried the same way without moving as one. Each spark leans
- * into the wind with a lag, falls a little, and streaks by its own speed:
- * a dot when it drifts, a short line when a gust takes it. It burns for a
- * few seconds, fading in and out, and where it dies another is lit. Small
- * and dim on purpose: you should not be sure it moved, only that it is
- * not where it was.
+ * Sixteen of them, in five kinds. **Gust riders** come in two small
+ * knots, each knot on a gust of its own that lives near it — a direction
+ * that wanders, a strength that is calm most of the time and blows now
+ * and then — so three sparks in one corner lean the same way while three
+ * in another do something else. **Drifters** wander alone on a heading
+ * of their own, slowly, and are almost always a dot. **Fallers** sink
+ * with a sway, like an ember dropping out of a fire. **Risers** climb,
+ * gathering speed and flickering, and burn out sooner. **Darters** sit
+ * still, then go — a short quick dart in some direction — and sit again.
+ * Every spark streaks by its own speed: a dot when it drifts, a short
+ * line when it goes. Each burns a few seconds, fades in and out, and where
+ * it dies another of its kind is lit. Small and dim on purpose: you should
+ * not be sure it moved, only that it is not where it was.
  */
-const SPARKS = 56;
 const TAU = Math.PI * 2;
-type Spark = { x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; warm: number };
+type Kind = "gust" | "drift" | "fall" | "rise" | "dart";
+/** Who is what: two knots of three riders, four drifters, three fallers, two risers, two darters. */
+const CAST: { kind: Kind; group: number }[] = [
+  { kind: "gust", group: 0 }, { kind: "gust", group: 0 }, { kind: "gust", group: 0 },
+  { kind: "gust", group: 1 }, { kind: "gust", group: 1 }, { kind: "gust", group: 1 },
+  { kind: "drift", group: 0 }, { kind: "drift", group: 0 }, { kind: "drift", group: 0 }, { kind: "drift", group: 0 },
+  { kind: "fall", group: 0 }, { kind: "fall", group: 0 }, { kind: "fall", group: 0 },
+  { kind: "rise", group: 0 }, { kind: "rise", group: 0 },
+  { kind: "dart", group: 0 }, { kind: "dart", group: 0 },
+];
+type Spark = { kind: Kind; group: number; x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; warm: number; phase: number; heading: number; next: number };
 let sparks: Spark[] | null = null;
 let sparkClock = 0;
 
-function lightSpark(r: number, into?: Spark): Spark {
-  const a = Math.random() * TAU;
-  const d = Math.sqrt(Math.random()) * r * 0.92;
-  const s: Spark = into ?? { x: 0, y: 0, vx: 0, vy: 0, age: 0, life: 0, size: 0, warm: 0 };
-  s.x = r + Math.cos(a) * d;
-  s.y = r + Math.sin(a) * d;
+/** A knot's gust: where it lives (a slow orbit in the hole), which way it blows, how hard right now. */
+function gustOf(group: number, t: number, r: number): { cx: number; cy: number; vx: number; vy: number } {
+  const p = group * 2.1 + 0.6;
+  const cx = r + Math.cos(t * 0.05 + p) * r * 0.45;
+  const cy = r + Math.sin(t * 0.037 + p * 1.7) * r * 0.45;
+  const dir = p * 1.9 + 1.1 * Math.sin(t * 0.13 + p) + 0.7 * Math.sin(t * 0.041 + p * 3);
+  const breath = 0.5 + 0.5 * Math.sin(t * (0.27 + group * 0.08) + p * 5);
+  const blow = 6 + 150 * breath * breath * breath;
+  return { cx, cy, vx: Math.cos(dir) * blow, vy: Math.sin(dir) * blow };
+}
+
+function lightSpark(r: number, t: number, s: Spark): Spark {
+  // Riders are lit near their gust; everyone else anywhere in the hole.
+  if (s.kind === "gust") {
+    const g = gustOf(s.group, t, r);
+    const a = Math.random() * TAU;
+    const d = Math.random() * r * 0.22;
+    s.x = g.cx + Math.cos(a) * d;
+    s.y = g.cy + Math.sin(a) * d;
+  } else {
+    const a = Math.random() * TAU;
+    const d = Math.sqrt(Math.random()) * r * 0.88;
+    s.x = r + Math.cos(a) * d;
+    s.y = r + Math.sin(a) * d;
+  }
   s.vx = 0;
   s.vy = 0;
   s.age = 0;
-  s.life = 1.8 + Math.random() * 2.6;
-  s.size = 0.5 + Math.random() * 0.65;
+  s.life = s.kind === "rise" ? 1.4 + Math.random() * 1.2 : s.kind === "dart" ? 4 + Math.random() * 4 : 2.2 + Math.random() * 3;
+  s.size = 0.45 + Math.random() * 0.6;
   s.warm = Math.random();
+  s.phase = Math.random() * TAU;
+  s.heading = Math.random() * TAU;
+  s.next = t + 0.6 + Math.random() * 2.5;
   return s;
-}
-
-/** The wind at a point, in pixels per second: the gust of the moment plus a local swirl, and a little fall. */
-function windAt(x: number, y: number, t: number): [number, number] {
-  const dir = 0.4 + 0.9 * Math.sin(t * 0.11) + 0.6 * Math.sin(t * 0.031 + 1.7);
-  const breath = 0.5 + 0.5 * Math.sin(t * 0.19 + Math.sin(t * 0.05) * 2);
-  const gust = 0.3 + 0.7 * breath * breath;
-  const swirl = 0.45 * Math.sin(x * 0.021 + t * 0.4) * Math.cos(y * 0.017 - t * 0.27);
-  const a = dir + swirl;
-  const speed = 24 + 116 * gust;
-  return [Math.cos(a) * speed, Math.sin(a) * speed + 14];
 }
 
 function paintEmbers(c: CanvasRenderingContext2D, size: number, t: number) {
   const r = size / 2;
-  if (!sparks) sparks = Array.from({ length: SPARKS }, () => lightSpark(r));
+  if (!sparks) sparks = CAST.map(({ kind, group }) => lightSpark(r, t, { kind, group, x: 0, y: 0, vx: 0, vy: 0, age: 0, life: 0, size: 0, warm: 0, phase: 0, heading: 0, next: 0 }));
   // The clock restarts with every disc; a step backwards is no step.
   const dt = Math.min(0.1, Math.max(0.001, t - sparkClock));
   sparkClock = t;
   c.save();
   c.lineCap = "round";
   for (const s of sparks) {
-    const [wx, wy] = windAt(s.x, s.y, t);
-    const lag = Math.min(1, dt * 3.2);
-    s.vx += (wx - s.vx) * lag;
-    s.vy += (wy - s.vy) * lag;
+    // Where this one wants to go, and how quickly it takes to it.
+    let tx = 0, ty = 0, lag = 3;
+    switch (s.kind) {
+      case "gust": {
+        const g = gustOf(s.group, t, r);
+        // The knot's gust, and a pull back toward the knot when a spark strays.
+        const px = (g.cx - s.x) * 0.25, py = (g.cy - s.y) * 0.25;
+        tx = g.vx + px + 6 * Math.sin(t * 1.7 + s.phase);
+        ty = g.vy + py + 6 * Math.cos(t * 1.3 + s.phase);
+        lag = 4;
+        break;
+      }
+      case "drift": {
+        s.heading += (0.8 * Math.sin(t * 0.6 + s.phase) + 0.5 * Math.sin(t * 0.17 + s.phase * 2)) * dt;
+        const v = 9 + 11 * s.warm;
+        tx = Math.cos(s.heading) * v;
+        ty = Math.sin(s.heading) * v;
+        lag = 1.5;
+        break;
+      }
+      case "fall": {
+        tx = 14 * Math.sin(t * 1.3 + s.phase);
+        ty = 24 + 12 * s.warm;
+        lag = 2;
+        break;
+      }
+      case "rise": {
+        const p = s.age / s.life;
+        tx = 8 * Math.sin(t * 2.3 + s.phase);
+        ty = -(30 + 70 * p);
+        lag = 3;
+        break;
+      }
+      case "dart": {
+        // Still until its moment; then a kick, and the kick dies away.
+        if (t >= s.next) {
+          const a = Math.random() * TAU;
+          const v = 150 + Math.random() * 80;
+          s.vx = Math.cos(a) * v;
+          s.vy = Math.sin(a) * v;
+          s.next = t + 1.2 + Math.random() * 3;
+        }
+        s.vx *= Math.exp(-5.5 * dt);
+        s.vy *= Math.exp(-5.5 * dt);
+        lag = 0;
+        break;
+      }
+    }
+    if (lag) {
+      const k = Math.min(1, dt * lag);
+      s.vx += (tx - s.vx) * k;
+      s.vy += (ty - s.vy) * k;
+    }
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     s.age += dt;
     const dx = s.x - r;
     const dy = s.y - r;
-    if (s.age > s.life || dx * dx + dy * dy > r * r * 0.9) { lightSpark(r, s); continue; }
-    const fade = Math.min(1, s.age / 0.5, (s.life - s.age) / 0.7);
+    if (s.age > s.life || dx * dx + dy * dy > r * r * 0.9) { lightSpark(r, t, s); continue; }
+    const flicker = s.kind === "rise" ? 0.75 + 0.25 * Math.sin(t * 9 + s.phase) : 1;
+    const fade = Math.min(1, s.age / 0.5, (s.life - s.age) / 0.7) * flicker;
     const speed = Math.hypot(s.vx, s.vy);
     const tail = Math.min(7, speed * 0.05);
     const ux = speed ? s.vx / speed : 0;

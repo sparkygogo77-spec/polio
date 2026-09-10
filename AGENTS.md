@@ -671,10 +671,11 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   once (`darkMatterTiles`: violet soft, magenta sharper), laid each frame
   as repeating patterns in two depths — huge and barely moving at the
   back, smaller and passing in front — screened together, then the embers
-  (`paintEmbers`: `SPARKS` particles kept between frames at module level,
-  each leaning with a lag into `windAt`, one gust for the hole plus a
-  local swirl, streaked by its own speed, relit where it dies), under a
-  dark edge. No stars, nothing blinks. The hole (`data-add-scroll`, `overflow: clip`
+  (`paintEmbers`: the `CAST` of sixteen kept between frames at module
+  level, five `Kind`s — riders in two knots on `gustOf(group)`, drifters
+  on their own heading, fallers, risers, darters that kick and decay —
+  each streaked by its own speed and relit as its kind where it dies),
+  under a dark edge. No stars. The hole (`data-add-scroll`, `overflow: clip`
   so nothing inside can scroll it, clipped to `WELL_R`) holds one category's
   parts as `PartPreview`s at `COLUMN_W` with a `GAP` between them and each
   sub-group's name as a phosphor heading (`data-add-head`). The column is
@@ -688,9 +689,13 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   (`choose`), and a flick commits once per pair. A new column jumps its
   first part to the middle. The chosen part (`data-add-chosen`,
   `aria-selected`) wears a blue rim; a press on it calls `addNode` centred
-  on `open.at` — the canvas point `Canvas.tsx` passes to `openRadial` —
-  clamped inside the frame, or `addFeatureToCanvas` when there is no point,
-  then the menu closes; a press on another rolls to it. Arrows move the
+  on `open.at` — the canvas point `spotOn(frame, x, y)` gives, passed to
+  `openRadial` by the frame's own press handler in `Canvas.tsx` and by the
+  menu's context-menu handler when the wheel moves to a new spot on the
+  frame (the context-menu event that trails the opening press is left
+  alone, or it would reopen the wheel without the spot) — and the store
+  keeps it inside the page (`placeInFrame`), or `addFeatureToCanvas` when
+  there is no point; then the menu closes; a press on another rolls to it. Arrows move the
   drum, Enter adds. The categories are tabs (`data-add-tab`, `role="tab"`)
   round the left of the rim from `TABS_FROM` to `TABS_TO` degrees, top to
   bottom, in `keyForHue(c.hue)` with the `PLANET` mark; the search

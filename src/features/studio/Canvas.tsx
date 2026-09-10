@@ -27,7 +27,7 @@ import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
-import { openRadial } from "./RadialMenu";
+import { openRadial, spotOn } from "./RadialMenu";
 
 const GRID = 8;
 /** Breathing room either side of the page. Small: the page is the point. */
@@ -509,8 +509,7 @@ export function Canvas() {
             e.stopPropagation();
             useStudio.getState().selectBackground();
             // The same spot on the page, so the wheel's Add lands a part where the hand was.
-            const r = e.currentTarget.getBoundingClientRect();
-            openRadial(BACKGROUND_ID, e.clientX, e.clientY, { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom });
+            openRadial(BACKGROUND_ID, e.clientX, e.clientY, spotOn(e.currentTarget, e.clientX, e.clientY));
           }}
           onContextMenu={(e) => {
             if (e.target !== e.currentTarget) return;
