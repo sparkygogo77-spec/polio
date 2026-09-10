@@ -232,6 +232,17 @@ A shape the board snapped is four or five points, so `strokeClosed` asks for
 four, not eight. It asked for eight once, which meant every snapped box read
 as an open line and no drawing had a boundary at all.
 
+**The outline's shape is kept, not only its size.** `readBoundary` classifies
+the closed outline — circle, ellipse, box, rounded box, or a path that is
+none of them — from how much of its own box it fills and how even its
+distance from the middle is; the measurement sent to Claude names it, the
+answer's schema has a `shape` field, and the part is cut to it (`node.shape`,
+applied by `Block`, `50%` for a circle or an ellipse). A circle is made as
+tall as it is wide. Without a key the shape still reaches the part, because
+it was measured here. This was reported from the deployed board: a circle
+drawn round a part came back as a 380×351 rectangle, because the rule fitted
+the box round the outline and dropped the outline.
+
 The answer is a suggestion until `reshape.ts` has held it to the catalog, the
 frame and the drawing: ids and option values not in the library are dropped,
 the size is clamped to the frame, and a size a third or more off the

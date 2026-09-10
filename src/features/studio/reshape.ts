@@ -6,9 +6,10 @@
  * held against the catalog, the page frame and the drawing itself. This is
  * that check, in one place: an id that is not in the library is dropped, an
  * option the part does not offer is dropped, a value it does not offer is
- * dropped, a size is clamped to the frame, and a size that ignores the one
+ * dropped, a size is clamped to the frame, a size that ignores the one
  * thing every drawing says — its proportion — is brought back to it when
- * there are no words to say otherwise.
+ * there are no words to say otherwise, and the shape the outline was drawn
+ * as is the shape the part is cut to.
  *
  * Pure: no React, no store, no browser, no catalog import (the catalog
  * carries icons). The board passes a lookup; `tests/reshape-answer.mjs`
@@ -16,12 +17,17 @@
  */
 import type { Sketch } from "./sketch";
 
+/** What a part is cut to. The same four the store keeps. */
+export type Shape = "circle" | "ellipse" | "rounded" | "box";
+const SHAPES: Shape[] = ["circle", "ellipse", "rounded", "box"];
+
 /** What the reshape route answers with, before it is checked. */
 export interface ReshapePatch {
   featureId?: string;
   label?: string;
   w?: number;
   h?: number;
+  shape?: string;
   content?: string;
   prompt?: string;
   /** The route folds Claude's list of pairs into a record; either shape is taken in case. */
@@ -62,6 +68,13 @@ export interface CheckInput {
   drawn: Sketch;
   /** Width over height of the drawing, as `readSketch` measures it. */
   aspect: number;
+  /**
+   * What the outline was measured as (`readBoundary`). The drawing settles
+   * the shape: the reader may name one, but a circle that was drawn is a
+   * circle whatever comes back, and with no key at all the shape still
+   * reaches the part.
+   */
+  outline?: string;
   frameWidth: number;
   kind: (id: string) => KindInfo | null | undefined;
 }
@@ -71,6 +84,8 @@ export interface Checked {
   label: string;
   w: number;
   h: number;
+  /** What the part is cut to, or null to leave it a box. */
+  shape: Shape | null;
   /** Null means leave what the part has. */
   content: string | null;
   prompt: string | null;
@@ -98,7 +113,7 @@ const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.i
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /** Claude's answer, held to the catalog, the frame and the drawing. */
-export function checkAnswer({ patch, node, drawn, aspect, frameWidth, kind }: CheckInput): Checked {
+export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, kind }: CheckInput): Checked {
   const words = drawn.words.trim();
   const isNew = !node;
 
@@ -109,6 +124,21 @@ export function checkAnswer({ patch, node, drawn, aspect, frameWidth, kind }: Ch
   const info = kind(featureId) ?? null;
   const kindChanged = !!node && featureId !== node.featureId;
   const custom = featureId === IDEA_ID;
+
+  /*
+   * The shape: what the outline was, unless the reader named another one.
+   *
+   * The measurement is the stronger of the two, because it is the drawing:
+   * a circle drawn round a part came back as a 380×351 box while the
+   * boundary rule was fitting the box round the outline and dropping the
+   * outline itself. A reader that says nothing gets the drawn shape; a
+   * reader that says something is taken at its word, since the words beside
+   * a drawing win over the drawing.
+   */
+  const drawnShape: Shape | null = outline === "circle" ? "circle" : outline === "ellipse" ? "ellipse" : outline === "rounded box" ? "rounded" : outline === "box" ? "box" : null;
+  const asked = typeof patch.shape === "string" ? patch.shape.trim().toLowerCase() : "";
+  const said = SHAPES.find((x) => x === asked) ?? null;
+  const shape = said ?? drawnShape;
 
   // The size: what was answered, else what the part has, else the kind's own.
   let w = clamp(Math.round(num(patch.w, node?.w ?? info?.w ?? 132)), MIN_W, Math.max(MIN_W, frameWidth));
@@ -121,7 +151,7 @@ export function checkAnswer({ patch, node, drawn, aspect, frameWidth, kind }: Ch
   let reproportioned = false;
   const answered = w / h;
   const off = Math.max(answered / aspect, aspect / answered);
-  if (!words && Number.isFinite(off) && off > PROPORTION_HOLD) {
+  if (shape !== "circle" && !words && Number.isFinite(off) && off > PROPORTION_HOLD) {
     const area = w * h;
     let nw = Math.sqrt(area * aspect);
     let nh = Math.sqrt(area / aspect);
@@ -132,6 +162,15 @@ export function checkAnswer({ patch, node, drawn, aspect, frameWidth, kind }: Ch
     w = clamp(Math.round(nw), MIN_W, Math.max(MIN_W, frameWidth));
     h = clamp(Math.round(nh), MIN_H, MAX_H);
     reproportioned = true;
+  }
+
+  // A circle is as tall as it is wide. Answering 380×351 for one is the
+  // shape being dropped a second time, in the numbers.
+  if (shape === "circle") {
+    const side = clamp(Math.round(Math.sqrt(Math.max(MIN_W * MIN_H, w * h))), MIN_W, Math.max(MIN_W, Math.min(frameWidth, MAX_H)));
+    if (Math.abs(w - h) > 1) reproportioned = true;
+    w = side;
+    h = side;
   }
 
   // The name: what was answered; else what the part is called; for a new
@@ -146,7 +185,7 @@ export function checkAnswer({ patch, node, drawn, aspect, frameWidth, kind }: Ch
 
   const options = allowedOptions(patch.options, info?.options ?? [], kindChanged ? {} : node?.options ?? {});
 
-  return { featureId, label, w, h, content, prompt, options, custom, kindChanged, reproportioned };
+  return { featureId, label, w, h, shape, content, prompt, options, custom, kindChanged, reproportioned };
 }
 
 /** Only options the part actually has, with values it actually offers, over the ones already set. */

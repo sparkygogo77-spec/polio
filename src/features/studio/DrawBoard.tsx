@@ -43,7 +43,7 @@ import { CONSOLE, HoverTray } from "./RingConsole";
 import { describeSketch, fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { keyHeader, noKeyMessage } from "./agent";
 import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
-import { useStudio, type StudioNode } from "./store";
+import { useStudio, type NodeShape, type StudioNode } from "./store";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
 const INK_HUE = 205;
@@ -221,6 +221,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           body: [
             `${made.w} × ${made.h}`,
             made.kindChanged ? `now ${made.kind}` : null,
+            made.shape && made.shape !== "box" ? `cut to ${made.shape === "rounded" ? "a rounded box" : `${made.shape === "circle" ? "a" : "an"} ${made.shape}`}` : null,
             made.reproportioned ? "held to the drawing's proportion" : null,
             data.patch.note,
           ].filter(Boolean).join(" · "),
@@ -261,7 +262,8 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     const s = useStudio.getState();
     // The proportion held is the boundary's: the outline the author drew round
     // the part, not the box round every mark that fell outside it.
-    const made = checkAnswer({ patch, node, drawn, aspect: readBoundary(drawn)?.aspect ?? 1, frameWidth, kind: kindInfo });
+    const bounds = readBoundary(drawn);
+    const made = checkAnswer({ patch, node, drawn, aspect: bounds?.aspect ?? 1, outline: bounds?.shape, frameWidth, kind: kindInfo });
     const { featureId, label, w, h, options, kindChanged, reproportioned } = made;
     const shared: Partial<StudioNode> = {
       featureId,
@@ -270,6 +272,8 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       h,
       options,
       sketch: drawn,
+      // A circle drawn round something makes it a circle, not a square.
+      ...(made.shape ? { shape: made.shape === "box" ? null : made.shape } : {}),
       ...(made.content != null ? { content: made.content } : {}),
       ...(made.prompt != null ? { prompt: made.prompt } : {}),
       // A part that became another kind is a custom idea exactly when `addNode` would say so.
@@ -278,31 +282,46 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     const kind = getFeature(featureId)?.name ?? label;
     if (node) {
       s.updateNode(node.id, { ...shared, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
-      return { id: node.id, label, w, h, kind, kindChanged, reproportioned };
+      return { id: node.id, label, w, h, kind, kindChanged, reproportioned, shape: made.shape };
     }
     const where = at ?? { x: frameWidth / 2, y: 200 };
     const id = s.addNode(featureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
-    return { id, label, w, h, kind, kindChanged, reproportioned };
+    return { id, label, w, h, kind, kindChanged, reproportioned, shape: made.shape };
   };
 
   /** No reader: the drawing's proportion is the reshape, and the drawing is kept. */
   const applyProportion = (drawn: Sketch) => {
     const s = useStudio.getState();
+    const b = readBoundary(drawn);
+    /*
+     * The shape needs no reader either: it was measured off the drawing.
+     * With no key the part still comes out round when a circle was drawn
+     * round it, and square when the circle was a square.
+     */
+    const shape: NodeShape | null | undefined =
+      b?.shape === "circle" ? "circle"
+        : b?.shape === "ellipse" ? "ellipse"
+          : b?.shape === "rounded box" ? "rounded"
+            : b?.shape === "box" ? null
+              : undefined;
+    const shaped: Partial<StudioNode> = shape === undefined ? {} : { shape };
     if (node) {
-      const { w, h } = fitToSketch(drawn, node.w, node.h, frameWidth);
-      s.updateNode(node.id, { w, h, sketch: drawn, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
+      const fitted = fitToSketch(drawn, node.w, node.h, frameWidth);
+      const side = Math.round(Math.sqrt(Math.max(40 * 24, fitted.w * fitted.h)));
+      const w = shape === "circle" ? side : fitted.w;
+      const h = shape === "circle" ? side : fitted.h;
+      s.updateNode(node.id, { w, h, sketch: drawn, ...shaped, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
       return { id: node.id, label: node.label, w, h };
     }
     // A new part with nothing to keep the area of: the board is read as the
     // page, so a boundary across a third of it is a part across a third of
     // the frame.
-    const b = readBoundary(drawn);
     const w = clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
-    const h = clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
+    const h = shape === "circle" ? w : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
     const label = text(drawn.words, 40) || "Drawn part";
     const where = at ?? { x: frameWidth / 2, y: 200 };
     const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
-      w, h, label, prompt: drawn.words, sketch: drawn,
+      w, h, label, prompt: drawn.words, sketch: drawn, ...shaped,
     });
     return { id, label, w, h };
   };

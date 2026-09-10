@@ -70,6 +70,8 @@ interface NodeSpec {
   data: string;
   /** What was drawn for it on the drawing board, in words. */
   drawn: string | null;
+  /** What the part is cut to, when it is not the box everything is by default. */
+  shape: string | null;
   /** Parts this one reads from, via data wires. */
   feeds: string[];
   group: string | null;
@@ -332,6 +334,7 @@ export function compileSpec(input: CompileInput): Spec {
           texture: !n.texture ? null : n.texture === "none" ? "no texture, whatever the site wears" : "its own texture layer",
           data: (n.data ?? "").trim(),
           drawn: n.sketch && !isBlankSketch(n.sketch) ? describeSketch(n.sketch) : null,
+          shape: n.shape && n.shape !== "box" ? n.shape : null,
           feeds: pShapes
             .filter((sh) => sh.kind === "arrow" && sh.relation === "data" && sh.toNodeId === n.id)
             .map((sh) => pNodes.find((x) => x.id === sh.fromNodeId)?.label)
@@ -574,6 +577,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.anim) L.push(`  - on arrival: it ${e.anim}`);
         if (e.data) L.push(`  - data: ${e.data}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
+        if (e.shape) L.push(`  - shape: ${e.shape === "rounded" ? "a rounded box" : `${e.shape === "circle" ? "a circle" : "an ellipse"}, cut to it`}`);
         if (e.drawn) L.push(`  - drawn: ${e.drawn}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
       }

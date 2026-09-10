@@ -90,6 +90,11 @@ const ANSWER_SCHEMA = {
     label: { type: "string", description: "A short plain name for the part: only if it should change, or for a new part." },
     w: { type: "number", description: "Width in pixels inside the page frame, in the boundary's proportion." },
     h: { type: "number", description: "Height in pixels, in the boundary's proportion: width divided by height equals the aspect given." },
+    shape: {
+      type: "string",
+      enum: ["box", "rounded", "circle", "ellipse"],
+      description: "The shape the outline is, which the part is cut to. A circle drawn round something makes it a circle, not a square: say what the measurement below says the outline is, unless the words ask for something else.",
+    },
     content: { type: "string", description: "What the part holds inside the boundary, as a comma-separated list or a line of text, if the drawing shows it (three boxes in a row, a list of lines, a field and a button)." },
     prompt: { type: "string", description: "What this drawing shows, as specifically as it can be said: the boundary and its proportion, what sits inside it and where, which lines divide it, and what the words ask for. Two or three sentences, in the author's terms, about this drawing and no other. Keep what the current prompt says where the drawing does not contradict it. A new part always gets one." },
     options: {
@@ -118,6 +123,7 @@ The board is a disc; the picture shows it as a circle with the strokes inside it
 The lines drawn are the barriers and the boundary of the part. Read them that way, and hold to it:
 
 - The outline is a hard boundary. The outermost closed line is the part's edge. It is not a hint at a size and not a rough area: it is where the part ends.
+- The outline's shape is kept, not just its size. A circle round something makes that thing a circle; an ellipse makes it an ellipse; a box makes it a box. The measurement below names the shape it was read as — answer with that shape unless the words ask for another one. A circle drawn round a part and answered as a rectangle is the drawing thrown away.
 - The part fills it. The part's edges sit on the boundary — no margin inside it, no empty band between the line and what it holds, nothing of the part short of it.
 - Nothing crosses it. Everything the part holds stays inside the boundary; nothing overflows it, extends past it, or sits outside it. Lines inside are barriers too: they divide the inside, and what sits in a division stays in that division.
 - The proportion is held. Answer with a width and a height in the boundary's proportion, given below as its aspect. Keep the part's area roughly what it was unless the drawing or the words say otherwise; a new part is sized by reading the board as the page — a boundary across a third of the board is a part across a third of the frame — and never wider than the frame.
@@ -197,6 +203,7 @@ export async function POST(request: Request) {
   lines.push("", "The drawing, measured:");
   if (boundary) {
     lines.push(`- the boundary: ${describeBoundary(boundary)}`);
+    lines.push(`- the outline's shape: ${boundary.shape}${boundary.shape === "circle" ? " (so the part is a circle: equal width and height)" : boundary.shape === "ellipse" ? " (so the part is an ellipse in this proportion)" : ""}`);
     lines.push(`- the part's proportion, to answer in: width / height = ${boundary.aspect.toFixed(3)}`);
     lines.push(`- the boundary as a box, in percent of the board: x ${pc(boundary.box.x)}, y ${pc(boundary.box.y)}, width ${pc(boundary.box.w)}, height ${pc(boundary.box.h)}`);
     if (!boundary.outlined) lines.push("- nothing was drawn closed, so the box round everything drawn is the boundary");

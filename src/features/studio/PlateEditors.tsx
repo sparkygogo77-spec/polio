@@ -21,7 +21,7 @@ import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import { isLinkable } from "./parts";
-import { useStudio, type StudioNode } from "./store";
+import { NODE_SHAPES, useStudio, type StudioNode } from "./store";
 import { spun } from "./menuGeometry";
 import { Caption, CONSOLE, Glued, PICKED, SCREEN, SectorButton, SHRINK, type Slab } from "./RingConsole";
 import { centreOf, wholeOf } from "./RingEditors";
@@ -304,7 +304,19 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
           </>
         }
       >
-        {opts.length === 0 ? <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part has nothing to set.</p> : null}
+        {/*
+          The part's own shape sits above its options because it is not one:
+          every part has it, and it is what a circle drawn on the board
+          sets. Without it here a drawn circle could not be undrawn.
+        */}
+        <Row label="Shape">
+          <div className="flex flex-wrap gap-1">
+            {NODE_SHAPES.map((v) => (
+              <Tick key={v} on={(node.shape ?? "box") === v} onClick={() => update({ shape: v === "box" ? null : v })}>{v}</Tick>
+            ))}
+          </div>
+        </Row>
+        {opts.length === 0 ? <p className="text-[9px]" style={{ color: SCREEN.dim }}>This part has nothing else to set.</p> : null}
         {opts.map((opt) => {
           if (opt.kind === "set") {
             const raw = node.options[opt.id];
