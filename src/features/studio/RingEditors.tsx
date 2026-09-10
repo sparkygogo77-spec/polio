@@ -35,7 +35,7 @@ import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
-  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA, slabMiddle, spotOn, straightBands,
+  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, RUN_END, SectorButton, SHRINK, SLAB_AURA, slabMiddle, spotOn, straightBands,
   type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
 
@@ -129,6 +129,15 @@ export const centreOf = (s: Slab, rIn: number, rOut: number | "edge") =>
   s.shape === "square" && rOut === "edge" && rIn <= s.rings.hole
     ? slabMiddle(s)
     : middleOf(s.from, s.to, rIn, rOut, s.shape, s.rings, 0.5);
+/**
+ * The slabs a slider is handed, as they are: the slider pulls its own ends in
+ * by a number of pixels now, which is the only way an end lands the same
+ * distance from the slab's seam at the inner radius and the outer one. Adding
+ * an angle here on top of that just made the run short and left the gap a
+ * different width at each end of it.
+ */
+const runOf = (s: Slab) => ({ from: s.from, to: s.to });
+
 /** A whole quadrant, cut as the console cuts its slabs. */
 export const wholeOf = (s: Slab) => piece(s.from, s.to, s.rings.hole, "edge", s.shape, s.rings, SHRINK);
 
@@ -162,11 +171,16 @@ export function SpectrumSlab({
 }) {
   const { hole, mid, reach } = slab.rings;
   const c = colour;
-  // The arcs sit a little inside the slab's own seams.
-  const pad = 0.012;
-  const sFrom = slab.from + pad;
-  const sTo = slab.to - pad;
+  // The runs are handed the slab's own turns and pull their ends in by a
+  // number of pixels, so both of them land the same distance from the slab's
+  // seam at every radius. A fixed angle instead — which is what was here —
+  // is a wedge: right at one radius, over the edge at a smaller one, short of
+  // it at a larger one.
+  const sFrom = slab.from;
+  const sTo = slab.to;
   const half = (sFrom + sTo) / 2;
+  /** Where two runs meet halfway along a band, they leave less room than an edge does. */
+  const JOIN = 5;
   const square = slab.shape === "square";
   const bands = square ? straightBands(slab.rings, 3) : null;
   /** The band a run rides: one of the three straight ones, or the arc it was written for. */
@@ -178,7 +192,7 @@ export function SpectrumSlab({
       <ArcSlider
         slab={slab}
         {...run(sFrom, sTo)}
-        {...on(0, hole + 18, mid - 6)}
+        {...on(0, hole + 24, mid - 2)}
         label="Hue"
         value={(((c.h % 360) + 360) % 360) / 360}
         colourAt={(f) => oklchCss({ l: 0.7, c: 0.19, h: f * 360 })}
@@ -187,8 +201,9 @@ export function SpectrumSlab({
       />
       <ArcSlider
         slab={slab}
-        {...run(sFrom, half - 0.006)}
-        {...on(1, mid + 4, reach - 12)}
+        {...run(sFrom, half)}
+        {...on(1, mid + 6, reach - 9)}
+        ends={[RUN_END, JOIN]}
         label="Lightness"
         value={(c.l - 0.08) / 0.9}
         colourAt={(f) => oklchCss({ ...c, l: 0.08 + f * 0.9 })}
@@ -197,8 +212,9 @@ export function SpectrumSlab({
       />
       <ArcSlider
         slab={slab}
-        {...run(half + 0.006, sTo)}
-        {...on(2, mid + 4, reach - 12)}
+        {...run(half, sTo)}
+        {...on(2, mid + 6, reach - 9)}
+        ends={[JOIN, RUN_END]}
         label="Strength"
         value={Math.min(1, c.c / 0.32)}
         colourAt={(f) => oklchCss({ ...c, c: f * 0.32 })}
@@ -442,8 +458,7 @@ export function AuraQuads({
       <ArcChips slab={sample} items={styleItems} radius={hole + 18} size={18} value={style} onPick={(id) => onChange({ auraStyle: id as AuraStyle })} />
       <ArcSlider
         slab={sample}
-        from={sample.from + 0.014}
-        to={sample.to - 0.014}
+        {...runOf(sample)}
         rIn={reach - SHRINK - 24}
         rOut={reach - SHRINK - 10}
         label="Aura size"
@@ -538,7 +553,6 @@ function Ghost({ slab, node, run }: { slab: Slab; node: Pick<StudioNode, "anim" 
 /** Where a screen's slider band runs: across the slab's middle radius. */
 const bandOf = (s: Slab) => ({ rIn: s.rings.mid - 6, rOut: s.rings.mid + 12 });
 /** A hair in from each seam, so a slider's ends are not on the corner. */
-const PAD = 0.014;
 
 /**
  * Three screens: speed (top-right), the entrance itself (bottom-right), and
@@ -594,12 +608,12 @@ export function AnimQuads({
       />
 
       {/* how fast: one slider, read out under it */}
-      <ArcSlider slab={speed} tone="screen" live={false} from={speed.from + PAD} to={speed.to - PAD} {...bandOf(speed)} label="Speed"
+      <ArcSlider slab={speed} tone="screen" live={false} {...runOf(speed)} {...bandOf(speed)} label="Speed"
         value={sliderFromSpeed(k)} onChange={(f) => onChange({ animSpeed: speedFromSlider(f) })} />
       <Caption slab={speed}>{`Speed · ${speedWord(k)}`}</Caption>
 
       {/* the rest: the wait as a slider, the easing as keys */}
-      <ArcSlider slab={extras} tone="screen" live={false} from={extras.from + PAD} to={extras.to - PAD} {...bandOf(extras)} label="Delay"
+      <ArcSlider slab={extras} tone="screen" live={false} {...runOf(extras)} {...bandOf(extras)} label="Delay"
         value={wait / DELAY_MS} onChange={(f) => onChange({ animDelay: Math.round((f * DELAY_MS) / 10) * 10 })} />
       <ArcChips slab={extras} tone="screen" items={ANIM_EASE.map((e) => ({ id: e.id, label: `${e.label} easing`, style: EASE_KEY[e.id], glyph: EASE_GLYPH[e.id] }))}
         radius={chipsAt(extras)} size={24} value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
@@ -667,14 +681,14 @@ export function FontQuads({
       <ScreenFace slab={a} />
       <ScreenFace slab={b} />
       <ScreenFace slab={fam} />
-      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...inner} label="Size" value={(size - 0.6) / 1.4}
+      <ArcSlider slab={a} tone="screen" {...runOf(a)} {...inner} label="Size" value={(size - 0.6) / 1.4}
         onChange={(f) => set({ size: Math.round((0.6 + f * 1.4) * 100) / 100 })} />
-      <ArcSlider slab={a} tone="screen" from={a.from + PAD} to={a.to - PAD} {...outer} label="Weight" value={(weight - 300) / 500}
+      <ArcSlider slab={a} tone="screen" {...runOf(a)} {...outer} label="Weight" value={(weight - 300) / 500}
         onChange={(f) => set({ weight: Math.round((300 + f * 500) / 100) * 100 })} />
       <Caption slab={a}>{`${Math.round(size * 100)}% · w${weight}`}</Caption>
-      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...inner} label="Letter spacing" value={(spacing + 0.05) / 0.35}
+      <ArcSlider slab={b} tone="screen" {...runOf(b)} {...inner} label="Letter spacing" value={(spacing + 0.05) / 0.35}
         onChange={(f) => set({ spacing: Math.round((-0.05 + f * 0.35) * 1000) / 1000 })} />
-      <ArcSlider slab={b} tone="screen" from={b.from + PAD} to={b.to - PAD} {...outer} label="Line height" value={(leading - 1) / 1}
+      <ArcSlider slab={b} tone="screen" {...runOf(b)} {...outer} label="Line height" value={(leading - 1) / 1}
         onChange={(f) => set({ leading: Math.round((1 + f) * 100) / 100 })} />
       <Caption slab={b}>{`${spacing}em · ${leading}`}</Caption>
       <ArcStepper slab={fam} radius={chipsAt(fam) - 4} items={families} value={font?.family ?? ""} label="Family"

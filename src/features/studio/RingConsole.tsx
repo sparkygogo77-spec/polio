@@ -19,7 +19,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import {
-  arcPath, fmt, onCircle, onSlab, piece, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
+  bandPath, fmt, onCircle, onSlab, piece, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
   type Pt, type Rings, type Shape,
 } from "./menuGeometry";
 
@@ -58,6 +58,16 @@ export const CONSOLE = {
 export const SLAB_AURA = `drop-shadow(0 3px 5px oklch(0 0 0 / 0.55))`;
 /** How much smaller than the green level the console's slabs are cut, per edge. */
 export const SHRINK = 5;
+/**
+ * How far a run's end is pulled in from the turn it was given, in pixels.
+ *
+ * A slab's own face stops about eight and a half pixels short of the quadrant
+ * it was cut from — the seam, the corner rounding and the console's shrink,
+ * less what the round-joined stroke grows back. A run that ends on the slab's
+ * edge stops a few pixels inside that, and it has to be measured the same way
+ * the slab measures it or the two will not agree.
+ */
+export const RUN_END = 11.5;
 /** The small red aura on whichever chip is picked. */
 export const PICKED = `0 0 0 2px ${CONSOLE.on}, 0 0 8px 1px oklch(0.64 0.23 27 / 0.7)`;
 
@@ -433,7 +443,7 @@ export function GridChips({
  * past the point where the seams show.
  */
 export function ArcSlider({
-  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label, live = true, tone = "slab",
+  slab, from, to, rIn, rOut, value, onChange, onCommit, colourAt, label, live = true, tone = "slab", ends,
 }: {
   slab: Slab;
   from: number;
@@ -459,6 +469,13 @@ export function ArcSlider({
   live?: boolean;
   /** On a slab, or set into a screen. */
   tone?: "slab" | "screen";
+  /**
+   * How far each end is pulled in, in pixels. Defaults to the gap a run that
+   * ends on the slab's own edge wants. A run that ends against *another* run —
+   * lightness meeting saturation halfway along a band — passes a smaller one
+   * for that side, or the two of them leave a canyon between them.
+   */
+  ends?: [number, number];
 }) {
   const { spin, rings, shape } = slab;
   const steps = 22;
@@ -479,6 +496,21 @@ export function ArcSlider({
   // can start; the run is then cut to the stretch of turn the caller asked for.
   const { flip } = slabFrame(slab.from);
   const room = slabRun(slab.from, dNear, rings);
+  /*
+   * Round: where a point sits along the turn, given how far across the run it
+   * is and at what radius. The ends are pulled in by a number of *pixels*, so
+   * they run parallel to the slab's own seams instead of along a radius —
+   * which converges on the pointer, and so hangs the run over the slab's edge
+   * at one radius while leaving a wedge of gap at the other.
+   */
+  const [endA, endB] = ends ?? [RUN_END, RUN_END];
+  const ang = (u: number, r: number) => {
+    const k = Math.PI * 2 * Math.max(12, r);
+    const a = from + endA / k;
+    const b = to - endB / k;
+    return a + (b - a) * u;
+  };
+  const rMid = (rIn + rOut) / 2;
   const uOf = (t: number) => (t - slab.from) / (slab.to - slab.from);
   const x0 = room.a0 + (room.a1 - room.a0) * uOf(from);
   const x1 = room.a0 + (room.a1 - room.a0) * uOf(to);
@@ -500,7 +532,8 @@ export function ArcSlider({
     const el = e.currentTarget;
     const host = (el.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
     try { el.setPointerCapture(e.pointerId); } catch { /* a synthetic pointer; the window still delivers the moves */ }
-    const span = to - from;
+    const a0 = ang(0, rMid);
+    const span = ang(1, rMid) - a0;
     const read = (cx: number, cy: number) => {
       // Back out of the wheel's own turn — and, on a square, the quadrant's
       // too, which puts the bar flat along the x axis — then read the hand off
@@ -511,9 +544,9 @@ export function ArcSlider({
       if (square) return Math.max(0, Math.min(1, (p[0] - (flip ? x0 - rings.reach : x0)) / (x1 - x0)));
       const t = ((Math.atan2(p[1], p[0]) / (Math.PI * 2) + 0.25) % 1 + 1) % 1;
       let u = t;
-      while (u < from) u += 1;
-      if (u - to > (1 - span) / 2) u -= 1;
-      return Math.max(0, Math.min(1, (u - from) / span));
+      while (u < a0) u += 1;
+      if (u - (a0 + span) > (1 - span) / 2) u -= 1;
+      return Math.max(0, Math.min(1, (u - a0) / span));
     };
     const settle = () => {
       frame.current = 0;
@@ -545,21 +578,20 @@ export function ArcSlider({
     el.addEventListener("pointercancel", up);
   };
   const screen = tone === "screen";
-  const markAt = from + (to - from) * shown;
   // The mark is drawn once at the start of the run and moved to where the
   // value is — turned round the arc, slid along the bar — so it can ease
   // between values it did not see the hand set.
-  const a = square ? onSlab(slab.from, x0, dNear - 2, rings) : onCircle(from, rIn - 2);
-  const b = square ? onSlab(slab.from, x0, dFar + 2, rings) : onCircle(from, rOut + 2);
+  const a = square ? onSlab(slab.from, x0, dNear - 2, rings) : onCircle(ang(0, rMid), rIn - 2);
+  const b = square ? onSlab(slab.from, x0, dFar + 2, rings) : onCircle(ang(0, rMid), rOut + 2);
   const move = square
     ? `translate(${((x1 - x0) * shown).toFixed(2)}px, 0px)`
-    : `rotate(${((markAt - from) * 360).toFixed(3)}deg)`;
+    : `rotate(${((ang(shown, rMid) - ang(0, rMid)) * 360).toFixed(3)}deg)`;
   /** One step of the run, as a path: a sector of the arc, or a slice of the bar. */
   const stepPath = (i: number, near: number) => {
-    const s0 = from + ((to - from) * i) / steps;
     // A hair of overlap, or the seams between the steps show as hairlines.
-    const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
-    if (!square) return arcPath(s0, s1, near, rOut);
+    const u0 = i / steps;
+    const u1 = (i + 1) / steps + 0.002;
+    if (!square) return bandPath(u0, u1, near, rOut, ang);
     const w = (x1 - x0) / steps;
     return slabRect(slab.from, x0 + w * i, x0 + w * (i + 1) + 0.4, near, dFar, rings);
   };
@@ -605,9 +637,7 @@ export function ArcSlider({
         d={
           square
             ? slabRect(slab.from, x0, x1, colourAt ? dNear : dFar - (dFar - dNear) * 0.34, dFar, rings)
-            : colourAt
-              ? arcPath(from, to, rIn, rOut)
-              : arcPath(from, to, rOut - (rOut - rIn) * 0.34, rOut)
+            : bandPath(0, 1, colourAt ? rIn : rOut - (rOut - rIn) * 0.34, rOut, ang)
         }
         fill="none"
         stroke={screen ? SCREEN.line : CONSOLE.ink}

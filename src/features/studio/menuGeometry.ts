@@ -210,6 +210,36 @@ export function arcPath(from: number, to: number, rIn: number, rOut: number): st
   return `${d} Z`;
 }
 
+/**
+ * A piece of a band whose two ends run parallel to the ring's own seams.
+ *
+ * `arcPath` cuts its ends along a radius, and a radius converges on the
+ * pointer: at the inner edge the end sits closer to the slab's seam than at
+ * the outer edge, by however much the radius has changed. So a spectrum drawn
+ * across a whole quadrant hangs over the slab's edge at one radius and leaves
+ * a gap at the other, and the gap is a wedge — which is exactly what reads as
+ * the thing being crooked inside a straight-sided box.
+ *
+ * Here the ends are given as a distance in *pixels*, turned into an angle at
+ * whatever radius is being drawn, so each end is the same distance from the
+ * slab's seam all the way along it. `ang(u, r)` is that mapping: how far round
+ * the turn a point sits, given how far across the run it is and at what
+ * radius. Steps tile exactly, because neighbours share their `u`.
+ */
+export function bandPath(u0: number, u1: number, rIn: number, rOut: number, ang: (u: number, r: number) => number): string {
+  // Split at the halfway point for the same reason `arcPath` does: both halves
+  // stay under half a turn, so the large-arc flag is always 0.
+  const mid = (u0 + u1) / 2;
+  let d = `M ${fmt(onCircle(ang(u0, rIn), rIn))}`;
+  d += ` L ${fmt(onCircle(ang(u0, rOut), rOut))}`;
+  d += ` A ${rOut} ${rOut} 0 0 1 ${fmt(onCircle(ang(mid, rOut), rOut))}`;
+  d += ` A ${rOut} ${rOut} 0 0 1 ${fmt(onCircle(ang(u1, rOut), rOut))}`;
+  d += ` L ${fmt(onCircle(ang(u1, rIn), rIn))}`;
+  d += ` A ${rIn} ${rIn} 0 0 0 ${fmt(onCircle(ang(mid, rIn), rIn))}`;
+  d += ` A ${rIn} ${rIn} 0 0 0 ${fmt(onCircle(ang(u0, rIn), rIn))}`;
+  return `${d} Z`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Square mode: a slab is a box, not a bent ring                       */
 /* ------------------------------------------------------------------ */
