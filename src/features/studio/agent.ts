@@ -5,7 +5,7 @@
  * to GitHub. Each one asks first whether the server can, and says so in
  * words when it cannot, so nothing here is load-bearing.
  */
-import { heldKeys } from "@/features/keys/store";
+import { heldKeys, useKeys, vaultExists } from "@/features/keys/store";
 import { useStudio } from "./store";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
@@ -43,6 +43,37 @@ export interface GeneratedFile {
 export function keyHeader(): Record<string, string> {
   const held = heldKeys(["ANTHROPIC_API_KEY"]).ANTHROPIC_API_KEY;
   return held ? { "x-anthropic-key": held } : {};
+}
+
+/**
+ * Where this browser stands with a Claude key: holding one and open, holding
+ * one but locked, or holding none. The server's own key is invisible from
+ * here and wins regardless; this is only for saying the right thing when a
+ * route answers "no key".
+ */
+export type KeyState = "held" | "locked" | "none";
+
+export function keyState(): KeyState {
+  if (heldKeys(["ANTHROPIC_API_KEY"]).ANTHROPIC_API_KEY) return "held";
+  const { unlocked, values } = useKeys.getState();
+  if (unlocked) return values.ANTHROPIC_API_KEY ? "held" : "none";
+  return vaultExists() ? "locked" : "none";
+}
+
+/**
+ * What to say when a route had no key. A key that is in the vault but behind
+ * the PIN is the common case after five quiet minutes, and "Claude isn't set
+ * up" would be untrue and unhelpful; say what to press instead.
+ */
+export function noKeyMessage(then: string): string {
+  switch (keyState()) {
+    case "locked":
+      return `Your keys are locked. Open the key button in the top bar (⌘⇧K) and enter the PIN, then try again. ${then}`;
+    case "held":
+      return `The key this browser holds didn't reach the server. Try again; if it keeps happening, put ANTHROPIC_API_KEY on the server. ${then}`;
+    default:
+      return `No Claude key yet. Put ANTHROPIC_API_KEY on the server, or keep one in this browser under the key button in the top bar (⌘⇧K). ${then}`;
+  }
 }
 
 /** The document as the Builder saves it: what a headless browser needs to show the same site. */

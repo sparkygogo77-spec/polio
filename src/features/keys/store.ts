@@ -231,6 +231,11 @@ export const useKeys = create<KeysState>()((set, get) => ({
   },
 }));
 
+/** Is there a sealed vault on this browser, whether or not it is open right now? */
+export function vaultExists(): boolean {
+  return typeof localStorage !== "undefined" && !!read();
+}
+
 /**
  * What this browser holds for a request, when it holds anything.
  *

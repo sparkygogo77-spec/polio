@@ -38,7 +38,7 @@ import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
 import { fitToSketch, isBlankSketch, readSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
-import { keyHeader } from "./agent";
+import { keyHeader, noKeyMessage } from "./agent";
 import { useStudio, type StudioNode } from "./store";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
@@ -217,7 +217,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         title: node ? `Reshaped ${made.label} from the drawing` : `Drew ${made.label} from the drawing`,
         body:
           data.reason === "no-key"
-            ? "Claude isn't set up here, so the part took the drawing's proportion and the drawing went into the blueprint."
+            ? noKeyMessage("For now the part took the drawing's proportion and the drawing went into the blueprint.")
             : data.message ?? "Claude couldn't read it, so the part took the drawing's proportion.",
         level: "warn",
         source: "studio",
@@ -605,7 +605,11 @@ function allowedOptions(
 ): Record<string, string> {
   const next: Record<string, string> = { ...current };
   if (!proposed || typeof proposed !== "object") return next;
-  for (const [k, v] of Object.entries(proposed as Record<string, unknown>)) {
+  // The route folds Claude's list of pairs into a record; take either shape in case.
+  const entries: [string, unknown][] = Array.isArray(proposed)
+    ? proposed.flatMap((p) => (p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string" ? [[(p as { id: string }).id, (p as { value?: unknown }).value] as [string, unknown]] : []))
+    : Object.entries(proposed as Record<string, unknown>);
+  for (const [k, v] of entries) {
     const opt = allowed.find((o) => o.id === k);
     if (!opt || typeof v !== "string") continue;
     if (opt.kind === "set") {

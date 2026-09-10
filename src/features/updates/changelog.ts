@@ -25,6 +25,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.33",
+    title: "The drawing is read",
+    summary: "Make real reaches Claude again: the answer's shape was being refused by the API, so every drawing fell back to its proportion; and a locked vault now says so.",
+    sketch: "frame",
+    added: [
+      "The reshape route asked for the options as a map with open keys, which structured output does not allow, so the API answered 400 and the board quietly took the drawing's proportion instead. The options are a list of id–value pairs now and folded back into the record the board reads. tests/reshape-schema.mjs holds the schema to the rule.",
+      "The reader has room to think: the answer's token ceiling was low enough that thinking alone could spend it, which came back as no shape at all.",
+      "When a route has no key, the board and the blueprint dialog say which case it is: the vault is locked after five quiet minutes (press ⌘⇧K and enter the PIN), or there is no key anywhere yet. \"Claude isn't set up here\" was untrue the moment a key had been pasted.",
+    ],
+  },
+  {
     version: "0.31",
     title: "Embers",
     summary: "The red in the nebula is sparks now: small, quick, blown through the near cloud on a wind that gusts, streaking when a gust takes them.",
