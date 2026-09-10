@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
   BookOpen, Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
-  Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
+  Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
@@ -22,10 +22,11 @@ import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
-import { BriefDialog, IterationBook, useCompiledBrief } from "./BriefDialog";
+import { BriefDialog, IterationBook } from "./BriefDialog";
 import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
+import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -66,32 +67,6 @@ function ModeSwitch() {
       ]}
       aria-label="Design, preview or the book"
     />
-  );
-}
-
-/**
- * The way out of the Builder: one round button on the end of the toolbar.
- *
- * It was a text field stretched across a row of its own, then a large orb
- * floating over the board — which put it in front of the thing you were
- * working on, which is the one place a door should not be. It is a chip on
- * the end of the bar now, the same height as everything else on it, and the
- * row it used to need is board again.
- */
-function FinishButton({ onOpenBrief }: { onOpenBrief: () => void }) {
-  const spec = useCompiledBrief();
-  return (
-    <Tooltip content={`Finish — ${spec.stats.elements} placed · ${spec.stats.prompted} prompted`} shortcut="mod+enter">
-      <button
-        type="button"
-        aria-label="Finish"
-        data-finish=""
-        onClick={() => { play("confirm"); onOpenBrief(); }}
-        className="finish-orb ml-1 flex size-7 shrink-0 items-center justify-center rounded-full text-white"
-      >
-        <Send className="size-3.5 translate-x-[-1px] translate-y-[0.5px]" strokeWidth={2.2} />
-      </button>
-    </Tooltip>
   );
 }
 
@@ -137,7 +112,7 @@ function PageChips() {
   );
 }
 
-function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: boolean; onToggleLibrary: () => void; onOpenBrief: () => void }) {
+function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
   const zoom = useStudio((s) => s.zoom);
@@ -239,6 +214,8 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
         toggle you can never find again; and it lights up the moment a menu
         opens, so which setting it belongs to needs no explaining.
       */}
+      <ProcessCounter />
+
       <Tooltip content={shape === "square" ? "Part menu: square edge — switch to round" : "Part menu: round edge — switch to square"}>
         <Button
           variant={menuOpen ? "subtle" : "ghost"}
@@ -290,7 +267,6 @@ function Toolbar({ libraryOpen, onToggleLibrary, onOpenBrief }: { libraryOpen: b
         </Button>
       </div>
 
-      <FinishButton onOpenBrief={onOpenBrief} />
     </div>
   );
 }
@@ -346,7 +322,7 @@ export function StudioPage() {
           open. Renders nothing. */}
       <Bakers />
 
-      <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} onOpenBrief={() => setBriefOpen(true)} />
+      <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} />
 
       <div className="flex min-h-0 flex-1">
         {/* Colour and texture on the left; the parts library lives under the
@@ -429,6 +405,7 @@ export function StudioPage() {
         ) : null}
       </div>
 
+      <DrawQueue />
       <RadialMenu />
       <LightPlacer />
       <BriefDialog open={briefOpen && !book} onOpenChange={setBriefOpen} />

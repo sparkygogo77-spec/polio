@@ -45,6 +45,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type Sketch } from "./sketch";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
+import { trimQueue, type DrawJob } from "./queue";
 
 export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
@@ -307,6 +308,14 @@ interface StudioState extends Doc {
   /** The book is held open beside the board as a panel, rather than being a dialog you dismiss. */
   bookPinned: boolean;
   /**
+   * Drawings waiting to be made real, and the ones that have been.
+   *
+   * Not persisted: a job in flight when the tab closed was never going to
+   * finish, and a queue that comes back full of jobs nobody is running is
+   * worse than an empty one.
+   */
+  queue: DrawJob[];
+  /**
    * Where a thread or a piece has been dragged to on the trail, when it has
    * been. Anything not in here sits where the staircase puts it.
    */
@@ -423,6 +432,12 @@ interface StudioState extends Doc {
   togglePinnedThread: (id: string) => void;
   /** Hold the book open as a panel beside the board, or let it be a dialog again. */
   setBookPinned: (v: boolean) => void;
+  /** Put a drawing on the make-real queue. The board closes; the queue works. */
+  enqueueDraw: (job: Omit<DrawJob, "id" | "status" | "queued">) => string;
+  /** How a job is getting on. */
+  updateJob: (id: string, patch: Partial<DrawJob>) => void;
+  /** Forget the jobs that are over. */
+  clearFinishedJobs: () => void;
   /**
    * Add to what the live thread did.
    *
@@ -614,6 +629,7 @@ export const useStudio = create<StudioState>()(
         liveThreadId: null,
         pinnedThreads: [],
         bookPinned: false,
+        queue: [],
         threadSpots: {},
         draftPieces: [],
         sentPieces: {},
@@ -1155,6 +1171,16 @@ export const useStudio = create<StudioState>()(
           })),
 
         setBookPinned: (v) => set({ bookPinned: v }),
+
+        enqueueDraw: (job) => {
+          const id = uid("job");
+          set((s) => ({ queue: trimQueue([...s.queue, { ...job, id, status: "waiting" as const, queued: Date.now() }]) }));
+          return id;
+        },
+
+        updateJob: (id, patch) => set((s) => ({ queue: s.queue.map((j) => (j.id === id ? { ...j, ...patch } : j)) })),
+
+        clearFinishedJobs: () => set((s) => ({ queue: s.queue.filter((j) => j.status === "waiting" || j.status === "running") })),
 
         noteThread: (lines) =>
           set((s) => {

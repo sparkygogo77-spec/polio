@@ -28,6 +28,8 @@ import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, GitBra
 import { briefPrefix, compileSpec, specToJson, specToMarkdown } from "./spec";
 import { trailToMarkdown, useLanes } from "./PromptTrail";
 import { PinnedThreads, ThreadTree, usePieces } from "./ThreadTree";
+import { QueueList } from "./DrawQueue";
+import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
@@ -157,6 +159,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const draftPieces = useStudio((s) => s.draftPieces);
   const sentPieces = useStudio((s) => s.sentPieces);
   const bookPinned = useStudio((s) => s.bookPinned);
+  const queue = useStudio((s) => s.queue);
   const pieces = usePieces();
   const lanes = useLanes();
   const ctx = useActions();
@@ -524,6 +527,17 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
    * the page have no subtitle, so there they are the only place.
    */
   const said = layout === "dialog";
+  /** The make-real queue: what the counter on the toolbar is counting. */
+  const queued = queue.length ? (
+    <Card
+      title={`Making real · ${pendingJobs(queue).length} pending, ${doneJobs(queue).length} done`}
+      note="Drawings are read one at a time so the board is never held; each one that lands is a thread below."
+      right={pendingJobs(queue).length ? null : <Button variant="ghost" size="xs" onClick={() => useStudio.getState().clearFinishedJobs()}>Clear</Button>}
+    >
+      <QueueList />
+    </Card>
+  ) : null;
+
   const stats = (
     <div className="flex flex-wrap gap-1">
       {said ? null : <Badge size="sm" variant="accent">{spec.stats.pages} pages</Badge>}
@@ -683,6 +697,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           {banner}
           <Card title="The idea" note="Everything on the board is the context; this is what it is all for.">{idea}</Card>
           {ask}
+          {queued}
           <PinnedThreads />
           <Card
             title={threads.length ? `The trail · ${threads.length} thread${threads.length === 1 ? "" : "s"}` : "The trail"}
@@ -727,6 +742,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       ) : null}
       {idea}
       {ask}
+      {queued}
       <PinnedThreads />
 
       <div data-brief-views="" className="flex flex-wrap items-center justify-between gap-2">

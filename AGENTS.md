@@ -1416,11 +1416,20 @@ remove it from `src/features/index.ts` when you're sure.
   `/api/keys/test`, which asks each service the smallest question it answers
   — one answer per service, never one standing in for another.
 - **The vault is the fallback, not the pattern.** `src/features/keys` holds
-  keys in the browser sealed under a four-digit PIN (PBKDF2 at 310,000 rounds
-  into an AES-GCM box; only the box is stored, never the PIN or a hash of it).
-  A held key is sent as a header and used for that one call when the server
-  has none. Four digits is a speed bump, not a secret, and the panel says so —
-  do not restyle that warning away.
+  the key in this browser, in localStorage, in the clear, open on arrival and
+  across reloads and tabs, with one way out: **Forget the key**. There is no
+  PIN on the way in. Four digits was a speed bump in front of something
+  anything on the machine could read the moment it was unlocked, and it cost
+  an unattended run every five minutes and every reload. The panel says
+  plainly what holding a key here means and that the server is where a key
+  belongs — do not restyle that warning away. The sealed vault is still
+  there behind **Seal the key under a PIN** (`keys.pin`, off, advanced):
+  PBKDF2 at 310,000 rounds into an AES-GCM box, only the box stored, never
+  the PIN or a hash of it, with the tab-held and kept-for-this-tab modes
+  beside it. A key sealed before the setting existed is brought across by
+  typing the PIN once in the panel; a key held for the tab comes across on
+  its own. A held key is sent as a header and used for that one call when
+  the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
 

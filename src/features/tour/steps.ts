@@ -251,7 +251,7 @@ export const STEPS: Step[] = [
       {
         name: "The asks",
         line: "Plan, critique, prompts, finish, ideas, build — or anything at all in your own words.",
-        where: "Finish, on the end of the toolbar.",
+        where: "The counter on the end of the toolbar, or ⌘↵.",
         at: "[data-brief-modes]",
         pad: 4,
       },
@@ -313,7 +313,7 @@ export const STEPS: Step[] = [
       {
         name: "Go live",
         line: "Pushes the files, builds them on Vercel and hands back the address the site is at.",
-        where: "Finish › the publish row. The Vercel token goes in the vault, ⌘⇧K.",
+        where: "The book's publish row. The Vercel token goes in the vault, ⌘⇧K.",
       },
     ],
   },
