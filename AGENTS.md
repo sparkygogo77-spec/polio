@@ -909,6 +909,25 @@ a kicker with a rule, and label-and-value rows that copy.
   and never two rings: the dashed hover outline is off once a part is picked,
   because it is drawn in the part's category hue and on a first-screen part
   that is a red. `tests/picked.mjs` holds it.
+- **The bar says where you are** (`StudioPage.tsx`: `SiteHead`, `PageChips`,
+  `PreviewToggle`; `DrawQueue.tsx`: the finish key; `tests/header.mjs`). It
+  reads left to right: **Builds**, the site's **mark** (its favicon — the
+  wordmark's first letter in the site's own accent, which is what the brief
+  promises), the site's **build**, then its **pages**, with the way to add one
+  on the same control rather than loose beside it. The Builder has no nav tab:
+  "Builder" named a tab for the screen you were already on, and the build name
+  says which site instead. Design is not a button either — it is the ground
+  state, and the two ways out of it are at the far end: **Preview**, then
+  **Finish**, an icon-only green flag with a tick that carries the make-real
+  queue and opens the timeline. Pressing either again comes back. Green
+  because Finish ends the work rather than changing it; everything that only
+  changes something wears the console's own colours.
+- **A piece is not an iteration** (`ThreadTree.tsx`: `CHIP`, the piece chip).
+  A piece is a prompt on the board that the next call can carry, so it is
+  never off: it keeps its purple whether or not it is vined, and vined is the
+  lit state of that same colour rather than the difference between grey and
+  alive. It is drawn well under half the size of a thread card, because it is
+  not one.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or

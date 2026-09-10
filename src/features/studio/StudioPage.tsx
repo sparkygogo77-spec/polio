@@ -10,11 +10,13 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  BookOpen, Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
+import { useBuilds } from "@/features/builds/store";
+import { resolvePalette } from "./parts/theme";
 import { PreviewWindow } from "./Preview";
 import { Palette } from "./Palette";
 import { Inspector } from "./Inspector";
@@ -47,26 +49,49 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
 ];
 
 /**
- * Design, Preview, or the Book, in the same place on screen.
+ * Where you are, at the left of the bar: Builds, this site, its pages.
  *
- * The book is a screen of the Builder rather than a box over it: the brief,
- * the JSON and the trail of every ask, with room for the trail to be a map.
+ * It used to open on a Design / Preview / Book switch, which named three
+ * screens of the editor and never said *which site* you had open — and
+ * "Design" was a button for the screen you were already on. The bar reads as
+ * a place now: out to Builds, the site's own mark and name, then its pages.
+ * Design is not a button because it is the ground state; Preview and Finish
+ * are on the right, and pressing either again brings you back to it.
  */
-function ModeSwitch() {
-  const mode = useStudio((s) => s.mode);
-  const threads = useStudio((s) => s.threads.length);
+function SiteHead() {
+  const router = useRouter();
+  const brief = useStudio((s) => s.brief);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const projects = useBuilds((s) => s.projects);
+  const activeId = useBuilds((s) => s.activeId);
+  const project = projects.find((p) => p.id === activeId) ?? null;
+  const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  // The favicon this site will ship: the wordmark's mark, which is its first
+  // letter in its own accent — the same thing the brief promises.
+  const name = brief.name.trim() || project?.name?.trim() || "This site";
+  const initial = [...name][0]?.toUpperCase() ?? "S";
   return (
-    <Segmented
-      size="xs"
-      value={mode}
-      onChange={(v) => useStudio.getState().setMode(v as "design")}
-      options={[
-        { value: "design", label: "Design", icon: <PencilIcon /> },
-        { value: "preview", label: "Preview", icon: <PlayCircle /> },
-        { value: "book", label: threads ? `Book (${threads})` : "Book", icon: <BookOpen /> },
-      ]}
-      aria-label="Design, preview or the book"
-    />
+    <>
+      <Tooltip content="Every site this browser is holding">
+        <Button variant="ghost" size="xs" onClick={() => { play("navigate"); router.push("/builds"); }}>
+          <Layers />
+          Builds
+        </Button>
+      </Tooltip>
+      <span className="mx-0.5 h-4 w-px bg-border" />
+      <span
+        data-site-mark=""
+        aria-hidden
+        className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-[10px] font-bold leading-none"
+        style={{ background: palette.accent, color: palette.bg }}
+      >
+        {initial}
+      </span>
+      <span data-site-build="" className="max-w-[170px] truncate text-[12px] font-semibold text-fg" title={name}>
+        {name}
+      </span>
+    </>
   );
 }
 
@@ -82,7 +107,10 @@ function PageChips() {
   const activeId = useStudio((s) => s.activePageId);
   const nodes = useStudio((s) => s.nodes);
   return (
-    <div className="hide-scrollbar flex min-w-0 shrink items-center gap-0.5 overflow-x-auto">
+    // One control, not a row of buttons with a stray plus after it: the pages
+    // and the way to add one are the same thing, so they share an edge.
+    <div data-page-strip="" className="flex min-w-0 shrink items-center rounded-md border border-border bg-elevated p-0.5">
+      <div className="hide-scrollbar flex min-w-0 shrink items-center gap-0.5 overflow-x-auto">
       {pages.map((p) => {
         const count = nodes.filter((n) => n.pageId === p.id).length;
         const active = p.id === activeId;
@@ -103,6 +131,8 @@ function PageChips() {
           </button>
         );
       })}
+      </div>
+      <span className="mx-0.5 h-4 w-px shrink-0 bg-border" />
       <Tooltip content="Add page">
         <Button variant="ghost" size="iconXs" aria-label="Add page" onClick={() => useStudio.getState().addPage()}>
           <Plus />
@@ -130,7 +160,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   if (mode === "preview") {
     return (
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
-        <ModeSwitch />
+        <SiteHead />
         <span className="mx-1 h-4 w-px bg-border" />
         <PageChips />
         <span className="flex-1" />
@@ -139,13 +169,15 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
             <Eye />
           </Button>
         </Tooltip>
+        <PreviewToggle />
+        <ProcessCounter />
       </div>
     );
   }
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
-      <ModeSwitch />
+      <SiteHead />
       <span className="mx-1 h-4 w-px bg-border" />
       <PageChips />
       <span className="mx-1 h-4 w-px bg-border" />
@@ -214,8 +246,6 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         toggle you can never find again; and it lights up the moment a menu
         opens, so which setting it belongs to needs no explaining.
       */}
-      <ProcessCounter />
-
       <Tooltip content={shape === "square" ? "Part menu: square edge — switch to round" : "Part menu: round edge — switch to square"}>
         <Button
           variant={menuOpen ? "subtle" : "ghost"}
@@ -267,7 +297,32 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
       </div>
 
+      {/* The two ways out of Design, at the end of the bar and in that order:
+          look at it, then finish it. */}
+      <span className="mx-1 h-4 w-px bg-border" />
+      <PreviewToggle />
+      <ProcessCounter />
     </div>
+  );
+}
+
+/** Look at the site rather than the board. Pressing it again comes back. */
+function PreviewToggle() {
+  const mode = useStudio((s) => s.mode);
+  const on = mode === "preview";
+  return (
+    <Tooltip content={on ? "Back to the board" : "See the site as it will be"}>
+      <Button
+        variant={on ? "subtle" : "ghost"}
+        size="xs"
+        aria-pressed={on}
+        data-preview-toggle=""
+        onClick={() => { play("navigate"); useStudio.getState().setMode(on ? "design" : "preview"); }}
+      >
+        <PlayCircle />
+        Preview
+      </Button>
+    </Tooltip>
   );
 }
 

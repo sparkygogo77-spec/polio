@@ -122,7 +122,15 @@ export const studio = defineFeature({
     { path: "/studio", component: StudioPage, title: "Builder", fullBleed: true },
     { path: "/studio/design", component: StudioPage, title: "Builder", fullBleed: true },
   ],
-  nav: [{ label: "Builder", href: "/builder", icon: LayoutTemplate, order: 5, group: "Build" }],
+  /*
+   * No nav tab.
+   *
+   * "Builder" named a tab for the screen you were already on, and the bar
+   * below it now says which site is open — its mark and its build — which is
+   * the thing that tab was standing in for. Builds is the way out, at the
+   * head of that same bar; the command palette and /builder still get here.
+   */
+  nav: [],
   topBarItems: [{ id: "studio.github", order: 20, component: GithubButton }],
 
   commands: [
