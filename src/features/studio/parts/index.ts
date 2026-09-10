@@ -9,7 +9,7 @@
 import { Accordion } from "./Accordion";
 import { Behaviour, Captcha } from "./Behaviour";
 import { Cart, CoinEconomy, Checkout, Comparison, Countdown, Discount, Invoice, Pricing, ProductDetail, ProductGrid, Subscription, Testimonials } from "./Commerce";
-import { Chart, Dashboard, DataTable, Heatmap, Kanban, Leaderboard, LiveFeed, NetworkGraph, Pie, StatTiles, Timeline } from "./Data";
+import { Chart, Dashboard, DataTable, DetailsTable, Heatmap, Kanban, Leaderboard, LiveFeed, NetworkGraph, Pie, StatTiles, Timeline } from "./Data";
 import { AiAction, AiChat, AiModeration, AiRecommend, AiVoice, PromptBox } from "./Ai";
 import { ActivityFeed, Badges, Chat, CollabCursors, Comments, Forum, Mentions, Moderation, Profile, Reactions, ShareSheet } from "./Social";
 import { Analytics, Api, Cms, Database, EmailPreview, Integration, MetaPreview, Perf, Pwa, Testing, Versions } from "./Ops";
@@ -21,10 +21,11 @@ import { Cta } from "./Cta";
 import { Header } from "./Header";
 import { Hero, ProofStrip, ValueProp } from "./Hero";
 import { Breadcrumbs, Footer, Grid, Note, Outline, Overlay, Pagination, Sections, Split } from "./Layout";
-import { ArticleList, Callout, CodeBlock, Marquee, Prose } from "./Text";
-import { Art, AvatarStack, BeforeAfter, Carousel, Gallery, Player, Viewer } from "./Media";
+import { ArticleList, Callout, CodeBlock, Eyebrow, Marquee, Prose } from "./Text";
+import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Player, Viewer } from "./Media";
 import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./Forms";
 import { SearchBox } from "./SearchBox";
+import { Orb } from "./Orb";
 import { Tabs } from "./Tabs";
 import type { PartDef } from "./types";
 
@@ -55,6 +56,7 @@ export const DEFS: PartDef[] = [
   /* --------------------------------------------------------------- text */
   { component: Prose, ids: ["prose", "heading-scale", "fluid-type", "drop-cap", "pull-quote", "highlight", "kinetic-type", "textbox-format", "micro-copy", "reading-time", "footnotes"], tier: "A" },
   { component: Marquee, ids: ["marquee"], tier: "A" },
+  { component: Eyebrow, ids: ["eyebrow-rule"], tier: "A" },
   { component: CodeBlock, ids: ["code-block", "diff-view"], tier: "A" },
   { component: Callout, ids: ["callout", "empty-states"], tier: "A" },
   { component: ArticleList, ids: ["blog-index", "changelog", "tagging", "archive-mode"], tier: "A", linkable: true },
@@ -67,6 +69,8 @@ export const DEFS: PartDef[] = [
   { component: Viewer, ids: ["map-embed", "3d-viewer"], tier: "A" },
   { component: AvatarStack, ids: ["avatar-stack"], tier: "A" },
   { component: Art, ids: ["generative-art"], tier: "A" },
+  { component: Orb, ids: ["orb-css", "orb-webgl", "orb-image"], tier: "A" },
+  { component: CornerGlow, ids: ["corner-glow"], tier: "A" },
 
   /* -------------------------------------------------------------- forms */
   { component: Form, ids: ["contact-form", "multi-step-form", "inline-validation", "autosave", "booking", "survey", "ai-autofill"], tier: "A" },
@@ -96,6 +100,7 @@ export const DEFS: PartDef[] = [
   { component: Heatmap, ids: ["heatmap"], tier: "A" },
   { component: StatTiles, ids: ["stat-tiles", "progress-tracker"], tier: "A" },
   { component: DataTable, ids: ["data-table", "dense-tables", "export"], tier: "A" },
+  { component: DetailsTable, ids: ["details-table"], tier: "A" },
   { component: Leaderboard, ids: ["leaderboard"], tier: "A" },
   { component: Dashboard, ids: ["dashboard"], tier: "A" },
   { component: Timeline, ids: ["timeline"], tier: "A" },

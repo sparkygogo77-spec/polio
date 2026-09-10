@@ -55,7 +55,11 @@ const DRIFT_MS = 110;
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
   const f = getFeature(id);
-  return f ? { id: f.id, name: f.name, w: f.w ?? 132, h: f.h ?? 76, options: f.options } : null;
+  if (!f) return null;
+  return {
+    id: f.id, name: f.name, w: f.w ?? 132, h: f.h ?? 76,
+    options: (f.options ?? []).map((o) => ({ id: o.id, values: o.values, kind: o.kind, range: o.range ? { min: o.range.min, max: o.range.max } : undefined })),
+  };
 };
 
 export interface DrawBoardProps {
@@ -187,7 +191,11 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
                 content: node.content,
                 data: node.data,
                 options: node.options,
-                optionsAllowed: (feature?.options ?? []).map((o) => ({ id: o.id, label: o.label, values: o.values, kind: o.kind ?? "one" })),
+                optionsAllowed: (feature?.options ?? []).map((o) => ({
+                  id: o.id, label: o.label, kind: o.kind ?? "one",
+                  // A range has no list of values to offer: it has two ends.
+                  values: o.kind === "range" && o.range ? [`${o.range.min}\u2013${o.range.max}${o.range.unit ?? ""}`] : o.values,
+                })),
                 contentLabel: feature?.content?.label ?? null,
               }
             : null,

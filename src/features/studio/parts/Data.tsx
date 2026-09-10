@@ -9,7 +9,7 @@ import * as React from "react";
 import { Btn, Fill, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
-import { opt, type PartProps } from "./types";
+import { num, opt, type PartProps } from "./types";
 
 /** Title and body share the same header treatment across this file. */
 function Head({ t, title, right }: { t: Theme; title: string; right?: React.ReactNode }) {
@@ -508,5 +508,106 @@ export function NetworkGraph({ id, content, theme: t, mode }: PartProps) {
         ))}
       </svg>
     </Fill>
+  );
+}
+
+/**
+ * Label on the left, value on the right, a rule between: the facts about a
+ * thing, in the order someone checking them would want them.
+ *
+ * The value is the point, so it is set in the monospace face and in the
+ * accent — an address, a chain number, a supply — and each row can be
+ * copied. Copying is the part of this that has to be real: a row that says
+ * "copy" and does not is worse than no button, so in the live site it writes
+ * to the clipboard and says "Copied" for a moment, and where the browser
+ * refuses (no permission, no secure context) it selects the text instead so
+ * the keyboard can still take it.
+ */
+export function DetailsTable({ id, content, options, theme: t, mode, emit }: PartProps) {
+  // A row a line, not the usual comma split: the values here are addresses
+  // and figures, and "1,000,000,000" is one number, not three rows. Commas
+  // still separate rows when nothing was typed on its own line, so a part
+  // filled in the ordinary way is not empty.
+  const lines = content.includes("\n") ? content.split("\n") : content.split(",");
+  const rows = lines.map((s) => s.trim()).filter(Boolean).map(titled).map((r) => ({ label: r.title, value: r.body ?? "" }));
+  if (!rows.length) rows.push({ label: "Contract", value: "0x0000…0000" }, { label: "Network", value: "Robinhood Chain 4663" }, { label: "Supply", value: "1,000,000,000" });
+  const rules = opt(options, "rules", "between");
+  const mono = opt(options, "values", "monospace") === "monospace";
+  const canCopy = opt(options, "copy", "yes") === "yes";
+  const [copied, setCopied] = React.useState<number | null>(null);
+
+  const copy = (i: number, value: string, el: HTMLElement | null) => {
+    if (mode !== "live") return;
+    setCopied(i);
+    window.setTimeout(() => setCopied((c) => (c === i ? null : c)), 1400);
+    emit?.({ type: "toast", text: `Copied ${value}`, level: "success" });
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(value);
+      } catch {
+        // No clipboard: select it, so it can still be taken by hand.
+        const range = document.createRange();
+        if (el) {
+          range.selectNodeContents(el);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }
+    })();
+  };
+
+  return (
+    <Fill t={t} data-part={id} style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: `0 ${t.fontPx * 0.25}px` }}>
+      {rows.map((row, i) => (
+        <div
+          key={row.label + i}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: t.fontPx,
+            padding: `${t.fontPx * 0.85}px 0`,
+            borderTop: rules === "between" && i > 0 ? `1px solid ${t.line}` : undefined,
+            borderBottom: rules === "under each" ? `1px solid ${t.line}` : undefined,
+          }}
+        >
+          <span style={{ color: t.muted, fontSize: t.fontPx * 0.82, textTransform: "uppercase", letterSpacing: "0.12em", whiteSpace: "nowrap" }}>{row.label}</span>
+          {canCopy && row.value ? (
+            <button
+              type="button"
+              onClick={(e) => copy(i, row.value, e.currentTarget.querySelector("span"))}
+              aria-label={`Copy ${row.label}`}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", padding: 0,
+                cursor: mode === "live" ? "pointer" : "default", color: t.accent,
+                fontFamily: mono ? "ui-monospace, SFMono-Regular, Menlo, monospace" : t.bodyFamily,
+                fontSize: t.fontPx * 0.92, textAlign: "right", minWidth: 0,
+              }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{copied === i ? "Copied" : row.value}</span>
+              <CopyMark t={t} />
+            </button>
+          ) : (
+            <span
+              style={{
+                color: t.text, fontFamily: mono ? "ui-monospace, SFMono-Regular, Menlo, monospace" : t.bodyFamily,
+                fontSize: t.fontPx * 0.92, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}
+            >
+              {row.value}
+            </span>
+          )}
+        </div>
+      ))}
+    </Fill>
+  );
+}
+
+/** Two offset rounded squares: the copy mark, drawn rather than imported. */
+function CopyMark({ t }: { t: Theme }) {
+  const s = Math.max(10, t.fontPx * 0.85);
+  return (
+    <svg width={s} height={s} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} aria-hidden style={{ flex: "none", opacity: 0.8 }}>
+      <rect x="5.5" y="5.5" width="9" height="9" rx="2" />
+      <path d="M10.5 3.5a2 2 0 0 0-2-2h-5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2" />
+    </svg>
   );
 }

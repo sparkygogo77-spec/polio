@@ -7,7 +7,7 @@ import * as React from "react";
 import { Fill, Placeholder, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
 import { cardStyle, items } from "./theme";
-import { opt, type PartProps } from "./types";
+import { num, opt, type PartProps } from "./types";
 
 const swatch = (t: { accent: string; muted: string }, i: number) =>
   `linear-gradient(${140 + i * 24}deg, ${t.accent}${i % 2 ? "33" : "22"}, ${t.muted}1f)`;
@@ -228,6 +228,64 @@ export function Art({ id, content, theme: t, w, h }: PartProps) {
           ),
         )}
       </svg>
+    </Fill>
+  );
+}
+
+/**
+ * A light off the edge of the page.
+ *
+ * A dark page with nothing behind it is flat, and the usual fix — a gradient
+ * across the whole background — makes it look like a gradient. What a room
+ * actually does is put a lamp somewhere out of frame and let one corner
+ * carry more colour than the rest. So this is one wide disc of colour,
+ * blurred far past its own size, sitting in a corner and mostly outside the
+ * box; and a second, fainter one opposite, because a single light reads as a
+ * mistake and two read as a room.
+ *
+ * It draws nothing that can be clicked and nothing that can be read: it is
+ * the ground the rest of the page stands on, so it takes no pointer events
+ * and no space in the reading order.
+ */
+export function CornerGlow({ id, options, theme: t }: PartProps) {
+  const hue = num(options, "hue", 96, 0, 360);
+  const reach = num(options, "reach", 46, 10, 100) / 100;
+  const strength = num(options, "strength", 22, 0, 100) / 100;
+  const corner = opt(options, "corner", "top right");
+  const second = opt(options, "second", "opposite");
+
+  const at = (which: string): { x: string; y: string } =>
+    which === "top left" ? { x: "-8%", y: "-14%" }
+      : which === "bottom left" ? { x: "-12%", y: "82%" }
+        : which === "bottom right" ? { x: "88%", y: "84%" }
+          : which === "middle" ? { x: "50%", y: "50%" }
+            : { x: "88%", y: "-14%" };
+  const opposite: Record<string, string> = { "top right": "bottom left", "top left": "bottom right", "bottom left": "top right", "bottom right": "top left", middle: "top right" };
+  const beside: Record<string, string> = { "top right": "bottom right", "top left": "bottom left", "bottom left": "top left", "bottom right": "top right", middle: "bottom right" };
+
+  const discs = [{ where: corner, h: hue, a: strength }];
+  // A long step short of the complement: a green light pairs with a blue one
+  // the way a room does, where the true complement reads as a fault.
+  if (second !== "none") discs.push({ where: (second === "opposite" ? opposite : beside)[corner] ?? "bottom left", h: (hue + 145) % 360, a: strength * 0.85 });
+
+  return (
+    <Fill t={t} data-part={id} style={{ pointerEvents: "none" }} aria-hidden>
+      {discs.map((d, i) => {
+        const pos = at(d.where);
+        return (
+          <span
+            key={i}
+            style={{
+              position: "absolute", left: pos.x, top: pos.y,
+              width: `${Math.round(reach * 100)}%`, aspectRatio: "1 / 1",
+              transform: d.where === "middle" ? "translate(-50%, -50%)" : undefined,
+              borderRadius: "50%",
+              background: `hsl(${d.h} 95% 55% / ${d.a})`,
+              filter: `blur(${Math.round(60 + reach * 120)}px)`,
+            }}
+          />
+        );
+      })}
     </Fill>
   );
 }

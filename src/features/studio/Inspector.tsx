@@ -37,7 +37,38 @@ export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "
  * in. Click to add, click to take away — which is what "these social links,
  * not those" wants to be, and what a dropdown can never say.
  */
-export function OptionSet({ option, value, onChange }: { option: FeatureOption; value?: string; onChange: (v: string) => void }) {
+export /**
+ * A range option: one slider and the number it is on.
+ *
+ * How big, how far over, what colour, how much glow — none of those is a
+ * short list of names, and a list of five sizes is a list of five
+ * compromises. The value is stored as a string like every other option, so
+ * nothing downstream has to know this control exists.
+ */
+function OptionRange({ option, value, onChange }: { option: FeatureOption; value: string | undefined; onChange: (v: string) => void }) {
+  const r = option.range ?? { min: 0, max: 100, step: 1 };
+  const fallback = Number.parseFloat(option.values[0] ?? "0") || 0;
+  const at = Number.parseFloat(value ?? "");
+  const now = Number.isFinite(at) ? Math.max(r.min, Math.min(r.max, at)) : fallback;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-fg">{option.label}</span>
+        <span className="num text-[11px] text-fg-muted">{now}{r.unit ?? ""}</span>
+      </div>
+      <Slider
+        min={r.min}
+        max={r.max}
+        step={r.step ?? 1}
+        value={[now]}
+        aria-label={option.label}
+        onValueChange={([v]) => onChange(String(v ?? fallback))}
+      />
+    </div>
+  );
+}
+
+function OptionSet({ option, value, onChange }: { option: FeatureOption; value?: string; onChange: (v: string) => void }) {
   const on = React.useMemo(
     () => new Set((value === undefined ? option.preset ?? "" : value).split(",").map((s) => s.trim()).filter(Boolean)),
     [value, option.preset],
@@ -563,6 +594,13 @@ export function Inspector() {
             {feature.options.map((opt) =>
               opt.kind === "set" ? (
                 <OptionSet
+                  key={opt.id}
+                  option={opt}
+                  value={node.options[opt.id]}
+                  onChange={(v) => update({ options: { ...node.options, [opt.id]: v } })}
+                />
+              ) : opt.kind === "range" ? (
+                <OptionRange
                   key={opt.id}
                   option={opt}
                   value={node.options[opt.id]}

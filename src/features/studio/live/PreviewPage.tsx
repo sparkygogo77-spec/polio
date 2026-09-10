@@ -28,6 +28,11 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   const pages = useStudio((s) => s.pages);
   const nodes = useStudio((s) => s.nodes);
   const format = useStudio((s) => s.format);
+  // The look is the document too. Without it this route drew every published
+  // page in the palette derived from the accent hue — the board, the pinned
+  // preview and the site all disagreed, and a site designed near-black and
+  // acid green arrived in the template's purple.
+  const look = useStudio((s) => s.look);
   const frameWidth = useStudio((s) => s.frameWidth);
 
   const rest = trim(params["*"] ?? "");
@@ -128,6 +133,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
               device={device}
               frameWidth={frameWidth}
               format={format}
+              look={look}
               onNavigatePage={goPage}
               nodeProps={(n) => ctxProps("studio-live-node", n.id, n)}
             />
