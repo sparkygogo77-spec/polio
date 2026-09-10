@@ -454,6 +454,22 @@ export function compileSpec(input: CompileInput): Spec {
 }
 
 /** The human-and-agent readable brief. This is what gets copied or sent. */
+/**
+ * The part of the brief that does not move: everything down to the pages.
+ *
+ * A thread sends this as its prefix and marks it for the cache, so the
+ * second call of a thread pays nothing for it. The split is by heading
+ * rather than by line count, and it keeps "How to read this" with it,
+ * because the conventions are as stable as the idea and are what make the
+ * pieces after them legible.
+ */
+export function briefPrefix(markdown: string): string {
+  const at = markdown.indexOf("\n## Pages (");
+  const head = at < 0 ? markdown : markdown.slice(0, at);
+  const how = markdown.indexOf("\n## How to read this");
+  return how < 0 ? head : `${head}\n${markdown.slice(how + 1)}`;
+}
+
 export function specToMarkdown(spec: Spec): string {
   const L: string[] = [];
   L.push(`# ${spec.name} — build brief`, "");

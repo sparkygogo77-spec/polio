@@ -45,6 +45,10 @@ export interface Thread {
   changes: string[];
   /** The board as it stood when this thread landed. */
   doc?: ThreadDoc;
+  /** The pieces that were vined to it when it fired. */
+  pieces?: string[];
+  /** What the call cost: what was sent, what was skipped, what the cache gave back. */
+  usage?: { sent: number; skipped: number; cached?: number; input?: number };
 }
 
 /** How many threads are kept with their documents. The board lives in localStorage. */
@@ -171,6 +175,112 @@ export function diffDocs(before: ThreadDoc | undefined, after: ThreadDoc | undef
   if ((bb.gimmick ?? "") !== (ab.gimmick ?? "")) out.push("~ the central idea rewritten");
   if ((before.pages ?? []).length !== (after.pages ?? []).length) out.push(`~ ${(before.pages ?? []).length} pages → ${(after.pages ?? []).length}`);
   return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pieces                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A piece: one thing on the board that carries a prompt.
+ *
+ * The site's own prompt, a page's, a group's, an element's. A piece is what
+ * a call actually sends — the prompt, what it is, how big, and what it sits
+ * beside — so the brief can stay a stable prefix and only the pieces that
+ * matter to this thread go with it.
+ */
+export interface Piece {
+  /** "site" · "page:<id>" · "group:<id>" · "node:<id>" */
+  id: string;
+  kind: "site" | "page" | "group" | "node";
+  label: string;
+  /** The page it is on, when it is on one. */
+  where: string;
+  prompt: string;
+  size?: { w: number; h: number };
+  /** What it sits between, in reading order. */
+  neighbours: string[];
+  /**
+   * What it looked like when it was last sent. Two calls in one thread do
+   * not resend a piece whose fingerprint has not moved.
+   */
+  fingerprint: string;
+}
+
+interface BoardIn {
+  brief?: { name?: string; gimmick?: string; master?: string };
+  pages?: { id: string; name: string; prompt?: string }[];
+  groups?: { id: string; label?: string; pageId?: string; prompt?: string }[];
+  /** In reading order already: the caller sorts, because it owns `toRows`. */
+  nodes?: { id: string; pageId?: string; label: string; prompt?: string; w?: number; h?: number }[];
+}
+
+const print = (parts: (string | number | undefined)[]) => parts.filter((p) => p !== undefined && p !== "").join("|");
+
+/** Everything on the board that carries a prompt, as pieces. */
+export function piecesFrom(board: BoardIn): Piece[] {
+  const out: Piece[] = [];
+  const brief = board.brief ?? {};
+  const site = [brief.gimmick?.trim(), brief.master?.trim()].filter(Boolean).join("\n");
+  if (site) out.push({ id: "site", kind: "site", label: brief.name?.trim() || "The site", where: "", prompt: site, neighbours: [], fingerprint: print(["site", site]) });
+  const pageName = new Map((board.pages ?? []).map((p) => [p.id, p.name]));
+  for (const p of board.pages ?? []) {
+    if (!p.prompt?.trim()) continue;
+    out.push({ id: `page:${p.id}`, kind: "page", label: p.name, where: "", prompt: p.prompt.trim(), neighbours: [], fingerprint: print(["page", p.id, p.prompt.trim()]) });
+  }
+  for (const g of board.groups ?? []) {
+    if (!g.prompt?.trim()) continue;
+    out.push({ id: `group:${g.id}`, kind: "group", label: g.label || "Group", where: pageName.get(g.pageId ?? "") ?? "", prompt: g.prompt.trim(), neighbours: [], fingerprint: print(["group", g.id, g.prompt.trim()]) });
+  }
+  const nodes = board.nodes ?? [];
+  nodes.forEach((n, i) => {
+    if (!n.prompt?.trim()) return;
+    const near = [nodes[i - 1]?.label, nodes[i + 1]?.label].filter((x): x is string => !!x);
+    out.push({
+      id: `node:${n.id}`, kind: "node", label: n.label, where: pageName.get(n.pageId ?? "") ?? "",
+      prompt: n.prompt.trim(), size: { w: Math.round(n.w ?? 0), h: Math.round(n.h ?? 0) }, neighbours: near,
+      fingerprint: print(["node", n.id, n.prompt.trim(), Math.round(n.w ?? 0), Math.round(n.h ?? 0)]),
+    });
+  });
+  return out;
+}
+
+/**
+ * Which thread a piece belongs beside: the newest one that says it did
+ * something to it. A piece no thread has touched belongs to nothing yet and
+ * floats by the draft, waiting to be vined to the next call.
+ */
+export function pieceOwners(pieces: Piece[], threads: Thread[]): Map<string, string> {
+  const owner = new Map<string, string>();
+  const ordered = [...threads].sort((a, b) => a.at - b.at);
+  for (const piece of pieces) {
+    const needle = piece.label.toLowerCase();
+    for (const t of ordered) {
+      if (t.changes.some((c) => c.toLowerCase().includes(needle)) || (t.pieces ?? []).includes(piece.id)) owner.set(piece.id, t.id);
+    }
+  }
+  return owner;
+}
+
+/** What one piece costs to say, for the call and for the reader. */
+export function pieceToText(p: Piece): string {
+  const bits = [`${p.label}${p.where ? ` (on ${p.where})` : ""}${p.size ? `, ${p.size.w}×${p.size.h}` : ""}`];
+  if (p.neighbours.length) bits.push(`between ${p.neighbours.join(" and ")}`);
+  return `- ${bits.join(" · ")}\n  prompt: ${p.prompt}`;
+}
+
+/**
+ * What a call has to carry: the pieces vined to it whose fingerprint has
+ * moved since this thread last sent them. A piece that has not changed is
+ * not resent — the model has it from the turn before, and the brief in
+ * front of it is the same bytes, so the whole prefix is a cache read.
+ */
+export function piecesToSend(pieces: Piece[], vined: string[], sent: Record<string, string>): { send: Piece[]; skipped: Piece[] } {
+  const want = pieces.filter((p) => vined.includes(p.id));
+  const send: Piece[] = [];
+  const skipped: Piece[] = [];
+  for (const p of want) (sent[p.id] === p.fingerprint ? skipped : send).push(p);
+  return { send, skipped };
 }
 
 /** The tree in words, for copying out. */

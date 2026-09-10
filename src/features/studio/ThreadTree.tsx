@@ -1,38 +1,46 @@
 "use client";
 /**
- * The threads, as a growing thing.
+ * The trail: the threads, the pieces that feed them, and the vines between.
  *
- * Every prompt that reached Claude and landed is a thread, and threads hang
- * off one another, so the history of a site is a tree rather than a list.
- * This draws that tree: a card for each thread — collapsed, one line saying
- * what was asked and what it put on the board; opened, the prompt, the
- * answer and what changed — and the cords between them drawn as vines.
+ * The timeline is a staircase running from the upper left down to the
+ * right, one step per thread in the order they landed, and the threads hang
+ * off it. Every element on the board that carries a prompt floats near the
+ * thread that last touched it as a *piece*; a piece vined to the next call
+ * is what that call will actually send.
  *
- * The vines are the point of the drawing and they are not a diagram. Three
- * strands per cord, braided round each other, each one a sine wave with its
- * own phase running along the path; the whole tree breathes on a slow clock
- * and a brighter pulse climbs the line the board is standing on. They are
- * painted on a canvas under the cards rather than as an SVG, because a
- * static picture of a history is the thing this replaces: what is alive
- * should look alive, and what has been cut should stop moving.
+ * Two colours, and they mean two different things. **Green** is landed: a
+ * thread that came back, the spine between them, and the pieces those
+ * threads worked on. **Purple** is pending: the pieces vined to the call
+ * that has not fired yet. So the drawing says, before anything is sent,
+ * exactly what is about to go up.
  *
- * Everything about the drawing is measured off the real cards after layout,
- * so opening a thread makes the vine to it grow rather than the picture
- * disagreeing with the page.
+ * The vines are not a diagram. Four strands per cord braided round a spine,
+ * each on its own phase, tendrils curling off them, a knot where a cord
+ * grips a card, and a light climbing the line the board is standing on.
+ * They are painted on a canvas under the cards, because a history drawn as
+ * a static picture is the thing this replaces: what is alive should look
+ * alive, and what has been cut should stop moving.
+ *
+ * Everything is measured off the real cards after layout, so opening a
+ * thread or dragging one makes the vines follow rather than the picture
+ * disagreeing with the page. Dragging moves one thing: no re-layout.
  */
 import * as React from "react";
-import { ChevronRight, Circle, GitBranch, GripVertical, MapPin, Scissors } from "lucide-react";
+import { ChevronRight, Circle, GitBranch, GripVertical, MapPin, Scissors, Sparkles } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
+import { toRows } from "./spec";
 import { useStudio } from "./store";
-import { diffDocs, flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
+import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./threads";
 import { PromptTrail } from "./PromptTrail";
 
-/** The green a live thread glows. Dark ground, one colour, nothing else. */
+/** Landed: the green a thread and its spine are drawn in. */
 const VINE = { core: "oklch(0.92 0.2 145)", body: "oklch(0.72 0.22 148)", dim: "oklch(0.42 0.1 150)", dead: "oklch(0.3 0.02 150)" };
+/** Pending: the purple a piece is drawn in while it is only vined to the next call. */
+const PENDING = { core: "oklch(0.88 0.2 305)", body: "oklch(0.7 0.25 300)", dim: "oklch(0.5 0.16 300)", dead: "oklch(0.32 0.06 300)" };
 
 const CARD_W = 320;
 /**
@@ -41,8 +49,10 @@ const CARD_W = 320;
  * be seen, and at a step narrower than the card it runs behind the next one.
  */
 const COL_STEP = 384;
-const ROW_STEP = 132;
+const ROW_STEP = 136;
 const PAD = 16;
+/** How far off its step on the timeline a thread hangs. */
+const HANG = { x: 34, y: 18 };
 
 interface Spot { x: number; y: number }
 
@@ -65,15 +75,70 @@ function staircase(roots: ThreadNode[]): Map<string, Spot> {
   return spots;
 }
 
+/** Deterministic, so a piece does not jump about between renders. */
+function seedOf(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) / 4294967296;
+}
+
+/** A chip's own size, for laying them out without stacking them on each other. */
+const CHIP = { w: 176, h: 27 };
+
+/**
+ * Where a piece floats.
+ *
+ * A piece a thread has worked on sits just left of that thread's step, in a
+ * short column, so you can see at a glance what that thread was about. A
+ * piece no thread has touched yet joins the shelf under the trail — the
+ * pool the next call is composed from — laid out in rows rather than on an
+ * arc, because a pool of two dozen prompts on an arc is a pile.
+ */
+function ownedSpot(at: Spot, index: number): Spot {
+  const column = Math.floor(index / 4);
+  const row = index % 4;
+  // Left of the step where there is room for them, and out past the card
+  // where there is not — the first step has nothing to its left.
+  const left = at.x - 20 - (column + 1) * (CHIP.w + 8);
+  const x = left > 6 ? left : at.x + CARD_W + HANG.x + 24 + column * (CHIP.w + 8);
+  return { x, y: Math.max(2, at.y - 10 + row * CHIP.h) };
+}
+
+function shelfSpot(top: number, index: number, perRow: number): Spot {
+  return { x: PAD + (index % perRow) * (CHIP.w + 10), y: top + Math.floor(index / perRow) * CHIP.h };
+}
+
+/** Everything on the board that carries a prompt, in reading order. */
+export function usePieces(): Piece[] {
+  const brief = useStudio((s) => s.brief);
+  const pages = useStudio((s) => s.pages);
+  const groups = useStudio((s) => s.groups);
+  const nodes = useStudio((s) => s.nodes);
+  return React.useMemo(() => {
+    // Reading order, page by page, so a piece's neighbours are the parts
+    // that actually sit either side of it.
+    const ordered = pages.flatMap((page) => toRows(nodes.filter((n) => n.pageId === page.id)).flat());
+    return piecesFrom({ brief, pages, groups, nodes: ordered });
+  }, [brief, pages, groups, nodes]);
+}
+
 export function ThreadTree() {
   const threads = useStudio((s) => s.threads);
   const liveThreadId = useStudio((s) => s.liveThreadId);
   const trail = useStudio((s) => s.trail);
   const spotsSaved = useStudio((s) => s.threadSpots);
+  const draftPieces = useStudio((s) => s.draftPieces);
+  const sentPieces = useStudio((s) => s.sentPieces);
   const prune = useStudio((s) => s.pruneThread);
   const standOn = useStudio((s) => s.standOn);
   const moveThread = useStudio((s) => s.moveThread);
   const resetSpots = useStudio((s) => s.resetThreadSpots);
+  const toggleDraft = useStudio((s) => s.toggleDraftPiece);
+  const clearDraft = useStudio((s) => s.clearDraft);
+  const pieces = usePieces();
 
   const [open, setOpen] = React.useState<Set<string>>(() => new Set());
   const box = React.useRef<HTMLDivElement>(null);
@@ -86,16 +151,50 @@ export function ThreadTree() {
   const byId = React.useMemo(() => new Map(threads.map((t) => [t.id, t])), [threads]);
   const loose = trail.filter((e) => !e.threadId && e.stage === "critique");
 
-  // Where each thread is: the staircase, unless it has been dragged. A thread
-  // that has been moved stays where it was put and nothing else shifts —
-  // moving one is not a re-layout.
+  /* The timeline: one step per thread, in the order they landed, and the
+   * draft on the step after the last of them. */
   const stairs = React.useMemo(() => staircase(roots), [roots]);
+  const draftStair = React.useMemo(() => {
+    let last: Spot | null = null;
+    let depth = 0;
+    for (const n of all) {
+      const at = stairs.get(n.thread.id);
+      if (at && (!last || at.y > last.y)) { last = at; depth = n.depth; }
+    }
+    return last ? { x: PAD + Math.min(depth + 1, 4) * COL_STEP, y: last.y + ROW_STEP } : { x: PAD, y: PAD };
+  }, [all, stairs]);
+
+  /** The shelf: under the last step, as wide as the trail is deep. */
+  const perRow = 6;
+  const shelfTop = draftStair.y + 118;
   const [dragging, setDragging] = React.useState<{ id: string; at: Spot } | null>(null);
+  /**
+   * How far the trail is scaled to fit its box. A trail outgrows any dialog
+   * after a few threads, and a picture you have to scroll in two directions
+   * to read is not a picture of anything; fitted is the default, and 1:1 is
+   * one press away when a prompt has to be read.
+   */
+  const [fit, setFit] = React.useState(true);
+  const [zoom, setZoom] = React.useState(1);
+  const hung = React.useCallback((at: Spot): Spot => ({ x: at.x + HANG.x, y: at.y + HANG.y }), []);
   const spotOf = React.useCallback(
-    (id: string): Spot => (dragging?.id === id ? dragging.at : spotsSaved[id] ?? stairs.get(id) ?? { x: PAD, y: PAD }),
-    [dragging, spotsSaved, stairs],
+    (key: string, fallback: Spot): Spot => (dragging?.id === key ? dragging.at : spotsSaved[key] ?? fallback),
+    [dragging, spotsSaved],
   );
   const moved = Object.keys(spotsSaved).length;
+
+  /** Which thread each piece belongs beside; the rest gather at the draft. */
+  const owners = React.useMemo(() => pieceOwners(pieces, threads), [pieces, threads]);
+  const grouped = React.useMemo(() => {
+    const by = new Map<string, Piece[]>();
+    for (const piece of pieces) {
+      const key = owners.get(piece.id) ?? "draft";
+      const list = by.get(key) ?? [];
+      list.push(piece);
+      by.set(key, list);
+    }
+    return by;
+  }, [pieces, owners]);
 
   /** The line from a root down to the thread the board is standing on. */
   const liveLine = React.useMemo(() => {
@@ -117,24 +216,24 @@ export function ThreadTree() {
       return n;
     });
 
-  /** Dragging one card. The rest of the trail does not move. */
-  const startDrag = (id: string, e: React.PointerEvent) => {
+  /** Dragging one card or one piece. Nothing else on the trail moves. */
+  const startDrag = (key: string, from: Spot, e: React.PointerEvent) => {
     const plot = grid.current;
     if (!plot || e.button !== 0) return;
     const origin = plot.getBoundingClientRect();
-    const from = spotOf(id);
-    const grab = { x: e.clientX - origin.left - from.x, y: e.clientY - origin.top - from.y };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const grab = { x: (e.clientX - origin.left) / zoom - from.x, y: (e.clientY - origin.top) / zoom - from.y };
     e.preventDefault();
-    const move = (ev: PointerEvent) => {
+    const to = (ev: PointerEvent): Spot => {
       const r = plot.getBoundingClientRect();
-      setDragging({ id, at: { x: Math.max(0, ev.clientX - r.left - grab.x), y: Math.max(0, ev.clientY - r.top - grab.y) } });
+      // The plot may be scaled to fit, and the pointer is not.
+      return { x: Math.max(0, (ev.clientX - r.left) / zoom - grab.x), y: Math.max(0, (ev.clientY - r.top) / zoom - grab.y) };
     };
+    const move = (ev: PointerEvent) => setDragging({ id: key, at: to(ev) });
     const up = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      const r = plot.getBoundingClientRect();
-      moveThread(id, Math.max(0, ev.clientX - r.left - grab.x), Math.max(0, ev.clientY - r.top - grab.y));
+      const at = to(ev);
+      moveThread(key, at.x, at.y);
       setDragging(null);
       play("tap");
     };
@@ -143,10 +242,12 @@ export function ThreadTree() {
   };
 
   /* ------------------------------------------------------- the vines */
-  // Where each card actually is, read off the page after every change of
-  // shape. Measured against the grid of cards, never against the scroller:
-  // the canvas lives inside the scroller, so sizing it from `scrollHeight`
-  // makes it push out the very number it was measured from.
+  /*
+   * Where everything actually is, read off the page after each change of
+   * shape. Measured against the plot, never against the scroller: the
+   * canvas lives inside the scroller, so sizing it from `scrollHeight`
+   * makes it push out the very number it was measured from.
+   */
   const anchors = React.useRef(new Map<string, { left: number; right: number; top: number; bottom: number; mid: number }>());
   const measure = React.useCallback(() => {
     const plot = grid.current;
@@ -155,34 +256,58 @@ export function ThreadTree() {
     const next = new Map<string, { left: number; right: number; top: number; bottom: number; mid: number }>();
     let w = 0;
     let h = 0;
-    for (const el of plot.querySelectorAll<HTMLElement>("[data-thread]")) {
+    // Screen pixels come back scaled; the drawing is done in the trail's own.
+    const z = plot.getBoundingClientRect().width / Math.max(1, plot.offsetWidth) || 1;
+    for (const el of plot.querySelectorAll<HTMLElement>("[data-trail-item]")) {
       const r = el.getBoundingClientRect();
       const a = {
-        left: r.left - origin.left,
-        right: r.right - origin.left,
-        top: r.top - origin.top,
-        bottom: r.bottom - origin.top,
-        mid: r.top - origin.top + Math.min(r.height / 2, 34),
+        left: (r.left - origin.left) / z,
+        right: (r.right - origin.left) / z,
+        top: (r.top - origin.top) / z,
+        bottom: (r.bottom - origin.top) / z,
+        mid: (r.top - origin.top) / z + Math.min(r.height / z / 2, 34),
       };
-      next.set(el.dataset.thread!, a);
+      next.set(el.dataset.trailItem!, a);
       w = Math.max(w, a.right);
       h = Math.max(h, a.bottom);
     }
     anchors.current = next;
-    const width = Math.max(360, Math.round(w + PAD));
-    const height = Math.max(220, Math.round(h + PAD));
+    const width = Math.max(420, Math.round(w + PAD * 2));
+    const height = Math.max(260, Math.round(h + PAD * 2));
     setSize((s) => (s.w === width && s.h === height ? s : { w: width, h: height }));
-  }, []);
+    const room = box.current?.clientWidth ?? width;
+    setZoom(fit ? Math.max(0.42, Math.min(1, (room - 8) / width)) : 1);
+  }, [fit]);
 
-  React.useLayoutEffect(measure, [measure, threads, open, spotsSaved, dragging]);
+  React.useLayoutEffect(measure, [measure, threads, pieces, draftPieces, open, spotsSaved, dragging]);
   React.useEffect(() => {
     const plot = grid.current;
     if (!plot) return;
     const ro = new ResizeObserver(measure);
     ro.observe(plot);
-    for (const el of plot.querySelectorAll("[data-thread]")) ro.observe(el);
+    for (const el of plot.querySelectorAll("[data-trail-item]")) ro.observe(el);
     return () => ro.disconnect();
-  }, [measure, threads, open]);
+  }, [measure, threads, pieces, open]);
+
+  // What the canvas draws, rebuilt whenever the shape of the trail changes.
+  const cords = React.useMemo(() => {
+    const out: { from: string; to: string; tone: "live" | "landed" | "pending"; depth: number; side: boolean }[] = [];
+    // The timeline itself: step to step, in the order they landed.
+    const steps = all.map((n) => n.thread.id);
+    for (let i = 1; i < steps.length; i++) out.push({ from: `step:${steps[i - 1]}`, to: `step:${steps[i]}`, tone: "landed", depth: 0, side: false });
+    if (steps.length) out.push({ from: `step:${steps[steps.length - 1]}`, to: "step:draft", tone: "pending", depth: 0, side: false });
+    // Each thread hangs off its step.
+    for (const n of all) out.push({ from: `step:${n.thread.id}`, to: `thread:${n.thread.id}`, tone: liveLine.has(n.thread.id) ? "live" : "landed", depth: n.depth, side: true });
+    out.push({ from: "step:draft", to: "thread:draft", tone: "pending", depth: 0, side: true });
+    // And every piece feeds the thread it belongs to, or the draft it is vined to.
+    for (const piece of pieces) {
+      const owner = owners.get(piece.id);
+      const vined = draftPieces.includes(piece.id);
+      if (vined) out.push({ from: `piece:${piece.id}`, to: "thread:draft", tone: "pending", depth: 2, side: true });
+      else if (owner) out.push({ from: `piece:${piece.id}`, to: `thread:${owner}`, tone: "landed", depth: 2, side: true });
+    }
+    return out;
+  }, [all, pieces, owners, draftPieces, liveLine]);
 
   React.useEffect(() => {
     const el = canvas.current;
@@ -192,7 +317,6 @@ export function ThreadTree() {
     let raf = 0;
     let last = 0;
     const born = performance.now();
-
     const paint = (now: number) => {
       raf = requestAnimationFrame(paint);
       // Vines are slow; thirty frames a second is plenty and leaves the
@@ -207,60 +331,59 @@ export function ThreadTree() {
       }
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, size.w, size.h);
-      for (const n of all) {
-        const child = anchors.current.get(n.thread.id);
-        if (!child) continue;
-        const parent = n.thread.parentId ? anchors.current.get(n.thread.parentId) : null;
-        // The trail runs left to right: out of the parent's right side, into
-        // the child's left. A child dragged back behind its parent is joined
-        // the other way round rather than through the card.
-        const backwards = parent ? child.left < parent.left : false;
-        const from = parent
-          ? { x: backwards ? parent.left : parent.right, y: parent.mid }
-          : { x: Math.max(0, child.left - 22), y: child.mid };
-        const to = { x: backwards ? child.right : child.left, y: child.mid };
-        vine(c, from, to, still ? 0 : t, liveLine.has(n.thread.id), n.depth);
+      for (const cord of cords) {
+        const a = anchors.current.get(cord.from);
+        const b = anchors.current.get(cord.to);
+        if (!a || !b) continue;
+        // Left to right along the trail: out of one side, into the other.
+        const backwards = b.left < a.left;
+        const from = { x: backwards ? a.left : a.right, y: a.mid };
+        const to = { x: backwards ? b.right : b.left, y: b.mid };
+        vine(c, from, to, still ? 0 : t, cord.tone, cord.depth);
       }
     };
     raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
-  }, [all, liveLine, size.w, size.h]);
+  }, [cords, size.w, size.h]);
 
-  if (!threads.length) {
-    return (
-      <div className="space-y-4">
-        <div className="rounded-lg border border-border bg-elevated p-6 text-center">
-          <GitBranch className="mx-auto mb-2 size-5 text-fg-faint" />
-          <p className="text-sm text-fg">No threads yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-fg-muted">
-            Every prompt that reaches Claude and comes back lands as a thread: what was asked, what came back, and what
-            it put on the board. Threads hang off one another, so this becomes the tree of how the site was reasoned
-            about. Ask for a plan or a critique, or make a drawing real, and the first one appears here.
-          </p>
-        </div>
-        {loose.length ? <PromptTrail /> : null}
-      </div>
-    );
-  }
+  // No threads yet is not an empty page: the pieces and the next call are
+  // what a first ask is composed from, so the trail draws them and only
+  // says its piece about what a thread is.
+  const nothingYet = !threads.length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div
         ref={box}
         data-thread-tree=""
         className="relative overflow-auto rounded-lg border border-border bg-[oklch(0.13_0.012_150)]"
-        style={{ minHeight: 280, maxHeight: "62vh" }}
+        style={{ minHeight: 300, maxHeight: "64vh" }}
       >
-        <div ref={grid} className="relative" style={{ width: size.w, height: size.h }}>
-          {/* The vines are drawn under the cards, in the trail's own frame. */}
+        {/* The scaled plot still has to be scrollable to its own corners. */}
+        <div aria-hidden style={{ width: size.w * zoom, height: size.h * zoom, position: "absolute", pointerEvents: "none" }} />
+        <div
+          ref={grid}
+          className="relative"
+          style={{ width: size.w, height: size.h, transform: `scale(${zoom})`, transformOrigin: "0 0" }}
+        >
+          {/* The vines are drawn under everything, in the trail's own frame. */}
           <canvas
             ref={canvas}
             aria-hidden
             className="pointer-events-none absolute left-0 top-0"
             style={{ width: size.w, height: size.h }}
           />
+
+          {/* The timeline: one step per thread, and the step the next call will take. */}
           {all.map((n) => {
-            const at = spotOf(n.thread.id);
+            const at = stairs.get(n.thread.id) ?? { x: PAD, y: PAD };
+            return <Step key={`step-${n.thread.id}`} id={`step:${n.thread.id}`} at={at} live={liveLine.has(n.thread.id)} />;
+          })}
+          <Step id="step:draft" at={draftStair} live={false} pending />
+
+          {/* The threads, hanging off their step. */}
+          {all.map((n) => {
+            const at = spotOf(`thread:${n.thread.id}`, hung(stairs.get(n.thread.id) ?? { x: PAD, y: PAD }));
             return (
               <ThreadCard
                 key={n.thread.id}
@@ -269,24 +392,74 @@ export function ThreadTree() {
                 live={n.thread.id === liveThreadId}
                 onLine={liveLine.has(n.thread.id)}
                 open={open.has(n.thread.id)}
-                dragging={dragging?.id === n.thread.id}
+                dragging={dragging?.id === `thread:${n.thread.id}`}
                 onToggle={() => toggle(n.thread.id)}
                 onPrune={() => { play("close"); prune(n.thread.id); }}
                 onStand={() => { play("confirm"); standOn(n.thread.id); }}
-                onDragStart={(e) => startDrag(n.thread.id, e)}
+                onDragStart={(e) => startDrag(`thread:${n.thread.id}`, at, e)}
                 style={{ position: "absolute", left: at.x, top: at.y, width: CARD_W }}
               />
             );
           })}
+
+          {/* The next call: what is vined to it is what it will send. */}
+          <DraftCard
+            at={spotOf("thread:draft", hung(draftStair))}
+            pieces={pieces.filter((x) => draftPieces.includes(x.id))}
+            sent={sentPieces}
+            dragging={dragging?.id === "thread:draft"}
+            onDragStart={(e) => startDrag("thread:draft", spotOf("thread:draft", hung(draftStair)), e)}
+            onClear={() => { play("close"); clearDraft(); }}
+          />
+
+          {/* Every prompt on the board: by its thread, or on the shelf the next call draws from. */}
+          {[...grouped.entries()].flatMap(([key, list]) =>
+            list.map((piece, i) => {
+              const home = stairs.get(key);
+              const at = spotOf(`piece:${piece.id}`, home ? ownedSpot(home, i) : shelfSpot(shelfTop, i, perRow));
+              return (
+                <PieceChip
+                  key={piece.id}
+                  piece={piece}
+                  at={at}
+                  vined={draftPieces.includes(piece.id)}
+                  landed={key !== "draft"}
+                  fresh={sentPieces[piece.id] !== undefined && sentPieces[piece.id] !== piece.fingerprint}
+                  dragging={dragging?.id === `piece:${piece.id}`}
+                  onToggle={() => { play("select"); toggleDraft(piece.id); }}
+                  onDragStart={(e) => startDrag(`piece:${piece.id}`, at, e)}
+                />
+              );
+            }),
+          )}
         </div>
       </div>
-      <p className="flex items-center justify-between text-[10px] text-fg-faint">
-        <span>Drag a thread to move it. Only that one moves.</span>
-        {moved ? (
-          <Button variant="ghost" size="xs" onClick={() => { play("close"); resetSpots(); }}>
-            Put the trail back on its staircase
+      {nothingYet ? (
+        <p className="flex items-start gap-2 rounded-lg border border-border bg-elevated p-3 text-[11px] text-fg-muted">
+          <GitBranch className="mt-0.5 size-3.5 shrink-0 text-fg-faint" />
+          <span>
+            Nothing has landed yet. Every prompt that reaches Claude and comes back lands as a thread here — what was
+            asked, what came back, and what it put on the board — and threads hang off one another, so this becomes the
+            tree of how the site was reasoned about. Click the pieces this first question is about, then ask.
+          </span>
+        </p>
+      ) : null}
+      <p className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-fg-faint">
+        <span>
+          Drag a thread or a piece to move it — only that one moves. Click a piece to vine it to the next call:
+          <span className="text-[oklch(0.7_0.25_300)]"> purple is about to be sent</span>,
+          <span className="text-[oklch(0.72_0.22_148)]"> green has landed</span>.
+        </span>
+        <span className="flex items-center gap-2">
+          <Button variant="ghost" size="xs" onClick={() => { play("select"); setFit((v) => !v); }}>
+            {fit ? `Fit · ${Math.round(zoom * 100)}%` : "1:1"}
           </Button>
-        ) : null}
+          {moved ? (
+            <Button variant="ghost" size="xs" onClick={() => { play("close"); resetSpots(); }}>
+              Put the trail back on its staircase
+            </Button>
+          ) : null}
+        </span>
       </p>
       {loose.length ? (
         <details className="rounded-lg border border-border bg-elevated p-3">
@@ -298,6 +471,135 @@ export function ThreadTree() {
           </div>
         </details>
       ) : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The timeline, the draft, and one piece                              */
+/* ------------------------------------------------------------------ */
+
+/** One step of the staircase: a small knot the thread hangs off. */
+function Step({ id, at, live, pending }: { id: string; at: Spot; live: boolean; pending?: boolean }) {
+  const tone = pending ? PENDING.body : live ? VINE.core : VINE.dim;
+  return (
+    <span
+      data-trail-item={id}
+      aria-hidden
+      className="absolute rounded-full"
+      style={{
+        left: at.x, top: at.y, width: 11, height: 11,
+        background: tone,
+        boxShadow: `0 0 12px ${tone}`,
+        opacity: pending ? 0.75 : live ? 1 : 0.55,
+      }}
+    />
+  );
+}
+
+/** A prompt on the board, floating by the thread it belongs to. */
+function PieceChip({
+  piece, at, vined, landed, fresh, dragging, onToggle, onDragStart,
+}: {
+  piece: Piece;
+  at: Spot;
+  vined: boolean;
+  landed: boolean;
+  fresh: boolean;
+  dragging: boolean;
+  onToggle: () => void;
+  onDragStart: (e: React.PointerEvent) => void;
+}) {
+  const tone = vined ? PENDING : VINE;
+  return (
+    <Tooltip content={`${piece.prompt.slice(0, 200)}${piece.prompt.length > 200 ? "…" : ""}`}>
+      <button
+        type="button"
+        data-trail-item={`piece:${piece.id}`}
+        data-piece={piece.id}
+        onClick={onToggle}
+        onPointerDown={(e) => { if (e.shiftKey || e.button === 1) onDragStart(e); }}
+        aria-pressed={vined}
+        className={cn(
+          "absolute z-10 flex max-w-[190px] items-center gap-1.5 rounded-full border px-2 py-1 text-left text-[10px] transition-colors",
+          dragging && "z-30 cursor-grabbing",
+        )}
+        style={{
+          left: at.x, top: at.y,
+          borderColor: vined ? tone.body : landed ? "oklch(0.32 0.04 150)" : "oklch(0.3 0.01 260)",
+          background: vined ? "oklch(0.19 0.06 300)" : "oklch(0.16 0.015 260)",
+          color: vined ? "oklch(0.92 0.08 305)" : landed ? "oklch(0.78 0.04 150)" : "oklch(0.68 0.01 260)",
+          boxShadow: vined ? `0 0 14px oklch(0.7 0.25 300 / 0.35)` : undefined,
+        }}
+        title="Click to vine this to the next call. Shift-drag to move it."
+      >
+        <span className="size-1.5 shrink-0 rounded-full" style={{ background: vined ? PENDING.core : landed ? VINE.body : "oklch(0.5 0.01 260)" }} />
+        <span className="truncate">{piece.label}</span>
+        {fresh ? <span className="shrink-0 text-[9px] opacity-80">changed</span> : null}
+      </button>
+    </Tooltip>
+  );
+}
+
+/** The call that has not fired: what is vined to it is what it will send. */
+function DraftCard({
+  at, pieces, sent, dragging, onDragStart, onClear,
+}: {
+  at: Spot;
+  pieces: Piece[];
+  sent: Record<string, string>;
+  dragging: boolean;
+  onDragStart: (e: React.PointerEvent) => void;
+  onClear: () => void;
+}) {
+  const unchanged = pieces.filter((p) => sent[p.id] === p.fingerprint).length;
+  return (
+    <div
+      data-trail-item="thread:draft"
+      data-draft=""
+      className={cn(
+        "absolute z-10 rounded-lg border border-dashed p-3",
+        dragging && "z-30 shadow-[0_10px_30px_oklch(0_0_0/0.5)]",
+      )}
+      style={{
+        left: at.x, top: at.y, width: CARD_W,
+        borderColor: pieces.length ? PENDING.body : "oklch(0.3 0.02 300)",
+        background: pieces.length ? "oklch(0.16 0.04 300)" : "oklch(0.145 0.012 290)",
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          onPointerDown={onDragStart}
+          aria-label="Move the next call"
+          className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-fg-faint hover:text-fg active:cursor-grabbing"
+        >
+          <GripVertical className="size-3.5" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-[12px]" style={{ color: PENDING.core }}>
+            <Sparkles className="size-3" /> The next call
+          </p>
+          <p className="mt-1 text-[10px] text-fg-muted">
+            {pieces.length
+              ? `${pieces.length} piece${pieces.length === 1 ? "" : "s"} vined${unchanged ? `, ${unchanged} unchanged and not resent` : ""}. The brief goes in front of them, from the cache.`
+              : "Nothing vined. Click a piece to send it with the next ask; with none, the whole blueprint goes."}
+          </p>
+          {pieces.length ? (
+            <ul className="mt-2 space-y-0.5">
+              {pieces.slice(0, 6).map((p) => (
+                <li key={p.id} className="truncate text-[10px]" style={{ color: sent[p.id] === p.fingerprint ? "oklch(0.55 0.03 300)" : "oklch(0.86 0.1 305)" }}>
+                  {sent[p.id] === p.fingerprint ? "· " : "+ "}{p.label}
+                </li>
+              ))}
+              {pieces.length > 6 ? <li className="text-[10px] text-fg-faint">and {pieces.length - 6} more</li> : null}
+            </ul>
+          ) : null}
+        </div>
+        {pieces.length ? (
+          <Button variant="ghost" size="xs" onClick={onClear} aria-label="Unvine everything">Clear</Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -454,23 +756,38 @@ function Section({ label, children }: { label: string; children: React.ReactNode
  * sampled rather than curved by the canvas, because the twist has to be a
  * function of how far along the strand is, which a bezier cannot say.
  */
+/**
+ * One cord, braided: four strands round a common spine, each swinging on
+ * its own phase, tendrils curling off them, a knot at each end, and — on a
+ * cord that is live or pending — a light travelling along it.
+ *
+ * `tone` is the whole meaning of the drawing. **live** is the line the
+ * board is standing on; **landed** is a thread that came back, or a piece
+ * one worked on; **pending** is what the next call will send and has not
+ * sent yet. Purple only ever means pending.
+ */
+type Tone = "live" | "landed" | "pending";
+
 function vine(
   c: CanvasRenderingContext2D,
   from: { x: number; y: number },
   to: { x: number; y: number },
   t: number,
-  alive: boolean,
+  tone: Tone,
   depth: number,
 ) {
+  const palette = tone === "pending" ? PENDING : VINE;
+  const moving = tone !== "landed";
+  const bright = tone === "live" ? 1 : tone === "pending" ? 0.9 : 0.5;
   const steps = 56;
   const span = Math.hypot(to.x - from.x, to.y - from.y);
-  const amp = Math.max(3, Math.min(14, span * 0.09));
+  const amp = Math.max(3, Math.min(13, span * 0.085));
   const seed = (from.x * 0.013 + to.y * 0.007 + depth * 1.7) % (Math.PI * 2);
 
   // The trail runs left to right and steps down, so the spine leaves the
-  // parent sideways and enters the child sideways: the cord makes the tread
+  // one sideways and enters the other sideways: the cord makes the tread
   // and the riser of the stair rather than cutting the corner between them.
-  const bend = Math.max(30, Math.abs(to.x - from.x) * 0.55, Math.abs(to.y - from.y) * 0.3);
+  const bend = Math.max(26, Math.abs(to.x - from.x) * 0.55, Math.abs(to.y - from.y) * 0.28);
   const dir = to.x >= from.x ? 1 : -1;
   const at = (u: number) => {
     const v = 1 - u;
@@ -486,17 +803,17 @@ function vine(
     const dx = q.x - p.x;
     const dy = q.y - p.y;
     const len = Math.hypot(dx, dy) || 1;
-    // Tight where it grips the cards, widest in the middle: a braid, not a ladder.
+    // Tight where it grips, widest in the middle: a braid, not a ladder.
     const grip = Math.sin(u * Math.PI) ** 0.7;
-    const swing = Math.sin(u * wind + phase + t * (alive ? 0.9 : 0.2)) * amp * grip;
+    const swing = Math.sin(u * wind + phase + t * (moving ? 0.9 : 0.2)) * amp * grip;
     return { x: p.x + (-dy / len) * swing, y: p.y + (dx / len) * swing, nx: -dy / len, ny: dx / len };
   };
 
   const strands = [
-    { phase: 0, wind: 6.5, w: 2, tone: alive ? VINE.core : VINE.dead, a: alive ? 0.95 : 0.5, glow: 12 },
-    { phase: 2.1, wind: 6.5, w: 1.4, tone: alive ? VINE.body : VINE.dead, a: alive ? 0.7 : 0.4, glow: 7 },
-    { phase: 4.2, wind: 6.5, w: 1.1, tone: alive ? VINE.body : VINE.dead, a: alive ? 0.5 : 0.3, glow: 5 },
-    { phase: 1.1, wind: 10.5, w: 0.8, tone: alive ? VINE.dim : VINE.dead, a: alive ? 0.45 : 0.25, glow: 3 },
+    { phase: 0, wind: 6.5, w: 1.9, tone: palette.core, a: 0.95 * bright, glow: 12 },
+    { phase: 2.1, wind: 6.5, w: 1.35, tone: palette.body, a: 0.7 * bright, glow: 7 },
+    { phase: 4.2, wind: 6.5, w: 1.05, tone: palette.body, a: 0.5 * bright, glow: 5 },
+    { phase: 1.1, wind: 10.5, w: 0.8, tone: palette.dim, a: 0.45 * bright, glow: 3 },
   ];
   for (const st of strands) {
     c.beginPath();
@@ -510,50 +827,46 @@ function vine(
     c.lineWidth = st.w;
     c.globalAlpha = st.a;
     c.lineCap = "round";
-    if (alive) {
-      c.shadowColor = VINE.body;
-      c.shadowBlur = st.glow;
-    } else {
-      c.shadowBlur = 0;
-    }
+    c.shadowColor = palette.body;
+    c.shadowBlur = tone === "landed" ? 0 : st.glow;
     c.stroke();
     c.shadowBlur = 0;
     c.globalAlpha = 1;
   }
 
-  // Tendrils: short curls off the braid, so it reads as grown rather than routed.
+  // Tendrils: short curls off the braid, so it reads as grown, not routed.
   const curls = Math.max(1, Math.round(span / 90));
   for (let k = 0; k < curls; k++) {
-    const u = 0.22 + (k + 0.5) / (curls + 0.6) * 0.6;
+    const u = 0.22 + ((k + 0.5) / (curls + 0.6)) * 0.6;
     const p = on(u, seed, 6.5);
     const side = k % 2 ? 1 : -1;
     const reach = (7 + Math.sin(t * 0.6 + k + seed) * 3) * side;
     c.beginPath();
     c.moveTo(p.x, p.y);
     c.quadraticCurveTo(p.x + p.nx * reach, p.y + p.ny * reach - 5, p.x + p.nx * reach * 1.4, p.y + p.ny * reach * 1.4 + 4);
-    c.strokeStyle = alive ? VINE.dim : VINE.dead;
-    c.globalAlpha = alive ? 0.6 : 0.25;
+    c.strokeStyle = palette.dim;
+    c.globalAlpha = 0.6 * bright;
     c.lineWidth = 1;
     c.stroke();
     c.globalAlpha = 1;
   }
 
-  // Where it grips: a knot at each end, so the cord meets the card rather than stopping near it.
+  // Where it grips: a knot at each end, so a cord meets its card.
   for (const p of [at(0), at(1)]) {
     c.beginPath();
-    c.arc(p.x, p.y, alive ? 2.6 : 2, 0, Math.PI * 2);
-    c.fillStyle = alive ? VINE.core : VINE.dead;
-    c.globalAlpha = alive ? 0.9 : 0.5;
+    c.arc(p.x, p.y, tone === "landed" ? 2 : 2.6, 0, Math.PI * 2);
+    c.fillStyle = palette.core;
+    c.globalAlpha = 0.9 * bright;
     c.fill();
     c.globalAlpha = 1;
   }
 
-  // What is alive has something climbing it.
-  if (alive) {
+  // What is live or pending has something travelling along it.
+  if (moving) {
     const u = (t * 0.2 + seed * 0.1) % 1;
     const p = on(u, seed, 6.5);
     const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, 11);
-    g.addColorStop(0, "oklch(0.96 0.2 145 / 0.85)");
+    g.addColorStop(0, tone === "pending" ? "oklch(0.9 0.22 305 / 0.85)" : "oklch(0.96 0.2 145 / 0.85)");
     g.addColorStop(1, "oklch(0.96 0.2 145 / 0)");
     c.fillStyle = g;
     c.beginPath();
