@@ -61,7 +61,11 @@ const page = await context.newPage();
 const tour = page.locator("[data-tour]");
 
 /* 1. The two ways in. */
-await page.goto(`${URL_BASE}/`, { waitUntil: "networkidle" });
+// /builds, not bare /: this repository carries a real demo document at
+// site/document.json, so next.config.ts redirects / to /site here exactly as
+// it would on any deployment that has published — see AGENTS.md "/builds is
+// /'s survivor". /builds is Builds at the path that redirect never touches.
+await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.getByRole("button", { name: "Take the tour" }).click();
 await page.waitForTimeout(1500);
