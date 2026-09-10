@@ -94,8 +94,10 @@ same boxes as everywhere else, in the screen's colours.
   lock, so the middle of its wheel is a blue Add. Press it and the wheel is
   the add disc (`AddDisc.tsx`): a disc the size of the drawing board whose
   ground is the **dark matter camo** — violet and magenta nebula clouds
-  over black voids, drifting and turning, with a vein of hot lilac and
-  flecks that glint — with the parts of one category rolling down the
+  over black voids in two depths: a huge slow mass at the back, a planet
+  with no edge to see, and cloud you can watch pass in front; no stars,
+  nothing blinks, nothing white, a few red flakes riding the near cloud;
+  the peaks kept dim — with the parts of one category rolling down the
   middle of it, drawn as themselves, big, with a long gap between each. The
   one at the centre is full size; the rest shrink and dim toward it, so the
   column reads as a drum turning inside the hole. The categories are tabs

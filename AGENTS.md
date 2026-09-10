@@ -668,10 +668,12 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - **The add disc** (`AddDisc.tsx`, `data-add-disc`): pressed from the
   page's middle, the wheel becomes a disc the size of the drawing board
   painted by `paintDarkMatter` — three tiles of fractal value noise made
-  once (`darkMatterTiles`: violet soft, magenta sharper, a hot lilac vein),
-  laid each frame as repeating patterns that drift and turn about the
-  middle, screened together, under seventy glinting flecks and a dark edge.
-  The hole (`data-add-scroll`, clipped to `WELL_R`) holds one category's
+  once (`darkMatterTiles`: violet soft, magenta sharper, a sparse red
+  flake), laid each frame as repeating patterns in two depths — huge and
+  barely moving at the back, smaller and passing in front — screened
+  together, the flakes painted over as they are, under a dark edge. No
+  stars, nothing blinks. The hole (`data-add-scroll`, `overflow: clip`
+  so nothing inside can scroll it, clipped to `WELL_R`) holds one category's
   parts as `PartPreview`s at `COLUMN_W` with a `GAP` between them and each
   sub-group's name as a phosphor heading (`data-add-head`). The column is
   never scrolled by the browser: it is a **drum** on a spring (`drum` ref:

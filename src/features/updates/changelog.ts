@@ -25,6 +25,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.29",
+    title: "Two depths of dark matter",
+    summary: "The hole's camo is a slow planet at the back and cloud passing in front, no stars, a few red flakes; a lower category no longer opens with its parts flung off the drum.",
+    sketch: "planets",
+    added: [
+      "The nebula has two depths. At the back, one huge slow mass turning about the middle over minutes — a planet with no edge to see, only weather. In front, cloud you can watch pass, across the hole in half a minute, turning the other way. The bright veins are gone and the peaks are dimmer.",
+      "No stars, nothing blinks, nothing white. A few red flakes ride the near cloud instead.",
+      "A part that scrolls itself into view on mount — a chat log, a console — used to scroll the whole hole with it, so the lower categories opened with their parts far off and dim until the next notch. The hole is clipped now, not hidden, so nothing inside it can scroll it.",
+    ],
+  },
+  {
     version: "0.28",
     title: "Dark matter, and the drum",
     summary: "The add disc's ground is the dark matter camo, its column turns like a slot machine's drum instead of a scroll bar, and the parts and the tabs are bigger.",

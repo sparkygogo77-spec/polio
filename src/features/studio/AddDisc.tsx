@@ -157,6 +157,8 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
     const col = column.current;
     if (!col) return;
     const { pos } = drum.current;
+    // Nothing but the drum moves the column: undo any scroll a part inside it managed.
+    if (well.current && (well.current.scrollTop || well.current.scrollLeft)) { well.current.scrollTop = 0; well.current.scrollLeft = 0; }
     col.style.transform = `translate3d(0, ${(size / 2 - pos).toFixed(2)}px, 0)`;
     // The roll: each row scaled to the chord of the hole where it is and to
     // a drum curve of its distance from the middle, and dimmed with it.
@@ -340,7 +342,11 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
         role="listbox"
         aria-label={searching ? "Parts found" : `${CATEGORIES.find((c) => c.id === category)?.label ?? "Parts"} parts`}
         aria-activedescendant={chosen?.kind === "part" ? `add-part-${chosen.id}` : undefined}
-        className="absolute inset-0 overflow-hidden"
+        // `clip`, not `hidden`: a hidden overflow is still a scroll box, and a
+        // part that scrolls itself into view on mount — a chat log, a console
+        // — scrolled the whole well with it, and the column sat hundreds of
+        // pixels off until the next wheel. A clipped overflow cannot scroll.
+        className="absolute inset-0 overflow-clip"
         style={{ clipPath: `circle(${WELL_R}px at 50% 50%)` }}
       >
         <div ref={column} className="absolute left-0 top-0 flex w-full flex-col items-center will-change-transform" style={{ gap: GAP }}>
@@ -474,19 +480,21 @@ function Part({ feature, chosen, onPress }: { feature: FeatureDef; chosen: boole
 /* ------------------------------------------------------------------ */
 
 /**
- * The camo: nebula clouds in violet and magenta over black, with a vein of
- * hot lilac where the clouds are densest and a scatter of flecks that glint.
+ * The camo: nebula clouds in violet and magenta over black, in two depths,
+ * with a few red flakes drifting in the near clouds.
  *
- * Three tiles of fractal noise are made once, each already coloured and cut
+ * Four tiles of fractal noise are made once, each already coloured and cut
  * to its own alpha — a soft mask for the violet, a sharper one for the
- * magenta, a hard one for the veins — and every frame lays them over the
- * black ground as repeating patterns, each drifting its own way and slowly
- * turning about the middle, screened together so where they cross they
- * bloom. The turning is what makes it a moving thing rather than a sliding
- * picture: the clouds shear against each other and new shapes come and go.
+ * magenta, a sparse hard one for the flakes — and every frame lays them
+ * over the black ground as repeating patterns, screened together so where
+ * they cross they bloom. The far depth is one huge slow mass, drawn large
+ * and barely moving, turning about the middle over minutes: a planet at
+ * the back with no edge to see, only weather. The near depth is cloud you
+ * can watch pass: smaller, drifting across the hole in a few tens of
+ * seconds, turning the other way. Nothing blinks; nothing is white.
  */
 const TILE = 256;
-let tiles: { violet: HTMLCanvasElement; magenta: HTMLCanvasElement; vein: HTMLCanvasElement } | null = null;
+let tiles: { violet: HTMLCanvasElement; magenta: HTMLCanvasElement; flake: HTMLCanvasElement } | null = null;
 
 function noiseTile(seed: number): Float32Array {
   // Value noise, four octaves, smooth-stepped, on a grid that wraps so the tile repeats.
@@ -537,9 +545,10 @@ function darkMatterTiles() {
   const a = noiseTile(3);
   const b = noiseTile(11);
   tiles = {
-    violet: colourTile(a, [126, 56, 224], 0.3, 0.76, 1.3),
-    magenta: colourTile(b, [204, 66, 226], 0.4, 0.8, 1.5),
-    vein: colourTile(a, [238, 190, 255], 0.63, 0.85, 1.2),
+    violet: colourTile(a, [112, 50, 204], 0.3, 0.78, 1.35),
+    magenta: colourTile(b, [176, 58, 198], 0.42, 0.84, 1.6),
+    // The noise tops out near 0.77, so this keeps the top few percent: sparse specks.
+    flake: colourTile(b, [214, 38, 66], 0.66, 0.76, 0.9),
   };
   return tiles;
 }
@@ -555,46 +564,36 @@ function paintDarkMatter(c: CanvasRenderingContext2D, size: number, t: number) {
 
   // The ground: black, a breath of violet toward the middle.
   const ground = c.createRadialGradient(r, r, 0, r, r, r);
-  ground.addColorStop(0, "#1c0c32");
-  ground.addColorStop(0.6, "#0e0718");
+  ground.addColorStop(0, "#180a2c");
+  ground.addColorStop(0.6, "#0c0616");
   ground.addColorStop(1, "#06030a");
   c.fillStyle = ground;
   c.fillRect(0, 0, size, size);
 
-  // The clouds: three patterns, each drifting its own way and turning about the middle.
-  const lay = (tile: HTMLCanvasElement, scale: number, dx: number, dy: number, turn: number, alpha: number) => {
+  // A pattern laid over the hole: drawn `scale` times its tile, shifted by
+  // (dx, dy) tile-pixels and turned `turn` degrees about the middle. Clouds
+  // are screened so they bloom where they cross; the flakes are painted on
+  // top as they are, or the violet under them would turn them pink.
+  const lay = (tile: HTMLCanvasElement, scale: number, dx: number, dy: number, turn: number, alpha: number, over = false) => {
     const p = c.createPattern(tile, "repeat");
     if (!p) return;
     const m = new DOMMatrix().translate(r, r).rotate(turn).scale(scale).translate(dx, dy);
     p.setTransform(m);
     c.globalAlpha = alpha;
-    c.globalCompositeOperation = "screen";
+    c.globalCompositeOperation = over ? "source-over" : "screen";
     c.fillStyle = p;
     c.fillRect(0, 0, size, size);
   };
-  lay(T.violet, 1.15, t * 3.2, t * -1.6, t * 0.9, 1);
-  lay(T.magenta, 0.8, t * -2.4, t * 2.1, t * -0.6 + 40, 0.9);
-  lay(T.violet, 1.7, t * 1.1, t * 1.9, t * 0.35 + 110, 0.65);
-  lay(T.magenta, 1.4, t * -1.3, t * -2.2, t * 0.5 + 200, 0.5);
-  lay(T.vein, 1.15, t * 3.2, t * -1.6, t * 0.9, 0.65 + 0.2 * Math.sin(t * 0.7));
+  // The far depth: the planet. Huge, slow, turning once in about half an hour.
+  lay(T.violet, 2.8, t * 0.5, t * -0.25, t * 0.2, 0.9);
+  lay(T.magenta, 2.3, t * -0.35, t * 0.4, t * -0.15 + 70, 0.7);
+  // The near depth: cloud you can see pass, across the hole in half a minute or so.
+  lay(T.violet, 0.95, t * 7.5, t * -2.5, t * -0.8 + 30, 0.55);
+  lay(T.magenta, 0.75, t * 5.5, t * 3.5, t * 0.6 + 150, 0.45);
+  // The flakes: a few small red specks riding the near cloud — drawn small, or they read as red smoke.
+  lay(T.flake, 0.3, t * 7.5, t * -2.5, t * -0.8 + 30, 0.78, true);
   c.globalAlpha = 1;
   c.globalCompositeOperation = "source-over";
-
-  // The flecks: bright points that glint, each on its own beat.
-  const TAU = Math.PI * 2;
-  const hash = (n: number) => { const x = Math.sin(n) * 43758.5453; return x - Math.floor(x); };
-  for (let i = 0; i < 70; i++) {
-    const a = hash(i * 12.9898 + 1.3) * TAU;
-    const d = Math.sqrt(hash(i * 78.233 + 7.1)) * r * 0.96;
-    const x = r + Math.cos(a) * d;
-    const y = r + Math.sin(a) * d;
-    const beat = 0.5 + 0.5 * Math.sin(t * (0.8 + hash(i * 3.7) * 1.6) + hash(i * 5.1) * TAU);
-    const glint = beat * beat;
-    c.fillStyle = `rgba(${i % 4 === 0 ? "255,228,255" : "224,170,255"}, ${(0.15 + 0.75 * glint).toFixed(2)})`;
-    c.beginPath();
-    c.arc(x, y, 0.6 + glint * 1.3, 0, TAU);
-    c.fill();
-  }
 
   // The horizon: the edge falls off to near black.
   const edge = c.createRadialGradient(r, r, r * 0.78, r, r, r);
