@@ -73,6 +73,10 @@ interface NodeSpec {
   drawn: string | null;
   /** What the part is cut to, when it is not the box everything is by default. */
   shape: string | null;
+  /** The exact line it is cut to, when a drawing gave it one no shape name covers. */
+  outline: string | null;
+  /** A body written for this part, and how well it matched the drawing. */
+  body: string | null;
   /** Parts this one reads from, via data wires. */
   feeds: string[];
   group: string | null;
@@ -336,6 +340,15 @@ export function compileSpec(input: CompileInput): Spec {
           data: (n.data ?? "").trim(),
           drawn: n.sketch && !isBlankSketch(n.sketch) ? describeSketch(n.sketch) : null,
           shape: n.shape && n.shape !== "box" ? n.shape : null,
+          // The line itself is in the document; the brief says it is there
+          // and what it is, because a path in a blueprint is unreadable and
+          // whoever builds this needs to know the part is not a rectangle.
+          outline: n.outline
+            ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points — the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`
+            : null,
+          body: n.code
+            ? `a body written for it: ${n.code.html.length} bytes of self-contained SVG/HTML with inline CSS, in the document at this element's \`code.html\`. It matched ${Math.round((n.code.overlap ?? 0) * 100)}% of the drawing over ${n.code.attempts} attempt${n.code.attempts === 1 ? "" : "s"}. Render it as-is inside a sandboxed frame (no scripts, nothing fetched) and clip it to the outline; do not re-invent it${n.code.note ? `. It draws: ${n.code.note}` : ""}`
+            : null,
           feeds: pShapes
             .filter((sh) => sh.kind === "arrow" && sh.relation === "data" && sh.toNodeId === n.id)
             .map((sh) => pNodes.find((x) => x.id === sh.fromNodeId)?.label)
@@ -591,6 +604,8 @@ export function specToMarkdown(spec: Spec): string {
         if (e.data) L.push(`  - data: ${e.data}`);
         if (e.feeds.length) L.push(`  - reads from: ${e.feeds.join(", ")}`);
         if (e.shape) L.push(`  - shape: ${e.shape === "rounded" ? "a rounded box" : `${e.shape === "circle" ? "a circle" : "an ellipse"}, cut to it`}`);
+        if (e.outline) L.push(`  - outline: ${e.outline}`);
+        if (e.body) L.push(`  - body: ${e.body}`);
         if (e.drawn) L.push(`  - drawn: ${e.drawn}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);
       }

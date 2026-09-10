@@ -23,9 +23,10 @@ import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
 import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
-import { describeSketch, fitToSketch, readBoundary, type Sketch, type SketchPoint } from "./sketch";
+import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
+import { writeBody } from "./bodyRun";
 
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
@@ -161,7 +162,8 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         source: "studio",
         toast: true,
       });
-      return { ok: true, madeId: made.id, note: body };
+      const bodied = await bodyFor(made.id, drawn, deps);
+      return { ok: true, madeId: made.id, note: [body, bodied].filter(Boolean).join(" · ") };
     }
 
     // No key, a refusal, a bad reply: the drawing still shapes the part.
@@ -197,6 +199,37 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
   }
 }
 
+/**
+ * An Idea part is the one part with nothing in it: whatever was drawn, the
+ * library had no entry for it. So it gets a body written for it, and the
+ * body is judged against the drawing before it is kept (`bodyRun.ts`).
+ *
+ * Only the Idea part. Every other part in the library already knows what it
+ * is, and a heading that quietly became a hand-written SVG would be a part
+ * nobody could edit again.
+ */
+async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<string> {
+  const s = useStudio.getState();
+  const node = s.nodes.find((n) => n.id === nodeId);
+  if (!node || node.featureId !== "custom-idea") return "";
+  const palette = s.look?.palette as Record<string, string> | undefined;
+  const written = await writeBody(
+    {
+      label: node.label,
+      prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim() || node.label,
+      w: node.w,
+      h: node.h,
+      outline: node.outline,
+      picture: pictureOf(drawn.strokes),
+      palette: palette ? { bg: palette.bg, text: palette.text, accent: palette.accent, muted: palette.muted } : undefined,
+    },
+    { onStep: deps.onStep },
+  );
+  if (!written.ok || !written.code) return "";
+  useStudio.getState().updateNode(nodeId, { code: written.code });
+  return written.message;
+}
+
 /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */
 function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job: DrawJob) {
   const s = useStudio.getState();
@@ -213,8 +246,10 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
     h,
     options,
     sketch: drawn,
-    // A circle drawn round something makes it a circle, not a square.
+    // A circle drawn round something makes it a circle, not a square — and
+    // anything the five names do not cover is cut to the line itself.
     ...(made.shape ? { shape: made.shape === "box" ? null : made.shape } : {}),
+    outline: outlinePath(drawn),
     ...(made.content != null ? { content: made.content } : {}),
     ...(made.prompt != null ? { prompt: made.prompt } : {}),
     // A part that became another kind is a custom idea exactly when `addNode` would say so.
@@ -246,7 +281,7 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
         : b?.shape === "rounded box" ? "rounded"
           : b?.shape === "box" ? null
             : undefined;
-  const shaped: Partial<StudioNode> = shape === undefined ? {} : { shape };
+  const shaped: Partial<StudioNode> = { ...(shape === undefined ? {} : { shape }), outline: outlinePath(drawn) };
   if (node) {
     const fitted = fitToSketch(drawn, node.w, node.h, frameWidth);
     const side = Math.round(Math.sqrt(Math.max(40 * 24, fitted.w * fitted.h)));
