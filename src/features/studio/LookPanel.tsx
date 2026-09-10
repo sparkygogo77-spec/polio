@@ -12,10 +12,10 @@ import * as React from "react";
 import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, shiftHue, lands, type BlendMode, type Harmony,
+  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, lands, type BlendMode, type Harmony,
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
-import { flattenLayers, treatImage, treatmentKey } from "./texture";
+import { flattenLayers } from "./texture";
 import { CropPicker } from "./CropPicker";
 import { Spectrum } from "./MenuConsole";
 import { resolvePalette } from "./parts/theme";
@@ -299,52 +299,6 @@ const BLENDS: { value: BlendMode; label: string }[] = [
   { value: "difference", label: "Invert" },
 ];
 
-/**
- * Cooks a picture layer whenever anything that changes the tile changes.
- * Renders nothing — it just keeps `layer.baked` honest.
- */
-function Baker({ layer, tint }: { layer: TextureLayer; tint: string }) {
-  const done = React.useRef<string | null>(null);
-  const treatment = React.useMemo(
-    () => ({
-      cutout: !!layer.cutout,
-      tolerance: layer.tolerance ?? 0.35,
-      pattern: !!layer.pattern,
-      contrast: layer.contrast,
-      tint,
-      angle: layer.angle,
-      hue: layer.hue ?? 0,
-      alpha: layer.opacity,
-      weave: layer.weave ?? 0,
-      crop: layer.crop,
-    }),
-    [layer.cutout, layer.tolerance, layer.pattern, layer.contrast, tint, layer.angle, layer.hue, layer.opacity, layer.weave, layer.crop],
-  );
-
-  React.useEffect(() => {
-    const src = layer.src;
-    if (!src) return;
-    const key = `${src.length}:${treatmentKey(treatment)}`;
-    if (done.current === key) return;
-    let live = true;
-    // Debounced, because these all sit under sliders.
-    const id = window.setTimeout(() => {
-      void treatImage(src, treatment)
-        .then(({ url, aspect }) => {
-          if (!live) return;
-          done.current = key;
-          useStudio.getState().updateTexture(layer.id, { baked: url, aspect });
-        })
-        .catch(() => {
-          /* an unreadable picture just stays as it came */
-        });
-    }, 120);
-    return () => { live = false; window.clearTimeout(id); };
-  }, [layer.id, layer.src, treatment]);
-
-  return null;
-}
-
 function TextureSection() {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
@@ -428,7 +382,6 @@ function TextureSection() {
           const tintable = !picture || !!layer.pattern;
           return (
             <div key={layer.id} className={cn("rounded-md border", open ? "border-accent/60 bg-elevated/60" : "border-border")}>
-              {picture && layer.src ? <Baker layer={layer} tint={shiftHue(layer.colour ?? palette[layer.role], layer.hue ?? 0)} /> : null}
               <div className="flex items-center gap-1.5 p-1.5">
                 <input
                   type="checkbox"

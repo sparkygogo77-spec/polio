@@ -143,14 +143,29 @@ function edge(r: DOMRect, to: { x: number; y: number }): { x: number; y: number 
  * middle of the screen and its Make real button is at the foot of it — and a
  * card adrift is a card about nothing. The line is what makes the pairing
  * legible wherever placement had to put it.
+ *
+ * It was a dashed straight line, which is the diagram a spreadsheet draws. It
+ * curves now — one bend, bowed a fixed share of its own length so a short
+ * thread is nearly straight and a long one leans — and it fades out of the
+ * card and arrives full strength at the hole, which is the end that matters.
+ * That is the whole of the change: the restraint is the point, a tour that
+ * draws attention to its own pointing is a tour about itself.
  */
-function thread(card: DOMRect, hole: DOMRect): { x1: number; y1: number; x2: number; y2: number } | null {
+function thread(card: DOMRect, hole: DOMRect): { d: string; from: { x: number; y: number }; to: { x: number; y: number } } | null {
   if (overlaps(card, hole)) return null;
   const holeMid = { x: hole.x + hole.width / 2, y: hole.y + hole.height / 2 };
   const cardMid = { x: card.x + card.width / 2, y: card.y + card.height / 2 };
   const a = edge(card, holeMid);
   const b = edge(hole, cardMid);
-  return { x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  // The bend, at right angles to the run and always the same way round the
+  // clock, so four threads on one step curve as a set rather than a scribble.
+  const bow = Math.min(26, len * 0.16);
+  const cx = (a.x + b.x) / 2 - (dy / len) * bow;
+  const cy = (a.y + b.y) / 2 + (dx / len) * bow;
+  return { d: `M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`, from: a, to: b };
 }
 
 export function Tour() {
@@ -293,9 +308,18 @@ export function Tour() {
           const line = thread(new DOMRect(p.card.x, p.card.y, CARD_W, cardH[i] ?? CARD_H), p.box);
           if (!line) return null;
           return (
-            <g key={`thread-${i}`} opacity="0.55">
-              <line {...line} stroke="var(--accent)" strokeWidth="1.25" strokeDasharray="3 3" />
-              <circle cx={line.x2} cy={line.y2} r="2.5" fill="var(--accent)" />
+            <g key={`thread-${i}`}>
+              <defs>
+                <linearGradient id={`tour-thread-${i}`} x1={line.from.x} y1={line.from.y} x2={line.to.x} y2={line.to.y} gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stopColor="var(--accent)" stopOpacity="0.12" />
+                  <stop offset="1" stopColor="var(--accent)" stopOpacity="0.7" />
+                </linearGradient>
+              </defs>
+              <path d={line.d} fill="none" stroke={`url(#tour-thread-${i})`} strokeWidth="1.25" strokeLinecap="round" />
+              {/* It arrives at a ring rather than a blob: the hole is the
+                  subject, and a filled dot on the edge of it reads as a
+                  blemish on the thing being shown. */}
+              <circle cx={line.to.x} cy={line.to.y} r="2.5" fill="none" stroke="var(--accent)" strokeWidth="1.25" opacity="0.75" />
             </g>
           );
         })}

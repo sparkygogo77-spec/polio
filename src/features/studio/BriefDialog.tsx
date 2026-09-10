@@ -43,6 +43,7 @@ import { Switch } from "@/core/ui/switch";
 import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
+import { screenFace, SCREEN, VOID } from "@/core/ui/void";
 
 export function useCompiledBrief() {
   const pages = useStudio((s) => s.pages);
@@ -112,7 +113,8 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       <aside
         data-book-panel=""
         aria-label="The iteration book"
-        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] w-[min(520px,96vw)] flex-col border-l border-border bg-panel shadow-panel"
+        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] w-[min(520px,96vw)] flex-col border-l border-[color:var(--void-rim)] bg-[color:var(--void-face)] shadow-panel"
+        style={{ "--void-face": VOID.face, "--void-rim": VOID.rim } as React.CSSProperties}
       >
         <Book layout="panel" onClose={() => onOpenChange(false)} />
       </aside>
@@ -124,6 +126,12 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       open={open}
       onOpenChange={onOpenChange}
       size="xl"
+      // The Builder's own surfaces are the void — the wheel, the console, the
+      // command palette, the key vault — and this was the one that stayed a
+      // plain shell panel, which made the thing you press Finish to see look
+      // like it belonged to a different program.
+      className="border-[color:var(--void-rim)] bg-[color:var(--void-face)] shadow-[var(--void-drop)]"
+      style={{ "--void-face": VOID.face, "--void-rim": VOID.rim, "--void-drop": VOID.drop } as React.CSSProperties}
       title="The iteration book"
       description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
     >
@@ -535,7 +543,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         </>
       }
     >
-      <pre className={cn("overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-2.5 font-mono text-[11px] leading-relaxed text-fg-muted", height)}>
+      <pre className={cn("overflow-auto whitespace-pre-wrap rounded-md p-2.5 font-mono text-[11px] leading-relaxed", height)} style={{ ...screenFace, color: SCREEN.ink }}>
         {what || "Nothing on the board yet."}
       </pre>
     </Card>
@@ -738,7 +746,14 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       ) : view === "files" ? (
         <div data-brief-body="">{filesCard}</div>
       ) : (
-        <pre data-brief-body="" className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-3 font-mono text-[11px] leading-relaxed text-fg-muted", busy && "opacity-60")}>
+        <pre
+          data-brief-body=""
+          // A screen, like every other surface in this app where words are
+          // read or typed: the same glass, scanlines and phosphor as the
+          // palette's field and the plate's prompt.
+          className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md p-3 font-mono text-[11px] leading-relaxed", busy && "opacity-60")}
+          style={{ ...screenFace, color: SCREEN.ink }}
+        >
           {body || "Nothing on the board yet."}
         </pre>
       )}

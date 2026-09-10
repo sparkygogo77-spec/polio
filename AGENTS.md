@@ -349,6 +349,21 @@ a kicker with a rule, and label-and-value rows that copy.
   see the geometry note below. Everything else keeps a short list menu; a wheel
   of three items is worse than a list. If you add controls to a part, put them
   in the right quadrant rather than lengthening anything.
+- **A picked part is marked in its own complement, not in the app's accent**
+  (`markColour`, `complementOf` in `look.ts`). Two solid pixels of accent-blue
+  made the part being edited the one part you could not see, and sat on top of
+  the aura — which is the thing most often being edited when the mark is up.
+  The mark is the far side of the part's aura, or its fill, or the site's
+  accent, at a lightness that reads on a dark page and a light one; one line,
+  thin, offset inwards so the aura's own hairline stays outside it. The page
+  takes the complement of its own colour, ink the complement of its own hue.
+- **One void, one screen, in core** (`src/core/ui/void.ts`). The console
+  defined them, the command palette kept a copy because core may not import a
+  feature, and the copies had drifted — two voids three hundredths of a
+  lightness apart. Everything imports them now; the console's numbers are the
+  ones kept. A surface that belongs to the Builder's console wears the void
+  (the wheel, the palette, the vault, the Blueprint); a page, a panel or a
+  card uses the shell's tokens.
 - **The wheel is the whole editor, and the right panel is the convenience.**
   Anything the Inspector can do to one part, the wheel can do too: the per-part
   options that used to be panel-only live under `Edit ▸ Options`, and the board
@@ -792,17 +807,28 @@ a kicker with a rule, and label-and-value rows that copy.
   nothing to lock. Everything a part's wheel does that makes no sense for a
   page is a placeholder that taps, not a missing piece; and no editor
   leaves a slab empty.
+- **One ground, at two distances** (`darkMatter.ts`). `paintDarkMatter` —
+  two tiles of fractal value noise made once (`darkMatterTiles`: violet
+  soft, magenta sharper), laid each frame as repeating patterns in two
+  depths (huge and barely moving at the back, smaller and passing in
+  front) screened together, then the embers (`paintEmbers`: the `CAST`,
+  five `Kind`s — riders in knots on `gustOf(group)`, drifters on their own
+  heading, fallers, risers, darters that kick and decay — each streaked by
+  its own speed and relit as its kind where it dies). No stars. Two
+  surfaces stand on it: the add disc, clipped and closed off by its
+  horizon, and the **workspace behind the page** (`Workspace.tsx`), a wall
+  with none. The wall is the same sky further back (`dim`), because the
+  disc's own brightness across a whole screen is a lightbox and every panel
+  round the board picks up a halo. Sparks are per surface (`SparkField`,
+  never module state — a disc open over the workspace would otherwise share
+  one cast and tear it in half) and `castSize` grows with the **square
+  root** of the area: the disc's density on a wall is a swarm. The ground
+  never touches the page itself — what a site's background is stays the
+  site's business, and nothing here reaches the preview, the published page
+  or a screenshot of either.
 - **The add disc** (`AddDisc.tsx`, `data-add-disc`): pressed from the
-  page's middle, the wheel becomes a disc the size of the drawing board
-  painted by `paintDarkMatter` — two tiles of fractal value noise made
-  once (`darkMatterTiles`: violet soft, magenta sharper), laid each frame
-  as repeating patterns in two depths — huge and barely moving at the
-  back, smaller and passing in front — screened together, then the embers
-  (`paintEmbers`: the `CAST` of sixteen kept between frames at module
-  level, five `Kind`s — riders in two knots on `gustOf(group)`, drifters
-  on their own heading, fallers, risers, darters that kick and decay —
-  each streaked by its own speed and relit as its kind where it dies),
-  under a dark edge. No stars. The hole (`data-add-scroll`, `overflow: clip`
+  page's middle, the wheel becomes a disc the size of the drawing board,
+  painted with the ground above. The hole (`data-add-scroll`, `overflow: clip`
   so nothing inside can scroll it, clipped to `WELL_R`) holds one category's
   parts as `PartPreview`s at `COLUMN_W` with a `GAP` between them and each
   sub-group's name as a phosphor heading (`data-add-head`). The column is
@@ -1104,6 +1130,17 @@ a kicker with a rule, and label-and-value rows that copy.
   gets it, so a link to bare `/` stops reaching Builds the moment the site it
   is inside goes live. `/` stays the unpublished front door; `/builds` is the
   one path the redirect does not touch.
+- **Reiterate is one thing at a time, and on a picture that thing is the
+  patch** (`reiterate`, `rollPatch` in `look.ts`). A photograph carries more
+  textures than the whole generated set — the weave in the corner, the grain
+  across the middle — and the crop window is what gets at them, where turning
+  the tint only dresses the same square differently. So a picture layer rolls
+  a new patch and nothing else, and is set drifting once if it was still. The
+  roll is the add disc's lesson applied to a number: **kinds, not one
+  distribution** (close, middling, wide, strip, each with its own shape), and
+  a place required to be a real distance from the patch before it. Baking
+  moved out of the Look panel to `Bakers.tsx`, mounted by `StudioPage`: a
+  patch re-rolled on the wheel has to cook whether or not a panel is open.
 - **The drawing board snaps.** `sketch.ts` `refineStroke(points, mode)`:
   `snap` reads a finished stroke as a line (levelled when nearly level), a
   polyline, a box, a triangle or an ellipse and replaces it with the clean
@@ -1135,6 +1172,13 @@ carry why a thing arrived.
   defaults on every other page.
 - **The same list is in the top bar** (`SwitchButton`, a `topBarItems`
   contribution) and is not there until there are two sites to switch between.
+- **A card leads with the site, not with its counts.** `SitePreview` renders
+  the project's own document — real parts, real palette, real texture, real
+  light — at the frame's true width, scaled to the card, in `board` mode. It
+  is the render, not a picture of it: nothing to store, nothing to go stale,
+  and a project whose colour changed looks changed. The name and the options
+  bar sit under it, and the bar is pushed to the foot (`mt-auto`) so the bars
+  line up across a row whatever each card had to say above them.
 
 ---
 

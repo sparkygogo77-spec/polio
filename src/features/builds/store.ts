@@ -15,7 +15,9 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { useStudio } from "@/features/studio/store";
+import { useStudio, type StudioNode, type StudioPage } from "@/features/studio/store";
+import type { FormatValues } from "@/features/studio/format";
+import type { Look } from "@/features/studio/look";
 
 /** Where the Builder reads and writes the document it is editing. */
 const LIVE = "builder.studio";
@@ -62,22 +64,43 @@ const write = (key: string, value: string | null) => {
 };
 
 /**
- * How much is in a project, without loading it into the Builder to find out.
+ * A project's document, as the Builder would have loaded it.
+ *
+ * Only the parts a card needs to draw the site: the pages, the parts on them,
+ * the format and the look. It is the persisted shape, so anything the store's
+ * hydration would have filled in is missing here — which is why everything
+ * that reads it treats every field as optional.
+ */
+export interface StudioDoc {
+  pages?: StudioPage[];
+  nodes?: StudioNode[];
+  format?: FormatValues;
+  look?: Look;
+  activePageId?: string;
+  frameWidth?: number;
+}
+
+/**
+ * What a project holds, without loading it into the Builder to find out.
  *
  * The open one is read from the live key rather than from its slot: the slot
  * only catches up when something saves, and the Builder writes the live key on
  * every edit. Neither is read through the studio store, which is not hydrated
  * anywhere but the Builder and would answer with its own empty defaults.
  */
-export function shapeOf(id: string, active = false): Shape {
+export function docOf(id: string, active = false): StudioDoc | null {
   try {
     const raw = read(active ? LIVE : slot(id));
-    if (!raw) return { pages: 0, parts: 0 };
-    const doc = JSON.parse(raw) as { state?: { pages?: unknown[]; nodes?: unknown[] } };
-    return { pages: doc.state?.pages?.length ?? 0, parts: doc.state?.nodes?.length ?? 0 };
+    if (!raw) return null;
+    return (JSON.parse(raw) as { state?: StudioDoc }).state ?? null;
   } catch {
-    return { pages: 0, parts: 0 };
+    return null;
   }
+}
+
+export function shapeOf(id: string, active = false): Shape {
+  const doc = docOf(id, active);
+  return { pages: doc?.pages?.length ?? 0, parts: doc?.nodes?.length ?? 0 };
 }
 
 export const useBuilds = create<Builds>()(

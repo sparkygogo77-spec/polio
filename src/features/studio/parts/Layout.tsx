@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Btn, Fill, Placeholder } from "./primitives";
 import { rng, hash, sample } from "./sample";
-import { cardStyle, items, titled, type Theme } from "./theme";
+import { cardStyle, items, titled, type Theme, ghostStyle} from "./theme";
 import { opt, set, type PartProps } from "./types";
 
 const cols = (options: Record<string, string>, def = 3) => Math.max(1, Math.min(6, Number(opt(options, "columns", String(def))) || def));
@@ -21,7 +21,7 @@ export function Sections({ id, content, theme: t }: PartProps) {
           key={s + i}
           style={{
             flex: id === "holy-grail" && i !== 1 ? "0 0 18%" : 1,
-            ...cardStyle(t), borderStyle: "dashed",
+            ...ghostStyle(t),
             display: "flex", alignItems: "center", justifyContent: "center",
             color: t.muted, fontSize: t.fontPx * 0.9,
           }}
@@ -65,7 +65,13 @@ export function Grid({ id, content, options, theme: t, mode, onNavigate, w }: Pa
           type="button"
           onClick={() => (mode === "live" ? onNavigate?.({ kind: "page", target: card.title }) : undefined)}
           style={{
-            ...(ruled || bare ? { background: "transparent", border: "none", borderTop: ruled ? `1px solid ${t.line}` : "none", borderRadius: 0 } : cardStyle(t)),
+            // All longhands where only one edge is drawn: `border: none` and
+            // `borderTop` on the same element is a shorthand fighting its own
+            // longhand, which React warns about and the browser resolves by
+            // order rather than by intent.
+            ...(ruled || bare
+              ? { background: "transparent", borderWidth: ruled ? "1px 0 0 0" : 0, borderStyle: "solid", borderColor: t.line, borderRadius: 0 }
+              : cardStyle(t)),
             padding: ruled || bare ? `${t.fontPx * 0.9}px 0 0` : t.fontPx,
             textAlign: "left", cursor: mode === "live" ? "pointer" : "default",
             color: t.text, font: "inherit", display: "flex", flexDirection: "column", gap: 6, minHeight: 0, overflow: "hidden",
@@ -330,7 +336,7 @@ export function Note({ id, label, content, theme: t }: PartProps) {
     <Fill
       t={t}
       data-part={id}
-      style={{ ...cardStyle(t), borderStyle: "dashed", padding: t.fontPx, display: "flex", flexDirection: "column", gap: 6, overflow: "auto" }}
+      style={{ ...ghostStyle(t), padding: t.fontPx, display: "flex", flexDirection: "column", gap: 6, overflow: "auto" }}
     >
       <span style={{ fontSize: t.fontPx * 0.7, textTransform: "uppercase", letterSpacing: 1, color: t.accent }}>{kind}</span>
       <span style={{ fontWeight: 700, fontFamily: t.headingFamily }}>{label}</span>
@@ -378,7 +384,7 @@ export function Outline({ id, content, theme: t }: PartProps) {
           aria-current={i === active ? "true" : undefined}
           onClick={() => setActive(i)}
           style={{
-            background: "transparent", border: "none", borderLeft: `2px solid ${i === active ? t.accent : "transparent"}`,
+            background: "transparent", borderWidth: "0 0 0 2px", borderStyle: "solid", borderColor: i === active ? t.accent : "transparent",
             marginLeft: -t.fontPx * 0.5 - 1, paddingLeft: t.fontPx * 0.5, cursor: "pointer", textAlign: "left",
             color: i === active ? t.text : t.muted, font: "inherit", fontSize: t.fontPx * 0.88, paddingBlock: 4,
           }}

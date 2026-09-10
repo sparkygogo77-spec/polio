@@ -355,7 +355,7 @@ export function Forum({ id, content, theme: t, onNavigate, mode }: PartProps) {
           key={row.title}
           type="button"
           onClick={() => (mode === "live" ? onNavigate?.({ kind: "page", target: row.title }) : undefined)}
-          style={{ display: "flex", alignItems: "center", gap: 10, padding: t.fontPx * 0.6, borderBottom: i < rows.length - 1 ? `1px solid ${t.line}` : "none", background: "none", border: "none", borderRadius: 0, textAlign: "left", color: t.text, font: "inherit", cursor: mode === "live" ? "pointer" : "default" }}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: t.fontPx * 0.6, background: "none", borderWidth: i < rows.length - 1 ? "0 0 1px 0" : 0, borderStyle: "solid", borderColor: t.line, borderRadius: 0, textAlign: "left", color: t.text, font: "inherit", cursor: mode === "live" ? "pointer" : "default" }}
         >
           <span aria-hidden style={{ color: t.accent, fontSize: t.fontPx * 0.9 }}>#</span>
           <span style={{ flex: 1, minWidth: 0 }}>

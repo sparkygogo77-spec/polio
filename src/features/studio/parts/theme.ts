@@ -230,6 +230,19 @@ export function cardStyle(t: Theme): React.CSSProperties {
 }
 
 /**
+ * The same card drawn as an outline: a slot, a placeholder, a drop target.
+ *
+ * A helper rather than `{ ...cardStyle(t), borderStyle: "dashed" }`, which is
+ * what nine parts did and what React warns about on every render — a
+ * shorthand (`border`) and one of its longhands set on the same element, from
+ * which the browser takes whichever it applied last. Same picture, one
+ * property.
+ */
+export function ghostStyle(t: Theme, colour?: string): React.CSSProperties {
+  return { ...cardStyle(t), border: `1px dashed ${colour ?? t.line}` };
+}
+
+/**
  * A part can repaint any of the six roles for itself. A value is either a
  * colour, or the name of another role — "make this one's background the
  * accent" — which is how a single element is picked out without inventing a

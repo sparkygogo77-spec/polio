@@ -41,7 +41,8 @@ import { cn } from "@/core/lib/cn";
 import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
-import { shapeOf, useBuilds, type Project } from "./store";
+import { docOf, useBuilds, type Project } from "./store";
+import { SitePreview } from "./SitePreview";
 
 /** "owner/name" if it looks like one, else nothing. */
 function parseRepo(text: string): { owner: string; name: string } | null {
@@ -56,14 +57,36 @@ const repoLabel = (p: Project) => (p.repo ? `${p.repo.owner}/${p.repo.name}` : "
 /* A row                                                               */
 /* ------------------------------------------------------------------ */
 
-function SiteRow({ project, active }: { project: Project; active: boolean }) {
+/**
+ * A site, as a card.
+ *
+ * It was a row: an icon, a name, and "4 pages · 21 parts". Counts say what is
+ * in a project and nothing about *which* project — you know your own sites by
+ * what they look like, so the card leads with the site itself, drawn live
+ * (`SitePreview`), and the name and the things you can do to it sit under it.
+ */
+function SiteCard({ project, active }: { project: Project; active: boolean }) {
   const { open, rename, duplicate, remove } = useBuilds();
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(project.name);
+  const box = React.useRef<HTMLButtonElement>(null);
+  const [w, setW] = React.useState(0);
 
   // Read on every render rather than held: a switch changes what is in the
-  // live key, and a count from before the switch is the wrong one.
-  const shape = shapeOf(project.id, active);
+  // live key, and a document from before the switch is the wrong one.
+  const doc = docOf(project.id, active);
+  const shape = { pages: doc?.pages?.length ?? 0, parts: doc?.nodes?.length ?? 0 };
+
+  // The preview is scaled to the card, so it has to know how wide the card
+  // turned out — which is a grid's business, not this component's.
+  React.useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
 
   const commit = () => {
     rename(project.id, draft);
@@ -73,22 +96,43 @@ function SiteRow({ project, active }: { project: Project; active: boolean }) {
   return (
     <li
       className={cn(
-        "group flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
-        active ? "border-accent/45 bg-accent-soft/40" : "border-border bg-panel hover:border-border-strong",
+        "group flex h-full flex-col overflow-hidden rounded-lg border transition-colors",
+        active ? "border-accent/45 bg-accent-soft/30" : "border-border bg-panel hover:border-border-strong",
       )}
       {...ctxProps("builds", "project", project.id)}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "grid size-8 shrink-0 place-items-center rounded-md border",
-          active ? "border-accent/40 bg-accent/15 text-accent" : "border-border bg-elevated text-fg-faint",
-        )}
+      {/* The site. Pressing it is the same as pressing Open or Switch: the
+          picture is the door, and a picture you cannot press is a poster. */}
+      <button
+        type="button"
+        ref={box}
+        onClick={() => (active ? undefined : open(project.id))}
+        aria-label={active ? `${project.name}, the open site` : `Switch to ${project.name}`}
+        className="relative block h-[168px] w-full cursor-pointer overflow-hidden border-b border-border bg-elevated/40 p-0 text-left"
       >
-        <Layers className="size-4" />
-      </span>
+        <SitePreview doc={doc} width={w} height={168} />
+        {project.live ? (
+          <a
+            href={project.live.url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title={`Live ${fmtAge(project.live.at)} ago`}
+            className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full border border-up/30 bg-panel/85 px-1.5 py-0.5 text-[10px] text-up backdrop-blur"
+          >
+            Live
+            <ExternalLink className="size-2.5" />
+          </a>
+        ) : null}
+        {active ? (
+          <span className="absolute left-1.5 top-1.5 rounded-full border border-accent/40 bg-panel/85 px-1.5 py-0.5 text-[10px] text-accent backdrop-blur">
+            open
+          </span>
+        ) : null}
+      </button>
 
-      <div className="min-w-0 flex-1">
+      {/* Its name, and what you can do to it. */}
+      <div className="flex min-w-0 flex-col gap-1.5 p-2.5">
         {editing ? (
           <Input
             autoFocus
@@ -99,19 +143,19 @@ function SiteRow({ project, active }: { project: Project; active: boolean }) {
               if (e.key === "Enter") commit();
               if (e.key === "Escape") { setDraft(project.name); setEditing(false); }
             }}
-            className="h-6 max-w-56 text-xs"
+            className="h-6 text-xs"
             aria-label="Name of this site"
           />
         ) : (
-          <button
-            type="button"
+          <span
             onDoubleClick={() => { setDraft(project.name); setEditing(true); }}
-            className="block max-w-full truncate text-left text-[13px] font-medium text-fg"
+            className="block max-w-full truncate text-[13px] font-medium text-fg"
           >
             {project.name}
-          </button>
+          </span>
         )}
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg-muted">
+
+        <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-fg-muted">
           {/* A site nobody has opened yet has no document at all, which is not
               the same as a document with nothing in it. */}
           {shape.pages === 0 && shape.parts === 0 ? (
@@ -125,68 +169,58 @@ function SiteRow({ project, active }: { project: Project; active: boolean }) {
           )}
           <span className="text-fg-faint">·</span>
           <span>{active ? "open now" : `${fmtAge(project.updatedAt)} ago`}</span>
-          {project.repo ? (
-            <>
-              <span className="text-fg-faint">·</span>
-              <span className="inline-flex items-center gap-1 text-fg-faint">
-                <FolderGit2 className="size-3" />
-                {repoLabel(project)}
-              </span>
-            </>
-          ) : null}
         </p>
-      </div>
 
-      {project.live ? (
-        <Tooltip content={`Live ${fmtAge(project.live.at)} ago`}>
-          <a
-            href={project.live.url}
-            target="_blank"
-            rel="noreferrer"
-            className="hidden items-center gap-1 rounded-full border border-up/30 bg-up/12 px-2 py-0.5 text-[10px] text-up sm:inline-flex"
-          >
-            Live
-            <ExternalLink className="size-2.5" />
-          </a>
-        </Tooltip>
-      ) : null}
+        {project.repo ? (
+          <p className="flex min-w-0 items-center gap-1 truncate text-[10px] text-fg-faint">
+            <FolderGit2 className="size-3 shrink-0" />
+            {repoLabel(project)}
+            <span className="text-fg-faint/70">· {project.repo.branch}</span>
+          </p>
+        ) : null}
 
-      <div className="flex shrink-0 items-center gap-1">
-        <Tooltip content="Rename">
-          <Button variant="ghost" size="iconXs" aria-label="Rename this site" onClick={() => { setDraft(project.name); setEditing(true); }}>
-            <Pencil />
-          </Button>
-        </Tooltip>
-        <Tooltip content="Duplicate">
-          <Button variant="ghost" size="iconXs" aria-label="Duplicate this site" onClick={() => duplicate(project.id)}>
-            <Copy />
-          </Button>
-        </Tooltip>
-        <Tooltip content={active ? "The open site cannot be deleted from under you" : "Delete"}>
-          <Button
-            variant="ghost"
-            size="iconXs"
-            aria-label="Delete this site"
-            disabled={active}
-            onClick={() => remove(project.id)}
-            className="hover:text-down"
-          >
-            <Trash2 />
-          </Button>
-        </Tooltip>
-        {active ? (
-          <Button asChild size="sm" variant="primary" className="ml-1">
-            <Link href="/builder">
-              <LayoutTemplate />
-              Open
-              <ArrowRight />
-            </Link>
-          </Button>
-        ) : (
-          <Button size="sm" variant="outline" className="ml-1" onClick={() => open(project.id)}>
-            Switch
-          </Button>
-        )}
+        {/* The options bar. Everything that can be done to this site, in one
+            row under it, rather than appearing on hover somewhere else. Pushed
+            to the foot, so the bars line up across a row of cards whatever
+            each one had to say above them. */}
+        <div className="mt-auto flex items-center gap-1 border-t border-border pt-1.5">
+          <Tooltip content="Rename">
+            <Button variant="ghost" size="iconXs" aria-label="Rename this site" onClick={() => { setDraft(project.name); setEditing(true); }}>
+              <Pencil />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Duplicate">
+            <Button variant="ghost" size="iconXs" aria-label="Duplicate this site" onClick={() => duplicate(project.id)}>
+              <Copy />
+            </Button>
+          </Tooltip>
+          <Tooltip content={active ? "The open site cannot be deleted from under you" : "Delete"}>
+            <Button
+              variant="ghost"
+              size="iconXs"
+              aria-label="Delete this site"
+              disabled={active}
+              onClick={() => remove(project.id)}
+              className="hover:text-down"
+            >
+              <Trash2 />
+            </Button>
+          </Tooltip>
+          <span className="flex-1" />
+          {active ? (
+            <Button asChild size="sm" variant="primary">
+              <Link href="/builder">
+                <LayoutTemplate />
+                Open
+                <ArrowRight />
+              </Link>
+            </Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => open(project.id)}>
+              Switch
+            </Button>
+          )}
+        </div>
       </div>
     </li>
   );
@@ -349,9 +383,9 @@ export function BuildsPage() {
           action={<Button size="sm" variant="primary" onClick={() => create()}><Plus /> New site</Button>}
         />
       ) : view === "sites" ? (
-        <ul data-builds-list="" className="mt-4 space-y-2">
+        <ul data-builds-list="" className="mt-4 grid gap-3 sm:grid-cols-2">
           {projects.map((p) => (
-            <SiteRow key={p.id} project={p} active={p.id === activeId} />
+            <SiteCard key={p.id} project={p} active={p.id === activeId} />
           ))}
         </ul>
       ) : (
