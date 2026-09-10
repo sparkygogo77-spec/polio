@@ -1003,7 +1003,7 @@ export function TweetConsole() {
         data-tweet-console=""
         data-open={open ? "1" : "0"}
         aria-hidden={!open}
-        {...(open ? {} : { inert: "" as unknown as boolean })}
+        inert={!open}
         className={cn(
           "fixed z-[76] flex flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-panel transition-[opacity,transform] duration-(--motion-slow) ease-out",
           encase === "wide" ? "inset-x-[max(16px,6vw)] inset-y-[max(16px,5vh)]" : "inset-2 md:inset-4",

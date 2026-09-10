@@ -925,16 +925,23 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   looks for a full Playwright install first (`PLAYWRIGHT_MODULE`, the project,
   the box's own) and only when there is none falls to `playwright-core`
   driving `@sparticuz/chromium` — the Chromium cut down to something a
-  serverless function bundle can carry. Neither is a dependency of this
-  template and neither is ever bundled: both are required at run time from
-  outside it, and both are named in `serverExternalPackages`. The `Found` it
+  serverless function bundle can carry. The pairing **is** a dependency and has
+  to be: a host installs what `package.json` lists and nothing else, so leaving
+  it out left the deployed site with the code that looks for a browser and no
+  browser to find. It is imported by name (not through `createRequire`, which
+  the tracer cannot follow), kept out of the bundle by `serverExternalPackages`
+  and copied into the function by `outputFileTracingIncludes` — the packed
+  browser is read off disk beside the module and no import mentions it. A full
+  Playwright is still required from outside the project, because it is
+  installed outside it. The `Found` it
   gives back carries `video`, which is true only for the full install:
   recording is written by an ffmpeg that install ships and the serverless
   pairing has none, so a route that needs video (either `preview-video`)
   answers `reason: "no-video"` **before launching anything**, and the tweet
   console greys Render with the reason rather than running a whole tour to
   find out at the end. `tests/serverless-browser.mjs` holds that claim, and
-  skips where the pairing is not installed.
+  checks the manifest first, since that is the half a passing local run
+  cannot see.
 - **Claude sees the site.** `api/studio/headless.ts` opens the preview route
   in a headless browser with the author's document written into storage
   first (`withPreview`), so a server render shows what the author sees;
@@ -945,13 +952,29 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   `features/studio/agent.ts` `filesFromMarkdown` reads back. Add a mode by
   adding to `MODE_INSTRUCTIONS` and to `MODES` in `agent.ts`; nothing else
   knows the list.
-- **Publish** (`publish/route.ts`) makes one commit on `GITHUB_BRANCH` of
-  `GITHUB_REPO` with `GITHUB_TOKEN` through the git data API, then calls
+- **Publish** (`publish/route.ts`) makes one commit on a branch of a
+  repository with `GITHUB_TOKEN` through the git data API, then calls
   `VERCEL_DEPLOY_HOOK` when set. It pushes `site/document.json` (the
   document; the app renders it at `/site`, and `next.config.ts` redirects
   `/` there when it is non-empty), `site/BLUEPRINT.md`, `site/blueprint.json`
   and any generated files. Paths are checked (`safePath`); files are capped.
   The token never reaches the browser; `GET` says only what is set.
+  A request may name its own `repo` and `branch`, because the Builds page
+  keeps more than one site and each says where it publishes; `GITHUB_REPO` is
+  where anything that names nowhere goes. What a request may name is bounded
+  by the token's own permissions, and by `GITHUB_REPOS` when that is set —
+  set it on any Builder that strangers can open.
+- **Go live** (`deploy/route.ts`) is the other half: `POST` asks Vercel to
+  build the repository's branch and answers as soon as it is queued; `GET
+  ?id=` says how that build is getting on and, when it is `READY`, what
+  address it is at — the shortest alias, which is the production domain,
+  else the deployment's own host. `GET` with no id says only whether there
+  is a token at all. The token is the server's `VERCEL_TOKEN` or the vault's
+  `x-vercel-token`, server first, like the Claude key. A build outlives a
+  serverless request, so the client polls (`watchDeploy` in `agent.ts`)
+  rather than the route waiting. The deploy hook stays what it always was:
+  a poke for a project not connected to the repository, which answers with
+  nothing you can open. `tests/go-live.mjs` covers both halves.
 - **The drawing board snaps.** `sketch.ts` `refineStroke(points, mode)`:
   `snap` reads a finished stroke as a line (levelled when nearly level), a
   polyline, a box, a triangle or an ellipse and replaces it with the clean
@@ -960,10 +983,36 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 
 ---
 
+## 2b-ii. Builds (`src/features/builds`)
+
+The front door at `/`, and the answer to "where is the other thing I was
+making". There was a landing page announcing a version and a changelog panel
+behind it; both are gone, and nothing replaces the changelog — the commits
+carry why a thing arrived.
+
+- **One document is open; the rest wait beside it.** `builder.studio` stays
+  the key the Builder reads and writes. Every project keeps its own copy at
+  `builder.doc:<id>`, and `open(id)` is save → copy in → `useStudio.persist
+  .rehydrate()`, which puts the canvas and every panel on the new document
+  without a reload. Both stores are `skipHydration`, so something has to
+  start them: the feature's `onMount` rehydrates the list and `adopt()`s
+  whatever the Builder is already holding on a first run, so nobody arrives
+  to find their work replaced by an empty list.
+- **A project is three facts, all local.** The document, the repository it
+  publishes to, and the address it last went live at. Nothing about it
+  reaches a server until a publish.
+- **Counts come from storage, not from the studio store**, which is only
+  hydrated inside the Builder and would otherwise answer with its own empty
+  defaults on every other page.
+- **The same list is in the top bar** (`SwitchButton`, a `topBarItems`
+  contribution) and is not there until there are two sites to switch between.
+
+---
+
 ## 2c. The tweet console (`src/features/tweets`)
 
 A dashboard, not a page: `T` (or the palette, or the status-bar count) brings
-it down over whatever is open, the way the updates panel does, and Escape
+it down over whatever is open, the way the key vault does, and Escape
 takes it away. It drafts posts to X, previews them, records a tour of the
 live site to go with them, queues them, and sends them.
 
@@ -1154,11 +1203,18 @@ remove it from `src/features/index.ts` when you're sure.
   component }]` on a feature module, mirroring `statusItems`. The bar renders
   whatever is registered and imports no feature; anything that has to live up
   there arrives this way. `keys` contributes the key, `studio` the GitHub mark.
-- **Keys belong on the server.** `ANTHROPIC_API_KEY`, the four `X_*`,
-  `GITHUB_TOKEN`/`GITHUB_REPO`, `VERCEL_DEPLOY_HOOK`: read in route handlers,
-  never prefixed for the browser, never returned. `/api/keys/status` answers
-  only which names are set, plus the repository name, which is not a secret.
-  Anything added there must pass the same test: a name and a yes or no.
+- **Keys belong on the server.** `ANTHROPIC_API_KEY`, `VERCEL_TOKEN`, the four
+  `X_*`, `GITHUB_TOKEN`/`GITHUB_REPO`, `VERCEL_DEPLOY_HOOK`: read in route
+  handlers, never prefixed for the browser, never returned. `/api/keys/status`
+  answers only which names are set, plus the repository name, which is not a
+  secret. Anything added there must pass the same test: a name and a yes or no.
+- **Two keys can be held in the browser, and only two.** The Claude key and
+  the Vercel token, because those are the two the routes take as a header
+  (`x-anthropic-key`, `x-vercel-token`). A GitHub token in a browser would do
+  nothing, so the panel says so rather than offering a field. Adding a
+  service to `SERVICES` means adding a header a route reads and an arm to
+  `/api/keys/test`, which asks each service the smallest question it answers
+  — one answer per service, never one standing in for another.
 - **The vault is the fallback, not the pattern.** `src/features/keys` holds
   keys in the browser sealed under a four-digit PIN (PBKDF2 at 310,000 rounds
   into an AES-GCM box; only the box is stored, never the PIN or a hash of it).

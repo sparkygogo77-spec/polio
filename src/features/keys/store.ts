@@ -21,15 +21,17 @@
  *   honest option where there is no Web Crypto (an embedded browser on a
  *   plain http address), and the simple one anywhere.
  *
- * Only the Claude key lives here, because it is the only key a browser
- * request can carry: the studio routes take it as a header. X, GitHub and
- * Vercel work from the server's environment alone, and a key for them pasted
- * into a browser would do nothing — so the panel does not offer to hold one.
+ * Two keys live here, because they are the two a browser request can carry:
+ * the studio routes take each as a header. Claude's is the Builder's asks;
+ * Vercel's is the one button that puts the site live and hands back the
+ * address. X and GitHub work from the server's environment alone — a key for
+ * them pasted into a browser would do nothing — so the panel does not offer
+ * to hold one.
  */
 import { create } from "zustand";
 import { isPin, open, seal, type SealedBox } from "./crypto";
 
-export type ServiceId = "anthropic";
+export type ServiceId = "anthropic" | "vercel";
 
 export interface FieldDef {
   id: string;
@@ -56,13 +58,23 @@ export const SERVICES: ServiceDef[] = [
     where: "https://console.anthropic.com/settings/keys",
     fields: [{ id: "ANTHROPIC_API_KEY", label: "API key", hint: "sk-ant-…", secret: true }],
   },
+  {
+    id: "vercel",
+    label: "Vercel",
+    blurb: "Go live: the site is deployed from the repository it was pushed to and the address comes back.",
+    where: "https://vercel.com/account/settings/tokens",
+    fields: [
+      { id: "VERCEL_TOKEN", label: "Token", hint: "from Account Settings › Tokens", secret: true },
+      { id: "VERCEL_TEAM", label: "Team", hint: "only if the project is a team's — its slug" },
+    ],
+  },
 ];
 
 /** Keys that only the server can use. The panel says so rather than offering a field that would do nothing. */
 export const SERVER_ONLY: { label: string; names: string[]; does: string }[] = [
   { label: "GitHub", names: ["GITHUB_TOKEN", "GITHUB_REPO"], does: "Publish pushes the site to a repository" },
   { label: "X", names: ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"], does: "the tweet console posts" },
-  { label: "Vercel", names: ["VERCEL_DEPLOY_HOOK"], does: "Publish deploys after the push" },
+  { label: "Vercel hook", names: ["VERCEL_DEPLOY_HOOK"], does: "Push also pokes a project that is not connected to the repository" },
 ];
 
 export const FIELDS = SERVICES.flatMap((s) => s.fields.map((f) => ({ ...f, service: s.id })));

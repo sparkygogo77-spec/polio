@@ -254,7 +254,7 @@ export function filesFromMarkdown(text: string): GeneratedFile[] {
 /* ------------------------------------------------------------------ */
 
 export interface PublishStatus {
-  github: { configured: boolean; repo: string | null; branch: string; missing: string[] };
+  github: { configured: boolean; repo: string | null; branch: string; missing: string[]; allow?: string[] | null };
   vercel: { hook: boolean };
 }
 
@@ -280,12 +280,113 @@ export type PublishResult =
   | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string }
   | { ok: false; message: string; reason?: string };
 
-export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean }): Promise<PublishResult> {
+/* ------------------------------------------------------------------ */
+/* Going live                                                          */
+/* ------------------------------------------------------------------ */
+
+/** The Vercel token this browser holds, when the vault is open and holds one. */
+function vercelHeader(): Record<string, string> {
+  const held = heldKeys(["VERCEL_TOKEN"]).VERCEL_TOKEN;
+  return held ? { "x-vercel-token": held } : {};
+}
+
+/** The team the vault names, when it names one. Not a secret; it is part of the address. */
+function heldTeam(): string | undefined {
+  return heldKeys(["VERCEL_TEAM"]).VERCEL_TEAM || undefined;
+}
+
+export interface DeployStatus {
+  configured: boolean;
+  source: "server" | "browser" | null;
+  repo: string | null;
+  hook: boolean;
+}
+
+/** Can this put the site live at all — and off whose token? */
+export async function deployStatus(): Promise<DeployStatus> {
+  try {
+    const res = await fetch("/api/studio/deploy", { cache: "no-store", headers: vercelHeader() });
+    return (await res.json()) as DeployStatus;
+  } catch {
+    return { configured: false, source: null, repo: null, hook: false };
+  }
+}
+
+export type DeployStart =
+  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string; url: string | null; inspectorUrl: string | null }
+  | { ok: false; message: string; reason?: string };
+
+/** Ask Vercel to build the repository's branch. Returns as soon as it is queued. */
+export async function deploy(input: { repo?: string; branch?: string; project?: string; team?: string } = {}): Promise<DeployStart> {
+  try {
+    const res = await fetch("/api/studio/deploy", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...vercelHeader() },
+      body: JSON.stringify({ ...input, team: input.team ?? heldTeam() }),
+    });
+    const data = (await res.json()) as DeployStart;
+    return data.ok ? data : { ok: false, message: data.message ?? "The deploy failed.", reason: data.reason };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
+  }
+}
+
+export interface DeployState {
+  ok: boolean;
+  state: string;
+  done: boolean;
+  url: string | null;
+  inspectorUrl: string | null;
+  message?: string;
+}
+
+/**
+ * Wait for a build, telling the caller how it is getting on.
+ *
+ * Polled rather than streamed because a build outlives any one request on a
+ * serverless host: the route that started it has already answered by the time
+ * the first file is compiled.
+ */
+export async function watchDeploy(
+  id: string,
+  opts: { team?: string | null; onState?: (s: DeployState) => void; signal?: AbortSignal } = {},
+): Promise<DeployState> {
+  const team = opts.team ?? heldTeam() ?? null;
+  const query = new URLSearchParams({ id, ...(team ? { team } : {}) });
+  const until = Date.now() + 10 * 60_000;
+  let wait = 2_000;
+  for (;;) {
+    if (opts.signal?.aborted) return { ok: false, state: "ABORTED", done: true, url: null, inspectorUrl: null, message: "Stopped waiting." };
+    let s: DeployState;
+    try {
+      const res = await fetch(`/api/studio/deploy?${query}`, { cache: "no-store", headers: vercelHeader(), signal: opts.signal });
+      s = (await res.json()) as DeployState;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
+      s = { ok: false, state: "UNKNOWN", done: false, url: null, inspectorUrl: null, message: "Lost sight of the build for a moment." };
+    }
+    opts.onState?.(s);
+    if (s.done || (!s.ok && s.state !== "UNKNOWN")) return s;
+    if (Date.now() > until) return { ...s, done: true, message: "The build is taking longer than ten minutes; the Vercel log has it." };
+    await new Promise((r) => setTimeout(r, wait));
+    // Gentle at first, then out of the way: a cold build is minutes, not seconds.
+    wait = Math.min(wait * 1.4, 10_000);
+  }
+}
+
+export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string }): Promise<PublishResult> {
   try {
     const res = await fetch("/api/studio/publish", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ files: input.files.map((f) => ({ path: f.path, content: f.content })), message: input.message, deploy: input.deploy }),
+      body: JSON.stringify({
+        files: input.files.map((f) => ({ path: f.path, content: f.content })),
+        message: input.message,
+        deploy: input.deploy,
+        // Which site this is. The server decides whether it may go there.
+        ...(input.repo ? { repo: input.repo } : {}),
+        ...(input.branch ? { branch: input.branch } : {}),
+      }),
     });
     const data = (await res.json()) as PublishResult;
     return data.ok ? data : { ok: false, message: data.message ?? "The publish failed.", reason: data.reason };
