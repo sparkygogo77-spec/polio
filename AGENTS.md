@@ -886,6 +886,15 @@ a kicker with a rule, and label-and-value rows that copy.
   the fingerprint, so a part whose chains changed is resent rather than
   assumed unchanged. `tests/chain-links.mjs` holds all of it, on the board and
   off it. The tool's icon is a chain (`Link`) everywhere it appears.
+- **A mark is the far side of what it marks** (`look.ts`: `complementOf`,
+  `markColour`; `Canvas.tsx`: `NodeView`, the frame's outline, `CHAIN_MARK`).
+  A picked thing is ringed in the complement of its own aura or fill — the
+  page in the complement of its backdrop, a chain in the far side of its red
+  — one thin line, drawn *inside* the thing's edge so its aura is still
+  outside the mark and still visible. Never the app's accent, never a fill,
+  and never two rings: the dashed hover outline is off once a part is picked,
+  because it is drawn in the part's category hue and on a first-screen part
+  that is a red. `tests/picked.mjs` holds it.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or
