@@ -9,16 +9,17 @@
  * `playwright-core` does not carry. The code says so and refuses before it
  * launches anything, so this checks the claim rather than trusting it.
  *
- * The pairing is deliberately not a dependency of this template — it is a
- * hundred megabytes nobody deploying to a real box needs — so with it absent
- * this says so and passes. Install it (npm i playwright-core
- * @sparticuz/chromium) to have it actually run.
+ * The pairing is a dependency, and has to be. It was left out of
+ * `package.json` once on the grounds that this box already had a browser, and
+ * the deployed site then answered `available: false` with "Cannot find module
+ * 'playwright-core'" — a host installs what the manifest lists and nothing
+ * else. So the first check here is the manifest itself.
  *
  *   node tests/serverless-browser.mjs [url]    # default http://localhost:3000
  */
 import { createRequire } from "node:module";
 import { execFile } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,7 +30,16 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-// The routes require these from outside any bundle, and so does this.
+// 0. The manifest. A host installs this and nothing else, so a pairing that
+// is only in node_modules is a pairing the deployment will not have.
+const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
+const listed = (name) => !!(pkg.dependencies?.[name] ?? pkg.optionalDependencies?.[name]);
+check("package.json lists playwright-core", listed("playwright-core"),
+  pkg.dependencies?.["playwright-core"] ?? "missing — the deployment will not install it");
+check("package.json lists @sparticuz/chromium", listed("@sparticuz/chromium"),
+  pkg.dependencies?.["@sparticuz/chromium"] ?? "missing — the deployment will not install it");
+
+// The routes import these by name; this reaches them the same way.
 const outside = createRequire(process.cwd() + "/");
 let pw = null;
 let chromium = null;
@@ -37,10 +47,10 @@ try {
   pw = outside("playwright-core");
   const mod = outside("@sparticuz/chromium");
   chromium = mod.default ?? mod;
-} catch {
-  console.log("  --   playwright-core + @sparticuz/chromium are not installed here, so there is nothing to check.");
-  console.log("       npm i playwright-core @sparticuz/chromium to run this for real.\n0/0 passed");
-  process.exit(0);
+} catch (err) {
+  check("the pairing is installed here", false, String(err).split("\n")[0].slice(0, 120));
+  console.log(`\n${results.filter((r) => r.ok).length}/${results.length} passed`);
+  process.exit(1);
 }
 
 // 1. What the server says it can do, which is what the console reads.

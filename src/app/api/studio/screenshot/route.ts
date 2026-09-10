@@ -18,12 +18,12 @@ export const maxDuration = 120;
 const MAX_HEIGHT = 6000;
 
 export async function GET() {
-  const found = findPlaywright();
+  const found = await findPlaywright();
   return NextResponse.json({ available: !!found.pw, from: found.pw ? found.from : null, video: found.pw ? found.video : false, tried: found.pw ? undefined : found.tried });
 }
 
 export async function POST(request: Request) {
-  const found = findPlaywright();
+  const found = await findPlaywright();
   if (!found.pw) return NextResponse.json({ ok: false, reason: "no-playwright", message: NO_PLAYWRIGHT, tried: found.tried });
 
   let body: { doc?: unknown; path?: string; device?: string; width?: number; fullPage?: boolean };

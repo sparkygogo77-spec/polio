@@ -15,6 +15,16 @@ import { createRequire } from "node:module";
  * it falls to `playwright-core` driving `@sparticuz/chromium`, a Chromium cut
  * down to something a function can carry.
  *
+ * The two are *dependencies*, and imported by name rather than required from
+ * outside the project, because on a host that installs from `package.json`
+ * neither of those is optional: a package that is not listed is never
+ * installed, and an import the bundler cannot see is never traced into the
+ * function. Both together are what made this fall over on Vercel with
+ * "Cannot find module 'playwright-core'" while working here. They stay out of
+ * the bundle through `serverExternalPackages`, and the packed browser is
+ * pulled into the function by `outputFileTracingIncludes` — both in
+ * `next.config.ts`.
+ *
  * The fallback is second on purpose. A box with a real Playwright on it should
  * keep using it: the full install is the one the tests run against, and it is
  * the only one that can record video. `@sparticuz/chromium` is a browser and
@@ -60,7 +70,9 @@ export interface Found {
 /** A module required at run time from outside the project, never bundled. */
 const outside = (id: string): unknown => createRequire(process.cwd() + "/")(/* turbopackIgnore: true */ id);
 
-export function findPlaywright(): Found | { pw: null; tried: string[] } {
+const why = (err: unknown) => (err instanceof Error ? err.message.split("\n")[0] : String(err));
+
+export async function findPlaywright(): Promise<Found | { pw: null; tried: string[] }> {
   const tried: string[] = [];
   const candidates = [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright", "/usr/lib/node_modules/playwright"].filter(Boolean) as string[];
   for (const c of candidates) {
@@ -72,16 +84,17 @@ export function findPlaywright(): Found | { pw: null; tried: string[] } {
         launchOptions: async () => ({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined }),
       };
     } catch (err) {
-      tried.push(`${c}: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+      tried.push(`${c}: ${why(err)}`);
     }
   }
-  // Nothing installed: the serverless pairing, if this deployment carries it.
+  // Nothing installed: the serverless pairing this deployment carries. Named
+  // imports, so the bundler leaves them external *and* traces them in.
   try {
-    const pw = outside("playwright-core") as PW;
-    const mod = outside("@sparticuz/chromium") as { default?: SparticuzChromium } & SparticuzChromium;
+    const pw = ((await import("playwright-core")) as unknown as { default?: PW } & PW);
+    const mod = (await import("@sparticuz/chromium")) as unknown as { default?: SparticuzChromium } & SparticuzChromium;
     const chromium = mod.default ?? mod;
     return {
-      pw,
+      pw: pw.default ?? pw,
       from: "playwright-core + @sparticuz/chromium",
       video: false,
       launchOptions: async () => ({
@@ -91,12 +104,12 @@ export function findPlaywright(): Found | { pw: null; tried: string[] } {
       }),
     };
   } catch (err) {
-    tried.push(`playwright-core + @sparticuz/chromium: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`);
+    tried.push(`playwright-core + @sparticuz/chromium: ${why(err)}`);
   }
   return { pw: null, tried };
 }
 
-/** The shape of `@sparticuz/chromium` this uses, so it need not be a build-time dependency. */
+/** The shape of `@sparticuz/chromium` this uses. Only these two are ever asked of it. */
 interface SparticuzChromium {
   args: string[];
   executablePath: (input?: string) => Promise<string>;
@@ -104,8 +117,9 @@ interface SparticuzChromium {
 
 export const NO_PLAYWRIGHT =
   "There is no browser on this server, so the site cannot be opened here. "
-  + "On a machine you control: npm i -D playwright && npx playwright install chromium. "
-  + "On a serverless host: npm i playwright-core @sparticuz/chromium.";
+  + "The cut-down one ships with this project, so if it is missing the install skipped it: check that "
+  + "playwright-core and @sparticuz/chromium came down with the rest. "
+  + "On a machine you control, a full install is better: npm i -D playwright && npx playwright install chromium.";
 /** What a route that needs video says when the browser it found cannot make any. */
 export const NO_VIDEO = "The browser on this server can open the site but cannot record it: recording needs the ffmpeg a full Playwright install ships, and this one is the cut-down Chromium a serverless function can carry.";
 
