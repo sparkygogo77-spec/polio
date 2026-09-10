@@ -40,7 +40,11 @@ export function DrawQueue() {
     store.updateJob(job.id, { status: "running", started: Date.now(), step: "Reading the drawing…" });
     void runDrawJob(job, {
       publish: (n) => ctx.publish(n),
-      onNoKey: () => ctx.openPanel("keys"),
+      // A queued job is background work: it says what happened in the news
+      // and on the counter, and does not throw a panel over whatever is
+      // being drawn now. Pressing the counter, or the key button, is the
+      // person's move to make.
+      onNoKey: () => {},
       onStep: (step) => useStudio.getState().updateJob(job.id, { step }),
     })
       .then((r) => {
