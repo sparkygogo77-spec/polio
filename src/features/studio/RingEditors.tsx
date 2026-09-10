@@ -35,7 +35,7 @@ import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
-  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA,
+  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA, straightBands,
   type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
 
@@ -129,10 +129,16 @@ export const wholeOf = (s: Slab) => piece(s.from, s.to, s.rings.hole, "edge", s.
 const LIVE = 0.14;
 
 /**
- * Hue on the inner band, lightness and strength split across the outer one:
- * the whole of a colour, off three arcs on one slab. The Hue editor and the
+ * The whole of a colour, off three runs on one slab. The Hue editor and the
  * Aura editor draw the same one, so a hand that has learned it once has
  * learned it twice.
+ *
+ * Round, they are arcs: hue on the inner band, lightness and strength sharing
+ * the outer one, half a quadrant each. Square, they are three straight bands
+ * stacked up the box, and each one runs the *full* width — which is the point
+ * of the square. Sharing a band side by side would have halved lightness and
+ * strength for no reason, and colour is the one thing on the wheel where the
+ * length of the run is the amount of control you have.
  */
 export function SpectrumSlab({
   slab, colour, onChange, onCommit, caption,
@@ -150,14 +156,18 @@ export function SpectrumSlab({
   const sFrom = slab.from + pad;
   const sTo = slab.to - pad;
   const half = (sFrom + sTo) / 2;
+  const square = slab.shape === "square";
+  const bands = square ? straightBands(slab.rings, 3) : null;
+  /** The band a run rides: one of the three straight ones, or the arc it was written for. */
+  const on = (i: number, rIn: number, rOut: number) => bands?.[i] ?? { rIn, rOut };
+  /** How far it runs: the whole width of the box, or the stretch of arc it was given. */
+  const run = (from: number, to: number) => (square ? { from: sFrom, to: sTo } : { from, to });
   return (
     <>
       <ArcSlider
         slab={slab}
-        from={sFrom}
-        to={sTo}
-        rIn={hole + 18}
-        rOut={mid - 6}
+        {...run(sFrom, sTo)}
+        {...on(0, hole + 18, mid - 6)}
         label="Hue"
         value={(((c.h % 360) + 360) % 360) / 360}
         colourAt={(f) => oklchCss({ l: 0.7, c: 0.19, h: f * 360 })}
@@ -166,10 +176,8 @@ export function SpectrumSlab({
       />
       <ArcSlider
         slab={slab}
-        from={sFrom}
-        to={half - 0.006}
-        rIn={mid + 4}
-        rOut={reach - 12}
+        {...run(sFrom, half - 0.006)}
+        {...on(1, mid + 4, reach - 12)}
         label="Lightness"
         value={(c.l - 0.08) / 0.9}
         colourAt={(f) => oklchCss({ ...c, l: 0.08 + f * 0.9 })}
@@ -178,10 +186,8 @@ export function SpectrumSlab({
       />
       <ArcSlider
         slab={slab}
-        from={half + 0.006}
-        to={sTo}
-        rIn={mid + 4}
-        rOut={reach - 12}
+        {...run(half + 0.006, sTo)}
+        {...on(2, mid + 4, reach - 12)}
         label="Strength"
         value={Math.min(1, c.c / 0.32)}
         colourAt={(f) => oklchCss({ ...c, c: f * 0.32 })}

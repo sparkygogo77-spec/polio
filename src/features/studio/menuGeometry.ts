@@ -209,3 +209,91 @@ export function arcPath(from: number, to: number, rIn: number, rOut: number): st
   d += ` A ${rIn} ${rIn} 0 0 0 ${fmt(onCircle(from, rIn))}`;
   return `${d} Z`;
 }
+
+/* ------------------------------------------------------------------ */
+/* Square mode: a slab is a box, not a bent ring                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * When the wheel is square, nothing on it should pretend to be round.
+ *
+ * A square quadrant is a box: the corner nearest the pointer is bitten out by
+ * the hole, the two straight sides run along the axes, and the outer edge is
+ * two sides of the square. Laying an arc across that box wastes the corner and
+ * leaves the strips beside the axes empty, which is what made a square menu
+ * look like a round one someone had squashed.
+ *
+ * So the same call sites keep speaking in radii and turns — a slider still
+ * asks for a band between two radii, chips still ask for a row — and these
+ * translate that into the box. A radius becomes a *depth*: how far from the
+ * pointer, with the whole ring band stretched over the whole box so the
+ * innermost row sits against the near edge rather than a hole's width above
+ * it. A turn becomes a fraction *across*.
+ *
+ * Across always runs the wheel's own left to right, in all four quadrants.
+ * Turning each quadrant's frame with it — the obvious thing, and the first
+ * thing tried — makes the four read as a pinwheel: rows across in two of them
+ * and down the other two, which is exactly the "not aligned in their frames"
+ * the square was meant to fix. Depth is the one thing that mirrors, running
+ * away from the pointer, so the four boxes meet at the middle the way they
+ * are drawn to. The whole lot still sits inside the wheel's rotated group, so
+ * a spun wheel carries its rows round with it.
+ */
+
+/** Clear space between what is drawn on a slab and the slab's own edge. */
+export const SLAB_PAD = 11;
+
+/**
+ * Which of the four boxes a quadrant is, as the two facts a layout needs:
+ * whether the box is left of the pointer (so the hole bites the far end of
+ * every row rather than the near one) and whether rows stack up or down.
+ */
+export function slabFrame(from: number): { flip: boolean; sy: number } {
+  const q = ((Math.round(from * 4) % 4) + 4) % 4;
+  return { flip: q === 2 || q === 3, sy: q === 1 || q === 2 ? 1 : -1 };
+}
+
+/** How far from the pointer a radius sits, once the band is stretched over the box. */
+export function slabDepth(r: number | "edge", rg: Rings, pad = SLAB_PAD): number {
+  const v = r === "edge" ? rg.reach : r;
+  const f = Math.max(0, Math.min(1, (v - rg.hole) / (rg.reach - rg.hole)));
+  return pad + f * (rg.reach - 2 * pad);
+}
+
+/** The radius a depth came from: `slabDepth` read backwards. */
+export function slabRadius(depth: number, rg: Rings, pad = SLAB_PAD): number {
+  return rg.hole + ((depth - pad) / (rg.reach - 2 * pad)) * (rg.reach - rg.hole);
+}
+
+/** The far edge of the box, as a depth. */
+export const slabFar = (rg: Rings, pad = SLAB_PAD): number => rg.reach - pad;
+
+/**
+ * Where a row at this depth begins and ends.
+ *
+ * Deep rows run the full width. The shallow ones — the strip along the near
+ * edge, which a round layout throws away — have the hole's quarter circle
+ * taken out of one end, whichever end the pointer is at.
+ */
+export function slabRun(from: number, depth: number, rg: Rings, pad = SLAB_PAD): { a0: number; a1: number } {
+  const d = Math.max(0, Math.min(rg.hole, depth));
+  const cut = pad + Math.sqrt(Math.max(0, rg.hole * rg.hole - d * d));
+  return slabFrame(from).flip ? { a0: pad, a1: rg.reach - cut } : { a0: cut, a1: rg.reach - pad };
+}
+
+/** A point on a square slab, in the wheel's own coordinates. */
+export function onSlab(from: number, across: number, depth: number, rg: Rings): Pt {
+  const { flip, sy } = slabFrame(from);
+  return [flip ? across - rg.reach : across, sy * depth];
+}
+
+/** A rectangle on a square slab, as a path. Corners are left to the stroke, as everywhere else. */
+export function slabRect(from: number, a0: number, a1: number, dNear: number, dFar: number, rg: Rings): string {
+  const pts: Pt[] = [
+    onSlab(from, a0, dNear, rg),
+    onSlab(from, a1, dNear, rg),
+    onSlab(from, a1, dFar, rg),
+    onSlab(from, a0, dFar, rg),
+  ];
+  return `M ${pts.map(fmt).join(" L ")} Z`;
+}

@@ -17,7 +17,10 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
-import { arcPath, fmt, onCircle, piece, spun, type Pt, type Rings, type Shape } from "./menuGeometry";
+import {
+  arcPath, fmt, onCircle, onSlab, piece, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
+  type Pt, type Rings, type Shape,
+} from "./menuGeometry";
 
 export const CONSOLE_HUE = 285;
 
@@ -187,8 +190,13 @@ export function ArcChips({
   tone?: "slab" | "screen";
 }) {
   const n = Math.max(1, items.length);
-  const { from, to, spin } = slab;
+  const { from, to, spin, shape, rings } = slab;
   const screen = tone === "screen";
+  // Square: a row is a straight row across the box, at the same distance from
+  // the pointer the radius would have put it, running the full width the box
+  // has there. Round: the same chips, ridden round the band.
+  const square = shape === "square";
+  const pitch = size + 9;
   /*
    * Rows, when they are needed.
    *
@@ -198,27 +206,43 @@ export function ArcChips({
    * wraps in a panel — rather than shrinking until they are not swatches.
    */
   const sweep = (to - from) * 0.8;
-  const fits = (r: number) => Math.max(1, Math.floor((sweep * Math.PI * 2 * r) / (size + 9)));
-  const rows: { r: number; items: ArcItem[] }[] = [];
-  if (n <= fits(radius)) rows.push({ r: radius, items });
+  const runAt = (d: number) => {
+    const { a0, a1 } = slabRun(slab.from, d, rings);
+    return { left: a0 + size / 2, right: a1 - size / 2 };
+  };
+  const fits = (r: number, d: number) => {
+    if (square) {
+      const { left, right } = runAt(d);
+      return Math.max(1, Math.floor((right - left + pitch) / pitch));
+    }
+    return Math.max(1, Math.floor((sweep * Math.PI * 2 * r) / pitch));
+  };
+  const d0 = slabDepth(radius, rings);
+  const rows: { r: number; d: number; items: ArcItem[] }[] = [];
+  if (n <= fits(radius, d0)) rows.push({ r: radius, d: d0, items });
   else {
-    const outer = Math.min(fits(radius), Math.ceil(n / 2));
-    rows.push({ r: radius, items: items.slice(0, outer) });
+    const outer = Math.min(fits(radius, d0), Math.ceil(n / 2));
+    rows.push({ r: radius, d: d0, items: items.slice(0, outer) });
     // Just inside the first row — and no further, or it lands on the caption
     // that sits by the hole.
-    rows.push({ r: radius - (size + 8), items: items.slice(outer) });
+    rows.push({ r: radius - (size + 8), d: Math.max(SLAB_PAD + size / 2, d0 - pitch), items: items.slice(outer) });
   }
-  const place = (r: number, count: number) => {
-    const want = (size + 9) / (Math.PI * 2 * Math.max(24, r));
+  const spotAt = (row: { r: number; d: number }, i: number, count: number): Pt => {
+    if (square) {
+      const { left, right } = runAt(row.d);
+      const step = Math.min((right - left) / Math.max(1, count - 1), pitch);
+      const first = (left + right) / 2 - (step * (count - 1)) / 2;
+      return onSlab(slab.from, first + step * i, row.d, rings);
+    }
+    const want = pitch / (Math.PI * 2 * Math.max(24, row.r));
     const step = Math.min(sweep / count, want * 1.4);
-    return { step, first: (from + to) / 2 - (step * count) / 2 };
+    const first = (from + to) / 2 - (step * count) / 2;
+    return onCircle(first + step * (i + 0.5), row.r);
   };
   return (
     <>
       {rows.flatMap((row) => row.items.map((item, i) => {
-        const { step, first } = place(row.r, row.items.length);
-        const t = first + step * (i + 0.5);
-        const at = onCircle(t, row.r);
+        const at = spotAt(row, i, row.items.length);
         const on = value === item.id;
         return (
           <foreignObject
@@ -297,23 +321,26 @@ export function GridChips({
   // The slab is cut back by SHRINK and its edge grown out by the rounding;
   // the chips stay a few pixels inside what is drawn.
   const half = rings.reach - SHRINK - 8;
-  const inner = rings.hole + 16 + size / 2;
+  // Worked out in the quadrant's own terms — across from the pointer's side,
+  // depth away from it — and placed at the end, so the grid lands the same way
+  // up in every box on a square wheel and turns with the sector on a round one.
   const spots: Pt[] = [];
-  // Columns in from the right edge, rows down from the top edge, of the
-  // quadrant up-and-right of the pointer.
-  for (let cx = half - size / 2; cx > size / 2; cx -= pitch) {
-    for (let cy = -(half - size / 2); cy < -size / 2; cy += pitch) {
-      const r = Math.hypot(cx, cy);
-      if (r < inner) continue;
-      if (shape === "round" && Math.hypot(Math.abs(cx) + size / 2, Math.abs(cy) + size / 2) > rings.reach - SHRINK - 4) continue;
-      spots.push([cx, cy]);
+  for (let a = half - size / 2; a > size / 2; a -= pitch) {
+    for (let d = half - size / 2; d > size / 2; d -= pitch) {
+      // Clear of the hole means the chip's *nearest corner* is clear of it —
+      // not its middle plus a guess, which threw away a whole ring of places
+      // along the two straight sides where there was room all along.
+      if (Math.hypot(a - size / 2, d - size / 2) < rings.hole + 4) continue;
+      if (shape === "round" && Math.hypot(a + size / 2, d + size / 2) > rings.reach - SHRINK - 4) continue;
+      spots.push([a, d]);
     }
   }
-  spots.sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]));
+  spots.sort((p, q) => Math.hypot(p[0], p[1]) - Math.hypot(q[0], q[1]));
   return (
     <>
       {items.slice(0, spots.length).map((item, i) => {
-        const at = spun(spots[i]!, from);
+        const [a, d] = spots[i]!;
+        const at = shape === "square" ? onSlab(from, a, d, rings) : spun([a, -d], from);
         const on = values ? values.has(item.id) : value === item.id;
         return (
           <foreignObject key={item.id} x={at[0] - size / 2 - 4} y={at[1] - size / 2 - 4} width={size + 8} height={size + 8} className="overflow-visible">
@@ -385,8 +412,28 @@ export function ArcSlider({
   /** On a slab, or set into a screen. */
   tone?: "slab" | "screen";
 }) {
-  const { spin } = slab;
+  const { spin, rings, shape } = slab;
   const steps = 22;
+  /*
+   * Square mode: the same band, straight.
+   *
+   * The caller still names two radii and a stretch of turn, because that is
+   * what the control *means* — a band this far out, this much of the way
+   * round. On a square slab that is read as a bar: the radii become the near
+   * and far edges of a strip across the box, the turns become the two ends of
+   * it, and the strip runs the full width the box has at that depth. Nothing
+   * is bent, and the room beside the pointer that an arc leaves empty is used.
+   */
+  const square = shape === "square";
+  const dNear = slabDepth(rIn, rings);
+  const dFar = slabDepth(rOut, rings);
+  // The shallow edge is the one the hole bites into, so it sets where the bar
+  // can start; the run is then cut to the stretch of turn the caller asked for.
+  const { flip } = slabFrame(slab.from);
+  const room = slabRun(slab.from, dNear, rings);
+  const uOf = (t: number) => (t - slab.from) / (slab.to - slab.from);
+  const x0 = room.a0 + (room.a1 - room.a0) * uOf(from);
+  const x1 = room.a0 + (room.a1 - room.a0) * uOf(to);
   /*
    * Smooth: while the hand is on it, the mark follows the hand from *here* —
    * one read per animation frame, kept in local state — rather than waiting
@@ -407,8 +454,13 @@ export function ArcSlider({
     try { el.setPointerCapture(e.pointerId); } catch { /* a synthetic pointer; the window still delivers the moves */ }
     const span = to - from;
     const read = (cx: number, cy: number) => {
-      // Back out of the wheel's own turn, then read the angle off the arc.
+      // Back out of the wheel's own turn — and, on a square, the quadrant's
+      // too, which puts the bar flat along the x axis — then read the hand off
+      // it: how far along a straight bar, or the angle round an arc.
       const p = spun([cx - host.left, cy - host.top], -spin);
+      // Square: rows run the wheel's own left to right, so the hand's place
+      // along the bar is read straight off x once that turn is backed out.
+      if (square) return Math.max(0, Math.min(1, (p[0] - (flip ? x0 - rings.reach : x0)) / (x1 - x0)));
       const t = ((Math.atan2(p[1], p[0]) / (Math.PI * 2) + 0.25) % 1 + 1) % 1;
       let u = t;
       while (u < from) u += 1;
@@ -446,10 +498,23 @@ export function ArcSlider({
   };
   const screen = tone === "screen";
   const markAt = from + (to - from) * shown;
-  // The mark is drawn once at the start of the arc and turned to where the
-  // value is, so it can ease between values it did not see the hand set.
-  const a = onCircle(from, rIn - 2);
-  const b = onCircle(from, rOut + 2);
+  // The mark is drawn once at the start of the run and moved to where the
+  // value is — turned round the arc, slid along the bar — so it can ease
+  // between values it did not see the hand set.
+  const a = square ? onSlab(slab.from, x0, dNear - 2, rings) : onCircle(from, rIn - 2);
+  const b = square ? onSlab(slab.from, x0, dFar + 2, rings) : onCircle(from, rOut + 2);
+  const move = square
+    ? `translate(${((x1 - x0) * shown).toFixed(2)}px, 0px)`
+    : `rotate(${((markAt - from) * 360).toFixed(3)}deg)`;
+  /** One step of the run, as a path: a sector of the arc, or a slice of the bar. */
+  const stepPath = (i: number, near: number) => {
+    const s0 = from + ((to - from) * i) / steps;
+    // A hair of overlap, or the seams between the steps show as hairlines.
+    const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
+    if (!square) return arcPath(s0, s1, near, rOut);
+    const w = (x1 - x0) / steps;
+    return slabRect(slab.from, x0 + w * i, x0 + w * (i + 1) + 0.4, near, dFar, rings);
+  };
   return (
     <g
       data-arc-slider={label}
@@ -469,29 +534,33 @@ export function ArcSlider({
       style={{ touchAction: "none" }}
     >
       {Array.from({ length: steps }, (_, i) => {
-        const s0 = from + ((to - from) * i) / steps;
-        // A hair of overlap, or the seams between the steps show as hairlines.
-        const s1 = from + ((to - from) * (i + 1)) / steps + 0.0006;
         const f = (i + 0.5) / steps;
         // A slider about colour shows the colour. Everything else — speed,
         // delay, size, strength — shows its amount as *shape*: the band
         // thickens along its run and lights up behind the mark. Painting a
         // quantity in a colour ramp said nothing about the quantity and made
         // every slab in the console green.
-        if (colourAt) return <path key={i} d={arcPath(s0, s1, rIn, rOut)} fill={colourAt(f)} />;
-        const inner = rOut - (rOut - rIn) * (0.34 + 0.66 * f);
+        if (colourAt) return <path key={i} d={stepPath(i, square ? dNear : rIn)} fill={colourAt(f)} />;
+        const grown = 0.34 + 0.66 * f;
+        const near = square ? dFar - (dFar - dNear) * grown : rOut - (rOut - rIn) * grown;
         const lit = f <= shown;
         return (
           <path
             key={i}
-            d={arcPath(s0, s1, inner, rOut)}
+            d={stepPath(i, near)}
             fill={lit ? (screen ? SCREEN.ink : CONSOLE.text) : screen ? SCREEN.key : CONSOLE.well}
             opacity={lit ? 1 : 0.9}
           />
         );
       })}
       <path
-        d={colourAt ? arcPath(from, to, rIn, rOut) : arcPath(from, to, rOut - (rOut - rIn) * 0.34, rOut)}
+        d={
+          square
+            ? slabRect(slab.from, x0, x1, colourAt ? dNear : dFar - (dFar - dNear) * 0.34, dFar, rings)
+            : colourAt
+              ? arcPath(from, to, rIn, rOut)
+              : arcPath(from, to, rOut - (rOut - rIn) * 0.34, rOut)
+        }
         fill="none"
         stroke={screen ? SCREEN.line : CONSOLE.ink}
         strokeWidth={screen ? 1 : 1.5}
@@ -499,7 +568,7 @@ export function ArcSlider({
       <g
         data-arc-mark=""
         style={{
-          transform: `rotate(${((markAt - from) * 360).toFixed(3)}deg)`,
+          transform: move,
           transformOrigin: "0 0",
           transition: held === null ? "transform 110ms ease-out" : "none",
         }}
@@ -514,6 +583,26 @@ export function ArcSlider({
       </g>
     </g>
   );
+}
+
+/**
+ * A slab's box, split into straight bands stacked one above another.
+ *
+ * Given back as pairs of radii, because that is the one language the controls
+ * on a slab are written in: a band between two radii is a band between two
+ * radii whether the wheel bends it round or lays it flat. The stack starts
+ * clear of the bite the hole takes out of the near corner, so every band runs
+ * the full width of the box — which is the whole reason for stacking them
+ * rather than putting two side by side.
+ */
+export function straightBands(rg: Rings, n: number, gap = 8): { rIn: number; rOut: number }[] {
+  const base = rg.hole + 6;
+  const top = slabFar(rg);
+  const h = (top - base - gap * (n - 1)) / n;
+  return Array.from({ length: n }, (_, i) => {
+    const d = base + i * (h + gap);
+    return { rIn: slabRadius(d, rg), rOut: slabRadius(d + h, rg) };
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -582,8 +671,14 @@ export function ArcStepper({
   label: string;
   w?: number;
 }) {
-  const { from, to, spin } = slab;
-  const at = onCircle((from + to) / 2, radius);
+  const { from, to, spin, shape, rings } = slab;
+  // On a square slab the readout sits in a straight row and takes the width
+  // the box has there, rather than riding an arc through the middle of it.
+  const square = shape === "square";
+  const depth = slabDepth(radius, rings);
+  const { a0, a1 } = slabRun(slab.from, depth, rings);
+  const at = square ? onSlab(slab.from, (a0 + a1) / 2, depth, rings) : onCircle((from + to) / 2, radius);
+  const width = square ? Math.max(w, a1 - a0) : w;
   const n = items.length;
   const i = Math.max(0, items.findIndex((it) => it.id === value));
   const go = (d: number) => {
@@ -593,7 +688,7 @@ export function ArcStepper({
   };
   const keyStyle: React.CSSProperties = { ...SCREEN_KEY, outline: `1px solid ${SCREEN.line}`, boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.5)" };
   return (
-    <Glued at={at} spin={spin} w={w} h={26}>
+    <Glued at={at} spin={spin} w={width} h={26}>
       <div
         data-arc-stepper={label}
         className="flex h-[22px] w-full items-center gap-0.5 rounded-[4px] p-0.5"
@@ -779,7 +874,34 @@ export function HoverTray({ at, icon, label, items, testId, lit }: { at: Pt; ico
  */
 export function Caption({ slab, children }: { slab: Slab; children: React.ReactNode }) {
   const id = React.useId();
-  const { from, to, spin, rings } = slab;
+  const { from, to, spin, rings, shape } = slab;
+  const ink = {
+    fontSize: 7.5,
+    fontWeight: 700,
+    letterSpacing: 0.7,
+    fill: CONSOLE.text,
+    stroke: CONSOLE.ink,
+    strokeWidth: 2,
+    strokeLinejoin: "round" as const,
+    paintOrder: "stroke",
+    style: { textTransform: "uppercase" as const },
+  };
+  if (shape === "square") {
+    // A square slab has a strip along its bottom edge, past the bite the hole
+    // takes out of the corner, that a bent word never reaches. The caption
+    // goes there and stays straight, turned back upright by whatever the
+    // wheel has been spun to — the same trick every word on a slab uses.
+    const depth = SLAB_PAD + 7;
+    const { a0, a1 } = slabRun(from, depth, rings);
+    const at = onSlab(from, (a0 + a1) / 2, depth, rings);
+    return (
+      <g className="pointer-events-none" data-arc-caption="" transform={`rotate(${(-spin * 360).toFixed(2)} ${fmt(at)})`}>
+        <text x={at[0]} y={at[1]} textAnchor="middle" dominantBaseline="middle" {...ink}>
+          {children}
+        </text>
+      </g>
+    );
+  }
   // Where the slab is pointing on screen, once the wheel's turn is added.
   const facing = (((from + to) / 2 + spin) % 1 + 1) % 1;
   const low = facing > 0.25 && facing < 0.75;
@@ -792,17 +914,7 @@ export function Caption({ slab, children }: { slab: Slab; children: React.ReactN
       <defs>
         <path id={id} d={d} fill="none" />
       </defs>
-      <text
-        fontSize={7.5}
-        fontWeight={700}
-        letterSpacing={0.7}
-        fill={CONSOLE.text}
-        stroke={CONSOLE.ink}
-        strokeWidth={2}
-        strokeLinejoin="round"
-        paintOrder="stroke"
-        style={{ textTransform: "uppercase" }}
-      >
+      <text {...ink}>
         <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">
           {children}
         </textPath>

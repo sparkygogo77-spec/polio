@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.33",
+    title: "A square menu, square all the way in",
+    summary: "The controls inside a square menu stop being arcs: straight bars, straight rows, and a colour spectrum that uses the whole face of the box.",
+    sketch: "palette",
+    added: [
+      "The wheel could be set square, but everything on it was still drawn round — bent sliders, chips riding an arc — so a square menu was a round one in a square frame, with the corners of every box empty and the strips beside the middle wasted. A quadrant is now read as a box: a radius becomes how far from the middle, a turn becomes how far across, and the whole ring band is stretched over the whole box so the innermost row sits against the near edge instead of a hole's width above it.",
+      "Rows run the same way in all four boxes. Turning each box's layout with it — the obvious thing — made the four read as a pinwheel, rows across in two of them and down the other two, which is the opposite of aligned. Only the direction away from the middle mirrors, so the four meet in the middle the way they are drawn to.",
+      "Colour gets the biggest gain. Round, lightness and saturation share the outer band, half a quadrant each. Square, hue, lightness and saturation are three straight bands stacked up the box and every one of them runs the full width — so each has half again as much travel as before, and colour is the one place where the length of the run is the amount of control you have.",
+      "Chips clear the hole by their nearest corner rather than by their middle plus a guess, which gave back a whole row of places along the two straight sides where there was room all along.",
+      "Round menus are untouched: the arcs are still arcs, and the same hand movement still works on both.",
+    ],
+  },
+  {
     version: "0.32",
     title: "Nothing arrives outside the page",
     summary: "A new part lands inside the frame whatever it is added by, a square menu stays on screen, and a slider about an amount stops pretending to be about colour.",
