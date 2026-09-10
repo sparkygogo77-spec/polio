@@ -25,6 +25,7 @@ import { BriefDialog, useCompiledBrief } from "./BriefDialog";
 import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
+import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
@@ -398,6 +399,7 @@ export function StudioPage() {
       </div>
 
       <RadialMenu />
+      <LightPlacer />
       <BriefDialog open={briefOpen} onOpenChange={setBriefOpen} />
     </div>
   );

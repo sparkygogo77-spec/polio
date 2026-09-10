@@ -682,18 +682,6 @@ function LightSection() {
   const light = useStudio((st) => st.look.light);
   const s = () => useStudio.getState();
   const set = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
-  const pad = React.useRef<HTMLDivElement>(null);
-
-  const place = (e: React.PointerEvent) => {
-    const el = pad.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    set({
-      on: true,
-      x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
-      y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
-    });
-  };
 
   return (
     <section className="border-t border-border p-3">
@@ -707,34 +695,37 @@ function LightSection() {
         />
       </div>
 
-      <div
-        ref={pad}
-        data-light-pad=""
-        role="application"
-        aria-label="Where the light is"
-        onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); place(e); }}
-        onPointerMove={(e) => { if (e.buttons) place(e); }}
-        className="relative mb-2 h-24 w-full cursor-crosshair rounded-md border border-border bg-bg"
-        style={{
-          backgroundImage: light.on
-            ? `radial-gradient(120px 90px at ${light.x * 100}% ${light.y * 100}%, oklch(0.95 0.06 ${Math.round(light.warmth)} / 0.5), transparent 70%)`
-            : undefined,
-        }}
+      {/*
+        Where the lamp is, by pointing at it.
+        
+        There was a thumbnail of the page here with a dot to drag around, which
+        is a map of the thing rather than the thing: a lamp two hundred pixels
+        wide, read at a glance, told you roughly where the light was and never
+        exactly. The button hands the board itself over instead — the workspace
+        goes dark but the page, the pointer becomes the light — and you put it
+        where you can see it landing.
+      */}
+      <button
+        type="button"
+        data-place-light=""
+        onClick={() => { play("confirm"); useStudio.getState().setPlacingLight(true); }}
+        className="tactile mb-2 flex w-full items-center gap-2 rounded-md border border-border bg-elevated px-2 py-1.5 text-left hover:bg-hover"
       >
-        {/* the page, so you can see where the lamp is in relation to it */}
-        <span aria-hidden className="pointer-events-none absolute inset-x-6 inset-y-3 rounded-sm border border-dashed border-border-strong/70" />
         <span
           aria-hidden
-          className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border"
+          className="size-3 shrink-0 rounded-full"
           style={{
-            left: `${light.x * 100}%`,
-            top: `${light.y * 100}%`,
-            borderColor: light.on ? `oklch(0.9 0.13 ${Math.round(light.warmth)})` : "var(--border-strong)",
-            background: light.on ? `oklch(0.95 0.1 ${Math.round(light.warmth)} / 0.7)` : "transparent",
-            boxShadow: light.on ? `0 0 10px 2px oklch(0.9 0.14 ${Math.round(light.warmth)} / 0.55)` : undefined,
+            background: `radial-gradient(circle at 38% 34%, oklch(1 0.05 ${Math.round(light.warmth)}), oklch(0.86 0.17 ${Math.round(light.warmth)}))`,
+            boxShadow: `0 0 8px 2px oklch(0.9 0.16 ${Math.round(light.warmth)} / ${light.on ? 0.6 : 0.15})`,
           }}
         />
-      </div>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-medium text-fg">Place the light</span>
+          <span className="block truncate text-[10px] text-fg-faint">
+            {light.on ? `On the page at ${Math.round(light.x * 100)}%, ${Math.round(light.y * 100)}%` : "Off — pointing at a place turns it on"}
+          </span>
+        </span>
+      </button>
 
       <Row label="How high it hangs" value={light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}>
         <Slider value={[Math.round(light.height * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ height: (v[0] ?? 55) / 100 })} />
@@ -747,6 +738,15 @@ function LightSection() {
       </Row>
       <Row label="Warmth" value={`${Math.round(light.warmth)}°`}>
         <Slider value={[Math.round(light.warmth)]} min={0} max={360} step={1} onValueChange={(v) => set({ warmth: v[0] ?? 80 })} />
+      </Row>
+      {/*
+        Kept apart from the rest on purpose. The lamp throws shadows whether or
+        not any of its light lands on the background, and wanting the first
+        almost never means wanting the second: a warm pool under a palette
+        someone chose is the quickest way to make that palette look wrong.
+      */}
+      <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
+        <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
       </Row>
       <p className="text-[10px] leading-snug text-fg-faint">
         Every surface works out its own shadow from where it stands relative to the lamp, so a card on

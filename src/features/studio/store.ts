@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
 import { formatDefaults, type FormatValues } from "./format";
-import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Look, type TextureLayer } from "./look";
+import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
 
 /**
  * The page's background is a thing you can pick: click the bare frame and
@@ -195,6 +195,16 @@ interface StudioState extends Doc {
    */
   menuShape: "square" | "round";
   /**
+   * Placing the page's lamp by hand: the board dims everywhere but the page,
+   * the pointer becomes the light, and the next press puts it down.
+   *
+   * A moment, not a setting, so it is not written down and does not come back
+   * with the site. `placedLight` is what the lamp was before the moment
+   * started, so a press outside the page can put it back.
+   */
+  placingLight: boolean;
+  placedLight: Light | null;
+  /**
    * How far the part menu is turned, in turns (0..1).
    *
    * The menu used to face the middle of the screen, which meant it was a
@@ -281,6 +291,10 @@ interface StudioState extends Doc {
   setShowWires: (v: boolean) => void;
   setMode: (m: BoardMode) => void;
   setMenuShape: (v: "square" | "round") => void;
+  /** Start placing the lamp, or stop: `true` remembers the lamp to fall back to. */
+  setPlacingLight: (v: boolean) => void;
+  /** Give up on placing it and put the lamp back where it was. */
+  cancelPlacingLight: () => void;
   setMenuSpin: (turns: number) => void;
   rememberColour: (colour: string) => void;
   setCompanion: (patch: Partial<StudioState["companion"]>) => void;
@@ -383,6 +397,8 @@ export const useStudio = create<StudioState>()(
         ...starterDoc(),
         frameWidth: FRAME_WIDTHS.desktop,
         menuShape: "square",
+        placingLight: false,
+        placedLight: null,
         menuSpin: 0,
         recentColours: [],
         fitNonce: 0,
@@ -831,6 +847,11 @@ export const useStudio = create<StudioState>()(
         setShowWires: (v) => set({ showWires: v }),
         setMode: (m) => set({ mode: m, selection: m === "preview" ? [] : get().selection }),
         setMenuShape: (v) => set({ menuShape: v }),
+        setPlacingLight: (v) => set({ placingLight: v, placedLight: v ? get().look.light : null }),
+        cancelPlacingLight: () => {
+          const was = get().placedLight;
+          set({ placingLight: false, placedLight: null, ...(was ? { look: { ...get().look, light: was } } : {}) });
+        },
         setMenuSpin: (turns) => set({ menuSpin: ((turns % 1) + 1) % 1 }),
         rememberColour: (colour) => set((s) => ({ recentColours: [colour, ...s.recentColours.filter((c) => c !== colour)].slice(0, 12) })),
         setCompanion: (patch) => set((s) => ({ companion: { ...s.companion, ...patch } })),

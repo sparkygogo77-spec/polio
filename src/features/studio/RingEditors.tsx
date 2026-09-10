@@ -136,7 +136,23 @@ export const centreOf = (s: Slab, rIn: number, rOut: number | "edge") =>
  * an angle here on top of that just made the run short and left the gap a
  * different width at each end of it.
  */
-const runOf = (s: Slab) => ({ from: s.from, to: s.to });
+export const runOf = (s: Slab) => ({ from: s.from, to: s.to });
+
+/**
+ * A slab cut into `n` runs, one above another.
+ *
+ * Square, they are straight bands across the box; round, arcs on the slab's
+ * own rings. Either way each one is the full width of the slab, because the
+ * longer a run is the finer a hand can be with it, and a setting that is one
+ * number deserves the whole width rather than half of it.
+ */
+export function stackedRuns(slab: Slab, n: number, gap = 8): { rIn: number; rOut: number }[] {
+  if (slab.shape === "square") return straightBands(slab.rings, n, gap);
+  const lo = slab.rings.hole + 24;
+  const hi = slab.rings.reach - 9;
+  const h = (hi - lo - gap * (n - 1)) / n;
+  return Array.from({ length: n }, (_, i) => ({ rIn: lo + i * (h + gap), rOut: lo + i * (h + gap) + h }));
+}
 
 /** A whole quadrant, cut as the console cuts its slabs. */
 export const wholeOf = (s: Slab) => piece(s.from, s.to, s.rings.hole, "edge", s.shape, s.rings, SHRINK);
