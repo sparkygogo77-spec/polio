@@ -235,6 +235,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       */}
       <canvas
         ref={halo}
+        data-draw-halo=""
         aria-hidden
         className="pointer-events-none absolute"
         style={{ left: -HALO, top: -HALO, width: size + HALO * 2, height: size + HALO * 2 }}
