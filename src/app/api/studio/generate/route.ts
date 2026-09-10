@@ -75,10 +75,15 @@ const MODE_INSTRUCTIONS: Record<Mode, string> = {
     "character go last, marked as such.",
   ask: "Answer the author's question or do what they ask, about this site, using the blueprint and the pictures as the facts.",
   build:
-    "Write the code. Produce the site described by the blueprint as files for this repository (details below). " +
-    "Start with a short list of the files and what each is for, then every file, complete, as a fenced code block " +
-    "whose info string is the language and then the path, like ```tsx src/features/site/Home.tsx — one block per file, " +
-    "no elisions, no placeholders. Keep to what the blueprint says; where it is silent, choose plainly and say so in a comment.",
+    "Fill in the parts of this codebase a document cannot hold. The site's looks are NOT your job and are already written: " +
+    "the scaffold listed below was generated from the document itself — design tokens taken from the palette, one component " +
+    "per part carrying the markup that part actually renders, and pages that place them exactly where the board places them. " +
+    "Do not rewrite those files, do not restate their styles, and do not produce a second version of the site. " +
+    "Write only what is genuinely missing: a body for each Idea part that has none, where the data each part reads comes from, " +
+    "and the behaviour that follows an interaction. Start with a short list of what you are adding and why, then every file " +
+    "you add or change, complete, as a fenced code block whose info string is the language and then the path, like " +
+    "```tsx src/features/site/Home.tsx — one block per file, no elisions, no placeholders. A file you name that the scaffold " +
+    "already wrote replaces it, so name one only when you mean to change it, and say in a comment what you changed and why.",
 };
 
 const SYSTEM = `You are helping turn a visual website blueprint into a real site.
@@ -103,6 +108,32 @@ const REPO_CONTRACT = `The repository the files are for:
 - Route components are "use client" React components taking { path, params }. UI primitives come from "@/core/ui": Button, Input, Textarea, Select, Switch, Segmented, Badge, Card, CardHeader, CardTitle, CardContent, Tabs, Separator, ScrollArea, EmptyState. Icons from "lucide-react". Class merging with cn from "@/core/lib/cn".
 - No new dependencies. Data the site needs goes in a plain TypeScript file beside the component.
 - The site's own document is also rendered by the app at /site from site/document.json; code you write is for what the document cannot express.`;
+
+/**
+ * What Build is now: the looks come from the document, deterministically,
+ * and only the gaps are asked for.
+ *
+ * The blueprint is words, and words are lossy about looks — every
+ * re-generation drifted, and what came back was a cousin of the site on
+ * the board. The scaffold (`scaffold.ts`) is written from the document
+ * instead, byte for byte the same every time, and this is how the model is
+ * told where its half of the work starts.
+ */
+function scaffoldContract(files: { path: string; bytes: number }[], gaps: string[], stats: Record<string, number> | null): string {
+  const listed = files.slice(0, 120).map((f) => `- ${f.path} (${f.bytes} bytes)`).join("\n");
+  return `THE SCAFFOLD IS ALREADY WRITTEN. These files were generated from the document, not from the brief, and they are exact:
+
+${listed}${files.length > 120 ? `\n- …and ${files.length - 120} more` : ""}
+
+${stats ? `That is ${stats.parts ?? 0} parts across ${stats.pages ?? 0} pages, ${stats.clipped ?? 0} of them cut to a drawn line and ${stats.bodies ?? 0} with a written body.` : ""}
+
+The colours, type, spacing, shape, texture and light in those files are the document's own values. They are not a description to improve on and not a starting point to re-derive: if you rewrite them the site stops matching the board.
+
+WHAT IS ACTUALLY MISSING, and all you are being asked for:
+${gaps.map((g) => `- ${g}`).join("\n")}
+
+The brief below is the narrative — what the site is for, what each part is meant to do — and the pictures are the reference for anything that has to look like something. Use both to fill the gaps, not to redo the scaffold.`;
+}
 
 /**
  * The asks that come back with prompts attach them in one JSON block at the
@@ -167,7 +198,11 @@ export async function POST(request: Request) {
     });
   }
 
-  let body: { markdown?: string; mode?: Mode; prompt?: string; pictures?: PictureIn[]; brief?: string; pieces?: PieceIn[]; skipped?: number };
+  let body: {
+    markdown?: string; mode?: Mode; prompt?: string; pictures?: PictureIn[]; brief?: string; pieces?: PieceIn[]; skipped?: number;
+    /** What Build already wrote from the document, and what it could not. */
+    scaffold?: { files?: { path?: string; bytes?: number }[]; gaps?: string[]; stats?: Record<string, number> };
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -234,7 +269,17 @@ export async function POST(request: Request) {
   if (!pictures.length) content.push({ type: "text", text: WORDS_ONLY });
   const wantsRevisions = mode === "critique" || mode === "expand" || mode === "finish";
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
-  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}${markdown.trim() ? `\n\n---\n\n${markdown}` : ""}` });
+  // Build is told what has already been written before it is told anything
+  // else: the scaffold is the ground it is adding to.
+  const scaffoldFiles = (body.scaffold?.files ?? [])
+    .filter((f): f is { path: string; bytes: number } => typeof f?.path === "string")
+    .map((f) => ({ path: f.path.slice(0, 200), bytes: Number(f.bytes) || 0 }))
+    .slice(0, 400);
+  const gaps = (body.scaffold?.gaps ?? []).filter((g) => typeof g === "string").map((g) => g.slice(0, 400)).slice(0, 40);
+  const scaffolded = mode === "build" && scaffoldFiles.length
+    ? `\n\n${scaffoldContract(scaffoldFiles, gaps.length ? gaps : ["an Idea part with no body", "where the data comes from", "what happens after an interaction"], body.scaffold?.stats ?? null)}`
+    : "";
+  content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}${scaffolded}` : ""}${markdown.trim() ? `\n\n---\n\n${markdown}` : ""}` });
 
   /*
    * The upstream gets a deadline, and so does the whole route.
