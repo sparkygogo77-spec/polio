@@ -70,11 +70,17 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
     />
   );
   /*
-   * A part is a box unless the author said otherwise — drew a circle round
+   * A part is a box unless the author said otherwise — drew a line round
    * it, or picked a shape. Then it is cut to that shape here rather than in
    * the part, because every one of the two hundred and twenty-five would
    * otherwise have to know how to be round.
+   *
+   * Two ways, and the exact one wins. `outline` is the line as it was
+   * actually drawn, kept in the part's own box, so a helix or a star crops
+   * the part to a helix or a star; `shape` is the five shapes worth naming,
+   * and is what a part gets when someone picks one from a menu.
    */
+  if (node.outline) return <Cut node={node}>{part}</Cut>;
   if (!node.shape || node.shape === "box") return part;
   return (
     <div
@@ -85,6 +91,36 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       }}
     >
       {part}
+    </div>
+  );
+}
+
+/**
+ * The part, cropped to the line that was drawn round it.
+ *
+ * `clipPath: url(#…)` against an inline `clipPath` in `objectBoundingBox`
+ * units: the path is 0..1 in each axis, so it stretches with the part and
+ * needs no recomputing when the part is resized. An open line was walked
+ * into a closed band before it got here (`outlinePath`), so there is one
+ * mechanism rather than a clip and a mask — browsers agree about clipping
+ * an HTML element and do not agree about masking one.
+ */
+function Cut({ node, children }: { node: StudioNode; children: React.ReactNode }) {
+  const id = `cut-${node.id}`;
+  return (
+    <div
+      data-shape={node.outline!.closed ? "outline" : "stroke"}
+      data-outline-points={node.outline!.points}
+      style={{ width: "100%", height: "100%", overflow: "hidden", clipPath: `url(#${id})`, WebkitClipPath: `url(#${id})` } as React.CSSProperties}
+    >
+      <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>
+        <defs>
+          <clipPath id={id} clipPathUnits="objectBoundingBox">
+            <path d={node.outline!.cut} />
+          </clipPath>
+        </defs>
+      </svg>
+      {children}
     </div>
   );
 }

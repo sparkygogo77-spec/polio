@@ -177,6 +177,8 @@ const CIRCLE_TOLERANCE = 1.18;
 export interface Boundary {
   /** The box the part fills, edge to edge. */
   box: SketchBox;
+  /** The closed line that bounds it, when one did. The exact edge, not the box round it. */
+  stroke: SketchPoint[] | null;
   /** The shape of the outline that bounds it. */
   shape: BoundaryShape;
   /** Width over height of that box: the proportion the part is held to. */
@@ -224,7 +226,160 @@ export function readBoundary(sketch: Sketch): Boundary | null {
     if (out) crossing++;
     else inside++;
   }
-  return { box: bound, shape, aspect: boxAspect(bound), outlined, inside, crossing };
+  return { box: bound, shape, stroke: outlined ? outline : null, aspect: boxAspect(bound), outlined, inside, crossing };
+}
+
+/* ------------------------------------------------------------------ */
+/* The exact edge                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The drawn line as a path in the part's own box.
+ *
+ * A circle round a part made it round and a square made it square, but a
+ * helix, a star or anything else became a rectangle: the shape was named
+ * from a handful of buckets and everything that fitted none of them was
+ * thrown away. This keeps the line itself. The points are put in the box's
+ * own frame — 0 to 1 in each axis, which is what `objectBoundingBox` wants
+ * — and smoothed into curves, so what crops the part is what was drawn.
+ *
+ * A closed line is a **clip**: the part is cut to the inside of it. An open
+ * one has no inside, so it is a **mask** the thickness of the stroke: what
+ * was drawn is what shows, and the width is a share of the box's short side
+ * so it holds at any size.
+ */
+export interface OutlineClip {
+  /** The line itself, in the part's box: 0..1 in x and y. */
+  d: string;
+  /** Closed: the line surrounds the part. Open: it is a stroke through it. */
+  closed: boolean;
+  /**
+   * What actually cuts the part: always a closed path, so one mechanism
+   * (`clip-path`) does both jobs. For a closed line it is the line; for an
+   * open one it is the band walked up one side of the stroke and back down
+   * the other. A mask would have been the other way, and browsers disagree
+   * about masking an HTML element with an inline SVG mask.
+   */
+  cut: string;
+  /** For an open line, how wide the band is, as a share of the box. */
+  width: number;
+  /** How many points the line was kept at. For the blueprint, and for a test to hold. */
+  points: number;
+}
+
+/** How close two points may be, in box widths, before the second is dropped. */
+const CLIP_GAP = 0.008;
+/** The most points a clip is kept at. A path nobody can read is a path nothing can use. */
+const CLIP_MAX = 96;
+/** An open line's band, as a share of the short side. Thick enough to read as a stroke. */
+export const CLIP_STROKE = 0.16;
+/** A closed line is only worth cutting to when it is not simply the box. */
+const CLIP_WORTH = 0.985;
+
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
+
+/**
+ * A smooth path through the points, as cubic curves.
+ *
+ * Catmull-Rom through every point, turned into beziers — the line goes
+ * *through* what was drawn rather than near it, which matters when the
+ * thing being cut out is the drawing.
+ */
+function curveThrough(pts: SketchPoint[], closed: boolean): string {
+  if (pts.length < 2) return "";
+  const at = (i: number): SketchPoint => {
+    if (closed) return pts[((i % pts.length) + pts.length) % pts.length]!;
+    return pts[Math.max(0, Math.min(pts.length - 1, i))]!;
+  };
+  let d = `M ${round4(at(0)[0])} ${round4(at(0)[1])}`;
+  const last = closed ? pts.length : pts.length - 1;
+  for (let i = 0; i < last; i++) {
+    const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+    const c1: SketchPoint = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: SketchPoint = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C ${round4(c1[0])} ${round4(c1[1])}, ${round4(c2[0])} ${round4(c2[1])}, ${round4(p2[0])} ${round4(p2[1])}`;
+  }
+  return closed ? `${d} Z` : d;
+}
+
+/**
+ * A band along an open line: up one side and back down the other.
+ *
+ * The normal at each point is the average of the two segments meeting
+ * there, which keeps the band the same width round a corner instead of
+ * pinching it.
+ */
+function bandPath(pts: SketchPoint[], half: number): string {
+  const n = pts.length;
+  const normals: SketchPoint[] = pts.map((_, i) => {
+    const a = pts[Math.max(0, i - 1)]!;
+    const b = pts[Math.min(n - 1, i + 1)]!;
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    return [-dy / len, dx / len];
+  });
+  const side = (sign: number) => pts.map((p, i) => [p[0] + normals[i]![0] * half * sign, p[1] + normals[i]![1] * half * sign] as SketchPoint);
+  const up = side(1);
+  const down = side(-1).reverse();
+  const all = [...up, ...down];
+  const clamp = (v: number) => Math.max(-0.05, Math.min(1.05, v));
+  let d = `M ${round4(clamp(all[0]![0]))} ${round4(clamp(all[0]![1]))}`;
+  for (let i = 1; i < all.length; i++) d += ` L ${round4(clamp(all[i]![0]))} ${round4(clamp(all[i]![1]))}`;
+  return `${d} Z`;
+}
+
+/** How much of its own box a closed line fills: a box fills all of it. */
+function fillShare(pts: SketchPoint[]): number {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const [x1, y1] = pts[i]!;
+    const [x2, y2] = pts[(i + 1) % pts.length]!;
+    a += x1 * y2 - x2 * y1;
+  }
+  return Math.abs(a) / 2;
+}
+
+/**
+ * The part's exact edge, in its own box, or nothing when the drawing says
+ * no more than "a box this shape".
+ */
+export function outlinePath(sketch: Sketch): OutlineClip | null {
+  const b = readBoundary(sketch);
+  if (!b || b.box.w < 1e-4 || b.box.h < 1e-4) return null;
+  // The closed outline if there is one; otherwise the longest line drawn,
+  // which is the thing the drawing is about.
+  const open = !b.stroke;
+  const line = b.stroke ?? sketch.strokes.filter((s) => s.length >= 2).sort((x, y) => y.length - x.length)[0] ?? null;
+  if (!line) return null;
+  const box = open ? (sketchBox([line]) ?? b.box) : b.box;
+  if (box.w < 1e-4 || box.h < 1e-4) return null;
+
+  // Into the box's own frame, and thinned: a hundred points a millimetre
+  // apart is a path nobody can read and a clip nothing can use.
+  const kept: SketchPoint[] = [];
+  for (const [x, y] of line) {
+    const p: SketchPoint = [(x - box.x) / box.w, (y - box.y) / box.h];
+    const prev = kept[kept.length - 1];
+    if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) < CLIP_GAP) continue;
+    kept.push([Math.max(0, Math.min(1, p[0])), Math.max(0, Math.min(1, p[1]))]);
+  }
+  if (kept.length < 3) return null;
+  // Thinned to something a browser can cut with and a person can read.
+  while (kept.length > CLIP_MAX) {
+    for (let i = kept.length - 2; i > 0; i -= 2) kept.splice(i, 1);
+  }
+  // A closed line that ends where it began does not need the last point
+  // twice: the path closes itself.
+  if (!open && kept.length > 3) {
+    const [fx, fy] = kept[0]!;
+    const [lx, ly] = kept[kept.length - 1]!;
+    if (Math.hypot(lx - fx, ly - fy) < 0.05) kept.pop();
+  }
+  // Cutting a part to a rectangle is cutting nothing.
+  if (!open && fillShare(kept) > CLIP_WORTH) return null;
+  const d = curveThrough(kept, !open);
+  return { d, closed: !open, cut: open ? bandPath(kept, CLIP_STROKE / 2) : d, width: CLIP_STROKE, points: kept.length };
 }
 
 /**

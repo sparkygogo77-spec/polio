@@ -23,7 +23,7 @@ import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
 import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
-import { describeSketch, fitToSketch, readBoundary, type Sketch, type SketchPoint } from "./sketch";
+import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
 
@@ -213,8 +213,10 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
     h,
     options,
     sketch: drawn,
-    // A circle drawn round something makes it a circle, not a square.
+    // A circle drawn round something makes it a circle, not a square — and
+    // anything the five names do not cover is cut to the line itself.
     ...(made.shape ? { shape: made.shape === "box" ? null : made.shape } : {}),
+    outline: outlinePath(drawn),
     ...(made.content != null ? { content: made.content } : {}),
     ...(made.prompt != null ? { prompt: made.prompt } : {}),
     // A part that became another kind is a custom idea exactly when `addNode` would say so.
@@ -246,7 +248,7 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
         : b?.shape === "rounded box" ? "rounded"
           : b?.shape === "box" ? null
             : undefined;
-  const shaped: Partial<StudioNode> = shape === undefined ? {} : { shape };
+  const shaped: Partial<StudioNode> = { ...(shape === undefined ? {} : { shape }), outline: outlinePath(drawn) };
   if (node) {
     const fitted = fitToSketch(drawn, node.w, node.h, frameWidth);
     const side = Math.round(Math.sqrt(Math.max(40 * 24, fitted.w * fitted.h)));

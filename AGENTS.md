@@ -278,6 +278,20 @@ a kicker with a rule, and label-and-value rows that copy.
 - A drawn region with words on it and nothing inside is a *section*: it takes
   a row in "Layout, top to bottom" and is built from its prompt. A region with
   parts in it groups them; an empty, unnamed one is ignored.
+- **Any closed line becomes the part's exact edge.** `shape` names the five
+  shapes worth naming (box, rounded, circle, ellipse) and everything else —
+  a helix, a star, a scrawl — used to become a rectangle with the drawing
+  thrown away. `outlinePath` (`sketch.ts`) keeps the line itself: put in the
+  part's own box, 0..1 in each axis, smoothed into cubics, thinned to at
+  most 96 points, and stored on the node as `outline`. `blocks.tsx` cuts the
+  part to it with `clip-path: url(#…)` against an inline `clipPath` in
+  `objectBoundingBox` units, so it stretches with the part and never needs
+  recomputing. An **open** line has no inside, so it is walked into a closed
+  band of the stroke's own thickness first — one mechanism, because browsers
+  agree about clipping an HTML element and disagree about masking one. A
+  rectangle yields no clip at all: cutting a box to a box is cutting
+  nothing. `tests/outline-clip.mjs` holds the star, the helix, the spiral,
+  the box and the empty cases.
 - **The Blueprint and the Trail are one page: the iteration book.**
   `BriefDialog.tsx` is one `Book` component in three shapes — a dialog over
   the board, a panel pinned open beside it (`store.bookPinned`, no overlay,
