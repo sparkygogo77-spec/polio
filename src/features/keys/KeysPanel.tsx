@@ -225,7 +225,7 @@ type Tried = { ok: boolean; message: string; source?: string } | { busy: true } 
 type TriedBy = Partial<Record<ServiceId, Tried>>;
 
 function Vault({ server }: { server: ServerStatus | null }) {
-  const { values, save, busy, lock, changePin, destroy, touch, held, kept, keep, create } = useKeys();
+  const { values, save, busy, lock, changePin, destroy, touch, held, kept, keep, create, plain, forget, sealedWaiting, bringAcross } = useKeys();
   const ctx = useActions();
   const [draft, setDraft] = React.useState<Record<string, string>>(values);
   const [shown, setShown] = React.useState<Record<string, boolean>>({});
@@ -372,7 +372,34 @@ function Vault({ server }: { server: ServerStatus | null }) {
           </ul>
         </section>
 
-        {held ? (
+        {plain ? (
+          <section className="rounded-lg border border-border bg-elevated/50 p-3">
+            <h3 className="mb-2 text-[12px] font-semibold text-fg">How this is kept</h3>
+            <p className="text-[11px] leading-relaxed text-fg-muted">
+              In this browser, in the clear, until you forget it: across reloads and across tabs, on this machine only. It is
+              never sent anywhere but this app&rsquo;s own routes, and only when the server has no key of its own. Anything that can
+              read this browser&rsquo;s storage can read it, which is why the right place for a key is still the server.
+            </p>
+            {sealedWaiting ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                <span className="text-[11px] text-fg-muted">There is a key here sealed under a PIN. Type it once to bring it across:</span>
+                <Input inputSize="sm" inputMode="numeric" maxLength={4} value={pinning} placeholder="four digits" onChange={(e) => setPinning(e.target.value.replace(/\D/g, "").slice(0, 4))} className="w-28" />
+                <Button variant="outline" size="sm" disabled={!isPin(pinning) || busy} onClick={() => void bringAcross(pinning).then((ok) => ok && setPinning(""))}>Bring it across</Button>
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <span className="text-[10px] text-fg-faint">A PIN is available under Settings › Keys, off by default.</span>
+              <span className="flex-1" />
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => void ctx.confirm({ title: "Forget the key?", body: "It goes from this browser now. Keys on the server are untouched.", danger: true, confirmLabel: "Forget it" }).then((ok) => ok && forget())}
+              >
+                <Trash2 /> Forget the key
+              </Button>
+            </div>
+          </section>
+        ) : held ? (
           <section className="rounded-lg border border-border bg-elevated/50 p-3">
             <h3 className="mb-2 text-[12px] font-semibold text-fg">Held for this tab</h3>
             <div className="flex flex-wrap items-center gap-2">
@@ -419,7 +446,11 @@ function Vault({ server }: { server: ServerStatus | null }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2.5">
-        <Button variant="ghost" size="sm" onClick={lock}>{held ? <><Trash2 /> Forget</> : <><Lock /> Lock</>}</Button>
+        {plain ? (
+          <Button variant="ghost" size="sm" onClick={forget}><Trash2 /> Forget the key</Button>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={lock}>{held ? <><Trash2 /> Forget</> : <><Lock /> Lock</>}</Button>
+        )}
         <span className="flex-1" />
         {saved ? <span className="flex items-center gap-1 text-[11px] text-up"><Check className="size-3" /> saved</span> : null}
         <Button variant="primary" size="sm" disabled={!dirty} loading={busy} onClick={() => void commit()}>{held ? "Hold in this tab" : "Save to this browser"}</Button>
@@ -435,7 +466,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
 export function KeysPanel() {
   const open = useUi((s) => s.panels.keys);
   const closePanel = useUi((s) => s.closePanel);
-  const { exists, unlocked, held, kept, refresh, lock, lastTouch } = useKeys();
+  const { exists, unlocked, held, kept, plain, refresh, lock, lastTouch } = useKeys();
   const [server, setServer] = React.useState<ServerStatus | null>(null);
 
   React.useEffect(() => { refresh(); }, [refresh]);
@@ -447,10 +478,10 @@ export function KeysPanel() {
 
   // Idle relock, and Escape.
   React.useEffect(() => {
-    if (!unlocked || held || kept) return;
+    if (!unlocked || held || kept || plain) return;
     const t = window.setInterval(() => { if (Date.now() - lastTouch > IDLE_MS) lock(); }, 15_000);
     return () => window.clearInterval(t);
-  }, [unlocked, held, kept, lastTouch, lock]);
+  }, [unlocked, held, kept, plain, lastTouch, lock]);
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closePanel("keys"); };
@@ -477,9 +508,9 @@ export function KeysPanel() {
           <KeyRound className={cn("size-4", unlocked ? "text-accent" : "text-fg-muted")} />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-fg">Keys</h2>
-            <p className="truncate text-[11px] text-fg-muted">{unlocked ? (held ? "Held for this tab." : kept ? "Open, and kept for this tab." : "Open. Lock it when you are done.") : exists ? "Locked." : "Nothing kept in this browser yet."}</p>
+            <p className="truncate text-[11px] text-fg-muted">{unlocked ? (plain ? (exists ? "Held in this browser." : "Nothing kept in this browser yet.") : held ? "Held for this tab." : kept ? "Open, and kept for this tab." : "Open. Lock it when you are done.") : exists ? "Locked." : "Nothing kept in this browser yet."}</p>
           </div>
-          {unlocked ? <Badge variant="accent" size="sm">{held ? <Unlock className="size-3" /> : <LockOpen className="size-3" />} {held ? "held" : kept ? "kept" : "open"}</Badge> : null}
+          {unlocked && !plain ? <Badge variant="accent" size="sm">{held ? <Unlock className="size-3" /> : <LockOpen className="size-3" />} {held ? "held" : kept ? "kept" : "open"}</Badge> : null}
           <Button variant="ghost" size="icon" aria-label="Close keys" onClick={() => closePanel("keys")}><X /></Button>
         </header>
 
@@ -493,13 +524,13 @@ export function KeysPanel() {
 export function KeysButton() {
   const ctx = useActions();
   const openPanel = useUi((s) => s.panels.keys);
-  const { unlocked, held, kept, exists, refresh } = useKeys();
+  const { unlocked, held, kept, plain, exists, refresh } = useKeys();
   React.useEffect(() => { refresh(); }, [refresh]);
   return (
-    <Tooltip content={unlocked ? (held ? "Keys — held for this tab" : kept ? "Keys — kept for this tab" : "Keys — open") : exists ? "Keys — locked" : "Keys"} shortcut="mod+shift+k">
+    <Tooltip content={plain ? (exists ? "Keys — held in this browser" : "Keys") : unlocked ? (held ? "Keys — held for this tab" : kept ? "Keys — kept for this tab" : "Keys — open") : exists ? "Keys — locked" : "Keys"} shortcut="mod+shift+k">
       <Button variant={openPanel ? "subtle" : "ghost"} size="icon" aria-label="Keys" onClick={() => ctx.togglePanel("keys")} className="relative">
         <KeyRound />
-        {unlocked ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" /> : null}
+        {unlocked && (!plain || exists) ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" /> : null}
       </Button>
     </Tooltip>
   );

@@ -33,6 +33,7 @@ import { Button } from "@/core/ui/button";
 import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
+import { screenFace, SCREEN } from "@/core/ui/void";
 import { toRows } from "./spec";
 import { useStudio } from "./store";
 import { chainLines } from "./links";
@@ -819,11 +820,9 @@ function Pane({
         </Button>
       </div>
       <div
-        className={cn(
-          "overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-elevated p-2 text-[11px] leading-relaxed text-fg-muted",
-          mono && "font-mono text-[10px]",
-          bodyClassName,
-        )}
+        // A screen, like every other box of words in the Builder.
+        className={cn("overflow-auto whitespace-pre-wrap break-words rounded p-2 text-[11px] leading-relaxed", mono && "font-mono text-[10px]", bodyClassName)}
+        style={{ ...screenFace, color: SCREEN.ink }}
       >
         {text}
       </div>

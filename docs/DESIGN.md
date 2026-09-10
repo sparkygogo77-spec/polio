@@ -197,9 +197,10 @@ same boxes as everywhere else, in the screen's colours.
   with Take it on any finding that carries a prompt. A critique you can only
   copy is a critique nobody applies.
 - **The browser holds only what a browser request can carry.** The Claude
-  key rides as a header on the studio routes, so the vault offers it, two
-  ways: sealed under a PIN (needs https or localhost) or held for the tab
-  with no PIN. GitHub, X and Vercel are read by the server alone; a field for
+  key rides as a header on the studio routes, so the vault holds it: in this
+  browser, in the clear, with no PIN in the way and a plain Forget to end it.
+  (A PIN — sealed, or held for the tab — is a setting away for anyone who
+  wants one, and needs https or localhost for Web Crypto.) GitHub, X and Vercel are read by the server alone; a field for
   them in the browser would be a promise the app cannot keep, so the panel
   names them as server-only instead. The GitHub mark in the top bar is a
   link to `repository` in `site.config.ts`, never a login. A "Try it" beside

@@ -29,6 +29,11 @@ const check = (name, ok, detail = "") => {
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
+// The PIN is off by default now: this test is about the vault that is still
+// there behind the setting, so it turns it on before the app loads.
+const PIN_ON = { state: { values: { "keys.pin": true }, advanced: true }, version: 0 };
+await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
+await page.evaluate((v) => localStorage.setItem("builder.settings", JSON.stringify(v)), PIN_ON);
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 
 const panel = page.locator("[data-keys-panel]");

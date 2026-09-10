@@ -32,35 +32,25 @@
  * goes to it, the same tray the wheel has.
  */
 import * as React from "react";
-import { Eraser, LoaderCircle, Magnet, PenLine, Sparkles, Spline, Undo2 } from "lucide-react";
+import { Eraser, Magnet, PenLine, Sparkles, Spline, Undo2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
 import { useSetting } from "@/core/settings/useSetting";
-import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
-import { describeSketch, fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
-import { keyHeader, noKeyMessage } from "./agent";
-import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
-import { useStudio, type NodeShape, type StudioNode } from "./store";
+import { DRIFT_MS as GROUND_MS, paintDarkMatter, resizeField, sparkField, type SparkField } from "./darkMatter";
+import { HALO, paintBlackHole, paintHorizonShadow } from "./blackHole";
+import { describeSketch, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { pictureOf } from "./reshapeRun";
+import { useStudio, type StudioNode } from "./store";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
 const INK_HUE = 205;
 /** How far under the disc's edge the tray hangs. */
 const TRAY_DROP = 22;
-/** How often the void moves. Slow enough to be nothing, often enough to be smooth. */
-const DRIFT_MS = 110;
-
-/** The catalog as the answer check reads it: the entry without its icon. */
-const kindInfo = (id: string): KindInfo | null => {
-  const f = getFeature(id);
-  if (!f) return null;
-  return {
-    id: f.id, name: f.name, w: f.w ?? 132, h: f.h ?? 76,
-    options: (f.options ?? []).map((o) => ({ id: o.id, values: o.values, kind: o.kind, range: o.range ? { min: o.range.min, max: o.range.max } : undefined })),
-  };
-};
+/** How often the ground moves: the same clock the add disc's own weather keeps. */
+const DRIFT_MS = GROUND_MS;
 
 export interface DrawBoardProps {
   /** The part being reshaped, or null when the board is drawing a new one. */
@@ -81,9 +71,10 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   // Snap, smooth or raw: a setting, so the board remembers, and a switch on the rim, so it is one press away.
   const [drawMode, setDrawMode] = useSetting<DrawMode>("studio.drawMode");
   const [read, setRead] = React.useState<string | null>(null);
-  const [busy, setBusy] = React.useState(false);
   const [note, setNote] = React.useState<string | null>(null);
   const canvas = React.useRef<HTMLCanvasElement>(null);
+  const halo = React.useRef<HTMLCanvasElement>(null);
+  const field = React.useRef<SparkField | null>(null);
   const live = React.useRef<SketchPoint[] | null>(null);
   const frame = React.useRef(0);
   // When the board was opened: the void's clock starts from there.
@@ -103,9 +94,33 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       el.height = size * dpr;
     }
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintSpace(c, size, (performance.now() - born.current) / 1000);
+    const t = (performance.now() - born.current) / 1000;
+    /*
+     * The face is the hub's own ground — the same clouds and embers the add
+     * disc opens into (`darkMatter.ts`), the same generator, drawn as a
+     * disc. The board and the hole you pull parts out of are one place.
+     */
+    field.current = field.current && field.current.w === size ? field.current : sparkField("disc", size, size);
+    field.current = resizeField(field.current, size, size);
+    paintDarkMatter(c, { field: field.current, t, vignette: false });
     for (const s of strokes) paintStroke(c, s, size);
     if (live.current) paintStroke(c, live.current, size);
+    // The horizon, over everything: the surface falls to black at the rim.
+    paintHorizonShadow(c, size);
+
+    // And outside the disc, the light that got away.
+    const hl = halo.current;
+    const hc = hl?.getContext("2d");
+    if (hl && hc) {
+      const box = size + HALO * 2;
+      if (hl.width !== box * dpr || hl.height !== box * dpr) {
+        hl.width = box * dpr;
+        hl.height = box * dpr;
+      }
+      hc.setTransform(dpr, 0, 0, dpr, 0, 0);
+      hc.clearRect(0, 0, box, box);
+      paintBlackHole(hc, { cx: box / 2, cy: box / 2, r: size / 2, t });
+    }
   }, [strokes, size]);
 
   React.useEffect(paint, [paint]);
@@ -131,7 +146,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     return [(e.clientX - r.left) / Math.max(1, r.width), (e.clientY - r.top) / Math.max(1, r.height)];
   };
   const begin = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.button !== 0 || busy) return;
+    if (e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     live.current = [toBoard(e)];
@@ -164,166 +179,39 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const sketch = (): Sketch => ({ strokes, words: words.trim() });
   const blank = isBlankSketch({ strokes, words });
 
-  const makeReal = async () => {
-    if (blank || busy) return;
+  /*
+   * Make real: the drawing goes on the queue and the board closes.
+   *
+   * It used to hold the board open for the whole call — half a minute of a
+   * disc you could not draw on. A drawing is a request, not a modal: the
+   * queue runs them one at a time (`DrawQueue`), the counter on the toolbar
+   * says how many are on their way, and the board is yours again.
+   */
+  const makeReal = () => {
+    if (blank) return;
     const drawn = sketch();
-    setBusy(true);
-    setNote(null);
     play("confirm");
-    const s = useStudio.getState();
-    const feature = node ? getFeature(node.featureId) : null;
-    try {
-      const res = await fetch("/api/studio/reshape", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...keyHeader() },
-        body: JSON.stringify({
-          sketch: drawn,
-          picture: pictureOf(drawn.strokes),
-          frameWidth,
-          node: node
-            ? {
-                featureId: node.featureId,
-                feature: feature?.name ?? node.label,
-                label: node.label,
-                w: node.w,
-                h: node.h,
-                prompt: node.prompt,
-                content: node.content,
-                data: node.data,
-                options: node.options,
-                optionsAllowed: (feature?.options ?? []).map((o) => ({
-                  id: o.id, label: o.label, kind: o.kind ?? "one",
-                  // A range has no list of values to offer: it has two ends.
-                  values: o.kind === "range" && o.range ? [`${o.range.min}\u2013${o.range.max}${o.range.unit ?? ""}`] : o.values,
-                })),
-                contentLabel: feature?.content?.label ?? null,
-              }
-            : null,
-          candidates: FEATURES.map((f) => ({ id: f.id, name: f.name, category: f.category, w: f.w, h: f.h, blurb: f.blurb })),
-        }),
-      });
-      const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string; usage?: { model?: string } };
-      if (data.ok && data.patch) {
-        const made = apply(data.patch, drawn);
-        // A drawing read is an API call that landed, so it is a thread too:
-        // the words that went with the drawing, the note that came back, and
-        // what it did to the part.
-        s.landThread({
-          mode: "drawing",
-          model: data.usage?.model,
-          ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
-          answer: data.patch.note ?? "",
-          changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : [])],
-        });
-        ctx.publish({
-          key: `studio:reshape:${made.id}`,
-          title: node ? `Reshaped ${made.label}` : `Drew ${made.label}`,
-          body: [
-            `${made.w} × ${made.h}`,
-            made.kindChanged ? `now ${made.kind}` : null,
-            made.shape && made.shape !== "box" ? `cut to ${made.shape === "rounded" ? "a rounded box" : `${made.shape === "circle" ? "a" : "an"} ${made.shape}`}` : null,
-            made.reproportioned ? "held to the drawing's proportion" : null,
-            data.patch.note,
-          ].filter(Boolean).join(" · "),
-          level: "success",
-          source: "studio",
-          toast: true,
-        });
-        onDone();
-        return;
-      }
-      // No key, a refusal, a bad reply: the drawing still shapes the part.
-      const made = applyProportion(drawn);
-      if (data.reason === "no-key") ctx.openPanel("keys");
-      ctx.publish({
-        key: `studio:reshape:${made.id}`,
-        title: node ? `Reshaped ${made.label} from the drawing` : `Drew ${made.label} from the drawing`,
-        body:
-          data.reason === "no-key"
-            ? noKeyMessage("For now the part took the drawing's proportion and the drawing went into the blueprint.")
-            : data.message ?? "Claude couldn't read it, so the part took the drawing's proportion.",
-        level: "warn",
-        source: "studio",
-        toast: true,
-      });
-      onDone();
-    } catch (err) {
-      // The request itself failed. Keep the drawing on the part and stay.
-      if (node) s.updateNode(node.id, { sketch: drawn });
-      setNote(err instanceof Error ? err.message : "Couldn't reach the reshape route.");
-      play("deny");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */
-  const apply = (patch: ReshapePatch, drawn: Sketch) => {
-    const s = useStudio.getState();
-    // The proportion held is the boundary's: the outline the author drew round
-    // the part, not the box round every mark that fell outside it.
-    const bounds = readBoundary(drawn);
-    const made = checkAnswer({ patch, node, drawn, aspect: bounds?.aspect ?? 1, outline: bounds?.shape, frameWidth, kind: kindInfo });
-    const { featureId, label, w, h, options, kindChanged, reproportioned } = made;
-    const shared: Partial<StudioNode> = {
-      featureId,
-      label,
-      w,
-      h,
-      options,
+    const label = (drawn.words.trim().slice(0, 40) || (node ? node.label : describeSketch({ strokes: drawn.strokes, words: "" }))) || "a drawing";
+    useStudio.getState().enqueueDraw({
+      nodeId: node?.id ?? null,
+      at,
+      frameWidth,
       sketch: drawn,
-      // A circle drawn round something makes it a circle, not a square.
-      ...(made.shape ? { shape: made.shape === "box" ? null : made.shape } : {}),
-      ...(made.content != null ? { content: made.content } : {}),
-      ...(made.prompt != null ? { prompt: made.prompt } : {}),
-      // A part that became another kind is a custom idea exactly when `addNode` would say so.
-      ...(kindChanged ? { custom: made.custom } : {}),
-    };
-    const kind = getFeature(featureId)?.name ?? label;
-    if (node) {
-      s.updateNode(node.id, { ...shared, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
-      return { id: node.id, label, w, h, kind, kindChanged, reproportioned, shape: made.shape };
-    }
-    const where = at ?? { x: frameWidth / 2, y: 200 };
-    const id = s.addNode(featureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
-    return { id, label, w, h, kind, kindChanged, reproportioned, shape: made.shape };
-  };
-
-  /** No reader: the drawing's proportion is the reshape, and the drawing is kept. */
-  const applyProportion = (drawn: Sketch) => {
-    const s = useStudio.getState();
-    const b = readBoundary(drawn);
-    /*
-     * The shape needs no reader either: it was measured off the drawing.
-     * With no key the part still comes out round when a circle was drawn
-     * round it, and square when the circle was a square.
-     */
-    const shape: NodeShape | null | undefined =
-      b?.shape === "circle" ? "circle"
-        : b?.shape === "ellipse" ? "ellipse"
-          : b?.shape === "rounded box" ? "rounded"
-            : b?.shape === "box" ? null
-              : undefined;
-    const shaped: Partial<StudioNode> = shape === undefined ? {} : { shape };
-    if (node) {
-      const fitted = fitToSketch(drawn, node.w, node.h, frameWidth);
-      const side = Math.round(Math.sqrt(Math.max(40 * 24, fitted.w * fitted.h)));
-      const w = shape === "circle" ? side : fitted.w;
-      const h = shape === "circle" ? side : fitted.h;
-      s.updateNode(node.id, { w, h, sketch: drawn, ...shaped, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
-      return { id: node.id, label: node.label, w, h };
-    }
-    // A new part with nothing to keep the area of: the board is read as the
-    // page, so a boundary across a third of it is a part across a third of
-    // the frame.
-    const w = clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
-    const h = shape === "circle" ? w : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
-    const label = text(drawn.words, 40) || "Drawn part";
-    const where = at ?? { x: frameWidth / 2, y: 200 };
-    const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
-      w, h, label, prompt: drawn.words, sketch: drawn, ...shaped,
+      picture: pictureOf(drawn.strokes),
+      label: node ? `Reshaping ${label}` : `Making ${label}`,
     });
-    return { id, label, w, h };
+    // The drawing is on the part the moment it is queued, so nothing is lost
+    // if the read never comes back and the blueprint has it either way.
+    if (node) useStudio.getState().updateNode(node.id, { sketch: drawn });
+    ctx.publish({
+      key: "studio:queued",
+      title: node ? `${node.label} is on the queue` : "The drawing is on the queue",
+      body: "The board is yours again; the counter on the toolbar says when it lands.",
+      level: "info",
+      source: "studio",
+      toast: true,
+    });
+    onDone();
   };
 
   /* ---------------------------------------------------------- the disc */
@@ -340,6 +228,18 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       style={{ left: -BOARD_R, top: -BOARD_R, width: size, height: size, animation: "el-grow 160ms ease-out" }}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {/*
+        The light outside the hole: a wider canvas behind the disc, so the
+        photon ring and the beamed disc have somewhere to be. It takes no
+        presses — every pixel of the board itself is drawing surface.
+      */}
+      <canvas
+        ref={halo}
+        aria-hidden
+        className="pointer-events-none absolute"
+        style={{ left: -HALO, top: -HALO, width: size + HALO * 2, height: size + HALO * 2 }}
+      />
+
       {/* the disc */}
       <canvas
         ref={canvas}
@@ -350,19 +250,12 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         style={{
           width: size,
           height: size,
-          cursor: busy ? "progress" : "crosshair",
-          // The horizon: a black hole's ring, small and dim. A hair of
-          // orange-red right at the edge, and past it the same light spread
-          // thin and thinner, gone within a few tens of pixels. No lit rim,
-          // no dark bands: the disc is the hole and the glow is the only
-          // thing that says where it ends.
-          boxShadow: [
-            "0 0 0 1px oklch(0.58 0.17 38 / 0.55)",
-            "0 0 5px 1.5px oklch(0.62 0.19 35 / 0.32)",
-            "0 0 16px 5px oklch(0.52 0.17 30 / 0.2)",
-            "0 0 36px 12px oklch(0.42 0.14 26 / 0.12)",
-            "0 12px 40px oklch(0 0 0 / 0.45)",
-          ].join(", "),
+          cursor: "crosshair",
+          // The edge is painted, not shadowed: the photon ring, the beamed
+          // disc and the bent slivers are all on the canvas behind this one
+          // (`blackHole.ts`). All that is left here is what the hole does to
+          // the screen behind it.
+          boxShadow: "0 18px 60px oklch(0 0 0 / 0.75)",
         }}
         onPointerDown={begin}
         onPointerMove={move}
@@ -425,7 +318,6 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           inputSize="sm"
           data-draw-words=""
           value={words}
-          disabled={busy}
           aria-label="Words to go with the drawing"
           placeholder="Words, if the drawing isn't enough"
           className="h-6 border-[oklch(0.36_0.06_290)] bg-[oklch(0.13_0.03_288/0.85)] text-[10px] text-[oklch(0.92_0.02_285)] placeholder:text-[oklch(0.55_0.03_285)]"
@@ -448,12 +340,12 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       <HoverTray
         testId="draw"
         at={[BOARD_R, size + TRAY_DROP]}
-        lit={!blank && !busy}
-        icon={busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+        lit={!blank}
+        icon={<Sparkles className="size-3.5" />}
         label={blank ? "Draw something first" : "Make real"}
         items={[
-          { id: "make", label: busy ? "Making…" : "Make real", icon: busy ? <LoaderCircle className="size-3 animate-spin" /> : <Sparkles className="size-3" />, primary: true, disabled: blank || busy, onClick: () => void makeReal() },
-          { id: "clear", label: "Clear the board", icon: <Eraser className="size-3" />, disabled: !strokes.length || busy, onClick: clear },
+          { id: "make", label: "Make real", icon: <Sparkles className="size-3" />, primary: true, disabled: blank, onClick: makeReal },
+          { id: "clear", label: "Clear the board", icon: <Eraser className="size-3" />, disabled: !strokes.length, onClick: clear },
         ]}
       />
     </div>
@@ -488,83 +380,6 @@ export function RimButton({ at, label, onClick, disabled, children, testId }: { 
 /* Paint                                                               */
 /* ------------------------------------------------------------------ */
 
-/**
- * The void, at a moment `t` seconds after the board opened.
- *
- * A dark purple-blue over the whole face; under it, four wide clouds of
- * slightly different dark violets and blues, each on its own very slow orbit
- * — the fastest takes about a minute and a half to go round — so the surface
- * moves the way deep water does, without ever being seen to move. No stars:
- * a scatter of points on a drawing surface is a scatter of things to draw
- * round. One warm point at the middle, small and bright, in a little glow
- * that breathes over half a minute — the one place to start from. And the
- * edge is dark: the last sixth of the radius falls off to near black, so
- * the disc reads as a hole in the screen rather than a plate on it.
- */
-function paintSpace(c: CanvasRenderingContext2D, size: number, t: number) {
-  const r = size / 2;
-  c.clearRect(0, 0, size, size);
-  c.save();
-  c.beginPath();
-  c.arc(r, r, r, 0, Math.PI * 2);
-  c.clip();
-
-  // The ground.
-  const ground = c.createRadialGradient(r, r, r * 0.05, r, r, r);
-  ground.addColorStop(0, "oklch(0.19 0.05 288)");
-  ground.addColorStop(0.55, "oklch(0.155 0.045 290)");
-  ground.addColorStop(1, "oklch(0.12 0.04 292)");
-  c.fillStyle = ground;
-  c.fillRect(0, 0, size, size);
-
-  // The dark matter: four clouds on slow orbits.
-  const cloud = (cx: number, cy: number, rad: number, colour: string) => {
-    const g = c.createRadialGradient(cx, cy, 0, cx, cy, rad);
-    g.addColorStop(0, colour);
-    g.addColorStop(0.55, colour.replace(/\/ [\d.]+\)$/, "/ 0.1)"));
-    g.addColorStop(1, "oklch(0 0 0 / 0)");
-    c.fillStyle = g;
-    c.fillRect(0, 0, size, size);
-  };
-  const TAU = Math.PI * 2;
-  const clouds: [number, number, number, number, number, string][] = [
-    // [orbit centre x, y, orbit radius, period in seconds, phase, colour]
-    [0.62, 0.38, 0.22, 96, 0.0, "oklch(0.3 0.1 300 / 0.3)"],
-    [0.36, 0.66, 0.2, 128, 0.35, "oklch(0.27 0.09 262 / 0.28)"],
-    [0.5, 0.5, 0.3, 160, 0.7, "oklch(0.22 0.07 320 / 0.26)"],
-    [0.7, 0.72, 0.16, 110, 0.15, "oklch(0.28 0.08 240 / 0.22)"],
-  ];
-  for (const [ox, oy, orbit, period, phase, colour] of clouds) {
-    const a = (t / period + phase) * TAU;
-    cloud(size * (ox + Math.cos(a) * orbit * 0.5), size * (oy + Math.sin(a) * orbit * 0.35), r * 0.85, colour);
-  }
-
-  // The middle: one warm point in a little glow that breathes.
-  {
-    const breath = 0.8 + 0.2 * Math.sin((t / 32) * TAU);
-    const glow = c.createRadialGradient(r, r, 0, r, r, 8);
-    glow.addColorStop(0, `oklch(0.85 0.16 70 / ${(0.45 * breath).toFixed(2)})`);
-    glow.addColorStop(1, "oklch(0.85 0.16 70 / 0)");
-    c.fillStyle = glow;
-    c.beginPath();
-    c.arc(r, r, 8, 0, TAU);
-    c.fill();
-    c.fillStyle = `oklch(0.9 0.15 70 / ${(0.7 + 0.3 * breath).toFixed(2)})`;
-    c.beginPath();
-    c.arc(r, r, 1.4, 0, TAU);
-    c.fill();
-  }
-
-  // The horizon: the edge falls off to near black.
-  const edge = c.createRadialGradient(r, r, r * 0.8, r, r, r);
-  edge.addColorStop(0, "oklch(0 0 0 / 0)");
-  edge.addColorStop(0.7, "oklch(0.03 0.015 290 / 0.45)");
-  edge.addColorStop(1, "oklch(0.02 0.01 290 / 0.85)");
-  c.fillStyle = edge;
-  c.fillRect(0, 0, size, size);
-  c.restore();
-}
-
 /** A stroke: a soft blue glow under a thin white line. */
 function paintStroke(c: CanvasRenderingContext2D, s: SketchPoint[], size: number) {
   if (!s.length) return;
@@ -589,45 +404,3 @@ function paintStroke(c: CanvasRenderingContext2D, s: SketchPoint[], size: number
   c.restore();
 }
 
-/**
- * The drawing as a picture for the reader: black lines on white, small.
- * Cleaner to read than the starry board, and a few kilobytes.
- */
-function pictureOf(strokes: SketchPoint[][], px = 384): string | null {
-  if (typeof document === "undefined") return null;
-  const el = document.createElement("canvas");
-  el.width = px;
-  el.height = px;
-  const c = el.getContext("2d");
-  if (!c) return null;
-  c.fillStyle = "#ffffff";
-  c.fillRect(0, 0, px, px);
-  c.strokeStyle = "#111111";
-  c.lineWidth = 4;
-  c.lineCap = "round";
-  c.lineJoin = "round";
-  // The board's edge, faintly, so a shape's place on the disc can be read.
-  c.save();
-  c.strokeStyle = "#d0d0d0";
-  c.lineWidth = 2;
-  c.beginPath();
-  c.arc(px / 2, px / 2, px / 2 - 2, 0, Math.PI * 2);
-  c.stroke();
-  c.restore();
-  for (const s of strokes) {
-    if (!s.length) continue;
-    c.beginPath();
-    c.moveTo(s[0]![0] * px, s[0]![1] * px);
-    if (s.length === 1) c.lineTo(s[0]![0] * px + 0.01, s[0]![1] * px);
-    for (let i = 1; i < s.length; i++) c.lineTo(s[i]![0] * px, s[i]![1] * px);
-    c.stroke();
-  }
-  try {
-    return el.toDataURL("image/png").split(",")[1] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** A trimmed string of at most `max` characters, or nothing. */
-const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
