@@ -25,7 +25,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "0.43",
+    version: "0.44",
     title: "The brief, read back",
     summary: "The blueprint is reworded from what Claude misread in it; Critique, Fill and Finish come back as prompts you can take; and a Trail view maps every prompt from written to found to now.",
     sketch: "parts",
@@ -40,7 +40,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    version: "0.42",
+    version: "0.43",
     title: "The drawing does what it says",
     summary: "Make real is held to the drawing: the reader's answer is checked against the library, the frame and the shape drawn, a new part keeps its words, and the library is cached between reads.",
     sketch: "parts",
@@ -52,7 +52,7 @@ export const RELEASES: Release[] = [
     ],
   },
   {
-    version: "0.41",
+    version: "0.42",
     title: "Drag the sun onto the page",
     summary: "Opening Light dims the board and lights the sun on its button; drag it out and drop it where it goes. The bars underneath are bars again, each with its own word beside it.",
     sketch: "planets",
