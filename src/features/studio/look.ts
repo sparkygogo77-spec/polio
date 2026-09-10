@@ -599,9 +599,34 @@ export interface Light {
   lift: number;
   /** Warmth of the lit face, in degrees around the wheel. */
   warmth: number;
+  /**
+   * How much of the lamp lands on the page itself, 0..1. None, by default.
+   *
+   * A lamp that throws shadows and a lamp that pools light on the background
+   * are two different wants, and asking for the first almost never means
+   * asking for the second: a pool of warm light under a page's own colour is
+   * the fastest way to make a careful palette look like a mistake. So the
+   * shadows come with the lamp and this comes only when it is asked for.
+   */
+  wash?: number;
 }
 
-export const defaultLight = (): Light => ({ on: false, x: 0.5, y: 0.12, height: 0.55, strength: 0.45, lift: 10, warmth: 80 });
+export const defaultLight = (): Light => ({ on: false, x: 0.5, y: 0.12, height: 0.55, strength: 0.45, lift: 10, warmth: 80, wash: 0 });
+
+/**
+ * The pool of light the lamp puts on the page itself, or nothing.
+ *
+ * Painted under the parts, never over them, because a lamp lights a table and
+ * the things on the table cast their shadows on to it. A high lamp pools wide
+ * and soft; a low one throws a tighter spot.
+ */
+export function washCss(light: Light | undefined): string | null {
+  const w = light?.wash ?? 0;
+  if (!light?.on || w <= 0.005) return null;
+  const r = Math.round(45 + light.height * 75);
+  const a = (w * 0.5).toFixed(3);
+  return `radial-gradient(${r}% ${r}% at ${(light.x * 100).toFixed(1)}% ${(light.y * 100).toFixed(1)}%, oklch(0.97 0.06 ${Math.round(light.warmth)} / ${a}), transparent 72%)`;
+}
 
 export interface Look {
   /** Empty strings mean "derive it from the accent hue", as before. */

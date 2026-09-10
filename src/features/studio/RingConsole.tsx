@@ -68,6 +68,17 @@ export const SHRINK = 5;
  * the slab measures it or the two will not agree.
  */
 export const RUN_END = 11.5;
+/**
+ * How much further in something sits when it is set into a screen.
+ *
+ * `ScreenFace` cuts the glass a few pixels inside the slab, so a control laid
+ * out against the *slab's* edge hangs over the bezel at one end and floats off
+ * the glass at the other. This is the difference, and every control that takes
+ * a `tone` has to apply it or the screen stops looking like a screen.
+ */
+export const SCREEN_INSET = 8;
+/** The clear space a control keeps, given what it is sitting on. */
+export const padFor = (tone: "slab" | "screen"): number => SLAB_PAD + (tone === "screen" ? SCREEN_INSET : 0);
 /** The small red aura on whichever chip is picked. */
 export const PICKED = `0 0 0 2px ${CONSOLE.on}, 0 0 8px 1px oklch(0.64 0.23 27 / 0.7)`;
 
@@ -207,6 +218,7 @@ export function ArcChips({
   // the pointer the radius would have put it, running the full width the box
   // has there. Round: the same chips, ridden round the band.
   const square = shape === "square";
+  const pad = padFor(tone);
   const pitch = size + 9;
   /*
    * Rows, when they are needed.
@@ -218,7 +230,7 @@ export function ArcChips({
    */
   const sweep = (to - from) * 0.8;
   const runAt = (d: number) => {
-    const { a0, a1 } = slabRun(slab.from, d, rings);
+    const { a0, a1 } = slabRun(slab.from, d, rings, pad);
     return { left: a0 + size / 2, right: a1 - size / 2 };
   };
   const fits = (r: number, d: number) => {
@@ -228,7 +240,7 @@ export function ArcChips({
     }
     return Math.max(1, Math.floor((sweep * Math.PI * 2 * r) / pitch));
   };
-  const d0 = slabDepth(radius, rings);
+  const d0 = slabDepth(radius, rings, pad);
   const rows: { r: number; d: number; items: ArcItem[] }[] = [];
   if (n <= fits(radius, d0)) rows.push({ r: radius, d: d0, items });
   else {
@@ -236,7 +248,7 @@ export function ArcChips({
     rows.push({ r: radius, d: d0, items: items.slice(0, outer) });
     // Just inside the first row — and no further, or it lands on the caption
     // that sits by the hole.
-    rows.push({ r: radius - (size + 8), d: Math.max(SLAB_PAD + size / 2, d0 - pitch), items: items.slice(outer) });
+    rows.push({ r: radius - (size + 8), d: Math.max(pad + size / 2, d0 - pitch), items: items.slice(outer) });
   }
   /*
    * One step for every row, so the chips line up along radii on a round wheel
@@ -490,12 +502,13 @@ export function ArcSlider({
    * is bent, and the room beside the pointer that an arc leaves empty is used.
    */
   const square = shape === "square";
-  const dNear = slabDepth(rIn, rings);
-  const dFar = slabDepth(rOut, rings);
+  const pad = padFor(tone);
+  const dNear = slabDepth(rIn, rings, pad);
+  const dFar = slabDepth(rOut, rings, pad);
   // The shallow edge is the one the hole bites into, so it sets where the bar
   // can start; the run is then cut to the stretch of turn the caller asked for.
   const { flip } = slabFrame(slab.from);
-  const room = slabRun(slab.from, dNear, rings);
+  const room = slabRun(slab.from, dNear, rings, pad);
   /*
    * Round: where a point sits along the turn, given how far across the run it
    * is and at what radius. The ends are pulled in by a number of *pixels*, so
@@ -504,10 +517,12 @@ export function ArcSlider({
    * at one radius while leaving a wedge of gap at the other.
    */
   const [endA, endB] = ends ?? [RUN_END, RUN_END];
+  // On a screen both ends move in by the same amount the glass does.
+  const over = pad - SLAB_PAD;
   const ang = (u: number, r: number) => {
     const k = Math.PI * 2 * Math.max(12, r);
-    const a = from + endA / k;
-    const b = to - endB / k;
+    const a = from + (endA + over) / k;
+    const b = to - (endB + over) / k;
     return a + (b - a) * u;
   };
   const rMid = (rIn + rOut) / 2;
@@ -778,8 +793,10 @@ export function ArcStepper({
   // On a square slab the readout sits in a straight row and takes the width
   // the box has there, rather than riding an arc through the middle of it.
   const square = shape === "square";
-  const depth = slabDepth(radius, rings);
-  const { a0, a1 } = slabRun(slab.from, depth, rings);
+  // The stepper is always set into a screen, so it keeps the glass's clearance.
+  const pad = padFor("screen");
+  const depth = slabDepth(radius, rings, pad);
+  const { a0, a1 } = slabRun(slab.from, depth, rings, pad);
   const at = square ? onSlab(slab.from, (a0 + a1) / 2, depth, rings) : onCircle((from + to) / 2, radius);
   const width = square ? Math.max(w, a1 - a0) : w;
   const n = items.length;

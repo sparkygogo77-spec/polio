@@ -11,7 +11,7 @@
  * wheels are one object with two subjects.
  */
 import * as React from "react";
-import { Blend, Eraser, Grid2x2, ImagePlus, Link2, Maximize2, Monitor, Smartphone, Square, Tablet, Waves, X } from "lucide-react";
+import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Link2, Maximize2, Monitor, Smartphone, Square, Sun, Tablet, Waves, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Textarea } from "@/core/ui/textarea";
 import { readImage } from "./ImageIntake";
@@ -19,9 +19,10 @@ import { lands, newLayer, parseColor, textureCss, TEXTURE_KINDS, type TextureLay
 import { useStudio, type StudioPage } from "./store";
 import { resolvePalette } from "./parts/theme";
 import {
-  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SectorButton, type ArcItem, type Slab,
+  ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SectorButton, SHRINK, type ArcItem, type Slab,
 } from "./RingConsole";
-import { centreOf, chipsAt, SpectrumSlab, wholeOf } from "./RingEditors";
+import { centreOf, chipsAt, runOf, SpectrumSlab, stackedRuns, wholeOf } from "./RingEditors";
+import { piece } from "./menuGeometry";
 import { PlateQuad, SCREEN, SCREEN_FIELD } from "./PlateEditors";
 
 /** The fills the format paints under the page, as keys on a screen, each in its own colour. */
@@ -31,6 +32,9 @@ const FILLS: ArcItem[] = [
   { id: "grid", label: "Fine grid", style: keyOf(6), glyph: <Grid2x2 className="size-3" /> },
   { id: "mesh gradient", label: "Mesh gradient", style: keyOf(7), glyph: <Waves className="size-3" /> },
 ];
+/** One run on a slab: the two radii it lives between. */
+type Band = { rIn: number; rOut: number };
+
 /** How dark the veil can go. Past this the page is gone. */
 const VEIL_MAX = 0.85;
 
@@ -108,6 +112,73 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
         <Caption slab={a}>{`Width · ${fw}`}</Caption>
         <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} label="Fit in view" icon={<Maximize2 className="size-3.5" />} onClick={() => s().requestFit()} />
         <SectorButton d={wholeOf(c)} at={centreOf(c, hole, "edge")} spin={c.spin} label={wires ? "Hide the wires" : "Show the wires"} icon={<Link2 className="size-3.5" />} on={wires} onClick={() => s().setShowWires(!wires)} />
+      </>
+    );
+  }
+
+  /* ------------------------------------------------------- the light */
+  /*
+   * One lamp over the page, and the two decisions worth making about it: where
+   * it is, and how hard it is.
+   *
+   * Where it is is not a pair of numbers anyone can picture, so the big button
+   * hands the board over instead — the workspace goes dark but the page, the
+   * pointer becomes the light, and you point at the place. The numbers are
+   * still here on the other two slabs for the times you want to nudge one.
+   *
+   * "On the page" is the setting kept deliberately apart from the rest: the
+   * lamp throws shadows on its own, and whether any of its light lands on the
+   * background is a separate answer, off unless it is asked for.
+   */
+  if (which === "bg-light") {
+    const light = look.light;
+    const placing = useStudio.getState().placingLight;
+    const setLight = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
+    const [tall, deep, dark] = stackedRuns(b, 3) as [Band, Band, Band];
+    const [warm, onPage] = stackedRuns(c, 2) as [Band, Band];
+    const wash = light.wash ?? 0;
+    const height = light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking";
+    // Placing turns the lamp on: pointing at a place is asking for one.
+    const placeD = piece(a.from, a.to, mid, "edge", a.shape, a.rings, SHRINK);
+    const lampD = piece(a.from, a.to, hole, mid, a.shape, a.rings, SHRINK);
+    return (
+      <>
+        <SectorButton
+          d={placeD}
+          at={centreOf(a, mid, "edge")}
+          spin={a.spin}
+          label="Place the light"
+          icon={<Sun className="size-3.5" />}
+          on={placing}
+          onClick={() => useStudio.getState().setPlacingLight(true)}
+        />
+        <SectorButton
+          d={lampD}
+          at={centreOf(a, hole, mid)}
+          spin={a.spin}
+          label={light.on ? "Lamp on" : "Lamp off"}
+          icon={<Lightbulb className="size-3.5" />}
+          on={light.on}
+          onClick={() => setLight({ on: !light.on })}
+        />
+
+        <ScreenFace slab={b} />
+        <ArcSlider slab={b} tone="screen" {...runOf(b)} {...tall} label="How high it hangs"
+          value={light.height} onChange={(f) => setLight({ height: f })} />
+        <ArcSlider slab={b} tone="screen" {...runOf(b)} {...deep} label="How far things stand off"
+          value={light.lift / 40} onChange={(f) => setLight({ lift: Math.round(f * 40) })} />
+        <ArcSlider slab={b} tone="screen" {...runOf(b)} {...dark} label="Shadow strength"
+          value={light.strength} onChange={(f) => setLight({ strength: f })} />
+        <Caption slab={b}>{`${height} · ${light.lift}px · ${Math.round(light.strength * 100)}%`}</Caption>
+
+        <ScreenFace slab={c} />
+        <ArcSlider slab={c} tone="screen" {...runOf(c)} {...warm} label="Warmth"
+          value={(((light.warmth % 360) + 360) % 360) / 360}
+          colourAt={(f) => `oklch(0.86 0.13 ${Math.round(f * 360)})`}
+          onChange={(f) => setLight({ warmth: Math.round(f * 360) })} />
+        <ArcSlider slab={c} tone="screen" {...runOf(c)} {...onPage} label="Light on the page"
+          value={wash} onChange={(f) => setLight({ wash: f })} />
+        <Caption slab={c}>{`Warmth ${Math.round(light.warmth)}° · page ${Math.round(wash * 100)}%`}</Caption>
       </>
     );
   }

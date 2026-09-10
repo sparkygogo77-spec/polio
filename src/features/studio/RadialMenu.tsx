@@ -43,7 +43,7 @@
 import * as React from "react";
 import {
   Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit,
-  Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
+  Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
 } from "lucide-react";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -358,6 +358,8 @@ function bgChoicesFor(group: SlotId): Choice[] {
       return [
         { id: "bg-color", label: "Color", icon: PaletteIcon },
         { id: "bg-texture", label: "Texture", icon: Grid2x2 },
+        // The third: one lamp over the page, put down by pointing at the place.
+        { id: "bg-light", label: "Light", icon: Sun },
       ];
     case "anim":
       // A motion asset behind the page: the place is here, the crate is not wired to it yet.
@@ -810,7 +812,7 @@ export function RadialMenu() {
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "width"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "bg-light", "width"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,

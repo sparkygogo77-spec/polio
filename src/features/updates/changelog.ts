@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.38",
+    title: "Point at where the light is",
+    summary: "A third choice under the page's Looks: the board hands itself over, the pointer becomes the lamp, and the press that puts it down also says how hard the shadows are.",
+    sketch: "planets",
+    added: [
+      "Where a lamp is was a dot to drag around a thumbnail of the page, which is a map of the thing rather than the thing: two hundred pixels wide, read at a glance, telling you roughly where the light was and never exactly. Press Place the light and the workspace goes dark everywhere but the page, the pointer becomes a small warm ball with its own glow, and the page lights and shadows under it as it moves — before anything is committed.",
+      "The press does not end it. Keep hold and drag: up for heavier shadows, down for lighter, with the number under the ball and a line back to where the lamp was put down. One gesture for the two things you actually decide about a light.",
+      "Every way out puts it back. A press off the page, Escape, or the right button all restore the lamp exactly as it was, so trying it costs nothing.",
+      "The lamp still only throws shadows. Whether any of its light lands on the background is now its own setting — Light on the page — and it starts at none, because a warm pool under a palette someone chose is the quickest way to make that palette look like a mistake.",
+      "Anything set into a screen now keeps the glass's own clearance rather than the slab's, so a slider on a screen stops hanging over the bezel at one end and floating off the glass at the other.",
+      "tests/light-placer.mjs holds the moment to fifteen checks: the wheel gets out of the way, the lamp follows the hand, all three ways out restore it, the drag reaches the strength it should, and the page stays unlit until it is asked.",
+    ],
+  },
+  {
     version: "0.37",
     title: "The spectrum meets the edge",
     summary: "A colour run on a round wheel now ends the same distance from the slab's edge at every radius, and reaches out to it.",
