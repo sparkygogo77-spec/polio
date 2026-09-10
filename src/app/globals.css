@@ -188,6 +188,8 @@
 @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
 @keyframes ping-dot { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @keyframes glow { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+/* A refusal: the wrong PIN, a field that will not take what was typed. */
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
 /* A part's aura, breathing. Colour and reach come off the element as custom properties. */
 @keyframes aura-pulse {
   0%, 100% { box-shadow: 0 0 0 1px var(--aura), 0 0 calc(12px * var(--aura-k)) calc(1px * var(--aura-k)) var(--aura); }

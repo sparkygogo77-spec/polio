@@ -38,6 +38,7 @@ import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
 import { fitToSketch, isBlankSketch, readSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { keyHeader } from "./agent";
 import { useStudio, type StudioNode } from "./store";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
@@ -172,7 +173,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     try {
       const res = await fetch("/api/studio/reshape", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...keyHeader() },
         body: JSON.stringify({
           sketch: drawn,
           picture: pictureOf(drawn.strokes),

@@ -1108,6 +1108,28 @@ remove it from `src/features/index.ts` when you're sure.
 
 ---
 
+## 11. Keys, and the top bar
+
+- **A module can put a control in the top bar.** `topBarItems: [{ id, order,
+  component }]` on a feature module, mirroring `statusItems`. The bar renders
+  whatever is registered and imports no feature; anything that has to live up
+  there arrives this way. `keys` contributes the key, `studio` the GitHub mark.
+- **Keys belong on the server.** `ANTHROPIC_API_KEY`, the four `X_*`,
+  `GITHUB_TOKEN`/`GITHUB_REPO`, `VERCEL_DEPLOY_HOOK`: read in route handlers,
+  never prefixed for the browser, never returned. `/api/keys/status` answers
+  only which names are set, plus the repository name, which is not a secret.
+  Anything added there must pass the same test: a name and a yes or no.
+- **The vault is the fallback, not the pattern.** `src/features/keys` holds
+  keys in the browser sealed under a four-digit PIN (PBKDF2 at 310,000 rounds
+  into an AES-GCM box; only the box is stored, never the PIN or a hash of it).
+  A held key is sent as a header and used for that one call when the server
+  has none. Four digits is a speed bump, not a secret, and the panel says so —
+  do not restyle that warning away.
+- **Never widen what a status route says.** A length, a prefix, a first
+  character: each narrows a guess. Name and boolean, nothing else.
+
+---
+
 ## 11. More than one session works this repository
 
 Sessions run in parallel on their own branches, so the code you are looking at

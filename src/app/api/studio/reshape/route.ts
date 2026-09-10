@@ -88,12 +88,25 @@ Rules:
 - The words beside the drawing win over your reading of the picture.
 - Answer with the JSON object only.`;
 
+/**
+ * The key to use: the server's if it has one, otherwise whatever the browser
+ * offered on this request. A supplied key is used for the call and nothing
+ * else — never stored, never logged, never echoed back.
+ */
+function keyFor(request: Request): string | null {
+  const own = process.env.ANTHROPIC_API_KEY?.trim();
+  if (own) return own;
+  const supplied = request.headers.get("x-anthropic-key")?.trim();
+  return supplied && supplied.length > 8 ? supplied : null;
+}
+
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = keyFor(request);
+  if (!apiKey) {
     return NextResponse.json({
       ok: false,
       reason: "no-key",
-      message: "No ANTHROPIC_API_KEY is configured, so the drawing can't be read here. The part takes the drawing's proportion instead, and the drawing goes into the blueprint.",
+      message: "No Claude key, so the drawing can't be read here. The part takes the drawing's proportion instead, and the drawing goes into the blueprint. A key goes on the server, or in this browser under the key button.",
     });
   }
 
@@ -144,7 +157,7 @@ export async function POST(request: Request) {
   if (picture) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture } });
   content.push({ type: "text", text: lines.join("\n") });
 
-  const client = new Anthropic();
+  const client = new Anthropic({ apiKey });
   try {
     const message = await client.beta.messages.create({
       model: "claude-opus-5",

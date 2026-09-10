@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.30",
+    title: "A key and a repository",
+    summary: "Two buttons in the top bar: the mark that opens your repository, and a key that opens a vault behind four digits.",
+    sketch: "flame",
+    added: [
+      "The GitHub mark sits in the bar. Connected, it opens the repository and the tooltip names the branch a push would land on. Not connected, it wears a dot and takes you where a token goes.",
+      "The key opens a vault. A four-digit pad on the console's own screen, dots that fill as you type, the fourth digit submitting itself. Inside: every key this app can use, with what the server already has shown beside each, so nobody pastes a key twice.",
+      "What is kept is sealed with AES-GCM under a key stretched from the PIN through 310,000 rounds of PBKDF2. Nothing is written down but the sealed box — not the PIN, not a hash of it — and a wrong PIN fails to open it rather than being told apart from a right one.",
+      "The panel says plainly what four digits can and cannot do, and that the server is the better place. A held key rides with a request only when the server has none, and is used and dropped.",
+      "The vault locks itself after five minutes of quiet and whenever the tab goes away. tests/keys-vault.mjs walks the round trip and reads the browser's storage back to prove no key is sitting in it.",
+      "Modules can now put a control in the top bar the way they already could in the status bar, so the shell still knows nothing about any feature by name.",
+    ],
+  },
+  {
     version: "0.29",
     title: "Two depths of dark matter",
     summary: "The hole's camo is a slow planet at the back and cloud passing in front, no stars, a few red flakes; a lower category no longer opens with its parts flung off the drum.",

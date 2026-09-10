@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
+import { GithubButton } from "./GithubButton";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./parts";
@@ -122,6 +123,7 @@ export const studio = defineFeature({
     { path: "/studio/design", component: StudioPage, title: "Builder", fullBleed: true },
   ],
   nav: [{ label: "Builder", href: "/builder", icon: LayoutTemplate, order: 5, group: "Build" }],
+  topBarItems: [{ id: "studio.github", order: 20, component: GithubButton }],
 
   commands: [
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },

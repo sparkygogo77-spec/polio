@@ -5,6 +5,7 @@
  * to GitHub. Each one asks first whether the server can, and says so in
  * words when it cannot, so nothing here is load-bearing.
  */
+import { heldKeys } from "@/features/keys/store";
 import { useStudio } from "./store";
 
 export type AskMode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
@@ -33,6 +34,15 @@ export interface GeneratedFile {
   path: string;
   content: string;
   lang?: string;
+}
+
+/**
+ * A header carrying a key this browser holds, when it holds one and the
+ * vault is open. Empty otherwise, and the server's own key wins regardless.
+ */
+export function keyHeader(): Record<string, string> {
+  const held = heldKeys(["ANTHROPIC_API_KEY"]).ANTHROPIC_API_KEY;
+  return held ? { "x-anthropic-key": held } : {};
 }
 
 /** The document as the Builder saves it: what a headless browser needs to show the same site. */
@@ -136,7 +146,7 @@ export async function askClaude(input: { markdown: string; mode: AskMode; prompt
   try {
     const res = await fetch("/api/studio/generate", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...keyHeader() },
       body: JSON.stringify({
         markdown: input.markdown,
         mode: input.mode,

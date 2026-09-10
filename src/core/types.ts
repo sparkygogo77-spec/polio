@@ -39,7 +39,7 @@ export type CueName =
 
 export type CueCategory = "ui" | "feedback" | "alerts" | "feed";
 
-export type PanelName = "settings" | "news" | "commands" | "shortcuts" | "updates" | "tweets";
+export type PanelName = "settings" | "news" | "commands" | "shortcuts" | "updates" | "tweets" | "keys";
 
 /* ------------------------------------------------------------------ */
 /* News / activity feed                                                */
@@ -286,6 +286,19 @@ export interface StatusItemDef {
   component: ComponentType;
 }
 
+/**
+ * A control a module puts in the top bar, beside search, news and settings.
+ *
+ * The bar is core and knows nothing about any feature, so anything that has
+ * to live up there — a link out to the repository, the key vault — arrives
+ * this way rather than by importing a feature into the shell.
+ */
+export interface TopBarItemDef {
+  id: string;
+  order?: number;
+  component: ComponentType;
+}
+
 /* ------------------------------------------------------------------ */
 /* Feature module                                                      */
 /* ------------------------------------------------------------------ */
@@ -306,6 +319,7 @@ export interface FeatureModule {
   settingGroups?: SettingGroupDef[];
   settings?: SettingDef[];
   statusItems?: StatusItemDef[];
+  topBarItems?: TopBarItemDef[];
   /** Runs once on the client when the shell mounts. Return a cleanup. */
   onMount?: (ctx: ActionContext) => void | (() => void);
   /** Keep out of nav and the home grid (still routable). */

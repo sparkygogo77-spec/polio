@@ -2,7 +2,7 @@
  * Collects every feature module's contributions into flat, sorted lists the
  * shell renders from. This is the only place that knows the module list.
  */
-import type { CommandDef, ContextMenuContribution, FeatureModule, NavEntry, RouteDef, ShortcutDef, StatusItemDef } from "./types";
+import type { CommandDef, ContextMenuContribution, FeatureModule, NavEntry, RouteDef, ShortcutDef, StatusItemDef, TopBarItemDef } from "./types";
 import { registerSettingDefs, registerSettingGroups } from "./settings/store";
 import { coreModule } from "./core-module";
 import { modules as featureModules } from "@/features";
@@ -21,6 +21,7 @@ export interface Registry {
   shortcuts: (ShortcutDef & { module: FeatureModule })[];
   contextMenus: Map<string, ContextMenuContribution[]>;
   statusItems: (StatusItemDef & { module: FeatureModule })[];
+  topBarItems: (TopBarItemDef & { module: FeatureModule })[];
   byId: Map<string, FeatureModule>;
 }
 
@@ -56,6 +57,7 @@ export function buildRegistry(mods: FeatureModule[]): Registry {
     shortcuts: [],
     contextMenus: new Map(),
     statusItems: [],
+    topBarItems: [],
     byId: new Map(),
   };
   for (const m of active) {
@@ -70,11 +72,13 @@ export function buildRegistry(mods: FeatureModule[]): Registry {
       reg.contextMenus.set(cm.scope, list);
     }
     for (const s of m.statusItems ?? []) reg.statusItems.push({ ...s, module: m });
+    for (const s of m.topBarItems ?? []) reg.topBarItems.push({ ...s, module: m });
     registerSettingGroups(m.settingGroups);
     registerSettingDefs(m.settings);
   }
   reg.nav.sort(byOrder);
   reg.statusItems.sort(byOrder);
+  reg.topBarItems.sort(byOrder);
   for (const list of reg.contextMenus.values()) list.sort(byOrder);
   // Static routes before parameterised ones so "/pulse" beats "/:slug".
   reg.routes.sort((a, b) => Number(a.path.includes(":") || a.path.endsWith("*")) - Number(b.path.includes(":") || b.path.endsWith("*")));

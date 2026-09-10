@@ -99,6 +99,12 @@ export function TopBar() {
           </Button>
         </Tooltip>
 
+        {/* What the modules put here: the repository, the key vault. The bar
+            knows none of them by name. */}
+        {registry.topBarItems.map((i) => (
+          <i.component key={i.id} />
+        ))}
+
         <Tooltip content="Settings" shortcut="mod+,">
           <Button variant={panels.settings ? "subtle" : "ghost"} size="icon" aria-label="Settings" onClick={() => ctx.togglePanel("settings")}>
             <Settings />

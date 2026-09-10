@@ -78,13 +78,26 @@ const REPO_CONTRACT = `The repository the files are for:
 
 interface PictureIn { data?: string; mediaType?: string; label?: string }
 
+/**
+ * The key to use: the server's if it has one, otherwise whatever the browser
+ * offered on this request. A supplied key is used for the call and nothing
+ * else — never stored, never logged, never echoed back.
+ */
+function keyFor(request: Request): string | null {
+  const own = process.env.ANTHROPIC_API_KEY?.trim();
+  if (own) return own;
+  const supplied = request.headers.get("x-anthropic-key")?.trim();
+  return supplied && supplied.length > 8 ? supplied : null;
+}
+
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = keyFor(request);
+  if (!apiKey) {
     return NextResponse.json({
       ok: false,
       reason: "no-key",
       message:
-        "No ANTHROPIC_API_KEY is configured, so the Builder can't call Claude from here. Copy the blueprint and paste it into Claude, Claude Code, or any agent — it is designed to be self-contained.",
+        "No Claude key. Put ANTHROPIC_API_KEY on the server, or hold one in this browser under the key button in the top bar. Without either, copy the blueprint into Claude, Claude Code, or any agent — it is designed to be self-contained.",
     });
   }
 
@@ -121,7 +134,7 @@ export async function POST(request: Request) {
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
   content.push({ type: "text", text: `${ask}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}\n\n---\n\n${markdown}` });
 
-  const client = new Anthropic();
+  const client = new Anthropic({ apiKey });
 
   try {
     // Streaming keeps a long answer from hitting the request timeout; the

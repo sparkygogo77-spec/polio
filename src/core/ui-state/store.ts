@@ -28,7 +28,7 @@ interface UiState {
   resolveConfirm: (ok: boolean) => void;
 }
 
-const CLOSED: Record<PanelName, boolean> = { settings: false, news: false, commands: false, shortcuts: false, updates: false, tweets: false };
+const CLOSED: Record<PanelName, boolean> = { settings: false, news: false, commands: false, shortcuts: false, updates: false, tweets: false, keys: false };
 
 export const useUi = create<UiState>()((set, get) => ({
   panels: { ...CLOSED },
