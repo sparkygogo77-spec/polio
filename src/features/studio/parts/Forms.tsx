@@ -6,7 +6,7 @@
 import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items, radiusFor } from "./theme";
+import { cardStyle, items, radiusFor, ghostStyle} from "./theme";
 import { opt, type PartProps } from "./types";
 
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -176,7 +176,7 @@ export function FileDrop({ id, content, theme: t, emit }: PartProps) {
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); add(Array.from(e.dataTransfer.files).map((f) => f.name)); }}
-      style={{ ...cardStyle(t), borderStyle: "dashed", borderColor: over ? t.accent : t.line, background: over ? `${t.accent}12` : "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: t.fontPx, textAlign: "center" }}
+      style={{ ...ghostStyle(t, over ? t.accent : t.line), background: over ? `${t.accent}12` : "transparent", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: t.fontPx, textAlign: "center" }}
     >
       <span aria-hidden style={{ fontSize: t.fontPx * 1.6, color: t.accent }}>⤓</span>
       <span style={{ fontSize: t.fontPx * 0.92 }}>{label}</span>

@@ -964,6 +964,46 @@ export function auraColour(aura: string | null | undefined, palette: Palette | u
 }
 
 /**
+ * The line that says a part is picked, in a colour that is not the app's.
+ *
+ * It used to be two solid pixels of the accent — the same blue as every
+ * button in the shell — drawn round whatever you had selected. Two things
+ * were wrong with that. It was the loudest thing on the board, so a part
+ * being *edited* was the one part you could not see; and it sat on top of
+ * the aura, which is the one thing you are most often editing when the mark
+ * is up, so turning an aura on and off changed nothing you could see.
+ *
+ * The mark is the part's own colour, turned to the far side of the wheel:
+ * a hue that cannot be confused with what it is drawn around, at a lightness
+ * and chroma that read on both a dark page and a light one. A part with an
+ * aura is marked against its aura; a part with a fill of its own is marked
+ * against that; a part that has said nothing takes the site's accent, turned.
+ *
+ * It is one line, and thin, and offset inwards so the aura's own hairline is
+ * still outside it and still visible.
+ */
+export function complementOf(colour: string | null | undefined): string {
+  const c = colour ? parseColor(colour) : null;
+  // Nothing to answer: a warm yellow, which is nobody's accent here.
+  if (!c) return "oklch(0.82 0.19 90)";
+  // The far side, lifted to something that reads: a complement borrowed at
+  // the part's own lightness would vanish into a dark part.
+  return css({ l: 0.82, c: Math.max(0.16, Math.min(0.2, c.c + 0.05)), h: (c.h + 180) % 360 });
+}
+
+export function markColour(
+  node: { aura?: string | null; colour?: Record<string, string> | null },
+  palette: Palette | undefined,
+): string {
+  const own =
+    auraColour(node.aura, palette)
+    ?? (node.colour ? Object.values(node.colour).map((v) => (palette as Record<string, string> | undefined)?.[v] ?? v).find((v) => !!parseColor(v)) : undefined)
+    ?? palette?.accent
+    ?? "oklch(0.72 0.16 205)";
+  return complementOf(own);
+}
+
+/**
  * The shadow that draws it.
  *
  * A glow is two shadows — a hairline that reads as a border and a wide soft

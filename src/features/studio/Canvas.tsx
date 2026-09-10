@@ -17,7 +17,7 @@ import { isLinkable } from "./parts";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
-import { auraStyle, washCss, type Light, type Palette, type TextureLayer } from "./look";
+import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
 import { TextureDrift } from "./TextureDrift";
 import { Workspace } from "./Workspace";
 import { BACKGROUND_ID } from "./store";
@@ -82,6 +82,7 @@ export function Canvas() {
   const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
   const wash = React.useMemo(() => washCss(look.light), [look.light]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
+  const pageMark = React.useMemo(() => complementOf(theme.backdrop), [theme.backdrop]);
   const frameH = frameHeight(nodes);
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
@@ -528,7 +529,10 @@ export function Canvas() {
             width: frameWidth,
             height: frameH,
             ...(theme.surfaceStyle ?? { background: theme.backdrop, backgroundSize: "24px 24px" }),
-            outline: selection.includes(BACKGROUND_ID) ? `${2 / zoom}px solid var(--accent)` : "1px solid var(--border-strong)",
+            // The page is marked in the far side of its own colour, like a
+            // part: an accent-blue box round the whole frame was the loudest
+            // thing on a board whose whole subject is what the page looks like.
+            outline: selection.includes(BACKGROUND_ID) ? `${(1.5 / zoom).toFixed(2)}px solid ${pageMark}` : "1px solid var(--border-strong)",
           }}
         />
         <TextureDrift layers={look.texture} palette={palette} />
@@ -720,12 +724,16 @@ function penPath(points: [number, number][]): string {
 
 const ShapeView = React.memo(function ShapeView({ shape, selected, fresh }: { shape: StudioShape; selected: boolean; fresh?: boolean }) {
   const color = `oklch(0.78 0.16 ${shape.hue})`;
+  // Ink is marked the same way a part is: the far side of its own colour,
+  // rather than the app's accent glowing round somebody's drawing.
+  const mark = `oklch(0.82 0.19 ${(shape.hue + 180) % 360})`;
   const common = {
     "data-shape-id": shape.id,
     stroke: color,
     strokeWidth: shape.width,
     fill: "none",
-    className: cn("pointer-events-auto", selected && "drop-shadow-[0_0_6px_var(--accent)]"),
+    className: "pointer-events-auto",
+    style: selected ? { filter: `drop-shadow(0 0 5px ${mark})` } : undefined,
     ...(shape.id !== "live" ? ctxProps("studio-shape", shape.id, shape) : {}),
   } as const;
   if (shape.kind === "frame" && shape.points.length >= 2) {
@@ -822,6 +830,10 @@ function FillTab({ node, chipScale }: { node: StudioNode; chipScale: number }) {
 }
 
 const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
+  // What a picked part is marked in: the far side of its own aura or fill.
+  // Not the app's accent, which was the loudest thing on the board and sat
+  // on top of the aura you were editing.
+  const mark = React.useMemo(() => markColour(node, palette), [node, palette]);
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
@@ -862,7 +874,13 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         className="absolute inset-0 overflow-hidden"
         data-mode={selected ? "live" : "board"}
         inert
-        style={{ pointerEvents: "none", outline: selected ? "2px solid var(--accent)" : "1px solid transparent", outlineOffset: 0 }}
+        style={{
+          pointerEvents: "none",
+          // Thin, and *inside* the part: the aura's own hairline sits on the
+          // edge, so a mark drawn there would cover the thing being edited.
+          outline: selected ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",
+          outlineOffset: selected ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
+        }}
       >
         <Block node={node} t={theme} palette={palette} light={light} page={page} layers={layers} mode={selected ? "live" : "board"} />
       </div>
@@ -898,8 +916,10 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
             <span
               key={h}
               data-resize={h}
-              className={cn("absolute", bar ? "rounded-[3px] bg-accent/0 hover:bg-accent/35" : "size-2 rounded-[2px] border border-accent bg-panel", cls)}
-              style={bar ? undefined : { transform: `scale(${chipScale})` }}
+              className={cn("absolute", bar ? "rounded-[3px] hover:bg-(--mark)/35" : "size-2 rounded-[2px] border bg-panel", cls)}
+              style={bar
+                ? ({ "--mark": mark } as React.CSSProperties)
+                : { transform: `scale(${chipScale})`, borderColor: mark }}
             />
           ))
         : null}

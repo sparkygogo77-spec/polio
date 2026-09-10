@@ -7,6 +7,8 @@ import { play } from "@/core/audio/engine";
 import { Button } from "./button";
 
 export interface DialogProps {
+  /** Inline style for the dialog's own box — a surface that is not the shell's. */
+  style?: React.CSSProperties;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   title: React.ReactNode;
@@ -17,7 +19,7 @@ export interface DialogProps {
   className?: string;
 }
 
-export function Dialog({ open, onOpenChange, title, description, children, footer, size = "md", className }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, footer, size = "md", className, style }: DialogProps) {
   const width = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-2xl" : size === "xl" ? "max-w-5xl" : "max-w-md";
   return (
     <D.Root
@@ -41,6 +43,7 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
             width,
             className,
           )}
+          style={style}
         >
           <div className="flex items-start justify-between gap-4 border-b border-border px-4 py-3">
             <div className="min-w-0">

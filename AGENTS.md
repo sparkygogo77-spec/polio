@@ -335,6 +335,21 @@ a kicker with a rule, and label-and-value rows that copy.
   see the geometry note below. Everything else keeps a short list menu; a wheel
   of three items is worse than a list. If you add controls to a part, put them
   in the right quadrant rather than lengthening anything.
+- **A picked part is marked in its own complement, not in the app's accent**
+  (`markColour`, `complementOf` in `look.ts`). Two solid pixels of accent-blue
+  made the part being edited the one part you could not see, and sat on top of
+  the aura — which is the thing most often being edited when the mark is up.
+  The mark is the far side of the part's aura, or its fill, or the site's
+  accent, at a lightness that reads on a dark page and a light one; one line,
+  thin, offset inwards so the aura's own hairline stays outside it. The page
+  takes the complement of its own colour, ink the complement of its own hue.
+- **One void, one screen, in core** (`src/core/ui/void.ts`). The console
+  defined them, the command palette kept a copy because core may not import a
+  feature, and the copies had drifted — two voids three hundredths of a
+  lightness apart. Everything imports them now; the console's numbers are the
+  ones kept. A surface that belongs to the Builder's console wears the void
+  (the wheel, the palette, the vault, the Blueprint); a page, a panel or a
+  card uses the shell's tokens.
 - **The wheel is the whole editor, and the right panel is the convenience.**
   Anything the Inspector can do to one part, the wheel can do too: the per-part
   options that used to be panel-only live under `Edit ▸ Options`, and the board
@@ -1143,6 +1158,13 @@ carry why a thing arrived.
   defaults on every other page.
 - **The same list is in the top bar** (`SwitchButton`, a `topBarItems`
   contribution) and is not there until there are two sites to switch between.
+- **A card leads with the site, not with its counts.** `SitePreview` renders
+  the project's own document — real parts, real palette, real texture, real
+  light — at the frame's true width, scaled to the card, in `board` mode. It
+  is the render, not a picture of it: nothing to store, nothing to go stale,
+  and a project whose colour changed looks changed. The name and the options
+  bar sit under it, and the bar is pushed to the foot (`mt-auto`) so the bars
+  line up across a row whatever each card had to say above them.
 
 ---
 

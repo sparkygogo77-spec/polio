@@ -144,7 +144,11 @@ export function Callout({ id, content, theme: t }: PartProps) {
       t={t}
       data-part={id}
       style={{
-        ...cardStyle(t), borderLeft: empty ? undefined : `4px solid ${t.accent}`, borderStyle: empty ? "dashed" : "solid",
+        // The whole edge in one property, then the left rule: a shorthand and
+        // its own longhand on one element is what React warns about.
+        ...cardStyle(t),
+        border: empty ? `1px dashed ${t.line}` : `1px solid ${t.line}`,
+        ...(empty ? {} : { borderLeftWidth: 4, borderLeftColor: t.accent }),
         padding: t.fontPx, display: "flex", gap: 10, alignItems: "center",
         justifyContent: empty ? "center" : "flex-start", fontSize: t.fontPx * 0.95, textAlign: empty ? "center" : "left",
       }}

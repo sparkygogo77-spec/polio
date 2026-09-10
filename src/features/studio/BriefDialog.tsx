@@ -32,6 +32,7 @@ import { Switch } from "@/core/ui/switch";
 import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
+import { screenFace, SCREEN, VOID } from "@/core/ui/void";
 
 export function useCompiledBrief() {
   const pages = useStudio((s) => s.pages);
@@ -299,6 +300,12 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       open={open}
       onOpenChange={(v) => { if (!v) abort.current?.abort(); onOpenChange(v); }}
       size="xl"
+      // The Builder's own surfaces are the void — the wheel, the console, the
+      // command palette, the key vault — and this was the one that stayed a
+      // plain shell panel, which made the thing you press Finish to see look
+      // like it belonged to a different program.
+      className="border-[color:var(--void-rim)] bg-[color:var(--void-face)] shadow-[var(--void-drop)]"
+      style={{ "--void-face": VOID.face, "--void-rim": VOID.rim, "--void-drop": VOID.drop } as React.CSSProperties}
       title="Blueprint"
       description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
       footer={
@@ -390,13 +397,13 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             ]}
             aria-label="View"
           />
+          {/* Pages, elements and prompted are already the dialog's subtitle,
+              two inches above this; only what the subtitle does *not* say
+              belongs here. */}
           <div className="flex flex-wrap gap-1">
-            <Badge size="sm" variant="accent">{spec.stats.pages} pages</Badge>
-            <Badge size="sm">{spec.stats.elements} elements</Badge>
             {spec.stats.groups ? <Badge size="sm">{spec.stats.groups} groups</Badge> : null}
             {spec.stats.connections ? <Badge size="sm">{spec.stats.connections} connections</Badge> : null}
             {spec.stats.sketches ? <Badge size="sm">{spec.stats.sketches} sketches</Badge> : null}
-            <Badge size="sm" variant={spec.stats.prompted ? "up" : "warn"}>{spec.stats.prompted} prompted</Badge>
           </div>
         </div>
 
@@ -425,7 +432,14 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </ul>
           </div>
         ) : (
-          <pre data-brief-body="" className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-3 font-mono text-[11px] leading-relaxed text-fg-muted", busy && "opacity-60")}>
+          <pre
+            data-brief-body=""
+            // A screen, like every other surface in this app where words are
+            // read or typed: the same glass, scanlines and phosphor as the
+            // palette's field and the plate's prompt.
+            className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md p-3 font-mono text-[11px] leading-relaxed", busy && "opacity-60")}
+            style={{ ...screenFace, color: SCREEN.ink }}
+          >
             {busy && view !== "result" ? null : body || "Nothing on the board yet."}
             {busy ? (
               <span className="flex items-center gap-2 text-accent">

@@ -15,6 +15,7 @@
  * bent round a curve reads as a logo.
  */
 import * as React from "react";
+import { SCREEN, VOID } from "@/core/ui/void";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
@@ -37,12 +38,7 @@ export const CONSOLE_HUE = 285;
  * with red controls read as mud next to the blue and green above it.
  */
 export const CONSOLE = {
-  face: "oklch(0.2 0.035 288)",
-  faceLit: "oklch(0.26 0.045 288)",
-  rim: "oklch(0.36 0.06 290)",
-  well: "oklch(0.14 0.03 288)",
-  /** A small box on a slab — a chip, a key, a tick. */
-  box: "oklch(0.27 0.04 286)",
+  ...VOID,
   /**
    * The lit part of a level bar. Bright enough to be the lit part and no
    * brighter: a bar in the text colour is a slab of white paper on a near
@@ -51,9 +47,6 @@ export const CONSOLE = {
   level: "oklch(0.7 0.028 288)",
   aura: `oklch(0.64 0.23 ${27})`,
   on: `oklch(0.64 0.23 ${27})`,
-  text: "oklch(0.92 0.02 285)",
-  ink: "oklch(0.1 0.02 285)",
-  muted: "oklch(0.62 0.03 285)",
 } as const;
 
 /**
@@ -107,15 +100,7 @@ export const PICKED = `0 0 0 1.5px ${CONSOLE.on}, 0 0 4px 0 oklch(0.64 0.23 27 /
  * in phosphor. A slab that carries settings is painted as one (`ScreenFace`);
  * the plate the typing happens on is one (`PlateQuad`).
  */
-export const SCREEN = {
-  glass: "radial-gradient(ellipse at 50% 35%, oklch(0.2 0.05 195) 0%, oklch(0.135 0.04 200) 55%, oklch(0.09 0.03 205) 100%)",
-  scan: "repeating-linear-gradient(0deg, oklch(0 0 0 / 0.26) 0 1px, transparent 1px 3px)",
-  dots: "radial-gradient(circle, oklch(0.62 0.1 190 / 0.09) 0.55px, transparent 0.65px)",
-  key: "oklch(0.2 0.045 200)",
-  line: "oklch(0.36 0.07 195)",
-  ink: "oklch(0.88 0.09 175)",
-  dim: "oklch(0.6 0.06 180)",
-} as const;
+export { SCREEN };
 /** A key on the screen: the same box as everywhere else, in the screen's colours. */
 export const SCREEN_KEY: React.CSSProperties = { background: SCREEN.key, color: SCREEN.ink };
 /**
