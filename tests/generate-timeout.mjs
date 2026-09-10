@@ -104,6 +104,11 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
   await page.getByRole("button", { name: "Critique it" }).click();
   await page.waitForTimeout(2000);
   check("a call that never comes back leaves the spinner up", (await spinning(page)) === 1);
+  // A note may already be up here: claudeReady() is asked before the run and,
+  // finding no key configured in this environment, leads with that reason —
+  // "It does not stop the run" (BriefDialog.tsx), so the note and the hung
+  // request coexist honestly. What Stop must not do is add to it.
+  const beforeStop = await noteOn(page);
   const stop = page.getByRole("button", { name: /^Stop/ }).first();
   check("and there is a Stop to press", (await stop.count()) === 1);
   if (await stop.count()) {
@@ -113,11 +118,10 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
     /*
      * Not "the banner is empty": a missing key is said before the call is
      * made, on purpose, and it is still true after Stop — that is the reason
-     * nothing would have come back anyway. What must not appear is a
-     * *failure*: letting go of a request is not one.
+     * nothing would have come back anyway. What must not change is what is
+     * said: letting go of a request adds nothing to it.
      */
-    const after = await noteOn(page);
-    check("and stopping is not reported as a failure", !/failed|error|went wrong/i.test(after), after || "nothing said");
+    check("and stopping is not reported as a failure", (await noteOn(page)) === beforeStop, await noteOn(page));
   }
   await page.close();
 }
