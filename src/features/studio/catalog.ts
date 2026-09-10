@@ -82,9 +82,15 @@ export interface FeatureDef {
   h?: number;
 }
 
+/**
+ * Twelve places a visitor could point at. Shop lives inside Forms (both are
+ * the visitor handing you something); the dense views and the terminal
+ * live with Data, the keyboard-first parts with Interaction — "Dense &
+ * keyboard" was a category nobody could see on a page.
+ */
 export type CategoryId =
   | "structure" | "nav" | "hero" | "content" | "media" | "motion" | "interact"
-  | "forms" | "commerce" | "data" | "social" | "ai" | "power" | "platform";
+  | "forms" | "data" | "social" | "ai" | "platform";
 
 export interface CategoryDef {
   id: CategoryId;
@@ -102,12 +108,10 @@ export const CATEGORIES: CategoryDef[] = [
   { id: "media", label: "Media", icon: Images, blurb: "Images, video, audio, 3D.", hue: 300 },
   { id: "motion", label: "Motion", icon: Waves, blurb: "What happens as you scroll.", hue: 190 },
   { id: "interact", label: "Interaction", icon: MousePointerClick, blurb: "Feedback, menus, shortcuts.", hue: 160 },
-  { id: "forms", label: "Forms", icon: CheckSquare, blurb: "Capturing what people type.", hue: 130 },
-  { id: "commerce", label: "Shop", icon: ShoppingCart, blurb: "Selling things.", hue: 100 },
-  { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible.", hue: 265 },
+  { id: "forms", label: "Forms & shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 130 },
+  { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 265 },
   { id: "social", label: "Social", icon: Users, blurb: "People and their traces.", hue: 340 },
   { id: "ai", label: "AI", icon: Sparkles, blurb: "Model-powered surfaces.", hue: 280 },
-  { id: "power", label: "Dense & keyboard", icon: Terminal, blurb: "Tools that reward fast hands.", hue: 155 },
   { id: "platform", label: "Under the hood", icon: ShieldCheck, blurb: "The things that make it real.", hue: 20 },
 ];
 
@@ -151,11 +155,11 @@ const RAW: FeatureDef[] = [
   f("breadcrumbs", "Breadcrumb trail", "nav", Signpost, "Where you are in the hierarchy.", {}),
   f("scrollspy-nav", "Section tracker", "nav", ScrollText, "Side nav that highlights the section you're in.", {}),
   f("mobile-nav", "Phone menu", "nav", Smartphone, "Hamburger, bottom bar or full-screen menu.", { options: [{ id: "style", label: "Style", values: ["sheet", "bottom-bar", "fullscreen"] }] }),
-  f("page-transitions", "Page transitions", "nav", Spline, "Animated movement between routes.", { options: [{ id: "style", label: "Style", values: ["fade", "slide", "shared-element", "curtain"] }] }),
+  f("page-transitions", "Page transitions", "motion", Spline, "Animated movement between routes.", { options: [{ id: "style", label: "Style", values: ["fade", "slide", "shared-element", "curtain"] }] }),
   f("search-nav", "Search box", "nav", Search, "Search across all content with results as you type.", {}),
   f("toc", "Table of contents", "nav", List, "Generated outline of a long document.", {}),
   f("pagination", "Page numbers", "nav", ListOrdered, "Page-by-page rather than endless scroll.", {}),
-  f("back-to-top", "Back to top", "nav", ArrowDown, "Return to the start of a long page.", {}),
+  f("back-to-top", "Back to top", "motion", ArrowDown, "Return to the start of a long page.", {}),
   f("sitemap-page", "Site map", "nav", MapIcon, "One page listing everything.", {}),
 
   /* ------------------------------------------------------------------- hero */
@@ -255,21 +259,21 @@ const RAW: FeatureDef[] = [
   f("captcha", "Spam protection", "forms", Shield, "Keep bots out without punishing people.", {}),
 
   /* -------------------------------------------------------------- commerce */
-  f("product-grid", "Product grid", "commerce", Store, "Browsable catalogue.", { options: [columns] }),
-  f("product-detail", "Product page", "commerce", Package, "Gallery, options, price, add to cart.", {}),
-  f("cart-drawer", "Cart", "commerce", ShoppingCart, "Slide-over cart with running total.", {}),
-  f("checkout", "Checkout", "commerce", CreditCard, "Address, payment, confirmation.", {}),
-  f("pricing-table", "Pricing table", "commerce", DollarSign, "Tiers side by side with a recommended one.", { options: [{ id: "tiers", label: "Tiers", values: ["3", "2", "4"] }] }),
-  f("comparison-table", "Comparison table", "commerce", Table2, "Feature-by-feature against alternatives.", {}),
-  f("testimonials", "Testimonials", "commerce", Quote, "Real quotes with names and faces.", {}),
-  f("logo-cloud", "Logo row", "commerce", BadgeCheck, "Customers or press logos.", {}),
-  f("trust-badges", "Trust badges", "commerce", ShieldCheck, "Guarantees, security, returns.", {}),
-  f("countdown", "Countdown", "commerce", Timer, "Time-limited offer.", {}),
-  f("discount", "Promo codes", "commerce", Percent, "Apply a code at checkout.", {}),
-  f("wishlist", "Wishlist", "commerce", Bookmark, "Save for later.", {}),
-  f("subscription", "Subscriptions", "commerce", Wallet, "Recurring plans and management.", {}),
-  f("invoice", "Receipts", "commerce", Printer, "Downloadable proof of purchase.", {}),
-  f("affiliate", "Referral links", "commerce", Share2, "Share links with attribution.", {}),
+  f("product-grid", "Product grid", "forms", Store, "Browsable catalogue.", { options: [columns] }),
+  f("product-detail", "Product page", "forms", Package, "Gallery, options, price, add to cart.", {}),
+  f("cart-drawer", "Cart", "forms", ShoppingCart, "Slide-over cart with running total.", {}),
+  f("checkout", "Checkout", "forms", CreditCard, "Address, payment, confirmation.", {}),
+  f("pricing-table", "Pricing table", "forms", DollarSign, "Tiers side by side with a recommended one.", { options: [{ id: "tiers", label: "Tiers", values: ["3", "2", "4"] }] }),
+  f("comparison-table", "Comparison table", "forms", Table2, "Feature-by-feature against alternatives.", {}),
+  f("testimonials", "Testimonials", "hero", Quote, "Real quotes with names and faces.", {}),
+  f("logo-cloud", "Logo row", "hero", BadgeCheck, "Customers or press logos.", {}),
+  f("trust-badges", "Trust badges", "hero", ShieldCheck, "Guarantees, security, returns.", {}),
+  f("countdown", "Countdown", "hero", Timer, "Time-limited offer.", {}),
+  f("discount", "Promo codes", "forms", Percent, "Apply a code at checkout.", {}),
+  f("wishlist", "Wishlist", "forms", Bookmark, "Save for later.", {}),
+  f("subscription", "Subscriptions", "forms", Wallet, "Recurring plans and management.", {}),
+  f("invoice", "Receipts", "forms", Printer, "Downloadable proof of purchase.", {}),
+  f("affiliate", "Referral links", "forms", Share2, "Share links with attribution.", {}),
 
   /* ------------------------------------------------------------------ data */
   f("charts", "Charts", "data", LineChart, "Lines, bars, areas — legible in both themes.", { options: [{ id: "kind", label: "Kind", values: ["line", "bar", "area", "mixed"] }] }),
@@ -314,18 +318,18 @@ const RAW: FeatureDef[] = [
   f("ai-voice", "Voice input", "ai", Mic, "Talk to it instead of typing.", {}),
 
   /* ----------------------------------------------------------------- power */
-  f("virtualised-list", "Huge list", "power", List, "Thousands of rows without lag.", {}),
-  f("dense-tables", "Dense rows", "power", Rows3, "Maximum information per pixel.", {}),
-  f("multi-column-feed", "Side-by-side feeds", "power", Columns3, "Parallel live streams side by side.", { options: [columns] }),
-  f("presets", "Saved presets", "power", Bookmark, "Named configurations, switchable in one click.", {}),
-  f("hotkey-first", "Keyboard-first", "power", Keyboard, "Every action reachable without a mouse.", {}),
-  f("status-bar", "Status bar", "power", Activity, "Persistent state along the bottom edge.", {}),
-  f("blur-privacy", "Privacy blur", "power", Eye, "Hide sensitive numbers for screen sharing.", {}),
-  f("quick-action", "One-click action", "power", Zap, "Execute with no confirmation dialog.", {}),
-  f("split-panes", "Resizable panes", "power", Columns3, "Drag the divider between regions.", {}),
-  f("terminal-console", "Command console", "power", Terminal, "Type commands, see output.", {}),
-  f("realtime-stream", "Live data stream", "power", Wifi, "Push updates instead of polling.", {}),
-  f("diff-view", "Change comparison", "power", GitBranch, "Side-by-side or inline change comparison.", {}),
+  f("virtualised-list", "Huge list", "data", List, "Thousands of rows without lag.", {}),
+  f("dense-tables", "Dense rows", "data", Rows3, "Maximum information per pixel.", {}),
+  f("multi-column-feed", "Side-by-side feeds", "data", Columns3, "Parallel live streams side by side.", { options: [columns] }),
+  f("presets", "Saved presets", "interact", Bookmark, "Named configurations, switchable in one click.", {}),
+  f("hotkey-first", "Keyboard-first", "interact", Keyboard, "Every action reachable without a mouse.", {}),
+  f("status-bar", "Status bar", "data", Activity, "Persistent state along the bottom edge.", {}),
+  f("blur-privacy", "Privacy blur", "interact", Eye, "Hide sensitive numbers for screen sharing.", {}),
+  f("quick-action", "One-click action", "interact", Zap, "Execute with no confirmation dialog.", {}),
+  f("split-panes", "Resizable panes", "data", Columns3, "Drag the divider between regions.", {}),
+  f("terminal-console", "Command console", "data", Terminal, "Type commands, see output.", {}),
+  f("realtime-stream", "Live data stream", "data", Wifi, "Push updates instead of polling.", {}),
+  f("diff-view", "Change comparison", "data", GitBranch, "Side-by-side or inline change comparison.", {}),
 
   /* -------------------------------------------------------------- platform */
   f("dark-mode", "Dark / light mode", "platform", Moon, "Both themes, respecting the system setting.", { options: [{ id: "default", label: "Default", values: ["system", "dark", "light"] }] }),
@@ -348,12 +352,12 @@ const RAW: FeatureDef[] = [
   f("testing", "Tests", "platform", FlaskConical, "Prove it still works.", {}),
 
   /* ------------------------------------------------------------- wildcards */
-  f("custom-idea", "New idea", "structure", Lightbulb, "A feature that doesn't exist yet — describe it in the prompt.", { hint: "Describe the idea in your own words. This is the placeholder for something new.", tags: ["custom", "new", "idea", "blank"] }),
-  f("gimmick", "Central idea", "structure", Crown, "The one unusual thing this site is built around.", { hint: "The single idea everything else serves.", tags: ["core", "hook", "concept"], w: 150 }),
-  f("wildcard", "Surprise me", "structure", Dices, "Surprise me — let the model choose.", { tags: ["random", "surprise"] }),
-  f("note", "Note", "structure", Pin, "A written instruction pinned to the canvas.", { hint: "Anything the builder should know.", tags: ["comment", "annotation"] }),
-  f("mood", "Mood / reference", "structure", Palette, "Tone, era, or a site to feel like.", { hint: "Reference points and the feeling to aim for.", tags: ["style", "vibe", "reference"] }),
-  f("constraint", "Rule", "structure", Flag, "Something the build must not do.", { hint: "A hard limit: no frameworks, must load in 1s, no scroll-jacking…", tags: ["limit", "rule"] }),
+  f("custom-idea", "New idea", "content", Lightbulb, "A feature that doesn't exist yet — describe it in the prompt.", { hint: "Describe the idea in your own words. This is the placeholder for something new.", tags: ["custom", "new", "idea", "blank"] }),
+  f("gimmick", "Central idea", "content", Crown, "The one unusual thing this site is built around.", { hint: "The single idea everything else serves.", tags: ["core", "hook", "concept"], w: 150 }),
+  f("wildcard", "Surprise me", "content", Dices, "Surprise me — let the model choose.", { tags: ["random", "surprise"] }),
+  f("note", "Note", "content", Pin, "A written instruction pinned to the canvas.", { hint: "Anything the builder should know.", tags: ["comment", "annotation"] }),
+  f("mood", "Mood / reference", "content", Palette, "Tone, era, or a site to feel like.", { hint: "Reference points and the feeling to aim for.", tags: ["style", "vibe", "reference"] }),
+  f("constraint", "Rule", "content", Flag, "Something the build must not do.", { hint: "A hard limit: no frameworks, must load in 1s, no scroll-jacking…", tags: ["limit", "rule"] }),
   f("scan-region", "Region", "structure", Scan, "A named area of the page other elements sit inside.", { tags: ["frame", "zone"], w: 150 }),
   f("integration", "Connect a service", "platform", Puzzle, "Connect to a third-party service.", { hint: "Which service, and what it does here." }),
   f("gamification", "Points & levels", "interact", Gamepad2, "Points, streaks, levels, unlocks.", {}),
@@ -375,7 +379,7 @@ const RAW: FeatureDef[] = [
   f("home-anchor", "Home", "nav", Home, "The page everything returns to.", {}),
   f("tagging", "Tags", "content", Tag, "Organise and cross-link content.", {}),
   f("graduation", "Simple then deep", "interact", GraduationCap, "Simple by default, deep when you dig.", {}),
-  f("coin-economy", "Points / currency", "commerce", Coins, "An in-site economy.", {}),
+  f("coin-economy", "Points / currency", "forms", Coins, "An in-site economy.", {}),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -392,11 +396,9 @@ const CATEGORY_SIZE: Record<CategoryId, [number, number]> = {
   motion: [420, 88],
   interact: [420, 88],
   forms: [520, 340],
-  commerce: [1200, 420],
   data: [680, 340],
   social: [560, 260],
   ai: [520, 320],
-  power: [420, 88],
   platform: [420, 88],
 };
 
@@ -405,6 +407,34 @@ const yesNo = (id: string, label: string, def: "yes" | "no"): FeatureOption => (
 
 /** Per-part overrides: real size, shape options, and what it contains. */
 const DETAILS: Record<string, Partial<FeatureDef>> = {
+  // Sizes kept from the categories these parts left in the regroup: the
+  // move changed where a part is found, never its footprint on the page.
+  "product-detail": { w: 1200, h: 420 },
+  "wishlist": { w: 1200, h: 420 },
+  "comparison-table": { w: 1200, h: 420 },
+  "cart-drawer": { w: 1200, h: 420 },
+  "checkout": { w: 1200, h: 420 },
+  "discount": { w: 1200, h: 420 },
+  "invoice": { w: 1200, h: 420 },
+  "subscription": { w: 1200, h: 420 },
+  "affiliate": { w: 1200, h: 420 },
+  "coin-economy": { w: 1200, h: 420 },
+  "countdown": { w: 1200, h: 420 },
+  "trust-badges": { w: 1200, h: 420 },
+  "dense-tables": { w: 420, h: 88 },
+  "virtualised-list": { w: 420, h: 88 },
+  "multi-column-feed": { w: 420, h: 88 },
+  "realtime-stream": { w: 420, h: 88 },
+  "terminal-console": { w: 420, h: 88 },
+  "status-bar": { w: 420, h: 88 },
+  "split-panes": { w: 420, h: 88 },
+  "diff-view": { w: 420, h: 88 },
+  "hotkey-first": { w: 420, h: 88 },
+  "presets": { w: 420, h: 88 },
+  "blur-privacy": { w: 420, h: 88 },
+  "wildcard": { w: 1440, h: 360 },
+  "page-transitions": { w: 1440, h: 64 },
+  "back-to-top": { w: 1440, h: 64 },
   "search-nav": { w: 420, h: 48, options: [shape, yesNo("button", "Search button", "no")], content: { label: "Searches over", placeholder: "pages, products, articles" } },
   "search-autocomplete": { w: 420, h: 48, options: [shape], content: { label: "Suggests", placeholder: "products, categories, recent searches" } },
   "ai-search": { w: 480, h: 48, options: [shape], content: { label: "Searches over", placeholder: "everything on the site" } },
@@ -736,25 +766,26 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
     { id: "switchers", emoji: "\ud83d\uddc2\ufe0f", label: "Switchers", ids: ["tabs-panel", "accordion"] },
     { id: "overlays", emoji: "\ud83e\ude9f", label: "Overlays", ids: ["modal", "drawer"] },
     { id: "footer", emoji: "\ud83e\uddb6", label: "Footer", ids: ["footer"] },
-    { id: "your-notes", emoji: "\ud83d\udcdd", label: "Your notes", ids: ["custom-idea", "gimmick", "wildcard", "note", "mood", "constraint"] },
   ],
   "nav": [
     { id: "top-bars", emoji: "\ud83e\udded", label: "Top bars", ids: ["sticky-header", "mega-menu", "mobile-nav", "home-anchor"] },
     { id: "finding-things", emoji: "\ud83d\udd0e", label: "Finding things", ids: ["search-nav"] },
     { id: "where-am-i", emoji: "\ud83e\ude9c", label: "Where am I", ids: ["breadcrumbs", "scrollspy-nav", "toc", "sitemap-page"] },
-    { id: "between-pages", emoji: "\ud83d\udcc4", label: "Between pages", ids: ["pagination", "page-transitions", "back-to-top"] },
+    { id: "between-pages", emoji: "\ud83d\udcc4", label: "Between pages", ids: ["pagination"] },
   ],
   "hero": [
     { id: "heroes", emoji: "\ud83c\udf05", label: "Heroes", ids: ["hero-split", "hero-video", "hero-gradient", "hero-typewriter", "hero-particles", "hero-3d", "hero-scroll-cue"] },
     { id: "the-pitch", emoji: "\ud83d\udcac", label: "The pitch", ids: ["value-prop"] },
     { id: "the-button", emoji: "\ud83d\ude80", label: "The button", ids: ["cta-primary"] },
     { id: "proof", emoji: "\ud83c\udfc5", label: "Proof", ids: ["social-proof-strip"] },
+    { id: "persuasion", emoji: "\u2b50", label: "Persuasion", ids: ["testimonials", "countdown", "trust-badges", "logo-cloud"] },
   ],
   "content": [
     { id: "body-text", emoji: "\ud83d\udcd6", label: "Body text", ids: ["prose", "drop-cap", "reading-time", "footnotes", "micro-copy", "textbox-format"] },
     { id: "type-treatment", emoji: "\ud83d\udd20", label: "Type treatment", ids: ["heading-scale", "fluid-type", "kinetic-type", "highlight", "pull-quote"] },
     { id: "lists-of-things", emoji: "\ud83d\udcf0", label: "Lists of things", ids: ["blog-index", "changelog", "tagging", "docs", "rss"] },
     { id: "boxes", emoji: "\ud83d\udca1", label: "Boxes", ids: ["callout", "code-block", "faq", "marquee"] },
+    { id: "your-notes", emoji: "\ud83d\udcdd", label: "Your notes", ids: ["custom-idea", "gimmick", "wildcard", "note", "mood", "constraint"] },
   ],
   "media": [
     { id: "pictures", emoji: "\ud83d\uddbc\ufe0f", label: "Pictures", ids: ["gallery", "lightbox", "image-blur-up", "photo-credit"] },
@@ -766,28 +797,26 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
   "motion": [
     { id: "on-scroll", emoji: "\ud83d\udcdc", label: "On scroll", ids: ["scroll-snap", "parallax", "reveal-on-scroll", "sticky-story", "horizontal-scroll", "scroll-progress", "scroll-video", "infinite-scroll", "smooth-scroll"] },
     { id: "on-pointer", emoji: "\ud83d\uddb1\ufe0f", label: "On pointer", ids: ["cursor-effects", "hover-tilt"] },
-    { id: "moments", emoji: "\u2728", label: "Moments", ids: ["page-load", "morph-transition", "confetti", "physics"] },
+    { id: "moments", emoji: "\u2728", label: "Moments", ids: ["page-load", "page-transitions", "back-to-top", "morph-transition", "confetti", "physics"] },
   ],
   "interact": [
-    { id: "keyboard-and-menus", emoji: "\u2328\ufe0f", label: "Keyboard & menus", ids: ["context-menus", "command-palette", "shortcuts"] },
+    { id: "keyboard-and-menus", emoji: "\u2328\ufe0f", label: "Keyboard & menus", ids: ["context-menus", "command-palette", "shortcuts", "hotkey-first", "presets", "quick-action"] },
     { id: "feedback", emoji: "\ud83d\udd14", label: "Feedback", ids: ["toasts", "optimistic-ui", "sound-cues", "haptics", "skeletons"] },
     { id: "direct-handling", emoji: "\u270b", label: "Direct handling", ids: ["drag-drop", "inline-edit", "undo-redo", "copy-button"] },
     { id: "on-hover", emoji: "\ud83d\udc40", label: "On hover", ids: ["hover-card", "tooltips", "magnetic-buttons"] },
     { id: "first-run", emoji: "\ud83e\uddd1\u200d\ud83c\udfeb", label: "First run", ids: ["onboarding-tour", "compass-onboard", "graduation", "empty-states"] },
     { id: "play", emoji: "\ud83c\udfae", label: "Play", ids: ["gamification", "easter-egg", "workflow-builder", "cog-settings"] },
+    { id: "privacy", emoji: "\ud83d\udd76\ufe0f", label: "Privacy", ids: ["blur-privacy"] },
   ],
   "forms": [
     { id: "forms", emoji: "\u2709\ufe0f", label: "Forms", ids: ["contact-form", "multi-step-form", "inline-validation", "autosave", "booking", "survey"] },
     { id: "inputs", emoji: "\ud83d\udce5", label: "Inputs", ids: ["file-upload", "date-picker", "rating", "filter-panel", "search-autocomplete"] },
     { id: "signup", emoji: "\ud83d\udce7", label: "Signup", ids: ["newsletter"] },
     { id: "protection", emoji: "\ud83d\udee1\ufe0f", label: "Protection", ids: ["captcha"] },
-  ],
-  "commerce": [
     { id: "browsing", emoji: "\ud83d\udecd\ufe0f", label: "Browsing", ids: ["product-grid", "product-detail", "wishlist", "comparison-table"] },
     { id: "buying", emoji: "\ud83d\uded2", label: "Buying", ids: ["cart-drawer", "checkout", "discount", "invoice"] },
     { id: "plans", emoji: "\ud83d\udcb3", label: "Plans", ids: ["pricing-table", "subscription"] },
-    { id: "persuasion", emoji: "\u2b50", label: "Persuasion", ids: ["testimonials", "countdown", "trust-badges", "logo-cloud"] },
-    { id: "economy", emoji: "\ud83e\ude99", label: "Economy", ids: ["affiliate", "coin-economy"] },
+    { id: "economy", emoji: "\ud83e\ude99", label: "Ads & economy", ids: ["affiliate", "coin-economy"] },
   ],
   "data": [
     { id: "charts", emoji: "\ud83d\udcc8", label: "Charts", ids: ["charts", "pie-breakdown", "sparkline", "heatmap"] },
@@ -795,26 +824,20 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
     { id: "tables", emoji: "\ud83d\udccb", label: "Tables", ids: ["data-table", "export"] },
     { id: "arrangements", emoji: "\ud83d\uddfa\ufe0f", label: "Arrangements", ids: ["dashboard", "timeline", "kanban", "network-graph", "calendar-view"] },
     { id: "live", emoji: "\ud83d\udce1", label: "Live", ids: ["live-feed"] },
+    { id: "dense-views", emoji: "\ud83d\udcca", label: "Dense views", ids: ["dense-tables", "virtualised-list", "multi-column-feed", "realtime-stream"] },
+    { id: "terminal", emoji: "\ud83d\udda5\ufe0f", label: "Terminal", ids: ["terminal-console", "status-bar", "split-panes", "diff-view"] },
   ],
   "social": [
-    { id: "people", emoji: "\ud83e\uddd1", label: "People", ids: ["profiles", "community-badges"] },
+    { id: "people", emoji: "\ud83e\uddd1", label: "People", ids: ["profiles", "community-badges", "activity-feed"] },
     { id: "talking", emoji: "\ud83d\udcac", label: "Talking", ids: ["comments", "chat", "forum", "guestbook", "mentions"] },
     { id: "reacting", emoji: "\u2764\ufe0f", label: "Reacting", ids: ["reactions", "share-sheet", "follow"] },
     { id: "keeping-order", emoji: "\ud83d\udee0\ufe0f", label: "Keeping order", ids: ["moderation", "collab-cursors"] },
-    { id: "more", emoji: "\u2795", label: "More", ids: ["activity-feed"] },
   ],
   "ai": [
     { id: "conversation", emoji: "\ud83e\udd16", label: "Conversation", ids: ["ai-chat", "ai-prompt-box", "ai-voice"] },
     { id: "writing", emoji: "\u270d\ufe0f", label: "Writing", ids: ["ai-generate-content", "ai-summarize", "ai-translate"] },
     { id: "suggesting", emoji: "\ud83c\udfaf", label: "Suggesting", ids: ["ai-recommend", "ai-search", "ai-autofill"] },
-    { id: "more", emoji: "\u2795", label: "More", ids: ["ai-moderation"] },
-  ],
-  "power": [
-    { id: "keyboard-first", emoji: "\u2328\ufe0f", label: "Keyboard-first", ids: ["hotkey-first", "presets", "quick-action"] },
-    { id: "dense-views", emoji: "\ud83d\udcca", label: "Dense views", ids: ["dense-tables", "virtualised-list", "multi-column-feed", "realtime-stream"] },
-    { id: "terminal", emoji: "\ud83d\udda5\ufe0f", label: "Terminal", ids: ["terminal-console", "status-bar", "split-panes"] },
-    { id: "privacy", emoji: "\ud83d\udd76\ufe0f", label: "Privacy", ids: ["blur-privacy"] },
-    { id: "more", emoji: "\u2795", label: "More", ids: ["diff-view"] },
+    { id: "keeping-order", emoji: "\ud83d\udee0\ufe0f", label: "Keeping order", ids: ["ai-moderation"] },
   ],
   "platform": [
     { id: "appearance", emoji: "\ud83c\udfa8", label: "Appearance", ids: ["dark-mode", "theming", "responsive", "brand-system", "print"] },
@@ -835,10 +858,8 @@ export const CATEGORY_EMOJI: Record<string, string> = {
   "motion": "🌀",
   "interact": "✋",
   "forms": "✉️",
-  "commerce": "🛍️",
   "data": "📈",
   "social": "💬",
   "ai": "🤖",
-  "power": "⌨️",
   "platform": "⚙️"
 };

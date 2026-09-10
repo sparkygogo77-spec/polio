@@ -25,7 +25,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    version: "0.46",
+    version: "0.47",
     title: "A square menu, square all the way out",
     summary: "The wheel's own cuts go square too: every ring is a square ring and every cut runs into the outline instead of out from the middle.",
     sketch: "parts",
@@ -35,6 +35,19 @@ export const RELEASES: Release[] = [
       "The one diagonal left is a mitre: two pieces meeting at a corner of the hole, joined the way two lengths of a picture frame are. There is nothing perpendicular for a cut to be there.",
       "A word on a piece that wraps a corner goes in the middle of one of its legs, not on the corner, which is the one place on an L where the band is thinnest and a word does not fit.",
       "Round menus are untouched, and the check that holds the line is the honest one: not a single piece of a square menu carries an arc command at any level, and a round one carries sixteen.",
+    ],
+  },
+  {
+    version: "0.46",
+    title: "Twelve places a visitor could point at",
+    summary: "The library is regrouped round what a visitor sees: Dense & keyboard is dissolved, Shop lives inside Forms, and every sub-group is named for what it holds.",
+    sketch: "planets",
+    added: [
+      "Dense & keyboard is gone as a place. The dense tables, the virtual list, the multi-column feed, the live stream and the terminal, status bar, split panes and diff view live with Data; hotkey-first, presets, quick action and blur privacy live with Interaction. Nobody could point at \"Dense & keyboard\" on a page.",
+      "Shop lives inside Forms — both are the visitor handing you something — with Browsing, Buying, Plans and Ads & economy kept as their own rows.",
+      "Persuasion — testimonials, countdown, trust badges, logo cloud — sits beside Proof on First screen, where the arguments for the site are made. Your notes moved out of Layout into Text, because a note is words.",
+      "The three sub-groups called More are gone: the activity feed is with People, AI moderation is Keeping order, the diff view is in Terminal. Page transitions and back-to-top are Moments under Motion rather than Between pages under Navigation.",
+      "No part changed its id, so nothing saved changes, the drawing board's reader still validates against the same library, and every check on it stands. Twelve tabs on the add disc instead of fourteen.",
     ],
   },
   {

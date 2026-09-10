@@ -92,7 +92,7 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     218 parts in 14 categories, plain names, one f(...) line each;
+  catalog.ts     218 parts in 12 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
   blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
@@ -101,7 +101,7 @@ src/features/studio/
                  Commerce Data Social Ai Power Platform Ops Interact Motion Behaviour
   look.ts        colour (OKLCH maths, harmony, contrast) and texture (layer → CSS)
   texture.ts     cooking a picture into a tile: cut-out, pattern, rotate
-  planets.tsx    fourteen outline category marks, one per kind of part
+  planets.tsx    twelve outline category marks, one per kind of part
   showcase.ts    where a part would sit on a page, and how wide
   LookPanel.tsx  the mixer and the texture stack
   Palette.tsx    the parts drawer under the board
@@ -883,7 +883,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   never zooms out past fitting the page's width, so both side edges are always
   on screen with a small gutter; a pane that grew just means a wider gutter,
   and only a page that would be cut off triggers a re-fit.
-- Categories are the fourteen outline planets in `planets.tsx` — `currentColor`
+- Categories are the twelve outline planets in `planets.tsx` — `currentColor`
   only, no fills, one hue each. At 16px a filled planet is a blob; a ring and
   two lines still read as Saturn. Pick one and it becomes a crumb with its
   sub-groups beside it.
