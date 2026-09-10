@@ -1,17 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { describeSketch, isBlankSketch, normaliseSketch, sketchToText } from "@/features/studio/sketch";
+import { describeBoundary, describeSketch, isBlankSketch, normaliseSketch, readBoundary, sketchToText } from "@/features/studio/sketch";
 
 /**
  * Reads what was drawn on the Builder's drawing board and says what the part
  * should become.
  *
- * The board sends the drawing two ways — a small picture of the strokes and
- * the strokes as numbers — beside the part as it is now, the words typed
- * under the drawing, the width of the page frame and the whole library of
- * parts. Claude answers with one JSON object: a size in the drawing's
- * proportion, the kind of part if the drawing is plainly something else, and
- * whatever the drawing shows inside the shape as contents and options.
+ * The board sends the drawing three ways — a small picture of the strokes,
+ * the strokes as numbers, and the drawing measured: the box round everything
+ * drawn and the outline that bounds the part, each with its proportion —
+ * beside the part as it is now, the words typed under the drawing, the width
+ * of the page frame and the whole library of parts. Claude answers with one
+ * JSON object: a size in the boundary's proportion, the kind of part if the
+ * drawing is plainly something else, and whatever the drawing shows inside
+ * the boundary as contents and options.
+ *
+ * The lines drawn are the barriers and the boundary of the part, and the
+ * prompt is told so in those terms: the outline is a hard boundary, the part
+ * fills it, nothing crosses it, the proportion is held. The prompt Claude
+ * writes back is asked to be the most specific thing there is about this
+ * drawing — this boundary, these divisions, these things inside it.
  *
  * The library goes first and is marked for caching: it is the same on every
  * call, so after the first it is read from the cache and only the drawing is
@@ -80,10 +88,10 @@ const ANSWER_SCHEMA = {
   properties: {
     featureId: { type: "string", description: "The id of the part this should be, from the library. Keep the current one unless the drawing is plainly a different kind of part. For a new part, the id the drawing and the words fit best." },
     label: { type: "string", description: "A short plain name for the part: only if it should change, or for a new part." },
-    w: { type: "number", description: "Width in pixels inside the page frame, in the drawing's proportion." },
-    h: { type: "number", description: "Height in pixels, in the drawing's proportion." },
-    content: { type: "string", description: "What the part contains, as a comma-separated list or a line of text, if the drawing shows it (three boxes in a row, a list of lines, a field and a button)." },
-    prompt: { type: "string", description: "One or two sentences for the builder about this part's shape and what the drawing shows, in the author's terms. Keep what the current prompt says unless the drawing contradicts it. A new part always gets one." },
+    w: { type: "number", description: "Width in pixels inside the page frame, in the boundary's proportion." },
+    h: { type: "number", description: "Height in pixels, in the boundary's proportion: width divided by height equals the aspect given." },
+    content: { type: "string", description: "What the part holds inside the boundary, as a comma-separated list or a line of text, if the drawing shows it (three boxes in a row, a list of lines, a field and a button)." },
+    prompt: { type: "string", description: "What this drawing shows, as specifically as it can be said: the boundary and its proportion, what sits inside it and where, which lines divide it, and what the words ask for. Two or three sentences, in the author's terms, about this drawing and no other. Keep what the current prompt says where the drawing does not contradict it. A new part always gets one." },
     options: {
       type: "array",
       description: "Option values to set, only ids and values the part offers.",
@@ -103,14 +111,24 @@ const ANSWER_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const SYSTEM = `You read a rough freehand drawing made on a round drawing board and turn it into the shape of one part of a website.
+const SYSTEM = `You read a rough freehand drawing made on a round drawing board and turn it into one part of a website.
 
-The board is a disc; the picture shows it as a circle with the strokes inside it. The strokes are also given as numbers, in percent of the board's width, so the shape can be read off them when the picture is ambiguous. The author drew the shape they want the part to have — its proportion first of all, and sometimes what it holds: boxes inside a box are items in a row or a grid, a line of short marks is a list or a row of links, a small box beside a long one is a button beside a field, an arrow or a triangle at one end is a dropdown.
+The board is a disc; the picture shows it as a circle with the strokes inside it. The strokes are also given as numbers, in percent of the board's width, and the drawing is measured for you below: the box round everything drawn, the outline that bounds the part, and the proportion of each.
+
+The lines drawn are the barriers and the boundary of the part. Read them that way, and hold to it:
+
+- The outline is a hard boundary. The outermost closed line is the part's edge. It is not a hint at a size and not a rough area: it is where the part ends.
+- The part fills it. The part's edges sit on the boundary — no margin inside it, no empty band between the line and what it holds, nothing of the part short of it.
+- Nothing crosses it. Everything the part holds stays inside the boundary; nothing overflows it, extends past it, or sits outside it. Lines inside are barriers too: they divide the inside, and what sits in a division stays in that division.
+- The proportion is held. Answer with a width and a height in the boundary's proportion, given below as its aspect. Keep the part's area roughly what it was unless the drawing or the words say otherwise; a new part is sized by reading the board as the page — a boundary across a third of the board is a part across a third of the frame — and never wider than the frame.
+
+What marks inside a boundary mean: boxes inside a box are items in a row or a grid; a line of short marks is a list or a row of links; a small box beside a long one is a button beside a field; an arrow or a triangle at one end is a dropdown; a line straight across is a division between what is above it and what is below.
+
+The prompt you write is the most specific thing whoever builds this part will have, so make it specific to this drawing and to nothing else. Say what the boundary is and what proportion it holds, what sits inside it, where each thing sits and how big it is against the boundary, which lines divide it, and what the words beside it ask for. Never write advice that would fit any part of any website, and never restate the rules above back as the prompt.
 
 Rules:
-- The drawing's proportion (width over height) is the part's proportion: answer with a width and a height in that proportion. Keep the part's area roughly what it was unless the drawing or the words say otherwise.
 - Keep the part's kind unless the drawing is plainly something else, in which case pick the closest id from the library. Never invent an id.
-- A new part has nothing to keep. Pick the library id the drawing and the words fit best — custom-idea only when nothing else fits — and give it a name and a prompt. Read the board as the page for its size: a drawing across a third of the board is a part across a third of the frame, no wider than the frame.
+- A new part has nothing to keep. Pick the library id the drawing and the words fit best — custom-idea only when nothing else fits — and give it a name and a prompt.
 - Only set options the part offers, with values it offers. Only write contents when the drawing or the words show what the part holds.
 - The words beside the drawing win over your reading of the picture.`;
 
@@ -174,7 +192,17 @@ export async function POST(request: Request) {
     lines.push("", "There is no part yet: the drawing is a new part, to be placed where the board was opened.");
   }
   // The words go in once, on their own line; the measurement leaves them out.
-  lines.push("", `The drawing, measured: ${describeSketch({ strokes: sketch.strokes, words: "" })}.`);
+  const bare = { strokes: sketch.strokes, words: "" };
+  const boundary = readBoundary(bare);
+  lines.push("", "The drawing, measured:");
+  if (boundary) {
+    lines.push(`- the boundary: ${describeBoundary(boundary)}`);
+    lines.push(`- the part's proportion, to answer in: width / height = ${boundary.aspect.toFixed(3)}`);
+    lines.push(`- the boundary as a box, in percent of the board: x ${pc(boundary.box.x)}, y ${pc(boundary.box.y)}, width ${pc(boundary.box.w)}, height ${pc(boundary.box.h)}`);
+    if (!boundary.outlined) lines.push("- nothing was drawn closed, so the box round everything drawn is the boundary");
+    if (boundary.crossing) lines.push(`- ${boundary.crossing} stroke${boundary.crossing === 1 ? "" : "s"} leave the boundary; the boundary still bounds the part`);
+  }
+  lines.push(`- everything drawn: ${describeSketch(bare)}`);
   lines.push("", "The strokes, in percent of the board:", sketchToText(sketch));
   if (sketch.words.trim()) lines.push("", `Words the author typed beside it: "${sketch.words.trim()}"`);
 
@@ -244,6 +272,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "error", message: `Couldn't read the drawing (${error instanceof Error ? error.message : "unknown error"}).` });
   }
 }
+
+/** A fraction of the board as a whole-number percent. */
+const pc = (v: number) => Math.round(v * 100);
 
 /** The options as the board reads them: a record of id → value, whichever way the answer listed them. */
 function optionsRecord(value: unknown): Record<string, string> {

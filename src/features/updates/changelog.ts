@@ -25,6 +25,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.48",
+    title: "The line you drew is the edge",
+    summary: "Make real is told the drawing in the terms it was drawn in: the outline is a hard boundary, the part fills it, nothing crosses it, the proportion is held — and the prompt that comes back is about this drawing and no other.",
+    sketch: "parts",
+    added: [
+      "The reader is given the boundary, not just the ink: the outermost closed line, measured before the call, sent as words, as a box in percent of the board, and as a bare aspect number to answer in. A mark that fell outside the outline no longer drags the part's proportion with it.",
+      "The prompt the reader writes back is asked to be the most specific thing there is about this drawing — the boundary and its proportion, what sits inside it and where, which lines divide it, what the words ask for — and never advice that would fit any part of any site.",
+      "A shape the board snaps is four or five points, and a stroke had to be eight before it counted as closed. So every snapped box read as an open line and no drawing had a boundary at all: the part was fitted to the box round the ink, marks outside the outline included. Four points is the fewest that can enclose anything, and that is what it asks for now.",
+      "Fourteen more cases on tests/reshape-answer.mjs, thirty-nine in all: the outline is the boundary, what is drawn inside it is inside it, a stroke that leaves it is counted, a small closed mark beside a big scrawl is not an edge, and the part is fitted to the outline rather than to the ink.",
+    ],
+  },
+  {
     version: "0.47",
     title: "A square menu, square all the way out",
     summary: "The wheel's own cuts go square too: every ring is a square ring and every cut runs into the outline instead of out from the middle.",

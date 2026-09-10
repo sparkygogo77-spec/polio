@@ -210,11 +210,33 @@ ids ("Never invent an id"); without a key the drawing's proportion is the
 reshape and the drawing goes into the blueprint as a `drawn:` line. A drawing
 is never lost to a missing key.
 
+**The lines drawn are the barriers and the boundary of the part.** That is
+the rule the reader is written to, in those terms: the outermost closed line
+is a hard boundary and is where the part ends, the part fills it with no
+margin inside, nothing crosses it, and its proportion is the part's. Lines
+inside are barriers too — they divide the inside, and what sits in a division
+stays there. The prompt that comes back is asked to be the most specific
+thing there is about *this* drawing: the boundary and its proportion, what
+sits inside and where, which lines divide it — never advice that would fit
+any part of any site. The boundary is measured before the call
+(`sketch.ts`, `readBoundary`) and sent as words, as a box in percent of the
+board, and as a bare aspect number, beside the box round everything drawn;
+`describeBoundary` is that sentence. An outline counts as the boundary only
+when it holds `BOUNDARY_SHARE` of what is drawn, so a small mark beside a big
+scrawl is a mark, not an edge. Everything the part is fitted to — the reader's
+answer and the no-key fallback alike — is the boundary, never the box round
+the ink. A stroke that leaves the outline is counted, and the outline still
+bounds the part.
+
+A shape the board snapped is four or five points, so `strokeClosed` asks for
+four, not eight. It asked for eight once, which meant every snapped box read
+as an open line and no drawing had a boundary at all.
+
 The answer is a suggestion until `reshape.ts` has held it to the catalog, the
 frame and the drawing: ids and option values not in the library are dropped,
-the size is clamped to the frame, and a size a third or more off the drawing's
-proportion is brought back to it when there are no words that could have
-asked for that (words win; a bare drawing says only its shape). A reply that
+the size is clamped to the frame, and a size a third or more off the
+boundary's proportion is brought back to it when there are no words that
+could have asked for that (words win; a bare drawing says only its shape). A reply that
 kept the old shape would read on the board as the drawing doing nothing. A new
 part keeps the author's words as its prompt whether or not the reader wrote
 one. `tests/reshape-answer.mjs` holds the check to these rules and

@@ -13,9 +13,12 @@
  * Reading the drawing is Claude's job (`/api/studio/reshape`): it sees a
  * picture of the strokes and the numbers behind them, the part as it is now,
  * the whole library, and the words, and answers with what the part should
- * become — size, kind, contents, options. Without a key the board still
- * works honestly: the part takes the drawing's proportion (the one thing a
- * drawing says without being read), the drawing is kept on the part, and the
+ * become — size, kind, contents, options. The lines drawn are the part's
+ * barriers and its boundary: the outline is where the part ends, the part
+ * fills it, nothing crosses it, and its proportion is the part's. Without a
+ * key the board still works honestly: the part takes the boundary's
+ * proportion (the one thing a drawing says without being read), the drawing
+ * is kept on the part, and the
  * blueprint writes it out in words, so the shape reaches whoever builds the
  * site either way. A drawing is never lost to a missing key.
  *
@@ -37,7 +40,7 @@ import { useSetting } from "@/core/settings/useSetting";
 import { FEATURES, getFeature } from "./catalog";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
-import { fitToSketch, isBlankSketch, readSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { fitToSketch, isBlankSketch, readBoundary, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { keyHeader, noKeyMessage } from "./agent";
 import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { useStudio, type StudioNode } from "./store";
@@ -238,7 +241,9 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */
   const apply = (patch: ReshapePatch, drawn: Sketch) => {
     const s = useStudio.getState();
-    const made = checkAnswer({ patch, node, drawn, aspect: readSketch(drawn).aspect, frameWidth, kind: kindInfo });
+    // The proportion held is the boundary's: the outline the author drew round
+    // the part, not the box round every mark that fell outside it.
+    const made = checkAnswer({ patch, node, drawn, aspect: readBoundary(drawn)?.aspect ?? 1, frameWidth, kind: kindInfo });
     const { featureId, label, w, h, options, kindChanged, reproportioned } = made;
     const shared: Partial<StudioNode> = {
       featureId,
@@ -271,11 +276,11 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       return { id: node.id, label: node.label, w, h };
     }
     // A new part with nothing to keep the area of: the board is read as the
-    // page, so a drawing across a third of it is a part across a third of
+    // page, so a boundary across a third of it is a part across a third of
     // the frame.
-    const r = readSketch(drawn);
-    const w = clamp(Math.round((r.box?.w ?? 0.3) * frameWidth), 80, frameWidth);
-    const h = clamp(Math.round(w / r.aspect), 24, 1600);
+    const b = readBoundary(drawn);
+    const w = clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
+    const h = clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
     const label = text(drawn.words, 40) || "Drawn part";
     const where = at ?? { x: frameWidth / 2, y: 200 };
     const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
