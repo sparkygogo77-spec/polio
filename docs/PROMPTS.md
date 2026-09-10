@@ -124,7 +124,7 @@ colour is warmer. Confirm with a screenshot of / and /showcase in both themes.
 
 ```
 Read AGENTS.md §1 and src/core/types.ts. Add a "widget" contribution type: modules can declare `widgets: [{ id, title, component, size }]`
-and the home page renders them in a grid. Collect it in src/core/registry.ts, render it in src/features/home/HomePage.tsx,
+and the home page renders them in a grid. Collect it in src/core/registry.ts, render it in your own feature's page,
 document it in AGENTS.md's table. Keep the change minimal and typed. Typecheck and build.
 ```
 
