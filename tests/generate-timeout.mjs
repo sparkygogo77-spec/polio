@@ -46,7 +46,10 @@ async function openBlueprint() {
   await page.waitForTimeout(400);
   await page.locator('[data-ctx="studio-palette"]').first().click();
   await page.waitForTimeout(400);
-  await page.getByRole("button", { name: "Finish" }).click();
+  // The blue Finish orb is a purple process counter now (`DrawQueue.tsx`),
+  // which kept `data-finish` as its handle: press the thing that opens the
+  // iteration book, whatever it is called this week.
+  await page.locator("[data-finish]").first().click();
   await page.waitForTimeout(600);
   // Words only, as reported: the photographs are a separate call and not
   // what hung.
@@ -64,7 +67,10 @@ async function openBlueprint() {
   return page;
 }
 
-const spinning = (page) => page.locator("[role=dialog]").getByText(/Claude is (working through the blueprint|writing the files)/).count();
+// Not scoped to [role=dialog] any more: the blueprint and the trail are one
+// iteration book now, and the book is not always a modal. The line either
+// says a call is in flight or it does not, wherever it is drawn.
+const spinning = (page) => page.getByText(/Claude is (working through the blueprint|writing the files)/).count();
 const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextContents()).join(" ").trim();
 
 /* 1. The route answers, the reason is shown, and it is the route's own words. */
@@ -117,8 +123,8 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
     /*
      * Not "the banner is empty": a missing key is said before the call is
      * made, on purpose, and it is still true after Stop — that is the reason
-     * nothing would have come back anyway. What must not appear is a
-     * *failure*: letting go of a request is not one.
+     * nothing would have come back anyway. What must not change is what is
+     * said: letting go of a request adds nothing to it.
      */
     const after = await noteOn(page);
     check("and stopping is not reported as a failure", !/failed|error|went wrong/i.test(after), after || "nothing said");

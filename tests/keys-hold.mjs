@@ -36,6 +36,10 @@ async function run(label, { noCrypto }) {
   const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
   if (noCrypto) await context.addInitScript(() => { Object.defineProperty(globalThis.crypto, "subtle", { value: undefined, configurable: true }); });
   const page = await context.newPage();
+  // The PIN is off by default now; this test is about the tab-held key that
+  // lives beside it, so it turns the PIN back on before the app loads.
+  await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "keys.pin": true }, advanced: true }, version: 0 })));
   await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
   const panel = page.locator("[data-keys-panel]");
   const openPanel = async () => {

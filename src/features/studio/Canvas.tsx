@@ -18,6 +18,7 @@ import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
 import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
+import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { Workspace } from "./Workspace";
 import { BACKGROUND_ID } from "./store";
@@ -577,7 +578,17 @@ export function Canvas() {
             if (!b) return null;
             return <rect key={g.id} x={b.x - 14} y={b.y - 22} width={b.w + 28} height={b.h + 36} rx={12} fill={`oklch(0.7 0.15 ${g.hue} / 0.07)`} stroke={`oklch(0.7 0.15 ${g.hue} / 0.5)`} strokeDasharray="6 4" />;
           })}
-          {shapes.filter((sh) => showWires || sh.kind !== "arrow").map((sh) => <ShapeView key={sh.id} shape={sh} selected={selection.includes(sh.id)} fresh={fresh?.wire === sh.id} />)}
+          {shapes.filter((sh) => showWires || sh.kind !== "arrow").map((sh) => (
+            <ShapeView
+              key={sh.id}
+              shape={sh}
+              selected={selection.includes(sh.id)}
+              fresh={fresh?.wire === sh.id}
+              // Why this chain is here, worked out from what the two parts
+              // already say about themselves. Not typed twice.
+              reason={reasonOn(sh, nodes)}
+            />
+          ))}
           {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
           {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
@@ -639,7 +650,13 @@ export function Canvas() {
           />
         ) : null}
 
-        {shapes.filter((sh) => (sh.label || sh.prompt || sh.relation === "data") && (showWires || sh.kind !== "arrow")).map((sh) => {
+        {/*
+          What a drawn thing is called, over its middle or above its corner.
+          A chain is not in this layer: it says why it is there on itself, in
+          its own colour, and a "⛓ data" chip beside a drawn chain was the
+          same fact twice — printed on top of the reason, at that.
+        */}
+        {shapes.filter((sh) => (sh.label || sh.prompt || sh.relation === "data") && (showWires || sh.kind !== "arrow") && !isChain(sh)).map((sh) => {
           const b = shapeBounds(sh);
           const data = sh.relation === "data";
           return (
@@ -722,7 +739,97 @@ function penPath(points: [number, number][]): string {
   return d + ` L ${last[0]} ${last[1]}`;
 }
 
-const ShapeView = React.memo(function ShapeView({ shape, selected, fresh }: { shape: StudioShape; selected: boolean; fresh?: boolean }) {
+/**
+ * The red a chain is drawn in.
+ *
+ * The same red as Delete on the wheel and as the one control on a slab that
+ * is *on*: this app keeps red for the handful of things that are not
+ * decoration, and a chain — two parts that must be built to agree — is one
+ * of them.
+ */
+const CHAIN_RED = "oklch(0.64 0.23 27)";
+/** And what marks it when it is picked up: the far side of that red. */
+const CHAIN_MARK = "oklch(0.82 0.19 207)";
+
+/**
+ * A chain, drawn as a chain.
+ *
+ * Interlocking links: an oval along the run, then one seen edge-on, then
+ * another along the run. Two ellipses a period, rotated to the line, and the
+ * pair overlap by a third of a link so they read as *through* each other
+ * rather than as beads on a string. Stroked, never filled, so the board shows
+ * through the middle of every link the way it does through a real one.
+ *
+ * It is wider than the wire it replaces — a chain that reads as a chain has
+ * to be — and it is drawn once per render from two points, which is cheaper
+ * than it looks: a long run is thirty ellipses.
+ */
+function Chain({ a, b, colour, lit, fresh, len, mark }: { a: [number, number]; b: [number, number]; colour: string; lit: boolean; fresh?: boolean; len: number; mark: string }) {
+  const links = React.useMemo(() => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const run = Math.hypot(dx, dy) || 1;
+    const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+    // One link is 13 long and 9 across; they step 9 apart, so each takes a
+    // bite out of the one before it.
+    const step = 9;
+    const n = Math.max(2, Math.floor((run - 10) / step));
+    const spare = (run - (n - 1) * step) / 2;
+    return Array.from({ length: n }, (_, i) => {
+      const t = (spare + i * step) / run;
+      return { x: a[0] + dx * t, y: a[1] + dy * t, flat: i % 2 === 0, deg };
+    });
+  }, [a, b]);
+
+  return (
+    <g
+      data-chain=""
+      style={{
+        // Picked up: the links glow in the far side of their own red, the way
+        // a picked part is marked. Never a blue box over the top of it.
+        ...(lit ? { filter: `drop-shadow(0 0 5px ${mark})` } : null),
+        ...(fresh ? { "--wire-len": `${Math.ceil(len)}`, animation: "wire-snap 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both" } : null),
+      } as React.CSSProperties}
+    >
+      {links.map((l, i) => (
+        <ellipse
+          key={i}
+          cx={l.x}
+          cy={l.y}
+          rx={6.5}
+          ry={l.flat ? 4.5 : 1.9}
+          transform={`rotate(${l.deg.toFixed(2)} ${l.x.toFixed(2)} ${l.y.toFixed(2)})`}
+          fill="none"
+          stroke={colour}
+          strokeWidth={lit ? 2.4 : 2}
+          opacity={l.flat ? 1 : 0.85}
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A wire with a part at each end: a chain rather than a line.
+ *
+ * A wire dropped on the board is still a wire — it joins a part to a patch
+ * of nothing, and there is no second part to have a reason about.
+ */
+export function isChain(shape: StudioShape): boolean {
+  return shape.kind === "arrow" && !!shape.fromNodeId && !!shape.toNodeId && shape.id !== "live";
+}
+
+/** A chain's reason, from the two parts it is drawn between. */
+function reasonOn(shape: StudioShape, nodes: StudioNode[]): string {
+  if (shape.kind !== "arrow" || !shape.fromNodeId || !shape.toNodeId) return "";
+  const from = nodes.find((n) => n.id === shape.fromNodeId);
+  const to = nodes.find((n) => n.id === shape.toNodeId);
+  // A reason typed by hand wins: the point is that nobody has to, not that
+  // nobody may.
+  return shape.label.trim() || linkReason(from, to, shape.relation ?? "flow");
+}
+
+const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason }: { shape: StudioShape; selected: boolean; fresh?: boolean; reason?: string }) {
   const color = `oklch(0.78 0.16 ${shape.hue})`;
   // Ink is marked the same way a part is: the far side of its own colour,
   // rather than the app's accent glowing round somebody's drawing.
@@ -745,33 +852,69 @@ const ShapeView = React.memo(function ShapeView({ shape, selected, fresh }: { sh
     const data = shape.relation === "data";
     // A wire with a part at each end is a chain: a link at either end, and
     // when it has just been made it draws itself on and seats with a snap.
-    const chained = !!shape.fromNodeId && !!shape.toNodeId && shape.id !== "live";
+    const chained = isChain(shape);
     const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
     const { className, ...line } = common;
+    // A chain is red, whatever colour the pen was: it is not ink, it is a
+    // statement about two parts, and red is what this app reserves for the
+    // few things that are not decoration.
+    const wire = chained ? CHAIN_RED : color;
     return (
       <g className={className} {...(shape.id !== "live" ? ctxProps("studio-shape", shape.id, shape) : {})} data-shape-id={shape.id} data-chained={chained ? "" : undefined}>
         {/* A wire is three pixels wide; this invisible one is easy to hit. */}
-        <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke="transparent" strokeWidth={16} fill="none" strokeLinecap="round" />
-        <line
-          {...line}
-          data-shape-id={undefined}
-          x1={p1[0]}
-          y1={p1[1]}
-          x2={p2[0]}
-          y2={p2[1]}
-          markerEnd={chained ? undefined : "url(#studio-arrow)"}
-          style={{
-            color,
-            ...(fresh ? { "--wire-len": `${Math.ceil(len)}`, "--wire-w": `${data ? shape.width + 1 : shape.width}px`, strokeDasharray: data ? undefined : Math.ceil(len), animation: "wire-snap 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both" } : {}),
-          } as React.CSSProperties}
-          strokeLinecap="round"
-          strokeDasharray={data ? "2 6" : undefined}
-          strokeWidth={data ? shape.width + 1 : shape.width}
-        />
+        <line x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]} stroke="transparent" strokeWidth={18} fill="none" strokeLinecap="round" />
+        {chained ? (
+          <Chain a={p1} b={p2} colour={wire} lit={selected} fresh={fresh} len={len} mark={CHAIN_MARK} />
+        ) : (
+          <line
+            {...line}
+            data-shape-id={undefined}
+            x1={p1[0]}
+            y1={p1[1]}
+            x2={p2[0]}
+            y2={p2[1]}
+            markerEnd="url(#studio-arrow)"
+            style={{
+              color,
+              ...(fresh ? { "--wire-len": `${Math.ceil(len)}`, "--wire-w": `${data ? shape.width + 1 : shape.width}px`, strokeDasharray: data ? undefined : Math.ceil(len), animation: "wire-snap 420ms cubic-bezier(0.2, 0.9, 0.2, 1) both" } : {}),
+            } as React.CSSProperties}
+            strokeLinecap="round"
+            strokeDasharray={data ? "2 6" : undefined}
+            strokeWidth={data ? shape.width + 1 : shape.width}
+          />
+        )}
         {chained ? (
           <>
-            <circle cx={p1[0]} cy={p1[1]} r={4} fill="var(--bg)" stroke={color} strokeWidth={2} />
-            <circle cx={p2[0]} cy={p2[1]} r={4} fill={color} stroke={color} strokeWidth={2} />
+            <circle cx={p1[0]} cy={p1[1]} r={4.5} fill="var(--bg)" stroke={wire} strokeWidth={2} />
+            <circle cx={p2[0]} cy={p2[1]} r={4.5} fill={wire} stroke={wire} strokeWidth={2} />
+            {/*
+              The reason, on the chain.
+
+              Horizontal, never turned with the wire: a label you have to tilt
+              your head to read is a label nobody reads. It sits over the
+              middle of the run on a dark plate, so it survives whatever the
+              page behind it is doing.
+            */}
+            {reason ? (
+              <foreignObject
+                x={(p1[0] + p2[0]) / 2 - 135}
+                y={(p1[1] + p2[1]) / 2 - 13}
+                width={270}
+                height={26}
+                className="pointer-events-none overflow-visible"
+              >
+                <div className="flex h-full w-full items-center justify-center">
+                  <span
+                    data-chain-reason={shape.id}
+                    className="max-w-full truncate rounded-full border px-1.5 py-[3px] text-[10px] font-medium leading-none"
+                    style={{ borderColor: wire, background: "oklch(0.16 0.03 20 / 0.92)", color: "oklch(0.9 0.06 27)" }}
+                    title={reason}
+                  >
+                    {reason}
+                  </span>
+                </div>
+              </foreignObject>
+            ) : null}
           </>
         ) : null}
       </g>

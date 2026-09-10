@@ -33,8 +33,10 @@ import { Button } from "@/core/ui/button";
 import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
+import { screenFace, SCREEN } from "@/core/ui/void";
 import { toRows } from "./spec";
 import { useStudio } from "./store";
+import { chainLines } from "./links";
 import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./threads";
 import { PromptTrail } from "./PromptTrail";
 
@@ -127,12 +129,16 @@ export function usePieces(): Piece[] {
   const pages = useStudio((s) => s.pages);
   const groups = useStudio((s) => s.groups);
   const nodes = useStudio((s) => s.nodes);
+  const shapes = useStudio((s) => s.shapes);
   return React.useMemo(() => {
     // Reading order, page by page, so a piece's neighbours are the parts
     // that actually sit either side of it.
     const ordered = pages.flatMap((page) => toRows(nodes.filter((n) => n.pageId === page.id)).flat());
-    return piecesFrom({ brief, pages, groups, nodes: ordered });
-  }, [brief, pages, groups, nodes]);
+    // The chains a part is on go with its prompt: a part that only appears
+    // once another has done something is not buildable from its own words.
+    const chains = chainLines(nodes, shapes);
+    return piecesFrom({ brief, pages, groups, nodes: ordered.map((n) => ({ ...n, links: chains.get(n.id) })) });
+  }, [brief, pages, groups, nodes, shapes]);
 }
 
 export function ThreadTree() {
@@ -814,11 +820,9 @@ function Pane({
         </Button>
       </div>
       <div
-        className={cn(
-          "overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-elevated p-2 text-[11px] leading-relaxed text-fg-muted",
-          mono && "font-mono text-[10px]",
-          bodyClassName,
-        )}
+        // A screen, like every other box of words in the Builder.
+        className={cn("overflow-auto whitespace-pre-wrap break-words rounded p-2 text-[11px] leading-relaxed", mono && "font-mono text-[10px]", bodyClassName)}
+        style={{ ...screenFace, color: SCREEN.ink }}
       >
         {text}
       </div>

@@ -29,6 +29,7 @@ import { Badge } from "@/core/ui/badge";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Switch } from "@/core/ui/switch";
+import { linkReason } from "./links";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
 
@@ -321,6 +322,15 @@ export function Inspector() {
     const kindLabel = shape.kind === "frame" ? "Region" : shape.kind === "arrow" ? "Connection" : "Sketch";
     const fromNode = nodes.find((n) => n.id === shape.fromNodeId);
     const toNode = nodes.find((n) => n.id === shape.toNodeId);
+    /*
+     * What the chain already says.
+     *
+     * A chain between two parts wears its reason on the board and carries it
+     * into the blueprint whether or not anybody names it, so the Name box
+     * shows that reason as its placeholder: what is in the field is what the
+     * chain says, and typing over it says something else instead.
+     */
+    const derived = shape.kind === "arrow" && fromNode && toNode ? linkReason(fromNode, toNode, shape.relation ?? "flow") : "";
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
@@ -337,10 +347,10 @@ export function Inspector() {
           </Button>
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-          <Field label="Name">
+          <Field label="Name" hint={derived ? "The chain says this by itself, from what the two parts already say. Write here to say it differently." : undefined}>
             <Input
               value={shape.label}
-              placeholder={shape.kind === "frame" ? "e.g. Above the fold" : "e.g. opens on click"}
+              placeholder={derived || (shape.kind === "frame" ? "e.g. Above the fold" : "e.g. opens on click")}
               onChange={(e) => useStudio.getState().updateShape(shape.id, { label: e.target.value })}
             />
           </Field>
