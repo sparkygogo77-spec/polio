@@ -164,10 +164,14 @@ same boxes as everywhere else, in the screen's colours.
   apart round the wheel to tell at a glance (`KEY_HUES`, `keyOf`), white
   lines on them and dark ones on the yellows. A row of kinds reads as a row
   of different things.
-- **A wire seats.** Connect is a chain: the ends snap to the two parts'
-  edges, the wire draws itself on, both parts ring once, and the source
-  links to the target when it can. A connection that does nothing is a
-  drawing, not a connection.
+- **A wire seats, and a chain says why.** Connect is a chain: the ends snap
+  to the two parts' edges, the wire draws itself on, both parts ring once,
+  and the source links to the target when it can. Between two parts it is
+  then drawn as an actual chain — interlocking links, in red, wider than the
+  line it replaced — and it wears the reason it exists on itself, read off
+  what the two parts already say. A connection that does nothing is a
+  drawing, not a connection; a connection that says nothing about why is a
+  fact nobody can build from.
 - **Every design is tracked where it can be seen.** What the wheel writes on
   a part or the page shows in the panel as a row of coloured keys, each with
   an icon. If a setting cannot be seen in the preview, it is still there.

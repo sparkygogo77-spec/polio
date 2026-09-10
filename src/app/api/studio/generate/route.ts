@@ -142,7 +142,7 @@ function splitRevisions(text: string): { text: string; revisions: Revision[] } {
 }
 
 interface PictureIn { data?: string; mediaType?: string; label?: string }
-interface PieceIn { id?: string; label?: string; where?: string; prompt?: string; size?: { w?: number; h?: number }; neighbours?: string[] }
+interface PieceIn { id?: string; label?: string; where?: string; prompt?: string; size?: { w?: number; h?: number }; neighbours?: string[]; links?: string[] }
 
 /**
  * The key to use: the server's if it has one, otherwise whatever the browser
@@ -213,7 +213,11 @@ export async function POST(request: Request) {
     const lines = pieces.map((x) => {
       const head = [x.label ?? "A part", x.where ? `on ${x.where}` : "", x.size?.w ? `${Math.round(x.size.w)}\u00d7${Math.round(x.size.h ?? 0)}` : ""].filter(Boolean).join(" \u00b7 ");
       const near = (x.neighbours ?? []).filter((n) => typeof n === "string").slice(0, 4);
-      return `- ${head}${near.length ? ` \u00b7 between ${near.join(" and ")}` : ""}\n  prompt: ${String(x.prompt).slice(0, 4000)}`;
+      // The chains drawn to it, each with the reason it is there. A part that
+      // only appears once another has done something, or that reads what
+      // another holds, is not buildable from its own prompt alone.
+      const chained = (x.links ?? []).filter((l) => typeof l === "string").slice(0, 8).map((l) => `\n  chained: ${l.slice(0, 200)}`).join("");
+      return `- ${head}${near.length ? ` \u00b7 between ${near.join(" and ")}` : ""}\n  prompt: ${String(x.prompt).slice(0, 4000)}${chained}`;
     });
     content.push({
       type: "text",

@@ -145,7 +145,7 @@ other in the same brief.
 | Data typed in the inspector | `data: …` — what it shows or does |
 | A wire marked "carries data" | `reads from: …`, plus a backend section |
 | Inside a drawn frame | Belongs to that region |
-| Arrow from A to B | An explicit relationship |
+| A chain from A to B | An explicit relationship, and the reason for it |
 | In a group | Shares the group's prompt |
 
 Dragging snaps to the frame's edges and centre and to other parts' edges, with
@@ -861,14 +861,31 @@ a kicker with a rule, and label-and-value rows that copy.
   the fills and the widths each take one. The picked key still wears the
   red ring.
 - **Connect is a chain** (`Canvas.tsx`, the arrow branch of pointer-up;
-  `edgePoint`). A wire drawn from one part to another seats: its points are
-  moved to the two parts' edges, it draws itself on (`wire-snap`, dash
-  offset over the wire's own length), both parts ring once (`node-snap`),
-  the confirm cue plays, and when the source is a linkable part its `link`
-  becomes `{ kind: "node", target }`. A chained wire has a hollow link at
-  its tail and a filled one at its head and no arrowhead; a wire to nowhere
-  is still an arrow. The tool's icon is a chain (`Link`) everywhere it
-  appears.
+  `edgePoint`, `Chain`, `isChain`, `reasonOn`; `links.ts`). A wire drawn from
+  one part to another seats: its points are moved to the two parts' edges, it
+  draws itself on (`wire-snap`, dash offset over the wire's own length), both
+  parts ring once (`node-snap`), the confirm cue plays, and when the source is
+  a linkable part its `link` becomes `{ kind: "node", target }`. It is then
+  drawn as a chain and nothing else is: interlocking links in red
+  (`CHAIN_RED`), a hollow link at its tail, a filled one at its head, no
+  arrowhead, and a glow in the far side of that red when it is picked up. A
+  wire with an end in the air is still a plain arrow in the pen's colour.
+- **A chain says why it is there** (`links.ts`: `linkReason`, `chainLines`).
+  A link that only says two parts are joined reaches the blueprint as "A → B",
+  which is a fact nobody can build from, and nobody wants to type the reason
+  twice. So it is *derived*, in order: a condition in the target's own words
+  that turns on the source ("only when the wallet is connected"), then, on a
+  data chain, the first value the source holds ("reads address from Connect
+  wallet"), then the sentence in which one part names the other, then the
+  relation itself. Kept to one line (`CAP`), because it is drawn on the wire.
+  A name typed on the chain always wins, and the Name box in the inspector
+  shows the derived reason as its placeholder, so what is written there is
+  what the chain says. It goes three places: on the chain, into the blueprint
+  (`spec.ts`, `connections[].reason`), and onto both parts' **pieces**
+  (`threads.ts`, `Piece.links`, `chained: → Claim — …`) — where it also moves
+  the fingerprint, so a part whose chains changed is resent rather than
+  assumed unchanged. `tests/chain-links.mjs` holds all of it, on the board and
+  off it. The tool's icon is a chain (`Link`) everywhere it appears.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or

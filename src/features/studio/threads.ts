@@ -201,6 +201,14 @@ export interface Piece {
   /** What it sits between, in reading order. */
   neighbours: string[];
   /**
+   * The chains drawn to and from it, each with the reason it is there —
+   * "→ Wallet — only when the wallet is connected". A part that is
+   * contingent on another, or that reads another's data, cannot be built
+   * without knowing it, so the chain travels with the prompt rather than
+   * being left on the board.
+   */
+  links: string[];
+  /**
    * What it looked like when it was last sent. Two calls in one thread do
    * not resend a piece whose fingerprint has not moved.
    */
@@ -211,8 +219,12 @@ interface BoardIn {
   brief?: { name?: string; gimmick?: string; master?: string };
   pages?: { id: string; name: string; prompt?: string }[];
   groups?: { id: string; label?: string; pageId?: string; prompt?: string }[];
-  /** In reading order already: the caller sorts, because it owns `toRows`. */
-  nodes?: { id: string; pageId?: string; label: string; prompt?: string; w?: number; h?: number }[];
+  /**
+   * In reading order already: the caller sorts, because it owns `toRows` —
+   * and it brings each part's chains with it, from `links.ts`, because it
+   * owns the shapes too.
+   */
+  nodes?: { id: string; pageId?: string; label: string; prompt?: string; w?: number; h?: number; links?: string[] }[];
 }
 
 const print = (parts: (string | number | undefined)[]) => parts.filter((p) => p !== undefined && p !== "").join("|");
@@ -222,24 +234,27 @@ export function piecesFrom(board: BoardIn): Piece[] {
   const out: Piece[] = [];
   const brief = board.brief ?? {};
   const site = [brief.gimmick?.trim(), brief.master?.trim()].filter(Boolean).join("\n");
-  if (site) out.push({ id: "site", kind: "site", label: brief.name?.trim() || "The site", where: "", prompt: site, neighbours: [], fingerprint: print(["site", site]) });
+  if (site) out.push({ id: "site", kind: "site", label: brief.name?.trim() || "The site", where: "", prompt: site, neighbours: [], links: [], fingerprint: print(["site", site]) });
   const pageName = new Map((board.pages ?? []).map((p) => [p.id, p.name]));
   for (const p of board.pages ?? []) {
     if (!p.prompt?.trim()) continue;
-    out.push({ id: `page:${p.id}`, kind: "page", label: p.name, where: "", prompt: p.prompt.trim(), neighbours: [], fingerprint: print(["page", p.id, p.prompt.trim()]) });
+    out.push({ id: `page:${p.id}`, kind: "page", label: p.name, where: "", prompt: p.prompt.trim(), neighbours: [], links: [], fingerprint: print(["page", p.id, p.prompt.trim()]) });
   }
   for (const g of board.groups ?? []) {
     if (!g.prompt?.trim()) continue;
-    out.push({ id: `group:${g.id}`, kind: "group", label: g.label || "Group", where: pageName.get(g.pageId ?? "") ?? "", prompt: g.prompt.trim(), neighbours: [], fingerprint: print(["group", g.id, g.prompt.trim()]) });
+    out.push({ id: `group:${g.id}`, kind: "group", label: g.label || "Group", where: pageName.get(g.pageId ?? "") ?? "", prompt: g.prompt.trim(), neighbours: [], links: [], fingerprint: print(["group", g.id, g.prompt.trim()]) });
   }
   const nodes = board.nodes ?? [];
   nodes.forEach((n, i) => {
     if (!n.prompt?.trim()) return;
     const near = [nodes[i - 1]?.label, nodes[i + 1]?.label].filter((x): x is string => !!x);
+    const links = n.links ?? [];
     out.push({
       id: `node:${n.id}`, kind: "node", label: n.label, where: pageName.get(n.pageId ?? "") ?? "",
-      prompt: n.prompt.trim(), size: { w: Math.round(n.w ?? 0), h: Math.round(n.h ?? 0) }, neighbours: near,
-      fingerprint: print(["node", n.id, n.prompt.trim(), Math.round(n.w ?? 0), Math.round(n.h ?? 0)]),
+      prompt: n.prompt.trim(), size: { w: Math.round(n.w ?? 0), h: Math.round(n.h ?? 0) }, neighbours: near, links,
+      // A chain drawn, re-worded or cut changes what this part is, so it moves
+      // the fingerprint: the piece is resent rather than assumed unchanged.
+      fingerprint: print(["node", n.id, n.prompt.trim(), Math.round(n.w ?? 0), Math.round(n.h ?? 0), links.join("/")]),
     });
   });
   return out;
@@ -266,7 +281,8 @@ export function pieceOwners(pieces: Piece[], threads: Thread[]): Map<string, str
 export function pieceToText(p: Piece): string {
   const bits = [`${p.label}${p.where ? ` (on ${p.where})` : ""}${p.size ? `, ${p.size.w}×${p.size.h}` : ""}`];
   if (p.neighbours.length) bits.push(`between ${p.neighbours.join(" and ")}`);
-  return `- ${bits.join(" · ")}\n  prompt: ${p.prompt}`;
+  const chained = p.links.map((l) => `\n  chained: ${l}`).join("");
+  return `- ${bits.join(" · ")}\n  prompt: ${p.prompt}${chained}`;
 }
 
 /**

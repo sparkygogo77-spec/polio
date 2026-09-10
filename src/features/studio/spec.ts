@@ -22,6 +22,7 @@ function describeDelay(v: number | string | null | undefined): string {
   const ms = delayMs(v);
   return ms ? `, ${ms} ms after the page` : "";
 }
+import { linkReason } from "./links";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
 import { describeSketch, isBlankSketch } from "./sketch";
@@ -100,7 +101,7 @@ export interface PageSpec {
   wires: { from: string; to: string; label: string }[];
   groups: { label: string; prompt: string; members: string[] }[];
   regions: { label: string; prompt: string; contains: string[]; /** Row number when the region is a section of its own. */ row: number | null }[];
-  connections: { from: string; to: string; label: string; prompt: string }[];
+  connections: { from: string; to: string; label: string; prompt: string; reason: string; relation: "flow" | "data" }[];
   sketches: { where: string; label: string; prompt: string }[];
 }
 
@@ -361,11 +362,23 @@ export function compileSpec(input: CompileInput): Spec {
       .map((s) => {
         const from = (s.fromNodeId && byId.get(s.fromNodeId)) || nearestNode(pNodes, s.points[0]![0], s.points[0]![1]);
         const to = (s.toNodeId && byId.get(s.toNodeId)) || nearestNode(pNodes, s.points[1]![0], s.points[1]![1]);
+        const relation = s.relation ?? "flow";
         return {
           from: from?.label ?? "canvas",
           to: to?.label ?? "canvas",
           label: s.label.trim(),
           prompt: s.prompt.trim(),
+          relation,
+          /*
+           * Why the two are chained, in one line.
+           *
+           * A connection used to reach the brief as "A → B", which is a fact
+           * nobody can build from: it says two parts are joined and nothing
+           * about what either has to do about it. The reason is read off the
+           * parts themselves — a condition in one's prompt, the data the
+           * other holds — so it is already true and nobody typed it twice.
+           */
+          reason: s.label.trim() || linkReason(from ?? undefined, to ?? undefined, relation),
         };
       })
       .filter((c) => c.from !== c.to);
@@ -598,7 +611,11 @@ export function specToMarkdown(spec: Spec): string {
     if (page.connections.length) {
       L.push("Connections:", "");
       for (const c of page.connections) {
-        L.push(`- **${c.from}** → **${c.to}**${c.label ? ` — ${c.label}` : ""}`);
+        // The relation is only worth stating when the reason has not already
+        // said it — "reads address from Connect wallet _(reads from it)_" is
+        // the same sentence twice.
+        const reads = c.relation === "data" && !/^reads\b/i.test(c.reason);
+        L.push(`- **${c.from}** → **${c.to}**${c.reason ? ` — ${c.reason}` : ""}${reads ? " _(reads from it)_" : ""}`);
         if (c.prompt) L.push(`  - ${c.prompt}`);
       }
       L.push("");

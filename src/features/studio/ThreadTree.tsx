@@ -35,6 +35,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
 import { toRows } from "./spec";
 import { useStudio } from "./store";
+import { chainLines } from "./links";
 import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./threads";
 import { PromptTrail } from "./PromptTrail";
 
@@ -127,12 +128,16 @@ export function usePieces(): Piece[] {
   const pages = useStudio((s) => s.pages);
   const groups = useStudio((s) => s.groups);
   const nodes = useStudio((s) => s.nodes);
+  const shapes = useStudio((s) => s.shapes);
   return React.useMemo(() => {
     // Reading order, page by page, so a piece's neighbours are the parts
     // that actually sit either side of it.
     const ordered = pages.flatMap((page) => toRows(nodes.filter((n) => n.pageId === page.id)).flat());
-    return piecesFrom({ brief, pages, groups, nodes: ordered });
-  }, [brief, pages, groups, nodes]);
+    // The chains a part is on go with its prompt: a part that only appears
+    // once another has done something is not buildable from its own words.
+    const chains = chainLines(nodes, shapes);
+    return piecesFrom({ brief, pages, groups, nodes: ordered.map((n) => ({ ...n, links: chains.get(n.id) })) });
+  }, [brief, pages, groups, nodes, shapes]);
 }
 
 export function ThreadTree() {
