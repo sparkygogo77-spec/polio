@@ -1,6 +1,6 @@
 "use client";
 /**
- * The compiled brief, and everything Claude can do with it.
+ * The iteration book: the brief, the JSON, and every thread, in one place.
  *
  * The blueprint is what the canvas says, in words; the pictures are what it
  * looks like, taken by the server from the live preview the moment you
@@ -9,14 +9,25 @@
  * writes the code — which, with the document and the blueprint, can go to
  * GitHub in one commit from here, and from there to Vercel.
  *
+ * Every ask that comes back lands on the trail as a thread, so the book is
+ * both the question and the record of every question before it. That is why
+ * the brief, the JSON and the trail are one page rather than three tabs of a
+ * box you dismiss: the last thread is read while the next ask is written.
+ *
+ * It wears three shapes and is one component in all of them. **Dialog** is
+ * the quick way in, over the board. **Panel** is the same thing pinned open
+ * down the side, so the board stays workable underneath. **Page** is the
+ * book proper, beside Design and Preview, where the trail has the room a map
+ * needs and the brief and the JSON sit next to it.
+ *
  * Nothing needs a key to work: without one you copy or download the same
- * things and hand them to any agent, and the dialog says so where it matters.
+ * things and hand them to any agent, and the book says so where it matters.
  */
 import * as React from "react";
-import { Camera, Check, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Sparkles, Wand2, X } from "lucide-react";
+import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Pin, PinOff, Sparkles, Wand2, X } from "lucide-react";
 import { briefPrefix, compileSpec, specToJson, specToMarkdown } from "./spec";
 import { trailToMarkdown, useLanes } from "./PromptTrail";
-import { ThreadTree, usePieces } from "./ThreadTree";
+import { PinnedThreads, ThreadTree, usePieces } from "./ThreadTree";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
@@ -51,10 +62,82 @@ export function useCompiledBrief() {
 }
 
 type View = "brief" | "json" | "trail" | "result" | "files";
+/** Over the board, pinned beside it, or the page itself. */
+type Layout = "dialog" | "panel" | "page";
 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
+/**
+ * One card of the book.
+ *
+ * The tour writes on cards — a rule, a small heading, the words under it, on
+ * panel glass with a soft edge — and the book had a flatter idea of a section
+ * of its own, which read as a different app. This is that same card, so
+ * everything the Builder says is said in one voice.
+ */
+function Card({ title, note, right, children, className }: { title?: React.ReactNode; note?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={cn("rounded-lg border border-border bg-panel/95 p-2.5 shadow-pop", className)}>
+      {title || right ? (
+        <div className="mb-1.5 flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            {title ? <h3 className="text-[12px] font-semibold leading-snug text-fg">{title}</h3> : null}
+            {note ? <p className="mt-0.5 text-[11px] leading-snug text-fg-muted">{note}</p> : null}
+          </div>
+          {right ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">{right}</div> : null}
+        </div>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
+/** The small capital label the whole Builder uses over a field. */
+function Label({ children }: { children: React.ReactNode }) {
+  return <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">{children}</span>;
+}
+
 export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const pinned = useStudio((s) => s.bookPinned);
+  const spec = useCompiledBrief();
+
+  /*
+   * Pinned, it is not a dialog at all: no overlay, nothing trapped, the board
+   * carries on underneath. That is the whole point of the pin — a long run is
+   * watched, and a box you must dismiss to see what you are talking about is
+   * not a place to watch it from.
+   */
+  if (pinned && open) {
+    return (
+      <aside
+        data-book-panel=""
+        aria-label="The iteration book"
+        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] w-[min(520px,96vw)] flex-col border-l border-border bg-panel shadow-panel"
+      >
+        <Book layout="panel" onClose={() => onOpenChange(false)} />
+      </aside>
+    );
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      size="xl"
+      title="The iteration book"
+      description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
+    >
+      <Book layout="dialog" onClose={() => onOpenChange(false)} />
+    </Dialog>
+  );
+}
+
+/** The book as the Builder's third screen, beside Design and Preview. */
+export function IterationBook() {
+  return <Book layout="page" />;
+}
+
+function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const spec = useCompiledBrief();
   const master = useStudio((s) => s.brief.master);
   const siteName = useStudio((s) => s.brief.name);
@@ -64,12 +147,14 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const threads = useStudio((s) => s.threads);
   const draftPieces = useStudio((s) => s.draftPieces);
   const sentPieces = useStudio((s) => s.sentPieces);
+  const bookPinned = useStudio((s) => s.bookPinned);
   const pieces = usePieces();
   const lanes = useLanes();
   const ctx = useActions();
   const wantShots = useSettingValue<boolean>("studio.screenshots");
   const shotPages = useSettingValue<number>("studio.screenshotPages");
   const deployDefault = useSettingValue<boolean>("studio.publishDeploy");
+  const page = layout === "page";
 
   const [view, setView] = React.useState<View>("brief");
   const [mode, setMode] = React.useState<AskMode>("plan");
@@ -93,17 +178,17 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
   const json = React.useMemo(() => specToJson(spec), [spec]);
-  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? (threads.length ? threadsToMarkdown(threads) : trailToMarkdown(lanes)) : markdown;
+  const trailText = React.useMemo(() => (threads.length ? threadsToMarkdown(threads) : trailToMarkdown(lanes)), [threads, lanes]);
+  const body = view === "json" ? json : view === "result" ? (result?.text ?? "") : view === "trail" ? trailText : markdown;
 
   React.useEffect(() => { setSendShots(wantShots); }, [wantShots]);
   React.useEffect(() => { setPubDeploy(deployDefault); }, [deployDefault]);
   React.useEffect(() => {
-    if (!open) return;
     void screenshotsAvailable().then(setCanShoot);
     void publishStatus().then(setPub);
     void deployStatus().then(setLive);
     setPubMessage(`Builder: publish ${siteName.trim() || "the site"}`);
-  }, [open, siteName]);
+  }, [siteName]);
   React.useEffect(() => () => abort.current?.abort(), []);
 
   const download = (text: string, filename: string, type: string) => {
@@ -131,9 +216,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
      */
     const said: { key?: string; run?: string; shots?: string } = {};
     const say = () => setNote([said.key, said.run, said.shots].filter(Boolean).join(" ") || null);
-    // The keys panel takes the focus, and this dialog closes when it loses
-    // it — which lets go of whatever request is in flight. So the panel is
-    // opened when the run is over, never during it.
+    // The keys panel takes the focus, and a dialog closes when it loses it —
+    // which lets go of whatever request is in flight. So the panel is opened
+    // when the run is over, never during it.
     let openKeys = false;
     try {
       // Asked before the camera, so the reason reaches the banner even if
@@ -265,6 +350,12 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       });
       if (r.ok) {
         setPubResult({ url: r.commitUrl, files: r.files, deployed: r.deployed, hook: r.hook, note: r.deployNote });
+        // Written on the live thread's card, because this is what that
+        // iteration came to: the card says what was made of the answer.
+        useStudio.getState().noteThread([
+          `${r.files} files pushed to ${r.repo} on ${r.branch}`,
+          r.deployed ? "Vercel deploy started by the hook" : "",
+        ]);
         ctx.publish({ key: "studio:publish", title: `Published to ${r.repo}`, body: `${r.files} files on ${r.branch}${r.deployed ? " · Vercel deploy started" : ""}`, level: "success", source: "studio", toast: true, href: r.commitUrl });
       } else {
         setNote(r.message);
@@ -300,11 +391,13 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         return;
       }
       setPubResult({ url: pushed.commitUrl, files: pushed.files, deployed: false, hook: pushed.hook });
+      useStudio.getState().noteThread([`${pushed.files} files pushed to ${pushed.repo} on ${pushed.branch}`]);
 
       setBusy("Asking Vercel to build it…");
       const started = await deploy({ repo: repo ?? pushed.repo, branch: branch ?? pushed.branch });
       if (!started.ok) {
         setNote(started.message);
+        useStudio.getState().noteThread([`Vercel would not build it: ${started.message}`]);
         ctx.publish({ key: "studio:live", title: "Not deployed", body: started.message, level: "warn", source: "studio", toast: true });
         return;
       }
@@ -321,8 +414,10 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       if (end.state === "READY" && end.url) {
         const id = project?.id;
         if (id) useBuilds.getState().setLive(id, end.url);
+        useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
         ctx.publish({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
       } else {
+        useStudio.getState().noteThread([`The Vercel build ${end.state.toLowerCase()}`]);
         ctx.publish({ key: "studio:live", title: `The build ${end.state.toLowerCase()}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
       }
     } finally {
@@ -337,228 +432,341 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
   const current = MODES.find((m) => m.value === mode)!;
   const github = pub?.github;
 
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => { if (!v) abort.current?.abort(); onOpenChange(v); }}
-      size="xl"
-      title="Blueprint"
-      description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
-      footer={
-        <>
+  /* ---------------------------------------------------------------- */
+  /* The parts of the book, arranged differently in each shape         */
+  /* ---------------------------------------------------------------- */
+
+  const idea = (
+    <label className="flex flex-col gap-1">
+      <Label>What this should be</Label>
+      <Textarea
+        autoGrow
+        rows={2}
+        aria-label="Master prompt"
+        placeholder="Say what you want this to be — everything on the board is the context"
+        value={master}
+        onChange={(e) => useStudio.getState().setBrief({ master: e.target.value })}
+      />
+    </label>
+  );
+
+  const ask = (
+    <Card title="Ask Claude" note={current.blurb}>
+      <div data-brief-modes="" className="flex flex-col gap-1.5">
+        <Segmented
+          size="xs"
+          value={mode}
+          onChange={(v) => setMode(v as AskMode)}
+          options={MODES.map((m) => ({ value: m.value, label: m.label }))}
+          aria-label="What Claude should do"
+          className="w-full"
+        />
+        <Textarea
+          autoGrow
+          rows={mode === "ask" ? 3 : 1}
+          aria-label={mode === "ask" ? "Your question" : "Anything to add"}
+          placeholder={mode === "ask" ? "Ask anything about the site, or say what to do with it…" : "Anything to add to the ask (optional)"}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void generate(); } }}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Switch size="sm" checked={sendShots && canShoot !== false} disabled={canShoot === false} onCheckedChange={setSendShots} aria-label="Send screenshots" />
+          <Camera className="size-3.5 text-fg-muted" />
+          <span className="min-w-0 flex-1 text-[11px] leading-snug text-fg-muted">
+            {canShoot === null ? "Checking whether the server can photograph the pages…" : canShoot ? `Send a screenshot of ${shotPages === 1 ? "the first page" : `the first ${shotPages} pages`}, as the live preview shows them` : "This server cannot photograph the pages (no Playwright), so the words go alone: anything Claude says about layout, colour or overflow is inferred from the brief, not seen."}
+          </span>
+          {canShoot ? (
+            <Segmented size="xs" value={device} onChange={(v) => setDevice(v as Device)} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} aria-label="Screenshot device" />
+          ) : null}
+        </div>
+        {shots.length ? (
+          <div className="flex gap-1.5 overflow-x-auto py-1">
+            {shots.map((s) => (
+              <Tooltip key={s.pageId} content={s.label.replace(/, top to bottom:$/, "")}>
+                <img src={s.preview} alt="" className="h-16 w-auto shrink-0 rounded-sm border border-border object-cover object-top" />
+              </Tooltip>
+            ))}
+            <span className="self-center text-[10px] text-fg-faint">{result?.pictures ? `${result.pictures} sent with the last ask` : "taken for the last ask"}</span>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
           {busy ? (
-            <Button variant="ghost" size="sm" onClick={() => abort.current?.abort()}><X /> Stop</Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "threads.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
-              <Download />
-              {view === "files" ? "Download all" : "Download"}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" disabled={!!busy} onClick={() => void ctx.copy(view === "files" ? publishFiles.map((f) => `# ${f.path}\n\n${f.content}`).join("\n\n") : body, view === "json" ? "blueprint JSON" : view === "result" ? "response" : view === "files" ? "files" : view === "trail" ? "prompt trail" : "brief")}>
-            Copy {view === "json" ? "JSON" : view === "result" ? "response" : view === "files" ? "files" : view === "trail" ? "trail" : "brief"}
-          </Button>
+            <>
+              <span className="mr-auto flex items-center gap-1.5 text-[11px] text-accent"><Loader2 className="size-3.5 animate-spin" /> {busy}</span>
+              <Button variant="ghost" size="sm" onClick={() => abort.current?.abort()}><X /> Stop</Button>
+            </>
+          ) : null}
           <Button variant="primary" size="sm" loading={!!busy} disabled={mode === "ask" && !prompt.trim()} onClick={() => void generate()}>
             <Sparkles />
             {current.verb}
           </Button>
+        </div>
+      </div>
+    </Card>
+  );
+
+  const stats = (
+    <div className="flex flex-wrap gap-1">
+      <Badge size="sm" variant="accent">{spec.stats.pages} pages</Badge>
+      <Badge size="sm">{spec.stats.elements} elements</Badge>
+      {spec.stats.groups ? <Badge size="sm">{spec.stats.groups} groups</Badge> : null}
+      {spec.stats.connections ? <Badge size="sm">{spec.stats.connections} connections</Badge> : null}
+      {spec.stats.sketches ? <Badge size="sm">{spec.stats.sketches} sketches</Badge> : null}
+      <Badge size="sm" variant={spec.stats.prompted ? "up" : "warn"}>{spec.stats.prompted} prompted</Badge>
+    </div>
+  );
+
+  const banner = note ? (
+    <div data-brief-note="" role="status" className="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-[11px] leading-snug text-fg shadow-pop">
+      <Wand2 className="mt-0.5 size-3.5 shrink-0 text-warn" />
+      <span>{note}</span>
+    </div>
+  ) : null;
+
+  /** One text of the book — the brief, the JSON, an answer — as its own card. */
+  const text = (label: string, what: string, filename: string, type: string, height: string) => (
+    <Card
+      title={label}
+      right={
+        <>
+          <Button variant="ghost" size="xs" onClick={() => void ctx.copy(what, label.toLowerCase())}><Copy className="size-3" /> Copy</Button>
+          <Button variant="ghost" size="xs" onClick={() => download(what, filename, type)} aria-label={`Download ${label}`}><Download className="size-3" /></Button>
         </>
       }
     >
-      <div className="flex flex-col gap-2">
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">What this should be</span>
-          <Textarea
-            autoGrow
-            rows={2}
-            aria-label="Master prompt"
-            placeholder="Say what you want this to be — everything on the board is the context"
-            value={master}
-            onChange={(e) => useStudio.getState().setBrief({ master: e.target.value })}
-          />
-        </label>
+      <pre className={cn("overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-2.5 font-mono text-[11px] leading-relaxed text-fg-muted", height)}>
+        {what || "Nothing on the board yet."}
+      </pre>
+    </Card>
+  );
 
-        {/* what to ask */}
-        <div data-brief-modes="" className="flex flex-col gap-1.5 rounded-md border border-border bg-elevated/50 p-2">
-          <Segmented
-            size="xs"
-            value={mode}
-            onChange={(v) => setMode(v as AskMode)}
-            options={MODES.map((m) => ({ value: m.value, label: m.label }))}
-            aria-label="What Claude should do"
-            className="w-full"
-          />
-          <p className="text-[10px] text-fg-faint">{current.blurb}</p>
-          <Textarea
-            autoGrow
-            rows={mode === "ask" ? 3 : 1}
-            aria-label={mode === "ask" ? "Your question" : "Anything to add"}
-            placeholder={mode === "ask" ? "Ask anything about the site, or say what to do with it…" : "Anything to add to the ask (optional)"}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void generate(); } }}
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Switch size="sm" checked={sendShots && canShoot !== false} disabled={canShoot === false} onCheckedChange={setSendShots} aria-label="Send screenshots" />
-            <Camera className="size-3.5 text-fg-muted" />
-            <span className="text-[11px] text-fg-muted">
-              {canShoot === null ? "Checking whether the server can photograph the pages…" : canShoot ? `Send a screenshot of ${shotPages === 1 ? "the first page" : `the first ${shotPages} pages`}, as the live preview shows them` : "This server cannot photograph the pages (no Playwright), so the words go alone: anything Claude says about layout, colour or overflow is inferred from the brief, not seen."}
-            </span>
-            {canShoot ? (
-              <Segmented size="xs" value={device} onChange={(v) => setDevice(v as Device)} options={[{ value: "desktop", label: "Desktop" }, { value: "tablet", label: "Tablet" }, { value: "phone", label: "Phone" }]} aria-label="Screenshot device" />
-            ) : null}
-          </div>
-          {shots.length ? (
-            <div className="flex gap-1.5 overflow-x-auto py-1">
-              {shots.map((s) => (
-                <Tooltip key={s.pageId} content={s.label.replace(/, top to bottom:$/, "")}>
-                  <img src={s.preview} alt="" className="h-16 w-auto shrink-0 rounded-sm border border-border object-cover object-top" />
-                </Tooltip>
-              ))}
-              <span className="self-center text-[10px] text-fg-faint">{result?.pictures ? `${result.pictures} sent with the last ask` : "taken for the last ask"}</span>
-            </div>
+  const filesCard = files.length ? (
+    <Card title={`Files (${files.length})`} right={<Button variant="ghost" size="xs" onClick={downloadAll}><Download className="size-3" /> All</Button>}>
+      <ul className="max-h-[40vh] divide-y divide-border overflow-auto rounded-md border border-border bg-elevated">
+        {files.map((f) => (
+          <li key={f.path}>
+            <button type="button" onClick={() => setOpenFile(openFile === f.path ? null : f.path)} className="tactile flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-hover">
+              <span className="num min-w-0 flex-1 truncate font-mono text-[11px] text-fg">{f.path}</span>
+              <span className="num text-[10px] text-fg-faint">{fmtBytes(f.content.length)}</span>
+              <Button variant="ghost" size="xs" onClick={(e) => { e.stopPropagation(); void ctx.copy(f.content, f.path); }}>Copy</Button>
+            </button>
+            {openFile === f.path ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-border bg-panel p-3 font-mono text-[10.5px] leading-relaxed text-fg-muted">{f.content}</pre> : null}
+          </li>
+        ))}
+      </ul>
+    </Card>
+  ) : null;
+
+  const publishCard = (
+    <Card
+      title={
+        <span className="flex flex-wrap items-center gap-2">
+          <GitBranch className="size-3.5 text-fg-muted" /> Publish
+          {github === undefined ? (
+            <Badge size="sm">checking…</Badge>
+          ) : github.configured ? (
+            <Badge size="sm" variant="up"><Check className="size-3" /> {github.repo} · {github.branch}</Badge>
+          ) : (
+            <Tooltip content={`Set ${github.missing.join(" and ")} on the server. See .env.example.`}>
+              <Badge size="sm" variant="warn">no GitHub token · download instead</Badge>
+            </Tooltip>
+          )}
+          {live?.configured ? (
+            <Badge size="sm" variant="info">Vercel: {live.source === "server" ? "the server’s token" : "your token"}</Badge>
+          ) : pub?.vercel.hook ? (
+            <Badge size="sm" variant="info">Vercel hook set</Badge>
           ) : null}
+        </span>
+      }
+      note={`${publishFiles.length} files: the document the app renders at /site, the blueprint, ${files.length ? `and ${files.length} generated` : "no generated code yet"}. What this does is written on the live thread's card.`}
+    >
+      <div data-brief-publish="" className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Input inputSize="sm" value={pubMessage} onChange={(e) => setPubMessage(e.target.value)} placeholder="Commit message" className="min-w-40 flex-1" disabled={!!busy} />
+          {pub?.vercel.hook ? (
+            <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+              <Switch size="sm" checked={pubDeploy} onCheckedChange={setPubDeploy} /> deploy
+            </label>
+          ) : null}
+          <Button variant="outline" size="sm" disabled={!!busy || !github?.configured} onClick={() => void doPublish()}>
+            <GitBranch /> Push to GitHub
+          </Button>
+          <Tooltip content={
+            live?.configured
+              ? "Push the files, build the site on Vercel, and hand back the address."
+              : "Needs a Vercel token: put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server."
+          }>
+            <span>
+              <Button variant="primary" size="sm" disabled={!!busy || !github?.configured || !live?.configured} onClick={() => void goLive()}>
+                <Globe /> Go live
+              </Button>
+            </span>
+          </Tooltip>
         </div>
-
-        <div data-brief-views="" className="flex flex-wrap items-center justify-between gap-2">
-          <Segmented
-            size="xs"
-            value={view}
-            onChange={(v) => setView(v as View)}
-            options={[
-              { value: "brief", label: "Brief" },
-              { value: "json", label: "JSON" },
-              { value: "trail", label: threads.length ? `Trail (${threads.length})` : trailCount ? `Trail (${trailCount})` : "Trail" },
-              ...(result ? [{ value: "result", label: "Response" }] : []),
-              ...(files.length ? [{ value: "files", label: `Files (${files.length})` }] : []),
-            ]}
-            aria-label="View"
-          />
-          <div className="flex flex-wrap gap-1">
-            <Badge size="sm" variant="accent">{spec.stats.pages} pages</Badge>
-            <Badge size="sm">{spec.stats.elements} elements</Badge>
-            {spec.stats.groups ? <Badge size="sm">{spec.stats.groups} groups</Badge> : null}
-            {spec.stats.connections ? <Badge size="sm">{spec.stats.connections} connections</Badge> : null}
-            {spec.stats.sketches ? <Badge size="sm">{spec.stats.sketches} sketches</Badge> : null}
-            <Badge size="sm" variant={spec.stats.prompted ? "up" : "warn"}>{spec.stats.prompted} prompted</Badge>
-          </div>
-        </div>
-
-        {note ? (
-          <div data-brief-note="" role="status" className="flex items-start gap-2 rounded-md border border-warn/40 bg-warn/10 p-2 text-[11px] text-fg">
-            <Wand2 className="mt-0.5 size-3.5 shrink-0 text-warn" />
-            <span>{note}</span>
-          </div>
-        ) : null}
-
-        {view === "trail" ? (
-          <div data-brief-body=""><ThreadTree /></div>
-        ) : view === "files" ? (
-          <div data-brief-body="" className="max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated">
-            <ul className="divide-y divide-border">
-              {files.map((f) => (
-                <li key={f.path}>
-                  <button type="button" onClick={() => setOpenFile(openFile === f.path ? null : f.path)} className="tactile flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-hover">
-                    <span className="num min-w-0 flex-1 truncate font-mono text-[11px] text-fg">{f.path}</span>
-                    <span className="num text-[10px] text-fg-faint">{fmtBytes(f.content.length)}</span>
-                    <Button variant="ghost" size="xs" onClick={(e) => { e.stopPropagation(); void ctx.copy(f.content, f.path); }}>Copy</Button>
-                  </button>
-                  {openFile === f.path ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-border bg-panel p-3 font-mono text-[10.5px] leading-relaxed text-fg-muted">{f.content}</pre> : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <pre data-brief-body="" className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-3 font-mono text-[11px] leading-relaxed text-fg-muted", busy && "opacity-60")}>
-            {busy && view !== "result" ? null : body || "Nothing on the board yet."}
-            {busy ? (
-              <span className="flex items-center gap-2 text-accent">
-                <Loader2 className="size-3.5 animate-spin" />
-                {busy}
-              </span>
+        {liveRun ? (
+          <p className={cn("flex flex-wrap items-center gap-1.5 text-[11px]", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
+            {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
+            {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : `${liveRun.state.toLowerCase()}…`}
+            {liveRun.state === "READY" && liveRun.url ? (
+              <a className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
+                {liveRun.url.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />
+              </a>
+            ) : liveRun.inspectorUrl ? (
+              <a className="underline underline-offset-2 text-fg-faint" href={liveRun.inspectorUrl} target="_blank" rel="noopener noreferrer">
+                watch the build <ExternalLink className="inline size-3" />
+              </a>
             ) : null}
-          </pre>
-        )}
-        {result && view === "result" ? (
-          <p className="text-[10px] text-fg-faint">
-            {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}
+            {liveRun.message ? <span className="text-fg-faint">{liveRun.message}</span> : null}
           </p>
         ) : null}
-
-        {/* publish */}
-        <div data-brief-publish="" className="flex flex-col gap-1.5 rounded-md border border-border bg-elevated/50 p-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <GitBranch className="size-3.5 text-fg-muted" />
-            <span className="text-[11px] font-medium text-fg">Publish</span>
-            {github === undefined ? (
-              <Badge size="sm">checking…</Badge>
-            ) : github.configured ? (
-              <Badge size="sm" variant="up"><Check className="size-3" /> {github.repo} · {github.branch}</Badge>
-            ) : (
-              <Tooltip content={`Set ${github.missing.join(" and ")} on the server. See .env.example.`}>
-                <Badge size="sm" variant="warn">no GitHub token · download instead</Badge>
-              </Tooltip>
-            )}
-            {live?.configured ? (
-              <Badge size="sm" variant="info">Vercel: {live.source === "server" ? "the server's token" : "your token"}</Badge>
-            ) : pub?.vercel.hook ? (
-              <Badge size="sm" variant="info">Vercel hook set</Badge>
-            ) : null}
-            <span className="flex-1" />
-            <span className="text-[10px] text-fg-faint">{publishFiles.length} files: the document the app renders at /site, the blueprint, {files.length ? `and ${files.length} generated` : "no generated code yet"}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input inputSize="sm" value={pubMessage} onChange={(e) => setPubMessage(e.target.value)} placeholder="Commit message" className="min-w-40 flex-1" disabled={!!busy} />
-            {pub?.vercel.hook ? (
-              <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
-                <Switch size="sm" checked={pubDeploy} onCheckedChange={setPubDeploy} /> deploy
-              </label>
-            ) : null}
-            <Button variant="outline" size="sm" disabled={!!busy || !github?.configured} onClick={() => void doPublish()}>
-              <GitBranch /> Push to GitHub
-            </Button>
-            <Tooltip content={
-              live?.configured
-                ? "Push the files, build the site on Vercel, and hand back the address."
-                : "Needs a Vercel token: put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server."
-            }>
-              <span>
-                <Button variant="primary" size="sm" disabled={!!busy || !github?.configured || !live?.configured} onClick={() => void goLive()}>
-                  <Globe /> Go live
-                </Button>
-              </span>
-            </Tooltip>
-          </div>
-          {liveRun ? (
-            <p className={cn("flex flex-wrap items-center gap-1.5 text-[11px]", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
-              {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
-              {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : `${liveRun.state.toLowerCase()}…`}
-              {liveRun.state === "READY" && liveRun.url ? (
-                <a className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
-                  {liveRun.url.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />
-                </a>
-              ) : liveRun.inspectorUrl ? (
-                <a className="underline underline-offset-2 text-fg-faint" href={liveRun.inspectorUrl} target="_blank" rel="noopener noreferrer">
-                  watch the build <ExternalLink className="inline size-3" />
-                </a>
-              ) : null}
-              {liveRun.message ? <span className="text-fg-faint">{liveRun.message}</span> : null}
-            </p>
-          ) : null}
-          {pubResult ? (
-            <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-up">
-              <Check className="size-3" /> {pubResult.files} files committed.
-              <a className="underline underline-offset-2" href={pubResult.url} target="_blank" rel="noopener noreferrer">Open the commit <ExternalLink className="inline size-3" /></a>
-              {pubResult.deployed ? <span>· Vercel deploy started</span> : pubResult.hook ? <span className="text-warn">· {pubResult.note ?? "the deploy hook was not called"}</span> : <span className="text-fg-faint">· a connected Vercel project deploys on its own</span>}
-            </p>
-          ) : null}
-        </div>
-
-        <p className="flex items-center gap-1.5 text-[10px] text-fg-faint">
-          <FileJson className="size-3" />
-          The brief is self-contained — it explains its own conventions, so any agent can act on it without this app.
-        </p>
+        {pubResult ? (
+          <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-up">
+            <Check className="size-3" /> {pubResult.files} files committed.
+            <a className="underline underline-offset-2" href={pubResult.url} target="_blank" rel="noopener noreferrer">Open the commit <ExternalLink className="inline size-3" /></a>
+            {pubResult.deployed ? <span>· Vercel deploy started</span> : pubResult.hook ? <span className="text-warn">· {pubResult.note ?? "the deploy hook was not called"}</span> : <span className="text-fg-faint">· a connected Vercel project deploys on its own</span>}
+          </p>
+        ) : null}
       </div>
-    </Dialog>
+    </Card>
+  );
+
+  const foot = (
+    <p className="flex items-center gap-1.5 text-[10px] text-fg-faint">
+      <FileJson className="size-3" />
+      The brief is self-contained — it explains its own conventions, so any agent can act on it without this app.
+    </p>
+  );
+
+  /** Pin: the same control in every shape, and the only way between them. */
+  const pin = (
+    <Tooltip content={bookPinned ? "Let the book be a dialog again" : "Keep the book open beside the board"}>
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-pressed={bookPinned}
+        onClick={() => useStudio.getState().setBookPinned(!bookPinned)}
+        aria-label={bookPinned ? "Unpin the book" : "Pin the book open"}
+      >
+        {bookPinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+        {bookPinned ? "Unpin" : "Pin open"}
+      </Button>
+    </Tooltip>
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* The page: everything at once, the trail with the room it needs    */
+  /* ---------------------------------------------------------------- */
+
+  if (page) {
+    return (
+      <div data-iteration-book="" className="flex h-full min-h-0 w-full gap-3 overflow-hidden p-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+          {banner}
+          <Card title="The idea" note="Everything on the board is the context; this is what it is all for.">{idea}</Card>
+          {ask}
+          <PinnedThreads />
+          <Card
+            title={threads.length ? `The trail · ${threads.length} thread${threads.length === 1 ? "" : "s"}` : "The trail"}
+            note="Every ask that came back, in the order it landed. Open one to read the prompt above it and the answer below it; pin one to keep it up here."
+            right={<Button variant="ghost" size="xs" onClick={() => void ctx.copy(trailText, "the trail")}><Copy className="size-3" /> Copy</Button>}
+          >
+            <ThreadTree />
+          </Card>
+          {result ? text(`The answer · ${MODES.find((m) => m.value === result.mode)?.label} · ${result.model ?? "Claude"}`, result.text, "response.md", "text/markdown", "max-h-[50vh]") : null}
+          {filesCard}
+        </div>
+        <aside className="hidden w-[420px] shrink-0 flex-col gap-3 overflow-y-auto lg:flex">
+          <Card
+            title="The iteration book"
+            note="The brief, the JSON and the trail are one page: the last thread is read while the next ask is written."
+            right={pin}
+          >
+            <div className="flex flex-wrap items-center gap-1">{stats}</div>
+          </Card>
+          {text("The brief", markdown, "brief.md", "text/markdown", "max-h-[42vh]")}
+          {text("The JSON", json, "blueprint.json", "application/json", "max-h-[30vh]")}
+          {publishCard}
+          {foot}
+        </aside>
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Over the board, or pinned beside it                               */
+  /* ---------------------------------------------------------------- */
+
+  const stacked = (
+    <div className="flex flex-col gap-2">
+      {layout === "panel" ? (
+        <div className="flex items-center gap-2 border-b border-border pb-2">
+          <BookOpen className="size-3.5 text-accent" />
+          <h2 className="flex-1 text-sm font-semibold text-fg">The iteration book</h2>
+          {pin}
+          <Button variant="ghost" size="iconXs" aria-label="Close the book" onClick={onClose}><X /></Button>
+        </div>
+      ) : null}
+      {idea}
+      {ask}
+      <PinnedThreads />
+
+      <div data-brief-views="" className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented
+          size="xs"
+          value={view}
+          onChange={(v) => setView(v as View)}
+          options={[
+            { value: "brief", label: "Brief" },
+            { value: "json", label: "JSON" },
+            { value: "trail", label: threads.length ? `Trail (${threads.length})` : trailCount ? `Trail (${trailCount})` : "Trail" },
+            ...(result ? [{ value: "result", label: "Response" }] : []),
+            ...(files.length ? [{ value: "files", label: `Files (${files.length})` }] : []),
+          ]}
+          aria-label="View"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          {layout === "dialog" ? pin : null}
+          {stats}
+        </div>
+      </div>
+
+      {banner}
+
+      {view === "trail" ? (
+        <div data-brief-body=""><ThreadTree /></div>
+      ) : view === "files" ? (
+        <div data-brief-body="">{filesCard}</div>
+      ) : (
+        <pre data-brief-body="" className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-3 font-mono text-[11px] leading-relaxed text-fg-muted", busy && "opacity-60")}>
+          {body || "Nothing on the board yet."}
+        </pre>
+      )}
+      {result && view === "result" ? (
+        <p className="text-[10px] text-fg-faint">
+          {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}
+        </p>
+      ) : null}
+
+      {publishCard}
+      {foot}
+
+      <div className="flex items-center justify-end gap-2 border-t border-border pt-2">
+        <Button variant="ghost" size="sm" onClick={() => (view === "files" ? downloadAll() : download(view === "json" ? json : body, view === "json" ? "blueprint.json" : view === "result" ? "response.md" : view === "trail" ? "threads.md" : "brief.md", view === "json" ? "application/json" : "text/markdown"))}>
+          <Download />
+          {view === "files" ? "Download all" : "Download"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => void ctx.copy(view === "files" ? publishFiles.map((f) => `# ${f.path}\n\n${f.content}`).join("\n\n") : body, view === "json" ? "blueprint JSON" : view === "result" ? "response" : view === "files" ? "files" : view === "trail" ? "prompt trail" : "brief")}>
+          Copy {view === "json" ? "JSON" : view === "result" ? "response" : view === "files" ? "files" : view === "trail" ? "trail" : "brief"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return layout === "panel" ? (
+    <div className="min-h-0 flex-1 overflow-y-auto p-3 text-xs">{stacked}</div>
+  ) : (
+    <div className="max-h-[74vh] overflow-y-auto pr-0.5">{stacked}</div>
   );
 }
 

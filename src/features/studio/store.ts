@@ -50,7 +50,8 @@ export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
 export type Priority = "must" | "nice" | "idea";
 export type ShapeKind = "pen" | "frame" | "arrow";
 /** The board shows either the design surface or the site it describes. */
-export type BoardMode = "design" | "preview";
+/** The board, the site as it runs, or the iteration book: brief, JSON and every thread. */
+export type BoardMode = "design" | "preview" | "book";
 export type ShapeRelation = "flow" | "data";
 
 /** What a part is cut to: a box unless something says otherwise. */
@@ -295,6 +296,17 @@ interface StudioState extends Doc {
   /** The thread the board is standing on. */
   liveThreadId: string | null;
   /**
+   * Threads pinned to stay in view in the iteration book.
+   *
+   * A thread scrolls away the moment the trail grows past it, and the one
+   * you are working against is the one you need on screen while you ask the
+   * next thing. Pinned, it and its answer sit at the top of the book until
+   * they are unpinned.
+   */
+  pinnedThreads: string[];
+  /** The book is held open beside the board as a panel, rather than being a dialog you dismiss. */
+  bookPinned: boolean;
+  /**
    * Where a thread or a piece has been dragged to on the trail, when it has
    * been. Anything not in here sits where the staircase puts it.
    */
@@ -407,6 +419,18 @@ interface StudioState extends Doc {
   pruneThread: (id: string) => void;
   /** Put the board back on a thread. */
   standOn: (id: string) => void;
+  /** Keep a thread and its answer in view at the top of the book, or let it go. */
+  togglePinnedThread: (id: string) => void;
+  /** Hold the book open as a panel beside the board, or let it be a dialog again. */
+  setBookPinned: (v: boolean) => void;
+  /**
+   * Add to what the live thread did.
+   *
+   * A thread lands with what Claude changed, but the work an answer leads to
+   * — the files pushed, the site built on Vercel — happens after it. That is
+   * still what this iteration did, so it is written on the same card.
+   */
+  noteThread: (lines: string[]) => void;
   /** Move one thread or piece on the trail. Only that one moves. */
   moveThread: (id: string, x: number, y: number) => void;
   /** Vine a piece to the next call, or cut it loose. */
@@ -588,6 +612,8 @@ export const useStudio = create<StudioState>()(
         trail: [],
         threads: [],
         liveThreadId: null,
+        pinnedThreads: [],
+        bookPinned: false,
         threadSpots: {},
         draftPieces: [],
         sentPieces: {},
@@ -1100,6 +1126,7 @@ export const useStudio = create<StudioState>()(
           set(() => ({
             threads,
             liveThreadId: live,
+            pinnedThreads: s.pinnedThreads.filter((x) => x !== id),
             threadSpots: spots,
             trail: s.trail.filter((e) => e.threadId !== id),
             ...docPatch(stand?.doc),
@@ -1121,6 +1148,25 @@ export const useStudio = create<StudioState>()(
           })),
 
         resetThreadSpots: () => set({ threadSpots: {} }),
+
+        togglePinnedThread: (id) =>
+          set((s) => ({
+            pinnedThreads: s.pinnedThreads.includes(id) ? s.pinnedThreads.filter((x) => x !== id) : [...s.pinnedThreads, id],
+          })),
+
+        setBookPinned: (v) => set({ bookPinned: v }),
+
+        noteThread: (lines) =>
+          set((s) => {
+            const id = s.liveThreadId;
+            const add = lines.map((l) => l.trim()).filter(Boolean);
+            if (!id || !add.length) return {};
+            return {
+              threads: s.threads.map((t) =>
+                t.id === id ? { ...t, changes: [...t.changes, ...add.filter((l) => !t.changes.includes(l))] } : t,
+              ),
+            };
+          }),
 
         standOn: (id) => {
           const s = get();
@@ -1175,7 +1221,7 @@ export const useStudio = create<StudioState>()(
 
         resetAll: () => {
           push();
-          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, threadSpots: {}, draftPieces: [], sentPieces: {} });
+          set({ ...starterDoc(), activePageId: "page_home", selection: [], trail: [], threads: [], liveThreadId: null, pinnedThreads: [], threadSpots: {}, draftPieces: [], sentPieces: {} });
         },
 
         loadDoc: (doc) => {
@@ -1254,6 +1300,8 @@ export const useStudio = create<StudioState>()(
           trail: Array.isArray(p.trail) ? p.trail : [],
           threads: Array.isArray(p.threads) ? p.threads : [],
           liveThreadId: typeof p.liveThreadId === "string" ? p.liveThreadId : null,
+          pinnedThreads: Array.isArray(p.pinnedThreads) ? p.pinnedThreads : [],
+          bookPinned: !!p.bookPinned,
           threadSpots: p.threadSpots && typeof p.threadSpots === "object" ? (p.threadSpots as Record<string, { x: number; y: number }>) : {},
           draftPieces: Array.isArray(p.draftPieces) ? p.draftPieces : [],
           sentPieces: p.sentPieces && typeof p.sentPieces === "object" ? (p.sentPieces as Record<string, string>) : {},
@@ -1293,6 +1341,8 @@ export const useStudio = create<StudioState>()(
         trail: s.trail,
         threads: s.threads,
         liveThreadId: s.liveThreadId,
+        pinnedThreads: s.pinnedThreads,
+        bookPinned: s.bookPinned,
         threadSpots: s.threadSpots,
         draftPieces: s.draftPieces,
         sentPieces: s.sentPieces,

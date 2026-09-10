@@ -26,12 +26,13 @@
  * disagreeing with the page. Dragging moves one thing: no re-layout.
  */
 import * as React from "react";
-import { ChevronRight, Circle, GitBranch, GripVertical, MapPin, Scissors, Sparkles } from "lucide-react";
+import { Check, ChevronRight, Circle, Copy, GitBranch, GripVertical, MapPin, Pin, PinOff, Scissors, Sparkles } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
+import { useActions } from "@/core/actions";
 import { toRows } from "./spec";
 import { useStudio } from "./store";
 import { diffDocs, flatten, pieceOwners, piecesFrom, threadTitle, threadTree, type Piece, type Thread, type ThreadNode } from "./threads";
@@ -51,6 +52,15 @@ const CARD_W = 320;
 const COL_STEP = 384;
 const ROW_STEP = 136;
 const PAD = 16;
+/**
+ * Empty space above the first step.
+ *
+ * An open thread puts its prompt above the card and its answer below it, and
+ * the first step is otherwise sixteen pixels from the top with nowhere for
+ * the prompt to go. This is that room, kept whether or not anything is open,
+ * so opening one never moves the trail underneath it.
+ */
+const HEAD = 236;
 /** How far off its step on the timeline a thread hangs. */
 const HANG = { x: 34, y: 18 };
 
@@ -63,11 +73,11 @@ interface Spot { x: number; y: number }
  * line of descent runs down and across the page the way a trail does — and a
  * fork simply carries on down, at its own depth.
  */
-function staircase(roots: ThreadNode[]): Map<string, Spot> {
+function staircase(roots: ThreadNode[], head: number): Map<string, Spot> {
   const spots = new Map<string, Spot>();
   let row = 0;
   const walk = (n: ThreadNode) => {
-    spots.set(n.thread.id, { x: PAD + n.depth * COL_STEP, y: PAD + row * ROW_STEP });
+    spots.set(n.thread.id, { x: PAD + n.depth * COL_STEP, y: head + row * ROW_STEP });
     row++;
     for (const c of n.children) walk(c);
   };
@@ -153,7 +163,14 @@ export function ThreadTree() {
 
   /* The timeline: one step per thread, in the order they landed, and the
    * draft on the step after the last of them. */
-  const stairs = React.useMemo(() => staircase(roots), [roots]);
+  /*
+   * The room above the first step, kept only while a thread is open. Closed,
+   * an empty band at the top of the trail is nothing but a hole in the map;
+   * open, the prompt has to have somewhere to go. Threads that have been
+   * dragged keep their own spot, so nothing a person placed ever moves.
+   */
+  const head = (open.size ? HEAD : 0) + PAD;
+  const stairs = React.useMemo(() => staircase(roots, head), [roots, head]);
   const draftStair = React.useMemo(() => {
     let last: Spot | null = null;
     let depth = 0;
@@ -161,8 +178,8 @@ export function ThreadTree() {
       const at = stairs.get(n.thread.id);
       if (at && (!last || at.y > last.y)) { last = at; depth = n.depth; }
     }
-    return last ? { x: PAD + Math.min(depth + 1, 4) * COL_STEP, y: last.y + ROW_STEP } : { x: PAD, y: PAD };
-  }, [all, stairs]);
+    return last ? { x: PAD + Math.min(depth + 1, 4) * COL_STEP, y: last.y + ROW_STEP } : { x: PAD, y: head };
+  }, [all, stairs, head]);
 
   /** The shelf: under the last step, as wide as the trail is deep. */
   const perRow = 6;
@@ -271,6 +288,13 @@ export function ThreadTree() {
       w = Math.max(w, a.right);
       h = Math.max(h, a.bottom);
     }
+    // What is open hangs off a card without being part of it, so it is not
+    // an anchor for a vine but the plot still has to be tall enough for it.
+    for (const el of plot.querySelectorAll<HTMLElement>("[data-trail-extent]")) {
+      const r = el.getBoundingClientRect();
+      w = Math.max(w, (r.right - origin.left) / z);
+      h = Math.max(h, (r.bottom - origin.top) / z);
+    }
     anchors.current = next;
     const width = Math.max(420, Math.round(w + PAD * 2));
     const height = Math.max(260, Math.round(h + PAD * 2));
@@ -376,14 +400,14 @@ export function ThreadTree() {
 
           {/* The timeline: one step per thread, and the step the next call will take. */}
           {all.map((n) => {
-            const at = stairs.get(n.thread.id) ?? { x: PAD, y: PAD };
+            const at = stairs.get(n.thread.id) ?? { x: PAD, y: head };
             return <Step key={`step-${n.thread.id}`} id={`step:${n.thread.id}`} at={at} live={liveLine.has(n.thread.id)} />;
           })}
           <Step id="step:draft" at={draftStair} live={false} pending />
 
           {/* The threads, hanging off their step. */}
           {all.map((n) => {
-            const at = spotOf(`thread:${n.thread.id}`, hung(stairs.get(n.thread.id) ?? { x: PAD, y: PAD }));
+            const at = spotOf(`thread:${n.thread.id}`, hung(stairs.get(n.thread.id) ?? { x: PAD, y: head }));
             return (
               <ThreadCard
                 key={n.thread.id}
@@ -626,23 +650,39 @@ function ThreadCard({
   const t = node.thread;
   const trail = useStudio((s) => s.trail);
   const applyRevision = useStudio((s) => s.applyRevision);
+  const pinned = useStudio((s) => s.pinnedThreads.includes(t.id));
+  const togglePin = useStudio((s) => s.togglePinnedThread);
   const findings = trail.filter((e) => e.threadId === t.id && e.stage === "critique");
   const changed = React.useMemo(() => diffDocs(parent?.doc, t.doc), [parent, t]);
 
   return (
     <div
       data-thread={t.id}
+      data-trail-item={`thread:${t.id}`}
       style={style}
       className={cn(
-        "z-10 rounded-lg border p-3 transition-colors",
+        "z-10 rounded-lg border p-2.5 shadow-pop transition-colors",
         dragging && "z-20 cursor-grabbing shadow-[0_10px_30px_oklch(0_0_0/0.5)]",
+        open && "z-30",
         live
           ? "border-[oklch(0.72_0.22_148)] bg-[oklch(0.17_0.03_150)] shadow-[0_0_22px_oklch(0.72_0.22_148/0.18)]"
           : onLine
             ? "border-[oklch(0.42_0.1_150)] bg-[oklch(0.15_0.02_150)]"
-            : "border-border bg-elevated",
+            : "border-border bg-panel/95",
       )}
     >
+      {/* The prompt grows upward out of the card, the answer downward: the
+          ask is what came before this thread and the answer is what came
+          after it, and reading down the column is reading it in order. */}
+      {open ? (
+        <Pane
+          label="The prompt, as it was asked"
+          text={t.ask || "—"}
+          className="absolute bottom-full left-0 mb-2 w-full"
+          bodyClassName="max-h-[196px]"
+        />
+      ) : null}
+
       <div className="flex items-start gap-2">
         {/* The grip: the one place a drag starts, so opening and pruning still work. */}
         <button
@@ -665,7 +705,7 @@ function ThreadCard({
           <ChevronRight className="size-3.5" />
         </button>
         <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
-          <p className="text-[12px] leading-snug text-fg">{threadTitle(t)}</p>
+          <p className="text-[12px] font-semibold leading-snug text-fg">{threadTitle(t)}</p>
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-fg-faint">
             <Badge size="sm" variant="outline">{t.mode}</Badge>
             <span className="num">{new Date(t.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
@@ -674,6 +714,11 @@ function ThreadCard({
           </p>
         </button>
         <div className="flex shrink-0 items-center gap-1">
+          <Tooltip content={pinned ? "Unpin it" : "Pin this thread and its answer to the top of the book"}>
+            <Button variant="ghost" size="xs" onClick={() => { play(pinned ? "close" : "confirm"); togglePin(t.id); }} aria-label={pinned ? "Unpin this thread" : "Pin this thread"} aria-pressed={pinned}>
+              <Pin className={cn("size-3", pinned && "fill-current text-accent")} />
+            </Button>
+          </Tooltip>
           {!live && t.doc ? (
             <Tooltip content="Put the board back on this thread">
               <Button variant="ghost" size="xs" onClick={onStand} aria-label="Stand on this thread">
@@ -689,48 +734,143 @@ function ThreadCard({
         </div>
       </div>
 
+      {/*
+        What this iteration did, on the face of the card.
+        Finish and Build lead to work that happens after the answer — files
+        pushed, a build on Vercel — and that is written on here as it
+        happens, so the card says what was made of it, not only what was
+        said.
+      */}
+      {t.changes.length ? (
+        <ul className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5">
+          {t.changes.map((c, i) => (
+            <li key={i} className="flex items-start gap-1 text-[10px] leading-snug text-fg-muted">
+              <Check className="mt-px size-2.5 shrink-0 text-[oklch(0.72_0.22_148)]" /> {c}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {open ? (
-        <div className="mt-3 max-h-[320px] space-y-3 overflow-auto border-t border-border pt-3">
-          <Section label="Asked">
-            <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-fg-muted">{t.ask || "—"}</p>
-          </Section>
-          <Section label="Answer">
-            <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-panel p-2 font-mono text-[10px] leading-relaxed text-fg-muted">
-              {t.answer || "—"}
-            </pre>
-          </Section>
-          <Section label={`What changed${changed.length ? ` (${changed.length})` : ""}`}>
-            {changed.length ? (
-              <ul className="space-y-0.5">
-                {changed.map((line, i) => (
-                  <li key={i} className="font-mono text-[10px] text-fg-muted">{line}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[10px] text-fg-faint">Nothing on the board changed with this thread.</p>
-            )}
-          </Section>
-          {findings.length ? (
-            <Section label={`Findings (${findings.length})`}>
-              <ul className="space-y-1.5">
-                {findings.map((f) => (
-                  <li key={f.id} className="rounded border border-border bg-panel p-2">
-                    <p className="text-[11px] text-fg">{f.target.label}: {f.text}</p>
-                    {f.prompt ? (
-                      <div className="mt-1 flex items-start gap-2">
-                        <p className="min-w-0 flex-1 text-[10px] italic text-fg-muted">{f.prompt}</p>
-                        <Button variant="outline" size="xs" disabled={f.applied} onClick={() => applyRevision(f.id)}>
-                          {f.applied ? "Taken" : "Take it"}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+        <div data-trail-extent="" className="absolute left-0 top-full mt-2 w-full space-y-2">
+          <Pane label="What came back" text={t.answer || "—"} bodyClassName="max-h-[260px]" mono />
+          <div className="rounded-lg border border-border bg-panel/95 p-2.5 shadow-pop">
+            <Section label={`What changed${changed.length ? ` (${changed.length})` : ""}`}>
+              {changed.length ? (
+                <ul className="space-y-0.5">
+                  {changed.map((line, i) => (
+                    <li key={i} className="font-mono text-[10px] text-fg-muted">{line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[10px] text-fg-faint">Nothing on the board changed with this thread.</p>
+              )}
             </Section>
-          ) : null}
+            {findings.length ? (
+              <div className="mt-2">
+                <Section label={`Findings (${findings.length})`}>
+                  <ul className="space-y-1.5">
+                    {findings.map((f) => (
+                      <li key={f.id} className="rounded border border-border bg-elevated p-2">
+                        <p className="text-[11px] leading-snug text-fg">{f.target.label}: {f.text}</p>
+                        {f.prompt ? (
+                          <div className="mt-1 flex items-start gap-2">
+                            <p className="min-w-0 flex-1 text-[10px] italic leading-snug text-fg-muted">{f.prompt}</p>
+                            <Button variant="outline" size="xs" disabled={f.applied} onClick={() => applyRevision(f.id)}>
+                              {f.applied ? "Taken" : "Take it"}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * One box of text off a thread — the prompt or the answer — in the same
+ * language as the cards the tour writes on: a rule, a small capital label,
+ * and the words underneath in a box you can take away whole.
+ */
+function Pane({
+  label, text, className, bodyClassName, mono,
+}: { label: string; text: string; className?: string; bodyClassName?: string; mono?: boolean }) {
+  const ctx = useActions();
+  return (
+    <div className={cn("rounded-lg border border-border bg-panel/95 p-2.5 shadow-pop", className)}>
+      <div className="mb-1 flex items-center gap-1.5">
+        <p className="flex flex-1 items-center gap-1 text-[9px] uppercase tracking-[0.16em] text-fg-faint">
+          <Circle className="size-1.5 fill-current" /> {label}
+        </p>
+        <Button variant="ghost" size="xs" onClick={() => void ctx.copy(text, label.toLowerCase())} aria-label={`Copy ${label}`}>
+          <Copy className="size-3" /> Copy
+        </Button>
+      </div>
+      <div
+        className={cn(
+          "overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-elevated p-2 text-[11px] leading-relaxed text-fg-muted",
+          mono && "font-mono text-[10px]",
+          bodyClassName,
+        )}
+      >
+        {text}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The threads someone pinned, and their answers, at the top of the book.
+ *
+ * The trail is a map and a map scrolls away; the thread you are working
+ * against has to stay where you can read it while you write the next ask.
+ */
+export function PinnedThreads() {
+  const threads = useStudio((s) => s.threads);
+  const pinned = useStudio((s) => s.pinnedThreads);
+  const togglePin = useStudio((s) => s.togglePinnedThread);
+  const standOn = useStudio((s) => s.standOn);
+  const liveThreadId = useStudio((s) => s.liveThreadId);
+  const kept = pinned.map((id) => threads.find((t) => t.id === id)).filter((t): t is Thread => !!t);
+  if (!kept.length) return null;
+  return (
+    <div className="space-y-2">
+      {kept.map((t) => (
+        <div key={t.id} className="rounded-lg border border-accent/40 bg-elevated/60 p-2.5 shadow-pop">
+          <div className="flex items-start gap-2">
+            <Pin className="mt-0.5 size-3 shrink-0 fill-current text-accent" />
+            <p className="min-w-0 flex-1 text-[12px] font-semibold leading-snug text-fg">{threadTitle(t)}</p>
+            {t.id !== liveThreadId && t.doc ? (
+              <Button variant="ghost" size="xs" onClick={() => { play("confirm"); standOn(t.id); }}>
+                <MapPin className="size-3" /> Stand on it
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="xs" onClick={() => { play("close"); togglePin(t.id); }} aria-label="Unpin this thread">
+              <PinOff className="size-3" />
+            </Button>
+          </div>
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <Pane label="The prompt, as it was asked" text={t.ask || "—"} bodyClassName="max-h-40" />
+            <Pane label="What came back" text={t.answer || "—"} bodyClassName="max-h-40" mono />
+          </div>
+          {t.changes.length ? (
+            <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
+              {t.changes.map((c, i) => (
+                <li key={i} className="flex items-center gap-1 text-[10px] text-fg-muted">
+                  <Check className="size-2.5 text-[oklch(0.72_0.22_148)]" /> {c}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
