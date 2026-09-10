@@ -776,17 +776,28 @@ a kicker with a rule, and label-and-value rows that copy.
   nothing to lock. Everything a part's wheel does that makes no sense for a
   page is a placeholder that taps, not a missing piece; and no editor
   leaves a slab empty.
+- **One ground, at two distances** (`darkMatter.ts`). `paintDarkMatter` —
+  two tiles of fractal value noise made once (`darkMatterTiles`: violet
+  soft, magenta sharper), laid each frame as repeating patterns in two
+  depths (huge and barely moving at the back, smaller and passing in
+  front) screened together, then the embers (`paintEmbers`: the `CAST`,
+  five `Kind`s — riders in knots on `gustOf(group)`, drifters on their own
+  heading, fallers, risers, darters that kick and decay — each streaked by
+  its own speed and relit as its kind where it dies). No stars. Two
+  surfaces stand on it: the add disc, clipped and closed off by its
+  horizon, and the **workspace behind the page** (`Workspace.tsx`), a wall
+  with none. The wall is the same sky further back (`dim`), because the
+  disc's own brightness across a whole screen is a lightbox and every panel
+  round the board picks up a halo. Sparks are per surface (`SparkField`,
+  never module state — a disc open over the workspace would otherwise share
+  one cast and tear it in half) and `castSize` grows with the **square
+  root** of the area: the disc's density on a wall is a swarm. The ground
+  never touches the page itself — what a site's background is stays the
+  site's business, and nothing here reaches the preview, the published page
+  or a screenshot of either.
 - **The add disc** (`AddDisc.tsx`, `data-add-disc`): pressed from the
-  page's middle, the wheel becomes a disc the size of the drawing board
-  painted by `paintDarkMatter` — two tiles of fractal value noise made
-  once (`darkMatterTiles`: violet soft, magenta sharper), laid each frame
-  as repeating patterns in two depths — huge and barely moving at the
-  back, smaller and passing in front — screened together, then the embers
-  (`paintEmbers`: the `CAST` of sixteen kept between frames at module
-  level, five `Kind`s — riders in two knots on `gustOf(group)`, drifters
-  on their own heading, fallers, risers, darters that kick and decay —
-  each streaked by its own speed and relit as its kind where it dies),
-  under a dark edge. No stars. The hole (`data-add-scroll`, `overflow: clip`
+  page's middle, the wheel becomes a disc the size of the drawing board,
+  painted with the ground above. The hole (`data-add-scroll`, `overflow: clip`
   so nothing inside can scroll it, clipped to `WELL_R`) holds one category's
   parts as `PartPreview`s at `COLUMN_W` with a `GAP` between them and each
   sub-group's name as a phosphor heading (`data-add-head`). The column is
@@ -1088,6 +1099,17 @@ a kicker with a rule, and label-and-value rows that copy.
   gets it, so a link to bare `/` stops reaching Builds the moment the site it
   is inside goes live. `/` stays the unpublished front door; `/builds` is the
   one path the redirect does not touch.
+- **Reiterate is one thing at a time, and on a picture that thing is the
+  patch** (`reiterate`, `rollPatch` in `look.ts`). A photograph carries more
+  textures than the whole generated set — the weave in the corner, the grain
+  across the middle — and the crop window is what gets at them, where turning
+  the tint only dresses the same square differently. So a picture layer rolls
+  a new patch and nothing else, and is set drifting once if it was still. The
+  roll is the add disc's lesson applied to a number: **kinds, not one
+  distribution** (close, middling, wide, strip, each with its own shape), and
+  a place required to be a real distance from the patch before it. Baking
+  moved out of the Look panel to `Bakers.tsx`, mounted by `StudioPage`: a
+  patch re-rolled on the wheel has to cook whether or not a panel is open.
 - **The drawing board snaps.** `sketch.ts` `refineStroke(points, mode)`:
   `snap` reads a finished stroke as a line (levelled when nearly level), a
   polyline, a box, a triangle or an ellipse and replaces it with the clean

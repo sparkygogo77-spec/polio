@@ -13,6 +13,7 @@ import {
   Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
+import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { PreviewWindow } from "./Preview";
 import { Palette } from "./Palette";
@@ -332,6 +333,11 @@ export function StudioPage() {
     // Fixed height, never min-height: the board must fit the viewport exactly so
     // the page behind it cannot scroll while you are drawing on it.
     <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 flex-col overflow-hidden">
+      {/* Pictures are baked into tiles from the document, not from a panel:
+          a patch re-rolled on the wheel has to cook whether or not Look is
+          open. Renders nothing. */}
+      <Bakers />
+
       <Toolbar libraryOpen={libraryOpen} onToggleLibrary={() => setLibraryOpen((v) => !v)} onOpenBrief={() => setBriefOpen(true)} />
 
       <div className="flex min-h-0 flex-1">

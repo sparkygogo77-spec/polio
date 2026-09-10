@@ -19,6 +19,7 @@ import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
 import { auraStyle, washCss, type Light, type Palette, type TextureLayer } from "./look";
 import { TextureDrift } from "./TextureDrift";
+import { Workspace } from "./Workspace";
 import { BACKGROUND_ID } from "./store";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
@@ -488,6 +489,10 @@ export function Canvas() {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
+      {/* The ground: the same dark matter the add disc opens into. Behind the
+          grid, behind the frame, and it never reaches the page itself. */}
+      <Workspace />
+
       <div
         className="pointer-events-none absolute inset-0 opacity-50"
         style={{
