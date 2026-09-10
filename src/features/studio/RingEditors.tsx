@@ -35,7 +35,7 @@ import { FAMILY, type NodeFont } from "./parts/theme";
 import type { FeatureOption } from "./catalog";
 import { middleOf, onCircle, piece, type Rings, type Shape } from "./menuGeometry";
 import {
-  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA, straightBands,
+  ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, SectorButton, SHRINK, SLAB_AURA, slabMiddle, spotOn, straightBands,
   type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
 
@@ -117,7 +117,18 @@ export function QuadrantConsole({
  */
 export const chipsAt = (s: Slab) => s.rings.mid + (s.rings.reach - s.rings.mid) * 0.56;
 /** The middle of a whole quadrant, for a button that is the whole quadrant. */
-export const centreOf = (s: Slab, rIn: number, rOut: number | "edge") => middleOf(s.from, s.to, rIn, rOut, s.shape, s.rings, 0.5);
+/**
+ * The middle of a piece, for the word that names it.
+ *
+ * A whole square quadrant has a middle of its own — the middle of the box —
+ * and halfway along the diagonal is not it: the diagonal runs out to a corner,
+ * so it lands the word a good way past centre, toward the one part of the slab
+ * that is furthest from everything else on it.
+ */
+export const centreOf = (s: Slab, rIn: number, rOut: number | "edge") =>
+  s.shape === "square" && rOut === "edge" && rIn <= s.rings.hole
+    ? slabMiddle(s)
+    : middleOf(s.from, s.to, rIn, rOut, s.shape, s.rings, 0.5);
 /** A whole quadrant, cut as the console cuts its slabs. */
 export const wholeOf = (s: Slab) => piece(s.from, s.to, s.rings.hole, "edge", s.shape, s.rings, SHRINK);
 
@@ -413,7 +424,7 @@ export function AuraQuads({
   // Three bands on the sample slab: the styles by the hole, the block in the
   // middle of the band, and the size as a slider along the outer edge.
   const { reach } = sample.rings;
-  const blockAt = onCircle((sample.from + sample.to) / 2, mid - 2);
+  const blockAt = spotOn(sample, 0.5, mid - 2);
 
   return (
     <>

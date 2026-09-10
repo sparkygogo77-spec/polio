@@ -25,6 +25,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.36",
+    title: "Everything lines up with something",
+    summary: "Round buttons on a round wheel, and every chip on a slab now shares a row and a column with the ones beside it instead of being placed where the arithmetic happened to put it.",
+    sketch: "parts",
+    added: [
+      "A round wheel gets round buttons. A square one keeps its corners. The swatches and keys used to wear the same slightly rounded box whatever shape the menu was set to, which is the one part of the shape setting that never took.",
+      "Chips share one step across every row, so they line up along radii on a round wheel and down columns on a square one. Each row used to be spaced by whatever suited its own radius: the middle chip of each row agreed with the one above it and nothing else did, and a group of six read as six chips dropped on a slab.",
+      "A row that runs out of chips starts at the same column as the full row above it rather than being centred on its own count — the difference between a four over a three that lines up and one that sits half a chip off.",
+      "The step also spreads to fill the row it is widest in, up to about two chips' pitch, so a slab with room in it looks used without two swatches ending up at opposite ends of a quadrant.",
+      "A slab full of swatches is a real grid now: rows the hole bites a piece out of are skipped rather than started late, and the rows that are needed are centred on the middle of the slab as it is drawn.",
+      "A word naming a whole square quadrant sits at the middle of the box. Halfway along the diagonal is not the middle of a square — the diagonal runs out to a corner — so every one of those words sat pushed out toward the one part of the slab furthest from everything else on it.",
+    ],
+  },
+  {
     version: "0.35",
     title: "A square menu, square all the way in",
     summary: "The controls inside a square menu stop being arcs: straight bars, straight rows, and a colour spectrum that uses the whole face of the box.",

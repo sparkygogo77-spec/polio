@@ -133,6 +133,26 @@ for (const y of ys) {
 }
 const widestRow = Math.max(0, ...rows.values());
 check("square: chips line up in rows", widestRow >= 3, `${chips.length} chips, widest row ${widestRow}`);
+
+// 6. And in columns: a row that ran out of chips sits under the one above it.
+const cells = [];
+for (const c of chips) { const b = await c.boundingBox(); if (b) cells.push({ x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }); }
+const byRow = new Map();
+for (const cell of cells) {
+  const key = [...byRow.keys()].find((k) => Math.abs(k - cell.y) <= 2) ?? cell.y;
+  byRow.set(key, [...(byRow.get(key) ?? []), cell.x]);
+}
+const pair = [...byRow.values()].sort((a, b) => b.length - a.length).slice(0, 2);
+const shared = pair.length < 2 ? 0 : pair[1].filter((x) => pair[0].some((o) => Math.abs(o - x) <= 2)).length;
+check("square: a short row sits under the one above it", pair.length < 2 || shared === Math.min(pair[0].length, pair[1].length),
+  `${shared} of ${pair.length < 2 ? 0 : Math.min(pair[0].length, pair[1].length)} columns shared`);
+
+// 7. A square wheel's chips have square corners.
+const sqRound = await chips[0].evaluate((el) => {
+  const r = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  return { r, w: el.getBoundingClientRect().width };
+});
+check("square: chips are boxes, not circles", sqRound.r < sqRound.w / 3, `${sqRound.r}px on ${sqRound.w}px`);
 await sq.close();
 
 /* ------------------------------------------------------------------ */
@@ -149,6 +169,14 @@ const rLow = await dragToStep(rd, "Hue", 3);
 const rHigh = await dragToStep(rd, "Hue", 18);
 check("round: dragging round the arc still follows the hand", rLow < rHigh - 25, `${rLow} then ${rHigh}`);
 check("round: the hand lands on the step it pressed", Math.abs(rLow - 16) < 12 && Math.abs(rHigh - 84) < 12, `${rLow} / ${rHigh}`);
+
+// A round wheel's chips are circles.
+const rChip = rd.locator("[data-arc-chip]").first();
+const shapeOf = await rChip.evaluate((el) => {
+  const r = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  return { r, w: el.getBoundingClientRect().width };
+});
+check("round: chips are circles", shapeOf.r >= shapeOf.w / 2 - 0.5, `${shapeOf.r}px on ${shapeOf.w}px`);
 await rd.close();
 
 await browser.close();

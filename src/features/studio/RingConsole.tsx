@@ -17,6 +17,7 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
+import { cn } from "@/core/lib/cn";
 import {
   arcPath, fmt, onCircle, onSlab, piece, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
   type Pt, type Rings, type Shape,
@@ -227,22 +228,42 @@ export function ArcChips({
     // that sits by the hole.
     rows.push({ r: radius - (size + 8), d: Math.max(SLAB_PAD + size / 2, d0 - pitch), items: items.slice(outer) });
   }
-  const spotAt = (row: { r: number; d: number }, i: number, count: number): Pt => {
-    if (square) {
-      const { left, right } = runAt(row.d);
-      const step = Math.min((right - left) / Math.max(1, count - 1), pitch);
-      const first = (left + right) / 2 - (step * (count - 1)) / 2;
-      return onSlab(slab.from, first + step * i, row.d, rings);
-    }
-    const want = pitch / (Math.PI * 2 * Math.max(24, row.r));
-    const step = Math.min(sweep / count, want * 1.4);
-    const first = (from + to) / 2 - (step * count) / 2;
-    return onCircle(first + step * (i + 0.5), row.r);
-  };
+  /*
+   * One step for every row, so the chips line up along radii on a round wheel
+   * and down columns on a square one. Giving each row the spacing that suited
+   * its own radius was the arithmetic answer and it looked like scatter: the
+   * middle chip of each row agreed and nothing else did.
+   *
+   * The step spreads to fill the row it is widest in — a slab with room in it
+   * should look used — up to about two chips' pitch, past which two swatches
+   * at opposite ends of a quadrant stop reading as a pair. It never goes below
+   * what the innermost row needs to keep its chips apart.
+   */
+  const most = Math.max(1, ...rows.map((r) => r.items.length));
+  const radii = rows.map((r) => Math.max(24, r.r));
+  const runs = rows.map((r) => { const { left, right } = runAt(r.d); return right - left; });
+  const step = square
+    ? Math.min(Math.min(...runs) / Math.max(1, most - 1), pitch * 2)
+    : Math.min(
+      Math.max(sweep / most, (size + 3) / (Math.PI * 2 * Math.min(...radii))),
+      (pitch * 2) / (Math.PI * 2 * Math.max(...radii)),
+    );
+  // Every row starts at the same column, set by the fullest one, so a row that
+  // ran out of things to hold sits under the row above it rather than half a
+  // chip off it. Centring each row on its own count was the thing that made a
+  // four over a three look like six chips dropped on a slab.
+  const widest = rows.find((r) => r.items.length === most) ?? rows[0]!;
+  const origin = square
+    ? (() => { const { left, right } = runAt(widest.d); return (left + right) / 2 - (step * (most - 1)) / 2; })()
+    : (from + to) / 2 - (step * most) / 2;
+  const spotAt = (row: { r: number; d: number }, i: number): Pt =>
+    square
+      ? onSlab(slab.from, origin + step * i, row.d, rings)
+      : onCircle(origin + step * (i + 0.5), row.r);
   return (
     <>
       {rows.flatMap((row) => row.items.map((item, i) => {
-        const at = spotAt(row, i, row.items.length);
+        const at = spotAt(row, i);
         const on = value === item.id;
         return (
           <foreignObject
@@ -261,7 +282,7 @@ export function ArcChips({
                 data-arc-chip={item.id}
                 title={item.label}
                 onClick={() => { play("select"); onPick(item.id); }}
-                className="pointer-events-auto flex items-center justify-center rounded-[6px] transition-transform"
+                className={cn("pointer-events-auto flex items-center justify-center transition-transform", square ? "rounded-[6px]" : "rounded-full")}
                 style={{
                   width: size,
                   height: size,
@@ -316,31 +337,58 @@ export function GridChips({
   size?: number;
   gap?: number;
 }) {
-  const { from, spin, rings, shape } = slab;
+  const { from, to, spin, rings, shape } = slab;
+  const square = shape === "square";
   const pitch = size + gap;
-  // The slab is cut back by SHRINK and its edge grown out by the rounding;
-  // the chips stay a few pixels inside what is drawn.
-  const half = rings.reach - SHRINK - 8;
-  // Worked out in the quadrant's own terms — across from the pointer's side,
-  // depth away from it — and placed at the end, so the grid lands the same way
-  // up in every box on a square wheel and turns with the sector on a round one.
+  /*
+   * A grid on the slab: rows out from the middle, columns along them.
+   *
+   * Every row is the same length and every column is at the same place in all
+   * of them — a straight grid in a box, a polar one on a ring. Two things had
+   * to give for that. The shallow rows that the hole bites a piece out of are
+   * skipped rather than started late, because a row that starts further along
+   * than the one above it is the thing that reads as scatter. And the rows are
+   * spaced by one angle, not by whatever each radius could hold, so the chips
+   * line up along radii instead of only agreeing in the middle.
+   *
+   * Then the rows that are actually needed are centred in the room there is
+   * for them, so seven swatches sit in the middle of the slab rather than
+   * hugging the edge nearest the pointer with the rest of it empty.
+   */
+  const sweep = (to - from) * 0.86;
+  const near = square
+    ? Math.max(SLAB_PAD + 20 + size / 2, rings.hole + size / 2 + 6)
+    : rings.hole + size / 2 + 10;
+  const far = square ? slabFar(rings) - size / 2 : rings.reach - SHRINK - 8 - size / 2;
+  const lanes = Math.max(1, Math.floor((far - near) / pitch) + 1);
+  const run = slabRun(from, far, rings);
+  const step = square ? pitch : Math.max((size + 3) / (Math.PI * 2 * near), pitch / (Math.PI * 2 * far));
+  const perRow = Math.max(1, square
+    ? Math.floor((run.a1 - run.a0 - size) / pitch) + 1
+    : Math.floor(sweep / step));
+  const used = Math.max(1, Math.min(lanes, Math.ceil(items.length / perRow)));
+  // Centred on the middle of the slab as it is drawn, not on the middle of the
+  // rows that happen to be legal: the first row or two are ruled out by the
+  // hole, and centring inside what is left leaves a few swatches sitting high
+  // on a slab that is mostly empty below them.
+  const mid = square ? (SLAB_PAD + slabFar(rings)) / 2 : (rings.hole + far) / 2;
+  const spanH = pitch * (used - 1);
+  const first = Math.min(Math.max(near, mid - spanH / 2), Math.max(near, far - spanH));
+  const cols = Math.min(perRow, items.length);
+  const origin = square
+    ? (run.a0 + run.a1) / 2 - (step * (cols - 1)) / 2
+    : (from + to) / 2 - (step * cols) / 2;
   const spots: Pt[] = [];
-  for (let a = half - size / 2; a > size / 2; a -= pitch) {
-    for (let d = half - size / 2; d > size / 2; d -= pitch) {
-      // Clear of the hole means the chip's *nearest corner* is clear of it —
-      // not its middle plus a guess, which threw away a whole ring of places
-      // along the two straight sides where there was room all along.
-      if (Math.hypot(a - size / 2, d - size / 2) < rings.hole + 4) continue;
-      if (shape === "round" && Math.hypot(a + size / 2, d + size / 2) > rings.reach - SHRINK - 4) continue;
-      spots.push([a, d]);
+  for (let j = 0; j < used; j++) {
+    const out = first + pitch * j;
+    for (let i = 0; i < perRow; i++) {
+      spots.push(square ? onSlab(from, origin + step * i, out, rings) : onCircle(origin + step * (i + 0.5), out));
     }
   }
-  spots.sort((p, q) => Math.hypot(p[0], p[1]) - Math.hypot(q[0], q[1]));
   return (
     <>
       {items.slice(0, spots.length).map((item, i) => {
-        const [a, d] = spots[i]!;
-        const at = shape === "square" ? onSlab(from, a, d, rings) : spun([a, -d], from);
+        const at = spots[i]!;
         const on = values ? values.has(item.id) : value === item.id;
         return (
           <foreignObject key={item.id} x={at[0] - size / 2 - 4} y={at[1] - size / 2 - 4} width={size + 8} height={size + 8} className="overflow-visible">
@@ -352,7 +400,7 @@ export function GridChips({
                 data-arc-chip={item.id}
                 title={item.label}
                 onClick={() => { play("select"); onPick(item.id); }}
-                className="pointer-events-auto flex items-center justify-center rounded-[5px] transition-transform"
+                className={cn("pointer-events-auto flex items-center justify-center transition-transform", square ? "rounded-[5px]" : "rounded-full")}
                 style={{
                   width: size,
                   height: size,
@@ -586,6 +634,31 @@ export function ArcSlider({
 }
 
 /**
+ * A spot on a slab, whichever shape it is: `f` of the way across it, `r` out
+ * from the middle.
+ *
+ * What an editor uses to glue something to a place without having to know
+ * whether the slab is bent — a sample block, a small readout. The alternative
+ * is `onCircle` at the call site, which puts the thing on an arc that a square
+ * slab does not have.
+ */
+export function spotOn(slab: Slab, f: number, r: number | "edge"): Pt {
+  const { from, to, rings, shape } = slab;
+  if (shape !== "square") return onCircle(from + (to - from) * f, r === "edge" ? rings.reach : r);
+  const d = slabDepth(r, rings);
+  const { a0, a1 } = slabRun(from, d, rings);
+  return onSlab(from, a0 + (a1 - a0) * f, d, rings);
+}
+
+/** The middle of a whole slab: the middle of the box, or the middle of the sector. */
+export function slabMiddle(slab: Slab): Pt {
+  const { from, rings } = slab;
+  const d = (SLAB_PAD + slabFar(rings)) / 2;
+  const { a0, a1 } = slabRun(from, d, rings);
+  return onSlab(from, (a0 + a1) / 2, d, rings);
+}
+
+/**
  * A slab's box, split into straight bands stacked one above another.
  *
  * Given back as pairs of radii, because that is the one language the controls
@@ -694,7 +767,7 @@ export function ArcStepper({
         className="flex h-[22px] w-full items-center gap-0.5 rounded-[4px] p-0.5"
         style={{ background: "oklch(0.1 0.03 200 / 0.75)", outline: `1px solid ${SCREEN.line}`, boxShadow: "inset 0 1px 6px oklch(0 0 0 / 0.6)" }}
       >
-        <button type="button" aria-label={`Previous ${label}`} data-step="prev" onClick={() => go(-1)} className="pointer-events-auto flex size-[18px] shrink-0 items-center justify-center rounded-[3px]" style={keyStyle}>
+        <button type="button" aria-label={`Previous ${label}`} data-step="prev" onClick={() => go(-1)} className={cn("pointer-events-auto flex size-[18px] shrink-0 items-center justify-center", square ? "rounded-[3px]" : "rounded-full")} style={keyStyle}>
           <ChevronLeft className="size-3" />
         </button>
         <span
@@ -705,7 +778,7 @@ export function ArcStepper({
         >
           {items[i]?.label ?? "—"}
         </span>
-        <button type="button" aria-label={`Next ${label}`} data-step="next" onClick={() => go(1)} className="pointer-events-auto flex size-[18px] shrink-0 items-center justify-center rounded-[3px]" style={keyStyle}>
+        <button type="button" aria-label={`Next ${label}`} data-step="next" onClick={() => go(1)} className={cn("pointer-events-auto flex size-[18px] shrink-0 items-center justify-center", square ? "rounded-[3px]" : "rounded-full")} style={keyStyle}>
           <ChevronRight className="size-3" />
         </button>
       </div>
