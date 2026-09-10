@@ -31,6 +31,7 @@ import { Badge } from "@/core/ui/badge";
 import { Input } from "@/core/ui/input";
 import { Switch } from "@/core/ui/switch";
 import { Tooltip } from "@/core/ui/tooltip";
+import { SCREEN as VOID_SCREEN } from "@/core/ui/void";
 import { guessCostMs, isPin } from "./crypto";
 import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type ServiceId } from "./store";
 
@@ -38,13 +39,15 @@ import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type Se
 /* The screen                                                          */
 /* ------------------------------------------------------------------ */
 
-const SCREEN = {
-  glass: "radial-gradient(ellipse at 50% 30%, oklch(0.22 0.05 195) 0%, oklch(0.145 0.04 200) 55%, oklch(0.1 0.03 205) 100%)",
-  scan: "repeating-linear-gradient(0deg, oklch(0 0 0 / 0.26) 0 1px, transparent 1px 3px)",
-  on: "oklch(0.86 0.13 185)",
-  dim: "oklch(0.55 0.06 195)",
-  rim: "oklch(0.4 0.05 200)",
-};
+/*
+ * The one screen, not a fifth copy of it.
+ *
+ * This file kept its own five-value screen — a glass two hundredths lighter,
+ * a rim four hundredths darker, lettering ten degrees of hue away — which is
+ * the drift `core/ui/void.ts` was written to end. `on` and `rim` were what
+ * they were called here; they are the shared `ink` and `line`.
+ */
+const SCREEN = { ...VOID_SCREEN, on: VOID_SCREEN.ink, rim: VOID_SCREEN.line };
 
 /** The four dots, filling as digits land. */
 function Dots({ n, shake }: { n: number; shake: boolean }) {
@@ -80,7 +83,7 @@ function Pad({ onDigit, onBack, disabled }: { onDigit: (d: string) => void; onBa
             aria-label={k === "⌫" ? "Delete" : k}
             onClick={() => (k === "⌫" ? onBack() : onDigit(k))}
             className="tactile num flex h-11 items-center justify-center rounded-md text-[15px] font-semibold outline-none transition-[background,transform] enabled:hover:brightness-125 enabled:active:scale-[0.96] disabled:opacity-40"
-            style={{ background: "oklch(0.19 0.03 200)", border: `1px solid ${SCREEN.rim}`, color: SCREEN.on }}
+            style={{ background: SCREEN.key, border: `1px solid ${SCREEN.rim}`, color: SCREEN.on }}
           >
             {k === "⌫" ? <Delete className="size-4" /> : k}
           </button>

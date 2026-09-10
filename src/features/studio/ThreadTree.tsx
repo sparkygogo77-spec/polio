@@ -386,7 +386,10 @@ export function ThreadTree() {
       <div
         ref={box}
         data-thread-tree=""
-        className="relative overflow-auto rounded-lg border border-border bg-[oklch(0.13_0.012_150)]"
+        // The void, not a green one: this was the shell's own ground with its
+        // hue typed as 150, which is the one surface in the Builder painted
+        // out of a different family from everything round it.
+        className="relative overflow-auto rounded-lg border border-border bg-bg"
         style={{ minHeight: 300, maxHeight: "64vh" }}
       >
         {/* The scaled plot still has to be scrollable to its own corners. */}

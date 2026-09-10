@@ -730,7 +730,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   /* Over the board, or pinned beside it                               */
   /* ---------------------------------------------------------------- */
 
-  const stacked = (
+  const stackedBody = (
     <div className="flex flex-col gap-2">
       {layout === "panel" ? (
         <div className="flex items-center gap-2 border-b border-border pb-2">
@@ -789,6 +789,20 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         </p>
       ) : null}
 
+    </div>
+  );
+
+  /*
+   * What stays put.
+   *
+   * Publish, the note under it and the two ways out are not reading matter,
+   * so they do not scroll with it: the book's middle scrolls under them.
+   * They used to be the last rows of one long column inside the scroller,
+   * which put Publish half over the fold on open — a row sliced through the
+   * middle by the dialog's own edge, with nothing to say there was more.
+   */
+  const stackedFoot = (
+    <div className="flex flex-col gap-2">
       {publishCard}
       {foot}
 
@@ -805,9 +819,15 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   );
 
   return layout === "panel" ? (
-    <div className="min-h-0 flex-1 overflow-y-auto p-3 text-xs">{stacked}</div>
+    <div className="flex min-h-0 flex-1 flex-col text-xs">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">{stackedBody}</div>
+      <div className="shrink-0 border-t border-border p-3 pt-2">{stackedFoot}</div>
+    </div>
   ) : (
-    <div className="max-h-[74vh] overflow-y-auto pr-0.5">{stacked}</div>
+    <div className="flex max-h-[74vh] flex-col gap-2">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">{stackedBody}</div>
+      <div className="shrink-0 pr-0.5">{stackedFoot}</div>
+    </div>
   );
 }
 

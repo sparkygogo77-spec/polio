@@ -132,7 +132,9 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
       </button>
 
       {/* Its name, and what you can do to it. */}
-      <div className="flex min-w-0 flex-col gap-1.5 p-2.5">
+      {/* `flex-1`, or `mt-auto` on the options bar has no room to work in
+          and the bars sit wherever each card's own words happened to end. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-2.5">
         {editing ? (
           <Input
             autoFocus
@@ -183,7 +185,7 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
             row under it, rather than appearing on hover somewhere else. Pushed
             to the foot, so the bars line up across a row of cards whatever
             each one had to say above them. */}
-        <div className="mt-auto flex items-center gap-1 border-t border-border pt-1.5">
+        <div data-card-options="" className="mt-auto flex items-center gap-1 border-t border-border pt-1.5">
           <Tooltip content="Rename">
             <Button variant="ghost" size="iconXs" aria-label="Rename this site" onClick={() => { setDraft(project.name); setEditing(true); }}>
               <Pencil />

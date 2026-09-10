@@ -900,11 +900,36 @@ a kicker with a rule, and label-and-value rows that copy.
   the fingerprint, so a part whose chains changed is resent rather than
   assumed unchanged. `tests/chain-links.mjs` holds all of it, on the board and
   off it. The tool's icon is a chain (`Link`) everywhere it appears.
+- **A mark is the far side of what it marks** (`look.ts`: `complementOf`,
+  `markColour`; `Canvas.tsx`: `NodeView`, the frame's outline, `CHAIN_MARK`).
+  A picked thing is ringed in the complement of its own aura or fill — the
+  page in the complement of its backdrop, a chain in the far side of its red
+  — one thin line, drawn *inside* the thing's edge so its aura is still
+  outside the mark and still visible. Never the app's accent, never a fill,
+  and never two rings: the dashed hover outline is off once a part is picked,
+  because it is drawn in the part's category hue and on a first-screen part
+  that is a red. `tests/picked.mjs` holds it.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or
   the page gains a new thing to set; a setting that cannot be seen is a
   setting that will be set twice.
+- **Two materials, defined once** (`core/ui/void.ts`; `tests/surfaces.mjs`).
+  Every surface of the Builder's console is the void or the screen, and both
+  live in core so nothing can drift: a feature that wants either imports it.
+  A private copy is the bug — the key vault kept its own five-value screen
+  with every number a little away from the shared one — and so is a surface
+  painted out of a third family: the trail's canvas was the shell's ground
+  with its hue typed as 150, a green nothing else in the app is near. The
+  suite measures the hue of every painted surface in the book and holds the
+  vault to importing rather than redefining.
+- **Nothing is sliced by a fold.** A panel that scrolls scrolls its *reading
+  matter*: the rows you act on — Publish, Download, Copy — sit below the
+  scroller, not at the end of it, or the panel's own edge cuts one in half on
+  open with nothing to say there is more. Same rule on a card: a row of
+  options is pushed to the foot (`mt-auto`, which needs the column above it
+  to be `flex-1`) so the bars line up across a row of cards whatever each one
+  had to say above them.
 - **The command palette is a console** (`CommandPalette.tsx`) and the
   chrome leans into the void (`--void-h` and the dark tokens in
   `globals.css`): a shade, not a colour. Keep new chrome on the tokens.
