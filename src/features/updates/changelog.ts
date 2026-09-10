@@ -25,6 +25,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.27",
+    title: "Click off and it goes",
+    summary: "The page's wheel closed only when you found the grid at the very edge. Now anything outside it puts it away, and a check in the repository keeps it that way.",
+    sketch: "frame",
+    added: [
+      "The background's wheel used to stay up while you clicked the page it was about. The frame is most of the screen, so that left the grid at the edge as the only way out. Click anywhere off the wheel now and it goes; Escape still does too.",
+      "A part's wheel keeps its own exception: clicking the part you are editing leaves the menu up, on purpose, so it can be parked aside and worked against.",
+      "tests/wheel-dismiss.mjs is the first check to live in the repository rather than a scratchpad, so it outlives the session that wrote it. It fails against the old behaviour and passes against this one.",
+    ],
+  },
+  {
     version: "0.26",
     title: "The add disc",
     summary: "The page's wheel has Add in its middle: press it and the wheel is a hole the parts roll through, with the categories as coloured tabs round its rim.",

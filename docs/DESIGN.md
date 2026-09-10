@@ -83,6 +83,13 @@ same boxes as everywhere else, in the screen's colours.
   placeholder that taps, never a hole in the wheel. ⌘X cuts it bare and
   holds it, ⌘V puts it back, ⌫ strips it. Cut and paste on parts work the
   same way, and paste puts back whatever was cut last.
+- **Click off the wheel and the wheel goes.** The only thing outside it that
+  keeps it up is the part it is about — click your own element and the menu
+  stays, so it can be parked aside and worked against. The page's background
+  is not that exception: the frame is most of the screen, so a wheel that
+  ignored clicks on it left the grid at the very edge as the only way out.
+  Anything else — the frame, the grid, the panels, the bar — closes it, and so
+  does Escape. `tests/wheel-dismiss.mjs` holds this to it.
 - **The page's middle is Add, and Add is a hole.** The page has nothing to
   lock, so the middle of its wheel is a blue Add. Press it and the wheel is
   the add disc (`AddDisc.tsx`): the drawing board's void, alive — clouds
@@ -193,7 +200,10 @@ You do not fine-tune a model on a chat log. What carries across sessions is:
 - **The Playwright suites** (`wheel.mjs`, `bugs.mjs`, `frame.mjs`, `erase.mjs`,
   `studio.mjs` and the `shot-*.mjs` screenshot scripts). Each check is one
   thing the owner asked for, in the owner's words, and fails when it stops
-  being true. A new session runs them before and after.
+  being true. A new session runs them before and after. A scratchpad belongs
+  to one session, so a check that must outlive it goes in `tests/` in the
+  repository — `tests/wheel-dismiss.mjs` is the first. Run one against a
+  server you started: `node tests/wheel-dismiss.mjs http://localhost:3000`.
 - **The changelog** (`src/features/updates/changelog.ts`), newest first,
   which says *why* each thing arrived, so a later session does not undo it.
 - **The prompt recipes** in `docs/PROMPTS.md`, which say how to hand a

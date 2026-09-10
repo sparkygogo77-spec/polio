@@ -414,9 +414,12 @@ export function RadialMenu() {
       // carry on clicking your own element and the menu stays, so it can be
       // parked aside and worked against. Anything else puts it away.
       if (el.closest?.("[data-radial], [data-menu-shape], [data-radix-popper-content-wrapper], [role='listbox'], [role='option']")) return;
-      if (el.closest?.(`[data-node-id="${open.nodeId}"]`)) return;
-      // The background's wheel stays up while you click the bare page it is about.
-      if (open.nodeId === BACKGROUND_ID && el.closest?.("[data-frame]")) return;
+      // A part's own element is the exception, and only a part's: carry on
+      // clicking the thing you are editing and the menu stays. The page's
+      // background is not that — the frame is most of the screen, so keeping
+      // the wheel up over it means a click anywhere useful does nothing, and
+      // the only way out is the grid at the edge. Click off it and it goes.
+      if (open.nodeId !== BACKGROUND_ID && el.closest?.(`[data-node-id="${open.nodeId}"]`)) return;
       closeRadial();
     };
     window.addEventListener("keydown", onKey);
