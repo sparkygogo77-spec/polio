@@ -20,6 +20,12 @@
  *   the clear, so it survives a reload of this tab and dies with it. The
  *   honest option where there is no Web Crypto (an embedded browser on a
  *   plain http address), and the simple one anywhere.
+ * - **Kept for this tab**, which is the sealed vault after the PIN has been
+ *   entered once, asked to stay open until the tab closes: the open values
+ *   go to sessionStorage as well, so a reload does not relock it and neither
+ *   does the idle timer. A new tab has an empty sessionStorage and asks for
+ *   the PIN, which is the line this draws. It is for a run left unattended,
+ *   where a relock halfway through is the thing that breaks it.
  *
  * Two keys live here, because they are the two a browser request can carry:
  * the studio routes take each as a header. Claude's is the Builder's asks;
@@ -95,6 +101,8 @@ interface KeysState {
   unlocked: boolean;
   /** Open with no PIN: held for this tab only. */
   held: boolean;
+  /** The sealed vault, asked to stay open for this tab across reloads. */
+  kept: boolean;
   /** Open values. In memory; mirrored to sessionStorage only when held. */
   values: Values;
   /** The PIN, kept while unlocked so a save can reseal without asking again. */
@@ -110,6 +118,8 @@ interface KeysState {
   unlock: (pin: string) => Promise<boolean>;
   /** Open with no PIN, for this tab. */
   hold: () => void;
+  /** Keep the open vault for this tab, across reloads, until the tab closes. */
+  keep: (on: boolean) => void;
   lock: () => void;
   touch: () => void;
   save: (values: Values) => Promise<boolean>;
@@ -154,27 +164,45 @@ function write(box: SealedBox) {
   }
 }
 
-function readSession(): Values | null {
+/**
+ * What this tab has open, written down so a reload does not lose it.
+ *
+ * Held and kept both land here, and the record says which: a held tab has no
+ * PIN to remember, a kept one keeps its PIN so a save can reseal the vault
+ * without asking for it again. Either way it is sessionStorage, so it is this
+ * tab's alone and goes when the tab does.
+ */
+interface SessionRecord {
+  values: Values;
+  pin: string | null;
+  held: boolean;
+}
+
+function readSession(): SessionRecord | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as unknown;
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Values) : null;
+    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+    const rec = v as Record<string, unknown>;
+    // Before there was anything to keep, the record was the values alone.
+    if (!rec.values || typeof rec.values !== "object") return { values: rec as Values, pin: null, held: true };
+    return { values: rec.values as Values, pin: typeof rec.pin === "string" ? rec.pin : null, held: !!rec.held };
   } catch {
     return null;
   }
 }
 
-function writeSession(values: Values | null) {
+function writeSession(rec: SessionRecord | null) {
   try {
-    if (values) sessionStorage.setItem(SESSION_KEY, JSON.stringify(values));
+    if (rec) sessionStorage.setItem(SESSION_KEY, JSON.stringify({ v: 2, ...rec }));
     else sessionStorage.removeItem(SESSION_KEY);
   } catch {
     /* then it lives in memory only, which still works until the next reload */
   }
 }
 
-const kept = (values: Values): Values => {
+const filled = (values: Values): Values => {
   // Empty fields are removed rather than stored as blanks.
   const out: Values = {};
   for (const [k, v] of Object.entries(values)) if (v.trim()) out[k] = v.trim();
@@ -185,6 +213,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
   exists: false,
   unlocked: false,
   held: false,
+  kept: false,
   values: {},
   pin: null,
   tries: 0,
@@ -194,8 +223,19 @@ export const useKeys = create<KeysState>()((set, get) => ({
   lastTouch: 0,
 
   refresh: () => {
+    // A reload lands here with an empty store and, if this tab was holding or
+    // keeping anything, a record to come back to.
     const session = get().unlocked ? null : readSession();
-    if (session) set({ exists: !!read(), unlocked: true, held: true, values: session, pin: null, lastTouch: Date.now() });
+    if (session)
+      set({
+        exists: !!read(),
+        unlocked: true,
+        held: session.held,
+        kept: !session.held,
+        values: session.values,
+        pin: session.pin,
+        lastTouch: Date.now(),
+      });
     else set({ exists: !!read() });
   },
   clearError: () => set({ error: null }),
@@ -209,7 +249,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
       const values = get().held ? get().values : {};
       write(await seal(values, pin));
       writeSession(null);
-      set({ exists: true, unlocked: true, held: false, values, pin, tries: 0, lastTouch: Date.now() });
+      set({ exists: true, unlocked: true, held: false, kept: false, values, pin, tries: 0, lastTouch: Date.now() });
       return true;
     } catch (err) {
       set({ error: err instanceof Error ? err.message : "Could not make the vault." });
@@ -228,8 +268,10 @@ export const useKeys = create<KeysState>()((set, get) => ({
     set({ busy: true, error: null });
     try {
       const values = await open<Values>(box, pin);
+      // Whether this tab keeps it open across reloads is asked for after the
+      // PIN, not before it: the PIN is what proves it may be kept at all.
       writeSession(null);
-      set({ unlocked: true, held: false, values, pin, tries: 0, error: null, lastTouch: Date.now() });
+      set({ unlocked: true, held: false, kept: false, values, pin, tries: 0, error: null, lastTouch: Date.now() });
       return true;
     } catch (err) {
       if (!canSeal()) {
@@ -250,29 +292,39 @@ export const useKeys = create<KeysState>()((set, get) => ({
   },
 
   hold: () => {
-    const values = readSession() ?? {};
-    writeSession(values);
-    set({ unlocked: true, held: true, values, pin: null, error: null, lastTouch: Date.now() });
+    const values = readSession()?.values ?? {};
+    writeSession({ values, pin: null, held: true });
+    set({ unlocked: true, held: true, kept: false, values, pin: null, error: null, lastTouch: Date.now() });
+  },
+
+  keep: (on) => {
+    const { unlocked, held, values, pin } = get();
+    // Held is already this tab's for as long as the tab lives; there is
+    // nothing to keep, and a locked vault has nothing to keep either.
+    if (!unlocked || held) return;
+    writeSession(on ? { values, pin, held: false } : null);
+    set({ kept: on, lastTouch: Date.now() });
   },
 
   lock: () => {
-    if (get().held) writeSession(null);
-    set({ unlocked: false, held: false, values: {}, pin: null, error: null });
+    writeSession(null);
+    set({ unlocked: false, held: false, kept: false, values: {}, pin: null, error: null });
   },
 
   save: async (values) => {
     const { pin, held } = get();
     if (held) {
-      const v = kept(values);
-      writeSession(v);
+      const v = filled(values);
+      writeSession({ values: v, pin: null, held: true });
       set({ values: v, lastTouch: Date.now() });
       return true;
     }
     if (!pin) return false;
     set({ busy: true, error: null });
     try {
-      const v = kept(values);
+      const v = filled(values);
       write(await seal(v, pin));
+      if (get().kept) writeSession({ values: v, pin, held: false });
       set({ values: v, lastTouch: Date.now() });
       return true;
     } catch (err) {
@@ -288,6 +340,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
     set({ busy: true, error: null });
     try {
       write(await seal(get().values, next));
+      if (get().kept) writeSession({ values: get().values, pin: next, held: false });
       set({ pin: next, lastTouch: Date.now() });
       return true;
     } catch (err) {
@@ -305,7 +358,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
       /* nothing to remove */
     }
     writeSession(null);
-    set({ exists: false, unlocked: false, held: false, values: {}, pin: null, error: null });
+    set({ exists: false, unlocked: false, held: false, kept: false, values: {}, pin: null, error: null });
   },
 }));
 

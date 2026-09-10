@@ -7,7 +7,9 @@
  * app that is purely about entering something. Digits can be typed or
  * pressed; a fourth digit submits itself, so there is no confirm to hunt for.
  * Under the pad is the other way in: skip the PIN and hold the key for this
- * tab only. Where the browser has no Web Crypto (an embedded browser on a
+ * tab only. Once it is open, "keep it open in this tab" carries it across a
+ * reload and past the idle timer, for a run nobody is sitting with; a new
+ * tab still meets the pad. Where the browser has no Web Crypto (an embedded browser on a
  * plain http address) the pad cannot work at all, and the panel says so and
  * offers only that.
  *
@@ -27,6 +29,7 @@ import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Badge } from "@/core/ui/badge";
 import { Input } from "@/core/ui/input";
+import { Switch } from "@/core/ui/switch";
 import { Tooltip } from "@/core/ui/tooltip";
 import { guessCostMs, isPin } from "./crypto";
 import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type ServiceId } from "./store";
@@ -222,7 +225,7 @@ type Tried = { ok: boolean; message: string; source?: string } | { busy: true } 
 type TriedBy = Partial<Record<ServiceId, Tried>>;
 
 function Vault({ server }: { server: ServerStatus | null }) {
-  const { values, save, busy, lock, changePin, destroy, touch, held, create } = useKeys();
+  const { values, save, busy, lock, changePin, destroy, touch, held, kept, keep, create } = useKeys();
   const ctx = useActions();
   const [draft, setDraft] = React.useState<Record<string, string>>(values);
   const [shown, setShown] = React.useState<Record<string, boolean>>({});
@@ -399,7 +402,18 @@ function Vault({ server }: { server: ServerStatus | null }) {
                 <Trash2 /> Empty the vault
               </Button>
             </div>
-            <p className="mt-2 text-[10px] text-fg-faint">The vault locks itself after {Math.round(IDLE_MS / 60_000)} minutes without a keystroke, and whenever this tab closes.</p>
+            <label className="mt-3 flex items-start gap-2 border-t border-border pt-3">
+              <Switch checked={kept} onCheckedChange={(v) => keep(v)} />
+              <span className="text-[11px] leading-relaxed text-fg-muted">
+                <span className="font-medium text-fg">Keep it open in this tab.</span> Reloading the page does not relock it and the idle timer stands
+                aside, so a long run left alone is not stopped halfway by a PIN pad. A new tab still asks for the PIN, and closing this one drops it.
+              </span>
+            </label>
+            <p className="mt-2 text-[10px] text-fg-faint">
+              {kept
+                ? "Kept for this tab: it stays open until you lock it or the tab closes."
+                : `The vault locks itself after ${Math.round(IDLE_MS / 60_000)} minutes without a keystroke, on reload, and whenever this tab closes.`}
+            </p>
           </section>
         )}
       </div>
@@ -421,7 +435,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
 export function KeysPanel() {
   const open = useUi((s) => s.panels.keys);
   const closePanel = useUi((s) => s.closePanel);
-  const { exists, unlocked, held, refresh, lock, lastTouch } = useKeys();
+  const { exists, unlocked, held, kept, refresh, lock, lastTouch } = useKeys();
   const [server, setServer] = React.useState<ServerStatus | null>(null);
 
   React.useEffect(() => { refresh(); }, [refresh]);
@@ -433,10 +447,10 @@ export function KeysPanel() {
 
   // Idle relock, and Escape.
   React.useEffect(() => {
-    if (!unlocked || held) return;
+    if (!unlocked || held || kept) return;
     const t = window.setInterval(() => { if (Date.now() - lastTouch > IDLE_MS) lock(); }, 15_000);
     return () => window.clearInterval(t);
-  }, [unlocked, held, lastTouch, lock]);
+  }, [unlocked, held, kept, lastTouch, lock]);
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closePanel("keys"); };
@@ -463,9 +477,9 @@ export function KeysPanel() {
           <KeyRound className={cn("size-4", unlocked ? "text-accent" : "text-fg-muted")} />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-fg">Keys</h2>
-            <p className="truncate text-[11px] text-fg-muted">{unlocked ? (held ? "Held for this tab." : "Open. Lock it when you are done.") : exists ? "Locked." : "Nothing kept in this browser yet."}</p>
+            <p className="truncate text-[11px] text-fg-muted">{unlocked ? (held ? "Held for this tab." : kept ? "Open, and kept for this tab." : "Open. Lock it when you are done.") : exists ? "Locked." : "Nothing kept in this browser yet."}</p>
           </div>
-          {unlocked ? <Badge variant="accent" size="sm">{held ? <Unlock className="size-3" /> : <LockOpen className="size-3" />} {held ? "held" : "open"}</Badge> : null}
+          {unlocked ? <Badge variant="accent" size="sm">{held ? <Unlock className="size-3" /> : <LockOpen className="size-3" />} {held ? "held" : kept ? "kept" : "open"}</Badge> : null}
           <Button variant="ghost" size="icon" aria-label="Close keys" onClick={() => closePanel("keys")}><X /></Button>
         </header>
 
@@ -479,10 +493,10 @@ export function KeysPanel() {
 export function KeysButton() {
   const ctx = useActions();
   const openPanel = useUi((s) => s.panels.keys);
-  const { unlocked, held, exists, refresh } = useKeys();
+  const { unlocked, held, kept, exists, refresh } = useKeys();
   React.useEffect(() => { refresh(); }, [refresh]);
   return (
-    <Tooltip content={unlocked ? (held ? "Keys — held for this tab" : "Keys — open") : exists ? "Keys — locked" : "Keys"} shortcut="mod+shift+k">
+    <Tooltip content={unlocked ? (held ? "Keys — held for this tab" : kept ? "Keys — kept for this tab" : "Keys — open") : exists ? "Keys — locked" : "Keys"} shortcut="mod+shift+k">
       <Button variant={openPanel ? "subtle" : "ghost"} size="icon" aria-label="Keys" onClick={() => ctx.togglePanel("keys")} className="relative">
         <KeyRound />
         {unlocked ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" /> : null}

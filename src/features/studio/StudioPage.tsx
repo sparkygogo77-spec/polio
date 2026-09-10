@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  BookOpen, Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, Pencil as PencilIcon, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Send, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
@@ -22,7 +22,7 @@ import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
-import { BriefDialog, useCompiledBrief } from "./BriefDialog";
+import { BriefDialog, IterationBook, useCompiledBrief } from "./BriefDialog";
 import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
@@ -45,9 +45,15 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
 ];
 
-/** Design or Preview, in the same place on screen. */
+/**
+ * Design, Preview, or the Book, in the same place on screen.
+ *
+ * The book is a screen of the Builder rather than a box over it: the brief,
+ * the JSON and the trail of every ask, with room for the trail to be a map.
+ */
 function ModeSwitch() {
   const mode = useStudio((s) => s.mode);
+  const threads = useStudio((s) => s.threads.length);
   return (
     <Segmented
       size="xs"
@@ -56,8 +62,9 @@ function ModeSwitch() {
       options={[
         { value: "design", label: "Design", icon: <PencilIcon /> },
         { value: "preview", label: "Preview", icon: <PlayCircle /> },
+        { value: "book", label: threads ? `Book (${threads})` : "Book", icon: <BookOpen /> },
       ]}
-      aria-label="Design or preview"
+      aria-label="Design, preview or the book"
     />
   );
 }
@@ -298,6 +305,7 @@ export function StudioPage() {
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
   const design = mode === "design";
+  const book = mode === "book";
 
   // Selecting something on the canvas should show it, not whatever tab you left open.
   React.useEffect(() => {
@@ -384,6 +392,8 @@ export function StudioPage() {
           >
             {design ? (
               <Canvas />
+            ) : book ? (
+              <IterationBook />
             ) : (
               <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
@@ -421,7 +431,7 @@ export function StudioPage() {
 
       <RadialMenu />
       <LightPlacer />
-      <BriefDialog open={briefOpen} onOpenChange={setBriefOpen} />
+      <BriefDialog open={briefOpen && !book} onOpenChange={setBriefOpen} />
     </div>
   );
 }

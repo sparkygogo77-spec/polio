@@ -278,6 +278,20 @@ a kicker with a rule, and label-and-value rows that copy.
 - A drawn region with words on it and nothing inside is a *section*: it takes
   a row in "Layout, top to bottom" and is built from its prompt. A region with
   parts in it groups them; an empty, unnamed one is ignored.
+- **The Blueprint and the Trail are one page: the iteration book.**
+  `BriefDialog.tsx` is one `Book` component in three shapes — a dialog over
+  the board, a panel pinned open beside it (`store.bookPinned`, no overlay,
+  the board still workable), and the Builder's third screen next to Design
+  and Preview (`mode: "book"`, `IterationBook`). The page shows the idea, the
+  ask, the pinned threads, the trail, the brief and the JSON at once, because
+  the last thread is read while the next ask is written; the dialog and the
+  panel keep the Brief/JSON/Trail tabs, which is all the room they have.
+  Everything in it is written on the same card as the tour writes on — a soft
+  edge, a small heading, the words under it — so the Builder speaks in one
+  voice. A thread can be pinned (`pinnedThreads`) and it and its answer stay
+  at the top of the book; what an answer led to afterwards — files pushed, a
+  build on Vercel — is written onto that thread's card by `noteThread`, so a
+  Finish card says what was actually made of it.
 - **A landed API call is a thread, not an update.** Every ask that comes back
   — a plan, a critique, the code, a drawing read — lands a `Thread`
   (`threads.ts`, `store.landThread`): what was asked, what came back, what it
