@@ -156,6 +156,15 @@ same boxes as everywhere else, in the screen's colours.
 - **The blueprint is the product.** Every field a part gains must reach
   `spec.ts` in words an agent can act on the same session. If the board can set
   it and the blueprint cannot say it, it is not done.
+- **The browser holds only what a browser request can carry.** The Claude
+  key rides as a header on the studio routes, so the vault offers it, two
+  ways: sealed under a PIN (needs https or localhost) or held for the tab
+  with no PIN. GitHub, X and Vercel are read by the server alone; a field for
+  them in the browser would be a promise the app cannot keep, so the panel
+  names them as server-only instead. The GitHub mark in the top bar is a
+  link to `repository` in `site.config.ts`, never a login. A "Try it" beside
+  the key asks Anthropic whether it works, so a silent prompt has a first
+  answer.
 
 ## 3. The drawing board
 

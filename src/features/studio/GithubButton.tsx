@@ -2,18 +2,20 @@
 /**
  * The repository, in the top bar.
  *
- * Two states and no ambiguity. Connected: the mark is lit, the tooltip names
- * the repository and branch, and a press opens it. Not connected: the mark is
- * dim with a dot on it, and a press opens the keys panel at the place where
- * a token goes — because "connect it" is the only useful thing an
- * unconnected button can do.
+ * A link, and only a link. It opens the repository the server names
+ * (`GITHUB_REPO`) or, failing that, the one `site.config.ts` names; with
+ * neither it is not there at all. It never asks anyone to log in and never
+ * opens the key vault: a browser cannot hold a GitHub token that would do
+ * anything, so "connect it" from here was a door to nowhere. The tooltip
+ * says whether Publish can push — that needs a token on the server — and
+ * where to put one.
  *
  * It reads the same status route the vault reads, which reports whether a key
  * is set and never what it is. The repository name is not a secret and is the
- * one value that comes back, so the tooltip can say where a push would land.
+ * one value that comes back.
  */
 import * as React from "react";
-import { useActions } from "@/core/actions";
+import site from "@site";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { cn } from "@/core/lib/cn";
@@ -39,8 +41,13 @@ interface Status {
   branch: string;
 }
 
+/** "owner/name" from a GitHub URL, for the tooltip. */
+function nameOf(url: string): string {
+  const m = /github\.com\/([^/]+\/[^/#?]+)/.exec(url);
+  return m ? m[1]!.replace(/\.git$/, "") : url;
+}
+
 export function GithubButton() {
-  const ctx = useActions();
   const [status, setStatus] = React.useState<Status | null>(null);
 
   React.useEffect(() => {
@@ -52,35 +59,30 @@ export function GithubButton() {
     return () => { alive = false; };
   }, []);
 
-  const repo = status?.repo ?? null;
-  const token = !!status?.set.GITHUB_TOKEN;
-  const connected = !!repo && token;
-  const url = repo ? `https://github.com/${repo}` : null;
+  const serverRepo = status?.repo ?? null;
+  const url = serverRepo ? `https://github.com/${serverRepo}` : (site.repository ?? null);
+  if (!url) return null;
+  const name = serverRepo ?? nameOf(url);
+  const canPush = !!serverRepo && !!status?.set.GITHUB_TOKEN;
 
-  const label = connected
-    ? `${repo} · ${status?.branch ?? "main"}`
-    : repo
-      ? `${repo} — no token, so Publish cannot push yet`
-      : "No repository connected. Set a token and a repository in Keys.";
+  const label = canPush
+    ? `${name} · ${status?.branch ?? "main"} — Publish pushes here`
+    : serverRepo
+      ? `${name} — no GITHUB_TOKEN on the server, so Publish cannot push; download the files instead`
+      : `${name} — to let Publish push, set GITHUB_TOKEN and GITHUB_REPO on the server`;
 
   return (
     <Tooltip content={label}>
       <Button
         variant="ghost"
         size="icon"
-        aria-label={connected ? `Open ${repo} on GitHub` : "Connect GitHub"}
+        aria-label={`Open ${name} on GitHub`}
         className="relative"
-        onClick={() => {
-          if (connected && url) window.open(url, "_blank", "noopener");
-          else ctx.openPanel("keys");
-        }}
+        onClick={() => window.open(url, "_blank", "noopener")}
       >
-        <GithubMark className={cn("size-3.5", connected ? "text-fg" : "text-fg-faint")} />
-        {connected ? null : (
-          <span
-            aria-hidden
-            className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-warn shadow-[0_0_6px_var(--warn)]"
-          />
+        <GithubMark className={cn("size-3.5", canPush ? "text-fg" : "text-fg-muted")} />
+        {canPush ? null : (
+          <span aria-hidden className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-fg-faint" />
         )}
       </Button>
     </Tooltip>

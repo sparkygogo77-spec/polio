@@ -44,7 +44,8 @@ npm run new:feature blog # scaffold + register a module
 npm run check            # typecheck + build
 
 # optional keys, each with a fallback that works without it — see .env.example:
-#   ANTHROPIC_API_KEY   the Builder asks Claude in-page (with screenshots of the pages)
+#   ANTHROPIC_API_KEY   the Builder asks Claude in-page (with screenshots of the pages);
+#                       the only key the browser can hold instead (key button, ⌘⇧K)
 #   X_*                 the tweet console posts to X (docs/X-KEYS.md)
 #   GITHUB_TOKEN/REPO   Publish pushes the site to a repository; VERCEL_DEPLOY_HOOK deploys it
 cp .env.example .env.local

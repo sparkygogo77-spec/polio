@@ -25,6 +25,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.41",
+    title: "A key with no PIN",
+    summary: "The key can be held for the tab without a PIN, works where the PIN pad cannot, can be tried against Anthropic in one press; GitHub leaves the vault and the mark just opens the repository.",
+    sketch: "flame",
+    added: [
+      "Under the PIN pad: skip the PIN and hold the key for this tab. In the clear, in sessionStorage, so it survives a reload and goes with the tab. Where the browser will not do cryptography — an embedded browser on a plain http address, which is where the pad was refusing everyone — the panel says so and offers only that.",
+      "Try it, beside the key: one cheap call that asks Anthropic whether the key the next request would use actually works, and says in a sentence when it does not. The prompts not working now has a first answer that is not a guess.",
+      "The pad submitted a fourth digit from inside a state update, which React runs twice in development, so every PIN cost two tries. It is an effect on the value now.",
+      "Only the Claude key is offered: it is the one key a browser request can carry. GitHub, X and Vercel are listed as server-only with whether the server has them, instead of fields that did nothing. The GitHub mark in the top bar opens the repository from site.config.ts — no token, no login — and says whether Publish can push.",
+      "A prompt sent with no key opens the key panel, beside the honest fallback, so the fix is where the failure is.",
+    ],
+  },
+  {
     version: "0.40",
     title: "Which part of the picture, and whether it moves",
     summary: "A selection over the picture says where the texture is taken from, Reiterate really rolls, and a layer can drift the way the clouds behind the add disc do.",
