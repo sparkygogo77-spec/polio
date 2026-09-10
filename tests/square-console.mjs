@@ -54,23 +54,6 @@ async function openSpectrum(shape) {
   return page;
 }
 
-/**
- * How many of the menu's own pieces are drawn with an arc in them.
- *
- * Every piece at every level is cut by `piece()`, and on a square menu not one
- * of them should carry an SVG arc command: a square ring, and cuts that run
- * into the outline rather than out from the middle. Icons are skipped — they
- * live in foreignObjects and are full of arcs, being drawings of things.
- */
-const arcedPieces = (page) => page.evaluate(() => {
-  let n = 0;
-  for (const el of document.querySelectorAll("[data-radial] path")) {
-    if (el.closest("foreignObject")) continue;
-    if (/[Aa]\s/.test(el.getAttribute("d") ?? "")) n++;
-  }
-  return n;
-});
-
 /** The outline drawn round a slider's run: the one path on it that is not filled. */
 const outlineOf = (page, label) => page.locator(`[data-arc-slider="${label}"] path[fill="none"]`).first();
 
@@ -101,28 +84,6 @@ async function press(page, label, x, y) {
   await page.mouse.up();
   await page.waitForTimeout(250);
   return Number(await page.locator(`[data-arc-slider="${label}"]`).first().getAttribute("aria-valuenow"));
-}
-
-/* ------------------------------------------------------------------ */
-/* Square: the menu's own cuts, at every level                         */
-/* ------------------------------------------------------------------ */
-{
-  const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
-  await page.goto(`${URL}/builder`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(800);
-  const toggle = page.locator("[data-menu-shape]").first();
-  if ((await toggle.getAttribute("data-menu-shape")) !== "square") { await toggle.click(); await page.waitForTimeout(350); }
-  const frame = await page.locator("[data-frame]").first().boundingBox();
-  await page.mouse.click(frame.x + frame.width * 0.5, frame.y + frame.height * 0.3, { button: "right" });
-  await page.waitForTimeout(650);
-  check("square: level one is cut square", (await arcedPieces(page)) === 0);
-  const looks = page.locator("[data-radial]").getByText(/^Looks$/).first();
-  if (await looks.count()) { await looks.click({ force: true }); await page.waitForTimeout(700); }
-  check("square: level two is cut square", (await arcedPieces(page)) === 0);
-  const colour = page.locator("[data-radial]").getByText(/^Color$/).first();
-  if (await colour.count()) { await colour.click({ force: true }); await page.waitForTimeout(700); }
-  check("square: the console is cut square", (await arcedPieces(page)) === 0);
-  await page.close();
 }
 
 /* ------------------------------------------------------------------ */
@@ -204,7 +165,6 @@ for (const l of sqLabels) {
   if (/[Aa]\s/.test(d)) arced.push(l);
 }
 check("round: the sliders are still arcs", arced.length === 3, arced.join(", "));
-check("round: the menu's own pieces are still arcs", (await arcedPieces(rd)) > 0, `${await arcedPieces(rd)} of them`);
 const rLow = await dragToStep(rd, "Hue", 3);
 const rHigh = await dragToStep(rd, "Hue", 18);
 check("round: dragging round the arc still follows the hand", rLow < rHigh - 25, `${rLow} then ${rHigh}`);

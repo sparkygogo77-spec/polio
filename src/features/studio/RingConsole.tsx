@@ -19,7 +19,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import {
-  bandPath, fmt, onCircle, onSlab, piece, ROUND, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
+  bandPath, fmt, onCircle, onSlab, piece, SLAB_PAD, slabDepth, slabFar, slabFrame, slabRadius, slabRect, slabRun, spun,
   type Pt, type Rings, type Shape,
 } from "./menuGeometry";
 
@@ -767,9 +767,7 @@ export function slabMiddle(slab: Slab): Pt {
  * rather than putting two side by side.
  */
 export function straightBands(rg: Rings, n: number, gap = 8): { rIn: number; rOut: number }[] {
-  // Clear of the hole's notch, so every band in the stack runs the full width
-  // of the box. A stack whose first band is short reads as a mistake.
-  const base = rg.hole + ROUND + 8;
+  const base = rg.hole + 6;
   const top = slabFar(rg);
   const h = (top - base - gap * (n - 1)) / n;
   return Array.from({ length: n }, (_, i) => {
