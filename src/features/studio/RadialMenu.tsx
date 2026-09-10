@@ -1250,6 +1250,17 @@ function Ring({ pieces, green, spin, shape }: { pieces: RingPiece[]; green?: boo
       <g transform={`rotate(${(spin * 360).toFixed(2)})`}>
         {pieces.map((p) => {
           const lit = hot === p.id || p.on;
+          /*
+           * A piece wearing a look keeps its own colours under the hand.
+           *
+           * Every other piece answers a hover by going a brighter blue, which
+           * is right for a blue button and wrong for this one: Looks *is* the
+           * part's colour or texture, and a blue wash over it under the hand
+           * says the button is blue after all. So the swell stays — the piece
+           * still lifts toward the pointer, which is the feedback that matters
+           * — and the paint underneath does not move.
+           */
+          const tint = p.wear ? false : lit;
           const faceW = 2 * (ROUND + (lit ? SWELL : 0));
           const n = nudge(p.at, !!lit);
           const Icon = p.icon;
@@ -1271,28 +1282,40 @@ function Ring({ pieces, green, spin, shape }: { pieces: RingPiece[]; green?: boo
                 onPointerEnter={() => setHot(p.id)}
                 onPointerLeave={() => setHot((h) => (h === p.id ? null : h))}
                 className="pointer-events-auto cursor-pointer outline-none"
-                fill={rim(p.hue, !!lit)}
-                stroke={rim(p.hue, !!lit)}
+                fill={rim(p.hue, !!tint)}
+                stroke={rim(p.hue, !!tint)}
                 strokeWidth={faceW + EDGE * 2}
                 strokeLinejoin={joinFor(shape)}
                 strokeMiterlimit={2}
                 strokeLinecap={joinFor(shape) === "miter" ? "butt" : "round"}
                 style={{
-                  transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out",
-                  // The Aura piece wears the aura it would set.
+                  transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out, filter 130ms ease-out",
+                  // The Aura piece wears the aura it would set. A worn piece
+                  // under the hand catches a little more light along its edge
+                  // — a brighten, not a colour — since it has given up the
+                  // tint every other piece uses to say it is hovered.
                   filter: p.glow ? `drop-shadow(0 0 7px ${p.glow}) drop-shadow(0 0 2px ${p.glow})` : undefined,
                 }}
               />
               <path
                 d={p.d}
                 className="pointer-events-none"
-                fill={face(p.hue, !!lit)}
-                stroke={face(p.hue, !!lit)}
+                fill={face(p.hue, !!tint)}
+                stroke={face(p.hue, !!tint)}
                 strokeWidth={faceW}
                 strokeLinejoin={joinFor(shape)}
                 strokeMiterlimit={2}
                 strokeLinecap={joinFor(shape) === "miter" ? "butt" : "round"}
-                style={{ transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out" }}
+                style={{
+                  transition: "stroke-width 130ms ease-out, fill 130ms ease-out, stroke 130ms ease-out, filter 130ms ease-out",
+                  // A worn piece has given up the tint every other piece uses
+                  // to say it is under the hand, so its edge catches a little
+                  // more light instead: the same colour, brighter, which is a
+                  // rim brighten and not a colour swap. The face itself is
+                  // covered by what the piece is wearing, so this shows only
+                  // where the piece meets the board.
+                  filter: p.wear && lit ? "brightness(1.18)" : undefined,
+                }}
               />
               {p.wear ? (
                 <>

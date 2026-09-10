@@ -106,6 +106,48 @@ await page.waitForTimeout(300);
  * console said so on every open. The row is an option in a listbox now, and
  * the press still lands a part.
  */
+/*
+ * 6b. Looks wears the part's look, and the hand does not paint over it.
+ *
+ * Every other piece answers a hover by going a brighter blue. Looks *is* the
+ * part's colour or texture, so a blue wash over it under the hand says the
+ * button is blue after all — which it did. The lift stays; the paint does not
+ * move.
+ */
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+// The board this suite runs on is empty, so it needs a part of its own.
+if (!(await page.locator("[data-node-id]").count())) {
+  await page.keyboard.press("Control+k");
+  await page.waitForTimeout(400);
+  await page.keyboard.type("drop a new idea");
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(900);
+}
+const part = page.locator("[data-node-id]").first();
+const partBox = (await part.count()) ? await part.boundingBox() : null;
+if (partBox) {
+  await page.mouse.click(partBox.x + partBox.width / 2, partBox.y + partBox.height / 2, { button: "right" });
+  await page.waitForTimeout(600);
+  const looks = page.locator('[data-radial] [data-shard="look"]').first();
+  const worn = await page.locator('[data-radial] [data-worn="look"]').count();
+  const paint = () => looks.evaluate((el) => `${el.getAttribute("fill")}|${el.getAttribute("stroke")}`);
+  const lb = await looks.boundingBox();
+  await page.mouse.move(10, 10);
+  await page.waitForTimeout(350);
+  const atRest = await paint();
+  await page.mouse.move(lb.x + lb.width * 0.5, lb.y + lb.height * 0.75);
+  await page.waitForTimeout(400);
+  const hovered = await paint();
+  check("the Looks piece wears the part's own look", worn === 1);
+  check("and the hand does not tint it", atRest === hovered, atRest.split("|")[0]);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+} else {
+  check("the Looks piece wears the part's own look", false, "no part on the board to open a wheel about");
+}
+
 await openOnFrame();
 const middle = page.locator("[data-radial] [data-menu-add]").first();
 if (await middle.count()) {

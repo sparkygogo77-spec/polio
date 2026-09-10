@@ -110,7 +110,14 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
     await stop.click();
     await page.waitForTimeout(1200);
     check("Stop actually stops it", (await spinning(page)) === 0);
-    check("and stopping is not reported as a failure", !(await noteOn(page)), await noteOn(page));
+    /*
+     * Not "the banner is empty": a missing key is said before the call is
+     * made, on purpose, and it is still true after Stop — that is the reason
+     * nothing would have come back anyway. What must not appear is a
+     * *failure*: letting go of a request is not one.
+     */
+    const after = await noteOn(page);
+    check("and stopping is not reported as a failure", !/failed|error|went wrong/i.test(after), after || "nothing said");
   }
   await page.close();
 }

@@ -113,8 +113,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       <aside
         data-book-panel=""
         aria-label="The iteration book"
-        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] w-[min(520px,96vw)] flex-col border-l border-[color:var(--void-rim)] bg-[color:var(--void-face)] shadow-panel"
-        style={{ "--void-face": VOID.face, "--void-rim": VOID.rim } as React.CSSProperties}
+        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] w-[min(520px,96vw)] flex-col border-l border-border bg-panel shadow-panel"
       >
         <Book layout="panel" onClose={() => onOpenChange(false)} />
       </aside>
@@ -129,7 +128,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       // The Builder's own surfaces are the void — the wheel, the console, the
       // command palette, the key vault — and this was the one that stayed a
       // plain shell panel, which made the thing you press Finish to see look
-      // like it belonged to a different program.
+      // like it belonged to a different program. The pinned panel is not this:
+      // docked beside the Inspector, it is one of the shell's panels and wears
+      // the shell's tokens.
       className="border-[color:var(--void-rim)] bg-[color:var(--void-face)] shadow-[var(--void-drop)]"
       style={{ "--void-face": VOID.face, "--void-rim": VOID.rim, "--void-drop": VOID.drop } as React.CSSProperties}
       title="The iteration book"
@@ -514,14 +515,23 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     </Card>
   );
 
+  /*
+   * The counts — except where they have already been said.
+   *
+   * The dialog carries pages, elements and prompted in its subtitle, two
+   * inches above this, and printing the same three numbers twice on one
+   * screen is the thing the news feed has a whole rule about. The panel and
+   * the page have no subtitle, so there they are the only place.
+   */
+  const said = layout === "dialog";
   const stats = (
     <div className="flex flex-wrap gap-1">
-      <Badge size="sm" variant="accent">{spec.stats.pages} pages</Badge>
-      <Badge size="sm">{spec.stats.elements} elements</Badge>
+      {said ? null : <Badge size="sm" variant="accent">{spec.stats.pages} pages</Badge>}
+      {said ? null : <Badge size="sm">{spec.stats.elements} elements</Badge>}
       {spec.stats.groups ? <Badge size="sm">{spec.stats.groups} groups</Badge> : null}
       {spec.stats.connections ? <Badge size="sm">{spec.stats.connections} connections</Badge> : null}
       {spec.stats.sketches ? <Badge size="sm">{spec.stats.sketches} sketches</Badge> : null}
-      <Badge size="sm" variant={spec.stats.prompted ? "up" : "warn"}>{spec.stats.prompted} prompted</Badge>
+      {said ? null : <Badge size="sm" variant={spec.stats.prompted ? "up" : "warn"}>{spec.stats.prompted} prompted</Badge>}
     </div>
   );
 
