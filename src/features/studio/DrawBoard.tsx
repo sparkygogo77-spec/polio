@@ -39,6 +39,7 @@ import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
 import { fitToSketch, isBlankSketch, readSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { keyHeader, noKeyMessage } from "./agent";
+import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { useStudio, type StudioNode } from "./store";
 
 /** The blue the wheel's first level wears; the strokes are drawn in it. */
@@ -48,17 +49,11 @@ const TRAY_DROP = 22;
 /** How often the void moves. Slow enough to be nothing, often enough to be smooth. */
 const DRIFT_MS = 110;
 
-/** What the reshape route answers with, before it is checked against the catalog. */
-interface ReshapePatch {
-  featureId?: string;
-  label?: string;
-  w?: number;
-  h?: number;
-  content?: string;
-  prompt?: string;
-  options?: Record<string, string>;
-  note?: string;
-}
+/** The catalog as the answer check reads it: the entry without its icon. */
+const kindInfo = (id: string): KindInfo | null => {
+  const f = getFeature(id);
+  return f ? { id: f.id, name: f.name, w: f.w ?? 132, h: f.h ?? 76, options: f.options } : null;
+};
 
 export interface DrawBoardProps {
   /** The part being reshaped, or null when the board is drawing a new one. */
@@ -202,7 +197,12 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         ctx.publish({
           key: `studio:reshape:${made.id}`,
           title: node ? `Reshaped ${made.label}` : `Drew ${made.label}`,
-          body: [`${made.w} × ${made.h}`, data.patch.note].filter(Boolean).join(" · "),
+          body: [
+            `${made.w} × ${made.h}`,
+            made.kindChanged ? `now ${made.kind}` : null,
+            made.reproportioned ? "held to the drawing's proportion" : null,
+            data.patch.note,
+          ].filter(Boolean).join(" · "),
           level: "success",
           source: "studio",
           toast: true,
@@ -235,34 +235,31 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     }
   };
 
-  /** Claude answered: check every field against the catalog and the frame, then apply it. */
+  /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */
   const apply = (patch: ReshapePatch, drawn: Sketch) => {
     const s = useStudio.getState();
-    const nextFeatureId = patch.featureId && getFeature(patch.featureId) ? patch.featureId : node?.featureId ?? "custom-idea";
-    const feature = getFeature(nextFeatureId);
-    const w = clamp(Math.round(num(patch.w, node?.w ?? feature?.w ?? 132)), 40, frameWidth);
-    const h = clamp(Math.round(num(patch.h, node?.h ?? feature?.h ?? 76)), 24, 1600);
-    const label = text(patch.label, 60) || node?.label || feature?.name || "Part";
-    const content = text(patch.content, 2000);
-    const prompt = text(patch.prompt, 2000);
-    const options = allowedOptions(patch.options, feature?.options ?? [], node?.options ?? {});
+    const made = checkAnswer({ patch, node, drawn, aspect: readSketch(drawn).aspect, frameWidth, kind: kindInfo });
+    const { featureId, label, w, h, options, kindChanged, reproportioned } = made;
     const shared: Partial<StudioNode> = {
-      featureId: nextFeatureId,
+      featureId,
       label,
       w,
       h,
       options,
       sketch: drawn,
-      ...(content ? { content } : {}),
-      ...(prompt ? { prompt } : {}),
+      ...(made.content != null ? { content: made.content } : {}),
+      ...(made.prompt != null ? { prompt: made.prompt } : {}),
+      // A part that became another kind is a custom idea exactly when `addNode` would say so.
+      ...(kindChanged ? { custom: made.custom } : {}),
     };
+    const kind = getFeature(featureId)?.name ?? label;
     if (node) {
       s.updateNode(node.id, { ...shared, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
-      return { id: node.id, label, w, h };
+      return { id: node.id, label, w, h, kind, kindChanged, reproportioned };
     }
     const where = at ?? { x: frameWidth / 2, y: 200 };
-    const id = s.addNode(nextFeatureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
-    return { id, label, w, h };
+    const id = s.addNode(featureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
+    return { id, label, w, h, kind, kindChanged, reproportioned };
   };
 
   /** No reader: the drawing's proportion is the reshape, and the drawing is kept. */
@@ -590,37 +587,5 @@ function pictureOf(strokes: SketchPoint[][], px = 384): string | null {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Checking an answer                                                  */
-/* ------------------------------------------------------------------ */
-
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+/** A trimmed string of at most `max` characters, or nothing. */
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
-
-/** Only options the part actually has, with values it actually offers. */
-function allowedOptions(
-  proposed: unknown,
-  allowed: { id: string; values: string[]; kind?: "one" | "set" }[],
-  current: Record<string, string>,
-): Record<string, string> {
-  const next: Record<string, string> = { ...current };
-  if (!proposed || typeof proposed !== "object") return next;
-  // The route folds Claude's list of pairs into a record; take either shape in case.
-  const entries: [string, unknown][] = Array.isArray(proposed)
-    ? proposed.flatMap((p) => (p && typeof p === "object" && typeof (p as { id?: unknown }).id === "string" ? [[(p as { id: string }).id, (p as { value?: unknown }).value] as [string, unknown]] : []))
-    : Object.entries(proposed as Record<string, unknown>);
-  for (const [k, v] of entries) {
-    const opt = allowed.find((o) => o.id === k);
-    if (!opt || typeof v !== "string") continue;
-    if (opt.kind === "set") {
-      const picked = v.split(",").map((x) => x.trim()).filter((x) => opt.values.includes(x));
-      next[k] = picked.join(", ");
-    } else if (opt.values.includes(v)) {
-      next[k] = v;
-    }
-  }
-  // A part that changed kind keeps none of the old kind's options.
-  for (const k of Object.keys(next)) if (!allowed.some((o) => o.id === k)) delete next[k];
-  return next;
-}

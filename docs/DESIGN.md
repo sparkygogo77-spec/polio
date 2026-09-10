@@ -184,6 +184,17 @@ ids ("Never invent an id"); without a key the drawing's proportion is the
 reshape and the drawing goes into the blueprint as a `drawn:` line. A drawing
 is never lost to a missing key.
 
+The answer is a suggestion until `reshape.ts` has held it to the catalog, the
+frame and the drawing: ids and option values not in the library are dropped,
+the size is clamped to the frame, and a size a third or more off the drawing's
+proportion is brought back to it when there are no words that could have
+asked for that (words win; a bare drawing says only its shape). A reply that
+kept the old shape would read on the board as the drawing doing nothing. A new
+part keeps the author's words as its prompt whether or not the reader wrote
+one. `tests/reshape-answer.mjs` holds the check to these rules and
+`tests/reshape-schema.mjs` holds the route's schema to what structured output
+accepts.
+
 ## 4. How the owner works, and how to work with them
 
 These are the working rules that came out of the sessions, not preferences to

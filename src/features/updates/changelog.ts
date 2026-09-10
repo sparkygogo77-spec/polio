@@ -25,6 +25,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.42",
+    title: "The drawing does what it says",
+    summary: "Make real is held to the drawing: the reader's answer is checked against the library, the frame and the shape drawn, a new part keeps its words, and the library is cached between reads.",
+    sketch: "parts",
+    added: [
+      "The answer from the drawing board is checked in one place now (reshape.ts): an id not in the library is dropped, an option the part does not offer is dropped, a value it does not offer is dropped, and the size is clamped to the frame. tests/reshape-answer.mjs holds it to each rule.",
+      "A size that ignored the drawing's proportion — a third or more off, with no words beside the drawing that could have asked for that — is brought back to the proportion drawn, at the area answered. The toast says so. A reply that kept the old shape read as the drawing doing nothing.",
+      "A new part drawn on the bare page always gets the author's words as its prompt, and, when it is an idea, as its name; the reader is told a new part has nothing to keep and to read the board as the page for its size. A part that becomes another kind drops the old kind's options and is a custom idea exactly when Add would have made it one.",
+      "The library goes to Claude first, with a note on it, on every read, and is marked for the cache: after the first read only the drawing is new. The read is streamed and assembled on the server, so a slow one never runs into the request timeout. The words are given once, not twice.",
+    ],
+  },
+  {
     version: "0.41",
     title: "A key with no PIN",
     summary: "The key can be held for the tab without a PIN, works where the PIN pad cannot, can be tried against Anthropic in one press; GitHub leaves the vault and the mark just opens the repository.",
