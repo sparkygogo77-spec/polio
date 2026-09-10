@@ -277,7 +277,33 @@ a kicker with a rule, and label-and-value rows that copy.
   can carry keys a snapshot does not, and spreading those blindly set things
   nobody meant to set. The vines between the cards are painted on a canvas
   and move: a history drawn as a static diagram is the thing this replaced.
-  `tests/threads.mjs` holds the tree, the cut and the diff to their rules.
+  `tests/threads.mjs` holds the tree, the cut, the diff, the pieces and what
+  a second call resends to their rules.
+- **The trail is a staircase, and the pieces float round it.** The timeline
+  runs from the upper left down to the right, one step per thread in the
+  order they landed, and each thread hangs off its step; the step after the
+  last one is the call that has not fired. Every element on the board that
+  carries a prompt is a **piece** (`piecesFrom`), floating beside the thread
+  that last touched it, or on the shelf under the trail when no thread has.
+  A thread or a piece can be dragged and **only that one moves** — where it
+  was put is kept against its id in `threadSpots`, nothing re-lays out, and
+  one button puts the trail back on its staircase. The trail scales to fit
+  its box by default, because it outgrows any dialog after a few threads,
+  and 1:1 is one press away; the drag maths divides by that scale.
+- **Purple is pending, green has landed, and the colours never swap.** A
+  piece clicked into the next call is vined to it in purple, before anything
+  is sent, so the drawing says what is about to go up. Everything landed —
+  the spine, the threads, the pieces they worked on — is green.
+- **A call sends the brief once and the pieces that moved.** With pieces
+  vined, `askClaude` sends `briefPrefix(markdown)` — everything above the
+  pages, plus "How to read this" — as the first block, marked
+  `cache_control: ephemeral`, and after it only the vined pieces whose
+  fingerprint has changed since this thread last sent them
+  (`piecesToSend`, `sentPieces`). The second call of a thread reads the
+  brief from the cache instead of sending it, and the answer reports
+  `usage.cached`. With nothing vined the whole blueprint goes, exactly as
+  before. A piece's fingerprint is its prompt and its size: change either
+  and it is resent, change neither and it is not.
 - Critique, Fill prompts and Finish come back with a `json revisions` block:
   one item per finding, each naming its target and carrying the target's whole
   prompt as it should now read. `recordAsk` in the store puts each beside the
