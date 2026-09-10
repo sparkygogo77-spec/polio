@@ -54,7 +54,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
     : dressed;
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
-  return (
+  const part = (
     <P
       id={node.featureId}
       label={node.label}
@@ -68,6 +68,24 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       onNavigate={onNavigate}
       emit={emit}
     />
+  );
+  /*
+   * A part is a box unless the author said otherwise — drew a circle round
+   * it, or picked a shape. Then it is cut to that shape here rather than in
+   * the part, because every one of the two hundred and twenty-five would
+   * otherwise have to know how to be round.
+   */
+  if (!node.shape || node.shape === "box") return part;
+  return (
+    <div
+      data-shape={node.shape}
+      style={{
+        width: "100%", height: "100%", overflow: "hidden",
+        borderRadius: node.shape === "rounded" ? Math.min(28, Math.min(size?.w ?? node.w, size?.h ?? node.h) / 6) : "50%",
+      }}
+    >
+      {part}
+    </div>
   );
 }
 

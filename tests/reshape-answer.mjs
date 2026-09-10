@@ -20,7 +20,7 @@
  * Runs the TypeScript straight from source: Node strips the types (22.18+).
  */
 import { checkAnswer, allowedOptions, PROPORTION_HOLD } from "../src/features/studio/reshape.ts";
-import { BOUNDARY_SHARE, fitToSketch, readBoundary, readSketch, strokeClosed } from "../src/features/studio/sketch.ts";
+import { BOUNDARY_SHARE, describeBoundary, fitToSketch, readBoundary, readSketch, strokeClosed } from "../src/features/studio/sketch.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -164,6 +164,44 @@ const tabs = { featureId: "tabs-panel", label: "Product tabs", prompt: "Three ta
   const ob = readBoundary(open);
   check("with nothing drawn closed nothing can cross the boundary", !ob.outlined && ob.crossing === 0 && ob.inside === 2);
   check("a drawing with nothing on it has no boundary", readBoundary({ strokes: [], words: "" }) === null);
+}
+
+/* 8. The outline's shape, not just its box: a circle makes a circle. */
+{
+  /** A ring of points: an ellipse `rw` by `rh` about the middle of the board. */
+  const ring = (rw, rh, n = 40) => Array.from({ length: n + 1 }, (_, i) => {
+    const a = (i / n) * Math.PI * 2;
+    return [0.5 + Math.cos(a) * rw, 0.5 + Math.sin(a) * rh];
+  });
+  const circle = { strokes: [ring(0.3, 0.3)], words: "" };
+  const ellipse = { strokes: [ring(0.36, 0.18)], words: "" };
+  const square = { strokes: [[[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8], [0.2, 0.2]]], words: "" };
+
+  check("a ring is read as a circle", readBoundary(circle).shape === "circle", readBoundary(circle).shape);
+  check("a flattened ring is read as an ellipse", readBoundary(ellipse).shape === "ellipse", readBoundary(ellipse).shape);
+  check("a box is still read as a box", readBoundary(square).shape === "box", readBoundary(square).shape);
+  check("the measurement says which", describeBoundary(readBoundary(circle)).includes("a closed circle"), describeBoundary(readBoundary(circle)).slice(0, 60));
+
+  // The bug J saw: a circle drawn round a part came back as a 380×351 box.
+  const b = readBoundary(circle);
+  const round = checkAnswer({ patch: { w: 380, h: 351, note: "" }, node: tabs, drawn: circle, aspect: b.aspect, outline: b.shape, frameWidth: FRAME, kind });
+  check("a circle drawn round a part cuts it to a circle", round.shape === "circle", String(round.shape));
+  check("and is as tall as it is wide", round.w === round.h, `${round.w}×${round.h}`);
+  check("at about the area answered", near(round.w * round.h, 380 * 351, 0.05), `${round.w * round.h}`);
+
+  const eb = readBoundary(ellipse);
+  const oval = checkAnswer({ patch: { w: 400, h: 200, note: "" }, node: tabs, drawn: ellipse, aspect: eb.aspect, outline: eb.shape, frameWidth: FRAME, kind });
+  check("an ellipse cuts it to an ellipse", oval.shape === "ellipse" && oval.w === 400 && oval.h === 200, `${oval.shape} ${oval.w}×${oval.h}`);
+
+  const boxy = checkAnswer({ patch: { w: 300, h: 300, note: "" }, node: tabs, drawn: square, aspect: 1, outline: "box", frameWidth: FRAME, kind });
+  check("a box leaves the part a box", boxy.shape === "box");
+
+  // The reader may name a shape, and the words beside a drawing win.
+  const said = checkAnswer({ patch: { w: 300, h: 300, note: "", shape: "rounded" }, node: tabs, drawn: circle, aspect: b.aspect, outline: b.shape, frameWidth: FRAME, kind });
+  check("a shape the reader names is taken", said.shape === "rounded" && said.w === 300 && said.h === 300, String(said.shape));
+  const nonsense = checkAnswer({ patch: { w: 300, h: 300, note: "", shape: "trapezoid" }, node: tabs, drawn: circle, aspect: b.aspect, outline: b.shape, frameWidth: FRAME, kind });
+  check("a shape it invents is dropped for the drawn one", nonsense.shape === "circle");
+  check("with nothing drawn closed nothing is cut", checkAnswer({ patch: { w: 300, h: 100, note: "" }, node: tabs, drawn: { strokes: [[[0.2, 0.5], [0.8, 0.5]]], words: "" }, aspect: 3, outline: "none", frameWidth: FRAME, kind }).shape === null);
 }
 
 const ok = results.every(Boolean);
