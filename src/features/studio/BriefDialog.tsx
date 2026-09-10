@@ -301,7 +301,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         </label>
 
         {/* what to ask */}
-        <div className="flex flex-col gap-1.5 rounded-md border border-border bg-elevated/50 p-2">
+        <div data-brief-modes="" className="flex flex-col gap-1.5 rounded-md border border-border bg-elevated/50 p-2">
           <Segmented
             size="xs"
             value={mode}
@@ -342,7 +342,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div data-brief-views="" className="flex flex-wrap items-center justify-between gap-2">
           <Segmented
             size="xs"
             value={view}
@@ -374,9 +374,9 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         ) : null}
 
         {view === "trail" ? (
-          <ThreadTree />
+          <div data-brief-body=""><ThreadTree /></div>
         ) : view === "files" ? (
-          <div className="max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated">
+          <div data-brief-body="" className="max-h-[40vh] overflow-auto rounded-md border border-border bg-elevated">
             <ul className="divide-y divide-border">
               {files.map((f) => (
                 <li key={f.path}>
@@ -391,7 +391,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
             </ul>
           </div>
         ) : (
-          <pre className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-3 font-mono text-[11px] leading-relaxed text-fg-muted", busy && "opacity-60")}>
+          <pre data-brief-body="" className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-elevated p-3 font-mono text-[11px] leading-relaxed text-fg-muted", busy && "opacity-60")}>
             {busy && view !== "result" ? null : body || "Nothing on the board yet."}
             {busy ? (
               <span className="flex items-center gap-2 text-accent">
@@ -408,7 +408,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         ) : null}
 
         {/* publish */}
-        <div className="flex flex-col gap-1.5 rounded-md border border-border bg-elevated/50 p-2">
+        <div data-brief-publish="" className="flex flex-col gap-1.5 rounded-md border border-border bg-elevated/50 p-2">
           <div className="flex flex-wrap items-center gap-2">
             <GitBranch className="size-3.5 text-fg-muted" />
             <span className="text-[11px] font-medium text-fg">Publish</span>

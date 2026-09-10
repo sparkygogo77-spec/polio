@@ -304,12 +304,27 @@ export function StudioPage() {
   }, [selection]);
 
   React.useEffect(() => {
-    const w = window as unknown as { __studioOpenBrief?: () => void; __studioToggleLibrary?: () => void };
+    // The setters beside the togglers are for anything that has to put the
+    // Builder into a known state rather than flip it — the tour, which cannot
+    // toggle its way to a screen it has not seen.
+    const w = window as unknown as {
+      __studioOpenBrief?: () => void;
+      __studioToggleLibrary?: () => void;
+      __studioSetBrief?: (v: boolean) => void;
+      __studioSetLibrary?: (v: boolean) => void;
+      __studioSetLeftPanel?: (id: string) => void;
+    };
     w.__studioOpenBrief = () => setBriefOpen(true);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
+    w.__studioSetBrief = (v) => setBriefOpen(v);
+    w.__studioSetLibrary = (v) => setLibraryOpen(v);
+    w.__studioSetLeftPanel = (id) => setLeftPanel(id);
     return () => {
       delete w.__studioOpenBrief;
       delete w.__studioToggleLibrary;
+      delete w.__studioSetBrief;
+      delete w.__studioSetLibrary;
+      delete w.__studioSetLeftPanel;
     };
   }, []);
 

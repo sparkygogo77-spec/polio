@@ -156,6 +156,10 @@ export function openBoard(x: number, y: number, at: { x: number; y: number }) {
   openedAt = performance.now();
   listeners.forEach((l) => l(current));
 }
+/** Where the wheel is, for anything that has to draw around it. Null when it is shut. */
+export function radialAt(): { x: number; y: number } | null {
+  return current ? { x: current.x, y: current.y } : null;
+}
 export function closeRadial() {
   current = null;
   listeners.forEach((l) => l(null));
@@ -482,6 +486,11 @@ export function RadialMenu() {
       // and watch the open menu change; and the part the menu is *about* —
       // carry on clicking your own element and the menu stays, so it can be
       // parked aside and worked against. Anything else puts it away.
+      //
+      // The tour is a fourth: it opens this menu on purpose and stands over
+      // it to point at it, so its own presses must not be the click that
+      // takes away the thing it is pointing at.
+      if (document.documentElement.dataset.tourOn) return;
       if (el.closest?.("[data-radial], [data-menu-shape], [data-radix-popper-content-wrapper], [role='listbox'], [role='option']")) return;
       // A part's own element is the exception, and only a part's: carry on
       // clicking the thing you are editing and the menu stays. The page's
@@ -636,6 +645,7 @@ export function RadialMenu() {
       e.preventDefault();
       e.stopPropagation();
       if (used) { used = false; return; }
+      if (document.documentElement.dataset.tourOn) return;
       if (el.closest?.("[data-radial]")) return;
       // The context-menu event that trails the press that opened the menu
       // is that press, not a new one: opening again from here would throw
