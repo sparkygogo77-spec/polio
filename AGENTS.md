@@ -689,7 +689,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   (`choose`), and a flick commits once per pair. A new column jumps its
   first part to the middle. The chosen part (`data-add-chosen`,
   `aria-selected`) wears a blue rim; a press on it calls `addNode` centred
-  on `open.at` — the canvas point `spotOn(frame, x, y)` gives, passed to
+  on `open.at` — the canvas point `pageSpot(frame, x, y)` gives, passed to
   `openRadial` by the frame's own press handler in `Canvas.tsx` and by the
   menu's context-menu handler when the wheel moves to a new spot on the
   frame (the context-menu event that trails the opening press is left

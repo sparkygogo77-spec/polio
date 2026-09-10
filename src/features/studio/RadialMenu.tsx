@@ -93,8 +93,8 @@ let opened = 0;
 let openedAt = 0;
 const listeners = new Set<(v: Open) => void>();
 
-/** A point on the page frame in canvas space — where the page's Add lands a part. */
-export function spotOn(frame: Element, clientX: number, clientY: number): { x: number; y: number } {
+/** A point on the page frame in canvas space — where the page's Add lands a part. (The console's `spotOn` is a place on a slab; this is a place on the page.) */
+export function pageSpot(frame: Element, clientX: number, clientY: number): { x: number; y: number } {
   const r = frame.getBoundingClientRect();
   const zoom = useStudio.getState().zoom || 1;
   return { x: (clientX - r.left) / zoom, y: (clientY - r.top) / zoom };
@@ -608,7 +608,7 @@ export function RadialMenu() {
       const frame = el.closest?.("[data-frame]");
       if (id) openRadial(id, e.clientX, e.clientY);
       // The bare frame is the page's background: the wheel moves there, about the page, and Add lands a part on that spot.
-      else if (frame) { useStudio.getState().selectBackground(); openRadial(BACKGROUND_ID, e.clientX, e.clientY, spotOn(frame, e.clientX, e.clientY)); }
+      else if (frame) { useStudio.getState().selectBackground(); openRadial(BACKGROUND_ID, e.clientX, e.clientY, pageSpot(frame, e.clientX, e.clientY)); }
       else closeRadial();
     };
     window.addEventListener("pointerdown", onDown, true);

@@ -119,7 +119,11 @@ export function resolvePalette(format: FormatValues, look?: Look): Palette {
   const hue = Number(format["palette.accentHue"] ?? 265);
   const mode = String(format["palette.mode"] ?? "dark");
   const base = paletteFromHue(hue, mode === "light" || mode === "both");
-  return { ...base, ...(look?.palette ?? {}) } as Palette;
+  // Only a role that is a colour overrides: a role left in the record with
+  // nothing in it used to overwrite the derived colour with that nothing,
+  // and the first thing to read it as a colour took the page down.
+  const overrides = Object.fromEntries(Object.entries(look?.palette ?? {}).filter(([, v]) => typeof v === "string" && v.trim().length > 0));
+  return { ...base, ...overrides } as Palette;
 }
 
 export function themeFrom(format: FormatValues, look?: Look): Theme {

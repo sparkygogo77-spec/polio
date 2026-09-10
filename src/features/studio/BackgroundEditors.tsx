@@ -52,7 +52,14 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
   if (which === "bg-color") {
     const override = look.palette.bg;
     const col = parseColor(palette.bg) ?? { l: 0.15, c: 0.02, h: 265 };
-    const set = (next: string | null) => s().setLook({ palette: { ...look.palette, bg: next ?? undefined } });
+    // "From the accent" takes the override away: the key goes, rather than
+    // staying with nothing in it — a role set to undefined was read as a
+    // colour and trimmed, and that took the whole page down.
+    const set = (next: string | null) => {
+      const { bg: _was, ...rest } = look.palette;
+      void _was;
+      s().setLook({ palette: next ? { ...rest, bg: next } : rest });
+    };
     const swatches: ArcItem[] = [
       { id: "", label: "From the accent", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
       ...recent.slice(0, 5).map((r): ArcItem => ({ id: r, label: `Recent colour ${r}`, style: { background: r } })),

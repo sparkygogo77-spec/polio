@@ -25,6 +25,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: "0.37",
+    title: "From the accent, without the crash",
+    summary: "The X key on the page's Color editor took the whole page down; it takes the page colour override away now and nothing else.",
+    sketch: "palette",
+    added: [
+      "Pressing From the accent wrote the page's colour role as nothing rather than removing it, and the first reader to meet that nothing tried to trim it as a colour. The key removes the role now, and a role that is not a string is skipped rather than read.",
+      "The wheel suite sets a page colour off the spectrum, presses the key, and checks the override is gone, the editor is still up, and no error reached the page.",
+    ],
+  },
+  {
     version: "0.36",
     title: "Everything lines up with something",
     summary: "Round buttons on a round wheel, and every chip on a slab now shares a row and a column with the ones beside it instead of being placed where the arithmetic happened to put it.",
