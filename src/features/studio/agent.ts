@@ -198,6 +198,20 @@ export type AskResult =
   | { ok: false; message: string; reason?: string };
 
 /**
+ * The browser's own deadline on a Claude call, in milliseconds.
+ *
+ * The route answers within a budget of its own, so in the ordinary case this
+ * never fires and the reason shown is the server's. This is for the case that
+ * left a spinner running for minutes: the function is killed mid-call, or an
+ * intermediary drops an idle connection, and the request simply hangs with no
+ * status at all. Nothing on the far side is ever going to end it, so the
+ * browser ends it and says so. Writing the code is the slow one; the rest
+ * share a shorter wait.
+ */
+const CLIENT_DEADLINE_MS: Record<string, number> = { build: 330_000 };
+const CLIENT_DEADLINE_DEFAULT_MS = 210_000;
+
+/**
  * Ask Claude.
  *
  * Two shapes, one route. With nothing vined to the thread the whole
@@ -208,22 +222,32 @@ export type AskResult =
  * how many were sent, how many were skipped, and how much of the prefix the
  * cache gave back.
  */
-export async function askClaude(input: {
-  markdown: string;
-  mode: AskMode;
-  prompt?: string;
-  pictures?: Picture[];
-  /** The stable prefix: the site's brief, without the per-part detail. */
-  brief?: string;
-  /** The pieces vined to this thread, already filtered to what changed. */
-  pieces?: Piece[];
-  /** How many vined pieces were left out because they have not changed. */
-  skipped?: number;
-}): Promise<AskResult> {
+export async function askClaude(
+  input: {
+    markdown: string;
+    mode: AskMode;
+    prompt?: string;
+    pictures?: Picture[];
+    /** The stable prefix: the site's brief, without the per-part detail. */
+    brief?: string;
+    /** The pieces vined to this thread, already filtered to what changed. */
+    pieces?: Piece[];
+    /** How many vined pieces were left out because they have not changed. */
+    skipped?: number;
+  },
+  opts: { signal?: AbortSignal } = {},
+): Promise<AskResult> {
+  const limit = CLIENT_DEADLINE_MS[input.mode] ?? CLIENT_DEADLINE_DEFAULT_MS;
+  const mine = new AbortController();
+  const ran = setTimeout(() => mine.abort(new DOMException("deadline", "TimeoutError")), limit);
+  const started = Date.now();
   try {
     const res = await fetch("/api/studio/generate", {
       method: "POST",
       headers: { "content-type": "application/json", ...keyHeader() },
+      // Stop has to reach this call, not only the photographs: a request the
+      // caller has given up on must actually be let go of.
+      signal: opts.signal ? AbortSignal.any([opts.signal, mine.signal]) : mine.signal,
       body: JSON.stringify({
         markdown: input.markdown,
         mode: input.mode,
@@ -234,7 +258,27 @@ export async function askClaude(input: {
         pictures: (input.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType, label: p.label })),
       }),
     });
-    const data = (await res.json()) as { ok: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; cached?: number; written?: number }; revisions?: Revision[] };
+    /*
+     * Read the body defensively. The route answers JSON on every path it
+     * controls, but a gateway that times the function out answers its own
+     * error page, and `res.json()` on that throws a parse error that tells
+     * the reader nothing. The status is what happened; say it.
+     */
+    const raw = await res.text();
+    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; cached?: number; written?: number }; revisions?: Revision[] };
+    try {
+      data = JSON.parse(raw) as typeof data;
+    } catch {
+      const secs = Math.round((Date.now() - started) / 1000);
+      const gateway = res.status === 504 || res.status === 502 || res.status === 503;
+      return {
+        ok: false,
+        reason: gateway ? "timeout" : "bad-response",
+        message: gateway
+          ? `The server gave up on this after ${secs}s (HTTP ${res.status}). The deployment stops a function before Claude finished: ask for less at once, turn the pictures off, or raise the function's limit.`
+          : `The server answered HTTP ${res.status} with something that is not JSON: ${raw.slice(0, 200).replace(/\s+/g, " ").trim() || "an empty body"}`,
+      };
+    }
     if (data.ok && typeof data.text === "string") {
       return {
         ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, truncated: !!data.truncated,
@@ -246,7 +290,19 @@ export async function askClaude(input: {
     }
     return { ok: false, message: data.message ?? "Couldn't reach Claude.", reason: data.reason };
   } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : "Request failed." };
+    const secs = Math.round((Date.now() - started) / 1000);
+    // The caller's own Stop: not a failure, and the caller knows already.
+    if (opts.signal?.aborted) return { ok: false, reason: "stopped", message: "Stopped." };
+    if (mine.signal.aborted) {
+      return {
+        ok: false,
+        reason: "timeout",
+        message: `No answer after ${secs}s, and the request was still open with no status, so it was let go. The server was killed mid-call or the connection was dropped: try again, ask for less at once, or turn the pictures off.`,
+      };
+    }
+    return { ok: false, reason: "network", message: err instanceof Error ? err.message : "Request failed." };
+  } finally {
+    clearTimeout(ran);
   }
 }
 

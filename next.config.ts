@@ -28,18 +28,23 @@ const nextConfig: NextConfig = {
    */
   serverExternalPackages: ["playwright-core", "@sparticuz/chromium"],
   /*
-   * ...and pulled into the function anyway.
+   * ...and pulled into the function whole.
    *
    * External is not the same as present. A serverless host builds each route
-   * into its own bundle and copies in only the files the trace found, and the
-   * packed browser is not a file anything imports: `@sparticuz/chromium`
-   * reads it off disk beside itself at run time. Without this the deployment
-   * has the package's code and not its browser, which is the same as not
-   * having it.
+   * into its own bundle and copies in only what the trace found, and neither
+   * of these packages is only its code: `@sparticuz/chromium` reads a packed
+   * browser off disk beside itself, and `playwright-core` reads
+   * `browsers.json` the moment it loads. Naming the browser's `bin/` alone
+   * got the deployment as far as "Cannot find module
+   * '/var/task/node_modules/playwright-core/browsers.json'", which is the
+   * same lesson twice: a file no import mentions is a file the tracer cannot
+   * know about, and the only safe list of those is all of them. So both
+   * packages go in entire — a few megabytes of code beside a browser that is
+   * already fifty.
    */
   outputFileTracingIncludes: {
-    "/api/studio/**": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/tweets/**": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/studio/**": ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
+    "/api/tweets/**": ["./node_modules/playwright-core/**", "./node_modules/@sparticuz/chromium/**"],
   },
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.

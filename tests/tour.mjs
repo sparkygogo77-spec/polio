@@ -61,7 +61,7 @@ const page = await context.newPage();
 const tour = page.locator("[data-tour]");
 
 /* 1. The two ways in. */
-await page.goto(`${URL_BASE}/`, { waitUntil: "networkidle" });
+await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await page.getByRole("button", { name: "Take the tour" }).click();
 await page.waitForTimeout(1500);

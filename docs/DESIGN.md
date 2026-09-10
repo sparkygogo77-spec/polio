@@ -268,6 +268,21 @@ guess at:
    code. Those stages are "parts that expand into a spec", not code.
 8. **Never make the API key load-bearing.** Every Claude route returns
    `ok: false` with a reason and the UI does the honest fallback.
+8b. **A call that can hang must have a deadline at both ends, and the
+   spinner must always stop with a sentence.** A route that waits on Claude
+   with no budget of its own is killed by the platform where it stands: no
+   response, no status, nothing for the page to show, and a spinner that runs
+   until someone reloads. So the route answers itself before its own
+   `maxDuration` is up (`ANSWER_BUDGET_MS`), the SDK gets a timeout and no
+   retries inside that, and the browser keeps a longer deadline of its own for
+   the case where nothing arrives at all. Every failure is HTTP 200 with a
+   reason and the seconds it took; what the API said — its status and request
+   id — is passed on rather than swallowed, because a report of "it hung" with
+   no request id cannot be looked up by anyone. A reply that is not JSON (a
+   gateway's own error page) is read as the status it is, never handed to
+   `res.json()` to fail as a parse error. And every Stop reaches the call it
+   appears to stop: a button wired to only half the work is worse than no
+   button. `tests/generate-timeout.mjs` holds this to it.
 9. **Check for updates before every commit, always.** Other sessions work
    this repository on their own branches at the same time. Before a commit
    is made — not after, not at the next prompt — fetch the remote, look at

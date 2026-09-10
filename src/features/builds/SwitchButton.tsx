@@ -75,7 +75,10 @@ export function SwitchButton() {
               New site
             </Button>
             <Button asChild size="xs" variant="ghost" onClick={() => setOpen(false)}>
-              <Link href="/">All builds</Link>
+              {/* /builds, not /: once a site is published "/" redirects to
+                  /site before the router ever sees it, and this has to keep
+                  working from inside a published site's own Builder. */}
+              <Link href="/builds">All builds</Link>
             </Button>
           </div>
         </>

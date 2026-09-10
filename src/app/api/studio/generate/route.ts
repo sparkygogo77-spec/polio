@@ -22,6 +22,29 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+/**
+ * How long this route may spend before it must answer, in milliseconds.
+ *
+ * `maxDuration` is what the platform grants, and when the wall clock reaches
+ * it the function is killed where it stands: no response, no status, nothing
+ * for the browser to show. So the route keeps a budget of its own, a few
+ * seconds short of that, and answers itself when it runs out. An answer that
+ * says "this took too long" is worth more than a spinner that never stops.
+ *
+ * Lower it with STUDIO_ANSWER_BUDGET_MS where the plan allows less than
+ * `maxDuration` says — a Vercel hobby deployment stops a function at 60
+ * seconds whatever this file asks for, and a budget above the real ceiling
+ * never gets to fire.
+ */
+const ANSWER_BUDGET_MS = (() => {
+  const asked = Number(process.env.STUDIO_ANSWER_BUDGET_MS);
+  const budget = Number.isFinite(asked) && asked > 5_000 ? asked : maxDuration * 1000;
+  return Math.max(5_000, budget - 5_000);
+})();
+
+/** Long enough for a slow answer, short enough that the retry still fits the budget. */
+const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);
+
 export type Mode = "plan" | "critique" | "expand" | "finish" | "ideas" | "ask" | "build";
 
 const MODE_INSTRUCTIONS: Record<Mode, string> = {
@@ -209,7 +232,19 @@ export async function POST(request: Request) {
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
   content.push({ type: "text", text: `${ask}${wantsRevisions ? `\n\n${REVISIONS_CONTRACT}` : ""}${mode === "build" ? `\n\n${REPO_CONTRACT}` : ""}${markdown.trim() ? `\n\n---\n\n${markdown}` : ""}` });
 
-  const client = new Anthropic({ apiKey });
+  /*
+   * The upstream gets a deadline, and so does the whole route.
+   *
+   * Without one the SDK waits ten minutes by default and retries twice on top
+   * of that, which is far past anything the platform will keep the function
+   * alive for — so the function is killed mid-call and the browser is left
+   * holding a request that never gets a status. One try, one timeout, and a
+   * budget the route answers within whatever the upstream does.
+   */
+  const client = new Anthropic({ apiKey, timeout: UPSTREAM_TIMEOUT_MS, maxRetries: 0 });
+  const started = Date.now();
+  const deadline = new AbortController();
+  const ran = setTimeout(() => deadline.abort(), ANSWER_BUDGET_MS);
 
   try {
     // Streaming keeps a long answer from hitting the request timeout; the
@@ -223,7 +258,7 @@ export async function POST(request: Request) {
       output_config: { effort: mode === "ideas" ? "medium" : "high" },
       system: SYSTEM,
       messages: [{ role: "user", content }],
-    });
+    }, { signal: deadline.signal });
 
     const message = await stream.finalMessage();
 
@@ -258,15 +293,43 @@ export async function POST(request: Request) {
       skipped,
     });
   } catch (error) {
+    /*
+     * Whatever went wrong, the browser hears a reason.
+     *
+     * Every branch here answers HTTP 200 with `ok: false`, because a spinner
+     * that stops with a sentence is the whole point: the one outcome this
+     * route must never have is no outcome. The seconds go in the message —
+     * "it took too long" means nothing without saying how long it was given.
+     */
+    const secs = Math.round((Date.now() - started) / 1000);
+    if (deadline.signal.aborted) {
+      return NextResponse.json({
+        ok: false,
+        reason: "timeout",
+        message: `Claude did not answer within ${Math.round(ANSWER_BUDGET_MS / 1000)}s, so the server stopped waiting. A long blueprint with pictures can take longer than the deployment allows: ask for less at once, turn the pictures off, or raise the function's own limit.`,
+        seconds: secs,
+      });
+    }
+    if (error instanceof Anthropic.APIConnectionTimeoutError) {
+      return NextResponse.json({ ok: false, reason: "timeout", message: `The Claude call timed out after ${secs}s.`, seconds: secs });
+    }
     if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json({ ok: false, reason: "auth", message: "The configured ANTHROPIC_API_KEY was rejected." });
+      return NextResponse.json({ ok: false, reason: "auth", message: "The Claude key was rejected. Check the key on the server, or the one held in this browser." });
     }
     if (error instanceof Anthropic.RateLimitError) {
       return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited. Wait a moment and try again." });
     }
     if (error instanceof Anthropic.APIError) {
-      return NextResponse.json({ ok: false, reason: "api", message: `Claude API error ${error.status}: ${error.message}` });
+      // What the API actually said, request id included: without it a report
+      // of this is a guess, and Anthropic cannot look the call up either.
+      const id = error.requestID ? ` (request ${error.requestID})` : "";
+      return NextResponse.json({ ok: false, reason: "api", message: `Claude API error ${error.status}: ${error.message}${id}`, status: error.status, requestId: error.requestID ?? null, seconds: secs });
     }
-    return NextResponse.json({ ok: false, reason: "unknown", message: error instanceof Error ? error.message : "Something went wrong calling Claude." });
+    if (error instanceof Anthropic.APIConnectionError) {
+      return NextResponse.json({ ok: false, reason: "network", message: `Could not reach Claude after ${secs}s: ${error.message}`, seconds: secs });
+    }
+    return NextResponse.json({ ok: false, reason: "unknown", message: error instanceof Error ? error.message : "Something went wrong calling Claude.", seconds: secs });
+  } finally {
+    clearTimeout(ran);
   }
 }

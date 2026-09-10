@@ -1001,6 +1001,19 @@ a kicker with a rule, and label-and-value rows that copy.
   falls back to copying the blueprint; `reshape/route.ts` does the same and
   the drawing board falls back to the drawing's proportion. Never make the
   API key load-bearing.
+- **A Claude route answers within a budget of its own.** `generate` keeps
+  `ANSWER_BUDGET_MS`, a few seconds inside its `maxDuration`, and answers
+  itself when it runs out rather than being killed mid-call with nothing sent;
+  the SDK client gets `timeout` and `maxRetries: 0` inside that, so the
+  default ten-minute wait and two retries cannot outlive the function. Set
+  `STUDIO_ANSWER_BUDGET_MS` where the deployment allows less than
+  `maxDuration` asks for — a Vercel hobby plan stops a function at 60 seconds
+  whatever the file says, and a budget above the real ceiling never fires.
+  Every failure is HTTP 200 with a reason, the seconds it took, and the API's
+  own status and request id where there is one. On the other side
+  `askClaude()` takes the caller's abort signal and keeps a deadline of its
+  own, and reads the body as text before parsing, so a gateway's error page
+  reads as the timeout it is instead of a JSON parse error.
 - **Two browsers, in that order.** `api/studio/headless.ts` `findPlaywright()`
   looks for a full Playwright install first (`PLAYWRIGHT_MODULE`, the project,
   the box's own) and only when there is none falls to `playwright-core`
@@ -1055,6 +1068,13 @@ a kicker with a rule, and label-and-value rows that copy.
   rather than the route waiting. The deploy hook stays what it always was:
   a poke for a project not connected to the repository, which answers with
   nothing you can open. `tests/go-live.mjs` covers both halves.
+- **`/builds` is `/`'s survivor.** `features/builds` (the Sites/Repos front
+  door) answers at both `/` and `/builds`, and anything that has to keep
+  working after a publish links to `/builds`: once `site/document.json` is
+  non-empty the redirect above sends `/` to `/site` before the router ever
+  gets it, so a link to bare `/` stops reaching Builds the moment the site it
+  is inside goes live. `/` stays the unpublished front door; `/builds` is the
+  one path the redirect does not touch.
 - **The drawing board snaps.** `sketch.ts` `refineStroke(points, mode)`:
   `snap` reads a finished stroke as a line (levelled when nearly level), a
   polyline, a box, a triangle or an ellipse and replaces it with the clean

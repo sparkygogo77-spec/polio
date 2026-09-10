@@ -140,15 +140,18 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
        */
       const { send, skipped } = piecesToSend(pieces, draftPieces, sentPieces);
       const vined = draftPieces.length > 0;
-      const r = await askClaude({
-        markdown: vined ? "" : markdown,
-        brief: vined ? briefPrefix(markdown) : "",
-        pieces: vined ? send : [],
-        skipped: vined ? skipped.length : 0,
-        mode,
-        prompt: prompt.trim(),
-        pictures,
-      });
+      const r = await askClaude(
+        {
+          markdown: vined ? "" : markdown,
+          brief: vined ? briefPrefix(markdown) : "",
+          pieces: vined ? send : [],
+          skipped: vined ? skipped.length : 0,
+          mode,
+          prompt: prompt.trim(),
+          pictures,
+        },
+        { signal: ac.signal },
+      );
       if (ac.signal.aborted) return;
       if (r.ok) {
         setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
@@ -188,7 +191,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         } else setView(r.revisions.length ? "trail" : "result");
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
         ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
-      } else {
+      } else if (r.reason !== "stopped") {
         const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.") : r.message;
         setNote(why);
         if (r.reason === "no-key") ctx.openPanel("keys");
@@ -398,7 +401,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
         </div>
 
         {note ? (
-          <div className="flex items-start gap-2 rounded-md border border-warn/40 bg-warn/10 p-2 text-[11px] text-fg">
+          <div data-brief-note="" role="status" className="flex items-start gap-2 rounded-md border border-warn/40 bg-warn/10 p-2 text-[11px] text-fg">
             <Wand2 className="mt-0.5 size-3.5 shrink-0 text-warn" />
             <span>{note}</span>
           </div>

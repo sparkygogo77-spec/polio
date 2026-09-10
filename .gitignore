@@ -30,3 +30,7 @@ yarn-error.log*
 
 # stray output from ad-hoc scripts with an unset output dir
 undefined/
+
+# screenshots a scratchpad script wrote into the repository root because its
+# output directory was not set: never part of the source
+/*.png
