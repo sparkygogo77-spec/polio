@@ -34,6 +34,9 @@ import { haptic } from "@/core/feedback/haptics";
 import { openRadial, pageSpot } from "./RadialMenu";
 
 const GRID = 8;
+
+/** Parts that take the pointer on the board once they are selected. See `handsOn`. */
+const HANDS_ON = new Set(["cube-3d"]);
 /** Breathing room either side of the page. Small: the page is the point. */
 const FRAME_GUTTER = 48;
 /** How far below the top of the viewport the page rests. */
@@ -1102,6 +1105,13 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       : node.shape === "rounded" ? Math.min(28, Math.min(node.w, node.h) / 6)
         : undefined;
   const feature = getFeature(node.featureId);
+  /**
+   * The parts that are worth touching on the board itself, once they are
+   * the selected one. A very short list on purpose: a part earns a place
+   * here only when looking at it tells you nothing and handling it tells
+   * you everything.
+   */
+  const handsOn = selected && HANDS_ON.has(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
   const Icon = feature?.icon;
@@ -1156,9 +1166,22 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         className="absolute inset-0 overflow-hidden"
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
-        inert
+        /*
+         * Every part on the board is inert, and has to be: the canvas is a
+         * layout surface, and a part that took the pointer could not be
+         * picked up or moved.
+         *
+         * One exception, and it is the whole point of the part it is for. A
+         * cube is a thing you turn; a cube you cannot turn is a picture of a
+         * cube. So when it is the selected part — already the state that
+         * means "I am working on this one" — it takes the pointer and the
+         * keys. Unselected it is inert like everything else, which is how it
+         * is still dragged around the page: click the ground to let go of
+         * it, then drag it.
+         */
+        inert={handsOn ? undefined : true}
         style={{
-          pointerEvents: "none",
+          pointerEvents: handsOn ? "auto" : "none",
           // The lamp's shadow is put here by one rule in `globals.css`, off
           // the `--lift-shadow` the wrapper carries; the corner is the one the
           // part is cut to, so the shadow hugs it.
