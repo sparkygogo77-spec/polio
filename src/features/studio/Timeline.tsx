@@ -555,6 +555,7 @@ export function FinishFlag() {
         size="iconXs"
         aria-label="Finish"
         aria-pressed={on}
+        data-finish=""
         data-finish-flag=""
         className="relative"
         style={{ color: on ? "oklch(0.86 0.19 158)" : "oklch(0.7 0.16 158)" }}

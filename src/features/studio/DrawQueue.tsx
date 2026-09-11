@@ -90,7 +90,6 @@ export function ProcessCounter() {
     <Tooltip content={told}>
       <button
         type="button"
-        data-finish=""
         data-process-counter=""
         aria-label={`${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}
         data-busy={busy ? "1" : "0"}
