@@ -21,9 +21,10 @@
  *     the usage line;
  *   · the vault holds it beside the Claude key, offers the same field, the
  *     same Try it, and the same Forget;
- *   · and in the body loop the renderer goes first, is scored on the same
- *     bar, keeps whichever of the two actually looked like the drawing, and
- *     falls back to the written body when it is not there.
+ *   · and the drawing path asks the tracer and nothing else: the picture
+ *     goes up, no description of it does, no model that writes is called,
+ *     and the written body is reached only when nothing was traced and
+ *     there are words to work from.
  *
  *   node tests/renderer.mjs [url]      # default http://localhost:3000
  */
@@ -209,16 +210,11 @@ await page.waitForTimeout(700);
 await page.keyboard.press("Escape");
 
 /* ------------------------------------------------------------------ */
-/* 6. The loop: renderer first, best kept, written when it is not there */
+/* 6. The drawing path: traced, never written                         */
 /* ------------------------------------------------------------------ */
 
-const ring = (n, r) => Array.from({ length: n + 1 }, (_, i) => {
-  const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-  return [0.5 + Math.cos(a) * (i % 2 || r === null ? r ?? 0.3 : 0.13), 0.5 + Math.sin(a) * (i % 2 || r === null ? r ?? 0.3 : 0.13)];
-});
 /** A box: its outline is very nearly the part's whole frame. */
 const box = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8], [0.2, 0.2]];
-/** A star: a third of its frame, so nothing that fills the frame can score well against it. */
 const star = Array.from({ length: 11 }, (_, i) => {
   const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
   const r = i % 2 ? 0.13 : 0.32;
@@ -231,8 +227,6 @@ await page.route("**/api/studio/reshape", (route) =>
 const wrote = [];
 await page.route("**/api/studio/body", (route) => {
   wrote.push({ at: Date.now(), body: JSON.parse(route.request().postData() ?? "{}") });
-  // A dot in the middle: a real answer, and a bad one, so "the better of the
-  // two" has an obvious right answer.
   return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, html: `<svg viewBox="0 0 100 100" preserveAspectRatio="none"><circle cx="50" cy="50" r="7" fill="#b8ff24"/></svg>`, note: "written", stripped: [] }) });
 });
 
@@ -243,10 +237,9 @@ await page.route("**/api/studio/image", (route) => {
   if (!token) {
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE }) });
   }
-  // A drawing that fills the frame, which is what the words ask for.
   return route.fulfill({
     status: 200, contentType: "application/json",
-    body: JSON.stringify({ ok: true, kind: "vector", cost: RENDER_COST.vector, model: RENDER_MODELS.vector, stripped: [],
+    body: JSON.stringify({ ok: true, kind: "vectorize", cost: RENDER_COST.vectorize, model: RENDER_MODELS.vectorize, stripped: [],
       html: `<svg viewBox="0 0 100 100" preserveAspectRatio="none"><rect width="100" height="100" fill="#b8ff24"/></svg>` }),
   });
 });
@@ -276,9 +269,12 @@ const drawOne = async (points, words) => {
   await page.keyboard.press("Enter");
   await page.waitForTimeout(800);
   const part = page.locator("[data-node-id]").last();
+  await part.scrollIntoViewIfNeeded().catch(() => {});
+  await page.waitForTimeout(200);
   const pb = await part.boundingBox();
+  if (!pb) return false;
   await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2, { button: "right" });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(650);
   const shard = page.locator('[data-radial] [data-shard="draw"]').first();
   if (!(await shard.count())) return false;
   await shard.click({ force: true });
@@ -287,7 +283,7 @@ const drawOne = async (points, words) => {
   if (!bb) return false;
   await page.mouse.move(bb.x + points[0][0] * bb.width, bb.y + points[0][1] * bb.height);
   await page.mouse.down();
-  for (const [x, y] of points) await page.mouse.move(bb.x + x * bb.width, bb.y + y * bb.height);
+  for (const [x, y] of points) { await page.mouse.move(bb.x + x * bb.width, bb.y + y * bb.height); await page.waitForTimeout(4); }
   await page.mouse.up();
   await page.waitForTimeout(400);
   await page.locator("[data-draw-words]").fill(words);
@@ -305,57 +301,33 @@ const settle = async (want) => {
   return read();
 };
 
-/* A drawing whose outline is very nearly the frame: what the renderer draws
-   fills it, so it clears the bar and nothing is written at all. */
 check("the board takes a box", await drawOne(box, "a card of one claim"));
 let state = await settle(1);
-console.log(`     box:   ${JSON.stringify(state.code)}`);
-console.log(`     said:  ${state.said}`);
-check("the renderer is asked first", drawn.length === 1 && drawn[0].body.kind === "vector", `${drawn.length} drawn, kind ${drawn[0]?.body?.kind}`);
-check("it is told the part's size and whether the line closed", drawn[0]?.body?.w === 320 && drawn[0]?.body?.closed === true, JSON.stringify({ w: drawn[0]?.body?.w, closed: drawn[0]?.body?.closed }));
+console.log(`     traced: ${JSON.stringify(state.code)}`);
+console.log(`     said:   ${state.said}`);
+check("the tracer is the only thing asked", drawn.length === 1 && wrote.length === 0, `${drawn.length} traced, ${wrote.length} written`);
+check("it is asked to vectorize, and given the picture", drawn[0]?.body?.kind === "vectorize" && typeof drawn[0]?.body?.picture === "string" && drawn[0].body.picture.length > 100,
+  `${drawn[0]?.body?.kind}, ${drawn[0]?.body?.picture?.length ?? 0} bytes of PNG`);
+check("nothing describing the drawing goes with it", !drawn[0]?.body?.prompt && !drawn[0]?.body?.words, JSON.stringify(Object.keys(drawn[0]?.body ?? {})));
 check("the held token rides on the call", drawn[0]?.headers?.["x-replicate-key"] === SECRET, drawn[0]?.headers?.["x-replicate-key"] ? "sent" : "missing");
-check("and no Claude key rides with it", !drawn[0]?.headers?.["x-anthropic-key"] && !Object.keys(drawn[0]?.body ?? {}).some((k) => /key|token/i.test(k)));
-check("clearing the bar, Claude is never asked", wrote.length === 0, `${wrote.length} written`);
-check("and the body kept is the one it drew", state.code?.source === "renderer" && state.code?.kind === "vector", JSON.stringify(state.code));
-check("scored on the same bar as a written one", (state.code?.overlap ?? 0) >= 0.72, String(state.code?.overlap));
-check("what it cost is kept with the part", state.code?.cost === RENDER_COST.vector, String(state.code?.cost));
-check("and reaches the iteration's usage line", state.cost === RENDER_COST.vector, String(state.cost));
-check("the card says the renderer drew it, and the price", /renderer drew the body/i.test(state.said) && /\$0\.08/.test(state.said), state.said.slice(0, 100));
+check("and no Claude key rides with it", !drawn[0]?.headers?.["x-anthropic-key"]);
+check("the body kept is the traced one", state.code?.source === "renderer" && state.code?.kind === "vectorize", JSON.stringify(state.code));
+check("scored on the same bar, against the drawn outline", (state.code?.overlap ?? 0) >= 0.72, String(state.code?.overlap));
+check("what it cost is kept with the part", state.code?.cost === RENDER_COST.vectorize, String(state.code?.cost));
+check("and reaches the iteration's usage line", state.cost === RENDER_COST.vectorize, String(state.cost));
+check("the card says it was traced, and the price", /was traced/i.test(state.said) && /\$0\.08/.test(state.said), state.said.slice(0, 100));
 
-/* A star: a third of its frame. Nothing that fills the frame scores well
-   against it, so the written body is tried too and the better is kept. */
-check("the board takes a star", await drawOne(star, "a star of five claims"));
-state = await settle(2);
-console.log(`     star:  ${JSON.stringify(state.code)}`);
-const firstDrawn = drawn[1]?.at ?? 0;
-const firstWritten = wrote[0]?.at ?? 0;
-check("short of the bar, the renderer still went first", firstDrawn > 0 && firstWritten > firstDrawn, `${firstWritten - firstDrawn}ms later`);
-check("and then Claude was asked", wrote.length > 0, `${wrote.length} written`);
-check("the drawing is the reference for the writer too", typeof wrote[0]?.body?.picture === "string" && wrote[0].body.picture.length > 100, `${wrote[0]?.body?.picture?.length ?? 0} bytes of PNG`);
-check("the renderer's own render is what the critique is given to beat", wrote.some((w) => typeof w.body.shot === "string" && w.body.shot.length > 100 && /%/.test(w.body.critique ?? "")),
-  (wrote[0]?.body?.critique ?? "").slice(0, 70));
-check("both are scored, and the better of the two is kept", state.code?.source === "renderer" && (state.code?.scores?.length ?? 0) > 1, JSON.stringify(state.code?.scores));
-
-/* The key forgotten: nothing rides, the route says so, and the body is
-   written instead. */
+/* The one door Claude comes through: nothing traced, and words to work
+   from. */
 token = false;
-await page.getByRole("button", { name: "Keys" }).click();
-await page.waitForTimeout(600);
-await page.getByRole("button", { name: /Forget the key/i }).first().click();
-await page.waitForTimeout(400);
-await page.getByRole("button", { name: /Forget it/i }).click();
-await page.waitForTimeout(700);
-await page.keyboard.press("Escape");
-await page.waitForTimeout(500);
-check("the board takes a third drawing", await drawOne(star, "a second star"));
-state = await settle(3);
-console.log(`     none:  ${JSON.stringify(state.code)}`);
-console.log(`     said:  ${state.said}`);
-check("with the key forgotten the renderer is still asked once", drawn.length === 3, `${drawn.length} calls`);
-check("and nothing rides with it", !drawn[2]?.headers?.["x-replicate-key"]);
-check("and the body is written instead", state.code?.source === "written", JSON.stringify(state.code));
-check("nothing is charged for a renderer that was not there", !state.code?.cost && state.cost === 0, `${state.code?.cost} / ${state.cost}`);
-check("and the reason on the card says what to press", /No Replicate token yet/i.test(state.said) && /key button/.test(state.said), state.said.slice(-120));
+check("the board takes a second drawing", await drawOne(star, "a star of five claims"));
+state = await settle(2);
+console.log(`     written: ${JSON.stringify(state.code)}`);
+check("with nothing traced, the tracer is asked once and no more", drawn.length === 2, `${drawn.length} calls`);
+check("and the words get a written body instead", wrote.length > 0 && state.code?.source === "written", `${wrote.length} written, ${state.code?.source}`);
+check("the writer is given the drawing as its reference", typeof wrote[0]?.body?.picture === "string" && wrote[0].body.picture.length > 100, `${wrote[0]?.body?.picture?.length ?? 0} bytes of PNG`);
+check("nothing is charged for a tracer that was not there", !state.code?.cost, String(state.code?.cost));
+check("and the card says why it fell back", /Replicate token/i.test(state.said), state.said.slice(-110));
 
 await browser.close();
 const failed = results.filter((r) => !r).length;

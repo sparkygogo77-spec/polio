@@ -44,6 +44,7 @@ import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
+import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
@@ -112,6 +113,16 @@ export interface StudioNode {
    * is cropped to it. Null when the drawing said nothing a box does not.
    */
   outline: OutlineClip | null;
+  /**
+   * What the drawn shape means the part *does*, when a drawing made it.
+   *
+   * `outline` is the edge and this is the behaviour: a closed shape is a
+   * surface that holds content, a ring is a container that owns what falls
+   * inside it, parallel strokes are a list, a straight line is a connector
+   * between the parts at its ends (`shapeKind.ts`). Null for every part
+   * that was placed rather than drawn.
+   */
+  kind: DrawnKind | null;
   /**
    * A body written for this part, when the drawing asked for something no
    * part in the library is: a helix of sentences, a spiral of names. SVG or
@@ -379,6 +390,17 @@ interface StudioState extends Doc {
   moveNodes: (ids: string[], dx: number, dy: number) => void;
   removeNodes: (ids: string[]) => void;
   duplicateNodes: (ids: string[]) => void;
+
+  /**
+   * Give a drawn part the behaviour its shape asks for.
+   *
+   * The clip is already on it and is not touched. This is the second half:
+   * a ring adopts what falls inside it, a list is given one row per stroke,
+   * a connector becomes a chain between the two parts at its ends and stops
+   * being a part at all, and a surface is marked as one so the blueprint
+   * and Build know it holds what is placed on it.
+   */
+  applyDrawnKind: (nodeId: string, role: DrawnRole) => { kind: DrawnKind; did: string };
 
   /* groups */
   groupSelection: (label?: string) => void;
@@ -715,7 +737,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, kind: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,
@@ -810,6 +832,74 @@ export const useStudio = create<StudioState>()(
               .map((n) => ({ ...n, id: uid("n"), x: n.x + 24, y: n.y + 24, groupId: null }));
             return { nodes: [...s.nodes, ...copies], selection: copies.map((c) => c.id) };
           });
+        },
+
+        applyDrawnKind: (nodeId, role) => {
+          const s0 = get();
+          const node = s0.nodes.find((n) => n.id === nodeId);
+          if (!node) return { kind: role.kind, did: "" };
+          const inside = (n: StudioNode) =>
+            n.id !== node.id && n.pageId === node.pageId &&
+            n.x >= node.x - 4 && n.y >= node.y - 4 && n.x + n.w <= node.x + node.w + 4 && n.y + n.h <= node.y + node.h + 4;
+
+          if (role.kind === "container") {
+            const held = s0.nodes.filter(inside);
+            if (held.length) {
+              const gid = uid("g");
+              set((s) => ({
+                groups: [...s.groups, { id: gid, pageId: node.pageId, label: node.label, prompt: "", hue: HUES[s.groups.length % HUES.length]! }],
+                nodes: s.nodes.map((n) => (n.id === node.id || held.some((h) => h.id === n.id) ? { ...n, kind: n.id === node.id ? "container" : n.kind, groupId: gid } : n)),
+              }));
+              return { kind: "container", did: `a container holding ${held.length} part${held.length === 1 ? "" : "s"}` };
+            }
+            set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: "container" } : n)) }));
+            return { kind: "container", did: "a container, with nothing in it yet" };
+          }
+
+          if (role.kind === "connector") {
+            // The two parts nearest each end. The drawing's box is the
+            // part's box, so the ends are two corners of it, and which two
+            // depends on which way the line runs.
+            const flat = node.w >= node.h;
+            const mid = { x: node.x + node.w / 2, y: node.y + node.h / 2 };
+            const others = s0.nodes.filter((n) => n.id !== node.id && n.pageId === node.pageId);
+            const near = (before: boolean) =>
+              others
+                .map((n) => ({ n, cx: n.x + n.w / 2, cy: n.y + n.h / 2 }))
+                .filter((o) => (flat ? (before ? o.cx < mid.x : o.cx > mid.x) : before ? o.cy < mid.y : o.cy > mid.y))
+                .sort((a, b) => Math.hypot(a.cx - mid.x, a.cy - mid.y) - Math.hypot(b.cx - mid.x, b.cy - mid.y))[0]?.n ?? null;
+            const from = near(true);
+            const to = near(false);
+            if (from && to && from.id !== to.id) {
+              const sid = uid("sh");
+              set((s) => ({
+                shapes: [
+                  ...s.shapes,
+                  {
+                    id: sid, pageId: node.pageId, kind: "arrow" as ShapeKind,
+                    points: [[from.x + from.w / 2, from.y + from.h / 2], [to.x + to.w / 2, to.y + to.h / 2]] as [number, number][],
+                    hue: HUES[0]!, width: 2, label: "", prompt: "", fromNodeId: from.id, toNodeId: to.id, relation: "flow" as ShapeRelation,
+                  },
+                ],
+                // The line was the join, not a thing on the page.
+                nodes: s.nodes.filter((n) => n.id !== node.id),
+                selection: s.selection.filter((id) => id !== node.id),
+              }));
+              return { kind: "connector", did: `a chain from ${from.label} to ${to.label}` };
+            }
+            set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: "connector" } : n)) }));
+            return { kind: "connector", did: "a connector with nothing at its ends yet" };
+          }
+
+          if (role.kind === "list") {
+            const rows = Math.max(2, Math.min(12, role.rows ?? 3));
+            const content = node.content.trim() || Array.from({ length: rows }, (_, i) => `Row ${i + 1}`).join(", ");
+            set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: "list", content } : n)) }));
+            return { kind: "list", did: `a list of ${rows} rows` };
+          }
+
+          set((s) => ({ nodes: s.nodes.map((n) => (n.id === node.id ? { ...n, kind: role.kind } : n)) }));
+          return { kind: role.kind, did: role.kind === "surface" ? "a surface that holds what is placed on it" : "" };
         },
 
         groupSelection: (label) => {

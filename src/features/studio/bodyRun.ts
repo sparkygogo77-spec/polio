@@ -95,7 +95,7 @@ export interface BodyInput {
 /* ------------------------------------------------------------------ */
 
 /** A grid of what a path fills: true where the drawing is. */
-function targetMask(outline: OutlineClip | null): boolean[] {
+export function targetMask(outline: OutlineClip | null): boolean[] {
   const mask = new Array<boolean>(GRID * GRID).fill(false);
   if (typeof document === "undefined") return mask;
   const el = document.createElement("canvas");
@@ -229,11 +229,11 @@ async function askRenderer(input: BodyInput, kind: RenderKind): Promise<{ ok: bo
 }
 
 /** Render one body on the server and read what it painted. */
-async function renderBody(html: string, w: number, h: number): Promise<{ shot: string | null; mask: boolean[] | null }> {
+async function renderBody(html: string, w: number, h: number, clip?: string): Promise<{ shot: string | null; mask: boolean[] | null }> {
   const res = await fetch("/api/studio/render", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ html, w, h }),
+    body: JSON.stringify({ html, w, h, ...(clip ? { clip } : {}) }),
   });
   if (!(res.headers.get("content-type") ?? "").startsWith("image/")) return { shot: null, mask: null };
   const blob = await res.blob();
@@ -339,9 +339,9 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
 }
 
 /** Render one body and score it against the drawing. The one place a number comes from. */
-async function judge(html: string, input: BodyInput, target: boolean[]): Promise<{ overlap: number; says: string; shot: string | null }> {
+export async function judge(html: string, input: { w: number; h: number; clip?: string }, target: boolean[]): Promise<{ overlap: number; says: string; shot: string | null }> {
   try {
-    const rendered = await renderBody(html, input.w, input.h);
+    const rendered = await renderBody(html, input.w, input.h, input.clip);
     if (!rendered.mask) {
       // No headless browser here: the body is kept as it is, and the loop
       // says so rather than pretending to have judged it.

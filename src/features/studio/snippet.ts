@@ -46,8 +46,8 @@ export interface PartCode {
   note?: string;
   /** Who made it: the renderer that draws, or the model that writes code. */
   source?: "renderer" | "written";
-  /** Which renderer, when one drew it: SVG or pixels. */
-  kind?: "vector" | "raster";
+  /** Which renderer, when one drew it: the drawing traced, SVG from words, or pixels. */
+  kind?: "vectorize" | "vector" | "raster";
   /** What the whole loop cost at the renderer, in dollars. Zero when nothing was drawn. */
   cost?: number;
   /** What was taken out of the code on the way in, if anything. */
@@ -111,17 +111,21 @@ export function cleanSnippet(raw: string, limit = SNIPPET_LIMIT): { html: string
  * the fragment fill the part and never scroll — a body cut to an outline
  * that then scrolls inside it is two shapes disagreeing.
  */
-export function frameDoc(code: string, opts: { background?: string; colour?: string; font?: string } = {}): string {
+export function frameDoc(code: string, opts: { background?: string; colour?: string; font?: string; clip?: string } = {}): string {
   const bg = opts.background ?? "transparent";
   const fg = opts.colour ?? "currentColor";
   const font = opts.font ?? "ui-sans-serif, system-ui, sans-serif";
+  // The same crop the board applies, by the same mechanism: a clip path in
+  // objectBoundingBox units, so it stretches with the frame.
+  const cut = (opts.clip ?? "").trim();
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
 <style>
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: ${bg}; color: ${fg}; font-family: ${font}; }
   *, *::before, *::after { box-sizing: border-box; }
   svg { display: block; width: 100%; height: 100%; }
-</style></head><body>${code}</body></html>`;
+  #cut { width: 100%; height: 100%; ${cut ? "clip-path: url(#outline); -webkit-clip-path: url(#outline);" : ""} }
+</style></head><body>${cut ? `<svg width="0" height="0" aria-hidden style="position:absolute"><defs><clipPath id="outline" clipPathUnits="objectBoundingBox"><path d="${cut}"/></clipPath></defs></svg>` : ""}<div id="cut">${code}</div></body></html>`;
 }
 
 /** Is there anything here worth rendering? */

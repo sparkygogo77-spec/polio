@@ -8,6 +8,12 @@
  * is a worse drawing than a drawing. So there is a second way to fill a
  * part, and it goes through Replicate:
  *
+ * - **vectorize** (`recraft-ai/recraft-vectorize`) is the one that matters:
+ *   it takes the *drawing* and returns SVG. No description of the drawing
+ *   goes anywhere, and no model that writes is asked what the drawing
+ *   meant. The strokes are rasterised, traced, and what comes back is the
+ *   line that was drawn. This is the whole of the Make real path for an
+ *   Idea part.
  * - **vector** (`recraft-ai/recraft-v3-svg`) comes back as SVG. It is a
  *   fragment like any other, so it is cleaned by `cleanSnippet` and lives
  *   under the same two locks the coded body does: `sandbox=""` and a
@@ -30,10 +36,12 @@
  * by `tests/renderer.mjs`.
  */
 
-export type RenderKind = "vector" | "raster";
+export type RenderKind = "vectorize" | "vector" | "raster";
 
-/** The two models, named once. Changing one is changing it here. */
+/** The three models, named once. Changing one is changing it here. */
 export const RENDER_MODELS: Record<RenderKind, `${string}/${string}`> = {
+  /** The drawing itself, traced. Takes a picture, returns SVG. No words anywhere. */
+  vectorize: "recraft-ai/recraft-vectorize",
   vector: "recraft-ai/recraft-v3-svg",
   raster: "black-forest-labs/flux-2-pro",
 };
@@ -46,7 +54,7 @@ export const RENDER_MODELS: Record<RenderKind, `${string}/${string}`> = {
  * is a bill nobody expected. It rides back on every answer and lands in
  * the usage line.
  */
-export const RENDER_COST: Record<RenderKind, number> = { raster: 0.04, vector: 0.08 };
+export const RENDER_COST: Record<RenderKind, number> = { raster: 0.04, vector: 0.08, vectorize: 0.08 };
 
 /** What the route says when no token reached it. The dialog shows this, not a stack. */
 export const RENDER_UNAVAILABLE =
@@ -58,7 +66,12 @@ export function money(n: number): string {
 }
 
 export function isRenderKind(v: unknown): v is RenderKind {
-  return v === "vector" || v === "raster";
+  return v === "vector" || v === "raster" || v === "vectorize";
+}
+
+/** Does this kind draw from a picture rather than from words? */
+export function fromPicture(kind: RenderKind): boolean {
+  return kind === "vectorize";
 }
 
 /* ------------------------------------------------------------------ */

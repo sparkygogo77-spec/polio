@@ -18,6 +18,11 @@ import { cleanSnippet, frameDoc } from "@/features/studio/snippet";
  * goes into carries the same content policy the part will be rendered
  * under. The browser here has no network of its own to speak of, but the
  * lock is not conditional on that.
+ *
+ * A `clip` in `objectBoundingBox` units crops it exactly as the board does,
+ * so the number that comes out of the comparison is about the part as it
+ * will be seen. Only path data is accepted for it, because it goes into the
+ * document.
  */
 
 export const runtime = "nodejs";
@@ -27,7 +32,7 @@ export async function POST(request: Request) {
   const found = await findPlaywright();
   if (!found.pw) return NextResponse.json({ ok: false, reason: "no-playwright", message: NO_PLAYWRIGHT, tried: found.tried });
 
-  let body: { html?: string; w?: number; h?: number };
+  let body: { html?: string; w?: number; h?: number; clip?: string };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -49,7 +54,12 @@ export async function POST(request: Request) {
     // anything that would try; this is what makes that true rather than
     // hoped for.
     await page.route("**/*", (route) => (route.request().url().startsWith("data:") ? route.continue() : route.abort()));
-    await page.setContent(frameDoc(html, { colour: "#111111" }), { waitUntil: "load", timeout: 20_000 });
+    // The part is cut to the line that was drawn round it, so what is
+    // photographed here is cut the same way: the silhouette compared against
+    // the drawing has to be the silhouette the board will show, not the one
+    // before the crop.
+    const clip = typeof body.clip === "string" && body.clip.trim().length < 20_000 && /^[-\d.,\sMLCQZAHVmlcqzahv]+$/.test(body.clip) ? body.clip.trim() : "";
+    await page.setContent(frameDoc(html, { colour: "#111111", clip }), { waitUntil: "load", timeout: 20_000 });
     await page.waitForTimeout(220);
     const png = await page.screenshot({ type: "png", omitBackground: true });
     await context.close();

@@ -305,6 +305,50 @@ a kicker with a rule, and label-and-value rows that copy.
   (`RENDER_LIMIT`) because a drawing is every curve it drew, and past the
   ceiling it is refused rather than cut.
 
+  **The drawing path has no model that writes in it** (`drawRun.ts`,
+  `tests/shapes.mjs`). Make real on an Idea part used to rasterise the
+  strokes, describe them, and ask Claude to *write* SVG that looked like
+  them: two translations, and the drawing was what got lost in both.
+  `recraft-ai/recraft-vectorize` takes a picture and returns the SVG of what
+  is in it, so the drawing drives the vector. The loop is: rasterise
+  (`pictureOf`), trace (`/api/studio/image`, kind `vectorize`), sanitise
+  (`cleanSnippet`), cut to `outline.cut` and photograph it cut (the render
+  route takes a `clip` now, so the silhouette scored is the silhouette the
+  board shows), score with the same IoU at the same 0.72. Under the bar it
+  goes again **on the picture, not on words** — there is nothing to argue
+  with — up one rung of `LADDER`: crop to the ink, thicken the line, harden
+  the contrast, and on the last go drop the ground. Three goes, the best
+  kept, every score stored on the part. The traced ground is stripped from
+  every answer (`dropGround`), because a white plate the tracer found under
+  the drawing is not the drawing. No Claude call happens anywhere in it, and
+  the whole path runs with a locked vault: the part, the crop, the
+  behaviour, the body and the iteration on the timeline all land without a
+  reader. `writeBody` is still there for a part that genuinely wants words
+  and is reached only when nothing was traced at all.
+- **A drawn shape says what the part does, not only what it looks like**
+  (`shapeKind.ts`, `store.applyDrawnKind`). The clip is untouched: a
+  triangle still cuts out as a triangle. The geometry is read a second time
+  for behaviour, in order of certainty — a closed line inside another closed
+  line is a **container** and adopts every part that falls inside it into a
+  group; three or more straight strokes running the same way at a similar
+  length are a **list** and seed one row each; a single straight open line,
+  with or without the two short strokes that make it an arrow, is a
+  **connector** and becomes a chain between the two parts nearest its ends,
+  ceasing to be a part itself; one closed line is a **surface** that holds
+  what is placed on it; anything else is a **mark**, which is what every
+  drawing was. It is read off the geometry, so it survives a locked vault,
+  it is stored as `node.kind`, and it reaches the blueprint as "the shape
+  means".
+- **The bench is how the drawing path is judged** (`tests/shapes.mjs`).
+  Five fixed drawings — a 3 stack, a helix, a spiral, a star, a ring —
+  three runs each, printing every go's overlap, the goes used, the wall
+  time and the cost at $0.08 a trace. The renders and the scores are real.
+  With no Replicate token the tracer is stood in for by a real one (the
+  picture is decoded in a second browser page, thresholded and run-length
+  traced), so the loop is under test and only the vendor is absent; with a
+  token set, the model is used. Change the loop, run the bench, and say
+  what the numbers did.
+
   In the body loop (`bodyRun.ts`) the renderer goes **first**, and it is
   scored on the same bar as everything else: the silhouette of what it drew
   against the outline that was drawn, intersection over union, `GOOD_ENOUGH`
