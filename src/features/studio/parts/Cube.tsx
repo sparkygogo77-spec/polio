@@ -34,7 +34,8 @@
 import * as React from "react";
 import { Fill } from "./primitives";
 import { withAlpha, type Theme } from "./theme";
-import { CUBE_SIDES, num, opt, type CubeData, type CubeFace, type PartProps } from "./types";
+import { facesFrom } from "./cubeFaces";
+import { CUBE_SIDES, num, opt, type CubeFace, type PartProps } from "./types";
 
 /** Degrees per pixel dragged. Slow enough to place a face, quick enough to spin. */
 const PER_PX = 0.42;
@@ -99,11 +100,21 @@ function faceColour(face: CubeFace | undefined, t: Theme): string {
   return own;
 }
 
-export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartProps) {
-  const faces = React.useMemo<CubeFace[]>(
-    () => CUBE_SIDES.map((_, i) => cube?.faces?.[i] ?? { heading: "", body: "", colour: "" }),
-    [cube],
-  );
+export function Cube({ label, content, w, h, theme: t, mode, cube, options, emit }: PartProps) {
+  /*
+   * The faces on the node win, and they are what the panel edits. A cube
+   * that has never been edited — dropped straight off the shelf — reads its
+   * content field instead, like every other part in the library, and falls
+   * back to three examples so the shelf shows a cube rather than a blank
+   * box. The moment a face is written the node holds all six.
+   */
+  const faces = React.useMemo<CubeFace[]>(() => {
+    const own = cube?.faces;
+    if (own?.some((f) => f.heading.trim() || f.body.trim())) return CUBE_SIDES.map((_, i) => own[i] ?? { heading: "", body: "", colour: "" });
+    const typed = facesFrom(content, "");
+    if (typed.some((f) => f.heading.trim())) return typed;
+    return facesFrom("Overview, How it works, Proof", "");
+  }, [cube, content]);
   const start = cube?.turn ?? { x: -18, y: -32 };
   const side = Math.round(Math.min(w, h) * (num(options, "size", 74, 30, 100) / 100));
   const live = mode === "live";
@@ -165,6 +176,16 @@ export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartP
 
   const down = (e: React.PointerEvent) => {
     if (!live) return;
+    /*
+     * The press stops here.
+     *
+     * The board's own surface takes the pointer on every press and captures
+     * it, which is right for a part you are moving and wrong for the one
+     * part you are handling. Without this the cube's capture is overridden
+     * a moment later and the drag turns into a drag of the whole element.
+     */
+    e.stopPropagation();
+    e.preventDefault();
     held.current = true;
     touched.current = true;
     drag.current = { x: e.clientX, y: e.clientY, at: performance.now() };
@@ -174,6 +195,7 @@ export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartP
   const move = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!live || !d) return;
+    e.stopPropagation();
     const dx = e.clientX - d.x;
     const dy = e.clientY - d.y;
     drag.current = { x: e.clientX, y: e.clientY, at: performance.now() };
@@ -182,6 +204,7 @@ export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartP
     setTurn((v) => ({ x: v.x - dy * PER_PX, y: v.y + dx * PER_PX }));
   };
   const up = (e: React.PointerEvent) => {
+    if (live && drag.current) e.stopPropagation();
     held.current = false;
     drag.current = null;
     if (live) (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
@@ -191,6 +214,9 @@ export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartP
     const step = { ArrowLeft: [0, -90], ArrowRight: [0, 90], ArrowUp: [90, 0], ArrowDown: [-90, 0] }[e.key];
     if (!step) return;
     e.preventDefault();
+    // The board nudges the selected part with the arrows; while the cube has
+    // the keys, they turn it instead of moving it.
+    e.stopPropagation();
     touched.current = true;
     spin.current = { x: 0, y: 0 };
     setTurn((v) => ({ x: quarter(v.x) + step[0]!, y: quarter(v.y) + step[1]! }));

@@ -25,7 +25,7 @@ function describeDelay(v: number | string | null | undefined): string {
 import { linkReason } from "./links";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
-import { CUBE_SIDES } from "./parts/cube";
+import { CUBE_SIDES } from "./parts/cubeFaces";
 import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";

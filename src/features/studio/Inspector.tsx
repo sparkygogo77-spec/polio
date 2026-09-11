@@ -16,7 +16,7 @@ import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
-import { CUBE_SIDES, emptyFace, written } from "./parts/cube";
+import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
