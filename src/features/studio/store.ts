@@ -51,7 +51,15 @@ import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
 
-export type Tool = "select" | "pen" | "frame" | "arrow" | "erase" | "pan";
+/**
+ * What is in your hand. Four, not six.
+ *
+ * `pan` is gone because the cursor pans — a press on the bare ground outside
+ * the page drags the view. `frame` is gone from the *bar*, but it stays in
+ * `ShapeKind` below: it drew a rectangle annotation, and every one already
+ * drawn still renders. Not persisted, so nothing has to be migrated.
+ */
+export type Tool = "select" | "pen" | "arrow" | "erase";
 export type Priority = "must" | "nice" | "idea";
 export type ShapeKind = "pen" | "frame" | "arrow";
 /** The board shows either the design surface or the site it describes. */

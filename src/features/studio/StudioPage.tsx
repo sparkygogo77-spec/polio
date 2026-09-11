@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Circle, Eraser, Eye, FileText, History, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft, Search,
+  ChevronDown, Circle, Eraser, Eye, FileText, History, Link, Link2, Link2Off, PlayCircle, Layers, Monitor, MousePointer2, PanelLeft, Search,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
@@ -44,6 +44,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
+import { Dropdown } from "@/core/ui/dropdown-menu";
 import { PROCESS } from "./threads";
 
 /**
@@ -59,13 +60,34 @@ import { PROCESS } from "./threads";
  */
 const BAND_H = "clamp(132px, 32vh, 248px)";
 
+/**
+ * Four tools, in one control.
+ *
+ * Six buttons became four in a dropdown that wears whichever is in your hand.
+ * Two left the bar and for different reasons:
+ *
+ *  · **Pan.** The cursor pans. A press on the bare ground outside the page
+ *    drags the view, a press on a part moves the part, and a press on empty
+ *    space *inside* the page still draws a marquee — the nebula is the ground
+ *    you push, the page is the surface you select on. Alt-drag and the middle
+ *    button still pan anywhere, as they always did.
+ *  · **Draw a region.** Worth being exact about, because it was not what it
+ *    looked like: it is not a selection tool and never was. It draws a
+ *    rectangle *annotation*, a `frame` shape, sibling to a pen stroke and an
+ *    arrow. So marquee-plus-shift-click does not replace it — they were never
+ *    doing the same job. What it is, is a third way to draw on a board that
+ *    already has two, and it costs a permanent slot in the bar to get it.
+ *    It is off the bar; the shape kind stays, so every frame already drawn
+ *    still renders and no board loses anything.
+ *
+ * Selecting several at once needs neither of them and needed no change:
+ * dragging a box on empty page already worked, and so did shift-clicking.
+ */
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: string }[] = [
   { id: "select", label: "Select & move", icon: MousePointer2, shortcut: "v" },
   { id: "pen", label: "Draw freehand", icon: Pencil, shortcut: "d" },
-  { id: "frame", label: "Draw a region", icon: Frame, shortcut: "r" },
-  { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
   { id: "erase", label: "Erase", icon: Eraser, shortcut: "e" },
-  { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
+  { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
 ];
 
 /**
@@ -207,26 +229,9 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
       </Tooltip>
       <span className="mx-1 h-4 w-px bg-border" />
-      <div className="flex items-center gap-0.5 rounded-md border border-border bg-elevated p-0.5">
-        {TOOLS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <Tooltip key={t.id} content={t.label} shortcut={t.shortcut}>
-              <Button
-                variant={tool === t.id ? "subtle" : "ghost"}
-                size="iconXs"
-                aria-label={t.label}
-                aria-pressed={tool === t.id}
-                onClick={() => setTool(t.id)}
-              >
-                <Icon />
-              </Button>
-            </Tooltip>
-          );
-        })}
-      </div>
+      <ToolPicker tool={tool} setTool={setTool} />
 
-      {tool === "pen" || tool === "frame" || tool === "arrow" ? (
+      {tool === "pen" || tool === "arrow" ? (
         <div className="flex items-center gap-1 rounded-md border border-border bg-elevated px-1 py-0.5">
           {HUES.map((h) => (
             <button
@@ -330,6 +335,56 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <PreviewToggle />
       <ProcessCounter />
     </div>
+  );
+}
+
+/**
+ * The tool in your hand, and the four to choose from.
+ *
+ * A row of six flat ghost buttons said "here are some icons" and made the
+ * one that was actually in your hand the quietest thing in the bar — a
+ * slightly darker background among five identical siblings. This wears the
+ * tool instead: one lit button showing the current icon and its name, and
+ * the rest a press away.
+ *
+ * It takes the app's own red rather than the process pair. Red because the
+ * tool is the loudest thing about what a press will do; **not** `PROCESS.open`
+ * because that red means a state — unfinished, abandoned — and a tool is not
+ * a state. Two reds with two meanings is one too many.
+ */
+function ToolPicker({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }) {
+  const cur = TOOLS.find((t) => t.id === tool) ?? TOOLS[0]!;
+  const Icon = cur.icon;
+  return (
+    <Dropdown
+      id="tools"
+      align="start"
+      entries={TOOLS.map((t) => ({
+        id: t.id,
+        label: t.label,
+        icon: t.icon,
+        shortcut: t.shortcut,
+        checked: t.id === tool,
+        onSelect: () => setTool(t.id),
+      }))}
+    >
+      <button
+        type="button"
+        data-tool-picker=""
+        aria-label={`Tool: ${cur.label}`}
+        className="tactile inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium [&_svg]:size-3.5"
+        style={{
+          borderColor: "oklch(0.62 0.19 25)",
+          background: "linear-gradient(oklch(0.4 0.13 25), oklch(0.29 0.1 25))",
+          color: "oklch(1 0 0)",
+          boxShadow: "0 1px 0 oklch(0.2 0.06 25), inset 0 1px 0 oklch(0.72 0.15 25 / 0.5)",
+        }}
+      >
+        <Icon />
+        <span className="hidden xl:inline">{cur.label}</span>
+        <ChevronDown className="opacity-80" />
+      </button>
+    </Dropdown>
   );
 }
 

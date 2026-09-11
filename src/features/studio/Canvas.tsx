@@ -330,15 +330,24 @@ export function Canvas() {
     const store = useStudio.getState();
     const capture = () => (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
-    if (e.button === 1 || tool === "pan" || (tool === "select" && e.altKey)) {
+    /* The cursor pans, so there is no pan tool.
+     *
+     * Which drag you get is decided by what is under the hand, not by a mode
+     * chosen in the bar: the bare ground outside the page pushes the view,
+     * a part moves, and empty space *inside* the page still draws a marquee.
+     * The nebula is the ground you push; the page is the surface you select
+     * on. Alt-drag and the middle button still pan from anywhere, including
+     * over the page, for the times the rule is not what you wanted. */
+    const onBareGround = tool === "select" && !nodeEl && !target.closest?.("[data-frame]");
+    if (e.button === 1 || (tool === "select" && e.altKey) || onBareGround) {
       capture();
       setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan });
       return;
     }
 
-    // A resize handle only wins while you are actually pointing at things. With
-    // the pen or the region tool in hand you are drawing, and a handle that
-    // happens to be under the first pixel of the stroke is not an instruction.
+    // A resize handle only wins while you are actually pointing at things.
+    // With the pen in hand you are drawing, and a handle that happens to be
+    // under the first pixel of the stroke is not an instruction.
     if (handleEl && nodeEl?.dataset.nodeId && tool === "select") {
       const n = store.nodes.find((x) => x.id === nodeEl.dataset.nodeId);
       if (n) {
@@ -600,7 +609,7 @@ export function Canvas() {
         play("select");
       }
     } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
-      const kind = tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow";
+      const kind = tool === "pen" ? "pen" : "arrow";
       const pts = drag.points;
       const from = kind === "arrow" ? hitNode(nodes, pts[0]![0], pts[0]![1]) : null;
       const to = kind === "arrow" ? hitNode(nodes, pts[pts.length - 1]![0], pts[pts.length - 1]![1]) : null;
@@ -627,7 +636,10 @@ export function Canvas() {
     setGuides({ x: [], y: [] });
   };
 
-  const cursor = tool === "pan" ? "grab" : tool === "select" ? "default" : "crosshair";
+  /* Grabbing while a pan is under way, an arrow otherwise. There is no pan
+     tool to point at any more, so the cursor follows the drag rather than a
+     mode: it changes when you actually start pushing the ground. */
+  const cursor = drag?.kind === "pan" ? "grabbing" : tool === "select" ? "default" : "crosshair";
 
   return (
     <div
@@ -778,7 +790,7 @@ export function Canvas() {
               reason={reasonOn(sh, nodes)}
             />
           ))}
-          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : tool === "frame" ? "frame" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
+          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
           {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
           {guides.y.map((y) => <line key={`gy${y}`} y1={y} y2={y} x1={-40} x2={frameWidth + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}

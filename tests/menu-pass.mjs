@@ -111,6 +111,62 @@ async function look(w, h, tag) {
   if (arrows.undo && !arrows.undo.off) check(`${tag}: undo is the process red`, near(hueOf(arrows.undo.colour), 27), arrows.undo.colour);
   if (arrows.redo && !arrows.redo.off) check(`${tag}: redo is the process green`, near(hueOf(arrows.redo.colour), 150), arrows.redo.colour);
 
+  /* One tool control, wearing the tool, and no Pan or Region left anywhere. */
+  const tools = await page.evaluate(() => {
+    const b = document.querySelector("[data-tool-picker]");
+    const rows = [...document.querySelectorAll("button, [role=menuitem], [role=menuitemcheckbox]")];
+    return {
+      one: !!b,
+      wears: b?.getAttribute("aria-label") ?? "",
+      red: b ? getComputedStyle(b).borderColor : "",
+      strays: rows.filter((r) => /^(Pan|Draw a region)$/i.test(r.getAttribute("aria-label") ?? "")).length,
+    };
+  });
+  check(`${tag}: one control for the tools, wearing the one in hand`, tools.one && /Tool: /.test(tools.wears), tools.wears);
+  check(`${tag}: it is red, not flat`, /oklch\(\s*[\d.]+\s+0\.[1-9]/.test(tools.red), tools.red);
+  check(`${tag}: no Pan or Region button anywhere`, tools.strays === 0, `${tools.strays} found`);
+
+  /* The four tools are all in the menu, and pan and region are not. */
+  if (tools.one) {
+    await page.locator("[data-tool-picker]").click();
+    await page.waitForTimeout(300);
+    const items = await page.evaluate(() =>
+      [...document.querySelectorAll("[role=menuitemcheckbox], [role=menuitem]")].map((i) => i.textContent.trim().split("\n")[0]));
+    check(`${tag}: the menu holds the four tools`, items.length === 4, items.join(" · "));
+    check(`${tag}: pan and region are not among them`, !items.some((i) => /^(Pan|Draw a region)$/i.test(i)), items.join(" · "));
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(250);
+  }
+
+  /* The cursor pans on bare ground and marquees on the page.
+     Measured by where the page frame ends up: if the view panned, the frame
+     moved with it; if it marqueed, the frame stayed exactly where it was. */
+  const frameAt = async () => { const b = await page.locator("[data-frame]").boundingBox(); return b ? { x: Math.round(b.x), y: Math.round(b.y) } : null; };
+  const drag = async (from, to) => {
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  };
+  const f0 = await frameAt();
+  if (f0) {
+    // Bare ground: below and left of the frame, out on the nebula.
+    const ground = { x: Math.max(8, f0.x - 60), y: f0.y + 200 };
+    await drag(ground, { x: ground.x + 70, y: ground.y + 40 });
+    const f1 = await frameAt();
+    check(`${tag}: dragging bare ground pans the view`, !!f1 && (Math.abs(f1.x - f0.x) > 20 || Math.abs(f1.y - f0.y) > 10),
+      `frame moved ${f1 ? `${f1.x - f0.x},${f1.y - f0.y}` : "?"}`);
+
+    // Empty page: inside the frame, away from any part.
+    const f2 = await frameAt();
+    const inside = { x: f2.x + 40, y: f2.y + Math.min(600, 40) };
+    await drag(inside, { x: inside.x + 90, y: inside.y + 60 });
+    const f3 = await frameAt();
+    check(`${tag}: dragging empty page does not pan`, !!f3 && Math.abs(f3.x - f2.x) < 6 && Math.abs(f3.y - f2.y) < 6,
+      `frame moved ${f3 ? `${f3.x - f2.x},${f3.y - f2.y}` : "?"}`);
+  }
+
   /* Three devices, three different colours, no words. */
   const dev = await page.evaluate(() => {
     const box = document.querySelector("[data-device-switch]");
