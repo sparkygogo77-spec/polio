@@ -47,6 +47,20 @@ export function keyHeader(): Record<string, string> {
 }
 
 /**
+ * The same, for the renderer.
+ *
+ * A Replicate token is held in the same vault, unlocked the same way, and
+ * rides with the call the same way. It is a separate function rather than a
+ * second entry in the one above because the two are sent to different
+ * routes: the image route has no use for a Claude key and should never be
+ * handed one.
+ */
+export function rendererHeader(): Record<string, string> {
+  const held = heldKeys(["REPLICATE_API_TOKEN"]).REPLICATE_API_TOKEN;
+  return held ? { "x-replicate-key": held } : {};
+}
+
+/**
  * Where this browser stands with a Claude key: holding one and open, holding
  * one but locked, or holding none. The server's own key is invisible from
  * here and wins regardless; this is only for saying the right thing when a
@@ -54,10 +68,10 @@ export function keyHeader(): Record<string, string> {
  */
 export type KeyState = "held" | "locked" | "none";
 
-export function keyState(): KeyState {
-  if (heldKeys(["ANTHROPIC_API_KEY"]).ANTHROPIC_API_KEY) return "held";
+export function keyState(field = "ANTHROPIC_API_KEY"): KeyState {
+  if (heldKeys([field])[field]) return "held";
   const { unlocked, values } = useKeys.getState();
-  if (unlocked) return values.ANTHROPIC_API_KEY ? "held" : "none";
+  if (unlocked) return values[field] ? "held" : "none";
   return vaultExists() ? "locked" : "none";
 }
 
@@ -66,6 +80,21 @@ export function keyState(): KeyState {
  * the PIN is the common case after five quiet minutes, and "Claude isn't set
  * up" would be untrue and unhelpful; say what to press instead.
  */
+/**
+ * The same sentence for the renderer's token, which lives in the same vault
+ * and is missed the same way: behind the PIN far more often than absent.
+ */
+export function noRendererKeyMessage(then: string): string {
+  switch (keyState("REPLICATE_API_TOKEN")) {
+    case "locked":
+      return `Your keys are locked. Enter the PIN under the key button (⌘⇧K), or hold them for this tab instead, then try again. ${then}`;
+    case "held":
+      return `The Replicate token this browser holds didn't reach the server. Press Try it under the key button (⌘⇧K). ${then}`;
+    default:
+      return `No Replicate token yet. Paste one under the key button (⌘⇧K) and press Try it. ${then}`;
+  }
+}
+
 export function noKeyMessage(then: string): string {
   switch (keyState()) {
     case "locked":

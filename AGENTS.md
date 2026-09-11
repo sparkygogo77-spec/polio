@@ -292,6 +292,48 @@ a kicker with a rule, and label-and-value rows that copy.
   rectangle yields no clip at all: cutting a box to a box is cutting
   nothing. `tests/outline-clip.mjs` holds the star, the helix, the spiral,
   the box and the empty cases.
+- **A body can be drawn instead of written** (`renderer.ts`,
+  `api/studio/image/route.ts`). Claude writing SVG by hand is the right
+  answer for a diagram or a band of sentences and the wrong one for a thing
+  that has to *look* like something, so there is a second way to fill an
+  Idea part and it goes through Replicate: **vector**
+  (`recraft-ai/recraft-v3-svg`) comes back as SVG, **raster**
+  (`black-forest-labs/flux-2-pro`) as a `data:` URI inside an `<img>`. An
+  SVG a drawing model emitted is not more trusted than one a writing model
+  typed: it goes through `cleanSnippet` on the way in and renders under the
+  same `sandbox=""` and the same content policy, with a bigger ceiling
+  (`RENDER_LIMIT`) because a drawing is every curve it drew, and past the
+  ceiling it is refused rather than cut.
+
+  In the body loop (`bodyRun.ts`) the renderer goes **first**, and it is
+  scored on the same bar as everything else: the silhouette of what it drew
+  against the outline that was drawn, intersection over union, `GOOD_ENOUGH`
+  at 0.72. Clear it and Claude is never asked. Short of it, the renderer's
+  own render is what the first written attempt is given to beat, with the
+  drawn picture beside it as always, and at the end the best of everything
+  is kept, drawn or written. The drawn PNG is the reference on both paths
+  and in the critique.
+
+  The token is the person's, not the deployment's, and lives where the
+  Claude key lives: a service card under Keys beside Claude, held in the same
+  vault in this browser, unlocked the same way, sent as `x-replicate-key` by
+  `rendererHeader()` with each call. The route holds it for the length of the
+  call — never written down, never logged, never returned, and the one place
+  a library's error message could carry it is scrubbed. A
+  `REPLICATE_API_TOKEN` in the server's environment still works and is a
+  silent fallback rather than the path: the browser's token wins, which is
+  the reverse of every other route here and right, because the person who
+  typed it is the person being billed. `/api/keys/status` reports the
+  server's, present or absent, the same yes-or-no it gives for every other
+  name. With no token anywhere the route answers HTTP 200, `ok: false`,
+  `reason: "unavailable"`, the same shape and the same path a locked Claude
+  key answers with, and the loop says `noRendererKeyMessage` rather than "no
+  token", because a vault holding one behind a PIN is the usual case. A
+  renderer call is the first thing here that
+  spends money per press rather than per token, so `RENDER_COST` (0.04
+  raster, 0.08 vector) rides back with the answer, is kept on the part
+  (`PartCode.cost`), lands on the iteration's card and ends the usage line.
+  Tested by `tests/renderer.mjs`.
 - **Build writes the looks from the document and asks Claude only for the
   rest.** It used to be one ask — here is the blueprint, write every file —
   and the blueprint is words, which are lossy about looks: a palette

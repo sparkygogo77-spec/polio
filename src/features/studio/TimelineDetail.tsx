@@ -27,6 +27,7 @@ import { useActions } from "@/core/actions";
 import { IterationBook } from "./BriefDialog";
 import { headlineOf } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
+import { money } from "./renderer";
 import { useStudio } from "./store";
 
 /**
@@ -153,6 +154,23 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
   const findings = trail.filter((e) => e.threadId === thread.id && e.stage === "critique");
   const changed = React.useMemo(() => diffDocs(parent?.doc, thread.doc), [parent, thread]);
   const loopHere = loop && (loop.to === thread.id || loop.from === thread.id);
+  /*
+   * What this iteration cost, in one line.
+   *
+   * Tokens are an estimate of a bill and the renderer is the bill, so the
+   * dollars sit at the end of the same line rather than in a place of their
+   * own: an iteration that drew something says so where an iteration that
+   * only wrote says how much of it came out of the cache.
+   */
+  const usage = React.useMemo(() => {
+    const u = thread.usage;
+    if (!u) return "";
+    return [
+      u.sent ? `${u.sent} pieces sent${u.skipped ? `, ${u.skipped} unchanged` : ""}` : "",
+      u.cached ? `${u.cached.toLocaleString()} tokens read from the cache` : "",
+      u.cost ? `${money(u.cost)} at the renderer` : "",
+    ].filter(Boolean).join(" · ");
+  }, [thread.usage]);
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -255,11 +273,8 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
             onClick={() => void ctx.copy(thread.answer, "the answer")} />
           <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this iteration live under it"
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
-          {thread.usage ? (
-            <p className="px-1 pt-1 text-[9px]" style={{ color: skin.dim }}>
-              {thread.usage.sent} pieces sent{thread.usage.skipped ? `, ${thread.usage.skipped} unchanged` : ""}
-              {thread.usage.cached ? ` · ${thread.usage.cached.toLocaleString()} tokens read from the cache` : ""}
-            </p>
+          {usage ? (
+            <p className="px-1 pt-1 text-[9px]" style={{ color: skin.dim }}>{usage}</p>
           ) : null}
         </aside>
       </div>

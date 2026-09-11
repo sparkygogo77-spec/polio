@@ -230,6 +230,11 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
     },
     { onStep: deps.onStep },
   );
+  // Spent is spent, whether or not a body came of it, and how the body got
+  // here — drawn or written, at what price, and why the renderer was not
+  // used — is part of what this iteration did, so it goes on the card.
+  if (written.cost) useStudio.getState().noteCost(written.cost);
+  if (written.message) useStudio.getState().noteThread([written.message]);
   if (!written.ok || !written.code) return "";
   useStudio.getState().updateNode(nodeId, { code: written.code });
   return written.message;

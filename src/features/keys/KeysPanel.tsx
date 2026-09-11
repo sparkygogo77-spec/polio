@@ -18,8 +18,11 @@
  * key. It shows whether the server already has the key, so someone who has
  * set it properly is told to stop rather than encouraged to paste it twice,
  * and a "Try it" asks Anthropic whether the key works, so "the prompts are
- * not working" has a first answer that is not a guess. Keys the browser
- * cannot use — GitHub, X, Vercel — are named as server-only, not offered.
+ * not working" has a first answer that is not a guess. Replicate sits
+ * beside Claude, because they are two halves of one job: Claude writes a
+ * part's body and the renderer draws it, and both tokens are the person's
+ * own, held here and sent with the call. Keys the browser cannot use —
+ * GitHub and X — are named as server-only, not offered.
  */
 import * as React from "react";
 import { AlertTriangle, Check, Delete, Eye, EyeOff, KeyRound, Lock, LockOpen, ShieldCheck, Sparkles, Trash2, Unlock, X } from "lucide-react";
@@ -254,6 +257,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
     const header: Record<string, string> = {};
     const typed = (id: string) => (draft[id] ?? "").trim();
     if (service === "anthropic" && typed("ANTHROPIC_API_KEY")) header["x-anthropic-key"] = typed("ANTHROPIC_API_KEY");
+    if (service === "replicate" && typed("REPLICATE_API_TOKEN")) header["x-replicate-key"] = typed("REPLICATE_API_TOKEN");
     if (service === "vercel" && typed("VERCEL_TOKEN")) header["x-vercel-token"] = typed("VERCEL_TOKEN");
     try {
       const res = await fetch("/api/keys/test", {
@@ -291,7 +295,8 @@ function Vault({ server }: { server: ServerStatus | null }) {
           const waiting = answer !== null && "busy" in answer;
           const canTry = !!server?.set[keyField] || !!(draft[keyField] ?? "").trim();
           return (
-            <section key={s.id} className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
+            <React.Fragment key={s.id}>
+            <section data-service={s.id} className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
               <header className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="text-[12px] font-semibold text-fg">{s.label}</h3>
                 {onServer ? (
@@ -352,6 +357,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
                 )}
               </div>
             </section>
+            </React.Fragment>
           );
         })}
 

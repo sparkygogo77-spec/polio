@@ -210,6 +210,12 @@ same boxes as everywhere else, in the screen's colours.
   Blueprint dialog draws them as a map: written, found, now, joined by lines,
   with Take it on any finding that carries a prompt. A critique you can only
   copy is a critique nobody applies.
+- **A key the person is billed for is the person's to hold.** The renderer's
+  Replicate token sits beside the Claude key under the same button, in the
+  same vault, unlocked the same way, and rides with the call. It is the one
+  key whose browser value beats the server's, because a drawn body costs
+  eight cents and the person who typed the token is the one paying for it.
+  The card says the price where the others say what the key is for.
 - **The browser holds only what a browser request can carry.** The Claude
   key rides as a header on the studio routes, so the vault holds it: in this
   browser, in the clear, with no PIN in the way and a plain Forget to end it.

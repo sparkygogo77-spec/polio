@@ -569,6 +569,24 @@ function ElementPiece({
  * Straight off the strokes the board kept, so a piece carries the actual
  * drawing rather than an icon standing in for one.
  */
+/**
+ * Enough points to be the line, at a thumbnail's size.
+ *
+ * A helix is two hundred points and every other one is plenty. A box is
+ * five, and every other one is a diagonal: dropping points from a short
+ * stroke does not simplify it, it draws something else. So the step is
+ * worked out from the length, and the last point is always kept, because
+ * that is the one that closes the shape.
+ */
+function thin(stroke: [number, number][], most = 64): [number, number][] {
+  if (stroke.length <= most) return stroke;
+  const step = Math.ceil(stroke.length / most);
+  const out = stroke.filter((_, k) => k % step === 0);
+  const last = stroke[stroke.length - 1]!;
+  if (out[out.length - 1] !== last) out.push(last);
+  return out;
+}
+
 function Drawn({ sketch, size, tone }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string }) {
   if (!sketch?.strokes?.length) return <Brush className="size-3.5 shrink-0 opacity-70" />;
   return (
@@ -576,7 +594,7 @@ function Drawn({ sketch, size, tone }: { sketch?: { strokes: [number, number][][
       {sketch.strokes.slice(0, 12).map((stroke, i) => (
         <polyline
           key={i}
-          points={stroke.filter((_, k) => k % 2 === 0).map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(" ")}
+          points={thin(stroke).map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(" ")}
           fill="none"
           stroke={tone}
           strokeWidth={0.04}

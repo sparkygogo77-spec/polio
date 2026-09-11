@@ -11,6 +11,11 @@
  *
  * The loop:
  *
+ * 0. The **renderer** goes first (`/api/studio/image`). A thing that has to
+ *    look like something is better drawn than written, so Replicate is
+ *    asked for an SVG before Claude is asked for one. It is scored on the
+ *    same bar as everything else, and when the server has no token the
+ *    route says so and the loop carries on to the written body.
  * 1. The **target** is the silhouette the author drew — the clip path,
  *    filled, at a coarse grid. That is the shape the body has to be.
  * 2. The body is rendered on its own, at the part's real size, with
@@ -24,10 +29,18 @@
  *    the best is kept, never the last.
  *
  * Every attempt's number is reported, so the counter says "attempt 2 of 3 ·
- * 0.71" while it works and the queue's note says how it ended.
+ * 0.71" while it works and the queue's note says how it ended. The best of
+ * everything is kept, and the renderer's attempt is in "everything": a
+ * drawing that scored 0.68 beats a written body that scored 0.44.
+ *
+ * The drawing itself is the reference on both paths. The written body has
+ * always been given the picture of the strokes, and it still is; when the
+ * renderer went first and fell short, its render is what the first written
+ * attempt is asked to beat, with the drawn picture beside it.
  */
-import { cleanSnippet, type PartCode } from "./snippet";
-import { keyHeader } from "./agent";
+import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
+import { money, RENDER_COST, type RenderKind } from "./renderer";
+import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
 import type { OutlineClip } from "./sketch";
 
 /** How much of the drawing a body has to cover before it is left alone. */
@@ -41,6 +54,8 @@ const INK = 24;
 
 export interface Attempt {
   n: number;
+  /** Who made this one. The renderer's attempt is always the first. */
+  source: "renderer" | "written";
   overlap: number;
   /** What was short, in words, if anything. */
   says: string;
@@ -56,6 +71,10 @@ export interface BodyResult {
   attempts: Attempt[];
   message: string;
   reason?: string;
+  /** What the renderer cost, in dollars. Zero when it was never reached. */
+  cost: number;
+  /** Why the renderer was not used, when it was not. Shown, not swallowed. */
+  rendererSays?: string;
 }
 
 export interface BodyInput {
@@ -67,6 +86,8 @@ export interface BodyInput {
   /** The drawing as a PNG, base64, no data-URL head. */
   picture: string | null;
   palette?: { bg?: string; text?: string; accent?: string; muted?: string };
+  /** Which renderer to try first. `false` skips it and writes the body. */
+  renderer?: RenderKind | false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -182,6 +203,31 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
   return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string };
 }
 
+/**
+ * Ask the renderer to draw it.
+ *
+ * The token rides on the request, out of the same vault the Claude key
+ * comes from, and no Claude key rides with it: this route has no use for
+ * one. Without a token the answer is `unavailable` at HTTP 200, so this is
+ * never a failure, only a fork.
+ */
+async function askRenderer(input: BodyInput, kind: RenderKind): Promise<{ ok: boolean; html?: string; cost?: number; message?: string; reason?: string }> {
+  const res = await fetch("/api/studio/image", {
+    method: "POST",
+    headers: { "content-type": "application/json", ...rendererHeader() },
+    body: JSON.stringify({
+      kind,
+      label: input.label,
+      prompt: input.prompt,
+      closed: input.outline?.closed ?? true,
+      w: input.w,
+      h: input.h,
+      palette: input.palette,
+    }),
+  });
+  return (await res.json()) as { ok: boolean; html?: string; cost?: number; message?: string; reason?: string };
+}
+
 /** Render one body on the server and read what it painted. */
 async function renderBody(html: string, w: number, h: number): Promise<{ shot: string | null; mask: boolean[] | null }> {
   const res = await fetch("/api/studio/render", {
@@ -212,43 +258,54 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
   const target = targetMask(input.outline);
   const attempts: Attempt[] = [];
   let prev: { html: string; says: string; shot: string | null } | undefined;
+  let spent = 0;
+  let rendererSays: string | undefined;
+  const kind: RenderKind | false = input.renderer ?? "vector";
 
-  for (let n = 1; n <= MAX_ATTEMPTS; n++) {
+  /* 0. The renderer, first. */
+  if (kind) {
+    deps.onStep?.("The renderer is drawing it…");
+    let drew: Awaited<ReturnType<typeof askRenderer>>;
+    try {
+      drew = await askRenderer(input, kind);
+    } catch (err) {
+      drew = { ok: false, message: err instanceof Error ? err.message : "The renderer could not be reached." };
+    }
+    if (drew.ok && drew.html) {
+      spent += drew.cost ?? RENDER_COST[kind];
+      const { html } = cleanSnippet(drew.html, RENDER_LIMIT);
+      deps.onStep?.("Looking at what the renderer drew…");
+      const judged = await judge(html, input, target);
+      attempts.push({ n: 0, source: "renderer", overlap: judged.overlap, says: judged.says, html, note: `drawn by the renderer, ${kind}`, shot: judged.shot });
+      // Short of the bar, the renderer's own render is what the first
+      // written attempt is given to beat, with the drawing beside it.
+      if (judged.overlap >= 0 && judged.overlap < GOOD_ENOUGH) prev = { html, says: judged.says, shot: judged.shot };
+    } else {
+      // A vault holding a token but locked is the usual reason, and "no
+      // token" would be untrue; say what to press instead.
+      rendererSays = (drew.reason === "unavailable" ? noRendererKeyMessage("") : drew.message ?? "The renderer drew nothing.").trim();
+    }
+  }
+
+  const drawnWell = attempts.some((a) => a.overlap < 0 || a.overlap >= GOOD_ENOUGH);
+
+  for (let n = 1; !drawnWell && n <= MAX_ATTEMPTS; n++) {
     deps.onStep?.(n === 1 ? "Claude is writing the body…" : `Attempt ${n} of ${MAX_ATTEMPTS}${attempts.length ? ` · best ${(bestOf(attempts).overlap * 100).toFixed(0)}%` : ""}…`);
     const answer = await askForBody(input, prev);
     if (!answer.ok || !answer.html) {
       // Nothing to judge. If an earlier attempt landed, that one stands.
       if (attempts.length) break;
-      return { ok: false, code: null, attempts, message: answer.message ?? "No body came back.", reason: answer.reason };
+      return { ok: false, code: null, attempts, cost: spent, rendererSays, message: answer.message ?? "No body came back.", reason: answer.reason };
     }
     const { html } = cleanSnippet(answer.html);
     deps.onStep?.(`Looking at attempt ${n}…`);
-    let overlap = 0;
-    let says = "";
-    let shot: string | null = null;
-    try {
-      const rendered = await renderBody(html, input.w, input.h);
-      shot = rendered.shot;
-      if (rendered.mask) {
-        const judged = compare(target, rendered.mask);
-        overlap = judged.overlap;
-        says = judged.says;
-      } else {
-        // No headless browser here: the body is kept as written, and the
-        // loop says so rather than pretending to have judged it.
-        says = "The server could not render it, so nothing was compared.";
-        overlap = -1;
-      }
-    } catch (err) {
-      says = err instanceof Error ? err.message : "The render could not be read.";
-      overlap = -1;
-    }
-    attempts.push({ n, overlap, says, html, note: answer.note ?? "", shot });
+    const { overlap, says, shot } = await judge(html, input, target);
+    attempts.push({ n, source: "written", overlap, says, html, note: answer.note ?? "", shot });
     if (overlap < 0 || overlap >= GOOD_ENOUGH) break;
     prev = { html, says, shot };
   }
 
-  if (!attempts.length) return { ok: false, code: null, attempts, message: "No body came back.", reason: "empty" };
+  if (!attempts.length) return { ok: false, code: null, attempts, cost: spent, rendererSays, message: rendererSays ?? "No body came back.", reason: "empty" };
   const best = bestOf(attempts);
   const code: PartCode = {
     html: best.html,
@@ -257,17 +314,44 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
     scores: attempts.map((a) => Math.round(Math.max(0, a.overlap) * 100) / 100),
     at: Date.now(),
     note: best.note,
+    source: best.source,
+    ...(best.source === "renderer" && kind ? { kind } : {}),
+    ...(spent ? { cost: spent } : {}),
   };
-  const scored = attempts.map((a) => (a.overlap < 0 ? "not compared" : a.overlap.toFixed(2))).join(", ");
+  const scored = attempts.map((a) => `${a.source === "renderer" ? "drawn" : "written"} ${a.overlap < 0 ? "not compared" : a.overlap.toFixed(2)}`).join(", ");
+  const made = best.source === "renderer" ? "The renderer drew the body" : "A body was written";
+  const price = spent ? `, ${money(spent)} at the renderer` : "";
+  // Why the renderer was not used is part of what happened, so it is said
+  // rather than left for someone to notice the absence of — whole, because
+  // the useful half of "no token yet" is the half that says what to press.
+  const skipped = rendererSays ? ` ${rendererSays.slice(0, 200)}` : "";
   return {
     ok: true,
     code,
     attempts,
+    cost: spent,
+    rendererSays,
     message:
       best.overlap < 0
-        ? `A body was written; the server could not render it to check the shape (${attempts.length} attempt${attempts.length === 1 ? "" : "s"}).`
-        : `A body was written and matched ${(best.overlap * 100).toFixed(0)}% of the drawing (${attempts.length} attempt${attempts.length === 1 ? "" : "s"}: ${scored}).`,
+        ? `${made}; the server could not render it to check the shape (${attempts.length} attempt${attempts.length === 1 ? "" : "s"}${price}).${skipped}`
+        : `${made} and it matched ${(best.overlap * 100).toFixed(0)}% of the drawing (${attempts.length} attempt${attempts.length === 1 ? "" : "s"}: ${scored}${price}).${skipped}`,
   };
+}
+
+/** Render one body and score it against the drawing. The one place a number comes from. */
+async function judge(html: string, input: BodyInput, target: boolean[]): Promise<{ overlap: number; says: string; shot: string | null }> {
+  try {
+    const rendered = await renderBody(html, input.w, input.h);
+    if (!rendered.mask) {
+      // No headless browser here: the body is kept as it is, and the loop
+      // says so rather than pretending to have judged it.
+      return { overlap: -1, says: "The server could not render it, so nothing was compared.", shot: rendered.shot };
+    }
+    const judged = compare(target, rendered.mask);
+    return { overlap: judged.overlap, says: judged.says, shot: rendered.shot };
+  } catch (err) {
+    return { overlap: -1, says: err instanceof Error ? err.message : "The render could not be read.", shot: null };
+  }
 }
 
 function bestOf(attempts: Attempt[]): Attempt {
