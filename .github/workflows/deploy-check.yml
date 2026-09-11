@@ -1,0 +1,58 @@
+# Does the live site work, and is it the site we think it is?
+#
+# This runs after every push to trunk, once the deployment has actually
+# become the commit that was pushed. It exists because a deployment that is
+# eleven commits behind looks exactly like one that is current, and because
+# every other suite in this repository talks to a dev server: J drew a cube
+# on the live site and got nothing, and nothing anywhere said why.
+#
+# It can also be run by hand against any URL from the Actions tab.
+name: deploy check
+
+on:
+  push:
+    branches: [claude/template-ui-website-builder-11bfgl]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: The deployment to ask
+        default: https://polio-two.vercel.app
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  ask-the-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The check counts how far behind trunk the deployment is, so it
+          # needs the history to count through.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install what the check needs
+        # Playwright only: the check drives a browser and speaks HTTP, and
+        # neither wants the application's own dependency tree.
+        run: |
+          npm i --no-save playwright@latest
+          npx playwright install --with-deps chromium
+
+      - name: Ask the deployment
+        env:
+          PLAYWRIGHT_MODULE: playwright
+          DEPLOY_TRUNK: claude/template-ui-website-builder-11bfgl
+        run: |
+          node tests/deploy-check.mjs "${{ inputs.url || 'https://polio-two.vercel.app' }}" --wait-for "${{ github.sha }}"
+
+      - name: Keep what it found
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-check
+          path: docs/DEPLOY-CHECK.md

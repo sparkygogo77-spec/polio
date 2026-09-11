@@ -1983,6 +1983,30 @@ remove it from `src/features/index.ts` when you're sure.
   the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
+- **Ask the deployment, not a dev server** (`tests/deploy-check.mjs`, `npm run
+  check:deploy`). Every other suite here talks to localhost, which is how a
+  cube drawn on the live site did nothing: the work had never reached trunk
+  and nothing said so. This one fetches the real URL, follows no redirect,
+  and puts the commit the deployment is serving next to trunk's head in one
+  line — stale, unmerged, or current. `/api/version` is what makes that
+  answerable, and it may carry a commit, a branch, an environment and a build
+  time and **nothing else**: it is public, so the rule for
+  `/api/keys/status` applies to it.
+  Then it opens the Builder and asks, **by visibility and never by
+  existence**, for the things that have each broken at least once: the bar and
+  every control in it, the category shelf, both searches, a side panel, the
+  nebula, the Finish key, the Keys panel naming Claude and Replicate, and the
+  cube findable by typing "cube" the way a person would. Anything absent names
+  itself. It writes `docs/DEPLOY-CHECK.md` so there is a record rather than a
+  scroll, and `.github/workflows/deploy-check.yml` runs it after every trunk
+  push once the deployment is actually serving that commit.
+  Two things to know before reading a red one. A failure part-way through the
+  browser half is reported as a failure — an earlier draft only spoke up when
+  the page never opened, which would have let the Builder's checks go missing
+  under a green summary, which is this file's own bug in miniature. And an
+  agent container behind an egress proxy cannot open the page at all: the HTTP
+  rows still answer, the Builder's rows are absent rather than failed, and the
+  record says so.
 - **What the loop actually spends is written down**, in
   `docs/PRODUCTION-LOOP.md`: every call from a drawn line to a finished
   element, in order, with the model each one goes to, what is sent, what
