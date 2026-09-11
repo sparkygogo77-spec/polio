@@ -89,6 +89,7 @@ const MODE_WORD: Record<string, string> = {
   ask: "Asked",
   build: "Asked for the code",
   drawing: "Drew a shape",
+  start: "Started the board",
 };
 
 /** One line: what was asked, and what it put on the board. */

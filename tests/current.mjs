@@ -36,6 +36,57 @@ const check = (name, ok, detail = "") => {
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+
+/* ------------------------------------------------------------------ */
+/* 0. A fresh build, and the first thing anyone does                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Nothing used to seed the timeline. Threads were landed by an ask coming
+ * back and by a drawing being made real, and by nothing else, so someone
+ * who had laid out a whole board opened the timeline and found it empty,
+ * which reads as broken rather than as "nothing has happened yet".
+ */
+await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
+await page.evaluate(() => localStorage.clear());
+await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1400);
+const threadCount = () => page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.threads ?? []).length);
+check("a fresh build has no history, and inventing one would be a lie", (await threadCount()) === 0, String(await threadCount()));
+await page.locator("[data-finish]").first().click({ force: true });
+await page.waitForTimeout(1400);
+check("and the empty timeline says so plainly rather than looking broken",
+  /nothing has happened yet/i.test(await page.locator("[data-timeline]").first().innerText()),
+  (await page.locator("[data-timeline]").first().innerText()).replace(/\s+/g, " ").slice(0, 80));
+check("it also says what will make the first one", /makes iteration one/i.test(await page.locator("[data-timeline]").first().innerText()));
+await page.locator("[data-finish]").first().click({ force: true });
+await page.waitForTimeout(1100);
+
+/* The first real action: drop a part. */
+await page.locator('input[placeholder*="Search parts"]').first().fill("cube");
+await page.waitForTimeout(800);
+await page.getByText("Cube", { exact: true }).first().click({ force: true });
+await page.waitForTimeout(1400);
+check("the first thing you do makes iteration one", (await threadCount()) === 1, String(await threadCount()));
+{
+  const first = await page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.threads ?? [])[0]);
+  check("and it is the board you started from, not an invented ask", first?.mode === "start" && first?.changes?.[0] === "the board as you started it", `${first?.mode}: ${first?.changes?.[0]}`);
+  check("it is finished, because starting is not a process", (first?.state ?? "done") === "done");
+  check("and it holds the document, so there is somewhere to stand", !!first?.doc);
+}
+await page.locator("[data-finish]").first().click({ force: true });
+await page.waitForTimeout(1500);
+check("there is a box on the timeline at last", (await page.locator("[data-box]").count()) === 1, String(await page.locator("[data-box]").count()));
+check("it says where it began", /where it began/i.test(await page.locator("[data-box]").first().innerText()));
+/* A second action does not make a second beginning. */
+await page.locator("[data-finish]").first().click({ force: true });
+await page.waitForTimeout(1000);
+await page.locator('input[placeholder*="Search parts"]').first().fill("cube");
+await page.waitForTimeout(700);
+await page.getByText("Cube", { exact: true }).first().click({ force: true });
+await page.waitForTimeout(1200);
+check("the second thing you do does not make a second beginning", (await threadCount()) === 1, String(await threadCount()));
+
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
 
 /* Four iterations, put straight into the document: this is about the

@@ -92,6 +92,8 @@ function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
   switch (t.mode) {
     case "drawing":
       return { icon: <Brush className="size-3.5" />, kind: "element prompt" };
+    case "start":
+      return { icon: <Flag className="size-3.5" />, kind: "where it began" };
     case "build":
       return { icon: <Layers className="size-3.5" />, kind: "chain prompt" };
     case "critique":
@@ -512,9 +514,10 @@ export function Timeline() {
       {nothing ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-sm text-center text-[12px] leading-relaxed text-[oklch(0.7_0.06_158)]">
-            Nothing has landed yet. Every ask that comes back stands here as an iteration, a chain prompt about the whole
-            site, or an element prompt from a drawing, and the strands between them are what one iteration made of the
-            last. Ask something below to start.
+            Nothing has happened yet, which is not the same as something being wrong. The first thing you do to the
+            board makes iteration one and it appears here; after that every ask that comes back and every drawing made
+            real stands here too, and the strands between them are what one iteration made of the last. Add a part, or
+            ask something below.
           </p>
         </div>
       ) : null}
