@@ -36,7 +36,7 @@ import { useStudio } from "./store";
  * It read as a codebase — grey chrome under a lit timeline — and the two
  * halves of one screen should not look like two applications.
  */
-const FIELD = {
+export const FIELD = {
   face: "oklch(0.155 0.032 158)",
   raised: "oklch(0.21 0.05 158)",
   rim: "oklch(0.36 0.07 158)",
@@ -299,10 +299,10 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
   );
 }
 
-type Skin = typeof FIELD;
+export type Skin = typeof FIELD;
 
 /** One band of the section, in the timeline's own colours. */
-function Row({ skin, icon, title, children }: { skin: Skin; icon: React.ReactNode; title: string; children: React.ReactNode }) {
+export function Row({ skin, icon, title, children }: { skin: Skin; icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border p-2.5" style={{ borderColor: skin.rim, background: skin.face }}>
       <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>

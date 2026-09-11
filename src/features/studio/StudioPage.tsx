@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft, Search,
+  Circle, Eraser, Eye, FileText, History, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft, Search,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
@@ -18,6 +18,7 @@ import { Canvas } from "./Canvas";
 import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "./parts/theme";
 import { PreviewWindow } from "./Preview";
+import { UpdatesPanel } from "./Updates";
 import { Palette } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
@@ -329,6 +330,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       {/* The two ways out of Design, at the end of the bar and in that order:
           look at it, then finish it. */}
       <span className="mx-1 h-4 w-px bg-border" />
+      <UpdatesToggle />
       <PreviewToggle />
       <ProcessCounter />
     </div>
@@ -351,6 +353,31 @@ function SearchTools() {
         <Kbd>mod+k</Kbd>
       </button>
     </Tooltip>
+  );
+}
+
+/**
+ * What has landed, from the bar.
+ *
+ * The one control the updates slide over needs. It is a slide over rather
+ * than a page because knowing what changed is something you do while you are
+ * working: Escape or a press outside and the board is where you left it.
+ *
+ * NOTE: this bar belongs to the sibling branch. This is the single addition
+ * the panel requires — the button and its state — so the merge stays clean.
+ */
+function UpdatesToggle() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <>
+      <Tooltip content="What has landed, and what is new to use">
+        <Button variant="ghost" size="xs" data-updates-toggle="" aria-pressed={open} onClick={() => setOpen(true)}>
+          <History />
+          Updates
+        </Button>
+      </Tooltip>
+      <UpdatesPanel open={open} onOpenChange={setOpen} />
+    </>
   );
 }
 
