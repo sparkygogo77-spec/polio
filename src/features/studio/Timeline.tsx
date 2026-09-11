@@ -32,7 +32,7 @@
  * and what this generation can be turned into.
  */
 import * as React from "react";
-import { Brush, Copy, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -118,6 +118,7 @@ export function Timeline() {
   const openThreadId = useStudio((s) => s.openThreadId);
   const spots = useStudio((s) => s.threadSpots);
   const pinned = useStudio((s) => s.pinnedThreads);
+  const currentId = useStudio((s) => s.currentThreadId);
 
   const host = React.useRef<HTMLDivElement>(null);
   const plot = React.useRef<HTMLDivElement>(null);
@@ -341,6 +342,7 @@ export function Timeline() {
               live={live}
               open={open}
               pinned={pinned.includes(t.id)}
+              current={currentId === t.id}
               dragging={dragging?.id === t.id}
               onOpen={() => {
                 if (Date.now() - dropped.current < 250) return;
@@ -437,6 +439,7 @@ function Standing(props: {
   live: boolean;
   open: boolean;
   pinned: boolean;
+  current: boolean;
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.PointerEvent) => void;
@@ -452,14 +455,75 @@ function Standing(props: {
  * of the page the iteration produced is the thing you recognise from
  * across the screen, which is what a timeline is for.
  */
+/**
+ * Red or green, and nothing else.
+ *
+ * The only question a box has to answer from across the screen is whether
+ * the work behind it finished. Red while a process is still going or gave
+ * up, green the moment it is done. Two colours, no shades between them,
+ * and no other state allowed in here: a third colour would make it a
+ * legend rather than a glance.
+ */
+function StateMark({ thread }: { thread: Thread }) {
+  const done = (thread.state ?? "done") === "done";
+  return (
+    <span
+      data-state={done ? "done" : thread.state}
+      aria-label={done ? "finished" : thread.state === "cut" ? "given up" : "still running"}
+      title={done ? "finished" : thread.state === "cut" ? "given up" : "still running"}
+      className="ml-auto size-2 shrink-0 rounded-full"
+      style={{
+        background: done ? "oklch(0.72 0.2 150)" : "oklch(0.62 0.23 27)",
+        boxShadow: `0 0 6px ${done ? "oklch(0.72 0.2 150 / 0.7)" : "oklch(0.62 0.23 27 / 0.7)"}`,
+      }}
+    />
+  );
+}
+
+/**
+ * The flag: this is the one I am working in.
+ *
+ * One per timeline, on the box rather than beside it, and pressing it
+ * moves it here. What follows it is the section below, the prompt area in
+ * it, and where the next ask hangs from; it stays put across a reload,
+ * because the whole point of marking a place is coming back to it.
+ */
+function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
+  return (
+    <button
+      type="button"
+      data-current={on ? "1" : "0"}
+      data-current-for={thread.id}
+      aria-pressed={on}
+      title={on ? "The iteration you are working in" : "Work in this iteration"}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        play(on ? "close" : "confirm");
+        useStudio.getState().setCurrentThread(on ? null : thread.id);
+      }}
+      className="flex shrink-0 items-center gap-1 rounded-sm border px-1 py-px text-[8px] uppercase tracking-[0.12em] transition-[background,border-color]"
+      style={{
+        borderColor: on ? "oklch(0.78 0.18 158)" : "oklch(0.42 0.08 158)",
+        background: on ? "oklch(0.5 0.15 158)" : "transparent",
+        color: on ? "oklch(0.14 0.02 158)" : "oklch(0.66 0.08 158)",
+      }}
+    >
+      <Flag className="size-2.5" />
+      this iteration
+    </button>
+  );
+}
+
 function IterationBox({
-  thread, at, live, open, pinned, dragging, onOpen, onDragStart, onMenu,
+  thread, at, live, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
   live: boolean;
   open: boolean;
   pinned: boolean;
+  current: boolean;
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.PointerEvent) => void;
@@ -493,8 +557,12 @@ function IterationBox({
         <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-[oklch(0.68_0.09_158)]">
           {icon}
           {kind}
-          {live ? <span className="ml-auto rounded-sm bg-[oklch(0.5_0.14_158)] px-1 text-[8px] text-[oklch(0.14_0.02_158)]">live</span> : null}
-          {pinned ? <Pin className="ml-auto size-3 fill-current" /> : null}
+          {pinned ? <Pin className="size-3 fill-current" /> : null}
+          {/* The flag, then the state, hard against the right edge. */}
+          <span className="ml-auto flex items-center gap-1.5">
+            <CurrentButton thread={thread} on={current} />
+            <StateMark thread={thread} />
+          </span>
         </span>
         <div className="flex items-start gap-2">
           {/* What it produced, at a glance: the page it left behind. */}
@@ -521,13 +589,14 @@ function IterationBox({
  * any sentence about the line would.
  */
 function ElementPiece({
-  thread, at, open, dragging, onOpen, onDragStart, onMenu,
+  thread, at, open, current, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
   live: boolean;
   open: boolean;
   pinned: boolean;
+  current: boolean;
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.PointerEvent) => void;
@@ -557,6 +626,8 @@ function ElementPiece({
       >
         <Drawn sketch={thread.sketch} size={30} tone="oklch(0.9 0.14 300)" />
         <span className="min-w-0 flex-1 truncate text-[11px] leading-tight">{name}</span>
+        <CurrentButton thread={thread} on={current} />
+        <StateMark thread={thread} />
       </button>
       {open ? <Card thread={thread} side="out" /> : null}
     </div>

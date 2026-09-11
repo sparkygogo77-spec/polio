@@ -363,6 +363,8 @@ interface StudioState extends Doc {
    * everything at once is the wall the timeline replaced.
    */
   openThreadId: string | null;
+  /** The iteration being worked in: the flag, kept across reloads. */
+  currentThreadId: string | null;
   /**
    * Drawings waiting to be made real, and the ones that have been.
    *
@@ -501,7 +503,19 @@ interface StudioState extends Doc {
   /** Keep what Claude found, each finding beside the prompt it was about. */
   recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
   /** An API call came back: hang a thread off the live one and stand on it. */
-  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string } }) => string;
+  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string }; state?: "running" | "done" | "cut" }) => string;
+  /** How the process behind one iteration ended: still going, done, or given up on. */
+  markThread: (id: string, state: "running" | "done" | "cut") => void;
+  /**
+   * The iteration being worked in.
+   *
+   * Distinct from the live one, which is whatever landed last, and from the
+   * open one, which is whatever is being read below. This is the one the
+   * person has put their flag in: the section follows it, the next ask
+   * hangs off it, and it survives a reload, because "where was I" is the
+   * question a timeline exists to answer.
+   */
+  setCurrentThread: (id: string | null) => void;
   /** Cut one thread; its children re-hang from its parent and the board goes to whatever is live after. */
   pruneThread: (id: string) => void;
   /** Put the board back on a thread. */
@@ -718,6 +732,7 @@ export const useStudio = create<StudioState>()(
         pinnedThreads: [],
         bookPinned: false,
         openThreadId: null,
+        currentThreadId: null,
         queue: [],
         threadSpots: {},
         draftPieces: [],
@@ -1322,13 +1337,21 @@ export const useStudio = create<StudioState>()(
               ),
             };
           }),
-        landThread: ({ mode, model, ask, answer, changes, sketch }) => {
+        markThread: (id, state) =>
+          set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, state } : t)) })),
+
+        setCurrentThread: (id) =>
+          set((s) => (s.threads.some((t) => t.id === id) || id === null ? { currentThreadId: id, openThreadId: id } : {})),
+
+        landThread: ({ mode, model, ask, answer, changes, sketch, state }) => {
           const id = uid("th");
           set((s) => ({
             threads: [
               ...s.threads,
               {
-                id, parentId: s.liveThreadId, at: Date.now(), mode, model,
+                // It hangs off the one being worked in when there is one,
+                // and off whatever landed last when there is not.
+                id, parentId: s.currentThreadId ?? s.liveThreadId, at: Date.now(), mode, model, state: state ?? "done",
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 ...(sketch ? { sketch } : {}),
                 doc: snapshot(s) as ThreadDoc,
@@ -1360,6 +1383,7 @@ export const useStudio = create<StudioState>()(
             liveThreadId: live,
             pinnedThreads: s.pinnedThreads.filter((x) => x !== id),
             openThreadId: s.openThreadId === id ? null : s.openThreadId,
+            currentThreadId: s.currentThreadId === id ? null : s.currentThreadId,
             threadSpots: spots,
             trail: s.trail.filter((e) => e.threadId !== id),
             ...docPatch(stand?.doc),
@@ -1592,6 +1616,7 @@ export const useStudio = create<StudioState>()(
         pinnedThreads: s.pinnedThreads,
         bookPinned: s.bookPinned,
         openThreadId: s.openThreadId,
+        currentThreadId: s.currentThreadId,
         threadSpots: s.threadSpots,
         draftPieces: s.draftPieces,
         sentPieces: s.sentPieces,
@@ -1602,6 +1627,19 @@ export const useStudio = create<StudioState>()(
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,
+      /*
+       * A thread left running is a thread whose process is gone.
+       *
+       * Nothing survives a reload except the document, so anything still
+       * marked running when the store comes back was abandoned: the tab
+       * closed, the job died, the run was stopped. Both of those read red,
+       * which is what makes one mark enough for two states.
+       */
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const stuck = state.threads.some((t) => t.state === "running");
+        if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));
+      },
     },
   ),
 );

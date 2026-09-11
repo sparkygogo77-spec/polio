@@ -475,6 +475,22 @@ a kicker with a rule, and label-and-value rows that copy.
   as the drag. On each strand sits the **loop starter**: examine,
   critique, iterate.
 
+  **The flag and the state mark** are the two things on the box that are
+  not about what the iteration said. `this iteration` (`CurrentButton`,
+  `store.currentThreadId`) is where the work is: one per timeline, on the
+  box, and pressing it moves it. The section below reads whatever is open
+  and falls back to what is flagged, the prompt area in it says "working
+  here", and a new thread hangs off the flagged one rather than off
+  whatever landed last. It is persisted, because "where was I" is the
+  question a timeline exists to answer. Beside it, one dot: **green when
+  the work behind that iteration finished, red while it is still going or
+  was abandoned**, and no third colour, because a third colour turns a
+  glance into a legend. A drawing lands as `running` and is marked `done`
+  when its body has been traced; anything still `running` when the store
+  rehydrates is turned to `cut`, since the process that was running is
+  gone. The box keeps its own emerald and purple: the state mark is the
+  only thing here that is red or green. Tested by `tests/current.mjs`.
+
   An iteration is *read on the box*, not in a panel somewhere else.
   Clicking one grows two cards out of it: what went in from the top edge,
   what came out of the bottom, each joined to the box by the same

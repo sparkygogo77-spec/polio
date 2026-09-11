@@ -20,7 +20,7 @@
  *   iteration.
  */
 import * as React from "react";
-import { ArrowRight, BookOpen, Brush, Check, Copy, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Wand2 } from "lucide-react";
+import { ArrowRight, BookOpen, Brush, Check, Copy, Flag, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { useActions } from "@/core/actions";
@@ -58,8 +58,15 @@ const PURPLE = {
 export function TimelineDetail() {
   const [tab, setTab] = React.useState<"iteration" | "book">("iteration");
   const openId = useStudio((s) => s.openThreadId);
+  const currentId = useStudio((s) => s.currentThreadId);
   const threads = useStudio((s) => s.threads);
-  const open = threads.find((t) => t.id === openId) ?? null;
+  /*
+   * What is read here is what is open, and what is open falls back to the
+   * one being worked in. So the flag on a box is not only a marker: the
+   * section and the prompt in it follow it, and they still follow it after
+   * a reload, when nothing is explicitly open.
+   */
+  const open = threads.find((t) => t.id === openId) ?? threads.find((t) => t.id === currentId) ?? null;
 
   // The loop starter on a strand opens the pair here, on the critique step.
   const [loop, setLoop] = React.useState<{ from: string; to: string } | null>(null);
@@ -109,7 +116,7 @@ export function TimelineDetail() {
           <Iteration thread={open} loop={loop} />
         ) : (
           <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
-            Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to.
+            Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to. Press "this iteration" on a box to work in it, and this follows it.
           </p>
         )}
       </div>
@@ -146,6 +153,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
   const trail = useStudio((s) => s.trail);
   const pinned = useStudio((s) => s.pinnedThreads.includes(thread.id));
   const live = useStudio((s) => s.liveThreadId === thread.id);
+  const current = useStudio((s) => s.currentThreadId === thread.id);
   const ctx = useActions();
   const element = thread.mode === "drawing";
   const skin = element ? PURPLE : FIELD;
@@ -191,6 +199,15 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
             {element ? <Brush className="size-3.5" /> : <MessageSquare className="size-3.5" />}
             {element ? "element prompt" : "the prompt"}
           </span>
+          {/* The flag again, where the prompt is written, so the two are
+              never out of step with one another. */}
+          {current ? (
+            <span data-working-here="" className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] uppercase tracking-[0.14em]"
+              style={{ background: skin.lit, color: skin.face }}>
+              <Flag className="size-3" />
+              working here
+            </span>
+          ) : null}
           <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] font-medium leading-snug" style={{ color: skin.text }}>
             {thread.ask || "nothing was typed with this one"}
           </p>
