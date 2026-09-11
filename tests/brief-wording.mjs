@@ -63,13 +63,13 @@ await page.waitForTimeout(800);
 const brief = await page.locator("pre").first().innerText();
 const has = (re) => re.test(brief);
 
-check("the name reaches the wordmark and the title", has(/reads "BLACKORB" — never "Logo"/) && has(/Browser title: "BLACKORB"/));
+check("the name reaches the wordmark and the title", has(/reads "BLACKORB", never "Logo"/) && has(/Browser title: "BLACKORB"/));
 check("format defaults are in the brief, resolved", has(/Body font: system sans/) && has(/Theme: dark/) && has(/Every value here is binding/));
 check("a height is a minimum, never a box", has(/at least 64px tall/) && !/about \d+px tall/.test(brief) && !/do not reflow/.test(brief));
 check("the frame is the desktop layout and rows stack when narrower", has(/frame 1440px wide/) && has(/stacks top to bottom in reading order/));
-check("an empty prompted region is a section at its row", has(/\*\*The coordinates\*\* — a section of its own/) && !/nothing yet/.test(brief));
-check("a part with nowhere to send people says so", has(/links to: nowhere yet — a visible placeholder/));
-check("the category no longer leaks into the element line", !/\(Navigation\)/.test(brief) && has(/\*\*Top bar\*\* — Sticky top bar · must/));
+check("an empty prompted region is a section at its row", has(/\*\*The coordinates\*\*, a section of its own/) && !/nothing yet/.test(brief));
+check("a part with nowhere to send people says so", has(/links to: nowhere yet, a visible placeholder/));
+check("the category no longer leaks into the element line", !/\(Navigation\)/.test(brief) && has(/\*\*Top bar\*\*, Sticky top bar · must/));
 check("hairlines, anchors and reduced motion are stated once", has(/Text role at 12% opacity/) && has(/scroll-margin-top/) && has(/prefers-reduced-motion/));
 check("all-must gets the no-cut-list line", has(/no cut list/) === false, "only two elements, so the line stays off");
 

@@ -166,7 +166,7 @@ export function Cart({ id, content, theme: t, emit, onNavigate, link }: PartProp
         <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>Subtotal</span>
         <strong style={{ marginLeft: "auto", fontSize: t.fontPx * 1.1 }}>{money(total)}</strong>
       </div>
-      <Btn t={t} label="Checkout" onClick={() => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: `Checkout — ${money(total)}` }))} style={{ width: "100%" }} />
+      <Btn t={t} label="Checkout" onClick={() => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: `Checkout, ${money(total)}` }))} style={{ width: "100%" }} />
     </Fill>
   );
 }
@@ -292,7 +292,7 @@ export function Pricing({ id, content, options, theme: t, emit, w }: PartProps) 
               </span>
               {[0, 1, 2].map((k) => <span key={k} style={{ color: t.muted, fontSize: t.fontPx * 0.88 }}><span style={{ color: t.accent }}>✓</span> {sample.word(rng(hash(tier.title + k)))}</span>)}
               <span style={{ marginTop: "auto", display: "flex" }}>
-                <Btn t={t} label="Choose" primary={i === hot} onClick={() => emit?.({ type: "toast", text: `${tier.title} — $${price}/mo` })} style={{ width: "100%" }} />
+                <Btn t={t} label="Choose" primary={i === hot} onClick={() => emit?.({ type: "toast", text: `${tier.title}, $${price}/mo` })} style={{ width: "100%" }} />
               </span>
             </div>
           );
@@ -440,7 +440,7 @@ export function Discount({ id, content, theme: t, emit }: PartProps) {
       </div>
       {state !== "idle" ? (
         <span role="status" style={{ fontSize: t.fontPx * 0.8, color: state === "ok" ? t.accent : "oklch(0.7 0.19 25)" }}>
-          {state === "ok" ? "Applied — 10% off at checkout." : "That code isn't valid."}
+          {state === "ok" ? "Applied, 10% off at checkout." : "That code isn't valid."}
         </span>
       ) : null}
     </Fill>

@@ -758,7 +758,7 @@ export function Canvas() {
           What a drawn thing is called, over its middle or above its corner.
           A chain is not in this layer: it says why it is there on itself, in
           its own colour, and a "⛓ data" chip beside a drawn chain was the
-          same fact twice — printed on top of the reason, at that.
+          same fact twice, printed on top of the reason, at that.
         */}
         {shapes.filter((sh) => (sh.label || sh.prompt || sh.relation === "data") && (showWires || sh.kind !== "arrow") && !isChain(sh)).map((sh) => {
           const b = shapeBounds(sh);
@@ -1134,7 +1134,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         <Block node={node} t={theme} palette={palette} light={light} page={page} layers={layers} mode={selected ? "live" : "board"} />
       </div>
       {/*
-        Hover outline, so an unpicked part still reads as a part — and only
+        Hover outline, so an unpicked part still reads as a part, and only
         then. It is drawn in the part's *category* hue, which on a first-screen
         button is a red, so leaving it on under the hand put a red dashed box
         round the picked part on top of the mark: two rings saying the same
@@ -1144,7 +1144,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
       )}
 
-      {/* What is this, and when would you want it? Answered without clicking — and out of the way once it is picked. */}
+      {/* What is this, and when would you want it? Answered without clicking, and out of the way once it is picked. */}
       {feature && !selected ? (
         <div
           className="pointer-events-none absolute left-0 z-10 hidden w-[280px] origin-top-left rounded-md border border-border bg-panel/95 p-2 text-[11px] leading-snug text-fg-muted shadow-panel backdrop-blur group-hover:block"

@@ -154,7 +154,7 @@ function ColourSection() {
       {/* Six roles. Everything the site draws reads one of these. */}
       <div className="grid grid-cols-6 gap-1">
         {ROLES.map((r) => (
-          <Tooltip key={r} content={`${ROLE_LABEL[r]} — ${resolved[r]}`}>
+          <Tooltip key={r} content={`${ROLE_LABEL[r]}, ${resolved[r]}`}>
             <button
               type="button"
               aria-label={ROLE_LABEL[r]}
@@ -432,7 +432,7 @@ function TextureSection() {
                     what the kind could use, which meant the panel was a
                     different shape every time you opened one and you could
                     never learn where anything was. Every kind takes all of
-                    them now — see `layerCss`.
+                    them now, see `layerCss`.
                   */}
                   <Select
                     value={layer.target ?? "page"}
@@ -451,7 +451,7 @@ function TextureSection() {
 
                     Six palette roles is the right answer for a texture meant
                     to follow the site, and the wrong answer for the thing
-                    people reach for first — a flat ground in a colour they
+                    people reach for first, a flat ground in a colour they
                     already have in mind, which could not be said at all.
                   */}
                   {tintable ? (
@@ -481,7 +481,7 @@ function TextureSection() {
                     <Slider value={[layer.angle]} min={0} max={360} step={1} onValueChange={(v) => s().updateTexture(layer.id, { angle: v[0] ?? 45 })} aria-label="Angle" />
                   </Row>
                   {/*
-                    Drift: the same idea as the clouds behind the add disc —
+                    Drift: the same idea as the clouds behind the add disc,
                     tiles of noise laid over each other and moved at different
                     speeds. Every cycle carries a layer a whole number of its
                     own tiles along its own angle, so there is no seam where
@@ -511,7 +511,7 @@ function TextureSection() {
                   />
                   <p className="text-[10px] leading-snug text-fg-faint">
                     {layer.kind === "flat"
-                      ? "A flat colour. Solid at 0% fade — that is the static background — and it fades away along the angle as you turn it up."
+                      ? "A flat colour. Solid at 0% fade, that is the static background, and it fades away along the angle as you turn it up."
                       : kind?.hint}
                   </p>
 
@@ -598,7 +598,7 @@ function TextureSection() {
         ))}
       </div>
       <p className="text-[10px] leading-snug text-fg-faint">
-        Layers stack top to bottom — the first is nearest you. Turn one down to see through it, or
+        Layers stack top to bottom, the first is nearest you. Turn one down to see through it, or
         merge it into the one below to bake the pair into a single picture.
       </p>
     </section>
@@ -616,7 +616,7 @@ const WHERE_HINT: Record<TextureTarget, string> = {
   page: "The background and nothing else. Every section, bar and card stays its own opaque colour over it, so it shows in the margins and the gaps.",
   surfaces: "The cards, bars and panels themselves. The page keeps its flat colour.",
   both: "The background and the surfaces, each painted separately, so the two read as different materials.",
-  over: "Washed across the finished page, content included. Best kept faint — a grain, a fog, a scan line.",
+  over: "Washed across the finished page, content included. Best kept faint, a grain, a fog, a scan line.",
 };
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -684,8 +684,8 @@ function LightSection() {
         There was a thumbnail of the page here with a dot to drag around, which
         is a map of the thing rather than the thing: a lamp two hundred pixels
         wide, read at a glance, told you roughly where the light was and never
-        exactly. The button hands the board itself over instead — the workspace
-        goes dark but the page, the pointer becomes the light — and you put it
+        exactly. The button hands the board itself over instead, the workspace
+        goes dark but the page, the pointer becomes the light, and you put it
         where you can see it landing.
       */}
       <button
@@ -705,7 +705,7 @@ function LightSection() {
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-medium text-fg">Place the light</span>
           <span className="block truncate text-[10px] text-fg-faint">
-            {light.on ? `On the page at ${Math.round(light.x * 100)}%, ${Math.round(light.y * 100)}%` : "Off — pointing at a place turns it on"}
+            {light.on ? `On the page at ${Math.round(light.x * 100)}%, ${Math.round(light.y * 100)}%` : "Off, pointing at a place turns it on"}
           </span>
         </span>
       </button>

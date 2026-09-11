@@ -120,7 +120,7 @@ export function ProcessCounter() {
         // on it; `data-finish` is the handle everything holds it by.
         data-finish=""
         data-process-counter=""
-        aria-label={`Finish — ${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}
+        aria-label={`Finish, ${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}
         aria-pressed={mode === "book"}
         data-busy={busy ? "1" : "0"}
         onClick={() => {
@@ -166,7 +166,7 @@ export function QueueList() {
           />
           <span className="min-w-0 flex-1 text-fg-muted">
             <span className="text-fg">{j.label}</span>
-            {j.step ? ` — ${j.step}` : j.note ? ` — ${j.note}` : j.status === "waiting" ? " — waiting" : ""}
+            {j.step ? `, ${j.step}` : j.note ? `, ${j.note}` : j.status === "waiting" ? ", waiting" : ""}
           </span>
         </li>
       ))}

@@ -20,7 +20,10 @@
 /** The part of the document a thread keeps, so the board can go back to it. */
 export interface ThreadDoc {
   pages?: unknown[];
-  nodes?: { id: string; label: string; prompt?: string; w?: number; h?: number; featureId?: string }[];
+  // x and y were always in the snapshot; the type only ever named what was
+  // read. The timeline draws a thumbnail of the board an iteration left
+  // behind, and a thumbnail without positions is a list.
+  nodes?: { id: string; pageId?: string; label: string; prompt?: string; x?: number; y?: number; w?: number; h?: number; featureId?: string }[];
   groups?: unknown[];
   shapes?: unknown[];
   format?: Record<string, unknown>;
@@ -47,6 +50,14 @@ export interface Thread {
   doc?: ThreadDoc;
   /** The pieces that were vined to it when it fired. */
   pieces?: string[];
+  /**
+   * The drawing that started it, when one did.
+   *
+   * An element prompt *is* a drawing: the timeline shows it on the card
+   * that grows out of the box, because "a drawing of one closed line" is
+   * not what was asked, the line is.
+   */
+  sketch?: { strokes: [number, number][][]; words: string };
   /** What the call cost: what was sent, what was skipped, what the cache gave back. */
   usage?: { sent: number; skipped: number; cached?: number; input?: number };
 }

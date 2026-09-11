@@ -25,7 +25,7 @@ export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
     reader.onload = () => {
       const src = String(reader.result);
       const img = new Image();
-      img.onerror = () => resolve(src); // an SVG or something exotic — keep it as it came
+      img.onerror = () => resolve(src); // an SVG or something exotic, keep it as it came
       img.onload = () => {
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
         if (scale === 1 && src.length < 400_000) return resolve(src);

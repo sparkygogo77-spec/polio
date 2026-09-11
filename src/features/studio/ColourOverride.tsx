@@ -49,7 +49,7 @@ export function ColourOverride({
       {/* Which of this part's six roles you are changing. */}
       <div className="grid grid-cols-6 gap-1">
         {ROLES.map((r) => (
-          <Tooltip key={r} content={`${ROLE_LABEL[r]}${colour?.[r] ? " — changed" : " — follows the site"}`}>
+          <Tooltip key={r} content={`${ROLE_LABEL[r]}${colour?.[r] ? ", changed" : ", follows the site"}`}>
             <button
               type="button"
               aria-label={`${ROLE_LABEL[r]} on this part`}

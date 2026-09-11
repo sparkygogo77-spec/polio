@@ -222,7 +222,7 @@ function Rail({ onNew }: { onNew: () => void }) {
                     <span aria-hidden className={cn("mt-[5px] size-1.5 shrink-0 rounded-full", l.level === "success" ? "bg-up" : l.level === "warn" ? "bg-warn" : l.level === "error" ? "bg-down" : "bg-fg-faint")} />
                     <span className="min-w-0 flex-1">
                       <span className="text-fg">{l.title}</span>
-                      {l.body ? <span className="text-fg-muted"> — {l.body}</span> : null}
+                      {l.body ? <span className="text-fg-muted">, {l.body}</span> : null}
                       <span className="num text-fg-faint"> · {relativeTime(l.at)}</span>
                     </span>
                   </li>
@@ -774,7 +774,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
           b.video
             ? ""
             : b.open
-              ? `The browser on this server (${b.from ?? "unknown"}) can open the site but cannot record it — recording needs the ffmpeg a full Playwright install ships. Record the tab instead.`
+              ? `The browser on this server (${b.from ?? "unknown"}) can open the site but cannot record it, recording needs the ffmpeg a full Playwright install ships. Record the tab instead.`
               : "There is no browser on this server, so it cannot play the tour. Record the tab instead.",
         );
       })
@@ -907,7 +907,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
       {busy ? <Progress value={progress} tone="accent" /> : null}
       {/*
         Said before the press, not after it. A tour that cannot be recorded
-        here is not an error you find out about at the end of one — the button
+        here is not an error you find out about at the end of one, the button
         is off and this says which of the two reasons it is.
       */}
       {canRender === false ? (

@@ -451,7 +451,7 @@ export function Orb({ id, content, options, theme: t, mode }: PartProps) {
 
   if (id === "orb-webgl") {
     return (
-      <Stage t={t} id={id} s={s} tag={failed ? "Drawn — no WebGL here" : words.join(", ")}>
+      <Stage t={t} id={id} s={s} tag={failed ? "Drawn, no WebGL here" : words.join(", ")}>
         {failed ? <DrawnBall s={s} spin={s.moving} /> : <GlBall s={s} surface={opt(options, "surface", "glass")} onFail={fail} />}
       </Stage>
     );

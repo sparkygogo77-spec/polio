@@ -59,7 +59,7 @@ export interface RunResult {
  * The drawing as a picture for the reader: black lines on white, small.
  * Cleaner to read than the starry board, and a few kilobytes.
  */
-export function pictureOf(strokes: SketchPoint[][], px = 384): string | null {
+export function pictureOf(strokes: SketchPoint[][], px = 640): string | null {
   if (typeof document === "undefined") return null;
   const el = document.createElement("canvas");
   el.width = px;
@@ -69,7 +69,9 @@ export function pictureOf(strokes: SketchPoint[][], px = 384): string | null {
   c.fillStyle = "#ffffff";
   c.fillRect(0, 0, px, px);
   c.strokeStyle = "#111111";
-  c.lineWidth = 4;
+  // Thicker at this size: the picture is the reference the reader works
+  // from, and a hairline at 640px reads as noise once it is scaled.
+  c.lineWidth = 6;
   c.lineCap = "round";
   c.lineJoin = "round";
   // The board's edge, faintly, so a shape's place on the disc can be read.
@@ -145,6 +147,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         model: data.usage?.model,
         ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
         answer: data.patch.note ?? "",
+        // The drawing goes on the thread: an element prompt is the line,
+        // and the timeline shows the line rather than a sentence about it.
+        sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
         changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : [])],
       });
       const body = [

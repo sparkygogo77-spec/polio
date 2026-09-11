@@ -325,7 +325,7 @@ export function compileSpec(input: CompileInput): Spec {
           options: n.options,
           // A part that sends people somewhere and has nowhere to send them yet
           // says so, so the agent builds a placeholder rather than a guess.
-          link: describeLink(n.link, pages) ?? (isLinkable(n.featureId) ? "nowhere yet — a visible placeholder that says so, never an invented target" : null),
+          link: describeLink(n.link, pages) ?? (isLinkable(n.featureId) ? "nowhere yet, a visible placeholder that says so, never an invented target" : null),
           colour: describeColour(n.colour),
           font: describeFont(n.font),
           anim: n.anim
@@ -344,7 +344,7 @@ export function compileSpec(input: CompileInput): Spec {
           // and what it is, because a path in a blueprint is unreadable and
           // whoever builds this needs to know the part is not a rectangle.
           outline: n.outline
-            ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points — the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`
+            ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points, the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`
             : null,
           body: n.code
             ? `a body written for it: ${n.code.html.length} bytes of self-contained SVG/HTML with inline CSS, in the document at this element's \`code.html\`. It matched ${Math.round((n.code.overlap ?? 0) * 100)}% of the drawing over ${n.code.attempts} attempt${n.code.attempts === 1 ? "" : "s"}. Render it as-is inside a sandboxed frame (no scripts, nothing fetched) and clip it to the outline; do not re-invent it${n.code.note ? `. It draws: ${n.code.note}` : ""}`
@@ -459,7 +459,7 @@ export function compileSpec(input: CompileInput): Spec {
     frameWidth: fw,
     head: name
       ? [
-          `The site is called **${name}**. Wherever a logo or wordmark is drawn it reads "${name}" — never "Logo".`,
+          `The site is called **${name}**. Wherever a logo or wordmark is drawn it reads "${name}", never "Logo".`,
           `Browser title: "${name}". Meta description: ${gimmick ? `"${firstSentence(gimmick)}"` : "one sentence from the idea, once it is written"}.`,
           "Link preview (Open Graph and Twitter card): the first page's first screen at 1200×630 with the wordmark on it; the favicon is the wordmark's mark.",
         ]
@@ -501,11 +501,11 @@ export function briefPrefix(markdown: string): string {
 
 export function specToMarkdown(spec: Spec): string {
   const L: string[] = [];
-  L.push(`# ${spec.name} — build brief`, "");
+  L.push(`# ${spec.name}, build brief`, "");
 
   if (spec.gimmick) L.push(`## The idea`, "", spec.gimmick, "");
   if (spec.master) L.push(spec.master, "");
-  if (!spec.gimmick && !spec.master) L.push("## The idea", "", "_(not written yet — say what this site is)_", "");
+  if (!spec.gimmick && !spec.master) L.push("## The idea", "", "_(not written yet, say what this site is)_", "");
 
   if (spec.head.length) {
     L.push("## The site", "");
@@ -545,7 +545,7 @@ export function specToMarkdown(spec: Spec): string {
 
   L.push(`## Pages (${spec.pages.length})`, "");
   spec.pages.forEach((page, i) => {
-    L.push(`### ${i + 1}. ${page.name} — \`${page.path}\``, "");
+    L.push(`### ${i + 1}. ${page.name}, \`${page.path}\``, "");
     if (page.scroll && page.scroll !== "inherit") L.push(`Scroll: ${page.scroll}`, "");
     if (page.prompt) L.push(page.prompt, "");
 
@@ -554,7 +554,7 @@ export function specToMarkdown(spec: Spec): string {
       for (const row of page.rows) {
         if (row.section) {
           const s = row.section;
-          L.push(`${row.index}. **${row.items[0]}** — a section of its own, drawn as a region; ${s.align === "full" ? "full width" : `${s.widthPct}% of the frame, ${s.align}`}, at least ${s.heightPx}px tall`);
+          L.push(`${row.index}. **${row.items[0]}**, a section of its own, drawn as a region; ${s.align === "full" ? "full width" : `${s.widthPct}% of the frame, ${s.align}`}, at least ${s.heightPx}px tall`);
           if (s.prompt) L.push(`   - build it from this: ${s.prompt}`);
         } else L.push(`${row.index}. ${row.items.map((x) => `**${x}**`).join("  ·  ")}`);
       }
@@ -565,7 +565,7 @@ export function specToMarkdown(spec: Spec): string {
     if (grouping.length) {
       L.push("Regions:", "");
       for (const r of grouping) {
-        L.push(`- **${r.label}** — ${r.contains.length ? `contains ${r.contains.join(", ")}` : "drawn but empty and unnamed; ignore it"}`);
+        L.push(`- **${r.label}**, ${r.contains.length ? `contains ${r.contains.join(", ")}` : "drawn but empty and unnamed; ignore it"}`);
         if (r.prompt) L.push(`  - ${r.prompt}`);
       }
       L.push("");
@@ -574,7 +574,7 @@ export function specToMarkdown(spec: Spec): string {
     if (page.groups.length) {
       L.push("Groups:", "");
       for (const g of page.groups) {
-        L.push(`- **${g.label}** — ${g.members.join(", ")}`);
+        L.push(`- **${g.label}**, ${g.members.join(", ")}`);
         if (g.prompt) L.push(`  - ${g.prompt}`);
       }
       L.push("");
@@ -586,7 +586,7 @@ export function specToMarkdown(spec: Spec): string {
       L.push("Elements:", "");
       for (const e of laidOut) {
         const opts = Object.entries(e.options).filter(([, v]) => v);
-        L.push(`- **${e.label}** — ${e.feature} · ${e.priority}`);
+        L.push(`- **${e.label}**, ${e.feature} · ${e.priority}`);
         const place: string[] = [`row ${e.row}, position ${e.column}`, e.align === "full" ? "full width" : `${e.widthPct}% of the frame, ${e.align}`, `at least ${e.heightPx}px tall`];
         if (e.region) place.push(`inside "${e.region}"`);
         if (e.rightOf) place.push(`right of "${e.rightOf}"`);
@@ -613,10 +613,10 @@ export function specToMarkdown(spec: Spec): string {
     }
 
     if (behaviours.length) {
-      L.push("Behaviours on this page — these apply to the whole page and are not laid out in it:", "");
+      L.push("Behaviours on this page, these apply to the whole page and are not laid out in it:", "");
       for (const b of behaviours) {
         const opts = Object.entries(b.options).filter(([, v]) => v);
-        L.push(`- **${b.feature}**${b.content ? ` — ${b.content}` : ""}`);
+        L.push(`- **${b.feature}**${b.content ? `, ${b.content}` : ""}`);
         if (opts.length) L.push(`  - options: ${opts.map(([k, v]) => `${k}=${v}`).join(", ")}`);
         if (b.prompt) L.push(`  - prompt: ${b.prompt}`);
       }
@@ -630,7 +630,7 @@ export function specToMarkdown(spec: Spec): string {
         // said it — "reads address from Connect wallet _(reads from it)_" is
         // the same sentence twice.
         const reads = c.relation === "data" && !/^reads\b/i.test(c.reason);
-        L.push(`- **${c.from}** → **${c.to}**${c.reason ? ` — ${c.reason}` : ""}${reads ? " _(reads from it)_" : ""}`);
+        L.push(`- **${c.from}** → **${c.to}**${c.reason ? `, ${c.reason}` : ""}${reads ? " _(reads from it)_" : ""}`);
         if (c.prompt) L.push(`  - ${c.prompt}`);
       }
       L.push("");
@@ -654,18 +654,18 @@ export function specToMarkdown(spec: Spec): string {
     L.push("## What the backend must provide", "");
     L.push(
       "Written from the data notes on each part. Everything below is something the",
-      "finished site needs from a server, a contract or a feed — the front end is",
+      "finished site needs from a server, a contract or a feed, the front end is",
       "already specified above. Build these to fit the parts named, not the other way round.",
       "",
     );
     for (const { page, e } of withData) {
       const where = `${page.name}, row ${e.row}`;
-      L.push(`- **${e.label}** (${where}) — ${e.data || "reads from another part"}`);
+      L.push(`- **${e.label}** (${where}), ${e.data || "reads from another part"}`);
       if (e.feeds.length) L.push(`  - fed by: ${e.feeds.join(", ")}`);
     }
     if (wires.length) {
       L.push("", "Wires between parts:", "");
-      for (const { page, w } of wires) L.push(`- ${w.from} → ${w.to}${w.label ? ` (${w.label})` : ""} — on ${page.name}`);
+      for (const { page, w } of wires) L.push(`- ${w.from} → ${w.to}${w.label ? ` (${w.label})` : ""}, on ${page.name}`);
     }
     L.push("");
   }
@@ -677,9 +677,9 @@ export function specToMarkdown(spec: Spec): string {
     "position is arrangement within a row. Width is a share of that frame and is deliberate. Height is a minimum:",
     "the content decides the rest, and nothing is ever clipped to the number. Narrower than the frame, each row",
     "stacks top to bottom in reading order, full-width parts stay full-width and type steps down to fit, unless an",
-    "element's own prompt says otherwise — the frame is the desktop specification, not a fixed canvas.",
+    "element's own prompt says otherwise, the frame is the desktop specification, not a fixed canvas.",
     "",
-    "\"contains\" lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people — a part",
+    "\"contains\" lists what the part holds (tab labels, links, fields); \"links to\" is where it sends people, a part",
     "that sends people nowhere yet is built as a visible placeholder that says so, never given an invented target;",
     "\"data\" is what it shows or does, and \"reads from\" names a part that feeds it. A part with a \"colour\" line",
     "repaints those roles for itself; everything else follows the site palette exactly. \"drawn\" is the shape the",
@@ -687,10 +687,10 @@ export function specToMarkdown(spec: Spec): string {
     "the part's shape, and the words beside it say what the drawing is.",
     "",
     "Every Format value listed is binding; `*` marks the ones the author set, the rest are defaults that still apply.",
-    "Hairlines, rules and borders are one token — the Text role at 12% opacity — unless Format › Borders says otherwise,",
+    "Hairlines, rules and borders are one token, the Text role at 12% opacity, unless Format › Borders says otherwise,",
     "and two rules never stack into a double line. When a sticky top bar exists, anchor targets clear it",
-    "(scroll-margin-top) and the bar marks the current section. Everything that moves — entrances, loops, glows,",
-    "parallax — respects prefers-reduced-motion.",
+    "(scroll-margin-top) and the bar marks the current section. Everything that moves, entrances, loops, glows,",
+    "parallax, respects prefers-reduced-motion.",
     "",
     "Anything inside a region belongs to that region; a region listed as a section of its own is built from its",
     "prompt at its row. Behaviours are listed apart from the elements because they change how the whole page moves",

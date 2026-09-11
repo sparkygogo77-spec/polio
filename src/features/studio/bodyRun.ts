@@ -152,7 +152,7 @@ export function compare(target: boolean[], got: boolean[]): { overlap: number; s
   const emptiest = worst.indexOf(Math.max(...worst));
   const says = [
     `Your render covered ${(overlap * 100).toFixed(0)}% of the drawn shape (intersection over union).`,
-    missed > both * 0.25 ? `It leaves ${((missed / Math.max(1, missed + both)) * 100).toFixed(0)}% of the shape empty — draw bigger, into the outline's own edges.` : "",
+    missed > both * 0.25 ? `It leaves ${((missed / Math.max(1, missed + both)) * 100).toFixed(0)}% of the shape empty, draw bigger, into the outline's own edges.` : "",
     worst[emptiest]! > 0.4 ? `The emptiest part is ${names[emptiest]}.` : "",
     spilled > both ? "Much of what you drew falls outside the outline, where it is clipped away; keep it inside." : "",
   ].filter(Boolean).join(" ");

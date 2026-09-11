@@ -28,7 +28,7 @@ export function Behaviour({ id, label, content, theme: t }: PartProps) {
       <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: t.accent, flexShrink: 0 }} />
       <span>
         <strong style={{ color: t.text }}>{label}</strong>
-        {note ? ` — ${note}` : ""}
+        {note ? `, ${note}` : ""}
         <span style={{ display: "block", fontSize: t.fontPx * 0.75, opacity: 0.75 }}>applies to the whole page</span>
       </span>
     </Fill>

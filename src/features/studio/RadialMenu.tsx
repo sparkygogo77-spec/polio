@@ -1027,7 +1027,7 @@ export function RadialMenu() {
 
         {/*
           The board: the whole menu, as one disc with no hole. There is no
-          middle button while it is up — the middle is drawing space — so its
+          middle button while it is up, the middle is drawing space, so its
           way back is on its own rim. Escape steps back to the wheel as well.
         */}
         {onBoard ? (
@@ -1053,7 +1053,7 @@ export function RadialMenu() {
 
         {/*
           The tray, under the wheel: a tab that opens on hover into the few
-          actions that are about the part but not about editing it — seeing
+          actions that are about the part but not about editing it, seeing
           it live, its place among the others, carrying its looks. It hangs
           under whichever level is up, and steps aside for the board.
         */}
@@ -1325,7 +1325,7 @@ function Ring({ pieces, green, spin, shape }: { pieces: RingPiece[]; green?: boo
                     </clipPath>
                   </defs>
                   {/* The look itself, cut to the shape of the piece. A texture
-                      is CSS — gradients, a tiled picture — and no SVG fill
+                      is CSS, gradients, a tiled picture, and no SVG fill
                       takes CSS, so it is an HTML box clipped to the path. */}
                   <foreignObject
                     x={-260}

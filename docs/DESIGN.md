@@ -197,6 +197,14 @@ same boxes as everywhere else, in the screen's colours.
   region as a section at its row, and says "nowhere yet" where a link is not
   decided. When a critique reports something the brief already answers, the
   brief's sentence is what gets fixed, and the route's system prompt with it.
+- **No em dashes in anything a person reads.** A dash is a pause a designer
+  reaches for when a sentence has two halves and no punctuation chosen for
+  them. On a screen it reads as a machine's tic, and there are hundreds of
+  these lines. So every label, hint, empty state and button caption in the
+  Builder uses a comma, a colon or a full stop instead, and the sweep is
+  global rather than per screen. Comments and prompts sent to Claude are not
+  UI copy and keep theirs; a bare "—" standing in for an empty value is a
+  glyph, not a sentence, and stays.
 - **A finding lands beside the prompt it is about.** Critique, Fill and Finish
   return their prompts as a `json revisions` block, and the Trail view in the
   Blueprint dialog draws them as a map: written, found, now, joined by lines,

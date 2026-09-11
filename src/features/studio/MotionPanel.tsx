@@ -119,7 +119,7 @@ export function MotionPanel() {
       ) : (
         <p className="rounded-md border border-dashed border-border p-3 text-[10px] leading-snug text-fg-muted">
           A crate holds five keyframes. Drop a picture in each sleeve and the Builder works out every
-          frame in between — 45 of them in a second and a half — which you can scrub, play, and take
+          frame in between, 45 of them in a second and a half, which you can scrub, play, and take
           away as a sprite sheet. The brief that goes with it tells whoever renders it properly what
           the in-betweens have to look like.
         </p>
@@ -436,7 +436,7 @@ function Crate({ asset }: { asset: MotionAsset }) {
       {note ? <p className="text-[9px] text-fg-muted">{note}</p> : null}
       <p className="text-[9px] leading-snug text-fg-faint">
         The Builder dissolves between your keyframes on this timing. That is exactly right for a fade
-        or a colour turn, and a floor for anything that has to morph — the brief carries the timing
+        or a colour turn, and a floor for anything that has to morph, the brief carries the timing
         over to whoever renders those frames properly.
       </p>
     </div>

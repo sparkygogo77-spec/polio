@@ -1,57 +1,57 @@
 "use client";
 /**
- * What is under the timeline: one iteration, read step by step.
+ * What is under the timeline: the prompt, and what to do with what it made.
  *
- * The timeline says almost nothing — that is its job. Everything an
- * iteration actually holds is here, in the section under it, laid out the
- * way the parts shelf is: a row of steps you walk in from, then the thing
- * itself. One box at a time, never all of them: a wall of every prompt and
- * every answer at once is what this replaced.
+ * The iteration's own contents moved out of here and onto the timeline: a
+ * card grows out of the box itself now, the ask above it and the answer
+ * below. What stays is the part you keep looking at while you work.
  *
- * Three parts to it:
- *
- * - **The stages.** Asked, came back, what changed, the critique, and what
- *   came next. A row across the top; pick one and the rest gets out of the
- *   way. The prompt stays above the preview, small, because it is the
- *   question you are reading the answer against.
- * - **What to do with it.** A menu down the side: take the findings, stand
- *   the board on it, write the code, publish. Converting a generation into
- *   something is the point of having kept it.
- * - **The book.** The brief, the JSON and the ask, unchanged and in their
- *   own tab, with their own menu — the timeline's menu is about *this*
- *   iteration and the book's is about the whole site, and mixing them was
- *   the thing that made the old dialog hard to read.
+ * - **The prompt, pinned.** Sticky to the top of the section and larger
+ *   than anything else in it, at every zoom and every window size, because
+ *   it is the question every other thing here is an answer to. It scrolled
+ *   away before, which made the section a page of text with no subject.
+ * - **What to do with it.** Take the findings, stand the board on it, pin
+ *   it, copy what came back, ask the next thing: turning a generation into
+ *   something is the point of having kept it. The controls wear the
+ *   iteration boxes' own colours, so the section reads as the same place
+ *   as the timeline above rather than a codebase underneath it.
+ * - **The book**, in its own tab with its own menu: the brief, the JSON,
+ *   the ask and publishing, about the whole site rather than this one
+ *   iteration.
  */
 import * as React from "react";
-import { ArrowRight, BookOpen, Check, Copy, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Wand2 } from "lucide-react";
+import { ArrowRight, BookOpen, Brush, Check, Copy, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
-import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
-import { Textarea } from "@/core/ui/textarea";
 import { useActions } from "@/core/actions";
-import { screenFace, SCREEN } from "@/core/ui/void";
 import { IterationBook } from "./BriefDialog";
 import { headlineOf } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { useStudio } from "./store";
 
-type Stage = "asked" | "answer" | "changed" | "critique" | "next";
-
-const STAGES: { id: Stage; label: string; icon: React.ReactNode; blurb: string }[] = [
-  { id: "asked", label: "Asked", icon: <MessageSquare className="size-3.5" />, blurb: "The prompt, as it went." },
-  { id: "answer", label: "Came back", icon: <Sparkles className="size-3.5" />, blurb: "What Claude answered, whole." },
-  { id: "changed", label: "Changed", icon: <Wand2 className="size-3.5" />, blurb: "What it did to the board." },
-  { id: "critique", label: "Critique", icon: <ListChecks className="size-3.5" />, blurb: "What was found, and the prompt that settles it." },
-  { id: "next", label: "What came next", icon: <ArrowRight className="size-3.5" />, blurb: "The iterations that hang off this one." },
-];
-
-/** Emerald, quieter than the boxes: this is a page, not a light. */
+/**
+ * The section's colours: the iteration boxes' own, one step quieter.
+ *
+ * It read as a codebase — grey chrome under a lit timeline — and the two
+ * halves of one screen should not look like two applications.
+ */
 const FIELD = {
-  face: "oklch(0.17 0.035 158)",
-  rim: "oklch(0.34 0.06 158)",
-  text: "oklch(0.9 0.04 158)",
-  dim: "oklch(0.66 0.06 158)",
-  lit: "oklch(0.8 0.16 158)",
+  face: "oklch(0.155 0.032 158)",
+  raised: "oklch(0.21 0.05 158)",
+  rim: "oklch(0.36 0.07 158)",
+  lit: "oklch(0.66 0.16 158)",
+  text: "oklch(0.93 0.04 158)",
+  dim: "oklch(0.7 0.07 158)",
+};
+
+/** An element prompt's section wears the purple its piece does. */
+const PURPLE = {
+  face: "oklch(0.17 0.04 300)",
+  raised: "oklch(0.24 0.07 300)",
+  rim: "oklch(0.42 0.1 300)",
+  lit: "oklch(0.76 0.17 300)",
+  text: "oklch(0.94 0.04 300)",
+  dim: "oklch(0.74 0.08 300)",
 };
 
 export function TimelineDetail() {
@@ -108,7 +108,7 @@ export function TimelineDetail() {
           <Iteration thread={open} loop={loop} />
         ) : (
           <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
-            Click an iteration above to read it here — the prompt, what came back, what it changed, and what it led to.
+            Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to.
           </p>
         )}
       </div>
@@ -122,11 +122,12 @@ function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className="tactile flex h-6 items-center gap-1.5 rounded-md border px-2 text-[11px]"
+      className="tactile flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px]"
       style={{
-        background: on ? "oklch(0.24 0.06 158)" : "transparent",
-        borderColor: on ? "oklch(0.5 0.12 158)" : "transparent",
+        background: on ? FIELD.raised : "transparent",
+        borderColor: on ? FIELD.lit : "transparent",
         color: on ? FIELD.text : FIELD.dim,
+        boxShadow: on ? "0 0 0 1px oklch(0.66 0.16 158 / 0.25)" : undefined,
       }}
     >
       {icon}
@@ -136,203 +137,161 @@ function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void
 }
 
 /* ------------------------------------------------------------------ */
-/* One iteration, step by step                                         */
+/* One iteration: the prompt, pinned, and what it can become           */
 /* ------------------------------------------------------------------ */
 
 function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to: string } | null }) {
-  const [stage, setStage] = React.useState<Stage>("asked");
   const threads = useStudio((s) => s.threads);
   const trail = useStudio((s) => s.trail);
   const pinned = useStudio((s) => s.pinnedThreads.includes(thread.id));
   const live = useStudio((s) => s.liveThreadId === thread.id);
   const ctx = useActions();
+  const element = thread.mode === "drawing";
+  const skin = element ? PURPLE : FIELD;
   const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
   const children = threads.filter((t) => t.parentId === thread.id);
   const findings = trail.filter((e) => e.threadId === thread.id && e.stage === "critique");
   const changed = React.useMemo(() => diffDocs(parent?.doc, thread.doc), [parent, thread]);
-
-  // Arriving from a loop starter: the pair is what is being looked at, so
-  // the critique between them is the step that matters.
-  React.useEffect(() => {
-    if (loop && loop.to === thread.id) setStage("critique");
-  }, [loop, thread.id]);
+  const loopHere = loop && (loop.to === thread.id || loop.from === thread.id);
 
   return (
-    <div className="flex min-h-0 flex-col gap-2 p-3 lg:flex-row">
-      {/* The stages, and the reading. */}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div data-stages="" className="flex flex-wrap items-center gap-1">
-          {STAGES.map((s, i) => {
-            const on = stage === s.id;
-            const count = s.id === "critique" ? findings.length : s.id === "next" ? children.length : s.id === "changed" ? changed.length : 0;
-            return (
-              <React.Fragment key={s.id}>
-                {i ? <span className="text-[10px]" style={{ color: "oklch(0.4 0.06 158)" }}>›</span> : null}
-                <button
-                  type="button"
-                  onClick={() => { play("select"); setStage(s.id); }}
-                  aria-pressed={on}
-                  className="tactile flex h-6 items-center gap-1.5 rounded-md border px-2 text-[11px]"
-                  style={{
-                    background: on ? "oklch(0.26 0.07 158)" : "transparent",
-                    borderColor: on ? "oklch(0.56 0.13 158)" : "oklch(0.3 0.05 158)",
-                    color: on ? FIELD.text : FIELD.dim,
-                  }}
-                >
-                  {s.icon}
-                  {s.label}
-                  {count ? <span className="num text-[9px] opacity-70">{count}</span> : null}
-                </button>
-              </React.Fragment>
-            );
-          })}
-        </div>
-
-        {/* The prompt stays above whatever is being read, and small. */}
-        <div className="rounded-md border p-2" style={{ borderColor: FIELD.rim, background: "oklch(0.2 0.04 158)" }}>
-          <p className="mb-1 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: FIELD.dim }}>
-            <MessageSquare className="size-3" /> the prompt
-            <span className="flex-1" />
-            <button type="button" className="tactile rounded px-1 hover:underline" onClick={() => void ctx.copy(thread.ask, "the prompt")}>copy</button>
+    <div className="flex min-h-0 flex-col">
+      {/*
+        The prompt, pinned to the top of the section and bigger than
+        anything else in it. Sticky rather than merely first: it is the
+        subject, and a subject that scrolls away leaves a page of answers
+        to nothing.
+      */}
+      <div
+        data-pinned-prompt=""
+        className="sticky top-0 z-10 border-b px-3 py-2.5 backdrop-blur-sm"
+        style={{ background: skin.face, borderColor: skin.rim }}
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] uppercase tracking-[0.14em]"
+            style={{ borderColor: skin.rim, background: skin.raised, color: skin.dim }}>
+            {element ? <Brush className="size-3.5" /> : <MessageSquare className="size-3.5" />}
+            {element ? "element prompt" : "the prompt"}
+          </span>
+          <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] font-medium leading-snug" style={{ color: skin.text }}>
+            {thread.ask || "nothing was typed with this one"}
           </p>
-          <p className="line-clamp-2 whitespace-pre-wrap text-[11px] leading-snug" style={{ color: FIELD.text }}>{thread.ask || "—"}</p>
+          <Button variant="ghost" size="xs" onClick={() => void ctx.copy(thread.ask, "the prompt")} style={{ color: skin.dim }}>
+            <Copy className="size-3" /> copy
+          </Button>
         </div>
-
-        <Preview stage={stage} thread={thread} changed={changed} findings={findings} children={children} loop={loop} parent={parent} />
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: skin.dim }}>
+          <span className="num">{new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          <span>{thread.mode}</span>
+          {thread.model ? <span className="truncate">{thread.model}</span> : null}
+          {live ? <span style={{ color: skin.lit }}>the board stands on this</span> : null}
+          {loopHere ? <span style={{ color: skin.lit }}><Repeat className="mr-1 inline size-3" />in the loop you opened</span> : null}
+          <span className="flex-1" />
+          <span>the answer and what changed are on the card above, growing out of the box</span>
+        </p>
       </div>
 
-      {/* What to do with this generation. */}
-      <aside className="flex w-full shrink-0 flex-col gap-1 lg:w-64">
-        <p className="px-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: FIELD.dim }}>turn this into</p>
-        <Convert label="Take every finding" icon={<Check className="size-3.5" />} blurb={`${findings.filter((f) => !f.applied).length} prompts to write onto their parts`} disabled={!findings.some((f) => !f.applied)}
-          onClick={() => { play("confirm"); for (const f of findings) if (!f.applied) useStudio.getState().applyRevision(f.id); }} />
-        <Convert label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this iteration left it" disabled={live || !thread.doc}
-          onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); }} />
-        <Convert label={pinned ? "Unpin it" : "Pin it to the top"} icon={pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />} blurb="Keep it in view while the next ask is written"
-          onClick={() => { play(pinned ? "close" : "confirm"); useStudio.getState().togglePinnedThread(thread.id); }} />
-        <Convert label="Copy what came back" icon={<Copy className="size-3.5" />} blurb={`${thread.answer.length} characters, as it was written`}
-          onClick={() => void ctx.copy(thread.answer, "the answer")} />
-        <Convert label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this iteration live under it"
-          onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
-        {thread.usage ? (
-          <p className="px-1 pt-1 text-[9px]" style={{ color: FIELD.dim }}>
-            {thread.usage.sent} pieces sent{thread.usage.skipped ? `, ${thread.usage.skipped} unchanged` : ""}
-            {thread.usage.cached ? ` · ${thread.usage.cached.toLocaleString()} tokens read from the cache` : ""}
-          </p>
-        ) : null}
-      </aside>
+      <div className="flex flex-col gap-3 p-3 lg:flex-row">
+        {/* What it came to, in one line each. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <Row skin={skin} icon={<Wand2 className="size-3.5" />} title={`What it changed${changed.length ? ` · ${changed.length}` : ""}`}>
+            {changed.length ? (
+              <ul className="space-y-0.5 font-mono text-[10.5px]">{changed.slice(0, 8).map((l, i) => <li key={i}>{l}</li>)}</ul>
+            ) : thread.changes.length ? (
+              <ul className="space-y-0.5 text-[11px]">{thread.changes.map((c, i) => <li key={i}>{c}</li>)}</ul>
+            ) : (
+              <p className="text-[11px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
+            )}
+          </Row>
+          <Row skin={skin} icon={<ListChecks className="size-3.5" />} title={`Findings${findings.length ? ` · ${findings.length}` : ""}`}>
+            {findings.length ? (
+              <ul className="space-y-1.5">
+                {findings.map((f) => (
+                  <li key={f.id} className="rounded-md border p-2" style={{ borderColor: skin.rim, background: skin.raised }}>
+                    <p className="text-[11px]" style={{ color: skin.text }}>{f.target.label}: {f.text}</p>
+                    {f.prompt ? (
+                      <div className="mt-1 flex items-start gap-2">
+                        <p className="min-w-0 flex-1 text-[10px] italic" style={{ color: skin.dim }}>{f.prompt}</p>
+                        <Button variant="outline" size="xs" disabled={f.applied} onClick={() => useStudio.getState().applyRevision(f.id)}>{f.applied ? "taken" : "take it"}</Button>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[11px]" style={{ color: skin.dim }}>no findings came out of this one</p>
+            )}
+          </Row>
+          {children.length ? (
+            <Row skin={skin} icon={<ArrowRight className="size-3.5" />} title={`What came next · ${children.length}`}>
+              <ul className="flex flex-wrap gap-1.5">
+                {children.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className="tactile rounded-md border px-2 py-1 text-[11px]"
+                      style={{ borderColor: skin.rim, background: skin.raised, color: skin.text }}
+                      onClick={() => { play("select"); useStudio.getState().openThread(c.id); }}
+                    >
+                      {headlineOf(c)}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </Row>
+          ) : null}
+        </div>
+
+        {/* What to do with it. */}
+        <aside className="flex w-full shrink-0 flex-col gap-1 lg:w-72">
+          <p className="px-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>turn this into</p>
+          <Convert skin={skin} label="Take every finding" icon={<Check className="size-3.5" />} blurb={`${findings.filter((f) => !f.applied).length} prompts to write onto their parts`} disabled={!findings.some((f) => !f.applied)}
+            onClick={() => { play("confirm"); for (const f of findings) if (!f.applied) useStudio.getState().applyRevision(f.id); }} />
+          <Convert skin={skin} label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this iteration left it" disabled={live || !thread.doc}
+            onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); }} />
+          <Convert skin={skin} label={pinned ? "Unpin it" : "Pin it to the top"} icon={pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />} blurb="Keep it in view while the next ask is written"
+            onClick={() => { play(pinned ? "close" : "confirm"); useStudio.getState().togglePinnedThread(thread.id); }} />
+          <Convert skin={skin} label="Copy what came back" icon={<Copy className="size-3.5" />} blurb={`${thread.answer.length} characters, as it was written`}
+            onClick={() => void ctx.copy(thread.answer, "the answer")} />
+          <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this iteration live under it"
+            onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
+          {thread.usage ? (
+            <p className="px-1 pt-1 text-[9px]" style={{ color: skin.dim }}>
+              {thread.usage.sent} pieces sent{thread.usage.skipped ? `, ${thread.usage.skipped} unchanged` : ""}
+              {thread.usage.cached ? ` · ${thread.usage.cached.toLocaleString()} tokens read from the cache` : ""}
+            </p>
+          ) : null}
+        </aside>
+      </div>
     </div>
   );
 }
 
-function Convert({ label, icon, blurb, onClick, disabled }: { label: string; icon: React.ReactNode; blurb: string; onClick: () => void; disabled?: boolean }) {
+type Skin = typeof FIELD;
+
+/** One band of the section, in the timeline's own colours. */
+function Row({ skin, icon, title, children }: { skin: Skin; icon: React.ReactNode; title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border p-2.5" style={{ borderColor: skin.rim, background: skin.face }}>
+      <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
+        {icon} {title}
+      </p>
+      {children}
+    </section>
+  );
+}
+
+function Convert({ skin, label, icon, blurb, onClick, disabled }: { skin: Skin; label: string; icon: React.ReactNode; blurb: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={cn("tactile flex w-full flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left disabled:opacity-45")}
-      style={{ borderColor: FIELD.rim, background: "oklch(0.2 0.04 158)" }}
+      className="tactile flex w-full flex-col gap-0.5 rounded-md border px-2.5 py-2 text-left transition-[border-color,background] disabled:opacity-45"
+      style={{ borderColor: skin.rim, background: skin.raised, color: skin.text }}
     >
-      <span className="flex items-center gap-1.5 text-[11px]" style={{ color: FIELD.text }}>{icon}{label}</span>
-      <span className="text-[10px] leading-snug" style={{ color: FIELD.dim }}>{blurb}</span>
+      <span className="flex items-center gap-1.5 text-[11px]">{icon}{label}</span>
+      <span className="text-[10px] leading-snug" style={{ color: skin.dim }}>{blurb}</span>
     </button>
-  );
-}
-
-/** The step being read. A screen, like everywhere else words are read here. */
-function Preview({
-  stage, thread, changed, findings, children, loop, parent,
-}: {
-  stage: Stage;
-  thread: Thread;
-  changed: string[];
-  findings: { id: string; text: string; prompt?: string; applied?: boolean; target: { label: string } }[];
-  children: Thread[];
-  loop: { from: string; to: string } | null;
-  parent: Thread | null;
-}) {
-  const openThread = useStudio((s) => s.openThread);
-  const applyRevision = useStudio((s) => s.applyRevision);
-  const box = (children: React.ReactNode) => (
-    <div className="min-h-[46vh] rounded-md p-3 text-[11px] leading-relaxed" style={{ ...screenFace, color: SCREEN.ink }}>
-      {children}
-    </div>
-  );
-  if (stage === "asked") {
-    return box(
-      <div className="space-y-2">
-        <p className="whitespace-pre-wrap">{thread.ask || "—"}</p>
-        {parent ? <p className="text-[10px] opacity-70">It was asked with the board as “{headlineOf(parent)}” left it.</p> : null}
-      </div>,
-    );
-  }
-  if (stage === "answer") return box(<pre className="max-h-[38vh] overflow-auto whitespace-pre-wrap break-words font-mono text-[10.5px]">{thread.answer || "—"}</pre>);
-  if (stage === "changed") {
-    return box(
-      changed.length ? (
-        <ul className="space-y-0.5 font-mono text-[10.5px]">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
-      ) : (
-        <p className="opacity-70">Nothing on the board changed with this iteration.</p>
-      ),
-    );
-  }
-  if (stage === "critique") {
-    return box(
-      <div className="space-y-2">
-        {loop && loop.to === thread.id ? (
-          <p className="rounded border border-[oklch(0.5_0.12_158)] bg-[oklch(0.2_0.06_158)] p-2 text-[11px] text-[oklch(0.88_0.08_158)]">
-            <Repeat className="mr-1 inline size-3" />
-            The loop between these two: what the one before produced, what was found in it, and what this one did about it.
-          </p>
-        ) : null}
-        {findings.length ? (
-          <ul className="space-y-1.5">
-            {findings.map((f) => (
-              <li key={f.id} className="rounded border border-[oklch(0.34_0.06_158)] p-2">
-                <p className="text-[11px]">{f.target.label}: {f.text}</p>
-                {f.prompt ? (
-                  <div className="mt-1 flex items-start gap-2">
-                    <p className="min-w-0 flex-1 text-[10px] italic opacity-80">{f.prompt}</p>
-                    <Button variant="outline" size="xs" disabled={f.applied} onClick={() => applyRevision(f.id)}>{f.applied ? "Taken" : "Take it"}</Button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="opacity-70">No findings came out of this one. A critique or a finish ask is what produces them.</p>
-        )}
-      </div>,
-    );
-  }
-  return box(
-    children.length ? (
-      <ul className="space-y-1">
-        {children.map((c) => (
-          <li key={c.id}>
-            <button type="button" className="tactile w-full rounded border border-[oklch(0.34_0.06_158)] p-2 text-left hover:border-[oklch(0.5_0.12_158)]" onClick={() => { play("select"); openThread(c.id); }}>
-              <span className="text-[11px]">{headlineOf(c)}</span>
-              <span className="ml-2 num text-[9px] opacity-70">{c.mode}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <p className="opacity-70">Nothing has hung off this iteration yet. Ask the next thing and it will.</p>
-    ),
-  );
-}
-
-/** The one thing the detail section writes back: a prompt for the next ask. */
-export function NextAsk({ onAsk }: { onAsk: (text: string) => void }) {
-  const [text, setText] = React.useState("");
-  return (
-    <div className="flex items-end gap-2 p-2">
-      <Textarea autoGrow rows={1} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask the next thing…" aria-label="The next ask" />
-      <Button variant="primary" size="sm" disabled={!text.trim()} onClick={() => { onAsk(text.trim()); setText(""); }}>
-        <Sparkles /> Ask
-      </Button>
-    </div>
   );
 }

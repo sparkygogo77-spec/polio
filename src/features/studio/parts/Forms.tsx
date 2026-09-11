@@ -49,7 +49,7 @@ export function Form({ id, content, options, theme: t, mode, emit }: PartProps) 
     });
     if (bad) return;
     setSent(true);
-    emit?.({ type: "toast", text: "Sent — thank you", level: "success" });
+    emit?.({ type: "toast", text: "Sent, thank you", level: "success" });
   };
 
   if (sent) {

@@ -22,12 +22,12 @@ const NOTE: Record<string, string> = {
   "scroll-video": "Scrolling scrubs an animation, frame by frame, instead of playing it.",
   "infinite-scroll": "More loads as you reach the bottom, so there is no next page.",
   "smooth-scroll": "Scrolling glides to a stop rather than jumping.",
-  "cursor-effects": "The pointer becomes something of your own — a dot, a trail, a spotlight.",
+  "cursor-effects": "The pointer becomes something of your own, a dot, a trail, a spotlight.",
   "hover-tilt": "Cards lean toward the pointer as it passes over them.",
   "page-load": "A short opening sequence the first time the page paints.",
   "morph-transition": "One element flies and changes shape into another between views.",
   confetti: "A burst when something goes right.",
-  physics: "Things move as if they had weight — they swing, settle and bounce.",
+  physics: "Things move as if they had weight, they swing, settle and bounce.",
 };
 
 function Stage({ t, children }: { t: Theme; children: React.ReactNode }) {

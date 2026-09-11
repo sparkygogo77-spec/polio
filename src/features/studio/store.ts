@@ -459,7 +459,7 @@ interface StudioState extends Doc {
   /** Keep what Claude found, each finding beside the prompt it was about. */
   recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
   /** An API call came back: hang a thread off the live one and stand on it. */
-  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[] }) => string;
+  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string } }) => string;
   /** Cut one thread; its children re-hang from its parent and the board goes to whatever is live after. */
   pruneThread: (id: string) => void;
   /** Put the board back on a thread. */
@@ -1148,7 +1148,7 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        landThread: ({ mode, model, ask, answer, changes }) => {
+        landThread: ({ mode, model, ask, answer, changes, sketch }) => {
           const id = uid("th");
           set((s) => ({
             threads: [
@@ -1156,6 +1156,7 @@ export const useStudio = create<StudioState>()(
               {
                 id, parentId: s.liveThreadId, at: Date.now(), mode, model,
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
+                ...(sketch ? { sketch } : {}),
                 doc: snapshot(s) as ThreadDoc,
                 // What was vined to the call is what the thread was about.
                 pieces: [...s.draftPieces],

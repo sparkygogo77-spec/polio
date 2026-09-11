@@ -230,7 +230,7 @@ export function SplitPanes({ id, content, theme: t, mode }: PartProps) {
 export function Console({ id, content, theme: t, mode, emit }: PartProps) {
   const known = items(content, ["help", "pages", "status", "clear"]);
   const [lines, setLines] = React.useState<{ id: number; text: string; kind: "in" | "out" }[]>([
-    { id: 0, text: `ready — type "help"`, kind: "out" },
+    { id: 0, text: `ready, type "help"`, kind: "out" },
   ]);
   const [draft, setDraft] = React.useState("");
   const next = React.useRef(1);

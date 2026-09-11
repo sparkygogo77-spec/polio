@@ -234,7 +234,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       {/*
         The light outside the hole: a wider canvas behind the disc, so the
         photon ring and the beamed disc have somewhere to be. It takes no
-        presses — every pixel of the board itself is drawing surface.
+        presses, every pixel of the board itself is drawing surface.
       */}
       <canvas
         ref={halo}

@@ -123,7 +123,7 @@ export async function sendDraft(draft: Draft, opts: SendOptions): Promise<SendRe
   if (opts.mode === "intent") {
     const url = intentUrl(first.text);
     window.open(url, "_blank", "noopener");
-    return { ok: true, ids: [], note: first.media.length ? "Opened X with the words. Pictures do not travel this way — add them there." : "Opened X with the words." };
+    return { ok: true, ids: [], note: first.media.length ? "Opened X with the words. Pictures do not travel this way, add them there." : "Opened X with the words." };
   }
   if (opts.mode === "copy") {
     await opts.copy?.(posts.map((p) => p.text).join("\n\n"), "the draft");

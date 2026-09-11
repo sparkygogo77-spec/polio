@@ -127,6 +127,6 @@ export function gapsOf(result: ScaffoldResult): string[] {
   const out: string[] = [];
   if (result.stats.empty) out.push(`${result.stats.empty} Idea part${result.stats.empty === 1 ? "" : "s"} with no body written yet`);
   out.push("where the data each part reads comes from");
-  out.push("what happens after an interaction — sending, filtering, adding to a cart, signing in");
+  out.push("what happens after an interaction, sending, filtering, adding to a cart, signing in");
   return out;
 }

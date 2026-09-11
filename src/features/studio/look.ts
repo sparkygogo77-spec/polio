@@ -158,9 +158,9 @@ export function paletteFromHue(hue: number, light: boolean): Palette {
 export type Harmony = "complementary" | "analogous" | "triadic" | "split" | "monochrome";
 
 export const HARMONIES: { id: Harmony; label: string; hint: string }[] = [
-  { id: "analogous", label: "Analogous", hint: "Neighbours on the wheel — calm, cohesive" },
-  { id: "complementary", label: "Complementary", hint: "Opposite hues — maximum pop" },
-  { id: "triadic", label: "Triadic", hint: "Three evenly spaced — lively, balanced" },
+  { id: "analogous", label: "Analogous", hint: "Neighbours on the wheel, calm, cohesive" },
+  { id: "complementary", label: "Complementary", hint: "Opposite hues, maximum pop" },
+  { id: "triadic", label: "Triadic", hint: "Three evenly spaced, lively, balanced" },
   { id: "split", label: "Split", hint: "One hue against two near its opposite" },
   { id: "monochrome", label: "Monochrome", hint: "One hue, many lightnesses" },
 ];
@@ -1084,7 +1084,7 @@ export function describeLook(look: Look, resolved: Palette): string[] {
       );
     }
     lines.push("  A background layer is a floor: every section, card and bar is opaque over it, so it shows in the gutters and margins only.");
-    lines.push("  Every layer above is plain CSS — no image files unless one is named.");
+    lines.push("  Every layer above is plain CSS, no image files unless one is named.");
   }
   return lines;
 }
