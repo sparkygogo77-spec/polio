@@ -1,0 +1,544 @@
+"use client";
+/**
+ * The timeline: every iteration, as a place rather than a list.
+ *
+ * Finish opens this, and it fills the screen the way the board does —
+ * the same dark matter under it, nothing down either side. What is on it
+ * are **iteration boxes**: one per landed call, emerald, quiet, saying
+ * almost nothing until one is clicked. An iteration is a chain prompt (an
+ * ask about the whole site) or an element prompt (a drawing, a part), and
+ * the box's headline is the main thing that iteration did — a preview
+ * where there is one, an icon and a line where there is not.
+ *
+ * Nothing is aligned and nothing is grouped. Boxes are scattered where
+ * they landed, dragged anywhere, and the whole surface pans out past the
+ * edges, because a history that snaps to a grid is a table with extra
+ * steps. Where a box is put is kept (`threadSpots`).
+ *
+ * Between them run **strands** (`strand.ts`): tight lines with light
+ * moving inside them, following the boxes as they are dragged. On the
+ * strand between two iterations sits the **loop starter** — examine,
+ * critique, iterate — because the interesting thing about two iterations
+ * is what happened between them.
+ *
+ * Clicking a box opens it *below* the timeline (`TimelineDetail`), one at
+ * a time. This file is the surface; that one is the reading.
+ */
+import * as React from "react";
+import { Brush, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { play } from "@/core/audio/engine";
+import { cn } from "@/core/lib/cn";
+import { Tooltip } from "@/core/ui/tooltip";
+import { Button } from "@/core/ui/button";
+import { DRIFT_MS, paintDarkMatter, resizeField, sparkField, type SparkField } from "./darkMatter";
+import { paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
+import { flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
+import { useStudio } from "./store";
+
+/** A box's size on the surface. Small: it says little until it is opened. */
+const BOX = { w: 224, h: 84 };
+/** How far apart the scatter puts them, before anybody drags anything. */
+const DRIFT = { x: 268, y: 158 };
+/** How far back the ground sits here. The boxes have to be the brightest thing. */
+const GROUND_DIM = 0.55;
+
+/** A number from a string: the same box lands in the same place every time. */
+function seed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+/**
+ * Where the boxes sit before anyone moves them.
+ *
+ * Down and to the right, one step per iteration, with a shove either way
+ * off the thread's own id — enough that no two rows line up and the eye
+ * reads it as a place rather than a column.
+ */
+function scatter(nodes: ThreadNode[]): Map<string, Point> {
+  const out = new Map<string, Point>();
+  nodes.forEach((n, i) => {
+    const jx = seed(n.thread.id) - 0.5;
+    const jy = seed(`${n.thread.id}y`) - 0.5;
+    out.set(n.thread.id, {
+      x: 140 + n.depth * DRIFT.x + jx * 150,
+      y: 130 + i * DRIFT.y + jy * 90,
+    });
+  });
+  return out;
+}
+
+/** What kind of iteration this is, in one word and one mark. */
+function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
+  switch (t.mode) {
+    case "drawing":
+      return { icon: <Brush className="size-3.5" />, kind: "element prompt" };
+    case "build":
+      return { icon: <Layers className="size-3.5" />, kind: "chain prompt" };
+    case "critique":
+      return { icon: <ListChecks className="size-3.5" />, kind: "chain prompt" };
+    case "finish":
+      return { icon: <ListChecks className="size-3.5" />, kind: "chain prompt" };
+    default:
+      return { icon: <Sparkles className="size-3.5" />, kind: "chain prompt" };
+  }
+}
+
+/** The main update of an iteration: what it actually did, in a few words. */
+export function headlineOf(t: Thread): string {
+  if (t.changes.length) return t.changes[0]!;
+  const title = threadTitle(t);
+  const arrow = title.indexOf("→");
+  return arrow > 0 ? title.slice(0, arrow).trim() : title;
+}
+
+export function Timeline() {
+  const threads = useStudio((s) => s.threads);
+  const liveThreadId = useStudio((s) => s.liveThreadId);
+  const openThreadId = useStudio((s) => s.openThreadId);
+  const spots = useStudio((s) => s.threadSpots);
+  const pinned = useStudio((s) => s.pinnedThreads);
+
+  const host = React.useRef<HTMLDivElement>(null);
+  const plot = React.useRef<HTMLDivElement>(null);
+  const ground = React.useRef<HTMLCanvasElement>(null);
+  const wires = React.useRef<HTMLCanvasElement>(null);
+  const field = React.useRef<SparkField | null>(null);
+  const born = React.useRef(0);
+  if (!born.current) born.current = typeof performance !== "undefined" ? performance.now() : 0;
+
+  const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = React.useState(1);
+  const [dragging, setDragging] = React.useState<{ id: string; at: Point } | null>(null);
+  const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
+  const [loop, setLoop] = React.useState<{ from: string; to: string } | null>(null);
+  /** When a drag ended, so the click it fires can be ignored. */
+  const dropped = React.useRef(0);
+
+  const roots = React.useMemo(() => threadTree(threads), [threads]);
+  const all = React.useMemo(() => flatten(roots), [roots]);
+  const home = React.useMemo(() => scatter(all), [all]);
+  const spotOf = React.useCallback(
+    (id: string): Point => {
+      if (dragging?.id === id) return dragging.at;
+      return spots[`box:${id}`] ?? home.get(id) ?? { x: 140, y: 130 };
+    },
+    [dragging, spots, home],
+  );
+
+  /* ------------------------------------------------------------ ground */
+  React.useEffect(() => {
+    const el = ground.current;
+    const box = host.current;
+    if (!el || !box) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    let frame = 0;
+    const paint = () => {
+      frame = 0;
+      const c = el.getContext("2d");
+      if (!c) return;
+      const w = Math.max(1, Math.round(box.clientWidth));
+      const h = Math.max(1, Math.round(box.clientHeight));
+      if (el.width !== w || el.height !== h) {
+        el.width = w;
+        el.height = h;
+      }
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      field.current = field.current ? resizeField(field.current, w, h) : sparkField("ground", w, h);
+      paintDarkMatter(c, { field: field.current, t: (performance.now() - born.current) / 1000, vignette: false, dim: GROUND_DIM });
+    };
+    paint();
+    const ro = new ResizeObserver(() => { if (!frame) frame = requestAnimationFrame(paint); });
+    ro.observe(box);
+    if (still) return () => ro.disconnect();
+    const tick = window.setInterval(() => {
+      if (document.hidden || frame) return;
+      frame = requestAnimationFrame(paint);
+    }, DRIFT_MS);
+    return () => {
+      window.clearInterval(tick);
+      ro.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  /* ----------------------------------------------------------- strands */
+  /*
+   * Where a strand starts and ends is worked out from where the box *is*,
+   * not by measuring the box: the canvas and the loop starters then agree
+   * to the pixel, a starter can be placed on the first frame rather than
+   * the second, and dragging one box moves its strands in the same frame
+   * as the box itself.
+   */
+  const anchorOf = React.useCallback(
+    (id: string) => {
+      const at = spotOf(id);
+      return { left: at.x, right: at.x + BOX.w, mid: at.y + BOX.h / 2 };
+    },
+    [spotOf],
+  );
+
+  const cords = React.useMemo(
+    () =>
+      all
+        .filter((n) => n.thread.parentId)
+        .map((n) => ({ from: n.thread.parentId!, to: n.thread.id, tone: (n.thread.id === liveThreadId ? "live" : "landed") as StrandTone })),
+    [all, liveThreadId],
+  );
+
+  React.useEffect(() => {
+    const el = wires.current;
+    const box = host.current;
+    const c = el?.getContext("2d");
+    if (!el || !c || !box) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    let raf = 0;
+    let last = 0;
+    const start = performance.now();
+    const paint = (now: number) => {
+      raf = requestAnimationFrame(paint);
+      if (now - last < 33) return;
+      last = now;
+      const w = Math.max(1, Math.round(box.clientWidth));
+      const h = Math.max(1, Math.round(box.clientHeight));
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      if (el.width !== w * dpr || el.height !== h * dpr) {
+        el.width = w * dpr;
+        el.height = h * dpr;
+        el.style.width = `${w}px`;
+        el.style.height = `${h}px`;
+      }
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.clearRect(0, 0, w, h);
+      const t = still ? 0 : (now - start) / 1000;
+      // The strands live in the plot's frame; the plot is panned and scaled.
+      c.save();
+      c.translate(pan.x, pan.y);
+      c.scale(zoom, zoom);
+      for (const cord of cords) {
+        const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
+        paintStrand(c, from, to, { t, tone: cord.tone, phase: seed(cord.to) });
+      }
+      c.restore();
+    };
+    raf = requestAnimationFrame(paint);
+    return () => cancelAnimationFrame(raf);
+  }, [cords, anchorOf, pan, zoom]);
+
+  /* -------------------------------------------------------- the pointer */
+  const startDrag = (id: string, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const grid = plot.current;
+    if (!grid) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const origin = grid.getBoundingClientRect();
+    const from = spotOf(id);
+    const grab = { x: (e.clientX - origin.left) / zoom - from.x, y: (e.clientY - origin.top) / zoom - from.y };
+    const to = (ev: PointerEvent): Point => {
+      const r = grid.getBoundingClientRect();
+      return { x: (ev.clientX - r.left) / zoom - grab.x, y: (ev.clientY - r.top) / zoom - grab.y };
+    };
+    const from0 = { x: e.clientX, y: e.clientY };
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (!moved && Math.hypot(ev.clientX - from0.x, ev.clientY - from0.y) < 4) return;
+      moved = true;
+      setDragging({ id, at: to(ev) });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      // A box that was carried somewhere is not a box that was clicked: the
+      // click that follows a drag would otherwise open whatever was moved.
+      if (moved) {
+        const at = to(ev);
+        useStudio.getState().moveThread(`box:${id}`, at.x, at.y);
+        dropped.current = Date.now();
+        play("tap");
+      }
+      setDragging(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  /** Dragging the ground pans the whole surface, as far as you like. */
+  const startPan = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    setMenu(null);
+    const from = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    const move = (ev: PointerEvent) => setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    if (!e.ctrlKey && !e.metaKey) {
+      setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+      return;
+    }
+    setZoom((z) => Math.max(0.4, Math.min(1.8, z * (e.deltaY < 0 ? 1.08 : 0.93))));
+  };
+
+  const byId = React.useMemo(() => new Map(threads.map((t) => [t.id, t])), [threads]);
+  const nothing = !threads.length;
+
+  return (
+    <div
+      ref={host}
+      data-timeline=""
+      className="relative h-full w-full overflow-hidden"
+      onPointerDown={startPan}
+      onWheel={onWheel}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <canvas ref={ground} aria-hidden className="pointer-events-none absolute left-0 top-0" />
+      <canvas ref={wires} aria-hidden className="pointer-events-none absolute left-0 top-0" />
+
+      <div
+        ref={plot}
+        className="absolute left-0 top-0"
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0", width: 1, height: 1 }}
+      >
+        {all.map((n) => {
+          const t = n.thread;
+          const at = spotOf(t.id);
+          const live = t.id === liveThreadId;
+          const open = t.id === openThreadId;
+          return (
+            <IterationBox
+              key={t.id}
+              thread={t}
+              at={at}
+              live={live}
+              open={open}
+              pinned={pinned.includes(t.id)}
+              dragging={dragging?.id === t.id}
+              onOpen={() => {
+                if (Date.now() - dropped.current < 250) return;
+                play("select");
+                useStudio.getState().openThread(open ? null : t.id);
+              }}
+              onDragStart={(e) => startDrag(t.id, e)}
+              onMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                play("open");
+                setMenu({ id: t.id, x: e.clientX, y: e.clientY });
+              }}
+            />
+          );
+        })}
+
+        {/* The loop starter, on the strand between two iterations. */}
+        {cords.map((cord) => {
+          const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
+          const mid = strandMiddle(from, to);
+          return (
+            <LoopStarter
+              key={`${cord.from}->${cord.to}`}
+              at={mid}
+              from={byId.get(cord.from)}
+              to={byId.get(cord.to)}
+              on={loop?.from === cord.from && loop?.to === cord.to}
+              onClick={() => {
+                play("confirm");
+                setLoop({ from: cord.from, to: cord.to });
+                useStudio.getState().openThread(cord.to);
+                window.dispatchEvent(new CustomEvent("studio:loop", { detail: { from: cord.from, to: cord.to } }));
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {menu ? (
+        <BoxMenu
+          at={menu}
+          thread={byId.get(menu.id)!}
+          onClose={() => setMenu(null)}
+        />
+      ) : null}
+
+      {nothing ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <p className="max-w-sm text-center text-[12px] leading-relaxed text-[oklch(0.7_0.06_158)]">
+            Nothing has landed yet. Every ask that comes back stands here as an iteration — a chain prompt about the whole
+            site, or an element prompt from a drawing — and the strands between them are what one iteration made of the
+            last. Ask something below to start.
+          </p>
+        </div>
+      ) : null}
+
+      {/* Where you are, and the way back to the middle. */}
+      <div className="pointer-events-auto absolute bottom-2 left-2 flex items-center gap-1 rounded-md border border-[oklch(0.36_0.07_158)] bg-[oklch(0.16_0.03_158/0.75)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.07_158)] backdrop-blur-sm">
+        <GitBranch className="size-3" />
+        <span className="num">{threads.length}</span>
+        <span className="opacity-60">iterations</span>
+        <span className="mx-1 h-3 w-px bg-[oklch(0.36_0.07_158)]" />
+        <button type="button" className="tactile rounded px-1 hover:text-[oklch(0.92_0.1_158)]" onClick={(e) => { e.stopPropagation(); play("tap"); setPan({ x: 0, y: 0 }); setZoom(1); }}>
+          centre
+        </button>
+        <span className="num opacity-60">{Math.round(zoom * 100)}%</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Which sides two boxes face each other with: out of one, into the other,
+ * and the other way round when the child ended up to the left of its
+ * parent — which it will, the moment anything is dragged.
+ */
+function ends(a: { left: number; right: number; mid: number }, b: { left: number; right: number; mid: number }): [Point, Point] {
+  const backwards = b.left < a.left;
+  return [
+    { x: backwards ? a.left : a.right, y: a.mid },
+    { x: backwards ? b.right : b.left, y: b.mid },
+  ];
+}
+
+/* ------------------------------------------------------------------ */
+/* One box                                                             */
+/* ------------------------------------------------------------------ */
+
+function IterationBox({
+  thread, at, live, open, pinned, dragging, onOpen, onDragStart, onMenu,
+}: {
+  thread: Thread;
+  at: Point;
+  live: boolean;
+  open: boolean;
+  pinned: boolean;
+  dragging: boolean;
+  onOpen: () => void;
+  onDragStart: (e: React.PointerEvent) => void;
+  onMenu: (e: React.MouseEvent) => void;
+}) {
+  const { icon, kind } = kindOf(thread);
+  return (
+    <button
+      type="button"
+      data-box={thread.id}
+      data-open={open ? "1" : "0"}
+      onPointerDown={onDragStart}
+      onClick={onOpen}
+      onContextMenu={onMenu}
+      className={cn(
+        "absolute flex cursor-grab flex-col gap-1 rounded-lg border p-2 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing",
+        dragging && "z-30",
+      )}
+      style={{
+        left: at.x,
+        top: at.y,
+        width: BOX.w,
+        minHeight: BOX.h,
+        // Emerald, and not shouting: the ground behind is nebula, and a box
+        // that fights it makes the whole screen a poster.
+        background: open ? "oklch(0.26 0.07 158)" : "oklch(0.21 0.05 158 / 0.92)",
+        borderColor: open ? "oklch(0.66 0.16 158)" : live ? "oklch(0.5 0.12 158)" : "oklch(0.36 0.07 158)",
+        color: "oklch(0.9 0.05 158)",
+        boxShadow: open
+          ? "0 0 0 1px oklch(0.66 0.16 158 / 0.5), 0 8px 26px oklch(0 0 0 / 0.5)"
+          : "0 6px 18px oklch(0 0 0 / 0.45)",
+        transform: dragging ? "scale(1.02)" : "none",
+      }}
+    >
+      <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-[oklch(0.68_0.09_158)]">
+        {icon}
+        {kind}
+        {live ? <span className="ml-auto rounded-sm bg-[oklch(0.5_0.14_158)] px-1 text-[8px] text-[oklch(0.14_0.02_158)]">live</span> : null}
+        {pinned ? <Pin className="ml-auto size-3 fill-current" /> : null}
+      </span>
+      {/* The headline: the main update this iteration made, and nothing else
+          until it is opened. */}
+      <span className="line-clamp-2 text-[12px] font-medium leading-snug text-[oklch(0.93_0.04_158)]">{headlineOf(thread)}</span>
+      <span className="num text-[9px] text-[oklch(0.62_0.06_158)]">
+        {new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {thread.mode}
+        {thread.changes.length > 1 ? ` · +${thread.changes.length - 1}` : ""}
+      </span>
+    </button>
+  );
+}
+
+/** The loop starter: what happened between these two, and what to do about it. */
+function LoopStarter({ at, from, to, on, onClick }: { at: Point; from?: Thread; to?: Thread; on: boolean; onClick: () => void }) {
+  if (!from || !to) return null;
+  return (
+    <Tooltip content={`Examine, critique, iterate — from "${headlineOf(from)}" to "${headlineOf(to)}"`}>
+      <button
+        type="button"
+        data-loop-starter=""
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        aria-label="Start a loop between these two iterations"
+        className="absolute flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-transform hover:scale-110"
+        style={{
+          left: at.x,
+          top: at.y,
+          background: on ? "oklch(0.7 0.18 158)" : "oklch(0.2 0.05 158)",
+          border: `1px solid ${on ? "oklch(0.86 0.18 158)" : "oklch(0.5 0.12 158)"}`,
+          color: on ? "oklch(0.14 0.02 158)" : "oklch(0.82 0.12 158)",
+          boxShadow: on ? "0 0 14px oklch(0.7 0.2 158 / 0.6)" : "0 2px 8px oklch(0 0 0 / 0.5)",
+        }}
+      >
+        <Repeat className="size-3" />
+      </button>
+    </Tooltip>
+  );
+}
+
+/** Right-press on a box: what can be done with this iteration. */
+function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread: Thread; onClose: () => void }) {
+  const pinned = useStudio((s) => s.pinnedThreads.includes(thread.id));
+  const live = useStudio((s) => s.liveThreadId === thread.id);
+  React.useEffect(() => {
+    const shut = () => onClose();
+    window.addEventListener("pointerdown", shut);
+    window.addEventListener("keydown", shut);
+    return () => {
+      window.removeEventListener("pointerdown", shut);
+      window.removeEventListener("keydown", shut);
+    };
+  }, [onClose]);
+  const item = (label: string, icon: React.ReactNode, run: () => void, danger = false) => (
+    <button
+      type="button"
+      onClick={() => { run(); onClose(); }}
+      className={cn(
+        "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] hover:bg-[oklch(0.3_0.07_158)]",
+        danger ? "text-[oklch(0.8_0.14_25)]" : "text-[oklch(0.9_0.04_158)]",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+  return (
+    <div
+      data-box-menu=""
+      onPointerDown={(e) => e.stopPropagation()}
+      className="fixed z-50 w-56 rounded-lg border p-1 shadow-pop"
+      style={{ left: at.x, top: at.y, background: "oklch(0.19 0.045 158)", borderColor: "oklch(0.4 0.09 158)" }}
+    >
+      <p className="truncate px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[oklch(0.66_0.08_158)]">{thread.mode} · {new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+      {item("Open it below", <Wand2 className="size-3" />, () => useStudio.getState().openThread(thread.id))}
+      {item(live ? "The board is on this" : "Stand on it", <MapPin className="size-3" />, () => useStudio.getState().standOn(thread.id))}
+      {item(pinned ? "Unpin it" : "Pin it", pinned ? <PinOff className="size-3" /> : <Pin className="size-3" />, () => useStudio.getState().togglePinnedThread(thread.id))}
+      {item("Copy the prompt", <Sparkles className="size-3" />, () => void navigator.clipboard?.writeText(thread.ask))}
+      {item("Copy what came back", <Sparkles className="size-3" />, () => void navigator.clipboard?.writeText(thread.answer))}
+      <div className="my-1 h-px bg-[oklch(0.32_0.06_158)]" />
+      {item("Prune this iteration", <Scissors className="size-3" />, () => useStudio.getState().pruneThread(thread.id), true)}
+    </div>
+  );
+}

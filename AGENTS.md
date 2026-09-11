@@ -292,6 +292,30 @@ a kicker with a rule, and label-and-value rows that copy.
   rectangle yields no clip at all: cutting a box to a box is cutting
   nothing. `tests/outline-clip.mjs` holds the star, the helix, the spiral,
   the box and the empty cases.
+- **Finish opens the timeline, and it is a workspace, not a list.**
+  The green flag on the toolbar (`FinishFlag`) puts the Builder in `book`
+  mode, where `Timeline.tsx` fills the window exactly as the board does:
+  the same dark matter under it (dimmer — the boxes have to be the
+  brightest thing), no panels down either side, drag the ground to pan out
+  as far as you like. Each landed call is an **iteration box** — emerald,
+  low contrast, an icon, whether it was a chain prompt or an element
+  prompt, and one line saying what that iteration actually did. Nothing is
+  aligned or grouped: boxes are scattered off their own id and dragged
+  anywhere (`threadSpots`, keyed `box:<id>`), and a drag is not a click.
+  Right-press one for what can be done with it. Between them run
+  **strands** (`strand.ts`): one tight line, a little thicker than a
+  hairline, with bands of light running *inside* it — not a bead
+  travelling a wire — anchored to where the boxes are rather than to a
+  measurement of them, so they stretch in the same frame as the drag. On
+  each strand sits the **loop starter**: examine, critique, iterate.
+  Under the timeline, and reached by carrying on scrolling exactly as the
+  parts shelf is under the board, `TimelineDetail.tsx` reads **one**
+  iteration: the stages across the top (asked → came back → changed →
+  critique → what came next), the prompt small above the preview, and a
+  menu down the side for turning that generation into something. The
+  iteration book lives there too, in its own tab with its own menu, and
+  the page layout of the book no longer draws the trail — the timeline
+  above it is the trail.
 - **The Blueprint and the Trail are one page: the iteration book.**
   `BriefDialog.tsx` is one `Book` component in three shapes — a dialog over
   the board, a panel pinned open beside it (`store.bookPinned`, no overlay,
