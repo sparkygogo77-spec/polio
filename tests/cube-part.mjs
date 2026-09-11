@@ -92,6 +92,23 @@ await page.waitForTimeout(700);
 check("picking it up hands it the pointer",
   await cube.evaluate((el) => getComputedStyle(el.closest("[data-mode]")).pointerEvents) === "auto");
 
+/*
+ * The ground goes away for the turning.
+ *
+ * The cube settles over animation *frames*, not over wall-clock time, so how
+ * long it takes to reach a face depends on the frame rate. The nebula behind
+ * it is four window-sized layers the compositor carries every frame, and on
+ * a container with no GPU that takes the page to a 50ms beat — a third of
+ * the frames in the same 2.6s, and the cube is still mid-turn when this
+ * looks. Put the ground away and this measures the cube.
+ *
+ * Worth knowing rather than working around: on a slow machine the settle is
+ * slow for a person too. A settle driven by elapsed time rather than by
+ * frames would not care.
+ */
+const noGround = await page.addStyleTag({ content: "[data-ground-clouds],[data-ground-sparks]{display:none !important}" });
+await page.waitForTimeout(300);
+
 const box = await cube.boundingBox();
 const turnOf = () => cube.getAttribute("data-cube-turn");
 const before = await turnOf();
