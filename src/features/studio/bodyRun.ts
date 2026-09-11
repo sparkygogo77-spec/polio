@@ -42,6 +42,7 @@ import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { money, RENDER_COST, type RenderKind } from "./renderer";
 import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
 import { CLIP_STROKE, type OutlineClip, type SketchPoint } from "./sketch";
+import type { DrawnVector } from "./vector";
 
 /** How much of the drawing a body has to cover before it is left alone. */
 export const GOOD_ENOUGH = 0.72;
@@ -58,6 +59,8 @@ export interface Attempt {
   note: string;
   /** The render, as a PNG data URL, for the next attempt to look at. */
   shot: string | null;
+  /** The drawing as vector, when this attempt traced one. */
+  vector?: DrawnVector | null;
 }
 
 export interface BodyResult {
@@ -70,6 +73,8 @@ export interface BodyResult {
   cost: number;
   /** Why the renderer was not used, when it was not. Shown, not swallowed. */
   rendererSays?: string;
+  /** The drawing itself, as vector, when one was traced. */
+  vector?: DrawnVector | null;
 }
 
 export interface BodyInput {

@@ -5,10 +5,11 @@
 import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { splitTurn } from "./Hero";
+import { simplify, vectorMarkup } from "../vector";
 import { cardStyle, items, radiusFor, titled } from "./theme";
 import { opt, type PartProps } from "./types";
 
-export function Cta({ id, content, options, theme: t, mode, link, onNavigate, emit }: PartProps) {
+export function Cta({ id, content, options, theme: t, mode, link, vector, onNavigate, emit }: PartProps) {
   const label = items(content, [id === "follow" ? "Follow" : id === "quick-action" ? "Buy now" : "Get started"])[0]!;
   const variant = opt(options, "variant", "solid");
   const size = opt(options, "size", "medium");
@@ -32,6 +33,12 @@ export function Cta({ id, content, options, theme: t, mode, link, onNavigate, em
     emit?.({ type: id === "quick-action" ? "success" : "toast", text: label });
   };
 
+  /*
+   * A drawing dropped on this button is worn as its icon: the same paths,
+   * at the height of the label, in the button's own colour because the
+   * markup carries no colour of its own.
+   */
+  const glyph = vector ? vectorMarkup(simplify(vector as never, 6), { stroke: opt(options, "icon", "solid") === "line", width: 2 }) : "";
   const outline = variant === "outline";
   const ghost = variant === "ghost";
   const text = id === "follow" && following ? "Following ✓" : done ? "Done ✓" : label;
@@ -51,6 +58,14 @@ export function Cta({ id, content, options, theme: t, mode, link, onNavigate, em
           transition: "transform 120ms ease, background 160ms ease",
         }}
       >
+        {glyph ? (
+          <span
+            data-button-icon=""
+            aria-hidden
+            style={{ width: "1.15em", height: "1.15em", display: "inline-block", lineHeight: 0, marginRight: "0.5em", flexShrink: 0 }}
+            dangerouslySetInnerHTML={{ __html: glyph }}
+          />
+        ) : null}
         {text}
       </button>
     </Fill>

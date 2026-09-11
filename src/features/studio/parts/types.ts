@@ -87,6 +87,14 @@ export interface PartProps {
   mode: PartMode;
   /** The six faces, for the one part that has them. */
   cube?: CubeData | null;
+  /**
+   * The drawing this part carries, as vector.
+   *
+   * The icon part *is* one; a button that was given one wears it. It is
+   * plain data — a viewBox and some path strings — so a generated site
+   * ships it with everything else.
+   */
+  vector?: { viewBox: string; paths: { d: string; share: number }[] } | null;
   onNavigate?: (link: NodeLink) => void;
   emit?: (e: PartEvent) => void;
 }
