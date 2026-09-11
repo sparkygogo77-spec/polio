@@ -27,6 +27,8 @@ import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, ty
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
 import { writeBody } from "./bodyRun";
+import { drawBody } from "./drawRun";
+import { kindOfSketch } from "./shapeKind";
 
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
@@ -56,38 +58,87 @@ export interface RunResult {
 }
 
 /**
- * The drawing as a picture for the reader: black lines on white, small.
- * Cleaner to read than the starry board, and a few kilobytes.
+ * How a drawing is rasterised. Every rung of the tracer's ladder is one of
+ * these turned up.
  */
-export function pictureOf(strokes: SketchPoint[][], px = 640): string | null {
+export interface PictureOpts {
+  /** The square the picture is drawn in. */
+  px?: number;
+  /** Crop to the ink rather than keeping the whole board. Fills the frame with the drawing. */
+  crop?: boolean;
+  /** How thick the line is, at 640px. Thicker traces as more area. */
+  width?: number;
+  /** Pure black on pure white, no soft edge: a cleaner trace. */
+  contrast?: boolean;
+  /** Draw the board's rim. Off once the picture is for a tracer, which would trace it. */
+  edge?: boolean;
+  /** Paint a white ground. Off leaves it transparent, so nothing is traced under the line. */
+  ground?: boolean;
+}
+
+/**
+ * The drawing as a picture: black lines on white, small.
+ *
+ * Two readers want this and they want different things. A model that
+ * *looks* at the drawing to describe it wants the board as it was, rim and
+ * all, because where a shape sits on the disc is part of what was drawn. A
+ * model that *traces* it wants the ink and nothing else: a rim it would
+ * trace, a ground it would trace, and a hairline it would lose. So the
+ * defaults are the first and the ladder in `drawBody` turns each knob for
+ * the second.
+ */
+export function pictureOf(strokes: SketchPoint[][], opts: number | PictureOpts = {}): string | null {
+  const o: PictureOpts = typeof opts === "number" ? { px: opts } : opts;
+  const px = o.px ?? 640;
+  const crop = o.crop ?? false;
+  const edge = o.edge ?? !crop;
+  const ground = o.ground ?? true;
   if (typeof document === "undefined") return null;
   const el = document.createElement("canvas");
   el.width = px;
   el.height = px;
   const c = el.getContext("2d");
   if (!c) return null;
-  c.fillStyle = "#ffffff";
-  c.fillRect(0, 0, px, px);
-  c.strokeStyle = "#111111";
+  if (ground) {
+    c.fillStyle = "#ffffff";
+    c.fillRect(0, 0, px, px);
+  }
   // Thicker at this size: the picture is the reference the reader works
   // from, and a hairline at 640px reads as noise once it is scaled.
-  c.lineWidth = 6;
+  c.strokeStyle = "#000000";
+  c.lineWidth = o.width ?? 6;
   c.lineCap = "round";
   c.lineJoin = "round";
+  if (o.contrast) {
+    // No soft edge at all: a tracer turns grey into a second, ghostly
+    // outline beside the first.
+    c.imageSmoothingEnabled = false;
+    c.shadowBlur = 0;
+  }
   // The board's edge, faintly, so a shape's place on the disc can be read.
-  c.save();
-  c.strokeStyle = "#d0d0d0";
-  c.lineWidth = 2;
-  c.beginPath();
-  c.arc(px / 2, px / 2, px / 2 - 2, 0, Math.PI * 2);
-  c.stroke();
-  c.restore();
+  if (edge) {
+    c.save();
+    c.strokeStyle = "#d0d0d0";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(px / 2, px / 2, px / 2 - 2, 0, Math.PI * 2);
+    c.stroke();
+    c.restore();
+  }
+  // Cropping puts the ink's own box in the frame, with a margin the line
+  // cannot be cut by.
+  const box = crop ? boxOf(strokes) : null;
+  const pad = (o.width ?? 6) / px + 0.02;
+  const scale = box ? Math.min(1 / Math.max(box.w, 1e-3), 1 / Math.max(box.h, 1e-3)) * (1 - pad * 2) : 1;
+  const ox = box ? 0.5 - (box.x + box.w / 2) * scale : 0;
+  const oy = box ? 0.5 - (box.y + box.h / 2) * scale : 0;
+  const at = (v: number, off: number) => (v * scale + off) * px;
   for (const s of strokes) {
     if (!s.length) continue;
     c.beginPath();
-    c.moveTo(s[0]![0] * px, s[0]![1] * px);
-    if (s.length === 1) c.lineTo(s[0]![0] * px + 0.01, s[0]![1] * px);
-    for (let i = 1; i < s.length; i++) c.lineTo(s[i]![0] * px, s[i]![1] * px);
+    c.moveTo(at(s[0]![0], ox), at(s[0]![1], oy));
+    if (s.length === 1) c.lineTo(at(s[0]![0], ox) + 0.01, at(s[0]![1], oy));
+    for (let i = 1; i < s.length; i++) c.lineTo(at(s[i]![0], ox), at(s[i]![1], oy));
     c.stroke();
   }
   try {
@@ -95,6 +146,19 @@ export function pictureOf(strokes: SketchPoint[][], px = 640): string | null {
   } catch {
     return null;
   }
+}
+
+/** The box round every stroke, in board fractions. */
+function boxOf(strokes: SketchPoint[][]): { x: number; y: number; w: number; h: number } | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of strokes) for (const [x, y] of s) {
+    if (x < x0) x0 = x;
+    if (y < y0) y0 = y;
+    if (x > x1) x1 = x;
+    if (y > y1) y1 = y;
+  }
+  if (!Number.isFinite(x0) || x1 <= x0 || y1 <= y0) return null;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
 /** Run one job: read the drawing if a reader can be reached, and put it on the board either way. */
@@ -167,12 +231,28 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         source: "studio",
         toast: true,
       });
-      const bodied = await bodyFor(made.id, drawn, deps);
-      return { ok: true, madeId: made.id, note: [body, bodied].filter(Boolean).join(" · ") };
+      // The shape said what the part looks like; it also said what it does.
+      // The clip is already on, and this adds behaviour on top of it.
+      const role = useStudio.getState().applyDrawnKind(made.id, kindOfSketch(drawn));
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
+      return { ok: true, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
     }
 
-    // No key, a refusal, a bad reply: the drawing still shapes the part.
+    // No key, a refusal, a bad reply: the drawing still shapes the part, and
+    // what the shape means is read here rather than asked for, so behaviour
+    // survives a locked vault exactly as the crop does.
     const made = applyProportion(drawn, node, job);
+    const role = useStudio.getState().applyDrawnKind(made.id, kindOfSketch(drawn));
+    // A drawing that made a part is an iteration whether or not a reader
+    // was involved: the shape, the crop, the behaviour and the traced body
+    // all happened, and the timeline is where what happened is written.
+    useStudio.getState().landThread({
+      mode: "drawing",
+      ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
+      answer: [role.did, "read off the drawing, with no reader"].filter(Boolean).join(", "),
+      sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
+      changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`],
+    });
     if (data.reason === "no-key") deps.onNoKey();
     const body =
       data.reason === "no-key"
@@ -186,7 +266,11 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       source: "studio",
       toast: true,
     });
-    return { ok: false, madeId: made.id, note: body };
+    // The body does not need a reader either. Tracing the drawing is
+    // Claude-free from end to end, so a locked vault costs the description
+    // and nothing else.
+    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
+    return { ok: false, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
   } catch (err) {
     // The request itself failed. The drawing is still worth keeping, and the
     // proportion it says is still the part's.
@@ -218,18 +302,34 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
   const node = s.nodes.find((n) => n.id === nodeId);
   if (!node || node.featureId !== "custom-idea") return "";
   const palette = s.look?.palette as Record<string, string> | undefined;
-  const written = await writeBody(
-    {
-      label: node.label,
-      prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim() || node.label,
-      w: node.w,
-      h: node.h,
-      outline: node.outline,
-      picture: pictureOf(drawn.strokes),
-      palette: palette ? { bg: palette.bg, text: palette.text, accent: palette.accent, muted: palette.muted } : undefined,
-    },
-    { onStep: deps.onStep },
-  );
+  // The drawing is traced, not described. No model that writes is asked
+  // what the line meant, because the line is right there.
+  const written = await (async () => {
+    const traced = await drawBody({ label: node.label, w: node.w, h: node.h, outline: node.outline, strokes: drawn.strokes }, { onStep: deps.onStep });
+    if (traced.ok) return traced;
+    // Nothing was traced at all — no token, a refusal, nothing came back.
+    // A part that was given words can still have a body written for it, and
+    // that is the only door Claude comes through on this path.
+    const words = [node.prompt, drawn.words].filter(Boolean).join("\n").trim();
+    if (!words) return traced;
+    deps.onStep?.("Nothing traced, writing a body from the words…");
+    const wrote = await writeBody(
+      {
+        label: node.label,
+        prompt: words,
+        w: node.w,
+        h: node.h,
+        outline: node.outline,
+        picture: pictureOf(drawn.strokes),
+        palette: palette ? { bg: palette.bg, text: palette.text, accent: palette.accent, muted: palette.muted } : undefined,
+        // The tracer has already been asked and had nothing; asking it again
+        // inside the written loop would be the same answer twice.
+        renderer: false,
+      },
+      { onStep: deps.onStep },
+    );
+    return { ...wrote, cost: wrote.cost + traced.cost, message: [traced.message, wrote.message].filter(Boolean).join(" ") };
+  })();
   // Spent is spent, whether or not a body came of it, and how the body got
   // here — drawn or written, at what price, and why the renderer was not
   // used — is part of what this iteration did, so it goes on the card.

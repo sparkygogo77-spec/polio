@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { cleanSnippet, RENDER_LIMIT } from "@/features/studio/snippet";
 import {
   fluxRatio,
+  fromPicture,
   isRenderKind,
   RENDER_COST,
   RENDER_MODELS,
@@ -58,6 +59,8 @@ const RASTER_LIMIT = 2_400_000;
 
 interface Body {
   kind?: string;
+  /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
+  picture?: string;
   prompt?: string;
   label?: string;
   closed?: boolean;
@@ -96,9 +99,53 @@ function safe(message: string, token: string | null): string {
  * which every model on Replicate takes.
  */
 function shapeFor(kind: RenderKind, w: number, h: number): Record<string, unknown> {
+  if (kind === "vectorize") return {};
   return kind === "vector"
     ? { size: recraftSize(w, h), style: "any" }
     : { aspect_ratio: fluxRatio(w, h), output_format: "webp", safety_tolerance: 2 };
+}
+
+/**
+ * The ground a tracer draws under the drawing.
+ *
+ * A picture handed to a vectorizer has a background, and the vectorizer
+ * traces it: the first thing in the SVG is a rectangle the size of the
+ * frame, filled white. On a part that is an opaque plate where there should
+ * be a line, so it goes — always, not as a tuning knob. Only a shape that
+ * covers the whole frame and is filled is touched; a drawing that genuinely
+ * is a filled square keeps its square, because the square it drew is not
+ * the first element under a `<svg>` tag with the viewBox's own dimensions.
+ */
+function dropGround(svg: string): { html: string; dropped: boolean } {
+  const box = /viewBox\s*=\s*"([-\d.eE]+)[,\s]+([-\d.eE]+)[,\s]+([-\d.eE]+)[,\s]+([-\d.eE]+)"/i.exec(svg);
+  const w = box ? Number(box[3]) : 0;
+  const h = box ? Number(box[4]) : 0;
+  const open = svg.search(/<svg\b[^>]*>/i);
+  if (open < 0) return { html: svg, dropped: false };
+  const after = svg.indexOf(">", open) + 1;
+  // Whatever comes first, skipping the bits that paint nothing.
+  const head = svg.slice(after, after + 1400);
+  const first = /<(rect|path|polygon)\b[^>]*\/?>/i.exec(head.replace(/<(defs|title|desc|metadata|style)\b[\s\S]*?<\/\1\s*>/gi, (m) => " ".repeat(m.length)));
+  if (!first) return { html: svg, dropped: false };
+  const tag = first[0];
+  if (/fill\s*=\s*"?none/i.test(tag)) return { html: svg, dropped: false };
+  const full =
+    first[1]!.toLowerCase() === "rect"
+      ? (() => {
+          const rw = Number(/\bwidth\s*=\s*"([-\d.eE%]+)"/i.exec(tag)?.[1] ?? 0);
+          const rh = Number(/\bheight\s*=\s*"([-\d.eE%]+)"/i.exec(tag)?.[1] ?? 0);
+          return /width\s*=\s*"100%"/i.test(tag) || (w > 0 && rw >= w * 0.98 && rh >= h * 0.98);
+        })()
+      : w > 0 && new RegExp(`M\\s*-?0?\\.?0*[,\\s]`).test(tag) && tag.includes(String(Math.round(w)));
+  if (!full) return { html: svg, dropped: false };
+  const at = svg.indexOf(tag, after);
+  return { html: svg.slice(0, at) + svg.slice(at + tag.length), dropped: true };
+}
+
+/** What each model is handed: a picture to trace, or words to imagine from. */
+function input(kind: RenderKind, words: string, picture: string | null, w: number, h: number): Record<string, unknown> {
+  if (fromPicture(kind)) return { image: `data:image/png;base64,${picture}` };
+  return { prompt: words, ...shapeFor(kind, w, h) };
 }
 
 /** The bytes behind whatever `run` gave back: a file, a URL, a data URI, or the first of a list. */
@@ -146,12 +193,18 @@ export async function POST(request: Request) {
   const kind: RenderKind = isRenderKind(body.kind) ? body.kind : "vector";
   const prompt = (body.prompt ?? "").trim().slice(0, 2000);
   const label = (body.label ?? "").trim().slice(0, 120);
-  if (!prompt && !label) {
+  if (!prompt && !label && !isRenderKind(body.kind)) {
     return NextResponse.json({ ok: false, reason: "empty", message: "Nothing to draw from." }, { status: 400 });
   }
   const w = Math.round(Math.max(24, Math.min(4000, Number(body.w) || 320)));
   const h = Math.round(Math.max(24, Math.min(4000, Number(body.h) || 320)));
   const words = renderPrompt({ kind, prompt, label, closed: body.closed, w, h, palette: body.palette });
+  // Tracing needs the drawing, and only the drawing. No words go with it,
+  // because the whole point of this path is that nothing describes the line.
+  const picture = typeof body.picture === "string" && /^[A-Za-z0-9+/=]+$/.test(body.picture) && body.picture.length < 4_000_000 ? body.picture : null;
+  if (fromPicture(kind) && !picture) {
+    return NextResponse.json({ ok: false, reason: "no-picture", message: "Nothing to trace: the drawing did not arrive as a picture." }, { status: 400 });
+  }
 
   // Handed the token for this call only. Nothing here keeps it, and it goes
   // when the request does.
@@ -160,13 +213,13 @@ export async function POST(request: Request) {
   let out: unknown;
   try {
     try {
-      out = await replicate.run(model, { input: { prompt: words, ...shapeFor(kind, w, h) } });
+      out = await replicate.run(model, { input: input(kind, words, picture, w, h) });
     } catch (first) {
       // A field this version of the model does not have is the one failure
       // worth a second go: the prompt alone is a shape every model takes.
       const status = (first as { response?: { status?: number } }).response?.status;
       if (status !== 422 && status !== 400) throw first;
-      out = await replicate.run(model, { input: { prompt: words } });
+      out = await replicate.run(model, { input: fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words } });
     }
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status;
@@ -198,12 +251,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, reason: "too-big", message: `That drawing came back as ${Math.round(raw.length / 1024)}KB of SVG, past what a part carries. Half an SVG is not a smaller picture, so it was refused rather than cut.`, cost });
     }
     // Cleaned exactly like a written body: same rules, same locks, and it
-    // renders in the same sandbox.
-    const { html, stripped } = cleanSnippet(raw, RENDER_LIMIT);
+    // renders in the same sandbox. The traced ground goes first, because a
+    // white plate the tracer found under the drawing is not the drawing.
+    const ground = dropGround(raw);
+    const { html, stripped } = cleanSnippet(ground.html, RENDER_LIMIT);
     if (!html || !/<svg[\s>]/i.test(html)) {
       return NextResponse.json({ ok: false, reason: "empty-body", message: "Nothing usable was left of that drawing once it was cleaned.", cost });
     }
-    return NextResponse.json({ ok: true, kind, html, stripped, bytes: html.length, cost, model });
+    return NextResponse.json({ ok: true, kind, html, stripped: ground.dropped ? [...stripped, "the ground it was drawn on"] : stripped, bytes: html.length, cost, model });
   }
 
   const mime = mimeOf(file.bytes, file.type);

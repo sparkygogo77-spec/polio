@@ -210,6 +210,14 @@ same boxes as everywhere else, in the screen's colours.
   Blueprint dialog draws them as a map: written, found, now, joined by lines,
   with Take it on any finding that carries a prompt. A critique you can only
   copy is a critique nobody applies.
+- **The drawing is the specification; nothing may paraphrase it.** A model
+  that writes SVG has to be told in words what was drawn, and a line
+  described is a line lost. So the drawing path has no writer in it: the
+  strokes are rasterised and traced, and what comes back is cut to the line
+  that was drawn round it. When it falls short the thing that changes is the
+  picture the tracer was given, never a sentence about it. The same rule
+  decides behaviour: a ring is a container because it is a ring, read off
+  the geometry, not because anyone said so.
 - **A key the person is billed for is the person's to hold.** The renderer's
   Replicate token sits beside the Claude key under the same button, in the
   same vault, unlocked the same way, and rides with the call. It is the one
