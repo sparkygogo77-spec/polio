@@ -45,7 +45,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
-import { emptyCube, facesFrom, type CubeData, type CubeFace } from "./parts/cube";
+import { emptyCube, facesFrom, type CubeData, type CubeFace } from "./parts/cubeFaces";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";

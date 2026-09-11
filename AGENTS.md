@@ -345,6 +345,20 @@ a kicker with a rule, and label-and-value rows that copy.
   behaviour, the body and the iteration on the timeline all land without a
   reader. `writeBody` is still there for a part that genuinely wants words
   and is reached only when nothing was traced at all.
+- **The cube is a part of the library first, and interpretation's business
+  second.** `cube-3d` is in the shelf under Media › Solids: search "cube",
+  drop it, and it is a cube with faces on it before anything is typed —
+  the part reads `node.cube` when it has been edited, the content field
+  when it has not, and falls back to three examples so the shelf shows a
+  cube rather than a blank box, exactly as every other part falls back.
+  **It is the one part that takes the pointer on the board** (`HANDS_ON` in
+  `Canvas.tsx`). Everything on the canvas is `inert` because the canvas is
+  a layout surface, but a cube you cannot turn is a picture of a cube, so
+  once it is the *selected* part it takes the pointer and the keys; let go
+  of it and it is inert again, which is how it is still dragged around the
+  page. It must `stopPropagation` on the press: the board's surface
+  captures the pointer on every pointerdown, and without that the cube's
+  own capture is overridden a frame later and the turn becomes a move.
 - **A cube is where the coded path earns its keep** (`parts/Cube.tsx`,
   `parts/cube.ts`, `shapeKind.isCube`, `tests/cube.mjs`). A traced drawing
   is a picture and a picture of a cube does not turn, so this one part is

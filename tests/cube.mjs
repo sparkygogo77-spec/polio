@@ -28,7 +28,7 @@
  */
 import { createRequire } from "node:module";
 import { corners, isCube, kindOfSketch } from "../src/features/studio/shapeKind.ts";
-import { faceItems, faceOf, facesFrom, saysCube } from "../src/features/studio/parts/cube.ts";
+import { faceItems, faceOf, facesFrom, saysCube } from "../src/features/studio/parts/cubeFaces.ts";
 import { scaffold } from "../src/features/studio/scaffold.ts";
 
 const req = createRequire(import.meta.url);
