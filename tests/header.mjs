@@ -59,6 +59,18 @@ check("Design is not a button for the screen you are on", (await page.getByRole(
 check("the Book tab has left the top left", (await page.getByRole("radio", { name: /^Book/ }).count()) === 0);
 check("and so has the Builder nav tab the site's build replaces", (await page.getByRole("link", { name: /^Builder$/ }).count()) === 0);
 
+/*
+ * The bar is the only nav.
+ *
+ * Builds sat in the shell's tab row *and* at the head of this bar — the
+ * chrome repeating the bar's first item. The tabs are gone, and with no
+ * module asking for a side entry the rail goes with them rather than standing
+ * there empty down the side of the window. The wordmark, which goes to "/",
+ * and "/" is Builds, is the way back from anywhere else.
+ */
+check("no tab row above it saying the same words", (await page.locator("nav[aria-label='Primary'] a").count()) === 0);
+check("and no empty rail down the side", (await page.locator("aside[aria-label='Sidebar']").count()) === 0);
+
 /* ------------------------------------------------------------------ */
 /* 2. What it reads, in order                                          */
 /* ------------------------------------------------------------------ */
@@ -132,29 +144,32 @@ check("Finish opens the timeline", (await page.locator("[data-timeline]").count(
 check("and says so while it is open", (await page.locator("[data-finish]").getAttribute("aria-pressed")) === "true");
 
 /* ------------------------------------------------------------------ */
-/* 4. The pieces on it                                                 */
+/* 4. The pieces                                                       */
 /* ------------------------------------------------------------------ */
 
-// Pieces are the trail (ThreadTree), and the book's page shape — what
-// Finish opens onto the timeline — deliberately drops the trail there: the
-// timeline above it is already that history, and drawing it twice was the
-// wall that shape replaced. The dialog and panel shapes keep the Trail
-// tab, so that is where a piece is checked, via the hook that opens one —
-// back to the board first, since the dialog does not open over the timeline.
+/*
+ * Where the pieces are drawn: the trail, in the book.
+ *
+ * The timeline workspace itself draws iteration boxes and, for now, nothing
+ * else — the pieces are still the trail's, in `ThreadTree.tsx`. What is held
+ * here is what they are, wherever they are drawn: never off, and never the
+ * size of an iteration.
+ */
+// Back to the board first: the book is the panel over it, not the screen
+// Finish switches to.
 await page.locator("[data-finish]").click();
-await page.waitForTimeout(700);
+await page.waitForTimeout(800);
 await page.evaluate(() => window.__studioOpenBrief?.());
-await page.waitForTimeout(600);
-await page.getByRole("radiogroup", { name: "View" }).getByRole("radio", { name: /^Trail/ }).click();
-await page.waitForTimeout(400);
-
+await page.waitForTimeout(1100);
+const trailTab = page.getByRole("radio", { name: /^Trail/ });
+if (await trailTab.count()) { await trailTab.click(); await page.waitForTimeout(800); }
 const pieces = await page.locator("[data-piece]").evaluateAll((els) => els.map((e) => {
   const s = getComputedStyle(e);
   const r = e.getBoundingClientRect();
   const c = /oklch\(([\d.]+) ([\d.]+) ([\d.]+)/.exec(s.color);
   return { pressed: e.getAttribute("aria-pressed"), chroma: c ? +c[2] : 0, hue: c ? +c[3] : NaN, w: Math.round(r.width), h: Math.round(r.height) };
 }));
-check("the board's pieces float on the timeline", pieces.length >= 2, `${pieces.length}`);
+check("the board's pieces float beside the trail", pieces.length >= 2, `${pieces.length}`);
 const unvined = pieces.filter((p) => p.pressed !== "true");
 check(
   "a piece nobody has vined is still purple, not greyed out",
@@ -167,6 +182,15 @@ check(
   draft && pieces.every((p) => p.w < draft.width * 0.75 && p.h < draft.height * 0.6),
   `piece ${pieces[0]?.w}×${pieces[0]?.h} vs box ${Math.round(draft?.width ?? 0)}×${Math.round(draft?.height ?? 0)}`,
 );
+
+/* Builds, on the bar, is the way out. The book is a modal over the bar, so
+   it has to be shut before the bar can be pressed at all. */
+await page.keyboard.press("Escape");
+await page.waitForTimeout(600);
+await page.getByRole("button", { name: "Builds" }).first().click();
+await page.waitForTimeout(1200);
+check("Builds on the bar is the way out", /\/builds$/.test(page.url()), page.url());
+check("and Builds has the width, with no rail beside it", (await page.locator("aside[aria-label='Sidebar']").count()) === 0);
 
 await browser.close();
 const failed = results.filter((r) => !r.ok);

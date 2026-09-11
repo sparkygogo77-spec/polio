@@ -113,6 +113,11 @@ export function ProcessCounter() {
     <Tooltip content={told}>
       <button
         type="button"
+        // One Finish, not two. The sibling branch grew a second flag beside
+        // this one — a ghost icon carrying the thread count — and two buttons
+        // that both say "finish" is worse than either. This is the one J
+        // asked for: a green key, a flag with a tick, and the make-real queue
+        // on it; `data-finish` is the handle everything holds it by.
         data-finish=""
         data-process-counter=""
         aria-label={`Finish — ${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}

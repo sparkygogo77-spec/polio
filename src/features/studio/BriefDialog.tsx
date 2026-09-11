@@ -31,6 +31,7 @@ import { PinnedThreads, ThreadTree, usePieces } from "./ThreadTree";
 import { QueueList } from "./DrawQueue";
 import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
+import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { activeProject, useBuilds } from "@/features/builds/store";
@@ -254,7 +255,29 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           say();
         }
       }
-      setBusy(mode === "build" ? "Claude is writing the files…" : "Claude is working through the blueprint…");
+      /*
+       * Build writes the site's looks itself, from the document, before
+       * anything is asked: the tokens, a component per part carrying the
+       * markup that part actually renders, and the pages that place them.
+       * Claude is then asked only for what a document cannot hold. This is
+       * why a rebuild does not drift — the half that used to drift is not
+       * generated any more.
+       */
+      let built: ScaffoldResult | null = null;
+      if (mode === "build") {
+        setBusy("Writing the site from the document…");
+        try {
+          built = buildScaffold();
+          setFiles(built.files.map((f) => ({ path: f.path, content: f.content })));
+          setView("files");
+          said.run = `${built.files.length} files written from the document in ${built.stats.ms < 1000 ? `${built.stats.ms}ms` : `${(built.stats.ms / 1000).toFixed(1)}s`} — ${built.stats.parts} parts, ${built.stats.clipped} cut to a drawn line, ${built.stats.bodies} with a written body. Claude is being asked only for what is left.`;
+          say();
+        } catch (err) {
+          said.run = `The scaffold could not be written: ${err instanceof Error ? err.message : "unknown"}. Claude was asked for the whole site instead.`;
+          say();
+        }
+      }
+      setBusy(mode === "build" ? "Claude is filling in what the document cannot hold…" : "Claude is working through the blueprint…");
       /*
        * What goes up. With pieces vined to this thread the brief goes as the
        * cached prefix and only those pieces follow it — and only the ones
@@ -272,6 +295,15 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           mode,
           prompt: prompt.trim(),
           pictures,
+          ...(built
+            ? {
+                scaffold: {
+                  files: built.files.map((f) => ({ path: f.path, bytes: f.content.length })),
+                  gaps: gapsOf(built),
+                  stats: built.stats,
+                },
+              }
+            : {}),
         },
         { signal: ac.signal },
       );
@@ -318,9 +350,22 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         // the map is where a critique is read and acted on, not the box.
         if (r.revisions.length) useStudio.getState().recordAsk({ mode, model: r.model, revisions: r.revisions });
         if (mode === "build") {
-          setFiles(r.files);
-          setView(r.files.length ? "files" : "result");
-          if (!r.files.length) setNote("Claude answered, but no files could be read out of it. The response is shown as it came.");
+          // The scaffold is the site; what came back is added to it, and a
+          // file Claude names on purpose replaces the one the document
+          // wrote. Nothing silently disappears either way.
+          const scaffolded = built?.files.map((f) => ({ path: f.path, content: f.content })) ?? [];
+          const merged = [...scaffolded];
+          for (const f of r.files) {
+            const at = merged.findIndex((x) => x.path === f.path);
+            if (at >= 0) merged[at] = f;
+            else merged.push(f);
+          }
+          setFiles(merged);
+          setView(merged.length ? "files" : "result");
+          if (built) {
+            said.run = `${built.files.length} files written from the document, ${r.files.length} from Claude${r.files.filter((f) => scaffolded.some((x) => x.path === f.path)).length ? ` (${r.files.filter((f) => scaffolded.some((x) => x.path === f.path)).length} replacing a scaffolded file)` : ""}.`;
+            say();
+          } else if (!r.files.length) setNote("Claude answered, but no files could be read out of it. The response is shown as it came.");
         } else setView(r.revisions.length ? "trail" : "result");
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
         ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });

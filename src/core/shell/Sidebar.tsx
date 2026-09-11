@@ -22,6 +22,10 @@ export function Sidebar() {
   if (mode === "hidden" || route?.route.fullBleed) return null;
   const rail = mode === "collapsible" && collapsed;
   const entries = registry.nav.filter((n) => n.placement !== "top");
+  // A rail with nothing on it is a stripe of chrome down the side of the
+  // window that does nothing: when no module asks for a side entry, there is
+  // no sidebar, and the page has the width.
+  if (!entries.length) return null;
   const groups = new Map<string, typeof entries>();
   for (const e of entries) {
     const g = e.group ?? "";

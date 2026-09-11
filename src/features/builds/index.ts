@@ -32,7 +32,16 @@ export const builds = defineFeature({
     { path: "/", component: BuildsPage, title: "Builds" },
     { path: "/builds", component: BuildsPage, title: "Builds" },
   ],
-  nav: [{ label: "Builds", href: "/builds", icon: Layers, order: 0 }],
+  /*
+   * No nav tab, and no side entry.
+   *
+   * The Builder's own bar reads Builds · the site's mark · its build · its
+   * pages, in that order, and Builds at the head of it is the way out. A tab
+   * above that saying the same word is the app's chrome repeating the bar's
+   * first item — so the bar is the only nav, and the wordmark (which goes to
+   * "/", and "/" is Builds) is the way back from anywhere else.
+   */
+  nav: [],
   topBarItems: [{ id: "builds.switch", order: 5, component: SwitchButton }],
   commands: [
     {

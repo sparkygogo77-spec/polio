@@ -293,6 +293,8 @@ export async function askClaude(
     pieces?: Piece[];
     /** How many vined pieces were left out because they have not changed. */
     skipped?: number;
+    /** For Build: what the document already wrote, and what it could not. */
+    scaffold?: { files: { path: string; bytes: number }[]; gaps: string[]; stats?: Record<string, number> };
   },
   opts: { signal?: AbortSignal } = {},
 ): Promise<AskResult> {
@@ -314,6 +316,7 @@ export async function askClaude(
         brief: input.brief ?? "",
         pieces: (input.pieces ?? []).map((x) => ({ id: x.id, label: x.label, where: x.where, prompt: x.prompt, size: x.size, neighbours: x.neighbours })),
         skipped: input.skipped ?? 0,
+        ...(input.scaffold ? { scaffold: input.scaffold } : {}),
         pictures: (input.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType, label: p.label })),
       }),
     });
