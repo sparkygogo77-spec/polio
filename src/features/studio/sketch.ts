@@ -263,6 +263,15 @@ export interface OutlineClip {
   cut: string;
   /** For an open line, how wide the band is, as a share of the box. */
   width: number;
+  /**
+   * How much of its own box the line encloses, 0..1.
+   *
+   * A closed line is not automatically the edge of a thing: a helix ends
+   * where it began and encloses nothing at all. This is what tells the two
+   * apart, and it is what decides whether the part is scored as an area or
+   * as a line (`bodyRun.targetFor`).
+   */
+  encloses: number;
   /** How many points the line was kept at. For the blueprint, and for a test to hold. */
   points: number;
 }
@@ -379,7 +388,7 @@ export function outlinePath(sketch: Sketch): OutlineClip | null {
   // Cutting a part to a rectangle is cutting nothing.
   if (!open && fillShare(kept) > CLIP_WORTH) return null;
   const d = curveThrough(kept, !open);
-  return { d, closed: !open, cut: open ? bandPath(kept, CLIP_STROKE / 2) : d, width: CLIP_STROKE, points: kept.length };
+  return { d, closed: !open, cut: open ? bandPath(kept, CLIP_STROKE / 2) : d, width: CLIP_STROKE, points: kept.length, encloses: open ? 0 : round4(fillShare(kept)) };
 }
 
 /**

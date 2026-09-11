@@ -33,7 +33,7 @@
  * that genuinely wants words, and is reached only when nothing was traced at
  * all.
  */
-import { GOOD_ENOUGH, judge, targetMask, type Attempt, type BodyResult } from "./bodyRun";
+import { GOOD_ENOUGH, judge, targetFor, type Attempt, type BodyResult } from "./bodyRun";
 import { pictureOf, type PictureOpts } from "./reshapeRun";
 import { money, RENDER_COST } from "./renderer";
 import { noRendererKeyMessage, rendererHeader } from "./agent";
@@ -46,18 +46,23 @@ export const MAX_TRACES = 3;
 /**
  * The ladder, one rung per go.
  *
- * Rung one is the drawing as it was drawn, minus the board's rim: a tracer
- * would trace the rim as a circle, and a circle round everything is not what
- * anyone drew. Each rung after it is the same drawing, made easier to trace.
+ * Every rung crops to the ink, and that is not a tuning knob: the part's
+ * box *is* the drawing's box, so a trace of the whole board stretched into
+ * the part lands the ink in the middle of it rather than on it. Comparing
+ * like with like means the two frames have to be the same frame. The rim
+ * goes for the same reason a ground does: a tracer would trace it.
+ *
+ * What the rungs actually turn is how easy the ink is to trace: thicker,
+ * then harder edged, then with nothing behind it at all.
  */
 export const LADDER: PictureOpts[] = [
-  { px: 640, width: 6, edge: false },
-  { px: 768, width: 14, crop: true, contrast: true },
-  { px: 768, width: 24, crop: true, contrast: true, ground: false },
+  { px: 640, width: 8, crop: true },
+  { px: 768, width: 16, crop: true, contrast: true },
+  { px: 768, width: 26, crop: true, contrast: true, ground: false },
 ];
 
 /** What each rung did, in a word, for the note and the bench. */
-export const RUNGS = ["as drawn", "cropped and thickened", "thicker still, no ground"] as const;
+export const RUNGS = ["as drawn", "thickened", "thicker still, no ground"] as const;
 
 export interface DrawInput {
   label: string;
@@ -74,7 +79,10 @@ export interface DrawInput {
  * outline and still be a worse drawing, and the number says which it was.
  */
 export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) => void } = {}): Promise<BodyResult> {
-  const target = targetMask(input.outline);
+  // Like against like: a closed drawing is an area and is scored as one, an
+  // open one is a line and is scored against the line with a tolerance the
+  // width of the stroke that was drawn.
+  const { mask: target, mode } = targetFor(input.outline, input.strokes);
   const attempts: Attempt[] = [];
   let spent = 0;
   let says: string | undefined;
@@ -100,7 +108,7 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
     spent += drew.cost ?? RENDER_COST.vectorize;
     const { html } = cleanSnippet(drew.html, RENDER_LIMIT);
     deps.onStep?.(`Looking at trace ${n}…`);
-    const scored = await judge(html, { w: input.w, h: input.h, clip: input.outline?.cut ?? "" }, target);
+    const scored = await judge(html, { w: input.w, h: input.h, clip: input.outline?.cut ?? "" }, target, mode);
     attempts.push({ n, source: "renderer", overlap: scored.overlap, says: scored.says, html, note: `traced, ${RUNGS[n - 1]}`, shot: scored.shot });
     if (scored.overlap < 0 || scored.overlap >= GOOD_ENOUGH) break;
   }
@@ -121,6 +129,7 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
     ...(spent ? { cost: spent } : {}),
   };
   const each = attempts.map((a) => `${RUNGS[a.n - 1]} ${a.overlap < 0 ? "not compared" : a.overlap.toFixed(2)}`).join(", ");
+  const against = mode.closed ? "of the shape it drew" : "of the line it drew";
   return {
     ok: true,
     code,
@@ -130,7 +139,7 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
     message:
       kept.overlap < 0
         ? `The drawing was traced; the server could not render it to check the shape (${attempts.length} go${attempts.length === 1 ? "" : "es"}, ${money(spent)}).`
-        : `The drawing was traced and it matched ${(kept.overlap * 100).toFixed(0)}% of itself (${attempts.length} go${attempts.length === 1 ? "" : "es"}: ${each}, ${money(spent)}).`,
+        : `The drawing was traced and it matched ${(kept.overlap * 100).toFixed(0)}% ${against} (${attempts.length} go${attempts.length === 1 ? "" : "es"}: ${each}, ${money(spent)}).`,
   };
 }
 

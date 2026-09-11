@@ -125,20 +125,33 @@ export function pictureOf(strokes: SketchPoint[][], opts: number | PictureOpts =
     c.stroke();
     c.restore();
   }
-  // Cropping puts the ink's own box in the frame, with a margin the line
-  // cannot be cut by.
+  /*
+   * Cropping puts the ink's own box in the frame, and stretches each axis
+   * on its own to fill it.
+   *
+   * That looks like it distorts the drawing, and it does: it has to. The
+   * part's box *is* the ink's box, and the SVG that comes back is stretched
+   * into the part with `preserveAspectRatio="none"`. Fitting the ink inside
+   * a square here and stretching it into a wide part there applies the
+   * distortion once instead of cancelling it, and the trace lands somewhere
+   * the drawing never was. Stretching both ways here makes the round trip
+   * exact, which is the whole of comparing like with like: the frames have
+   * to be the same frame.
+   */
   const box = crop ? boxOf(strokes) : null;
   const pad = (o.width ?? 6) / px + 0.02;
-  const scale = box ? Math.min(1 / Math.max(box.w, 1e-3), 1 / Math.max(box.h, 1e-3)) * (1 - pad * 2) : 1;
-  const ox = box ? 0.5 - (box.x + box.w / 2) * scale : 0;
-  const oy = box ? 0.5 - (box.y + box.h / 2) * scale : 0;
-  const at = (v: number, off: number) => (v * scale + off) * px;
+  const sx = box ? ((1 - pad * 2) / Math.max(box.w, 1e-3)) : 1;
+  const sy = box ? ((1 - pad * 2) / Math.max(box.h, 1e-3)) : 1;
+  const ox = box ? 0.5 - (box.x + box.w / 2) * sx : 0;
+  const oy = box ? 0.5 - (box.y + box.h / 2) * sy : 0;
+  const atX = (v: number) => (v * sx + ox) * px;
+  const atY = (v: number) => (v * sy + oy) * px;
   for (const s of strokes) {
     if (!s.length) continue;
     c.beginPath();
-    c.moveTo(at(s[0]![0], ox), at(s[0]![1], oy));
-    if (s.length === 1) c.lineTo(at(s[0]![0], ox) + 0.01, at(s[0]![1], oy));
-    for (let i = 1; i < s.length; i++) c.lineTo(at(s[i]![0], ox), at(s[i]![1], oy));
+    c.moveTo(atX(s[0]![0]), atY(s[0]![1]));
+    if (s.length === 1) c.lineTo(atX(s[0]![0]) + 0.01, atY(s[0]![1]));
+    for (let i = 1; i < s.length; i++) c.lineTo(atX(s[i]![0]), atY(s[i]![1]));
     c.stroke();
   }
   try {

@@ -197,6 +197,7 @@ const read = () => page.evaluate(() => {
     made: withCode.length,
     nodes: (s.nodes ?? []).length,
     kind: last?.kind ?? null,
+    how: last?.outline?.closed === true ? "area" : "ink",
     shape: last?.shape ?? null,
     points: last?.outline?.points ?? 0,
     closed: last?.outline?.closed ?? null,
@@ -262,7 +263,7 @@ for (const name of NAMES) {
     state = await read();
     const ms = Date.now() - started;
     if (state.made < done) { done = state.made; rows.push({ name, run, failed: "no body came back", ms }); continue; }
-    rows.push({ name, run, ms, ...state.code, clip: `${state.points}pt ${state.closed ? "clip" : "band"}`, kind: state.kind });
+    rows.push({ name, run, ms, ...state.code, clip: `${state.points}pt ${state.closed ? "clip" : "band"}`, kind: state.kind, how: state.how });
   }
 }
 
@@ -272,12 +273,12 @@ for (const name of NAMES) {
 
 const pad = (v, n, right = false) => (right ? String(v).padStart(n) : String(v).padEnd(n));
 console.log(`\n  the drawing path, ${RUNS} runs each, tracer ${LIVE ? "live (recraft-ai/recraft-vectorize)" : "stood in locally, renders and scores real"}\n`);
-console.log(`  ${pad("drawing", 9)}${pad("run", 4)}${pad("kind", 11)}${pad("clip", 12)}${pad("goes", 5, true)}  ${pad("every go", 24)}${pad("best", 7, true)}${pad("secs", 7, true)}${pad("cost", 8, true)}`);
-console.log(`  ${"-".repeat(9 + 4 + 11 + 12 + 5 + 2 + 24 + 7 + 7 + 8)}`);
+console.log(`  ${pad("drawing", 9)}${pad("run", 4)}${pad("kind", 11)}${pad("clip", 12)}${pad("scored", 7)}${pad("goes", 5, true)}  ${pad("every go", 24)}${pad("best", 7, true)}${pad("secs", 7, true)}${pad("cost", 8, true)}`);
+console.log(`  ${"-".repeat(9 + 4 + 11 + 12 + 7 + 5 + 2 + 24 + 7 + 7 + 8)}`);
 for (const r of rows) {
   if (r.failed) { console.log(`  ${pad(r.name, 9)}${pad(r.run, 4)}${r.failed}`); continue; }
   console.log(
-    `  ${pad(r.name, 9)}${pad(r.run, 4)}${pad(r.kind ?? "-", 11)}${pad(r.clip, 12)}${pad(r.attempts, 5, true)}  ` +
+    `  ${pad(r.name, 9)}${pad(r.run, 4)}${pad(r.kind ?? "-", 11)}${pad(r.clip, 12)}${pad(r.how ?? "-", 7)}${pad(r.attempts, 5, true)}  ` +
     `${pad((r.scores ?? []).map((v) => v.toFixed(2)).join(" "), 24)}${pad((r.overlap ?? 0).toFixed(2), 7, true)}${pad((r.ms / 1000).toFixed(1), 7, true)}${pad(`$${(r.cost ?? 0).toFixed(2)}`, 8, true)}`,
   );
 }
@@ -288,7 +289,7 @@ for (const name of NAMES) {
   const rs = per(name);
   if (!rs.length) continue;
   const mean = (f) => rs.reduce((a, r) => a + f(r), 0) / rs.length;
-  console.log(`  ${pad(name, 9)}${pad("mean", 4 + 11 + 12)}${pad(mean((r) => r.attempts).toFixed(1), 5, true)}  ${pad("", 24)}${pad(mean((r) => r.overlap).toFixed(2), 7, true)}${pad((mean((r) => r.ms) / 1000).toFixed(1), 7, true)}${pad(`$${mean((r) => r.cost).toFixed(2)}`, 8, true)}`);
+  console.log(`  ${pad(name, 9)}${pad("mean", 4 + 11 + 12)}${pad(rs[0].how ?? "-", 7)}${pad(mean((r) => r.attempts).toFixed(1), 5, true)}  ${pad("", 24)}${pad(mean((r) => r.overlap).toFixed(2), 7, true)}${pad((mean((r) => r.ms) / 1000).toFixed(1), 7, true)}${pad(`$${mean((r) => r.cost).toFixed(2)}`, 8, true)}`);
 }
 const spent = good.reduce((a, r) => a + (r.cost ?? 0), 0);
 console.log(`\n  ${good.length} of ${NAMES.length * RUNS} drawings made a body · $${spent.toFixed(2)} at $${RENDER_COST.vectorize.toFixed(2)} a trace · ${(good.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(0)}s in total\n`);
@@ -309,6 +310,15 @@ check("nothing took more than three goes", good.every((r) => r.attempts <= 3), g
 const cut = good.filter((r) => /clip$/.test(r.clip));
 check("a drawing that closed a line is still cut to it", cut.length > 0 && cut.every((r) => parseInt(r.clip) > 2), good.map((r) => `${r.name} ${r.clip}`).join(" · "));
 check("a drawing that cleared the bar stopped there", good.filter((r) => r.overlap >= 0.72).every((r) => r.attempts === (r.scores ?? []).findIndex((v) => v >= 0.72) + 1));
+// Like against like: a closed drawing is an area and an open one is a
+// line. Nothing is scored thin ink against a filled shape any more, which
+// is what capped the first bench.
+const closed = good.filter((r) => r.how === "area");
+const opened = good.filter((r) => r.how === "ink");
+check("a closed drawing is scored area against area", closed.length > 0 && ["helix", "star", "ring"].every((n) => per(n).every((r) => r.how === "area")),
+  `${closed.length} closed, ${opened.length} open`);
+check("an open drawing is scored ink against ink", opened.length > 0 && per("stack").every((r) => r.how === "ink") && per("spiral").every((r) => r.how === "ink"));
+check("no drawing is scored thin ink against a filled area", good.every((r) => (r.how === "area") === (r.clip.endsWith("clip"))), good.map((r) => `${r.name} ${r.how}/${r.clip}`).join(" · "));
 check("the price is one trace a go", good.every((r) => Math.abs(r.cost - r.attempts * RENDER_COST.vectorize) < 0.001), good.map((r) => `${r.cost}/${r.attempts}`).join(" "));
 check("the ring became a container and the stack a list", per("ring").every((r) => r.kind === "container") && per("stack").every((r) => r.kind === "list"),
   `${per("ring")[0]?.kind} · ${per("stack")[0]?.kind}`);
