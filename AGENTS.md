@@ -374,7 +374,14 @@ a kicker with a rule, and label-and-value rows that copy.
   call anything: the layer decides for free and decides the same way every
   time. **The fall-through stays**: nothing matched means the reader names
   a library part and the vectorizer traces the line, exactly as before.
-  Adding the next one is a file and a line in `CODED`, not a rewrite.
+  Adding the next one is a file and a line in `CODED`, not a rewrite, and
+  there are two in it for that reason: the **cube**, which needed a part
+  written, and the **accordion**, which needed only a declaration over a
+  part the library already had. The accordion is gated on purpose — three
+  parallel bars are already read as a *list*, and most of the time that is
+  what someone drew, so a stack only means an accordion when the words say
+  so or when the bars are inside a box, which is not how anyone draws a
+  plain list.
 - **A cube is where the coded path earns its keep** (`parts/Cube.tsx`,
   `parts/cube.ts`, `shapeKind.isCube`, `tests/cube.mjs`). A traced drawing
   is a picture and a picture of a cube does not turn, so this one part is

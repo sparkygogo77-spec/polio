@@ -33,9 +33,9 @@
  *
  * Pure, and tested by `tests/coded.mjs`.
  */
-import { CUBE_SIDES, facesFrom, saysCube, written } from "./parts/cubeFaces.ts";
+import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./parts/cubeFaces.ts";
 import { kindOfSketch } from "./shapeKind.ts";
-import { sketchBox, type Sketch } from "./sketch.ts";
+import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
 import type { StudioNode } from "./store.ts";
 
 /** What a matcher is handed: the drawing, and everything already said about the part. */
@@ -109,13 +109,77 @@ const CUBE: CodedPart = {
 };
 
 /**
- * The list is short on purpose and grows one file at a time. The obvious
- * next ones, in the order they are worth doing: an accordion (a stack of
- * bars), tabs (a box with a row of small boxes on its top edge), a
- * carousel (a wide box with arrows at its sides), a chart (axes with a
+ * Rows that open and close, drawn as a stack of bars.
+ *
+ * The second entry, and it is here to prove the catalogue's shape rather
+ * than to be clever: the whole of it is a declaration, a number and a
+ * patch, and the part it becomes has been in the library all along.
+ *
+ * The gate matters. Three parallel bars are already read as a **list**,
+ * and most of the time that is exactly what someone drew — a list of
+ * three things. A stack of bars only means an accordion when the words
+ * say so, or when the bars are inside a box, which is the way nobody
+ * draws a plain list. Everything else keeps the behaviour it had.
+ */
+const OPENS = /\b(accordion|faq|frequently asked|expand|collapse|collapsible|drop ?down list)\b/i;
+
+const ACCORDION: CodedPart = {
+  id: "accordion",
+  featureId: "accordion",
+  what: "Rows that open to show their answer and close again, one at a time.",
+  needs: "One row a line, and a colon where a row has an answer: \"What does it cost: nothing until you publish\".",
+  looksLike: "Three or more parallel bars, either inside a box or with the words saying accordion, FAQ, expand or collapse.",
+  match: ({ sketch, prompt }) => {
+    const role = kindOfSketch(sketch, prompt);
+    if (role.kind !== "list" || (role.rows ?? 0) < 3) return 0;
+    if (OPENS.test(`${sketch.words ?? ""} ${prompt}`)) return 1;
+    // Bars inside a box: a list nobody draws a frame round.
+    const strokes = sketch.strokes.filter((s) => s.length >= 2);
+    const all = sketchBox(strokes);
+    const framed = strokes.some((s) => {
+      const b = sketchBox([s]);
+      return !!b && !!all && b.w * b.h > all.w * all.h * 0.8 && strokeClosed(s);
+    });
+    return framed ? 0.8 : 0;
+  },
+  configure: ({ sketch, node }) => {
+    const words = (node?.content ?? "").trim() || stripLeadIn((node?.prompt ?? "").trim() || sketch.words.trim(), OPENS);
+    const rows = listItems(words).slice(0, 12);
+    return {
+      patch: {
+        featureId: "accordion",
+        custom: false,
+        // A coded part is a component, not a silhouette: the cutout the
+        // drawing would have made is what it replaces.
+        shape: null,
+        outline: null,
+        kind: "list",
+        ...(rows.length ? { content: rows.join(", ") } : {}),
+      },
+      did: rows.length ? `an accordion of ${rows.length} rows` : "an accordion, with its rows still to write",
+    };
+  },
+};
+
+/**
+ * "An accordion: one, two, three" is a lead-in and then a list. Drop the
+ * lead-in only when it is the bit naming the part, because "Pricing: from
+ * nothing" is a row and its answer.
+ */
+function stripLeadIn(text: string, says: RegExp): string {
+  const colon = text.indexOf(":");
+  return colon > 0 && says.test(text.slice(0, colon)) ? text.slice(colon + 1) : text;
+}
+
+/**
+ * Two entries, which is enough to prove the shape of the thing: one that
+ * needed a new part written and one that needed only a declaration over a
+ * part the library already had. The obvious next ones, in the order they
+ * are worth doing: tabs (a box with a row of small boxes on its top edge),
+ * a carousel (a wide box with arrows at its sides), a chart (axes with a
  * line or bars in them).
  */
-export const CODED: CodedPart[] = [CUBE];
+export const CODED: CodedPart[] = [CUBE, ACCORDION];
 
 /* ------------------------------------------------------------------ */
 /* Choosing                                                            */

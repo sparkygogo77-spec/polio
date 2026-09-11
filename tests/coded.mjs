@@ -77,6 +77,29 @@ check("a star picks nothing either", pickCoded(ctx(STAR, "a star of five claims"
 check("nothing drawn picks nothing", pickCoded(ctx([], "a cube")) === null);
 check("the words alone are not enough without a shape", pickCoded(ctx([[[0.2, 0.5], [0.8, 0.5]]], "a cube")) === null);
 
+/* The second entry: a stack of bars, gated so a plain list stays a list. */
+const BARS = [
+  [[0.30, 0.32], [0.70, 0.32]],
+  [[0.26, 0.50], [0.74, 0.50]],
+  [[0.22, 0.68], [0.78, 0.68]],
+];
+const FRAMED = [RECT, [[0.30, 0.38], [0.70, 0.38]], [[0.30, 0.50], [0.70, 0.50]], [[0.30, 0.62], [0.70, 0.62]]];
+
+check("a plain stack of bars is still a list, not an accordion", pickCoded(ctx(BARS, "a 3 stack")) === null);
+check("the same bars with the word pick the accordion", pickCoded(ctx(BARS, "an accordion: How it works, Pricing, Support"))?.part.id === "accordion");
+check("so does FAQ", pickCoded(ctx(BARS, "the faq"))?.part.id === "accordion");
+check("and bars drawn inside a box need no word at all", pickCoded(ctx(FRAMED, "questions"))?.part.id === "accordion");
+check("two bars are not a stack", pickCoded(ctx(BARS.slice(0, 2), "an accordion")) === null);
+{
+  const c = ctx(BARS, "an accordion: How it works, Pricing: from nothing, Support");
+  const { patch, did } = pickCoded(c).part.configure(c);
+  check("the lead-in goes and each row is a row", patch.content === "How it works, Pricing: from nothing, Support", patch.content);
+  check("a colon inside a row is left alone", patch.content.includes("Pricing: from nothing"));
+  check("it says how many rows", /3 rows/.test(did), did);
+  check("and it replaces the cutout rather than keeping one", patch.outline === null && patch.featureId === "accordion");
+}
+check("the catalogue is proven by two, not one", CODED.length >= 2, CODED.map((p) => p.id).join(" · "));
+
 /* ------------------------------------------------------------------ */
 /* 3. What it configures                                               */
 /* ------------------------------------------------------------------ */
