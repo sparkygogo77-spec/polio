@@ -45,6 +45,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
+import type { DrawnVector, VectorRole } from "./vector";
 import { emptyCube, type CubeData, type CubeFace } from "./parts/cubeFaces";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
@@ -124,6 +125,16 @@ export interface StudioNode {
    * that was placed rather than drawn.
    */
   kind: DrawnKind | null;
+  /**
+   * The drawing itself, as vector, before anything decided what it is for.
+   *
+   * His lines, traced, kept whole: the same shape can be an icon on a
+   * button, the frame of something that holds content, or a path another
+   * part moves along. `role` says which, and is never guessed.
+   */
+  vector: DrawnVector | null;
+  /** What the drawing is being used as. Null means nobody has said yet. */
+  role: VectorRole | null;
   /**
    * The six faces, when this part is a cube.
    *
@@ -817,7 +828,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, kind: null, cube: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, kind: null, cube: null, vector: null, role: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,

@@ -35,7 +35,8 @@
  */
 import { GOOD_ENOUGH, judge, targetFor, type Attempt, type BodyResult } from "./bodyRun";
 import { pictureOf, type PictureOpts } from "./reshapeRun";
-import { money, RENDER_COST } from "./renderer";
+import { money, RENDER_COST, RENDER_MODELS } from "./renderer";
+import { readVector } from "./vector";
 import { noRendererKeyMessage, rendererHeader } from "./agent";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import type { OutlineClip, SketchPoint } from "./sketch";
@@ -107,9 +108,12 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
     }
     spent += drew.cost ?? RENDER_COST.vectorize;
     const { html } = cleanSnippet(drew.html, RENDER_LIMIT);
+    // The drawing itself, kept before anything decides what it is for.
+    // Every go replaces it, so what is kept belongs to the trace that won.
+    const vector = readVector(html, RENDER_MODELS.vectorize);
     deps.onStep?.(`Looking at trace ${n}…`);
     const scored = await judge(html, { w: input.w, h: input.h, clip: input.outline?.cut ?? "" }, target, mode);
-    attempts.push({ n, source: "renderer", overlap: scored.overlap, says: scored.says, html, note: `traced, ${RUNGS[n - 1]}`, shot: scored.shot });
+    attempts.push({ n, source: "renderer", overlap: scored.overlap, says: scored.says, html, note: `traced, ${RUNGS[n - 1]}`, shot: scored.shot, vector });
     if (scored.overlap < 0 || scored.overlap >= GOOD_ENOUGH) break;
   }
 
@@ -133,6 +137,8 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
   return {
     ok: true,
     code,
+    // His lines, off the trace that won, for whatever role it takes.
+    vector: kept.vector ?? null,
     attempts,
     cost: spent,
     rendererSays: says,
