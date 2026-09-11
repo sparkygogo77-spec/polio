@@ -1862,12 +1862,14 @@ remove it from `src/features/index.ts` when you're sure.
 - **What the loop actually spends is written down**, in
   `docs/PRODUCTION-LOOP.md`: every call from a drawn line to a finished
   element, in order, with the model each one goes to, what is sent, what
-  comes back, how the overlap loop decides to go again, where the key comes
-  from at each step, and what one element and one site cost. The payload
-  sizes there are measured, not guessed, and the page says how to measure
-  them again. Read it before changing anything about how a route is called:
-  the loop is output-bound, so moving a payload around is worth about a tenth
-  of what changing the number of goes is worth.
+  comes back, how the loop decides to go again, where the key comes from at
+  each step, and what one element and one site cost. The payload sizes there
+  are measured, not guessed, and the page says how to measure them again.
+  Read it before changing anything about how a route is called. Two things it
+  says that are easy to get backwards: the Claude half is **output-bound**, so
+  moving a payload around is worth about a tenth of what changing the number
+  of goes is worth; and the Replicate half is **flat per press**, so there the
+  only lever is how many rungs of the ladder are climbed.
 
 ---
 
