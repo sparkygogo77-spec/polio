@@ -2105,6 +2105,17 @@ remove it from `src/features/index.ts` when you're sure.
   the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
+- **What has landed is read, not written** (`scripts/passes.mjs`, `npm run
+  passes`). There is no changelog file and there will not be one: writing a
+  line per commit is a chore that was killed on purpose and stays dead. The
+  Updates slide over is generated out of git — a **pass** is one merge into
+  the branch (or one day of commits that landed straight on it), and the
+  commits it carried are the lines, because merge subjects say nothing you
+  could use. Run `npm run passes` after a merge: the deployed build has no
+  `.git`, so the answer is checked in as `passes.generated.ts` and must not
+  be hand-edited. The panel leads with the feature and folds the specifics;
+  it borrows the timeline's own cards (`FIELD`, `Row` from `TimelineDetail`)
+  rather than inventing a second way to show a list of things that happened.
 - **Ask the deployment, not a dev server** (`tests/deploy-check.mjs`, `npm run
   check:deploy`). Every other suite here talks to localhost, which is how a
   cube drawn on the live site did nothing: the work had never reached trunk
