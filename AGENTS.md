@@ -314,16 +314,22 @@ a kicker with a rule, and label-and-value rows that copy.
   is kept, drawn or written. The drawn PNG is the reference on both paths
   and in the critique.
 
-  The token is the server's and only the server's. `new Replicate()` reads
-  `REPLICATE_API_TOKEN` out of the environment; there is no field for it in
-  the vault, no header the route will take it in, it is never logged, and
-  the one place a library's error message could carry it is scrubbed. With
-  no token the route answers HTTP 200, `ok: false`, `reason: "unavailable"`
-  with a message naming the variable and where it goes, which is the same
-  shape and the same path a locked Claude key answers with, so the same
-  dialog shows it and the loop falls back to writing. Under Keys it is a row
-  beside Claude rather than a service card: present or absent, "server
-  only", and the two prices. A renderer call is the first thing here that
+  The token is the person's, not the deployment's, and lives where the
+  Claude key lives: a service card under Keys beside Claude, held in the same
+  vault in this browser, unlocked the same way, sent as `x-replicate-key` by
+  `rendererHeader()` with each call. The route holds it for the length of the
+  call — never written down, never logged, never returned, and the one place
+  a library's error message could carry it is scrubbed. A
+  `REPLICATE_API_TOKEN` in the server's environment still works and is a
+  silent fallback rather than the path: the browser's token wins, which is
+  the reverse of every other route here and right, because the person who
+  typed it is the person being billed. `/api/keys/status` reports the
+  server's, present or absent, the same yes-or-no it gives for every other
+  name. With no token anywhere the route answers HTTP 200, `ok: false`,
+  `reason: "unavailable"`, the same shape and the same path a locked Claude
+  key answers with, and the loop says `noRendererKeyMessage` rather than "no
+  token", because a vault holding one behind a PIN is the usual case. A
+  renderer call is the first thing here that
   spends money per press rather than per token, so `RENDER_COST` (0.04
   raster, 0.08 vector) rides back with the answer, is kept on the part
   (`PartCode.cost`), lands on the iteration's card and ends the usage line.

@@ -17,12 +17,14 @@
  *   is stored as a `data:` URI inside an `<img>`. Nothing is fetched at
  *   render time, because nothing may be.
  *
- * The token is the server's alone. `new Replicate()` reads
- * `REPLICATE_API_TOKEN` out of the environment; there is no field for it in
- * the vault, no header the browser can set, and no path by which it is
- * echoed back. Without it the route answers `unavailable` with a reason, at
- * HTTP 200, exactly the way a missing Claude key does, and the caller falls
- * back to the written body.
+ * The token is held where the Claude key is: typed into the vault under the
+ * key button, kept in this browser, unlocked the same way, and sent as
+ * `x-replicate-key` with each call. The route holds it for the length of
+ * the call and never writes it down, logs it or returns it; a
+ * `REPLICATE_API_TOKEN` in the server's environment still works and is a
+ * silent fallback rather than the path. Without either the route answers
+ * `unavailable` with a reason, at HTTP 200, exactly the way a missing Claude
+ * key does, and the caller falls back to the written body.
  *
  * This file is the pure half: names, prices, sizes and the fragment. Tested
  * by `tests/renderer.mjs`.
@@ -46,9 +48,9 @@ export const RENDER_MODELS: Record<RenderKind, `${string}/${string}`> = {
  */
 export const RENDER_COST: Record<RenderKind, number> = { raster: 0.04, vector: 0.08 };
 
-/** What the route says when the server has no token. The dialog shows this, not a stack. */
+/** What the route says when no token reached it. The dialog shows this, not a stack. */
 export const RENDER_UNAVAILABLE =
-  "No renderer token on the server, so nothing was drawn there. REPLICATE_API_TOKEN belongs in the Vercel project's environment variables; this browser never carries it. The part keeps its shape, and a body is written instead.";
+  "No Replicate token, so nothing was drawn. Paste one under the key button in the top bar, where the Claude key lives, and it rides with the call. The part keeps its shape, and a body is written instead.";
 
 /** A price, the way it is written everywhere it is shown. */
 export function money(n: number): string {

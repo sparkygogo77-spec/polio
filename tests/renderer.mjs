@@ -7,19 +7,20 @@
  * something that is not this app. So what is held shut here is mostly not
  * "does it draw":
  *
- *   · the token is read from the server's environment and from nowhere
- *     else, and no answer this route gives ever contains it;
- *   · with no token the answer is HTTP 200, ok:false, reason "unavailable",
- *     with a message that says where the token goes — the same shape a
- *     locked Claude key answers with, so the same dialog shows it;
+ *   · the token rides on the request, out of the same vault the Claude key
+ *     lives in, and beats the server's, because the person who typed it is
+ *     the one being billed; no answer this route gives ever contains it;
+ *   · with no token anywhere the answer is HTTP 200, ok:false, reason
+ *     "unavailable", with a message that says where a token goes — the same
+ *     shape a locked Claude key answers with, so the same dialog shows it;
  *   · an SVG that came back from a drawing model goes through exactly the
  *     locks a written body does;
  *   · a raster is a data: URI and nothing else, so nothing is fetched when
  *     the part renders;
  *   · the price is 0.04 raster, 0.08 vector, in one place, and it reaches
  *     the usage line;
- *   · the vault does not hold it, does not offer a field for it, and says
- *     so;
+ *   · the vault holds it beside the Claude key, offers the same field, the
+ *     same Try it, and the same Forget;
  *   · and in the body loop the renderer goes first, is scored on the same
  *     bar, keeps whichever of the two actually looked like the drawing, and
  *     falls back to the written body when it is not there.
@@ -115,39 +116,61 @@ check("flux is asked in ratios", fluxRatio(320, 320) === "1:1" && fluxRatio(1600
 /* 4. The route, with no token on this server                          */
 /* ------------------------------------------------------------------ */
 
-const post = async (body) => {
+const post = async (body, headers = {}) => {
   const res = await fetch(`${URL_BASE}/api/studio/image`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-replicate-token": "r8_pretendthisisatoken" },
+    headers: { "content-type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
   return { status: res.status, text: await res.text() };
 };
 
+const SECRET = "r8_pretendthisisatokenandnotarealone";
+
 {
   const { status, text } = await post({ kind: "vector", prompt: "a helix of sentences", w: 320, h: 320 });
   const data = JSON.parse(text);
   check("no token is not an error: 200 with a reason", status === 200 && data.ok === false && data.reason === "unavailable", `${status} ${data.reason}`);
-  check("and the reason says where the token goes", /REPLICATE_API_TOKEN/.test(data.message) && /Vercel/.test(data.message), data.message?.slice(0, 70));
+  check("and the reason says where a token goes", /key button/.test(data.message) && /Claude key/.test(data.message), data.message?.slice(0, 70));
   check("it is the message the app already had", data.message === RENDER_UNAVAILABLE);
-  check("a token offered by the browser is not taken", !/pretendthisisatoken/.test(text));
-  check("and nothing token-shaped comes back", !/r8_[A-Za-z0-9]{8}/.test(text));
 }
 {
   // The token is looked for before the body is even read, so a request that
   // could not possibly be drawn still answers the one thing worth saying.
   const { status, text } = await post("not json");
-  check("the token is checked before anything else is", status === 200 && JSON.parse(text).reason === "unavailable", String(status));
+  check("the token is looked for before anything else is", status === 200 && JSON.parse(text).reason === "unavailable", String(status));
+}
+{
+  // A token the browser offers is used, and never comes back out. Replicate
+  // will refuse this one, which is the point: the answer must say that
+  // without quoting what was sent.
+  const { status, text } = await post({ kind: "vector", prompt: "a crest", w: 320, h: 320 }, { "x-replicate-key": SECRET });
+  const data = JSON.parse(text);
+  check("a token the browser offers is the one used", data.reason !== "unavailable", `${status} ${data.reason}`);
+  check("a rejected token is said plainly", data.ok === false && /auth|render|rate-limit|fetch/.test(data.reason ?? ""), `${data.reason}: ${(data.message ?? "").slice(0, 60)}`);
+  check("and the token itself never comes back", !text.includes(SECRET) && !/r8_[A-Za-z0-9]{8}/.test(text), text.slice(0, 90));
 }
 {
   const res = await fetch(`${URL_BASE}/api/keys/status`, { cache: "no-store" });
   const data = await res.json();
-  check("the status route reports the token, present or absent", "REPLICATE_API_TOKEN" in data.set, Object.keys(data.set).length + " names");
+  check("the status route reports the server's, present or absent", "REPLICATE_API_TOKEN" in data.set, Object.keys(data.set).length + " names");
   check("and reports it as a yes or no, never a value", typeof data.set.REPLICATE_API_TOKEN === "boolean");
+}
+{
+  // Try it asks Replicate who the token belongs to, the same question the
+  // other two are asked, and answers in a sentence.
+  const res = await fetch(`${URL_BASE}/api/keys/test`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-replicate-key": SECRET },
+    body: JSON.stringify({ service: "replicate" }),
+  });
+  const data = await res.json();
+  check("Try it asks Replicate about the browser's token", data.source === "browser", JSON.stringify({ ok: data.ok, source: data.source }));
+  check("and says what came back without quoting the token", typeof data.message === "string" && !data.message.includes(SECRET), (data.message ?? "").slice(0, 70));
 }
 
 /* ------------------------------------------------------------------ */
-/* 5. The panel: a row, not a field                                    */
+/* 5. The panel: a field beside Claude's                              */
 /* ------------------------------------------------------------------ */
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
@@ -158,19 +181,30 @@ await page.getByRole("button", { name: "Keys" }).click();
 await page.waitForTimeout(700);
 
 {
-  const row = page.locator("[data-renderer-row]");
-  check("there is a Replicate row under Keys", (await row.count()) === 1);
+  const row = page.locator('[data-service="replicate"]');
+  check("there is a Replicate card under Keys", (await row.count()) === 1);
   const text = (await row.first().innerText()).replace(/\s+/g, " ");
-  check("it says whether the server has it", /not on the server|on the server/.test(text), text.slice(0, 60));
-  check("it says server only", /server only/i.test(text));
-  check("it names the variable and where it lives", /REPLICATE_API_TOKEN/.test(text) && /Vercel/.test(text));
-  check("it says the vault will not hold it", /vault never holds it/i.test(text), text.slice(-120));
+  check("it says whether the server has one of its own", /not on the server|on the server/.test(text), text.slice(0, 60));
+  check("it names both models", /recraft-v3-svg/.test(text) && /flux-2-pro/.test(text));
   check("it prices both kinds", /\$0\.08/.test(text) && /\$0\.04/.test(text));
-  check("and there is nothing to type into", (await row.locator("input").count()) === 0);
+  check("and there is a field to paste one into", (await row.locator('input[type="password"]').count()) === 1);
   const anthropic = await page.locator('[data-service="anthropic"]').boundingBox();
   const mine = await row.first().boundingBox();
   check("it sits beside the Claude one, not at the bottom", !!anthropic && !!mine && mine.y > anthropic.y && mine.y - (anthropic.y + anthropic.height) < 40,
     `${Math.round((mine?.y ?? 0) - ((anthropic?.y ?? 0) + (anthropic?.height ?? 0)))}px below it`);
+
+  // Held here, sent from here: paste it, save it, and it is what the image
+  // route is handed on the next call.
+  await row.locator('input[type="password"]').fill(SECRET);
+  await page.getByRole("button", { name: /Save to this browser/i }).click();
+  await page.waitForTimeout(900);
+  const held = await page.evaluate(() => {
+    const raw = localStorage.getItem("builder.keys.plain") ?? sessionStorage.getItem("builder.keys.session") ?? "";
+    return raw.includes("REPLICATE_API_TOKEN");
+  });
+  check("a pasted token is held in this browser, beside the Claude one", held);
+  const after = (await row.first().innerText()).replace(/\s+/g, " ");
+  check("and the card says it is held here", /held here|held for this tab/.test(after), after.slice(0, 90));
 }
 await page.keyboard.press("Escape");
 
@@ -205,7 +239,7 @@ await page.route("**/api/studio/body", (route) => {
 let token = true;
 const drawn = [];
 await page.route("**/api/studio/image", (route) => {
-  drawn.push({ at: Date.now(), body: JSON.parse(route.request().postData() ?? "{}") });
+  drawn.push({ at: Date.now(), body: JSON.parse(route.request().postData() ?? "{}"), headers: route.request().headers() });
   if (!token) {
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE }) });
   }
@@ -279,7 +313,8 @@ console.log(`     box:   ${JSON.stringify(state.code)}`);
 console.log(`     said:  ${state.said}`);
 check("the renderer is asked first", drawn.length === 1 && drawn[0].body.kind === "vector", `${drawn.length} drawn, kind ${drawn[0]?.body?.kind}`);
 check("it is told the part's size and whether the line closed", drawn[0]?.body?.w === 320 && drawn[0]?.body?.closed === true, JSON.stringify({ w: drawn[0]?.body?.w, closed: drawn[0]?.body?.closed }));
-check("no key of any kind rides on a renderer call", !Object.keys(drawn[0]?.body ?? {}).some((k) => /key|token/i.test(k)));
+check("the held token rides on the call", drawn[0]?.headers?.["x-replicate-key"] === SECRET, drawn[0]?.headers?.["x-replicate-key"] ? "sent" : "missing");
+check("and no Claude key rides with it", !drawn[0]?.headers?.["x-anthropic-key"] && !Object.keys(drawn[0]?.body ?? {}).some((k) => /key|token/i.test(k)));
 check("clearing the bar, Claude is never asked", wrote.length === 0, `${wrote.length} written`);
 check("and the body kept is the one it drew", state.code?.source === "renderer" && state.code?.kind === "vector", JSON.stringify(state.code));
 check("scored on the same bar as a written one", (state.code?.overlap ?? 0) >= 0.72, String(state.code?.overlap));
@@ -301,16 +336,26 @@ check("the renderer's own render is what the critique is given to beat", wrote.s
   (wrote[0]?.body?.critique ?? "").slice(0, 70));
 check("both are scored, and the better of the two is kept", state.code?.source === "renderer" && (state.code?.scores?.length ?? 0) > 1, JSON.stringify(state.code?.scores));
 
-/* No token: the route says so, and the body is written instead. */
+/* The key forgotten: nothing rides, the route says so, and the body is
+   written instead. */
 token = false;
+await page.getByRole("button", { name: "Keys" }).click();
+await page.waitForTimeout(600);
+await page.getByRole("button", { name: /Forget the key/i }).first().click();
+await page.waitForTimeout(400);
+await page.getByRole("button", { name: /Forget it/i }).click();
+await page.waitForTimeout(700);
+await page.keyboard.press("Escape");
+await page.waitForTimeout(500);
 check("the board takes a third drawing", await drawOne(star, "a second star"));
 state = await settle(3);
 console.log(`     none:  ${JSON.stringify(state.code)}`);
 console.log(`     said:  ${state.said}`);
-check("with no token the renderer is still asked once", drawn.length === 3, `${drawn.length} calls`);
+check("with the key forgotten the renderer is still asked once", drawn.length === 3, `${drawn.length} calls`);
+check("and nothing rides with it", !drawn[2]?.headers?.["x-replicate-key"]);
 check("and the body is written instead", state.code?.source === "written", JSON.stringify(state.code));
 check("nothing is charged for a renderer that was not there", !state.code?.cost && state.cost === 0, `${state.code?.cost} / ${state.cost}`);
-check("and the reason is on the card, not swallowed", /renderer token/i.test(state.said), state.said.slice(-110));
+check("and the reason on the card says what to press", /No Replicate token yet/i.test(state.said) && /key button/.test(state.said), state.said.slice(-120));
 
 await browser.close();
 const failed = results.filter((r) => !r).length;
