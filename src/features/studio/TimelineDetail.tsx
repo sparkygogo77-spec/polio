@@ -37,22 +37,22 @@ import { useStudio } from "./store";
  * halves of one screen should not look like two applications.
  */
 export const FIELD = {
-  face: "oklch(0.155 0.032 158)",
-  raised: "oklch(0.21 0.05 158)",
-  rim: "oklch(0.36 0.07 158)",
-  lit: "oklch(0.66 0.16 158)",
-  text: "oklch(0.93 0.04 158)",
-  dim: "oklch(0.7 0.07 158)",
+  face: "oklch(0.175 0.042 34)",
+  raised: "oklch(0.23 0.066 34)",
+  rim: "oklch(0.36 0.091 34)",
+  lit: "oklch(0.66 0.17 34)",
+  text: "oklch(0.93 0.053 34)",
+  dim: "oklch(0.7 0.091 34)",
 };
 
 /** An element prompt's section wears the purple its piece does. */
 const PURPLE = {
-  face: "oklch(0.17 0.04 300)",
-  raised: "oklch(0.24 0.07 300)",
-  rim: "oklch(0.42 0.1 300)",
-  lit: "oklch(0.76 0.17 300)",
-  text: "oklch(0.94 0.04 300)",
-  dim: "oklch(0.74 0.08 300)",
+  face: "oklch(0.19 0.053 18)",
+  raised: "oklch(0.26 0.091 18)",
+  rim: "oklch(0.42 0.131 18)",
+  lit: "oklch(0.76 0.17 18)",
+  text: "oklch(0.94 0.053 18)",
+  dim: "oklch(0.74 0.106 18)",
 };
 
 export function TimelineDetail() {
@@ -135,7 +135,7 @@ function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void
         background: on ? FIELD.raised : "transparent",
         borderColor: on ? FIELD.lit : "transparent",
         color: on ? FIELD.text : FIELD.dim,
-        boxShadow: on ? "0 0 0 1px oklch(0.66 0.16 158 / 0.25)" : undefined,
+        boxShadow: on ? "0 0 0 1px oklch(0.66 0.17 34 / 0.25)" : undefined,
       }}
     >
       {icon}
