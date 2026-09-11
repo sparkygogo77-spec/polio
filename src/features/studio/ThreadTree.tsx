@@ -98,7 +98,15 @@ function seedOf(s: string): number {
 }
 
 /** A chip's own size, for laying them out without stacking them on each other. */
-const CHIP = { w: 176, h: 27 };
+/*
+ * A piece is smaller than a thread, on purpose.
+ *
+ * A thread is an iteration — what was asked and what came back — and a piece
+ * is one thing on the board that can be sent with the next one. They are not
+ * the same weight and must not read as the same size: a piece is a little
+ * over half a card wide and a third of its height.
+ */
+const CHIP = { w: 148, h: 23 };
 
 /**
  * Where a piece floats.
@@ -386,7 +394,10 @@ export function ThreadTree() {
       <div
         ref={box}
         data-thread-tree=""
-        className="relative overflow-auto rounded-lg border border-border bg-[oklch(0.13_0.012_150)]"
+        // The void, not a green one: this was the shell's own ground with its
+        // hue typed as 150, which is the one surface in the Builder painted
+        // out of a different family from everything round it.
+        className="relative overflow-auto rounded-lg border border-border bg-bg"
         style={{ minHeight: 300, maxHeight: "64vh" }}
       >
         {/* The scaled plot still has to be scrollable to its own corners. */}
@@ -551,19 +562,29 @@ function PieceChip({
         onPointerDown={(e) => { if (e.shiftKey || e.button === 1) onDragStart(e); }}
         aria-pressed={vined}
         className={cn(
-          "absolute z-10 flex max-w-[190px] items-center gap-1.5 rounded-full border px-2 py-1 text-left text-[10px] transition-colors",
+          "absolute z-10 flex max-w-[160px] items-center gap-1 rounded-full border px-1.5 py-0.5 text-left text-[9.5px] transition-colors",
           dragging && "z-30 cursor-grabbing",
         )}
+        /*
+         * A piece is live whether or not it has been vined.
+         *
+         * It used to go grey until you clicked it, which said the thing was
+         * off — and a piece is never off: it is a prompt on the board that
+         * this call can carry, always, and clicking it only decides whether
+         * *this* call carries it. So it keeps its purple throughout, and
+         * being vined is the brighter, lit state of the same colour rather
+         * than the difference between dead and alive.
+         */
         style={{
           left: at.x, top: at.y,
-          borderColor: vined ? tone.body : landed ? "oklch(0.32 0.04 150)" : "oklch(0.3 0.01 260)",
-          background: vined ? "oklch(0.19 0.06 300)" : "oklch(0.16 0.015 260)",
-          color: vined ? "oklch(0.92 0.08 305)" : landed ? "oklch(0.78 0.04 150)" : "oklch(0.68 0.01 260)",
-          boxShadow: vined ? `0 0 14px oklch(0.7 0.25 300 / 0.35)` : undefined,
+          borderColor: vined ? tone.body : landed ? "oklch(0.42 0.08 150)" : "oklch(0.4 0.09 300)",
+          background: vined ? "oklch(0.19 0.06 300)" : "oklch(0.165 0.03 300)",
+          color: vined ? "oklch(0.92 0.08 305)" : landed ? "oklch(0.8 0.07 150)" : "oklch(0.82 0.06 300)",
+          boxShadow: vined ? `0 0 14px oklch(0.7 0.25 300 / 0.35)` : `0 0 8px oklch(0.6 0.18 300 / 0.14)`,
         }}
         title="Click to vine this to the next call. Shift-drag to move it."
       >
-        <span className="size-1.5 shrink-0 rounded-full" style={{ background: vined ? PENDING.core : landed ? VINE.body : "oklch(0.5 0.01 260)" }} />
+        <span className="size-1.5 shrink-0 rounded-full" style={{ background: vined ? PENDING.core : landed ? VINE.body : "oklch(0.62 0.16 300)" }} />
         <span className="truncate">{piece.label}</span>
         {fresh ? <span className="shrink-0 text-[9px] opacity-80">changed</span> : null}
       </button>

@@ -18,7 +18,7 @@
  * it opens the iteration book, where the queue is written out in full.
  */
 import * as React from "react";
-import { Cpu, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -40,7 +40,11 @@ export function DrawQueue() {
     store.updateJob(job.id, { status: "running", started: Date.now(), step: "Reading the drawing…" });
     void runDrawJob(job, {
       publish: (n) => ctx.publish(n),
-      onNoKey: () => ctx.openPanel("keys"),
+      // A queued job is background work: it says what happened in the news
+      // and on the counter, and does not throw a panel over whatever is
+      // being drawn now. Pressing the counter, or the key button, is the
+      // person's move to make.
+      onNoKey: () => {},
       onStep: (step) => useStudio.getState().updateJob(job.id, { step }),
     })
       .then((r) => {
@@ -61,10 +65,31 @@ export function DrawQueue() {
 }
 
 /**
- * The counter: pending, and landed.
+ * A flag with a tick on it.
  *
- * Numbers, not a bar: how many drawings are on their way to being parts is
- * a count, and a count with a spinner beside it says everything a person
+ * Lucide has a flag and it has a check; it does not have the two together,
+ * and the two together is what "finish" looks like. Drawn to the same 24-box
+ * and the same 2px stroke as every other icon on the bar, so it sits in a row
+ * with them without looking hand-made.
+ */
+function FlagCheck({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 15V4.5a9 9 0 0 1 8 0 9 9 0 0 0 8 0V15a9 9 0 0 1-8 0 9 9 0 0 0-8 0Z" />
+      <path d="M4 22v-7" />
+      <path d="m8.5 9.5 2.5 2.5 4.5-4.5" />
+    </svg>
+  );
+}
+
+/**
+ * Finish: the way out of the board and into the timeline, carrying the queue.
+ *
+ * Icon only — a green flag with a tick — because it is the one button on the
+ * bar that ends something rather than changes something, and a word beside it
+ * would put it in the same class as the tools. The numbers on it are the
+ * make-real queue: how many drawings are on their way to being parts, and how
+ * many landed. A count with a spinner beside it says everything a person
  * needs while they carry on drawing.
  */
 export function ProcessCounter() {
@@ -77,10 +102,12 @@ export function ProcessCounter() {
 
   const now = pending.find((j) => j.status === "running");
   const told = busy
-    ? `${pending.length} drawing${pending.length === 1 ? "" : "s"} to make real${now?.step ? ` · ${now.step}` : ""}${done ? ` · ${done} done` : ""}`
+    ? `Finish · ${pending.length} drawing${pending.length === 1 ? "" : "s"} to make real${now?.step ? ` · ${now.step}` : ""}${done ? ` · ${done} done` : ""}`
     : done || failed
-      ? `${done} made real${failed ? `, ${failed} that could not be read` : ""} · open the book`
-      : "Nothing on the make-real queue. Draw a shape on a part and press Make real.";
+      ? `Finish · ${done} made real${failed ? `, ${failed} that could not be read` : ""}`
+      : mode === "book"
+        ? "Back to the board"
+        : "Finish: the timeline, the brief and everything asked of Claude";
 
   return (
     <Tooltip content={told}>
@@ -88,7 +115,8 @@ export function ProcessCounter() {
         type="button"
         data-finish=""
         data-process-counter=""
-        aria-label={busy ? `${pending.length} drawings pending, ${done} done` : `${done} drawings made real`}
+        aria-label={`Finish — ${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}
+        aria-pressed={mode === "book"}
         data-busy={busy ? "1" : "0"}
         onClick={() => {
           play("confirm");
@@ -96,11 +124,14 @@ export function ProcessCounter() {
         }}
         className="process-key tactile ml-1 flex h-6 shrink-0 select-none items-center gap-1.5 rounded-md px-1.5 text-[10px] font-medium outline-none"
       >
-        {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Cpu className="size-3.5" />}
+        {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <FlagCheck className="size-3.5" />}
         <span className="num tabular-nums">
           {pending.length}
           <span style={{ opacity: 0.6 }}> / </span>
           {done}
+          {/* A drawing that could not be read is not a drawing that landed:
+              it is said here rather than hidden in the done count. */}
+          {failed ? <span style={{ color: "oklch(0.86 0.14 30)" }}> · {failed}!</span> : null}
         </span>
       </button>
     </Tooltip>

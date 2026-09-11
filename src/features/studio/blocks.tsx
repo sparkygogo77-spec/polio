@@ -12,6 +12,7 @@ import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
 import { applyFont, liftTheme, overrideTheme } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer } from "./look";
+import { frameDoc, hasBody } from "./snippet";
 import type { StudioNode } from "./store";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
@@ -52,6 +53,16 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   const t = light?.on && page
     ? liftTheme(dressed, light, (node.x + (size?.w ?? node.w) / 2) / Math.max(1, page.w), (node.y + (size?.h ?? node.h) / 2) / Math.max(1, page.h))
     : dressed;
+  /*
+   * A body written for this part stands in for the part. The drawing asked
+   * for something no entry in the library is — a helix of sentences — and
+   * Claude wrote it; the catalog entry underneath is only what it was
+   * before, and drawing both would be drawing two things.
+   */
+  if (hasBody(node.code)) {
+    const body = <CodedBody node={node} t={t} mode={mode} size={size} />;
+    return node.outline ? <Cut node={node}>{body}</Cut> : body;
+  }
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
   const part = (
@@ -70,11 +81,17 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
     />
   );
   /*
-   * A part is a box unless the author said otherwise — drew a circle round
+   * A part is a box unless the author said otherwise — drew a line round
    * it, or picked a shape. Then it is cut to that shape here rather than in
    * the part, because every one of the two hundred and twenty-five would
    * otherwise have to know how to be round.
+   *
+   * Two ways, and the exact one wins. `outline` is the line as it was
+   * actually drawn, kept in the part's own box, so a helix or a star crops
+   * the part to a helix or a star; `shape` is the five shapes worth naming,
+   * and is what a part gets when someone picks one from a menu.
    */
+  if (node.outline) return <Cut node={node}>{part}</Cut>;
   if (!node.shape || node.shape === "box") return part;
   return (
     <div
@@ -85,6 +102,74 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       }}
     >
       {part}
+    </div>
+  );
+}
+
+/**
+ * A part whose body was written for it.
+ *
+ * In a frame with no permissions at all — `sandbox=""` is no scripts, no
+ * same-origin, no forms, no navigation — and a content policy inside it
+ * that allows inline styles and data: images and nothing else
+ * (`snippet.ts`). The code is already cleaned before it is stored, so this
+ * is the third lock rather than the first.
+ *
+ * It takes no presses on the board: a part is dragged and selected there,
+ * and a frame that swallowed the pointer would be a part you cannot pick
+ * up. On the live site it takes them like anything else — though with no
+ * scripts, all that means is `:hover`.
+ */
+function CodedBody({ node, t, mode, size }: { node: StudioNode; t: Theme; mode: PartMode; size?: { w: number; h: number } }) {
+  const doc = React.useMemo(
+    () => frameDoc(node.code!.html, { colour: t.text, font: t.bodyFamily }),
+    [node.code, t.text, t.bodyFamily],
+  );
+  return (
+    <iframe
+      data-coded-body={node.id}
+      title={node.label}
+      srcDoc={doc}
+      sandbox=""
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      scrolling="no"
+      width={size?.w ?? node.w}
+      height={size?.h ?? node.h}
+      style={{
+        width: "100%", height: "100%", display: "block", border: "none", background: "transparent",
+        pointerEvents: mode === "live" ? "auto" : "none",
+      }}
+    />
+  );
+}
+
+/**
+ * The part, cropped to the line that was drawn round it.
+ *
+ * `clipPath: url(#…)` against an inline `clipPath` in `objectBoundingBox`
+ * units: the path is 0..1 in each axis, so it stretches with the part and
+ * needs no recomputing when the part is resized. An open line was walked
+ * into a closed band before it got here (`outlinePath`), so there is one
+ * mechanism rather than a clip and a mask — browsers agree about clipping
+ * an HTML element and do not agree about masking one.
+ */
+function Cut({ node, children }: { node: StudioNode; children: React.ReactNode }) {
+  const id = `cut-${node.id}`;
+  return (
+    <div
+      data-shape={node.outline!.closed ? "outline" : "stroke"}
+      data-outline-points={node.outline!.points}
+      style={{ width: "100%", height: "100%", overflow: "hidden", clipPath: `url(#${id})`, WebkitClipPath: `url(#${id})` } as React.CSSProperties}
+    >
+      <svg width="0" height="0" aria-hidden focusable="false" style={{ position: "absolute" }}>
+        <defs>
+          <clipPath id={id} clipPathUnits="objectBoundingBox">
+            <path d={node.outline!.cut} />
+          </clipPath>
+        </defs>
+      </svg>
+      {children}
     </div>
   );
 }

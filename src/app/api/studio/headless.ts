@@ -46,6 +46,10 @@ export type PWPage = {
   waitForSelector: (sel: string, o?: Record<string, unknown>) => Promise<unknown>;
   waitForTimeout: (ms: number) => Promise<void>;
   setViewportSize: (s: { width: number; height: number }) => Promise<void>;
+  /** Set the page's HTML directly: for rendering one part's body with nothing else on the page. */
+  setContent: (html: string, o?: Record<string, unknown>) => Promise<void>;
+  /** Intercept what the page asks for, so a render can be made to ask for nothing. */
+  route: (pattern: string, handler: (route: { request: () => { url: () => string }; continue: () => Promise<void>; abort: () => Promise<void> }) => void) => Promise<void>;
   screenshot: (o?: Record<string, unknown>) => Promise<Buffer>;
   video: () => { path: () => Promise<string> } | null;
 };

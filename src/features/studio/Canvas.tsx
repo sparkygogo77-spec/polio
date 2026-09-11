@@ -1027,8 +1027,16 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       >
         <Block node={node} t={theme} palette={palette} light={light} page={page} layers={layers} mode={selected ? "live" : "board"} />
       </div>
-      {/* hover outline so unselected parts still read as parts */}
-      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
+      {/*
+        Hover outline, so an unpicked part still reads as a part — and only
+        then. It is drawn in the part's *category* hue, which on a first-screen
+        button is a red, so leaving it on under the hand put a red dashed box
+        round the picked part on top of the mark: two rings saying the same
+        thing, one of them in the colour this app keeps for Delete.
+      */}
+      {selected ? null : (
+        <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ outline: `1px dashed oklch(0.75 0.15 ${hue} / 0.8)` }} />
+      )}
 
       {/* What is this, and when would you want it? Answered without clicking — and out of the way once it is picked. */}
       {feature && !selected ? (

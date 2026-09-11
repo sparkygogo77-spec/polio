@@ -278,6 +278,20 @@ a kicker with a rule, and label-and-value rows that copy.
 - A drawn region with words on it and nothing inside is a *section*: it takes
   a row in "Layout, top to bottom" and is built from its prompt. A region with
   parts in it groups them; an empty, unnamed one is ignored.
+- **Any closed line becomes the part's exact edge.** `shape` names the five
+  shapes worth naming (box, rounded, circle, ellipse) and everything else —
+  a helix, a star, a scrawl — used to become a rectangle with the drawing
+  thrown away. `outlinePath` (`sketch.ts`) keeps the line itself: put in the
+  part's own box, 0..1 in each axis, smoothed into cubics, thinned to at
+  most 96 points, and stored on the node as `outline`. `blocks.tsx` cuts the
+  part to it with `clip-path: url(#…)` against an inline `clipPath` in
+  `objectBoundingBox` units, so it stretches with the part and never needs
+  recomputing. An **open** line has no inside, so it is walked into a closed
+  band of the stroke's own thickness first — one mechanism, because browsers
+  agree about clipping an HTML element and disagree about masking one. A
+  rectangle yields no clip at all: cutting a box to a box is cutting
+  nothing. `tests/outline-clip.mjs` holds the star, the helix, the spiral,
+  the box and the empty cases.
 - **The Blueprint and the Trail are one page: the iteration book.**
   `BriefDialog.tsx` is one `Book` component in three shapes — a dialog over
   the board, a panel pinned open beside it (`store.bookPinned`, no overlay,
@@ -886,11 +900,55 @@ a kicker with a rule, and label-and-value rows that copy.
   the fingerprint, so a part whose chains changed is resent rather than
   assumed unchanged. `tests/chain-links.mjs` holds all of it, on the board and
   off it. The tool's icon is a chain (`Link`) everywhere it appears.
+- **A mark is the far side of what it marks** (`look.ts`: `complementOf`,
+  `markColour`; `Canvas.tsx`: `NodeView`, the frame's outline, `CHAIN_MARK`).
+  A picked thing is ringed in the complement of its own aura or fill — the
+  page in the complement of its backdrop, a chain in the far side of its red
+  — one thin line, drawn *inside* the thing's edge so its aura is still
+  outside the mark and still visible. Never the app's accent, never a fill,
+  and never two rings: the dashed hover outline is off once a part is picked,
+  because it is drawn in the part's category hue and on a first-screen part
+  that is a red. `tests/picked.mjs` holds it.
+- **The bar says where you are** (`StudioPage.tsx`: `SiteHead`, `PageChips`,
+  `PreviewToggle`; `DrawQueue.tsx`: the finish key; `tests/header.mjs`). It
+  reads left to right: **Builds**, the site's **mark** (its favicon — the
+  wordmark's first letter in the site's own accent, which is what the brief
+  promises), the site's **build**, then its **pages**, with the way to add one
+  on the same control rather than loose beside it. The Builder has no nav tab:
+  "Builder" named a tab for the screen you were already on, and the build name
+  says which site instead. Design is not a button either — it is the ground
+  state, and the two ways out of it are at the far end: **Preview**, then
+  **Finish**, an icon-only green flag with a tick that carries the make-real
+  queue and opens the timeline. Pressing either again comes back. Green
+  because Finish ends the work rather than changing it; everything that only
+  changes something wears the console's own colours.
+- **A piece is not an iteration** (`ThreadTree.tsx`: `CHIP`, the piece chip).
+  A piece is a prompt on the board that the next call can carry, so it is
+  never off: it keeps its purple whether or not it is vined, and vined is the
+  lit state of that same colour rather than the difference between grey and
+  alive. It is drawn well under half the size of a thread card, because it is
+  not one.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or
   the page gains a new thing to set; a setting that cannot be seen is a
   setting that will be set twice.
+- **Two materials, defined once** (`core/ui/void.ts`; `tests/surfaces.mjs`).
+  Every surface of the Builder's console is the void or the screen, and both
+  live in core so nothing can drift: a feature that wants either imports it.
+  A private copy is the bug — the key vault kept its own five-value screen
+  with every number a little away from the shared one — and so is a surface
+  painted out of a third family: the trail's canvas was the shell's ground
+  with its hue typed as 150, a green nothing else in the app is near. The
+  suite measures the hue of every painted surface in the book and holds the
+  vault to importing rather than redefining.
+- **Nothing is sliced by a fold.** A panel that scrolls scrolls its *reading
+  matter*: the rows you act on — Publish, Download, Copy — sit below the
+  scroller, not at the end of it, or the panel's own edge cuts one in half on
+  open with nothing to say there is more. Same rule on a card: a row of
+  options is pushed to the foot (`mt-auto`, which needs the column above it
+  to be `flex-1`) so the bars line up across a row of cards whatever each one
+  had to say above them.
 - **The command palette is a console** (`CommandPalette.tsx`) and the
   chrome leans into the void (`--void-h` and the dark tokens in
   `globals.css`): a shade, not a colour. Keep new chrome on the tokens.

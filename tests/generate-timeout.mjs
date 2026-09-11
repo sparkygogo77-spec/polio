@@ -114,6 +114,7 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
   // finding no key configured in this environment, leads with that reason —
   // "It does not stop the run" (BriefDialog.tsx), so the note and the hung
   // request coexist honestly. What Stop must not do is add a failure to it.
+  const beforeStop = await noteOn(page);
   const stop = page.getByRole("button", { name: /^Stop/ }).first();
   check("and there is a Stop to press", (await stop.count()) === 1);
   if (await stop.count()) {
@@ -126,8 +127,7 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
      * nothing would have come back anyway. What must not change is what is
      * said: letting go of a request adds nothing to it.
      */
-    const after = await noteOn(page);
-    check("and stopping is not reported as a failure", !/failed|error|went wrong/i.test(after), after || "nothing said");
+    check("and stopping is not reported as a failure", (await noteOn(page)) === beforeStop, await noteOn(page));
   }
   await page.close();
 }

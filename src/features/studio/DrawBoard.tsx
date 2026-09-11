@@ -102,7 +102,10 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
      */
     field.current = field.current && field.current.w === size ? field.current : sparkField("disc", size, size);
     field.current = resizeField(field.current, size, size);
-    paintDarkMatter(c, { field: field.current, t, vignette: false });
+    // A little further off than the add disc's own weather: this is a
+    // surface to draw on, and the strokes have to be the brightest thing on
+    // it. The clouds still pass and the embers still cross.
+    paintDarkMatter(c, { field: field.current, t, vignette: false, dim: 0.7 });
     for (const s of strokes) paintStroke(c, s, size);
     if (live.current) paintStroke(c, live.current, size);
     // The horizon, over everything: the surface falls to black at the rim.
