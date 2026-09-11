@@ -2,9 +2,35 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-11T22:26:49.744Z";
+export const GENERATED_AT = "2026-09-11T22:34:51.261Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "d6944aa",
+    "when": "2026-09-11T22:32:37+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "d6944aa",
+        "says": "Updates is a slide over, read out of the history rather than written",
+        "when": "2026-09-11T22:32:37+00:00",
+        "detail": [
+          "He wanted updates back, but not as a page like Builds or Preview: knowing what changed is something you do while you are working, so it stands over nearly the whole screen and Escape or a press outside puts it away with the board exactly where you left it.",
+          "Two rules it is built on.",
+          "Real history, not a changelog. `npm run passes` reads git: a pass is one merge into the branch (or one day of commits that landed straight on it), and the commits it carried are the lines, because merge subjects say nothing you could use. Nobody writes an entry per commit — that chore was killed on purpose and stays dead, and tests/updates.mjs holds it dead: every sha must be a real commit, every line the commit's own words, and no changelog file may exist for anything to read.",
+          "Features first. A pass leads with the strongest thing in it, the rest is a line each, and the specifics — the body as whole paragraphs rather than the lines a terminal wrapped it to, what it touched, the sha — stay folded until asked for. Twenty-four passes, forty-one changes, two minutes to read, with a \"things I can use\" switch that drops the plumbing. It borrows the timeline's own cards (FIELD, Row) rather than inventing a second way to show a list of things that happened."
+        ],
+        "areas": [
+          "docs",
+          "scripts",
+          "studio",
+          "tests"
+        ],
+        "kind": "better"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "ec2d8d8",
     "when": "2026-09-11T22:16:37+00:00",
@@ -805,28 +831,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d14bf81",
-    "when": "2026-09-11T01:12:52+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "d14bf81",
-        "says": "Fix stale checks and a real halo-layer light leak after the Timeline merge",
-        "when": "2026-09-11T01:12:52+00:00",
-        "detail": [
-          "Finish now opens Timeline (Timeline.tsx) rather than the iteration book directly, with the book one tab below it and the pieces trail kept only in the book's dialog/panel shapes (its page shape deliberately drops the trail to avoid drawing the same history twice). generate-timeout.mjs and header.mjs updated to open the book through its own hooks/tabs instead of assuming Finish leads straight to it.",
-          "Also fixes a real regression in blackHole.ts: the bloom gradient added in f81a783 filled a full circle around the beam side, so a faint warm tint leaked into the disc's own centre on the halo canvas, breaking \"the ring is the only light on the screen.\" Clipped to an annulus outside the rim."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "fixed"
       }
     ],
     "more": 0
