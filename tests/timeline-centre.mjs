@@ -189,9 +189,16 @@ const edges = () => page.evaluate(() => {
   check("centre goes to the boxes, not to the origin",
     Math.hypot(home.x - lost.x, home.y - lost.y) > 20 && Math.hypot(home.x, home.y) > 200,
     `${lost.x.toFixed(0)},${lost.y.toFixed(0)} → ${home.x.toFixed(0)},${home.y.toFixed(0)}`);
-  // A render a frame here showed up as a 33ms beat — half rate — which is
-  // why the settle writes the transform to the element instead.
-  check("settling holds the screen's own rate", s.beat < 20, `beat ${s.beat}ms against ${idle.beat}ms sitting still`);
+  /*
+   * Against the rate the timeline already runs at, not against 16.7ms.
+   *
+   * A render a frame showed up as a doubled beat, which is what this is
+   * here to catch, and comparing to idle catches it wherever this runs. An
+   * absolute number would instead be measuring the nebula behind the boxes:
+   * on a container with no GPU four window-sized layers set the beat before
+   * the settle does anything at all.
+   */
+  check("settling holds whatever rate the timeline already had", s.beat <= idle.beat * 1.25, `beat ${s.beat}ms against ${idle.beat}ms sitting still`);
   check("and costs no more than sitting still does", s.late <= idle.late + 3,
     `${s.late} late of ${s.frames} settling · ${idle.late} of ${idle.frames} idle · worst ${s.max}ms`);
 

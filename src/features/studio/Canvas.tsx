@@ -562,18 +562,19 @@ export function Canvas() {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      {/* The ground: the same dark matter the add disc opens into. Behind the
-          grid, behind the frame, and it never reaches the page itself. */}
-      <Workspace />
+      {/*
+        The ground: the same dark matter every other surface stands on, and
+        the whole of the ground now.
 
-      <div
-        className="pointer-events-none absolute inset-0 opacity-50"
-        style={{
-          backgroundImage: "radial-gradient(circle, var(--border-strong) 1px, transparent 1px)",
-          backgroundSize: `${GRID * 3 * zoom}px ${GRID * 3 * zoom}px`,
-          backgroundPosition: `${pan.x}px ${pan.y}px`,
-        }}
-      />
+        There used to be a dot grid over this — a hangover from when the
+        workspace was the app's flat background and needed something to say
+        it was scratch. The nebula says it. Two backgrounds arguing is one
+        too many, and the dots read as a defect over cloud. Snapping still
+        works to `GRID`; the grid is a rule, not a picture of one. A grid
+        that belongs to the *site* being built is the site's own business and
+        is drawn inside the frame, untouched by this.
+      */}
+      <Workspace />
 
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
         {/*

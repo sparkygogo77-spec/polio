@@ -1,141 +1,183 @@
 "use client";
 /**
- * The weather, and the difference between moving and being redrawn.
+ * The weather. One implementation, everywhere it appears.
  *
- * Both the workspace behind the page and the timeline's own floor stand on
- * the same dark matter, and both used to *repaint* it to move it: the clouds
- * every 420ms onto a half-resolution canvas, the embers thirty times a
- * second. The page loop was never the problem — measured on the live Builder
- * it ran at 385fps with a 1.4ms median — but the cloud layer's own content
- * changed 2.5 times a second, and 2.5 times a second is what an eye reads as
- * the nebula's frame rate. Slow motion redrawn that rarely judders, which is
- * worse than the hitch it was meant to cure.
+ * Four surfaces stand on this: the workspace behind the page, the timeline's
+ * own floor, the disc you pull parts out of, and the disc you draw on. They
+ * used to be two implementations and four clocks — the walls repainted the
+ * clouds every 420ms, the discs repainted *everything* on a 33ms
+ * `setInterval`, which against a 16.7ms frame lands two frames on one beat
+ * and none on the next. All four skipped, in their own ways, for the same
+ * reason: the nebula was being **redrawn** to move it, and a redraw rate is
+ * a frame rate however fast the page around it runs.
  *
- * So the clouds are not redrawn to move any more. They move.
+ * So the clouds are not redrawn to move any more. They move:
  *
- *  · **One field, painted bigger than the box.** All four cloud layers
- *    (`CLOUD_LAYERS`) are screened together onto one canvas, oversized by a
- *    margin holding about a dozen seconds of drift — small, because the
- *    compositor pays for the layer's size every frame and a recycle costs
- *    four frames of one pattern fill every twelve seconds.
- *  · **A transform every frame.** `translate3d`, which the compositor does
- *    without touching the page: no layout, no paint, no main-thread raster.
- *  · **A repaint only when the material runs out** — or on a resize, or when
- *    the distance changes. The offset the paint bakes in is snapped to a
- *    whole backing pixel and the transform hands back the remainder, so a
- *    recycle is the same pixels in the same place and there is nothing to
- *    see. It is laid one layer to a frame, so the one moment this file does
- *    real work still fits inside a frame.
- *  · **The sky does not move at all**, so it is not on a canvas that does:
- *    the ground gradient is one CSS `radial-gradient` on a div.
+ *  · **A canvas per layer, bigger than the box.** Each of `CLOUD_LAYERS`
+ *    gets its own, so each keeps its own heading, its own speed and its own
+ *    slow turn. The near cloud passes the far one, the two near tiles
+ *    counter-drift, and the bloom where they cross goes on shifting.
+ *  · **Full resolution.** A pixel a pixel. The clouds were drawn at half
+ *    size once so a whole repaint would fit inside a frame; there is no
+ *    whole repaint any more, so there is no reason to.
+ *  · **Screened together, as they always were.** `mix-blend-mode: screen`
+ *    over a sky that is the same radial gradient, painted by the compositor
+ *    instead of by us.
+ *  · **Moved on the compositor.** `translate3d` for the drift and `rotate`
+ *    for the turn, every frame, which the compositor does without touching
+ *    the page: no layout, no paint, no main-thread raster.
+ *  · **Repainted only when the material runs out** — or on a resize, or when
+ *    the distance changes. A recycle re-lays that one layer with the turn
+ *    and the drift it had reached baked in and its transform reset, so it is
+ *    the same pixels in the same place and there is nothing to see. One
+ *    layer to a frame, so even that moment fits in a frame.
  *
- * **One field at half resolution is a decision, not a default.** A canvas
- * each would let the four layers keep their own headings and their own slow
- * turns, which is the look this had before the speed pass and is prettier:
- * the bloom where they cross goes on shifting. It was built, and it was
- * measured, and on a machine with no GPU it holds 13.9fps against this
- * one's 60. So the screening is done inside the canvas, once, and what the
- * compositor is given is one plain texture to slide, with
- * `CloudLayer.carries` naming the layer whose heading the field takes.
+ * A disc is the same thing in a round hole: the holder is clipped to a
+ * circle and wears its horizon as a static gradient, because a horizon does
+ * not move either.
  *
- * That trade was put to J with the numbers and he chose this. The other one
- * is not lost: it is at `docs/shelf/nebula-four-layers.patch` with the whole
- * measurement beside it. Two things to know before touching any of this.
- * The container these numbers came from **rasterises in software**, so they
- * are a floor rather than a verdict — a graphics card may well hold 60 with
- * four layers, and that is the condition under which the shelf gets opened.
- * And the *original* held 60 only because its layer never moved: the canvas
- * was repainted 2.4 times a second and its transform changed on 0 of 241
- * frames. A frame rate about this ground is meaningless without the
- * companion number, which is how many frames the layer moved on.
+ * **What it costs, and where that number came from.** Four window-sized
+ * layers blended by the compositor every frame. On a graphics card that is
+ * the compositor's day job. The container this repository is tested in has
+ * **no GPU** — ANGLE/SwiftShader, software rasterisation — and there it
+ * measures 13.9fps against a one-layer field's 60. That number is a floor
+ * for software, not a verdict on the design: J runs hardware, and the call
+ * was his. `docs/shelf/README.md` has the whole table.
  *
  * The embers are untouched: their own canvas at the box's own size, thirty
  * times a second, which is what a streak needs. The drag pause is kept and
- * is now a held clock rather than a skipped frame, so letting go of the
- * board no longer jumps the weather forward by however long the drag was.
+ * is a held clock rather than a skipped frame, so letting go of the board
+ * does not jump the weather forward by however long the drag was.
  */
 import * as React from "react";
 import {
   CLOUD_LAYERS,
+  cloudSpeed,
+  cloudTravel,
   DRIFT_MS,
-  fieldDrift,
-  paintCloudField,
+  paintCloudLayer,
   paintDarkMatter,
   resizeField,
   skyGradient,
   sparkField,
+  type CloudLayer,
+  type Shape,
   type SparkField,
 } from "./darkMatter";
 
 /** How often the embers are redrawn. */
 export const SPARK_MS = DRIFT_MS;
 
-/** The clouds' backing store, as a share of the box. Soft things do not need pixels. */
-const CLOUD_SCALE = 0.5;
+/**
+ * The clouds' backing store, as a share of the box. One is a pixel a pixel.
+ *
+ * This is the one number in this file that anybody can see, so it does not
+ * move to buy frames without somebody being told.
+ */
+const CLOUD_SCALE = 1;
 
 /**
- * How long the painted material should last before the field needs more.
+ * How long a layer's material should last before it needs more.
  *
- * Raising it costs compositing: the canvas is oversized by the field's own
- * speed times this, and the compositor samples the whole layer every frame,
- * so forty seconds of a 7.4px/s cloud is 300px of margin each way and
- * measurably more late frames on a machine with no GPU. Lowering it costs
- * only how often the recycle runs — four frames of one pattern fill — and a
- * recycle cannot be seen. So it is set low: a dozen seconds of material, and
- * a recycle nobody will ever notice.
+ * Raising it costs memory and compositing — the canvas is oversized by the
+ * layer's own speed times this, and the compositor samples the whole layer
+ * every frame. Lowering it costs how often a recycle runs, and a recycle is
+ * one pattern fill that cannot be seen.
  */
-const REFRESH_S = 12;
-/** A little room either way even on an axis that barely moves, for a resize. */
+const REFRESH_S = 14;
+/** A little room either way even for a layer that barely moves, for a resize. */
 const MARGIN_MIN = 48;
-/** And no more room than this, whatever the arithmetic says. */
-const MARGIN_MAX = 320;
+/**
+ * How far a layer may turn before it is laid again, in degrees.
+ *
+ * A recycle is exact — the turn it had reached is baked in and the transform
+ * reset — so this is not a fidelity number, it is how often a full-resolution
+ * pattern fill runs. Ten degrees is twelve seconds for the fastest-turning
+ * layer, and costs about 150px of extra margin to keep the box covered while
+ * the corners sweep.
+ */
+const TURN_MAX = 10;
 
-/** How much material one axis needs, in CSS pixels, for a field going this fast. */
-export function marginFor(v: number): number {
-  return Math.round(Math.max(MARGIN_MIN, Math.min(MARGIN_MAX, Math.abs(v) * REFRESH_S)));
-}
-
-/** How long that material lasts, in seconds. For the tests, and for the comment above. */
-export function refreshEvery(): number {
-  const { vx, vy } = fieldDrift();
-  const x = Math.abs(vx) > 0.001 ? marginFor(vx) / Math.abs(vx) : Infinity;
-  const y = Math.abs(vy) > 0.001 ? marginFor(vy) / Math.abs(vy) : Infinity;
-  return Math.min(x, y);
+/** How much material a layer needs past the box's edge, in CSS pixels. */
+export function marginFor(l: CloudLayer, w: number, h: number): number {
+  const drift = cloudSpeed(l) * REFRESH_S;
+  // Turning sweeps the corners in: enough that the box stays covered at the
+  // most this layer will have turned before it is laid again.
+  const sweep = (Math.hypot(w, h) / 2) * Math.sin((TURN_MAX * Math.PI) / 180);
+  return Math.round(Math.max(MARGIN_MIN, drift) + sweep);
 }
 
 /** True while the hand is down on the board: the weather holds where it is. */
 const dragging = () => typeof document !== "undefined" && document.documentElement.dataset.boardDrag === "1";
 
+/** One layer's canvas, and where its paint and its transform each stand. */
+interface Live {
+  el: HTMLCanvasElement;
+  def: CloudLayer;
+  /** How far past the box this one reaches. */
+  m: number;
+  /** The moment the paint has baked in. */
+  at: number;
+  /** What the transform is showing, so an unchanged one is not written again. */
+  said: string;
+}
+
+export interface GroundOpts {
+  /** How far away the weather is, 0..1. One is the disc's own. */
+  dim?: number;
+  /** A wall, or a round hole. A disc is clipped and wears a horizon. */
+  shape?: Shape;
+}
+
 export function useGround(
-  host: React.RefObject<HTMLDivElement | null>,
+  host: React.RefObject<HTMLElement | null>,
   clouds: React.RefObject<HTMLDivElement | null>,
   spark: React.RefObject<HTMLCanvasElement | null>,
-  dim: number,
+  opts: number | GroundOpts = {},
 ) {
+  const o: GroundOpts = typeof opts === "number" ? { dim: opts } : opts;
+  const dim = o.dim ?? 1;
+  const shape: Shape = o.shape ?? "ground";
+
   React.useEffect(() => {
     const box = host.current;
     const holder = clouds.current;
     const sp = spark.current;
     if (!box || !holder || !sp) return;
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const disc = shape === "disc";
 
     /* The sky: the half of the weather that never moves, so it is not on a
-       canvas at all. */
+       canvas at all. `isolate` keeps the screening inside this box rather
+       than reaching the app behind it. */
     holder.replaceChildren();
+    holder.style.isolation = "isolate";
+    if (disc) {
+      holder.style.borderRadius = "50%";
+      holder.style.overflow = "hidden";
+    }
     const sky = document.createElement("div");
     sky.dataset.groundSky = "";
     sky.style.cssText = `position:absolute;inset:0;background:${skyGradient(dim)};`;
     holder.appendChild(sky);
 
-    /* The field: one canvas, one texture, one thing to slide. */
-    const field = document.createElement("canvas");
-    field.dataset.cloudLayer = "field";
-    field.style.cssText = "position:absolute;will-change:transform;";
-    holder.appendChild(field);
+    const layers: Live[] = CLOUD_LAYERS.map((def) => {
+      const el = document.createElement("canvas");
+      el.dataset.cloudLayer = def.id;
+      el.style.cssText = "position:absolute;mix-blend-mode:screen;will-change:transform;transform-origin:50% 50%;";
+      holder.appendChild(el);
+      return { el, def, m: 0, at: 0, said: "" };
+    });
 
-    const { vx, vy } = fieldDrift();
-    const mx = marginFor(vx);
-    const my = marginFor(vy);
+    /* A disc's horizon: the edge falls off to near black. It does not move
+       either, so it is a gradient rather than a pass of the paint. */
+    if (disc) {
+      const edge = document.createElement("div");
+      edge.dataset.groundHorizon = "";
+      edge.style.cssText =
+        "position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle closest-side at 50% 50%, rgba(0,0,0,0) 78%, rgba(4,2,8,0.5) 92.6%, rgba(3,1,6,0.9) 100%);";
+      holder.appendChild(edge);
+    }
 
     const embersField: { current: SparkField | null } = { current: null };
     let size = { w: 0, h: 0 };
@@ -144,40 +186,42 @@ export function useGround(
     let clock = 0;
     let last = performance.now();
     let nextSpark = 0;
-    /** The drift the paint has baked in, and the drift the transform is showing. */
-    let ox = 0;
-    let oy = 0;
-    let tx = NaN;
-    let ty = NaN;
-    /** A recycle in flight: what it is painting to, and which layer is next. */
-    let laying: { ox: number; oy: number; next: number } | null = null;
+    /** Layers waiting to be laid again, one to a frame. */
+    const queue: Live[] = [];
 
-    /** A whole backing pixel, so a recycle lands exactly where the transform had it. */
-    const snap = (v: number) => Math.round(v * CLOUD_SCALE) / CLOUD_SCALE;
-
-    const lay = (layers: typeof CLOUD_LAYERS, atX: number, atY: number, from: number) => {
-      const c = field.getContext("2d");
+    const lay = (l: Live, at: number) => {
+      const c = l.el.getContext("2d");
       if (!c) return;
       c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
-      paintCloudField(c, layers, { w: size.w + mx * 2, h: size.h + my * 2, dim, ox: atX, oy: atY, from });
+      paintCloudLayer(c, l.def, {
+        w: size.w + l.m * 2,
+        h: size.h + l.m * 2,
+        dim,
+        turn: l.def.turn + l.def.spin * at,
+        dx: l.def.dx * at,
+        dy: l.def.dy * at,
+      });
       c.setTransform(1, 0, 0, 1, 0, 0);
+      l.at = at;
     };
 
-    /** The whole field at once: the first paint, a resize, and reduced motion. */
-    const paintAll = (atX: number, atY: number) => {
-      lay(CLOUD_LAYERS, atX, atY, 0);
-      ox = atX;
-      oy = atY;
-      laying = null;
+    /** Where the compositor has to carry this layer, from where it was laid. */
+    const move = (l: Live, force = false) => {
+      const now = cloudTravel(l.def, clock);
+      const then = cloudTravel(l.def, l.at);
+      const turn = l.def.spin * (clock - l.at);
+      const said = `translate3d(${(now.x - then.x).toFixed(3)}px, ${(now.y - then.y).toFixed(3)}px, 0) rotate(${turn.toFixed(4)}deg)`;
+      if (!force && said === l.said) return;
+      l.el.style.transform = said;
+      l.said = said;
     };
 
-    const move = (force = false) => {
-      const x = vx * clock - ox;
-      const y = vy * clock - oy;
-      if (!force && x === tx && y === ty) return;
-      field.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-      tx = x;
-      ty = y;
+    /** Has this layer run out of the material it was laid with? */
+    const spent = (l: Live) => {
+      const now = cloudTravel(l.def, clock);
+      const then = cloudTravel(l.def, l.at);
+      return Math.hypot(now.x - then.x, now.y - then.y) >= l.m - MARGIN_MIN
+        || Math.abs(l.def.spin * (clock - l.at)) >= TURN_MAX;
     };
 
     const fit = () => {
@@ -190,17 +234,27 @@ export function useGround(
       sp.height = h;
       sp.style.width = `${w}px`;
       sp.style.height = `${h}px`;
-      const cw = w + mx * 2;
-      const ch = h + my * 2;
-      // Drawn small and blown up: the sharpest edge in a cloud is a gradient.
-      field.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
-      field.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
-      field.style.width = `${cw}px`;
-      field.style.height = `${ch}px`;
-      field.style.left = `${-mx}px`;
-      field.style.top = `${-my}px`;
-      embersField.current = embersField.current ? resizeField(embersField.current, w, h) : sparkField("ground", w, h);
+      for (const l of layers) {
+        l.m = marginFor(l.def, w, h);
+        const cw = w + l.m * 2;
+        const ch = h + l.m * 2;
+        l.el.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
+        l.el.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
+        l.el.style.width = `${cw}px`;
+        l.el.style.height = `${ch}px`;
+        l.el.style.left = `${-l.m}px`;
+        l.el.style.top = `${-l.m}px`;
+      }
+      embersField.current = embersField.current ? resizeField(embersField.current, w, h) : sparkField(shape, w, h);
       return true;
+    };
+
+    const layAll = () => {
+      queue.length = 0;
+      for (const l of layers) {
+        lay(l, clock);
+        move(l, true);
+      }
     };
 
     const embers = () => {
@@ -210,13 +264,12 @@ export function useGround(
     };
 
     fit();
-    paintAll(0, 0);
-    move(true);
+    layAll();
     embers();
 
     if (still) {
       // One frame, and then the weather holds.
-      const ro = new ResizeObserver(() => { if (fit()) { paintAll(ox, oy); move(true); embers(); } });
+      const ro = new ResizeObserver(() => { if (fit()) { layAll(); embers(); } });
       ro.observe(box);
       return () => {
         ro.disconnect();
@@ -233,21 +286,16 @@ export function useGround(
       if (document.hidden || dragging()) return;
       clock += dt;
 
-      if (laying) {
-        // A recycle in flight: one layer a frame.
-        lay([CLOUD_LAYERS[laying.next]!], laying.ox, laying.oy, laying.next);
-        laying.next++;
-        if (laying.next >= CLOUD_LAYERS.length) {
-          ox = laying.ox;
-          oy = laying.oy;
-          laying = null;
-        }
-      } else if (Math.abs(vx * clock - ox) >= mx || Math.abs(vy * clock - oy) >= my) {
-        // Out of material on one axis. The same field is laid again with the
-        // drift so far baked in, and the transform hands back the remainder.
-        laying = { ox: snap(vx * clock), oy: snap(vy * clock), next: 0 };
+      // One recycle to a frame, so the only expensive moment in this file
+      // never doubles up.
+      const due = queue.shift();
+      if (due) {
+        lay(due, clock);
+        move(due, true);
+      } else {
+        for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
       }
-      move();
+      for (const l of layers) if (l !== due) move(l);
 
       if (clock >= nextSpark) {
         nextSpark = clock + SPARK_MS / 1000;
@@ -256,12 +304,12 @@ export function useGround(
     };
     raf = requestAnimationFrame(tick);
 
-    const ro = new ResizeObserver(() => { if (fit()) { paintAll(snap(vx * clock), snap(vy * clock)); move(true); embers(); } });
+    const ro = new ResizeObserver(() => { if (fit()) { layAll(); embers(); } });
     ro.observe(box);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
       holder.replaceChildren();
     };
-  }, [host, clouds, spark, dim]);
+  }, [host, clouds, spark, dim, shape]);
 }

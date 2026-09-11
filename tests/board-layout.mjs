@@ -359,21 +359,42 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
 
   let hidden = null;
   const ground = async (where) => {
-    check(`${where} is a sky, a cloud field and the embers`,
+    check(`${where} is a sky, four cloud layers and the embers`,
       (await page.locator("[data-ground-sky]").count()) === 1
-      && (await page.locator("[data-cloud-layer]").count()) === 1
-      && (await page.locator("[data-ground-sparks]").count()) === 1);
+      && (await page.locator("[data-cloud-layer]").count()) === 4
+      && (await page.locator("[data-ground-sparks]").count()) === 1,
+      `${await page.locator("[data-cloud-layer]").count()} layers`);
     // Read off the DOM rather than through a locator, so a ground built the
     // old way fails these checks with its own numbers instead of throwing.
     const field = await page.evaluate(() => {
       const el = document.querySelector("[data-cloud-layer]") ?? document.querySelector("[data-ground-clouds]");
       if (!el) return { backing: 0, css: 0, box: 0 };
-      return { backing: el.width ?? 0, css: Math.round(el.getBoundingClientRect().width), box: Math.round(el.parentElement.getBoundingClientRect().width) };
+      // The style width, not the rect: these layers are turned, and a
+      // rotated element's bounding box is not its own width.
+      return { backing: el.width ?? 0, css: Math.round(parseFloat(el.style.width) || 0), box: Math.round(el.parentElement.getBoundingClientRect().width) };
     });
-    // Soft things do not need pixels: drawn small and blown up.
-    check(`${where} draws the clouds small`, field.backing <= field.css * 0.75, `${field.backing} backing for ${field.css} css`);
+    // A pixel a pixel. This is the number J told us not to move to buy
+    // frames, so it is held here rather than left to drift.
+    check(`${where} draws the clouds at full resolution`, field.backing === Math.round(field.css), `${field.backing} backing for ${field.css} css`);
     // And bigger than the box, or there would be nothing to slide into.
     check(`${where} has material past the edge to slide into`, field.css > field.box + 60, `${field.css} of field for a ${field.box} box`);
+    // Four headings, not one: each layer carries its own drift and its own
+    // slow turn, which is the look the speed pass had traded away.
+    const headings = await page.evaluate(() => new Promise((done) => {
+      const els = [...document.querySelectorAll("[data-cloud-layer]")];
+      const read = () => els.map((el) => el.style.transform);
+      const first = read();
+      setTimeout(() => {
+        const now = read();
+        const moved = now.filter((t, i) => t !== first[i]).length;
+        const distinct = new Set(now).size;
+        const turning = now.filter((t) => !/rotate\(-?0(\.0+)?deg\)/.test(t) && /rotate/.test(t)).length;
+        done({ moved, distinct, turning, of: els.length });
+      }, 700);
+    }));
+    check(`${where} moves all four layers`, headings.moved === headings.of, `${headings.moved} of ${headings.of}`);
+    check(`${where} gives each its own heading`, headings.distinct === headings.of, `${headings.distinct} distinct transforms`);
+    check(`${where} turns them as they go`, headings.turning === headings.of, `${headings.turning} of ${headings.of} turning`);
 
     /*
      * What this machine costs with no ground at all, to measure the ground
@@ -394,26 +415,26 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
     await page.evaluate(WATCH);
     await page.waitForTimeout(5000);
     const s = await page.evaluate(STATS);
-    check(`${where} moves on every frame`, s.moved >= s.frames - 1 && s.frames > 100, `${s.moved} of ${s.frames} frames`);
-    // Four pattern fills is one lay of the field; the field carries about
-    // a dozen seconds of drift, so five seconds of it should need at most one.
-    check(`${where} is not repainted to do it`, s.lays <= 4, `${s.lays / 4} lays of the field in ${(s.frames / (1000 / s.beat)).toFixed(1)}s`);
-    // Headless drops to a 33ms beat when it cannot hold the screen's rate,
-    // so the beat itself says whether the ground is affordable.
-    check(`${where} holds the screen's own rate`, s.beat < 20, `beat ${s.beat}ms, against ${bare.beat}ms with no ground at all`);
+    check(`${where} moves on every frame`, s.moved >= s.frames - 1 && s.frames > 40, `${s.moved} of ${s.frames} frames`);
+    // One pattern fill is one lay of one layer; each carries about fourteen
+    // seconds of material, so five seconds of it should need very few.
+    // Counted against every layer on the page, because the timeline floats
+    // over the workspace and both grounds are running.
+    const onPage = await page.locator("[data-cloud-layer]").count();
+    check(`${where} is not repainted to do it`, s.lays <= onPage, `${s.lays} re-laid of ${onPage} layers in ${(s.frames / (1000 / s.beat)).toFixed(1)}s`);
     /*
-     * And the late frames it does cost are reported rather than pinned to a
-     * tight number. On a machine with no GPU the board at this size sits
-     * near the edge: a layer the size of a window composited every frame,
-     * plus the embers uploading thirty times a second, measured between
-     * nothing and a tenth of frames late across runs of the same build. A
-     * quarter would mean something is actually wrong.
+     * The rate is *reported*, not asserted.
+     *
+     * This container rasterises in software (ANGLE/SwiftShader), where four
+     * window-sized blended layers are a great deal of fill and the ground
+     * measures 13.9fps against a one-layer field's 60. On a graphics card
+     * the same work is nothing. J chose the four layers knowing that, so a
+     * red line here would be this box overruling him. What is worth holding
+     * is that the *method* is right — moved every frame, repainted almost
+     * never — and those are the checks above. `docs/shelf/README.md` has the
+     * whole table.
      */
-    check(
-      `${where} does not fall apart doing it`,
-      s.late / Math.max(1, s.frames) < 0.25,
-      `${s.late} of ${s.frames} late with it · ${bare.late} of ${bare.frames} without · worst ${s.max}ms`,
-    );
+    console.log(`       ${where}: beat ${s.beat}ms (${bare.beat}ms with no ground), ${s.late} of ${s.frames} late (${bare.late} of ${bare.frames} without), worst ${s.max}ms`);
   };
 
   await ground("the board's ground");

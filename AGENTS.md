@@ -1257,6 +1257,73 @@ a kicker with a rule, and label-and-value rows that copy.
   not the optimiser's. This is a standing rule, and it was written after the
   nebula pass below traded the cloud layers' independent headings for frames
   and did not say so plainly enough.
+- **One weather, one implementation, four surfaces** (`ground.ts`). The
+  workspace behind the page, the timeline's floor, the add disc and the
+  drawing board all stand on the same hook. The discs used to keep their own
+  copy, repainting the whole nebula on a 33ms `setInterval` — which against a
+  16.7ms frame lands two frames on one beat and none on the next — and they
+  skipped for exactly the reason the walls did. There is one implementation
+  now and a `shape` option for the round ones. Do not grow a second.
+- **The clouds move; they are not redrawn to move.** Four layers, each on its
+  own canvas, each keeping its own heading, speed and slow turn, screened
+  together with `mix-blend-mode: screen` over a CSS sky, at **full
+  resolution**, slid and turned on the compositor with `translate3d` and
+  `rotate` every frame, and repainted only on a resize, a distance change, or
+  when a layer runs out of the material it was laid with. A recycle bakes in
+  the turn and drift it had reached and resets the transform, so it is the
+  same pixels in the same place; one layer to a frame, so even that fits in a
+  frame. Never solve a judder here by changing a rate.
+- **The original only held 60 because its layer never moved.** Before any of
+  this the ground measured a clean 60fps with no late frame — and the cloud
+  canvas's transform changed on 0 of 241 frames, because the motion came
+  entirely from repainting the canvas 2.4 times a second. That is the judder
+  J called two fps. A frame rate about this ground means nothing without the
+  companion number: how many frames the layer actually moved on.
+- **This container rasterises in software** (ANGLE/SwiftShader, confirmed
+  through `WEBGL_debug_renderer_info`), so every compositing measurement
+  taken here is a **floor, not a verdict**: four window-sized layers measure
+  13.9fps here and are nothing on a graphics card. J runs hardware and made
+  the call with the numbers in front of him. `docs/shelf/README.md` has the
+  whole table. **Do not reduce the resolution, the layer count or the move
+  rate to make a number on this box look better** — see the standing rule
+  above, and take it to J instead.
+- **The Builder's own workspace has no grid.** It had a dot grid from when
+  the workspace was the app's flat background and needed something to say it
+  was scratch; the nebula says it, and two backgrounds arguing is one too
+  many. Snapping still works to `GRID` — the grid is a rule, not a picture of
+  one. A grid belonging to the *site* being built is the site's own and is
+  drawn inside the frame.
+- **Process state is red or green, and the names live in one place**
+  (`PROCESS` and `ProcessState` in `threads.ts`). Red for every process
+  unfinished or abandoned, green for every one completed; `running`, `cut`,
+  `done`, and absent counts as done. The timeline's boxes and the bar's
+  Finish key both read from there, and a third colour or a second vocabulary
+  is not allowed in: it would make a legend out of a glance.
+- **Finish reads dark, not bright.** The key was a mid-green slab with
+  near-black glyphs, which on a dark bar is a shape that melts — the body the
+  lightest thing there, the marks on it the darkest. It is a deep green slab
+  with a bright green rim now, a white flag, and the counts lit in their own
+  red and green at 13px, so the marks carry and the key holds them.
+- **The timeline's view goes to where the boxes are** (`timelineView.ts`).
+  Boxes are dragged wherever a person wants them, so the origin stops meaning
+  anything within a minute: centring means the centre of mass of the boxes
+  weighted by size, with the bounds of the whole set fitted inside a margin
+  so nothing sits on an edge, and the holding wins where the two disagree.
+  It runs **on demand** — the timeline opening, a drag ending, the centre
+  button — never while a box is moving, and it reads the store's own spots
+  rather than measuring the DOM. It animates there, and the animation writes
+  the plot's transform straight to the element and commits to state once at
+  the end: a render a frame re-renders every box and restarts the strand
+  loop, and it measured at a 33ms beat, half rate. `viewAt` is the one answer
+  to "where is the view", and the strands, the ground drag and a box being
+  picked up all read it there.
+- **A performance fix never degrades something a person can see without
+  saying so.** Not the resolution, not the redraw rate, not the number of
+  things on screen. If the only way to hit the number is to take something
+  away, stop and report the measurement — the trade is the owner's to make,
+  not the optimiser's. This is a standing rule, and it was written after the
+  nebula pass below traded the cloud layers' independent headings for frames
+  and did not say so plainly enough.
 - **The ground is deliberately one field at half resolution.** Not an
   oversight and not a starting point: J was shown the numbers and chose it.
   The four cloud layers are screened together into one canvas, that canvas is
