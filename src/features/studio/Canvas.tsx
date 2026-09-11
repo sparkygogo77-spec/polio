@@ -18,6 +18,7 @@ import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
 import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
+import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { Workspace } from "./Workspace";
@@ -1083,6 +1084,23 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
   // Not the app's accent, which was the loudest thing on the board and sat
   // on top of the aura you were editing.
   const mark = React.useMemo(() => markColour(node, palette), [node, palette]);
+  /*
+   * Where this part stands under the page's lamp.
+   *
+   * A part cut to a drawn outline is left out: its silhouette is a path, and
+   * a rectangular shadow under it would be a shadow of the wrong thing.
+   */
+  const lift = React.useMemo(
+    () => (light?.on && page && !node.outline
+      ? liftVars(light, (node.x + node.w / 2) / Math.max(1, page.w), (node.y + node.h / 2) / Math.max(1, page.h))
+      : null),
+    [light, page, node.x, node.y, node.w, node.h, node.outline],
+  );
+  // The same corner the part is cut to (`blocks.tsx`), so the shadow hugs it.
+  const liftRadius = !lift ? undefined
+    : node.shape === "circle" || node.shape === "ellipse" ? "50%"
+      : node.shape === "rounded" ? Math.min(28, Math.min(node.w, node.h) / 6)
+        : undefined;
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
@@ -1115,16 +1133,36 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         left: node.x, top: node.y, width: node.w, height: node.h,
         // The aura belongs to the element, not to anything inside it.
         ...((auraStyle(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties),
-      }}
+        /*
+         * Where this part stands under the page's lamp.
+         *
+         * `liftTheme` hands the shadow to the *part*, and exactly one thing in
+         * the library — the button primitive — ever put it anywhere. So Place
+         * the light did nothing to a hero, a card, a gallery or a form: the
+         * feature worked on one surface out of two hundred and eighteen. The
+         * box round a part is the surface every part has, so the value is
+         * carried here and one rule in `globals.css` puts it on that box.
+         *
+         * It is the same variable the drag writes, so a lamp being carried
+         * lights every part as it passes; unset when the lamp is off, and the
+         * rule falls back to `none`, so an unlit board is untouched.
+         */
+        ...(lift ? { "--lift-shadow": lift.shadow, "--lift-sheen": lift.sheen } : null),
+      } as React.CSSProperties}
     >
       {/* the part itself, at real size */}
       {/* The selected part runs its own clocks, so you can see what it does. */}
       <div
         className="absolute inset-0 overflow-hidden"
         data-mode={selected ? "live" : "board"}
+        data-lit={lift ? "" : undefined}
         inert
         style={{
           pointerEvents: "none",
+          // The lamp's shadow is put here by one rule in `globals.css`, off
+          // the `--lift-shadow` the wrapper carries; the corner is the one the
+          // part is cut to, so the shadow hugs it.
+          borderRadius: liftRadius,
           // Thin, and *inside* the part: the aura's own hairline sits on the
           // edge, so a mark drawn there would cover the thing being edited.
           outline: selected ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",

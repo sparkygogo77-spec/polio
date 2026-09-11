@@ -173,6 +173,18 @@ check("panning: nothing stalls", pan.p95 < 33 && pan.max < 120, `p95 ${pan.p95}m
 /* ------------------------------------------------------------------ */
 
 const frame = await page.locator("[data-frame]").boundingBox();
+/*
+ * An unlit board is untouched.
+ *
+ * The shadow is applied by one rule off `--lift-shadow`, and with no lamp
+ * there is no variable: the rule falls back to `none`, which is what every
+ * part drew before any of this existed.
+ */
+check(
+  "with no lamp, no part carries a shadow",
+  await page.evaluate(() => [...document.querySelectorAll("[data-node-id] [data-mode]")].every((el) => getComputedStyle(el).boxShadow === "none")),
+  await page.evaluate(() => [...document.querySelectorAll("[data-node-id] [data-mode]")].map((el) => getComputedStyle(el).boxShadow.slice(0, 10)).join(" ")),
+);
 const seam = await page.evaluate(() => typeof window.__studioLightTo === "function");
 check("the drag can be driven without the wheel", seam);
 
@@ -214,7 +226,39 @@ check("a surface off screen is skipped entirely", varsFar === "", varsFar.slice(
 await page.evaluate(() => window.__studioLightEnd(true));
 await page.waitForTimeout(400);
 check("the drop is the one write of the whole gesture", (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.look.light.on)) === true);
-check("and the variables come off, so the committed value shows", (await page.locator('[data-node-id="mid"]').evaluate((el) => el.style.getPropertyValue("--lift-shadow"))) === "");
+/*
+ * The drop hands the variable over rather than taking it away.
+ *
+ * Removing it first and letting the render put it back blinks every shadow
+ * on the board out for the frame in between, so on a hit the rig leaves what
+ * it wrote and the render that follows overwrites the same property with the
+ * committed lamp's own value. On a miss — let go off the page — they come
+ * straight off and the board goes back to the lamp it had.
+ */
+check(
+  "the drop leaves the shadow standing, not a blank frame",
+  (await page.locator('[data-node-id="mid"]').evaluate((el) => el.style.getPropertyValue("--lift-shadow"))) !== "",
+);
+check(
+  "and every surface is wearing it, not just the buttons",
+  await page.evaluate(() => ["mid", "cta", "top"].every((id) => {
+    const box = document.querySelector(`[data-node-id="${id}"] [data-mode]`);
+    return !!box && getComputedStyle(box).boxShadow !== "none";
+  })),
+  await page.evaluate(() => ["mid", "cta", "top"].map((id) => `${id}:${(getComputedStyle(document.querySelector(`[data-node-id="${id}"] [data-mode]`)).boxShadow || "").slice(0, 14)}`).join(" ")),
+);
+{
+  // Let go off the page: nothing was chosen, so the board goes back to the
+  // lamp it had rather than keeping wherever the hand happened to be.
+  const committed = await page.locator('[data-node-id="mid"]').evaluate((el) => el.style.getPropertyValue("--lift-shadow"));
+  await page.evaluate(() => window.__studioLightStart());
+  await page.evaluate(() => window.__studioLightTo({ x: 4, y: 4 }));
+  await page.waitForTimeout(250);
+  await page.evaluate(() => window.__studioLightEnd(false));
+  await page.waitForTimeout(400);
+  const after = await page.locator('[data-node-id="mid"]').evaluate((el) => el.style.getPropertyValue("--lift-shadow"));
+  check("a miss puts the board back on the lamp it had", after === committed, `${after.slice(0, 24)} vs ${committed.slice(0, 24)}`);
+}
 
 
 await browser.close();

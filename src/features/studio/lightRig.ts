@@ -29,7 +29,7 @@
  * The store is written once, when the hand lets go.
  */
 import { castFrom, type Light } from "./look";
-import { frameHeight, useStudio } from "./store";
+import { useStudio } from "./store";
 
 /** One part, as the rig needs it: where to write, and where it stands. */
 interface Surface {
@@ -91,12 +91,19 @@ export function startLightRig(): boolean {
   if (!page || !board) return false;
   const st = useStudio.getState();
   const w = st.frameWidth;
-  const h = frameHeight(st.nodes);
+  /*
+   * The lamp's own space is the page *window* — the screen of the site you
+   * are pointing at — because that is what the placer measured its x and y
+   * against. A part has to be put in the same space or the drag and the
+   * render that follows it disagree, which showed up as every shadow
+   * stepping a pixel or two the moment the hand let go.
+   */
+  const scale = page.w / Math.max(1, w);
+  const h = page.h / Math.max(0.0001, scale);
   const surfaces: Surface[] = [];
   for (const n of st.nodes) {
     const el = document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(n.id)}"]`);
     if (!el) continue;
-    const scale = page.w / Math.max(1, w);
     surfaces.push({
       el,
       cx: (n.x + n.w / 2) / Math.max(1, w),
@@ -154,13 +161,33 @@ function pass() {
 export function endLightRig(commit: boolean) {
   if (!rig) return;
   if (rig.frame) cancelAnimationFrame(rig.frame);
-  for (const s of rig.surfaces) {
-    s.el.style.removeProperty("--lift-shadow");
-    s.el.style.removeProperty("--lift-sheen");
-  }
   const { at, page, base } = rig;
   const inside = !!at && at.x >= page.x && at.x <= page.x + page.w && at.y >= page.y && at.y <= page.y + page.h;
+  const surfaces = rig.surfaces;
   rig = null;
+  /*
+   * On a hit the variables are left where they are: the render that follows
+   * writes the same property with the committed value, and taking them off
+   * first would blink every shadow on the board out for the frame between.
+   *
+   * On a miss the board goes back to the lamp it had — which means putting
+   * that lamp's own values back, not removing the property. Removing it took
+   * React's inline value with it (it is the same property on the same
+   * element) and nothing re-rendered to put it back, so letting go off the
+   * page stripped the shadows off a page that had a lamp.
+   */
+  if (!(commit && inside && at)) {
+    for (const s of surfaces) {
+      const was = base.on ? liftVars(base, s.cx, s.cy) : null;
+      if (was) {
+        s.el.style.setProperty("--lift-shadow", was.shadow);
+        s.el.style.setProperty("--lift-sheen", was.sheen);
+      } else {
+        s.el.style.removeProperty("--lift-shadow");
+        s.el.style.removeProperty("--lift-sheen");
+      }
+    }
+  }
   if (commit && inside && at) {
     useStudio.getState().setLook({
       light: {

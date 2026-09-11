@@ -1016,6 +1016,21 @@ a kicker with a rule, and label-and-value rows that copy.
     own x/y/w/h, never the DOM), surfaces off screen skipped, and the store
     written once — on the drop. Before: panning p50 16ms / p95 47ms, the sun
     p95 43ms and a 130ms stall. After: 1.3 / 16 and 1.4 / 8.
+- **Every surface stands off the page under the lamp** (`Canvas.tsx`:
+  `NodeView`'s `--lift-shadow`; the one rule in `globals.css`;
+  `lightRig.ts`). `liftTheme` hands the shadow to the *part*, and exactly one
+  thing in the library ever put it anywhere — the button primitive — so Place
+  the light did nothing to a hero, a card, a gallery or a form. The box round
+  a part is the surface every part has, so the value is carried on the
+  wrapper and one rule puts it on that box; with no lamp there is no
+  variable, the rule falls back to `none`, and an unlit board is what it
+  always was. A part cut to a drawn outline is left out, because a
+  rectangular shadow under a path is a shadow of the wrong thing. The lamp's
+  space is the page *window*, and the rig measures parts in that same space
+  or the drag and the render after it disagree by a pixel or two. A drop
+  leaves the drag's values standing for the render to overwrite; a miss puts
+  the committed lamp's own values back, because removing the property takes
+  React's inline value with it and nothing re-renders to restore it.
 - **The frame is one screen, and the site scrolls inside it**
   (`Canvas.tsx`: `SCREEN_H`, `pageH` vs `frameH`, `data-page-window` and
   `data-page-scroll`; `store.pageScroll`; `tests/board-layout.mjs`). Each
