@@ -442,14 +442,29 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   await page.waitForTimeout(1500);
   await ground("the timeline's floor");
 
-  /* The hand down holds the weather, and letting go does not jump it. */
-  const held = await page.evaluate(() => {
-    document.documentElement.dataset.boardDrag = "1";
-    return document.querySelector("[data-cloud-layer]")?.style.transform ?? "";
-  });
+  /* The hand down holds the clouds, and letting go does not jump them.
+   *
+   * Two things, not one: the flag another component sets, and a pointer
+   * actually being down. The ground wants both, because a flag that goes on
+   * and never comes off is the way a ground freezes for good — a pointer
+   * released outside the window, a handler that returns early, a component
+   * unmounted mid-drag — and the pointerup that clears this fires on the
+   * window whatever the board's own handler does. So the flag alone must
+   * not hold anything. */
+  const cloud = () => page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
+  await page.evaluate(() => { document.documentElement.dataset.boardDrag = "1"; });
+  const flagOnly = await cloud();
+  await page.waitForTimeout(700);
+  check("the flag alone does not hold the weather", (await cloud()) !== flagOnly, "no pointer down");
+
+  await page.mouse.move(400, 400);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  const held = await cloud();
   await page.waitForTimeout(900);
-  const during = await page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
+  const during = await cloud();
   check("a hand on the board holds the weather where it is", held === during);
+  await page.mouse.up();
   await page.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
   await page.waitForTimeout(700);
   const after = await page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");

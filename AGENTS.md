@@ -1325,6 +1325,44 @@ a kicker with a rule, and label-and-value rows that copy.
     typing surface, a screen face, not the ground. One user, `PlateEditors`.
   · The Texture panel's `+ Grid` and `+ Dots` layers belong to the *site*
     being built and are drawn inside the frame. They stay.
+- **A layer is repainted by swapping a buffer, never by clearing one.**
+  The ground was flickering black. Three causes were checked by name against
+  a running page (`tests/ground-steady.mjs`), not guessed at: the holder
+  being torn down and rebuilt (0 in 45s), a layer losing its backing store (0),
+  a canvas resize (0). What was left is the repaint itself, and it had a
+  window in it — `clearRect` and then a blended `fillRect` are two operations
+  with an empty canvas between them, and an empty canvas is a black hole in
+  the ground if anything at all lands between the two. So `paintCloudLayer`
+  fills with `globalCompositeOperation = "copy"`: same pixels, one operation,
+  no cleared state to catch. And a recycle paints an `OffscreenCanvas` the
+  compositor is not sampling, which the visible layer takes through
+  `transferFromImageBitmap` — a pointer swap, not a copy.
+  **Do not turn that transfer into a `drawImage`.** It was measured both
+  ways: painting the buffer and blitting it cost 33 frames over 80ms in
+  forty seconds against 13 for painting in place, because a full-surface
+  blit is a second full-surface raster. The transfer costs nothing and
+  measured 5, with the beat going 18.9ms → 10ms. The layers therefore carry
+  a `bitmaprenderer` context, so `getContext("2d")` on one returns null —
+  anything that wants their pixels has to `drawImage` them into a scratch
+  canvas first. A test that forgets is not a failing test, it is a silently
+  passing one.
+- **The pause holds the clouds only, and it always ends.** The ground stops
+  the clouds while `data-board-drag` is set, because what a pan competes with
+  is a full-resolution pattern fill. It no longer stops the embers: holding
+  thirty one-pixel dots bought nothing and stopped the ground dead, which is
+  the thing that reads as broken. The clouds keep the held clock, so letting
+  go carries on rather than jumping; the embers keep their own, which is
+  never held. And the hold is not taken on trust: it needs a pointer
+  genuinely down (the ground's own window `pointerup`/`pointercancel`/`blur`
+  fire whatever the board's handler does) and it is capped at `HOLD_MAX_S`,
+  latched, so a flag that never comes off is a hitch rather than a dead
+  ground. **The cap has to latch** — clearing the timer instead makes the
+  next frame look like a fresh hold, which is a one-frame twitch every six
+  seconds, not a resume.
+- **Nothing on this ground is ever completely still.** Darters used to sit at
+  a dead stop between kicks; they idle now at `DART_IDLE`, a slow wander the
+  kick swamps and decays back into. A spark whose life ends is relit *and
+  drawn* in the same frame rather than skipped for one.
 - **One ember in five is green, and it is the palette's own green.**
   `GREEN_IN = 5` in `darkMatter.ts`, fixed on the spark at the cast rather
   than rolled per life: a coin flipped each time a spark relights would

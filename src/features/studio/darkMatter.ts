@@ -124,6 +124,14 @@ const GREEN_INK: string = (() => {
 const GREEN_IN = 5;
 
 /**
+ * How fast a darter idles between kicks, in pixels a second.
+ *
+ * Slow enough that the kick is still the event, fast enough that the eye
+ * never catches it parked. About a pixel every three frames.
+ */
+const DART_IDLE = 7;
+
+/**
  * The embers: small red sparks, no two ways of moving alike.
  *
  * Five kinds. **Gust riders** come in small knots, each knot on a gust of its
@@ -302,7 +310,7 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
         break;
       }
       case "dart": {
-        // Still until its moment; then a kick, and the kick dies away.
+        // Waiting, then its moment; then a kick, and the kick dies away.
         if (t >= s.next) {
           const a = Math.random() * TAU;
           const v = 150 + Math.random() * 80;
@@ -312,6 +320,14 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
         }
         s.vx *= Math.exp(-5.5 * dt);
         s.vy *= Math.exp(-5.5 * dt);
+        /* It used to sit at a dead stop between kicks, which read as the
+           ground freezing rather than as an ember waiting. It idles now: a
+           slow wander on its own heading that the kick swamps and then
+           decays back into. Nothing on this ground is ever completely
+           still. */
+        s.heading += 0.5 * Math.sin(t * 0.4 + s.phase) * dt;
+        s.vx += (Math.cos(s.heading) * DART_IDLE - s.vx) * Math.min(1, dt * 0.9);
+        s.vy += (Math.sin(s.heading) * DART_IDLE - s.vy) * Math.min(1, dt * 0.9);
         lag = 0;
         break;
       }
@@ -324,7 +340,9 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     s.age += dt;
-    if (s.age > s.life || gone(f, s)) { lightSpark(f, t, s); continue; }
+    // Relit and drawn in the same frame. Skipping it left a hole for a
+    // frame, and with a small cast that reads as a spark blinking out.
+    if (s.age > s.life || gone(f, s)) lightSpark(f, t, s);
     const flicker = s.kind === "rise" ? 0.75 + 0.25 * Math.sin(t * 9 + s.phase) : 1;
     const fade = Math.min(1, s.age / 0.5, (s.life - s.age) / 0.7) * flicker;
     const speed = Math.hypot(s.vx, s.vy);
@@ -443,13 +461,21 @@ export function paintCloudLayer(
   const { w, h } = opts;
   const dim = opts.dim ?? 1;
   const T = darkMatterTiles();
-  c.clearRect(0, 0, w, h);
   const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
   if (!p) return;
   p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(opts.turn).scale(layer.scale).translate(opts.dx, opts.dy));
   c.globalAlpha = layer.alpha * dim;
   c.fillStyle = p;
+  /* `copy` rather than a `clearRect` and then a blend. Same pixels, but the
+     canvas is never in a cleared state: a clear followed by a fill is two
+     operations with an empty canvas between them, and an empty canvas is a
+     black hole in the ground if anything at all gets between the two — a
+     deferred raster, a compositor commit landing early. One operation
+     cannot be interrupted halfway. */
+  const was = c.globalCompositeOperation;
+  c.globalCompositeOperation = "copy";
   c.fillRect(0, 0, w, h);
+  c.globalCompositeOperation = was;
   c.globalAlpha = 1;
 }
 
