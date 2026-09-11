@@ -74,6 +74,10 @@ export function buildScaffold(): ScaffoldResult {
         x: p.x, y: p.y, w: p.w, h: p.h, html,
         outline: n.outline ?? null,
         code: n.code ? { html: n.code.html, note: n.code.note } : null,
+        // A cube is not markup. Its faces are data and its turning is
+        // behaviour, so the scaffold writes a component rather than a
+        // snapshot of one angle of it.
+        cube: n.cube ? { faces: n.cube.faces, turn: n.cube.turn } : null,
         // An Idea part with nothing written for it is the one thing the
         // document does not hold: that is what the model is for.
         empty: n.featureId === "custom-idea" && !n.code,

@@ -64,6 +64,17 @@ export interface Thread {
    * by the press rather than by the token.
    */
   usage?: { sent: number; skipped: number; cached?: number; input?: number; cost?: number };
+  /**
+   * How the process behind this iteration ended, if it has.
+   *
+   * An iteration is not one call: a drawing lands the moment it is read and
+   * then goes on to have a body traced for it, and until that finishes the
+   * iteration is not finished. Two states and no more, because there are
+   * only two things worth knowing at a glance: it is still going or it gave
+   * up (red), or it is done (green). Absent means done, which is what every
+   * thread written before this was.
+   */
+  state?: "running" | "done" | "cut";
 }
 
 /** How many threads are kept with their documents. The board lives in localStorage. */

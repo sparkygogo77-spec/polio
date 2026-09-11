@@ -65,6 +65,13 @@ export function LiveStage({
             format={format}
             look={look}
             onNavigatePage={onNavigatePage}
+            /*
+             * A cube turned in Preview stays turned. The board is a still
+             * frame by the parts' own rule, so this is where anyone actually
+             * turns one, and the angle they left it at belongs on the node
+             * rather than dying with the preview.
+             */
+            onEvent={(e, nodeId) => { if (e.type === "cube" && nodeId) useStudio.getState().setCubeTurn(nodeId, e.turn); }}
             nodeProps={(n) => ctxProps("studio-live-node", n.id, n)}
           />
         </div>

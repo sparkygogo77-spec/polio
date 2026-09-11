@@ -16,6 +16,7 @@ import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
+import { CUBE_SIDES, emptyFace, written } from "./parts/cube";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -655,6 +656,8 @@ export function Inspector() {
           />
         </Field>
 
+        {node.featureId === "cube-3d" ? <Faces node={node} palette={palette} /> : null}
+
         {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
 
         <Field label="Colour" hint="This part only. Naming a role keeps it inside the site's palette.">
@@ -723,6 +726,100 @@ export function Inspector() {
 }
 
 /** Where a part sends people. Pages by name, or a web address. */
+/**
+ * The six faces of a cube, listed.
+ *
+ * A cube is the first part whose content is not one field, and the reason
+ * it is here rather than in the part is that a part is a component a
+ * generated site ships: it draws what it is given and never edits the
+ * document. So the editing lives in the panel, all six faces at once,
+ * because "which side is that on" is the only question anyone has, and
+ * every change is one write to the node.
+ */
+/** The colours a face may be: the site's, or one of the roles it already has. */
+const FACE_COLOURS = [
+  { id: "", label: "site" },
+  { id: "surface", label: "surface" },
+  { id: "bg", label: "background" },
+  { id: "accent", label: "accent" },
+  { id: "highlight", label: "highlight" },
+  { id: "muted", label: "muted" },
+] as const;
+
+function Faces({ node, palette }: { node: StudioNode; palette: Record<string, string> | null }) {
+  const set = useStudio((s) => s.setCubeFace);
+  const faces = React.useMemo(() => CUBE_SIDES.map((_, i) => node.cube?.faces?.[i] ?? emptyFace()), [node.cube]);
+  const filled = written(node.cube);
+  return (
+    <Field
+      label="Faces"
+      hint={`${filled} of six written. A face left blank stays blank: nothing is invented for it.`}
+    >
+      <div className="flex flex-col gap-2" data-face-list="">
+        {CUBE_SIDES.map((side, i) => {
+          const face = faces[i]!;
+          const bare = !face.heading.trim() && !face.body.trim();
+          return (
+            <div key={side} data-cube-face={side} className="rounded-md border border-border bg-elevated/40 p-2">
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-fg-faint">{side}</span>
+                {bare ? <span className="text-[9px] text-fg-faint">empty</span> : null}
+                <span className="flex-1" />
+                <button
+                  type="button"
+                  aria-label={`Clear the ${side} face`}
+                  disabled={bare && !face.colour}
+                  onClick={() => set(node.id, i, null)}
+                  className="tactile rounded-sm border border-border px-1.5 py-0.5 text-[9px] text-fg-muted disabled:opacity-40 hover:text-fg"
+                >
+                  clear
+                </button>
+              </div>
+              <Input
+                inputSize="sm"
+                aria-label={`${side} heading`}
+                value={face.heading}
+                placeholder="Heading"
+                onChange={(e) => set(node.id, i, { heading: e.target.value })}
+              />
+              <Textarea
+                autoGrow
+                rows={1}
+                className="mt-1"
+                aria-label={`${side} body`}
+                value={face.body}
+                placeholder="A line or two"
+                onChange={(e) => set(node.id, i, { body: e.target.value })}
+              />
+              {/* One colour, named as a role, so a face stays inside the
+                  site's palette rather than becoming a colour nobody can
+                  find again. */}
+              <div className="mt-1 flex flex-wrap gap-1">
+                {FACE_COLOURS.map((role) => {
+                  const on = (face.colour || "") === role.id;
+                  return (
+                    <button
+                      key={role.id || "site"}
+                      type="button"
+                      aria-label={`${side} face, ${role.label}`}
+                      aria-pressed={on}
+                      onClick={() => set(node.id, i, { colour: role.id })}
+                      className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", on ? "border-accent text-fg" : "border-border text-fg-faint hover:text-fg")}
+                      style={role.id && palette?.[role.id] ? { boxShadow: `inset 3px 0 0 ${palette[role.id]}` } : undefined}
+                    >
+                      {role.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Field>
+  );
+}
+
 function LinkField({ node }: { node: StudioNode }) {
   const pages = useStudio((s) => s.pages);
   const link = node.link;

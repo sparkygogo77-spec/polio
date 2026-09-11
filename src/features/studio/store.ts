@@ -45,6 +45,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
+import { emptyCube, facesFrom, type CubeData, type CubeFace } from "./parts/cube";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
@@ -123,6 +124,15 @@ export interface StudioNode {
    * that was placed rather than drawn.
    */
   kind: DrawnKind | null;
+  /**
+   * The six faces, when this part is a cube.
+   *
+   * On the node rather than in the part, because they are the author's
+   * words: edited long after the cube exists, carried into the document,
+   * and so through publish, Build and the live page. The part is handed
+   * them and draws them.
+   */
+  cube: CubeData | null;
   /**
    * A body written for this part, when the drawing asked for something no
    * part in the library is: a helix of sentences, a spiral of names. SVG or
@@ -353,6 +363,8 @@ interface StudioState extends Doc {
    * everything at once is the wall the timeline replaced.
    */
   openThreadId: string | null;
+  /** The iteration being worked in: the flag, kept across reloads. */
+  currentThreadId: string | null;
   /**
    * Drawings waiting to be made real, and the ones that have been.
    *
@@ -400,7 +412,17 @@ interface StudioState extends Doc {
    * being a part at all, and a surface is marked as one so the blueprint
    * and Build know it holds what is placed on it.
    */
-  applyDrawnKind: (nodeId: string, role: DrawnRole) => { kind: DrawnKind; did: string };
+  applyDrawnKind: (nodeId: string, role: DrawnRole, said?: string) => { kind: DrawnKind; did: string };
+  /**
+   * Change one face of a cube: its words, its colour, or clear it.
+   *
+   * Editable means editable after it exists. Everything a face is lives on
+   * the node, so this is the whole of it: no re-run, no model, and the
+   * board, the live page and the published site all change together.
+   */
+  setCubeFace: (nodeId: string, index: number, patch: Partial<CubeFace> | null) => void;
+  /** Where a cube is left standing, so the board draws the angle it was turned to. */
+  setCubeTurn: (nodeId: string, turn: { x: number; y: number }) => void;
 
   /* groups */
   groupSelection: (label?: string) => void;
@@ -481,7 +503,19 @@ interface StudioState extends Doc {
   /** Keep what Claude found, each finding beside the prompt it was about. */
   recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
   /** An API call came back: hang a thread off the live one and stand on it. */
-  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string } }) => string;
+  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string }; state?: "running" | "done" | "cut" }) => string;
+  /** How the process behind one iteration ended: still going, done, or given up on. */
+  markThread: (id: string, state: "running" | "done" | "cut") => void;
+  /**
+   * The iteration being worked in.
+   *
+   * Distinct from the live one, which is whatever landed last, and from the
+   * open one, which is whatever is being read below. This is the one the
+   * person has put their flag in: the section follows it, the next ask
+   * hangs off it, and it survives a reload, because "where was I" is the
+   * question a timeline exists to answer.
+   */
+  setCurrentThread: (id: string | null) => void;
   /** Cut one thread; its children re-hang from its parent and the board goes to whatever is live after. */
   pruneThread: (id: string) => void;
   /** Put the board back on a thread. */
@@ -698,6 +732,7 @@ export const useStudio = create<StudioState>()(
         pinnedThreads: [],
         bookPinned: false,
         openThreadId: null,
+        currentThreadId: null,
         queue: [],
         threadSpots: {},
         draftPieces: [],
@@ -737,7 +772,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, kind: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, kind: null, cube: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,
@@ -834,13 +869,59 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        applyDrawnKind: (nodeId, role) => {
+        setCubeFace: (nodeId, index, patch) =>
+          set((s) => ({
+            nodes: s.nodes.map((n) => {
+              if (n.id !== nodeId || index < 0 || index > 5) return n;
+              const cube = n.cube ?? emptyCube();
+              const faces = cube.faces.map((f, i) =>
+                i !== index ? f : patch === null ? { heading: "", body: "", colour: "" } : { ...f, ...patch },
+              );
+              return { ...n, cube: { ...cube, faces } };
+            }),
+          })),
+
+        setCubeTurn: (nodeId, turn) =>
+          set((s) => ({
+            nodes: s.nodes.map((n) => (n.id === nodeId ? { ...n, cube: { ...(n.cube ?? emptyCube()), turn } } : n)),
+          })),
+
+        applyDrawnKind: (nodeId, role, said = "") => {
           const s0 = get();
           const node = s0.nodes.find((n) => n.id === nodeId);
           if (!node) return { kind: role.kind, did: "" };
           const inside = (n: StudioNode) =>
             n.id !== node.id && n.pageId === node.pageId &&
             n.x >= node.x - 4 && n.y >= node.y - 4 && n.x + n.w <= node.x + node.w + 4 && n.y + n.h <= node.y + node.h + 4;
+
+          if (role.kind === "cube") {
+            /*
+             * A cube is a real part, not a crop. The drawing gave the kind
+             * and the proportions; the words give the faces. The outline
+             * goes, and that is the one place the clip is deliberately not
+             * kept: a solid that turns cannot live inside a still
+             * silhouette, and a hexagon-shaped hole round a rotating cube
+             * is worse than no crop at all.
+             */
+            /*
+             * The words that came with the drawing are the words about this
+             * part, whether or not the part had a prompt of its own before
+             * it was drawn on. They fill the faces and, when the part had
+             * nothing written on it, they become its prompt.
+             */
+            const words = node.prompt.trim() || said.trim();
+            const faces = facesFrom(node.content, words);
+            const filled = faces.filter((f) => f.heading.trim() || f.body.trim()).length;
+            const side = Math.max(160, Math.round(Math.min(node.w, node.h) || 360));
+            set((s) => ({
+              nodes: s.nodes.map((n) =>
+                n.id === node.id
+                  ? { ...n, kind: "cube", featureId: "cube-3d", custom: false, shape: null, outline: null, w: side, h: side, prompt: words, cube: { faces, turn: { x: -18, y: -32 } } }
+                  : n,
+              ),
+            }));
+            return { kind: "cube", did: filled ? `a cube with ${filled} of six faces written` : "a cube with six empty faces" };
+          }
 
           if (role.kind === "container") {
             const held = s0.nodes.filter(inside);
@@ -1256,13 +1337,21 @@ export const useStudio = create<StudioState>()(
               ),
             };
           }),
-        landThread: ({ mode, model, ask, answer, changes, sketch }) => {
+        markThread: (id, state) =>
+          set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, state } : t)) })),
+
+        setCurrentThread: (id) =>
+          set((s) => (s.threads.some((t) => t.id === id) || id === null ? { currentThreadId: id, openThreadId: id } : {})),
+
+        landThread: ({ mode, model, ask, answer, changes, sketch, state }) => {
           const id = uid("th");
           set((s) => ({
             threads: [
               ...s.threads,
               {
-                id, parentId: s.liveThreadId, at: Date.now(), mode, model,
+                // It hangs off the one being worked in when there is one,
+                // and off whatever landed last when there is not.
+                id, parentId: s.currentThreadId ?? s.liveThreadId, at: Date.now(), mode, model, state: state ?? "done",
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 ...(sketch ? { sketch } : {}),
                 doc: snapshot(s) as ThreadDoc,
@@ -1294,6 +1383,7 @@ export const useStudio = create<StudioState>()(
             liveThreadId: live,
             pinnedThreads: s.pinnedThreads.filter((x) => x !== id),
             openThreadId: s.openThreadId === id ? null : s.openThreadId,
+            currentThreadId: s.currentThreadId === id ? null : s.currentThreadId,
             threadSpots: spots,
             trail: s.trail.filter((e) => e.threadId !== id),
             ...docPatch(stand?.doc),
@@ -1526,6 +1616,7 @@ export const useStudio = create<StudioState>()(
         pinnedThreads: s.pinnedThreads,
         bookPinned: s.bookPinned,
         openThreadId: s.openThreadId,
+        currentThreadId: s.currentThreadId,
         threadSpots: s.threadSpots,
         draftPieces: s.draftPieces,
         sentPieces: s.sentPieces,
@@ -1536,6 +1627,19 @@ export const useStudio = create<StudioState>()(
         frameWidth: s.frameWidth,
       }),
       skipHydration: true,
+      /*
+       * A thread left running is a thread whose process is gone.
+       *
+       * Nothing survives a reload except the document, so anything still
+       * marked running when the store comes back was abandoned: the tab
+       * closed, the job died, the run was stopped. Both of those read red,
+       * which is what makes one mark enough for two states.
+       */
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const stuck = state.threads.some((t) => t.state === "running");
+        if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));
+      },
     },
   ),
 );

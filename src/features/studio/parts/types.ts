@@ -36,7 +36,41 @@ export type PartEvent =
   | { type: "success" }
   | { type: "cart"; delta: number; item: string }
   | { type: "auth"; signedIn: boolean; name?: string }
-  | { type: "theme"; light?: boolean; hue?: number };
+  | { type: "theme"; light?: boolean; hue?: number }
+  /** A cube has been turned and has settled: this is where it was left. */
+  | { type: "cube"; turn: { x: number; y: number } };
+
+/**
+ * One side of a cube, and what is written on it.
+ *
+ * Six of these live on the node rather than in the part, because they are
+ * the author's words: they are edited after the cube exists, they go in the
+ * document, and they survive publish and Build. The part is handed them and
+ * draws them; it invents nothing.
+ */
+export interface CubeFace {
+  /** The big line on the face. Empty means the face is blank, not filled in for you. */
+  heading: string;
+  /** A line or two under it. */
+  body: string;
+  /** A palette role, or a colour of its own, or empty to follow the site. */
+  colour: string;
+  /** Another part shown on this face instead of words. */
+  nodeId?: string | null;
+}
+
+/** The six faces, in the order the part turns through them. */
+export const CUBE_SIDES = ["front", "right", "back", "left", "top", "bottom"] as const;
+export type CubeSide = (typeof CUBE_SIDES)[number];
+
+export interface CubeData {
+  faces: CubeFace[];
+  /** Where it is left standing, in degrees. The board draws this angle. */
+  turn?: { x: number; y: number };
+}
+
+export const emptyFace = (): CubeFace => ({ heading: "", body: "", colour: "" });
+export const emptyCube = (): CubeData => ({ faces: CUBE_SIDES.map(emptyFace), turn: { x: -18, y: -32 } });
 
 export interface PartProps {
   /** The catalog id, e.g. "tabs-panel". */
@@ -51,6 +85,8 @@ export interface PartProps {
   link?: NodeLink | null;
   theme: Theme;
   mode: PartMode;
+  /** The six faces, for the one part that has them. */
+  cube?: CubeData | null;
   onNavigate?: (link: NodeLink) => void;
   emit?: (e: PartEvent) => void;
 }

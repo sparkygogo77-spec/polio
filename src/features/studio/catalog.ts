@@ -385,6 +385,7 @@ const RAW: FeatureDef[] = [
   f("orb-css", "Orb, drawn", "media", Circle, "A lit sphere drawn in CSS and SVG, with orbit rings and a tag.", { tags: ["sphere", "ball", "planet", "gradient", "css"] }),
   f("orb-webgl", "Orb, in 3D", "media", Globe, "A real sphere in WebGL that turns and relights under the pointer.", { tags: ["sphere", "three", "webgl", "3d", "planet"] }),
   f("orb-image", "Orb, from a picture", "media", Orbit, "A picture of a sphere with orbit rings, a glow and a tag around it.", { tags: ["sphere", "photo", "render", "planet"] }),
+  f("cube-3d", "Cube", "media", Box, "Six faces in real 3D: drag to turn it, arrow keys to step round, and words on every side.", { hint: "One line per face, in the order you want them: front, right, back, left, top, bottom.", tags: ["cube", "box", "3d", "isometric", "faces", "turn", "rotate"], w: 420, h: 420 }),
   f("corner-glow", "Corner glow", "media", Sun, "A wash of colour blurred into a corner, the way a light off-screen falls on a dark page.", { tags: ["vignette", "glow", "gradient", "atmosphere"] }),
   f("physics", "Physics", "motion", Orbit, "Things that move like they have mass.", {}),
   f("weather-time", "Time & weather aware", "platform", Sun, "Changes with the visitor's clock or weather.", {}),
@@ -495,6 +496,20 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
       yesNo("spin", "Turning", "yes"),
     ],
     content: { label: "The tag", placeholder: "The signal is live" },
+  },
+  /*
+   * The cube. The one part a traced drawing cannot be: a picture of a cube
+   * does not turn, and what is written on its sides has to still be text
+   * afterwards. The faces live on the node, not here, because they are the
+   * author's words and are edited long after the part exists.
+   */
+  "cube-3d": {
+    w: 420, h: 420,
+    options: [
+      range("size", "Size", 74, 30, 100, { unit: "%" }),
+      { id: "empty faces", label: "Empty faces", values: ["hold their place", "are not drawn"] },
+    ],
+    content: { label: "The faces", placeholder: "One per face: Speed, Proof, Reach" },
   },
   "orb-webgl": {
     w: 560, h: 560,
@@ -880,7 +895,7 @@ export function categoryOf(id: CategoryId): CategoryDef {
   return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[0]!;
 }
 
-/** Sub-groups inside a category, so 218 parts are reachable in three clicks. */
+/** Sub-groups inside a category, so 226 parts are reachable in three clicks. */
 export interface SubGroup { id: string; emoji: string; label: string; ids: string[] }
 
 export const SUBGROUPS: Record<string, SubGroup[]> = {
@@ -919,6 +934,7 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
     { id: "embeds", emoji: "\ud83c\udf0d", label: "Embeds", ids: ["map-embed", "3d-viewer"] },
     { id: "generated", emoji: "\ud83c\udfa8", label: "Generated", ids: ["generative-art", "avatar-stack", "corner-glow"] },
     { id: "orbs", emoji: "\ud83d\udd2e", label: "Orbs", ids: ["orb-css", "orb-webgl", "orb-image"] },
+    { id: "solids", emoji: "\ud83e\uddca", label: "Solids", ids: ["cube-3d"] },
   ],
   "motion": [
     { id: "on-scroll", emoji: "\ud83d\udcdc", label: "On scroll", ids: ["scroll-snap", "parallax", "reveal-on-scroll", "sticky-story", "horizontal-scroll", "scroll-progress", "scroll-video", "infinite-scroll", "smooth-scroll"] },
