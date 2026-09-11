@@ -975,6 +975,30 @@ a kicker with a rule, and label-and-value rows that copy.
   lit state of that same colour rather than the difference between grey and
   alive. It is drawn well under half the size of a thread card, because it is
   not one.
+- **The board keeps up with the hand** (`Workspace.tsx`, `darkMatter.ts`'s
+  `layers`, `lightRig.ts`; `tests/board-speed.mjs`). Two gestures were slow
+  and each for its own reason, and both fixes are rules rather than tuning:
+  - **The weather is two layers on two clocks.** The clouds are four
+    full-surface pattern fills and drift by about a pixel a second; the embers
+    are a few dozen one-pixel streaks and are the whole reason the ground
+    moves. Drawing both thirty times a second spent the frame on the half
+    nobody could see moving. `paintDarkMatter` takes `layers: "clouds" |
+    "sparks" | "all"`, and the workspace draws the embers at thirty and the
+    clouds at two. Anything drawn once — a screenshot, the reduced-motion
+    still — asks for "all".
+  - **Nothing paints while the hand is down.** `Canvas.tsx` puts
+    `data-board-drag` on the root for the length of a drag and the ground
+    holds the frame it is on. It is an attribute rather than store state
+    because a flag that re-renders the board on the first pixel of a drag is
+    the thing it exists to avoid.
+  - **A shadow is a CSS variable, not a render.** `liftTheme` hands a part
+    `var(--lift-shadow, <the shadow>)`, so an undragged board is exactly what
+    it was; while the sun is being dragged `lightRig.ts` sets the variable on
+    each part's box instead. One pass per animation frame however fast the
+    hand is, geometry measured once when the drag begins (from the nodes'
+    own x/y/w/h, never the DOM), surfaces off screen skipped, and the store
+    written once — on the drop. Before: panning p50 16ms / p95 47ms, the sun
+    p95 43ms and a 130ms stall. After: 1.3 / 16 and 1.4 / 8.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or
