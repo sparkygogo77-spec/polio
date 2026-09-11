@@ -359,6 +359,22 @@ a kicker with a rule, and label-and-value rows that copy.
   page. It must `stopPropagation` on the press: the board's surface
   captures the pointer on every pointerdown, and without that the cube's
   own capture is overridden a frame later and the turn becomes a move.
+- **Interpretation picks from a catalogue before it traces anything**
+  (`coded.ts`, `tests/coded.mjs`). There used to be one road: whatever was
+  drawn became a picture of itself, traced and clipped to the line. Right
+  for a helix, wrong for anything that has to *do* something, and it made
+  the board a machine for producing cutouts. Now the drawing and the words
+  are offered to `pickCoded` first: a list of real library parts, each
+  declaring **what** it is, what it **needs** from the author, what a
+  drawing has to **look like** to mean it, a `match` that turns that
+  sentence into a number off the geometry, and a `configure` that builds
+  the node patch. Best over `SURE_ENOUGH` wins and no model is asked
+  anything. A matcher may read the words as well as the strokes — "a box"
+  and "a box, as a cube" are different instructions — but it may never
+  call anything: the layer decides for free and decides the same way every
+  time. **The fall-through stays**: nothing matched means the reader names
+  a library part and the vectorizer traces the line, exactly as before.
+  Adding the next one is a file and a line in `CODED`, not a rewrite.
 - **A cube is where the coded path earns its keep** (`parts/Cube.tsx`,
   `parts/cube.ts`, `shapeKind.isCube`, `tests/cube.mjs`). A traced drawing
   is a picture and a picture of a cube does not turn, so this one part is

@@ -45,7 +45,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
-import { emptyCube, facesFrom, type CubeData, type CubeFace } from "./parts/cubeFaces";
+import { emptyCube, type CubeData, type CubeFace } from "./parts/cubeFaces";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
@@ -893,35 +893,6 @@ export const useStudio = create<StudioState>()(
           const inside = (n: StudioNode) =>
             n.id !== node.id && n.pageId === node.pageId &&
             n.x >= node.x - 4 && n.y >= node.y - 4 && n.x + n.w <= node.x + node.w + 4 && n.y + n.h <= node.y + node.h + 4;
-
-          if (role.kind === "cube") {
-            /*
-             * A cube is a real part, not a crop. The drawing gave the kind
-             * and the proportions; the words give the faces. The outline
-             * goes, and that is the one place the clip is deliberately not
-             * kept: a solid that turns cannot live inside a still
-             * silhouette, and a hexagon-shaped hole round a rotating cube
-             * is worse than no crop at all.
-             */
-            /*
-             * The words that came with the drawing are the words about this
-             * part, whether or not the part had a prompt of its own before
-             * it was drawn on. They fill the faces and, when the part had
-             * nothing written on it, they become its prompt.
-             */
-            const words = node.prompt.trim() || said.trim();
-            const faces = facesFrom(node.content, words);
-            const filled = faces.filter((f) => f.heading.trim() || f.body.trim()).length;
-            const side = Math.max(160, Math.round(Math.min(node.w, node.h) || 360));
-            set((s) => ({
-              nodes: s.nodes.map((n) =>
-                n.id === node.id
-                  ? { ...n, kind: "cube", featureId: "cube-3d", custom: false, shape: null, outline: null, w: side, h: side, prompt: words, cube: { faces, turn: { x: -18, y: -32 } } }
-                  : n,
-              ),
-            }));
-            return { kind: "cube", did: filled ? `a cube with ${filled} of six faces written` : "a cube with six empty faces" };
-          }
 
           if (role.kind === "container") {
             const held = s0.nodes.filter(inside);
