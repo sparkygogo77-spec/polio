@@ -22,7 +22,7 @@
 import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
-import { checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
+import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
 import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
@@ -285,6 +285,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         made.kindChanged ? `now ${made.kind}` : null,
         made.shape && made.shape !== "box" ? `cut to ${made.shape === "rounded" ? "a rounded box" : `${made.shape === "circle" ? "a" : "an"} ${made.shape}`}` : null,
         made.reproportioned ? "held to the drawing's proportion" : null,
+        made.keptSize ? "at the size it was drawn" : null,
         data.patch.note,
       ].filter(Boolean).join(" · ");
       deps.publish({
@@ -428,8 +429,8 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
   // The proportion held is the boundary's: the outline the author drew round
   // the part, not the box round every mark that fell outside it.
   const bounds = readBoundary(drawn);
-  const made = checkAnswer({ patch, node, drawn, aspect: bounds?.aspect ?? 1, outline: bounds?.shape, frameWidth, kind: kindInfo });
-  const { featureId, label, w, h, options, kindChanged, reproportioned } = made;
+  const made = checkAnswer({ patch, node, drawn, aspect: bounds?.aspect ?? 1, outline: bounds?.shape, frameWidth, kind: kindInfo, drawnSize: job.drawn ?? null });
+  const { featureId, label, w, h, options, kindChanged, reproportioned, keptSize } = made;
   const shared: Partial<StudioNode> = {
     featureId,
     label,
@@ -449,11 +450,11 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
   const kind = getFeature(featureId)?.name ?? label;
   if (node) {
     s.updateNode(node.id, { ...shared, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
-    return { id: node.id, label, w, h, kind, kindChanged, reproportioned, shape: made.shape };
+    return { id: node.id, label, w, h, kind, kindChanged, reproportioned, keptSize, shape: made.shape };
   }
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
   const id = s.addNode(featureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
-  return { id, label, w, h, kind, kindChanged, reproportioned, shape: made.shape };
+  return { id, label, w, h, kind, kindChanged, reproportioned, keptSize, shape: made.shape };
 }
 
 /** No reader: the drawing's proportion is the reshape, and the drawing is kept. */
@@ -478,14 +479,29 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
     const side = Math.round(Math.sqrt(Math.max(40 * 24, fitted.w * fitted.h)));
     const w = shape === "circle" ? side : fitted.w;
     const h = shape === "circle" ? side : fitted.h;
+    // Reshaping an existing part keeps that part's area on purpose: the
+    // drawing said what shape it is, not how big the thing on the page is.
     s.updateNode(node.id, { w, h, sketch: drawn, ...shaped, x: clamp(node.x, 0, Math.max(0, frameWidth - w)) });
     return { id: node.id, label: node.label, w, h };
   }
-  // A new part with nothing to keep the area of: the board is read as the
-  // page, so a boundary across a third of it is a part across a third of
-  // the frame.
-  const w = clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
-  const h = shape === "circle" ? w : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
+  /*
+   * A new part with nothing to keep the area of.
+   *
+   * When the board said how big the drawing was, that is the size: ink
+   * drawn eighty pixels wide became a band across the whole page, because
+   * the strokes are fractions of their own box and the only thing left to
+   * read was "a third of the disc". Only a drawing actually made across the
+   * page is made across the page.
+   */
+  const drewWide = !job.drawn || job.drawn.w >= frameWidth * FULL_BLEED;
+  const w = job.drawn && !drewWide
+    ? clamp(Math.round(job.drawn.w), 80, frameWidth)
+    : clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
+  const h = shape === "circle"
+    ? w
+    : job.drawn && !drewWide
+      ? clamp(Math.round(job.drawn.h), 24, 1600)
+      : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
   const label = text(drawn.words, 40) || "Drawn part";
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
   const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {

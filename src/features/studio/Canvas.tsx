@@ -531,6 +531,9 @@ export function Canvas() {
       frameWidth,
       sketch: drawn,
       picture: pictureOf(strokes),
+      // The size it was drawn at, so the part lands there rather than
+      // filling the frame: the strokes above are fractions of this box.
+      drawn: { w: b.w, h: b.h },
       label: `Making ${drawn.words.slice(0, 40) || describeSketch({ strokes, words: "" })}`,
     });
     useStudio.getState().removeShapes(group.strokeIds);
