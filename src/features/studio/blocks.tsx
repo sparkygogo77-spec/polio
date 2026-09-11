@@ -13,6 +13,7 @@ import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme }
 import { applyFont, liftTheme, overrideTheme } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer } from "./look";
 import { frameDoc, hasBody } from "./snippet";
+import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
@@ -133,9 +134,24 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
  * scripts, all that means is `:hover`.
  */
 function CodedBody({ node, t, mode, size }: { node: StudioNode; t: Theme; mode: PartMode; size?: { w: number; h: number } }) {
+  /*
+   * The body answers the palette.
+   *
+   * What came back from the renderer or the writer has its colours baked in,
+   * so a drawn part ignored every colour role: change the accent and nothing
+   * happened. `paintRoles` hands each baked colour to the role it stands in
+   * for and leaves the original as the fallback, and the frame declares the
+   * roles from the theme this part is standing in — so it repaints whenever
+   * the palette changes, not only at the moment it was made. What is stored
+   * is untouched; this is a reading of it.
+   */
   const doc = React.useMemo(
-    () => frameDoc(node.code!.html, { colour: t.text, font: t.bodyFamily }),
-    [node.code, t.text, t.bodyFamily],
+    () => frameDoc(paintRoles(node.code!.html), {
+      colour: t.text,
+      font: t.bodyFamily,
+      roles: roleVars({ bg: t.bg, text: t.text, accent: t.accent, muted: t.muted }),
+    }),
+    [node.code, t.text, t.bodyFamily, t.bg, t.accent, t.muted],
   );
   return (
     <iframe
