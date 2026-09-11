@@ -47,9 +47,15 @@ const { chromium } = (() => {
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const SECONDS = Number(process.argv[3] ?? 60);
+/* Sampling pixels is how this finds a blanked layer, but a readback off a
+   promoted canvas costs about a millisecond here and nearly a second on real
+   hardware, so the probe can be heavier than what it measures. `--no-pixels`
+   drops the sampling and leaves the frame timing, to check the timings are
+   the ground's and not the probe's. */
+const PIXELS = !process.argv.includes("--no-pixels");
 
 /** Installed in the page before the ground exists, so the mount is seen too. */
-function watch() {
+function watch(PIXELS) {
   const w = {
     rebuilds: 0, mountSeen: false, blank: [], resizes: 0, frames: 0, gaps: [],
     still: 0, stillMax: 0, stillNow: 0, lastInk: "", dragOn: 0, dragSince: 0, dragMax: 0, stalls: [], empties: 0, errors: [],
@@ -121,7 +127,7 @@ function watch() {
   scratch.height = 1;
   const sg = scratch.getContext("2d", { willReadFrequently: true });
 
-  setInterval(() => {
+  if (PIXELS) setInterval(() => {
     try {
       for (const c of document.querySelectorAll("[data-cloud-layer]")) {
         if (!c.width || !c.height) continue;
@@ -177,7 +183,7 @@ const browser = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
 });
 const page = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
-await page.addInitScript(watch);
+await page.addInitScript(watch, PIXELS);
 await page.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector("[data-cloud-layer]", { timeout: 20000 });
 
@@ -202,9 +208,9 @@ console.log(`       steady-state stalls: ${w.stalls.slice(0, 14).map((s) => `${s
 console.log(`       ember window empty on ${w.empties} samples\n`);
 check("the probe itself never threw", w.errorCount === 0, w.errorCount ? `${w.errorCount} error(s): ${w.errors.join(" | ")}` : "every sample ran");
 check("the ground is never torn down and rebuilt", w.rebuilds === 0, `${w.rebuilds} teardown(s) of the holder`);
-check("no layer ever loses its paint", w.blanks === 0, w.blanks ? `${w.blanks} blank reads, first: ${w.blank.slice(0, 4).map((b) => `${b.layer}@${b.at}ms`).join(", ")}` : "all layers inked throughout");
+if (PIXELS) check("no layer ever loses its paint", w.blanks === 0, w.blanks ? `${w.blanks} blank reads, first: ${w.blank.slice(0, 4).map((b) => `${b.layer}@${b.at}ms`).join(", ")}` : "all layers inked throughout");
 check("no unexplained canvas resize", w.resizes === 0, `${w.resizes} resize(s)`);
-check("the embers never stop", w.stillMax < 3, `longest still run ${w.stillMax} samples (${w.stillMax * 100}ms)`);
+if (PIXELS) check("the embers never stop", w.stillMax < 3, `longest still run ${w.stillMax} samples (${w.stillMax * 100}ms)`);
 check("the drag pause never sticks", w.dragMax < 1000, `longest hold ${w.dragMax}ms`);
 
 await browser.close();

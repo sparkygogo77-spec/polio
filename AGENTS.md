@@ -1358,6 +1358,25 @@ a kicker with a rule, and label-and-value rows that copy.
   anything that wants their pixels has to `drawImage` them into a scratch
   canvas first. A test that forgets is not a failing test, it is a silently
   passing one.
+- **Never read a pixel back on or near a loop, and check before adding one.**
+  A 60×40 `getImageData` off a ground layer on the deploy was timed at about
+  **950ms**. That is not a GPU-to-CPU sync, which costs a few milliseconds;
+  it is a whole composited layer being forced to rasterise synchronously,
+  because the layers are window-sized, promoted with `will-change: transform`
+  and blended with `mix-blend-mode: screen`. The audit that followed found
+  **no readback on any loop in shipped code** — every `getImageData`,
+  `toDataURL`, `toBlob` and canvas-to-canvas `drawImage` in `src/` is
+  user-triggered and one-shot (texture import, body outline, reshape, tweets
+  media, motion export), and the noise tiles are memoized behind
+  `darkMatterTiles`. Keep it that way: one readback a frame would stall the
+  compositor, and that is the blink.
+  The number matters anyway, for the *write* path — if reading 60×40 off such
+  a canvas costs that, rewriting the whole of one, which is what a recycle
+  did, pays the same class of cost. That is the argument for the bitmap
+  transfer above, and it came from a measurement on real hardware rather
+  than from this container, which measures the same readback at **0ms** even
+  with the old promoted-and-blended conditions rebuilt on purpose
+  (`tests/ground-readback.mjs`). This box cannot see the phenomenon at all.
 - **The pause holds the clouds only, and it always ends.** The ground stops
   the clouds while `data-board-drag` is set, because what a pan competes with
   is a full-resolution pattern fill. It no longer stops the embers: holding
