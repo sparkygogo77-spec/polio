@@ -147,22 +147,19 @@ check("and says so while it is open", (await page.locator("[data-finish]").getAt
 /* 4. The pieces                                                       */
 /* ------------------------------------------------------------------ */
 
-/*
- * Where the pieces are drawn: the trail, in the book.
- *
- * The timeline workspace itself draws iteration boxes and, for now, nothing
- * else — the pieces are still the trail's, in `ThreadTree.tsx`. What is held
- * here is what they are, wherever they are drawn: never off, and never the
- * size of an iteration.
- */
-// Back to the board first: the book is the panel over it, not the screen
-// Finish switches to.
+// Pieces are the trail (ThreadTree), and the book's page shape — what
+// Finish opens onto the timeline — deliberately drops the trail there: the
+// timeline above it is already that history, and drawing it twice was the
+// wall that shape replaced. The dialog and panel shapes keep the Trail
+// tab, so that is where a piece is checked, via the hook that opens one —
+// back to the board first, since the dialog does not open over the timeline.
 await page.locator("[data-finish]").click();
-await page.waitForTimeout(800);
+await page.waitForTimeout(700);
 await page.evaluate(() => window.__studioOpenBrief?.());
-await page.waitForTimeout(1100);
-const trailTab = page.getByRole("radio", { name: /^Trail/ });
-if (await trailTab.count()) { await trailTab.click(); await page.waitForTimeout(800); }
+await page.waitForTimeout(600);
+await page.getByRole("radiogroup", { name: "View" }).getByRole("radio", { name: /^Trail/ }).click();
+await page.waitForTimeout(400);
+
 const pieces = await page.locator("[data-piece]").evaluateAll((els) => els.map((e) => {
   const s = getComputedStyle(e);
   const r = e.getBoundingClientRect();

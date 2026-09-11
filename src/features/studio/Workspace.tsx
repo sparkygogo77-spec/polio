@@ -33,56 +33,108 @@ import { DRIFT_MS, paintDarkMatter, resizeField, sparkField, type SparkField } f
  */
 const DIM = 0.5;
 
+/**
+ * How often each half is drawn.
+ *
+ * The clouds cost what four full-surface pattern fills cost and change by
+ * about a pixel a second; the embers cost a few dozen one-pixel streaks and
+ * are the whole reason the ground moves at all. Drawing both thirty times a
+ * second spent the frame on the half nobody could see moving. Two canvases,
+ * two clocks: the embers keep the old thirty, the clouds drift at two, and
+ * nothing about the sky reads differently.
+ */
+const SPARK_MS = DRIFT_MS;
+const CLOUD_MS = 500;
+
+/**
+ * And neither of them runs while the board is being dragged.
+ *
+ * A pan is the one moment the main thread has somewhere better to be: every
+ * part on the board is being moved under the hand, and a full-surface canvas
+ * repaint in the middle of that is the stutter. The ground holds the frame it
+ * is on until the hand lets go — which nobody sees, because they are looking
+ * at the thing they are dragging. `Canvas.tsx` raises the flag.
+ */
+const dragging = () => document.documentElement.dataset.boardDrag === "1";
+
 export function Workspace() {
   const host = React.useRef<HTMLDivElement>(null);
-  const canvas = React.useRef<HTMLCanvasElement>(null);
+  const cloudRef = React.useRef<HTMLCanvasElement>(null);
+  const sparkRef = React.useRef<HTMLCanvasElement>(null);
   const field = React.useRef<SparkField | null>(null);
   const born = React.useRef(0);
   if (!born.current) born.current = typeof performance !== "undefined" ? performance.now() : 0;
 
   React.useEffect(() => {
-    const el = canvas.current;
+    const cloud = cloudRef.current;
+    const spark = sparkRef.current;
     const box = host.current;
-    if (!el || !box) return;
+    if (!cloud || !spark || !box) return;
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     let frame = 0;
+    let size = { w: 0, h: 0 };
 
-    const paint = () => {
-      frame = 0;
-      const c = el.getContext("2d");
-      if (!c) return;
+    /** Both canvases to the box, one backing pixel per CSS pixel, never two. */
+    const fit = () => {
       const w = Math.max(1, Math.round(box.clientWidth));
       const h = Math.max(1, Math.round(box.clientHeight));
-      // One backing pixel per CSS pixel, never two. The clouds are soft and
-      // the embers are a pixel across; four screen-sized pattern fills a
-      // frame at twice the resolution buys nothing anybody can see and costs
-      // what the canvas needs for dragging parts around.
-      if (el.width !== w || el.height !== h) {
-        el.width = w;
-        el.height = h;
+      const changed = w !== size.w || h !== size.h;
+      if (changed) {
+        for (const el of [cloud, spark]) {
+          el.width = w;
+          el.height = h;
+          el.style.width = `${w}px`;
+          el.style.height = `${h}px`;
+        }
+        size = { w, h };
+        field.current = field.current ? resizeField(field.current, w, h) : sparkField("ground", w, h);
       }
-      el.style.width = `${w}px`;
-      el.style.height = `${h}px`;
-      field.current = field.current ? resizeField(field.current, w, h) : sparkField("ground", w, h);
-      paintDarkMatter(c, { field: field.current, t: (performance.now() - born.current) / 1000, vignette: false, dim: DIM });
+      return changed;
     };
 
-    paint();
+    const seconds = () => (performance.now() - born.current) / 1000;
+
+    const paintClouds = () => {
+      const c = cloud.getContext("2d");
+      if (!c || !field.current) return;
+      paintDarkMatter(c, { field: field.current, t: seconds(), vignette: false, dim: DIM, layers: "clouds" });
+    };
+    const paintSparks = () => {
+      const c = spark.getContext("2d");
+      if (!c || !field.current) return;
+      paintDarkMatter(c, { field: field.current, t: seconds(), vignette: false, dim: DIM, layers: "sparks" });
+    };
+
+    fit();
+    paintClouds();
+    paintSparks();
+
     if (still) {
       // One frame, and then the weather holds. A workspace is somewhere to
       // work; a viewer who has asked for less motion means it here most.
-      const ro = new ResizeObserver(() => paint());
+      const ro = new ResizeObserver(() => { if (fit()) { paintClouds(); paintSparks(); } });
       ro.observe(box);
       return () => ro.disconnect();
     }
-    const t = window.setInterval(() => {
-      if (document.hidden || frame) return;
-      frame = requestAnimationFrame(paint);
-    }, DRIFT_MS);
-    const ro = new ResizeObserver(() => { if (!frame) frame = requestAnimationFrame(paint); });
+
+    const sparkTimer = window.setInterval(() => {
+      if (document.hidden || frame || dragging()) return;
+      frame = requestAnimationFrame(() => { frame = 0; paintSparks(); });
+    }, SPARK_MS);
+    const cloudTimer = window.setInterval(() => {
+      if (document.hidden || dragging()) return;
+      requestAnimationFrame(paintClouds);
+    }, CLOUD_MS);
+
+    const ro = new ResizeObserver(() => {
+      if (!fit()) return;
+      paintClouds();
+      paintSparks();
+    });
     ro.observe(box);
     return () => {
-      window.clearInterval(t);
+      window.clearInterval(sparkTimer);
+      window.clearInterval(cloudTimer);
       ro.disconnect();
       if (frame) cancelAnimationFrame(frame);
     };
@@ -90,7 +142,10 @@ export function Workspace() {
 
   return (
     <div ref={host} data-workspace-ground="" aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <canvas ref={canvas} className="absolute left-0 top-0" />
+      {/* The dear half, drawn rarely, on its own layer so a spark never
+          costs a cloud. */}
+      <canvas ref={cloudRef} data-ground-clouds="" className="absolute left-0 top-0" />
+      <canvas ref={sparkRef} data-ground-sparks="" className="absolute left-0 top-0" />
     </div>
   );
 }

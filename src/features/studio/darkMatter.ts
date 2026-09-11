@@ -326,6 +326,19 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
 
 export interface PaintOptions {
   field: SparkField;
+  /**
+   * Which half to draw.
+   *
+   * The clouds are two full-surface pattern fills, rotated and screened —
+   * the expensive half, and the half that barely changes: the near cloud
+   * crosses in half a minute and the far one turns once in half an hour. The
+   * embers are a few dozen one-pixel streaks, and they are what has to be
+   * drawn thirty times a second. Painting them onto separate canvases means
+   * the cheap half can run at thirty and the dear half at two, instead of
+   * both at thirty. "all" is the old behaviour, and is what a surface that
+   * is drawn once (a screenshot, the reduced-motion still) wants.
+   */
+  layers?: "all" | "clouds" | "sparks";
   /** Seconds since this surface was born. */
   t: number;
   /** The disc's edge falls off to near black; a wall's corners only darken. */
@@ -351,6 +364,9 @@ export function paintDarkMatter(c: CanvasRenderingContext2D, opts: PaintOptions)
   const disc = f.shape === "disc";
   const r = Math.min(w, h) / 2;
   const T = darkMatterTiles();
+  const layers = opts.layers ?? "all";
+  const clouds = layers !== "sparks";
+  const sparks = layers !== "clouds";
   c.clearRect(0, 0, w, h);
   c.save();
   if (disc) {
@@ -361,6 +377,7 @@ export function paintDarkMatter(c: CanvasRenderingContext2D, opts: PaintOptions)
 
   // The ground: black, a breath of violet toward the middle.
   const reach = disc ? r : Math.hypot(w, h) / 2;
+  if (clouds) {
   const ground = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, reach);
   const mix = (hex: string) => {
     // Toward the void's own near-black as the weather recedes.
@@ -396,11 +413,12 @@ export function paintDarkMatter(c: CanvasRenderingContext2D, opts: PaintOptions)
   lay(T.magenta, 0.75, t * 5.5, t * 3.5, t * 0.6 + 150, 0.45);
   c.globalAlpha = 1;
   c.globalCompositeOperation = "source-over";
+  }
 
   // The embers, blown through the near cloud.
-  paintEmbers(c, f, t);
+  if (sparks) paintEmbers(c, f, t);
 
-  if (opts.vignette ?? disc) {
+  if (clouds && (opts.vignette ?? disc)) {
     // The horizon: the edge falls off to near black.
     const edge = c.createRadialGradient(w / 2, h / 2, reach * 0.78, w / 2, h / 2, reach);
     edge.addColorStop(0, "rgba(0,0,0,0)");

@@ -20,6 +20,7 @@
  */
 import * as React from "react";
 import { play } from "@/core/audio/engine";
+import { aimLight, endLightRig, startLightRig } from "./lightRig";
 import { useStudio } from "./store";
 
 interface Rect { x: number; y: number; w: number; h: number }
@@ -51,37 +52,35 @@ export function carryLight(e: React.PointerEvent) {
   if (!st().placingLight) st().setPlacingLight(true);
   play("tap");
 
-  let dropped = false;
-  const put = (p: { x: number; y: number }, commit: boolean) => {
-    const page = rectOf("[data-frame]");
-    if (!inside(page, p) || !page) return false;
-    const light = st().look.light;
-    st().setLook({
-      light: {
-        ...light,
-        on: true,
-        x: Math.max(0, Math.min(1, (p.x - page.x) / page.w)),
-        y: Math.max(0, Math.min(1, (p.y - page.y) / page.h)),
-      },
-    });
-    if (commit) dropped = true;
-    return true;
-  };
+  /*
+   * The board is taken hold of once, here, and let go on the way out.
+   *
+   * Everything between is `lightRig.ts`: one shadow pass per animation frame,
+   * written to each part as a CSS variable, with the geometry measured when
+   * the drag began. The store is not touched until the drop, so the page
+   * lights under the ball without a single re-render behind it.
+   */
+  const held = startLightRig();
 
   const move = (m: PointerEvent) => {
     const p = { x: m.clientX, y: m.clientY };
-    st().setLightCarry(p);
     // The page lights under the ball as it passes, so what you are choosing is
     // the thing you are looking at rather than a pair of numbers.
-    put(p, false);
+    if (held) aimLight(p);
+    else st().setLightCarry(p);
   };
   const up = (m: PointerEvent) => {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
-    const landed = put({ x: m.clientX, y: m.clientY }, true);
+    const p = { x: m.clientX, y: m.clientY };
+    const landed = inside(rectOf("[data-frame]"), p);
+    // The one store write of the whole gesture: the variables come off the
+    // parts and the lamp goes in, in the same beat, so nothing flickers
+    // between the two.
+    if (held) { aimLight(p); endLightRig(landed); }
     st().setLightCarry(null);
-    if (landed && dropped) {
+    if (landed) {
       play("confirm");
       st().setPlacingLight(false);
     } else {
