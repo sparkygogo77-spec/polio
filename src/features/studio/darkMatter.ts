@@ -321,6 +321,147 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
 }
 
 /* ------------------------------------------------------------------ */
+/* The cloud layers                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One depth's worth of cloud: which tile, how big, which way round, where it
+ * goes and how strongly it reads.
+ *
+ * Written down as a table rather than as four lines of paint because there
+ * are now two readers of it. `paintDarkMatter` draws all four onto one
+ * surface, turning as it goes, which is what a disc drawn every frame wants.
+ * The ground (`ground.ts`) gives each layer a canvas of its own and moves it
+ * with a transform, which means the layer can only *translate* — so it uses
+ * `turn` and ignores `spin`. Nobody can see 0.8 degrees a second on a cloud;
+ * everybody can see a cloud redrawn twice a second.
+ */
+export interface CloudLayer {
+  id: string;
+  tile: "violet" | "magenta";
+  /** Drawn this many times its tile's own size. */
+  scale: number;
+  /** Turned this many degrees about the middle, at the start. */
+  turn: number;
+  /** And this many more degrees every second — only where the whole surface is repainted. */
+  spin: number;
+  /** Where it goes, in tile pixels a second, before the turn and the scale. */
+  dx: number;
+  dy: number;
+  alpha: number;
+  /**
+   * The one layer whose speed the whole field is moved at.
+   *
+   * Where the field is painted once and slid (`ground.ts`), the four layers
+   * cannot each take their own heading: a canvas moves as one. So one of
+   * them sets the pace and the rest ride it, and it is the near violet,
+   * because that is the cloud you watch pass — the biggest, nearest and
+   * strongest of the four. What is given up is the slow evolution the four
+   * headings made between them, the bloom shifting where they cross. What
+   * is bought is motion that is actually smooth. If anyone ever misses the
+   * evolution it comes back as a cross-fade at each recycle, not as a
+   * repaint rate.
+   */
+  carries?: true;
+}
+
+export const CLOUD_LAYERS: CloudLayer[] = [
+  // The far depth: the planet. Huge, slow, turning once in about half an hour.
+  { id: "far-violet", tile: "violet", scale: 2.8, turn: 0, spin: 0.2, dx: 0.5, dy: -0.25, alpha: 0.9 },
+  { id: "far-magenta", tile: "magenta", scale: 2.3, turn: 70, spin: -0.15, dx: -0.35, dy: 0.4, alpha: 0.7 },
+  // The near depth: cloud you can see pass, across in half a minute or so.
+  { id: "near-violet", tile: "violet", scale: 0.95, turn: 30, spin: -0.8, dx: 7.5, dy: -2.5, alpha: 0.55, carries: true },
+  { id: "near-magenta", tile: "magenta", scale: 0.75, turn: 150, spin: 0.6, dx: 5.5, dy: 3.5, alpha: 0.45 },
+];
+
+/** How fast the whole field goes, in screen pixels a second. */
+export function fieldDrift(): { vx: number; vy: number } {
+  return cloudDrift(CLOUD_LAYERS.find((l) => l.carries) ?? CLOUD_LAYERS[CLOUD_LAYERS.length - 1]!);
+}
+
+/**
+ * Where a layer actually goes, in screen pixels a second.
+ *
+ * Its own `dx, dy` are in tile pixels and are applied *after* the turn and
+ * the scale, so the direction you see is the drawn direction turned and the
+ * distance is it scaled. The near violet works out at about 7.5px a second
+ * and the far magenta at 1.2, which is the whole of the parallax.
+ */
+export function cloudDrift(l: CloudLayer): { vx: number; vy: number } {
+  const a = (l.turn * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  return { vx: l.scale * (l.dx * cos - l.dy * sin), vy: l.scale * (l.dx * sin + l.dy * cos) };
+}
+
+/**
+ * The whole cloud field, on a transparent canvas, placed as though the drift
+ * had carried it `ox, oy` screen pixels.
+ *
+ * The offset is taken back through the turn and the scale because a
+ * pattern's own translate happens after both. The four layers are screened
+ * together here rather than by the compositor: `mix-blend-mode` on a layer
+ * the size of a window costs half the frame rate on a machine with no GPU —
+ * measured, 60fps down to 43 for one layer — and over a ground this dark
+ * screening onto it and compositing onto it differ by about a percent.
+ * Between the layers, where it is worth something, it is exact.
+ */
+export function paintCloudField(
+  c: CanvasRenderingContext2D,
+  layers: CloudLayer[],
+  /**
+   * `from` is where these layers sit in the whole stack, so the field can be
+   * laid one layer to a frame: the bottom one clears and the rest screen
+   * over what is already there.
+   */
+  opts: { w: number; h: number; dim?: number; ox?: number; oy?: number; from?: number },
+) {
+  const { w, h } = opts;
+  const dim = opts.dim ?? 1;
+  const ox = opts.ox ?? 0;
+  const oy = opts.oy ?? 0;
+  const from = opts.from ?? 0;
+  const T = darkMatterTiles();
+  if (!from) c.clearRect(0, 0, w, h);
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i]!;
+    const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
+    if (!p) continue;
+    const a = (layer.turn * Math.PI) / 180;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const k = 1 / layer.scale;
+    const dx = k * (ox * cos + oy * sin);
+    const dy = k * (-ox * sin + oy * cos);
+    p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(layer.turn).scale(layer.scale).translate(dx, dy));
+    c.globalAlpha = layer.alpha * dim;
+    c.globalCompositeOperation = i + from ? "screen" : "source-over";
+    c.fillStyle = p;
+    c.fillRect(0, 0, w, h);
+  }
+  c.globalAlpha = 1;
+  c.globalCompositeOperation = "source-over";
+}
+
+/**
+ * The ground under the clouds, as one CSS gradient.
+ *
+ * `farthest-corner` from the middle is exactly the radius the canvas version
+ * used — half the diagonal — so this is the same gradient, drawn by the
+ * compositor instead of by us. It is the half of the weather that never
+ * moves, so it should not be on a canvas that does.
+ */
+export function skyGradient(dim = 1): string {
+  const mix = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    const to = [6, 3, 10];
+    const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(to[i]! + (v - to[i]!) * dim));
+    return `rgb(${rgb.join(",")})`;
+  };
+  return `radial-gradient(circle farthest-corner at 50% 50%, ${mix("#180a2c")} 0%, ${mix("#0c0616")} 60%, #06030a 100%)`;
+}
+
+/* ------------------------------------------------------------------ */
 /* The paint                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -405,12 +546,9 @@ export function paintDarkMatter(c: CanvasRenderingContext2D, opts: PaintOptions)
     c.fillStyle = p;
     c.fillRect(0, 0, w, h);
   };
-  // The far depth: the planet. Huge, slow, turning once in about half an hour.
-  lay(T.violet, 2.8, t * 0.5, t * -0.25, t * 0.2, 0.9);
-  lay(T.magenta, 2.3, t * -0.35, t * 0.4, t * -0.15 + 70, 0.7);
-  // The near depth: cloud you can see pass, across in half a minute or so.
-  lay(T.violet, 0.95, t * 7.5, t * -2.5, t * -0.8 + 30, 0.55);
-  lay(T.magenta, 0.75, t * 5.5, t * 3.5, t * 0.6 + 150, 0.45);
+  // Both depths, off the one table, turning as they go: this is the surface
+  // that is repainted whole, so it can afford the spin.
+  for (const l of CLOUD_LAYERS) lay(l.tile === "violet" ? T.violet : T.magenta, l.scale, l.dx * t, l.dy * t, l.turn + l.spin * t, l.alpha);
   c.globalAlpha = 1;
   c.globalCompositeOperation = "source-over";
   }

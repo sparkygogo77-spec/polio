@@ -97,31 +97,38 @@ await page.waitForTimeout(2200);
 /* 1. The ground is two layers on two clocks                           */
 /* ------------------------------------------------------------------ */
 
-check("the clouds and the embers are separate layers", (await page.locator("[data-ground-clouds]").count()) === 1 && (await page.locator("[data-ground-sparks]").count()) === 1);
+check(
+  "the clouds and the embers are separate layers",
+  (await page.locator("[data-cloud-layer]").count()) === 1 && (await page.locator("[data-ground-sparks]").count()) === 1,
+);
 
 const shot = (sel) => page.locator(sel).evaluate((el) => el.toDataURL().length + ":" + el.toDataURL().slice(-64));
 {
-  // Counted over a second rather than sampled twice: the clouds do redraw,
-  // just an order of magnitude less often, and two samples 200ms apart can
-  // straddle one of their ticks by luck.
+  /*
+   * The two halves of the ground now move in two quite different ways, and
+   * this is where that is held to.
+   *
+   * The embers are repainted: new pixels thirty times a second, which is
+   * what a streak needs. The clouds are not repainted at all — the field is
+   * painted once, bigger than the box, and slid on the compositor — so its
+   * pixels stay put while its transform changes every frame. It used to be
+   * redrawn 2.4 times a second to move it, and 2.4 times a second is what an
+   * eye reads as its frame rate.
+   */
   const sparks = new Set();
   const clouds = new Set();
+  const moves = new Set();
   const t0 = Date.now();
   for (let i = 0; i < 14; i++) {
     sparks.add(await shot("[data-ground-sparks]"));
-    clouds.add(await shot("[data-ground-clouds]"));
+    clouds.add(await shot("[data-cloud-layer]"));
+    moves.add(await page.locator("[data-cloud-layer]").evaluate((el) => el.style.transform));
     await page.waitForTimeout(90);
   }
-  // Reading a canvas back is itself slow, so the window is however long the
-  // sampling took: the embers are new every time they are looked at, and the
-  // clouds are compared against the wall clock rather than against them.
   const secs = (Date.now() - t0) / 1000;
   check("the embers keep moving", sparks.size >= 6, `${sparks.size} distinct in ${secs.toFixed(1)}s`);
-  check(
-    "the clouds drift at about two a second, not thirty",
-    clouds.size <= secs * 3 + 1 && clouds.size < sparks.size,
-    `clouds ${clouds.size} in ${secs.toFixed(1)}s · embers ${sparks.size}`,
-  );
+  check("the clouds are not redrawn to drift", clouds.size === 1, `${clouds.size} distinct cloud fields in ${secs.toFixed(1)}s`);
+  check("they are moved instead", moves.size >= 12, `${moves.size} distinct offsets in ${secs.toFixed(1)}s`);
 }
 
 /* ------------------------------------------------------------------ */

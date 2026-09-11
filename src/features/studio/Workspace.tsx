@@ -35,15 +35,16 @@ const DIM = 0.5;
 
 export function Workspace() {
   const host = React.useRef<HTMLDivElement>(null);
-  const cloud = React.useRef<HTMLCanvasElement>(null);
+  const cloud = React.useRef<HTMLDivElement>(null);
   const spark = React.useRef<HTMLCanvasElement>(null);
   useGround(host, cloud, spark, DIM);
 
   return (
     <div ref={host} data-workspace-ground="" aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* The dear half, drawn rarely and small, on its own layer so a spark
-          never costs a cloud. */}
-      <canvas ref={cloud} data-ground-clouds="" className="absolute left-0 top-0" />
+      {/* The clouds: a sky that never moves and a canvas per depth that only
+          ever slides, both filled in by the hook. A spark never costs a
+          cloud, and a cloud passing never costs a frame. */}
+      <div ref={cloud} data-ground-clouds="" className="absolute inset-0 overflow-hidden" />
       <canvas ref={spark} data-ground-sparks="" className="absolute left-0 top-0" />
     </div>
   );

@@ -144,13 +144,14 @@ export function Timeline() {
   );
 
   /*
-   * The floor is the same weather the workspace stands on, painted the same
-   * way: two layers, one animation frame's clock, the clouds small and rare.
-   * It used to repaint everything thirty times a second here, which measured
-   * at 23fps flat — smooth, because it was uniformly slow, and a great deal
-   * of main thread for a sky.
+   * The floor is the same weather the workspace stands on, moved the same
+   * way: a sky that never moves, a canvas per cloud depth that only ever
+   * slides on the compositor, and the embers on their own canvas. It used to
+   * repaint everything thirty times a second here, and then the clouds twice
+   * a second, which is what J saw juddering; `ground.ts` says why neither
+   * rate was the answer.
    */
-  const clouds = React.useRef<HTMLCanvasElement>(null);
+  const clouds = React.useRef<HTMLDivElement>(null);
   useGround(host, clouds, ground, GROUND_DIM);
 
   /* ----------------------------------------------------------- strands */
@@ -319,7 +320,7 @@ export function Timeline() {
       onWheel={onWheel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <canvas ref={clouds} data-ground-clouds="" aria-hidden className="pointer-events-none absolute left-0 top-0" />
+      <div ref={clouds} data-ground-clouds="" aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" />
       <canvas ref={ground} data-ground-sparks="" aria-hidden className="pointer-events-none absolute left-0 top-0" />
       <canvas ref={wires} aria-hidden className="pointer-events-none absolute left-0 top-0" />
 

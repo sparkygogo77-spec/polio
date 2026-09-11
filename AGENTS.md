@@ -1113,15 +1113,34 @@ a kicker with a rule, and label-and-value rows that copy.
   idea" at the end of them in a dashed rim. The search is a screen across the
   whole shelf — teal glass, phosphor, the same as the palette's field —
   because a dark box at the end of a dark row is a search nobody finds.
-- **One weather, one clock** (`ground.ts`). The workspace and the timeline
-  stand on the same dark matter and now paint it the same way: a single
-  `requestAnimationFrame` loop with the two clocks checked inside it, the
-  embers at thirty a second, the clouds at two and at half resolution — they
-  are soft, so half a backing pixel each is invisible and costs a quarter —
-  and never both in one frame. Measured before: the timeline flat at 23fps,
-  the board at 30 with a 34ms hitch twice a second, which is why the board
-  was the one that looked wrong. A hitch in smooth motion is what an eye
-  catches; uniformly slow motion is not.
+- **The clouds move; they are not redrawn to move** (`ground.ts`). The
+  workspace and the timeline stand on the same dark matter, and the way it
+  travels is the rule: the whole cloud field is painted **once** onto a
+  canvas bigger than the box, and slid every frame with `translate3d`. The
+  content is repainted only when the material runs out (about every forty
+  seconds), on a resize, or when the distance changes — and the recycle bakes
+  the drift so far into the paint, snapped to a whole backing pixel, so it
+  puts the same pixels in the same place and cannot be seen. It is laid one
+  layer to a frame so even that moment fits in a frame. The sky is a CSS
+  gradient on a div, because it never moves. Only the embers are repainted,
+  thirty times a second, which is what a streak needs.
+  Do not solve a judder here by changing a rate. The clouds used to be
+  redrawn every 420ms to move them, and 2.4 changes a second is what an eye
+  reads as the nebula's frame rate whatever the page loop is doing — J called
+  it two fps while the page ran at 357. Measured before and after, in a
+  production build: the board 450fps → 360fps unthrottled, and 60fps with no
+  late frame at the screen's own rate both times; the cloud content 2.25
+  changes a second → none in four seconds, with the layer moving on 1,443 of
+  1,443 frames.
+  **Do not reach for `mix-blend-mode` to put the layers back together.** A
+  canvas per layer would keep each one's own heading, and it costs half the
+  frame rate where there is no GPU: measured at 1440×900, ground hidden
+  60fps/0 late, four blended layers 29fps, one blended layer 43fps, one
+  unblended layer 60fps/0 late. Blending a window-sized layer is the
+  expensive thing, not moving it. The four layers are screened together
+  inside the canvas instead, `CloudLayer.carries` names the one whose speed
+  the field takes, and over a ground this dark screening onto it and
+  compositing onto it differ by about a percent.
 - **Placing the lamp does not put the ground out.** The placer used to throw
   an 86% black over everything in the board but the page, which is most of
   the nebula. The page is ringed in the lamp's own colour instead. Placing is

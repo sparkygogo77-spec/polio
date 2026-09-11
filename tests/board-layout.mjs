@@ -336,28 +336,77 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
 }
 
 /* ------------------------------------------------------------------ */
-/* 6. Both grounds are the same weather, and neither drops a frame      */
+/* 6. The weather moves every frame and is repainted almost never       */
 /* ------------------------------------------------------------------ */
+/*
+ * The nebula used to be redrawn to move it: 420ms a pass, which is 2.4
+ * changes a second, which is what an eye reads as its frame rate. J called
+ * it two fps and he was right — the page loop was never the slow part. So
+ * the field is painted once, bigger than the box, and slid on the
+ * compositor. The two numbers that say whether that is actually what is
+ * happening are here: how often the content is repainted, and how often the
+ * layer moves.
+ */
 {
-  const { context, page } = await open(1280, 800);
-  const FRAMES = `window.__f=[];(function l(){window.__r=requestAnimationFrame((t)=>{window.__f.push(t);l();});})();`;
-  const STATS = `cancelAnimationFrame(window.__r);(()=>{const f=window.__f,d=[];for(let i=1;i<f.length;i++)d.push(f[i]-f[i-1]);d.sort((a,b)=>a-b);return {p95:+d[Math.floor(d.length*0.95)].toFixed(1),max:+d[d.length-1].toFixed(1),n:d.length};})()`;
-  check("the board's ground is two layers", (await page.locator("[data-ground-clouds]").count()) === 1 && (await page.locator("[data-ground-sparks]").count()) === 1);
-  // The clouds are the dear half and the soft half: drawn small, blown up.
-  const cloudPx = await page.locator("[data-ground-clouds]").evaluate((el) => ({ backing: el.width, css: Math.round(el.getBoundingClientRect().width) }));
-  check("and the clouds are drawn small, so a cloud pass fits in a frame", cloudPx.backing <= cloudPx.css * 0.75, `${cloudPx.backing} backing for ${cloudPx.css} css`);
-  await page.evaluate(FRAMES);
-  await page.waitForTimeout(2500);
-  const board = await page.evaluate(STATS);
-  check("and it never drops a frame to a cloud", board.max < 34, `p95 ${board.p95}ms · max ${board.max}ms over ${board.n} frames`);
+  const { context, page } = await open(1440, 900);
+  // Count every pattern fill: four of them is one lay of the whole field.
+  const WATCH = `(()=>{const w=window;w.__lays=0;const p=CanvasRenderingContext2D.prototype.createPattern;CanvasRenderingContext2D.prototype.createPattern=function(...a){w.__lays++;return p.apply(this,a);};
+    w.__f=[];w.__moved=0;const el=document.querySelector("[data-cloud-layer]");let seen=el?el.style.transform:"";
+    (function l(){w.__r=requestAnimationFrame((t)=>{w.__f.push(t);if(el&&el.style.transform!==seen){seen=el.style.transform;w.__moved++;}l();});})();})()`;
+  const STATS = `cancelAnimationFrame(window.__r);(()=>{const w=window,f=w.__f,d=[];for(let i=1;i<f.length;i++)d.push(f[i]-f[i-1]);
+    const beat=[...d].sort((a,b)=>a-b)[Math.floor(d.length*0.5)];
+    return {beat:+beat.toFixed(1),late:d.filter(v=>v>beat*1.5).length,frames:d.length,moved:w.__moved,lays:w.__lays,max:+Math.max(...d).toFixed(1)};})()`;
 
+  const ground = async (where) => {
+    check(`${where} is a sky, a cloud field and the embers`,
+      (await page.locator("[data-ground-sky]").count()) === 1
+      && (await page.locator("[data-cloud-layer]").count()) === 1
+      && (await page.locator("[data-ground-sparks]").count()) === 1);
+    // Read off the DOM rather than through a locator, so a ground built the
+    // old way fails these checks with its own numbers instead of throwing.
+    const field = await page.evaluate(() => {
+      const el = document.querySelector("[data-cloud-layer]") ?? document.querySelector("[data-ground-clouds]");
+      if (!el) return { backing: 0, css: 0, box: 0 };
+      return { backing: el.width ?? 0, css: Math.round(el.getBoundingClientRect().width), box: Math.round(el.parentElement.getBoundingClientRect().width) };
+    });
+    // Soft things do not need pixels: drawn small and blown up.
+    check(`${where} draws the clouds small`, field.backing <= field.css * 0.75, `${field.backing} backing for ${field.css} css`);
+    // And bigger than the box, or there would be nothing to slide into.
+    check(`${where} has material past the edge to slide into`, field.css > field.box + 60, `${field.css} of field for a ${field.box} box`);
+
+    await page.evaluate(WATCH);
+    await page.waitForTimeout(5000);
+    const s = await page.evaluate(STATS);
+    check(`${where} moves on every frame`, s.moved >= s.frames - 1 && s.frames > 100, `${s.moved} of ${s.frames} frames`);
+    // Four pattern fills is one lay of the field; the field carries about
+    // forty seconds of drift, so five seconds of it should need none.
+    check(`${where} is not repainted to do it`, s.lays === 0, `${s.lays / 4} lays of the field in ${(s.frames / (1000 / s.beat)).toFixed(1)}s`);
+    // Headless drops to a 33ms beat when it cannot hold the screen's rate,
+    // so the beat itself says whether the ground is affordable.
+    check(`${where} holds the screen's own rate`, s.beat < 20 && s.late <= 2, `beat ${s.beat}ms, ${s.late} late of ${s.frames}, worst ${s.max}ms`);
+  };
+
+  await ground("the board's ground");
   await page.locator("[data-finish]").click();
   await page.waitForTimeout(1500);
-  check("the timeline's floor is the same two layers", (await page.locator("[data-ground-clouds]").count()) === 1 && (await page.locator("[data-ground-sparks]").count()) === 1);
-  await page.evaluate(FRAMES);
-  await page.waitForTimeout(2500);
-  const time = await page.evaluate(STATS);
-  check("and it runs at the same rate as the board's", time.max < 34, `p95 ${time.p95}ms · max ${time.max}ms over ${time.n} frames`);
+  await ground("the timeline's floor");
+
+  /* The hand down holds the weather, and letting go does not jump it. */
+  const held = await page.evaluate(() => {
+    document.documentElement.dataset.boardDrag = "1";
+    return document.querySelector("[data-cloud-layer]")?.style.transform ?? "";
+  });
+  await page.waitForTimeout(900);
+  const during = await page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
+  check("a hand on the board holds the weather where it is", held === during);
+  await page.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
+  await page.waitForTimeout(700);
+  const after = await page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
+  const px = (t) => Number(/translate3d\(([-\d.]+)px/.exec(t)?.[1] ?? 0);
+  const went = px(after) - px(during);
+  // The clock is held rather than the frame skipped, so it carries on from
+  // here: about 7.4px a second, not the whole pause at once.
+  check("and letting go carries on rather than jumping", went > 0.5 && went < 12, `${went.toFixed(1)}px in 0.7s`);
   await context.close();
 }
 
