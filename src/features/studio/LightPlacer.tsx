@@ -100,6 +100,14 @@ export function carryLight(e: React.PointerEvent) {
 
 export function LightPlacer() {
   const placing = useStudio((s) => s.placingLight);
+  // Placing is a thing you do to the board, so it ends when the board does.
+  // It used to be a flag nobody cleared on the way out, which is how the
+  // dim turned up over an empty timeline: the same overlay, still on, over
+  // whatever had replaced the thing it was about.
+  const mode = useStudio((s) => s.mode);
+  React.useEffect(() => {
+    if (mode !== "design" && useStudio.getState().placingLight) useStudio.getState().cancelPlacingLight();
+  }, [mode]);
   const carry = useStudio((s) => s.lightCarry);
   const light = useStudio((s) => s.look.light);
   const zoom = useStudio((s) => s.zoom);
@@ -132,7 +140,7 @@ export function LightPlacer() {
     return () => window.removeEventListener("keydown", key);
   }, [placing]);
 
-  if (!placing) return null;
+  if (!placing || mode !== "design") return null;
   const warm = Math.round(light.warmth);
   const ball = 14 + light.strength * 10;
   const glow = 30 + light.strength * 46;
@@ -145,7 +153,17 @@ export function LightPlacer() {
         can be dragged out of it, and untouchable so a press meant for the
         board is still a press on the board.
       */}
-      {board ? (
+      {/*
+        The page is ringed; the ground is left alone.
+        
+        This used to throw an 86% black over everything in the board but the
+        page — which is most of the nebula the workspace stands on, put out
+        for the length of a drag. The ground is the one thing on this screen
+        that is already lit, and dimming it to say "a light is being placed"
+        is an odd way to say it. What marks the moment now is the page's own
+        rim, in the lamp's colour, and the ball in your hand.
+      */}
+      {board && page ? (
         <div
           data-light-dim=""
           className="pointer-events-none fixed z-[60] overflow-hidden"
@@ -154,15 +172,12 @@ export function LightPlacer() {
           <div
             className="absolute rounded-[3px]"
             style={{
-              left: (page?.x ?? board.x) - board.x,
-              top: (page?.y ?? board.y) - board.y,
-              width: page?.w ?? 0,
-              height: page?.h ?? 0,
-              boxShadow: "0 0 0 9999px oklch(0.05 0.01 280 / 0.86)",
-              // A hairline round the hole in the lamp's own colour: on a dark
-              // board a dark dim is not much of a difference, and the point of
-              // the moment is that the page is the thing being lit.
-              outline: `1px solid oklch(0.85 0.12 ${warm} / 0.55)`,
+              left: page.x - board.x,
+              top: page.y - board.y,
+              width: page.w,
+              height: page.h,
+              outline: `1.5px solid oklch(0.85 0.14 ${warm} / 0.8)`,
+              boxShadow: `0 0 26px 6px oklch(0.85 0.16 ${warm} / 0.18)`,
               transition: "box-shadow 200ms ease-out",
             }}
           />

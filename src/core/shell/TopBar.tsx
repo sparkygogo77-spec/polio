@@ -3,8 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Moon, Search, Settings, Sun, Volume2, VolumeX } from "lucide-react";
-import site from "@site";
-import { registry } from "@/core/registry";
+import { registry, resolveRoute } from "@/core/registry";
 import { useActions } from "@/core/actions";
 import { useUi } from "@/core/ui-state/store";
 import { selectUnread, useNews } from "@/core/news/store";
@@ -25,14 +24,18 @@ export function TopBar() {
   const [mode, setMode] = useSetting<string>("appearance.mode");
   const topTabs = useSettingValue<boolean>("appearance.topTabs");
   const tabs = registry.nav.filter((n) => n.placement !== "side");
+  const ownSearch = !!resolveRoute(pathname)?.route.ownSearch;
   const dark = mode !== "light";
 
   return (
     <header className="relative z-[56] flex h-(--topbar-h) shrink-0 items-center gap-2 border-b border-border glass px-2">
-      <Link href="/" onClick={() => play("navigate")} className="tactile flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-hover" aria-label={`${site.name} home`}>
-        <span className="flex size-6 items-center justify-center rounded-sm bg-accent text-[11px] font-bold text-accent-fg shadow-[0_0_12px_-2px_var(--accent)]">{site.logoMark}</span>
-        <span className="text-xs font-semibold tracking-tight">{site.name}</span>
-      </Link>
+      {/*
+        No wordmark.
+        
+        It sat top left saying the name of the tool you were already inside,
+        beside a tab row that has gone and above a bar that says which site is
+        open. The way home is the Builds button at the head of that bar.
+      */}
 
       {topTabs ? (
         <nav className="ml-2 hidden h-full items-end gap-0.5 md:flex" aria-label="Primary">
@@ -61,20 +64,25 @@ export function TopBar() {
       ) : null}
 
       <div className="ml-auto flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => ctx.togglePanel("commands")}
-          className="tactile hidden h-7 w-64 items-center gap-2 rounded-md border border-border bg-elevated px-2 text-[11px] text-fg-faint hover:border-border-strong hover:text-fg-muted sm:flex"
-        >
-          <Search className="size-3.5" />
-          <span className="flex-1 truncate text-left">Search or run a command…</span>
-          <Kbd>mod+k</Kbd>
-        </button>
-        <Tooltip content="Search" shortcut="mod+k">
-          <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => ctx.togglePanel("commands")}>
-            <Search />
-          </Button>
-        </Tooltip>
+        {/* A route that carries its own search does not get this one as well. */}
+        {ownSearch ? null : (
+          <>
+            <button
+              type="button"
+              onClick={() => ctx.togglePanel("commands")}
+              className="tactile hidden h-7 w-64 items-center gap-2 rounded-md border border-border bg-elevated px-2 text-[11px] text-fg-faint hover:border-border-strong hover:text-fg-muted sm:flex"
+            >
+              <Search className="size-3.5" />
+              <span className="flex-1 truncate text-left">Search or run a command…</span>
+              <Kbd>mod+k</Kbd>
+            </button>
+            <Tooltip content="Search" shortcut="mod+k">
+              <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Search" onClick={() => ctx.togglePanel("commands")}>
+                <Search />
+              </Button>
+            </Tooltip>
+          </>
+        )}
 
         <Tooltip content="News" shortcut="mod+i">
           <Button variant={panels.news ? "subtle" : "ghost"} size="icon" aria-label="News" onClick={() => ctx.togglePanel("news")} className="relative">

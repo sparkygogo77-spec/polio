@@ -113,7 +113,7 @@ export const studio = defineFeature({
     { id: "studio.publishDeploy", group: "studio", label: "Publish also deploys", description: "After the push to GitHub, call the Vercel deploy hook when one is set.", type: "toggle", default: true, advanced: true, order: 4 },
   ],
   routes: [
-    { path: "/builder", component: StudioPage, title: "Builder", fullBleed: true },
+    { path: "/builder", component: StudioPage, title: "Builder", fullBleed: true, ownSearch: true },
     { path: "/builder/preview", component: PreviewPage, title: "Live preview", fullBleed: true },
     { path: "/builder/preview/*", component: PreviewPage, title: "Live preview", fullBleed: true },
     { path: "/site", component: PublishedPage, title: "Site", fullBleed: true },

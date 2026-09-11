@@ -1052,6 +1052,44 @@ a kicker with a rule, and label-and-value rows that copy.
     own x/y/w/h, never the DOM), surfaces off screen skipped, and the store
     written once — on the drop. Before: panning p50 16ms / p95 47ms, the sun
     p95 43ms and a 130ms stall. After: 1.3 / 16 and 1.4 / 8.
+- **The frame is one screen, and the site scrolls inside it**
+  (`Canvas.tsx`: `SCREEN_H`, `pageH` vs `frameH`, `data-page-window` and
+  `data-page-scroll`; `store.pageScroll`; `tests/board-layout.mjs`). Each
+  frame width is a real device, so each has a real viewport — 1440×900,
+  834×1112, 390×844 — and the pane's own shape leans it a tenth either way
+  and no further. The board never scrolls: the wheel moves the page behind
+  the frame's edge the way a browser does, and the workspace fits the pane
+  with the ground showing all round. The scrolled layer is transparent to the
+  hand (`pointer-events-none`, with the parts taking their own presses back)
+  or the bare page would never be bare.
+- **One side, and a band that is always there.** There were two panels, and
+  the right one was hidden below 1280px — exactly where room is short. The
+  column on the left carries everything now and answers what is in your hand:
+  a part picks Element, the page picks Look, nothing picks Look. Under the
+  board is the parts shelf and under the timeline is "This iteration", both a
+  fixed band (`BAND_H`, a clamp so a short window loses height rather than
+  the band) rather than a floor you scroll down to.
+- **The shelf is round buttons and a screen.** A planet is a round thing, so
+  its button is round: a disc of the category's own colour, the icon half
+  again as big as it was, wrapping to as many rows as it needs, and "New
+  idea" at the end of them in a dashed rim. The search is a screen across the
+  whole shelf — teal glass, phosphor, the same as the palette's field —
+  because a dark box at the end of a dark row is a search nobody finds.
+- **One weather, one clock** (`ground.ts`). The workspace and the timeline
+  stand on the same dark matter and now paint it the same way: a single
+  `requestAnimationFrame` loop with the two clocks checked inside it, the
+  embers at thirty a second, the clouds at two and at half resolution — they
+  are soft, so half a backing pixel each is invisible and costs a quarter —
+  and never both in one frame. Measured before: the timeline flat at 23fps,
+  the board at 30 with a 34ms hitch twice a second, which is why the board
+  was the one that looked wrong. A hitch in smooth motion is what an eye
+  catches; uniformly slow motion is not.
+- **Placing the lamp does not put the ground out.** The placer used to throw
+  an 86% black over everything in the board but the page, which is most of
+  the nebula. The page is ringed in the lamp's own colour instead. Placing is
+  a thing you do to the board, so it ends when the board does — it was a flag
+  nobody cleared on the way out, which is how the same dim turned up over an
+  empty timeline.
 - **Designs are tracked in the panel** (`Designs`, `nodeDesigns`,
   `backgroundDesigns` in `Inspector.tsx`): a row of coloured keys under the
   header for everything the wheel has set. Add a line there when a part or

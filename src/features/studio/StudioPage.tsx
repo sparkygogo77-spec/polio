@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft,
+  Circle, Eraser, Eye, FileText, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft, Search,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
@@ -30,6 +30,7 @@ import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
+import { BACKGROUND_ID } from "./store";
 import { Timeline } from "./Timeline";
 import { TimelineDetail } from "./TimelineDetail";
 import { LightPlacer } from "./LightPlacer";
@@ -41,6 +42,21 @@ import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
+import { Kbd } from "@/core/ui/kbd";
+import { useActions } from "@/core/actions";
+
+/**
+ * How much of the window the bottom band keeps — the parts shelf under the
+ * board, and "This iteration" under the timeline.
+ *
+ * Enough for the round buttons and a second row of them, and no more: the
+ * board is the subject and the shelf is where you reach. It is a clamp rather
+ * than a number because the rule is that the band is *always* there: on a
+ * window dragged down to a letterbox it gives ground rather than going off
+ * the bottom of the screen, and it never takes more than a third of what
+ * there is.
+ */
+const BAND_H = "clamp(132px, 32vh, 248px)";
 
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: string }[] = [
   { id: "select", label: "Select & move", icon: MousePointer2, shortcut: "v" },
@@ -244,6 +260,16 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <span className="flex-1" />
 
       {/*
+        The search for a tool, in the row of tools.
+        
+        It was in the window's chrome a floor above, which is where an app
+        puts a search for its own pages — and this one searches the things on
+        this bar. It sits where the hand already is, between the devices and
+        the menu's own switch.
+      */}
+      <SearchTools />
+
+      {/*
         The part menu's outer edge, set here rather than on the menu itself.
         A toggle that only exists while the thing it changes is open is a
         toggle you can never find again; and it lights up the moment a menu
@@ -309,6 +335,25 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   );
 }
 
+/** The command palette, from the bar it is about. */
+function SearchTools() {
+  const ctx = useActions();
+  return (
+    <Tooltip content="Search the tools, the parts and every command" shortcut="mod+k">
+      <button
+        type="button"
+        data-tool-search=""
+        onClick={() => ctx.togglePanel("commands")}
+        className="tactile hidden h-6 w-44 shrink items-center gap-1.5 rounded-md border border-border bg-elevated px-1.5 text-[11px] text-fg-faint hover:border-border-strong hover:text-fg-muted lg:flex"
+      >
+        <Search className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-left">Search tools…</span>
+        <Kbd>mod+k</Kbd>
+      </button>
+    </Tooltip>
+  );
+}
+
 /** Look at the site rather than the board. Pressing it again comes back. */
 function PreviewToggle() {
   const mode = useStudio((s) => s.mode);
@@ -333,7 +378,6 @@ export function StudioPage() {
   useStudioHydration();
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
-  const [panel, setPanel] = React.useState("inspector");
   const [leftPanel, setLeftPanel] = React.useState("look");
   const selection = useStudio((s) => s.selection);
   const mode = useStudio((s) => s.mode);
@@ -341,10 +385,21 @@ export function StudioPage() {
   const design = mode === "design";
   const book = mode === "book";
 
-  // Selecting something on the canvas should show it, not whatever tab you left open.
+  /*
+   * Picking something brings its own panel to the front, and letting go of it
+   * hands the column back to Look — the tab you were on is remembered only
+   * while there is something to be on it about.
+   */
+  const picked = selection.length > 0;
   React.useEffect(() => {
-    if (selection.length) setPanel("inspector");
+    // A part picks Element; the page picks Look. The background's own panel
+    // is mostly a sign pointing at Look — its colour, its texture, its light
+    // all live there — so selecting the page goes straight to the thing you
+    // came for, with Element still a tab away.
+    const page = selection.includes(BACKGROUND_ID);
+    setLeftPanel(selection.length && !page ? "inspector" : "look");
   }, [selection]);
+  const sideTab = picked ? leftPanel : leftPanel === "motion" ? "motion" : "look";
 
   React.useEffect(() => {
     // The setters beside the togglers are for anything that has to put the
@@ -406,25 +461,49 @@ export function StudioPage() {
       <div className="flex min-h-0 flex-1">
         {/* Colour and texture on the left; the parts library lives under the
             board now, so the board keeps the width. */}
+        {/*
+          One side carries everything.
+          
+          There were two: Look and Motion on the left, Element / Format /
+          Pages on the right — and the right one was hidden below 1280px, so
+          at half a monitor the panel you need when you pick something simply
+          was not there, while the left one went on eating room the frame
+          wanted. They are one column now, and what is in it answers what you
+          have in your hand: pick something and its own tabs are there, at the
+          front; pick nothing and it is Look and Motion, as before.
+        */}
         {design && libraryOpen ? (
-          <aside className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 lg:flex">
+          <aside data-side-panel="" className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 md:flex">
             <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
               <Segmented
                 className="min-w-0 flex-1 [&>*]:flex-1"
                 size="xs"
-                value={leftPanel}
+                value={sideTab}
                 onChange={setLeftPanel}
                 options={[
+                  ...(picked
+                    ? [
+                        { value: "inspector", label: "Element", icon: <Sparkles /> },
+                        { value: "format", label: "Format", icon: <Settings2 /> },
+                        { value: "pages", label: "Pages", icon: <Layers /> },
+                      ]
+                    : []),
                   { value: "look", label: "Look", icon: <PaletteIcon /> },
                   { value: "motion", label: "Motion", icon: <Clapperboard /> },
                 ]}
-                aria-label="Left panel"
+                aria-label="Side panel"
               />
-              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide look" className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
+              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide the side panel" className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
                 <PanelLeft className="size-3.5" />
               </button>
             </div>
-            {leftPanel === "look" ? <LookPanel /> : <MotionPanel />}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {sideTab === "inspector" ? <Inspector />
+                : sideTab === "format" ? <FormatPanel />
+                : sideTab === "pages" ? <PagesPanel />
+                : sideTab === "motion" ? <MotionPanel />
+                : <LookPanel />}
+            </div>
           </aside>
         ) : null}
 
@@ -439,7 +518,9 @@ export function StudioPage() {
         */}
         <div
           data-studio-scroll=""
-          className={cn("flex min-h-0 min-w-0 flex-1 flex-col", design || book ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden")}
+          // Neither screen scrolls as a column any more: both are a pane and a
+          // band, and the band is always on screen.
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           {/*
             The timeline is the board's twin: it fills the window less a
@@ -448,8 +529,8 @@ export function StudioPage() {
             shelf is under the board.
           */}
           <div
-            className="relative w-full shrink-0"
-            style={design || book ? { height: "calc(100% - 108px)" } : { height: "100%" }}
+            className={cn("relative w-full", design || book ? "min-h-0 flex-1" : "shrink-0")}
+            style={design || book ? undefined : { height: "100%" }}
           >
             {design ? (
               <Canvas />
@@ -461,37 +542,25 @@ export function StudioPage() {
             <PreviewWindow />
           </div>
           {design ? (
-            <div className="w-full shrink-0" style={{ height: "100%" }}>
+            /*
+              The shelf is a band, not a floor below the horizon.
+              
+              It used to sit under the board in one long scroll: to reach the
+              parts you scrolled the workspace down past the page, and on a
+              deep site that was a long way past. The frame is one screen now
+              and the board never scrolls, so the shelf can simply be here —
+              always in view, and always in the same place.
+            */
+            <div className="w-full shrink-0 border-t border-border" style={{ height: BAND_H }}>
               <Palette />
             </div>
           ) : book ? (
-            <div className="w-full shrink-0" style={{ height: "100%" }}>
+            <div className="w-full shrink-0 border-t border-border" style={{ height: BAND_H }}>
               <TimelineDetail />
             </div>
           ) : null}
         </div>
 
-        {design ? (
-          <aside className="hidden w-[260px] shrink-0 flex-col border-l border-border bg-panel/50 xl:flex">
-            <div className="shrink-0 border-b border-border p-1.5">
-              <Segmented
-                className="w-full [&>*]:flex-1"
-                size="xs"
-                value={panel}
-                onChange={setPanel}
-                options={[
-                  { value: "inspector", label: "Element", icon: <Sparkles /> },
-                  { value: "format", label: "Format", icon: <Settings2 /> },
-                  { value: "pages", label: "Pages", icon: <Layers /> },
-                ]}
-                aria-label="Panel"
-              />
-            </div>
-            <div className="min-h-0 flex-1">
-              {panel === "inspector" ? <Inspector /> : panel === "format" ? <FormatPanel /> : <PagesPanel />}
-            </div>
-          </aside>
-        ) : null}
       </div>
 
       <DrawQueue />

@@ -36,7 +36,8 @@ import { css, parseColor } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
-import { Input } from "@/core/ui/input";
+import { SCREEN, screenFace } from "@/core/ui/void";
+import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 
 /** Where a right-click "add here" lands when no cursor is involved. */
@@ -252,8 +253,43 @@ export function Palette() {
 
   return (
     <div data-drawer="" className="relative flex h-full flex-col border-t border-border bg-panel/50">
+      {/*
+        The search, across the whole shelf and on a screen of its own.
+        
+        It was a hundred and sixty pixels of dark box at the end of a dark
+        row, which is how you build a search field nobody can find. Anywhere
+        words are typed in this app is a screen — teal glass, scanlines,
+        phosphor lettering, the same as the command palette's field — so this
+        is the one colour on the shelf that is not the shelf, and it is as
+        wide as the thing it searches.
+      */}
+      <div data-parts-search="" className="shrink-0 px-2 pt-2">
+        <div className="relative flex items-center gap-2 rounded-md px-2.5 py-1.5" style={{ ...screenFace, color: SCREEN.ink }}>
+          <Search className="size-4 shrink-0" style={{ color: SCREEN.dim }} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search parts"
+            placeholder="Search parts…"
+            className="min-w-0 flex-1 bg-transparent font-mono text-[12px] tracking-tight outline-none placeholder:opacity-45"
+            style={{ color: SCREEN.ink }}
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear the search"
+              className="tactile shrink-0 rounded-sm p-0.5"
+              style={{ color: SCREEN.dim }}
+            >
+              <X className="size-3.5" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       {/* ------------------------------------------------ where you are */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
+      <div className={cn("flex shrink-0 items-center gap-2 px-3", chosen || hidden.length ? "border-b border-border py-1.5" : "h-0 overflow-hidden")}>
         {chosen ? (
           <Crumb hue={chosen.hue} label={chosen.label} onClear={() => { setCat(null); setSub(null); }}>
             {React.createElement(PLANET[chosen.id], { size: 14 })}
@@ -300,16 +336,6 @@ export function Palette() {
             : null}
         </div>
 
-        <div className="w-40 shrink-0">
-          <Input
-            inputSize="sm"
-            left={<Search />}
-            placeholder="Search parts…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search parts"
-          />
-        </div>
         {hidden.length ? (
           <button
             type="button"
@@ -321,14 +347,6 @@ export function Palette() {
             {hidden.length} removed
           </button>
         ) : null}
-        <button
-          type="button"
-          onClick={() => addFeatureToCanvas("custom-idea")}
-          className="tactile flex shrink-0 items-center gap-1 rounded-sm border border-dashed border-accent/50 px-1.5 py-0.5 text-[10px] text-accent hover:bg-accent-soft"
-        >
-          <Sparkles className="size-3" />
-          New idea
-        </button>
       </div>
 
       {/* ------------------------------------------------ the parts */}
@@ -336,21 +354,66 @@ export function Palette() {
         <div ref={shelfRef} className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
         {!chosen && !searching ? (
           // Fourteen planets, all of them on screen, one per kind of part.
-          <div className="relative z-[1] grid grid-cols-7 gap-2 p-4">
-            {categories.map((c) => (
+          /*
+            A planet is a round thing, so its button is round.
+            
+            They were rounded rectangles in a fixed seven across, with the
+            icon at twenty-six pixels — small enough that the line-art each
+            one is drawn in was lost. The icon is half again as big now, in a
+            disc of its own colour with a rim to match, and the row wraps to
+            as many lines as it needs rather than being held to two.
+          */
+          <div className="relative z-[1] flex flex-wrap justify-center gap-x-3 gap-y-2 px-4 py-3">
+            {[...categories].map((c) => (
               <Tooltip key={c.id} content={c.blurb} side="top">
                 <button
                   type="button"
+                  data-category={c.id}
                   onClick={() => { play("select"); setCat(c.id); setSub(null); }}
-                  className="tactile flex flex-col items-center gap-1.5 rounded-lg border border-transparent px-2 py-3 hover:border-border hover:bg-hover"
-                  style={{ color: `oklch(0.82 0.13 ${c.hue})` }}
+                  className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1"
+                  style={{ color: `oklch(0.84 0.13 ${c.hue})` }}
                 >
-                  {React.createElement(PLANET[c.id], { size: 26 })}
+                  <span
+                    className="flex size-[52px] items-center justify-center rounded-full transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
+                    style={{
+                      background: `oklch(0.2 0.045 ${c.hue} / 0.55)`,
+                      // Under the hand it lifts and its rim brightens. It does
+                      // not change colour: the colour is what says which kind
+                      // of part this is.
+                      boxShadow: `inset 0 0 0 1px oklch(0.62 0.14 ${c.hue} / 0.42), 0 1px 0 oklch(0 0 0 / 0.5)`,
+                      "--lit": `inset 0 0 0 1.5px oklch(0.78 0.16 ${c.hue} / 0.85), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.35)`,
+                    } as React.CSSProperties}
+                  >
+                    {React.createElement(PLANET[c.id], { size: 38 })}
+                  </span>
                   <span className="text-center text-[10px] leading-tight">{c.label}</span>
                   <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
                 </button>
               </Tooltip>
             ))}
+            {/*
+              And one that is not a kind of part: something the library does
+              not have, which you describe yourself. Same shape as the rest,
+              drawn in a dashed rim so it reads as an opening rather than a
+              thing.
+            */}
+            <Tooltip content="Something the library has not got: describe it and place it" side="top">
+              <button
+                type="button"
+                data-category="custom-idea"
+                onClick={() => addFeatureToCanvas("custom-idea")}
+                className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1 text-accent"
+              >
+                <span
+                  className="flex size-[52px] items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
+                  style={{ background: "oklch(0.2 0.04 265 / 0.45)" }}
+                >
+                  <Sparkles className="size-[30px]" />
+                </span>
+                <span className="text-center text-[10px] leading-tight">New idea</span>
+                <span className="num text-[9px] text-fg-faint">yours</span>
+              </button>
+            </Tooltip>
           </div>
         ) : shown.length || removed.length ? (
           <div className="relative z-[1] px-3 py-3">

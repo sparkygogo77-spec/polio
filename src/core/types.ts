@@ -263,6 +263,15 @@ export interface RouteDef {
   title?: string;
   /** Hide the sidebar for this route. */
   fullBleed?: boolean;
+  /**
+   * This route puts the command search somewhere of its own, so the top bar
+   * leaves it out rather than showing two of them.
+   *
+   * The Builder's toolbar is a row of things you do to the page; the search
+   * for a tool belongs in that row, beside them, not in the window's chrome
+   * a floor above.
+   */
+  ownSearch?: boolean;
 }
 
 export interface NavEntry {

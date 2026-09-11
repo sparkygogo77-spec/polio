@@ -37,6 +37,9 @@ const GRID = 8;
 const FRAME_GUTTER = 48;
 /** How far below the top of the viewport the page rests. */
 const TOP_MARGIN = 36;
+
+/** The screen each device actually has, so the frame is a real viewport. */
+const SCREEN_H: Record<number, number> = { 1440: 900, 834: 1112, 390: 844 };
 const snapGrid = (v: number) => Math.round(v / GRID) * GRID;
 const MIN_W = 40;
 const MIN_H = 24;
@@ -84,7 +87,39 @@ export function Canvas() {
   const wash = React.useMemo(() => washCss(look.light), [look.light]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const pageMark = React.useMemo(() => complementOf(theme.backdrop), [theme.backdrop]);
-  const frameH = frameHeight(nodes);
+  const pageScroll = useStudio((s) => s.pageScroll);
+  /*
+   * Two heights, where there used to be one.
+   *
+   * `pageH` is the site: however far down the last part reaches. `frameH` is
+   * one screen of it — the frame is a window on the page now, not the whole
+   * of it laid out flat. The board used to grow downwards as a site got
+   * deeper, until seeing the foot of it meant scrolling the workspace and the
+   * parts shelf had gone somewhere below the horizon. A window the shape of
+   * the viewer's own viewport, with the site scrolling inside it, is what the
+   * live preview shows and what a visitor will see.
+   */
+  const pageH = frameHeight(nodes);
+  const [viewport, setViewport] = React.useState({ w: 1440, h: 900 });
+  const frameH = React.useMemo(() => {
+    /*
+     * One screen of the site, in the shape a screen is.
+     *
+     * Each frame width is a real device, so each has a real viewport to go
+     * with it: a desktop page is 1440×900, a tablet 834×1112, a phone
+     * 390×844. That is what makes the board feel 1:1 with the preview — it
+     * is the same rectangle a visitor will have. The pane's own shape leans
+     * it a little either way, and no further: a board pane that happens to
+     * be short and wide must not turn the site into a letterbox.
+     */
+    const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
+    const ratio = stock / frameWidth;
+    const lean = Math.max(0.9, Math.min(1.1, (viewport.h / Math.max(1, viewport.w)) / ratio));
+    return Math.round(frameWidth * ratio * lean);
+  }, [frameWidth, viewport]);
+  /** How far the page can scroll inside its window. */
+  const scrollMax = Math.max(0, pageH - frameH);
+  const scrolled = Math.min(pageScroll, scrollMax);
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
 
@@ -121,9 +156,9 @@ export function Canvas() {
     (clientX: number, clientY: number) => {
       const rect = ref.current?.getBoundingClientRect();
       if (!rect) return { x: 0, y: 0 };
-      return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - pan.y) / zoom };
+      return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - pan.y) / zoom + scrolled };
     },
-    [pan.x, pan.y, zoom],
+    [pan.x, pan.y, zoom, scrolled],
   );
 
   /* ---------------------------------------------------- fit the frame
@@ -133,35 +168,57 @@ export function Canvas() {
    * the window narrows the gutter and then stops. Taller than the viewport is
    * fine: that is what scrolling is for.
    */
-  const fitZoom = React.useCallback((vw: number) => Math.max(0.2, Math.min(1, (vw - FRAME_GUTTER) / frameWidth)), [frameWidth]);
+  const fitZoom = React.useCallback(
+    (vw: number, vh: number, fh: number) =>
+      // Both ways at once, and a little short of either: the whole screen of
+      // the site is in the pane with the ground showing all the way round it,
+      // which is what says "this is a page standing on something" rather than
+      // "this is the window".
+      Math.max(0.2, Math.min(1, Math.min((vw - FRAME_GUTTER) / frameWidth, (vh - FRAME_GUTTER) / Math.max(1, fh)))),
+    [frameWidth],
+  );
 
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const apply = (z: number) => {
+    const measure = () => setViewport({ w: Math.max(1, el.clientWidth), h: Math.max(1, el.clientHeight) });
+    const apply = () => {
+      const vw = el.clientWidth;
+      const vh = el.clientHeight;
+      const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
+      const lean = Math.max(0.9, Math.min(1.1, (vh / Math.max(1, vw)) / (stock / frameWidth)));
+      const fh = Math.round(stock * lean);
+      const z = fitZoom(vw, vh, fh);
       useStudio.getState().setZoom(z);
-      useStudio.getState().setPan({ x: Math.round((el.clientWidth - frameWidth * z) / 2), y: TOP_MARGIN });
+      useStudio.getState().setPan({
+        x: Math.round((vw - frameWidth * z) / 2),
+        // Centred, not pinned to the top: there is no page below the fold to
+        // leave room for any more.
+        y: Math.max(TOP_MARGIN / 2, Math.round((vh - fh * z) / 2)),
+      });
     };
-    apply(fitZoom(el.clientWidth));
-    // Re-fit only when the page would actually be cut off. A pane that grew
-    // just means a wider gutter; snapping the view every time it did would
-    // move the board under your hands for no reason.
-    const ro = new ResizeObserver(() => {
-      const z = useStudio.getState().zoom;
-      if (frameWidth * z > el.clientWidth - 8) apply(fitZoom(el.clientWidth));
-    });
+    measure();
+    apply();
+    // The frame is the pane's own shape, so a pane that changes shape is a
+    // frame that changes shape: re-measure and re-seat every time.
+    const ro = new ResizeObserver(() => { measure(); apply(); });
     ro.observe(el);
     return () => ro.disconnect();
   }, [fitNonce, frameWidth, fitZoom]);
 
   /* ------------------------------------------------------------- wheel */
-  // The board pans until the page runs out, and then hands the wheel on to
-  // the column it sits in — so one gesture carries you down the page and
-  // straight into the shelf, and back up again, without the page ever being
-  // scaled to make room. `frameRef` keeps the current page height available
-  // to a listener that is attached once.
-  const frameRef = React.useRef(frameH);
-  frameRef.current = frameH;
+  /*
+   * The wheel scrolls the site, inside its frame.
+   *
+   * It used to pan the board down until the page ran out and then hand the
+   * gesture to the column, which is how a deep site pushed the parts shelf
+   * off the bottom of the world. The frame is one screen now, so the wheel
+   * does what it does in a browser: moves the page behind the frame's edge,
+   * and stops at the foot of it. The board's own pan is still there on the
+   * middle button and the pan tool, for moving the frame about the ground.
+   */
+  const reach = React.useRef({ max: 0 });
+  reach.current.max = scrollMax;
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -169,32 +226,25 @@ export function Canvas() {
       const store = useStudio.getState();
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const floor = ref.current ? fitZoom(ref.current.clientWidth) : 0.2;
+        const floor = 0.2;
         store.setZoom(Math.max(floor, store.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
         return;
       }
-      if (e.deltaX) {
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         e.preventDefault();
-        store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y - e.deltaY });
+        store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y });
         return;
       }
-      const outer = el.closest("[data-studio-scroll]") as HTMLElement | null;
-      const bottom = store.pan.y + frameRef.current * store.zoom;
-      const down = e.deltaY > 0;
-      // Down: pan while there is still page below the fold. Up: pan while the
-      // page has been pushed above its resting margin — but only once the
-      // column itself is back at the top, so the shelf closes first.
-      const more = down ? bottom > el.clientHeight : store.pan.y < TOP_MARGIN && (!outer || outer.scrollTop <= 0);
-      if (!more) return;
+      const max = reach.current.max;
+      if (max <= 0) return;
+      const next = Math.max(0, Math.min(max, store.pageScroll + e.deltaY));
+      if (next === store.pageScroll) return;
       e.preventDefault();
-      const next = down
-        ? Math.max(el.clientHeight - frameRef.current * store.zoom, store.pan.y - e.deltaY)
-        : Math.min(TOP_MARGIN, store.pan.y - e.deltaY);
-      store.setPan({ x: store.pan.x, y: next });
+      store.setPageScroll(next);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [fitZoom]);
+  }, []);
 
   /* ---------------------------------------------------------------- drop */
   const onDrop = (e: React.DragEvent) => {
@@ -522,6 +572,19 @@ export function Canvas() {
       />
 
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+        {/*
+          The window on the site.
+          
+          Everything inside it is clipped to one screen, and the site itself
+          slides behind that edge as the wheel is turned. The frame used to be
+          the whole page laid out flat, which grew downwards for ever and put
+          the foot of a long site somewhere below the workspace's own horizon.
+        */}
+        <div
+          data-page-window=""
+          className="absolute left-0 top-0 overflow-hidden rounded-[3px]"
+          style={{ width: frameWidth, height: frameH }}
+        >
         {/* ---------- the page frame: this is the website ---------- */}
         <div
           data-frame=""
@@ -553,6 +616,20 @@ export function Canvas() {
             outline: selection.includes(BACKGROUND_ID) ? `${(1.5 / zoom).toFixed(2)}px solid ${pageMark}` : "1px solid var(--border-strong)",
           }}
         />
+        {/* The page itself, sliding behind the window's edge. */}
+        <div
+          data-page-scroll=""
+          /*
+            Transparent to the hand.
+            
+            The layer covers the whole page, so with pointer events on it the
+            bare page was never bare: a right press meant for the background's
+            own wheel landed on this instead. The parts and the drawn shapes
+            in it take their own presses back.
+          */
+          className="pointer-events-none absolute left-0 top-0"
+          style={{ width: frameWidth, height: pageH, transform: `translateY(${-scrolled}px)` }}
+        >
         <TextureDrift layers={look.texture} palette={palette} />
         {/* The pool the lamp puts on the page, when it has been asked for. Under
             the parts, because a lamp lights a table and the things on it cast
@@ -562,7 +639,7 @@ export function Canvas() {
             aria-hidden
             data-frame-light=""
             className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
-            style={{ width: frameWidth, height: frameH, backgroundImage: wash }}
+            style={{ width: frameWidth, height: pageH, backgroundImage: wash }}
           />
         ) : null}
         {selection.includes(BACKGROUND_ID) ? (
@@ -578,11 +655,21 @@ export function Canvas() {
           <span className="font-medium text-fg">{page.name}</span>
           <span>{page.path}</span>
           <span className="num">{frameWidth} × {Math.round(frameH)}</span>
+          {scrollMax > 0 ? (
+            <span className="text-fg-faint">
+              · <span className="num">{Math.round(pageH)}</span> deep{scrolled > 0 ? <> · <span className="num">{Math.round(scrolled)}</span> down</> : null}
+            </span>
+          ) : null}
         </div>
-        {/* fold line: what fits on the first screen */}
-        <div className="pointer-events-none absolute left-0 border-t border-dashed border-accent/40" style={{ top: 900, width: frameWidth }}>
-          <span className="absolute right-0 -top-4 text-accent/70" style={{ fontSize: 10 / zoom }}>first screen ends</span>
-        </div>
+        {/*
+          The fold is the window's own bottom edge now.
+          
+          A dashed line at 900px was how you were told where the first screen
+          ended on a page drawn flat. The frame *is* the first screen, so the
+          line would sit exactly on its edge and say nothing; what is worth
+          saying is how much page there is below it, and that is on the
+          caption above the frame.
+        */}
 
         <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
           <defs>
@@ -654,7 +741,7 @@ export function Canvas() {
             aria-hidden
             data-frame-wash=""
             className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
-            style={{ width: frameWidth, height: frameH, ...theme.overlayStyle }}
+            style={{ width: frameWidth, height: pageH, ...theme.overlayStyle }}
           />
         ) : null}
         {/* The veil: a dim over the whole page, set from the background's wheel. */}
@@ -663,7 +750,7 @@ export function Canvas() {
             aria-hidden
             data-frame-veil=""
             className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
-            style={{ width: frameWidth, height: frameH, background: theme.veil }}
+            style={{ width: frameWidth, height: pageH, background: theme.veil }}
           />
         ) : null}
 
@@ -682,6 +769,8 @@ export function Canvas() {
             </div>
           );
         })}
+        </div>
+        </div>
       </div>
 
     </div>
@@ -1021,7 +1110,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         e.preventDefault();
         e.stopPropagation();
       }}
-      className={cn("group absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed", flash && "node-snap")}
+      className={cn("group pointer-events-auto absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: node.x, top: node.y, width: node.w, height: node.h,
         // The aura belongs to the element, not to anything inside it.
