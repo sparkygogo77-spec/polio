@@ -1359,7 +1359,15 @@ a kicker with a rule, and label-and-value rows that copy.
   to be continuous is `R(t)·laid + d`, which is what `tests/ground-seam.mjs`
   checks, against a control of frames where nothing was laid so the
   measurement's own noise is not read as a seam. `data-laid-at` on each layer
-  exists only so that number can be worked out from outside.
+  exists only so that number can be worked out from outside. The same test
+  also samples **the pixels under a fixed point on screen**, running the
+  transform backwards to find which pixel of the layer's own bitmap is there,
+  because the arithmetic would pass even if the paint came back different.
+  `near-violet` is the layer a seam shows on first and the one that gets
+  reported: its spin is the largest at 0.8°/s, so it is laid again every
+  12.5s where the far layers take 50s and 67s. It is the canary, not a
+  special case — there is one code path for all four and both tiles are the
+  same 256px.
 - **A layer is repainted by swapping a buffer, never by clearing one.**
   The ground was flickering black. Three causes were checked by name against
   a running page (`tests/ground-steady.mjs`), not guessed at: the holder
