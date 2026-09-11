@@ -45,9 +45,17 @@
  * was his. `docs/shelf/README.md` has the whole table.
  *
  * The embers are untouched: their own canvas at the box's own size, thirty
- * times a second, which is what a streak needs. The drag pause is kept and
- * is a held clock rather than a skipped frame, so letting go of the board
- * does not jump the weather forward by however long the drag was.
+ * times a second, which is what a streak needs.
+ *
+ * **Nothing stops it.** There used to be a pause: a flag on the root while
+ * the hand was down on the board, and the ground held where it was until it
+ * let go. That was bought when the clouds were repainted every frame to move
+ * them, and a pan and a full-surface repaint wanted the same main thread.
+ * The field is painted once and slid on the compositor now, so a drifting
+ * cloud costs a transform write, and the bill the pause was paying no longer
+ * arrives — measured, with the whole ground running through a pan, in
+ * `tests/pan-weather.mjs`. It is gone, and with it the flag that could go on
+ * and not come off, which is how the sparks got stuck still.
  */
 import * as React from "react";
 import {
@@ -106,22 +114,6 @@ export function marginFor(l: CloudLayer, w: number, h: number): number {
   const sweep = (Math.hypot(w, h) / 2) * Math.sin((TURN_MAX * Math.PI) / 180);
   return Math.round(Math.max(MARGIN_MIN, drift) + sweep);
 }
-
-/**
- * How long the clouds will hold for a drag before carrying on regardless.
- *
- * The pause is a flag another component sets and clears. A flag that goes on
- * and does not come off freezes the weather for good, and every way that can
- * happen is outside this file: a pointer released outside the window, a
- * handler that returns early, a component unmounted mid-drag. So this does
- * not trust the flag indefinitely. Six seconds is longer than any real drag
- * needs and short enough that a stuck flag is a hitch rather than a dead
- * ground.
- */
-const HOLD_MAX_S = 6;
-
-/** The flag another component sets while the hand is down on the board. */
-const flagged = () => typeof document !== "undefined" && document.documentElement.dataset.boardDrag === "1";
 
 /** One layer's canvas, and where its paint and its transform each stand. */
 interface Live {
@@ -195,10 +187,8 @@ export function useGround(
     const embersField: { current: SparkField | null } = { current: null };
     let size = { w: 0, h: 0 };
     let raf = 0;
-    /** Seconds of weather that have passed. Held while the hand is down. */
+    /** Seconds of weather that have passed. Nothing ever stops it. */
     let clock = 0;
-    /** The embers' own, which is never held: nothing here is ever still. */
-    let sparkClock = 0;
     let last = performance.now();
     let nextSpark = 0;
     /** Layers waiting to be laid again, one to a frame. */
@@ -328,7 +318,7 @@ export function useGround(
     const embers = () => {
       const c = sp.getContext("2d");
       if (!c || !embersField.current) return;
-      paintDarkMatter(c, { field: embersField.current, t: sparkClock, vignette: false, dim, layers: "sparks" });
+      paintDarkMatter(c, { field: embersField.current, t: clock, vignette: false, dim, layers: "sparks" });
     };
 
     fit();
@@ -345,70 +335,26 @@ export function useGround(
       };
     }
 
-    /* The pause, and coming out of it.
-     *
-     * Two changes from a plain "is the flag set". First, it is capped: a flag
-     * that never comes off stops holding after `HOLD_MAX_S`, so the ground
-     * always resumes by itself rather than waiting on somebody else's
-     * cleanup. Second, a real pointer has to be down for it to count — the
-     * pointerup and pointercancel below fire on the window whatever the
-     * board's own handler does, and the blur covers a pointer released
-     * outside it altogether. Any of the three failing resumes the weather.
-     */
-    let heldFrom = 0;
-    /** Latched once a hold outstays the cap, so the resume is not undone. */
-    let capped = false;
-    let pointer = false;
-    const down = () => { pointer = true; };
-    const up = () => { pointer = false; };
-    addEventListener("pointerdown", down, { capture: true, passive: true });
-    addEventListener("pointerup", up, { capture: true, passive: true });
-    addEventListener("pointercancel", up, { capture: true, passive: true });
-    addEventListener("blur", up);
-
     const tick = (t: number) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.25, Math.max(0, (t - last) / 1000));
       last = t;
       if (document.hidden) return;
+      clock += dt;
 
-      /* The cap latches. Without that, exceeding it clears `heldFrom`, which
-         makes the next frame look like a fresh hold — a one-frame twitch
-         every six seconds rather than a resume. Once it has outstayed its
-         welcome the hold is over until the flag itself goes. */
-      const wants = flagged() && pointer;
-      if (!wants) { heldFrom = 0; capped = false; }
-      else if (heldFrom === 0) heldFrom = t;
-      else if (t - heldFrom >= HOLD_MAX_S * 1000) capped = true;
-      const held = wants && !capped;
-
-      /* The embers run through a pause; only the clouds hold.
-       *
-       * The pause is there because a pan is the one moment the main thread
-       * has somewhere better to be, and what costs it is a full-resolution
-       * pattern fill, not thirty dots. Holding the embers too bought nothing
-       * and stopped the ground dead, which is the thing that reads as broken.
-       * So the embers keep their own clock and never stop; the clouds keep
-       * the held one, so letting go carries on from where it was rather than
-       * jumping the weather forward by the length of the drag. */
-      sparkClock += dt;
-      if (!held) {
-        clock += dt;
-
-        // One recycle to a frame, so the only expensive moment in this file
-        // never doubles up.
-        const due = queue.shift();
-        if (due) {
-          lay(due, clock);
-          move(due, true);
-        } else {
-          for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
-        }
-        for (const l of layers) if (l !== due) move(l);
+      // One recycle to a frame, so the only expensive moment in this file
+      // never doubles up.
+      const due = queue.shift();
+      if (due) {
+        lay(due, clock);
+        move(due, true);
+      } else {
+        for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
       }
+      for (const l of layers) if (l !== due) move(l);
 
-      if (sparkClock >= nextSpark) {
-        nextSpark = sparkClock + SPARK_MS / 1000;
+      if (clock >= nextSpark) {
+        nextSpark = clock + SPARK_MS / 1000;
         embers();
       }
     };
@@ -419,10 +365,6 @@ export function useGround(
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
-      removeEventListener("pointerdown", down, { capture: true });
-      removeEventListener("pointerup", up, { capture: true });
-      removeEventListener("pointercancel", up, { capture: true });
-      removeEventListener("blur", up);
       holder.replaceChildren();
     };
   }, [host, clouds, spark, dim, shape]);

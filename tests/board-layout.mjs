@@ -442,37 +442,31 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   await page.waitForTimeout(1500);
   await ground("the timeline's floor");
 
-  /* The hand down holds the clouds, and letting go does not jump them.
+  /* The weather does not stop for a hand on the board.
    *
-   * Two things, not one: the flag another component sets, and a pointer
-   * actually being down. The ground wants both, because a flag that goes on
-   * and never comes off is the way a ground freezes for good — a pointer
-   * released outside the window, a handler that returns early, a component
-   * unmounted mid-drag — and the pointerup that clears this fires on the
-   * window whatever the board's own handler does. So the flag alone must
-   * not hold anything. */
+   * It used to: a flag on the root, and the ground held where it was. That
+   * was bought when moving a cloud meant repainting it, and moving one costs
+   * a transform write now, so there is nothing left to buy. Both the flag
+   * and a real pointer are put in place here, which is exactly the state
+   * that used to freeze it. */
   const cloud = () => page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
   await page.evaluate(() => { document.documentElement.dataset.boardDrag = "1"; });
-  const flagOnly = await cloud();
-  await page.waitForTimeout(700);
-  check("the flag alone does not hold the weather", (await cloud()) !== flagOnly, "no pointer down");
-
   await page.mouse.move(400, 400);
   await page.mouse.down();
   await page.waitForTimeout(120);
-  const held = await cloud();
-  await page.waitForTimeout(900);
   const during = await cloud();
-  check("a hand on the board holds the weather where it is", held === during);
+  await page.waitForTimeout(700);
+  const after = await cloud();
+  check("a hand on the board does not stop the weather", during !== after);
   await page.mouse.up();
   await page.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
   await page.waitForTimeout(700);
-  const after = await page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
+  const later = await cloud();
   const px = (t) => Number(/translate3d\(([-\d.]+)px/.exec(t)?.[1] ?? 0);
-  const went = px(after) - px(during);
-  // The clock is held rather than the frame skipped, so it carries on from
-  // here: about 7.4px a second, not the whole pause at once.
-  check("and letting go carries on rather than jumping", went > 0.5 && went < 12, `${went.toFixed(1)}px in 0.7s`);
+  const went = px(later) - px(after);
+  // And it keeps the same steady pace afterwards, about 7.4px a second:
+  // there is no pause to catch up from, so there is nothing to jump.
+  check("and it keeps the same pace afterwards", went > 0.5 && went < 12, `${went.toFixed(1)}px in 0.7s`);
   await context.close();
 }
 
