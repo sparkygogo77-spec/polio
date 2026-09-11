@@ -100,7 +100,7 @@ function faceColour(face: CubeFace | undefined, t: Theme): string {
   return own;
 }
 
-export function Cube({ label, content, w, h, theme: t, mode, cube, options, emit }: PartProps) {
+export function Cube({ id, label, content, w, h, theme: t, mode, cube, options, emit }: PartProps) {
   /*
    * The faces on the node win, and they are what the panel edits. A cube
    * that has never been edited — dropped straight off the shelf — reads its
@@ -226,7 +226,7 @@ export function Cube({ label, content, w, h, theme: t, mode, cube, options, emit
   const filled = faces.filter((f) => f.heading.trim() || f.body.trim()).length;
 
   return (
-    <Fill t={t} id="cube-3d">
+    <Fill t={t} data-part={id}>
       <div
         data-cube=""
         data-cube-turn={`${Math.round(turn.x)},${Math.round(turn.y)}`}
