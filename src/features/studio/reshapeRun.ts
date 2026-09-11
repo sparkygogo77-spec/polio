@@ -31,6 +31,7 @@ import { drawBody } from "./drawRun";
 import { pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
 import { roleFromWords } from "./vector";
+import { claudeSpend, sayBill } from "./spend";
 
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
@@ -225,6 +226,8 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     }
 
     deps.onStep?.("Claude is reading the drawing…");
+    // What the person waits for is measured, not estimated.
+    const readFrom = Date.now();
     const res = await fetch("/api/studio/reshape", {
       method: "POST",
       headers: { "content-type": "application/json", ...keyHeader() },
@@ -254,7 +257,14 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         candidates: FEATURES.map((f) => ({ id: f.id, name: f.name, category: f.category, w: f.w, h: f.h, blurb: f.blurb })),
       }),
     });
-    const data = (await res.json()) as { ok: boolean; patch?: ReshapePatch; message?: string; reason?: string; usage?: { model?: string } };
+    const data = (await res.json()) as {
+      ok: boolean;
+      patch?: ReshapePatch;
+      message?: string;
+      reason?: string;
+      usage?: { model?: string; input?: number; output?: number; cached?: number };
+    };
+    const readCost = claudeSpend(data.usage, Date.now() - readFrom);
     if (data.ok && data.patch) {
       const made = apply(data.patch, drawn, node, job);
       // A drawing read is an API call that landed, so it is a thread too:
@@ -280,6 +290,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
         changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : [])],
       });
+      // The reading is the first paid call of this iteration; the tracer and
+      // the writer add theirs to the same bill as they go.
+      useStudio.getState().noteSpend(readCost);
       const body = [
         `${made.w} × ${made.h}`,
         made.kindChanged ? `now ${made.kind}` : null,
@@ -301,6 +314,15 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
       const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
       useStudio.getState().markThread(landed, "done");
+      /*
+       * What it cost, said where the person is looking.
+       *
+       * The toast has to be published before the body is traced, because a
+       * toast that arrives ten seconds after the part did is not a report;
+       * so the bill is added to it here, once everything that spends has
+       * spent, off the thread the whole iteration wrote to.
+       */
+      billToast(landed, deps, `studio:reshape:${made.id}`);
       return { ok: true, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
     }
 
@@ -340,6 +362,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // The reader was missing, not the work: the shape, the behaviour and
     // the traced body all landed, so this iteration finished.
     useStudio.getState().markThread(landed, "done");
+    billToast(landed, deps, `studio:reshape:${made.id}`);
     return { ok: false, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
   } catch (err) {
     // The request itself failed. The drawing is still worth keeping, and the
@@ -356,6 +379,36 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     });
     return { ok: false, madeId: made.id, note: body };
   }
+}
+
+/**
+ * Say what the iteration cost, where the person is already looking.
+ *
+ * A second toast rather than a longer first one: the first says what
+ * appeared on the board and has to arrive with the part, and the bill is
+ * not settled until the tracer and the writer have finished — which can be
+ * ten seconds later. Both carry the same key, so the second replaces the
+ * first rather than stacking under it.
+ */
+function billToast(threadId: string, deps: RunDeps, key: string) {
+  const usage = useStudio.getState().threads.find((t) => t.id === threadId)?.usage;
+  if (!usage) return;
+  const line = sayBill({
+    dollars: usage.cost ?? 0,
+    ms: usage.ms ?? 0,
+    calls: usage.calls ?? 0,
+    ...(usage.claude ? { claude: usage.claude } : {}),
+    ...(usage.renderer ? { renderer: usage.renderer } : {}),
+  });
+  if (!line) return;
+  deps.publish({
+    key: `${key}:bill`,
+    title: "What that cost",
+    body: line,
+    level: "info",
+    source: "studio",
+    toast: true,
+  });
 }
 
 /**
@@ -398,12 +451,27 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
       },
       { onStep: deps.onStep },
     );
-    return { ...wrote, cost: wrote.cost + traced.cost, message: [traced.message, wrote.message].filter(Boolean).join(" ") };
+    return {
+      ...wrote,
+      cost: wrote.cost + traced.cost,
+      ms: (wrote.ms ?? 0) + (traced.ms ?? 0),
+      calls: (wrote.calls ?? 0) + (traced.calls ?? 0),
+      renderer: (wrote.renderer ?? 0) + (traced.renderer ?? 0),
+      claude: (wrote.claude ?? 0) + (traced.claude ?? 0),
+      message: [traced.message, wrote.message].filter(Boolean).join(" "),
+    };
   })();
   // Spent is spent, whether or not a body came of it, and how the body got
-  // here — drawn or written, at what price, and why the renderer was not
-  // used — is part of what this iteration did, so it goes on the card.
-  if (written.cost) useStudio.getState().noteCost(written.cost);
+  // here — drawn or written, at what price, how long it took, and why the
+  // renderer was not used — is part of what this iteration did, so all of it
+  // goes on the card.
+  useStudio.getState().noteSpend({
+    dollars: written.cost,
+    ms: written.ms ?? 0,
+    calls: written.calls ?? 0,
+    ...(written.renderer ? { renderer: written.renderer } : {}),
+    ...(written.claude ? { claude: written.claude } : {}),
+  });
   if (written.message) useStudio.getState().noteThread([written.message]);
   if (!written.ok || !written.code) return "";
   /*

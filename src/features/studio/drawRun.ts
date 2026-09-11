@@ -87,6 +87,9 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
   const attempts: Attempt[] = [];
   let spent = 0;
   let says: string | undefined;
+  // The wait, measured. Every rung of the ladder is part of it, because
+  // every rung is time the person spent looking at a spinner.
+  const from = Date.now();
 
   for (let n = 1; n <= MAX_TRACES; n++) {
     const rung = LADDER[n - 1]!;
@@ -118,7 +121,7 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
   }
 
   if (!attempts.length) {
-    return { ok: false, code: null, attempts, cost: spent, rendererSays: says, message: says ?? "Nothing was traced.", reason: "no-trace" };
+    return { ok: false, code: null, attempts, cost: spent, ms: Date.now() - from, calls: 0, renderer: spent, rendererSays: says, message: says ?? "Nothing was traced.", reason: "no-trace" };
   }
   const kept = best(attempts);
   const code: PartCode = {
@@ -141,6 +144,10 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
     vector: kept.vector ?? null,
     attempts,
     cost: spent,
+    ms: Date.now() - from,
+    // Every go is a press, and every press is charged for.
+    calls: attempts.length,
+    renderer: spent,
     rendererSays: says,
     message:
       kept.overlap < 0
