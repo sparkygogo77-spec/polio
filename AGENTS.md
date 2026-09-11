@@ -1170,6 +1170,32 @@ a kicker with a rule, and label-and-value rows that copy.
   loop, and it measured at a 33ms beat, half rate. `viewAt` is the one answer
   to "where is the view", and the strands, the ground drag and a box being
   picked up all read it there.
+- **A performance fix never degrades something a person can see without
+  saying so.** Not the resolution, not the redraw rate, not the number of
+  things on screen. If the only way to hit the number is to take something
+  away, stop and report the measurement — the trade is the owner's to make,
+  not the optimiser's. This is a standing rule, and it was written after the
+  nebula pass below traded the cloud layers' independent headings for frames
+  and did not say so plainly enough.
+- **What the nebula costs, measured, so the trade is on the record.** At
+  1440×900 in a production build on a machine with *no GPU* (SwiftShader —
+  every number here is a floor, not what hardware does), at the screen's own
+  rate:
+
+  | | board | timeline |
+  |---|---|---|
+  | the original: repainted 2.4×/s, layer never moves | 60fps, 0 late | 60fps, 0 late |
+  | four layers, own headings and turns, full resolution, compositor | 13.9fps | 11.5fps |
+  | the same at the original's half resolution | 13.3fps | 10.1fps |
+  | the same with the slow turn frozen | 20.7fps | 17.6fps |
+  | four layers screened into one canvas each frame | 24.1fps | 19.3fps |
+  | one field, one heading, half resolution (what is here) | 60fps, 0 late | 59.8fps, 1 late |
+
+  The cost is the number of window-sized layers the compositor samples every
+  frame; blending is free at full resolution and dear at half. The original
+  held 60 only because the nebula itself moved 2.4 times a second. Restoring
+  the four headings is a saved patch, not a lost one — ask before assuming
+  the version here is the one that was wanted.
 - **The clouds move; they are not redrawn to move** (`ground.ts`). The
   workspace and the timeline stand on the same dark matter, and the way it
   travels is the rule: the whole cloud field is painted **once** onto a
