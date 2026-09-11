@@ -1113,12 +1113,27 @@ a kicker with a rule, and label-and-value rows that copy.
   idea" at the end of them in a dashed rim. The search is a screen across the
   whole shelf — teal glass, phosphor, the same as the palette's field —
   because a dark box at the end of a dark row is a search nobody finds.
+- **The timeline's view goes to where the boxes are** (`timelineView.ts`).
+  Boxes are dragged wherever a person wants them, so the origin stops meaning
+  anything within a minute: centring means the centre of mass of the boxes
+  weighted by size, with the bounds of the whole set fitted inside a margin
+  so nothing sits on an edge, and the holding wins where the two disagree.
+  It runs **on demand** — the timeline opening, a drag ending, the centre
+  button — never while a box is moving, and it reads the store's own spots
+  rather than measuring the DOM. It animates there, and the animation writes
+  the plot's transform straight to the element and commits to state once at
+  the end: a render a frame re-renders every box and restarts the strand
+  loop, and it measured at a 33ms beat, half rate. `viewAt` is the one answer
+  to "where is the view", and the strands, the ground drag and a box being
+  picked up all read it there.
 - **The clouds move; they are not redrawn to move** (`ground.ts`). The
   workspace and the timeline stand on the same dark matter, and the way it
   travels is the rule: the whole cloud field is painted **once** onto a
   canvas bigger than the box, and slid every frame with `translate3d`. The
-  content is repainted only when the material runs out (about every forty
-  seconds), on a resize, or when the distance changes — and the recycle bakes
+  content is repainted only when the material runs out (about every twelve
+  seconds — the margin is kept small because the compositor pays for the
+  layer's size every frame and a recycle costs four frames), on a resize, or
+  when the distance changes — and the recycle bakes
   the drift so far into the paint, snapped to a whole backing pixel, so it
   puts the same pixels in the same place and cannot be seen. It is laid one
   layer to a frame so even that moment fits in a frame. The sky is a CSS

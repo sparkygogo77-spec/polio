@@ -15,7 +15,9 @@
  *
  *  · **One field, painted bigger than the box.** All four cloud layers
  *    (`CLOUD_LAYERS`) are screened together onto one canvas, oversized by a
- *    margin holding about forty seconds of drift.
+ *    margin holding about a dozen seconds of drift — small, because the
+ *    compositor pays for the layer's size every frame and a recycle costs
+ *    four frames of one pattern fill every twelve seconds.
  *  · **A transform every frame.** `translate3d`, which the compositor does
  *    without touching the page: no layout, no paint, no main-thread raster.
  *  · **A repaint only when the material runs out** — or on a resize, or when
@@ -66,13 +68,15 @@ const CLOUD_SCALE = 0.5;
 /**
  * How long the painted material should last before the field needs more.
  *
- * The only cost of raising it is memory: the canvas is oversized by the
- * field's own speed times this, so forty seconds of a 7.4px/s cloud is about
- * 300px of margin each way. The only cost of lowering it is how often the
- * recycle runs, and a recycle cannot be seen, so this is set by taste rather
- * than against a threshold.
+ * Raising it costs compositing: the canvas is oversized by the field's own
+ * speed times this, and the compositor samples the whole layer every frame,
+ * so forty seconds of a 7.4px/s cloud is 300px of margin each way and
+ * measurably more late frames on a machine with no GPU. Lowering it costs
+ * only how often the recycle runs — four frames of one pattern fill — and a
+ * recycle cannot be seen. So it is set low: a dozen seconds of material, and
+ * a recycle nobody will ever notice.
  */
-const REFRESH_S = 40;
+const REFRESH_S = 12;
 /** A little room either way even on an axis that barely moves, for a resize. */
 const MARGIN_MIN = 48;
 /** And no more room than this, whatever the arithmetic says. */

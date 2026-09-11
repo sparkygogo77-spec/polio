@@ -1,0 +1,207 @@
+/**
+ * The timeline ends up looking at where the boxes actually are.
+ *
+ * Boxes are dragged anywhere, so the origin stops meaning anything within a
+ * minute. What is checked here is the behaviour rather than the arithmetic
+ * (`tests/timeline-view.mjs` has that): opening the timeline settles the
+ * view, dropping a box settles it again, it animates rather than jumping,
+ * the view holds still while a box is being carried, and none of it costs a
+ * frame.
+ *
+ *   node tests/timeline-centre.mjs [url]      # default http://localhost:3000
+ */
+import { createRequire } from "node:module";
+
+const req = createRequire(import.meta.url);
+const { chromium } = (() => {
+  for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {
+    try { return req(c); } catch { /* next */ }
+  }
+  throw new Error("No Playwright found. npm i -D playwright, or set PLAYWRIGHT_MODULE.");
+})();
+
+const URL_ = process.argv[2] ?? "http://localhost:3000";
+const results = [];
+const check = (name, ok, detail = "") => {
+  results.push(ok);
+  console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
+};
+
+/* Six iterations, parked well off to one side and a long way down: a board
+   somebody has been moving things around on. */
+const thread = (id, parentId, i) => ({
+  id, parentId, at: 1_700_000_000_000 + i * 1000, mode: "critique",
+  ask: `ask ${i}`, answer: `answer ${i}`, changes: [`changed thing ${i}`],
+});
+const THREADS = [
+  thread("t0", null, 0), thread("t1", "t0", 1), thread("t2", "t0", 2),
+  thread("t3", "t1", 3), thread("t4", "t1", 4), thread("t5", "t2", 5),
+];
+const SPOTS = {
+  "box:t0": { x: 1800, y: 900 }, "box:t1": { x: 2100, y: 1100 }, "box:t2": { x: 1700, y: 1300 },
+  "box:t3": { x: 2400, y: 1000 }, "box:t4": { x: 2050, y: 1450 }, "box:t5": { x: 1600, y: 1600 },
+};
+const doc = JSON.stringify({ state: {
+  pages: [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
+  nodes: [], groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
+  frameWidth: 1440, activePageId: "p0", trail: [], threads: THREADS, threadSpots: SPOTS,
+}, version: 0 });
+
+const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM, args: ["--no-sandbox"] } : {}) });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+await context.addInitScript((d) => localStorage.setItem("builder.studio", d), doc);
+const page = await context.newPage();
+await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1200);
+
+/** The plot's transform, read off the style it was given. */
+const view = () => page.evaluate(() => {
+  // Found by its handle, or by the transform it wears, so a timeline built
+  // without the settle fails these checks with its own numbers rather than
+  // stopping at "no plot".
+  const el = document.querySelector("[data-timeline-plot]")
+    ?? [...document.querySelectorAll("[data-timeline] div")].find((d) => /translate\(.+\)\s*scale\(/.test(d.getAttribute("style") ?? ""));
+  const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([\d.]+)\)/.exec(el?.getAttribute("style") ?? "");
+  return m ? { x: +m[1], y: +m[2], zoom: +m[3] } : null;
+});
+
+/** The way back to the middle, by its handle or by its word. */
+const centre = async () => {
+  const byHandle = page.locator("[data-timeline-centre]");
+  if (await byHandle.count()) return byHandle.click();
+  return page.locator("[data-timeline] button", { hasText: /^centre$/ }).first().click();
+};
+
+/** Where every box sits on the screen right now, and how close it gets to an edge. */
+const edges = () => page.evaluate(() => {
+  const host = document.querySelector("[data-timeline]").getBoundingClientRect();
+  const boxes = [...document.querySelectorAll("[data-box]")].map((el) => el.getBoundingClientRect());
+  if (!boxes.length) return null;
+  return {
+    n: boxes.length,
+    left: Math.min(...boxes.map((b) => b.left - host.left)),
+    top: Math.min(...boxes.map((b) => b.top - host.top)),
+    right: Math.max(...boxes.map((b) => host.right - b.right)),
+    bottom: Math.max(...boxes.map((b) => host.bottom - b.bottom)),
+    host: { w: Math.round(host.width), h: Math.round(host.height) },
+  };
+});
+
+/* ------------------------------------------------------------------ */
+/* 1. Opening the timeline settles it                                   */
+/* ------------------------------------------------------------------ */
+{
+  /* Sampled across the arrival, so "it animated" is more than two numbers. */
+  await page.locator("[data-finish]").click();
+  const seen = [];
+  for (let i = 0; i < 14; i++) {
+    seen.push(await view());
+    await page.waitForTimeout(45);
+  }
+  await page.waitForTimeout(700);
+  const settled = await view();
+  check("the timeline opens onto a view", !!settled, settled ? `${settled.x.toFixed(0)},${settled.y.toFixed(0)} at ${(settled.zoom * 100).toFixed(0)}%` : "no plot");
+  // The boxes are parked around x 1600–2600, so the origin is nowhere near them.
+  check("and it is not the origin", Math.hypot(settled.x, settled.y) > 200, `${settled.x.toFixed(0)},${settled.y.toFixed(0)}`);
+  const moved = new Set(seen.filter(Boolean).map((v) => `${v.x.toFixed(1)},${v.y.toFixed(1)},${v.zoom.toFixed(3)}`));
+  check("it animated there rather than jumping", moved.size >= 4, `${moved.size} distinct views across the arrival`);
+
+  const e = await edges();
+  check("every box landed on the screen", e && e.left > 0 && e.top > 0 && e.right > 0 && e.bottom > 0,
+    e ? `${e.n} boxes · clear by ${e.left.toFixed(0)}/${e.top.toFixed(0)}/${e.right.toFixed(0)}/${e.bottom.toFixed(0)} in ${e.host.w}×${e.host.h}` : "no boxes");
+  check("and none of them sits on an edge", e && Math.min(e.left, e.top, e.right, e.bottom) > 20,
+    e ? `nearest edge ${Math.min(e.left, e.top, e.right, e.bottom).toFixed(0)}px` : "");
+}
+
+/* ------------------------------------------------------------------ */
+/* 2. Carrying a box holds the view; putting it down settles again      */
+/* ------------------------------------------------------------------ */
+{
+  const before = await view();
+  const box = page.locator("[data-box]").first();
+  const r = await box.boundingBox();
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+  await page.mouse.down();
+  /* Carried a long way, in steps, watching the view the whole time. */
+  const during = new Set();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(r.x + r.width / 2 + i * 40, r.y + r.height / 2 + i * 22);
+    during.add(JSON.stringify(await view()));
+  }
+  check("the view holds still while a box is being carried", during.size === 1, `${during.size} views over eight moves`);
+  check("and it is the view it had", JSON.parse([...during][0]).x === before.x);
+
+  await page.mouse.up();
+  await page.waitForTimeout(900);
+  const after = await view();
+  check("putting it down settles the view again", Math.hypot(after.x - before.x, after.y - before.y) > 8 || Math.abs(after.zoom - before.zoom) > 0.01,
+    `${before.x.toFixed(0)},${before.y.toFixed(0)} → ${after.x.toFixed(0)},${after.y.toFixed(0)}`);
+  const e = await edges();
+  check("and the carried box is on the screen with the rest", e && e.left > 0 && e.top > 0 && e.right > 0 && e.bottom > 0,
+    e ? `clear by ${e.left.toFixed(0)}/${e.top.toFixed(0)}/${e.right.toFixed(0)}/${e.bottom.toFixed(0)}` : "no boxes");
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Centre means where the boxes are, and it costs nothing            */
+/* ------------------------------------------------------------------ */
+{
+  /* Somewhere in the timeline with no box under it, to drag the ground by. */
+  const empty = await page.evaluate(() => {
+    const host = document.querySelector("[data-timeline]").getBoundingClientRect();
+    const boxes = [...document.querySelectorAll("[data-box]")].map((el) => el.getBoundingClientRect());
+    for (let y = host.top + 30; y < host.bottom - 30; y += 20) {
+      for (let x = host.left + 30; x < host.right - 30; x += 20) {
+        if (!boxes.some((b) => x > b.left - 12 && x < b.right + 12 && y > b.top - 12 && y < b.bottom + 12)) return { x, y };
+      }
+    }
+    return null;
+  });
+  check("there is ground to take hold of", !!empty, empty ? `${empty.x},${empty.y}` : "every pixel is a box");
+
+  const home0 = await view();
+  await page.mouse.move(empty.x, empty.y);
+  await page.mouse.down();
+  await page.mouse.move(empty.x + 420, empty.y - 160, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  const lost = await view();
+  check("dragging the ground pans away from it", Math.hypot(lost.x - home0.x, lost.y - home0.y) > 200,
+    `${home0.x.toFixed(0)},${home0.y.toFixed(0)} → ${lost.x.toFixed(0)},${lost.y.toFixed(0)}`);
+
+  /* Frames measured across the settle and nothing else: the click is sent,
+     then the loop starts, then it is read once the arrival is over. */
+  const FRAMES = `window.__f=[];(function l(){window.__r=requestAnimationFrame((t)=>{window.__f.push(t);l();});})();`;
+  const STATS = `cancelAnimationFrame(window.__r);(()=>{const f=window.__f,d=[];for(let i=1;i<f.length;i++)d.push(f[i]-f[i-1]);
+    const beat=[...d].sort((a,b)=>a-b)[Math.floor(d.length*0.5)];
+    return {beat:+beat.toFixed(1),late:d.filter(v=>v>beat*1.5).length,frames:d.length,max:+Math.max(...d).toFixed(1)};})()`;
+  /* What the timeline costs sitting still, to measure the settle against:
+     the ground and the strands are both running either way, so an absolute
+     count would only be measuring them. */
+  await page.evaluate(FRAMES);
+  await page.waitForTimeout(900);
+  const idle = await page.evaluate(STATS);
+
+  await page.evaluate(FRAMES);
+  await centre();
+  await page.waitForTimeout(900);
+  const s = await page.evaluate(STATS);
+  const home = await view();
+  check("centre goes to the boxes, not to the origin",
+    Math.hypot(home.x - lost.x, home.y - lost.y) > 20 && Math.hypot(home.x, home.y) > 200,
+    `${lost.x.toFixed(0)},${lost.y.toFixed(0)} → ${home.x.toFixed(0)},${home.y.toFixed(0)}`);
+  // A render a frame here showed up as a 33ms beat — half rate — which is
+  // why the settle writes the transform to the element instead.
+  check("settling holds the screen's own rate", s.beat < 20, `beat ${s.beat}ms against ${idle.beat}ms sitting still`);
+  check("and costs no more than sitting still does", s.late <= idle.late + 3,
+    `${s.late} late of ${s.frames} settling · ${idle.late} of ${idle.frames} idle · worst ${s.max}ms`);
+
+  const e = await edges();
+  check("everything is back on the screen", e && Math.min(e.left, e.top, e.right, e.bottom) > 20,
+    e ? `nearest edge ${Math.min(e.left, e.top, e.right, e.bottom).toFixed(0)}px` : "no boxes");
+}
+
+await context.close();
+await browser.close();
+const failed = results.filter((r) => !r).length;
+console.log(`\n${results.length - failed}/${results.length} passed`);
+process.exit(failed ? 1 : 0);

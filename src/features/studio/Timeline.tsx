@@ -38,6 +38,7 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { useGround } from "./ground";
+import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
 import { diffDocs, flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
@@ -126,6 +127,8 @@ export function Timeline() {
 
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = React.useState(1);
+  /** The settle in flight, if there is one. Zero when the view is state's again. */
+  const settling = React.useRef(0);
   const [dragging, setDragging] = React.useState<{ id: string; at: Point } | null>(null);
   const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
   const [loop, setLoop] = React.useState<{ from: string; to: string } | null>(null);
@@ -142,6 +145,110 @@ export function Timeline() {
     },
     [dragging, spots, home],
   );
+
+  /* ------------------------------------------------------- the view */
+  /*
+   * Where the view is looking, and getting it back to where the boxes are.
+   *
+   * Boxes are dragged wherever a person wants them, so the origin stops
+   * meaning anything within a minute of opening this. The view settles on
+   * the middle of the boxes themselves, weighted by size, with the whole set
+   * held inside a margin so nothing sits on an edge — `timelineView.ts` does
+   * that arithmetic and nothing else knows about it.
+   *
+   * It is worked out **on demand and from the store**: when the timeline
+   * opens, when a drag ends, and when somebody presses centre. Never while a
+   * box is moving, never off a measured rectangle. Carrying a box is the one
+   * time the view must hold still, so a hand on anything cancels a settle in
+   * flight.
+   */
+  const homeAt = React.useRef(home);
+  homeAt.current = home;
+  /*
+   * Where the view is *now*, which is not always what state says.
+   *
+   * A settle writes the plot's transform straight to the element, a frame at
+   * a time, and commits to state once at the end: a render a frame here is a
+   * render of every box and a restart of the strand loop, and it measured at
+   * half the frame rate. So this ref is the one answer to "where is the
+   * view", and everything that needs it — the strands, a hand on the ground,
+   * a box picked up — reads it here rather than from state.
+   */
+  const viewAt = React.useRef({ pan, zoom });
+  if (!settling.current) viewAt.current = { pan, zoom };
+
+  const stopSettle = React.useCallback(() => {
+    if (!settling.current) return;
+    cancelAnimationFrame(settling.current);
+    settling.current = 0;
+    if (plot.current) plot.current.style.willChange = "";
+    // Wherever it got to is where it is: state catches up so the plot's own
+    // transform, the strands and the pointer all agree again.
+    setPan(viewAt.current.pan);
+    setZoom(viewAt.current.zoom);
+  }, []);
+
+  const settle = React.useCallback(() => {
+    const box = host.current;
+    if (!box) return;
+    const s = useStudio.getState();
+    const scattered = homeAt.current;
+    // The store's own spots, and the scatter for anything never moved.
+    const boxes = s.threads.map((t) => {
+      const at = s.threadSpots[`box:${t.id}`] ?? scattered.get(t.id) ?? { x: 140, y: 130 };
+      const size = sizeOf(t);
+      return { x: at.x, y: at.y, w: size.w, h: size.h };
+    });
+    const to = settleView(boxes, { w: box.clientWidth, h: box.clientHeight });
+    stopSettle();
+    if (!to) return;
+    const from = viewAt.current;
+    if (sameView(from, to)) return;
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    if (still) {
+      setPan(to.pan);
+      setZoom(to.zoom);
+      return;
+    }
+    const grid = plot.current;
+    if (!grid) return;
+    // Promoted for the length of the move, so sliding six boxes is the
+    // compositor's work and not a repaint of the plot every frame.
+    grid.style.willChange = "transform";
+    const began = performance.now();
+    const step = (now: number) => {
+      const u = Math.min(1, (now - began) / SETTLE_MS);
+      const k = settleEase(u);
+      const at = {
+        pan: { x: from.pan.x + (to.pan.x - from.pan.x) * k, y: from.pan.y + (to.pan.y - from.pan.y) * k },
+        zoom: from.zoom + (to.zoom - from.zoom) * k,
+      };
+      viewAt.current = at;
+      // Straight to the element: no render, and the strand loop is already
+      // running and reads the same ref on its own clock.
+      grid.style.transform = `translate(${at.pan.x}px, ${at.pan.y}px) scale(${at.zoom})`;
+      if (u < 1) {
+        settling.current = requestAnimationFrame(step);
+        return;
+      }
+      // Arrived. One render, so state, the element and the pointer agree.
+      settling.current = 0;
+      grid.style.willChange = "";
+      setPan(to.pan);
+      setZoom(to.zoom);
+    };
+    settling.current = requestAnimationFrame(step);
+  }, [stopSettle]);
+
+  /* Opening the timeline is one of the two moments it settles. One frame
+     late, so the host has a size to fit against. */
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => settle());
+    return () => {
+      cancelAnimationFrame(id);
+      stopSettle();
+    };
+  }, [settle, stopSettle]);
 
   /*
    * The floor is the same weather the workspace stands on, moved the same
@@ -217,8 +324,11 @@ export function Timeline() {
       const t = still ? 0 : (now - start) / 1000;
       // The strands live in the plot's frame; the plot is panned and scaled.
       c.save();
-      c.translate(pan.x, pan.y);
-      c.scale(zoom, zoom);
+      // The live view, not the rendered one: a settle moves the plot without
+      // a render, and the strands have to go with it.
+      const { pan: at, zoom: z } = viewAt.current;
+      c.translate(at.x, at.y);
+      c.scale(z, z);
       for (const cord of cords) {
         const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
         paintStrand(c, from, to, { t, tone: cord.tone, phase: seed(cord.to) });
@@ -238,8 +348,8 @@ export function Timeline() {
           const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
           if (!card) continue;
           const r = card.getBoundingClientRect();
-          const cx = (r.left - origin.left) / zoom + r.width / zoom / 2;
-          const edge = side === "in" ? (r.bottom - origin.top) / zoom : (r.top - origin.top) / zoom;
+          const cx = (r.left - origin.left) / z + r.width / z / 2;
+          const edge = side === "in" ? (r.bottom - origin.top) / z : (r.top - origin.top) / z;
           paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom }, { t, tone });
         }
       }
@@ -247,7 +357,7 @@ export function Timeline() {
     };
     raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
-  }, [cords, anchorOf, pan, zoom, openId, openTone]);
+  }, [cords, anchorOf, openId, openTone]);
 
   /* -------------------------------------------------------- the pointer */
   const startDrag = (id: string, e: React.PointerEvent) => {
@@ -258,12 +368,15 @@ export function Timeline() {
     e.stopPropagation();
     const origin = grid.getBoundingClientRect();
     const from = spotOf(id);
-    const grab = { x: (e.clientX - origin.left) / zoom - from.x, y: (e.clientY - origin.top) / zoom - from.y };
+    const z = viewAt.current.zoom;
+    const grab = { x: (e.clientX - origin.left) / z - from.x, y: (e.clientY - origin.top) / z - from.y };
     const to = (ev: PointerEvent): Point => {
       const r = grid.getBoundingClientRect();
-      return { x: (ev.clientX - r.left) / zoom - grab.x, y: (ev.clientY - r.top) / zoom - grab.y };
+      return { x: (ev.clientX - r.left) / z - grab.x, y: (ev.clientY - r.top) / z - grab.y };
     };
     const from0 = { x: e.clientX, y: e.clientY };
+    // Carrying a box: the view holds still until it is put down.
+    stopSettle();
     let moved = false;
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - from0.x, ev.clientY - from0.y) < 4) return;
@@ -280,6 +393,8 @@ export function Timeline() {
         useStudio.getState().moveThread(`box:${id}`, at.x, at.y);
         dropped.current = Date.now();
         play("tap");
+        // Put down somewhere new: the view goes to where the boxes now are.
+        settle();
       }
       setDragging(null);
     };
@@ -291,7 +406,8 @@ export function Timeline() {
   const startPan = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     setMenu(null);
-    const from = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    stopSettle();
+    const from = { x: e.clientX - viewAt.current.pan.x, y: e.clientY - viewAt.current.pan.y };
     const move = (ev: PointerEvent) => setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -302,6 +418,7 @@ export function Timeline() {
   };
 
   const onWheel = (e: React.WheelEvent) => {
+    stopSettle();
     if (!e.ctrlKey && !e.metaKey) {
       setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
       return;
@@ -326,6 +443,7 @@ export function Timeline() {
 
       <div
         ref={plot}
+        data-timeline-plot=""
         className="absolute left-0 top-0"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0", width: 1, height: 1 }}
       >
@@ -405,7 +523,14 @@ export function Timeline() {
         <span className="num">{threads.length}</span>
         <span className="opacity-60">iterations</span>
         <span className="mx-1 h-3 w-px bg-[oklch(0.36_0.07_158)]" />
-        <button type="button" className="tactile rounded px-1 hover:text-[oklch(0.92_0.1_158)]" onClick={(e) => { e.stopPropagation(); play("tap"); setPan({ x: 0, y: 0 }); setZoom(1); }}>
+        <button
+          type="button"
+          data-timeline-centre=""
+          className="tactile rounded px-1 hover:text-[oklch(0.92_0.1_158)]"
+          // Centre used to mean the origin, which is only where the boxes
+          // were before anybody touched them.
+          onClick={(e) => { e.stopPropagation(); play("tap"); settle(); }}
+        >
           centre
         </button>
         <span className="num opacity-60">{Math.round(zoom * 100)}%</span>
