@@ -963,7 +963,12 @@ a kicker with a rule, and label-and-value rows that copy.
   **Finish**, an icon-only green flag with a tick that carries the make-real
   queue and opens the timeline. Pressing either again comes back. Green
   because Finish ends the work rather than changing it; everything that only
-  changes something wears the console's own colours.
+  changes something wears the console's own colours.  The Builder's bar is the **only** nav: no tab row above it repeating its
+  first item, and no side rail — with no module asking for a side entry the
+  rail is not drawn at all (`core/shell/Sidebar.tsx`), because a rail with
+  nothing on it is a stripe of chrome that does nothing. The wordmark goes to
+  "/", and "/" is Builds, so there is always a way back.
+
 - **A piece is not an iteration** (`ThreadTree.tsx`: `CHIP`, the piece chip).
   A piece is a prompt on the board that the next call can carry, so it is
   never off: it keeps its purple whether or not it is vined, and vined is the
