@@ -314,10 +314,30 @@ a kicker with a rule, and label-and-value rows that copy.
   (`pictureOf`), trace (`/api/studio/image`, kind `vectorize`), sanitise
   (`cleanSnippet`), cut to `outline.cut` and photograph it cut (the render
   route takes a `clip` now, so the silhouette scored is the silhouette the
-  board shows), score with the same IoU at the same 0.72. Under the bar it
+  board shows), score at the same 0.72 — **like against like**
+  (`targetFor`, `compare`). The test that decides is the one `outlinePath`
+  already made. A **closed** line that encloses a real share of its own box
+  is the edge of a thing, so both sides are filled — the target is the
+  outline filled and the render has its holes flooded, so a traced edge
+  becomes the region it encloses — and the score is plain area against
+  area; a trace with a gap in it leaks, fills nothing and scores badly,
+  which is correct. An **open** line is the thing itself, so both sides
+  stay ink and the score is how much of each lies within a tolerance the
+  width of the drawn stroke (`CLIP_STROKE / 2`), which forgives a line a
+  stroke off and does not forgive a line that is not there. Closed but
+  enclosing almost nothing — a helix that ends where it began — is ink, not
+  area (`ENCLOSES_ENOUGH`). Thin ink is never scored against a filled area;
+  that one comparison capped every run on the first bench.
+
+  The frames have to match too, which is why **every rung crops**. The
+  part's box *is* the drawing's box and the SVG is stretched into it with
+  `preserveAspectRatio="none"`, so the picture is cropped to the ink and
+  each axis stretched on its own: fitting the ink inside a square here and
+  stretching it into a wide part there applies the distortion once instead
+  of cancelling it, and the trace lands somewhere the drawing never was. Under the bar it
   goes again **on the picture, not on words** — there is nothing to argue
-  with — up one rung of `LADDER`: crop to the ink, thicken the line, harden
-  the contrast, and on the last go drop the ground. Three goes, the best
+  with — up one rung of `LADDER`: thicken the line, harden the contrast,
+  and on the last go drop the ground. Three goes, the best
   kept, every score stored on the part. The traced ground is stripped from
   every answer (`dropGround`), because a white plate the tracer found under
   the drawing is not the drawing. No Claude call happens anywhere in it, and
@@ -341,8 +361,11 @@ a kicker with a rule, and label-and-value rows that copy.
   means".
 - **The bench is how the drawing path is judged** (`tests/shapes.mjs`).
   Five fixed drawings — a 3 stack, a helix, a spiral, a star, a ring —
-  three runs each, printing every go's overlap, the goes used, the wall
-  time and the cost at $0.08 a trace. The renders and the scores are real.
+  three runs each, printing how each was scored, every go's overlap, the
+  goes used, the wall time and the cost at $0.08 a trace. Four of the five
+  clear 0.72 on the first go; the star takes two, because a thin trace of
+  its points leaks when the holes are flooded and thickening closes it. One
+  bar covers both kinds, so there is no case for two. The renders and the scores are real.
   With no Replicate token the tracer is stood in for by a real one (the
   picture is decoded in a second browser page, thresholded and run-length
   traced), so the loop is under test and only the vendor is absent; with a

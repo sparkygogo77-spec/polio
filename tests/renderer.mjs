@@ -213,8 +213,11 @@ await page.keyboard.press("Escape");
 /* 6. The drawing path: traced, never written                         */
 /* ------------------------------------------------------------------ */
 
-/** A box: its outline is very nearly the part's whole frame. */
-const box = [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8], [0.2, 0.2]];
+/** A circle: closed, and it encloses a real area, so it is cut to and scored as one. */
+const circle = Array.from({ length: 49 }, (_, i) => {
+  const a = (i / 48) * Math.PI * 2;
+  return [0.5 + Math.cos(a) * 0.32, 0.5 + Math.sin(a) * 0.32];
+});
 const star = Array.from({ length: 11 }, (_, i) => {
   const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
   const r = i % 2 ? 0.13 : 0.32;
@@ -301,11 +304,11 @@ const settle = async (want) => {
   return read();
 };
 
-check("the board takes a box", await drawOne(box, "a card of one claim"));
+check("the board takes a circle", await drawOne(circle, "a card of one claim"));
 let state = await settle(1);
 console.log(`     traced: ${JSON.stringify(state.code)}`);
 console.log(`     said:   ${state.said}`);
-check("the tracer is the only thing asked", drawn.length === 1 && wrote.length === 0, `${drawn.length} traced, ${wrote.length} written`);
+check("the tracer is the only thing asked", drawn.length >= 1 && wrote.length === 0, `${drawn.length} traced, ${wrote.length} written`);
 check("it is asked to vectorize, and given the picture", drawn[0]?.body?.kind === "vectorize" && typeof drawn[0]?.body?.picture === "string" && drawn[0].body.picture.length > 100,
   `${drawn[0]?.body?.kind}, ${drawn[0]?.body?.picture?.length ?? 0} bytes of PNG`);
 check("nothing describing the drawing goes with it", !drawn[0]?.body?.prompt && !drawn[0]?.body?.words, JSON.stringify(Object.keys(drawn[0]?.body ?? {})));
@@ -313,17 +316,18 @@ check("the held token rides on the call", drawn[0]?.headers?.["x-replicate-key"]
 check("and no Claude key rides with it", !drawn[0]?.headers?.["x-anthropic-key"]);
 check("the body kept is the traced one", state.code?.source === "renderer" && state.code?.kind === "vectorize", JSON.stringify(state.code));
 check("scored on the same bar, against the drawn outline", (state.code?.overlap ?? 0) >= 0.72, String(state.code?.overlap));
-check("what it cost is kept with the part", state.code?.cost === RENDER_COST.vectorize, String(state.code?.cost));
-check("and reaches the iteration's usage line", state.cost === RENDER_COST.vectorize, String(state.cost));
-check("the card says it was traced, and the price", /was traced/i.test(state.said) && /\$0\.08/.test(state.said), state.said.slice(0, 100));
+check("what it cost is kept with the part", state.code?.cost === state.code?.attempts * RENDER_COST.vectorize, `${state.code?.cost} over ${state.code?.attempts}`);
+check("and reaches the iteration's usage line", state.cost === state.code?.cost, String(state.cost));
+check("the card says it was traced, and the price", /was traced/i.test(state.said) && /\$0\.\d\d/.test(state.said), state.said.slice(0, 110));
 
 /* The one door Claude comes through: nothing traced, and words to work
    from. */
 token = false;
+const traced = drawn.length;
 check("the board takes a second drawing", await drawOne(star, "a star of five claims"));
 state = await settle(2);
 console.log(`     written: ${JSON.stringify(state.code)}`);
-check("with nothing traced, the tracer is asked once and no more", drawn.length === 2, `${drawn.length} calls`);
+check("with nothing traced, the tracer is asked once and no more", drawn.length === traced + 1, `${drawn.length - traced} calls on the second drawing`);
 check("and the words get a written body instead", wrote.length > 0 && state.code?.source === "written", `${wrote.length} written, ${state.code?.source}`);
 check("the writer is given the drawing as its reference", typeof wrote[0]?.body?.picture === "string" && wrote[0].body.picture.length > 100, `${wrote[0]?.body?.picture?.length ?? 0} bytes of PNG`);
 check("nothing is charged for a tracer that was not there", !state.code?.cost, String(state.code?.cost));

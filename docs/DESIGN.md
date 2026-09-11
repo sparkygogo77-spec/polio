@@ -215,7 +215,12 @@ same boxes as everywhere else, in the screen's colours.
   described is a line lost. So the drawing path has no writer in it: the
   strokes are rasterised and traced, and what comes back is cut to the line
   that was drawn round it. When it falls short the thing that changes is the
-  picture the tracer was given, never a sentence about it. The same rule
+  picture the tracer was given, never a sentence about it. It is judged like
+  against like: a closed line is the edge of a thing and both sides are
+  filled and compared as areas; an open line is the thing and both sides
+  stay ink, compared within a tolerance the width of the stroke drawn. Thin
+  ink is never scored against a filled area, and the two frames are always
+  the same frame. The same rule
   decides behaviour: a ring is a container because it is a ring, read off
   the geometry, not because anyone said so.
 - **A key the person is billed for is the person's to hold.** The renderer's
