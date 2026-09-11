@@ -1338,6 +1338,36 @@ a kicker with a rule, and label-and-value rows that copy.
     typing surface, a screen face, not the ground. One user, `PlateEditors`.
   · The Texture panel's `+ Grid` and `+ Dots` layers belong to the *site*
     being built and are drawn inside the frame. They stay.
+- **The transform must undo the rotation of the offset baked into the paint.**
+  This was the reset J was seeing. A layer is painted with the drift so far
+  baked into the pattern and carried the rest of the way by
+  `transform: translate3d(d) rotate(t)` — which is the matrix `T·R`, so the
+  rotation turns the *baked* offset too. The layer therefore sat at
+  `R(t)·laid + d` when it should have sat at `travel(now)`, and the error
+  `(R(t) − I)·laid` grew with the drift and the angle together and snapped to
+  nothing the next time the layer was laid. Measured at **32px** on
+  near-violet. It read as irregular rather than as a cycle because a layer is
+  laid again on either of two triggers, drift exhausting the margin or the
+  turn passing `TURN_MAX`, and the two periods beat against each other.
+  `carry()` turns the baked offset by the same angle and subtracts it, so the
+  layer sits at `travel(now)` at every instant and being laid again changes
+  nothing anybody can see. `spent()` measures that same carried distance,
+  because that is what actually runs off the edge of the paint.
+  **A transform jumping to zero at a laying is correct and expected** — the
+  paint takes the offset, the transform gives up exactly what the paint took.
+  Sampling transforms alone will therefore always look like a reset; what has
+  to be continuous is `R(t)·laid + d`, which is what `tests/ground-seam.mjs`
+  checks, against a control of frames where nothing was laid so the
+  measurement's own noise is not read as a seam. `data-laid-at` on each layer
+  exists only so that number can be worked out from outside. The same test
+  also samples **the pixels under a fixed point on screen**, running the
+  transform backwards to find which pixel of the layer's own bitmap is there,
+  because the arithmetic would pass even if the paint came back different.
+  `near-violet` is the layer a seam shows on first and the one that gets
+  reported: its spin is the largest at 0.8°/s, so it is laid again every
+  12.5s where the far layers take 50s and 67s. It is the canary, not a
+  special case — there is one code path for all four and both tiles are the
+  same 256px.
 - **A layer is repainted by swapping a buffer, never by clearing one.**
   The ground was flickering black. Three causes were checked by name against
   a running page (`tests/ground-steady.mjs`), not guessed at: the holder

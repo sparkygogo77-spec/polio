@@ -261,14 +261,45 @@ export function useGround(
         paint(c);
       }
       l.at = at;
+      // What it was laid with, so a test can work out where the layer ought
+      // to be and say whether it is there. Nothing reads it at runtime.
+      l.el.dataset.laidAt = at.toFixed(4);
     };
 
-    /** Where the compositor has to carry this layer, from where it was laid. */
-    const move = (l: Live, force = false) => {
+    /**
+     * Where the compositor has to carry this layer, from where it was laid.
+     *
+     * **The rotation turns the paint's own offset, so it has to be taken off
+     * again.** `transform: translate3d(d) rotate(t)` is the matrix `T·R`: the
+     * canvas is rotated about its centre and then shifted. But the drift up
+     * to the moment it was laid is baked *into the paint*, inside the canvas,
+     * so `R` turns that too. The layer therefore sits at
+     * `R(turn)·laid + d` when it should sit at `travel(now)`, and the
+     * difference — `(R(turn) − I)·laid` — grows with the drift and with the
+     * angle together, then snaps to nothing the moment the layer is laid
+     * again. That snap was the reset. It had two periods per layer, because
+     * a layer is laid again either when the drift exhausts its margin or
+     * when the turn passes `TURN_MAX`, and the two beat against each other,
+     * which is why it read as irregular rather than as a cycle.
+     *
+     * So the baked offset is turned by the same angle and subtracted. Then
+     * the layer sits at `travel(now)` at every instant, whatever it was laid
+     * with, and being laid again changes nothing anybody can see: the paint
+     * takes the offset, the transform gives up exactly what the paint took.
+     */
+    const carry = (l: Live) => {
       const now = cloudTravel(l.def, clock);
-      const then = cloudTravel(l.def, l.at);
+      const laid = cloudTravel(l.def, l.at);
       const turn = l.def.spin * (clock - l.at);
-      const said = `translate3d(${(now.x - then.x).toFixed(3)}px, ${(now.y - then.y).toFixed(3)}px, 0) rotate(${turn.toFixed(4)}deg)`;
+      const a = (turn * Math.PI) / 180;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      return { x: now.x - (laid.x * cos - laid.y * sin), y: now.y - (laid.x * sin + laid.y * cos), turn };
+    };
+
+    const move = (l: Live, force = false) => {
+      const { x, y, turn } = carry(l);
+      const said = `translate3d(${x.toFixed(3)}px, ${y.toFixed(3)}px, 0) rotate(${turn.toFixed(4)}deg)`;
       if (!force && said === l.said) return;
       l.el.style.transform = said;
       l.said = said;
@@ -276,10 +307,10 @@ export function useGround(
 
     /** Has this layer run out of the material it was laid with? */
     const spent = (l: Live) => {
-      const now = cloudTravel(l.def, clock);
-      const then = cloudTravel(l.def, l.at);
-      return Math.hypot(now.x - then.x, now.y - then.y) >= l.m - MARGIN_MIN
-        || Math.abs(l.def.spin * (clock - l.at)) >= TURN_MAX;
+      // The distance the compositor is actually carrying it, which is what
+      // runs off the edge of the paint — not the raw difference in travel.
+      const { x, y, turn } = carry(l);
+      return Math.hypot(x, y) >= l.m - MARGIN_MIN || Math.abs(turn) >= TURN_MAX;
     };
 
     const fit = () => {
