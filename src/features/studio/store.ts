@@ -700,8 +700,53 @@ export const useStudio = create<StudioState>()(
   persist(
     (set, get) => {
       /** Push the pre-mutation document onto the undo stack. */
-      const push = () =>
+      /**
+       * The first thing anyone does makes iteration one.
+       *
+       * Nothing seeded the timeline. Threads were landed by an ask coming
+       * back and by a drawing being made real, and nothing else, so a
+       * person who had spent an hour laying out a board opened the
+       * timeline and found it empty — which reads as broken rather than as
+       * "nothing has happened yet", because plenty had.
+       *
+       * The honest fix is not to invent history. It is to mark the
+       * beginning: the first real change to the document lands one
+       * iteration holding the board as it was before that change, so there
+       * is a place to stand and something to hang the next one off. Every
+       * iteration after it is what it always was, an ask or a drawing.
+       *
+       * It hangs off `push`, which is the undo checkpoint every genuine
+       * mutation already takes, so "a real action" needs no second
+       * definition and no action has to remember to do this.
+       */
+      const seed = () => {
+        const s = get();
+        if (s.threads.length) return;
+        const parts = s.nodes.length;
+        const pages = s.pages.length;
+        set((st) => ({
+          threads: [{
+            id: uid("th"),
+            parentId: null,
+            at: Date.now(),
+            mode: "start",
+            ask: "",
+            answer: parts
+              ? `${parts} part${parts === 1 ? "" : "s"} on ${pages} page${pages === 1 ? "" : "s"}, before the first change`
+              : "an empty board",
+            changes: ["the board as you started it"],
+            doc: snapshot(st) as ThreadDoc,
+            state: "done" as const,
+            pieces: [],
+          }, ...st.threads],
+          liveThreadId: st.liveThreadId,
+        }));
+      };
+
+      const push = () => {
+        seed();
         set((s) => ({ past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT), future: [] }));
+      };
 
       return {
         ...starterDoc(),

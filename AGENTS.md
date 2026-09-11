@@ -512,6 +512,18 @@ a kicker with a rule, and label-and-value rows that copy.
   as the drag. On each strand sits the **loop starter**: examine,
   critique, iterate.
 
+  **The first thing anyone does makes iteration one.** Nothing seeded the
+  timeline: threads were landed by an ask coming back and by a drawing
+  being made real, and by nothing else, so someone who had laid out a whole
+  board opened it and found it empty, which reads as broken rather than as
+  "nothing has happened yet". The fix is not invented history. `seed()`
+  hangs off `push()` — the undo checkpoint every genuine mutation already
+  takes, so "a real action" needs no second definition — and lands one
+  iteration, mode `start`, holding the board as it was *before* that first
+  change: somewhere to stand, and something for the next one to hang off.
+  It fires once and never again. Until it does, the empty timeline says
+  nothing has happened yet and what will change that.
+
   **The flag and the state mark** are the two things on the box that are
   not about what the iteration said. `this iteration` (`CurrentButton`,
   `store.currentThreadId`) is where the work is: one per timeline, on the
