@@ -25,6 +25,7 @@ function describeDelay(v: number | string | null | undefined): string {
 import { linkReason } from "./links";
 import { filled, motionBrief, type MotionAsset } from "./motion";
 import { resolvePalette } from "./parts/theme";
+import { CUBE_SIDES } from "./parts/cube";
 import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
@@ -78,6 +79,8 @@ interface NodeSpec {
   outline: string | null;
   /** What the drawn shape means the part does. */
   kind: string | null;
+  /** The six faces, when it is a cube: what is on each, and what is blank. */
+  faces: string | null;
   /** A body written for this part, and how well it matched the drawing. */
   body: string | null;
   /** Parts this one reads from, via data wires. */
@@ -347,6 +350,13 @@ export function compileSpec(input: CompileInput): Spec {
           // and what it is, because a path in a blueprint is unreadable and
           // whoever builds this needs to know the part is not a rectangle.
           kind: n.kind ? KIND_MEANS[n.kind] : null,
+          faces: n.cube
+            ? `six, in order front, right, back, left, top, bottom: ${CUBE_SIDES.map((side, i) => {
+                const f = n.cube!.faces[i];
+                const said = [f?.heading?.trim(), f?.body?.trim()].filter(Boolean).join(" — ");
+                return `${side} ${said ? `"${said}"${f?.colour ? ` (${f.colour})` : ""}` : "blank"}`;
+              }).join("; ")}. A blank face is blank on purpose; do not fill it in.`
+            : null,
           outline: n.outline
             ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points, the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`
             : null,
@@ -610,6 +620,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.shape) L.push(`  - shape: ${e.shape === "rounded" ? "a rounded box" : `${e.shape === "circle" ? "a circle" : "an ellipse"}, cut to it`}`);
         if (e.outline) L.push(`  - outline: ${e.outline}`);
         if (e.kind) L.push(`  - the shape means: ${e.kind}`);
+        if (e.faces) L.push(`  - faces: ${e.faces}`);
         if (e.body) L.push(`  - body: ${e.body}`);
         if (e.drawn) L.push(`  - drawn: ${e.drawn}`);
         if (e.prompt) L.push(`  - prompt: ${e.prompt}`);

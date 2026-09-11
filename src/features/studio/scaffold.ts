@@ -54,6 +54,14 @@ export interface ScaffoldPart {
   outline?: { cut: string; closed: boolean } | null;
   /** A written body, when it has one: rendered in a frame with no permissions. */
   code?: { html: string; note?: string } | null;
+  /**
+   * The six faces, when it is a cube.
+   *
+   * The one part whose markup is not the answer: a snapshot of a cube is a
+   * picture of one angle of it. This is data and behaviour, so it is
+   * written out as a component that turns.
+   */
+  cube?: { faces: { heading: string; body: string; colour: string }[]; turn?: { x: number; y: number } } | null;
   /** True when nothing has been written for it yet: this is what Claude is for. */
   empty?: boolean;
   /** What it reads, when the board says it reads something. */
@@ -271,6 +279,121 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
   return files;
 }
 
+/**
+ * A cube, written out.
+ *
+ * Everything else in this file is markup the Builder rendered, because for
+ * everything else the markup *is* the part. A cube is six faces and the
+ * behaviour that turns them, and a snapshot of it is a photograph of one
+ * angle. So this is the only component the scaffold writes as code: the
+ * faces as data, the turning as a small amount of state, and no
+ * dependencies beyond React, so the site that ships carries it whole.
+ */
+function cubeTsx(part: ScaffoldPart, name: string): string {
+  const faces = JSON.stringify(part.cube!.faces, null, 2).split("\n").join("\n");
+  const turn = part.cube!.turn ?? { x: -18, y: -32 };
+  return `import * as React from "react";
+
+const SIDES = ["front", "right", "back", "left", "top", "bottom"] as const;
+const PLACE: Record<string, { rx: number; ry: number }> = {
+  front: { rx: 0, ry: 0 }, right: { rx: 0, ry: 90 }, back: { rx: 0, ry: 180 },
+  left: { rx: 0, ry: -90 }, top: { rx: 90, ry: 0 }, bottom: { rx: -90, ry: 0 },
+};
+
+/** What is written on each side. Edit the words here; the shape looks after itself. */
+const FACES: { heading: string; body: string; colour: string }[] = ${faces};
+
+const SIDE = ${Math.round(Math.min(part.w, part.h) * 0.74)};
+const quarter = (d: number) => Math.round(d / 90) * 90;
+
+export function ${name}() {
+  const [turn, setTurn] = React.useState({ x: ${turn.x}, y: ${turn.y} });
+  const spin = React.useRef({ x: 0, y: 0 });
+  const held = React.useRef(false);
+  const last = React.useRef<{ x: number; y: number } | null>(null);
+
+  React.useEffect(() => {
+    let id = 0;
+    const tick = () => {
+      id = requestAnimationFrame(tick);
+      if (held.current) return;
+      const s = spin.current;
+      if (Math.abs(s.x) > 0.35 || Math.abs(s.y) > 0.35) {
+        setTurn((v) => ({ x: v.x + s.x, y: v.y + s.y }));
+        s.x *= 0.94;
+        s.y *= 0.94;
+        return;
+      }
+      s.x = 0; s.y = 0;
+      setTurn((v) => {
+        const dx = quarter(v.x) - v.x;
+        const dy = quarter(v.y) - v.y;
+        if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) return { x: quarter(v.x), y: quarter(v.y) };
+        return { x: v.x + dx * 0.16, y: v.y + dy * 0.16 };
+      });
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div
+      data-part="cube-3d"
+      data-cube=""
+      role="img"
+      tabIndex={0}
+      aria-label=${JSON.stringify(`${part.label}, a cube. Drag to turn it, or use the arrow keys.`)}
+      onPointerDown={(e) => { held.current = true; last.current = { x: e.clientX, y: e.clientY }; spin.current = { x: 0, y: 0 }; e.currentTarget.setPointerCapture(e.pointerId); }}
+      onPointerMove={(e) => {
+        if (!held.current || !last.current) return;
+        const dx = e.clientX - last.current.x;
+        const dy = e.clientY - last.current.y;
+        last.current = { x: e.clientX, y: e.clientY };
+        spin.current = { x: -dy * 0.42, y: dx * 0.42 };
+        setTurn((v) => ({ x: v.x - dy * 0.42, y: v.y + dx * 0.42 }));
+      }}
+      onPointerUp={() => { held.current = false; last.current = null; }}
+      onKeyDown={(e) => {
+        const step: Record<string, [number, number]> = { ArrowLeft: [0, -90], ArrowRight: [0, 90], ArrowUp: [90, 0], ArrowDown: [-90, 0] };
+        const s = step[e.key];
+        if (!s) return;
+        e.preventDefault();
+        spin.current = { x: 0, y: 0 };
+        setTurn((v) => ({ x: quarter(v.x) + s[0], y: quarter(v.y) + s[1] }));
+      }}
+      style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", perspective: SIDE * 3.4, touchAction: "none", cursor: "grab", outline: "none" }}
+    >
+      <div style={{ width: SIDE, height: SIDE, position: "relative", transformStyle: "preserve-3d", transform: \`translateZ(\${-SIDE / 2}px) rotateX(\${turn.x}deg) rotateY(\${turn.y}deg)\` }}>
+        {SIDES.map((side, i) => {
+          const face = FACES[i] ?? { heading: "", body: "", colour: "" };
+          const place = PLACE[side];
+          return (
+            <div
+              key={side}
+              data-face={side}
+              style={{
+                position: "absolute", inset: 0, boxSizing: "border-box",
+                transform: \`rotateX(\${place.rx}deg) rotateY(\${place.ry}deg) translateZ(\${SIDE / 2}px)\`,
+                background: face.colour ? \`var(--\${face.colour})\` : "var(--surface)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius)",
+                padding: Math.round(SIDE * 0.1),
+                display: "flex", flexDirection: "column", justifyContent: "center", gap: Math.round(SIDE * 0.03),
+                backfaceVisibility: "hidden", overflow: "hidden",
+              }}
+            >
+              {face.heading ? <span style={{ fontWeight: 650, fontSize: Math.max(11, Math.round(SIDE * 0.11)), lineHeight: 1.15, color: "var(--text)" }}>{face.heading}</span> : null}
+              {face.body ? <span style={{ fontSize: Math.max(9, Math.round(SIDE * 0.062)), lineHeight: 1.35, opacity: 0.72, color: "var(--text)" }}>{face.body}</span> : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+`;
+}
+
 /** The design tokens: the palette, the type, the shape, as CSS variables. */
 function tokensCss(input: ScaffoldInput): string {
   const roles = Object.entries(input.palette).map(([k, v]) => `  --${k}: ${v};`).join("\n");
@@ -336,6 +459,20 @@ function partTsx(part: ScaffoldPart): string {
  * change the look here it will differ from the board.
  */
 `;
+  if (part.cube) {
+    // Its own preamble: the sentence about copied markup is untrue here,
+    // and a comment that lies about the file under it is worse than none.
+    return `/**
+ * ${part.label}${part.prompt ? `, ${trim(part.prompt.split("\n")[0]!, 120)}` : ""}
+ *
+ * A cube, written as a component rather than copied as markup: six faces
+ * and the behaviour that turns them. A snapshot of it would be a
+ * photograph of one angle. Drag it, or use the arrow keys; it settles on
+ * the nearest face. The words are the data at the top of the file, and the
+ * colours are the site's own tokens.
+ */
+${cubeTsx(part, name)}`;
+  }
   if (part.code) {
     // A written body renders in a frame with no permissions, exactly as it
     // does in the Builder: no scripts, nothing fetched.

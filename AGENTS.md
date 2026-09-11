@@ -92,7 +92,7 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     218 parts in 12 categories, plain names, one f(...) line each;
+  catalog.ts     226 parts in 12 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
   blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
@@ -195,7 +195,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   section, so a final prompt that builds the server is written against a list
   the board produced rather than from memory. None of it is domain-specific:
   it is free text plus wires.
-- **All 218 ids are real components.** There is no legacy path: `blocks.tsx`
+- **All 226 ids are real components.** There is no legacy path: `blocks.tsx`
   falls back to a labelled box (`data-part-fallback`) only if an id loses its
   `DEFS` line, and `all.mjs` fails if that ever happens. Every part's root
   carries `data-part={id}`, tier-B roots also carry `data-behaviour`, and the
@@ -345,6 +345,33 @@ a kicker with a rule, and label-and-value rows that copy.
   behaviour, the body and the iteration on the timeline all land without a
   reader. `writeBody` is still there for a part that genuinely wants words
   and is reached only when nothing was traced at all.
+- **A cube is where the coded path earns its keep** (`parts/Cube.tsx`,
+  `parts/cube.ts`, `shapeKind.isCube`, `tests/cube.mjs`). A traced drawing
+  is a picture and a picture of a cube does not turn, so this one part is
+  not drawn at all: the drawing supplies the kind and the proportions, the
+  prompt supplies what goes on the faces, and the element is code.
+  **Recognition is geometric and free**: three quadrilaterals meeting at a
+  vertex, or a hexagon with a Y in it, or a plain rectangle when the words
+  say cube or box. A cube skips the reshape route entirely, so the whole
+  path — kind, size, faces, the part itself — happens with no model call of
+  any sort.
+  **The part** is six faces in a `preserve-3d` box with no library: drag to
+  turn, the last samples become spin that decays, and under a threshold it
+  eases onto the nearest right angle so it is never left where nothing
+  reads. Arrow keys step a quarter turn. Each face is shaded by how much it
+  faces the page's lamp, which is what stops six rectangles reading as a
+  folded net. Nothing snaps until it has been turned, so the three-quarter
+  view it is left at survives arriving.
+  **The faces live on the node** (`node.cube`), not in the part, because
+  they are the author's words: `facesFrom` splits the content field, or the
+  prompt after a "a cube with…:" lead-in, one item a face, and **leaves the
+  rest blank** — inventing filler for an unwritten face is the thing that
+  makes a page read as generated. The inspector lists all six with a
+  heading, a line, a palette role and clear. Turning it in Preview writes
+  the angle back through a `cube` `PartEvent` tagged with its node, so
+  where it was left is what the board draws. Build writes it as a component
+  with its own state rather than a snapshot of one angle, which is the only
+  part in `scaffold.ts` that is written rather than copied.
 - **A drawn shape says what the part does, not only what it looks like**
   (`shapeKind.ts`, `store.applyDrawnKind`). The clip is untouched: a
   triangle still cuts out as a triangle. The geometry is read a second time
@@ -1329,7 +1356,7 @@ a kicker with a rule, and label-and-value rows that copy.
   from `docs/MOTION.md` on the identical timing, and `spec.ts` puts it in the
   blueprint, so the Builder's own pass is the floor and a generator's is the
   ceiling.
-- The parts drawer drills down rather than listing 218 tiles: categories carry
+- The parts drawer drills down rather than listing 226 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
   one).
@@ -1374,7 +1401,7 @@ a kicker with a rule, and label-and-value rows that copy.
   are `aria-hidden` **and** `inert` (they contain real buttons and inputs, which
   would otherwise land in the tab order and the a11y tree), and the tile is a
   `role="button"` div rather than a `<button>`, since a button inside a button
-  is invalid HTML and breaks hydration. `content-visibility: auto` keeps 218 of
+  is invalid HTML and breaks hydration. `content-visibility: auto` keeps 226 of
   them roughly as cheap as the icons were.
 - `FeatureDef.explain` is one sentence saying what a part is and when you would
   want it, for the parts whose name is not enough (all of motion, interaction,

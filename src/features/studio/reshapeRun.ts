@@ -183,6 +183,38 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
   const { frameWidth } = job;
 
   try {
+    /*
+     * A cube needs no reader.
+     *
+     * The geometry already said what it is — three faces round a corner, a
+     * hexagon with a Y in it, or a rectangle with the word next to it — and
+     * the words already said what goes on the sides. Asking a model to pick
+     * a library entry for it would be asking a question that has been
+     * answered, and paying for the answer.
+     */
+    const drawnRole = kindOfSketch(drawn, node?.prompt ?? "");
+    if (drawnRole.kind === "cube") {
+      deps.onStep?.("Reading the shape…");
+      const made = applyProportion(drawn, node, job);
+      const did = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
+      useStudio.getState().landThread({
+        mode: "drawing",
+        ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
+        answer: `${did.did}, read off the drawing with no model asked`,
+        sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
+        changes: [`${node ? "turned" : "drew"} ${made.label} into a cube`],
+      });
+      deps.publish({
+        key: `studio:reshape:${made.id}`,
+        title: node ? `Turned ${made.label} into a cube` : "Drew a cube",
+        body: did.did,
+        level: "success",
+        source: "studio",
+        toast: true,
+      });
+      return { ok: true, madeId: made.id, note: did.did };
+    }
+
     deps.onStep?.("Claude is reading the drawing…");
     const res = await fetch("/api/studio/reshape", {
       method: "POST",
@@ -246,7 +278,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       });
       // The shape said what the part looks like; it also said what it does.
       // The clip is already on, and this adds behaviour on top of it.
-      const role = useStudio.getState().applyDrawnKind(made.id, kindOfSketch(drawn));
+      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
       const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
       return { ok: true, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
     }
@@ -255,7 +287,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // what the shape means is read here rather than asked for, so behaviour
     // survives a locked vault exactly as the crop does.
     const made = applyProportion(drawn, node, job);
-    const role = useStudio.getState().applyDrawnKind(made.id, kindOfSketch(drawn));
+    const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
     // A drawing that made a part is an iteration whether or not a reader
     // was involved: the shape, the crop, the behaviour and the traced body
     // all happened, and the timeline is where what happened is written.

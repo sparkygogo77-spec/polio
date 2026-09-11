@@ -25,6 +25,7 @@ import { ArticleList, Callout, CodeBlock, Eyebrow, Marquee, Prose } from "./Text
 import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Player, Viewer } from "./Media";
 import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./Forms";
 import { SearchBox } from "./SearchBox";
+import { Cube } from "./Cube";
 import { Orb } from "./Orb";
 import { Tabs } from "./Tabs";
 import type { PartDef } from "./types";
@@ -71,6 +72,7 @@ export const DEFS: PartDef[] = [
   { component: AvatarStack, ids: ["avatar-stack"], tier: "A" },
   { component: Art, ids: ["generative-art"], tier: "A" },
   { component: Orb, ids: ["orb-css", "orb-webgl", "orb-image"], tier: "A" },
+  { component: Cube, ids: ["cube-3d"], tier: "A" },
   { component: CornerGlow, ids: ["corner-glow"], tier: "A" },
 
   /* -------------------------------------------------------------- forms */

@@ -76,6 +76,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       link={node.link ?? null}
       theme={t}
       mode={mode}
+      cube={node.cube}
       onNavigate={onNavigate}
       emit={emit}
     />
@@ -83,7 +84,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   /*
    * A part is a box unless the author said otherwise — drew a line round
    * it, or picked a shape. Then it is cut to that shape here rather than in
-   * the part, because every one of the two hundred and twenty-five would
+   * the part, because every one of the two hundred and twenty-six would
    * otherwise have to know how to be round.
    *
    * Two ways, and the exact one wins. `outline` is the line as it was

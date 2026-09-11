@@ -25,7 +25,8 @@ export interface LiveSiteProps {
   format: FormatValues;
   look?: Look;
   onNavigatePage?: (pageId: string) => void;
-  onEvent?: (e: PartEvent) => void;
+  /** Every event a part sends, with the part that sent it. */
+  onEvent?: (e: PartEvent, nodeId: string) => void;
   /** Extra props for each part's wrapper (the builder hangs its right-click scope here). */
   nodeProps?: (node: StudioNode) => Record<string, unknown>;
 }
@@ -57,8 +58,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const seq = React.useRef(0);
 
   const emit = React.useCallback(
-    (e: PartEvent) => {
-      onEvent?.(e);
+    (e: PartEvent, nodeId = "") => {
+      onEvent?.(e, nodeId);
       if (e.type === "success") window.dispatchEvent(new CustomEvent("builder:success"));
       const text = e.type === "toast" ? e.text : e.type === "success" ? "Done" : e.type === "cart" ? `${e.delta > 0 ? "Added" : "Removed"} ${e.item}` : e.type === "auth" ? (e.signedIn ? `Signed in${e.name ? ` as ${e.name}` : ""}` : "Signed out") : null;
       if (!text) return;
@@ -117,7 +118,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
                 animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
               }}
             >
-              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={emit} />
+              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} />
             </div>
           ))}
           {placed.length === 0 ? (

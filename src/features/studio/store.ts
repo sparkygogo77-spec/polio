@@ -45,6 +45,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
+import { emptyCube, facesFrom, type CubeData, type CubeFace } from "./parts/cube";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
@@ -123,6 +124,15 @@ export interface StudioNode {
    * that was placed rather than drawn.
    */
   kind: DrawnKind | null;
+  /**
+   * The six faces, when this part is a cube.
+   *
+   * On the node rather than in the part, because they are the author's
+   * words: edited long after the cube exists, carried into the document,
+   * and so through publish, Build and the live page. The part is handed
+   * them and draws them.
+   */
+  cube: CubeData | null;
   /**
    * A body written for this part, when the drawing asked for something no
    * part in the library is: a helix of sentences, a spiral of names. SVG or
@@ -400,7 +410,17 @@ interface StudioState extends Doc {
    * being a part at all, and a surface is marked as one so the blueprint
    * and Build know it holds what is placed on it.
    */
-  applyDrawnKind: (nodeId: string, role: DrawnRole) => { kind: DrawnKind; did: string };
+  applyDrawnKind: (nodeId: string, role: DrawnRole, said?: string) => { kind: DrawnKind; did: string };
+  /**
+   * Change one face of a cube: its words, its colour, or clear it.
+   *
+   * Editable means editable after it exists. Everything a face is lives on
+   * the node, so this is the whole of it: no re-run, no model, and the
+   * board, the live page and the published site all change together.
+   */
+  setCubeFace: (nodeId: string, index: number, patch: Partial<CubeFace> | null) => void;
+  /** Where a cube is left standing, so the board draws the angle it was turned to. */
+  setCubeTurn: (nodeId: string, turn: { x: number; y: number }) => void;
 
   /* groups */
   groupSelection: (label?: string) => void;
@@ -737,7 +757,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, kind: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, kind: null, cube: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,
@@ -834,13 +854,59 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        applyDrawnKind: (nodeId, role) => {
+        setCubeFace: (nodeId, index, patch) =>
+          set((s) => ({
+            nodes: s.nodes.map((n) => {
+              if (n.id !== nodeId || index < 0 || index > 5) return n;
+              const cube = n.cube ?? emptyCube();
+              const faces = cube.faces.map((f, i) =>
+                i !== index ? f : patch === null ? { heading: "", body: "", colour: "" } : { ...f, ...patch },
+              );
+              return { ...n, cube: { ...cube, faces } };
+            }),
+          })),
+
+        setCubeTurn: (nodeId, turn) =>
+          set((s) => ({
+            nodes: s.nodes.map((n) => (n.id === nodeId ? { ...n, cube: { ...(n.cube ?? emptyCube()), turn } } : n)),
+          })),
+
+        applyDrawnKind: (nodeId, role, said = "") => {
           const s0 = get();
           const node = s0.nodes.find((n) => n.id === nodeId);
           if (!node) return { kind: role.kind, did: "" };
           const inside = (n: StudioNode) =>
             n.id !== node.id && n.pageId === node.pageId &&
             n.x >= node.x - 4 && n.y >= node.y - 4 && n.x + n.w <= node.x + node.w + 4 && n.y + n.h <= node.y + node.h + 4;
+
+          if (role.kind === "cube") {
+            /*
+             * A cube is a real part, not a crop. The drawing gave the kind
+             * and the proportions; the words give the faces. The outline
+             * goes, and that is the one place the clip is deliberately not
+             * kept: a solid that turns cannot live inside a still
+             * silhouette, and a hexagon-shaped hole round a rotating cube
+             * is worse than no crop at all.
+             */
+            /*
+             * The words that came with the drawing are the words about this
+             * part, whether or not the part had a prompt of its own before
+             * it was drawn on. They fill the faces and, when the part had
+             * nothing written on it, they become its prompt.
+             */
+            const words = node.prompt.trim() || said.trim();
+            const faces = facesFrom(node.content, words);
+            const filled = faces.filter((f) => f.heading.trim() || f.body.trim()).length;
+            const side = Math.max(160, Math.round(Math.min(node.w, node.h) || 360));
+            set((s) => ({
+              nodes: s.nodes.map((n) =>
+                n.id === node.id
+                  ? { ...n, kind: "cube", featureId: "cube-3d", custom: false, shape: null, outline: null, w: side, h: side, prompt: words, cube: { faces, turn: { x: -18, y: -32 } } }
+                  : n,
+              ),
+            }));
+            return { kind: "cube", did: filled ? `a cube with ${filled} of six faces written` : "a cube with six empty faces" };
+          }
 
           if (role.kind === "container") {
             const held = s0.nodes.filter(inside);
