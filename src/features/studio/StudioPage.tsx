@@ -178,7 +178,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   // In Preview the board is the site, so the drawing tools have nothing to act on.
   if (mode === "preview") {
     return (
-      <div className="flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
+      <div data-studio-bar="" className="flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
         <SiteHead />
         <span className="mx-1 h-4 w-px bg-border" />
         <PageChips />
@@ -195,7 +195,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
+    <div data-studio-bar="" className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
       <SiteHead />
       <span className="mx-1 h-4 w-px bg-border" />
       <PageChips />
