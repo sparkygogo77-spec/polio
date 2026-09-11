@@ -498,37 +498,53 @@
  * Nothing else here moves like that, which is why it can be found without
  * reading it.
  */
+/*
+ * Finish: the one key on the bar that ends something rather than changes it.
+ *
+ * It was a mid-green slab with near-black glyphs on it, which on a dark bar
+ * is a shape that melts: the body is the lightest thing there and the marks
+ * on it are the darkest, so at a glance you read a green blob and nothing
+ * else. Turned inside out — a deep green slab, a bright green rim, a white
+ * flag, and the counts lit in their own colours — the marks are what carry
+ * and the key is what holds them.
+ *
+ * Green is still the identity: it is in the rim, the sheen and the glow,
+ * where it says "this is the end of the work" without competing with the
+ * numbers it is there to show.
+ */
 .process-key {
-  background: linear-gradient(oklch(0.62 0.19 148), oklch(0.54 0.18 148));
-  border: 1px solid oklch(0.72 0.17 148);
-  color: oklch(0.14 0.03 148);
+  background: linear-gradient(oklch(0.31 0.075 150), oklch(0.2 0.05 150));
+  border: 1px solid oklch(0.66 0.17 150);
+  color: oklch(1 0 0);
   box-shadow:
-    0 1.5px 0 oklch(0.34 0.12 148),
-    0 2px 6px oklch(0 0 0 / 0.55),
-    inset 0 1px 0 oklch(0.86 0.15 148 / 0.6);
+    0 1.5px 0 oklch(0.16 0.05 150),
+    0 2px 8px oklch(0 0 0 / 0.6),
+    0 0 0 1px oklch(0.66 0.17 150 / 0.25),
+    inset 0 1px 0 oklch(0.82 0.16 150 / 0.45);
   transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 70ms ease-out, background 70ms ease-out;
 }
 .process-key:hover {
-  filter: brightness(1.12);
+  background: linear-gradient(oklch(0.36 0.085 150), oklch(0.24 0.06 150));
+  border-color: oklch(0.76 0.18 150);
 }
 .process-key:active {
-  background: linear-gradient(oklch(0.46 0.15 148), oklch(0.5 0.16 148));
+  background: linear-gradient(oklch(0.17 0.05 150), oklch(0.21 0.06 150));
   transform: translateY(1.5px);
   box-shadow:
-    inset 0 2px 5px oklch(0.1 0.05 148 / 0.9),
-    inset 0 -1px 0 oklch(0.74 0.14 148 / 0.25),
-    0 0 0 1px oklch(0.22 0.07 148);
+    inset 0 2px 5px oklch(0.08 0.04 150 / 0.9),
+    inset 0 -1px 0 oklch(0.7 0.15 150 / 0.25),
+    0 0 0 1px oklch(0.3 0.08 150);
 }
-/*
- * Finish is green, because it is the end of the work rather than a part of
- * it. It was a purple key from the console's own family, which put the one
- * button that says "this is done" in the same colour as everything that only
- * changes something. Green is what this app has for a thing that has landed.
- */
+/* The flag reads white, on every state, at every brightness of the slab. */
+.process-key svg {
+  color: oklch(1 0 0);
+}
+/* Working: the rim breathes rather than the whole key, so the counts on it
+   stay legible through the pulse. */
 .process-key[data-busy="1"] {
   animation: process-pulse 1.8s ease-in-out infinite;
 }
 @keyframes process-pulse {
-  0%, 100% { box-shadow: 0 1.5px 0 oklch(0.34 0.12 148), 0 2px 6px oklch(0 0 0 / 0.55), inset 0 1px 0 oklch(0.86 0.15 148 / 0.6); }
-  50% { box-shadow: 0 1.5px 0 oklch(0.34 0.12 148), 0 2px 14px oklch(0.66 0.2 148 / 0.55), inset 0 1px 0 oklch(0.9 0.16 148 / 0.75); }
+  0%, 100% { box-shadow: 0 1.5px 0 oklch(0.16 0.05 150), 0 2px 8px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0.66 0.17 150 / 0.25), inset 0 1px 0 oklch(0.82 0.16 150 / 0.45); }
+  50% { box-shadow: 0 1.5px 0 oklch(0.16 0.05 150), 0 2px 8px oklch(0 0 0 / 0.6), 0 0 0 2px oklch(0.78 0.19 150 / 0.65), 0 0 16px oklch(0.66 0.2 150 / 0.45), inset 0 1px 0 oklch(0.88 0.17 150 / 0.6); }
 }

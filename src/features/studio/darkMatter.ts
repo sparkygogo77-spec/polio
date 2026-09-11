@@ -349,20 +349,6 @@ export interface CloudLayer {
   dx: number;
   dy: number;
   alpha: number;
-  /**
-   * The one layer whose speed the whole field is moved at.
-   *
-   * Where the field is painted once and slid (`ground.ts`), the four layers
-   * cannot each take their own heading: a canvas moves as one. So one of
-   * them sets the pace and the rest ride it, and it is the near violet,
-   * because that is the cloud you watch pass — the biggest, nearest and
-   * strongest of the four. What is given up is the slow evolution the four
-   * headings made between them, the bloom shifting where they cross. What
-   * is bought is motion that is actually smooth. If anyone ever misses the
-   * evolution it comes back as a cross-fade at each recycle, not as a
-   * repaint rate.
-   */
-  carries?: true;
 }
 
 export const CLOUD_LAYERS: CloudLayer[] = [
@@ -370,13 +356,31 @@ export const CLOUD_LAYERS: CloudLayer[] = [
   { id: "far-violet", tile: "violet", scale: 2.8, turn: 0, spin: 0.2, dx: 0.5, dy: -0.25, alpha: 0.9 },
   { id: "far-magenta", tile: "magenta", scale: 2.3, turn: 70, spin: -0.15, dx: -0.35, dy: 0.4, alpha: 0.7 },
   // The near depth: cloud you can see pass, across in half a minute or so.
-  { id: "near-violet", tile: "violet", scale: 0.95, turn: 30, spin: -0.8, dx: 7.5, dy: -2.5, alpha: 0.55, carries: true },
+  { id: "near-violet", tile: "violet", scale: 0.95, turn: 30, spin: -0.8, dx: 7.5, dy: -2.5, alpha: 0.55 },
   { id: "near-magenta", tile: "magenta", scale: 0.75, turn: 150, spin: 0.6, dx: 5.5, dy: 3.5, alpha: 0.45 },
 ];
 
-/** How fast the whole field goes, in screen pixels a second. */
-export function fieldDrift(): { vx: number; vy: number } {
-  return cloudDrift(CLOUD_LAYERS.find((l) => l.carries) ?? CLOUD_LAYERS[CLOUD_LAYERS.length - 1]!);
+/**
+ * Where a layer has travelled by second `t`, in screen pixels.
+ *
+ * Its own `dx, dy` are tile pixels applied *after* the turn and the scale,
+ * so the direction you see is the drawn direction turned by whatever the
+ * turn is at that moment, and the distance is it scaled. The turn is itself
+ * moving, which is why this takes a time rather than being a constant.
+ */
+export function cloudTravel(l: CloudLayer, t: number): { x: number; y: number } {
+  const a = ((l.turn + l.spin * t) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const dx = l.dx * t;
+  const dy = l.dy * t;
+  return { x: l.scale * (dx * cos - dy * sin), y: l.scale * (dx * sin + dy * cos) };
+}
+
+/** How fast a layer goes at the start, for sizing the material it needs. */
+export function cloudSpeed(l: CloudLayer): number {
+  const { vx, vy } = cloudDrift(l);
+  return Math.hypot(vx, vy);
 }
 
 /**
@@ -395,52 +399,30 @@ export function cloudDrift(l: CloudLayer): { vx: number; vy: number } {
 }
 
 /**
- * The whole cloud field, on a transparent canvas, placed as though the drift
- * had carried it `ox, oy` screen pixels.
+ * One cloud layer, alone on a transparent canvas, laid exactly as
+ * `paintDarkMatter` lays it: the same tile, the same scale, turned `turn`
+ * degrees about the middle and shifted `dx, dy` tile pixels.
  *
- * The offset is taken back through the turn and the scale because a
- * pattern's own translate happens after both. The four layers are screened
- * together here rather than by the compositor: `mix-blend-mode` on a layer
- * the size of a window costs half the frame rate on a machine with no GPU —
- * measured, 60fps down to 43 for one layer — and over a ground this dark
- * screening onto it and compositing onto it differ by about a percent.
- * Between the layers, where it is worth something, it is exact.
+ * This is the whole of what a recycle does. Between recycles the layer is
+ * turned and moved by the compositor, which is why the turn and the shift
+ * are arguments rather than being worked out from a clock in here.
  */
-export function paintCloudField(
+export function paintCloudLayer(
   c: CanvasRenderingContext2D,
-  layers: CloudLayer[],
-  /**
-   * `from` is where these layers sit in the whole stack, so the field can be
-   * laid one layer to a frame: the bottom one clears and the rest screen
-   * over what is already there.
-   */
-  opts: { w: number; h: number; dim?: number; ox?: number; oy?: number; from?: number },
+  layer: CloudLayer,
+  opts: { w: number; h: number; dim?: number; turn: number; dx: number; dy: number },
 ) {
   const { w, h } = opts;
   const dim = opts.dim ?? 1;
-  const ox = opts.ox ?? 0;
-  const oy = opts.oy ?? 0;
-  const from = opts.from ?? 0;
   const T = darkMatterTiles();
-  if (!from) c.clearRect(0, 0, w, h);
-  for (let i = 0; i < layers.length; i++) {
-    const layer = layers[i]!;
-    const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
-    if (!p) continue;
-    const a = (layer.turn * Math.PI) / 180;
-    const cos = Math.cos(a);
-    const sin = Math.sin(a);
-    const k = 1 / layer.scale;
-    const dx = k * (ox * cos + oy * sin);
-    const dy = k * (-ox * sin + oy * cos);
-    p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(layer.turn).scale(layer.scale).translate(dx, dy));
-    c.globalAlpha = layer.alpha * dim;
-    c.globalCompositeOperation = i + from ? "screen" : "source-over";
-    c.fillStyle = p;
-    c.fillRect(0, 0, w, h);
-  }
+  c.clearRect(0, 0, w, h);
+  const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
+  if (!p) return;
+  p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(opts.turn).scale(layer.scale).translate(opts.dx, opts.dy));
+  c.globalAlpha = layer.alpha * dim;
+  c.fillStyle = p;
+  c.fillRect(0, 0, w, h);
   c.globalAlpha = 1;
-  c.globalCompositeOperation = "source-over";
 }
 
 /**

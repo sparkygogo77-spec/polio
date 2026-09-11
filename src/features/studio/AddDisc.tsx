@@ -33,7 +33,7 @@ import { useActions } from "@/core/actions";
 import { Input } from "@/core/ui/input";
 import { CATEGORIES, featuresByCategory, searchFeatures, SUBGROUPS, type CategoryId, type FeatureDef } from "./catalog";
 import { RimButton } from "./DrawBoard";
-import { DRIFT_MS, paintDarkMatter, resizeField, sparkField, type SparkField } from "./darkMatter";
+import { useGround } from "./ground";
 import { BOARD_R } from "./menuGeometry";
 import { addFeatureToCanvas } from "./Palette";
 import { PartPreview, previewHeight } from "./PartPreview";
@@ -82,44 +82,19 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
   const [category, setCategory] = React.useState<CategoryId>(lastCategory);
   const [query, setQuery] = React.useState("");
   const [sel, setSel] = React.useState(0);
-  const canvas = React.useRef<HTMLCanvasElement>(null);
-  // The disc's own embers. Its own, because the workspace behind it is
-  // standing on the same ground and one shared cast would tear in half.
-  const field = React.useRef<SparkField | null>(null);
+  // The disc's own weather, off the one implementation every surface uses
+  // (`ground.ts`): its own embers, because the workspace behind it stands on
+  // the same ground and one shared cast would tear in half.
+  const face = React.useRef<HTMLDivElement>(null);
+  const clouds = React.useRef<HTMLDivElement>(null);
+  const embers = React.useRef<HTMLCanvasElement>(null);
   const well = React.useRef<HTMLDivElement>(null);
   const column = React.useRef<HTMLDivElement>(null);
-  const born = React.useRef(0);
-  if (!born.current) born.current = typeof performance !== "undefined" ? performance.now() : 0;
   const size = BOARD_R * 2;
   const searching = query.trim().length > 0;
 
   /* ---------------------------------------------------------- the camo */
-  React.useEffect(() => {
-    let frame = 0;
-    const paint = () => {
-      frame = 0;
-      const el = canvas.current;
-      const c = el?.getContext("2d");
-      if (!el || !c) return;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      if (el.width !== size * dpr || el.height !== size * dpr) {
-        el.width = size * dpr;
-        el.height = size * dpr;
-      }
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      field.current = field.current ? resizeField(field.current, size, size) : sparkField("disc", size, size);
-      paintDarkMatter(c, { field: field.current, t: (performance.now() - born.current) / 1000 });
-    };
-    paint();
-    const t = window.setInterval(() => {
-      if (document.hidden || frame) return;
-      frame = requestAnimationFrame(paint);
-    }, DRIFT_MS);
-    return () => {
-      window.clearInterval(t);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [size]);
+  useGround(face, clouds, embers, { shape: "disc" });
 
   /* ---------------------------------------------------------- the column */
   const rows = React.useMemo<Row[]>(() => {
@@ -319,12 +294,13 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
         if (e.key === "Enter" && !(e.target as HTMLElement).closest("input")) { e.preventDefault(); addChosen(); }
       }}
     >
-      {/* the disc, in dark matter */}
-      <canvas
-        ref={canvas}
+      {/* the disc, in dark matter: the same weather the workspace stands on,
+          clipped round and moved rather than redrawn (`ground.ts`). */}
+      <div
+        ref={face}
         data-add-surface=""
         aria-hidden
-        className="absolute inset-0 rounded-full"
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
         style={{
           width: size,
           height: size,
@@ -336,7 +312,10 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
             "0 12px 40px oklch(0 0 0 / 0.45)",
           ].join(", "),
         }}
-      />
+      >
+        <div ref={clouds} data-ground-clouds="" className="absolute inset-0" />
+        <canvas ref={embers} data-ground-sparks="" className="absolute left-0 top-0" />
+      </div>
 
       {/* the hole: the parts roll down the middle of it, on the drum */}
       <div

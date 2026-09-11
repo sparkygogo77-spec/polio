@@ -25,6 +25,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { doneJobs, failedJobs, nextJob, pendingJobs } from "./queue";
 import { runDrawJob } from "./reshapeRun";
 import { useStudio } from "./store";
+import { PROCESS } from "./threads";
 
 /** The runner. Mounted once; everything else only looks at the queue. */
 export function DrawQueue() {
@@ -101,6 +102,9 @@ export function ProcessCounter() {
   const busy = pending.length > 0;
 
   const now = pending.find((j) => j.status === "running");
+  // Red is everything not finished, which is the waiting, the running and
+  // the ones that were given up on. Green is what landed.
+  const open = pending.length + failed;
   const told = busy
     ? `Finish · ${pending.length} drawing${pending.length === 1 ? "" : "s"} to make real${now?.step ? ` · ${now.step}` : ""}${done ? ` · ${done} done` : ""}`
     : done || failed
@@ -120,23 +124,31 @@ export function ProcessCounter() {
         // on it; `data-finish` is the handle everything holds it by.
         data-finish=""
         data-process-counter=""
-        aria-label={`Finish, ${pending.length} drawings pending, ${done} done${failed ? `, ${failed} that could not be read` : ""}`}
+        aria-label={`Finish, ${open} unfinished, ${done} done${failed ? `, of which ${failed} could not be read` : ""}`}
         aria-pressed={mode === "book"}
         data-busy={busy ? "1" : "0"}
         onClick={() => {
           play("confirm");
           useStudio.getState().setMode(mode === "book" ? "design" : "book");
         }}
-        className="process-key tactile ml-1 flex h-6 shrink-0 select-none items-center gap-1.5 rounded-md px-1.5 text-[10px] font-medium outline-none"
+        className="process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-[10px] font-medium outline-none"
       >
-        {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <FlagCheck className="size-3.5" />}
-        <span className="num tabular-nums">
-          {pending.length}
-          <span style={{ opacity: 0.6 }}> / </span>
-          {done}
-          {/* A drawing that could not be read is not a drawing that landed:
-              it is said here rather than hidden in the done count. */}
-          {failed ? <span style={{ color: "oklch(0.86 0.14 30)" }}> · {failed}!</span> : null}
+        {busy ? <LoaderCircle className="size-4 animate-spin" /> : <FlagCheck className="size-4" />}
+        {/*
+          The process, on the right where the count lives, and lit.
+          
+          It was one small line of near-black digits on a green slab, which
+          is the half of this button J could not read. Red for every process
+          unfinished or abandoned, green for every one that completed — the
+          same pair the timeline's boxes wear (`PROCESS` in `threads.ts`),
+          because a person should not have to learn two vocabularies for one
+          idea. Bigger, and glowing in their own colour, so the numbers are
+          what carries the key rather than the key carrying them.
+        */}
+        <span className="num flex items-baseline gap-1 text-[13px] leading-none tabular-nums">
+          <span style={{ color: PROCESS.open, textShadow: `0 0 8px ${PROCESS.openGlow}` }}>{open}</span>
+          <span aria-hidden style={{ color: "oklch(1 0 0 / 0.3)" }}>/</span>
+          <span style={{ color: PROCESS.done, textShadow: `0 0 8px ${PROCESS.doneGlow}` }}>{done}</span>
         </span>
       </button>
     </Tooltip>

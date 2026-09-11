@@ -74,7 +74,42 @@ export interface Thread {
    * up (red), or it is done (green). Absent means done, which is what every
    * thread written before this was.
    */
-  state?: "running" | "done" | "cut";
+  state?: ProcessState;
+}
+
+/**
+ * How a process ended, if it has. Three words, two colours.
+ *
+ * `running` is still going, `cut` gave up, `done` finished, and absent means
+ * done — which is what every thread written before this was. The names live
+ * here rather than being spelled out at each site so the timeline's boxes
+ * and the Finish key on the bar cannot drift into two vocabularies for one
+ * idea.
+ */
+export type ProcessState = "running" | "done" | "cut";
+
+/**
+ * Red or green, and nothing else, wherever a process shows its state.
+ *
+ * The only question worth answering at a glance is whether the work
+ * finished. Red while it is still going *or* gave up, green the moment it is
+ * done. Two colours, no shades between them, and no third: a third would
+ * make it a legend rather than a glance. Both the timeline's boxes and the
+ * bar's Finish key read from here.
+ */
+export const PROCESS = {
+  /** Unfinished or abandoned. */
+  open: "oklch(0.62 0.23 27)",
+  /** Completed. */
+  done: "oklch(0.72 0.2 150)",
+  /** The same two, to glow with. */
+  openGlow: "oklch(0.62 0.23 27 / 0.7)",
+  doneGlow: "oklch(0.72 0.2 150 / 0.7)",
+} as const;
+
+/** Has this one finished? Absent counts as done. */
+export function processDone(state?: ProcessState): boolean {
+  return (state ?? "done") === "done";
 }
 
 /** How many threads are kept with their documents. The board lives in localStorage. */

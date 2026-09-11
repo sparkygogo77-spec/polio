@@ -10,7 +10,16 @@ Nothing here is applied. Nothing here is dead either.
 
 ## `nebula-four-layers.patch`
 
-**What it does.** Restores the nebula to the look it had before the speed
+> **Taken off the shelf.** J read the numbers below, weighed them against the
+> machine he actually runs — a 5070 Ti, 16GB of GDDR7 at 896 GB/s, where four
+> screen-sized layers is nothing — and said ship it. The restoration is in the
+> Builder now, and every surface uses it: the workspace, the timeline's floor,
+> the add disc and the drawing board. The patch and the measurement stay here
+> because the numbers are the record of what was traded and why, and because
+> the next person to meet a 14fps reading on a software rasteriser should find
+> this page before they "fix" it.
+
+**What it did.** Restores the nebula to the look it had before the speed
 pass, and makes it move every frame: four cloud layers, each on its own
 canvas, each keeping its own heading, its own speed and its own slow turn,
 screened together with `mix-blend-mode: screen` over the sky, at **full**
@@ -21,7 +30,8 @@ has run out of the material it was laid with.
 It is complete and it builds. `git apply docs/shelf/nebula-four-layers.patch`
 puts it in.
 
-**Why it is on the shelf.** It cannot hold 60fps on a machine with no GPU.
+**Why it was on the shelf.** It cannot hold 60fps on a machine with no GPU.
+That turned out to be a fact about the machine, not about the patch.
 
 **What was measured**, 1440×900, production build, at the screen's own rate
 (no `--disable-gpu-vsync`), on a container that rasterises in **software**

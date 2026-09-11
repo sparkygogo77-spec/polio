@@ -40,7 +40,7 @@ import { Button } from "@/core/ui/button";
 import { useGround } from "./ground";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
-import { diffDocs, flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
+import { diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 
 /** A chain prompt's box. Small: it says little until it is opened. */
@@ -591,7 +591,9 @@ function Standing(props: {
  * legend rather than a glance.
  */
 function StateMark({ thread }: { thread: Thread }) {
-  const done = (thread.state ?? "done") === "done";
+  // The one pair, from `threads.ts`, so this and the bar's Finish key cannot
+  // drift into two sets of colours for one idea.
+  const done = processDone(thread.state);
   return (
     <span
       data-state={done ? "done" : thread.state}
@@ -599,8 +601,8 @@ function StateMark({ thread }: { thread: Thread }) {
       title={done ? "finished" : thread.state === "cut" ? "given up" : "still running"}
       className="ml-auto size-2 shrink-0 rounded-full"
       style={{
-        background: done ? "oklch(0.72 0.2 150)" : "oklch(0.62 0.23 27)",
-        boxShadow: `0 0 6px ${done ? "oklch(0.72 0.2 150 / 0.7)" : "oklch(0.62 0.23 27 / 0.7)"}`,
+        background: done ? PROCESS.done : PROCESS.open,
+        boxShadow: `0 0 6px ${done ? PROCESS.doneGlow : PROCESS.openGlow}`,
       }}
     />
   );

@@ -39,7 +39,8 @@ import { Input } from "@/core/ui/input";
 import { useSetting } from "@/core/settings/useSetting";
 import { BOARD_R } from "./menuGeometry";
 import { CONSOLE, HoverTray } from "./RingConsole";
-import { DRIFT_MS as GROUND_MS, paintDarkMatter, resizeField, sparkField, type SparkField } from "./darkMatter";
+import { DRIFT_MS as GROUND_MS } from "./darkMatter";
+import { useGround } from "./ground";
 import { HALO, paintBlackHole, paintHorizonShadow } from "./blackHole";
 import { describeSketch, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { pictureOf } from "./reshapeRun";
@@ -74,13 +75,20 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const [note, setNote] = React.useState<string | null>(null);
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const halo = React.useRef<HTMLCanvasElement>(null);
-  const field = React.useRef<SparkField | null>(null);
+  // The board's own weather, off the one implementation every surface uses.
+  // A little further off than the add disc's: this is a surface to draw on,
+  // and the strokes have to be the brightest thing on it.
+  const face = React.useRef<HTMLDivElement>(null);
+  const clouds = React.useRef<HTMLDivElement>(null);
+  const embers = React.useRef<HTMLCanvasElement>(null);
   const live = React.useRef<SketchPoint[] | null>(null);
   const frame = React.useRef(0);
   // When the board was opened: the void's clock starts from there.
   const born = React.useRef(0);
   if (!born.current) born.current = typeof performance !== "undefined" ? performance.now() : 0;
   const size = BOARD_R * 2;
+
+  useGround(face, clouds, embers, { dim: 0.7, shape: "disc" });
 
   /* ---------------------------------------------------------- painting */
   const paint = React.useCallback(() => {
@@ -96,16 +104,13 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     const t = (performance.now() - born.current) / 1000;
     /*
-     * The face is the hub's own ground — the same clouds and embers the add
-     * disc opens into (`darkMatter.ts`), the same generator, drawn as a
-     * disc. The board and the hole you pull parts out of are one place.
+     * The ground is not painted here any more. It is the same weather every
+     * other surface stands on, off the one implementation (`ground.ts`),
+     * sitting on its own layers behind this canvas and *moving* rather than
+     * being redrawn — which is the whole reason the disc used to skip. This
+     * canvas is the ink and nothing else, so it starts clear.
      */
-    field.current = field.current && field.current.w === size ? field.current : sparkField("disc", size, size);
-    field.current = resizeField(field.current, size, size);
-    // A little further off than the add disc's own weather: this is a
-    // surface to draw on, and the strokes have to be the brightest thing on
-    // it. The clouds still pass and the embers still cross.
-    paintDarkMatter(c, { field: field.current, t, vignette: false, dim: 0.7 });
+    c.clearRect(0, 0, size, size);
     for (const s of strokes) paintStroke(c, s, size);
     if (live.current) paintStroke(c, live.current, size);
     // The horizon, over everything: the surface falls to black at the rim.
@@ -136,11 +141,23 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   const latest = React.useRef(paint);
   latest.current = paint;
   React.useEffect(() => {
-    const t = window.setInterval(() => {
-      if (document.hidden) return;
-      if (!frame.current) frame.current = requestAnimationFrame(() => latest.current());
-    }, DRIFT_MS);
-    return () => window.clearInterval(t);
+    /*
+     * One animation frame loop with the clock checked inside it, not a
+     * `setInterval` beside it: 33ms against a 16.7ms frame lands two frames
+     * on one beat and none on the next, which is a stutter nobody wrote.
+     * Only the halo moves on this canvas now; the weather behind it moves
+     * on the compositor.
+     */
+    let raf = 0;
+    let last = 0;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (document.hidden || now - last < GROUND_MS) return;
+      last = now;
+      latest.current();
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   /* ---------------------------------------------------------- drawing */
@@ -243,6 +260,18 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
         className="pointer-events-none absolute"
         style={{ left: -HALO, top: -HALO, width: size + HALO * 2, height: size + HALO * 2 }}
       />
+
+      {/* the weather, behind the ink: one implementation, clipped round */}
+      <div
+        ref={face}
+        data-board-ground=""
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+        style={{ width: size, height: size }}
+      >
+        <div ref={clouds} data-ground-clouds="" className="absolute inset-0" />
+        <canvas ref={embers} data-ground-sparks="" className="absolute left-0 top-0" />
+      </div>
 
       {/* the disc */}
       <canvas
