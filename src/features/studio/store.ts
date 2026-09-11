@@ -254,6 +254,17 @@ interface StudioState extends Doc {
   inkWidth: number;
   zoom: number;
   pan: { x: number; y: number };
+  /**
+   * How far the *site* is scrolled inside its frame.
+   *
+   * The frame is one screen of the website now, not the whole of it: the page
+   * scrolls inside it the way it will in a browser, so what you are looking
+   * at is what a visitor sees, at the size they see it. The board's own pan
+   * moves the frame about the workspace; this moves the page behind the
+   * frame's edge. Never persisted — where you had scrolled to is not part of
+   * the site.
+   */
+  pageScroll: number;
   showAllFormat: boolean;
   /** Wires between parts can be hidden so the board reads as the page. */
   showWires: boolean;
@@ -406,6 +417,7 @@ interface StudioState extends Doc {
   setInk: (patch: { hue?: number; width?: number }) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
+  setPageScroll: (y: number) => void;
   resetView: () => void;
   setFrameWidth: (w: number) => void;
   requestFit: () => void;
@@ -645,6 +657,7 @@ export const useStudio = create<StudioState>()(
         inkWidth: 3,
         zoom: 1,
         pan: { x: 0, y: 0 },
+        pageScroll: 0,
         showAllFormat: false,
         showWires: true,
         hiddenFeatures: [],
@@ -989,6 +1002,7 @@ export const useStudio = create<StudioState>()(
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setZoom: (z) => set({ zoom: Math.max(0.25, Math.min(2.5, z)) }),
         setPan: (p) => set({ pan: p }),
+        setPageScroll: (y) => set({ pageScroll: Math.max(0, y) }),
         resetView: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
         setFrameWidth: (w) => set((s) => ({ frameWidth: w, fitNonce: s.fitNonce + 1 })),
         requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),

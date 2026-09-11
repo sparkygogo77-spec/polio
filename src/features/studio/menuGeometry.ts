@@ -25,8 +25,20 @@ export type Shape = "square" | "round";
  * it is the only thing on screen when it is up, so it can afford the room.
  */
 export interface Rings { hole: number; mid: number; reach: number }
-export const BLUE_RINGS: Rings = { hole: 40, mid: 82, reach: 124 };
-export const GREEN_RINGS: Rings = { hole: 46, mid: 96, reach: 150 };
+
+/**
+ * A tenth off everything, since the page got smaller.
+ *
+ * The frame is one screen of the site now rather than the whole of it, which
+ * makes the board itself a smaller thing to open a menu over — a wheel drawn
+ * for the old frame covered most of a page. Everything the menu is made of is
+ * scaled by one number so the proportions it was drawn with survive it.
+ */
+export const MENU_SCALE = 0.9;
+const k = (n: number) => Math.round(n * MENU_SCALE);
+
+export const BLUE_RINGS: Rings = { hole: k(40), mid: k(82), reach: k(124) };
+export const GREEN_RINGS: Rings = { hole: k(46), mid: k(96), reach: k(150) };
 
 /**
  * The drawing board's radius: one disc over the whole menu, with no hole.
@@ -37,7 +49,7 @@ export const GREEN_RINGS: Rings = { hole: 46, mid: 96, reach: 150 };
  * space like everywhere else on it — which is why the way back is on its
  * rim and not at the pointer.
  */
-export const BOARD_R = 160;
+export const BOARD_R = k(160);
 
 /**
  * Corner radius. Every piece is drawn inset by this and grown back out with a

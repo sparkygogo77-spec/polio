@@ -30,7 +30,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { DRIFT_MS, paintDarkMatter, resizeField, sparkField, type SparkField } from "./darkMatter";
+import { useGround } from "./ground";
 import { paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
 import { flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
@@ -107,9 +107,6 @@ export function Timeline() {
   const plot = React.useRef<HTMLDivElement>(null);
   const ground = React.useRef<HTMLCanvasElement>(null);
   const wires = React.useRef<HTMLCanvasElement>(null);
-  const field = React.useRef<SparkField | null>(null);
-  const born = React.useRef(0);
-  if (!born.current) born.current = typeof performance !== "undefined" ? performance.now() : 0;
 
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = React.useState(1);
@@ -130,42 +127,15 @@ export function Timeline() {
     [dragging, spots, home],
   );
 
-  /* ------------------------------------------------------------ ground */
-  React.useEffect(() => {
-    const el = ground.current;
-    const box = host.current;
-    if (!el || !box) return;
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    let frame = 0;
-    const paint = () => {
-      frame = 0;
-      const c = el.getContext("2d");
-      if (!c) return;
-      const w = Math.max(1, Math.round(box.clientWidth));
-      const h = Math.max(1, Math.round(box.clientHeight));
-      if (el.width !== w || el.height !== h) {
-        el.width = w;
-        el.height = h;
-      }
-      el.style.width = `${w}px`;
-      el.style.height = `${h}px`;
-      field.current = field.current ? resizeField(field.current, w, h) : sparkField("ground", w, h);
-      paintDarkMatter(c, { field: field.current, t: (performance.now() - born.current) / 1000, vignette: false, dim: GROUND_DIM });
-    };
-    paint();
-    const ro = new ResizeObserver(() => { if (!frame) frame = requestAnimationFrame(paint); });
-    ro.observe(box);
-    if (still) return () => ro.disconnect();
-    const tick = window.setInterval(() => {
-      if (document.hidden || frame) return;
-      frame = requestAnimationFrame(paint);
-    }, DRIFT_MS);
-    return () => {
-      window.clearInterval(tick);
-      ro.disconnect();
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
+  /*
+   * The floor is the same weather the workspace stands on, painted the same
+   * way: two layers, one animation frame's clock, the clouds small and rare.
+   * It used to repaint everything thirty times a second here, which measured
+   * at 23fps flat — smooth, because it was uniformly slow, and a great deal
+   * of main thread for a sky.
+   */
+  const clouds = React.useRef<HTMLCanvasElement>(null);
+  useGround(host, clouds, ground, GROUND_DIM);
 
   /* ----------------------------------------------------------- strands */
   /*
@@ -302,7 +272,8 @@ export function Timeline() {
       onWheel={onWheel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <canvas ref={ground} aria-hidden className="pointer-events-none absolute left-0 top-0" />
+      <canvas ref={clouds} data-ground-clouds="" aria-hidden className="pointer-events-none absolute left-0 top-0" />
+      <canvas ref={ground} data-ground-sparks="" aria-hidden className="pointer-events-none absolute left-0 top-0" />
       <canvas ref={wires} aria-hidden className="pointer-events-none absolute left-0 top-0" />
 
       <div
