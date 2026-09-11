@@ -14,9 +14,12 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { getFeature, categoryOf } from "./catalog";
 import { isLinkable } from "./parts";
+import { useActions } from "@/core/actions";
 import { Block, themeFrom } from "./blocks";
+import { pictureOf } from "./reshapeRun";
+import { describeSketch } from "./sketch";
 import { resolvePalette } from "./parts/theme";
-import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal, Sparkles } from "lucide-react";
 import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
@@ -37,6 +40,9 @@ const GRID = 8;
 
 /** Parts that take the pointer on the board once they are selected. See `handsOn`. */
 const HANDS_ON = new Set(["cube-3d"]);
+
+/** Parts that wear a drawn icon when one is dropped on them. */
+const WEARS_AN_ICON = new Set(["cta-primary", "quick-action", "follow"]);
 /** Breathing room either side of the page. Small: the page is the point. */
 const FRAME_GUTTER = 48;
 /** How far below the top of the viewport the page rests. */
@@ -72,6 +78,7 @@ interface Guides {
 
 export function Canvas() {
   const ref = React.useRef<HTMLDivElement>(null);
+  const news = useActions();
   const nodes = useStudio(useShallow(pageNodes));
   const shapes = useStudio(useShallow(pageShapes));
   const groups = useStudio(useShallow(pageGroups));
@@ -483,6 +490,43 @@ export function Canvas() {
     }
   };
 
+  /**
+   * Ink becomes a part.
+   *
+   * The same road the drawing disc takes, from a different door: the
+   * strokes are put in their own box as fractions, rasterised for the
+   * reader, and queued exactly as `DrawBoard` queues them, so everything
+   * downstream — the catalogue, the tracer, the queue counter, the
+   * iteration on the timeline — is the machinery that was already there.
+   * The ink goes, because it is the part now.
+   */
+  const makeInkReal = React.useCallback((sh: StudioShape) => {
+    const b = shapeBounds(sh);
+    if (b.w < 2 && b.h < 2) return;
+    const w = Math.max(b.w, 1);
+    const h = Math.max(b.h, 1);
+    const strokes = [sh.points.map(([x, y]) => [(x - b.x) / w, (y - b.y) / h] as [number, number])];
+    const drawn = { strokes, words: (sh.label || sh.prompt || "").trim() };
+    play("confirm");
+    useStudio.getState().enqueueDraw({
+      nodeId: null,
+      at: { x: b.x + b.w / 2, y: b.y + b.h / 2 },
+      frameWidth,
+      sketch: drawn,
+      picture: pictureOf(strokes),
+      label: `Making ${drawn.words.slice(0, 40) || describeSketch({ strokes, words: "" })}`,
+    });
+    useStudio.getState().removeShapes([sh.id]);
+    news.publish({
+      key: "studio:queued",
+      title: "The drawing is on the queue",
+      body: "The counter on the toolbar says when it lands.",
+      level: "info",
+      source: "studio",
+      toast: true,
+    });
+  }, [frameWidth, news]);
+
   const onPointerUp = () => {
     if (!drag) return;
     const store = useStudio.getState();
@@ -496,6 +540,33 @@ export function Canvas() {
             ids.has(n.id) ? { ...n, x: snapGrid(n.x), y: snapGrid(n.y), w: drag.kind === "resize" ? snapGrid(n.w) : n.w, h: drag.kind === "resize" ? snapGrid(n.h) : n.h } : n,
           ),
         });
+      }
+      /*
+       * A drawing used as an icon, let go on top of a button, becomes that
+       * button's icon.
+       *
+       * The paths are copied onto the button rather than referenced,
+       * because a button that shipped a pointer at another part would be a
+       * button that breaks when that part is deleted; and the drawing is
+       * taken off the board, because it is on the button now and two of it
+       * would be a mistake nobody made. Nothing else on the board behaves
+       * this way, and nothing happens silently: the news says what it did.
+       */
+      if (drag.kind === "node" && drag.ids?.length === 1) {
+        const moved = useStudio.getState().nodes.find((n) => n.id === drag.ids![0]);
+        if (moved?.role === "icon" && moved.vector) {
+          const cx = moved.x + moved.w / 2;
+          const cy = moved.y + moved.h / 2;
+          const onto = useStudio.getState().nodes.find(
+            (n) => n.id !== moved.id && n.pageId === moved.pageId && WEARS_AN_ICON.has(n.featureId)
+              && cx > n.x && cx < n.x + n.w && cy > n.y && cy < n.y + n.h,
+          );
+          if (onto) {
+            useStudio.getState().updateNode(onto.id, { vector: moved.vector });
+            useStudio.getState().removeNodes([moved.id]);
+            play("confirm");
+          }
+        }
       }
       play("tap");
     } else if (drag.kind === "marquee" && marquee) {
@@ -746,6 +817,46 @@ export function Canvas() {
             style={{ width: frameWidth, height: pageH, background: theme.veil }}
           />
         ) : null}
+
+        {/*
+          The door.
+          
+          Make real used to live in exactly one place: right-press a part,
+          pick Draw in the wheel, and press it in the tray under the disc.
+          Someone who picked up the pencil and drew on the page — which is
+          the obvious thing to do — got ink and no way to turn it into
+          anything, and a person who spent an hour looking never found the
+          door at all. Ink is not an annotation unless someone says it is.
+          
+          So the ink carries the control. One button, on the drawing, saying
+          what it does, from the moment the stroke is finished.
+        */}
+        {shapes.filter((sh) => sh.kind === "pen").map((sh) => {
+          const b = shapeBounds(sh);
+          return (
+            <button
+              key={`real-${sh.id}`}
+              type="button"
+              data-make-real={sh.id}
+              title="Turn this drawing into a part"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); makeInkReal(sh); }}
+              className="tactile pointer-events-auto absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-1 text-[10px] font-medium shadow-sm"
+              style={{
+                left: b.x + b.w + 8,
+                top: b.y,
+                transform: `scale(${Math.max(1, 1 / zoom)})`,
+                transformOrigin: "0 0",
+                borderColor: "oklch(0.62 0.17 250)",
+                background: "oklch(0.32 0.1 250)",
+                color: "oklch(0.95 0.04 250)",
+              }}
+            >
+              <Sparkles className="size-3" />
+              Make real
+            </button>
+          );
+        })}
 
         {/*
           What a drawn thing is called, over its middle or above its corner.

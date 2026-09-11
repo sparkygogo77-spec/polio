@@ -30,6 +30,7 @@ import { writeBody } from "./bodyRun";
 import { drawBody } from "./drawRun";
 import { pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
+import { roleFromWords } from "./vector";
 
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
@@ -404,8 +405,20 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
   if (written.cost) useStudio.getState().noteCost(written.cost);
   if (written.message) useStudio.getState().noteThread([written.message]);
   if (!written.ok || !written.code) return "";
-  useStudio.getState().updateNode(nodeId, { code: written.code });
-  return written.message;
+  /*
+   * The drawing lands as vector first and takes a role after. The words
+   * choose it when they say one; otherwise it stays null and the panel
+   * asks, because a bird that quietly became an icon when it was meant to
+   * be a frame is worse than a bird with no role yet.
+   */
+  const said = [node.prompt, drawn.words].filter(Boolean).join(" ");
+  const role = roleFromWords(said);
+  useStudio.getState().updateNode(nodeId, {
+    code: written.code,
+    ...(written.vector ? { vector: written.vector } : {}),
+    ...(role ? { role } : {}),
+  });
+  return [written.message, role ? `used as ${role}` : written.vector ? "no role chosen yet" : ""].filter(Boolean).join(" · ");
 }
 
 /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */

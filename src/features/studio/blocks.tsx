@@ -59,7 +59,17 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * Claude wrote it; the catalog entry underneath is only what it was
    * before, and drawing both would be drawing two things.
    */
-  if (hasBody(node.code)) {
+  /*
+   * A part that draws the drawing itself is not stood in for by a body.
+   *
+   * The coded body exists because there was no part for what was drawn.
+   * Once the drawing has taken a role that *is* a part — an icon draws its
+   * own paths — the body would cover the part with a picture of it, which
+   * is exactly the cutout this whole line of work is getting away from.
+   * The body is kept on the node, so changing the role back brings it
+   * straight back.
+   */
+  if (hasBody(node.code) && !DRAWS_ITSELF.has(node.featureId)) {
     const body = <CodedBody node={node} t={t} mode={mode} size={size} />;
     return node.outline ? <Cut node={node}>{body}</Cut> : body;
   }
@@ -77,6 +87,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       theme={t}
       mode={mode}
       cube={node.cube}
+      vector={node.vector}
       onNavigate={onNavigate}
       emit={emit}
     />
@@ -155,6 +166,9 @@ function CodedBody({ node, t, mode, size }: { node: StudioNode; t: Theme; mode: 
  * mechanism rather than a clip and a mask — browsers agree about clipping
  * an HTML element and do not agree about masking one.
  */
+/** Parts that render the drawing themselves, so a coded body must not stand in. */
+const DRAWS_ITSELF = new Set(["drawn-icon"]);
+
 function Cut({ node, children }: { node: StudioNode; children: React.ReactNode }) {
   const id = `cut-${node.id}`;
   return (

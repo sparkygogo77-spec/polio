@@ -386,6 +386,7 @@ const RAW: FeatureDef[] = [
   f("orb-webgl", "Orb, in 3D", "media", Globe, "A real sphere in WebGL that turns and relights under the pointer.", { tags: ["sphere", "three", "webgl", "3d", "planet"] }),
   f("orb-image", "Orb, from a picture", "media", Orbit, "A picture of a sphere with orbit rings, a glow and a tag around it.", { tags: ["sphere", "photo", "render", "planet"] }),
   f("cube-3d", "Cube", "media", Box, "Six faces in real 3D: drag to turn it, arrow keys to step round, and words on every side.", { hint: "One line per face, in the order you want them: front, right, back, left, top, bottom.", tags: ["cube", "box", "3d", "isometric", "faces", "turn", "rotate"], w: 420, h: 420 }),
+  f("drawn-icon", "Your drawing, as an icon", "media", PenTool, "The lines you drew, small and crisp, in whatever colour they sit on. Drops onto a button.", { hint: "Draw it on the board and make it real; this shows the drawing itself.", tags: ["icon", "glyph", "mark", "logo", "drawn", "vector", "symbol"], w: 96, h: 96 }),
   f("corner-glow", "Corner glow", "media", Sun, "A wash of colour blurred into a corner, the way a light off-screen falls on a dark page.", { tags: ["vignette", "glow", "gradient", "atmosphere"] }),
   f("physics", "Physics", "motion", Orbit, "Things that move like they have mass.", {}),
   f("weather-time", "Time & weather aware", "platform", Sun, "Changes with the visitor's clock or weather.", {}),
@@ -503,6 +504,20 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
    * afterwards. The faces live on the node, not here, because they are the
    * author's words and are edited long after the part exists.
    */
+  /*
+   * The drawing itself, wearing the colour of whatever it stands on. The
+   * options are the two things that decide whether a trace survives being
+   * sixteen pixels wide: how many paths it keeps, and whether it is filled
+   * or stroked.
+   */
+  "drawn-icon": {
+    w: 96, h: 96,
+    options: [
+      range("size", "Size", 82, 20, 100, { unit: "%" }),
+      range("paths", "Paths kept", 6, 1, 24),
+      { id: "drawn as", label: "Drawn as", values: ["solid", "line"] },
+    ],
+  },
   "cube-3d": {
     w: 420, h: 420,
     options: [
@@ -935,6 +950,7 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
     { id: "generated", emoji: "\ud83c\udfa8", label: "Generated", ids: ["generative-art", "avatar-stack", "corner-glow"] },
     { id: "orbs", emoji: "\ud83d\udd2e", label: "Orbs", ids: ["orb-css", "orb-webgl", "orb-image"] },
     { id: "solids", emoji: "\ud83e\uddca", label: "Solids", ids: ["cube-3d"] },
+    { id: "drawn", emoji: "\u270f\ufe0f", label: "Your drawings", ids: ["drawn-icon"] },
   ],
   "motion": [
     { id: "on-scroll", emoji: "\ud83d\udcdc", label: "On scroll", ids: ["scroll-snap", "parallax", "reveal-on-scroll", "sticky-story", "horizontal-scroll", "scroll-progress", "scroll-video", "infinite-scroll", "smooth-scroll"] },

@@ -17,6 +17,7 @@ import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
+import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "./vector";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -656,6 +657,8 @@ export function Inspector() {
           />
         </Field>
 
+        {node.vector ? <Role node={node} /> : null}
+
         {node.featureId === "cube-3d" ? <Faces node={node} palette={palette} /> : null}
 
         {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
@@ -736,6 +739,58 @@ export function Inspector() {
  * because "which side is that on" is the only question anyone has, and
  * every change is one write to the node.
  */
+/**
+ * What a drawing is for, asked rather than guessed.
+ *
+ * A traced drawing is a shape with no purpose yet. The words choose a role
+ * when they say one — "a bird icon" is an icon — and when they say nothing
+ * this asks, with all three offered and none of them preselected. A bird
+ * that quietly became an icon when it was meant to be a frame is worse
+ * than a bird with no role yet, so nothing is chosen on the author's
+ * behalf and the panel says so in as many words.
+ */
+function Role({ node }: { node: StudioNode }) {
+  const set = (role: VectorRole | null) => {
+    play(role ? "confirm" : "close");
+    useStudio.getState().updateNode(node.id, {
+      role,
+      // An icon is a part of its own; the other two are what the part it
+      // is already does, so only this one changes what it is.
+      ...(role === "icon" && node.featureId !== "drawn-icon" ? { featureId: "drawn-icon", outline: null, shape: null } : {}),
+    });
+  };
+  const kept = simplify(node.vector!, 6);
+  return (
+    <Field
+      label="What the drawing is for"
+      hint={node.role
+        ? ROLE_MEANS[node.role]
+        : "Nothing has been chosen, and nothing will be chosen for you. Pick one."}
+    >
+      <div className="flex flex-col gap-1.5" data-role-picker="">
+        <div className="flex flex-wrap gap-1">
+          {ROLES.map((r) => (
+            <button
+              key={r}
+              type="button"
+              data-role={r}
+              aria-pressed={node.role === r}
+              onClick={() => set(node.role === r ? null : r)}
+              className={cn("tactile rounded-md border px-2 py-1 text-[10px] capitalize", node.role === r ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <p className="text-[9px] leading-snug text-fg-faint">
+          {weigh(node.vector!).paths} paths traced, {kept.paths.length} kept for an icon. Drop an icon onto a button and the
+          button wears it.
+        </p>
+      </div>
+    </Field>
+  );
+}
+
 /** The colours a face may be: the site's, or one of the roles it already has. */
 const FACE_COLOURS = [
   { id: "", label: "site" },
