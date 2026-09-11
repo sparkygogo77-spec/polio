@@ -3,6 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   /*
+   * When this build was made, so a deployment can say how old it is.
+   *
+   * `/api/version` answers which commit is being served; this is the other
+   * half of the same question. Read at build, frozen into the bundle, and
+   * public — it is a timestamp.
+   */
+  env: { BUILD_TIME: new Date().toISOString() },
+  /*
    * The headless browser, kept out of the bundle.
    *
    * `playwright-core` and `@sparticuz/chromium` are required at run time by

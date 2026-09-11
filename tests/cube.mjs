@@ -301,6 +301,81 @@ await page.waitForTimeout(1400);
   check("and the cube is a part id, not an image", doc.includes('"cube-3d"') && !/"code":\{/.test(doc));
 }
 
+/* ------------------------------------------------------------------ */
+/* 5. The plain box, which is what anyone actually draws                */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The done-criterion, in the words it was given in: draw a box, type cube
+ * with three things on the sides, turn it with the mouse. A hand-drawn
+ * rectangle is the cheapest thing to draw and "cube" the cheapest thing to
+ * type, so the pair has to work, and it has to go through the catalogue
+ * rather than round it.
+ */
+await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
+await page.evaluate(() => { localStorage.removeItem("builder.studio"); localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "studio.drawMode": "snap" }, advanced: false }, version: 0 })); });
+await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1100);
+asked.length = 0;
+const drawOne = async (points, words) => {
+  await page.keyboard.press("Control+k");
+  await page.waitForTimeout(340);
+  await page.keyboard.type("drop a new idea");
+  await page.waitForTimeout(420);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(800);
+  const part = page.locator("[data-node-id]").last();
+  await part.scrollIntoViewIfNeeded().catch(() => {});
+  const pb = await part.boundingBox();
+  if (!pb) return false;
+  await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2, { button: "right" });
+  await page.waitForTimeout(650);
+  const shard = page.locator('[data-radial] [data-shard="draw"]').first();
+  if (!(await shard.count())) return false;
+  await shard.click({ force: true });
+  await page.waitForTimeout(1200);
+  const bb = await page.locator("[data-draw-board]").boundingBox();
+  if (!bb) return false;
+  await page.mouse.move(bb.x + points[0][0] * bb.width, bb.y + points[0][1] * bb.height);
+  await page.mouse.down();
+  for (const [x, y] of points) { await page.mouse.move(bb.x + x * bb.width, bb.y + y * bb.height); await page.waitForTimeout(10); }
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  await page.locator("[data-draw-words]").fill(words);
+  await page.keyboard.press("Enter");
+  return true;
+};
+
+check("the board takes a plain box", await drawOne(RECT, "a cube: Speed, Proof, Reach"));
+let boxed = null;
+for (let i = 0; i < 40; i++) {
+  await page.waitForTimeout(700);
+  boxed = await read();
+  if (boxed) break;
+}
+check("a box and the word make a cube", boxed?.featureId === "cube-3d", boxed?.featureId ?? "nothing");
+check("with the three things on its first three faces", ["Speed", "Proof", "Reach"].every((w, i) => boxed?.faces?.[i]?.heading === w),
+  (boxed?.faces ?? []).map((f) => f.heading || "-").join(" · "));
+check("and nothing was asked of a model to get there", asked.length === 0, asked.join(" ") || "none");
+check("it is a part, not a cutout", !boxed?.outline && !boxed?.code);
+{
+  await page.locator(`[data-node-id="${boxed.id}"]`).click({ force: true });
+  await page.waitForTimeout(700);
+  const c = page.locator("[data-cube]").first();
+  const bb = await c.boundingBox();
+  const was = await c.getAttribute("data-cube-turn");
+  await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 14; i++) { await page.mouse.move(bb.x + bb.width / 2 + i * 8, bb.y + bb.height / 2 - i * 2); await page.waitForTimeout(16); }
+  await page.mouse.up();
+  await page.waitForTimeout(2600);
+  const now = await c.getAttribute("data-cube-turn");
+  check("and it turns with the mouse, on the board, there and then", now !== was, `${was} → ${now}`);
+  const [x, y] = now.split(",").map(Number);
+  check("settling on a face", x % 90 === 0 && y % 90 === 0, now);
+  check("with the words still on it", (await c.innerText()).includes("Speed"), (await c.innerText()).replace(/\s+/g, " ").slice(0, 50));
+}
+
 await browser.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);

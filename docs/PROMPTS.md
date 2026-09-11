@@ -116,7 +116,7 @@ Read AGENTS.md. Make this a documentation site for [product].
 
 ```
 Read AGENTS.md. Do not add modules. In site.config.ts set accentHue [20], radius [10], density "comfortable",
-effects.grid false, effects.glow true, defaultMode "light". In globals.css adjust only the light palette so the panel
+effects.glow true, defaultMode "light". In globals.css adjust only the light palette so the panel
 colour is warmer. Confirm with a screenshot of / and /showcase in both themes.
 ```
 

@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "new:feature": "node scripts/new-feature.mjs",
-    "check": "npm run typecheck && npm run build"
+    "check": "npm run typecheck && npm run build",
+    "check:deploy": "node tests/deploy-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

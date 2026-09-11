@@ -31,6 +31,16 @@ export function saysCube(words: string): boolean {
  * item, which is one face, which is correct.
  */
 export function faceItems(text: string): string[] {
+  return listItems(text);
+}
+
+/**
+ * The same splitting, under the name that says what it is.
+ *
+ * Nothing about it is cube-shaped: a list a person typed is a list a
+ * person typed, and the catalogue's other parts read theirs the same way.
+ */
+export function listItems(text: string): string[] {
   const raw = (text ?? "").trim();
   if (!raw) return [];
   const on = raw.includes("\n") ? /\n+/ : raw.includes(";") ? /;+/ : /,/;

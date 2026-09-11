@@ -359,6 +359,29 @@ a kicker with a rule, and label-and-value rows that copy.
   page. It must `stopPropagation` on the press: the board's surface
   captures the pointer on every pointerdown, and without that the cube's
   own capture is overridden a frame later and the turn becomes a move.
+- **Interpretation picks from a catalogue before it traces anything**
+  (`coded.ts`, `tests/coded.mjs`). There used to be one road: whatever was
+  drawn became a picture of itself, traced and clipped to the line. Right
+  for a helix, wrong for anything that has to *do* something, and it made
+  the board a machine for producing cutouts. Now the drawing and the words
+  are offered to `pickCoded` first: a list of real library parts, each
+  declaring **what** it is, what it **needs** from the author, what a
+  drawing has to **look like** to mean it, a `match` that turns that
+  sentence into a number off the geometry, and a `configure` that builds
+  the node patch. Best over `SURE_ENOUGH` wins and no model is asked
+  anything. A matcher may read the words as well as the strokes — "a box"
+  and "a box, as a cube" are different instructions — but it may never
+  call anything: the layer decides for free and decides the same way every
+  time. **The fall-through stays**: nothing matched means the reader names
+  a library part and the vectorizer traces the line, exactly as before.
+  Adding the next one is a file and a line in `CODED`, not a rewrite, and
+  there are two in it for that reason: the **cube**, which needed a part
+  written, and the **accordion**, which needed only a declaration over a
+  part the library already had. The accordion is gated on purpose — three
+  parallel bars are already read as a *list*, and most of the time that is
+  what someone drew, so a stack only means an accordion when the words say
+  so or when the bars are inside a box, which is not how anyone draws a
+  plain list.
 - **A cube is where the coded path earns its keep** (`parts/Cube.tsx`,
   `parts/cube.ts`, `shapeKind.isCube`, `tests/cube.mjs`). A traced drawing
   is a picture and a picture of a cube does not turn, so this one part is
@@ -1287,12 +1310,38 @@ a kicker with a rule, and label-and-value rows that copy.
   whole table. **Do not reduce the resolution, the layer count or the move
   rate to make a number on this box look better** — see the standing rule
   above, and take it to J instead.
-- **The Builder's own workspace has no grid.** It had a dot grid from when
-  the workspace was the app's flat background and needed something to say it
-  was scratch; the nebula says it, and two backgrounds arguing is one too
-  many. Snapping still works to `GRID` — the grid is a rule, not a picture of
-  one. A grid belonging to the *site* being built is the site's own and is
-  drawn inside the frame.
+- **Nothing draws a grid over the app, and no setting can bring one back.**
+  The ground is nebula and nothing else — the Builder, the timeline and both
+  discs, since they all stand on `useGround`. What was removed, all of it:
+  the `.ambient-grid` div `ThemeProvider` put over every page, the `bg-grid`
+  utility that drew it, the `--grid-line` colour it drew in, the
+  `[data-grid]` attribute in both `ThemeProvider` and the pre-hydration
+  `boot.ts`, the `effects.grid` setting, its switch on the showcase page and
+  its field in `site.config.ts`. Do not add it back under another name.
+  Three things that sound like it and are not, so nobody hunts for a stub:
+  · `GRID` and `snapGrid` in `Canvas.tsx` are the snapping *rule* — 8px,
+    nothing drawn, nothing measured against a picture.
+  · `SCREEN.dots` in `core/ui/void.ts` is the texture on the plate editors'
+    typing surface, a screen face, not the ground. One user, `PlateEditors`.
+  · The Texture panel's `+ Grid` and `+ Dots` layers belong to the *site*
+    being built and are drawn inside the frame. They stay.
+- **One ember in five is green, and it is the palette's own green.**
+  `GREEN_IN = 5` in `darkMatter.ts`, fixed on the spark at the cast rather
+  than rolled per life: a coin flipped each time a spark relights would
+  flicker between the two colours and would land on 14% one minute and 27%
+  the next. The stride is five against a cast of seventeen, so the green
+  walks through all five kinds instead of settling on one, and every spark is
+  lit at a fresh random spot, so there is no band or clump. The colour is
+  `PROCESS.done` converted through `oklchToRgb` rather than an rgb triple
+  written down, so the ground follows the palette if the palette moves — and
+  it is rgb rather than an `oklch()` string because a canvas silently keeps
+  the last colour it understood if it cannot read the new one. `castSize`,
+  the drift and the sizes are untouched; only the ink changed.
+  `tests/ground-clean.mjs` counts green against red off the ember canvas's
+  own pixels. Read that number as a neighbourhood, not the ratio: it is
+  *pixel area*, and a spark that is streaking covers more of it than one that
+  is sitting, so it wanders either side of 20% run to run. The one-in-five is
+  exact by construction.
 - **Process state is red or green, and the names live in one place**
   (`PROCESS` and `ProcessState` in `threads.ts`). Red for every process
   unfinished or abandoned, green for every one completed; `running`, `cut`,
@@ -1983,6 +2032,30 @@ remove it from `src/features/index.ts` when you're sure.
   the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
+- **Ask the deployment, not a dev server** (`tests/deploy-check.mjs`, `npm run
+  check:deploy`). Every other suite here talks to localhost, which is how a
+  cube drawn on the live site did nothing: the work had never reached trunk
+  and nothing said so. This one fetches the real URL, follows no redirect,
+  and puts the commit the deployment is serving next to trunk's head in one
+  line — stale, unmerged, or current. `/api/version` is what makes that
+  answerable, and it may carry a commit, a branch, an environment and a build
+  time and **nothing else**: it is public, so the rule for
+  `/api/keys/status` applies to it.
+  Then it opens the Builder and asks, **by visibility and never by
+  existence**, for the things that have each broken at least once: the bar and
+  every control in it, the category shelf, both searches, a side panel, the
+  nebula, the Finish key, the Keys panel naming Claude and Replicate, and the
+  cube findable by typing "cube" the way a person would. Anything absent names
+  itself. It writes `docs/DEPLOY-CHECK.md` so there is a record rather than a
+  scroll, and `.github/workflows/deploy-check.yml` runs it after every trunk
+  push once the deployment is actually serving that commit.
+  Two things to know before reading a red one. A failure part-way through the
+  browser half is reported as a failure — an earlier draft only spoke up when
+  the page never opened, which would have let the Builder's checks go missing
+  under a green summary, which is this file's own bug in miniature. And an
+  agent container behind an egress proxy cannot open the page at all: the HTTP
+  rows still answer, the Builder's rows are absent rather than failed, and the
+  record says so.
 - **What the loop actually spends is written down**, in
   `docs/PRODUCTION-LOOP.md`: every call from a drawn line to a finished
   element, in order, with the model each one goes to, what is sent, what

@@ -131,7 +131,6 @@ export const CORE_SETTINGS: SettingDef[] = [
     order: 1,
     tags: ["animation", "reduce"],
   },
-  { id: "effects.grid", group: "effects", label: "Background grid", type: "toggle", default: site.theme.effects.grid, order: 2 },
   { id: "effects.glow", group: "effects", label: "Accent glow", type: "toggle", default: site.theme.effects.glow, order: 3 },
   { id: "effects.flash", group: "effects", label: "Flash on change", description: "Values flash green/red when they move.", type: "toggle", default: true, order: 4 },
   { id: "effects.flashDurationMs", group: "effects", label: "Flash duration", type: "slider", default: 700, min: 150, max: 2000, step: 50, format: ms, advanced: true, order: 5 },
