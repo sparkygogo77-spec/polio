@@ -16,11 +16,19 @@ import {
 /**
  * The renderer service: a part's body, drawn rather than written.
  *
- * One environment variable, `REPLICATE_API_TOKEN`, read by `new
- * Replicate()` out of the process and nowhere else. It is not in the
- * vault, there is no header the browser can set to supply it, it is never
- * logged, and it is never in anything this route returns — the one place
- * an error message could carry it is scrubbed on the way out.
+ * The token belongs to the person, not to the deployment. It is typed into
+ * the vault under the key button, held in this browser exactly as the
+ * Claude key is, unlocked the same way, and rides with each call as
+ * `x-replicate-key`. This route holds it for the length of the call and no
+ * longer: it is never written to disk, never logged, never echoed back —
+ * the one place a library's error message could carry it is scrubbed on the
+ * way out — and `/api/keys/status` reports only whether the server happens
+ * to have one of its own.
+ *
+ * `REPLICATE_API_TOKEN` in the environment still works, and is a silent
+ * fallback rather than the path: a browser that offered a token is using
+ * that token, because the person who typed it is the person being charged
+ * for the call.
  *
  * Two kinds:
  *
@@ -32,10 +40,11 @@ import {
  *   `data:` URI inside an `<img>`, so nothing is fetched when the part is
  *   drawn. Nothing may be.
  *
- * With no token it answers HTTP 200 with `ok: false` and `reason:
+ * With no token anywhere it answers HTTP 200 with `ok: false` and `reason:
  * "unavailable"`, the same shape and the same path as a missing Claude
  * key, so the dialog shows the reason and the body loop falls back to
- * writing one.
+ * writing one. A vault that holds a token but is locked is the common case,
+ * and the caller says so rather than "no token".
  *
  * The price of the call rides back with the answer (`cost`), because this
  * is the first thing here that spends money per press.
@@ -57,9 +66,23 @@ interface Body {
   palette?: { bg?: string; text?: string; accent?: string; muted?: string };
 }
 
+/**
+ * The token for this call: the browser's, or the server's if it has one.
+ *
+ * The browser's wins, unlike every other route here, because this is the
+ * one key the person is expected to bring: they typed it into the vault and
+ * they are the one being billed for the call. It is returned, used, and
+ * dropped when the request ends; nothing holds it.
+ */
+function tokenFor(request: Request): string | null {
+  const supplied = request.headers.get("x-replicate-key")?.trim();
+  if (supplied && supplied.length > 8) return supplied;
+  const own = process.env.REPLICATE_API_TOKEN?.trim();
+  return own || null;
+}
+
 /** Nothing that leaves here may contain the token, whatever a library put in a message. */
-function safe(message: string): string {
-  const token = process.env.REPLICATE_API_TOKEN?.trim();
+function safe(message: string, token: string | null): string {
   const clean = token ? message.split(token).join("[token]") : message;
   return clean.replace(/r8_[A-Za-z0-9]{8,}/g, "[token]").slice(0, 400);
 }
@@ -106,11 +129,10 @@ function mimeOf(bytes: Uint8Array, said: string): string {
 }
 
 export async function POST(request: Request) {
-  // The token is the server's or there is no renderer. There is deliberately
-  // no browser-supplied fallback here: unlike the Claude key, this one is
-  // never held in the vault, so a header carrying it would be a route
-  // accepting a secret it told the panel it would not take.
-  if (!process.env.REPLICATE_API_TOKEN?.trim()) {
+  // Looked for before the body is read, so a request that could not be drawn
+  // whatever it said gets the one answer worth giving.
+  const token = tokenFor(request);
+  if (!token) {
     return NextResponse.json({ ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE });
   }
 
@@ -131,7 +153,9 @@ export async function POST(request: Request) {
   const h = Math.round(Math.max(24, Math.min(4000, Number(body.h) || 320)));
   const words = renderPrompt({ kind, prompt, label, closed: body.closed, w, h, palette: body.palette });
 
-  const replicate = new Replicate();
+  // Handed the token for this call only. Nothing here keeps it, and it goes
+  // when the request does.
+  const replicate = new Replicate({ auth: token });
   const model = RENDER_MODELS[kind];
   let out: unknown;
   try {
@@ -146,7 +170,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status;
-    const message = error instanceof Error ? safe(error.message) : "The renderer failed.";
+    const message = error instanceof Error ? safe(error.message, token) : "The renderer failed.";
     if (status === 401 || status === 403) {
       return NextResponse.json({ ok: false, reason: "auth", message: "The renderer token was rejected." });
     }
@@ -160,7 +184,7 @@ export async function POST(request: Request) {
   try {
     file = await bytesOf(out);
   } catch (error) {
-    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message) : "unknown"}).` });
+    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).` });
   }
   if (!file || !file.bytes.length) {
     return NextResponse.json({ ok: false, reason: "empty-answer", message: "The renderer answered with nothing." });

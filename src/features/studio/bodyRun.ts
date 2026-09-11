@@ -40,7 +40,7 @@
  */
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { money, RENDER_COST, type RenderKind } from "./renderer";
-import { keyHeader } from "./agent";
+import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
 import type { OutlineClip } from "./sketch";
 
 /** How much of the drawing a body has to cover before it is left alone. */
@@ -206,15 +206,15 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
 /**
  * Ask the renderer to draw it.
  *
- * No key header: this route reads the token from the server's environment
- * and takes one from nowhere else, which is the promise the keys panel
- * makes about it. Without a token the answer is `unavailable` at HTTP 200,
- * so this is never a failure, only a fork.
+ * The token rides on the request, out of the same vault the Claude key
+ * comes from, and no Claude key rides with it: this route has no use for
+ * one. Without a token the answer is `unavailable` at HTTP 200, so this is
+ * never a failure, only a fork.
  */
 async function askRenderer(input: BodyInput, kind: RenderKind): Promise<{ ok: boolean; html?: string; cost?: number; message?: string; reason?: string }> {
   const res = await fetch("/api/studio/image", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...rendererHeader() },
     body: JSON.stringify({
       kind,
       label: input.label,
@@ -281,7 +281,9 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
       // written attempt is given to beat, with the drawing beside it.
       if (judged.overlap >= 0 && judged.overlap < GOOD_ENOUGH) prev = { html, says: judged.says, shot: judged.shot };
     } else {
-      rendererSays = drew.message ?? "The renderer drew nothing.";
+      // A vault holding a token but locked is the usual reason, and "no
+      // token" would be untrue; say what to press instead.
+      rendererSays = (drew.reason === "unavailable" ? noRendererKeyMessage("") : drew.message ?? "The renderer drew nothing.").trim();
     }
   }
 
@@ -320,8 +322,9 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
   const made = best.source === "renderer" ? "The renderer drew the body" : "A body was written";
   const price = spent ? `, ${money(spent)} at the renderer` : "";
   // Why the renderer was not used is part of what happened, so it is said
-  // rather than left for someone to notice the absence of.
-  const skipped = rendererSays ? ` ${rendererSays.split(".")[0]!.trim()}.` : "";
+  // rather than left for someone to notice the absence of — whole, because
+  // the useful half of "no token yet" is the half that says what to press.
+  const skipped = rendererSays ? ` ${rendererSays.slice(0, 200)}` : "";
   return {
     ok: true,
     code,

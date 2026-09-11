@@ -37,18 +37,19 @@
  *   the PIN, which is the line this draws. It is for a run left unattended,
  *   where a relock halfway through is the thing that breaks it.
  *
- * Two keys live here, because they are the two a browser request can carry:
- * the studio routes take each as a header. Claude's is the Builder's asks;
- * Vercel's is the one button that puts the site live and hands back the
- * address. X and GitHub work from the server's environment alone — a key for
- * them pasted into a browser would do nothing — so the panel does not offer
- * to hold one.
+ * Three keys live here, because they are the three a browser request can
+ * carry: the studio routes take each as a header. Claude's is the Builder's
+ * asks; Replicate's is the renderer that draws a part's body instead of
+ * writing it; Vercel's is the one button that puts the site live and hands
+ * back the address. X and GitHub work from the server's environment alone — a
+ * key for them pasted into a browser would do nothing — so the panel does not
+ * offer to hold one.
  */
 import { create } from "zustand";
 import { getSetting } from "@/core/settings/store";
 import { isPin, open, seal, type SealedBox } from "./crypto";
 
-export type ServiceId = "anthropic" | "vercel";
+export type ServiceId = "anthropic" | "replicate" | "vercel";
 
 export interface FieldDef {
   id: string;
@@ -74,6 +75,14 @@ export const SERVICES: ServiceDef[] = [
     blurb: "The Builder's asks, plan, critique, finish, ideas, build, and reading the drawing board.",
     where: "https://console.anthropic.com/settings/keys",
     fields: [{ id: "ANTHROPIC_API_KEY", label: "API key", hint: "sk-ant-…", secret: true }],
+  },
+  {
+    id: "replicate",
+    label: "Replicate",
+    blurb:
+      "The renderer: a drawn part's body, drawn rather than written. Vector through recraft-ai/recraft-v3-svg, raster through black-forest-labs/flux-2-pro. $0.08 and $0.04 a call, shown in the iteration's usage line.",
+    where: "https://replicate.com/account/api-tokens",
+    fields: [{ id: "REPLICATE_API_TOKEN", label: "API token", hint: "r8_…", secret: true }],
   },
   {
     id: "vercel",
