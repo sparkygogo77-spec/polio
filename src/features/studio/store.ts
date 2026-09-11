@@ -324,6 +324,14 @@ interface StudioState extends Doc {
   /** The book is held open beside the board as a panel, rather than being a dialog you dismiss. */
   bookPinned: boolean;
   /**
+   * The iteration open in the timeline's section below it.
+   *
+   * Not the live thread: standing on a thread puts the board back to it,
+   * and reading one is not standing on it. One at a time, on purpose —
+   * everything at once is the wall the timeline replaced.
+   */
+  openThreadId: string | null;
+  /**
    * Drawings waiting to be made real, and the ones that have been.
    *
    * Not persisted: a job in flight when the tab closed was never going to
@@ -448,6 +456,8 @@ interface StudioState extends Doc {
   togglePinnedThread: (id: string) => void;
   /** Hold the book open as a panel beside the board, or let it be a dialog again. */
   setBookPinned: (v: boolean) => void;
+  /** Open one iteration in the section under the timeline, or close it. */
+  openThread: (id: string | null) => void;
   /** Put a drawing on the make-real queue. The board closes; the queue works. */
   enqueueDraw: (job: Omit<DrawJob, "id" | "status" | "queued">) => string;
   /** How a job is getting on. */
@@ -645,6 +655,7 @@ export const useStudio = create<StudioState>()(
         liveThreadId: null,
         pinnedThreads: [],
         bookPinned: false,
+        openThreadId: null,
         queue: [],
         threadSpots: {},
         draftPieces: [],
@@ -1159,6 +1170,7 @@ export const useStudio = create<StudioState>()(
             threads,
             liveThreadId: live,
             pinnedThreads: s.pinnedThreads.filter((x) => x !== id),
+            openThreadId: s.openThreadId === id ? null : s.openThreadId,
             threadSpots: spots,
             trail: s.trail.filter((e) => e.threadId !== id),
             ...docPatch(stand?.doc),
@@ -1187,6 +1199,8 @@ export const useStudio = create<StudioState>()(
           })),
 
         setBookPinned: (v) => set({ bookPinned: v }),
+
+        openThread: (id) => set({ openThreadId: id }),
 
         enqueueDraw: (job) => {
           const id = uid("job");
@@ -1345,6 +1359,7 @@ export const useStudio = create<StudioState>()(
           threads: Array.isArray(p.threads) ? p.threads : [],
           liveThreadId: typeof p.liveThreadId === "string" ? p.liveThreadId : null,
           pinnedThreads: Array.isArray(p.pinnedThreads) ? p.pinnedThreads : [],
+          openThreadId: typeof p.openThreadId === "string" ? p.openThreadId : null,
           bookPinned: !!p.bookPinned,
           threadSpots: p.threadSpots && typeof p.threadSpots === "object" ? (p.threadSpots as Record<string, { x: number; y: number }>) : {},
           draftPieces: Array.isArray(p.draftPieces) ? p.draftPieces : [],
@@ -1387,6 +1402,7 @@ export const useStudio = create<StudioState>()(
         liveThreadId: s.liveThreadId,
         pinnedThreads: s.pinnedThreads,
         bookPinned: s.bookPinned,
+        openThreadId: s.openThreadId,
         threadSpots: s.threadSpots,
         draftPieces: s.draftPieces,
         sentPieces: s.sentPieces,

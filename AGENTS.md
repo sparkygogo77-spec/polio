@@ -292,6 +292,48 @@ a kicker with a rule, and label-and-value rows that copy.
   rectangle yields no clip at all: cutting a box to a box is cutting
   nothing. `tests/outline-clip.mjs` holds the star, the helix, the spiral,
   the box and the empty cases.
+- **Build writes the looks from the document and asks Claude only for the
+  rest.** It used to be one ask — here is the blueprint, write every file —
+  and the blueprint is words, which are lossy about looks: a palette
+  becomes "a warm accent", a shadow becomes "a soft shadow", and every
+  re-generation drifted away from the board. Now `buildScaffold()`
+  (`scaffoldRun.ts`) renders each part once into a detached root, reads the
+  DOM it actually made, and `scaffold.ts` turns that into a codebase:
+  `app/globals.css` with the palette's own values as tokens,
+  `components/parts/<Name>.tsx` per part carrying that markup as JSX —
+  styles, shape, clip, texture and the lamp's shadow included — a page per
+  page placing them where the board places them, `components/Frame.tsx`,
+  and `BUILD.md` saying what was written and what was not. Pure and
+  deterministic: the same document gives the same bytes
+  (`tests/scaffold.mjs`). Only then is Claude asked, and it is told the
+  scaffold exists, listed, with the gaps named: an Idea part with no body,
+  where the data comes from, what happens after an interaction. Files it
+  returns are merged over the scaffold by path, so naming one is how it
+  replaces one. Never go back to generating the looks.
+- **Finish opens the timeline, and it is a workspace, not a list.**
+  The green flag on the toolbar (`FinishFlag`) puts the Builder in `book`
+  mode, where `Timeline.tsx` fills the window exactly as the board does:
+  the same dark matter under it (dimmer — the boxes have to be the
+  brightest thing), no panels down either side, drag the ground to pan out
+  as far as you like. Each landed call is an **iteration box** — emerald,
+  low contrast, an icon, whether it was a chain prompt or an element
+  prompt, and one line saying what that iteration actually did. Nothing is
+  aligned or grouped: boxes are scattered off their own id and dragged
+  anywhere (`threadSpots`, keyed `box:<id>`), and a drag is not a click.
+  Right-press one for what can be done with it. Between them run
+  **strands** (`strand.ts`): one tight line, a little thicker than a
+  hairline, with bands of light running *inside* it — not a bead
+  travelling a wire — anchored to where the boxes are rather than to a
+  measurement of them, so they stretch in the same frame as the drag. On
+  each strand sits the **loop starter**: examine, critique, iterate.
+  Under the timeline, and reached by carrying on scrolling exactly as the
+  parts shelf is under the board, `TimelineDetail.tsx` reads **one**
+  iteration: the stages across the top (asked → came back → changed →
+  critique → what came next), the prompt small above the preview, and a
+  menu down the side for turning that generation into something. The
+  iteration book lives there too, in its own tab with its own menu, and
+  the page layout of the book no longer draws the trail — the timeline
+  above it is the trail.
 - **The Blueprint and the Trail are one page: the iteration book.**
   `BriefDialog.tsx` is one `Book` component in three shapes — a dialog over
   the board, a panel pinned open beside it (`store.bookPinned`, no overlay,

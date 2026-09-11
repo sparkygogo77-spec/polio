@@ -47,9 +47,10 @@ async function openBlueprint() {
   await page.locator('[data-ctx="studio-palette"]').first().click();
   await page.waitForTimeout(400);
   // The blue Finish orb is a purple process counter now (`DrawQueue.tsx`),
-  // which kept `data-finish` as its handle: press the thing that opens the
-  // iteration book, whatever it is called this week.
-  await page.locator("[data-finish]").first().click();
+  // which kept `data-finish` as its handle: the Finish flag opens the book
+  // as a page, and `__studioOpenBrief` opens the same book as the dialog,
+  // which is the shape this suite is about.
+  await page.evaluate(() => (window).__studioOpenBrief?.());
   await page.waitForTimeout(600);
   // Words only, as reported: the photographs are a separate call and not
   // what hung.
@@ -127,7 +128,9 @@ const noteOn = async (page) => (await page.locator("[data-brief-note]").allTextC
      * nothing would have come back anyway. What must not change is what is
      * said: letting go of a request adds nothing to it.
      */
-    check("and stopping is not reported as a failure", (await noteOn(page)) === beforeStop, await noteOn(page));
+    const after = await noteOn(page);
+    check("and stopping says nothing new", after === beforeStop, after || "nothing said");
+    check("and stopping is not reported as a failure", !/failed|error|went wrong/i.test(after), after || "nothing said");
   }
   await page.close();
 }

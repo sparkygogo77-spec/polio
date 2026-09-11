@@ -24,11 +24,13 @@ import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
-import { BriefDialog, IterationBook } from "./BriefDialog";
+import { BriefDialog } from "./BriefDialog";
 import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
+import { Timeline } from "./Timeline";
+import { TimelineDetail } from "./TimelineDetail";
 import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -415,16 +417,22 @@ export function StudioPage() {
         */}
         <div
           data-studio-scroll=""
-          className={cn("flex min-h-0 min-w-0 flex-1 flex-col", design ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden")}
+          className={cn("flex min-h-0 min-w-0 flex-1 flex-col", design || book ? "overflow-y-auto overflow-x-hidden" : "overflow-hidden")}
         >
+          {/*
+            The timeline is the board's twin: it fills the window less a
+            strip, and what is under it — the iteration you clicked, and the
+            book — is reached by carrying on scrolling, exactly as the parts
+            shelf is under the board.
+          */}
           <div
             className="relative w-full shrink-0"
-            style={design ? { height: "calc(100% - 108px)" } : { height: "100%" }}
+            style={design || book ? { height: "calc(100% - 108px)" } : { height: "100%" }}
           >
             {design ? (
               <Canvas />
             ) : book ? (
-              <IterationBook />
+              <Timeline />
             ) : (
               <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
@@ -433,6 +441,10 @@ export function StudioPage() {
           {design ? (
             <div className="w-full shrink-0" style={{ height: "100%" }}>
               <Palette />
+            </div>
+          ) : book ? (
+            <div className="w-full shrink-0" style={{ height: "100%" }}>
+              <TimelineDetail />
             </div>
           ) : null}
         </div>
