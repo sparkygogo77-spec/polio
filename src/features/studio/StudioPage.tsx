@@ -43,8 +43,8 @@ import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
-import { Kbd } from "@/core/ui/kbd";
 import { useActions } from "@/core/actions";
+import { PROCESS } from "./threads";
 
 /**
  * How much of the window the bottom band keeps — the parts shelf under the
@@ -242,23 +242,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       ) : null}
 
       <span className="mx-1 h-4 w-px bg-border" />
-      <Tooltip content="Page frame width, positions stay put, the frame shows what fits">
-        <div>
-          <Segmented
-            size="xs"
-            value={String(frameWidth)}
-            onChange={(v) => useStudio.getState().setFrameWidth(Number(v))}
-            options={[
-              { value: String(FRAME_WIDTHS.desktop), label: "Desktop", icon: <Monitor /> },
-              { value: String(FRAME_WIDTHS.tablet), label: "Tablet", icon: <Tablet /> },
-              { value: String(FRAME_WIDTHS.phone), label: "Phone", icon: <Smartphone /> },
-            ]}
-            aria-label="Frame width"
-          />
-        </div>
-      </Tooltip>
-
-      <span className="flex-1" />
+      <DeviceSwitch width={frameWidth} />
 
       {/*
         The search for a tool, in the row of tools.
@@ -300,13 +284,25 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           {showWires ? <Link2 /> : <Link2Off />}
         </Button>
       </Tooltip>
+      {/* Back is red, forward is green — the same pair as every process
+          state in the app, because undo and redo are the same question:
+          is this going back or going on. Only when there is something to
+          undo: a disabled control that still wears a colour is a lie. */}
       <Tooltip content="Undo" shortcut="mod+z">
-        <Button variant="ghost" size="iconXs" aria-label="Undo" disabled={!past} onClick={() => useStudio.getState().undo()}>
+        <Button
+          variant="ghost" size="iconXs" aria-label="Undo" disabled={!past}
+          style={past ? { color: PROCESS.open } : undefined}
+          onClick={() => useStudio.getState().undo()}
+        >
           <Undo2 />
         </Button>
       </Tooltip>
       <Tooltip content="Redo" shortcut="mod+shift+z">
-        <Button variant="ghost" size="iconXs" aria-label="Redo" disabled={!future} onClick={() => useStudio.getState().redo()}>
+        <Button
+          variant="ghost" size="iconXs" aria-label="Redo" disabled={!future}
+          style={future ? { color: PROCESS.done } : undefined}
+          onClick={() => useStudio.getState().redo()}
+        >
           <Redo2 />
         </Button>
       </Tooltip>
@@ -337,6 +333,65 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   );
 }
 
+/**
+ * Desktop, tablet, phone — three icons, no words, one colour each.
+ *
+ * Both were on offer and the choice is icons plus colour, for a reason that
+ * is about this bar rather than about taste: the words were the widest thing
+ * between the tools and the search, and dropping them is what lets the search
+ * fill its gap. But an outline glyph at 14px is a weak signal on its own —
+ * a tablet and a phone are the same rectangle at different sizes — so with
+ * the label gone the colour has to carry the distinction, and the two changes
+ * are really one.
+ *
+ * The hues are 100° apart around the **accent's own** wheel rather than three
+ * colours picked by eye, so they move with the accent when it is changed and
+ * can never collapse into three shades of one colour. Only the chosen one is
+ * lit; the others sit muted, or three colours all shouting says nothing.
+ */
+const DEVICES = [
+  { key: "desktop", label: "Desktop", icon: Monitor, turn: 0 },
+  { key: "tablet", label: "Tablet", icon: Tablet, turn: 100 },
+  { key: "phone", label: "Phone", icon: Smartphone, turn: 200 },
+] as const;
+
+function DeviceSwitch({ width }: { width: number }) {
+  return (
+    <div
+      data-device-switch=""
+      role="radiogroup"
+      aria-label="Frame width"
+      className="flex items-center gap-0.5 rounded-md border border-border bg-elevated p-0.5"
+    >
+      {DEVICES.map((d) => {
+        const w = FRAME_WIDTHS[d.key];
+        const on = width === w;
+        const hue = `oklch(0.74 0.17 calc(var(--accent-h) + ${d.turn}))`;
+        const Icon = d.icon;
+        return (
+          <Tooltip key={d.key} content={`${d.label} · ${w}px, positions stay put and the frame shows what fits`}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={d.label}
+              data-device={d.key}
+              onClick={() => { play("select"); useStudio.getState().setFrameWidth(w); }}
+              className={cn(
+                "tactile inline-flex size-6 items-center justify-center rounded-sm [&_svg]:size-3.5",
+                on ? "bg-panel shadow-[0_1px_0_var(--border)]" : "opacity-70 hover:opacity-100",
+              )}
+              style={{ color: on ? hue : undefined }}
+            >
+              <Icon />
+            </button>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 /** The command palette, from the bar it is about. */
 function SearchTools() {
   const ctx = useActions();
@@ -346,11 +401,17 @@ function SearchTools() {
         type="button"
         data-tool-search=""
         onClick={() => ctx.togglePanel("commands")}
-        className="tactile hidden h-6 w-44 shrink items-center gap-1.5 rounded-md border border-border bg-elevated px-1.5 text-[11px] text-fg-faint hover:border-border-strong hover:text-fg-muted lg:flex"
+        /* It takes the whole gap between the devices and the menu's switch
+           rather than a fixed 176px with dead bar either side, and it is a
+           lit well rather than the bar's own colour: a search that matches
+           its surroundings reads as a label, not as somewhere to type. The
+           shortcut chip is gone — it was the widest thing in a control whose
+           job is to be typed into, and the tooltip still says it. */
+        className="tactile mx-1 hidden h-6 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-accent/45 px-2 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg lg:flex"
+        style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
-        <Search className="size-3.5 shrink-0" />
+        <Search className="size-3.5 shrink-0 text-accent" />
         <span className="min-w-0 flex-1 truncate text-left">Search tools…</span>
-        <Kbd>mod+k</Kbd>
       </button>
     </Tooltip>
   );
@@ -520,9 +581,10 @@ export function StudioPage() {
                 ]}
                 aria-label="Side panel"
               />
-              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide the side panel" className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
-                <PanelLeft className="size-3.5" />
-              </button>
+              {/* The panel used to carry its own hide button here, beside the
+                  bar's. Two controls for one panel, and only one of them
+                  could bring it back — so the one that could only hide it is
+                  gone and the bar's toggle is the whole story. */}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {sideTab === "inspector" ? <Inspector />
