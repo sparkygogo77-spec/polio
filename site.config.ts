@@ -33,7 +33,7 @@ export default defineSite({
     radius: 6,
     density: "compact",
     font: "system",
-    effects: { grid: false, glow: false, scanlines: false, noise: false },
+    effects: { glow: false, scanlines: false, noise: false },
   },
 
   audio: { enabled: true, volume: 0.35 },

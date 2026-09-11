@@ -16,7 +16,6 @@ const KEYS = [
   "appearance.fontScale",
   "appearance.contrast",
   "effects.motion",
-  "effects.grid",
   "effects.glow",
   "effects.scanlines",
   "effects.noise",
@@ -67,7 +66,6 @@ export function ThemeProvider() {
     el.dataset.contrast = snap["appearance.contrast"] ? "high" : "normal";
     const motion = snap["effects.motion"] as string;
     el.dataset.motion = motion === "full" && prefersReducedMotion() ? "reduced" : motion;
-    el.dataset.grid = on(snap["effects.grid"]);
     el.dataset.glow = on(snap["effects.glow"]);
     el.dataset.scanlines = on(snap["effects.scanlines"]);
     el.dataset.noise = on(snap["effects.noise"]);
@@ -80,7 +78,6 @@ export function ThemeProvider() {
   return (
     <>
       <div className="ambient-glow" aria-hidden />
-      <div className="ambient-grid bg-grid" aria-hidden />
       <div className="ambient-scanlines" aria-hidden />
       <div className="ambient-noise" aria-hidden />
     </>

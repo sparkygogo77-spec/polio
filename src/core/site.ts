@@ -54,7 +54,7 @@ export interface SiteConfig {
     density: "compact" | "comfortable";
     font: "system" | "mono" | "inter";
     /** Ambient effects on by default. */
-    effects: { grid: boolean; glow: boolean; scanlines: boolean; noise: boolean };
+    effects: { glow: boolean; scanlines: boolean; noise: boolean };
   };
   audio: {
     enabled: boolean;
@@ -112,7 +112,7 @@ export function defineSite(input: SiteInput): SiteConfig {
       density: "compact",
       font: "system",
       ...input.theme,
-      effects: { grid: false, glow: false, scanlines: false, noise: false, ...input.theme?.effects },
+      effects: { glow: false, scanlines: false, noise: false, ...input.theme?.effects },
     },
     audio: { enabled: true, volume: 0.35, ...input.audio },
     feed: {

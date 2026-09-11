@@ -98,7 +98,6 @@ export function ShowcasePage() {
   const [dialog, setDialog] = React.useState(false);
   const [slippage, setSlippage] = React.useState(1);
   const [motion, setMotion] = useSetting<string>("effects.motion");
-  const [grid, setGrid] = useSetting<boolean>("effects.grid");
   const [glow, setGlow] = useSetting<boolean>("effects.glow");
   const [scan, setScan] = useSetting<boolean>("effects.scanlines");
   const [noise, setNoise] = useSetting<boolean>("effects.noise");
@@ -447,9 +446,6 @@ export function ShowcasePage() {
             <Segmented value={motion} onChange={setMotion} options={["full", "reduced", "off"].map((v) => ({ value: v, label: v }))} />
           </Row>
           <Row label="Ambience">
-            <label className="flex items-center gap-1.5 text-xs">
-              <Switch size="sm" checked={grid} onCheckedChange={setGrid} /> Grid
-            </label>
             <label className="flex items-center gap-1.5 text-xs">
               <Switch size="sm" checked={glow} onCheckedChange={setGlow} /> Glow
             </label>

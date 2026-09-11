@@ -26,6 +26,8 @@
  * would be a swarm, and the embers are meant to be something you are not
  * sure moved.
  */
+import { oklchToRgb, parseColor } from "./look";
+import { PROCESS } from "./threads";
 
 /* ------------------------------------------------------------------ */
 /* The clouds                                                          */
@@ -97,6 +99,31 @@ const TAU = Math.PI * 2;
 type Kind = "gust" | "drift" | "fall" | "rise" | "dart";
 
 /**
+ * One ember in five is green; the other four stay red.
+ *
+ * Not a second palette: it is `PROCESS.done`, the same green the Finish flag
+ * and the timeline's finished boxes are drawn in, converted here because a
+ * canvas takes a colour as a string and silently keeps the last one it
+ * understood if it cannot read the new one. Deriving it rather than writing
+ * `0,197,91` down means the ground follows the palette if the palette moves.
+ */
+const GREEN_INK: string = (() => {
+  const c = parseColor(PROCESS.done);
+  const rgb = c ? oklchToRgb(c) : [0, 0.773, 0.357];
+  return rgb.map((v) => Math.round(v * 255)).join(",");
+})();
+
+/**
+ * One in how many. Fixed at the cast, not rolled per life: a spark that
+ * re-rolled its colour every few seconds would flicker between the two, and
+ * a coin flipped per spark would land on 14% one minute and 27% the next.
+ * The stride is five against a cast of seventeen, so the green walks through
+ * all five kinds instead of settling on one, and since every spark is lit at
+ * a fresh random spot there is no band or clump to it.
+ */
+const GREEN_IN = 5;
+
+/**
  * The embers: small red sparks, no two ways of moving alike.
  *
  * Five kinds. **Gust riders** come in small knots, each knot on a gust of its
@@ -121,7 +148,7 @@ const CAST: { kind: Kind; group: number }[] = [
   { kind: "dart", group: 0 }, { kind: "dart", group: 0 },
 ];
 
-type Spark = { kind: Kind; group: number; x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; warm: number; phase: number; heading: number; next: number };
+type Spark = { kind: Kind; group: number; green: boolean; x: number; y: number; vx: number; vy: number; age: number; life: number; size: number; warm: number; phase: number; heading: number; next: number };
 
 export type Shape = "disc" | "ground";
 
@@ -162,6 +189,7 @@ export function sparkField(shape: Shape, w: number, h: number): SparkField {
     sparks.push({
       kind: role.kind,
       group: role.kind === "gust" ? (role.group + Math.floor(i / CAST.length) * 2) % knots : 0,
+      green: i % GREEN_IN === 0,
       x: 0, y: 0, vx: 0, vy: 0, age: 0, life: 0, size: 0, warm: 0, phase: 0, heading: 0, next: 0,
     });
   }
@@ -303,7 +331,7 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
     const tail = Math.min(7, speed * 0.05);
     const ux = speed ? s.vx / speed : 0;
     const uy = speed ? s.vy / speed : 0;
-    const tone = s.warm > 0.7 ? "255,138,68" : s.warm > 0.35 ? "240,78,58" : "212,40,60";
+    const tone = s.green ? GREEN_INK : s.warm > 0.7 ? "255,138,68" : s.warm > 0.35 ? "240,78,58" : "212,40,60";
     if (tail > 1) {
       c.strokeStyle = `rgba(${tone},${(0.5 * fade).toFixed(2)})`;
       c.lineWidth = s.size * 1.3;

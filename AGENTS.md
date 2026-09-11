@@ -1310,12 +1310,38 @@ a kicker with a rule, and label-and-value rows that copy.
   whole table. **Do not reduce the resolution, the layer count or the move
   rate to make a number on this box look better** — see the standing rule
   above, and take it to J instead.
-- **The Builder's own workspace has no grid.** It had a dot grid from when
-  the workspace was the app's flat background and needed something to say it
-  was scratch; the nebula says it, and two backgrounds arguing is one too
-  many. Snapping still works to `GRID` — the grid is a rule, not a picture of
-  one. A grid belonging to the *site* being built is the site's own and is
-  drawn inside the frame.
+- **Nothing draws a grid over the app, and no setting can bring one back.**
+  The ground is nebula and nothing else — the Builder, the timeline and both
+  discs, since they all stand on `useGround`. What was removed, all of it:
+  the `.ambient-grid` div `ThemeProvider` put over every page, the `bg-grid`
+  utility that drew it, the `--grid-line` colour it drew in, the
+  `[data-grid]` attribute in both `ThemeProvider` and the pre-hydration
+  `boot.ts`, the `effects.grid` setting, its switch on the showcase page and
+  its field in `site.config.ts`. Do not add it back under another name.
+  Three things that sound like it and are not, so nobody hunts for a stub:
+  · `GRID` and `snapGrid` in `Canvas.tsx` are the snapping *rule* — 8px,
+    nothing drawn, nothing measured against a picture.
+  · `SCREEN.dots` in `core/ui/void.ts` is the texture on the plate editors'
+    typing surface, a screen face, not the ground. One user, `PlateEditors`.
+  · The Texture panel's `+ Grid` and `+ Dots` layers belong to the *site*
+    being built and are drawn inside the frame. They stay.
+- **One ember in five is green, and it is the palette's own green.**
+  `GREEN_IN = 5` in `darkMatter.ts`, fixed on the spark at the cast rather
+  than rolled per life: a coin flipped each time a spark relights would
+  flicker between the two colours and would land on 14% one minute and 27%
+  the next. The stride is five against a cast of seventeen, so the green
+  walks through all five kinds instead of settling on one, and every spark is
+  lit at a fresh random spot, so there is no band or clump. The colour is
+  `PROCESS.done` converted through `oklchToRgb` rather than an rgb triple
+  written down, so the ground follows the palette if the palette moves — and
+  it is rgb rather than an `oklch()` string because a canvas silently keeps
+  the last colour it understood if it cannot read the new one. `castSize`,
+  the drift and the sizes are untouched; only the ink changed.
+  `tests/ground-clean.mjs` counts green against red off the ember canvas's
+  own pixels. Read that number as a neighbourhood, not the ratio: it is
+  *pixel area*, and a spark that is streaking covers more of it than one that
+  is sitting, so it wanders either side of 20% run to run. The one-in-five is
+  exact by construction.
 - **Process state is red or green, and the names live in one place**
   (`PROCESS` and `ProcessState` in `threads.ts`). Red for every process
   unfinished or abandoned, green for every one completed; `running`, `cut`,
