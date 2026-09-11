@@ -191,6 +191,18 @@ export interface StudioShape {
   toNodeId?: string | null;
   /** "flow" is a plain relationship; "data" means the target reads from the source. */
   relation?: ShapeRelation;
+  /**
+   * When the stroke went down. Ink from before this existed has none, and
+   * `inkGroups` groups that by space alone rather than pretending.
+   */
+  at?: number;
+  /**
+   * Which drawing this stroke is in, when a person has said.
+   *
+   * Absent is the normal case: the grouping is guessed from time and space.
+   * Set, it is a decision and the guess does not overrule it.
+   */
+  group?: string | null;
 }
 
 export interface StudioPage {
@@ -564,6 +576,10 @@ interface StudioState extends Doc {
   toggleDraftPiece: (id: string) => void;
   /** Nothing is vined to the next call. */
   clearDraft: () => void;
+  /** These strokes are one drawing, whatever the guess says. */
+  joinInk: (ids: string[]) => void;
+  /** These strokes are each their own drawing again. */
+  splitInk: (ids: string[]) => void;
   /** After a call: what went, and what it cost. */
   recordSent: (threadId: string, sent: Record<string, string>, usage: { sent: number; skipped: number; cached?: number; input?: number }) => void;
   /** Put the trail back on its staircase. */
@@ -1047,8 +1063,33 @@ export const useStudio = create<StudioState>()(
         addShape: (shape) => {
           const id = uid("s");
           push();
-          set((s) => ({ shapes: [...s.shapes, { ...shape, id }] }));
+          // When it went down is half of what says which drawing it is in:
+          // stamped here so no caller can forget to.
+          set((s) => ({ shapes: [...s.shapes, { at: Date.now(), ...shape, id }] }));
           return id;
+        },
+
+        /*
+         * Grouping is a guess, so a person has to be able to overrule it.
+         *
+         * Both of these write the decision onto the strokes themselves
+         * rather than into a list of groups somewhere: a stroke that is
+         * deleted takes its half of the decision with it, and there is no
+         * second place for the two to disagree.
+         */
+        joinInk: (ids) => {
+          if (ids.length < 2) return;
+          const key = ids[0]!;
+          const set_ = new Set(ids);
+          push();
+          set((s) => ({ shapes: s.shapes.map((sh) => (set_.has(sh.id) ? { ...sh, group: key } : sh)) }));
+        },
+
+        splitInk: (ids) => {
+          if (!ids.length) return;
+          const set_ = new Set(ids);
+          push();
+          set((s) => ({ shapes: s.shapes.map((sh) => (set_.has(sh.id) ? { ...sh, group: sh.id } : sh)) }));
         },
 
         updateShape: (id, patch) => {

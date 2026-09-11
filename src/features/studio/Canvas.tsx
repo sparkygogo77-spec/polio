@@ -19,7 +19,8 @@ import { Block, themeFrom } from "./blocks";
 import { pictureOf } from "./reshapeRun";
 import { describeSketch } from "./sketch";
 import { resolvePalette } from "./parts/theme";
-import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal, Sparkles } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal, Scissors, Sparkles, Ungroup } from "lucide-react";
+import { inkGroups, nearestTo, type InkGroup } from "./inkGroups";
 import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
@@ -81,6 +82,13 @@ export function Canvas() {
   const news = useActions();
   const nodes = useStudio(useShallow(pageNodes));
   const shapes = useStudio(useShallow(pageShapes));
+  /*
+   * Which strokes are one drawing.
+   *
+   * The door hangs on the drawing, not on the stroke: a bird is fifteen
+   * strokes and one part, and before this every stroke grew its own button.
+   */
+  const drawings = React.useMemo(() => inkGroups(shapes.filter((sh) => sh.kind === "pen")), [shapes]);
   const groups = useStudio(useShallow(pageGroups));
   const page = useStudio(activePage);
   const selection = useStudio((s) => s.selection);
@@ -500,13 +508,22 @@ export function Canvas() {
    * iteration on the timeline — is the machinery that was already there.
    * The ink goes, because it is the part now.
    */
-  const makeInkReal = React.useCallback((sh: StudioShape) => {
-    const b = shapeBounds(sh);
+  const makeInkReal = React.useCallback((group: InkGroup) => {
+    const b = group.bounds;
     if (b.w < 2 && b.h < 2) return;
     const w = Math.max(b.w, 1);
     const h = Math.max(b.h, 1);
-    const strokes = [sh.points.map(([x, y]) => [(x - b.x) / w, (y - b.y) / h] as [number, number])];
-    const drawn = { strokes, words: (sh.label || sh.prompt || "").trim() };
+    /*
+     * Every stroke in the drawing, in one box.
+     *
+     * It took a single stroke before, which is why a four-stroke gull came
+     * back as three unrelated parts. The strokes are normalised against the
+     * *group's* box rather than each stroke's own, so the wing stays where
+     * it was drawn relative to the body.
+     */
+    const inGroup = useStudio.getState().shapes.filter((x) => group.strokeIds.includes(x.id));
+    const strokes = inGroup.map((x) => x.points.map(([px, py]) => [(px - b.x) / w, (py - b.y) / h] as [number, number]));
+    const drawn = { strokes, words: inGroup.map((x) => (x.label || x.prompt || "").trim()).filter(Boolean).join(" ") };
     play("confirm");
     useStudio.getState().enqueueDraw({
       nodeId: null,
@@ -516,7 +533,7 @@ export function Canvas() {
       picture: pictureOf(strokes),
       label: `Making ${drawn.words.slice(0, 40) || describeSketch({ strokes, words: "" })}`,
     });
-    useStudio.getState().removeShapes([sh.id]);
+    useStudio.getState().removeShapes(group.strokeIds);
     news.publish({
       key: "studio:queued",
       title: "The drawing is on the queue",
@@ -831,30 +848,92 @@ export function Canvas() {
           So the ink carries the control. One button, on the drawing, saying
           what it does, from the moment the stroke is finished.
         */}
-        {shapes.filter((sh) => sh.kind === "pen").map((sh) => {
-          const b = shapeBounds(sh);
+        {drawings.map((g) => {
+          const b = g.bounds;
+          const many = g.strokeIds.length > 1;
+          const other = drawings.length > 1;
           return (
-            <button
-              key={`real-${sh.id}`}
-              type="button"
-              data-make-real={sh.id}
-              title="Turn this drawing into a part"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); makeInkReal(sh); }}
-              className="tactile pointer-events-auto absolute z-20 flex items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-1 text-[10px] font-medium shadow-sm"
-              style={{
-                left: b.x + b.w + 8,
-                top: b.y,
-                transform: `scale(${Math.max(1, 1 / zoom)})`,
-                transformOrigin: "0 0",
-                borderColor: "oklch(0.62 0.17 250)",
-                background: "oklch(0.32 0.1 250)",
-                color: "oklch(0.95 0.04 250)",
-              }}
-            >
-              <Sparkles className="size-3" />
-              Make real
-            </button>
+            <React.Fragment key={`ink-${g.id}`}>
+              {/*
+                The grouping, drawn. A guess nobody can see is a guess nobody
+                can correct, so the drawing this button is about is ringed
+                before it is pressed — dashed while it is guessed, solid once
+                a person has said.
+              */}
+              {many ? (
+                <div
+                  data-ink-group={g.id}
+                  data-ink-strokes={g.strokeIds.length}
+                  data-ink-decided={g.decided ? "" : undefined}
+                  className="pointer-events-none absolute z-10 rounded-lg border"
+                  style={{
+                    left: b.x - 10,
+                    top: b.y - 10,
+                    width: b.w + 20,
+                    height: b.h + 20,
+                    borderColor: g.decided ? "oklch(0.62 0.17 250 / 0.75)" : "oklch(0.62 0.17 250 / 0.4)",
+                    borderStyle: g.decided ? "solid" : "dashed",
+                  }}
+                />
+              ) : null}
+              <div
+                className="pointer-events-auto absolute z-20 flex items-center gap-1 whitespace-nowrap"
+                style={{
+                  left: b.x + b.w + 12,
+                  top: b.y - (many ? 10 : 0),
+                  transform: `scale(${Math.max(1, 1 / zoom)})`,
+                  transformOrigin: "0 0",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  data-make-real={g.id}
+                  title={many ? `Turn these ${g.strokeIds.length} strokes into one part` : "Turn this drawing into a part"}
+                  onClick={(e) => { e.stopPropagation(); makeInkReal(g); }}
+                  className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] font-medium shadow-sm"
+                  style={{ borderColor: "oklch(0.62 0.17 250)", background: "oklch(0.32 0.1 250)", color: "oklch(0.95 0.04 250)" }}
+                >
+                  <Sparkles className="size-3" />
+                  Make real
+                  {many ? <span style={{ opacity: 0.7 }}>· {g.strokeIds.length} strokes</span> : null}
+                </button>
+                {/* These belong together: take in whichever drawing is nearest. */}
+                {other ? (
+                  <button
+                    type="button"
+                    data-ink-join={g.id}
+                    title="One drawing with the nearest one"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const mate = nearestTo(drawings, g.id);
+                      if (!mate) return;
+                      play("tick");
+                      useStudio.getState().joinInk([...g.strokeIds, ...mate.strokeIds]);
+                    }}
+                    className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] shadow-sm"
+                    style={{ borderColor: "oklch(0.5 0.1 250)", background: "oklch(0.24 0.06 250)", color: "oklch(0.9 0.04 250)" }}
+                  >
+                    <Ungroup className="size-3" />
+                    Join
+                  </button>
+                ) : null}
+                {/* And apart again: every stroke its own drawing. */}
+                {many ? (
+                  <button
+                    type="button"
+                    data-ink-split={g.id}
+                    title="Split these into separate drawings"
+                    onClick={(e) => { e.stopPropagation(); play("tick"); useStudio.getState().splitInk(g.strokeIds); }}
+                    className="tactile flex items-center gap-1 rounded-md border px-1.5 py-1 text-[10px] shadow-sm"
+                    style={{ borderColor: "oklch(0.5 0.1 250)", background: "oklch(0.24 0.06 250)", color: "oklch(0.9 0.04 250)" }}
+                  >
+                    <Scissors className="size-3" />
+                    Split
+                  </button>
+                ) : null}
+              </div>
+            </React.Fragment>
           );
         })}
 
