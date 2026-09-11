@@ -31,17 +31,36 @@ const check = (name, ok, detail = "") => {
  * and a control with `display: none` exists: it has a role, it has a name,
  * `count()` finds it, and it is a rectangle of nothing that nobody can press.
  * That is how a deployment served a Builder with no bar at all while every
- * suite in the repository stayed green. Existing is not the question. Being
- * visible is: an offset parent, and a rectangle with both sides above zero.
+ * suite in the repository stayed green. Existing is not the question.
+ *
+ * On the screen is: a rectangle with both sides above zero that overlaps the
+ * window, a `display` that is not `none`, a `visibility` that is not
+ * `hidden`, and some opacity.
+ *
+ * **`offsetParent` is not the gate.** It is null for every `position: fixed`
+ * element — a dialog, a slide-over, a pinned bar — whether or not anybody can
+ * see it, so gating on it fails the key vault for the crime of being a
+ * dialog. It is one signal among the others: a statically positioned node
+ * with no offset parent really is detached, and a fixed or sticky one is
+ * exempt because being fixed is the reason it has none.
  */
 const seen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   const r = el.getBoundingClientRect();
   const s = getComputedStyle(el);
+  const fixed = s.position === "fixed" || s.position === "sticky";
+  // And it has to be *where the window is*. A slide-over that is shut is
+  // parked at `translate-x-full`: full size, `display: flex`, wholly outside
+  // the glass. Nobody can press that either.
+  const inView = r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+  const on = r.width > 0 && r.height > 0 && inView
+    && s.display !== "none" && s.visibility !== "hidden" && Number(s.opacity) !== 0
+    && (fixed || el === document.body || !!el.offsetParent);
   return {
     name: (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 28),
-    on: !!el.offsetParent && r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none",
+    on,
     box: `${Math.round(r.width)}×${Math.round(r.height)}`,
     display: s.display,
+    position: s.position,
   };
 }));
 
@@ -90,13 +109,82 @@ await page.waitForTimeout(1100);
 /* ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ */
-/* 0. The bar is on the screen, and so is everything in it             */
+/* 0. The measure itself, on a fixed node and a hidden one             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The helper is the thing everything below leans on, so it is checked first,
+ * against the two cases it has to tell apart: something plainly on screen
+ * that has no offset parent, and something that is genuinely not there.
+ */
+{
+  await page.evaluate(() => {
+    const mk = (id, css) => {
+      const el = document.createElement("div");
+      el.id = id;
+      el.textContent = id;
+      el.setAttribute("style", `width:120px;height:32px;${css}`);
+      document.body.appendChild(el);
+      return el;
+    };
+    // A dialog, in the only way that matters: fixed, so `offsetParent` is null.
+    mk("probe-fixed", "position:fixed;left:20px;top:20px;z-index:99999;background:#123");
+    // Sticky still sits in the flow, so it goes at the top of the body where
+    // the window actually is — appended last it lands below a full-height app.
+    const sticky = mk("probe-sticky", "position:sticky;top:0;background:#123");
+    document.body.insertBefore(sticky, document.body.firstChild);
+    mk("probe-none", "display:none");
+    mk("probe-invisible", "visibility:hidden");
+    mk("probe-clear", "opacity:0");
+    mk("probe-flat", "height:0");
+    const off = mk("probe-detached", "background:#123");
+    off.remove();
+    document.body.appendChild(Object.assign(document.createElement("div"), { id: "probe-inside-none" })).appendChild(mk("probe-child-of-none", "background:#123"));
+    document.getElementById("probe-inside-none").style.display = "none";
+  });
+  await page.waitForTimeout(150);
+  const probe = async (id) => (await seen(page.locator(`#${id}`)))[0];
+  const fixed = await probe("probe-fixed");
+  check(
+    "a fixed node with no offset parent counts as on the screen",
+    !!fixed?.on,
+    fixed ? `${fixed.box} · ${fixed.position} · offsetParent is null by definition` : "missing",
+  );
+  check("and a sticky one too", !!(await probe("probe-sticky"))?.on);
+  check("display:none is not on the screen", (await probe("probe-none"))?.on === false);
+  check("visibility:hidden is not on the screen", (await probe("probe-invisible"))?.on === false);
+  check("nor is something at zero opacity", (await probe("probe-clear"))?.on === false);
+  check("nor something with no height", (await probe("probe-flat"))?.on === false);
+  check("nor a child of a hidden box", (await probe("probe-child-of-none"))?.on === false);
+  await page.evaluate(() => {
+    for (const id of ["probe-fixed", "probe-sticky", "probe-none", "probe-invisible", "probe-clear", "probe-flat", "probe-inside-none"]) {
+      document.getElementById(id)?.remove();
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* 0b. The bar is on the screen, and so is everything in it            */
 /* ------------------------------------------------------------------ */
 {
   const bar = await allSeen(page, "[data-studio-bar]");
   check("the Builder's bar is on the screen", !!bar.bar?.on, bar.bar ? `${bar.bar.box} · display ${bar.bar.display}` : "no bar at all");
   check("with controls in it", bar.controls >= 8, `${bar.controls} controls`);
   check("and every one of them can be pressed", bar.dark.length === 0, bar.dark.slice(0, 4).map((d) => `${d.name} ${d.box} ${d.display}`).join(" · "));
+
+  /*
+   * And the case that found the hole: the key vault is a fixed panel, so it
+   * has no offset parent whether it is open or shut. Shut it is off the side
+   * of the window and see-through; open it is plainly there.
+   */
+  const vault = async () => (await seen(page.locator("[data-keys-panel]")))[0];
+  check("a shut vault is not on the screen", (await vault())?.on === false, JSON.stringify(await vault()));
+  await page.getByRole("button", { name: /key/i }).first().click();
+  await page.waitForTimeout(700);
+  const open = await vault();
+  check("an open one is, fixed and all", !!open?.on, open ? `${open.box} · ${open.position}` : "missing");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
 }
 
 check("Design is not a button for the screen you are on", (await page.getByRole("radio", { name: "Design" }).count()) === 0);

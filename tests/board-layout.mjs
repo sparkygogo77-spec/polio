@@ -70,20 +70,42 @@ async function open(w, h) {
 }
 
 /*
- * On the screen, not merely in the DOM.
+ * Is it actually on the screen?
  *
- * A control with `display: none` still exists — it has a role, it has a name,
- * a query finds it — and a suite that only asks whether it is there passes
- * over a Builder nobody can use. This is what "there" has to mean.
+ * Every check in this suite used to ask the DOM whether a control existed,
+ * and a control with `display: none` exists: it has a role, it has a name,
+ * `count()` finds it, and it is a rectangle of nothing that nobody can press.
+ * That is how a deployment served a Builder with no bar at all while every
+ * suite in the repository stayed green. Existing is not the question.
+ *
+ * On the screen is: a rectangle with both sides above zero that overlaps the
+ * window, a `display` that is not `none`, a `visibility` that is not
+ * `hidden`, and some opacity.
+ *
+ * **`offsetParent` is not the gate.** It is null for every `position: fixed`
+ * element — a dialog, a slide-over, a pinned bar — whether or not anybody can
+ * see it, so gating on it fails the key vault for the crime of being a
+ * dialog. It is one signal among the others: a statically positioned node
+ * with no offset parent really is detached, and a fixed or sticky one is
+ * exempt because being fixed is the reason it has none.
  */
 const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   const r = el.getBoundingClientRect();
   const s = getComputedStyle(el);
+  const fixed = s.position === "fixed" || s.position === "sticky";
+  // And it has to be *where the window is*. A slide-over that is shut is
+  // parked at `translate-x-full`: full size, `display: flex`, wholly outside
+  // the glass. Nobody can press that either.
+  const inView = r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
+  const on = r.width > 0 && r.height > 0 && inView
+    && s.display !== "none" && s.visibility !== "hidden" && Number(s.opacity) !== 0
+    && (fixed || el === document.body || !!el.offsetParent);
   return {
-    name: (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 26),
-    on: !!el.offsetParent && r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden",
+    name: (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 28),
+    on,
     box: `${Math.round(r.width)}×${Math.round(r.height)}`,
     display: s.display,
+    position: s.position,
   };
 }));
 
