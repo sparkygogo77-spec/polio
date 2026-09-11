@@ -189,7 +189,7 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
       ) : sealable ? (
         <p className="max-w-[300px] text-center text-[10px] leading-relaxed text-fg-faint">
           {mode === "create"
-            ? "This seals what you keep here. Forget it and the contents are gone — there is no way back in and no reset."
+            ? "This seals what you keep here. Forget it and the contents are gone, there is no way back in and no reset."
             : cost
               ? `Each guess costs about ${cost} ms, so all ten thousand take hours rather than an instant.`
               : "Four digits."}
@@ -198,7 +198,7 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
 
       <div className="flex w-full max-w-[300px] flex-col items-stretch gap-2">
         <Button variant={sealable ? "outline" : "primary"} size="sm" disabled={busy} onClick={hold}>
-          <Unlock /> {sealable ? "Skip the PIN — hold the key for this tab" : "Hold the key for this tab"}
+          <Unlock /> {sealable ? "Skip the PIN, hold the key for this tab" : "Hold the key for this tab"}
         </Button>
         <p className="text-center text-[10px] leading-relaxed text-fg-faint">
           Held in the clear, in this tab only: it survives a reload and goes when the tab closes. Nothing to unlock, nothing to forget.
@@ -210,7 +210,7 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
 
       {exists && mode === "unlock" && sealable ? (
         <Button variant="ghost" size="xs" onClick={() => { if (confirm !== null) setConfirm(null); useKeys.getState().destroy(); }}>
-          Forgot it — empty the vault and start again
+          Forgot it, empty the vault and start again
         </Button>
       ) : null}
     </div>
@@ -277,7 +277,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
             {held
               ? "Held for this tab, in the clear: anyone at this computer with this tab open can read it. It goes when the tab closes. "
               : "A four-digit PIN keeps out a passing glance, not a determined person with your unlocked computer. "}
-            The safe place for a key is the server — <code className="text-fg">.env.local</code> when you run it yourself, or your
+            The safe place for a key is the server, <code className="text-fg">.env.local</code> when you run it yourself, or your
             host&rsquo;s environment variables. A key held here is sent with a request only when the server has none.
           </span>
         </p>
@@ -530,7 +530,7 @@ export function KeysButton() {
   const { unlocked, held, kept, plain, exists, refresh } = useKeys();
   React.useEffect(() => { refresh(); }, [refresh]);
   return (
-    <Tooltip content={plain ? (exists ? "Keys — held in this browser" : "Keys") : unlocked ? (held ? "Keys — held for this tab" : kept ? "Keys — kept for this tab" : "Keys — open") : exists ? "Keys — locked" : "Keys"} shortcut="mod+shift+k">
+    <Tooltip content={plain ? (exists ? "Keys, held in this browser" : "Keys") : unlocked ? (held ? "Keys, held for this tab" : kept ? "Keys, kept for this tab" : "Keys, open") : exists ? "Keys, locked" : "Keys"} shortcut="mod+shift+k">
       <Button variant={openPanel ? "subtle" : "ghost"} size="icon" aria-label="Keys" onClick={() => ctx.togglePanel("keys")} className="relative">
         <KeyRound />
         {unlocked && (!plain || exists) ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-accent shadow-[0_0_6px_var(--accent)]" /> : null}

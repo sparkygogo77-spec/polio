@@ -81,7 +81,7 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
 
   if (removed) {
     return (
-      <Tooltip content={`${feature.explain ?? feature.blurb} — removed`} side="top">
+      <Tooltip content={`${feature.explain ?? feature.blurb}, removed`} side="top">
         <button
           type="button"
           {...ctxProps("studio-palette", feature.id, feature)}
@@ -357,7 +357,7 @@ export function Palette() {
             {bands.map(({ band, items }) => (
               <Band key={band} title={BAND_LABEL[band]}>
                 {/* items-start, or a flex line makes every card as tall as the
-                    tallest one in it — and the stretched-out part of a short
+                    tallest one in it, and the stretched-out part of a short
                     card is empty space with the fire showing through it. */}
                 <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
                   {items.map((f) => {

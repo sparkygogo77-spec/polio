@@ -320,20 +320,37 @@ a kicker with a rule, and label-and-value rows that copy.
   prompt, and one line saying what that iteration actually did. Nothing is
   aligned or grouped: boxes are scattered off their own id and dragged
   anywhere (`threadSpots`, keyed `box:<id>`), and a drag is not a click.
-  Right-press one for what can be done with it. Between them run
-  **strands** (`strand.ts`): one tight line, a little thicker than a
-  hairline, with bands of light running *inside* it — not a bead
-  travelling a wire — anchored to where the boxes are rather than to a
-  measurement of them, so they stretch in the same frame as the drag. On
-  each strand sits the **loop starter**: examine, critique, iterate.
-  Under the timeline, and reached by carrying on scrolling exactly as the
-  parts shelf is under the board, `TimelineDetail.tsx` reads **one**
-  iteration: the stages across the top (asked → came back → changed →
-  critique → what came next), the prompt small above the preview, and a
-  menu down the side for turning that generation into something. The
-  iteration book lives there too, in its own tab with its own menu, and
-  the page layout of the book no longer draws the trail — the timeline
-  above it is the trail.
+  Right-press one for what can be done with it. A box carries a wireframe
+  of what that iteration produced, drawn off its own document snapshot,
+  with the parts it changed lit: the headline is what it did, the picture
+  is what it looks like. An **element prompt** is not a box at all: a
+  drawing is a small purple construct piece, the drawn strokes and the
+  name, no headline, joined by purple strands. Headline boxes are for the
+  iterations that moved the whole site.
+
+  Between them run **strands** (`strand.ts`), and they are hard light
+  rather than wire: a translucent emerald body, three bands of marbling
+  swimming inside it on their own phases, a hair of near-white down each
+  rim so it reads as a solid object, and energy running both along the
+  line and helixing around it. Everything is sampled off the curve, not
+  stroked as a bezier, because marbling, rim and helix are all functions
+  of how far along a point is. Strands anchor to where the boxes are
+  rather than to a measurement of them, so they stretch in the same frame
+  as the drag. On each strand sits the **loop starter**: examine,
+  critique, iterate.
+
+  An iteration is *read on the box*, not in a panel somewhere else.
+  Clicking one grows two cards out of it: what went in from the top edge,
+  what came out of the bottom, each joined to the box by the same
+  construct (`paintConnector`). Under the timeline, and reached by
+  carrying on scrolling exactly as the parts shelf is under the board,
+  `TimelineDetail.tsx` keeps only the prompt, pinned to the top of the
+  section and visibly larger at any zoom or window size, and the menu of
+  what this generation can be turned into. It reads like the boxes do:
+  the same emerald cards, the same eyebrow labels, no file tree, no
+  stages, nothing that looks like a codebase. The iteration book lives
+  there too, in its own tab with its own menu, and the page layout of the
+  book no longer draws the trail: the timeline above it is the trail.
 - **The Blueprint and the Trail are one page: the iteration book.**
   `BriefDialog.tsx` is one `Book` component in three shapes — a dialog over
   the board, a panel pinned open beside it (`store.bookPinned`, no overlay,
@@ -1065,8 +1082,13 @@ a kicker with a rule, and label-and-value rows that copy.
   is kept on the part as `node.sketch` (strokes as
   fractions of the board's width, plus the words), so the board reopens with
   the drawing on it and the blueprint writes a `drawn:` line for it.
-  **Make real** posts the drawing — a small black-on-white picture and the
-  strokes as numbers — with the part as it is, the words, the frame width and
+  **Make real** posts the drawing as a picture first and numbers second: a
+  black-on-white raster of the strokes (`pictureOf`), announced as the thing
+  to read the shape off, then the measurements for what a picture is
+  imprecise about. Every drawing call carries it, a new part and a reshape of
+  an existing one alike, and so does the body loop's critique step, which
+  sends the drawing and the render side by side. It goes with the part as it
+  is, the words, the frame width and
   the whole library to `src/app/api/studio/reshape/route.ts`, and applies
   what comes back after checking every field against the catalog
   (`allowedOptions`, a real `featureId`, a size inside the frame). Without a

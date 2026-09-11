@@ -378,7 +378,7 @@ export function TextureQuads({
       <SectorButton d={addD} at={addAt} spin={add.spin} shape={add.shape} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
       {/*
         Reiterate takes the texture this part is wearing and changes *one*
-        thing about it at random — the scale, the grain, the colour, the bleed,
+        thing about it at random, the scale, the grain, the colour, the bleed,
         whether it drifts. One thing, because a re-roll that changes everything
         gives you a different texture each press and teaches you nothing: a
         step sideways lets you see what moved and keep pressing while it is

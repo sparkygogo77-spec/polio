@@ -71,7 +71,7 @@ export const SERVICES: ServiceDef[] = [
   {
     id: "anthropic",
     label: "Claude",
-    blurb: "The Builder's asks — plan, critique, finish, ideas, build — and reading the drawing board.",
+    blurb: "The Builder's asks, plan, critique, finish, ideas, build, and reading the drawing board.",
     where: "https://console.anthropic.com/settings/keys",
     fields: [{ id: "ANTHROPIC_API_KEY", label: "API key", hint: "sk-ant-…", secret: true }],
   },
@@ -82,7 +82,7 @@ export const SERVICES: ServiceDef[] = [
     where: "https://vercel.com/account/settings/tokens",
     fields: [
       { id: "VERCEL_TOKEN", label: "Token", hint: "from Account Settings › Tokens", secret: true },
-      { id: "VERCEL_TEAM", label: "Team", hint: "only if the project is a team's — its slug" },
+      { id: "VERCEL_TEAM", label: "Team", hint: "only if the project is a team's, its slug" },
     ],
   },
 ];

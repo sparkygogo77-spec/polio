@@ -213,7 +213,7 @@ export async function POST(request: Request) {
   const mode: Mode = body.mode && body.mode in MODE_INSTRUCTIONS ? body.mode : "plan";
   const prompt = (body.prompt ?? "").trim().slice(0, 20_000);
   if (!markdown.trim() && !(body.brief ?? "").trim()) {
-    return NextResponse.json({ ok: false, reason: "empty", message: "The blueprint is empty — add something to the canvas first." }, { status: 400 });
+    return NextResponse.json({ ok: false, reason: "empty", message: "The blueprint is empty, add something to the canvas first." }, { status: 400 });
   }
   if (mode === "ask" && !prompt) {
     return NextResponse.json({ ok: false, reason: "empty", message: "Ask something first." }, { status: 400 });

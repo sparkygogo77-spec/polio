@@ -88,11 +88,11 @@ const arrow = (extra = {}) => ({ kind: "arrow", fromNodeId: "n_wallet", toNodeId
 
 {
   const map = chainLines(NODES, [arrow()]);
-  check("both ends carry the chain, each from its own side", map.get("n_wallet")?.[0] === "→ Claim — only when the wallet is connected" && map.get("n_claim")?.[0] === "← Connect wallet — only when the wallet is connected", JSON.stringify([...map]));
+  check("both ends carry the chain, each from its own side", map.get("n_wallet")?.[0] === "→ Claim, only when the wallet is connected" && map.get("n_claim")?.[0] === "← Connect wallet, only when the wallet is connected", JSON.stringify([...map]));
   check("a wire with an end in the air is not a chain", chainLines(NODES, [arrow({ toNodeId: null })]).size === 0);
   check("a drawn shape that is not a wire is not a chain", chainLines(NODES, [{ ...arrow(), kind: "pen" }]).size === 0);
   check("a part chained to itself is not a chain", chainLines(NODES, [arrow({ toNodeId: "n_wallet" })]).size === 0);
-  check("what the author typed on the chain wins", chainLines(NODES, [arrow({ label: "the same session" })]).get("n_claim")?.[0] === "← Connect wallet — the same session");
+  check("what the author typed on the chain wins", chainLines(NODES, [arrow({ label: "the same session" })]).get("n_claim")?.[0] === "← Connect wallet, the same session");
 }
 
 /* ------------------------------------------------------------------ */
@@ -109,7 +109,7 @@ const board = (shapes) => {
   const pieceOf = (ps, id) => ps.find((p) => p.id === id);
   check(
     "the reason travels with the part's prompt",
-    pieceToText(pieceOf(chained, "node:n_claim")).includes("chained: ← Connect wallet — only when the wallet is connected"),
+    pieceToText(pieceOf(chained, "node:n_claim")).includes("chained: ← Connect wallet, only when the wallet is connected"),
     pieceToText(pieceOf(chained, "node:n_claim")),
   );
   check("a part on no chain says nothing about chains", !pieceToText(pieceOf(bare, "node:n_claim")).includes("chained"));
@@ -190,7 +190,7 @@ await page.waitForTimeout(800);
 const brief = await page.locator("pre").first().innerText();
 check(
   "and the reason reaches the blueprint",
-  /\*\*Connect wallet\*\* → \*\*Claim\*\* — only when the wallet is connected/.test(brief),
+  /\*\*Connect wallet\*\* → \*\*Claim\*\*, only when the wallet is connected/.test(brief),
   (brief.split("\n").find((l) => l.includes("→ **Claim**")) ?? "no connection line").trim(),
 );
 

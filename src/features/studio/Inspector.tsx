@@ -643,14 +643,14 @@ export function Inspector() {
 
         <Field
           label="Data"
-          hint="What this shows or does, in your words — the values and actions the backend has to provide. Wires pointing at this part fill it in."
+          hint="What this shows or does, in your words, the values and actions the backend has to provide. Wires pointing at this part fill it in."
         >
           <Textarea
             autoGrow
             rows={2}
             aria-label="Data"
             value={node.data}
-            placeholder="e.g. live coin price, trader P&L, time left — or: join duel"
+            placeholder="e.g. live coin price, trader P&L, time left, or: join duel"
             onChange={(e) => update({ data: e.target.value })}
           />
         </Field>

@@ -182,7 +182,7 @@ export function Overlay({ id, content, options, theme: t, emit }: PartProps) {
       </div>
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <Btn t={t} label="Cancel" primary={false} onClick={() => setOpen(false)} />
-        <Btn t={t} label="Confirm" onClick={() => { setOpen(false); emit?.({ type: "toast", text: `${title} — confirmed`, level: "success" }); }} />
+        <Btn t={t} label="Confirm" onClick={() => { setOpen(false); emit?.({ type: "toast", text: `${title}, confirmed`, level: "success" }); }} />
       </div>
     </Fill>
   );

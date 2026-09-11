@@ -159,7 +159,7 @@ export function Haptics({ id, content, theme: t, mode, emit }: PartProps) {
             onClick={() => {
               const ms = (p.body ?? "10").split(",").map((n) => Number(n.trim()) || 10);
               if (mode === "live") navigator.vibrate?.(ms);
-              emit?.({ type: "toast", text: `${p.title} — ${ms.join("/")}ms` });
+              emit?.({ type: "toast", text: `${p.title}, ${ms.join("/")}ms` });
             }}
             style={{ fontSize: t.fontPx * 0.8 }}
           />
@@ -504,7 +504,7 @@ export function Onboarding({ id, content, theme: t, mode, emit }: PartProps) {
 
   return (
     <Fill t={t} data-part={id} style={{ ...soft(t), display: "flex", flexDirection: "column", gap: t.fontPx * 0.4, overflow: "auto" }}>
-      <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.05 }}>Welcome — three things to try</strong>
+      <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.05 }}>Welcome, three things to try</strong>
       {steps.map((s, i) => (
         <button
           key={s.title}

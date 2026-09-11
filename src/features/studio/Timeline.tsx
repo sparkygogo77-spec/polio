@@ -2,13 +2,16 @@
 /**
  * The timeline: every iteration, as a place rather than a list.
  *
- * Finish opens this, and it fills the screen the way the board does —
- * the same dark matter under it, nothing down either side. What is on it
- * are **iteration boxes**: one per landed call, emerald, quiet, saying
- * almost nothing until one is clicked. An iteration is a chain prompt (an
- * ask about the whole site) or an element prompt (a drawing, a part), and
- * the box's headline is the main thing that iteration did — a preview
- * where there is one, an icon and a line where there is not.
+ * Finish opens this, and it fills the screen the way the board does: the
+ * same dark matter under it, nothing down either side.
+ *
+ * Two kinds of thing stand on it, and they do not look alike, because
+ * they are not alike. A **chain prompt** — a plan, a critique, a build,
+ * anything asked of the whole site — is an emerald box with a headline
+ * and a thumbnail of what it left behind, like a news snippet. An
+ * **element prompt** — a drawing made real on one part — is a small
+ * purple construct piece with no headline at all: an icon, the part's
+ * name, and the line that was drawn. A drawing is not a headline.
  *
  * Nothing is aligned and nothing is grouped. Boxes are scattered where
  * they landed, dragged anywhere, and the whole surface pans out past the
@@ -21,22 +24,30 @@
  * critique, iterate — because the interesting thing about two iterations
  * is what happened between them.
  *
- * Clicking a box opens it *below* the timeline (`TimelineDetail`), one at
- * a time. This file is the surface; that one is the reading.
+ * Clicking one opens it *in place*: a card grows out of the box itself,
+ * the input from the top edge (what was asked, and the drawing if it was
+ * an element prompt) and the output from the bottom (what came back, what
+ * changed), each joined to it by the same construct the strands are made
+ * of. The section under the timeline keeps the prompt, pinned and large,
+ * and what this generation can be turned into.
  */
 import * as React from "react";
-import { Brush, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, Copy, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { DRIFT_MS, paintDarkMatter, resizeField, sparkField, type SparkField } from "./darkMatter";
-import { paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
-import { flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
+import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
+import { diffDocs, flatten, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 
-/** A box's size on the surface. Small: it says little until it is opened. */
-const BOX = { w: 224, h: 84 };
+/** A chain prompt's box. Small: it says little until it is opened. */
+const BOX = { w: 248, h: 104 };
+/** An element prompt's piece: a chip, not a card. */
+const PIECE = { w: 150, h: 44 };
+/** How far a card stands off the box it grew out of, for the connector to run. */
+const GROW = 22;
 /** How far apart the scatter puts them, before anybody drags anything. */
 const DRIFT = { x: 268, y: 158 };
 /** How far back the ground sits here. The boxes have to be the brightest thing. */
@@ -72,6 +83,9 @@ function scatter(nodes: ThreadNode[]): Map<string, Point> {
   return out;
 }
 
+/** An element prompt is a drawing made real on one part; everything else is a chain prompt. */
+export const isElement = (t: Thread) => t.mode === "drawing";
+
 /** What kind of iteration this is, in one word and one mark. */
 function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
   switch (t.mode) {
@@ -80,13 +94,15 @@ function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
     case "build":
       return { icon: <Layers className="size-3.5" />, kind: "chain prompt" };
     case "critique":
-      return { icon: <ListChecks className="size-3.5" />, kind: "chain prompt" };
     case "finish":
       return { icon: <ListChecks className="size-3.5" />, kind: "chain prompt" };
     default:
       return { icon: <Sparkles className="size-3.5" />, kind: "chain prompt" };
   }
 }
+
+/** The size of whatever stands for this iteration. */
+const sizeOf = (t: Thread) => (isElement(t) ? PIECE : BOX);
 
 /** The main update of an iteration: what it actually did, in a few words. */
 export function headlineOf(t: Thread): string {
@@ -175,21 +191,33 @@ export function Timeline() {
    * the second, and dragging one box moves its strands in the same frame
    * as the box itself.
    */
+  const byId = React.useMemo(() => new Map(threads.map((t) => [t.id, t])), [threads]);
   const anchorOf = React.useCallback(
     (id: string) => {
       const at = spotOf(id);
-      return { left: at.x, right: at.x + BOX.w, mid: at.y + BOX.h / 2 };
+      const t = byId.get(id);
+      const size = t ? sizeOf(t) : BOX;
+      return { left: at.x, right: at.x + size.w, mid: at.y + size.h / 2, top: at.y, bottom: at.y + size.h, cx: at.x + size.w / 2 };
     },
-    [spotOf],
+    [spotOf, byId],
   );
 
   const cords = React.useMemo(
     () =>
       all
         .filter((n) => n.thread.parentId)
-        .map((n) => ({ from: n.thread.parentId!, to: n.thread.id, tone: (n.thread.id === liveThreadId ? "live" : "landed") as StrandTone })),
+        .map((n) => ({
+          from: n.thread.parentId!,
+          to: n.thread.id,
+          // An element prompt's strand wears the piece's own purple; a chain
+          // prompt's is emerald, and brighter on the line the board stands on.
+          tone: (isElement(n.thread) ? "pending" : n.thread.id === liveThreadId ? "live" : "landed") as StrandTone,
+        })),
     [all, liveThreadId],
   );
+
+  const openId = openThreadId;
+  const openTone: StrandTone = openId && byId.get(openId) && isElement(byId.get(openId)!) ? "pending" : "live";
 
   React.useEffect(() => {
     const el = wires.current;
@@ -224,11 +252,31 @@ export function Timeline() {
         const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
         paintStrand(c, from, to, { t, tone: cord.tone, phase: seed(cord.to) });
       }
+      /*
+       * The card's own connector: the same construct, from the card's edge
+       * to the box's. Measured rather than assumed, because the card is as
+       * tall as what is in it — and it is two rectangles a frame, not a
+       * layout pass.
+       */
+      const grid = plot.current;
+      if (openId && grid) {
+        const a = anchorOf(openId);
+        const origin = grid.getBoundingClientRect();
+        const tone: StrandTone = openTone;
+        for (const side of ["in", "out"] as const) {
+          const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
+          if (!card) continue;
+          const r = card.getBoundingClientRect();
+          const cx = (r.left - origin.left) / zoom + r.width / zoom / 2;
+          const edge = side === "in" ? (r.bottom - origin.top) / zoom : (r.top - origin.top) / zoom;
+          paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom }, { t, tone });
+        }
+      }
       c.restore();
     };
     raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
-  }, [cords, anchorOf, pan, zoom]);
+  }, [cords, anchorOf, pan, zoom, openId, openTone]);
 
   /* -------------------------------------------------------- the pointer */
   const startDrag = (id: string, e: React.PointerEvent) => {
@@ -290,7 +338,6 @@ export function Timeline() {
     setZoom((z) => Math.max(0.4, Math.min(1.8, z * (e.deltaY < 0 ? 1.08 : 0.93))));
   };
 
-  const byId = React.useMemo(() => new Map(threads.map((t) => [t.id, t])), [threads]);
   const nothing = !threads.length;
 
   return (
@@ -316,7 +363,7 @@ export function Timeline() {
           const live = t.id === liveThreadId;
           const open = t.id === openThreadId;
           return (
-            <IterationBox
+            <Standing
               key={t.id}
               thread={t}
               at={at}
@@ -373,8 +420,8 @@ export function Timeline() {
       {nothing ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="max-w-sm text-center text-[12px] leading-relaxed text-[oklch(0.7_0.06_158)]">
-            Nothing has landed yet. Every ask that comes back stands here as an iteration — a chain prompt about the whole
-            site, or an element prompt from a drawing — and the strands between them are what one iteration made of the
+            Nothing has landed yet. Every ask that comes back stands here as an iteration, a chain prompt about the whole
+            site, or an element prompt from a drawing, and the strands between them are what one iteration made of the
             last. Ask something below to start.
           </p>
         </div>
@@ -412,6 +459,28 @@ function ends(a: { left: number; right: number; mid: number }, b: { left: number
 /* One box                                                             */
 /* ------------------------------------------------------------------ */
 
+/** A chain prompt is a box; an element prompt is a piece. Both open the same card. */
+function Standing(props: {
+  thread: Thread;
+  at: Point;
+  live: boolean;
+  open: boolean;
+  pinned: boolean;
+  dragging: boolean;
+  onOpen: () => void;
+  onDragStart: (e: React.PointerEvent) => void;
+  onMenu: (e: React.MouseEvent) => void;
+}) {
+  return isElement(props.thread) ? <ElementPiece {...props} /> : <IterationBox {...props} />;
+}
+
+/**
+ * A chain prompt: a box with a headline and a thumbnail of what it left.
+ *
+ * The thumbnail is the point of it. "3 findings" is a receipt; the shape
+ * of the page the iteration produced is the thing you recognise from
+ * across the screen, which is what a timeline is for.
+ */
 function IterationBox({
   thread, at, live, open, pinned, dragging, onOpen, onDragStart, onMenu,
 }: {
@@ -427,46 +496,263 @@ function IterationBox({
 }) {
   const { icon, kind } = kindOf(thread);
   return (
-    <button
-      type="button"
-      data-box={thread.id}
-      data-open={open ? "1" : "0"}
-      onPointerDown={onDragStart}
-      onClick={onOpen}
-      onContextMenu={onMenu}
-      className={cn(
-        "absolute flex cursor-grab flex-col gap-1 rounded-lg border p-2 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing",
-        dragging && "z-30",
-      )}
+    <div className="absolute" style={{ left: at.x, top: at.y, width: BOX.w, zIndex: open ? 40 : dragging ? 30 : 10 }}>
+      {open ? <Card thread={thread} side="in" /> : null}
+      <button
+        type="button"
+        data-box={thread.id}
+        data-open={open ? "1" : "0"}
+        onPointerDown={onDragStart}
+        onClick={onOpen}
+        onContextMenu={onMenu}
+        className="flex w-full cursor-grab flex-col gap-1 rounded-lg border p-2 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing"
+        style={{
+          minHeight: BOX.h,
+          // Emerald, and not shouting: the ground behind is nebula, and a box
+          // that fights it makes the whole screen a poster.
+          background: open ? "oklch(0.26 0.07 158)" : "oklch(0.21 0.05 158 / 0.92)",
+          borderColor: open ? "oklch(0.66 0.16 158)" : live ? "oklch(0.5 0.12 158)" : "oklch(0.36 0.07 158)",
+          color: "oklch(0.9 0.05 158)",
+          boxShadow: open
+            ? "0 0 0 1px oklch(0.66 0.16 158 / 0.5), 0 8px 26px oklch(0 0 0 / 0.5)"
+            : "0 6px 18px oklch(0 0 0 / 0.45)",
+          transform: dragging ? "scale(1.02)" : "none",
+        }}
+      >
+        <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-[oklch(0.68_0.09_158)]">
+          {icon}
+          {kind}
+          {live ? <span className="ml-auto rounded-sm bg-[oklch(0.5_0.14_158)] px-1 text-[8px] text-[oklch(0.14_0.02_158)]">live</span> : null}
+          {pinned ? <Pin className="ml-auto size-3 fill-current" /> : null}
+        </span>
+        <div className="flex items-start gap-2">
+          {/* What it produced, at a glance: the page it left behind. */}
+          <Snippet thread={thread} />
+          <span className="min-w-0 flex-1">
+            <span className="line-clamp-2 block text-[12px] font-medium leading-snug text-[oklch(0.93_0.04_158)]">{headlineOf(thread)}</span>
+            <span className="num mt-1 block text-[9px] text-[oklch(0.62_0.06_158)]">
+              {new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {thread.mode}
+              {thread.changes.length > 1 ? ` · +${thread.changes.length - 1}` : ""}
+            </span>
+          </span>
+        </div>
+      </button>
+      {open ? <Card thread={thread} side="out" /> : null}
+    </div>
+  );
+}
+
+/**
+ * An element prompt: the drawing, small, in purple.
+ *
+ * No headline. A drawing made real on one part is not news about the
+ * site, it is a piece of it, and the line that was drawn says more than
+ * any sentence about the line would.
+ */
+function ElementPiece({
+  thread, at, open, dragging, onOpen, onDragStart, onMenu,
+}: {
+  thread: Thread;
+  at: Point;
+  live: boolean;
+  open: boolean;
+  pinned: boolean;
+  dragging: boolean;
+  onOpen: () => void;
+  onDragStart: (e: React.PointerEvent) => void;
+  onMenu: (e: React.MouseEvent) => void;
+}) {
+  const name = (thread.changes[0] ?? thread.ask ?? "a drawing").replace(/^(drew|reshaped)\s+/i, "").split(" at ")[0]!.slice(0, 28);
+  return (
+    <div className="absolute" style={{ left: at.x, top: at.y, width: PIECE.w, zIndex: open ? 40 : dragging ? 30 : 12 }}>
+      {open ? <Card thread={thread} side="in" /> : null}
+      <button
+        type="button"
+        data-box={thread.id}
+        data-piece=""
+        data-open={open ? "1" : "0"}
+        onPointerDown={onDragStart}
+        onClick={onOpen}
+        onContextMenu={onMenu}
+        className="flex w-full cursor-grab items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-2.5 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing"
+        style={{
+          minHeight: PIECE.h,
+          background: open ? "oklch(0.3 0.1 300)" : "oklch(0.24 0.07 300 / 0.92)",
+          borderColor: open ? "oklch(0.8 0.17 300)" : "oklch(0.48 0.13 300)",
+          color: "oklch(0.93 0.05 300)",
+          boxShadow: open ? "0 0 0 1px oklch(0.8 0.17 300 / 0.45), 0 8px 24px oklch(0 0 0 / 0.5)" : "0 4px 14px oklch(0 0 0 / 0.45)",
+          transform: dragging ? "scale(1.03)" : "none",
+        }}
+      >
+        <Drawn sketch={thread.sketch} size={30} tone="oklch(0.9 0.14 300)" />
+        <span className="min-w-0 flex-1 truncate text-[11px] leading-tight">{name}</span>
+      </button>
+      {open ? <Card thread={thread} side="out" /> : null}
+    </div>
+  );
+}
+
+/**
+ * The line that was drawn, as a mark.
+ *
+ * Straight off the strokes the board kept, so a piece carries the actual
+ * drawing rather than an icon standing in for one.
+ */
+function Drawn({ sketch, size, tone }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string }) {
+  if (!sketch?.strokes?.length) return <Brush className="size-3.5 shrink-0 opacity-70" />;
+  return (
+    <svg width={size} height={size} viewBox="0 0 1 1" aria-hidden className="shrink-0">
+      {sketch.strokes.slice(0, 12).map((stroke, i) => (
+        <polyline
+          key={i}
+          points={stroke.filter((_, k) => k % 2 === 0).map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(" ")}
+          fill="none"
+          stroke={tone}
+          strokeWidth={0.04}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * The thumbnail on a chain prompt's box: the page that iteration left.
+ *
+ * Every part as a rectangle where it stood, the ones this iteration
+ * changed lit. It is a silhouette, not a screenshot — but it is *this*
+ * iteration's silhouette, and two iterations apart are two different
+ * shapes, which is the whole job.
+ */
+function Snippet({ thread }: { thread: Thread }) {
+  const threads = useStudio((s) => s.threads);
+  const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
+  const nodes = (thread.doc?.nodes ?? []).filter((n) => typeof n.x === "number" && typeof n.y === "number");
+  const changed = React.useMemo(() => new Set(diffDocs(parent?.doc, thread.doc).map((l) => l.replace(/^[+~-]\s*/, "").split(":")[0]!.trim())), [parent, thread]);
+  const W = 56;
+  const H = 44;
+  if (!nodes.length) {
+    return (
+      <span className="grid shrink-0 place-items-center rounded" style={{ width: W, height: H, background: "oklch(0.16 0.03 158)", border: "1px solid oklch(0.3 0.06 158)" }}>
+        <Sparkles className="size-4 opacity-50" />
+      </span>
+    );
+  }
+  const right = Math.max(...nodes.map((n) => (n.x ?? 0) + (n.w ?? 0)), 1);
+  const bottom = Math.max(...nodes.map((n) => (n.y ?? 0) + (n.h ?? 0)), 1);
+  return (
+    <svg
+      width={W}
+      height={H}
+      viewBox={`0 0 ${right} ${bottom}`}
+      preserveAspectRatio="xMidYMin slice"
+      aria-hidden
+      className="shrink-0 rounded"
+      style={{ background: "oklch(0.14 0.025 158)", border: "1px solid oklch(0.3 0.06 158)" }}
+    >
+      {nodes.slice(0, 60).map((n) => {
+        const lit = changed.has(n.label);
+        return (
+          <rect
+            key={n.id}
+            x={n.x}
+            y={n.y}
+            width={Math.max(4, n.w ?? 0)}
+            height={Math.max(4, n.h ?? 0)}
+            rx={6}
+            fill={lit ? "oklch(0.72 0.19 158 / 0.6)" : "oklch(0.62 0.1 158 / 0.3)"}
+            stroke={lit ? "oklch(0.9 0.2 158)" : "oklch(0.62 0.11 158 / 0.75)"}
+            strokeWidth={lit ? 8 : 4}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+/**
+ * The card that grows out of the box.
+ *
+ * Up from the top edge: what went in — the prompt, and the drawing when
+ * there was one. Down from the bottom: what came out — the answer, and
+ * what it changed on the board. Both joined to the box by the connector
+ * the strands are made of, so it reads as the box extending rather than a
+ * panel arriving.
+ */
+function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
+  const threads = useStudio((s) => s.threads);
+  const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
+  const changed = React.useMemo(() => diffDocs(parent?.doc, thread.doc), [parent, thread]);
+  const element = isElement(thread);
+  const skin = element
+    ? { face: "oklch(0.19 0.055 300)", rim: "oklch(0.46 0.12 300)", text: "oklch(0.92 0.04 300)", dim: "oklch(0.72 0.08 300)" }
+    : { face: "oklch(0.17 0.04 158)", rim: "oklch(0.42 0.09 158)", text: "oklch(0.92 0.04 158)", dim: "oklch(0.7 0.07 158)" };
+  return (
+    <div
+      data-card={side}
+      data-card-of={thread.id}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute w-[min(420px,86vw)]"
       style={{
-        left: at.x,
-        top: at.y,
-        width: BOX.w,
-        minHeight: BOX.h,
-        // Emerald, and not shouting: the ground behind is nebula, and a box
-        // that fights it makes the whole screen a poster.
-        background: open ? "oklch(0.26 0.07 158)" : "oklch(0.21 0.05 158 / 0.92)",
-        borderColor: open ? "oklch(0.66 0.16 158)" : live ? "oklch(0.5 0.12 158)" : "oklch(0.36 0.07 158)",
-        color: "oklch(0.9 0.05 158)",
-        boxShadow: open
-          ? "0 0 0 1px oklch(0.66 0.16 158 / 0.5), 0 8px 26px oklch(0 0 0 / 0.5)"
-          : "0 6px 18px oklch(0 0 0 / 0.45)",
-        transform: dragging ? "scale(1.02)" : "none",
+        left: "50%",
+        transform: "translateX(-50%)",
+        ...(side === "in" ? { bottom: `calc(100% + ${GROW}px)` } : { top: `calc(100% + ${GROW}px)` }),
       }}
     >
-      <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-[oklch(0.68_0.09_158)]">
-        {icon}
-        {kind}
-        {live ? <span className="ml-auto rounded-sm bg-[oklch(0.5_0.14_158)] px-1 text-[8px] text-[oklch(0.14_0.02_158)]">live</span> : null}
-        {pinned ? <Pin className="ml-auto size-3 fill-current" /> : null}
-      </span>
-      {/* The headline: the main update this iteration made, and nothing else
-          until it is opened. */}
-      <span className="line-clamp-2 text-[12px] font-medium leading-snug text-[oklch(0.93_0.04_158)]">{headlineOf(thread)}</span>
-      <span className="num text-[9px] text-[oklch(0.62_0.06_158)]">
-        {new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {thread.mode}
-        {thread.changes.length > 1 ? ` · +${thread.changes.length - 1}` : ""}
-      </span>
+      <div
+        className="rounded-lg border p-2.5 shadow-pop"
+        style={{ background: skin.face, borderColor: skin.rim, color: skin.text, animation: "el-grow 180ms ease-out" }}
+      >
+        <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
+          {side === "in" ? <><Sparkles className="size-3" /> what went in</> : <><Wand2 className="size-3" /> what came out</>}
+          <span className="flex-1" />
+          <CopyBit text={side === "in" ? thread.ask : thread.answer} />
+        </p>
+        {side === "in" ? (
+          <div className="flex items-start gap-2">
+            {element ? (
+              <span className="shrink-0 rounded border p-1" style={{ borderColor: skin.rim, background: "oklch(0.13 0.03 300)" }}>
+                <Drawn sketch={thread.sketch} size={72} tone="oklch(0.92 0.14 300)" />
+              </span>
+            ) : null}
+            <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed">{thread.ask || "nothing was typed"}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
+            <div className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
+              <p className="mb-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what changed on the board</p>
+              {changed.length ? (
+                <ul className="max-h-24 space-y-0.5 overflow-auto font-mono text-[10px]">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
+              ) : thread.changes.length ? (
+                <ul className="space-y-0.5 text-[10px]">{thread.changes.map((cx, i) => <li key={i}>{cx}</li>)}</ul>
+              ) : (
+                <p className="text-[10px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CopyBit({ text }: { text: string }) {
+  const [done, setDone] = React.useState(false);
+  return (
+    <button
+      type="button"
+      className="tactile flex items-center gap-1 rounded px-1 text-[9px] uppercase tracking-[0.12em] opacity-80 hover:opacity-100"
+      onClick={() => {
+        void navigator.clipboard?.writeText(text);
+        play("tap");
+        setDone(true);
+        window.setTimeout(() => setDone(false), 1200);
+      }}
+    >
+      <Copy className="size-3" /> {done ? "copied" : "copy"}
     </button>
   );
 }
@@ -475,7 +761,7 @@ function IterationBox({
 function LoopStarter({ at, from, to, on, onClick }: { at: Point; from?: Thread; to?: Thread; on: boolean; onClick: () => void }) {
   if (!from || !to) return null;
   return (
-    <Tooltip content={`Examine, critique, iterate — from "${headlineOf(from)}" to "${headlineOf(to)}"`}>
+    <Tooltip content={`Examine, critique, iterate, from "${headlineOf(from)}" to "${headlineOf(to)}"`}>
       <button
         type="button"
         data-loop-starter=""

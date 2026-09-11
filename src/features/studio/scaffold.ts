@@ -445,7 +445,7 @@ export function Frame({ width, height, children }: { width: number; height: numb
 function buildMd(input: ScaffoldInput): string {
   const empties = input.parts.filter((p) => p.empty);
   const data = input.parts.filter((p) => p.data?.trim());
-  return `# ${input.name || "The site"} — what this build is
+  return `# ${input.name || "The site"}, what this build is
 
 This codebase was written **from the document**, not from a description of
 it. \`site/document.json\` is the source: the palette, the type, every
@@ -454,13 +454,13 @@ body written for it. Nothing about the look was inferred.
 
 ## What is deterministic
 
-- \`app/globals.css\` — the design tokens, taken from the palette and the
+- \`app/globals.css\`, the design tokens, taken from the palette and the
   format. ${Object.keys(input.palette).length} colour roles, ${Object.keys(input.tokens).length} other tokens.
-- \`components/parts/*.tsx\` — one component per part, ${input.parts.length} of them,
+- \`components/parts/*.tsx\`, one component per part, ${input.parts.length} of them,
   each carrying the markup that part actually rendered: its styles, its
   shape, its clip, its texture, and the shadow the page's lamp casts on it.
-- \`app/**/page.tsx\` — ${input.pages.length} page${input.pages.length === 1 ? "" : "s"}, each placing its parts where the board places them.
-- \`components/Frame.tsx\` — the fixed-width canvas and how it meets a
+- \`app/**/page.tsx\`, ${input.pages.length} page${input.pages.length === 1 ? "" : "s"}, each placing its parts where the board places them.
+- \`components/Frame.tsx\`, the fixed-width canvas and how it meets a
   narrower screen.
 
 Re-running Build regenerates exactly these files, byte for byte, from the
@@ -471,11 +471,11 @@ same document.
 A document holds what a site *is*, not everything it *does*. These are the
 things it cannot hold, and the only things a model is asked for:
 
-${empties.length ? empties.map((p) => `- **${p.label}** — an Idea part with no body written yet. The prompt says: ${p.prompt?.split("\n")[0] ?? "(nothing yet)"}`).join("\n") : "- No empty parts: every part on the board rendered something."}
-${data.length ? `\n${data.map((p) => `- **${p.label}** — reads: ${p.data!.split("\n")[0]}. Where that comes from is a decision this document does not make.`).join("\n")}` : ""}
+${empties.length ? empties.map((p) => `- **${p.label}**, an Idea part with no body written yet. The prompt says: ${p.prompt?.split("\n")[0] ?? "(nothing yet)"}`).join("\n") : "- No empty parts: every part on the board rendered something."}
+${data.length ? `\n${data.map((p) => `- **${p.label}**, reads: ${p.data!.split("\n")[0]}. Where that comes from is a decision this document does not make.`).join("\n")}` : ""}
 
-Behaviour beyond the state the board can show — what happens after a form
-is sent, what a filter filters, what a cart does — is the other half, and
+Behaviour beyond the state the board can show, what happens after a form
+is sent, what a filter filters, what a cart does, is the other half, and
 \`BLUEPRINT.md\` is the narrative for it. The screenshots that went with the
 ask are the reference for anything that has to *look* like something.
 `;

@@ -74,7 +74,7 @@ export function Profile({ id, content, theme: t, emit }: PartProps) {
 /** Threaded discussion, and the flat guestbook that shares its shape. */
 export function Comments({ id, content, theme: t, mode, emit }: PartProps) {
   const guestbook = id === "guestbook";
-  const seed = items(content, guestbook ? ["Was here.", "Lovely site."] : ["Does this work on phones?", "Yes — try it."]);
+  const seed = items(content, guestbook ? ["Was here.", "Lovely site."] : ["Does this work on phones?", "Yes, try it."]);
   const people = sample.people(seed.length + 1, id + content);
   const [thread, setThread] = React.useState(() => seed.map((text, i) => ({ id: i, text, who: people[i] ?? people[0]!, depth: guestbook ? 0 : Math.min(i, 1) })));
   const [draft, setDraft] = React.useState("");
@@ -208,7 +208,7 @@ export function ActivityFeed({ id, content, theme: t }: PartProps) {
 
 /** Real-time conversation. Sending gets an answer back in live mode. */
 export function Chat({ id, content, options, theme: t, mode, emit }: PartProps) {
-  const opener = items(content, ["Hey — is this thing on?"]);
+  const opener = items(content, ["Hey, is this thing on?"]);
   const [messages, setMessages] = React.useState(() => opener.map((text, i) => ({ id: i, text, mine: i % 2 === 1 })));
   const [draft, setDraft] = React.useState("");
   const [typing, setTyping] = React.useState(false);

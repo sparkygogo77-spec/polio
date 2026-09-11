@@ -479,15 +479,15 @@ export function ThreadTree() {
         <p className="flex items-start gap-2 rounded-lg border border-border bg-elevated p-3 text-[11px] text-fg-muted">
           <GitBranch className="mt-0.5 size-3.5 shrink-0 text-fg-faint" />
           <span>
-            Nothing has landed yet. Every prompt that reaches Claude and comes back lands as a thread here — what was
-            asked, what came back, and what it put on the board — and threads hang off one another, so this becomes the
+            Nothing has landed yet. Every prompt that reaches Claude and comes back lands as a thread here, what was
+            asked, what came back, and what it put on the board, and threads hang off one another, so this becomes the
             tree of how the site was reasoned about. Click the pieces this first question is about, then ask.
           </span>
         </p>
       ) : null}
       <p className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-fg-faint">
         <span>
-          Drag a thread or a piece to move it — only that one moves. Click a piece to vine it to the next call:
+          Drag a thread or a piece to move it, only that one moves. Click a piece to vine it to the next call:
           <span className="text-[oklch(0.7_0.25_300)]"> purple is about to be sent</span>,
           <span className="text-[oklch(0.72_0.22_148)]"> green has landed</span>.
         </span>
@@ -763,8 +763,8 @@ function ThreadCard({
 
       {/*
         What this iteration did, on the face of the card.
-        Finish and Build lead to work that happens after the answer — files
-        pushed, a build on Vercel — and that is written on here as it
+        Finish and Build lead to work that happens after the answer, files
+        pushed, a build on Vercel, and that is written on here as it
         happens, so the card says what was made of it, not only what was
         said.
       */}

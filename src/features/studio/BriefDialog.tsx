@@ -238,7 +238,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       // everything after this is let go of. It does not stop the run: the
       // call is still made and the route's own answer still wins.
       if (!(await claudeReady())) {
-        said.key = noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.");
+        said.key = noKeyMessage("Or copy the blueprint into any agent, it is written to stand alone.");
         openKeys = true;
         say();
       }
@@ -270,7 +270,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           built = buildScaffold();
           setFiles(built.files.map((f) => ({ path: f.path, content: f.content })));
           setView("files");
-          said.run = `${built.files.length} files written from the document in ${built.stats.ms < 1000 ? `${built.stats.ms}ms` : `${(built.stats.ms / 1000).toFixed(1)}s`} — ${built.stats.parts} parts, ${built.stats.clipped} cut to a drawn line, ${built.stats.bodies} with a written body. Claude is being asked only for what is left.`;
+          said.run = `${built.files.length} files written from the document in ${built.stats.ms < 1000 ? `${built.stats.ms}ms` : `${(built.stats.ms / 1000).toFixed(1)}s`}, ${built.stats.parts} parts, ${built.stats.clipped} cut to a drawn line, ${built.stats.bodies} with a written body. Claude is being asked only for what is left.`;
           say();
         } catch (err) {
           said.run = `The scaffold could not be written: ${err instanceof Error ? err.message : "unknown"}. Claude was asked for the whole site instead.`;
@@ -370,7 +370,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
         ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
       } else if (r.reason !== "stopped") {
-        const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent — it is written to stand alone.") : r.message;
+        const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent, it is written to stand alone.") : r.message;
         if (r.reason === "no-key") {
           said.key = why;
           openKeys = true;
@@ -500,7 +500,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         autoGrow
         rows={2}
         aria-label="Master prompt"
-        placeholder="Say what you want this to be — everything on the board is the context"
+        placeholder="Say what you want this to be, everything on the board is the context"
         value={master}
         onChange={(e) => useStudio.getState().setBrief({ master: e.target.value })}
       />
@@ -711,7 +711,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const foot = (
     <p className="flex items-center gap-1.5 text-[10px] text-fg-faint">
       <FileJson className="size-3" />
-      The brief is self-contained — it explains its own conventions, so any agent can act on it without this app.
+      The brief is self-contained, it explains its own conventions, so any agent can act on it without this app.
     </p>
   );
 
@@ -747,7 +747,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           {/*
             No trail here: the page's timeline is above this, and drawing
             the same history twice on one screen is the wall this replaced.
-            The dialog and the panel keep their Trail tab — there is no
+            The dialog and the panel keep their Trail tab, there is no
             timeline over those.
           */}
           {result ? text(`The answer · ${MODES.find((m) => m.value === result.mode)?.label} · ${result.model ?? "Claude"}`, result.text, "response.md", "text/markdown", "max-h-[50vh]") : null}

@@ -139,7 +139,7 @@ export function Pwa({ id, content, theme: t, emit }: PartProps) {
         <span aria-hidden style={{ width: t.fontPx * 2.4, height: t.fontPx * 2.4, borderRadius: Math.min(t.radius, 10), background: `linear-gradient(135deg, ${t.accent}, ${t.highlight})`, color: t.accentText, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{name[0]?.toUpperCase()}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <strong style={{ display: "block", fontSize: t.fontPx * 0.95 }}>{name}</strong>
-          <span style={{ color: online ? t.muted : "oklch(0.75 0.16 70)", fontSize: t.fontPx * 0.78 }}>{online ? "Ready to install" : "Offline — showing saved pages"}</span>
+          <span style={{ color: online ? t.muted : "oklch(0.75 0.16 70)", fontSize: t.fontPx * 0.78 }}>{online ? "Ready to install" : "Offline, showing saved pages"}</span>
         </span>
         <Btn t={t} label={installed ? "Installed" : "Install"} primary={!installed} onClick={() => { setInstalled(true); emit?.({ type: "toast", text: "Added to your home screen", level: "success" }); }} />
       </div>
@@ -213,7 +213,7 @@ export function Testing({ id, content, theme: t, mode, emit }: PartProps) {
 
 /** The email that goes out, as it will land. */
 export function EmailPreview({ id, content, theme: t, emit }: PartProps) {
-  const [subject, ...body] = items(content, ["Your receipt from us", "Thanks — here's what you bought.", "Questions? Just reply to this email."]);
+  const [subject, ...body] = items(content, ["Your receipt from us", "Thanks, here's what you bought.", "Questions? Just reply to this email."]);
   return (
     <Fill t={t} data-part={id} style={{ ...cardStyle(t), display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: t.fontPx * 0.55, borderBottom: `1px solid ${t.line}`, display: "flex", flexDirection: "column", gap: 1, fontSize: t.fontPx * 0.78 }}>
@@ -239,7 +239,7 @@ export function Cms({ id, content, theme: t, mode, emit }: PartProps) {
     <Fill t={t} data-part={id} style={{ ...cardStyle(t), padding: t.fontPx * 0.8, display: "flex", flexDirection: "column", gap: t.fontPx * 0.4, justifyContent: "center" }}>
       <span style={{ display: "flex", alignItems: "center", gap: 6, color: t.muted, fontSize: t.fontPx * 0.72 }}>
         <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: editing ? "oklch(0.75 0.16 70)" : t.accent }} />
-        {editing ? "Editing — unsaved" : "Editable"}
+        {editing ? "Editing, unsaved" : "Editable"}
       </span>
       {editing ? (
         <>

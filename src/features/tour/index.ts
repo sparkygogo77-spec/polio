@@ -12,7 +12,7 @@ import { defineFeature } from "@/core/types";
 export const tour = defineFeature({
   id: "tour",
   name: "Tour",
-  description: "The wheel, Looks, the drawing board, the Blueprint and Builds — lit one at a time, on the real thing.",
+  description: "The wheel, Looks, the drawing board, the Blueprint and Builds, lit one at a time, on the real thing.",
   icon: Compass,
   hidden: true,
   commands: [

@@ -174,7 +174,7 @@ export function motionBrief(asset: MotionAsset, size?: { w: number; h: number })
   const weights = asset.gaps.slice(0, gaps);
   const even = weights.every((w) => w === weights[0]);
   return [
-    `MOTION ASSET BRIEF — ${asset.name}`,
+    `MOTION ASSET BRIEF, ${asset.name}`,
     `Keyframes: ${keys.length} images in order at ${dims}. Each is a checkpoint the animation passes`,
     `through exactly (pixel-faithful on its frame). Duration ${asset.duration}s at ${asset.fps} fps = ${total} frames.`,
     `Loop: ${LOOP_WORD[asset.loop]}.`,
@@ -190,7 +190,7 @@ export function motionBrief(asset: MotionAsset, size?: { w: number; h: number })
     "Quality gate: reject any frame with artifacts, drift from its keyframe above 2% of pixels, or",
     "flicker between consecutive frames; regenerate that gap only.",
     "",
-    "The Builder already plays this sequence as a cross-dissolve on the same timing — that is the",
+    "The Builder already plays this sequence as a cross-dissolve on the same timing, that is the",
     "floor, not the target. Match the timing exactly and replace the dissolve with real motion.",
   ].join("\n");
 }

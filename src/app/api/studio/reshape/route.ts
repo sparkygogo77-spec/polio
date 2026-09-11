@@ -174,7 +174,7 @@ export async function POST(request: Request) {
   const frameWidth = Number.isFinite(body.frameWidth) ? Math.max(200, Math.min(4000, body.frameWidth as number)) : 1440;
   const node = body.node ?? null;
   const candidates = (Array.isArray(body.candidates) ? body.candidates : []).filter((c) => c && typeof c.id === "string").slice(0, 400);
-  const picture = typeof body.picture === "string" && /^[A-Za-z0-9+/=]+$/.test(body.picture) && body.picture.length < 400_000 ? body.picture : null;
+  const picture = typeof body.picture === "string" && /^[A-Za-z0-9+/=]+$/.test(body.picture) && body.picture.length < 900_000 ? body.picture : null;
 
   const lines: string[] = [];
   lines.push(`Page frame width: ${frameWidth}px.`);
@@ -219,7 +219,19 @@ export async function POST(request: Request) {
     const library = ["The library (id — name · category · default size · what it is):", ...candidates.map((c) => `${c.id} — ${c.name} · ${c.category} · ${c.w}×${c.h}${c.blurb ? ` · ${String(c.blurb).slice(0, 140)}` : ""}`)].join("\n");
     content.push({ type: "text", text: library, cache_control: { type: "ephemeral" } });
   }
-  if (picture) content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture } });
+  if (picture) {
+    /*
+     * The picture goes in named, before the numbers.
+     *
+     * It went in silently, and an unannounced image beside a page of
+     * measurements reads as decoration: the answers came back describing
+     * the words rather than the drawing. It is the reference — the strokes
+     * as they were actually drawn — and the numbers under it are the same
+     * drawing said again, in case a curve is ambiguous.
+     */
+    content.push({ type: "text", text: "THE DRAWING. This is the picture of what was drawn, black on white, the board's edge faint. Look at it first and read the shape off it: what is drawn, how many marks, what encloses what, what is inside. The measurements below are the same drawing in numbers, for the parts a picture is imprecise about." });
+    content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture } });
+  }
   content.push({ type: "text", text: lines.join("\n") });
 
   const client = new Anthropic({ apiKey });
@@ -271,7 +283,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, reason: "auth", message: "The API key was rejected." });
     }
     if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited — try again in a moment." });
+      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited, try again in a moment." });
     }
     if (error instanceof Anthropic.APIError) {
       return NextResponse.json({ ok: false, reason: "api", message: `Couldn't read the drawing (${error.status}: ${error.message}).` });

@@ -124,7 +124,7 @@ export const STEPS: Step[] = [
     spots: [
       {
         name: "The wheel",
-        line: "Everything you can do to one part, in one press — the panel on the right is only the convenience.",
+        line: "Everything you can do to one part, in one press, the panel on the right is only the convenience.",
         where: "Right-press any part, or the page itself.",
         // The first level reaches `BLUE_RINGS.reach`; the hole is that and a
         // little, so the wheel is lit and the board around it is not.
@@ -151,7 +151,7 @@ export const STEPS: Step[] = [
   {
     id: "looks",
     title: "Looks",
-    blurb: "Colour, light and texture — for the whole site here, for one part on its own wheel.",
+    blurb: "Colour, light and texture, for the whole site here, for one part on its own wheel.",
     route: "/builder",
     arrive: async () => {
       closeRadial();
@@ -179,7 +179,7 @@ export const STEPS: Step[] = [
       },
       {
         name: "Texture",
-        line: "A stack of layers over the page — a pattern, a wash, or an image you drop straight onto it.",
+        line: "A stack of layers over the page, a pattern, a wash, or an image you drop straight onto it.",
         where: "Look, under the light.",
         at: "[data-look-texture]",
       },
@@ -250,7 +250,7 @@ export const STEPS: Step[] = [
     spots: [
       {
         name: "The asks",
-        line: "Plan, critique, prompts, finish, ideas, build — or anything at all in your own words.",
+        line: "Plan, critique, prompts, finish, ideas, build, or anything at all in your own words.",
         where: "The counter on the end of the toolbar, or ⌘↵.",
         at: "[data-brief-modes]",
         pad: 4,

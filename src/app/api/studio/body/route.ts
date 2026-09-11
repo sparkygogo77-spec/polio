@@ -217,7 +217,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, reason: "auth", message: "The API key was rejected." });
     }
     if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited — try again in a moment." });
+      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited, try again in a moment." });
     }
     if (error instanceof Anthropic.APIError) {
       return NextResponse.json({ ok: false, reason: "api", message: `Couldn't write the body (${error.status}: ${error.message}).` });

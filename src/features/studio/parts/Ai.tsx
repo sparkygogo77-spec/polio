@@ -143,7 +143,7 @@ export function AiAction({ id, content, theme: t, mode, emit }: PartProps) {
   const [lang, setLang] = React.useState(langs[0]!);
   const [applied, setApplied] = React.useState(false);
   const result = translate
-    ? `${source.split(" ").slice(0, 12).join(" ")} — [${lang}]`
+    ? `${source.split(" ").slice(0, 12).join(" ")}, [${lang}]`
     : source.split(". ")[0] + ".";
 
   return (

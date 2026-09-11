@@ -158,8 +158,8 @@ export function chainLines<T extends LinkEnd & { id: string }>(nodes: T[], shape
     const to = byId.get(s.toNodeId);
     if (!from || !to || from === to) continue;
     const why = s.label?.trim() || linkReason(from, to, s.relation ?? "flow");
-    add(from.id, `→ ${to.label}${why ? ` — ${why}` : ""}`);
-    add(to.id, `← ${from.label}${why ? ` — ${why}` : ""}`);
+    add(from.id, `→ ${to.label}${why ? `, ${why}` : ""}`);
+    add(to.id, `← ${from.label}${why ? `, ${why}` : ""}`);
   }
   return out;
 }

@@ -94,7 +94,7 @@ export function trailToMarkdown(lanes: Lane[]): string {
   const L: string[] = ["# Prompt trail", ""];
   for (const lane of lanes) {
     if (!lane.current && !lane.critiques.length && !lane.finals.length) continue;
-    L.push(`## ${lane.target.label}${lane.where ? ` — ${lane.where}` : ""}`, "");
+    L.push(`## ${lane.target.label}${lane.where ? `, ${lane.where}` : ""}`, "");
     L.push(`**Written:** ${lane.current || "_(no prompt)_"}`, "");
     for (const c of lane.critiques) {
       L.push(`- **Found** (${KIND_WORD[c.kind ?? "note"]}): ${c.text}`);
@@ -164,7 +164,7 @@ export function PromptTrail() {
     return (
       <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border p-6 text-center">
         <Sparkles className="size-4 text-fg-faint" />
-        <p className="text-[11px] text-fg-muted">Nothing on the trail yet. Write a prompt on a part, then ask Claude to critique, fill or finish — every finding lands here beside the prompt it was about, with the prompt that would settle it.</p>
+        <p className="text-[11px] text-fg-muted">Nothing on the trail yet. Write a prompt on a part, then ask Claude to critique, fill or finish, every finding lands here beside the prompt it was about, with the prompt that would settle it.</p>
       </div>
     );
   }

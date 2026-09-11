@@ -66,10 +66,10 @@ export function GithubButton() {
   const canPush = !!serverRepo && !!status?.set.GITHUB_TOKEN;
 
   const label = canPush
-    ? `${name} · ${status?.branch ?? "main"} — Publish pushes here`
+    ? `${name} · ${status?.branch ?? "main"}, Publish pushes here`
     : serverRepo
-      ? `${name} — no GITHUB_TOKEN on the server, so Publish cannot push; download the files instead`
-      : `${name} — to let Publish push, set GITHUB_TOKEN and GITHUB_REPO on the server`;
+      ? `${name}, no GITHUB_TOKEN on the server, so Publish cannot push; download the files instead`
+      : `${name}, to let Publish push, set GITHUB_TOKEN and GITHUB_REPO on the server`;
 
   return (
     <Tooltip content={label}>

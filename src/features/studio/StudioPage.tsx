@@ -225,7 +225,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       ) : null}
 
       <span className="mx-1 h-4 w-px bg-border" />
-      <Tooltip content="Page frame width — positions stay put, the frame shows what fits">
+      <Tooltip content="Page frame width, positions stay put, the frame shows what fits">
         <div>
           <Segmented
             size="xs"
@@ -249,7 +249,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         toggle you can never find again; and it lights up the moment a menu
         opens, so which setting it belongs to needs no explaining.
       */}
-      <Tooltip content={shape === "square" ? "Part menu: square edge — switch to round" : "Part menu: round edge — switch to square"}>
+      <Tooltip content={shape === "square" ? "Part menu: square edge, switch to round" : "Part menu: round edge, switch to square"}>
         <Button
           variant={menuOpen ? "subtle" : "ghost"}
           size="iconXs"
@@ -432,7 +432,7 @@ export function StudioPage() {
           One scroller down the middle: the board, then the shelf.
 
           The board pane is the window's own height less a strip, so a piece of
-          the shelf is always showing and the page is always whole — scrolling
+          the shelf is always showing and the page is always whole, scrolling
           down carries you past the page into the parts, and scrolling back up
           brings the page back at exactly the size it was. Nothing here shrinks
           the board; that is the whole reason it is a scroll and not a split.
@@ -443,8 +443,8 @@ export function StudioPage() {
         >
           {/*
             The timeline is the board's twin: it fills the window less a
-            strip, and what is under it — the iteration you clicked, and the
-            book — is reached by carrying on scrolling, exactly as the parts
+            strip, and what is under it, the iteration you clicked, and the
+            book, is reached by carrying on scrolling, exactly as the parts
             shelf is under the board.
           */}
           <div
