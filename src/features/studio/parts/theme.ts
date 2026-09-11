@@ -271,7 +271,17 @@ export function liftTheme(t: Theme, light: Light | undefined, cx: number, cy: nu
   // The lit face: a wash coming from the lamp's side, warm, and very slight.
   const deg = Math.round((Math.atan2(from.x, from.y) * 180) / Math.PI + 180);
   const lit = `linear-gradient(${deg}deg, oklch(1 0.02 ${Math.round(light.warmth)} / ${(0.1 + dark * 0.12).toFixed(3)}), transparent 62%)`;
-  return { ...t, shadow: `${near}, ${far}`, sheen: lit, lightFrom: from };
+  /*
+   * Through a variable, with the committed value as the fallback.
+   *
+   * A part reads `t.shadow` and puts it in its own `box-shadow`, which means
+   * moving the lamp used to mean re-rendering every part. Written as
+   * `var(--lift-shadow, …)` the same string still arrives when nothing is
+   * being dragged — the fallback is exactly what this function used to return
+   * — and while the sun is in somebody's hand `lightRig.ts` sets the variable
+   * on each part's box instead, once a frame, with no render at all.
+   */
+  return { ...t, shadow: `var(--lift-shadow, ${near}, ${far})`, sheen: `var(--lift-sheen, ${lit})`, lightFrom: from };
 }
 
 export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): Theme {

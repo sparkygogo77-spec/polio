@@ -135,7 +135,9 @@ export function paintBlackHole(c: CanvasRenderingContext2D, o: HoleOptions) {
   }
 
   /* The bright side's bloom: the crescent bleeds a little into the dark,
-     the way an overexposed edge does, and only on the side that is coming. */
+     the way an overexposed edge does, and only on the side that is coming.
+     Into the dark outside the rim only — cut to an annulus so none of it
+     reaches the disc's own face, where the ring is the only light. */
   {
     const bx = cx + Math.cos(beam) * r * 0.5;
     const by = cy + Math.sin(beam) * r * 0.5;
@@ -146,7 +148,8 @@ export function paintBlackHole(c: CanvasRenderingContext2D, o: HoleOptions) {
     c.fillStyle = g;
     c.beginPath();
     c.arc(cx, cy, r * 1.9, 0, TAU);
-    c.fill();
+    c.arc(cx, cy, r, 0, TAU, true);
+    c.fill("evenodd");
   }
 
   /* The photon ring: the brightest thing on the screen, and thin. */

@@ -29,6 +29,7 @@ import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStud
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
+import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
 import { Timeline } from "./Timeline";
 import { TimelineDetail } from "./TimelineDetail";
 import { LightPlacer } from "./LightPlacer";
@@ -350,6 +351,10 @@ export function StudioPage() {
     // Builder into a known state rather than flip it — the tour, which cannot
     // toggle its way to a screen it has not seen.
     const w = window as unknown as {
+      __studioLightStart?: () => boolean;
+      __studioLightTo?: (p: { x: number; y: number }) => void;
+      __studioLightEnd?: (commit?: boolean) => void;
+      __studioLightPasses?: () => number;
       __studioOpenBrief?: () => void;
       __studioToggleLibrary?: () => void;
       __studioSetBrief?: (v: boolean) => void;
@@ -361,12 +366,29 @@ export function StudioPage() {
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);
     w.__studioSetLeftPanel = (id) => setLeftPanel(id);
+    /*
+     * The lamp's drag, without a mouse.
+     *
+     * The sun is dragged off a wedge of the wheel, which is an SVG path inside
+     * a menu that has to be opened on the page first — three gestures deep
+     * before the one being measured begins. These drive the same three calls
+     * the drag itself makes, so the profiler and `tests/board-speed.mjs` hold
+     * the real path rather than an imitation of it.
+     */
+    w.__studioLightStart = () => { useStudio.getState().setPlacingLight(true); return startLightRig(); };
+    w.__studioLightTo = (p) => aimLight(p);
+    w.__studioLightEnd = (commit) => { endLightRig(commit ?? true); useStudio.getState().setPlacingLight(false); };
+    w.__studioLightPasses = () => rigPasses();
     return () => {
       delete w.__studioOpenBrief;
       delete w.__studioToggleLibrary;
       delete w.__studioSetBrief;
       delete w.__studioSetLibrary;
       delete w.__studioSetLeftPanel;
+      delete w.__studioLightStart;
+      delete w.__studioLightTo;
+      delete w.__studioLightEnd;
+      delete w.__studioLightPasses;
     };
   }, []);
 
