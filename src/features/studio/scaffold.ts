@@ -23,6 +23,7 @@
  *
  * Pure, and tested by `tests/scaffold.mjs`.
  */
+import { paintRoles, roleVars } from "./bodyPaint";
 
 export interface ScaffoldFile {
   path: string;
@@ -268,7 +269,7 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
   files.push({ path: "app/layout.tsx", content: layoutTsx(input) });
   files.push({ path: "components/Frame.tsx", content: FRAME_TSX });
 
-  for (const part of input.parts) files.push({ path: `components/parts/${componentName(part)}.tsx`, content: partTsx(part) });
+  for (const part of input.parts) files.push({ path: `components/parts/${componentName(part)}.tsx`, content: partTsx(part, input.palette) });
 
   for (const page of input.pages) {
     const parts = input.parts.filter((p) => p.pageId === page.id);
@@ -430,6 +431,7 @@ a { color: inherit; }
 function layoutTsx(input: ScaffoldInput): string {
   return `import type { Metadata } from "next";
 import "./globals.css";
+import { paintRoles, roleVars } from "./bodyPaint.ts";
 
 export const metadata: Metadata = {
   title: ${JSON.stringify(input.name || "Site")},
@@ -447,7 +449,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 
 /** One part, exactly as the Builder renders it. */
-function partTsx(part: ScaffoldPart): string {
+function partTsx(part: ScaffoldPart, palette: Record<string, string>): string {
   const name = componentName(part);
   const head = `/**
  * ${part.label}${part.prompt ? ` — ${trim(part.prompt.split("\n")[0]!, 120)}` : ""}
@@ -475,15 +477,26 @@ ${cubeTsx(part, name)}`;
   }
   if (part.code) {
     // A written body renders in a frame with no permissions, exactly as it
-    // does in the Builder: no scripts, nothing fetched.
-    return `${head}const BODY = ${JSON.stringify(part.code.html)};
+    // does in the Builder: no scripts, nothing fetched. Its baked colours
+    // are handed to the site's own roles the same way the Builder does it,
+    // so a drawn part answers the palette in the built site too — the frame
+    // is its own document, so the roles are passed into it.
+    return `${head}const BODY = ${JSON.stringify(paintRoles(part.code.html))};
+
+/** The site's roles, carried into the frame: it is its own document and cannot see them. */
+const ROLES = ${JSON.stringify(roleVars({
+      bg: palette.bg ?? "#ffffff",
+      text: palette.text ?? "#111111",
+      accent: palette.accent ?? "#4f46e5",
+      muted: palette.muted ?? "#6b7280",
+    }))};
 
 export function ${name}() {
   return (
     <div style={{ width: "100%", height: "100%"${part.outline ? `, clipPath: "path('" + PATH + "')"` : ""} }}>
       <iframe
         title=${JSON.stringify(part.label)}
-        srcDoc={\`<!doctype html><meta charset="utf-8"><meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:currentColor}svg{display:block;width:100%;height:100%}</style>\${BODY}\`}
+        srcDoc={\`<!doctype html><meta charset="utf-8"><meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"><style>:root{\${ROLES}}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:currentColor}svg{display:block;width:100%;height:100%}</style>\${BODY}\`}
         sandbox=""
         referrerPolicy="no-referrer"
         style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}

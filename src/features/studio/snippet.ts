@@ -111,7 +111,7 @@ export function cleanSnippet(raw: string, limit = SNIPPET_LIMIT): { html: string
  * the fragment fill the part and never scroll — a body cut to an outline
  * that then scrolls inside it is two shapes disagreeing.
  */
-export function frameDoc(code: string, opts: { background?: string; colour?: string; font?: string; clip?: string } = {}): string {
+export function frameDoc(code: string, opts: { background?: string; colour?: string; font?: string; clip?: string; roles?: string } = {}): string {
   const bg = opts.background ?? "transparent";
   const fg = opts.colour ?? "currentColor";
   const font = opts.font ?? "ui-sans-serif, system-ui, sans-serif";
@@ -121,6 +121,10 @@ export function frameDoc(code: string, opts: { background?: string; colour?: str
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
 <style>
+  /* The palette's roles, so a body that baked its colours in still answers
+     the theme: bodyPaint.ts hands each baked colour to the role it stands
+     in for, with the original left as the fallback. */
+  :root { ${opts.roles ?? ""} }
   html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: ${bg}; color: ${fg}; font-family: ${font}; }
   *, *::before, *::after { box-sizing: border-box; }
   svg { display: block; width: 100%; height: 100%; }

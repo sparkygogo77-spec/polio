@@ -31,6 +31,18 @@ export interface DrawJob {
   sketch: Sketch;
   /** The drawing as a PNG for the reader, base64, without the data-URL head. */
   picture: string | null;
+  /**
+   * How big the drawing actually was on the board, in canvas units.
+   *
+   * The strokes in `sketch` are fractions of their own box, so they say the
+   * shape and lose the size: a stroke drawn eighty pixels wide and one drawn
+   * across the whole page look identical by the time they get here. This is
+   * the size a person drew, and a part lands at it.
+   *
+   * Absent from the drawing disc, where the ink is drawn on a disc rather
+   * than on the page and there is no size to keep.
+   */
+  drawn?: { w: number; h: number } | null;
   /** What the counter and the book call it. */
   label: string;
   status: JobStatus;
