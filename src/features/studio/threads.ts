@@ -58,8 +58,12 @@ export interface Thread {
    * not what was asked, the line is.
    */
   sketch?: { strokes: [number, number][][]; words: string };
-  /** What the call cost: what was sent, what was skipped, what the cache gave back. */
-  usage?: { sent: number; skipped: number; cached?: number; input?: number };
+  /**
+   * What the call cost: what was sent, what was skipped, what the cache gave
+   * back, and the dollars, when an iteration reached a renderer that charges
+   * by the press rather than by the token.
+   */
+  usage?: { sent: number; skipped: number; cached?: number; input?: number; cost?: number };
 }
 
 /** How many threads are kept with their documents. The board lives in localStorage. */

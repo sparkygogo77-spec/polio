@@ -484,6 +484,13 @@ interface StudioState extends Doc {
    * still what this iteration did, so it is written on the same card.
    */
   noteThread: (lines: string[]) => void;
+  /**
+   * Add to what this iteration spent at the renderer.
+   *
+   * Token counts are an estimate of a bill; a renderer call is the bill. It
+   * accumulates, because one drawing can reach the renderer more than once.
+   */
+  noteCost: (dollars: number) => void;
   /** Move one thread or piece on the trail. Only that one moves. */
   moveThread: (id: string, x: number, y: number) => void;
   /** Vine a piece to the next call, or cut it loose. */
@@ -1148,6 +1155,17 @@ export const useStudio = create<StudioState>()(
           });
         },
 
+        noteCost: (dollars) =>
+          set((s) => {
+            if (!s.liveThreadId || !(dollars > 0)) return {};
+            return {
+              threads: s.threads.map((t) =>
+                t.id === s.liveThreadId
+                  ? { ...t, usage: { sent: 0, skipped: 0, ...(t.usage ?? {}), cost: Math.round(((t.usage?.cost ?? 0) + dollars) * 100) / 100 } }
+                  : t,
+              ),
+            };
+          }),
         landThread: ({ mode, model, ask, answer, changes, sketch }) => {
           const id = uid("th");
           set((s) => ({

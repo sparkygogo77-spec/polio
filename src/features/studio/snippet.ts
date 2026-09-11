@@ -21,6 +21,17 @@
 /** The most code a part's body may be. Enough for a page's worth of SVG; not a bundle. */
 export const SNIPPET_LIMIT = 24_000;
 
+/**
+ * The most a *drawn* body may be.
+ *
+ * A model that writes SVG by hand keeps it short because it is typing it.
+ * A model that draws emits every curve it drew, and a plain illustration is
+ * comfortably past the hand-written limit without being anything like a
+ * bundle. Past this it is refused rather than cut: half an SVG is not a
+ * smaller picture, it is a broken one.
+ */
+export const RENDER_LIMIT = 240_000;
+
 export interface PartCode {
   /** The cleaned fragment: SVG or HTML with inline styles, nothing else. */
   html: string;
@@ -33,6 +44,12 @@ export interface PartCode {
   at: number;
   /** What Claude said it drew, in a line. */
   note?: string;
+  /** Who made it: the renderer that draws, or the model that writes code. */
+  source?: "renderer" | "written";
+  /** Which renderer, when one drew it: SVG or pixels. */
+  kind?: "vector" | "raster";
+  /** What the whole loop cost at the renderer, in dollars. Zero when nothing was drawn. */
+  cost?: number;
   /** What was taken out of the code on the way in, if anything. */
   stripped?: string[];
 }
@@ -61,7 +78,7 @@ const RULES: { name: string; re: RegExp; to?: string }[] = [
  * is better than a body that half works — the note says what went, and the
  * next attempt is told not to do it again.
  */
-export function cleanSnippet(raw: string): { html: string; stripped: string[] } {
+export function cleanSnippet(raw: string, limit = SNIPPET_LIMIT): { html: string; stripped: string[] } {
   // A fenced block is what a model hands back when it is being helpful.
   let html = raw.trim();
   const fence = html.match(/^```[a-z]*\n([\s\S]*?)\n?```$/i);
@@ -79,8 +96,8 @@ export function cleanSnippet(raw: string): { html: string; stripped: string[] } 
     }
     rule.re.lastIndex = 0;
   }
-  if (html.length > SNIPPET_LIMIT) {
-    html = html.slice(0, SNIPPET_LIMIT);
+  if (html.length > limit) {
+    html = html.slice(0, limit);
     stripped.push("everything past the size limit");
   }
   return { html: html.trim(), stripped: [...new Set(stripped)] };

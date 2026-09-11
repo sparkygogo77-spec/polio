@@ -292,6 +292,42 @@ a kicker with a rule, and label-and-value rows that copy.
   rectangle yields no clip at all: cutting a box to a box is cutting
   nothing. `tests/outline-clip.mjs` holds the star, the helix, the spiral,
   the box and the empty cases.
+- **A body can be drawn instead of written** (`renderer.ts`,
+  `api/studio/image/route.ts`). Claude writing SVG by hand is the right
+  answer for a diagram or a band of sentences and the wrong one for a thing
+  that has to *look* like something, so there is a second way to fill an
+  Idea part and it goes through Replicate: **vector**
+  (`recraft-ai/recraft-v3-svg`) comes back as SVG, **raster**
+  (`black-forest-labs/flux-2-pro`) as a `data:` URI inside an `<img>`. An
+  SVG a drawing model emitted is not more trusted than one a writing model
+  typed: it goes through `cleanSnippet` on the way in and renders under the
+  same `sandbox=""` and the same content policy, with a bigger ceiling
+  (`RENDER_LIMIT`) because a drawing is every curve it drew, and past the
+  ceiling it is refused rather than cut.
+
+  In the body loop (`bodyRun.ts`) the renderer goes **first**, and it is
+  scored on the same bar as everything else: the silhouette of what it drew
+  against the outline that was drawn, intersection over union, `GOOD_ENOUGH`
+  at 0.72. Clear it and Claude is never asked. Short of it, the renderer's
+  own render is what the first written attempt is given to beat, with the
+  drawn picture beside it as always, and at the end the best of everything
+  is kept, drawn or written. The drawn PNG is the reference on both paths
+  and in the critique.
+
+  The token is the server's and only the server's. `new Replicate()` reads
+  `REPLICATE_API_TOKEN` out of the environment; there is no field for it in
+  the vault, no header the route will take it in, it is never logged, and
+  the one place a library's error message could carry it is scrubbed. With
+  no token the route answers HTTP 200, `ok: false`, `reason: "unavailable"`
+  with a message naming the variable and where it goes, which is the same
+  shape and the same path a locked Claude key answers with, so the same
+  dialog shows it and the loop falls back to writing. Under Keys it is a row
+  beside Claude rather than a service card: present or absent, "server
+  only", and the two prices. A renderer call is the first thing here that
+  spends money per press rather than per token, so `RENDER_COST` (0.04
+  raster, 0.08 vector) rides back with the answer, is kept on the part
+  (`PartCode.cost`), lands on the iteration's card and ends the usage line.
+  Tested by `tests/renderer.mjs`.
 - **Build writes the looks from the document and asks Claude only for the
   rest.** It used to be one ask — here is the blueprint, write every file —
   and the blueprint is words, which are lossy about looks: a palette
