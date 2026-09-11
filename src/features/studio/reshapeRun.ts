@@ -28,6 +28,7 @@ import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
 import { writeBody } from "./bodyRun";
 import { drawBody } from "./drawRun";
+import { pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
 
 /** The catalog as the answer check reads it: the entry without its icon. */
@@ -184,37 +185,42 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
 
   try {
     /*
-     * A cube needs no reader.
+     * The catalogue first, and it needs no reader.
      *
-     * The geometry already said what it is — three faces round a corner, a
-     * hexagon with a Y in it, or a rectangle with the word next to it — and
-     * the words already said what goes on the sides. Asking a model to pick
-     * a library entry for it would be asking a question that has been
-     * answered, and paying for the answer.
+     * A drawing that is plainly a part we already have — a cube, and
+     * whatever is added to `coded.ts` next — is answered here, for nothing,
+     * the same way every time. Only when nothing in the catalogue fits does
+     * the drawing go up to be read and, failing that, traced. The fall
+     * through is still there; it is no longer the only road.
      */
     const drawnRole = kindOfSketch(drawn, node?.prompt ?? "");
-    if (drawnRole.kind === "cube") {
-      deps.onStep?.("Reading the shape…");
+    const ctx = { sketch: drawn, prompt: node?.prompt ?? "", node };
+    const picked = pickCoded(ctx);
+    if (picked) {
+      deps.onStep?.(`Reading the shape: ${picked.part.id}…`);
       const made = applyProportion(drawn, node, job);
-      const did = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
+      const { patch, did } = picked.part.configure(ctx);
+      useStudio.getState().updateNode(made.id, patch);
+      const label = patch.featureId ? getFeature(patch.featureId)?.name ?? made.label : made.label;
       useStudio.getState().landThread({
         mode: "drawing",
-        // A cube is one step and it is over: nothing is traced after it.
+        // A part out of the catalogue is one step and it is over: nothing
+        // is written or traced after it.
         state: "done",
         ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
-        answer: `${did.did}, read off the drawing with no model asked`,
+        answer: `${did}, chosen off the drawing with no model asked`,
         sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
-        changes: [`${node ? "turned" : "drew"} ${made.label} into a cube`],
+        changes: [`${node ? "turned" : "drew"} ${made.label} into ${label.toLowerCase()}`],
       });
       deps.publish({
         key: `studio:reshape:${made.id}`,
-        title: node ? `Turned ${made.label} into a cube` : "Drew a cube",
-        body: did.did,
+        title: node ? `Turned ${made.label} into ${label.toLowerCase()}` : `Drew ${label.toLowerCase()}`,
+        body: did,
         level: "success",
         source: "studio",
         toast: true,
       });
-      return { ok: true, madeId: made.id, note: did.did };
+      return { ok: true, madeId: made.id, note: did };
     }
 
     deps.onStep?.("Claude is reading the drawing…");
