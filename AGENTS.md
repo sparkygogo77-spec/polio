@@ -1073,6 +1073,23 @@ a kicker with a rule, and label-and-value rows that copy.
   leaves the drag's values standing for the render to overwrite; a miss puts
   the committed lamp's own values back, because removing the property takes
   React's inline value with it and nothing re-renders to restore it.
+- **The root is the Builder, and a test says a control is *visible*.**
+  (`next.config.ts`; `tests/deployed.mjs`; the `onScreen` helpers in
+  `tests/header.mjs` and `tests/board-layout.mjs`.) The deployment used to
+  redirect `/` to `/site` the moment anything had been published into the
+  repository, which turned the tool's own front door into the site it had
+  built: the published page hides the shell with an injected `<style>` and
+  passes `published`, so its bar is `cn(…, "hidden")` — tailwind-merge drops
+  `flex`, keeps `hidden` — and what a person found was a site with no
+  toolbar, no shelf, no panel and nothing saying where the Builder had gone.
+  The published site is at `/site`, which is what Publish writes and what the
+  book calls it; the root is the app.
+  Every suite stayed green through all of it, because a query finds an
+  element whose `display` is `none`: it has a role, it has a name, `count()`
+  counts it. **Existence is not the assertion.** A control is there when it
+  has an offset parent and a rectangle with both sides above zero, and the
+  bar and every control in it are held to that. `tests/deployed.mjs` asks the
+  deployment itself, over HTTP, because a redirect is not in the markup.
 - **The frame is one screen, and the site scrolls inside it**
   (`Canvas.tsx`: `SCREEN_H`, `pageH` vs `frameH`, `data-page-window` and
   `data-page-scroll`; `store.pageScroll`; `tests/board-layout.mjs`). Each

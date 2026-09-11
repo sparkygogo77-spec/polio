@@ -69,11 +69,67 @@ async function open(w, h) {
   return { context, page };
 }
 
+/*
+ * On the screen, not merely in the DOM.
+ *
+ * A control with `display: none` still exists — it has a role, it has a name,
+ * a query finds it — and a suite that only asks whether it is there passes
+ * over a Builder nobody can use. This is what "there" has to mean.
+ */
+const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
+  const r = el.getBoundingClientRect();
+  const s = getComputedStyle(el);
+  return {
+    name: (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 26),
+    on: !!el.offsetParent && r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden",
+    box: `${Math.round(r.width)}×${Math.round(r.height)}`,
+    display: s.display,
+  };
+}));
+
+/* ------------------------------------------------------------------ */
+/* 0. The front door                                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * What a person gets when they type the address and nothing else.
+ *
+ * The deployment redirected the root to the published site the moment
+ * anything had been published into the repository, so the tool's own front
+ * door became the site it had built: no bar, no shelf, no panel, and nothing
+ * saying where the Builder had gone. Every suite stayed green, because every
+ * suite went straight to /builder.
+ */
+{
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await context.addInitScript((d) => localStorage.setItem("builder.studio", d), doc);
+  const page = await context.newPage();
+  const res = await page.goto(`${URL_}/`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1400);
+  check("the root is not a redirect away from the app", !/\/site(\/|$)/.test(page.url()), page.url());
+  check("and it answers", (res?.status() ?? 0) < 400, String(res?.status()));
+  const doors = await page.getByRole("link", { name: /Builder|Open/ }).count() + await page.getByRole("button", { name: /Open|Builds|New site/ }).count();
+  check("with a way into the Builder on it", doors > 0, `${doors} doors`);
+  await context.close();
+}
+
 /* ------------------------------------------------------------------ */
 /* 1. At a full monitor                                                */
 /* ------------------------------------------------------------------ */
 {
   const { context, page } = await open(1440, 900);
+
+  /* The bar first: everything below is about a Builder you can see. */
+  {
+    const bar = (await onScreen(page.locator("[data-studio-bar]")))[0];
+    check("the Builder's bar is on the screen", !!bar?.on, bar ? `${bar.box} · display ${bar.display}` : "no bar at all");
+    const controls = await onScreen(page.locator("[data-studio-bar] button, [data-studio-bar] a, [data-studio-bar] [role=radio]"));
+    const dark = controls.filter((c) => !c.on);
+    check("and every control in it can be pressed", controls.length >= 8 && dark.length === 0, `${controls.length} controls, ${dark.length} dark${dark.length ? `: ${dark.slice(0, 3).map((d) => d.name).join(", ")}` : ""}`);
+    const shelf = (await onScreen(page.locator("[data-drawer]")))[0];
+    const side = (await onScreen(page.locator("[data-side-panel]")))[0];
+    check("the shelf and the side panel are on the screen with it", !!shelf?.on && !!side?.on, `shelf ${shelf?.box ?? "-"} · panel ${side?.box ?? "-"}`);
+  }
 
   const win = await page.locator("[data-page-window]").boundingBox();
   const zoom = Number((await page.locator("[data-page-window]").evaluate((el) => {

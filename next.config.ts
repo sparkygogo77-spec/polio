@@ -1,15 +1,4 @@
 import type { NextConfig } from "next";
-import { readFileSync } from "node:fs";
-
-/** Has the Builder published a site into this repository? Then the root is the site. */
-function published(): boolean {
-  try {
-    const doc = JSON.parse(readFileSync(new URL("./site/document.json", import.meta.url), "utf8")) as { nodes?: unknown[] };
-    return Array.isArray(doc.nodes) && doc.nodes.length > 0;
-  } catch {
-    return false;
-  }
-}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -49,8 +38,23 @@ const nextConfig: NextConfig = {
   // Every page in this template is client-rendered from the feature registry,
   // so there is nothing to statically optimise per-route beyond the shell.
   typedRoutes: false,
+  /*
+   * The root is the Builder. Always.
+   *
+   * It used to redirect to /site the moment anything had been published into
+   * the repository — which meant that pressing Publish once turned the
+   * *tool's own deployment* into the site it had just built. Everything was
+   * still there: /builder served the whole editor, and the published page
+   * renders with the shell hidden and its own bar `hidden`, so what a person
+   * found at the front door was a site with no toolbar, no shelf, no panel
+   * and nothing on the page that said where the Builder had gone. A redirect
+   * that can strand the tool is worse than a vanity URL is good.
+   *
+   * The published site is at /site, which is what Publish writes and what the
+   * book has always called it.
+   */
   async redirects() {
-    return published() ? [{ source: "/", destination: "/site", permanent: false }] : [];
+    return [];
   },
 };
 

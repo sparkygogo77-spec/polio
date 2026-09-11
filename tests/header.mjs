@@ -24,6 +24,40 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
+/*
+ * Is it actually on the screen?
+ *
+ * Every check in this suite used to ask the DOM whether a control existed,
+ * and a control with `display: none` exists: it has a role, it has a name,
+ * `count()` finds it, and it is a rectangle of nothing that nobody can press.
+ * That is how a deployment served a Builder with no bar at all while every
+ * suite in the repository stayed green. Existing is not the question. Being
+ * visible is: an offset parent, and a rectangle with both sides above zero.
+ */
+const seen = (locator) => locator.evaluateAll((els) => els.map((el) => {
+  const r = el.getBoundingClientRect();
+  const s = getComputedStyle(el);
+  return {
+    name: (el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 28),
+    on: !!el.offsetParent && r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none",
+    box: `${Math.round(r.width)}×${Math.round(r.height)}`,
+    display: s.display,
+  };
+}));
+
+/**
+ * A bar, and every control in it.
+ *
+ * Controls, not children: a bar is also made of spacers and hairlines, and a
+ * spacer is a zero-height span on purpose. What has to be pressable is what
+ * is there to be pressed.
+ */
+async function allSeen(page, sel) {
+  const bar = (await seen(page.locator(sel)))[0];
+  const controls = await seen(page.locator(`${sel} button, ${sel} a, ${sel} input, ${sel} [role=radio], ${sel} [role=switch]`));
+  return { bar, controls: controls.length, dark: controls.filter((c) => !c.on) };
+}
+
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
   for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright", "/usr/lib/node_modules/playwright"].filter(Boolean)) {
@@ -54,6 +88,16 @@ await page.waitForTimeout(1100);
 /* ------------------------------------------------------------------ */
 /* 1. What is gone                                                     */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* 0. The bar is on the screen, and so is everything in it             */
+/* ------------------------------------------------------------------ */
+{
+  const bar = await allSeen(page, "[data-studio-bar]");
+  check("the Builder's bar is on the screen", !!bar.bar?.on, bar.bar ? `${bar.bar.box} · display ${bar.bar.display}` : "no bar at all");
+  check("with controls in it", bar.controls >= 8, `${bar.controls} controls`);
+  check("and every one of them can be pressed", bar.dark.length === 0, bar.dark.slice(0, 4).map((d) => `${d.name} ${d.box} ${d.display}`).join(" · "));
+}
 
 check("Design is not a button for the screen you are on", (await page.getByRole("radio", { name: "Design" }).count()) === 0);
 check("the Book tab has left the top left", (await page.getByRole("radio", { name: /^Book/ }).count()) === 0);
