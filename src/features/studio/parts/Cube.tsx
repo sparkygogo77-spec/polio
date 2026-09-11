@@ -99,7 +99,7 @@ function faceColour(face: CubeFace | undefined, t: Theme): string {
   return own;
 }
 
-export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartProps) {
+export function Cube({ id, label, w, h, theme: t, mode, cube, options, emit }: PartProps) {
   const faces = React.useMemo<CubeFace[]>(
     () => CUBE_SIDES.map((_, i) => cube?.faces?.[i] ?? { heading: "", body: "", colour: "" }),
     [cube],
@@ -200,7 +200,7 @@ export function Cube({ label, w, h, theme: t, mode, cube, options, emit }: PartP
   const filled = faces.filter((f) => f.heading.trim() || f.body.trim()).length;
 
   return (
-    <Fill t={t} id="cube-3d">
+    <Fill t={t} data-part={id}>
       <div
         data-cube=""
         data-cube-turn={`${Math.round(turn.x)},${Math.round(turn.y)}`}
