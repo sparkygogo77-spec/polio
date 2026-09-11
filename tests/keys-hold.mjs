@@ -78,7 +78,7 @@ async function run(label, { noCrypto }) {
 
   // The test route sees the held key. There is no real key in a test, so the
   // honest answer is that Anthropic rejected it — which proves it was sent.
-  const claude = panel.locator("section").first();
+  const claude = panel.locator('[data-service="anthropic"]');
   await claude.getByRole("button", { name: "Try it" }).click();
   await page.waitForTimeout(6000);
   const verdict = await claude.locator("span.text-down, span.text-up").last().textContent().catch(() => "");
@@ -86,7 +86,7 @@ async function run(label, { noCrypto }) {
 
   // Each service is asked its own question, and one answer never stands in
   // for another: trying Vercel with no token must not colour Claude's line.
-  const vercel = panel.locator("section").nth(1);
+  const vercel = panel.locator('[data-service="vercel"]');
   check("Vercel has nothing to try until there is a token", !(await vercel.getByRole("button", { name: "Try it" }).isEnabled()));
   await vercel.locator('input[type="password"]').fill("vercel_test_do_not_use_9876543210");
   await vercel.getByRole("button", { name: "Try it" }).click();

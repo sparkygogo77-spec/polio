@@ -19,7 +19,10 @@
  * set it properly is told to stop rather than encouraged to paste it twice,
  * and a "Try it" asks Anthropic whether the key works, so "the prompts are
  * not working" has a first answer that is not a guess. Keys the browser
- * cannot use — GitHub, X, Vercel — are named as server-only, not offered.
+ * cannot use — GitHub, X, Vercel, and the renderer's Replicate token — are
+ * named as server-only, not offered: Replicate sits beside Claude, because
+ * they are two halves of the same job, and reports one fact rather than
+ * taking a value the routes would refuse.
  */
 import * as React from "react";
 import { AlertTriangle, Check, Delete, Eye, EyeOff, KeyRound, Lock, LockOpen, ShieldCheck, Sparkles, Trash2, Unlock, X } from "lucide-react";
@@ -32,6 +35,7 @@ import { Input } from "@/core/ui/input";
 import { Switch } from "@/core/ui/switch";
 import { Tooltip } from "@/core/ui/tooltip";
 import { SCREEN as VOID_SCREEN } from "@/core/ui/void";
+import { money, RENDER_COST } from "@/features/studio/renderer";
 import { guessCostMs, isPin } from "./crypto";
 import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type ServiceId } from "./store";
 
@@ -227,6 +231,48 @@ type Tried = { ok: boolean; message: string; source?: string } | { busy: true } 
 /** One answer per service: trying Claude says nothing about Vercel. */
 type TriedBy = Partial<Record<ServiceId, Tried>>;
 
+/**
+ * The renderer, which is not a vault entry and says so.
+ *
+ * Every other row here is a field: paste a key and this browser holds it.
+ * This one is a statement. `REPLICATE_API_TOKEN` is read by the image route
+ * out of the server's environment and out of nothing else — there is no
+ * header the app will take it in, so a field here would be a promise the
+ * app does not keep. So the row reports one fact, present or absent, and
+ * says where it goes instead.
+ */
+function Renderer({ server }: { server: ServerStatus | null }) {
+  const there = !!server?.set.REPLICATE_API_TOKEN;
+  return (
+    <section data-renderer-row="" className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
+      <header className="mb-2 flex flex-wrap items-center gap-2">
+        <h3 className="text-[12px] font-semibold text-fg">Replicate</h3>
+        {there ? (
+          <Tooltip content="Set in the server's environment. The renderer will draw.">
+            <Badge variant="up" size="sm"><Check className="size-3" /> on the server</Badge>
+          </Tooltip>
+        ) : (
+          <Badge variant="default" size="sm">not on the server</Badge>
+        )}
+        <Badge variant="default" size="sm"><Lock className="size-3" /> server only</Badge>
+        <span className="flex-1" />
+        <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent underline underline-offset-2">where to get one</a>
+      </header>
+      <p className="mb-2 text-[10px] leading-snug text-fg-faint">
+        The renderer draws a part's body instead of writing it: vector through <code className="text-fg">recraft-ai/recraft-v3-svg</code>,
+        raster through <code className="text-fg">black-forest-labs/flux-2-pro</code>. {money(RENDER_COST.vector)} and {money(RENDER_COST.raster)} a call,
+        shown in the iteration's usage line.
+      </p>
+      <p className="text-[10px] leading-snug text-fg-faint">
+        <code className="text-fg">REPLICATE_API_TOKEN</code> lives in the Vercel project&rsquo;s environment variables, or{" "}
+        <code className="text-fg">.env.local</code> when you run it yourself. There is no field for it here on purpose: the vault never
+        holds it and the routes will not take it typed in.{" "}
+        {there ? "It is set, so a drawn body is tried before a written one." : "Without it the body is written by Claude instead, and the dialog says why."}
+      </p>
+    </section>
+  );
+}
+
 function Vault({ server }: { server: ServerStatus | null }) {
   const { values, save, busy, lock, changePin, destroy, touch, held, kept, keep, create, plain, forget, sealedWaiting, bringAcross } = useKeys();
   const ctx = useActions();
@@ -291,7 +337,8 @@ function Vault({ server }: { server: ServerStatus | null }) {
           const waiting = answer !== null && "busy" in answer;
           const canTry = !!server?.set[keyField] || !!(draft[keyField] ?? "").trim();
           return (
-            <section key={s.id} className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
+            <React.Fragment key={s.id}>
+            <section data-service={s.id} className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
               <header className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="text-[12px] font-semibold text-fg">{s.label}</h3>
                 {onServer ? (
@@ -352,6 +399,14 @@ function Vault({ server }: { server: ServerStatus | null }) {
                 )}
               </div>
             </section>
+              {/*
+                Beside Claude, because it is the other half of the same job:
+                Claude writes a part's body, the renderer draws it. It looks
+                like a service card and is deliberately not one, because
+                there is nothing to type.
+              */}
+              {s.id === "anthropic" ? <Renderer server={server} /> : null}
+            </React.Fragment>
           );
         })}
 
