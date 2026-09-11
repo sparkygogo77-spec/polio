@@ -117,12 +117,12 @@ async function look(w, h, name) {
      the site, and it is black on an empty document, which would make a very
      convincing picture of nothing. Take the gap between the frame's right
      edge and the workspace's. */
-  /* Hold the weather where it is, then point the magnifier at a green ember
-     that is actually there rather than at a strip and hoping. A crop of bare
-     ground is a lottery — the last one caught five reds and no green, which
-     proves nothing either way — and the whole question here is the colour.
-     `boardDrag` is the drag pause the ground already has: it holds the clock,
-     so the sparks stay put between reading them and photographing them. */
+  /* Point the magnifier at a green ember that is actually there rather than
+     at a strip and hoping: a crop of bare ground is a lottery, and the whole
+     question here is the colour. The embers no longer stop for anything — a
+     spark drifts a pixel or two between being found and being photographed —
+     so the window is wide enough that it stays inside it.
+  */
   const findGreen = () => zp.evaluate(() => {
     const g = document.querySelector("[data-workspace-ground]").getBoundingClientRect();
     const f = document.querySelector("[data-frame]")?.getBoundingClientRect();
@@ -140,7 +140,7 @@ async function look(w, h, name) {
         if (!best || d[i + 1] > best.g) best = { x, y, g: d[i + 1] };
       }
     }
-    const W = 150, H = 95;
+    const W = 200, H = 130;
     const cx = best ? g.left + best.x : (f ? f.right + 6 : g.left + 8);
     const cy = best ? g.top + best.y : g.top + g.height * 0.3;
     return {
@@ -156,12 +156,9 @@ async function look(w, h, name) {
      photograph a strip and call whatever turned up representative. */
   let clip = null;
   for (let i = 0; i < 14; i++) {
-    await zp.evaluate(() => { document.documentElement.dataset.boardDrag = "1"; });
-    await zp.waitForTimeout(160);
     clip = await findGreen();
     if (clip.found) break;
-    await zp.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
-    await zp.waitForTimeout(700);
+    await zp.waitForTimeout(600);
   }
   check(`${name}: a green ember stood where it could be photographed`, clip.found, clip.found ? "centred on it" : "none reached bare ground in 10s");
   await zp.screenshot({ path: `.screenshots/${name}-embers.png`, clip });

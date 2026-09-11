@@ -107,8 +107,21 @@ export function marginFor(l: CloudLayer, w: number, h: number): number {
   return Math.round(Math.max(MARGIN_MIN, drift) + sweep);
 }
 
-/** True while the hand is down on the board: the weather holds where it is. */
-const dragging = () => typeof document !== "undefined" && document.documentElement.dataset.boardDrag === "1";
+/**
+ * How long the clouds will hold for a drag before carrying on regardless.
+ *
+ * The pause is a flag another component sets and clears. A flag that goes on
+ * and does not come off freezes the weather for good, and every way that can
+ * happen is outside this file: a pointer released outside the window, a
+ * handler that returns early, a component unmounted mid-drag. So this does
+ * not trust the flag indefinitely. Six seconds is longer than any real drag
+ * needs and short enough that a stuck flag is a hitch rather than a dead
+ * ground.
+ */
+const HOLD_MAX_S = 6;
+
+/** The flag another component sets while the hand is down on the board. */
+const flagged = () => typeof document !== "undefined" && document.documentElement.dataset.boardDrag === "1";
 
 /** One layer's canvas, and where its paint and its transform each stand. */
 interface Live {
@@ -184,24 +197,79 @@ export function useGround(
     let raf = 0;
     /** Seconds of weather that have passed. Held while the hand is down. */
     let clock = 0;
+    /** The embers' own, which is never held: nothing here is ever still. */
+    let sparkClock = 0;
     let last = performance.now();
     let nextSpark = 0;
     /** Layers waiting to be laid again, one to a frame. */
     const queue: Live[] = [];
 
+    /* The second buffer, swapped rather than copied.
+     *
+     * A recycle is the one moment a visible layer is rewritten, and it is a
+     * full-resolution pattern fill — the most expensive thing in this file.
+     * Doing it on the canvas the compositor is sampling means the layer's
+     * pixels are in flux while it is on screen, and if any of that raster is
+     * deferred, what shows is an empty canvas: a black hole in the ground
+     * for a frame.
+     *
+     * So the fill happens on an `OffscreenCanvas` nothing displays, and the
+     * visible layer takes the result through `transferFromImageBitmap`,
+     * which hands over the buffer rather than copying it. That distinction
+     * is the whole design: painting the buffer and then `drawImage`-ing it
+     * onto the visible canvas was measured here at 33 stalls over 80ms in
+     * forty seconds against 13 for painting in place, because a full-surface
+     * blit is a second full-surface raster. A transfer is a pointer swap and
+     * costs nothing, so the visible canvas is never mid-paint and never
+     * cleared, and the recycle costs what it always did.
+     *
+     * One offscreen for all four layers: they recycle one to a frame, so
+     * they never need it at once, and four more window-sized backing stores
+     * is the memory that makes a browser start dropping them.
+     *
+     * Where `OffscreenCanvas` or the bitmap renderer is missing, the layer
+     * keeps a plain 2D context and `paintCloudLayer` writes straight to it —
+     * one `copy` fill, so even then there is no cleared canvas to catch. */
+    const canSwap =
+      typeof OffscreenCanvas !== "undefined" &&
+      !!document.createElement("canvas").getContext("bitmaprenderer");
+    let buf: OffscreenCanvas | null = null;
+
     const lay = (l: Live, at: number) => {
-      const c = l.el.getContext("2d");
-      if (!c) return;
-      c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
-      paintCloudLayer(c, l.def, {
-        w: size.w + l.m * 2,
-        h: size.h + l.m * 2,
-        dim,
-        turn: l.def.turn + l.def.spin * at,
-        dx: l.def.dx * at,
-        dy: l.def.dy * at,
-      });
-      c.setTransform(1, 0, 0, 1, 0, 0);
+      const w = size.w + l.m * 2;
+      const h = size.h + l.m * 2;
+      const pw = Math.max(1, Math.round(w * CLOUD_SCALE));
+      const ph = Math.max(1, Math.round(h * CLOUD_SCALE));
+      const paint = (c: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) => {
+        c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
+        paintCloudLayer(c as CanvasRenderingContext2D, l.def, {
+          w,
+          h,
+          dim,
+          turn: l.def.turn + l.def.spin * at,
+          dx: l.def.dx * at,
+          dy: l.def.dy * at,
+        });
+        c.setTransform(1, 0, 0, 1, 0, 0);
+      };
+
+      if (canSwap) {
+        if (!buf) buf = new OffscreenCanvas(pw, ph);
+        // Sizing it resets it, which is what a fresh field wants anyway, and
+        // a transfer detaches the old buffer regardless.
+        buf.width = pw;
+        buf.height = ph;
+        const bc = buf.getContext("2d");
+        if (!bc) return;
+        paint(bc);
+        const view = l.el.getContext("bitmaprenderer");
+        if (!view) return;
+        view.transferFromImageBitmap(buf.transferToImageBitmap());
+      } else {
+        const c = l.el.getContext("2d");
+        if (!c) return;
+        paint(c);
+      }
       l.at = at;
     };
 
@@ -260,7 +328,7 @@ export function useGround(
     const embers = () => {
       const c = sp.getContext("2d");
       if (!c || !embersField.current) return;
-      paintDarkMatter(c, { field: embersField.current, t: clock, vignette: false, dim, layers: "sparks" });
+      paintDarkMatter(c, { field: embersField.current, t: sparkClock, vignette: false, dim, layers: "sparks" });
     };
 
     fit();
@@ -277,28 +345,70 @@ export function useGround(
       };
     }
 
+    /* The pause, and coming out of it.
+     *
+     * Two changes from a plain "is the flag set". First, it is capped: a flag
+     * that never comes off stops holding after `HOLD_MAX_S`, so the ground
+     * always resumes by itself rather than waiting on somebody else's
+     * cleanup. Second, a real pointer has to be down for it to count — the
+     * pointerup and pointercancel below fire on the window whatever the
+     * board's own handler does, and the blur covers a pointer released
+     * outside it altogether. Any of the three failing resumes the weather.
+     */
+    let heldFrom = 0;
+    /** Latched once a hold outstays the cap, so the resume is not undone. */
+    let capped = false;
+    let pointer = false;
+    const down = () => { pointer = true; };
+    const up = () => { pointer = false; };
+    addEventListener("pointerdown", down, { capture: true, passive: true });
+    addEventListener("pointerup", up, { capture: true, passive: true });
+    addEventListener("pointercancel", up, { capture: true, passive: true });
+    addEventListener("blur", up);
+
     const tick = (t: number) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.25, Math.max(0, (t - last) / 1000));
       last = t;
-      // Held, not skipped: the clock does not advance while the hand is down,
-      // so letting go carries on from here instead of jumping.
-      if (document.hidden || dragging()) return;
-      clock += dt;
+      if (document.hidden) return;
 
-      // One recycle to a frame, so the only expensive moment in this file
-      // never doubles up.
-      const due = queue.shift();
-      if (due) {
-        lay(due, clock);
-        move(due, true);
-      } else {
-        for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
+      /* The cap latches. Without that, exceeding it clears `heldFrom`, which
+         makes the next frame look like a fresh hold — a one-frame twitch
+         every six seconds rather than a resume. Once it has outstayed its
+         welcome the hold is over until the flag itself goes. */
+      const wants = flagged() && pointer;
+      if (!wants) { heldFrom = 0; capped = false; }
+      else if (heldFrom === 0) heldFrom = t;
+      else if (t - heldFrom >= HOLD_MAX_S * 1000) capped = true;
+      const held = wants && !capped;
+
+      /* The embers run through a pause; only the clouds hold.
+       *
+       * The pause is there because a pan is the one moment the main thread
+       * has somewhere better to be, and what costs it is a full-resolution
+       * pattern fill, not thirty dots. Holding the embers too bought nothing
+       * and stopped the ground dead, which is the thing that reads as broken.
+       * So the embers keep their own clock and never stop; the clouds keep
+       * the held one, so letting go carries on from where it was rather than
+       * jumping the weather forward by the length of the drag. */
+      sparkClock += dt;
+      if (!held) {
+        clock += dt;
+
+        // One recycle to a frame, so the only expensive moment in this file
+        // never doubles up.
+        const due = queue.shift();
+        if (due) {
+          lay(due, clock);
+          move(due, true);
+        } else {
+          for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
+        }
+        for (const l of layers) if (l !== due) move(l);
       }
-      for (const l of layers) if (l !== due) move(l);
 
-      if (clock >= nextSpark) {
-        nextSpark = clock + SPARK_MS / 1000;
+      if (sparkClock >= nextSpark) {
+        nextSpark = sparkClock + SPARK_MS / 1000;
         embers();
       }
     };
@@ -309,6 +419,10 @@ export function useGround(
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      removeEventListener("pointerdown", down, { capture: true });
+      removeEventListener("pointerup", up, { capture: true });
+      removeEventListener("pointercancel", up, { capture: true });
+      removeEventListener("blur", up);
       holder.replaceChildren();
     };
   }, [host, clouds, spark, dim, shape]);
