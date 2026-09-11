@@ -1710,6 +1710,15 @@ remove it from `src/features/index.ts` when you're sure.
   the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
+- **What the loop actually spends is written down**, in
+  `docs/PRODUCTION-LOOP.md`: every call from a drawn line to a finished
+  element, in order, with the model each one goes to, what is sent, what
+  comes back, how the overlap loop decides to go again, where the key comes
+  from at each step, and what one element and one site cost. The payload
+  sizes there are measured, not guessed, and the page says how to measure
+  them again. Read it before changing anything about how a route is called:
+  the loop is output-bound, so moving a payload around is worth about a tenth
+  of what changing the number of goes is worth.
 
 ---
 
