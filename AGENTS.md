@@ -1383,8 +1383,7 @@ a kicker with a rule, and label-and-value rows that copy.
 - **Publish** (`publish/route.ts`) makes one commit on a branch of a
   repository with `GITHUB_TOKEN` through the git data API, then calls
   `VERCEL_DEPLOY_HOOK` when set. It pushes `site/document.json` (the
-  document; the app renders it at `/site`, and `next.config.ts` redirects
-  `/` there when it is non-empty), `site/BLUEPRINT.md`, `site/blueprint.json`
+  document; the app renders it at `/site`), `site/BLUEPRINT.md`, `site/blueprint.json`
   and any generated files. Paths are checked (`safePath`); files are capped.
   The token never reaches the browser; `GET` says only what is set.
   A request may name its own `repo` and `branch`, because the Builds page
@@ -1403,13 +1402,12 @@ a kicker with a rule, and label-and-value rows that copy.
   rather than the route waiting. The deploy hook stays what it always was:
   a poke for a project not connected to the repository, which answers with
   nothing you can open. `tests/go-live.mjs` covers both halves.
-- **`/builds` is `/`'s survivor.** `features/builds` (the Sites/Repos front
-  door) answers at both `/` and `/builds`, and anything that has to keep
-  working after a publish links to `/builds`: once `site/document.json` is
-  non-empty the redirect above sends `/` to `/site` before the router ever
-  gets it, so a link to bare `/` stops reaching Builds the moment the site it
-  is inside goes live. `/` stays the unpublished front door; `/builds` is the
-  one path the redirect does not touch.
+- **`/builds` and `/` are the same door.** `features/builds` (the Sites/Repos
+  front door) answers at both, and neither is ever redirected away — see
+  "The root is the Builder" above for why `/` used to strand the tool on a
+  publish and no longer does. Anything that has to keep working regardless of
+  which alias it was reached through links to `/builds`, the name that says
+  what it is.
 - **Reiterate is one thing at a time, and on a picture that thing is the
   patch** (`reiterate`, `rollPatch` in `look.ts`). A photograph carries more
   textures than the whole generated set — the weave in the corner, the grain
