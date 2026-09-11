@@ -64,15 +64,49 @@ function sampler() {
      its clock by the rAF timestamp, and across a stalled frame the two drift
      apart by tens of milliseconds — enough that an allowance worked out from
      the wrong clock invents a jump that is not there. */
+  /* And what is actually painted under a fixed point on screen.
+   *
+   * The position check above is arithmetic on the transform; it would pass
+   * even if the paint itself came back different. This reads the pixels. For
+   * a grid of points on screen it works out which pixel of the layer's own
+   * bitmap is under each — `q = R(-t)·(p - d)`, the transform run backwards —
+   * and samples it. Under a fixed screen point the cloud drifts slowly, so
+   * consecutive samples differ a little; being laid again must not make them
+   * differ more than that. Sixteen points go into one 16×1 scratch and come
+   * back in a single read, because sixteen separate readbacks at 20Hz would
+   * cost more than the thing being measured. */
+  const grid = [];
+  for (let gy = 0; gy < 4; gy++) for (let gx = 0; gx < 4; gx++) grid.push([(gx - 1.5) * 260, (gy - 1.5) * 190]);
+  const strip = document.createElement("canvas");
+  strip.width = grid.length;
+  strip.height = 1;
+  const sc = strip.getContext("2d", { willReadFrequently: true });
+
+  const inkOf = (el, dx, dy, deg) => {
+    const a = (-deg * Math.PI) / 180;
+    const c = Math.cos(a), sn = Math.sin(a);
+    sc.clearRect(0, 0, grid.length, 1);
+    for (let i = 0; i < grid.length; i++) {
+      const px = grid[i][0] - dx, py = grid[i][1] - dy;
+      const qx = px * c - py * sn + el.width / 2;
+      const qy = px * sn + py * c + el.height / 2;
+      if (qx < 0 || qy < 0 || qx >= el.width || qy >= el.height) continue;
+      sc.drawImage(el, Math.floor(qx), Math.floor(qy), 1, 1, i, 0, 1, 1);
+    }
+    return Array.from(sc.getImageData(0, 0, grid.length, 1).data);
+  };
+
   const read = (ts) => {
     const box = document.querySelector("[data-workspace-ground]");
     const out = { t: ts, box: box ? `${box.clientWidth}x${box.clientHeight}` : "", layers: [] };
     for (const el of document.querySelectorAll("[data-cloud-layer]")) {
       const m = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px[^)]*\)\s*rotate\(([-\d.]+)deg\)/.exec(el.style.transform || "");
+      const x = m ? Number(m[1]) : null, y = m ? Number(m[2]) : null, deg = m ? Number(m[3]) : null;
       out.layers.push({
         id: el.dataset.cloudLayer,
         laidAt: el.dataset.laidAt === undefined ? null : Number(el.dataset.laidAt),
-        x: m ? Number(m[1]) : null, y: m ? Number(m[2]) : null, deg: m ? Number(m[3]) : null,
+        x, y, deg,
+        ink: m && el.width ? inkOf(el, x, y, deg) : null,
       });
     }
     window.__seam.push(out);
@@ -111,7 +145,7 @@ for (const f of frames) {
     const c = Math.cos(a), s = Math.sin(a);
     const at = { x: laid.x * c - laid.y * s + l.x, y: laid.x * s + laid.y * c + l.y };
     if (!per.has(l.id)) per.set(l.id, []);
-    per.get(l.id).push({ t: f.t, at, laidAt: l.laidAt, tx: l.x, ty: l.y, box: f.box });
+    per.get(l.id).push({ t: f.t, at, laidAt: l.laidAt, tx: l.x, ty: l.y, box: f.box, ink: l.ink });
   }
 }
 
@@ -155,18 +189,54 @@ check("a laying is no worse than a quiet frame", worstJump < 0.35,
   `worst laying exceeds its own noise floor by ${worstJump.toFixed(3)}px${worstLayer ? ` (${worstLayer})` : ""}, over the settled ${SECONDS - SETTLED_MS / 1000}s`);
 check("layers were laid again during the watch", lays > 0, `${lays} layings, ${transformResets} of them resetting the transform`);
 
-// And the position must be the drift the table says, not merely continuous.
-let worstDrift = 0;
+/* And the layer must actually be drifting at about the speed the table says,
+   not merely drifting smoothly — a layer that quietly halved would pass every
+   continuity check above.
+
+   A band, not an equality, and deliberately so: the ground advances its clock
+   by the frame gap clamped at 250ms, so across a stall its clock falls behind
+   the wall clock and the layer is genuinely where its own clock says, not
+   where elapsed time says. Comparing the two exactly measures the stalls, not
+   the drift. An earlier version of this check did exactly that and reported a
+   17px "departure" that was nothing but clock lag. */
+let worstRate = 0, rateLayer = "";
 for (const [id, rows] of per) {
-  const def = LAYERS[id];
-  const t0 = rows[0].t;
-  for (const r of rows) {
-    const want = travel(def, (r.t - t0) / 1000 + rows[0].laidAt);
-    const got = { x: r.at.x - rows[0].at.x + travel(def, rows[0].laidAt).x, y: r.at.y - rows[0].at.y + travel(def, rows[0].laidAt).y };
-    worstDrift = Math.max(worstDrift, Math.hypot(want.x - got.x, want.y - got.y));
+  const settled = rows.filter((r) => r.t >= SETTLED_MS);
+  if (settled.length < 20) continue;
+  let path = 0;
+  for (let i = 1; i < settled.length; i++) {
+    path += Math.hypot(settled[i].at.x - settled[i - 1].at.x, settled[i].at.y - settled[i - 1].at.y);
   }
+  const secs = (settled.at(-1).t - settled[0].t) / 1000;
+  const want = Math.hypot(LAYERS[id].dx, LAYERS[id].dy) * LAYERS[id].scale;
+  const got = path / secs;
+  const off = Math.abs(got - want) / want;
+  console.log(`       ${id.padEnd(13)} drifts ${got.toFixed(2)}px/s, the table says ${want.toFixed(2)}px/s`);
+  if (off > worstRate) { worstRate = off; rateLayer = id; }
 }
-check("and it tracks the drift the layer table describes", worstDrift < 6, `worst departure ${worstDrift.toFixed(2)}px`);
+check("every layer drifts at the speed its table entry describes", worstRate < 0.25,
+  `worst ${(worstRate * 100).toFixed(1)}% off${rateLayer ? ` (${rateLayer})` : ""}, clock lag included`);
+
+/* The pixels under a fixed point on screen, across a laying against a quiet
+   frame. This is the check that would catch the paint itself coming back
+   different, which the arithmetic above cannot see. */
+let worstInk = 0, inkLayer = "";
+for (const [id, rows] of per) {
+  let laidInk = 0, quietInk = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1], b = rows[i];
+    if (!a.ink || !b.ink || a.box !== b.box || b.t < SETTLED_MS) continue;
+    let d = 0;
+    for (let k = 0; k < a.ink.length; k++) d += Math.abs(a.ink[k] - b.ink[k]);
+    d /= a.ink.length;
+    if (b.laidAt !== a.laidAt) laidInk = Math.max(laidInk, d);
+    else quietInk = Math.max(quietInk, d);
+  }
+  console.log(`       ${id.padEnd(13)} pixels under a fixed point: ${laidInk.toFixed(2)} at a laying vs ${quietInk.toFixed(2)} quiet (0-255)`);
+  if (laidInk - quietInk > worstInk) { worstInk = laidInk - quietInk; inkLayer = id; }
+}
+check("the paint under a fixed point does not change at a laying", worstInk < 2,
+  `worst ${worstInk.toFixed(2)}/255 over its own noise${inkLayer ? ` (${inkLayer})` : ""}`);
 
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} passed`);
