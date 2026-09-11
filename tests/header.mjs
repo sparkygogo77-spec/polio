@@ -128,12 +128,25 @@ check("and pressing it again comes back to the board", (await page.locator("[dat
 /* Finish opens the timeline, and comes back. */
 await page.locator("[data-finish]").click();
 await page.waitForTimeout(1100);
-check("Finish opens the timeline", (await page.locator("[data-thread-tree]").count()) === 1);
+check("Finish opens the timeline", (await page.locator("[data-timeline]").count()) === 1);
 check("and says so while it is open", (await page.locator("[data-finish]").getAttribute("aria-pressed")) === "true");
 
 /* ------------------------------------------------------------------ */
 /* 4. The pieces on it                                                 */
 /* ------------------------------------------------------------------ */
+
+// Pieces are the trail (ThreadTree), and the book's page shape — what
+// Finish opens onto the timeline — deliberately drops the trail there: the
+// timeline above it is already that history, and drawing it twice was the
+// wall that shape replaced. The dialog and panel shapes keep the Trail
+// tab, so that is where a piece is checked, via the hook that opens one —
+// back to the board first, since the dialog does not open over the timeline.
+await page.locator("[data-finish]").click();
+await page.waitForTimeout(700);
+await page.evaluate(() => window.__studioOpenBrief?.());
+await page.waitForTimeout(600);
+await page.getByRole("radiogroup", { name: "View" }).getByRole("radio", { name: /^Trail/ }).click();
+await page.waitForTimeout(400);
 
 const pieces = await page.locator("[data-piece]").evaluateAll((els) => els.map((e) => {
   const s = getComputedStyle(e);

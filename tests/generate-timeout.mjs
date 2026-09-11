@@ -46,10 +46,11 @@ async function openBlueprint() {
   await page.waitForTimeout(400);
   await page.locator('[data-ctx="studio-palette"]').first().click();
   await page.waitForTimeout(400);
-  // The blue Finish orb is a purple process counter now (`DrawQueue.tsx`),
-  // which kept `data-finish` as its handle: press the thing that opens the
-  // iteration book, whatever it is called this week.
-  await page.locator("[data-finish]").first().click();
+  // Finish now opens the timeline (Timeline.tsx) rather than a dialog, and
+  // this suite is about the dialog's own note: open the book as a dialog
+  // through its own hook rather than pressing whatever Finish means this
+  // week.
+  await page.evaluate(() => window.__studioOpenBrief?.());
   await page.waitForTimeout(600);
   // Words only, as reported: the photographs are a separate call and not
   // what hung.
