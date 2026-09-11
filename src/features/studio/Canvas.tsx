@@ -1169,7 +1169,22 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
           outlineOffset: selected ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
         }}
       >
-        <Block node={node} t={theme} palette={palette} light={light} page={page} layers={layers} mode={selected ? "live" : "board"} />
+        <Block
+          node={node}
+          t={theme}
+          palette={palette}
+          light={light}
+          page={page}
+          layers={layers}
+          mode={selected ? "live" : "board"}
+          /*
+           * A selected part is live, so a cube on the board turns as soon as
+           * it is picked. Where it is left is worth keeping: the part cannot
+           * touch the document, so it says where it settled and the board
+           * writes it down.
+           */
+          emit={(e) => { if (e.type === "cube") useStudio.getState().setCubeTurn(node.id, e.turn); }}
+        />
       </div>
       {/*
         Hover outline, so an unpicked part still reads as a part, and only

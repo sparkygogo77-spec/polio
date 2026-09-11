@@ -210,6 +210,12 @@ same boxes as everywhere else, in the screen's colours.
   Blueprint dialog draws them as a map: written, found, now, joined by lines,
   with Take it on any finding that carries a prompt. A critique you can only
   copy is a critique nobody applies.
+- **A picture is the wrong answer for a thing that moves.** The renderer
+  traces a drawing and a trace is a still; a cube has to turn, and what is
+  written on its sides has to still be text afterwards. So the drawing says
+  what kind of thing it is and how big, and the element is code. The test
+  for which path a drawing takes is whether the result has to do anything:
+  a helix is a shape, a cube is a machine.
 - **The drawing is the specification; nothing may paraphrase it.** A model
   that writes SVG has to be told in words what was drawn, and a line
   described is a line lost. So the drawing path has no writer in it: the

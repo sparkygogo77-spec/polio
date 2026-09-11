@@ -183,6 +183,40 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
   const { frameWidth } = job;
 
   try {
+    /*
+     * A cube needs no reader.
+     *
+     * The geometry already said what it is — three faces round a corner, a
+     * hexagon with a Y in it, or a rectangle with the word next to it — and
+     * the words already said what goes on the sides. Asking a model to pick
+     * a library entry for it would be asking a question that has been
+     * answered, and paying for the answer.
+     */
+    const drawnRole = kindOfSketch(drawn, node?.prompt ?? "");
+    if (drawnRole.kind === "cube") {
+      deps.onStep?.("Reading the shape…");
+      const made = applyProportion(drawn, node, job);
+      const did = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
+      useStudio.getState().landThread({
+        mode: "drawing",
+        // A cube is one step and it is over: nothing is traced after it.
+        state: "done",
+        ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
+        answer: `${did.did}, read off the drawing with no model asked`,
+        sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
+        changes: [`${node ? "turned" : "drew"} ${made.label} into a cube`],
+      });
+      deps.publish({
+        key: `studio:reshape:${made.id}`,
+        title: node ? `Turned ${made.label} into a cube` : "Drew a cube",
+        body: did.did,
+        level: "success",
+        source: "studio",
+        toast: true,
+      });
+      return { ok: true, madeId: made.id, note: did.did };
+    }
+
     deps.onStep?.("Claude is reading the drawing…");
     const res = await fetch("/api/studio/reshape", {
       method: "POST",
@@ -219,8 +253,18 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       // A drawing read is an API call that landed, so it is a thread too:
       // the words that went with the drawing, the note that came back, and
       // what it did to the part.
-      useStudio.getState().landThread({
+      /*
+       * It lands as running, not done.
+       *
+       * A drawing read is the first half: a body is traced for it after
+       * this, and until that finishes the iteration is not finished. The
+       * box reads red the whole time and turns green when it is over,
+       * which is the only honest thing a mark can say while work is in
+       * flight.
+       */
+      const landed = useStudio.getState().landThread({
         mode: "drawing",
+        state: "running",
         model: data.usage?.model,
         ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
         answer: data.patch.note ?? "",
@@ -246,8 +290,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       });
       // The shape said what the part looks like; it also said what it does.
       // The clip is already on, and this adds behaviour on top of it.
-      const role = useStudio.getState().applyDrawnKind(made.id, kindOfSketch(drawn));
+      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
       const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
+      useStudio.getState().markThread(landed, "done");
       return { ok: true, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
     }
 
@@ -255,12 +300,13 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // what the shape means is read here rather than asked for, so behaviour
     // survives a locked vault exactly as the crop does.
     const made = applyProportion(drawn, node, job);
-    const role = useStudio.getState().applyDrawnKind(made.id, kindOfSketch(drawn));
+    const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
     // A drawing that made a part is an iteration whether or not a reader
     // was involved: the shape, the crop, the behaviour and the traced body
     // all happened, and the timeline is where what happened is written.
-    useStudio.getState().landThread({
+    const landed = useStudio.getState().landThread({
       mode: "drawing",
+      state: "running",
       ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
       answer: [role.did, "read off the drawing, with no reader"].filter(Boolean).join(", "),
       sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
@@ -283,6 +329,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // Claude-free from end to end, so a locked vault costs the description
     // and nothing else.
     const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
+    // The reader was missing, not the work: the shape, the behaviour and
+    // the traced body all landed, so this iteration finished.
+    useStudio.getState().markThread(landed, "done");
     return { ok: false, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
   } catch (err) {
     // The request itself failed. The drawing is still worth keeping, and the
