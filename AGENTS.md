@@ -1204,11 +1204,12 @@ a kicker with a rule, and label-and-value rows that copy.
     "sparks" | "all"`, and the workspace draws the embers at thirty and the
     clouds at two. Anything drawn once — a screenshot, the reduced-motion
     still — asks for "all".
-  - **Nothing paints while the hand is down.** `Canvas.tsx` puts
-    `data-board-drag` on the root for the length of a drag and the ground
-    holds the frame it is on. It is an attribute rather than store state
-    because a flag that re-renders the board on the first pixel of a drag is
-    the thing it exists to avoid.
+  - **The ground does not stop for a drag.** It used to: `Canvas.tsx` put
+    `data-board-drag` on the root for the length of one and the ground held
+    the frame it was on. That was paid for by a per-frame cloud repaint which
+    no longer exists, and a pan with the whole ground running measures inside
+    budget at both sizes, so both the pause and the flag are gone. See the
+    ground's own rules below before putting either back.
   - **A shadow is a CSS variable, not a render.** `liftTheme` hands a part
     `var(--lift-shadow, <the shadow>)`, so an undragged board is exactly what
     it was; while the sun is being dragged `lightRig.ts` sets the variable on
@@ -1377,19 +1378,22 @@ a kicker with a rule, and label-and-value rows that copy.
   than from this container, which measures the same readback at **0ms** even
   with the old promoted-and-blended conditions rebuilt on purpose
   (`tests/ground-readback.mjs`). This box cannot see the phenomenon at all.
-- **The pause holds the clouds only, and it always ends.** The ground stops
-  the clouds while `data-board-drag` is set, because what a pan competes with
-  is a full-resolution pattern fill. It no longer stops the embers: holding
-  thirty one-pixel dots bought nothing and stopped the ground dead, which is
-  the thing that reads as broken. The clouds keep the held clock, so letting
-  go carries on rather than jumping; the embers keep their own, which is
-  never held. And the hold is not taken on trust: it needs a pointer
-  genuinely down (the ground's own window `pointerup`/`pointercancel`/`blur`
-  fire whatever the board's handler does) and it is capped at `HOLD_MAX_S`,
-  latched, so a flag that never comes off is a hitch rather than a dead
-  ground. **The cap has to latch** — clearing the timer instead makes the
-  next frame look like a fresh hold, which is a one-frame twitch every six
-  seconds, not a resume.
+- **Nothing stops the ground, and there is no drag pause.** There was one: a
+  `data-board-drag` flag on the root while the hand was down, and the clouds
+  held where they were. It was bought when the clouds were repainted every
+  frame to move them, so a pan and a full-surface repaint wanted the same
+  main thread. Moving a cloud is a transform write now, so the bill stopped
+  arriving. Measured with the whole ground running through a pan
+  (`tests/pan-weather.mjs`, three runs): at a pane's size p50 3.9–4.1ms, p95
+  5.6–6.0ms, max 11–13.7ms; at 1440p p50 9.6–10.2ms, p95 13.5–17.5ms, max
+  29.8–97.6ms — the high max being a recycle landing inside the pan, which is
+  the only cost left. The single run with the pause still in was no better
+  (p95 17ms and 41.5ms, max 36.7ms and 128.8ms), so **no layer needed
+  keeping**. Nothing reads or writes the flag now; `board-speed.mjs` sets it
+  anyway, so that if anything ever starts reading it again the suite says so.
+  Do not reintroduce a pause without measuring a pan first: the flag that
+  could go on and not come off is how the sparks got stuck still, and the
+  two problems went away together.
 - **Nothing on this ground is ever completely still.** Darters used to sit at
   a dead stop between kicks; they idle now at `DART_IDLE`, a slow wander the
   kick swamps and decays back into. A spark whose life ends is relit *and
