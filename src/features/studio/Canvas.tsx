@@ -134,22 +134,10 @@ export function Canvas() {
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
 
-  /*
-   * A flag on the root while the hand is down on the board.
-   *
-   * The workspace's weather is a full-surface canvas repaint on a clock of
-   * its own, and a pan is the one moment the main thread has somewhere better
-   * to be. The ground reads this and holds still until the hand lets go
-   * (`Workspace.tsx`); it is an attribute rather than store state because a
-   * flag that re-renders the board on the first pixel of a drag is the thing
-   * it exists to avoid.
-   */
-  React.useEffect(() => {
-    const root = document.documentElement;
-    if (drag) root.dataset.boardDrag = "1";
-    else delete root.dataset.boardDrag;
-    return () => { delete root.dataset.boardDrag; };
-  }, [drag]);
+  /* `data-board-drag` used to be set here for the length of a drag, and the
+     ground held still while it was. The ground does not stop for anything
+     now — the pause was paying for a per-frame cloud repaint that no longer
+     exists — so nothing reads the flag and nothing writes it. */
   const [marquee, setMarquee] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ink, setInk] = React.useState<[number, number][] | null>(null);
   // A wire that has just joined two parts: the wire draws itself on and

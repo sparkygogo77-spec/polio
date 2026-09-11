@@ -138,13 +138,19 @@ const shot = (sel) => page.locator(sel).first().evaluate((el) => el.toDataURL().
 {
   const cloud = () => page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
 
-  /* The clouds hold and the embers do not.
+  /* Nothing holds for a drag any more.
    *
-   * It used to be both, and that was wrong in the way that reads as broken:
-   * the whole ground stopping dead. What a pan competes with is a
-   * full-resolution pattern fill, not thirty one-pixel dots, so holding the
-   * embers bought nothing and cost the one thing that says the page is
-   * alive. The embers keep their own clock and never stop. */
+   * There was a pause: a flag on the root while the hand was down, and the
+   * ground stopped where it was. It was bought when the clouds were
+   * repainted every frame to move them, so a pan and a full-surface repaint
+   * wanted the same main thread. The field is painted once and slid on the
+   * compositor now, and a pan with the whole ground running measures inside
+   * budget at both sizes (`tests/pan-weather.mjs`), so the pause was paying a
+   * bill that no longer arrives. It is gone, and so is the flag that could
+   * go on and not come off — which is how the sparks got stuck still.
+   *
+   * The flag is set here anyway, on purpose: if anything ever starts reading
+   * it again, this fails. */
   await page.mouse.move(400, 400);
   await page.mouse.down();
   await page.evaluate(() => { document.documentElement.dataset.boardDrag = "1"; });
@@ -152,25 +158,8 @@ const shot = (sel) => page.locator(sel).first().evaluate((el) => el.toDataURL().
   const cloudA = await cloud();
   const sparkA = await shot("[data-ground-sparks]");
   await page.waitForTimeout(450);
-  const cloudB = await cloud();
-  const sparkB = await shot("[data-ground-sparks]");
-  check("the clouds hold still while the hand is down on the board", cloudA === cloudB);
-  check("but the embers never stop", sparkA !== sparkB);
-
-  await page.mouse.up();
-  await page.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
-  await page.waitForTimeout(250);
-  check("and the clouds start again when it lets go", (await cloud()) !== cloudB);
-
-  /* And a flag that never comes off is a hitch, not a dead ground. The cap
-     is six seconds; this waits past it with the flag still set and a pointer
-     still down, which is the state a lost pointerup leaves behind. */
-  await page.mouse.down();
-  await page.evaluate(() => { document.documentElement.dataset.boardDrag = "1"; });
-  await page.waitForTimeout(7000);
-  const stuckA = await cloud();
-  await page.waitForTimeout(600);
-  check("a pause that outstays its welcome ends by itself", (await cloud()) !== stuckA, "still flagged, still resumed");
+  check("the clouds drift on with the hand down", (await cloud()) !== cloudA);
+  check("and the embers burn on with it", (await shot("[data-ground-sparks]")) !== sparkA);
   await page.mouse.up();
   await page.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
 }
