@@ -29,17 +29,25 @@
  *  · **The sky does not move at all**, so it is not on a canvas that does:
  *    the ground gradient is one CSS `radial-gradient` on a div.
  *
- * **Why one canvas and not four.** A canvas each would let the layers keep
- * their own headings, which is prettier — the bloom where they cross would
- * go on shifting. It also needs `mix-blend-mode: screen` to put them back
- * together, and that is ruinous where there is no GPU. Measured on this
- * machine at 1440×900, at the screen's own rate: the ground hidden holds
- * 60fps with no late frame; four blended layers fall to 29fps; one blended
- * layer to 43fps; one unblended layer holds 60fps with none late. Blending a
- * window-sized layer is the expensive thing, not moving it. So the screening
- * is done inside the canvas, once, and what the compositor is given is one
- * plain texture to slide. `CloudLayer.carries` says which layer's speed the
- * field takes and what that costs.
+ * **One field at half resolution is a decision, not a default.** A canvas
+ * each would let the four layers keep their own headings and their own slow
+ * turns, which is the look this had before the speed pass and is prettier:
+ * the bloom where they cross goes on shifting. It was built, and it was
+ * measured, and on a machine with no GPU it holds 13.9fps against this
+ * one's 60. So the screening is done inside the canvas, once, and what the
+ * compositor is given is one plain texture to slide, with
+ * `CloudLayer.carries` naming the layer whose heading the field takes.
+ *
+ * That trade was put to J with the numbers and he chose this. The other one
+ * is not lost: it is at `docs/shelf/nebula-four-layers.patch` with the whole
+ * measurement beside it. Two things to know before touching any of this.
+ * The container these numbers came from **rasterises in software**, so they
+ * are a floor rather than a verdict — a graphics card may well hold 60 with
+ * four layers, and that is the condition under which the shelf gets opened.
+ * And the *original* held 60 only because its layer never moved: the canvas
+ * was repainted 2.4 times a second and its transform changed on 0 of 241
+ * frames. A frame rate about this ground is meaningless without the
+ * companion number, which is how many frames the layer moved on.
  *
  * The embers are untouched: their own canvas at the box's own size, thirty
  * times a second, which is what a streak needs. The drag pause is kept and

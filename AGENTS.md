@@ -1200,10 +1200,33 @@ a kicker with a rule, and label-and-value rows that copy.
   not the optimiser's. This is a standing rule, and it was written after the
   nebula pass below traded the cloud layers' independent headings for frames
   and did not say so plainly enough.
+- **The ground is deliberately one field at half resolution.** Not an
+  oversight and not a starting point: J was shown the numbers and chose it.
+  The four cloud layers are screened together into one canvas, that canvas is
+  slid on the compositor, and `CloudLayer.carries` names the one layer whose
+  heading the whole field takes. What it costs is the layers' independent
+  headings and their slow turns — the bloom where they cross no longer
+  shifts. The restoration that gives those back is built, measured and kept
+  at `docs/shelf/nebula-four-layers.patch`; it is on the shelf because it
+  cannot hold 60fps here, not because it is wrong. **Do not "fix" the ground
+  back to four layers without measuring on a machine with a graphics card
+  first.**
+- **The original only held 60 because its layer never moved.** Before the
+  speed pass the ground measured a clean 60fps with no late frame — and the
+  cloud canvas's transform changed on 0 of 241 frames, because the motion
+  came entirely from repainting the canvas 2.4 times a second. That is the
+  judder J called two fps. A frame-rate number about this ground means
+  nothing without the companion number: how many frames the layer actually
+  moved on.
+- **This container rasterises in software** (ANGLE/SwiftShader, confirmed
+  through `WEBGL_debug_renderer_info`), so every compositing measurement
+  taken here is a **floor, not a verdict**. Blending and large layers cost
+  real milliseconds here that a GPU does not charge for. Quote the numbers
+  with that caveat attached, and never conclude a design is unaffordable from
+  this box alone.
 - **What the nebula costs, measured, so the trade is on the record.** At
-  1440×900 in a production build on a machine with *no GPU* (SwiftShader —
-  every number here is a floor, not what hardware does), at the screen's own
-  rate:
+  1440×900 in a production build on that software-rasterising machine, at the
+  screen's own rate:
 
   | | board | timeline |
   |---|---|---|
@@ -1215,10 +1238,9 @@ a kicker with a rule, and label-and-value rows that copy.
   | one field, one heading, half resolution (what is here) | 60fps, 0 late | 59.8fps, 1 late |
 
   The cost is the number of window-sized layers the compositor samples every
-  frame; blending is free at full resolution and dear at half. The original
-  held 60 only because the nebula itself moved 2.4 times a second. Restoring
-  the four headings is a saved patch, not a lost one — ask before assuming
-  the version here is the one that was wanted.
+  frame; blending is free at full resolution and dear at half, and per-frame
+  rotation costs about a third on top. `docs/shelf/README.md` has the
+  decomposition and how to measure it again.
 - **The clouds move; they are not redrawn to move** (`ground.ts`). The
   workspace and the timeline stand on the same dark matter, and the way it
   travels is the rule: the whole cloud field is painted **once** onto a

@@ -1,0 +1,535 @@
+diff --git a/src/features/studio/darkMatter.ts b/src/features/studio/darkMatter.ts
+index cd02f09..53c1f7f 100644
+--- a/src/features/studio/darkMatter.ts
++++ b/src/features/studio/darkMatter.ts
+@@ -349,20 +349,6 @@ export interface CloudLayer {
+   dx: number;
+   dy: number;
+   alpha: number;
+-  /**
+-   * The one layer whose speed the whole field is moved at.
+-   *
+-   * Where the field is painted once and slid (`ground.ts`), the four layers
+-   * cannot each take their own heading: a canvas moves as one. So one of
+-   * them sets the pace and the rest ride it, and it is the near violet,
+-   * because that is the cloud you watch pass — the biggest, nearest and
+-   * strongest of the four. What is given up is the slow evolution the four
+-   * headings made between them, the bloom shifting where they cross. What
+-   * is bought is motion that is actually smooth. If anyone ever misses the
+-   * evolution it comes back as a cross-fade at each recycle, not as a
+-   * repaint rate.
+-   */
+-  carries?: true;
+ }
+ 
+ export const CLOUD_LAYERS: CloudLayer[] = [
+@@ -370,13 +356,34 @@ export const CLOUD_LAYERS: CloudLayer[] = [
+   { id: "far-violet", tile: "violet", scale: 2.8, turn: 0, spin: 0.2, dx: 0.5, dy: -0.25, alpha: 0.9 },
+   { id: "far-magenta", tile: "magenta", scale: 2.3, turn: 70, spin: -0.15, dx: -0.35, dy: 0.4, alpha: 0.7 },
+   // The near depth: cloud you can see pass, across in half a minute or so.
+-  { id: "near-violet", tile: "violet", scale: 0.95, turn: 30, spin: -0.8, dx: 7.5, dy: -2.5, alpha: 0.55, carries: true },
++  { id: "near-violet", tile: "violet", scale: 0.95, turn: 30, spin: -0.8, dx: 7.5, dy: -2.5, alpha: 0.55 },
+   { id: "near-magenta", tile: "magenta", scale: 0.75, turn: 150, spin: 0.6, dx: 5.5, dy: 3.5, alpha: 0.45 },
+ ];
+ 
+-/** How fast the whole field goes, in screen pixels a second. */
+-export function fieldDrift(): { vx: number; vy: number } {
+-  return cloudDrift(CLOUD_LAYERS.find((l) => l.carries) ?? CLOUD_LAYERS[CLOUD_LAYERS.length - 1]!);
++/**
++ * Where a layer has travelled by second `t`, in screen pixels.
++ *
++ * Its own `dx, dy` are tile pixels and are applied *after* the turn and the
++ * scale, so the direction you see is the drawn direction turned by whatever
++ * the turn is at that moment, and the distance is it scaled. The turn is
++ * itself moving, which is why this takes a time rather than being a
++ * constant velocity.
++ */
++export function cloudTravel(l: CloudLayer, t: number): { x: number; y: number } {
++  const a = ((l.turn + l.spin * t) * Math.PI) / 180;
++  const cos = Math.cos(a);
++  const sin = Math.sin(a);
++  const dx = l.dx * t;
++  const dy = l.dy * t;
++  return { x: l.scale * (dx * cos - dy * sin), y: l.scale * (dx * sin + dy * cos) };
++}
++
++/** How fast a layer goes at the start, for sizing the material it needs. */
++export function cloudSpeed(l: CloudLayer): number {
++  const a = (l.turn * Math.PI) / 180;
++  const x = l.scale * (l.dx * Math.cos(a) - l.dy * Math.sin(a));
++  const y = l.scale * (l.dx * Math.sin(a) + l.dy * Math.cos(a));
++  return Math.hypot(x, y);
+ }
+ 
+ /**
+@@ -395,52 +402,30 @@ export function cloudDrift(l: CloudLayer): { vx: number; vy: number } {
+ }
+ 
+ /**
+- * The whole cloud field, on a transparent canvas, placed as though the drift
+- * had carried it `ox, oy` screen pixels.
++ * One cloud layer, alone on a transparent canvas, laid exactly as
++ * `paintDarkMatter` lays it: the same tile, the same scale, turned `turn`
++ * degrees about the middle and shifted `dx, dy` tile pixels.
+  *
+- * The offset is taken back through the turn and the scale because a
+- * pattern's own translate happens after both. The four layers are screened
+- * together here rather than by the compositor: `mix-blend-mode` on a layer
+- * the size of a window costs half the frame rate on a machine with no GPU —
+- * measured, 60fps down to 43 for one layer — and over a ground this dark
+- * screening onto it and compositing onto it differ by about a percent.
+- * Between the layers, where it is worth something, it is exact.
++ * This is the whole of what a recycle does. Between recycles the layer is
++ * turned and moved by the compositor, which is why the turn and the shift
++ * are arguments rather than being worked out from a clock in here.
+  */
+-export function paintCloudField(
++export function paintCloudLayer(
+   c: CanvasRenderingContext2D,
+-  layers: CloudLayer[],
+-  /**
+-   * `from` is where these layers sit in the whole stack, so the field can be
+-   * laid one layer to a frame: the bottom one clears and the rest screen
+-   * over what is already there.
+-   */
+-  opts: { w: number; h: number; dim?: number; ox?: number; oy?: number; from?: number },
++  layer: CloudLayer,
++  opts: { w: number; h: number; dim?: number; turn: number; dx: number; dy: number },
+ ) {
+   const { w, h } = opts;
+   const dim = opts.dim ?? 1;
+-  const ox = opts.ox ?? 0;
+-  const oy = opts.oy ?? 0;
+-  const from = opts.from ?? 0;
+   const T = darkMatterTiles();
+-  if (!from) c.clearRect(0, 0, w, h);
+-  for (let i = 0; i < layers.length; i++) {
+-    const layer = layers[i]!;
+-    const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
+-    if (!p) continue;
+-    const a = (layer.turn * Math.PI) / 180;
+-    const cos = Math.cos(a);
+-    const sin = Math.sin(a);
+-    const k = 1 / layer.scale;
+-    const dx = k * (ox * cos + oy * sin);
+-    const dy = k * (-ox * sin + oy * cos);
+-    p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(layer.turn).scale(layer.scale).translate(dx, dy));
+-    c.globalAlpha = layer.alpha * dim;
+-    c.globalCompositeOperation = i + from ? "screen" : "source-over";
+-    c.fillStyle = p;
+-    c.fillRect(0, 0, w, h);
+-  }
++  c.clearRect(0, 0, w, h);
++  const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
++  if (!p) return;
++  p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(opts.turn).scale(layer.scale).translate(opts.dx, opts.dy));
++  c.globalAlpha = layer.alpha * dim;
++  c.fillStyle = p;
++  c.fillRect(0, 0, w, h);
+   c.globalAlpha = 1;
+-  c.globalCompositeOperation = "source-over";
+ }
+ 
+ /**
+@@ -470,14 +455,13 @@ export interface PaintOptions {
+   /**
+    * Which half to draw.
+    *
+-   * The clouds are two full-surface pattern fills, rotated and screened —
+-   * the expensive half, and the half that barely changes: the near cloud
+-   * crosses in half a minute and the far one turns once in half an hour. The
+-   * embers are a few dozen one-pixel streaks, and they are what has to be
+-   * drawn thirty times a second. Painting them onto separate canvases means
+-   * the cheap half can run at thirty and the dear half at two, instead of
+-   * both at thirty. "all" is the old behaviour, and is what a surface that
+-   * is drawn once (a screenshot, the reduced-motion still) wants.
++   * The clouds are four full-surface pattern fills, rotated and screened.
++   * The embers are a few dozen one-pixel streaks. They are separated because
++   * the ground (`ground.ts`) gives each cloud layer a canvas it slides on
++   * the compositor and repaints almost never, while the embers are repainted
++   * thirty times a second — two quite different lives on one surface. "all"
++   * is what a surface drawn once wants: the disc, a screenshot, the
++   * reduced-motion still.
+    */
+   layers?: "all" | "clouds" | "sparks";
+   /** Seconds since this surface was born. */
+diff --git a/src/features/studio/ground.ts b/src/features/studio/ground.ts
+index 031c729..f0f3044 100644
+--- a/src/features/studio/ground.ts
++++ b/src/features/studio/ground.ts
+@@ -3,101 +3,116 @@
+  * The weather, and the difference between moving and being redrawn.
+  *
+  * Both the workspace behind the page and the timeline's own floor stand on
+- * the same dark matter, and both used to *repaint* it to move it: the clouds
+- * every 420ms onto a half-resolution canvas, the embers thirty times a
+- * second. The page loop was never the problem — measured on the live Builder
+- * it ran at 385fps with a 1.4ms median — but the cloud layer's own content
+- * changed 2.5 times a second, and 2.5 times a second is what an eye reads as
+- * the nebula's frame rate. Slow motion redrawn that rarely judders, which is
+- * worse than the hitch it was meant to cure.
++ * the same dark matter, and both used to *repaint* it to move it: the whole
++ * cloud field every 420ms onto a half-resolution canvas, the embers thirty
++ * times a second. The page loop was never the problem — measured on the live
++ * Builder it ran at 385fps with a 1.4ms median — but the cloud layer's own
++ * content changed 2.4 times a second, and 2.4 times a second is what an eye
++ * reads as the nebula's frame rate. Slow motion redrawn that rarely judders.
+  *
+- * So the clouds are not redrawn to move any more. They move.
++ * So the clouds are not redrawn to move any more. They move — and nothing
++ * about how they look was traded for it:
+  *
+- *  · **One field, painted bigger than the box.** All four cloud layers
+- *    (`CLOUD_LAYERS`) are screened together onto one canvas, oversized by a
+- *    margin holding about a dozen seconds of drift — small, because the
+- *    compositor pays for the layer's size every frame and a recycle costs
+- *    four frames of one pattern fill every twelve seconds.
+- *  · **A transform every frame.** `translate3d`, which the compositor does
+- *    without touching the page: no layout, no paint, no main-thread raster.
+- *  · **A repaint only when the material runs out** — or on a resize, or when
+- *    the distance changes. The offset the paint bakes in is snapped to a
+- *    whole backing pixel and the transform hands back the remainder, so a
+- *    recycle is the same pixels in the same place and there is nothing to
+- *    see. It is laid one layer to a frame, so the one moment this file does
+- *    real work still fits inside a frame.
+- *  · **The sky does not move at all**, so it is not on a canvas that does:
+- *    the ground gradient is one CSS `radial-gradient` on a div.
+- *
+- * **Why one canvas and not four.** A canvas each would let the layers keep
+- * their own headings, which is prettier — the bloom where they cross would
+- * go on shifting. It also needs `mix-blend-mode: screen` to put them back
+- * together, and that is ruinous where there is no GPU. Measured on this
+- * machine at 1440×900, at the screen's own rate: the ground hidden holds
+- * 60fps with no late frame; four blended layers fall to 29fps; one blended
+- * layer to 43fps; one unblended layer holds 60fps with none late. Blending a
+- * window-sized layer is the expensive thing, not moving it. So the screening
+- * is done inside the canvas, once, and what the compositor is given is one
+- * plain texture to slide. `CloudLayer.carries` says which layer's speed the
+- * field takes and what that costs.
++ *  · **Four layers, as there have always been four.** Each of
++ *    `CLOUD_LAYERS` gets a canvas of its own, so each keeps its own
++ *    heading, its own speed and its own slow turn. The near cloud still
++ *    passes the far one, the two near tiles still counter-drift, and the
++ *    bloom where they cross still shifts.
++ *  · **Full resolution.** The backing store is a pixel a pixel. The clouds
++ *    were drawn at half size to make a repaint fit inside a frame; there is
++ *    no repaint to fit inside a frame any more, so there is no reason to.
++ *  · **Screened together, as they were.** `mix-blend-mode: screen` over a
++ *    sky that is the same radial gradient, painted by the compositor instead
++ *    of by us. The arithmetic is the compositing spec's `screen`, which is
++ *    what `globalCompositeOperation` was doing.
++ *  · **Moved on the compositor.** `translate3d` for the drift and `rotate`
++ *    for the turn, every frame, which the compositor does without touching
++ *    the page.
++ *  · **Repainted only when the material runs out** — or on a resize, or when
++ *    the distance changes. A recycle re-lays that one layer with the turn
++ *    and the drift it had reached baked in and the transform reset, so it is
++ *    the same pixels in the same place and there is nothing to see.
+  *
+  * The embers are untouched: their own canvas at the box's own size, thirty
+  * times a second, which is what a streak needs. The drag pause is kept and
+  * is now a held clock rather than a skipped frame, so letting go of the
+  * board no longer jumps the weather forward by however long the drag was.
++ *
++ * **What this costs.** Four window-sized layers blended by the compositor
++ * every frame. On hardware that is the compositor's day job. On a machine
++ * with no GPU it is a great deal of fill, and `tests/board-layout.mjs`
++ * measures it rather than assuming it.
+  */
+ import * as React from "react";
+ import {
+   CLOUD_LAYERS,
++  cloudSpeed,
++  cloudTravel,
+   DRIFT_MS,
+-  fieldDrift,
+-  paintCloudField,
++  paintCloudLayer,
+   paintDarkMatter,
+   resizeField,
+   skyGradient,
+   sparkField,
++  type CloudLayer,
+   type SparkField,
+ } from "./darkMatter";
+ 
+ /** How often the embers are redrawn. */
+ export const SPARK_MS = DRIFT_MS;
+ 
+-/** The clouds' backing store, as a share of the box. Soft things do not need pixels. */
+-const CLOUD_SCALE = 0.5;
++/**
++ * The clouds' backing store, as a share of the box.
++ *
++ * One means a pixel a pixel. The clouds were drawn at half size once, to
++ * make a whole repaint fit inside a frame; there is no whole repaint any
++ * more, so that reason is gone. What replaces it is the compositor: it
++ * samples every one of these layers every frame, and on a machine with no
++ * GPU that is memory bandwidth rather than arithmetic. Measured at
++ * 1440×900, four layers, at the screen's own rate: full size 14fps, half
++ * size 29fps, no clouds at all 59fps. This is the one number in this file
++ * that anybody can see, so it does not move without J saying so.
++ */
++const CLOUD_SCALE = 1;
+ 
+ /**
+- * How long the painted material should last before the field needs more.
++ * How long a layer's material should last before it needs more.
+  *
+- * Raising it costs compositing: the canvas is oversized by the field's own
+- * speed times this, and the compositor samples the whole layer every frame,
+- * so forty seconds of a 7.4px/s cloud is 300px of margin each way and
+- * measurably more late frames on a machine with no GPU. Lowering it costs
+- * only how often the recycle runs — four frames of one pattern fill — and a
+- * recycle cannot be seen. So it is set low: a dozen seconds of material, and
+- * a recycle nobody will ever notice.
++ * Raising it costs memory and compositing — the canvas is oversized by the
++ * layer's own speed times this, and the compositor samples the whole layer
++ * every frame. Lowering it costs how often a recycle runs, and a recycle is
++ * one pattern fill that cannot be seen.
+  */
+-const REFRESH_S = 12;
+-/** A little room either way even on an axis that barely moves, for a resize. */
++const REFRESH_S = 14;
++/** A little room either way even for a layer that barely moves, for a resize. */
+ const MARGIN_MIN = 48;
+-/** And no more room than this, whatever the arithmetic says. */
+-const MARGIN_MAX = 320;
+-
+-/** How much material one axis needs, in CSS pixels, for a field going this fast. */
+-export function marginFor(v: number): number {
+-  return Math.round(Math.max(MARGIN_MIN, Math.min(MARGIN_MAX, Math.abs(v) * REFRESH_S)));
+-}
++/** How far a layer may turn before it is laid again, in degrees. */
++const TURN_MAX = 5;
+ 
+-/** How long that material lasts, in seconds. For the tests, and for the comment above. */
+-export function refreshEvery(): number {
+-  const { vx, vy } = fieldDrift();
+-  const x = Math.abs(vx) > 0.001 ? marginFor(vx) / Math.abs(vx) : Infinity;
+-  const y = Math.abs(vy) > 0.001 ? marginFor(vy) / Math.abs(vy) : Infinity;
+-  return Math.min(x, y);
++/** How much material a layer needs past the box's edge, in CSS pixels. */
++export function marginFor(l: CloudLayer, w: number, h: number): number {
++  const drift = cloudSpeed(l) * REFRESH_S;
++  // Turning sweeps the corners in: enough that the box stays covered at the
++  // most this layer will have turned before it is laid again.
++  const sweep = Math.hypot(w, h) / 2 * Math.sin((TURN_MAX * Math.PI) / 180);
++  return Math.round(Math.max(MARGIN_MIN, drift) + sweep);
+ }
+ 
+ /** True while the hand is down on the board: the weather holds where it is. */
+ const dragging = () => typeof document !== "undefined" && document.documentElement.dataset.boardDrag === "1";
+ 
++/** One layer's canvas, and where its paint and its transform each stand. */
++interface Live {
++  el: HTMLCanvasElement;
++  def: CloudLayer;
++  /** How far past the box this one reaches. */
++  m: number;
++  /** The moment the paint has baked in. */
++  at: number;
++  /** What the transform is showing, so an unchanged one is not written again. */
++  said: string;
++}
++
+ export function useGround(
+   host: React.RefObject<HTMLDivElement | null>,
+   clouds: React.RefObject<HTMLDivElement | null>,
+@@ -112,22 +127,22 @@ export function useGround(
+     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+ 
+     /* The sky: the half of the weather that never moves, so it is not on a
+-       canvas at all. */
++       canvas at all. `isolate` keeps the screening inside this box rather
++       than reaching the app behind it. */
+     holder.replaceChildren();
++    holder.style.isolation = "isolate";
+     const sky = document.createElement("div");
+     sky.dataset.groundSky = "";
+     sky.style.cssText = `position:absolute;inset:0;background:${skyGradient(dim)};`;
+     holder.appendChild(sky);
+ 
+-    /* The field: one canvas, one texture, one thing to slide. */
+-    const field = document.createElement("canvas");
+-    field.dataset.cloudLayer = "field";
+-    field.style.cssText = "position:absolute;will-change:transform;";
+-    holder.appendChild(field);
+-
+-    const { vx, vy } = fieldDrift();
+-    const mx = marginFor(vx);
+-    const my = marginFor(vy);
++    const layers: Live[] = CLOUD_LAYERS.map((def) => {
++      const el = document.createElement("canvas");
++      el.dataset.cloudLayer = def.id;
++      el.style.cssText = "position:absolute;mix-blend-mode:screen;will-change:transform;transform-origin:50% 50%;";
++      holder.appendChild(el);
++      return { el, def, m: 0, at: 0, said: "" };
++    });
+ 
+     const embersField: { current: SparkField | null } = { current: null };
+     let size = { w: 0, h: 0 };
+@@ -136,40 +151,42 @@ export function useGround(
+     let clock = 0;
+     let last = performance.now();
+     let nextSpark = 0;
+-    /** The drift the paint has baked in, and the drift the transform is showing. */
+-    let ox = 0;
+-    let oy = 0;
+-    let tx = NaN;
+-    let ty = NaN;
+-    /** A recycle in flight: what it is painting to, and which layer is next. */
+-    let laying: { ox: number; oy: number; next: number } | null = null;
++    /** Layers waiting to be laid again, one to a frame. */
++    const queue: Live[] = [];
+ 
+-    /** A whole backing pixel, so a recycle lands exactly where the transform had it. */
+-    const snap = (v: number) => Math.round(v * CLOUD_SCALE) / CLOUD_SCALE;
+-
+-    const lay = (layers: typeof CLOUD_LAYERS, atX: number, atY: number, from: number) => {
+-      const c = field.getContext("2d");
++    const lay = (l: Live, at: number) => {
++      const c = l.el.getContext("2d");
+       if (!c) return;
+       c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
+-      paintCloudField(c, layers, { w: size.w + mx * 2, h: size.h + my * 2, dim, ox: atX, oy: atY, from });
++      paintCloudLayer(c, l.def, {
++        w: size.w + l.m * 2,
++        h: size.h + l.m * 2,
++        dim,
++        turn: l.def.turn + l.def.spin * at,
++        dx: l.def.dx * at,
++        dy: l.def.dy * at,
++      });
+       c.setTransform(1, 0, 0, 1, 0, 0);
++      l.at = at;
+     };
+ 
+-    /** The whole field at once: the first paint, a resize, and reduced motion. */
+-    const paintAll = (atX: number, atY: number) => {
+-      lay(CLOUD_LAYERS, atX, atY, 0);
+-      ox = atX;
+-      oy = atY;
+-      laying = null;
++    /** Where the compositor has to carry this layer to, from where it was laid. */
++    const move = (l: Live, force = false) => {
++      const now = cloudTravel(l.def, clock);
++      const then = cloudTravel(l.def, l.at);
++      const turn = l.def.spin * (clock - l.at);
++      const said = `translate3d(${(now.x - then.x).toFixed(3)}px, ${(now.y - then.y).toFixed(3)}px, 0) rotate(${turn.toFixed(4)}deg)`;
++      if (!force && said === l.said) return;
++      l.el.style.transform = said;
++      l.said = said;
+     };
+ 
+-    const move = (force = false) => {
+-      const x = vx * clock - ox;
+-      const y = vy * clock - oy;
+-      if (!force && x === tx && y === ty) return;
+-      field.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+-      tx = x;
+-      ty = y;
++    /** Has this layer run out of the material it was laid with? */
++    const spent = (l: Live) => {
++      const now = cloudTravel(l.def, clock);
++      const then = cloudTravel(l.def, l.at);
++      return Math.hypot(now.x - then.x, now.y - then.y) >= l.m - MARGIN_MIN
++        || Math.abs(l.def.spin * (clock - l.at)) >= TURN_MAX;
+     };
+ 
+     const fit = () => {
+@@ -182,19 +199,29 @@ export function useGround(
+       sp.height = h;
+       sp.style.width = `${w}px`;
+       sp.style.height = `${h}px`;
+-      const cw = w + mx * 2;
+-      const ch = h + my * 2;
+-      // Drawn small and blown up: the sharpest edge in a cloud is a gradient.
+-      field.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
+-      field.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
+-      field.style.width = `${cw}px`;
+-      field.style.height = `${ch}px`;
+-      field.style.left = `${-mx}px`;
+-      field.style.top = `${-my}px`;
++      for (const l of layers) {
++        l.m = marginFor(l.def, w, h);
++        const cw = w + l.m * 2;
++        const ch = h + l.m * 2;
++        l.el.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
++        l.el.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
++        l.el.style.width = `${cw}px`;
++        l.el.style.height = `${ch}px`;
++        l.el.style.left = `${-l.m}px`;
++        l.el.style.top = `${-l.m}px`;
++      }
+       embersField.current = embersField.current ? resizeField(embersField.current, w, h) : sparkField("ground", w, h);
+       return true;
+     };
+ 
++    const layAll = () => {
++      queue.length = 0;
++      for (const l of layers) {
++        lay(l, clock);
++        move(l, true);
++      }
++    };
++
+     const embers = () => {
+       const c = sp.getContext("2d");
+       if (!c || !embersField.current) return;
+@@ -202,13 +229,12 @@ export function useGround(
+     };
+ 
+     fit();
+-    paintAll(0, 0);
+-    move(true);
++    layAll();
+     embers();
+ 
+     if (still) {
+       // One frame, and then the weather holds.
+-      const ro = new ResizeObserver(() => { if (fit()) { paintAll(ox, oy); move(true); embers(); } });
++      const ro = new ResizeObserver(() => { if (fit()) { layAll(); embers(); } });
+       ro.observe(box);
+       return () => {
+         ro.disconnect();
+@@ -225,21 +251,16 @@ export function useGround(
+       if (document.hidden || dragging()) return;
+       clock += dt;
+ 
+-      if (laying) {
+-        // A recycle in flight: one layer a frame.
+-        lay([CLOUD_LAYERS[laying.next]!], laying.ox, laying.oy, laying.next);
+-        laying.next++;
+-        if (laying.next >= CLOUD_LAYERS.length) {
+-          ox = laying.ox;
+-          oy = laying.oy;
+-          laying = null;
+-        }
+-      } else if (Math.abs(vx * clock - ox) >= mx || Math.abs(vy * clock - oy) >= my) {
+-        // Out of material on one axis. The same field is laid again with the
+-        // drift so far baked in, and the transform hands back the remainder.
+-        laying = { ox: snap(vx * clock), oy: snap(vy * clock), next: 0 };
++      // One recycle to a frame, so the only expensive moment in this file
++      // never doubles up.
++      const due = queue.shift();
++      if (due) {
++        lay(due, clock);
++        move(due, true);
++      } else {
++        for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
+       }
+-      move();
++      for (const l of layers) if (l !== due) move(l);
+ 
+       if (clock >= nextSpark) {
+         nextSpark = clock + SPARK_MS / 1000;
+@@ -248,7 +269,7 @@ export function useGround(
+     };
+     raf = requestAnimationFrame(tick);
+ 
+-    const ro = new ResizeObserver(() => { if (fit()) { paintAll(snap(vx * clock), snap(vy * clock)); move(true); embers(); } });
++    const ro = new ResizeObserver(() => { if (fit()) { layAll(); embers(); } });
+     ro.observe(box);
+     return () => {
+       cancelAnimationFrame(raf);
