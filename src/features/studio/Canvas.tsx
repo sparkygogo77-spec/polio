@@ -21,6 +21,7 @@ import { describeSketch } from "./sketch";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal, Scissors, Sparkles, Ungroup } from "lucide-react";
 import { inkGroups, nearestTo, type InkGroup } from "./inkGroups";
+import { CORNERS, handlePoints } from "./outlineHandles";
 import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
@@ -531,6 +532,9 @@ export function Canvas() {
       frameWidth,
       sketch: drawn,
       picture: pictureOf(strokes),
+      // The size it was drawn at, so the part lands there rather than
+      // filling the frame: the strokes above are fractions of this box.
+      drawn: { w: b.w, h: b.h },
       label: `Making ${drawn.words.slice(0, 40) || describeSketch({ strokes, words: "" })}`,
     });
     useStudio.getState().removeShapes(group.strokeIds);
@@ -1219,6 +1223,12 @@ const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason
  * edge is a bar you can take hold of anywhere along it, drawn thin so it
  * reads as the part's outline rather than as a frame round it.
  */
+/** Which way each handle pulls, for a handle that is not on a corner of the box. */
+const HANDLE_CURSOR: Record<string, string> = {
+  nw: "nwse-resize", n: "ns-resize", ne: "nesw-resize", e: "ew-resize",
+  se: "nwse-resize", s: "ns-resize", sw: "nesw-resize", w: "ew-resize",
+};
+
 const HANDLES: { h: Handle; cls: string; bar?: boolean }[] = [
   { h: "nw", cls: "-left-1 -top-1 cursor-nwse-resize" },
   { h: "n", cls: "left-2 right-2 -top-[3px] h-[6px] cursor-ns-resize", bar: true },
@@ -1296,6 +1306,15 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
   const Icon = feature?.icon;
   const hasPrompt = node.prompt.trim().length > 0;
   const chipScale = Math.max(1, 1 / zoom);
+  /*
+   * A part cut to a drawn line is marked along that line.
+   *
+   * The clip has been on the node for a while; the selection was still a
+   * square, so picking up a diagonal drew a box with a lot of empty corners.
+   * The same path the crop uses is walked for the mark and for where the
+   * handles sit, so the two can never disagree.
+   */
+  const hugs = React.useMemo(() => (node.outline?.cut ? handlePoints(node.outline.cut) : null), [node.outline?.cut]);
 
   return (
     <div
@@ -1367,8 +1386,8 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
           borderRadius: liftRadius,
           // Thin, and *inside* the part: the aura's own hairline sits on the
           // edge, so a mark drawn there would cover the thing being edited.
-          outline: selected ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",
-          outlineOffset: selected ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
+          outline: selected && !hugs ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",
+          outlineOffset: selected && !hugs ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
         }}
       >
         <Block
@@ -1388,6 +1407,25 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
           emit={(e) => { if (e.type === "cube") useStudio.getState().setCubeTurn(node.id, e.turn); }}
         />
       </div>
+      {/* The mark along the drawn edge, in place of the box. */}
+      {selected && hugs && node.outline ? (
+        <svg
+          data-outline-mark={node.id}
+          aria-hidden
+          viewBox="0 0 1 1"
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 size-full overflow-visible"
+        >
+          <path
+            d={node.outline.cut}
+            fill="none"
+            stroke={mark}
+            strokeWidth={1.5 / zoom}
+            vectorEffect="non-scaling-stroke"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : null}
       {/*
         Hover outline, so an unpicked part still reads as a part, and only
         then. It is drawn in the part's *category* hue, which on a first-screen
@@ -1424,16 +1462,34 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       </div>
 
       {selected && !node.locked
-        ? HANDLES.map(({ h, cls, bar }) => (
-            <span
-              key={h}
-              data-resize={h}
-              className={cn("absolute", bar ? "rounded-[3px] hover:bg-(--mark)/35" : "size-2 rounded-[2px] border bg-panel", cls)}
-              style={bar
-                ? ({ "--mark": mark } as React.CSSProperties)
-                : { transform: `scale(${chipScale})`, borderColor: mark }}
-            />
-          ))
+        ? hugs
+          // On the path's own extremes: on a diagonal the two corner handles
+          // land on the two ends of the line and the rest sit on its sides.
+          ? CORNERS.map((h) => (
+              <span
+                key={h}
+                data-resize={h}
+                data-on-outline=""
+                className="absolute size-2 rounded-[2px] border bg-panel"
+                style={{
+                  left: `${hugs[h][0] * 100}%`,
+                  top: `${hugs[h][1] * 100}%`,
+                  transform: `translate(-50%, -50%) scale(${chipScale})`,
+                  borderColor: mark,
+                  cursor: HANDLE_CURSOR[h],
+                }}
+              />
+            ))
+          : HANDLES.map(({ h, cls, bar }) => (
+              <span
+                key={h}
+                data-resize={h}
+                className={cn("absolute", bar ? "rounded-[3px] hover:bg-(--mark)/35" : "size-2 rounded-[2px] border bg-panel", cls)}
+                style={bar
+                  ? ({ "--mark": mark } as React.CSSProperties)
+                  : { transform: `scale(${chipScale})`, borderColor: mark }}
+              />
+            ))
         : null}
       {selected && !node.locked ? <FillTab node={node} chipScale={chipScale} /> : null}
     </div>

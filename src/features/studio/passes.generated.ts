@@ -2,14 +2,26 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-11T22:34:51.261Z";
+export const GENERATED_AT = "2026-09-11T22:49:31.669Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "d6944aa",
-    "when": "2026-09-11T22:32:37+00:00",
+    "id": "acb3546",
+    "when": "2026-09-11T22:49:14+00:00",
     "day": "11 September",
     "changes": [
+      {
+        "id": "a14f802",
+        "says": "Read the history again after the merge",
+        "when": "2026-09-11T22:35:13+00:00",
+        "detail": [
+          "`npm run passes` after a merge, which is the whole rule: the generated file is the deployed build's only way to know what landed, because there is no .git out there to read. The merge itself is now a pass and the panel says so."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "d6944aa",
         "says": "Updates is a slide over, read out of the history rather than written",
@@ -32,33 +44,68 @@ export const PASSES: Pass[] = [
     "more": 0
   },
   {
-    "id": "ec2d8d8",
-    "when": "2026-09-11T22:16:37+00:00",
+    "id": "8d214b2",
+    "when": "2026-09-11T22:27:18+00:00",
     "day": "11 September",
     "changes": [
       {
-        "id": "587729f",
-        "says": "The ground never stops, and the drag pause is gone",
-        "when": "2026-09-11T21:32:05+00:00",
+        "id": "bcde343",
+        "says": "Write down which layer a seam shows on first, and why",
+        "when": "2026-09-11T22:27:07+00:00",
         "detail": [
-          "The pause was bought when the clouds were repainted on every frame to move them: a pan and a full-surface repaint wanted the same main thread. The field is painted once and slid on the compositor now, so a drifting cloud costs a transform write, and the bill stopped arriving.",
-          "Measured rather than assumed, with the whole ground running through a real pan, three runs. At a pane's size p50 3.9-4.1ms, p95 5.6-6.0ms, max 11-13.7ms. At 1440p p50 9.6-10.2ms, p95 13.5-17.5ms, max 29.8-97.6ms, the high max being a recycle landing inside the pan, which is the only cost left. The run with the pause still in was no better: p95 17ms and 41.5ms, max 36.7ms and 128.8ms. No layer needed keeping, so none was kept.",
-          "That also takes out the flag that could go on and not come off, which is how the sparks got stuck still, so the two fixes are one. Nothing reads or writes data-board-drag now; board-speed sets it anyway so that if anything ever starts reading it again the suite says so.",
-          "tests/pan-weather.mjs is the measurement, and it checks the clouds and the embers are both genuinely moving during the pan — a pan that measures well because the ground quietly stopped is the thing being tested for."
+          "near-violet spins fastest at 0.8 degrees a second, so it is laid again every 12.5s where the far layers take 50s and 67s. That makes it the canary for any seam and the one that gets reported — not a special case. One code path for all four layers, both tiles the same 256px."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "3a86d12",
+    "when": "2026-09-11T22:27:00+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "2374fd9",
+        "says": "Prove the seam in pixels, not only in arithmetic",
+        "when": "2026-09-11T22:26:49+00:00",
+        "detail": [
+          "The position check reads the transform and works out where a layer is. It would pass even if the paint itself came back different, so ground-seam now also samples what is actually painted under a fixed point on screen: for a grid of points it runs the transform backwards to find the pixel of the layer's own bitmap under each, and compares consecutive samples. Over ninety seconds at 1440p, fourteen layings, every one of them resetting a transform:",
+          "far-violet     0.000px   pixels 1.22 at a laying vs 4.09 quiet far-magenta    0.000px   pixels 7.56 at a laying vs 13.94 quiet near-violet    0.000px   pixels 9.30 at a laying vs 12.17 quiet near-magenta   0.014px   pixels 7.81 at a laying vs 17.47 quiet",
+          "Being laid again changes the picture less than an ordinary frame does.",
+          "near-violet is the layer a seam shows on first, and the one being reported: its spin is the largest, so it is laid every 12.5s where the far layers take 50s and 67s. There is no reset of its own and no different tile — one code path for all four, both tiles 256px. It is the canary, not a special case."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "4c4aac9",
+        "says": "The ground's reset was the rotation turning the paint's own offset",
+        "when": "2026-09-11T22:10:53+00:00",
+        "detail": [
+          "A layer is painted with the drift so far baked into the pattern and carried the rest of the way by transform: translate3d(d) rotate(t). That is the matrix T*R, so the rotation turns the baked offset too. The layer sat at R(t)*laid + d when it should have sat at travel(now), and the error, (R(t) - I)*laid, grew with the drift and the angle together and snapped to nothing the next time the layer was laid. Measured at 32px on near-violet.",
+          "It read as irregular rather than as a cycle because a layer is laid again on either of two triggers, drift exhausting its margin or the turn passing its limit, and the two periods beat against each other — which is exactly the two periods measured off the deploy.",
+          "carry() turns the baked offset by the same angle and subtracts it. The layer then sits at travel(now) at every instant, whatever it was laid with, and being laid again changes nothing anybody can see. spent() measures the same carried distance, since that is what runs off the edge of the paint.",
+          "Sampling transforms cannot settle this: a transform jumping to zero at a laying is the mechanism working, not failing — the paint takes the offset and the transform gives up exactly what the paint took. What has to be continuous is R(t)*laid + d, the layer's actual position, and tests/ground-seam.mjs watches that on all four layers for sixty seconds. Worst step at a laying, settled: 0.000px, against a quiet-frame noise floor of 0.7px. With the subtraction reverted the same test reports 31.975px, so it catches the bug it was written for. data-laid-at exists only so that position can be worked out from outside."
         ],
         "areas": [
           "docs",
           "studio",
           "tests"
         ],
-        "kind": "fixed"
+        "kind": "new"
       }
     ],
     "more": 0
   },
   {
-    "id": "f6c38d5",
-    "when": "2026-09-11T21:53:53+00:00",
+    "id": "1e32f4f",
+    "when": "2026-09-11T22:05:57+00:00",
     "day": "11 September",
     "changes": [
       {
@@ -91,6 +138,31 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "80b8e2a",
+    "when": "2026-09-11T21:45:22+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "587729f",
+        "says": "The ground never stops, and the drag pause is gone",
+        "when": "2026-09-11T21:32:05+00:00",
+        "detail": [
+          "The pause was bought when the clouds were repainted on every frame to move them: a pan and a full-surface repaint wanted the same main thread. The field is painted once and slid on the compositor now, so a drifting cloud costs a transform write, and the bill stopped arriving.",
+          "Measured rather than assumed, with the whole ground running through a real pan, three runs. At a pane's size p50 3.9-4.1ms, p95 5.6-6.0ms, max 11-13.7ms. At 1440p p50 9.6-10.2ms, p95 13.5-17.5ms, max 29.8-97.6ms, the high max being a recycle landing inside the pan, which is the only cost left. The run with the pause still in was no better: p95 17ms and 41.5ms, max 36.7ms and 128.8ms. No layer needed keeping, so none was kept.",
+          "That also takes out the flag that could go on and not come off, which is how the sparks got stuck still, so the two fixes are one. Nothing reads or writes data-board-drag now; board-speed sets it anyway so that if anything ever starts reading it again the suite says so.",
+          "tests/pan-weather.mjs is the measurement, and it checks the clouds and the embers are both genuinely moving during the pan — a pan that measures well because the ground quietly stopped is the thing being tested for."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "fixed"
       }
     ],
     "more": 0
@@ -746,87 +818,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "core",
           "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "be2edee",
-    "when": "2026-09-11T01:31:34+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "4435664",
-        "says": "The board keeps up with the hand",
-        "when": "2026-09-11T01:20:22+00:00",
-        "detail": [
-          "Profiled both gestures J called laggy, with rAF deltas under an uncapped vsync. Panning: p50 16.0ms, p95 46.9ms, max 65.4ms, 135 frames of 464 over 33ms — 55fps with a stutter in every third frame. Dragging the sun: p95 43.2ms, max 130.2ms, 14 frames of 169 over 33ms.",
-          "Two causes, two fixes.",
-          "**The ground repainted thirty times a second, always.** Four full-surface pattern fills and a cast of embers, on a clock of its own, including while every part on the board was being dragged under the hand. The clouds and the embers are separate canvases now (`layers: \"clouds\" | \"sparks\"`): the embers keep thirty a second, the clouds drift at two — they move by about a pixel a second and nobody has ever seen them do it faster — and both hold still while `data-board-drag` is on the root. Nothing about the sky reads differently.",
-          "**Moving the lamp re-rendered the board.** Every pointermove wrote the light to the store twice, and every write re-rendered every part so each could recompute its own shadow from the new position. Nothing about a shadow needs React: `liftTheme` now hands parts `var(--lift-shadow, <the shadow>)` — the fallback is exactly what it used to hand them, so an undragged board is unchanged — and `lightRig.ts` sets the variable on each part's box during a drag. One pass per animation frame however fast the hand is; the geometry measured once when the drag begins, off the nodes' own x/y/w/h rather than the DOM; surfaces off screen skipped entirely; the store written once, on the drop."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "a578989",
-    "when": "2026-09-11T01:15:14+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "c59f33f",
-        "says": "The bar is the only nav",
-        "when": "2026-09-11T00:37:23+00:00",
-        "detail": [
-          "Builds sat in the shell's tab row and again at the head of the Builder's own bar — the app's chrome repeating the bar's first item. The tab row is gone, and the Builder's tab went with it in the commit before this one, so nothing above the bar names a place any more.",
-          "That left an empty rail down the side of Builds: a sidebar drawn from nav entries, with no nav entries left to draw. A rail with nothing on it is a stripe of chrome that does nothing, so the shell no longer draws one when no module asks for a side entry, and the page has the width. The wordmark still goes to \"/\", and \"/\" is Builds.",
-          "Also settles the two Finishes the merge left: this branch's green key (flag with a tick, carrying the make-real queue) and the sibling's ghost flag (carrying the thread count) both answered to `data-finish`. One button that says \"finish\" is better than two, so the key is the one that stayed, and it opens the sibling's timeline — which is what J asked Finish to do.",
-          "tests/header.mjs, 26 checks: no tab row, no rail, Builds on the bar is the way out, and the piece checks follow the pieces to where they are actually drawn (the trail, in the book — the timeline itself draws iteration boxes and nothing else yet)."
-        ],
-        "areas": [
-          "builds",
-          "core",
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "cc40387",
-        "says": "Finish is the flag, and the timeout suite opens the book it means",
-        "when": "2026-09-11T00:04:23+00:00",
-        "detail": [
-          "`data-finish` moved to the green flag, which is what Finish is now; the process counter keeps its own handle and counts drawings. The timeout suite opens the book as a dialog through the hook rather than pressing whatever holds that attribute, so it tests the shape it is about: 10/10."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0bc0e30",
-        "says": "Build writes the site from the document, and asks Claude for the rest",
-        "when": "2026-09-10T23:59:40+00:00",
-        "detail": [
-          "Build was one ask: here is the blueprint, write every file. The blueprint is words, and words are lossy about looks — \"a heading, 28px, accent\" is not oklch(0.86 0.19 158), a letter-spacing of -0.02em, the shadow the page's lamp casts at that spot, or the texture that surface wears. Every re-generation drifted, and what came back was a cousin of the board.",
-          "So the looks are not generated any more. Each part is rendered once into a detached root — in the browser that already draws it, so what Build writes and what the board shows are the same thing by construction — and the DOM it made becomes its component. From that, deterministically:",
-          "app/globals.css: the palette's own values as tokens, plus the page's own ground, texture and all.",
-          "components/parts/<Name>.tsx: one per part, the markup as JSX, styles, shape, clip, texture and light intact; a part cut to a drawn line keeps its clip path, and a part with a written body keeps its sandboxed frame."
-        ],
-        "areas": [
-          "docs",
-          "pages",
           "studio",
           "tests"
         ],
