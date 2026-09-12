@@ -59,7 +59,7 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
-import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
+import { paintStrand, strandBounds, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { connected, diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
@@ -213,8 +213,8 @@ export function Timeline() {
    */
   const viewAt = React.useRef({ pan, zoom });
   if (!settling.current) viewAt.current = { pan, zoom };
-  /* The vine painter, held so a settle can reach it — the tween moves the
-     plot a frame at a time without a render, and the canvas goes with it. */
+  /* The vine painter, held so the observers below can reach the current one
+     without being torn down and rebuilt every time it changes. */
   const paintAt = React.useRef<() => void>(() => {});
 
   const stopSettle = React.useCallback(() => {
@@ -264,10 +264,9 @@ export function Timeline() {
         zoom: from.zoom + (to.zoom - from.zoom) * k,
       };
       viewAt.current = at;
-      // Straight to the element, and the vines painted by hand off the same
-      // ref: no render, and nothing detaches while it moves.
+      // Straight to the element: no render, and the vines are inside it, so
+      // they move with it rather than being repainted a frame at a time.
       grid.style.transform = `translate(${at.pan.x}px, ${at.pan.y}px) scale(${at.zoom})`;
-      paintAt.current();
       if (u < 1) {
         settling.current = requestAnimationFrame(step);
         return;
@@ -356,102 +355,192 @@ export function Timeline() {
   const openTone: StrandTone = openId && byId.get(openId) && isElement(byId.get(openId)!) ? "pending" : "live";
 
   /*
-   * Painting the vines, and when.
+   * Painting the vines, and how little of it.
    *
    * A vine is a still object: its shape is a function of where its two
-   * boards are and nothing else. So a frame in which nothing moved paints
-   * exactly the pixels already on the canvas, and the loop that ran anyway
-   * cost about a third of a millisecond per vine per frame, forever —
-   * thirty boards spent a second of script for every three seconds of
-   * sitting and looking at it.
+   * boards are and nothing else. Repainting one that has not moved writes
+   * exactly the pixels already under it, so the canvas is treated as
+   * something that is kept rather than something that is redrawn.
    *
-   * It paints on change instead: once after any commit that moves an end
-   * (a drag, a pan, a zoom, a card opening, the set of vines changing),
-   * once when something that carries an end resizes, and once a frame from
-   * the settle tween, which moves the plot without a render. Idle costs
-   * nothing at all.
+   * Two things make that work.
    *
-   * `useLayoutEffect`, and no frame cap: the canvas is written in the same
-   * commit as the boxes, so the vines and the plot's own transform land
-   * together. The old 33ms cap held the canvas at half rate while the
-   * transform ran uncapped, which is what made a pan look like the whole
-   * surface sliding out from under every vine at once.
+   * **The canvas lives in the plot, not on the screen.** It is a child of
+   * the transformed element, sized to the boards' own coordinates, so
+   * panning and zooming move it the way they move a box — by the
+   * compositor, with no paint at all. A pan used to repaint every vine
+   * sixty times a second for as long as the hand was down.
+   *
+   * **Only what moved is repainted.** Every vine remembers where it was
+   * drawn and what it reached; a paint compares that against where things
+   * are now, clips to the union of the rectangles that differ, and redraws
+   * only the vines that touch them. Dragging a board repaints its two or
+   * three vines and leaves the other twenty-seven alone. When nothing
+   * differs, a paint does nothing and costs nothing.
+   *
+   * A full repaint happens only when the canvas itself changes: the boards
+   * spread past the edge of it, or the zoom crosses into a sharper one.
    */
+  interface Vine {
+    from: Point;
+    to: Point;
+    tone: StrandTone;
+    phase: number;
+    ends: [VineEnd, VineEnd];
+    box: { x: number; y: number; w: number; h: number };
+  }
+  /** What is on the canvas now, so the next paint can tell what changed. */
+  const drawn = React.useRef(new Map<string, Vine>());
+  /** The canvas's own frame: where it sits in the boards' coordinates, and how finely. */
+  const sheet = React.useRef({ x: 0, y: 0, w: 0, h: 0, scale: 0 });
+
   const paint = React.useCallback(() => {
     const el = wires.current;
-    const box = host.current;
     const c = el?.getContext("2d");
-    if (!el || !c || !box) return;
-    const w = Math.max(1, Math.round(box.clientWidth));
-    const h = Math.max(1, Math.round(box.clientHeight));
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (el.width !== w * dpr || el.height !== h * dpr) {
-      el.width = w * dpr;
-      el.height = h * dpr;
-      el.style.width = `${w}px`;
-      el.style.height = `${h}px`;
-    }
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, w, h);
-    // The strands live in the plot's frame; the plot is panned and scaled.
-    c.save();
-    // The live view, not the rendered one: a settle moves the plot without
-    // a render, and the strands have to go with it.
-    const { pan: at, zoom: z } = viewAt.current;
-    c.translate(at.x, at.y);
-    c.scale(z, z);
+    const grid = plot.current;
+    if (!el || !c || !grid) return;
+
+    /* What should be on it, and how far each one reaches. */
+    const want = new Map<string, Vine>();
     for (const cord of cords) {
       const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
-      paintStrand(c, from, to, { tone: cord.tone, phase: seed(cord.to), ends: cord.ends });
+      want.set(`${cord.from}>${cord.to}`, {
+        from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to),
+      });
     }
     /*
-     * The card's own connector: the same construct, from the card's edge
-     * to the box's. Measured rather than assumed, because the card is as
-     * tall as what is in it — and it is two rectangles a paint, not a
-     * layout pass a frame.
+     * The card's own connector: the same construct, from the card's edge to
+     * the box's. Measured rather than assumed, because the card is as tall
+     * as what is in it — and it is two rectangles a paint, not a layout
+     * pass a frame.
      */
-    const grid = plot.current;
-    if (openId && grid) {
+    if (openId) {
       const a = anchorOf(openId);
       const origin = grid.getBoundingClientRect();
-      const tone: StrandTone = openTone;
+      const z = viewAt.current.zoom;
+      const end: VineEnd = openTone === "pending" ? "drawing" : "iteration";
       for (const side of ["in", "out"] as const) {
         const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
         if (!card) continue;
         const r = card.getBoundingClientRect();
-        const cx = (r.left - origin.left) / z + r.width / z / 2;
-        const edge = side === "in" ? (r.bottom - origin.top) / z : (r.top - origin.top) / z;
-        paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom },
-          { tone, end: openTone === "pending" ? "drawing" : "iteration" });
+        const from = {
+          x: (r.left - origin.left) / z + r.width / z / 2,
+          y: side === "in" ? (r.bottom - origin.top) / z : (r.top - origin.top) / z,
+        };
+        const to = { x: a.cx, y: side === "in" ? a.top : a.bottom };
+        want.set(`card:${side}`, {
+          from, to, tone: openTone, phase: 0.5, ends: [end, end], box: strandBounds(from, to),
+        });
       }
     }
+
+    /*
+     * The frame the canvas covers, snapped to a coarse grid so that dragging
+     * a board about does not resize it — and a resize is the one thing that
+     * costs a repaint of everything.
+     */
+    const STEP = 256;
+    let x0 = 0;
+    let y0 = 0;
+    let x1 = 1;
+    let y1 = 1;
+    let first = true;
+    for (const v of want.values()) {
+      if (first) { x0 = v.box.x; y0 = v.box.y; x1 = v.box.x + v.box.w; y1 = v.box.y + v.box.h; first = false; continue; }
+      x0 = Math.min(x0, v.box.x); y0 = Math.min(y0, v.box.y);
+      x1 = Math.max(x1, v.box.x + v.box.w); y1 = Math.max(y1, v.box.y + v.box.h);
+    }
+    x0 = Math.floor(x0 / STEP) * STEP;
+    y0 = Math.floor(y0 / STEP) * STEP;
+    x1 = Math.ceil(x1 / STEP) * STEP;
+    y1 = Math.ceil(y1 / STEP) * STEP;
+    const w = Math.max(STEP, x1 - x0);
+    const h = Math.max(STEP, y1 - y0);
+    /*
+     * How many device pixels a board's pixel gets. Zoomed in past 1 the
+     * bitmap would be stretched, so it is drawn finer — in half steps, so
+     * the wheel does not force a repaint on every notch. Past a few million
+     * pixels the sheet is drawn coarser instead of eating the memory, which
+     * only happens if somebody scatters boards across a very wide field.
+     */
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const near = Math.min(2, Math.max(1, Math.ceil(viewAt.current.zoom * 2) / 2));
+    const scale = Math.min(dpr * near, Math.sqrt(16e6 / (w * h)));
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+
+    const was = sheet.current;
+    const moved = was.x !== x0 || was.y !== y0 || was.w !== w || was.h !== h || was.scale !== scale;
+    if (moved) {
+      el.width = cw;
+      el.height = ch;
+      el.style.left = `${x0}px`;
+      el.style.top = `${y0}px`;
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      sheet.current = { x: x0, y: y0, w, h, scale };
+      drawn.current.clear();
+    }
+    // Straight into the boards' own coordinates: no pan, no zoom, because
+    // the element carrying this canvas already has both.
+    c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
+
+    /* What differs from what is on the canvas. */
+    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]}`;
+    const dirty: { x: number; y: number; w: number; h: number }[] = [];
+    for (const [k, v] of want) {
+      const had = drawn.current.get(k);
+      if (had && mark(had) === mark(v)) continue;
+      if (had) dirty.push(had.box);
+      dirty.push(v.box);
+    }
+    for (const [k, had] of drawn.current) if (!want.has(k)) dirty.push(had.box);
+    if (!dirty.length) return;
+
+    const hits = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+    c.save();
+    // One clip over the union of the rectangles: a vine that only clips the
+    // corner of one still has to be redrawn, but only inside it.
+    c.beginPath();
+    for (const r of dirty) {
+      c.rect(r.x, r.y, r.w, r.h);
+      c.clearRect(r.x, r.y, r.w, r.h);
+    }
+    c.clip();
+    for (const v of want.values()) {
+      if (!dirty.some((r) => hits(r, v.box))) continue;
+      paintStrand(c, v.from, v.to, { tone: v.tone, phase: v.phase, ends: v.ends });
+    }
     c.restore();
+
+    drawn.current = want;
   }, [cords, anchorOf, openId, openTone]);
-  // The settle tween is the one mover that never renders, so it paints by
-  // hand; this is how it reaches the current one.
+  // The open card can grow without this component rendering, and that moves
+  // an end; this is how the observer below reaches the current painter.
   paintAt.current = paint;
 
+  /*
+   * Painted in the same commit as the boxes, so a vine and the board it
+   * hangs off land together rather than a frame apart. Not keyed on the
+   * pan: the canvas is inside the plot now and goes with it for free.
+   */
   React.useLayoutEffect(() => {
     paint();
-  }, [paint, pan, zoom]);
+  }, [paint, zoom]);
 
   /*
-   * The two things that move an end without a render of this component:
-   * the host changing size, and the open card growing when what is in it
-   * finishes loading. Kept off the pan and zoom deps deliberately — a new
-   * observer costs a spare paint on the next frame, and a pan is sixty
-   * renders a second.
+   * The one thing that moves an end without a render: the open card growing
+   * when what is in it finishes loading.
    */
   React.useEffect(() => {
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => paintAt.current());
-    if (host.current) ro.observe(host.current);
+    if (typeof ResizeObserver === "undefined" || !openId) return;
     const grid = plot.current;
-    if (openId && grid) {
-      for (const side of ["in", "out"] as const) {
-        const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
-        if (card) ro.observe(card);
-      }
+    if (!grid) return;
+    const ro = new ResizeObserver(() => paintAt.current());
+    for (const side of ["in", "out"] as const) {
+      const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
+      if (card) ro.observe(card);
     }
     return () => ro.disconnect();
   }, [openId]);
@@ -551,14 +640,16 @@ export function Timeline() {
       onWheel={onWheel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <canvas ref={wires} aria-hidden className="pointer-events-none absolute left-0 top-0" />
-
       <div
         ref={plot}
         data-timeline-plot=""
         className="absolute left-0 top-0"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0", width: 1, height: 1 }}
       >
+        {/* Inside the plot, in the boards' own coordinates, so a pan moves it
+            the way it moves a box — and first, so the boards sit over it. */}
+        <canvas ref={wires} data-timeline-vines aria-hidden className="pointer-events-none absolute" />
+
         {all.map((n) => {
           const t = n.thread;
           const at = spotOf(t.id);

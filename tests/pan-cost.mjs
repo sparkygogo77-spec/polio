@@ -95,7 +95,7 @@ for (const n of [1, 6, 30]) {
    * own clock. A gesture that does not move anything measures nothing.
    */
   const ground = await p.evaluate(() => {
-    const r = document.querySelector("canvas").getBoundingClientRect();
+    const r = document.querySelector("[data-timeline]").getBoundingClientRect();
     const clear = (x, y) => {
       const el = document.elementFromPoint(x, y);
       return !!el && !el.closest("[data-box]") && !el.closest("[data-card]") && !el.closest("button");

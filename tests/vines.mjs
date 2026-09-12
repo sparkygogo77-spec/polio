@@ -8,9 +8,11 @@
  *   · nothing on the timeline is the purple it started in;
  *   · a vine takes a wider path than the shortest line, the same way every
  *     time for the same pair, and is longer for it;
- *   · it is three beams wound about one axis, not one line;
- *   · several shades run through its length;
- *   · the glow goes through all three at once rather than along one;
+ *   · it is four strands wound tight about a near-black core, not one line;
+ *   · both ends' colours run its whole length on separate strands, and only
+ *     the ratio between them shifts — nothing is blended into a third hue;
+ *   · the light on it sits still, and is on the strands rather than around
+ *     them;
  *   · and the loop starter still sits on the strand it is about.
  *
  *   node tests/vines.mjs [url]        # default http://localhost:3000
@@ -48,10 +50,41 @@ check("the body is bark rather than light: dark, and never near-white",
   Object.values(VINE).every((v) => lightOf(v.dark) <= 0.3 && lightOf(v.lit) <= 0.5));
 
 const strandSrc = readFileSync("src/features/studio/strand.ts", "utf8");
-check("the two ends are mixed along the length rather than meeting at a join",
-  /function mix\(/.test(strandSrc) && /mix\(barkA\.dark, barkZ\.dark, u\)/.test(strandSrc));
-check("hue takes the short way round, so green to red goes through the yellows",
+/*
+ * The colour rule, corrected.
+ *
+ * Blending the two ends along the length was wrong: it put yellow and then
+ * brown through the middle of every green-to-red vine, which is a colour
+ * neither board has. Both colours run the whole length on separate strands
+ * instead, and only the ratio changes — so there must be no mix of one end
+ * with the other anywhere.
+ */
+check("neither end's colour is ever mixed into the other's",
+  !/barkA/.test(strandSrc) && !/barkZ/.test(strandSrc) && !/mix\(\s*RAMP/.test(strandSrc));
+check("a strand carries one end's colour or the other's, and changes over once",
+  /const CROSSOVER/.test(strandSrc) && /end: u < change\[b\]! \? 0 : 1/.test(strandSrc));
+check("both colours are present at both ends, so the ratio shifts rather than the hue", (() => {
+  // One strand never changes over and one has changed before the cable
+  // starts: three-to-one at worst, never all of one colour.
+  const table = /const CROSSOVER = \[([^\]]+)\]/.exec(strandSrc)?.[1] ?? "";
+  const at = table.split(",").map((n) => Number(n.trim()));
+  return at.length === 4 && at.some((v) => v > 1) && at.some((v) => v < 0)
+    && at.filter((v) => v >= 0 && v <= 1).length === 2;
+})());
+check("the change-over happens where that strand is behind the core, so it is never a seam",
+  /function changeAt\(/.test(strandSrc) && /Facing is least where the turn is an odd multiple/.test(strandSrc));
+check("the bright strands wind round a near-black core", (() => {
+  const core = /const CORE = "oklch\(([\d.]+)/.exec(strandSrc)?.[1];
+  return core !== undefined && Number(core) < 0.2;
+})(), `core lightness ${/const CORE = "oklch\(([\d.]+)/.exec(strandSrc)?.[1]}`);
+check("the core goes down between the strands that face away and the ones that face you",
+  /if \(leg\.here\.facing >= 0\.5\) core\(\);/.test(strandSrc));
+check("hue still takes the short way round within one bark's own shading",
   /if \(dh > 180\) dh -= 360;/.test(strandSrc));
+check("each strand carries a hard line down the edge facing the light, not a glow",
+  /const LIGHT = \{/.test(strandSrc) && /ramp\.spec\[/.test(strandSrc) && /c\.lineWidth = 0\.9;/.test(strandSrc));
+check("the cable gathers into the axis where it meets a board rather than fanning against it",
+  /function girth\(/.test(strandSrc));
 check("the board says what each vine joins", (() => {
   const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
   return /ends: \[/.test(tl) && /isElement\(byId\.get\(c\.from\)!\) \? "drawing" : "iteration"/.test(tl);
@@ -132,13 +165,24 @@ check("a very short run does not bow into a loop", (() => {
 /* ------------------------------------------------------------------ */
 
 const strand = readFileSync("src/features/studio/strand.ts", "utf8");
-check("three strands, not one line", /\[0, 1, 2\]\.map\(\(b\) =>/.test(strand));
+check("four strands, not one line", /\[0, 1, 2, 3\]\.map\(\(b\) =>/.test(strand));
 check("and drawn back to front, which is what makes a winding read as one",
   /\.sort\(\(x, y\) => x\.here\.facing - y\.here\.facing\)/.test(strand));
 check("it is opaque: nothing blended, nothing see-through",
   !/globalCompositeOperation/.test(strand) && !/"lighter"/.test(strand));
 check("it sits on the ground rather than floating on it", /A shadow under the whole thing/.test(strand));
-check("they are wound about one axis", /const TWISTS/.test(strand) && /function wind\(/.test(strand));
+check("they are wound about one axis", /function wind\(/.test(strand));
+/*
+ * The helix is a pitch, not a count of turns per span. Three turns across a
+ * short gap is a tight cable; three across a long one is four lines lying
+ * almost parallel, which is what a fixed count gave.
+ */
+check("the twist is tight at every length, because it is a pitch", (() => {
+  const pitch = Number(/const PITCH = (\d+)/.exec(strand)?.[1]);
+  return pitch > 0 && pitch <= 40 && /function turnsFor\(/.test(strand);
+})(), `one turn every ${/const PITCH = (\d+)/.exec(strand)?.[1]}px`);
+check("and it tightens in the middle of a span and relaxes at the boards",
+  /const TIGHTEN/.test(strand) && /function turned\(/.test(strand));
 check("the far side of the turn is dimmed, which is what makes it read as wound",
   /here\.facing/.test(strand));
 check("there is fibre in the body", /function fibre\(/.test(strand));
@@ -195,8 +239,18 @@ check("the file says what it is now, rather than what it was",
 /* 5. Still anchored to the hand                                       */
 /* ------------------------------------------------------------------ */
 
-check("where a vine starts and ends is read from where the box is, every frame",
-  /paintStrand\(c, from, to/.test(timeline));
+check("where a vine starts and ends is read from where the box is",
+  /paintStrand\(c, v\.from, v\.to/.test(timeline));
+/*
+ * The canvas is kept rather than redrawn: it lives inside the plot, so a pan
+ * moves it the way it moves a box, and a paint only touches the vines whose
+ * ends have actually moved.
+ */
+check("the vines ride the plot's own transform rather than being repainted on a pan",
+  /data-timeline-vines/.test(timeline) && /Inside the plot, in the boards' own coordinates/.test(timeline));
+check("only the vines whose ends moved are repainted",
+  /const dirty/.test(timeline) && /if \(!dirty\.length\) return;/.test(timeline)
+  && /strandBounds\(from, to\)/.test(timeline));
 check("the loop starter is still on the middle of the strand", /strandMiddle\(from, to\)/.test(timeline));
 
 /* ------------------------------------------------------------------ */
