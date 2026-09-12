@@ -185,30 +185,38 @@ export interface ThreadNode {
  *
  * So the question is answered here instead of being left to whatever was set
  * at the time: an iteration with no parent, or a parent that has gone, hangs
- * off the newest iteration that landed before it. That is what it was
- * founded on — it is the state the board was in when the person drew.
+ * off the one before it. That is what it was founded on — it is the state the
+ * board was in when the person drew.
  *
- * Only the earliest thread of all has no parent, because nothing came before
- * it. Returns one entry per thread, in the order given.
+ * Only the first thread of all has no parent, because nothing came before it.
+ * Returns one entry per thread, in the order given.
  */
 export function connected(threads: Thread[]): Map<string, string | null> {
+  /*
+   * The order is the order they landed in, which is the order they are in.
+   *
+   * Not the clock on them: a timestamp is a thing to read that answers a
+   * question nobody asks, and sorting by it makes the chain depend on the
+   * machine's clock being right rather than on what actually happened. The
+   * list is appended to, so its own order *is* what happened; the first
+   * entry is where it began and says so by being first.
+   */
+  const place = new Map(threads.map((t, i) => [t.id, i]));
   const byId = new Map(threads.map((t) => [t.id, t]));
-  const inTime = [...threads].sort((a, b) => a.at - b.at);
   const out = new Map<string, string | null>();
-  for (let i = 0; i < inTime.length; i++) {
-    const t = inTime[i]!;
+  for (let i = 0; i < threads.length; i++) {
+    const t = threads[i]!;
     const said = t.parentId;
     /*
      * The parent it names, when that one is still here, is not itself, and
-     * landed first. A thread naming a parent that came after it is not a
+     * came before it. A thread naming a parent that came after it is not a
      * chain, it is a loop waiting to happen — and it does happen, because
      * the flag can be moved to an older iteration and the next thing to land
      * hangs off it.
      */
-    const named = said ? byId.get(said) : undefined;
-    if (said && said !== t.id && named && named.at <= t.at) { out.set(t.id, said); continue; }
-    // Otherwise the one before it in time, which is what it was founded on.
-    out.set(t.id, i > 0 ? inTime[i - 1]!.id : null);
+    if (said && said !== t.id && byId.has(said) && place.get(said)! < i) { out.set(t.id, said); continue; }
+    // Otherwise the one before it, which is what it was founded on.
+    out.set(t.id, i > 0 ? threads[i - 1]!.id : null);
   }
   return out;
 }
@@ -216,10 +224,9 @@ export function connected(threads: Thread[]): Map<string, string | null> {
 /** Anything the timeline would draw with no strand into it. The earliest is not one. */
 export function orphans(threads: Thread[]): Thread[] {
   const byId = new Set(threads.map((t) => t.id));
-  const inTime = [...threads].sort((a, b) => a.at - b.at);
-  const at = new Map(threads.map((t) => [t.id, t.at]));
-  return inTime.filter((t, i) =>
-    i > 0 && (!t.parentId || t.parentId === t.id || !byId.has(t.parentId) || at.get(t.parentId)! > t.at));
+  const place = new Map(threads.map((t, i) => [t.id, i]));
+  return threads.filter((t, i) =>
+    i > 0 && (!t.parentId || t.parentId === t.id || !byId.has(t.parentId) || place.get(t.parentId)! > i));
 }
 
 export function threadTree(threads: Thread[]): ThreadNode[] {

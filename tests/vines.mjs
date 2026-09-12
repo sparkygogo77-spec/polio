@@ -1,12 +1,11 @@
 /**
- * The timeline reads: red lanterns, green vines.
+ * The timeline reads: green boards, red drawings, green vines between them.
  *
- * Purple pieces on a purple nebula were nothing at all, and an emerald box
- * was the same colour as the strands running between the boxes. So both
- * kinds of box are red — a lantern for an iteration, an ember for an element
- * prompt — and the connections are the green.
+ * An iteration is a board that holds things, so it is green; a drawing and
+ * anything that came off one is red. The vines that join them are green too,
+ * dimmer than the boards, because a connection is not the subject.
  *
- *   · nothing on the timeline is emerald or purple any more;
+ *   · nothing on the timeline is the purple it started in;
  *   · a vine takes a wider path than the shortest line, the same way every
  *     time for the same pair, and is longer for it;
  *   · it is three beams wound about one axis, not one line;
@@ -124,26 +123,31 @@ check("the glow hits all three beams in the same frame",
 check("a vine is still about as wide as it was", STRAND_WIDTH >= 5 && STRAND_WIDTH <= 9, `${STRAND_WIDTH}`);
 
 /* ------------------------------------------------------------------ */
-/* 4. Red boxes, on a purple ground                                    */
+/* 4. Green boards, red drawings, on a purple ground                   */
 /* ------------------------------------------------------------------ */
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
 const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
 const hues = (src) => [...src.matchAll(/oklch\([\d.]+ [\d.]+ ([\d.]+)/g)].map((m) => Number(m[1]));
 
-check("no emerald is left on the timeline", !hues(timeline).includes(158), `${hues(timeline).filter((h) => h === 158).length} left`);
 check("no purple is left on the timeline", !hues(timeline).includes(300));
-check("the section under it followed, so the two are one place",
+check("the section under it is one place with it",
   !hues(detail).includes(158) && !hues(detail).includes(300));
-check("everything on it is a warm red", hues(timeline).every((h) => h <= 45), `${[...new Set(hues(timeline))].sort((a, b) => a - b).join(",")}`);
-check("the boxes take their red from the shared surface rather than their own",
+/*
+ * The scheme swapped: an iteration board is green, a drawing is red. What is
+ * checked is that the two are told apart and neither has drifted into a third
+ * colour — not that the whole screen is one hue, which it deliberately is not.
+ */
+check("an iteration's chrome is green", hues(timeline).includes(152),
+  `${[...new Set(hues(timeline))].sort((a, b) => a - b).join(",")}`);
+check("a drawing's is red", hues(timeline).includes(18));
+check("nothing is left in the lantern red the boxes used to be", !hues(timeline).includes(34));
+check("the boxes take their colour from the shared surface rather than their own",
   /from "@\/core\/ui\/molten"/.test(timeline));
-check("the boxes and the pieces are two different reds",
-  new Set(hues(timeline)).size >= 2 && hues(timeline).includes(34) && hues(timeline).includes(18));
-check("a box looks lit rather than flat", /moltenClass\("lantern"\)/.test(timeline),
+check("a box looks lit rather than flat", /moltenClass\("verdant"\)/.test(timeline),
   "the light is the shared molten surface now, not an inline gradient");
 check("the file says what it is now, rather than what it was",
-  /lantern-red box/.test(timeline) && /ember/.test(timeline));
+  /green/.test(timeline) && /red/.test(timeline));
 
 /* ------------------------------------------------------------------ */
 /* 5. Still anchored to the hand                                       */

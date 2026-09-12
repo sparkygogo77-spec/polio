@@ -17,10 +17,21 @@
    opacity of one colour: the whole point is that the edge is a different
    temperature from the middle rather than the same red turned up.
 
-   There are three temperatures, all the same five-stop shape: `--molten-*`
-   is the lantern, `--ember-*` is the hotter red an element piece wears, and
-   `--verdant-*` is the green counterpart the one live key on the bar is made
-   of. A fourth would be a decision to take here, not in a component.
+   WHICH TEMPERATURE MEANS WHAT. Three, all the same five-stop shape, and the
+   meanings are fixed here so both branches read them the same way:
+
+     --verdant-*   an ITERATION. Green. The boards on the timeline, and the
+                   Finish key that opens them, because it is one of them.
+     --ember-*     a DRAWING, and every other piece that came off one. Red.
+     --molten-*    the base set the other two are shaped from, and the
+                   fallback for a construct that has not said which it is.
+
+   This is a swap from how it started — iterations were red and drawings were
+   the hotter red — and it is a swap of *which stops are used where*, not of
+   the language: the veining, the keyframes, the edge and the seed are the
+   same for both. Green reads as a board that holds things, red as a thing
+   that was drawn. A fourth temperature is a decision to take here, not in a
+   component.
 
      --molten-white   the thinnest skin, where it is almost see-through
      --molten-hot     the edge proper, still glowing

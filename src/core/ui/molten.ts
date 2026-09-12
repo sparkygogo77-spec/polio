@@ -23,14 +23,27 @@
  */
 
 /**
- * The temperatures a construct comes in.
+ * The temperatures a construct comes in, and what each one means.
  *
- * `lantern` is an iteration, `ember` an element piece, `verdant` the green
- * counterpart — Finish, the key that opens the red ones. All three are the
- * same five stops and the same keyframes; a fourth is a decision to take in
- * `molten.css`, not in a component.
+ * - `verdant` — an **iteration**. Green: the boards on the timeline, and the
+ *   Finish key that opens them, because it is one of them.
+ * - `ember` — a **drawing**, and every other piece that came off one. Red.
+ * - `lantern` — the base set, and the fallback for a construct that has not
+ *   said which of the two it is.
+ *
+ * The meanings are the agreement, not a preference: two branches render
+ * these, and a construct that is green here and red there is worse than
+ * either. All three are the same five stops and the same keyframes; a fourth
+ * is a decision to take in `molten.css`, not in a component.
  */
 export type MoltenKind = "lantern" | "ember" | "verdant";
+
+/** What a construct is, said in the word the rest of the app uses for it. */
+export const MOLTEN_MEANS: Record<MoltenKind, string> = {
+  verdant: "an iteration, and the key that opens them",
+  ember: "a drawing, and the pieces that came off one",
+  lantern: "the base set, for a construct that has not said which it is",
+};
 
 /** The five stops, hottest to coldest, as the custom properties that hold them. */
 export const MOLTEN_STOPS = ["white", "hot", "body", "deep", "char"] as const;

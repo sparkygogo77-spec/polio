@@ -32,21 +32,23 @@ import { useStudio } from "./store";
 import { drawOnPart, writeOnPart } from "./RadialMenu";
 
 /**
- * The section's colours: the iteration boxes' own, one step quieter.
+ * The section's colours: the iteration boards' own, one step quieter.
  *
  * It read as a codebase — grey chrome under a lit timeline — and the two
- * halves of one screen should not look like two applications.
+ * halves of one screen should not look like two applications. So it is the
+ * green an iteration is made of; an element prompt's section wears the red
+ * its drawing does, below.
  */
 export const FIELD = {
-  face: "oklch(0.175 0.042 34)",
-  raised: "oklch(0.23 0.066 34)",
-  rim: "oklch(0.36 0.091 34)",
-  lit: "oklch(0.66 0.17 34)",
-  text: "oklch(0.93 0.053 34)",
-  dim: "oklch(0.7 0.091 34)",
+  face: "oklch(0.175 0.042 152)",
+  raised: "oklch(0.23 0.066 152)",
+  rim: "oklch(0.36 0.091 152)",
+  lit: "oklch(0.66 0.17 152)",
+  text: "oklch(0.93 0.053 152)",
+  dim: "oklch(0.7 0.091 152)",
 };
 
-/** An element prompt's section wears the purple its piece does. */
+/** A drawing's section wears the red its own board does. */
 const PURPLE = {
   face: "oklch(0.19 0.053 18)",
   raised: "oklch(0.26 0.091 18)",
@@ -136,7 +138,7 @@ function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void
         background: on ? FIELD.raised : "transparent",
         borderColor: on ? FIELD.lit : "transparent",
         color: on ? FIELD.text : FIELD.dim,
-        boxShadow: on ? "0 0 0 1px oklch(0.66 0.17 34 / 0.25)" : undefined,
+        boxShadow: on ? "0 0 0 1px oklch(0.66 0.17 152 / 0.25)" : undefined,
       }}
     >
       {icon}
@@ -251,7 +253,8 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
           </Button>
         </div>
         <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: skin.dim }}>
-          <span className="num">{new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          {/* No clock: the chain says what came after what, and the first box
+              says where it began. */}
           <span>{thread.mode}</span>
           {thread.model ? <span className="truncate">{thread.model}</span> : null}
           {live ? <span style={{ color: skin.lit }}>the board stands on this</span> : null}

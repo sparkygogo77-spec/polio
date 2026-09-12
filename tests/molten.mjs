@@ -18,7 +18,7 @@
  *   node tests/molten.mjs [url]      # default http://localhost:3000
  */
 import { readFileSync } from "node:fs";
-import { MOLTEN_KEYFRAMES, MOLTEN_MOTION, MOLTEN_STOPS, moltenClass, moltenSeed } from "../src/core/ui/molten.ts";
+import { MOLTEN_KEYFRAMES, MOLTEN_MEANS, MOLTEN_MOTION, MOLTEN_STOPS, moltenClass, moltenSeed } from "../src/core/ui/molten.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -73,6 +73,10 @@ for (const kind of ["molten", "ember", "verdant"]) {
 }
 check("the two temperatures are not the same red twice",
   MOLTEN_STOPS.some((n) => stop(`molten-${n}`) !== stop(`ember-${n}`)));
+check("what each temperature means is written down, not left to taste",
+  Object.keys(MOLTEN_MEANS).length === 3 && /iteration/.test(MOLTEN_MEANS.verdant) && /drawing/.test(MOLTEN_MEANS.ember));
+check("the stylesheet says the same thing, for the branch that reads it",
+  /--verdant-\*\s+an ITERATION/.test(css) && /--ember-\*\s+a DRAWING/.test(css));
 
 /* ------------------------------------------------------------------ */
 /* 3. Texture, not a smooth gradient                                   */
@@ -156,14 +160,15 @@ check("every animation gets its own offset, so thirty are not one machine",
   (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= 4);
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
-check("the iteration boxes are constructs", /moltenClass\("lantern"\)/.test(timeline));
-check("the element pieces are the same construct, hotter", /moltenClass\("ember"\)/.test(timeline));
+check("an iteration is the green construct", /moltenClass\("verdant"\)/.test(timeline));
+check("a drawing is the red one", /moltenClass\("ember"\)/.test(timeline));
+check("and nothing on the timeline still asks for the base set", !/moltenClass\("lantern"\)/.test(timeline));
 check("each carries the edge, the flare and the ember on one node",
   (timeline.match(/<span data-molten="" \/>/g) ?? []).length === 2);
 check("and each is seeded from its own id", (timeline.match(/moltenSeed\(thread\.id\)/g) ?? []).length === 2);
 
 const key = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
-check("Finish is the green counterpart, from the same definition", /moltenClass\("verdant"\)/.test(key));
+check("Finish is green, because it is the key to the green boards", /moltenClass\("verdant"\)/.test(key));
 check("and it carries the same edge node", /<span data-molten="" \/>/.test(key));
 check("the key still presses, because a construct that did not would be a picture of one",
   /process-key/.test(key) && /\.process-key:active/.test(readFileSync("src/app/globals.css", "utf8")));

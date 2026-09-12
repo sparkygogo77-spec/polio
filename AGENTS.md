@@ -2146,7 +2146,11 @@ remove it from `src/features/index.ts` when you're sure.
   `--molten-*` property or a `molten-*` keyframe**: import `moltenClass` and
   `moltenSeed` and use what is there, or add a stop to that file. Two
   branches render these, so a second definition is not a variation, it is a
-  bug. A construct is `<div className={moltenClass(kind)} style={moltenSeed(id)}>`
+  bug. **Which temperature means what is part of the agreement**: `verdant`
+  is an iteration (the timeline's boards, and the Finish key that opens
+  them), `ember` is a drawing and anything that came off one, `lantern` is
+  the base set. Green holds, red was drawn. A construct that is green on one
+  branch and red on the other is worse than either colour. A construct is `<div className={moltenClass(kind)} style={moltenSeed(id)}>`
   with one `<span data-molten="" />` inside it carrying the edge, the flare
   and the ember. `tests/molten.mjs` holds the whole of it, including that
   no other file declares one.

@@ -24,6 +24,11 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
+/*
+ * `at` is still on a thread — the passes generator and the book read it — but
+ * nothing about the chain does, so these fixtures pass whatever and the
+ * checks below hold to the list's own order.
+ */
 const th = (id, at, parentId = null, mode = "plan") => ({
   id, at, parentId, mode, state: "done", ask: "", answer: "", changes: [],
 });
@@ -67,20 +72,37 @@ const silly = [th("a", 1, "a"), th("b", 2, "c"), th("c", 3)];
 const j4 = connected(silly);
 check("nothing hangs off itself", [...j4.entries()].every(([id, p]) => p !== id));
 check("nothing hangs off something that came after it", (() => {
-  const at = new Map(silly.map((t) => [t.id, t.at]));
-  return [...j4.entries()].every(([id, p]) => !p || at.get(p) < at.get(id));
+  const place = new Map(silly.map((t, i) => [t.id, i]));
+  return [...j4.entries()].every(([id, p]) => !p || place.get(p) < place.get(id));
 })(), JSON.stringify([...j4]));
 check("every thread gets an answer", j4.size === silly.length);
 check("nothing at all is nothing", connected([]).size === 0 && orphans([]).length === 0);
 
 /* ------------------------------------------------------------------ */
-/* 5. Out of order in, in order out                                    */
+/* 5. The list's own order is what happened                            */
 /* ------------------------------------------------------------------ */
 
-const shuffled = [th("c", 3), th("a", 1), th("b", 2)];
+/*
+ * Not the clock on each thread. Time is irrelevant on the timeline: the
+ * chain says what came after what and the first board says where it began by
+ * being first, so nothing here reads a timestamp — which also means the
+ * chain no longer depends on the machine's clock having been right.
+ */
+const shuffled = [th("c", 999), th("a", 1), th("b", 2)];
 const j5 = connected(shuffled);
-check("order in the list does not decide what came first",
-  j5.get("a") === null && j5.get("b") === "a" && j5.get("c") === "b");
+check("the list's own order is what happened, whatever the clocks say",
+  j5.get("c") === null && j5.get("a") === "c" && j5.get("b") === "a",
+  JSON.stringify([...j5]));
+check("and nothing anywhere in it reads a timestamp", (() => {
+  const src = readFileSync("src/features/studio/threads.ts", "utf8");
+  const fn = /export function connected[\s\S]*?\n\}/.exec(src)?.[0] ?? "";
+  const orph = /export function orphans[\s\S]*?\n\}/.exec(src)?.[0] ?? "";
+  return !/\.at\b/.test(fn) && !/\.at\b/.test(orph);
+})());
+
+check("no clock is printed on a board or under one",
+  !/toLocaleTimeString/.test(readFileSync("src/features/studio/Timeline.tsx", "utf8"))
+  && !/toLocaleTimeString/.test(readFileSync("src/features/studio/TimelineDetail.tsx", "utf8")));
 
 /* ------------------------------------------------------------------ */
 /* 6. …and the store stops making them                                 */
