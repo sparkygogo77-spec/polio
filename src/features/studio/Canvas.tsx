@@ -658,7 +658,17 @@ export function Canvas() {
     <div
       ref={ref}
       {...ctxProps("studio-canvas", page.id, page)}
-      className="relative size-full touch-none overflow-hidden bg-bg select-none"
+      /* No background. The ground is mounted once behind all three views
+         (`StudioPage`), and the contract written there is that each view is
+         transparent over it. This root used to carry `bg-bg`, which was
+         harmless while `<Workspace />` was rendered *inside* it — the ground
+         sat above the fill. When the ground moved out to be shared, the fill
+         stayed, and an opaque board painted straight over the nebula: the
+         workspace went flat black in design mode while the timeline, which
+         has no background of its own, kept its ground. Anything that needs
+         an opaque surface here should paint it on the frame, not on the
+         window the frame floats in. */
+      className="relative size-full touch-none overflow-hidden select-none"
       style={{ cursor }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
