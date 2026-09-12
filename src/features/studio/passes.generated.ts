@@ -2,9 +2,126 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-12T00:38:33.866Z";
+export const GENERATED_AT = "2026-09-12T01:36:51.218Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "4fa6382",
+    "when": "2026-09-12T01:36:47+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "c215176",
+        "says": "Read a colour with the transition switched off, not while it is still fading",
+        "when": "2026-09-12T01:18:00+00:00",
+        "detail": [
+          "menu-pass failed about one run in three on \"redo is the process green\", reporting oklab(0.68 0.005 -0.015) — which is the disabled grey, on a button that had already reported itself enabled.",
+          "Both halves of that were the same cause. `disabled` is a DOM property and flips the instant the state changes; `color` is transitioned and arrives later, so the two disagree for a few hundred milliseconds. Chrome serialises a colour mid-fade as oklab rather than the authored oklch, which is what gave it away.",
+          "Waiting for two consecutive reads to agree did not fix it, and the reason is worth writing down: two reads taken before the fade has started agree with each other perfectly. A settle loop cannot tell \"finished\" from \"not begun\".",
+          "There is nothing to wait out here — the check is about which colour was authored — so transitions and animations are switched off for the read and put back afterwards. The hue parser takes either serialisation now, so a mid-fade value would be read correctly rather than skipped, and near() is back beside it."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "c46f70a",
+    "when": "2026-09-12T01:35:57+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "f637e04",
+        "says": "Change a thing from the timeline and it changes that thing",
+        "when": "2026-09-12T01:24:53+00:00",
+        "detail": [
+          "Going back to an iteration and drawing again made a second part. Nothing on the thread said which part on the board it was about, so \"change this\" had nothing to change and the only thing it could do was make another.",
+          "An iteration now remembers what it made, on all three roads through the drawing path — the catalogue answers it outright, the reader and the no-reader roads note it once the part exists — and the card offers two ways to change that part: draw more on it, or write more about it. Both name the part rather than saying \"it\", and both are absent when the part has since been deleted, because then the offer really would be to make a new one.",
+          "Pressing either goes to the board, to that part's page, with that part picked, and opens the drawing board on it a frame later, once the board exists. The wheel can now be opened straight onto a slot, which is what that needs: the wheel is a way to choose what to do and the choice has been made already. What is drawn there carries the part's id, so it reshapes that part and says \"Reshaping\" rather than \"Making\".",
+          "Driven in Chromium: the card shows both controls, pressing Draw more lands on the board with Diagonal divider selected and the drawing disc open on it, reading \"Draw the shape it should be\". 19/19 in tests/change-made.mjs; connected, current, timeline-view, threads and picked still pass."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "f0bb23c",
+        "says": "Finish is the green counterpart, from the same shared definition",
+        "when": "2026-09-12T01:20:20+00:00",
+        "detail": [
+          "It was a green slab with a gradient, a border, an inset highlight and a glow painted behind each digit — decoration standing in for light, beside a timeline made of actual light. It is a construct now: `--verdant-*` added to core/ui/molten.css as the third temperature beside the lantern and the ember, same five stops, same veining, same slow boil and breathing edge, and `moltenClass(\"verdant\")` asks for it. A fourth temperature is a decision to take in that file, not in a component.",
+          "Quieter than the reds on purpose. They are read from across the screen; this one is pressed, carries words and a count at seven pixels, and has to stay legible while it moves, so its veining runs at a third of theirs.",
+          "Less decoration, more construct. The slash between the two numbers is gone and so is the glow behind each — colour already said which number is which, and a thing made of light does not need light painted on top of it. What stays in `.process-key` is the part that makes it a key rather than a picture of one: the weight under it, and the way it goes down under a finger.",
+          "74/74 in tests/molten.mjs, which now holds all three temperatures; header updated to expect two numbers rather than a slash and passes 38/38, with tour, square-console and timeline-view unchanged."
+        ],
+        "areas": [
+          "core",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e398798",
+        "says": "One ground for the whole app, and a timeline joined end to end",
+        "when": "2026-09-12T01:15:09+00:00",
+        "detail": [
+          "Four things, all of them the same complaint: something that should have been continuous was being rebuilt.",
+          "The ground was mounted twice — once by the board, once by the timeline — so pressing Preview swapped between two instances and the nebula visibly changed. A button that means \"show me the site\" must not change the weather. There is one instance now, behind all three views in StudioPage, and each view is transparent over it; driven in Chromium, the same DOM node survives design to preview to timeline, one ground and one cloud layer throughout.",
+          "Iterations floated loose. A thread hangs off the one being worked in or off whatever landed last, and when both were missing it had no parent at all; the oldest threads are also dropped when the list gets long, which left their children pointing at something gone. Both are fixed at the source, and `connected()` heals what is already stored: an iteration with no parent, or one naming a parent that is missing or that landed after it, hangs off the newest iteration that landed before it — which is the board it was actually drawn against. Only the earliest has none. The test caught a real one on the way: a parent from the future was being kept.",
+          "The headline is what was made. \"This iteration\" was the widest thing on a box so it read as the title, and on an element piece it pushed the name of the part off the end entirely; it is a small flag now with its words in the tooltip, and what the iteration made is the biggest thing on the box."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9f93f43",
+    "when": "2026-09-12T01:34:48+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "9f93f43",
+        "says": "Fix onBareGround swallowing clicks on shapes and losing deselection",
+        "when": "2026-09-12T01:34:48+00:00",
+        "detail": [
+          "Two real regressions from the cursor-pans refactor, both the same root cause: onBareGround decided \"bare ground\" by target.closest(\"[data-frame]\"), but a wire, an ink stroke or a drawn region renders as a sibling of [data-frame] inside [data-page-window], not a descendant of it (the same reason parts are siblings, per the comment two lines up). So a press on any shape was misclassified as bare ground and swallowed into a pan before ever reaching the shape-selection logic further down:",
+          "clicking a wire/drawing no longer selected it (data.mjs, ink-related suites) — fixed by also excluding target.closest(\"[data-shape-id]\") from onBareGround.",
+          "clicking the ground outside the page no longer cleared the selection, because the old else-branch clearSelection() this replaced was the only place that ran it, and it's unreachable now that onBareGround intercepts and returns first — fixed by clearing selection in the onBareGround branch itself, matching what a press there always did.",
+          "Found via a fresh battery run after merging this pass's toolbar/menu overhaul; confirmed against the DOM directly (elementsFromPoint at the click target, and the live selection state before/after) rather than guessed at."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "fixed"
+      },
+      {
+        "id": "dbb1b06",
+        "says": "Regenerate passes.generated.ts after merging this pass",
+        "when": "2026-09-12T00:38:44+00:00",
+        "detail": [
+          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "7a87b73",
     "when": "2026-09-12T00:38:30+00:00",
@@ -26,26 +143,6 @@ export const PASSES: Pass[] = [
           "pages",
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f6b017c",
-    "when": "2026-09-12T00:38:22+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "f6b017c",
-        "says": "Regenerate passes.generated.ts after merging this pass",
-        "when": "2026-09-12T00:38:22+00:00",
-        "detail": [
-          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
@@ -733,84 +830,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "ffa1e52",
-    "when": "2026-09-11T09:35:38+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "ffa1e52",
-        "says": "The production loop, audited again after the drawing path changed",
-        "when": "2026-09-11T09:35:38+00:00",
-        "detail": [
-          "The drawing is traced now, not described: one Claude call to read what it is, one to three Replicate calls to trace it, and the written body only when nothing traced at all. Re-measured end to end — the ladder's three pictures, the clipped render, the new like-against-like scoring — and re-costed: about $2.99 for a twenty-part site against $3.38 before. The three findings from the last pass all still stand; two others are now fixed and marked as such so they are not undone."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "630f46f",
-        "says": "The ground is one field at half resolution on purpose, and the other one is on the shelf",
-        "when": "2026-09-11T09:30:26+00:00",
-        "detail": [
-          "J was shown the numbers and chose this. docs/shelf/ keeps the four-layer restoration with the whole measurement beside it, including that the original only held 60 because its layer never moved, and that this container rasterises in software so every compositing number here is a floor rather than a verdict."
-        ],
-        "areas": [
-          "docs",
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "235f80a",
-    "when": "2026-09-11T09:28:48+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "ae542ee",
-        "says": "Score a drawing like against like: areas as areas, lines as lines",
-        "when": "2026-09-11T09:12:08+00:00",
-        "detail": [
-          "The bar was not the problem, the comparison was. Thin traced ink scored against a filled outline tops out at the ink's own share of the shape however good the trace is, which is what held every run under 0.72.",
-          "The test that decides is the one outlinePath already made. A closed line that encloses a real share of its own box is the edge of a thing, so both sides are filled: the target is the outline filled and the render has its holes flooded, so a traced edge becomes the region it encloses, and the score is plain area against area. A trace with a gap in it leaks, fills nothing and scores badly, which is right, and is exactly what the star does on its first go. An open line is the thing itself, so both sides stay ink and the score is how much of each lies within a tolerance the width of the drawn stroke: a line a stroke off still counts, a line that is not there does not. Closed but enclosing almost nothing, a helix that ends where it began, is ink rather than area, so outlines now carry how much they enclose. Thin ink against a filled area cannot happen any more.",
-          "The frames had to match too. Every rung of the ladder now crops to the ink and stretches each axis on its own, because the part's box is the drawing's box and the SVG is stretched into it with preserveAspectRatio none: fitting the ink inside a square and then stretching it into a wide part applies the distortion once instead of cancelling it, and the trace landed somewhere the drawing never was. Cropping is framing, not tuning, so the ladder's remaining rungs are thickness, contrast and the ground.",
-          "The bench, same five drawings, three runs each, real renders and real scores, local stand-in tracer:"
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c8bba3a",
-    "when": "2026-09-11T08:30:17+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "c8bba3a",
-        "says": "A performance fix never quietly takes something away",
-        "when": "2026-09-11T08:30:17+00:00",
-        "detail": [
-          "The standing rule, and the nebula measurements behind it: what the original cost, what every faithful restoration of it costs, and what is on the branch now. Measured on a machine with no GPU, so every number is a floor."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "fixed"
       }
     ],
     "more": 0
