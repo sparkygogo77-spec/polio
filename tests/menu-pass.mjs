@@ -109,6 +109,95 @@ async function look(w, h, tag) {
     `${floor.gap}px of window left under it, and the bottom row of pixels ${floor.inside ? "belongs to the Builder" : "belongs to something else"}`,
   );
 
+  /* The tab you are on is the tab you stay on.
+     Done the way it is complained about: go to Motion, then click the bare
+     background the way you would to let go of a part. The old panel wrote
+     the active tab from an effect on the selection, so that press threw you
+     back to Look. It also grew and shrank its own tab strip — Element,
+     Format and Pages came and went with the selection — so the count is
+     read in both states and has to be the same number. */
+  const tabNames = () => page.evaluate(() => {
+    const strip = document.querySelector("[aria-label='Side panel']");
+    if (!strip) return null;
+    const on = [...strip.querySelectorAll("button")];
+    return {
+      all: on.map((b) => (b.innerText || "").trim()).filter(Boolean),
+      lit: on.filter((b) => b.getAttribute("aria-checked") === "true" || b.getAttribute("aria-selected") === "true" || b.dataset.state === "on").map((b) => (b.innerText || "").trim()),
+    };
+  });
+  const pressTab = async (word) => {
+    await page.evaluate((w) => {
+      const strip = document.querySelector("[aria-label='Side panel']");
+      [...(strip?.querySelectorAll("button") ?? [])].find((b) => (b.innerText || "").trim() === w)?.click();
+    }, word);
+    await page.waitForTimeout(250);
+  };
+
+  /* Five tabs in a 215px column: the strip has to hold them all. Adding
+     Element, Format and Pages permanently pushed 347px of tabs into it and
+     Look and Motion went off the end, which is how this check earned its
+     place. */
+  const stripFit = await page.evaluate(() => {
+    const strip = document.querySelector("[aria-label='Side panel']");
+    if (!strip) return null;
+    const r = strip.getBoundingClientRect();
+    const off = [...strip.querySelectorAll("button")]
+      .filter((b) => { const q = b.getBoundingClientRect(); return q.right > r.right + 1 || q.left < r.left - 1; })
+      .map((b) => (b.innerText || "").trim() || "an icon");
+    return { off, w: Math.round(r.width) };
+  });
+  if (stripFit) {
+    check(`${tag}: every tab is inside the panel`, stripFit.off.length === 0,
+      stripFit.off.length ? `${JSON.stringify(stripFit.off)} hangs off a ${stripFit.w}px strip` : `all of them, in ${stripFit.w}px`);
+  }
+
+  const withNothing = await tabNames();
+  if (withNothing) {
+    const first = page.locator("[data-node-id]").first();
+    if (await first.count()) { await first.click(); await page.waitForTimeout(300); }
+    const withPart = await tabNames();
+    check(
+      `${tag}: the same tabs whether or not something is picked`,
+      JSON.stringify(withNothing.all) === JSON.stringify(withPart.all),
+      `${JSON.stringify(withNothing.all)} then ${JSON.stringify(withPart.all)}`,
+    );
+
+    /* Done on Element, so the same press proves two things: the tab did not
+       move, and the click really did let go of the part. Element names what
+       is in your hand and falls back to the page's own prompt when your hand
+       is empty, so its heading says which happened. */
+    await pressTab("Element");
+    const held = await page.evaluate(() => (document.querySelector("[data-side-panel]")?.innerText || "").slice(0, 60));
+    const spot = await page.evaluate(() => {
+      // Bare ground: inside the workspace, clear of the frame and the shelf.
+      const f = document.querySelector("[data-frame]")?.getBoundingClientRect();
+      const g = document.querySelector("[data-ground-clouds]")?.getBoundingClientRect();
+      if (!f || !g) return null;
+      const x = f.right + Math.min(40, (g.right - f.right) / 2);
+      return x < g.right - 4 ? { x: Math.round(x), y: Math.round(f.top + f.height / 2) } : null;
+    });
+    if (!spot) {
+      check(`${tag}: clicking the background does not move the tab`, false, "no bare ground beside the frame to click");
+    } else {
+      const before = await tabNames();
+      await page.mouse.click(spot.x, spot.y);
+      await page.waitForTimeout(400);
+      const after = await tabNames();
+      const now = await page.evaluate(() => (document.querySelector("[data-side-panel]")?.innerText || "").slice(0, 60));
+      check(
+        `${tag}: the click on bare ground did let go of the part`,
+        held !== now,
+        `the panel read ${JSON.stringify(held)} and now reads ${JSON.stringify(now)}`,
+      );
+      check(
+        `${tag}: and it did not move the tab`,
+        before?.lit?.[0] === "Element" && after?.lit?.[0] === "Element",
+        `on ${JSON.stringify(before?.lit)} before the click, ${JSON.stringify(after?.lit)} after`,
+      );
+    }
+    await pressTab("Look");
+  }
+
   /* Undo red, redo green — and only when they can be pressed, so the board
      needs a history before either can be looked at. Two parts in, one step
      back, and both arrows are live at once. A screenshot of two greyed-out

@@ -32,7 +32,6 @@ import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
-import { BACKGROUND_ID } from "./store";
 import { Timeline } from "./Timeline";
 import { TimelineDetail } from "./TimelineDetail";
 import { LightPlacer } from "./LightPlacer";
@@ -562,32 +561,50 @@ function PreviewToggle() {
   );
 }
 
+/**
+ * The side panel's tabs: one set, in one order, always all five.
+ *
+ * They used to appear and disappear with the selection — Element, Format and
+ * Pages only while something was held — which meant the strip you were
+ * reaching for was a different strip depending on what you had just clicked.
+ */
+const SIDE_TABS = [
+  { value: "inspector", label: "Element", icon: <Sparkles /> },
+  { value: "format", label: "Format", icon: <Settings2 /> },
+  { value: "pages", label: "Pages", icon: <Layers /> },
+  { value: "look", label: "Look", icon: <PaletteIcon /> },
+  { value: "motion", label: "Motion", icon: <Clapperboard /> },
+] as const;
+
 export function StudioPage() {
   useStudioHydration();
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const [leftPanel, setLeftPanel] = React.useState("look");
-  const selection = useStudio((s) => s.selection);
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
   const design = mode === "design";
   const book = mode === "book";
 
   /*
-   * Picking something brings its own panel to the front, and letting go of it
-   * hands the column back to Look — the tab you were on is remembered only
-   * while there is something to be on it about.
+   * The tab you are on is the tab you stay on.
+   *
+   * It used to move under you twice over. The set of tabs changed with the
+   * selection — Element, Format and Pages appeared when something was picked
+   * and vanished when it was not — and an effect on `selection` wrote the
+   * active tab on every change, so clicking the bare background to deselect
+   * threw you off Motion and back to Look mid-adjustment. Five tabs, always
+   * the same five, in the same order, and nothing but a press moves them.
+   *
+   * That does cost the one helpful jump: picking a part no longer brings
+   * Element to the front. It cannot both never swap and swap when it judges
+   * you would like it to, and being thrown off a panel you were working in is
+   * the worse of the two. Element is one press away and says what is picked
+   * the moment you are on it; with nothing picked it is the page's own
+   * prompt, which is a real thing to be looking at rather than a sign saying
+   * nothing is selected.
    */
-  const picked = selection.length > 0;
-  React.useEffect(() => {
-    // A part picks Element; the page picks Look. The background's own panel
-    // is mostly a sign pointing at Look — its colour, its texture, its light
-    // all live there — so selecting the page goes straight to the thing you
-    // came for, with Element still a tab away.
-    const page = selection.includes(BACKGROUND_ID);
-    setLeftPanel(selection.length && !page ? "inspector" : "look");
-  }, [selection]);
-  const sideTab = picked ? leftPanel : leftPanel === "motion" ? "motion" : "look";
+  const sideTab = leftPanel;
 
   React.useEffect(() => {
     // The setters beside the togglers are for anything that has to put the
@@ -668,17 +685,18 @@ export function StudioPage() {
                 size="xs"
                 value={sideTab}
                 onChange={setLeftPanel}
-                options={[
-                  ...(picked
-                    ? [
-                        { value: "inspector", label: "Element", icon: <Sparkles /> },
-                        { value: "format", label: "Format", icon: <Settings2 /> },
-                        { value: "pages", label: "Pages", icon: <Layers /> },
-                      ]
-                    : []),
-                  { value: "look", label: "Look", icon: <PaletteIcon /> },
-                  { value: "motion", label: "Motion", icon: <Clapperboard /> },
-                ]}
+                /* Only the tab you are on says its name.
+                   Five words and five icons want 347px and the column is
+                   215px, so something had to give and it is the four words
+                   you are not reading. The one that is left is the one doing
+                   work — it says where you are — and the other four keep
+                   their word for a screen reader, so nothing is lost that
+                   was being said. */
+                options={SIDE_TABS.map((t) => ({
+                  value: t.value,
+                  icon: t.icon,
+                  label: <span className={sideTab === t.value ? undefined : "sr-only"}>{t.label}</span>,
+                }))}
                 aria-label="Side panel"
               />
               {/* The panel used to carry its own hide button here, beside the
