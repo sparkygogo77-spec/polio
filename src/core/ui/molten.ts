@@ -20,6 +20,13 @@
  *
  * The child carries the edge, the flare and the ember; the seed staggers a
  * construct's animations so a screen of them is not one machine.
+ *
+ * **The pace is nearly static, and deliberately so.** Everything here runs
+ * about three times slower than it first did: a second's glance should show
+ * nothing at all and only time should reveal it. Slowing rather than damping
+ * is the lever, because a third of the rate is a third of the change per
+ * second without touching how far anything travels — and it costs less,
+ * which is what thirty on a screen needs.
  */
 
 /**
@@ -59,11 +66,11 @@ export const MOLTEN_KEYFRAMES = [
 
 /** What each one is for, in a line, so nobody has to read the stylesheet to know. */
 export const MOLTEN_MOTION: Record<(typeof MOLTEN_KEYFRAMES)[number], string> = {
-  "molten-drift": "the slow boil: the veining crawls one way, 47s",
-  "molten-churn": "a second layer the other way at another rate, 71s, so brightness drifts rather than pulses",
-  "molten-breathe": "the edge thickening and thinning, 13s",
-  "molten-flare": "an occasional run of light along the outline that dies, 23s, visible for a sliver of it",
-  "molten-ember": "the odd spark shed at a corner, 17s, nothing for most of it",
+  "molten-drift": "the slow boil: the veining crawls one way, 150s",
+  "molten-churn": "a second layer the other way at another rate, 226s, so brightness drifts rather than pulses",
+  "molten-breathe": "the edge thickening and thinning, 42s",
+  "molten-flare": "an occasional run of light along the outline that dies, 74s, visible for a sliver of it",
+  "molten-ember": "the odd spark shed at a corner, 54s, nothing for most of it",
 };
 
 /** The class that makes a thing a construct, at the temperature asked for. */

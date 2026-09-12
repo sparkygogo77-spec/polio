@@ -227,16 +227,25 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    * of the most. Nothing is cut off now. Things give way in a stated order,
    * from the first to go to the last:
    *
-   *   1. the tool's name           (below 2xl) — the icon says it
-   *   2. Updates and Preview words (below xl)  — the icons say them
-   *   3. the search's own words    (below xl)  — it becomes a magnifier
-   *   4. the ink hues              (below lg)  — only out while drawing
-   *   5. the zoom readout          (below lg)  — the minus and plus stay
-   *   6. Fit and Wires             (below lg)  — both have a key, f and w
-   *   7. Updates entirely          (below lg)
-   *   8. the search entirely       (below md)  — mod+k still opens it
-   *   9. the menu's edge switch    (below md)
-   *  10. the site's name           (below sm)  — its mark stays
+   *   1. the search's own words    (below xl)  — it becomes a magnifier
+   *   2. the ink hues              (below lg)  — only out while drawing
+   *   3. the zoom readout          (below lg)  — the minus and plus stay
+   *   4. Fit and Wires             (below lg)  — both have a key, f and w
+   *   5. Updates entirely          (below lg)
+   *   6. the search entirely       (below md)  — mod+k still opens it
+   *   7. the menu's edge switch    (below md)
+   *   8. the site's name           (below sm)  — its mark stays
+   *
+   * It used to be ten rungs. The top two were the tool's name and the words
+   * on Updates and Preview, and those are gone from the bar at every width
+   * now: the icons say them, the tooltips name them, and a control that never
+   * carries text never has to give one up. The ladder got shorter by fixing
+   * the thing rather than by managing it.
+   *
+   * `Builds` keeps its word, deliberately, and it is the one exception. It is
+   * the only way out of the Builder and the only wayfinding in the bar; a
+   * bare stack-of-layers glyph at the far left is a guess, not a label. The
+   * site's name beside it is not a control at all, it is what you have open.
    *
    * What never goes, at any width: the tool in your hand, the three devices,
    * undo and redo, zoom's minus and plus, Preview, Finish, the panel toggle
@@ -382,6 +391,13 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
  * tool is the loudest thing about what a press will do; **not** `PROCESS.open`
  * because that red means a state — unfinished, abandoned — and a tool is not
  * a state. Two reds with two meanings is one too many.
+ *
+ * **No word on it.** The icon is the tool and the caret is the promise of
+ * more; the names live in the menu it opens and in the tooltip. A control
+ * that never carries text never has to give one up, so it drops out of the
+ * give-way ladder below entirely rather than being its first rung — which is
+ * the better kind of narrow-window fix, since it is also the right thing at
+ * full width.
  */
 function ToolPicker({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }) {
   const cur = TOOLS.find((t) => t.id === tool) ?? TOOLS[0]!;
@@ -403,7 +419,7 @@ function ToolPicker({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void 
         type="button"
         data-tool-picker=""
         aria-label={`Tool: ${cur.label}`}
-        className="tactile inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium [&_svg]:size-3.5"
+        className="tactile inline-flex h-6 shrink-0 items-center gap-0.5 rounded-md border pl-1.5 pr-1 [&_svg]:size-3.5"
         style={{
           borderColor: "oklch(0.62 0.19 25)",
           background: "linear-gradient(oklch(0.4 0.13 25), oklch(0.29 0.1 25))",
@@ -412,7 +428,6 @@ function ToolPicker({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void 
         }}
       >
         <Icon />
-        <span className="hidden 2xl:inline">{cur.label}</span>
         <ChevronDown className="opacity-80" />
       </button>
     </Dropdown>
@@ -518,9 +533,8 @@ function UpdatesToggle() {
   return (
     <>
       <Tooltip content="What has landed, and what is new to use">
-        <Button variant="ghost" size="xs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
           <History />
-          <span className="hidden xl:inline">Updates</span>
         </Button>
       </Tooltip>
       <UpdatesPanel open={open} onOpenChange={setOpen} />
@@ -536,14 +550,13 @@ function PreviewToggle() {
     <Tooltip content={on ? "Back to the board" : "See the site as it will be"}>
       <Button
         variant={on ? "subtle" : "ghost"}
-        size="xs"
+        size="iconXs"
         aria-pressed={on}
         aria-label="Preview"
         data-preview-toggle=""
         onClick={() => { play("navigate"); useStudio.getState().setMode(on ? "design" : "preview"); }}
       >
         <PlayCircle />
-        <span className="hidden xl:inline">Preview</span>
       </Button>
     </Tooltip>
   );

@@ -10,12 +10,9 @@
  * one glow passing through all three at once rather than chasing along one
  * of them at a time.
  *
- * It is dimmer than it was on purpose, and dimmer again since a chain
- * prompt's own box started sharing this green: the boxes are the constructs
- * and these are what holds them up. Same hue family, different weight —
- * `rim` and `pulse`, the brightest a vine gets, stay well under a box's own
- * `--verdant-hot`, and nowhere near its white core, so a vine growing out of
- * a green box still reads as the thing joining it rather than more of it.
+ * It is dimmer than it was on purpose. The boxes are the lanterns and these
+ * are what holds them up: a vine that outshines the fruit is the wrong way
+ * round, and a screen of bright green lines was reading as the subject.
  *
  * The path is not the shortest line either. It bows out to one side, always
  * the same side for the same pair, so a run of boxes is joined by curves
