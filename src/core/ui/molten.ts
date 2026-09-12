@@ -22,8 +22,15 @@
  * construct's animations so a screen of them is not one machine.
  */
 
-/** The two temperatures a construct comes in. */
-export type MoltenKind = "lantern" | "ember";
+/**
+ * The temperatures a construct comes in.
+ *
+ * `lantern` is an iteration, `ember` an element piece, `verdant` the green
+ * counterpart — Finish, the key that opens the red ones. All three are the
+ * same five stops and the same keyframes; a fourth is a decision to take in
+ * `molten.css`, not in a component.
+ */
+export type MoltenKind = "lantern" | "ember" | "verdant";
 
 /** The five stops, hottest to coldest, as the custom properties that hold them. */
 export const MOLTEN_STOPS = ["white", "hot", "body", "deep", "char"] as const;
@@ -48,7 +55,9 @@ export const MOLTEN_MOTION: Record<(typeof MOLTEN_KEYFRAMES)[number], string> = 
 
 /** The class that makes a thing a construct, at the temperature asked for. */
 export function moltenClass(kind: MoltenKind = "lantern"): string {
-  return kind === "ember" ? "molten molten-ember" : "molten";
+  if (kind === "ember") return "molten molten-ember";
+  if (kind === "verdant") return "molten molten-verdant";
+  return "molten";
 }
 
 /**

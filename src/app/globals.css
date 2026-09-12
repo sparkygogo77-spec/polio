@@ -511,28 +511,27 @@
  * where it says "this is the end of the work" without competing with the
  * numbers it is there to show.
  */
+/*
+ * Finish is a construct now (`core/ui/molten.css`, verdant), so its colour,
+ * its edge and its boil come from there. What is left here is the part that
+ * is a *key*: the weight under it and the way it goes down under a finger.
+ * A construct that did not press would be a picture of a key.
+ */
 .process-key {
-  background: linear-gradient(oklch(0.31 0.075 150), oklch(0.2 0.05 150));
-  border: 1px solid oklch(0.66 0.17 150);
   color: oklch(1 0 0);
   box-shadow:
-    0 1.5px 0 oklch(0.16 0.05 150),
+    0 1.5px 0 oklch(0.14 0.05 152),
     0 2px 8px oklch(0 0 0 / 0.6),
-    0 0 0 1px oklch(0.66 0.17 150 / 0.25),
-    inset 0 1px 0 oklch(0.82 0.16 150 / 0.45);
-  transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 70ms ease-out, background 70ms ease-out;
+    0 0 20px -6px oklch(0.8 0.19 152 / 0.5);
+  transition: transform 70ms ease-out, box-shadow 70ms ease-out, filter 70ms ease-out;
 }
-.process-key:hover {
-  background: linear-gradient(oklch(0.36 0.085 150), oklch(0.24 0.06 150));
-  border-color: oklch(0.76 0.18 150);
-}
+.process-key:hover { filter: brightness(1.12); }
 .process-key:active {
-  background: linear-gradient(oklch(0.17 0.05 150), oklch(0.21 0.06 150));
   transform: translateY(1.5px);
+  filter: brightness(0.88);
   box-shadow:
-    inset 0 2px 5px oklch(0.08 0.04 150 / 0.9),
-    inset 0 -1px 0 oklch(0.7 0.15 150 / 0.25),
-    0 0 0 1px oklch(0.3 0.08 150);
+    inset 0 2px 5px oklch(0.08 0.04 152 / 0.9),
+    0 0 0 1px oklch(0.3 0.08 152);
 }
 /* The flag reads white, on every state, at every brightness of the slab. */
 .process-key svg {
