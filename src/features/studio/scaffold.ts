@@ -23,7 +23,7 @@
  *
  * Pure, and tested by `tests/scaffold.mjs`.
  */
-import { paintRoles, roleVars } from "./bodyPaint";
+import { paintRoles, roleVars } from "./bodyPaint.ts";
 
 export interface ScaffoldFile {
   path: string;

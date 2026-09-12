@@ -2,9 +2,123 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-11T22:49:31.669Z";
+export const GENERATED_AT = "2026-09-11T23:17:48.164Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "b45273e",
+    "when": "2026-09-11T23:17:45+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "b818e51",
+        "says": "Count what grows while the Builder is left open",
+        "when": "2026-09-11T23:07:47+00:00",
+        "detail": [
+          "The complaint is that it gets worse the longer it stays open, which means something is accumulating rather than being replaced. This does not guess which: it wraps the browser's own bookkeeping before the page's scripts run and counts every candidate over a long run.",
+          "Animation loops are counted as callbacks per frame rather than calls made — a loop restarted on a re-render without the old one being cancelled shows up as that ratio climbing, where a running total only ever goes up and says nothing. Listeners are counted net and by type off the prototype, so one added per part and never removed is visible by name. Timers and intervals the same way. Canvases are counted with their backing store in megabytes, which is what a laying allocating rather than reusing would show. Heap and node count come along for the ride.",
+          "Nothing here reads pixels. A readback off a promoted layer costs enough to be its own confound, and none of these questions need one."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "fad1ffc",
+    "when": "2026-09-11T23:17:35+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "6dd4f50",
+        "says": "The selection hugs the shape rather than the box round it",
+        "when": "2026-09-11T23:13:33+00:00",
+        "detail": [
+          "A diagonal picked up drew a square with a lot of empty corners. The drawn outline was already on the node and already cutting the part to it, so the mark was the only thing still working off the bounding box.",
+          "It now walks the same path the crop uses — so the mark and the crop cannot disagree — and strokes it with a non-scaling stroke, and the box outline stands down while it does. The handles go on that path's extremes rather than on the box's corners: on a diagonal band the two corner handles land on the two ends of the line and the rest sit on its sides, so nothing is left standing in an empty corner. They carry the same data-resize they always did, so resizing is unchanged.",
+          "A path that says too little to place handles on falls back to the box, which is the right answer then.",
+          "Driven in Chromium on a 420 by 150 diagonal: one mark along the band, eight handles on it, the box outline transparent. 14/14 in tests/part-select.mjs."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "better"
+      },
+      {
+        "id": "8813d7c",
+        "says": "A drawn part answers the palette like every other part",
+        "when": "2026-09-11T23:13:21+00:00",
+        "detail": [
+          "Select the diagonal, change a colour role, nothing happens. The body that came back from the renderer has its colours baked into it — fill=\"#8FE04A\" and that is that — so a made real part sat on the board ignoring the theme, which is the loudest way it reads as a picture somebody pasted in.",
+          "Each baked colour is now handed to the role it plainly stands in for, with no model and by what the colour is: near white is the ground, near black is the ink, the one colour with the most colour in it is the accent, and the rest is muted. The colour becomes var(--part-accent, #8FE04A) — the original left as the fallback, so a frame with no roles renders exactly what came back and nothing is lost by trying, and painting is both reversible and idempotent.",
+          "Nothing stored is rewritten: this is a reading of the body at render, so it follows the palette afterwards rather than only at creation, and an older part gets it without being remade. The built site does it too, with the site's own roles carried into the frame because the frame is its own document and cannot see them. The judge does not: it looks at what came back, not at a repaint.",
+          "Driven in Chromium: the body's stroke reads var(--part-accent, #8FE04A), the frame declared the theme's blue, and changing the accent to #ff2d95 turned the part pink on reload. 26/26 in tests/part-colour.mjs."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "94c8f19",
+        "says": "A made real part lands at the size and place it was drawn",
+        "when": "2026-09-11T23:05:19+00:00",
+        "detail": [
+          "A diagonal drawn a couple of hundred pixels wide came back as a band across the whole page, and an earlier one came back 760 by 760. Two causes, both in the same blind spot: by the time a drawing reaches the reader its strokes are fractions of their own box, so nothing downstream knew how big it had been.",
+          "The size was simply never carried. The board now measures the drawing it is making real and sends that with the job, and both roads honour it: the reader's numbers are a guess about a part it has never seen on a page, and the measurement is not a guess.",
+          "The proportion was worse, because it was being read off those same normalised strokes — which are always about as wide as they are tall. That is where 760 by 760 came from: a wide shallow diagonal measured as square, and the reader's own wide answer \"corrected\" to it. When the board measured the drawing, that box is the proportion and the strokes are not asked.",
+          "Two things are genuinely full width and keep the wide answer: a drawing a person actually drew across the page, and a kind that is full bleed by nature — a corner glow, a hero — which the library says by its own width. Everything else lands where it was drawn. The toast says \"at the size it was drawn\" when a size was put back, so it is never silent."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "394905e",
+        "says": "Strokes lay down as one drawing, and a person can say otherwise",
+        "when": "2026-09-11T22:59:12+00:00",
+        "detail": [
+          "A gull drawn as four strokes came back as three Make real buttons in a row, because the board only ever knew about strokes. A fifteen-stroke bird would have been fifteen unrelated parts, which kills the bird case outright.",
+          "So the board is told what a drawing is, the way a person already means it. Strokes laid down one after another and near each other are one drawing, transitively — the wing joins the body, the body joins the head — and a pause of a second and a half closes it, so the next stroke starts a new one. Lifting the pen to reposition is not a pause. A stroke on the far side of the page during the same run is its own drawing.",
+          "It will guess wrong, so the guess is visible and changeable rather than hidden. Every drawing of more than one stroke is ringed where it is, dashed while it is a guess and solid once a person has said; the chip on it reads \"Make real · 4 strokes\" and carries Join, which takes in the nearest drawing, and Split, which gives every stroke its own again. A decision is written on the strokes themselves and is never overruled by the guess, in either direction, and both go through push() so undo takes them back.",
+          "Make real now takes the group: every stroke in it, normalised against the group's box rather than each stroke's own, so the wing stays where it was drawn relative to the body, and the whole drawing leaves the board together."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "cc1e2bb",
+    "when": "2026-09-11T22:49:37+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "cc1e2bb",
+        "says": "Regenerate passes.generated.ts after merging this pass",
+        "when": "2026-09-11T22:49:37+00:00",
+        "detail": [
+          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "acb3546",
     "when": "2026-09-11T22:49:14+00:00",
@@ -741,87 +855,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "better"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0b91791",
-    "when": "2026-09-11T03:24:46+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "0b91791",
-        "says": "Every surface stands off the page under the lamp",
-        "when": "2026-09-11T03:24:46+00:00",
-        "detail": [
-          "Place the light worked on one surface out of two hundred and eighteen. `liftTheme` hands each part its shadow, and the only thing in the library that ever put it anywhere was the button primitive — so pointing the lamp at a hero, a card, a gallery or a form did nothing at all. J's feature was finished except for the part where you can see it.",
-          "The box round a part is the surface every part has. The value is carried on the wrapper as `--lift-shadow` and one rule in `globals.css` puts it on that box. With no lamp there is no variable and the rule falls back to `none`, so an unlit board draws exactly what it always drew. The corner is the one the part is cut to, so the shadow hugs the silhouette; a part cut to a drawn outline is left out, because a rectangular shadow under a path is a shadow of the wrong thing.",
-          "The CSS-variable path is the same one the drag already used, so the lighting is live while the sun is in your hand rather than only after you let go — and with every surface in the pass instead of the buttons alone, the drag measures p95 13.7ms and max 16.4ms, with not one frame of six hundred over 16.7.",
-          "Two things the wider pass turned up:"
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "41486df",
-    "when": "2026-09-11T02:59:14+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "0bb9833",
-        "says": "Timeline pass two: hard-light strands, cards that grow out of the box, purple element pieces",
-        "when": "2026-09-11T02:57:22+00:00",
-        "detail": [
-          "The strands stop being wire. Each one is a construct of light sampled off its curve: a translucent emerald body, three bands of marbling swimming inside it on their own phases, a hair of near-white down each rim so it reads as solid, and energy running along the line as well as helixing around it. Purple where the iteration is an element prompt.",
-          "An iteration is read on its own box now, not in a panel elsewhere. Clicking one grows two cards out of it, what went in from the top edge and what came out of the bottom, joined to the box by the same construct. The box itself carries a wireframe of the document that iteration produced, with the parts it changed lit, so it says what it looks like as well as what it did. A drawing is no longer a headline box at all: it is a small purple construct piece with the strokes and the name, and headline boxes are kept for the iterations that moved the whole site.",
-          "The section below the timeline loses the stages and the file-tree look and keeps two things: the prompt, pinned to the top and visibly larger at any zoom or window size, and the menu of what this generation can be turned into. It is written in the same emerald cards and eyebrow labels the boxes use.",
-          "Every drawing call now leads with the picture: the rasterized strokes are announced as the thing to read the shape off, and the measurements follow for what a picture is imprecise about. That holds for a new part, for Make real on a part that already exists, and for the body loop's critique step, which sends the drawing and the render side by side."
-        ],
-        "areas": [
-          "docs",
-          "keys",
-          "pages",
-          "studio",
-          "tests",
-          "tour",
-          "tweets"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9239f6b",
-    "when": "2026-09-11T02:58:30+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "9239f6b",
-        "says": "The frame is one screen, and one side carries the tools",
-        "when": "2026-09-11T02:58:30+00:00",
-        "detail": [
-          "Three things about the room, and they were the same thing: the design area grew with the site instead of standing still.",
-          "**The frame is a window on the page.** Each frame width is a real device, so each gets that device's real viewport — 1440×900, 834×1112, 390×844 — with the pane's own shape leaning it a tenth either way and no further. The site scrolls behind the frame's edge the way it will in a browser; the workspace never scrolls, and fits the whole screen of it in the pane with the ground showing all round. A deep site used to grow the frame downwards for ever, so the foot of it was below the workspace's horizon and the parts shelf below that.",
-          "**The shelf is a band that is always there**, not a floor you scroll down to — and so is \"This iteration\" under the timeline. Both clamp rather than vanish when the window is dragged short: at 1440×340 they are still whole. The categories are round buttons now, the planet half again as big, wrapping to as many rows as they need, with \"New idea\" at the end of them; the search is a screen across the whole shelf rather than a dark box at the end of a dark row.",
-          "**One side panel.** The right one was hidden below 1280px — exactly where room is short — so the panel you need when you pick something was not there while the left one ate room the frame wanted. The left column carries everything and answers what is in your hand: a part picks Element, the page picks Look, nothing picks Look."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
