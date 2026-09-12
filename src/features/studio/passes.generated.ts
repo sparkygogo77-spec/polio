@@ -2,9 +2,137 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-11T23:17:48.164Z";
+export const GENERATED_AT = "2026-09-12T00:38:08.225Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "2ef0a54",
+    "when": "2026-09-12T00:38:04+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "46710ff",
+        "says": "The bar gives way in a stated order rather than walking off the edge",
+        "when": "2026-09-12T00:14:24+00:00",
+        "detail": [
+          "Narrow the window and the bar kept Desktop, Tablet and Phone spelled out in full while the controls on the right were clipped away: the least important thing surviving at the expense of the most. Nothing is cut off now, at any width from 640 up.",
+          "What goes, first to last:",
+          "1. the tool's name           below 2xl  the icon says it 2. Updates and Preview words below xl   the icons say them 3. the search's own words    below xl   it becomes a magnifier 4. the ink hues              below lg   only out while drawing 5. the zoom readout          below lg   the minus and plus stay 6. Fit and Wires             below lg   both have a key, f and w 7. Updates entirely          below lg 8. the search entirely       below md   mod+k still opens it 9. the menu's edge switch    below md 10. the site's name           below sm   its mark stays",
+          "What never goes: the tool in your hand, the three devices, undo and redo, zoom's minus and plus, Preview, Finish, the panel toggle and the pages."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "better"
+      },
+      {
+        "id": "060c274",
+        "says": "Four tools in one red control, and the cursor pans",
+        "when": "2026-09-11T23:40:28+00:00",
+        "detail": [
+          "Six flat ghost buttons became one lit button wearing whichever tool is in your hand, with the rest a press away. A row of identical icons made the tool you were actually holding the quietest thing in the bar — a slightly darker background among five siblings. It takes the app's own red rather than PROCESS.open: that red means a state, unfinished or abandoned, and a tool is not a state. Two reds with two meanings is one too many.",
+          "Two tools left the bar, for different reasons.",
+          "Pan is gone because the cursor pans, and which drag you get is decided by what is under the hand rather than by a mode: bare ground outside the page pushes the view, a part moves, and empty space inside the page still draws a marquee. The nebula is the ground you push, the page is the surface you select on. Alt-drag and the middle button still pan from anywhere.",
+          "Draw a region is off the bar, and it is worth being exact about why, because it is not what it looked like. It was never a selection tool: it draws a rectangle annotation, a frame shape, sibling to a pen stroke and an arrow. So marquee-plus-shift-click does not replace it — they were never doing the same job. What it actually is, is a third way to draw on a board that already has two, holding a permanent slot in the bar. The shape kind stays in ShapeKind, so every frame already drawn still renders and no board loses anything."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7fee48a",
+        "says": "Four things in the bar: one panel toggle, coloured arrows, bare devices, a real search",
+        "when": "2026-09-11T23:28:00+00:00",
+        "detail": [
+          "The side panel had two controls, one in the bar and one in the panel's own header, and only the bar's could bring it back. The one that could only hide it is gone.",
+          "Undo takes the process red and redo the process green, from PROCESS in threads.ts rather than a third pair — going back and going on is the same question every process state answers. Only while they can be pressed: a greyed control still wearing a colour is a lie.",
+          "Desktop, tablet and phone lose their words and keep their icons, each with its own colour. Both were on offer and this is the reason for taking icons plus colour rather than one or the other: the words were the widest thing between the tools and the search, and dropping them is what lets the search fill its gap, but an outline glyph at 14px is a weak signal on its own — a tablet and a phone are the same rectangle at different sizes — so with the label gone the colour has to carry the distinction. The hues are 100 degrees apart around the accent's own wheel rather than picked by eye, so they move with the accent and can never collapse into three shades of one colour. Only the chosen one is lit.",
+          "The search takes the whole gap it sits in rather than a fixed 176px with dead bar either side, drops the shortcut chip, which was the widest thing in a control whose job is to be typed into, and sits in a lit well instead of the bar's own colour. A search that matches its surroundings reads as a label."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0f2942d",
+    "when": "2026-09-12T00:37:55+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "2ad0d0e",
+        "says": "What a drawing costs, on the card and in the toast",
+        "when": "2026-09-11T23:38:25+00:00",
+        "detail": [
+          "Nothing anywhere said what a call cost or how long it took. The iteration card named the model and stopped, so the only place a price existed was the bench — which is no use at all to the person paying for the drawing.",
+          "One price list now, in spend.ts: the renderer per press at the numbers already in use, 0.08 vector and vectorize and 0.04 raster, and Anthropic's Opus list per million tokens, with a cache read at a tenth of an input token and a cache write at a quarter more than one. If a rate moves it moves there and nowhere else. Every paid call goes through it — the reader, the tracer's every go, the writer's every attempt whether or not the answer was usable, and the whole generate path, vined or not.",
+          "The wait is measured rather than estimated, from the moment the request goes out, retries included, because that is the wait the person actually had.",
+          "And the bill says who was paid: \"Claude $0.03, renderer $0.08\". That is the only way to tell from the outside which road a drawing took — once the part is on the board the two look identical, which is exactly the question that could not be answered about the diagonal."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "9c24ba2",
+        "says": "The timeline is red lanterns joined by green vines",
+        "when": "2026-09-11T23:24:03+00:00",
+        "detail": [
+          "Purple pieces on a purple nebula were nothing at all, and an emerald box was the same colour as the strands running out of it, so the screen had no subject. Both kinds of box are red now: a lantern for an iteration, warm and deep and lit from inside rather than a signal, and an ember a shade cooler for an element prompt so the two still read apart. A red at the emerald's chroma came out brown, so the colour had to go up as the hue moved; the faces are a gradient because a lantern is lit, not filled. The section underneath followed, because it is the same place.",
+          "The connections are the green, and not the bright simple green they were. Each is three beams of light wound about one axis, a third of a turn apart, with the far side of every turn dimmed and thinned — which is the whole of why it reads as wound rather than as three parallel lines. Several shades walk along each beam's length, there is deterministic fibre in the width and the alpha so the body has grain, and one glow travels the length hitting the same place on all three at once instead of chasing along one at a time. All of it dimmer than before: the boxes lead, the vines support.",
+          "The path is less direct and a little longer, bowing out to one side of the way it is going — a side of travel rather than a side picked from where the boxes happen to be, because that would flip under the hand as a box was dragged a pixel. Ends are still read from where the boxes are on every frame, so a vine stretches in the same frame as the hand, and the loop starter is still the middle of the strand it is about.",
+          "Shown at a pane's size and at 1440p with seven boxes and two element pieces. 39/39 in tests/vines.mjs; timeline-view, timeline-centre, current and threads still pass."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "39775e4",
+    "when": "2026-09-11T23:59:32+00:00",
+    "day": "11 September",
+    "changes": [
+      {
+        "id": "39775e4",
+        "says": "Fix scaffold.ts's own import of bodyPaint to include .ts",
+        "when": "2026-09-11T23:59:32+00:00",
+        "detail": [
+          "Every other file scaffold.ts's tests import directly under plain Node (shapeKind.ts, sketch.ts, cubeFaces.ts) spells its relative imports with an explicit .ts, because Node's own resolver — unlike tsc or Next's bundler — does not try extensions on your behalf. The new import of bodyPaint left it off, so tests/cube.mjs and tests/scaffold.mjs (both of which import scaffold.ts directly) threw ERR_MODULE_NOT_FOUND before a single check ran."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "fixed"
+      },
+      {
+        "id": "ef9f606",
+        "says": "Regenerate passes.generated.ts after merging this pass",
+        "when": "2026-09-11T23:18:01+00:00",
+        "detail": [
+          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "b45273e",
     "when": "2026-09-11T23:17:45+00:00",
@@ -93,26 +221,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "cc1e2bb",
-    "when": "2026-09-11T22:49:37+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "cc1e2bb",
-        "says": "Regenerate passes.generated.ts after merging this pass",
-        "when": "2026-09-11T22:49:37+00:00",
-        "detail": [
-          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
@@ -776,85 +884,6 @@ export const PASSES: Pass[] = [
           "docs"
         ],
         "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "642125b",
-    "when": "2026-09-11T04:41:08+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "50cbaca",
-        "says": "The root is the Builder, and a test can tell a control is visible",
-        "when": "2026-09-11T04:37:04+00:00",
-        "detail": [
-          "The bar was not removed and the frame pass did not hide it. The deployment redirected `/` to `/site`: `next.config.ts` sent the root to the published site the moment anything had been published into the repository, and `site/document.json` has 33 nodes in it. So the front door of the tool became the site the tool had built — `PublishedPage` hides the shell with an injected `<style>` and passes `published`, which makes the preview's own bar `cn(…, \"hidden\")`, tailwind-merge drops `flex` and keeps `hidden`, and the wrapper is forced to `height: 100dvh`. That is every symptom reported, exactly: class ending in `hidden`, six children at 0×0, the shell's own buttons present and unclickable, and a workspace the full height of the window.",
-          "Confirmed on the deploy rather than guessed: `curl -I` on the live root returns 307 → /site, and the same deploy's /builder serves the bar with `flex` and no `hidden`.",
-          "The root is the app now. The published site stays at /site, which is what Publish writes and what the book has always called it — a vanity URL is not worth a redirect that can strand the tool with no way back.",
-          "**And the reason 23 suites were green through it.** Every check asked whether an element *existed*, and an element with `display: none` exists: it has a role, it has a name, `count()` counts it, `getByRole` finds it. So `tests/header.mjs` and `tests/board-layout.mjs` now assert what the word \"there\" has to mean — an offset parent and a rectangle with both sides above zero — for the bar itself and for every control in it, and the layout suite opens the *root* first, which is the route no suite had ever visited. `tests/deployed.mjs` asks the deployment over HTTP, because a redirect is not in the markup and a dev server does not have one."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2fcfa8f",
-    "when": "2026-09-11T04:26:39+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "586c2c6",
-        "says": "The renderer's token lives in the vault, not in the deployment",
-        "when": "2026-09-11T04:21:00+00:00",
-        "detail": [
-          "Correction from J: the Replicate token belongs to the person, not to the environment, so it is treated exactly like the Claude key. It is a service card under the key button beside Claude, held in the same vault in this browser, unlocked the same way and staying unlocked, with the same Try it (which asks Replicate who the token belongs to) and the same Forget. It rides with each call to /api/studio/image as x-replicate-key.",
-          "The route takes the token from the request, hands it to new Replicate() for that call and nothing else: never written down, never logged, never returned, and the one place a library error could carry it is scrubbed against the token that was actually sent. REPLICATE_API_TOKEN in the server's environment still works and is now a silent fallback rather than the path, so the browser's value wins. That is the reverse of every other route here and it is right: the person who typed the token is the person being billed eight cents a call. /api/keys/status reports the server's, present or absent, the same yes-or-no it gives every other name.",
-          "With no token anywhere the route still answers 200 with reason \"unavailable\", and the loop now says what to press rather than \"no token\": a vault holding one behind a PIN is the usual case, so keyState() takes a field and noRendererKeyMessage mirrors noKeyMessage. The whole sentence reaches the iteration's card, not just its first clause.",
-          "Nothing else moves: the two models, cleanSnippet on every SVG, the renderer first in the body loop scored at 0.72 against the drawn outline with the written body as fallback, the drawn PNG as the reference on both paths and in the critique, and the price in the usage line."
-        ],
-        "areas": [
-          "docs",
-          "keys",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7794730",
-    "when": "2026-09-11T04:06:46+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "fb36d9a",
-        "says": "The renderer: a part's body drawn rather than written, behind Replicate",
-        "when": "2026-09-11T03:29:25+00:00",
-        "detail": [
-          "Claude writing SVG by hand is the right answer for a diagram or a band of sentences and the wrong one for a thing that has to look like something, so an Idea part now has a second way to be filled. /api/studio/image takes two kinds: vector goes to recraft-ai/recraft-v3-svg and comes back as SVG, raster goes to black-forest-labs/flux-2-pro and comes back as a data: URI inside an img. Nothing is fetched when the part renders, because nothing may be.",
-          "An SVG a drawing model emitted is not more trusted than one a writing model typed. It goes through cleanSnippet on the way in and renders under the same empty sandbox and the same content policy as a coded body, with a bigger ceiling because a drawing is every curve it drew; past the ceiling it is refused rather than cut, since half an SVG is not a smaller picture.",
-          "In the body loop the renderer goes first and is scored on the same bar: silhouette against the drawn outline, intersection over union, 0.72. Clear it and Claude is never asked. Short of it, the renderer's own render is what the first written attempt is given to beat, and the best of everything is kept, drawn or written. The drawn PNG is the reference on both paths and in the critique.",
-          "The token is the server's alone. new Replicate() reads REPLICATE_API_TOKEN out of the environment; there is no field for it in the vault, no header the route will take it in, it is never logged, and the one place a library error could carry it is scrubbed. With no token the route answers 200 with ok:false and reason \"unavailable\", the same shape a locked Claude key answers with, so the dialog shows the reason and the loop writes the body instead. Under Keys it is a row beside Claude rather than a service card: present or absent from the server env, \"server only\", the variable and that it belongs in the Vercel project's environment, and nothing to type into."
-        ],
-        "areas": [
-          "docs",
-          "keys",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
       }
     ],
     "more": 0
