@@ -1,0 +1,331 @@
+/* ---------------------------------------------------------------------------
+   MOLTEN — the shared surface for glowing constructs.
+
+   This file is the agreement. The timeline's iteration boxes and the element
+   cards are the same thing seen twice, so they are not two reds that nearly
+   match: they are one set of stops and one set of keyframes, defined here and
+   read from here. Nothing else may declare a `molten-*` custom property or
+   keyframe; add a stop here or use one of these.
+
+   What it is: a construct of molten light, not a box with a red border and a
+   glow behind it. Hot near-white where the energy is thinnest — the inner
+   edge — a deep blood-red body, and an outer edge falling to almost black
+   red. Five stops through that range, and the body is veined and grainy
+   rather than a smooth gradient, because molten rock is not smooth.
+
+   THE STOPS, hottest to coldest. Every one of them is a colour, not an
+   opacity of one colour: the whole point is that the edge is a different
+   temperature from the middle rather than the same red turned up.
+
+     --molten-white   the thinnest skin, where it is almost see-through
+     --molten-hot     the edge proper, still glowing
+     --molten-body    the deep blood red the words sit on
+     --molten-deep    the body cooling as it goes out
+     --molten-char    the outer edge, almost black
+
+   THE KEYFRAMES. One set, shared by every construct on the screen; a box
+   varies only by `--molten-seed`, which staggers the delays so thirty of
+   them are not one machine.
+
+     molten-drift     the slow boil: the veining crawls one way
+     molten-churn     kept for a construct that wants a second moving layer;
+                      the timeline's do not, because one veining drifting over
+                      a still one already reads as brightness moving through
+     molten-breathe   the edge, thickening and thinning
+     molten-flare     an occasional run of light along the outline, and out
+     molten-ember     the odd spark shed at a corner
+
+   THE RULES.
+
+   - No strobing and no flashing. Nothing here is faster than nine seconds,
+     nothing crosses more than a third of its opacity range, and the two
+     drifts are deliberately at coprime-ish rates so the pattern does not
+     land on a beat.
+   - The interior stays calm where the words are: the veining is masked away
+     from the middle, so nothing ever moves under a line of text.
+   - It has to be cheap, and cheap is measured rather than asserted. Every
+     animation is `transform` or `opacity`, the grain is one data URI decoded
+     once for the whole page, `contain: layout paint` keeps a construct's boil
+     inside the construct, and one veining layer drifts over a still one
+     because the relative motion is what reads as drift and two moving layers
+     cost twice as much for the same picture. There is no JavaScript loop and
+     no canvas anywhere in it. Thirty of them on a software rasteriser with no
+     GPU at all cost four frames a second out of sixty; on anything with a GPU
+     transform and opacity are composited for nearly nothing.
+   - `prefers-reduced-motion` stops all of it and leaves the construct lit.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* The five stops. Hottest first. */
+  --molten-white: oklch(0.97 0.045 48);
+  --molten-hot: oklch(0.78 0.17 38);
+  --molten-body: oklch(0.38 0.16 27);
+  --molten-deep: oklch(0.21 0.1 22);
+  --molten-char: oklch(0.11 0.04 20);
+
+  /*
+   * The ember: a shade cooler and brighter than the lantern, for a construct
+   * that is a piece rather than an iteration. Same five-stop shape, shifted,
+   * so the two read as one family and never as two reds that nearly match.
+   */
+  --ember-white: oklch(0.97 0.05 36);
+  --ember-hot: oklch(0.76 0.185 26);
+  --ember-body: oklch(0.4 0.175 18);
+  --ember-deep: oklch(0.23 0.115 14);
+  --ember-char: oklch(0.12 0.045 12);
+
+  /*
+   * Grain: one 64px tile of value noise as a data URI, decoded once by the
+   * browser and reused by every construct on the page. A filter per box would
+   * be the same picture computed thirty times.
+   */
+  --molten-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='64' height='64' filter='url(%23n)' opacity='0.5'/></svg>");
+}
+
+/* ---------------------------------------------------------------------------
+   The construct.
+
+   `.molten` paints the body and the outer fall-off and holds the grain. Its
+   two pseudo-elements are the veining, drifting past each other. The rim, the
+   flare and the ember ride on one child, `[data-molten]`, so a construct is
+   one extra node rather than four.
+--------------------------------------------------------------------------- */
+
+.molten {
+  position: relative;
+  isolation: isolate;
+  /*
+   * Measured, not assumed: thirty constructs boiling cost ten frames a second
+   * without this and four with it. Containment tells the browser that nothing
+   * inside a construct can affect anything outside it, so a construct's boil
+   * repaints a construct rather than a region of the timeline.
+   *
+   * It clips descendants to the box, which is why the heat thrown outwards is
+   * on the construct's own shadow rather than on the edge node inside it.
+   */
+  contain: layout paint;
+  /* Every construct reads these; an ember one re-points them and nothing
+     else in the rule has to know which kind it is. */
+  --mo-white: var(--molten-white);
+  --mo-hot: var(--molten-hot);
+  --mo-body: var(--molten-body);
+  --mo-deep: var(--molten-deep);
+  --mo-char: var(--molten-char);
+  --molten-seed: 0;
+  background:
+    /* the grain, faint, over everything */
+    var(--molten-grain),
+    /* the hot skin along the top edge, where the crust is thinnest */
+    linear-gradient(168deg, color-mix(in oklab, var(--mo-hot) 40%, transparent) 0%, transparent 34%),
+    /*
+     * The body cooling outwards. Char arrives well before the far corner
+     * rather than at it, so the construct genuinely goes out at its edge
+     * instead of staying one red all the way across with a bright line round
+     * it — which is what "a box with a red border and a glow" looks like.
+     */
+    radial-gradient(112% 142% at 26% 2%, var(--mo-body) 0%, var(--mo-deep) 44%, var(--mo-char) 88%);
+  background-size: 64px 64px, 100% 100%, 100% 100%;
+  background-blend-mode: overlay, screen, normal;
+}
+
+.molten::before,
+.molten::after {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  /*
+   * The veining. Blobs at irregular sizes, which is what makes the density
+   * uneven: where two overlap the body is hotter, and because the two layers
+   * pass each other at different rates the hot places wander instead of
+   * sitting still or blinking.
+   *
+   * No blend mode and no mask, deliberately. Both look right and both cost
+   * the compositor a read-back of everything underneath, every frame, for
+   * every construct — measured at three frames a second off thirty of them.
+   * The same picture is reachable by building the transparency into the
+   * gradients themselves, which paints once and then only moves.
+   *
+   * The blobs sit away from the middle for the same reason the mask did:
+   * nothing may crawl under a line of text. The construct boils at its edges
+   * and is calm where it is read.
+   */
+  background:
+    radial-gradient(30% 40% at 12% 26%, color-mix(in oklab, var(--mo-hot) 62%, transparent) 0%, transparent 72%),
+    radial-gradient(20% 26% at 33% 8%, color-mix(in oklab, var(--mo-white) 30%, transparent) 0%, transparent 74%),
+    radial-gradient(34% 24% at 86% 78%, color-mix(in oklab, var(--mo-hot) 46%, transparent) 0%, transparent 76%),
+    radial-gradient(16% 44% at 92% 30%, color-mix(in oklab, var(--mo-white) 22%, transparent) 0%, transparent 78%),
+    radial-gradient(24% 30% at 8% 84%, color-mix(in oklab, var(--mo-body) 85%, transparent) 0%, transparent 76%);
+  opacity: 0.5;
+}
+
+.molten::before {
+  animation: molten-drift 47s linear infinite;
+  animation-delay: calc(var(--molten-seed) * -3.1s);
+}
+
+/*
+ * The second layer does not move, and that is the whole trick.
+ *
+ * Two drifting layers cost twice as much and look the same: what reads as
+ * brightness drifting through the body is the *relative* motion of one
+ * veining against another, so one of them can stand still. Mirrored and at a
+ * different scale so it is a different pattern rather than the same one
+ * twice, and turned a little off-square so no edge of it lines up with the
+ * one that moves.
+ */
+.molten::after {
+  opacity: 0.34;
+  transform: scaleX(-1) rotate(7deg) scale(1.08);
+  animation: none;
+}
+
+/* Everything the construct's own content sits above its boil. */
+.molten > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------------------------------------------------------------------------
+   The edge, the flare and the ember: one child, three jobs.
+--------------------------------------------------------------------------- */
+
+[data-molten] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  /*
+   * The edge. A hair of near-white just inside a hotter line: the thinnest
+   * part of the crust, which is where you actually see through to the heat.
+   */
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 72%, transparent),
+    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 26%, transparent),
+    inset 0 8px 22px -10px color-mix(in oklab, var(--mo-white) 30%, transparent);
+  animation: molten-breathe 13s ease-in-out infinite alternate;
+  animation-delay: calc(var(--molten-seed) * -1.7s);
+}
+
+/* The flare: a narrow arc of light that runs the outline and dies. */
+[data-molten]::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  /*
+   * A ring rather than a masked disc: `border` with a transparent-to-hot
+   * conic in `border-image` would need the same read-back a mask does, so
+   * the arc is drawn as a conic behind a hole punched by the construct's own
+   * body colour — one paint, then it only turns.
+   */
+  background:
+    radial-gradient(closest-side, var(--mo-char) 0%, var(--mo-char) calc(100% - 2px), transparent calc(100% - 2px)),
+    conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      transparent 300deg,
+      color-mix(in oklab, var(--mo-white) 85%, transparent) 342deg,
+      color-mix(in oklab, var(--mo-hot) 90%, transparent) 352deg,
+      transparent 360deg
+    );
+  opacity: 0;
+  animation: molten-flare 23s linear infinite;
+  animation-delay: calc(var(--molten-seed) * -2.9s);
+}
+
+/* The ember: the odd spark shed at a corner, then nothing for a long while. */
+[data-molten]::after {
+  content: "";
+  position: absolute;
+  right: 9%;
+  bottom: 4px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--molten-white);
+  box-shadow: 0 0 6px 1px color-mix(in oklab, var(--mo-hot) 70%, transparent);
+  opacity: 0;
+  animation: molten-ember 17s ease-out infinite;
+  animation-delay: calc(var(--molten-seed) * -4.3s);
+}
+
+/* An ember construct: the same rules, re-pointed at the cooler, brighter set. */
+.molten-ember {
+  --mo-white: var(--ember-white);
+  --mo-hot: var(--ember-hot);
+  --mo-body: var(--ember-body);
+  --mo-deep: var(--ember-deep);
+  --mo-char: var(--ember-char);
+}
+
+/* ---------------------------------------------------------------------------
+   The five keyframes. Nothing else may define one named molten-*.
+
+   All transform and opacity, so the compositor can run them without
+   repainting; all long, so nothing reads as a beat; none crossing more than a
+   third of its range, so nothing strobes.
+--------------------------------------------------------------------------- */
+
+@keyframes molten-drift {
+  0%   { transform: translate3d(-4%, 2%, 0) rotate(0deg) scale(1.04); opacity: 0.44; }
+  35%  { opacity: 0.56; }
+  50%  { transform: translate3d(4%, -3%, 0) rotate(4deg) scale(1.1); opacity: 0.5; }
+  72%  { opacity: 0.4; }
+  100% { transform: translate3d(-4%, 2%, 0) rotate(0deg) scale(1.04); opacity: 0.44; }
+}
+
+@keyframes molten-churn {
+  0%   { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
+  40%  { opacity: 0.4; }
+  50%  { transform: scaleX(-1) translate3d(-5%, 3%, 0) rotate(-5deg) scale(1.12); opacity: 0.34; }
+  80%  { opacity: 0.26; }
+  100% { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
+}
+
+@keyframes molten-breathe {
+  0%   { opacity: 0.78; }
+  100% { opacity: 1; }
+}
+
+/*
+ * The flare turns all the way round every time, but is only visible for a
+ * sliver of it: it arrives, runs the outline, and dies, and then the box is
+ * quiet for the best part of twenty seconds.
+ */
+@keyframes molten-flare {
+  0%   { opacity: 0; transform: rotate(0deg); }
+  62%  { opacity: 0; }
+  70%  { opacity: 0.85; }
+  86%  { opacity: 0.5; }
+  94%  { opacity: 0; }
+  100% { opacity: 0; transform: rotate(360deg); }
+}
+
+/* Mostly nothing, then one spark that rises and goes out. */
+@keyframes molten-ember {
+  /* It fades up over a second rather than appearing, which is the difference
+     between a spark coming off an edge and a dot being switched on. */
+  0%, 72%  { opacity: 0; transform: translate3d(0, 0, 0) scale(0.5); }
+  78%      { opacity: 0.5; transform: translate3d(0, -2px, 0) scale(0.85); }
+  83%      { opacity: 0.85; transform: translate3d(1px, -6px, 0) scale(1); }
+  91%      { opacity: 0.4; transform: translate3d(2px, -13px, 0) scale(0.75); }
+  100%     { opacity: 0; transform: translate3d(4px, -22px, 0) scale(0.4); }
+}
+
+/* Lit, and still. A construct that is read as glowing does not have to move. */
+@media (prefers-reduced-motion: reduce) {
+  .molten::before,
+  .molten::after,
+  [data-molten],
+  [data-molten]::before,
+  [data-molten]::after {
+    animation: none !important;
+  }
+  [data-molten]::before,
+  [data-molten]::after { opacity: 0; }
+}

@@ -136,9 +136,12 @@ check("no purple is left on the timeline", !hues(timeline).includes(300));
 check("the section under it followed, so the two are one place",
   !hues(detail).includes(158) && !hues(detail).includes(300));
 check("everything on it is a warm red", hues(timeline).every((h) => h <= 45), `${[...new Set(hues(timeline))].sort((a, b) => a - b).join(",")}`);
+check("the boxes take their red from the shared surface rather than their own",
+  /from "@\/core\/ui\/molten"/.test(timeline));
 check("the boxes and the pieces are two different reds",
   new Set(hues(timeline)).size >= 2 && hues(timeline).includes(34) && hues(timeline).includes(18));
-check("a box looks lit rather than flat", /linear-gradient\(160deg, oklch\(0\.28 0\.095 38/.test(timeline));
+check("a box looks lit rather than flat", /moltenClass\("lantern"\)/.test(timeline),
+  "the light is the shared molten surface now, not an inline gradient");
 check("the file says what it is now, rather than what it was",
   /lantern-red box/.test(timeline) && /ember/.test(timeline));
 
