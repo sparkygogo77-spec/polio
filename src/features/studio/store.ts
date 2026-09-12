@@ -1446,9 +1446,17 @@ export const useStudio = create<StudioState>()(
             threads: [
               ...s.threads,
               {
-                // It hangs off the one being worked in when there is one,
-                // and off whatever landed last when there is not.
-                id, parentId: s.currentThreadId ?? s.liveThreadId, at: Date.now(), mode, model, state: state ?? "done",
+                /*
+                 * It hangs off the one being worked in when there is one,
+                 * off whatever landed last when there is not, and failing
+                 * both off the newest thread there is — because there is
+                 * always something it was founded on unless it is the first
+                 * thing that ever happened. A thread with no parent is a
+                 * piece floating loose on the timeline.
+                 */
+                id,
+                parentId: s.currentThreadId ?? s.liveThreadId ?? (s.threads.length ? s.threads[s.threads.length - 1]!.id : null),
+                at: Date.now(), mode, model, state: state ?? "done",
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 ...(sketch ? { sketch } : {}),
                 doc: snapshot(s) as ThreadDoc,
@@ -1458,6 +1466,21 @@ export const useStudio = create<StudioState>()(
             ].slice(-THREAD_LIMIT),
             liveThreadId: id,
           }));
+          /*
+           * Dropping the oldest threads orphans whoever hung off them, so
+           * the survivors are re-hung on the oldest thread that is left
+           * rather than pointing at something that is gone.
+           */
+          set((s) => {
+            const here = new Set(s.threads.map((t) => t.id));
+            const eldest = s.threads[0]?.id ?? null;
+            if (s.threads.every((t) => !t.parentId || here.has(t.parentId))) return {};
+            return {
+              threads: s.threads.map((t, i) =>
+                t.parentId && !here.has(t.parentId) ? { ...t, parentId: i > 0 ? eldest : null } : t,
+              ),
+            };
+          });
           return id;
         },
 

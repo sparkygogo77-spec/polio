@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
+import { Workspace } from "./Workspace";
 import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "./parts/theme";
 import { PreviewWindow } from "./Preview";
@@ -559,6 +560,18 @@ export function StudioPage() {
             className={cn("relative w-full", design || book ? "min-h-0 flex-1" : "shrink-0")}
             style={design || book ? undefined : { height: "100%" }}
           >
+            {/*
+              One ground, for the whole app.
+
+              The board mounted its own and the timeline mounted another, so
+              pressing the green button swapped the weather as well as the
+              contents — a different nebula every time, which made a button
+              that means "show me the site" look like a button that means
+              "go somewhere else". It is mounted once, here, behind all three
+              views; each of them is transparent over it, and switching
+              between them changes only what stands on it.
+            */}
+            <Workspace />
             {design ? (
               <Canvas />
             ) : book ? (

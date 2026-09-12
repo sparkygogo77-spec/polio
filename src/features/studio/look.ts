@@ -1041,6 +1041,44 @@ export function auraStyle(aura: string | null | undefined, palette: Palette | un
   };
 }
 
+/**
+ * The same aura, following the shape rather than the box round it.
+ *
+ * `box-shadow` can only glow a rectangle, so a part cut to a drawn diagonal
+ * got a glowing rectangle — the aura started at the selection edges, which
+ * is the loudest way a drawn part reads as a picture in a frame rather than
+ * as the thing that was drawn.
+ *
+ * `drop-shadow` follows the alpha of what is actually painted, and a drawn
+ * part is already clipped to its outline, so the glow lands on the line.
+ * Three of them stacked stand in for the three reaches of the box-shadow:
+ * the hairline at the edge, the near glow, the far one. They are dearer than
+ * a box-shadow — a filter rasterises what it is given — which is why this is
+ * only used where a rectangle would be wrong.
+ *
+ * A ring is one tight shadow, as it is in the box version.
+ */
+export function auraFilter(aura: string | null | undefined, palette: Palette | undefined, size = 1, style: AuraStyle = "glow"): Record<string, string | number> | null {
+  const colour = auraColour(aura, palette);
+  if (!colour) return null;
+  const k = Math.max(0.3, Math.min(2.5, size || 1));
+  const drops = style === "ring"
+    ? [`drop-shadow(0 0 ${(1.5 * k).toFixed(1)}px ${withAlpha(colour, 0.95)})`, `drop-shadow(0 0 ${(4 * k).toFixed(1)}px ${withAlpha(colour, 0.4)})`]
+    : [
+        `drop-shadow(0 0 1px ${withAlpha(colour, 0.75)})`,
+        `drop-shadow(0 0 ${(7 * k).toFixed(1)}px ${withAlpha(colour, 0.5)})`,
+        `drop-shadow(0 0 ${(18 * k).toFixed(1)}px ${withAlpha(colour, 0.22)})`,
+      ];
+  const filter = drops.join(" ");
+  if (style !== "pulse") return { filter };
+  return {
+    filter,
+    animation: "aura-pulse-shape 1.8s ease-in-out infinite",
+    "--aura": withAlpha(colour, 0.6),
+    "--aura-k": k,
+  };
+}
+
 /** Describe the lamp for the blueprint. */
 export function describeLight(light: Light): string[] {
   if (!light.on) return [];

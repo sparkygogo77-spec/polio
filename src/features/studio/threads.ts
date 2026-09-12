@@ -166,6 +166,54 @@ export interface ThreadNode {
 }
 
 /** The threads as a forest, oldest first at every level. */
+/**
+ * Every iteration joined to the one it was founded on. Nothing floats.
+ *
+ * A thread hangs off the one being worked in, or off whatever landed last —
+ * but both can be missing, and the oldest threads are dropped when the list
+ * gets long, which leaves their children pointing at a parent that is not
+ * there any more. Either way the timeline shows a piece on its own with no
+ * strand into it, and "what was this founded on" has no answer.
+ *
+ * So the question is answered here instead of being left to whatever was set
+ * at the time: an iteration with no parent, or a parent that has gone, hangs
+ * off the newest iteration that landed before it. That is what it was
+ * founded on — it is the state the board was in when the person drew.
+ *
+ * Only the earliest thread of all has no parent, because nothing came before
+ * it. Returns one entry per thread, in the order given.
+ */
+export function connected(threads: Thread[]): Map<string, string | null> {
+  const byId = new Map(threads.map((t) => [t.id, t]));
+  const inTime = [...threads].sort((a, b) => a.at - b.at);
+  const out = new Map<string, string | null>();
+  for (let i = 0; i < inTime.length; i++) {
+    const t = inTime[i]!;
+    const said = t.parentId;
+    /*
+     * The parent it names, when that one is still here, is not itself, and
+     * landed first. A thread naming a parent that came after it is not a
+     * chain, it is a loop waiting to happen — and it does happen, because
+     * the flag can be moved to an older iteration and the next thing to land
+     * hangs off it.
+     */
+    const named = said ? byId.get(said) : undefined;
+    if (said && said !== t.id && named && named.at <= t.at) { out.set(t.id, said); continue; }
+    // Otherwise the one before it in time, which is what it was founded on.
+    out.set(t.id, i > 0 ? inTime[i - 1]!.id : null);
+  }
+  return out;
+}
+
+/** Anything the timeline would draw with no strand into it. The earliest is not one. */
+export function orphans(threads: Thread[]): Thread[] {
+  const byId = new Set(threads.map((t) => t.id));
+  const inTime = [...threads].sort((a, b) => a.at - b.at);
+  const at = new Map(threads.map((t) => [t.id, t.at]));
+  return inTime.filter((t, i) =>
+    i > 0 && (!t.parentId || t.parentId === t.id || !byId.has(t.parentId) || at.get(t.parentId)! > t.at));
+}
+
 export function threadTree(threads: Thread[]): ThreadNode[] {
   const byId = new Map(threads.map((t) => [t.id, { thread: t, children: [], depth: 0 } as ThreadNode]));
   const roots: ThreadNode[] = [];

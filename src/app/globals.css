@@ -196,6 +196,12 @@
   0%, 100% { box-shadow: 0 0 0 1px var(--aura), 0 0 calc(12px * var(--aura-k)) calc(1px * var(--aura-k)) var(--aura); }
   50% { box-shadow: 0 0 0 1px var(--aura), 0 0 calc(30px * var(--aura-k)) calc(7px * var(--aura-k)) var(--aura); }
 }
+/* The same breath on a part cut to a drawn line, where a box-shadow would
+   glow the rectangle the line sits in rather than the line. */
+@keyframes aura-pulse-shape {
+  0%, 100% { filter: drop-shadow(0 0 1px var(--aura)) drop-shadow(0 0 calc(6px * var(--aura-k)) var(--aura)); }
+  50% { filter: drop-shadow(0 0 1px var(--aura)) drop-shadow(0 0 calc(15px * var(--aura-k)) var(--aura)); }
+}
 
 /* ---------------------------------------------------------------------------
    Base

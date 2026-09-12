@@ -58,12 +58,11 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { useGround } from "./ground";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
-import { diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
+import { connected, diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 
 /** A chain prompt's box. Small: it says little until it is opened. */
@@ -74,8 +73,6 @@ const PIECE = { w: 150, h: 44 };
 const GROW = 22;
 /** How far apart the scatter puts them, before anybody drags anything. */
 const DRIFT = { x: 268, y: 158 };
-/** How far back the ground sits here. The boxes have to be the brightest thing. */
-const GROUND_DIM = 0.55;
 
 /** A number from a string: the same box lands in the same place every time. */
 function seed(s: string): number {
@@ -148,7 +145,6 @@ export function Timeline() {
 
   const host = React.useRef<HTMLDivElement>(null);
   const plot = React.useRef<HTMLDivElement>(null);
-  const ground = React.useRef<HTMLCanvasElement>(null);
   const wires = React.useRef<HTMLCanvasElement>(null);
 
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
@@ -277,15 +273,12 @@ export function Timeline() {
   }, [settle, stopSettle]);
 
   /*
-   * The floor is the same weather the workspace stands on, moved the same
-   * way: a sky that never moves, a canvas per cloud depth that only ever
-   * slides on the compositor, and the embers on their own canvas. It used to
-   * repaint everything thirty times a second here, and then the clouds twice
-   * a second, which is what J saw juddering; `ground.ts` says why neither
-   * rate was the answer.
+   * The floor is not this component's. One ground stands behind the board,
+   * the timeline and Preview alike, so moving between them never changes the
+   * weather; `ground.ts` says how it is moved.
    */
-  const clouds = React.useRef<HTMLDivElement>(null);
-  useGround(host, clouds, ground, GROUND_DIM);
+  // The ground is one instance behind every view (`StudioPage`), not one per
+  // view: mounting a second here is what made Preview change the weather.
 
   /* ----------------------------------------------------------- strands */
   /*
@@ -306,18 +299,31 @@ export function Timeline() {
     [spotOf, byId],
   );
 
+  /*
+   * Every iteration joined to the one it was founded on.
+   *
+   * Not `parentId` straight off the thread: that can be missing, and the
+   * oldest threads are dropped when the list gets long, which leaves their
+   * children pointing at nothing. Either way a piece sat on its own with no
+   * strand into it, which is exactly the question the timeline is for — what
+   * was this drawing founded on. `connected` heals both: an iteration with
+   * no parent hangs off the newest one that landed before it, which is the
+   * board it was actually drawn against. Only the earliest has none.
+   */
+  const joins = React.useMemo(() => connected(threads), [threads]);
   const cords = React.useMemo(
     () =>
       all
-        .filter((n) => n.thread.parentId)
-        .map((n) => ({
-          from: n.thread.parentId!,
-          to: n.thread.id,
-          // An element prompt's strand wears the piece's own purple; a chain
-          // prompt's is emerald, and brighter on the line the board stands on.
-          tone: (isElement(n.thread) ? "pending" : n.thread.id === liveThreadId ? "live" : "landed") as StrandTone,
+        .map((n) => ({ from: joins.get(n.thread.id) ?? null, to: n.thread.id, thread: n.thread }))
+        .filter((c): c is { from: string; to: string; thread: Thread } => !!c.from && byId.has(c.from))
+        .map((c) => ({
+          from: c.from,
+          to: c.to,
+          // An element prompt's vine runs a shade younger and quicker; the
+          // line the board stands on is the brightest of them.
+          tone: (isElement(c.thread) ? "pending" : c.thread.id === liveThreadId ? "live" : "landed") as StrandTone,
         })),
-    [all, liveThreadId],
+    [all, joins, byId, liveThreadId],
   );
 
   const openId = openThreadId;
@@ -434,10 +440,27 @@ export function Timeline() {
     setMenu(null);
     stopSettle();
     const from = { x: e.clientX - viewAt.current.pan.x, y: e.clientY - viewAt.current.pan.y };
-    const move = (ev: PointerEvent) => setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (Math.abs(ev.clientX - e.clientX) > 3 || Math.abs(ev.clientY - e.clientY) > 3) moved = true;
+      setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
+    };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      /*
+       * A press on the ground puts the open card away.
+       *
+       * A card grows out of its box and covers a good part of the timeline,
+       * and the only way to close it was to find the same box again and
+       * press it a second time. Pressing anywhere else is what a person
+       * does to mean "done with that" — but only a press, not the end of a
+       * pan, or dragging the surface would close whatever was open.
+       */
+      if (!moved && useStudio.getState().openThreadId) {
+        play("close");
+        useStudio.getState().openThread(null);
+      }
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -463,8 +486,6 @@ export function Timeline() {
       onWheel={onWheel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div ref={clouds} data-ground-clouds="" aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" />
-      <canvas ref={ground} data-ground-sparks="" aria-hidden className="pointer-events-none absolute left-0 top-0" />
       <canvas ref={wires} aria-hidden className="pointer-events-none absolute left-0 top-0" />
 
       <div
@@ -656,15 +677,24 @@ function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
         play(on ? "close" : "confirm");
         useStudio.getState().setCurrentThread(on ? null : thread.id);
       }}
-      className="flex shrink-0 items-center gap-1 rounded-sm border px-1 py-px text-[8px] uppercase tracking-[0.12em] transition-[background,border-color]"
+      /*
+       * A mark, not a title.
+       *
+       * It was a chip reading "this iteration" across the top of every box,
+       * which is the widest thing on the box and so read as its heading —
+       * and on an element piece it pushed the name of the part off the end
+       * entirely. What the iteration made is the headline; where you are
+       * working is a flag beside it, and the words live in the tooltip.
+       */
+      className="grid size-4 shrink-0 place-items-center rounded-sm border transition-[background,border-color]"
       style={{
-        borderColor: on ? "oklch(0.78 0.17 34)" : "oklch(0.42 0.106 34)",
-        background: on ? "oklch(0.5 0.17 34)" : "transparent",
-        color: on ? "oklch(0.16 0.026 34)" : "oklch(0.66 0.106 34)",
+        borderColor: on ? "oklch(0.78 0.17 34)" : "oklch(0.38 0.09 34)",
+        background: on ? "oklch(0.6 0.17 34)" : "transparent",
+        color: on ? "oklch(0.16 0.026 34)" : "oklch(0.6 0.09 34)",
       }}
     >
       <Flag className="size-2.5" />
-      this iteration
+      <span className="sr-only">this iteration</span>
     </button>
   );
 }
@@ -722,10 +752,14 @@ function IterationBox({
       >
         {/* The edge, the flare and the ember, all on one node. */}
         <span data-molten="" />
-        <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-[oklch(0.68_0.09_158)]">
+        {/*
+          The line above the headline is a label, and it is sized like one:
+          what the iteration made is the biggest thing on the box.
+        */}
+        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.66_0.07_34)]">
           {icon}
           {kind}
-          {pinned ? <Pin className="size-3 fill-current" /> : null}
+          {pinned ? <Pin className="size-2.5 fill-current" /> : null}
           {/* The flag, then the state, hard against the right edge. */}
           <span className="ml-auto flex items-center gap-1.5">
             <CurrentButton thread={thread} on={current} />
@@ -736,7 +770,7 @@ function IterationBox({
           {/* What it produced, at a glance: the page it left behind. */}
           <Snippet thread={thread} />
           <span className="min-w-0 flex-1">
-            <span className="line-clamp-2 block text-[12px] font-medium leading-snug text-[oklch(0.93_0.04_158)]">{headlineOf(thread)}</span>
+            <span data-headline="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_40)]">{headlineOf(thread)}</span>
             <span className="num mt-1 block text-[9px] text-[oklch(0.62_0.06_158)]">
               {new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {thread.mode}
               {thread.changes.length > 1 ? ` · +${thread.changes.length - 1}` : ""}
@@ -800,7 +834,8 @@ function ElementPiece({
       >
         <span data-molten="" />
         <Drawn sketch={thread.sketch} size={30} tone="oklch(0.9 0.17 18)" />
-        <span className="min-w-0 flex-1 truncate text-[11px] leading-tight">{name}</span>
+        {/* What was made, which is the only title a piece has room for. */}
+        <span data-headline="" className="min-w-0 flex-1 truncate text-[11.5px] font-medium leading-tight">{name}</span>
         <CurrentButton thread={thread} on={current} />
         <StateMark thread={thread} />
       </button>
