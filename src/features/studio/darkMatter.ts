@@ -30,68 +30,6 @@ import { oklchToRgb, parseColor } from "./look";
 import { PROCESS } from "./threads";
 
 /* ------------------------------------------------------------------ */
-/* The clouds                                                          */
-/* ------------------------------------------------------------------ */
-
-const TILE = 256;
-let tiles: { violet: HTMLCanvasElement; magenta: HTMLCanvasElement } | null = null;
-
-function noiseTile(seed: number): Float32Array {
-  // Value noise, four octaves, smooth-stepped, on a grid that wraps so the tile repeats.
-  const out = new Float32Array(TILE * TILE);
-  const rand = (x: number, y: number, s: number) => {
-    const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453;
-    return v - Math.floor(v);
-  };
-  for (let o = 0, cells = 4, amp = 0.5; o < 4; o++, cells *= 2, amp *= 0.5) {
-    const cell = TILE / cells;
-    for (let y = 0; y < TILE; y++) {
-      const gy = Math.floor(y / cell), fy = y / cell - gy;
-      const sy = fy * fy * (3 - 2 * fy);
-      for (let x = 0; x < TILE; x++) {
-        const gx = Math.floor(x / cell), fx = x / cell - gx;
-        const sx = fx * fx * (3 - 2 * fx);
-        const a = rand(gx % cells, gy % cells, seed + o);
-        const b = rand((gx + 1) % cells, gy % cells, seed + o);
-        const c = rand(gx % cells, (gy + 1) % cells, seed + o);
-        const d = rand((gx + 1) % cells, (gy + 1) % cells, seed + o);
-        out[y * TILE + x]! += amp * ((a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy);
-      }
-    }
-  }
-  return out;
-}
-
-function colourTile(noise: Float32Array, rgb: [number, number, number], from: number, to: number, gamma: number): HTMLCanvasElement {
-  const el = document.createElement("canvas");
-  el.width = TILE;
-  el.height = TILE;
-  const c = el.getContext("2d")!;
-  const img = c.createImageData(TILE, TILE);
-  for (let i = 0; i < TILE * TILE; i++) {
-    const n = Math.max(0, Math.min(1, (noise[i]! - from) / (to - from)));
-    const a = Math.pow(n, gamma);
-    img.data[i * 4] = rgb[0];
-    img.data[i * 4 + 1] = rgb[1];
-    img.data[i * 4 + 2] = rgb[2];
-    img.data[i * 4 + 3] = Math.round(a * 255);
-  }
-  c.putImageData(img, 0, 0);
-  return el;
-}
-
-function darkMatterTiles() {
-  if (tiles) return tiles;
-  const a = noiseTile(3);
-  const b = noiseTile(11);
-  tiles = {
-    violet: colourTile(a, [112, 50, 204], 0.3, 0.78, 1.35),
-    magenta: colourTile(b, [176, 58, 198], 0.42, 0.84, 1.6),
-  };
-  return tiles;
-}
-
-/* ------------------------------------------------------------------ */
 /* The sparks                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -366,63 +304,6 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
   c.restore();
 }
 
-/* ------------------------------------------------------------------ */
-/* The cloud layers                                                    */
-/* ------------------------------------------------------------------ */
-
-/**
- * One depth's worth of cloud: which tile, how big, which way round, where it
- * goes and how strongly it reads.
- *
- * Written down as a table rather than as four lines of paint because there
- * are now two readers of it. `paintDarkMatter` draws all four onto one
- * surface, turning as it goes, which is what a disc drawn every frame wants.
- * The ground (`ground.ts`) gives each layer a canvas of its own and moves it
- * with a transform, which means the layer can only *translate* — so it uses
- * `turn` and ignores `spin`. Nobody can see 0.8 degrees a second on a cloud;
- * everybody can see a cloud redrawn twice a second.
- */
-export interface CloudLayer {
-  id: string;
-  tile: "violet" | "magenta";
-  /** Drawn this many times its tile's own size. */
-  scale: number;
-  /** Turned this many degrees about the middle, at the start. */
-  turn: number;
-  /** And this many more degrees every second — only where the whole surface is repainted. */
-  spin: number;
-  /** Where it goes, in tile pixels a second, before the turn and the scale. */
-  dx: number;
-  dy: number;
-  alpha: number;
-}
-
-export const CLOUD_LAYERS: CloudLayer[] = [
-  // The far depth: the planet. Huge, slow, turning once in about half an hour.
-  { id: "far-violet", tile: "violet", scale: 2.8, turn: 0, spin: 0.2, dx: 0.5, dy: -0.25, alpha: 0.9 },
-  { id: "far-magenta", tile: "magenta", scale: 2.3, turn: 70, spin: -0.15, dx: -0.35, dy: 0.4, alpha: 0.7 },
-  // The near depth: cloud you can see pass, across in half a minute or so.
-  { id: "near-violet", tile: "violet", scale: 0.95, turn: 30, spin: -0.8, dx: 7.5, dy: -2.5, alpha: 0.55 },
-  { id: "near-magenta", tile: "magenta", scale: 0.75, turn: 150, spin: 0.6, dx: 5.5, dy: 3.5, alpha: 0.45 },
-];
-
-/**
- * Where a layer has travelled by second `t`, in screen pixels.
- *
- * Its own `dx, dy` are tile pixels applied *after* the turn and the scale,
- * so the direction you see is the drawn direction turned by whatever the
- * turn is at that moment, and the distance is it scaled. The turn is itself
- * moving, which is why this takes a time rather than being a constant.
- */
-export function cloudTravel(l: CloudLayer, t: number): { x: number; y: number } {
-  const a = ((l.turn + l.spin * t) * Math.PI) / 180;
-  const cos = Math.cos(a);
-  const sin = Math.sin(a);
-  const dx = l.dx * t;
-  const dy = l.dy * t;
-  return { x: l.scale * (dx * cos - dy * sin), y: l.scale * (dx * sin + dy * cos) };
-}
-
 /**
  * The nebula, generated once at the size it is actually shown.
  *
@@ -660,81 +541,6 @@ export function nebulaField(pw: number, ph: number): HTMLCanvasElement {
   return el;
 }
 
-export function cloudStep(l: CloudLayer): { x: number; y: number; len: number } {
-  const a = (l.turn * Math.PI) / 180;
-  const len = TILE * l.scale;
-  return { x: Math.cos(a) * len, y: Math.sin(a) * len, len };
-}
-
-export function cloudSpeed(l: CloudLayer): number {
-  const { vx, vy } = cloudDrift(l);
-  return Math.hypot(vx, vy);
-}
-
-/**
- * Where a layer actually goes, in screen pixels a second.
- *
- * Its own `dx, dy` are in tile pixels and are applied *after* the turn and
- * the scale, so the direction you see is the drawn direction turned and the
- * distance is it scaled. The near violet works out at about 7.5px a second
- * and the far magenta at 1.2, which is the whole of the parallax.
- */
-export function cloudDrift(l: CloudLayer): { vx: number; vy: number } {
-  const a = (l.turn * Math.PI) / 180;
-  const cos = Math.cos(a);
-  const sin = Math.sin(a);
-  return { vx: l.scale * (l.dx * cos - l.dy * sin), vy: l.scale * (l.dx * sin + l.dy * cos) };
-}
-
-/**
- * One cloud layer, alone on a transparent canvas, laid exactly as
- * `paintDarkMatter` lays it: the same tile, the same scale, turned `turn`
- * degrees about the middle and shifted `dx, dy` tile pixels.
- *
- * This is the whole of what a recycle does. Between recycles the layer is
- * turned and moved by the compositor, which is why the turn and the shift
- * are arguments rather than being worked out from a clock in here.
- */
-export function paintCloudLayer(
-  c: CanvasRenderingContext2D,
-  layer: CloudLayer,
-  opts: {
-    w: number; h: number; dim?: number; turn: number; dx: number; dy: number;
-    /**
-     * How strongly to bake the layer in, 0..1. Defaults to the layer's own
-     * weight times the distance, which is what a single-canvas render needs.
-     *
-     * A layer on its own element passes 1 and carries the weight as CSS
-     * `opacity` instead. The composite is identical — for a `screen` layer,
-     * scaling the source's alpha and scaling the element's opacity land in
-     * the same place — but the bitmap is then the real picture at full
-     * strength rather than a picture at 16% that looks broken to anyone who
-     * reads it back. Which is exactly what happened: a probe of the bitmap
-     * showed a maximum alpha of 42 and was reasonably taken for a fault.
-     */
-    alpha?: number;
-  },
-) {
-  const { w, h } = opts;
-  const dim = opts.dim ?? 1;
-  const T = darkMatterTiles();
-  const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
-  if (!p) return;
-  p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(opts.turn).scale(layer.scale).translate(opts.dx, opts.dy));
-  c.globalAlpha = opts.alpha ?? layer.alpha * dim;
-  c.fillStyle = p;
-  /* `copy` rather than a `clearRect` and then a blend. Same pixels, but the
-     canvas is never in a cleared state: a clear followed by a fill is two
-     operations with an empty canvas between them, and an empty canvas is a
-     black hole in the ground if anything at all gets between the two — a
-     deferred raster, a compositor commit landing early. One operation
-     cannot be interrupted halfway. */
-  const was = c.globalCompositeOperation;
-  c.globalCompositeOperation = "copy";
-  c.fillRect(0, 0, w, h);
-  c.globalCompositeOperation = was;
-  c.globalAlpha = 1;
-}
 
 /**
  * The ground under the clouds, as one CSS gradient.
@@ -760,104 +566,33 @@ export function skyGradient(dim = 1): string {
 
 export interface PaintOptions {
   field: SparkField;
-  /**
-   * Which half to draw.
-   *
-   * The clouds are two full-surface pattern fills, rotated and screened —
-   * the expensive half, and the half that barely changes: the near cloud
-   * crosses in half a minute and the far one turns once in half an hour. The
-   * embers are a few dozen one-pixel streaks, and they are what has to be
-   * drawn thirty times a second. Painting them onto separate canvases means
-   * the cheap half can run at thirty and the dear half at two, instead of
-   * both at thirty. "all" is the old behaviour, and is what a surface that
-   * is drawn once (a screenshot, the reduced-motion still) wants.
-   */
-  layers?: "all" | "clouds" | "sparks";
   /** Seconds since this surface was born. */
   t: number;
-  /** The disc's edge falls off to near black; a wall's corners only darken. */
-  vignette?: boolean;
-  /**
-   * How far away the weather is, 0..1. One is the disc.
-   *
-   * The same cloud that is the whole point of a two-hundred-pixel hole is a
-   * lightbox across a whole screen — five times the area of it in view at
-   * once, and none of the disc's horizon to close it off. The workspace is
-   * the same sky seen from further back: the ground darker, the clouds
-   * fainter, the embers untouched, because an ember that dims to nothing is
-   * not an ember.
-   */
-  dim?: number;
 }
 
+/**
+ * The embers, and nothing else.
+ *
+ * This used to paint the whole weather — a radial ground, four screened
+ * pattern fills turning as they went, and a horizon — with a `layers` option
+ * to ask for half of it. All of that is gone: the sky is a CSS gradient
+ * (`skyGradient`), the clouds are one pre-screened field slid by the
+ * compositor (`nebulaField`), and the horizon is a CSS gradient too. Only
+ * the embers still need a brush thirty times a second, so only the embers
+ * are here, and there is no option left to get wrong.
+ */
 export function paintDarkMatter(c: CanvasRenderingContext2D, opts: PaintOptions) {
   const { field: f, t } = opts;
-  const dim = opts.dim ?? 1;
   const w = f.w;
   const h = f.h;
-  const disc = f.shape === "disc";
-  const r = Math.min(w, h) / 2;
-  const T = darkMatterTiles();
-  const layers = opts.layers ?? "all";
-  const clouds = layers !== "sparks";
-  const sparks = layers !== "clouds";
   c.clearRect(0, 0, w, h);
   c.save();
-  if (disc) {
+  if (f.shape === "disc") {
     c.beginPath();
-    c.arc(w / 2, h / 2, r, 0, Math.PI * 2);
+    c.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
     c.clip();
   }
-
-  // The ground: black, a breath of violet toward the middle.
-  const reach = disc ? r : Math.hypot(w, h) / 2;
-  if (clouds) {
-  const ground = c.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, reach);
-  const mix = (hex: string) => {
-    // Toward the void's own near-black as the weather recedes.
-    const n = parseInt(hex.slice(1), 16);
-    const to = [6, 3, 10];
-    const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v, i) => Math.round(to[i]! + (v - to[i]!) * dim));
-    return `rgb(${rgb.join(",")})`;
-  };
-  ground.addColorStop(0, mix("#180a2c"));
-  ground.addColorStop(0.6, mix("#0c0616"));
-  ground.addColorStop(1, "#06030a");
-  c.fillStyle = ground;
-  c.fillRect(0, 0, w, h);
-
-  // A pattern laid over the surface: drawn `scale` times its tile, shifted by
-  // (dx, dy) tile-pixels and turned `turn` degrees about the middle,
-  // screened so the clouds bloom where they cross.
-  const lay = (tile: HTMLCanvasElement, scale: number, dx: number, dy: number, turn: number, alpha: number) => {
-    const p = c.createPattern(tile, "repeat");
-    if (!p) return;
-    const m = new DOMMatrix().translate(w / 2, h / 2).rotate(turn).scale(scale).translate(dx, dy);
-    p.setTransform(m);
-    c.globalAlpha = alpha * dim;
-    c.globalCompositeOperation = "screen";
-    c.fillStyle = p;
-    c.fillRect(0, 0, w, h);
-  };
-  // Both depths, off the one table, turning as they go: this is the surface
-  // that is repainted whole, so it can afford the spin.
-  for (const l of CLOUD_LAYERS) lay(l.tile === "violet" ? T.violet : T.magenta, l.scale, l.dx * t, l.dy * t, l.turn + l.spin * t, l.alpha);
-  c.globalAlpha = 1;
-  c.globalCompositeOperation = "source-over";
-  }
-
-  // The embers, blown through the near cloud.
-  if (sparks) paintEmbers(c, f, t);
-
-  if (clouds && (opts.vignette ?? disc)) {
-    // The horizon: the edge falls off to near black.
-    const edge = c.createRadialGradient(w / 2, h / 2, reach * 0.78, w / 2, h / 2, reach);
-    edge.addColorStop(0, "rgba(0,0,0,0)");
-    edge.addColorStop(0.7, "rgba(4,2,8,0.5)");
-    edge.addColorStop(1, "rgba(3,1,6,0.9)");
-    c.fillStyle = edge;
-    c.fillRect(0, 0, w, h);
-  }
+  paintEmbers(c, f, t);
   c.restore();
 }
 

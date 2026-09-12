@@ -246,7 +246,7 @@ export function useGround(
     const embers = () => {
       const c = sp.getContext("2d");
       if (!c || !embersField.current) return;
-      paintDarkMatter(c, { field: embersField.current, t: clock, vignette: false, dim, layers: "sparks" });
+      paintDarkMatter(c, { field: embersField.current, t: clock });
     };
 
     fit();
