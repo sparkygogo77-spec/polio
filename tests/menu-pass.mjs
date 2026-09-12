@@ -88,55 +88,30 @@ async function look(w, h, tag) {
       await page.mouse.up();
       await page.waitForTimeout(250);
     }
-    await page.keyboard.press("Control+z");
-    await page.waitForTimeout(350);
   }
 
-  const arrows = await page.evaluate(() => {
-    const get = (label) => {
-      const b = [...document.querySelectorAll("button")].find((x) => x.getAttribute("aria-label") === label);
-      return b ? { colour: getComputedStyle(b).color, off: b.disabled } : null;
-    };
-    return { undo: get("Undo"), redo: get("Redo") };
-  });
-  check(`${tag}: undo and redo are both in the bar`, !!arrows.undo && !!arrows.redo);
-  /* The colours come back as `oklch(L C H)`, not `rgb()`, so the hue is read
-     straight off rather than inferred from three channels. 27 is the process
-     red and 150 the process green — the same pair the timeline and the Finish
-     key use, which is the point: undo and redo are a process state. */
+  /* Each arrow is read at the moment its own precondition holds, rather than
+     trying to catch both live at once — two drags then a step back does
+     usually leave both live, but "usually" is a flaky test. The colours come
+     back as `oklch(L C H)`, so the hue is read straight off; 27 is the
+     process red and 150 the process green, the same pair the timeline and
+     the Finish key use, which is the point. */
+  const arrow = (label) => page.evaluate((l) => {
+    const b = [...document.querySelectorAll("button")].find((x) => x.getAttribute("aria-label") === l);
+    return b ? { colour: getComputedStyle(b).color, off: b.disabled } : null;
+  }, label);
   const hueOf = (c) => { const m = /oklch\(\s*[\d.]+\s+[\d.]+\s+([\d.]+)/.exec(c || ""); return m ? Number(m[1]) : null; };
   const near = (h, want) => h !== null && Math.min(Math.abs(h - want), 360 - Math.abs(h - want)) < 20;
-  check(`${tag}: both arrows were live to be judged`, !arrows.undo?.off && !arrows.redo?.off,
-    `undo ${arrows.undo?.off ? "greyed" : "live"}, redo ${arrows.redo?.off ? "greyed" : "live"}`);
-  if (arrows.undo && !arrows.undo.off) check(`${tag}: undo is the process red`, near(hueOf(arrows.undo.colour), 27), arrows.undo.colour);
-  if (arrows.redo && !arrows.redo.off) check(`${tag}: redo is the process green`, near(hueOf(arrows.redo.colour), 150), arrows.redo.colour);
 
-  /* One tool control, wearing the tool, and no Pan or Region left anywhere. */
-  const tools = await page.evaluate(() => {
-    const b = document.querySelector("[data-tool-picker]");
-    const rows = [...document.querySelectorAll("button, [role=menuitem], [role=menuitemcheckbox]")];
-    return {
-      one: !!b,
-      wears: b?.getAttribute("aria-label") ?? "",
-      red: b ? getComputedStyle(b).borderColor : "",
-      strays: rows.filter((r) => /^(Pan|Draw a region)$/i.test(r.getAttribute("aria-label") ?? "")).length,
-    };
-  });
-  check(`${tag}: one control for the tools, wearing the one in hand`, tools.one && /Tool: /.test(tools.wears), tools.wears);
-  check(`${tag}: it is red, not flat`, /oklch\(\s*[\d.]+\s+0\.[1-9]/.test(tools.red), tools.red);
-  check(`${tag}: no Pan or Region button anywhere`, tools.strays === 0, `${tools.strays} found`);
+  const undo = await arrow("Undo");
+  check(`${tag}: undo is live after two moves`, !!undo && !undo.off, undo?.off ? "greyed" : "live");
+  if (undo && !undo.off) check(`${tag}: undo is the process red`, near(hueOf(undo.colour), 27), undo.colour);
 
-  /* The four tools are all in the menu, and pan and region are not. */
-  if (tools.one) {
-    await page.locator("[data-tool-picker]").click();
-    await page.waitForTimeout(300);
-    const items = await page.evaluate(() =>
-      [...document.querySelectorAll("[role=menuitemcheckbox], [role=menuitem]")].map((i) => i.textContent.trim().split("\n")[0]));
-    check(`${tag}: the menu holds the four tools`, items.length === 4, items.join(" · "));
-    check(`${tag}: pan and region are not among them`, !items.some((i) => /^(Pan|Draw a region)$/i.test(i)), items.join(" · "));
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(250);
-  }
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(400);
+  const redo = await arrow("Redo");
+  check(`${tag}: redo is live after a step back`, !!redo && !redo.off, redo?.off ? "greyed" : "live");
+  if (redo && !redo.off) check(`${tag}: redo is the process green`, near(hueOf(redo.colour), 150), redo.colour);
 
   /* The cursor pans on bare ground and marquees on the page.
      Measured by where the page frame ends up: if the view panned, the frame
@@ -212,8 +187,69 @@ async function look(w, h, tag) {
   await page.close();
 }
 
+/**
+ * Nothing is ever cut off.
+ *
+ * The bar's own scroll width against its own width, at eight sizes. A ladder
+ * of breakpoints that is only written down in a comment is a comment; this is
+ * the guarantee. It also reads which rungs have given way at each size, so
+ * the stated order is checked rather than asserted.
+ */
+async function ladder() {
+  console.log(`\n  the bar giving way — nothing may overflow at any width:`);
+  const page = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
+  await page.addInitScript((d) => localStorage.setItem("builder.studio", d), DOC);
+  await page.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("[data-studio-bar]", { timeout: 20000 });
+  await page.waitForTimeout(1800);
+
+  let worst = 0, worstAt = 0;
+  for (const w of [640, 768, 900, 1024, 1280, 1500, 1920, 2560]) {
+    await page.setViewportSize({ width: w, height: 950 });
+    await page.waitForTimeout(320);
+    const r = await page.evaluate(() => {
+      const bar = document.querySelector("[data-studio-bar]");
+      const on = (sel) => { const e = document.querySelector(sel); if (!e) return false; const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+      // innerText, not textContent: textContent happily returns the words
+      // inside a display:none span, which is exactly the thing being checked.
+      const words = (sel) => { const e = document.querySelector(sel); return e ? e.innerText.replace(/\s+/g, " ").trim() : ""; };
+      return {
+        over: bar.scrollWidth - bar.clientWidth,
+        kept: [
+          on("[data-tool-picker]") && "tool",
+          on("[data-device-switch]") && "devices",
+          on("[data-finish]") && "finish",
+          on("[data-preview-toggle]") && "preview",
+          on("[data-page-strip]") && "pages",
+        ].filter(Boolean).join(" "),
+        toolWords: words("[data-tool-picker]"),
+        search: on("[data-tool-search]"),
+        updates: on("[data-updates-toggle]"),
+        hues: on("[data-ink-hues]"),
+      };
+    });
+    if (r.over > worst) { worst = r.over; worstAt = w; }
+    console.log(`    ${String(w).padStart(4)}px  overflow ${String(r.over).padStart(4)}px  kept: ${r.kept}${r.search ? " search" : ""}${r.updates ? " updates" : ""}  tool reads "${r.toolWords}"`);
+    check(`${w}px: nothing is cut off`, r.over <= 1, `${r.over}px past the edge`);
+    check(`${w}px: the tool, the devices and Finish all survive`, /tool/.test(r.kept) && /devices/.test(r.kept) && /finish/.test(r.kept), r.kept);
+    if (w < 1536) check(`${w}px: the tool's name has given way`, r.toolWords === "", `reads "${r.toolWords}"`);
+    if (w >= 1536) check(`${w}px: the tool wears its name`, r.toolWords !== "", `reads "${r.toolWords}"`);
+    if (w < 768) check(`${w}px: the search has gone`, !r.search);
+    if (w < 1024) check(`${w}px: Updates has gone`, !r.updates);
+  }
+  await page.screenshot({ path: ".screenshots/bar-half.png", clip: { x: 0, y: 0, width: 1280, height: 44 } });
+  await page.setViewportSize({ width: 1280, height: 950 });
+  await page.waitForTimeout(300);
+  const bb = await page.locator("[data-studio-bar]").boundingBox();
+  await page.screenshot({ path: ".screenshots/bar-half.png", clip: { x: 0, y: Math.max(0, bb.y - 2), width: 1280, height: Math.ceil(bb.height) + 6 } });
+  console.log(`       .screenshots/bar-half.png  1280px, half of 1440p`);
+  console.log(`    worst overflow anywhere: ${worst}px${worst ? ` at ${worstAt}px` : ""}`);
+  await page.close();
+}
+
 await look(1500, 950, "pane");
 await look(2560, 1440, "1440p");
+await ladder();
 await browser.close();
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} passed`);

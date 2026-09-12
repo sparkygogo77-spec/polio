@@ -130,7 +130,7 @@ function SiteHead() {
       >
         {initial}
       </span>
-      <span data-site-build="" className="max-w-[170px] truncate text-[12px] font-semibold text-fg" title={name}>
+      <span data-site-build="" className="hidden max-w-[170px] truncate text-[12px] font-semibold text-fg sm:inline" title={name}>
         {name}
       </span>
     </>
@@ -217,6 +217,35 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
     );
   }
 
+  /*
+   * What gives way, and in what order.
+   *
+   * Narrow the window and the bar used to keep "Desktop", "Tablet" and
+   * "Phone" spelled out in full while the controls on the right walked off
+   * the edge — the least important thing in the bar surviving at the expense
+   * of the most. Nothing is cut off now. Things give way in a stated order,
+   * from the first to go to the last:
+   *
+   *   1. the tool's name           (below 2xl) — the icon says it
+   *   2. Updates and Preview words (below xl)  — the icons say them
+   *   3. the search's own words    (below xl)  — it becomes a magnifier
+   *   4. the ink hues              (below lg)  — only out while drawing
+   *   5. the zoom readout          (below lg)  — the minus and plus stay
+   *   6. Fit and Wires             (below lg)  — both have a key, f and w
+   *   7. Updates entirely          (below lg)
+   *   8. the search entirely       (below md)  — mod+k still opens it
+   *   9. the menu's edge switch    (below md)
+   *  10. the site's name           (below sm)  — its mark stays
+   *
+   * What never goes, at any width: the tool in your hand, the three devices,
+   * undo and redo, zoom's minus and plus, Preview, Finish, the panel toggle
+   * and the pages. Those are the ones you cannot work without, so they are
+   * the ones that survive to the narrowest window.
+   *
+   * `menu-pass.mjs` measures the bar's scroll width against its own width at
+   * eight sizes from 640 up, because a ladder that is merely written down is
+   * a comment, not a guarantee.
+   */
   return (
     <div data-studio-bar="" className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
       <SiteHead />
@@ -232,7 +261,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <ToolPicker tool={tool} setTool={setTool} />
 
       {tool === "pen" || tool === "arrow" ? (
-        <div className="flex items-center gap-1 rounded-md border border-border bg-elevated px-1 py-0.5">
+        <div data-ink-hues="" className="hidden items-center gap-1 rounded-md border border-border bg-elevated px-1 py-0.5 lg:flex">
           {HUES.map((h) => (
             <button
               key={h}
@@ -257,6 +286,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         this bar. It sits where the hand already is, between the devices and
         the menu's own switch.
       */}
+      <span className="flex-1 xl:hidden" />
       <SearchTools />
 
       {/*
@@ -272,7 +302,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           aria-label={shape === "square" ? "Round the part menu" : "Square off the part menu"}
           aria-pressed={shape === "round"}
           data-menu-shape={shape}
-          className={cn(menuOpen && "ring-1 ring-accent")}
+          className={cn("hidden md:inline-flex", menuOpen && "ring-1 ring-accent")}
           onClick={() => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); }}
         >
           {shape === "square" ? <Square /> : <Circle />}
@@ -280,12 +310,12 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       </Tooltip>
 
       <Tooltip content="Fit the frame in view" shortcut="f">
-        <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => useStudio.getState().requestFit()}>
+        <Button variant="ghost" size="iconXs" aria-label="Fit frame" className="hidden lg:inline-flex" onClick={() => useStudio.getState().requestFit()}>
           <Scan />
         </Button>
       </Tooltip>
       <Tooltip content={showWires ? "Hide the wires between parts" : "Show the wires between parts"} shortcut="w">
-        <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>
+        <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} className="hidden lg:inline-flex" onClick={() => useStudio.getState().setShowWires(!showWires)}>
           {showWires ? <Link2 /> : <Link2Off />}
         </Button>
       </Tooltip>
@@ -319,7 +349,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         <button
           type="button"
           onClick={() => useStudio.getState().requestFit()}
-          className="num w-10 text-center text-[10px] text-fg-muted hover:text-fg"
+          className="num hidden w-10 text-center text-[10px] text-fg-muted hover:text-fg lg:block"
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -381,7 +411,7 @@ function ToolPicker({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void 
         }}
       >
         <Icon />
-        <span className="hidden xl:inline">{cur.label}</span>
+        <span className="hidden 2xl:inline">{cur.label}</span>
         <ChevronDown className="opacity-80" />
       </button>
     </Dropdown>
@@ -462,11 +492,11 @@ function SearchTools() {
            its surroundings reads as a label, not as somewhere to type. The
            shortcut chip is gone — it was the widest thing in a control whose
            job is to be typed into, and the tooltip still says it. */
-        className="tactile mx-1 hidden h-6 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-accent/45 px-2 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg lg:flex"
+        className="tactile mx-1 hidden h-6 w-7 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2"
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />
-        <span className="min-w-0 flex-1 truncate text-left">Search tools…</span>
+        <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search tools…</span>
       </button>
     </Tooltip>
   );
@@ -487,9 +517,9 @@ function UpdatesToggle() {
   return (
     <>
       <Tooltip content="What has landed, and what is new to use">
-        <Button variant="ghost" size="xs" data-updates-toggle="" aria-pressed={open} onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="xs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
           <History />
-          Updates
+          <span className="hidden xl:inline">Updates</span>
         </Button>
       </Tooltip>
       <UpdatesPanel open={open} onOpenChange={setOpen} />
@@ -507,11 +537,12 @@ function PreviewToggle() {
         variant={on ? "subtle" : "ghost"}
         size="xs"
         aria-pressed={on}
+        aria-label="Preview"
         data-preview-toggle=""
         onClick={() => { play("navigate"); useStudio.getState().setMode(on ? "design" : "preview"); }}
       >
         <PlayCircle />
-        Preview
+        <span className="hidden xl:inline">Preview</span>
       </Button>
     </Tooltip>
   );
