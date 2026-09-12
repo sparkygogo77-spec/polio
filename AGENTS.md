@@ -2146,7 +2146,16 @@ remove it from `src/features/index.ts` when you're sure.
   `--molten-*` property or a `molten-*` keyframe**: import `moltenClass` and
   `moltenSeed` and use what is there, or add a stop to that file. Two
   branches render these, so a second definition is not a variation, it is a
-  bug. **Which temperature means what is part of the agreement**: `verdant`
+  bug. **The palette is seven stops, and their relationship is the
+  agreement** — taken from a photograph of green enamel under a bright edge,
+  not from any one value: `char`/`field` is the field and most of a construct
+  is this, very dark and low in colour; `body`/`lit` is the lit body, seen in
+  a few places rather than across the face; `edge`/`edge-hot` is the edge
+  only, the brightest thing there is, and it turns toward yellow as it
+  lightens; `vein` is fine bright filaments at low coverage. The green must
+  never wash out to pale. The red side is the same structure at a red hue.
+  **Nothing plays**: two keyframes, both minutes long and travelling two per
+  cent, so a construct looks the same whenever you glance at it. **Which temperature means what is part of the agreement**: `verdant`
   is an iteration (the timeline's boards, and the Finish key that opens
   them), `ember` is a drawing and anything that came off one, `lantern` is
   the base set. Green holds, red was drawn. A construct that is green on one

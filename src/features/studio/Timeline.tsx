@@ -1011,7 +1011,9 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
     >
       <div
         className="rounded-lg border p-2.5 shadow-pop"
-        style={{ background: skin.face, borderColor: skin.rim, color: skin.text, animation: "el-grow 180ms ease-out" }}
+        /* No entrance: a card that grows on arrival is a performance, and this is
+   something you open fifty times an hour. */
+        style={{ background: skin.face, borderColor: skin.rim, color: skin.text }}
       >
         <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
           {side === "in" ? <><Sparkles className="size-3" /> what went in</> : <><Wand2 className="size-3" /> what came out</>}
