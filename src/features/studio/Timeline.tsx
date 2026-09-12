@@ -1189,15 +1189,29 @@ function Made({ thread, skin }: { thread: Thread; skin: { rim: string; dim: stri
   // showing its left half, which for most parts is an empty margin.
   const scale = Math.min(W / Math.max(1, node.w), H / Math.max(1, node.h), 1);
   return (
+    /*
+     * Inset, on a dark surround.
+     *
+     * The part keeps its own page surface, because that is how it really
+     * looks and a repainted preview would be a lie about it — but a pale
+     * rectangle edge to edge on a dark card was the loudest thing on the
+     * card. Sitting it in from the edges with the card's own ground round it
+     * makes it a picture *on* the card rather than a hole through it.
+     */
     <div
-      data-made-preview={node.id}
-      aria-hidden
-      inert
-      className="mb-1.5 grid place-items-center overflow-hidden rounded-md border"
-      style={{ height: H, borderColor: skin.rim, background: theme.surface }}
+      className="mb-1.5 rounded-md p-1.5"
+      style={{ background: "oklch(0.16 0.03 20 / 0.55)" }}
     >
-      <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
-        <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode="board" size={{ w: node.w, h: node.h }} />
+      <div
+        data-made-preview={node.id}
+        aria-hidden
+        inert
+        className="grid place-items-center overflow-hidden rounded-sm border"
+        style={{ height: H, borderColor: skin.rim, background: theme.surface }}
+      >
+        <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
+          <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode="board" size={{ w: node.w, h: node.h }} />
+        </div>
       </div>
     </div>
   );
