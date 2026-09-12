@@ -16,7 +16,7 @@
  *   node tests/vines.mjs [url]        # default http://localhost:3000
  */
 import { readFileSync } from "node:fs";
-import { STRAND, STRAND_WIDTH, strandMiddle, strandPath } from "../src/features/studio/strand.ts";
+import { STRAND_WIDTH, VINE, strandMiddle, strandPath } from "../src/features/studio/strand.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -29,38 +29,42 @@ const chromaOf = (c) => Number(/oklch\([\d.]+ ([\d.]+)/.exec(c)?.[1]);
 const lightOf = (c) => Number(/oklch\(([\d.]+)/.exec(c)?.[1]);
 
 /* ------------------------------------------------------------------ */
-/* 1. Green vines, in shades                                           */
+/* 1. Bark, and it takes its colour from what it joins                 */
 /* ------------------------------------------------------------------ */
 
-for (const [tone, skin] of Object.entries(STRAND)) {
-  check(`${tone} runs through several shades`, skin.shades.length === 3, `${skin.shades.length}`);
-  check(`${tone}'s shades are not all one colour`, new Set(skin.shades).size === 3);
-  if (tone !== "cut") {
-    check(`${tone} is green`, skin.shades.every((c) => hueOf(c) >= 120 && hueOf(c) <= 175),
-      skin.shades.map(hueOf).join(","));
-  }
+check("a vine has an end for each kind of board it can join",
+  !!VINE.iteration && !!VINE.drawing && !!VINE.cut);
+for (const [end, bark] of Object.entries(VINE)) {
+  check(`${end}: it has a shaded side, a lit side and a hotspot`, !!bark.dark && !!bark.lit && !!bark.hot);
+  check(`${end}: the lit side is lighter than the shaded one, which is what makes it round`,
+    lightOf(bark.lit) > lightOf(bark.dark), `${lightOf(bark.dark)} → ${lightOf(bark.lit)}`);
+  check(`${end}: the hotspot is the brightest of the three`, lightOf(bark.hot) > lightOf(bark.lit));
 }
-check("nothing on a vine is the emerald the boxes used to be",
-  Object.values(STRAND).every((s) => s.shades.every((c) => hueOf(c) !== 158)));
-check("a cut vine has no colour left in it", STRAND.cut.shades.every((c) => chromaOf(c) <= 0.03));
+check("a vine at a green board is green", hueOf(VINE.iteration.lit) >= 130 && hueOf(VINE.iteration.lit) <= 165,
+  `${hueOf(VINE.iteration.lit)}`);
+check("a vine at a red drawing is red", hueOf(VINE.drawing.lit) <= 45, `${hueOf(VINE.drawing.lit)}`);
+check("a cut one has no colour left in it", chromaOf(VINE.cut.dark) <= 0.03);
+check("the body is bark rather than light: dark, and never near-white",
+  Object.values(VINE).every((v) => lightOf(v.dark) <= 0.3 && lightOf(v.lit) <= 0.5));
+
+const strandSrc = readFileSync("src/features/studio/strand.ts", "utf8");
+check("the two ends are mixed along the length rather than meeting at a join",
+  /function mix\(/.test(strandSrc) && /mix\(barkA\.dark, barkZ\.dark, u\)/.test(strandSrc));
+check("hue takes the short way round, so green to red goes through the yellows",
+  /if \(dh > 180\) dh -= 360;/.test(strandSrc));
+check("the board says what each vine joins", (() => {
+  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  return /ends: \[/.test(tl) && /isElement\(byId\.get\(c\.from\)!\) \? "drawing" : "iteration"/.test(tl);
+})());
 /*
- * The vines stayed green when the boards did, so they get out of the way by
- * being pulled back rather than by changing hue. Nothing on a vine may be
- * near-white: the hot core is the board's, and that is what makes a board
- * read as the lit thing and a vine as what holds it up.
+ * A vine must never outshine a board. It is bark with light caught in it;
+ * the board is the lit thing.
  */
-const everyVineColour = Object.entries(STRAND).filter(([t]) => t !== "cut")
-  .flatMap(([, s]) => [...s.shades, s.rim, s.pulse]);
-check("no part of a vine is near-white", everyVineColour.every((c) => lightOf(c) <= 0.7),
-  "brightest " + Math.max(...everyVineColour.map(lightOf)));
-check("and none of it is loud", everyVineColour.every((c) => chromaOf(c) <= 0.13),
-  "most colour " + Math.max(...everyVineColour.map(chromaOf)));
-check("a board's own core is far brighter than any vine, which is what makes it lead", (() => {
-  // The construct's brightest stop, whatever the shared definition calls it,
-  // against the brightest thing on a vine.
+check("a board's own core is far brighter than anything on a vine, which is what makes it lead", (() => {
   const molten = readFileSync("src/core/ui/molten.css", "utf8");
   const core = Number(/--verdant-white:\s*oklch\(([\d.]+)/.exec(molten)?.[1]);
-  return core > Math.max(...everyVineColour.map(lightOf)) + 0.2;
+  const brightest = Math.max(...Object.values(VINE).map((v) => lightOf(v.hot)));
+  return core > brightest + 0.15;
 })());
 
 /* ------------------------------------------------------------------ */
@@ -124,18 +128,30 @@ check("a very short run does not bow into a loop", (() => {
 })(), `${strandMiddle({ x: 0, y: 0 }, { x: 20, y: 0 }).y.toFixed(1)}`);
 
 /* ------------------------------------------------------------------ */
-/* 3. Three beams, wound, lit together                                 */
+/* 3. Three strands, wound, opaque, with the light standing still      */
 /* ------------------------------------------------------------------ */
 
 const strand = readFileSync("src/features/studio/strand.ts", "utf8");
-check("three beams, not one line", /for \(let b = 0; b < 3; b\+\+\)/.test(strand));
+check("three strands, not one line", /\[0, 1, 2\]\.map\(\(b\) =>/.test(strand));
+check("and drawn back to front, which is what makes a winding read as one",
+  /\.sort\(\(x, y\) => x\.here\.facing - y\.here\.facing\)/.test(strand));
+check("it is opaque: nothing blended, nothing see-through",
+  !/globalCompositeOperation/.test(strand) && !/"lighter"/.test(strand));
+check("it sits on the ground rather than floating on it", /A shadow under the whole thing/.test(strand));
 check("they are wound about one axis", /const TWISTS/.test(strand) && /function wind\(/.test(strand));
 check("the far side of the turn is dimmed, which is what makes it read as wound",
   /here\.facing/.test(strand));
 check("there is fibre in the body", /function fibre\(/.test(strand));
-check("the shades walk along the length", /tone\.shades\[pick\]/.test(strand));
-check("the glow hits all three beams in the same frame",
-  /for \(let b = 0; b < 3; b\+\+\) \{\s*const here = wind/.test(strand));
+check("the light in it sits still", /function hotspots\(/.test(strand));
+check("the hotspots come from the pair alone, so they are in the same place every frame", (() => {
+  const fn = /function hotspots\([\s\S]*?\n\}/.exec(strand)?.[0] ?? "";
+  return fn.length > 0 && /phase/.test(fn) && !/\bt\b\s*[*+]/.test(fn);
+})());
+check("some are brighter than others", /bright: 0\.35 \+ g \* 0\.65/.test(strand));
+check("one on the far side of the turn is hidden", /if \(here\.facing < 0\.45\) continue;/.test(strand));
+check("nothing travels along it any more",
+  !/bright bands running the length/.test(strand) && !/travelling the length/.test(strand));
+check("how much a strand faces the eye is also its shading", /here\.facing \* 0\.85/.test(strand));
 check("a vine is still about as wide as it was", STRAND_WIDTH >= 5 && STRAND_WIDTH <= 9, `${STRAND_WIDTH}`);
 
 /* ------------------------------------------------------------------ */
