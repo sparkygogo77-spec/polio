@@ -2,9 +2,56 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-12T00:38:08.225Z";
+export const GENERATED_AT = "2026-09-12T00:38:33.866Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "7a87b73",
+    "when": "2026-09-12T00:38:30+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "32673e6",
+        "says": "Constructs of molten light, defined once in core/ui/molten.css",
+        "when": "2026-09-12T00:37:57+00:00",
+        "detail": [
+          "The shared definition is src/core/ui/molten.css, with the handle beside it in src/core/ui/molten.ts. The sibling has the same brief for the element cards, so the failure to avoid is two reds that nearly match: that file holds the stops, the keyframes and the two classes, nothing else may declare a --molten-* property or a molten-* keyframe, AGENTS.md says so, and tests/molten.mjs checks that no other file does.",
+          "The stops, hottest to coldest, are --molten-white oklch(0.97 0.045 48), --molten-hot oklch(0.78 0.17 38), --molten-body oklch(0.38 0.16 27), --molten-deep oklch(0.21 0.1 22) and --molten-char oklch(0.11 0.04 20), with an --ember-* set at the same shape for the hotter temperature the element pieces wear. Five colours, not one colour at five opacities: char arrives well before the far corner so a construct genuinely goes out at its edge rather than being one red with a bright line round it.",
+          "The keyframes are molten-drift, molten-churn, molten-breathe, molten-flare and molten-ember. The body is veined — nine radial blobs at irregular sizes across two layers, one drifting over one still, because the relative motion is what reads as brightness moving through and two moving layers cost twice as much for the same picture — over one 64px grain tile decoded once for the whole page. The veining stays off the middle so nothing ever crawls under a line of text.",
+          "Measured over 25 seconds of one construct: the veining drifts between 0.40 and 0.51 opacity and never moves more than 0.010 of it in a second; the edge breathes 0.78 to 1.00 at no more than 0.029 a second; the flare is visible for 7 seconds in 25 and the ember for 4, both fading up rather than switching on. Nothing under nine seconds, no two durations equal, only transform and opacity animated, and reduced motion stops all of it and leaves the construct lit."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f6b017c",
+    "when": "2026-09-12T00:38:22+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "f6b017c",
+        "says": "Regenerate passes.generated.ts after merging this pass",
+        "when": "2026-09-12T00:38:22+00:00",
+        "detail": [
+          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "2ef0a54",
     "when": "2026-09-12T00:38:04+00:00",
@@ -117,18 +164,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "fixed"
-      },
-      {
-        "id": "ef9f606",
-        "says": "Regenerate passes.generated.ts after merging this pass",
-        "when": "2026-09-11T23:18:01+00:00",
-        "detail": [
-          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
@@ -771,114 +806,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-11T08:30:17+00:00",
         "detail": [
           "The standing rule, and the nebula measurements behind it: what the original cost, what every faithful restoration of it costs, and what is on the branch now. Measured on a machine with no GPU, so every number is a floor."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e5aecc8",
-    "when": "2026-09-11T08:08:26+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "fd9d581",
-        "says": "The drawing path is Replicate only: trace the line, do not describe it",
-        "when": "2026-09-11T08:01:31+00:00",
-        "detail": [
-          "Make real on an Idea part no longer goes near a model that writes. It used to rasterise the strokes, describe them in words, and ask Claude to write SVG that looked like them: two translations, and the drawing was what got lost in both. recraft-ai/recraft-vectorize takes a picture and returns the SVG of what is in it, so the drawing itself drives the vector.",
-          "The loop, in drawRun.ts: rasterise the strokes, trace them, sanitise what comes back through cleanSnippet exactly as a written body is, cut it to outlinePath and photograph it cut (the render route takes a clip now, so the silhouette scored is the silhouette the board shows), and score it against the drawn outline with the IoU already in the loop at the same 0.72. Under the bar it goes again on the picture rather than on words, because there is nothing to argue with: crop to the ink, thicken the line, harden the contrast, and on the last go drop the ground. Three goes, the best kept, every score stored on the part. A traced ground is stripped from every answer, because a white plate the tracer found under the drawing is not the drawing. No Claude call happens anywhere in it. The whole path now runs with a locked vault: the part, the crop, the behaviour, the body and the iteration on the timeline all land without a reader. writeBody stays for a part that genuinely wants words and is reached only when nothing was traced at all.",
-          "Second, a drawn shape says what the part does and not only what it looks like. The clip is untouched: a triangle still cuts out as a triangle. The geometry is read a second time, in order of certainty. A closed line inside another closed line is a container and adopts the parts that fall inside it. Three or more straight strokes running the same way at a similar length are a list and seed one row each. A single straight open line, with or without the two short strokes that make it an arrow, is a connector and becomes a chain between the two parts nearest its ends, ceasing to be a part itself. One closed line is a surface that holds what is placed on it. Everything else is a mark, which is what every drawing was until now. It is read off the geometry, so it survives a locked vault, and it reaches the blueprint as \"the shape means\".",
-          "Third, tests/shapes.mjs, the bench: a 3 stack, a helix, a spiral, a star and a ring, three runs each, printing every go's overlap, the goes used, the seconds and the cost at $0.08 a trace. Renders and scores are real. With no Replicate token the tracer is stood in for by a real one, so the loop is under test and only the vendor is absent."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5de33ee",
-    "when": "2026-09-11T08:08:21+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "5de33ee",
-        "says": "The timeline settles on where the boxes are",
-        "when": "2026-09-11T08:08:21+00:00",
-        "detail": [
-          "Centring means the centre of mass of the boxes weighted by size, with the bounds of the whole set fitted inside a margin so nothing sits on an edge. It runs on demand — the timeline opening, a drag ending, the centre button — reads the store's own spots rather than measuring the DOM, and holds still while a box is being carried.",
-          "The move writes the plot's transform to the element and commits to state once at the end. Through state it measured a 33ms beat, half rate; this way it holds 16.7ms and costs no more late frames than sitting still does. The cloud field's margin comes down with it, since the compositor pays for that layer's size every frame."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      },
-      {
-        "id": "595dd98",
-        "says": "The clouds move instead of being redrawn to move",
-        "when": "2026-09-11T07:04:28+00:00",
-        "detail": [
-          "The cloud field is painted once onto a canvas bigger than the box and slid every frame with translate3d. It is repainted only when the material runs out, on a resize, or when the distance changes; the recycle bakes the drift so far into the paint, snapped to a whole backing pixel, so it puts the same pixels in the same place. The sky is a CSS gradient, because it never moves. The embers are untouched.",
-          "Measured in a production build: cloud content 2.25 changes a second to none in four seconds, with the layer moving on 1,443 of 1,443 frames; 60fps and no late frame at the screen's own rate before and after."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      },
-      {
-        "id": "ba2b915",
-        "says": "The production loop, audited end to end",
-        "when": "2026-09-11T06:12:46+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "185b965",
-        "says": "AGENTS.md points at the production-loop audit",
-        "when": "2026-09-11T06:12:41+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "cab8792",
-        "says": "A test can tell a fixed node is on the screen",
-        "when": "2026-09-11T06:12:26+00:00",
-        "detail": [
-          "offsetParent is null for every position: fixed element, so the old gate failed a fixed toolbar, dialog or shelf for the wrong reason. A node now counts as visible when it has a non-zero rect overlapping the window, is not display:none or visibility:hidden, and has non-zero opacity, with offsetParent as one signal among those. Probes in both suites prove it on a fixed node, a sticky node, display:none, visibility:hidden, opacity:0, zero height, a child of a hidden box, and the key vault shut and open. Reverting to the old gate fails exactly three of them."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "fixed"
-      },
-      {
-        "id": "94b7ba5",
-        "says": "AGENTS.md: fix two sections left stale by the root-redirect removal",
-        "when": "2026-09-11T04:57:05+00:00",
-        "detail": [
-          "The Publish bullet and \"/builds is /'s survivor\" still described the next.config.ts redirect that \"The root is the Builder\" (added the same pass) documents removing — a contradiction inside the same file. Neither bullet needed the redirect to make its actual point, so both are fixed to the current behavior: / and /builds are never redirected away."
         ],
         "areas": [
           "docs"
