@@ -38,7 +38,7 @@
  * mechanism being bent back around it. Each layer keeps its own fixed angle,
  * its own heading, its own scale and its own speed, so the parallax and the
  * shifting bloom where two layers cross are both still there — they change
- * more slowly, which is the point. Drift is `CALM` of what it was.
+ * more slowly, which is the point. The pace is `DRIFT_PX_S`.
  *
  * **The embers are the only thing still on a clock**, and they are what says
  * the page is alive: their own canvas at the box's own size, thirty times a
@@ -76,13 +76,24 @@ export const SPARK_MS = DRIFT_MS;
 const CLOUD_SCALE = 1;
 
 /**
- * How much of the old drift speed is kept.
+ * How fast the ground drifts, in pixels a second.
  *
- * Nearly static is the ask: a glance should show nothing and only time should
- * reveal it. The relative speeds are untouched, so the near clouds still pass
- * the far ones — everything is simply slower together.
+ * Stated as a speed rather than as a fraction of something else, because a
+ * fraction is how this went wrong: 15% of the old pace worked out at 1.1px a
+ * second, which is five seconds to move five pixels — a still image with a
+ * duration attached. Nearly static was the ask and that overshot it into
+ * frozen.
+ *
+ * The honest test is whether you can see it over a few seconds rather than a
+ * few minutes: at six a second the field moves about a fifth of its own
+ * cloud-width while you read a sentence. Mild, not fast. This is also close
+ * to what the near clouds did before any of the speed work — 7.5px a second —
+ * so it is a return rather than an invention.
  */
-const CALM = 0.15;
+const DRIFT_PX_S = 6;
+
+/** How long one whole tile takes at that speed. */
+const DRIFT_S = Math.round(GROUND_TILE / DRIFT_PX_S);
 
 /**
  * How far away the whole nebula sits, per surface, as the one layer's opacity.
@@ -95,14 +106,11 @@ const CALM = 0.15;
  * wants 0.55, the discs sit at 1 and want the picture at full strength.
  * Chosen by matching pixels against the four-layer ground it replaces, not by
  * eye: at 0.55 the bare ground reads mean 20.7, spread 7.0, rgb 32/14/52
- * against the old 19.6, 7.7, 30/14/44. The first attempt multiplied 0.55 by
+ * against the old 19.6, 7.7, 30/14/44. An earlier attempt multiplied 0.55 by
  * `dim` and landed on 0.275, which looked exactly like the flat, washed-out
  * haze that number deserves.
  */
 const FAR = 1.1;
-
-/** How long the one layer takes to slide one whole tile, in seconds. */
-const DRIFT_S = Math.round(GROUND_TILE / (7.5 * CALM));
 
 export interface GroundOpts {
   /** How far away the weather is, 0..1. One is the disc's own. */

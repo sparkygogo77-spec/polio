@@ -487,10 +487,13 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   const px = (t) => { const m = /matrix\(([^)]+)\)/.exec(t); return m ? Number(m[1].split(",")[4]) : 0; };
   const went = Math.abs(px(later) - px(after));
   /* And it keeps the same steady pace afterwards — there is no pause to catch
-     up from, so there is nothing to jump. The pace itself is deliberately
-     tiny: the first layer travels 0.23px a second, so seven tenths of a
-     second is about a sixth of a pixel. Nearly static is the point. */
-  check("and it keeps the same pace afterwards", went > 0.02 && went < 3, `${went.toFixed(3)}px in 0.7s`);
+     up from, so there is nothing to jump. The ground drifts at 6px a second,
+     so seven tenths of a second is a little over four pixels. The band is
+     wide enough for a slow frame and narrow enough to catch the ground being
+     stopped or run away with: it was 0.02 to 3 when the drift was 1.13px a
+     second, and that speed turned out to be a still image with a duration
+     attached. */
+  check("and it keeps the same pace afterwards", went > 2 && went < 9, `${went.toFixed(2)}px in 0.7s, at 6px a second`);
   await context.close();
 }
 
