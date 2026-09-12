@@ -337,9 +337,22 @@ export function Canvas() {
      * a part moves, and empty space *inside* the page still draws a marquee.
      * The nebula is the ground you push; the page is the surface you select
      * on. Alt-drag and the middle button still pan from anywhere, including
-     * over the page, for the times the rule is not what you wanted. */
-    const onBareGround = tool === "select" && !nodeEl && !target.closest?.("[data-frame]");
+     * over the page, for the times the rule is not what you wanted.
+     *
+     * A wire or a drawing is on the page too, even though it is a sibling of
+     * `[data-frame]` rather than a child of it — same reason parts are:
+     * `closest("[data-frame]")` alone would call a press on one "bare
+     * ground" and start a pan instead of ever reaching the shape it landed
+     * on. */
+    const onBareGround = tool === "select" && !nodeEl && !target.closest?.("[data-frame]") && !target.closest?.("[data-shape-id]");
     if (e.button === 1 || (tool === "select" && e.altKey) || onBareGround) {
+      // Pushing the ground used to be a marquee from nothing, which cleared
+      // the selection the moment it started. It is a pan now, but a press on
+      // bare ground still means "away from what I had," whether or not the
+      // hand goes on to move — so the clear stays, and only here: an
+      // alt-drag or a middle-button pan is a deliberate override starting
+      // from anywhere, including over a part you mean to keep selected.
+      if (onBareGround && !e.shiftKey) store.clearSelection();
       capture();
       setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan });
       return;
