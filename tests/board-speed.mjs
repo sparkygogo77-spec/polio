@@ -97,10 +97,16 @@ await page.waitForTimeout(2200);
 /* 1. The ground is two layers on two clocks                           */
 /* ------------------------------------------------------------------ */
 
+/* One cloud layer and one ember canvas, and they must stay separate: the
+   clouds never repaint and the embers repaint thirty times a second, so
+   putting them on one surface would drag the cheap half up to the cost of
+   the expensive one. The four cloud layers became one when they were
+   screened into a single tile — four full-screen blended layers was the
+   cost of the whole ground. */
 check(
   "the clouds and the embers are separate layers",
-  (await page.locator("[data-cloud-layer]").count()) === 4 && (await page.locator("[data-ground-sparks]").count()) === 1,
-  `${await page.locator("[data-cloud-layer]").count()} cloud layers`,
+  (await page.locator("[data-cloud-layer]").count()) === 1 && (await page.locator("[data-ground-sparks]").count()) === 1,
+  `${await page.locator("[data-cloud-layer]").count()} cloud layer, ${await page.locator("[data-ground-sparks]").count()} ember canvas`,
 );
 
 const shot = (sel) => page.locator(sel).first().evaluate((el) => el.toDataURL().length + ":" + el.toDataURL().slice(-64));
