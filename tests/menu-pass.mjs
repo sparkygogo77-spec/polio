@@ -246,14 +246,33 @@ async function ladder() {
         search: on("[data-tool-search]"),
         updates: on("[data-updates-toggle]"),
         hues: on("[data-ink-hues]"),
+        /* Any control in the bar still spending width on a *label* — a word
+           beside an icon that already says the same thing. Four things carry
+           text and are not labels, so they are exempt by name rather than by
+           a rule that would quietly excuse a real one:
+             · the page strip — a page's name is which page, not a label
+             · the search      — a placeholder is what makes a field a field
+             · the zoom hud    — a percentage is a reading
+             · Finish          — a count is a reading
+           Builds keeps its word deliberately: it is the only way out of the
+           Builder and the only wayfinding in the bar, and a bare stack of
+           layers at the far left is a guess. */
+        wordy: [...document.querySelectorAll("[data-studio-bar] button")]
+          .filter((b) => !b.closest("[data-page-strip]") && !b.closest("[data-tool-search]")
+            && !b.matches("[data-tool-search]") && !b.closest("[data-finish]")
+            && !b.classList.contains("num") && !/Builds/.test(b.innerText))
+          .filter((b) => b.innerText.trim() && b.querySelector("svg"))
+          .map((b) => b.innerText.replace(/\s+/g, " ").trim()).join(" | "),
       };
     });
     if (r.over > worst) { worst = r.over; worstAt = w; }
     console.log(`    ${String(w).padStart(4)}px  overflow ${String(r.over).padStart(4)}px  kept: ${r.kept}${r.search ? " search" : ""}${r.updates ? " updates" : ""}  tool reads "${r.toolWords}"`);
     check(`${w}px: nothing is cut off`, r.over <= 1, `${r.over}px past the edge`);
     check(`${w}px: the tool, the devices and Finish all survive`, /tool/.test(r.kept) && /devices/.test(r.kept) && /finish/.test(r.kept), r.kept);
-    if (w < 1536) check(`${w}px: the tool's name has given way`, r.toolWords === "", `reads "${r.toolWords}"`);
-    if (w >= 1536) check(`${w}px: the tool wears its name`, r.toolWords !== "", `reads "${r.toolWords}"`);
+    // No word on it at any width, so there is no rung to check — the point
+    // is that it never has one to give up.
+    check(`${w}px: the tool control carries no word`, r.toolWords === "", `reads "${r.toolWords}"`);
+    check(`${w}px: no control wears a word its icon already says`, r.wordy === "", r.wordy || "none");
     if (w < 768) check(`${w}px: the search has gone`, !r.search);
     if (w < 1024) check(`${w}px: Updates has gone`, !r.updates);
   }
