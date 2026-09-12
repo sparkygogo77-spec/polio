@@ -2135,6 +2135,21 @@ remove it from `src/features/index.ts` when you're sure.
   the server has none.
 - **Never widen what a status route says.** A length, a prefix, a first
   character: each narrows a guess. Name and boolean, nothing else.
+- **One molten surface, not two reds that nearly match**
+  (`src/core/ui/molten.css`, handle in `src/core/ui/molten.ts`). Glowing
+  constructs — the timeline's iteration boxes, the element cards — are one
+  language, and it is defined in that file and nowhere else. It holds the
+  five stops (`--molten-white`, `-hot`, `-body`, `-deep`, `-char`, and the
+  `--ember-*` set for the hotter temperature), the five keyframes
+  (`molten-drift`, `molten-churn`, `molten-breathe`, `molten-flare`,
+  `molten-ember`) and the two classes. **Nothing else may declare a
+  `--molten-*` property or a `molten-*` keyframe**: import `moltenClass` and
+  `moltenSeed` and use what is there, or add a stop to that file. Two
+  branches render these, so a second definition is not a variation, it is a
+  bug. A construct is `<div className={moltenClass(kind)} style={moltenSeed(id)}>`
+  with one `<span data-molten="" />` inside it carrying the edge, the flare
+  and the ember. `tests/molten.mjs` holds the whole of it, including that
+  no other file declares one.
 - **What has landed is read, not written** (`scripts/passes.mjs`, `npm run
   passes`). There is no changelog file and there will not be one: writing a
   line per commit is a chore that was killed on purpose and stays dead. The

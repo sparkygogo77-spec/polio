@@ -62,6 +62,7 @@ import { useGround } from "./ground";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
 import { sayWhere, saySpend } from "./spend";
+import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 
@@ -693,29 +694,34 @@ function IterationBox({
         onPointerDown={onDragStart}
         onClick={onOpen}
         onContextMenu={onMenu}
-        className="flex w-full cursor-grab flex-col gap-1 rounded-lg border p-2 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing"
+        /*
+         * A construct of molten light, not a box with a red border and a glow
+         * behind it. The stops, the veining and the five animations are the
+         * shared surface in `core/ui/molten.css` — the same one the element
+         * cards use, so the two are one language rather than two reds that
+         * nearly match. Everything here is which one and how deep.
+         */
+        className={cn(
+          moltenClass("lantern"),
+          "flex w-full cursor-grab flex-col gap-1 rounded-lg p-2 text-left transition-[box-shadow,transform] active:cursor-grabbing",
+        )}
         style={{
           minHeight: BOX.h,
-          /*
-           * A lantern, lit: warm and deep, not a signal and not a maroon.
-           *
-           * The ground behind is nebula, so the box does not shout — but it
-           * has to look like there is light inside it, which at this
-           * lightness means the colour has to be in it rather than greyed
-           * out of it. A red with the chroma of the old emerald came out
-           * brown.
-           */
-          background: open
-            ? "linear-gradient(160deg, oklch(0.34 0.115 38), oklch(0.26 0.09 30))"
-            : "linear-gradient(160deg, oklch(0.28 0.095 38 / 0.94), oklch(0.21 0.07 28 / 0.94))",
-          borderColor: open ? "oklch(0.66 0.17 34)" : live ? "oklch(0.5 0.157 34)" : "oklch(0.36 0.091 34)",
-          color: "oklch(0.9 0.066 34)",
+          ...moltenSeed(thread.id),
+          color: "oklch(0.93 0.055 40)",
+          // Depth is the shadow under it and the lift when it is picked up;
+          // the light in it comes from the surface, not from here.
+          // The weight under it, and the heat it throws: the construct's own
+          // shadow, because paint containment clips anything inside it.
           boxShadow: open
-            ? "0 0 0 1px oklch(0.66 0.17 34 / 0.5), 0 8px 26px oklch(0 0 0 / 0.5)"
-            : "0 6px 18px oklch(0 0 0 / 0.45)",
+            ? "0 10px 30px oklch(0 0 0 / 0.55), 0 0 26px -6px oklch(0.78 0.17 38 / 0.5)"
+            : "0 6px 18px oklch(0 0 0 / 0.45), 0 0 18px -8px oklch(0.78 0.17 38 / 0.38)",
+          filter: open ? "brightness(1.14)" : live ? "brightness(1.06)" : "none",
           transform: dragging ? "scale(1.02)" : "none",
         }}
       >
+        {/* The edge, the flare and the ember, all on one node. */}
+        <span data-molten="" />
         <span className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-[oklch(0.68_0.09_158)]">
           {icon}
           {kind}
@@ -776,20 +782,23 @@ function ElementPiece({
         onPointerDown={onDragStart}
         onClick={onOpen}
         onContextMenu={onMenu}
-        className="flex w-full cursor-grab items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-2.5 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing"
+        /* The same construct at the ember temperature: `core/ui/molten.css`. */
+        className={cn(
+          moltenClass("ember"),
+          "flex w-full cursor-grab items-center gap-1.5 rounded-full py-1 pl-1.5 pr-2.5 text-left transition-[box-shadow,transform] active:cursor-grabbing",
+        )}
         style={{
           minHeight: PIECE.h,
-          // The ember: the same lamp, a shade cooler and brighter, so a piece
-          // and a box are told apart at a glance without leaving the family.
-          background: open
-            ? "linear-gradient(160deg, oklch(0.37 0.15 20), oklch(0.28 0.115 12))"
-            : "linear-gradient(160deg, oklch(0.31 0.125 20 / 0.94), oklch(0.23 0.095 12 / 0.94))",
-          borderColor: open ? "oklch(0.8 0.17 18)" : "oklch(0.48 0.17 18)",
-          color: "oklch(0.93 0.066 18)",
-          boxShadow: open ? "0 0 0 1px oklch(0.8 0.17 18 / 0.45), 0 8px 24px oklch(0 0 0 / 0.5)" : "0 4px 14px oklch(0 0 0 / 0.45)",
+          ...moltenSeed(thread.id),
+          color: "oklch(0.95 0.05 22)",
+          boxShadow: open
+            ? "0 10px 28px oklch(0 0 0 / 0.55), 0 0 24px -6px oklch(0.8 0.185 18 / 0.5)"
+            : "0 5px 16px oklch(0 0 0 / 0.45), 0 0 16px -8px oklch(0.8 0.185 18 / 0.38)",
+          filter: open ? "brightness(1.14)" : "none",
           transform: dragging ? "scale(1.03)" : "none",
         }}
       >
+        <span data-molten="" />
         <Drawn sketch={thread.sketch} size={30} tone="oklch(0.9 0.17 18)" />
         <span className="min-w-0 flex-1 truncate text-[11px] leading-tight">{name}</span>
         <CurrentButton thread={thread} on={current} />
