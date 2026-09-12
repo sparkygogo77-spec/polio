@@ -82,17 +82,70 @@ for (const n of [1, 6, 30]) {
   await p.waitForTimeout(2600);
   const client = await p.context().newCDPSession(p);
   await client.send("Performance.enable");
-  const box = await p.locator("[data-box]").first().boundingBox();
+  /*
+   * Somewhere on the bare surface to pan from.
+   *
+   * Found rather than guessed: a fixed point picked by eye landed on a
+   * button below the timeline, so the pan row was a gesture that panned
+   * nothing and the number underneath it was the paint loop running on its
+   * own clock. A gesture that does not move anything measures nothing.
+   */
+  const ground = await p.evaluate(() => {
+    const r = document.querySelector("canvas").getBoundingClientRect();
+    const clear = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      return !!el && !el.closest("[data-box]") && !el.closest("[data-card]") && !el.closest("button");
+    };
+    for (let y = Math.max(24, r.top + 40); y < Math.min(innerHeight - 24, r.bottom - 40); y += 24)
+      for (let x = Math.max(24, r.left + 40); x < Math.min(innerWidth - 24, r.right - 40); x += 24)
+        if (clear(x, y)) return { x, y };
+    return null;
+  });
+  if (!ground) throw new Error(`${n} boards: nowhere clear to pan from`);
+  const viewAt = () => p.evaluate(() => document.querySelector("[data-timeline-plot]").style.transform);
+  const view0 = await viewAt();
   const idle = await cost(p, client, async () => p.waitForTimeout(2000));
-  const pan = await cost(p, client, () => sweep(p, { x: 220, y: 640 }, { x: 760, y: 380 }, 60));
+  const pan = await cost(p, client, () => sweep(p, ground, { x: ground.x + 420, y: ground.y - 180 }, 60));
+  const panned = (await viewAt()) !== view0;
+  // Measured after the pan, not before it: the pan moves the surface, so a
+  // rectangle read at the start is empty ground by the time the drag runs —
+  // which made the drag row a second pan and not a drag at all.
+  await p.waitForTimeout(900);
+  // A board that is actually under the pointer: at thirty they are spread
+  // wider than the window, and dragging at a rectangle that is off-screen
+  // is another pan with a different name.
+  const boxes = await p.locator("[data-box]").all();
+  let box = null;
+  let pick = -1;
+  for (let i = 0; i < boxes.length; i++) {
+    const r = await boxes[i].boundingBox();
+    if (!r || r.x < 8 || r.y < 8 || r.x + r.width > 1192 || r.y + r.height > 892) continue;
+    // On screen is not the same as under the pointer: the toolbar sits over
+    // the top of the surface, and a board beneath it takes no press at all.
+    const mine = await p.evaluate(([x, y, j]) => {
+      const el = document.elementFromPoint(x, y);
+      return !!el && document.querySelectorAll("[data-box]")[j].contains(el);
+    }, [r.x + r.width / 2, r.y + r.height / 2, i]);
+    if (mine) { box = r; pick = i; break; }
+  }
+  if (!box) throw new Error(`${n} boards: no board on screen to drag`);
+  // The same board, before and after: a drag row that was really a second
+  // pan is worse than no row at all.
+  const where = () => p.evaluate((i) => {
+    const r = document.querySelectorAll("[data-box]")[i].getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y) };
+  }, pick);
+  const at0 = await where();
   const drag = await cost(p, client, () => sweep(p,
     { x: box.x + box.width / 2, y: box.y + box.height / 2 },
     { x: box.x + box.width / 2 + 540, y: box.y + box.height / 2 - 260 }, 60));
+  const at1 = await where();
+  const carried = Math.hypot(at1.x - at0.x, at1.y - at0.y) > 20;
   const line = (l, c) => `  ${l.padEnd(6)} script ${String(c.script).padStart(7)}ms  style ${String(c.style).padStart(6)}ms  layout ${String(c.layout).padStart(6)}ms  all tasks ${String(c.tasks).padStart(7)}ms`;
   console.log(`${n} boards — 60 pointer moves each`);
   console.log(line("idle", idle));
-  console.log(line("pan", pan));
-  console.log(line("drag", drag));
+  console.log(line("pan", pan) + (panned ? "" : "   ← view did not move"));
+  console.log(line("drag", drag) + (carried ? "" : "   ← board did not move"));
   await p.close();
 }
 await b.close();
