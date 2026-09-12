@@ -59,7 +59,7 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
-import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
+import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { connected, diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
@@ -334,9 +334,16 @@ export function Timeline() {
         .map((c) => ({
           from: c.from,
           to: c.to,
-          // An element prompt's vine runs a shade younger and quicker; the
-          // line the board stands on is the brightest of them.
           tone: (isElement(c.thread) ? "pending" : c.thread.id === liveThreadId ? "live" : "landed") as StrandTone,
+          /*
+           * What it joins, at each end. A vine takes its colour from the two
+           * boards it runs between, so one from a green iteration to a red
+           * drawing is green where it leaves and red where it arrives.
+           */
+          ends: [
+            isElement(byId.get(c.from)!) ? "drawing" : "iteration",
+            isElement(c.thread) ? "drawing" : "iteration",
+          ] as [VineEnd, VineEnd],
         })),
     [all, joins, byId, liveThreadId],
   );
@@ -378,7 +385,7 @@ export function Timeline() {
       c.scale(z, z);
       for (const cord of cords) {
         const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
-        paintStrand(c, from, to, { t, tone: cord.tone, phase: seed(cord.to) });
+        paintStrand(c, from, to, { t, tone: cord.tone, phase: seed(cord.to), ends: cord.ends });
       }
       /*
        * The card's own connector: the same construct, from the card's edge
@@ -397,7 +404,8 @@ export function Timeline() {
           const r = card.getBoundingClientRect();
           const cx = (r.left - origin.left) / z + r.width / z / 2;
           const edge = side === "in" ? (r.bottom - origin.top) / z : (r.top - origin.top) / z;
-          paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom }, { t, tone });
+          paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom },
+            { t, tone, end: openTone === "pending" ? "drawing" : "iteration" });
         }
       }
       c.restore();
@@ -1189,15 +1197,29 @@ function Made({ thread, skin }: { thread: Thread; skin: { rim: string; dim: stri
   // showing its left half, which for most parts is an empty margin.
   const scale = Math.min(W / Math.max(1, node.w), H / Math.max(1, node.h), 1);
   return (
+    /*
+     * Inset, on a dark surround.
+     *
+     * The part keeps its own page surface, because that is how it really
+     * looks and a repainted preview would be a lie about it — but a pale
+     * rectangle edge to edge on a dark card was the loudest thing on the
+     * card. Sitting it in from the edges with the card's own ground round it
+     * makes it a picture *on* the card rather than a hole through it.
+     */
     <div
-      data-made-preview={node.id}
-      aria-hidden
-      inert
-      className="mb-1.5 grid place-items-center overflow-hidden rounded-md border"
-      style={{ height: H, borderColor: skin.rim, background: theme.surface }}
+      className="mb-1.5 rounded-md p-1.5"
+      style={{ background: "oklch(0.16 0.03 20 / 0.55)" }}
     >
-      <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
-        <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode="board" size={{ w: node.w, h: node.h }} />
+      <div
+        data-made-preview={node.id}
+        aria-hidden
+        inert
+        className="grid place-items-center overflow-hidden rounded-sm border"
+        style={{ height: H, borderColor: skin.rim, background: theme.surface }}
+      >
+        <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
+          <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode="board" size={{ w: node.w, h: node.h }} />
+        </div>
       </div>
     </div>
   );
