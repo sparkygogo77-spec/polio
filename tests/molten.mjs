@@ -50,7 +50,7 @@ for (const f of elsewhere) {
 check("the stylesheet is actually loaded", /@import ".*molten\.css"/.test(readFileSync("src/app/globals.css", "utf8")));
 
 /* ------------------------------------------------------------------ */
-/* 2. Five stops, near-white to almost-black red                       */
+/* 2. Five stops, a bright leaning edge down to a dark unlit field     */
 /* ------------------------------------------------------------------ */
 
 check("there are five stops, not one colour at five opacities", MOLTEN_STOPS.length === 5);
@@ -59,17 +59,36 @@ for (const kind of ["molten", "ember", "verdant"]) {
   check(`${kind}: every stop is declared`, stops.every(Boolean), stops.filter(Boolean).length + "/5");
   const lights = stops.map(lightOf);
   check(`${kind}: they run hottest to coldest`, lights.every((l, i) => i === 0 || l < lights[i - 1]), lights.join(" > "));
-  check(`${kind}: the hottest is a near-white`, lights[0] >= 0.95 && chromaOf(stops[0]) <= 0.07, stops[0]);
-  check(`${kind}: the body is a deep blood red`, lights[2] >= 0.32 && lights[2] <= 0.48 && chromaOf(stops[2]) >= 0.13, stops[2]);
-  check(`${kind}: the outer edge falls to almost black`, lights[4] <= 0.16, stops[4]);
+  /* The locked relationship, not the old one.
+     These three used to read "the hottest is a near-white", "the body is a
+     deep blood red" and "the outer edge falls to almost black". A reference
+     was given since, and it supersedes all three: the edge is not near-white
+     but a thin very bright colour at full chroma, the body is stronger and
+     lighter, and the field is dark without being almost black. Matching the
+     relationship is the instruction, so that is what is checked. */
+  check(`${kind}: the edge is bright and saturated, not a near-white`,
+    lights[0] >= 0.85 && lights[0] <= 0.93 && chromaOf(stops[0]) >= 0.18, stops[0]);
+  check(`${kind}: the body is strong and saturated`,
+    lights[2] >= 0.46 && lights[2] <= 0.56 && chromaOf(stops[2]) >= 0.13, stops[2]);
+  check(`${kind}: the field is dark AND unsaturated`,
+    lights[4] >= 0.2 && lights[4] <= 0.3 && chromaOf(stops[4]) <= 0.09, stops[4]);
+  check(`${kind}: the field is far less saturated than the body`,
+    chromaOf(stops[2]) >= chromaOf(stops[4]) * 1.8, `${chromaOf(stops[2])} vs ${chromaOf(stops[4])}`);
   check(`${kind}: no two stops are the same colour`, new Set(stops).size === 5);
-  // Verdant is the green counterpart, so it is held to its own hue rather
-  // than to the reds'; what matters is that each is one family end to end.
-  const band = kind === "verdant" ? [140, 165] : [5, 55];
-  check(`${kind}: every stop is the same family`, stops.every((c) => {
-    const h = Number(/oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]);
-    return h >= band[0] && h <= band[1];
-  }), stops.map((c) => /oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]).join(","));
+
+  /* One family, with the edge leaning towards yellow on purpose.
+     The lean is signed: yellow is near hue 90, so a green family shifts DOWN
+     towards it and a red family shifts UP. Rotating both the same way sends
+     one of them the wrong way round the wheel, which is the mistake this
+     catches. */
+  const hue = (c) => Number(/oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]);
+  const hues = stops.map(hue);
+  const anchor = hues[2];
+  const towardsYellow = anchor > 90 ? -1 : 1;
+  check(`${kind}: every stop is the same family`, hues.every((h) => Math.abs(h - anchor) <= 26), hues.join(","));
+  check(`${kind}: the edge leans towards yellow, and the right way`,
+    (hues[0] - anchor) * towardsYellow >= 10 && (hues[1] - anchor) * towardsYellow >= 5,
+    `anchor ${anchor}, edge ${hues[1]} then ${hues[0]}`);
 }
 check("the two temperatures are not the same red twice",
   MOLTEN_STOPS.some((n) => stop(`molten-${n}`) !== stop(`ember-${n}`)));

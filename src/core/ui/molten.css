@@ -72,23 +72,51 @@
 --------------------------------------------------------------------------- */
 
 :root {
-  /* The five stops. Hottest first. */
-  --molten-white: oklch(0.97 0.045 48);
-  --molten-hot: oklch(0.78 0.17 38);
-  --molten-body: oklch(0.38 0.16 27);
-  --molten-deep: oklch(0.21 0.1 22);
-  --molten-char: oklch(0.11 0.04 20);
+  /*
+   * The five stops. Hottest first.
+   *
+   * LOCKED TO A REFERENCE. The relationship below is the thing to match, not
+   * any single value — it was given in green as hexes and read off as oklch,
+   * and the red families are the same structure rotated to a red hue:
+   *
+   *   field   L 0.25–0.31   C 0.06–0.08   at the anchor hue
+   *   body    L 0.51–0.70   C 0.15–0.22   at the anchor hue
+   *   edge    L 0.80–0.89   C ~0.21       shifted 13–22° TOWARDS YELLOW
+   *   vein    L 0.80        C 0.25        at the anchor hue, the highest of all
+   *
+   * Three things in that are easy to get wrong and are the whole look:
+   *
+   *  · **The field is dark AND unsaturated** (C 0.06), where the body is dark
+   *    and saturated. A dark saturated red for the field is the old look and
+   *    reads as a coloured box; a near-grey dark red reads as unlit material.
+   *  · **The edge leans yellow, and "towards yellow" is signed.** Yellow sits
+   *    near hue 90, so green (144) shifts DOWN to 131 and 122, and red (27)
+   *    shifts UP to 40 and 49. Rotating both the same direction sends one of
+   *    them the wrong way round the wheel.
+   *  · **Most of the surface stays dark.** The brightness lives in the edge
+   *    and the veining, never across the face, and the green must never wash
+   *    out pale.
+   *
+   * The green reference, for anyone checking: #0a2a12 and #0e3a18 for the
+   * field, #147a22 into #22c02e for the lit body, #7cd93a into #b8f13a for
+   * the edge, #2fe23c for the veining.
+   */
+  --molten-white: oklch(0.888 0.208 49);
+  --molten-hot: oklch(0.798 0.209 40);
+  --molten-body: oklch(0.506 0.152 27);
+  --molten-deep: oklch(0.309 0.076 25);
+  --molten-char: oklch(0.254 0.058 24);
 
   /*
    * The ember: a shade cooler and brighter than the lantern, for a construct
    * that is a piece rather than an iteration. Same five-stop shape, shifted,
    * so the two read as one family and never as two reds that nearly match.
    */
-  --ember-white: oklch(0.97 0.05 36);
-  --ember-hot: oklch(0.76 0.185 26);
-  --ember-body: oklch(0.4 0.175 18);
-  --ember-deep: oklch(0.23 0.115 14);
-  --ember-char: oklch(0.12 0.045 12);
+  --ember-white: oklch(0.888 0.206 40);
+  --ember-hot: oklch(0.798 0.207 31);
+  --ember-body: oklch(0.506 0.15 18);
+  --ember-deep: oklch(0.309 0.075 16);
+  --ember-char: oklch(0.254 0.057 15);
 
   /*
    * Verdant: the same construct in green, for the one live key on the bar.
@@ -99,11 +127,13 @@
    * through the middle than the reds, because it carries words and a count
    * at seven pixels high and has to stay readable at a glance.
    */
-  --verdant-white: oklch(0.97 0.05 150);
-  --verdant-hot: oklch(0.8 0.19 152);
-  --verdant-body: oklch(0.42 0.13 152);
-  --verdant-deep: oklch(0.27 0.09 154);
-  --verdant-char: oklch(0.15 0.05 156);
+  /* The reference itself, in its own hue: this is the family the hexes were
+     given for, so these are the read-off values rather than a derivation. */
+  --verdant-white: oklch(0.888 0.208 126);
+  --verdant-hot: oklch(0.798 0.209 135);
+  --verdant-body: oklch(0.506 0.152 144);
+  --verdant-deep: oklch(0.309 0.076 148);
+  --verdant-char: oklch(0.254 0.058 149);
 
   /*
    * Grain: one 64px tile of value noise as a data URI, decoded once by the
@@ -193,7 +223,7 @@
 }
 
 .molten::before {
-  animation: molten-drift 47s linear infinite;
+  animation: molten-drift 150s linear infinite;
   animation-delay: calc(var(--molten-seed) * -3.1s);
 }
 
@@ -237,7 +267,7 @@
     inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 72%, transparent),
     inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 26%, transparent),
     inset 0 8px 22px -10px color-mix(in oklab, var(--mo-white) 30%, transparent);
-  animation: molten-breathe 13s ease-in-out infinite alternate;
+  animation: molten-breathe 42s ease-in-out infinite alternate;
   animation-delay: calc(var(--molten-seed) * -1.7s);
 }
 
@@ -265,7 +295,7 @@
       transparent 360deg
     );
   opacity: 0;
-  animation: molten-flare 23s linear infinite;
+  animation: molten-flare 74s linear infinite;
   animation-delay: calc(var(--molten-seed) * -2.9s);
 }
 
@@ -281,7 +311,7 @@
   background: var(--molten-white);
   box-shadow: 0 0 6px 1px color-mix(in oklab, var(--mo-hot) 70%, transparent);
   opacity: 0;
-  animation: molten-ember 17s ease-out infinite;
+  animation: molten-ember 54s ease-out infinite;
   animation-delay: calc(var(--molten-seed) * -4.3s);
 }
 
