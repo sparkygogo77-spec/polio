@@ -7,8 +7,9 @@
  * as a place now, left to right — out to **Builds**, the site's own **mark**
  * and **build**, then its **pages**, with the way to add one on the same
  * control — and the two ways out are at the far end: **Preview**, then
- * **Finish**, a green flag with a tick that carries the make-real queue and
- * opens the timeline.
+ * **Finish**, a green light construct — a flag with a tick, two numbers for
+ * the make-real queue, built from the same shared surface the timeline's red
+ * boxes are (`core/ui/molten.css`) — which opens the timeline.
  *
  * And on the timeline: a piece is a prompt on the board that the next call
  * can carry. It is never off, so it never goes grey, and it is not an
@@ -244,7 +245,10 @@ check("Preview and Finish are at the end, Preview first", prev && fin && prev.x 
 check("Finish is last on the bar", fin && fin.x + fin.width > (await x("[data-page-strip]")) + 900, `${Math.round(fin?.x ?? -1)}`);
 check("Finish says nothing: it is an icon and the queue", !/finish/i.test((await page.locator("[data-finish]").innerText()).trim()), (await page.locator("[data-finish]").innerText()).replace(/\n/g, " "));
 check("with a flag on it, and a tick on the flag", (await page.locator("[data-finish] svg path").count()) >= 3, `${await page.locator("[data-finish] svg path").count()} strokes`);
-check("and it carries the make-real queue", /\d+\s*\/\s*\d+/.test((await page.locator("[data-finish]").innerText()).replace(/\s+/g, " ")), (await page.locator("[data-finish]").innerText()).replace(/\n/g, " "));
+// Two numbers, unfinished then done, and nothing between them: the slash and
+// the glow behind each digit came off when the key became a construct, since
+// a thing made of light does not need decoration painted on to look lit.
+check("and it carries the make-real queue", /^\d+\s+\d+$/.test((await page.locator("[data-finish]").innerText()).replace(/\s+/g, " ").trim()), (await page.locator("[data-finish]").innerText()).replace(/\n/g, " "));
 // Chromium serialises an oklch into `lab(L a b)` (and a gradient's stops
 // with it), so the hue is worked out from that: green is the quadrant with a
 // negative a* and a positive b*.

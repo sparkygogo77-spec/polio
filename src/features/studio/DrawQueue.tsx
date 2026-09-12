@@ -26,6 +26,8 @@ import { doneJobs, failedJobs, nextJob, pendingJobs } from "./queue";
 import { runDrawJob } from "./reshapeRun";
 import { useStudio } from "./store";
 import { PROCESS } from "./threads";
+import { cn } from "@/core/lib/cn";
+import { moltenClass, moltenSeed } from "@/core/ui/molten";
 
 /** The runner. Mounted once; everything else only looks at the queue. */
 export function DrawQueue() {
@@ -131,8 +133,25 @@ export function ProcessCounter() {
           play("confirm");
           useStudio.getState().setMode(mode === "book" ? "design" : "book");
         }}
-        className="process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-[10px] font-medium outline-none"
+        /*
+         * A live green light construct, not a green slab.
+         *
+         * It is the key that opens the red boxes, so it is made of the same
+         * thing they are: the shared surface in `core/ui/molten.css` at its
+         * verdant temperature — the same five stops, the same veining, the
+         * same slow boil and breathing edge — rather than a green button
+         * that happens to sit near them. Quieter than the reds, because this
+         * one carries words and a count and has to stay readable while it
+         * moves. `.process-key` keeps the press: a key that did not go down
+         * under the finger would be a picture of a key.
+         */
+        className={cn(
+          moltenClass("verdant"),
+          "process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-[10px] font-medium outline-none",
+        )}
+        style={moltenSeed("finish") as React.CSSProperties}
       >
+        <span data-molten="" />
         {busy ? <LoaderCircle className="size-4 animate-spin" /> : <FlagCheck className="size-4" />}
         {/*
           The process, on the right where the count lives, and lit.
@@ -145,10 +164,19 @@ export function ProcessCounter() {
           idea. Bigger, and glowing in their own colour, so the numbers are
           what carries the key rather than the key carrying them.
         */}
-        <span className="num flex items-baseline gap-1 text-[13px] leading-none tabular-nums">
-          <span style={{ color: PROCESS.open, textShadow: `0 0 8px ${PROCESS.openGlow}` }}>{open}</span>
-          <span aria-hidden style={{ color: "oklch(1 0 0 / 0.3)" }}>/</span>
-          <span style={{ color: PROCESS.done, textShadow: `0 0 8px ${PROCESS.doneGlow}` }}>{done}</span>
+        {/*
+          Two numbers and nothing between them.
+          
+          There was a slash, and a glow behind each digit, on a key that is
+          now made of light itself: a construct does not need decoration
+          painted on top of it to look lit, and the slash was a third thing
+          to read where the colour had already said which number was which.
+          Red is unfinished, green is done, and the light under them is the
+          key's own.
+        */}
+        <span className="num flex items-baseline gap-1.5 text-[13px] leading-none tabular-nums">
+          <span style={{ color: PROCESS.open }}>{open}</span>
+          <span style={{ color: PROCESS.done }}>{done}</span>
         </span>
       </button>
     </Tooltip>

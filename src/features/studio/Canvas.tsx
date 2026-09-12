@@ -22,7 +22,7 @@ import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal, Scissors, Sparkles, Ungroup } from "lucide-react";
 import { inkGroups, nearestTo, type InkGroup } from "./inkGroups";
 import { CORNERS, handlePoints } from "./outlineHandles";
-import { auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
+import { auraFilter, auraStyle, complementOf, markColour, washCss, type Light, type Palette, type TextureLayer } from "./look";
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
@@ -679,7 +679,15 @@ export function Canvas() {
         that belongs to the *site* being built is the site's own business and
         is drawn inside the frame, untouched by this.
       */}
-      <Workspace />
+      {/*
+        The ground is not mounted here.
+
+        It used to be, and the timeline mounted its own, and pressing Preview
+        swapped between them — so the green button changed the weather, which
+        is the one thing a button for "show me the site" must not do. There
+        is one instance now, behind all three views in `StudioPage`, and this
+        surface is transparent over it.
+      */}
 
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
         {/*
@@ -1364,8 +1372,16 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       className={cn("group pointer-events-auto absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
         left: node.x, top: node.y, width: node.w, height: node.h,
-        // The aura belongs to the element, not to anything inside it.
-        ...((auraStyle(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties),
+        /*
+         * The aura belongs to the element, not to anything inside it — and
+         * on a part cut to a drawn line it belongs to the *line*. A
+         * box-shadow can only glow a rectangle, so a diagonal came out as a
+         * glowing rectangle with the diagonal inside it. That one wears a
+         * drop-shadow instead, put on the clipped surface below rather than
+         * here, because a filter here would glow the label chip and the
+         * handles too.
+         */
+        ...(hugs ? {} : ((auraStyle(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties)),
         /*
          * Where this part stands under the page's lamp.
          *
@@ -1413,6 +1429,10 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
           // edge, so a mark drawn there would cover the thing being edited.
           outline: selected && !hugs ? `${(1.5 / zoom).toFixed(2)}px solid ${mark}` : "1px solid transparent",
           outlineOffset: selected && !hugs ? `${(-1.5 / zoom).toFixed(2)}px` : 0,
+          // The aura, on the shape itself: `drop-shadow` follows what is
+          // actually painted, and what is painted here is already cut to the
+          // drawn line.
+          ...(hugs ? ((auraFilter(node.aura, palette, node.auraSize, node.auraStyle) ?? {}) as React.CSSProperties) : {}),
         }}
       >
         <Block

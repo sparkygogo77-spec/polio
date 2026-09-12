@@ -17,6 +17,11 @@
    opacity of one colour: the whole point is that the edge is a different
    temperature from the middle rather than the same red turned up.
 
+   There are three temperatures, all the same five-stop shape: `--molten-*`
+   is the lantern, `--ember-*` is the hotter red an element piece wears, and
+   `--verdant-*` is the green counterpart the one live key on the bar is made
+   of. A fourth would be a decision to take here, not in a component.
+
      --molten-white   the thinnest skin, where it is almost see-through
      --molten-hot     the edge proper, still glowing
      --molten-body    the deep blood red the words sit on
@@ -73,6 +78,21 @@
   --ember-body: oklch(0.4 0.175 18);
   --ember-deep: oklch(0.23 0.115 14);
   --ember-char: oklch(0.12 0.045 12);
+
+  /*
+   * Verdant: the same construct in green, for the one live key on the bar.
+   *
+   * Finish is the counterpart to the red boxes — it is the thing that opens
+   * them — so it is built from the same five stops in the same shape rather
+   * than being a green button that happens to sit near them. Lighter
+   * through the middle than the reds, because it carries words and a count
+   * at seven pixels high and has to stay readable at a glance.
+   */
+  --verdant-white: oklch(0.97 0.05 150);
+  --verdant-hot: oklch(0.8 0.19 152);
+  --verdant-body: oklch(0.42 0.13 152);
+  --verdant-deep: oklch(0.27 0.09 154);
+  --verdant-char: oklch(0.15 0.05 156);
 
   /*
    * Grain: one 64px tile of value noise as a data URI, decoded once by the
@@ -253,6 +273,24 @@
   animation: molten-ember 17s ease-out infinite;
   animation-delay: calc(var(--molten-seed) * -4.3s);
 }
+
+/*
+ * A verdant construct: the same rules in green, and quieter with it.
+ *
+ * The reds are read from across the screen; this one is pressed, with words
+ * on it, so the veining is turned down and the boil is slower. Same stops,
+ * same keyframes, same edge: it is the counterpart, not a second language.
+ */
+.molten-verdant {
+  --mo-white: var(--verdant-white);
+  --mo-hot: var(--verdant-hot);
+  --mo-body: var(--verdant-body);
+  --mo-deep: var(--verdant-deep);
+  --mo-char: var(--verdant-char);
+}
+
+.molten-verdant::before { opacity: 0.32; }
+.molten-verdant::after { opacity: 0.2; }
 
 /* An ember construct: the same rules, re-pointed at the cooler, brighter set. */
 .molten-ember {

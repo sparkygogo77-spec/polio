@@ -211,6 +211,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         state: "done",
         ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
         answer: `${did}, chosen off the drawing with no model asked`,
+        // Which part this was about, so the timeline can change that one
+        // rather than making a second.
+        madeId: made.id,
         sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
         changes: [`${node ? "turned" : "drew"} ${made.label} into ${label.toLowerCase()}`],
       });
@@ -293,6 +296,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       // The reading is the first paid call of this iteration; the tracer and
       // the writer add theirs to the same bill as they go.
       useStudio.getState().noteSpend(readCost);
+      useStudio.getState().noteMade(landed, made.id);
       const body = [
         `${made.w} × ${made.h}`,
         made.kindChanged ? `now ${made.kind}` : null,
@@ -342,6 +346,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
       changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`],
     });
+    useStudio.getState().noteMade(landed, made.id);
     if (data.reason === "no-key") deps.onNoKey();
     const body =
       data.reason === "no-key"

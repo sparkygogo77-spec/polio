@@ -54,7 +54,7 @@ check("the stylesheet is actually loaded", /@import ".*molten\.css"/.test(readFi
 /* ------------------------------------------------------------------ */
 
 check("there are five stops, not one colour at five opacities", MOLTEN_STOPS.length === 5);
-for (const kind of ["molten", "ember"]) {
+for (const kind of ["molten", "ember", "verdant"]) {
   const stops = MOLTEN_STOPS.map((n) => stop(`${kind}-${n}`));
   check(`${kind}: every stop is declared`, stops.every(Boolean), stops.filter(Boolean).length + "/5");
   const lights = stops.map(lightOf);
@@ -63,10 +63,13 @@ for (const kind of ["molten", "ember"]) {
   check(`${kind}: the body is a deep blood red`, lights[2] >= 0.32 && lights[2] <= 0.48 && chromaOf(stops[2]) >= 0.13, stops[2]);
   check(`${kind}: the outer edge falls to almost black`, lights[4] <= 0.16, stops[4]);
   check(`${kind}: no two stops are the same colour`, new Set(stops).size === 5);
-  check(`${kind}: they are all the same warm family`, stops.every((c) => {
+  // Verdant is the green counterpart, so it is held to its own hue rather
+  // than to the reds'; what matters is that each is one family end to end.
+  const band = kind === "verdant" ? [140, 165] : [5, 55];
+  check(`${kind}: every stop is the same family`, stops.every((c) => {
     const h = Number(/oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]);
-    return h >= 5 && h <= 55;
-  }));
+    return h >= band[0] && h <= band[1];
+  }), stops.map((c) => /oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]).join(","));
 }
 check("the two temperatures are not the same red twice",
   MOLTEN_STOPS.some((n) => stop(`molten-${n}`) !== stop(`ember-${n}`)));
@@ -142,8 +145,10 @@ check("there is no canvas and no loop in any of it", (() => {
 /* 6. The handle both branches use                                     */
 /* ------------------------------------------------------------------ */
 
-check("a construct is asked for by name", moltenClass("lantern") === "molten" && moltenClass("ember") === "molten molten-ember");
-check("both classes exist in the stylesheet", /^\.molten \{/m.test(css) && /^\.molten-ember \{/m.test(css));
+check("a construct is asked for by name",
+  moltenClass("lantern") === "molten" && moltenClass("ember") === "molten molten-ember" && moltenClass("verdant") === "molten molten-verdant");
+check("all three classes exist in the stylesheet",
+  /^\.molten \{/m.test(css) && /^\.molten-ember \{/m.test(css) && /^\.molten-verdant \{/m.test(css));
 check("a seed is stable for the same id", moltenSeed("t7")["--molten-seed"] === moltenSeed("t7")["--molten-seed"]);
 check("and different for different ones", moltenSeed("t7")["--molten-seed"] !== moltenSeed("t8")["--molten-seed"]);
 check("the delays are built from it", /calc\(var\(--molten-seed\) \* -[\d.]+s\)/.test(css));
@@ -156,6 +161,14 @@ check("the element pieces are the same construct, hotter", /moltenClass\("ember"
 check("each carries the edge, the flare and the ember on one node",
   (timeline.match(/<span data-molten="" \/>/g) ?? []).length === 2);
 check("and each is seeded from its own id", (timeline.match(/moltenSeed\(thread\.id\)/g) ?? []).length === 2);
+
+const key = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
+check("Finish is the green counterpart, from the same definition", /moltenClass\("verdant"\)/.test(key));
+check("and it carries the same edge node", /<span data-molten="" \/>/.test(key));
+check("the key still presses, because a construct that did not would be a picture of one",
+  /process-key/.test(key) && /\.process-key:active/.test(readFileSync("src/app/globals.css", "utf8")));
+check("nothing is painted on top of the light to make it look lit",
+  !/textShadow/.test(key) && !/background: linear-gradient\(oklch\(0\.31 0\.075 150\)/.test(readFileSync("src/app/globals.css", "utf8")));
 
 /* ------------------------------------------------------------------ */
 /* 7. In the browser                                                   */

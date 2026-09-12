@@ -29,6 +29,7 @@ import { headlineOf } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { useStudio } from "./store";
+import { drawOnPart, writeOnPart } from "./RadialMenu";
 
 /**
  * The section's colours: the iteration boxes' own, one step quieter.
@@ -171,6 +172,38 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
    * something says so where an iteration that only wrote says how much of it
    * came out of the cache.
    */
+  /*
+   * The part this iteration made, if it is still on the board.
+   *
+   * Still on the board is the condition: an iteration whose part has since
+   * been deleted has nothing to change, and offering it would be offering to
+   * make a new one — which is the thing being fixed.
+   */
+  const nodes = useStudio((s) => s.nodes);
+  const made = React.useMemo(
+    () => (thread.madeId ? nodes.find((n) => n.id === thread.madeId) ?? null : null),
+    [nodes, thread.madeId],
+  );
+  const madeLabel = made?.label ?? "it";
+  const changeMade = React.useCallback((how: "draw" | "write") => {
+    if (!made) return;
+    const s = useStudio.getState();
+    // Back to the board, on the part, with it picked — then the board opens
+    // on that part rather than on empty space.
+    s.setMode("design");
+    s.setActivePage(made.pageId);
+    s.setSelection([made.id]);
+    // Next frame: the board has to exist before the wheel can be put over it.
+    window.requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-node-id="${made.id}"]`);
+      const box = el?.getBoundingClientRect();
+      const x = box ? box.left + box.width / 2 : window.innerWidth / 2;
+      const y = box ? box.top + box.height / 2 : window.innerHeight / 2;
+      if (how === "draw") drawOnPart(made.id, x, y);
+      else writeOnPart(made.id, x, y);
+    });
+  }, [made]);
+
   const usage = React.useMemo(() => {
     const u = thread.usage;
     if (!u) return "";
@@ -290,6 +323,24 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
             onClick={() => { play(pinned ? "close" : "confirm"); useStudio.getState().togglePinnedThread(thread.id); }} />
           <Convert skin={skin} label="Copy what came back" icon={<Copy className="size-3.5" />} blurb={`${thread.answer.length} characters, as it was written`}
             onClick={() => void ctx.copy(thread.answer, "the answer")} />
+          {/*
+            Change the thing this iteration made, rather than making another.
+            
+            Going back to a drawing and drawing again produced a second part,
+            because nothing said which part on the board the iteration was
+            about. It does now (`madeId`), so these two go straight to that
+            part — the drawing board opens on it, and what comes back
+            reshapes it. The board is put back the way this iteration left it
+            first, so what is drawn on is what was drawn before.
+          */}
+          {made ? (
+            <>
+              <Convert skin={skin} label="Draw more on it" icon={<Brush className="size-3.5" />} blurb={`Change ${madeLabel} itself, not a new one`}
+                onClick={() => { play("confirm"); changeMade("draw"); }} />
+              <Convert skin={skin} label="Write more about it" icon={<MessageSquare className="size-3.5" />} blurb={`Add to what ${madeLabel} is meant to be`}
+                onClick={() => { play("confirm"); changeMade("write"); }} />
+            </>
+          ) : null}
           <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this iteration live under it"
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
           {usage ? (
