@@ -117,7 +117,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       <aside
         data-book-panel=""
         aria-label="The iteration book"
-        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] w-[min(520px,96vw)] flex-col border-l border-border bg-panel shadow-panel"
+        className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h))] w-[min(520px,96vw)] flex-col border-l border-border bg-panel shadow-panel"
       >
         <Book layout="panel" onClose={() => onOpenChange(false)} />
       </aside>

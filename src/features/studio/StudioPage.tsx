@@ -638,7 +638,7 @@ export function StudioPage() {
   return (
     // Fixed height, never min-height: the board must fit the viewport exactly so
     // the page behind it cannot scroll while you are drawing on it.
-    <div className="flex h-[calc(100dvh-var(--topbar-h)-var(--statusbar-h))] min-w-0 flex-col overflow-hidden">
+    <div data-studio-root className="flex h-[calc(100dvh-var(--topbar-h))] min-w-0 flex-col overflow-hidden">
       {/* Pictures are baked into tiles from the document, not from a panel:
           a patch re-rolled on the wheel has to cook whether or not Look is
           open. Renders nothing. */}

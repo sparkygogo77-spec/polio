@@ -36,7 +36,6 @@ A **feature module** is a plain object (`defineFeature({...})`) declaring:
 | `shortcuts`     | Global hotkeys, including two-key chords (`"g p"`).             |
 | `contextMenus`  | Items for a right-click *scope* (see §4).                       |
 | `settingGroups` / `settings` | Appear in the settings drawer, persisted, searchable. |
-| `statusItems`   | Small widgets in the bottom status bar.                         |
 | `onMount`       | Start streams/timers on the client. Return a cleanup.           |
 | `demo: true`    | Module only loads if listed in `site.demoModules`.              |
 
@@ -2103,7 +2102,7 @@ remove it from `src/features/index.ts` when you're sure.
 ## 11. Keys, and the top bar
 
 - **A module can put a control in the top bar.** `topBarItems: [{ id, order,
-  component }]` on a feature module, mirroring `statusItems`. The bar renders
+  component }]` on a feature module. The bar renders
   whatever is registered and imports no feature; anything that has to live up
   there arrives this way. `keys` contributes the key, `studio` the GitHub mark.
 - **Keys belong on the server.** `ANTHROPIC_API_KEY`, `VERCEL_TOKEN`, the four

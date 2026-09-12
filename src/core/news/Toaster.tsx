@@ -64,10 +64,10 @@ export function Toaster() {
       : position === "top-left"
         ? "top-[calc(var(--topbar-h)+8px)] left-3 items-start"
         : position === "bottom-left"
-          ? "bottom-[calc(var(--statusbar-h)+8px)] left-3 items-start"
+          ? "bottom-2 left-3 items-start"
           : position === "bottom-center"
-            ? "bottom-[calc(var(--statusbar-h)+8px)] left-1/2 -translate-x-1/2 items-center"
-            : "bottom-[calc(var(--statusbar-h)+8px)] right-3 items-end";
+            ? "bottom-2 left-1/2 -translate-x-1/2 items-center"
+            : "bottom-2 right-3 items-end";
   const bottom = position?.startsWith("bottom");
   return (
     <div className={cn("pointer-events-none fixed z-[65] flex flex-col gap-2", pos, bottom ? "flex-col-reverse" : "")}>

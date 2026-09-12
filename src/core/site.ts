@@ -40,8 +40,6 @@ export interface SiteConfig {
     topTabs: boolean;
     /** "collapsible" keeps a rail; "hidden" removes the sidebar entirely. */
     sidebar: "collapsible" | "fixed" | "hidden";
-    /** Bottom status bar with clock, latency, sound state. */
-    statusBar: boolean;
     /** Max content width; "full" for edge-to-edge terminals. */
     contentWidth: "full" | "wide" | "narrow";
   };
@@ -101,7 +99,6 @@ export function defineSite(input: SiteInput): SiteConfig {
     layout: {
       topTabs: true,
       sidebar: "collapsible",
-      statusBar: true,
       contentWidth: "full",
       ...input.layout,
     },

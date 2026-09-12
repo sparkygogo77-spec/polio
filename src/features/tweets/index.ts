@@ -3,7 +3,6 @@ import { defineFeature, type MenuEntry } from "@/core/types";
 import { sendDraft, apiStatus } from "./send";
 import { draftTitle, useTweets, type Draft } from "./store";
 import { intentUrl } from "./text";
-import { TweetsStatus } from "./TweetConsole";
 
 /**
  * The tweet console.
@@ -101,7 +100,6 @@ export const tweets = defineFeature({
     { id: "tweets.tick", label: "Send what is due now", group: "Tweets", icon: Send, keywords: ["queue", "scheduled", "send"], run: () => void tick(true) },
   ],
   shortcuts: [{ keys: "t", label: "Tweet console", group: "Tweets", run: (ctx) => ctx.togglePanel("tweets") }],
-  statusItems: [{ id: "tweets.queue", side: "right", order: 20, component: TweetsStatus }],
   contextMenus: [
     {
       scope: "tweet-draft",

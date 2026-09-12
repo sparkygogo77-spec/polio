@@ -288,13 +288,6 @@ export interface NavEntry {
   external?: boolean;
 }
 
-export interface StatusItemDef {
-  id: string;
-  side?: "left" | "right";
-  order?: number;
-  component: ComponentType;
-}
-
 /**
  * A control a module puts in the top bar, beside search, news and settings.
  *
@@ -327,7 +320,6 @@ export interface FeatureModule {
   contextMenus?: ContextMenuContribution[];
   settingGroups?: SettingGroupDef[];
   settings?: SettingDef[];
-  statusItems?: StatusItemDef[];
   topBarItems?: TopBarItemDef[];
   /** Runs once on the client when the shell mounts. Return a cleanup. */
   onMount?: (ctx: ActionContext) => void | (() => void);

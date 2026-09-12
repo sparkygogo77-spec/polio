@@ -19,7 +19,6 @@ import { useUi } from "@/core/ui-state/store";
 import { cn } from "@/core/lib/cn";
 import { TopBar } from "./TopBar";
 import { Sidebar } from "./Sidebar";
-import { StatusBar } from "./StatusBar";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 function Shortcuts() {
@@ -59,7 +58,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className={cn("min-h-full", width === "narrow" && "mx-auto max-w-3xl", width === "wide" && "mx-auto max-w-7xl")}>{children}</div>
               </main>
             </div>
-            <StatusBar />
           </div>
           <NewsPanel />
           <SettingsDrawer />

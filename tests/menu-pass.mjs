@@ -72,6 +72,43 @@ async function look(w, h, tag) {
     [...document.querySelectorAll("button")].filter((b) => /side panel|toggle look/i.test(b.getAttribute("aria-label") ?? "")).length);
   check(`${tag}: one control for the side panel`, hides === 1, `${hides} found`);
 
+  /* No strip along the bottom. Checked as a person sees it — is there
+     anything down there, and does the Builder reach the floor — rather than
+     by asking whether a particular component is mounted, because the
+     complaint was about a band of small grey words and not about a footer
+     element. `live`, the ping, `tweets`, `compact`, `sound` and the clock
+     were its whole contents; the version tag went with them. */
+  const floor = await page.evaluate(() => {
+    const band = 34;
+    const words = [];
+    for (const el of document.querySelectorAll("body *")) {
+      const r = el.getBoundingClientRect();
+      if (r.height <= 0 || r.width <= 0) continue;
+      if (r.bottom < innerHeight - band || r.top > innerHeight) continue;
+      const st = getComputedStyle(el);
+      if (st.visibility === "hidden" || Number(st.opacity) < 0.05) continue;
+      // Leaf text only, so a wrapper does not report its children's words.
+      if (el.children.length) continue;
+      const t = (el.innerText || "").trim();
+      if (t) words.push(t.replace(/\s+/g, " ").slice(0, 24));
+    }
+    /* How much window is left under the Builder itself. Its own root, not
+       the deepest descendant: a panel that scrolls has content past the
+       bottom edge by design, and that is not the question. */
+    const root = document.querySelector("[data-studio-root]");
+    const gap = root ? Math.round(innerHeight - root.getBoundingClientRect().bottom) : null;
+    const under = document.elementFromPoint(Math.round(innerWidth / 2), innerHeight - 2);
+    return { words: [...new Set(words)], gap, inside: !!(root && under && root.contains(under)) };
+  });
+  const strip = /^(live|tweets|compact|comfortable|sound|muted|v\d|\d+ ?ms|\d+ fps|\d\d:\d\d)/i;
+  const left = floor.words.filter((w) => strip.test(w));
+  check(`${tag}: no strip of small print along the bottom`, left.length === 0, left.length ? `still reads ${JSON.stringify(left)}` : `nothing but the Builder down there`);
+  check(
+    `${tag}: the Builder reaches the bottom of the window`,
+    floor.gap !== null && Math.abs(floor.gap) <= 2 && floor.inside,
+    `${floor.gap}px of window left under it, and the bottom row of pixels ${floor.inside ? "belongs to the Builder" : "belongs to something else"}`,
+  );
+
   /* Undo red, redo green — and only when they can be pressed, so the board
      needs a history before either can be looked at. Two parts in, one step
      back, and both arrows are live at once. A screenshot of two greyed-out

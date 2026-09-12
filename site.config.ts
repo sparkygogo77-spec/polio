@@ -23,7 +23,6 @@ export default defineSite({
   layout: {
     topTabs: true,
     sidebar: "collapsible",
-    statusBar: true,
     contentWidth: "full",
   },
 

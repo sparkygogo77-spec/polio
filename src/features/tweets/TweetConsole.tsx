@@ -105,33 +105,6 @@ function fmtBytes(n: number) {
   return n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/* ------------------------------------------------------------------ */
-/* The status-bar item                                                 */
-/* ------------------------------------------------------------------ */
-
-export function TweetsStatus() {
-  useTweetsHydration();
-  // Select the array itself, never a filtered copy: a fresh array each read would never settle.
-  const drafts = useTweets((st) => st.drafts);
-  const queued = React.useMemo(() => selectQueued({ drafts } as Parameters<typeof selectQueued>[0]), [drafts]);
-  const failed = React.useMemo(() => drafts.filter((d) => d.status === "failed" || d.status === "missed").length, [drafts]);
-  const openPanel = useUi((st) => st.openPanel);
-  const [, tickNow] = React.useReducer((x: number) => x + 1, 0);
-  React.useEffect(() => {
-    const t = window.setInterval(tickNow, 30_000);
-    return () => window.clearInterval(t);
-  }, []);
-  const next = queued.map((d) => d.scheduledAt ?? 0).filter(Boolean).sort((a, b) => a - b)[0];
-  const label = queued.length ? `${queued.length} queued${next ? ` · ${relativeTime(next)}` : ""}` : failed ? `${failed} to look at` : "tweets";
-  return (
-    <Tooltip content="Tweet console" shortcut="t">
-      <button type="button" onClick={() => openPanel("tweets")} className={cn("tactile flex items-center gap-1 rounded-sm px-1 hover:text-fg", failed && !queued.length ? "text-warn" : queued.length ? "text-accent" : "")}>
-        <Feather className="size-3" />
-        <span className="num">{label}</span>
-      </button>
-    </Tooltip>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* The rail: drafts as stops on a line, and the log                    */

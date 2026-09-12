@@ -32,7 +32,7 @@ export function SlideOver({
     <aside
       className={cn(
         "fixed right-0 z-[55] flex flex-col border-l border-border glass shadow-panel animate-slide-in-right",
-        "top-(--topbar-h) bottom-(--statusbar-h) w-[min(var(--panel-w),100vw)]",
+        "top-(--topbar-h) bottom-0 w-[min(var(--panel-w),100vw)]",
         className,
       )}
       style={width ? { width } : undefined}

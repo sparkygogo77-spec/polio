@@ -113,7 +113,6 @@ export const CORE_SETTINGS: SettingDef[] = [
     order: 9,
   },
   { id: "appearance.topTabs", group: "appearance", label: "Route tabs in top bar", type: "toggle", default: site.layout.topTabs, advanced: true, order: 10 },
-  { id: "appearance.statusBar", group: "appearance", label: "Status bar", type: "toggle", default: site.layout.statusBar, advanced: true, order: 11 },
 
   /* Effects -------------------------------------------------------- */
   {
