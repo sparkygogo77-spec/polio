@@ -29,6 +29,7 @@ const check = (name, ok, detail = "") => {
 const css = readFileSync("src/core/ui/molten.css", "utf8");
 const lightOf = (c) => Number(/oklch\(([\d.]+)/.exec(c)?.[1]);
 const chromaOf = (c) => Number(/oklch\([\d.]+ ([\d.]+)/.exec(c)?.[1]);
+const hueOfStop = (c) => Number(/oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]);
 const stop = (name) => {
   const m = new RegExp(`--${name}:\\s*(oklch\\([^)]*\\))`).exec(css);
   return m?.[1] ?? "";
@@ -39,7 +40,7 @@ const stop = (name) => {
 /* ------------------------------------------------------------------ */
 
 check("the stops and the keyframes live in core/ui/molten.css",
-  /--molten-white:/.test(css) && /@keyframes molten-drift/.test(css));
+  /--verdant-char:/.test(css) && /@keyframes molten-drift/.test(css));
 
 const elsewhere = ["src/features/studio/Timeline.tsx", "src/features/studio/TimelineDetail.tsx", "src/app/globals.css"];
 for (const f of elsewhere) {
@@ -53,23 +54,31 @@ check("the stylesheet is actually loaded", /@import ".*molten\.css"/.test(readFi
 /* 2. Five stops, near-white to almost-black red                       */
 /* ------------------------------------------------------------------ */
 
-check("there are five stops, not one colour at five opacities", MOLTEN_STOPS.length === 5);
-for (const kind of ["molten", "ember", "verdant"]) {
+check("there are seven stops, not one colour at seven opacities", MOLTEN_STOPS.length === 7);
+for (const kind of ["verdant", "ember"]) {
   const stops = MOLTEN_STOPS.map((n) => stop(`${kind}-${n}`));
-  check(`${kind}: every stop is declared`, stops.every(Boolean), stops.filter(Boolean).length + "/5");
-  const lights = stops.map(lightOf);
-  check(`${kind}: they run hottest to coldest`, lights.every((l, i) => i === 0 || l < lights[i - 1]), lights.join(" > "));
-  check(`${kind}: the hottest is a near-white`, lights[0] >= 0.95 && chromaOf(stops[0]) <= 0.07, stops[0]);
-  check(`${kind}: the body is a deep blood red`, lights[2] >= 0.32 && lights[2] <= 0.48 && chromaOf(stops[2]) >= 0.13, stops[2]);
-  check(`${kind}: the outer edge falls to almost black`, lights[4] <= 0.16, stops[4]);
-  check(`${kind}: no two stops are the same colour`, new Set(stops).size === 5);
-  // Verdant is the green counterpart, so it is held to its own hue rather
-  // than to the reds'; what matters is that each is one family end to end.
-  const band = kind === "verdant" ? [140, 165] : [5, 55];
-  check(`${kind}: every stop is the same family`, stops.every((c) => {
-    const h = Number(/oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]);
-    return h >= band[0] && h <= band[1];
-  }), stops.map((c) => /oklch\([\d.]+ [\d.]+ ([\d.]+)/.exec(c)?.[1]).join(","));
+  check(`${kind}: every stop is declared`, stops.every(Boolean), stops.filter(Boolean).length + "/7");
+  const [char, field, body, lit, edge, edgeHot, vein] = stops.map(lightOf);
+
+  /*
+   * The relationships are the agreement, not the values. They came off a
+   * photograph of enamel and what was taken from it is: the field is very
+   * dark, the body is lit but not pale, the edge is the brightest thing and
+   * only on the edge, and the veins are bright and thin.
+   */
+  check(`${kind}: the field is very dark`, char <= 0.3 && field <= 0.34, `${char} / ${field}`);
+  check(`${kind}: and low in colour, the way a shadow is`, chromaOf(stops[0]) <= 0.09 && chromaOf(stops[1]) <= 0.1);
+  check(`${kind}: the body is lit and strongly coloured`, body > field + 0.15 && chromaOf(stops[2]) >= 0.12, `${body}`);
+  check(`${kind}: the lit body is brighter still and never pale`, lit > body + 0.15 && chromaOf(stops[3]) >= 0.17, `${lit}`);
+  check(`${kind}: the edge is the brightest of all`, edge > lit && edgeHot > edge, `${edge} < ${edgeHot}`);
+  check(`${kind}: the veins are bright, and the most coloured thing there is`,
+    vein > body + 0.2 && chromaOf(stops[6]) >= 0.17, `${vein}`);
+  check(`${kind}: nothing washes out to pale`, stops.every((c) => lightOf(c) > 0.92 ? false : true)
+    && stops.every((c) => chromaOf(c) >= 0.05), stops.map(chromaOf).join(","));
+  check(`${kind}: the edge turns as it lightens rather than just getting lighter`,
+    Math.abs(hueOfStop(stops[5]) - hueOfStop(stops[1])) >= 10,
+    `${hueOfStop(stops[1])} to ${hueOfStop(stops[5])}`);
+  check(`${kind}: no two stops are the same colour`, new Set(stops).size === 7);
 }
 check("the two temperatures are not the same red twice",
   MOLTEN_STOPS.some((n) => stop(`molten-${n}`) !== stop(`ember-${n}`)));
@@ -82,8 +91,14 @@ check("the stylesheet says the same thing, for the branch that reads it",
 /* 3. Texture, not a smooth gradient                                   */
 /* ------------------------------------------------------------------ */
 
-check("there is grain, and it is one shared tile rather than a filter per box",
-  /--molten-grain:\s*url\("data:image\/svg\+xml/.test(css) && !/filter:\s*url\(#/.test(css));
+check("there is grain, and it is one shared file rather than a filter per box",
+  /--molten-grain:\s*url\("\/molten\/grain\.svg"\)/.test(css) && !/filter:\s*url\(#/.test(css));
+check("the veining is filaments, cut with a step rather than a ramp", (() => {
+  const svg = readFileSync("public/molten/veins-green.svg", "utf8");
+  return /feFuncA type="discrete"/.test(svg) && /tableValues="0 0 0 0 0 0 0 0/.test(svg);
+})());
+check("and there is one per temperature, because a file cannot read a property",
+  /--verdant-veins:/.test(css) && /--ember-veins:/.test(css));
 check("the body is veined: several blobs at irregular sizes", (() => {
   const vein = /\.molten::before,\s*\n\.molten::after \{[\s\S]*?\n\}/.exec(css)?.[0] ?? "";
   return (vein.match(/radial-gradient/g) ?? []).length >= 4;
@@ -97,35 +112,36 @@ check("nothing is a single smooth even gradient end to end",
 /* 4. Always moving, never demanding                                   */
 /* ------------------------------------------------------------------ */
 
-check("there are exactly five keyframes named", MOLTEN_KEYFRAMES.length === 5);
+check("there are exactly two keyframes named, because nothing else may move", MOLTEN_KEYFRAMES.length === 2);
+check("nothing that plays is left: no flare, no spark, no breath",
+  !/@keyframes molten-(flare|ember|breathe)/.test(css) && !/animation: molten-(flare|ember|breathe)/.test(css));
+check("and nothing has an entrance",
+  !/el-grow/.test(readFileSync("src/features/studio/Timeline.tsx", "utf8")));
 for (const k of MOLTEN_KEYFRAMES) {
   check(`${k} is declared`, new RegExp(`@keyframes ${k}\\b`).test(css));
   check(`${k} says what it is for`, (MOLTEN_MOTION[k] ?? "").length > 20);
 }
 const durations = [...css.matchAll(/animation:\s*molten-[a-z]+\s+([\d.]+)s/g)].map((m) => Number(m[1]));
-check("every animation is slow: nothing under nine seconds", durations.length > 0 && durations.every((d) => d >= 9),
-  durations.join("s, ") + "s");
+check("the movement is almost static: minutes, not seconds",
+  durations.length > 0 && durations.every((d) => d >= 120), durations.join("s, ") + "s");
+check("and barely travels, so a glance shows a still surface", (() => {
+  const moves = [...css.matchAll(/translate3d\((-?[\d.]+)%/g)].map((m) => Math.abs(Number(m[1])));
+  return moves.length > 0 && moves.every((v) => v <= 3);
+})());
 check("nothing is a timer: no two are the same length", new Set(durations).size === durations.length);
 check("only transform and opacity are animated, never a colour or a size", (() => {
   const frames = [...css.matchAll(/@keyframes molten-[a-z]+ \{([\s\S]*?)\n\}/g)].map((m) => m[1]);
   const props = new Set(frames.flatMap((f) => [...f.matchAll(/\n\s*([a-z-]+):/g)].map((m) => m[1])));
   return [...props].every((p) => p === "opacity" || p === "transform");
 })());
-check("the edge breathes rather than blinking: under a quarter of its range", (() => {
-  const b = /@keyframes molten-breathe \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  const o = [...b.matchAll(/opacity: ([\d.]+)/g)].map((m) => Number(m[1]));
-  return o.length >= 2 && Math.max(...o) - Math.min(...o) <= 0.25;
+check("nothing brightens or dims: what changes is only what is covered", (() => {
+  const frames = [...css.matchAll(/@keyframes molten-[a-z]+ \{([\s\S]*?)\n\}/g)].map((m) => m[1]);
+  return frames.length > 0 && frames.every((f) => !/opacity:/.test(f));
 })());
-check("the flare is occasional: dark for most of its turn", (() => {
-  const f = /@keyframes molten-flare \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /62%\s*\{ opacity: 0/.test(f);
-})());
-check("the ember fades up rather than switching on", (() => {
-  const e = /@keyframes molten-ember \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  const o = [...e.matchAll(/opacity: ([\d.]+)/g)].map((m) => Number(m[1]));
-  return o.includes(0.5) || o.some((v) => v > 0 && v < 0.6);
-})());
-check("the interior is calm where the words are", /calm where it is read/.test(css) && /\.molten > \* \{[\s\S]*?z-index: 2/.test(css));
+check("the edge is only on the edge, never across the face",
+  /\[data-molten\] \{[\s\S]*?box-shadow:[\s\S]*?inset/.test(css)
+  && !/\[data-molten\] \{[\s\S]*?background:/.test(css));
+check("the words sit above the matter rather than under it", /\.molten > \* \{[\s\S]*?z-index: 2/.test(css));
 check("reduced motion stops all of it and leaves the construct lit",
   /prefers-reduced-motion: reduce/.test(css) && /animation: none !important/.test(css));
 
@@ -157,7 +173,7 @@ check("a seed is stable for the same id", moltenSeed("t7")["--molten-seed"] === 
 check("and different for different ones", moltenSeed("t7")["--molten-seed"] !== moltenSeed("t8")["--molten-seed"]);
 check("the delays are built from it", /calc\(var\(--molten-seed\) \* -[\d.]+s\)/.test(css));
 check("every animation gets its own offset, so thirty are not one machine",
-  (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= 4);
+  (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= MOLTEN_KEYFRAMES.length);
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
 check("an iteration is the green construct", /moltenClass\("verdant"\)/.test(timeline));

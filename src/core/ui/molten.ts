@@ -45,25 +45,27 @@ export const MOLTEN_MEANS: Record<MoltenKind, string> = {
   lantern: "the base set, for a construct that has not said which it is",
 };
 
-/** The five stops, hottest to coldest, as the custom properties that hold them. */
-export const MOLTEN_STOPS = ["white", "hot", "body", "deep", "char"] as const;
+/**
+ * The seven stops, darkest to brightest, as the custom properties that hold
+ * them. The shape is the agreement: most of a construct is `char`/`field`,
+ * `body`/`lit` show in a few places, `edge`/`edge-hot` are the edge and never
+ * cross the face, and `vein` is the filaments through the dark.
+ */
+export const MOLTEN_STOPS = ["char", "field", "body", "lit", "edge", "edge-hot", "vein"] as const;
 
-/** The five keyframes. Every construct on the screen shares exactly these. */
-export const MOLTEN_KEYFRAMES = [
-  "molten-drift",
-  "molten-churn",
-  "molten-breathe",
-  "molten-flare",
-  "molten-ember",
-] as const;
+/**
+ * The two keyframes. Every construct on the screen shares exactly these.
+ *
+ * There were five. The other three — a breathing edge, a flare that ran the
+ * outline, a spark shed at a corner — were things that *played*, and a
+ * construct you look at fifty times an hour must look the same every time.
+ */
+export const MOLTEN_KEYFRAMES = ["molten-drift", "molten-churn"] as const;
 
 /** What each one is for, in a line, so nobody has to read the stylesheet to know. */
 export const MOLTEN_MOTION: Record<(typeof MOLTEN_KEYFRAMES)[number], string> = {
-  "molten-drift": "the slow boil: the veining crawls one way, 47s",
-  "molten-churn": "a second layer the other way at another rate, 71s, so brightness drifts rather than pulses",
-  "molten-breathe": "the edge thickening and thinning, 13s",
-  "molten-flare": "an occasional run of light along the outline that dies, 23s, visible for a sliver of it",
-  "molten-ember": "the odd spark shed at a corner, 17s, nothing for most of it",
+  "molten-drift": "dark matter crossing the field, 190s, a couple of per cent of travel",
+  "molten-churn": "a second layer at another scale and rate, 260s, so the two never line up",
 };
 
 /** The class that makes a thing a construct, at the temperature asked for. */

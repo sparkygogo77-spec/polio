@@ -55,10 +55,12 @@ check("no part of a vine is near-white", everyVineColour.every((c) => lightOf(c)
   "brightest " + Math.max(...everyVineColour.map(lightOf)));
 check("and none of it is loud", everyVineColour.every((c) => chromaOf(c) <= 0.13),
   "most colour " + Math.max(...everyVineColour.map(chromaOf)));
-check("a board is far brighter than any vine, which is what makes it lead", (() => {
+check("a board's edge is far brighter than any vine, which is what makes it lead", (() => {
+  // The stop is named for what it is now: the edge, the brightest thing on a
+  // construct, against the brightest thing on a vine.
   const molten = readFileSync("src/core/ui/molten.css", "utf8");
-  const skin = Number(/--verdant-white:\s*oklch\(([\d.]+)/.exec(molten)?.[1]);
-  return skin > Math.max(...everyVineColour.map(lightOf)) + 0.2;
+  const edge = Number(/--verdant-edge-hot:\s*oklch\(([\d.]+)/.exec(molten)?.[1]);
+  return edge > Math.max(...everyVineColour.map(lightOf)) + 0.2;
 })());
 
 /* ------------------------------------------------------------------ */
@@ -142,7 +144,17 @@ check("a vine is still about as wide as it was", STRAND_WIDTH >= 5 && STRAND_WID
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
 const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
-const hues = (src) => [...src.matchAll(/oklch\([\d.]+ [\d.]+ ([\d.]+)/g)].map((m) => Number(m[1]));
+/*
+ * Both spellings, because a colour can be written two ways here and only one
+ * of them was being read: `oklch(0.66 0.07 34)` in an inline style, and
+ * `oklch(0.66_0.07_34)` inside a Tailwind arbitrary-value class. A label kept
+ * its old amber through a whole colour swap because this regex could not see
+ * the second kind.
+ */
+const hues = (src) => [
+  ...[...src.matchAll(/oklch\([\d.]+ [\d.]+ ([\d.]+)/g)].map((m) => Number(m[1])),
+  ...[...src.matchAll(/oklch\([\d.]+_[\d.]+_([\d.]+)\)/g)].map((m) => Number(m[1])),
+];
 
 check("no purple is left on the timeline", !hues(timeline).includes(300));
 check("the section under it is one place with it",

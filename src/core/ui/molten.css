@@ -33,30 +33,27 @@
    that was drawn. A fourth temperature is a decision to take here, not in a
    component.
 
-     --molten-white   the thinnest skin, where it is almost see-through
-     --molten-hot     the edge proper, still glowing
-     --molten-body    the deep blood red the words sit on
-     --molten-deep    the body cooling as it goes out
-     --molten-char    the outer edge, almost black
+     char / field    the field, and most of a construct is this
+     body / lit      the lit body, seen in a few places rather than across it
+     edge / edgeHot  the edge only, brightest of all, leaning yellow
+     vein            fine bright filaments through the dark
 
    THE KEYFRAMES. One set, shared by every construct on the screen; a box
    varies only by `--molten-seed`, which staggers the delays so thirty of
    them are not one machine.
 
-     molten-drift     the slow boil: the veining crawls one way
-     molten-churn     kept for a construct that wants a second moving layer;
-                      the timeline's do not, because one veining drifting over
-                      a still one already reads as brightness moving through
-     molten-breathe   the edge, thickening and thinning
-     molten-flare     an occasional run of light along the outline, and out
-     molten-ember     the odd spark shed at a corner
+     molten-drift     dark matter crossing the lit ground one way
+     molten-churn     …and a second cloud across it at another scale and
+                      another rate, so the two never line up and the light
+                      underneath is uncovered somewhere different every time
 
    THE RULES.
 
-   - No strobing and no flashing. Nothing here is faster than nine seconds,
-     nothing crosses more than a third of its opacity range, and the two
-     drifts are deliberately at coprime-ish rates so the pattern does not
-     land on a beat.
+   - **Nothing plays.** There is no entrance, no flare, no spark, no breath:
+     a construct looks the same whenever you glance at it, and the only thing
+     happening is matter crossing behind the edge at ninety and a hundred and
+     thirty seconds. Anything that starts and finishes is an effect, and an
+     effect on something you look at fifty times an hour is tacky.
    - The interior stays calm where the words are: the veining is masked away
      from the middle, so nothing ever moves under a line of text.
    - It has to be cheap, and cheap is measured rather than asserted. Every
@@ -72,155 +69,200 @@
 --------------------------------------------------------------------------- */
 
 :root {
-  /* The five stops. Hottest first. */
-  --molten-white: oklch(0.97 0.045 48);
-  --molten-hot: oklch(0.78 0.17 38);
-  --molten-body: oklch(0.38 0.16 27);
-  --molten-deep: oklch(0.21 0.1 22);
-  --molten-char: oklch(0.11 0.04 20);
-
   /*
-   * The ember: a shade cooler and brighter than the lantern, for a construct
-   * that is a piece rather than an iteration. Same five-stop shape, shifted,
-   * so the two read as one family and never as two reds that nearly match.
-   */
-  --ember-white: oklch(0.97 0.05 36);
-  --ember-hot: oklch(0.76 0.185 26);
-  --ember-body: oklch(0.4 0.175 18);
-  --ember-deep: oklch(0.23 0.115 14);
-  --ember-char: oklch(0.12 0.045 12);
-
-  /*
-   * Verdant: the same construct in green, for the one live key on the bar.
+   * THE FAMILY, from a photograph of green enamel under a bright edge. What
+   * was taken from it is the *relationship* between the stops, not any one
+   * value: most of the surface is dark, the brightness lives in the edge and
+   * in the veining, and the green never washes out to pale.
    *
-   * Finish is the counterpart to the red boxes — it is the thing that opens
-   * them — so it is built from the same five stops in the same shape rather
-   * than being a green button that happens to sit near them. Lighter
-   * through the middle than the reds, because it carries words and a count
-   * at seven pixels high and has to stay readable at a glance.
+   * Seven stops, and the shape of them is the whole agreement:
+   *
+   *   char / field   the field. Very dark, low chroma, close to black in the
+   *                  shadowed parts. Most of a construct is this.
+   *   body / lit     the lit body, strongly saturated, seen in a few places
+   *                  rather than across the face.
+   *   edge / edgeHot the edge only. Brightest of all, and leaning yellow —
+   *                  the hue shifts as it lightens, which is what makes it
+   *                  read as an edge catching light rather than as a border
+   *                  drawn in a lighter tint. Never across the face.
+   *   vein           fine bright filaments through the dark field, at low
+   *                  coverage, like light caught in cracks.
    */
-  --verdant-white: oklch(0.97 0.05 150);
-  --verdant-hot: oklch(0.8 0.19 152);
-  --verdant-body: oklch(0.42 0.13 152);
-  --verdant-deep: oklch(0.27 0.09 154);
-  --verdant-char: oklch(0.15 0.05 156);
+
+  /* Green: the reference itself, 0a2a12…0e3a18 / 147a22…22c02e / 7cd93a…b8f13a / 2fe23c. */
+  --verdant-char: oklch(0.254 0.058 149);
+  --verdant-field: oklch(0.309 0.076 148);
+  --verdant-body: oklch(0.506 0.152 144.5);
+  --verdant-lit: oklch(0.704 0.221 143.5);
+  --verdant-edge: oklch(0.798 0.209 135);
+  --verdant-edge-hot: oklch(0.888 0.208 126);
+  --verdant-vein: oklch(0.797 0.246 143.5);
+
+  /*
+   * Red: the same structure at a red hue, which means the same lightnesses
+   * and the same steps between them, and the same turn toward yellow as the
+   * edge lightens. Chroma is a little lower at the top only because red runs
+   * out of gamut sooner than green does — the relationship is what matters.
+   */
+  --ember-char: oklch(0.254 0.058 28);
+  --ember-field: oklch(0.309 0.076 27);
+  --ember-body: oklch(0.506 0.152 27);
+  --ember-lit: oklch(0.704 0.19 30);
+  --ember-edge: oklch(0.798 0.18 42);
+  --ember-edge-hot: oklch(0.888 0.17 52);
+  --ember-vein: oklch(0.797 0.19 32);
+
+  /* The base set: the green, for a construct that has not said which it is. */
+  --molten-char: var(--verdant-char);
+  --molten-field: var(--verdant-field);
+  --molten-body: var(--verdant-body);
+  --molten-lit: var(--verdant-lit);
+  --molten-edge: var(--verdant-edge);
+  --molten-edge-hot: var(--verdant-edge-hot);
+  --molten-vein: var(--verdant-vein);
 
   /*
    * Grain: one 64px tile of value noise as a data URI, decoded once by the
    * browser and reused by every construct on the page. A filter per box would
    * be the same picture computed thirty times.
    */
-  --molten-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='64' height='64' filter='url(%23n)' opacity='0.5'/></svg>");
+  --molten-grain: url("/molten/grain.svg");
+
+  /*
+   * The veining: filaments, not blobs.
+   *
+   * Turbulence stretched hard along one axis, then cut with a *discrete*
+   * alpha step rather than a ramp: only the top tenth of the noise survives
+   * at all, and it survives at full strength. A ramp left half of every tile
+   * painted and turned the whole face the vein colour — bright green with
+   * dark gaps, which is the surface inside out. It tiles at 520 by 360 with
+   * `stitchTiles`, so it is seamless and large enough that nothing reads as a
+   * stamped pattern. One image per temperature, because a data URI cannot
+   * read a custom property.
+   */
+  --verdant-veins: url("/molten/veins-green.svg");
+  --ember-veins: url("/molten/veins-red.svg");
 }
 
 /* ---------------------------------------------------------------------------
    The construct.
 
-   `.molten` paints the body and the outer fall-off and holds the grain. Its
-   two pseudo-elements are the veining, drifting past each other. The rim, the
-   flare and the ember ride on one child, `[data-molten]`, so a construct is
-   one extra node rather than four.
+   `.molten` is the field, the few lit places in it, the veining and the
+   grain. Its two pseudo-elements are darker matter drifting across, almost
+   imperceptibly. The edge rides on one child, `[data-molten]`.
 --------------------------------------------------------------------------- */
 
 .molten {
   position: relative;
   isolation: isolate;
   /*
-   * Measured, not assumed: thirty constructs boiling cost ten frames a second
-   * without this and four with it. Containment tells the browser that nothing
-   * inside a construct can affect anything outside it, so a construct's boil
-   * repaints a construct rather than a region of the timeline.
-   *
-   * It clips descendants to the box, which is why the heat thrown outwards is
-   * on the construct's own shadow rather than on the edge node inside it.
+   * Measured, not assumed: thirty constructs cost ten frames a second
+   * without this and four with it. Containment tells the browser nothing
+   * inside a construct can affect anything outside it, so a construct
+   * repaints a construct rather than a region of the timeline. It clips
+   * descendants, which is why the heat thrown outwards is on the
+   * construct's own shadow rather than on the edge node inside it.
    */
   contain: layout paint;
-  /* Every construct reads these; an ember one re-points them and nothing
-     else in the rule has to know which kind it is. */
-  --mo-white: var(--molten-white);
-  --mo-hot: var(--molten-hot);
-  --mo-body: var(--molten-body);
-  --mo-deep: var(--molten-deep);
   --mo-char: var(--molten-char);
+  --mo-field: var(--molten-field);
+  --mo-body: var(--molten-body);
+  --mo-lit: var(--molten-lit);
+  --mo-edge: var(--molten-edge);
+  --mo-edge-hot: var(--molten-edge-hot);
+  --mo-vein: var(--molten-vein);
+  --mo-veins: var(--verdant-veins);
   --molten-seed: 0;
   background:
+    /* the veining: light caught in cracks, at low coverage */
+    var(--mo-veins),
     /* the grain, faint, over everything */
     var(--molten-grain),
-    /* the hot skin along the top edge, where the crust is thinnest */
-    linear-gradient(168deg, color-mix(in oklab, var(--mo-hot) 40%, transparent) 0%, transparent 34%),
     /*
-     * The body cooling outwards. Char arrives well before the far corner
-     * rather than at it, so the construct genuinely goes out at its edge
-     * instead of staying one red all the way across with a bright line round
-     * it — which is what "a box with a red border and a glow" looks like.
+     * The few places the body is actually lit. Small and scattered: this is
+     * light seen through a dark field, so most of what reaches the eye is
+     * the field rather than this.
      */
-    radial-gradient(112% 142% at 26% 2%, var(--mo-body) 0%, var(--mo-deep) 44%, var(--mo-char) 88%);
-  background-size: 64px 64px, 100% 100%, 100% 100%;
-  background-blend-mode: overlay, screen, normal;
+    radial-gradient(13% 28% at 26% 34%, color-mix(in oklab, var(--mo-lit) 26%, transparent) 0%, transparent 70%),
+    radial-gradient(9% 20% at 73% 64%, color-mix(in oklab, var(--mo-body) 34%, transparent) 0%, transparent 72%),
+    radial-gradient(15% 26% at 48% 12%, color-mix(in oklab, var(--mo-body) 24%, transparent) 0%, transparent 74%),
+    /*
+     * And the field. Dark everywhere, darkest at the far corner. It opens at
+     * a mix rather than at the body colour because this same surface has to
+     * work on a 248px board and on a row the width of the window; at that
+     * width a gradient opening on the body colour puts mid-green across the
+     * whole thing, which is a panel, not matter.
+     */
+    radial-gradient(96% 130% at 24% 0%,
+      var(--mo-field) 0%,
+      color-mix(in oklab, var(--mo-field) 70%, var(--mo-char)) 38%,
+      var(--mo-char) 84%);
+  background-size: 520px 360px, 64px 64px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  /*
+   * No blend modes. Screening the veining over the field lightened the whole
+   * face — pale green, and the red came out salmon — which is the one thing
+   * this must never do. Plain alpha compositing: the veins are thin and
+   * bright *on* a dark field, not a wash across it.
+   */
 }
 
 .molten::before,
 .molten::after {
   content: "";
   position: absolute;
-  inset: -22%;
+  inset: -18%;
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;
   /*
-   * The veining. Blobs at irregular sizes, which is what makes the density
-   * uneven: where two overlap the body is hotter, and because the two layers
-   * pass each other at different rates the hot places wander instead of
-   * sitting still or blinking.
-   *
-   * No blend mode and no mask, deliberately. Both look right and both cost
-   * the compositor a read-back of everything underneath, every frame, for
-   * every construct — measured at three frames a second off thirty of them.
-   * The same picture is reachable by building the transparency into the
-   * gradients themselves, which paints once and then only moves.
-   *
-   * The blobs sit away from the middle for the same reason the mask did:
-   * nothing may crawl under a line of text. The construct boils at its edges
-   * and is calm where it is read.
+   * Darker matter, drifting across the field. Irregular sizes and places,
+   * two layers at different scales, so where they overlap it goes properly
+   * black and where they part a little more of the field shows. Nothing
+   * repeats and nothing brightens: what changes is only what is covered.
    */
   background:
-    radial-gradient(30% 40% at 12% 26%, color-mix(in oklab, var(--mo-hot) 62%, transparent) 0%, transparent 72%),
-    radial-gradient(20% 26% at 33% 8%, color-mix(in oklab, var(--mo-white) 30%, transparent) 0%, transparent 74%),
-    radial-gradient(34% 24% at 86% 78%, color-mix(in oklab, var(--mo-hot) 46%, transparent) 0%, transparent 76%),
-    radial-gradient(16% 44% at 92% 30%, color-mix(in oklab, var(--mo-white) 22%, transparent) 0%, transparent 78%),
-    radial-gradient(24% 30% at 8% 84%, color-mix(in oklab, var(--mo-body) 85%, transparent) 0%, transparent 76%);
-  opacity: 0.5;
-}
-
-.molten::before {
-  animation: molten-drift 47s linear infinite;
-  animation-delay: calc(var(--molten-seed) * -3.1s);
+    radial-gradient(26% 46% at 12% 26%, var(--mo-char) 0%, color-mix(in oklab, var(--mo-char) 74%, transparent) 54%, transparent 82%),
+    radial-gradient(18% 34% at 34% 6%, color-mix(in oklab, var(--mo-char) 86%, transparent) 0%, transparent 78%),
+    radial-gradient(22% 30% at 56% 46%, var(--mo-char) 0%, color-mix(in oklab, var(--mo-char) 68%, transparent) 56%, transparent 84%),
+    radial-gradient(28% 38% at 80% 20%, color-mix(in oklab, var(--mo-char) 82%, transparent) 0%, transparent 80%),
+    radial-gradient(20% 44% at 92% 70%, var(--mo-char) 0%, transparent 78%),
+    radial-gradient(16% 30% at 42% 88%, color-mix(in oklab, var(--mo-char) 80%, transparent) 0%, transparent 78%),
+    radial-gradient(24% 26% at 66% 92%, var(--mo-char) 0%, transparent 76%);
+  opacity: 0.78;
 }
 
 /*
- * The second layer does not move, and that is the whole trick.
+ * Almost static.
  *
- * Two drifting layers cost twice as much and look the same: what reads as
- * brightness drifting through the body is the *relative* motion of one
- * veining against another, so one of them can stand still. Mirrored and at a
- * different scale so it is a different pattern rather than the same one
- * twice, and turned a little off-square so no edge of it lines up with the
- * one that moves.
+ * Three and four minutes to cross, and only a couple of per cent of travel:
+ * you would not notice it looking for a second, and over a minute the light
+ * has moved. That is the whole of the movement — there is nothing here that
+ * starts and finishes.
  */
-.molten::after {
-  opacity: 0.34;
-  transform: scaleX(-1) rotate(7deg) scale(1.08);
-  animation: none;
+.molten::before {
+  animation: molten-drift 190s linear infinite;
+  animation-delay: calc(var(--molten-seed) * -3.1s);
 }
 
-/* Everything the construct's own content sits above its boil. */
+.molten::after {
+  opacity: 0.6;
+  transform: scaleX(-1) rotate(7deg) scale(1.1);
+  animation: molten-churn 260s linear infinite;
+  animation-delay: calc(var(--molten-seed) * -5.7s);
+}
+
+/* Everything the construct's own content sits above its matter. */
 .molten > * {
   position: relative;
   z-index: 2;
 }
 
 /* ---------------------------------------------------------------------------
-   The edge, the flare and the ember: one child, three jobs.
+   The edge, and only the edge.
+
+   The brightest thing on a construct, leaning yellow as it lightens, and it
+   never crosses the face: a bright tint across the middle is what makes a
+   thing look painted rather than lit.
 --------------------------------------------------------------------------- */
 
 [data-molten] {
@@ -229,87 +271,35 @@
   z-index: 1;
   border-radius: inherit;
   pointer-events: none;
-  /*
-   * The edge. A hair of near-white just inside a hotter line: the thinnest
-   * part of the crust, which is where you actually see through to the heat.
-   */
   box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 72%, transparent),
-    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 26%, transparent),
-    inset 0 8px 22px -10px color-mix(in oklab, var(--mo-white) 30%, transparent);
-  animation: molten-breathe 13s ease-in-out infinite alternate;
-  animation-delay: calc(var(--molten-seed) * -1.7s);
+    inset 0 0 0 1px var(--mo-edge),
+    inset 0 0 0 2px color-mix(in oklab, var(--mo-edge-hot) 34%, transparent),
+    inset 0 1px 0 0 color-mix(in oklab, var(--mo-edge-hot) 55%, transparent),
+    inset 0 6px 14px -12px color-mix(in oklab, var(--mo-edge) 40%, transparent);
 }
 
-/* The flare: a narrow arc of light that runs the outline and dies. */
-[data-molten]::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  /*
-   * A ring rather than a masked disc: `border` with a transparent-to-hot
-   * conic in `border-image` would need the same read-back a mask does, so
-   * the arc is drawn as a conic behind a hole punched by the construct's own
-   * body colour — one paint, then it only turns.
-   */
-  background:
-    radial-gradient(closest-side, var(--mo-char) 0%, var(--mo-char) calc(100% - 2px), transparent calc(100% - 2px)),
-    conic-gradient(
-      from 0deg,
-      transparent 0deg,
-      transparent 300deg,
-      color-mix(in oklab, var(--mo-white) 85%, transparent) 342deg,
-      color-mix(in oklab, var(--mo-hot) 90%, transparent) 352deg,
-      transparent 360deg
-    );
-  opacity: 0;
-  animation: molten-flare 23s linear infinite;
-  animation-delay: calc(var(--molten-seed) * -2.9s);
-}
-
-/* The ember: the odd spark shed at a corner, then nothing for a long while. */
-[data-molten]::after {
-  content: "";
-  position: absolute;
-  right: 9%;
-  bottom: 4px;
-  width: 2px;
-  height: 2px;
-  border-radius: 50%;
-  background: var(--molten-white);
-  box-shadow: 0 0 6px 1px color-mix(in oklab, var(--mo-hot) 70%, transparent);
-  opacity: 0;
-  animation: molten-ember 17s ease-out infinite;
-  animation-delay: calc(var(--molten-seed) * -4.3s);
-}
-
-/*
- * A verdant construct: the same rules in green, and quieter with it.
- *
- * The reds are read from across the screen; this one is pressed, with words
- * on it, so the veining is turned down and the boil is slower. Same stops,
- * same keyframes, same edge: it is the counterpart, not a second language.
- */
-.molten-verdant {
-  --mo-white: var(--verdant-white);
-  --mo-hot: var(--verdant-hot);
-  --mo-body: var(--verdant-body);
-  --mo-deep: var(--verdant-deep);
-  --mo-char: var(--verdant-char);
-}
-
-.molten-verdant::before { opacity: 0.32; }
-.molten-verdant::after { opacity: 0.2; }
-
-/* An ember construct: the same rules, re-pointed at the cooler, brighter set. */
+/* A red construct: the same structure, re-pointed at the red family. */
 .molten-ember {
-  --mo-white: var(--ember-white);
-  --mo-hot: var(--ember-hot);
-  --mo-body: var(--ember-body);
-  --mo-deep: var(--ember-deep);
   --mo-char: var(--ember-char);
+  --mo-field: var(--ember-field);
+  --mo-body: var(--ember-body);
+  --mo-lit: var(--ember-lit);
+  --mo-edge: var(--ember-edge);
+  --mo-edge-hot: var(--ember-edge-hot);
+  --mo-vein: var(--ember-vein);
+  --mo-veins: var(--ember-veins);
+}
+
+/* A green construct: the family the reference came from. */
+.molten-verdant {
+  --mo-char: var(--verdant-char);
+  --mo-field: var(--verdant-field);
+  --mo-body: var(--verdant-body);
+  --mo-lit: var(--verdant-lit);
+  --mo-edge: var(--verdant-edge);
+  --mo-edge-hot: var(--verdant-edge-hot);
+  --mo-vein: var(--verdant-vein);
+  --mo-veins: var(--verdant-veins);
 }
 
 /* ---------------------------------------------------------------------------
@@ -321,50 +311,23 @@
 --------------------------------------------------------------------------- */
 
 @keyframes molten-drift {
-  0%   { transform: translate3d(-4%, 2%, 0) rotate(0deg) scale(1.04); opacity: 0.44; }
-  35%  { opacity: 0.56; }
-  50%  { transform: translate3d(4%, -3%, 0) rotate(4deg) scale(1.1); opacity: 0.5; }
-  72%  { opacity: 0.4; }
-  100% { transform: translate3d(-4%, 2%, 0) rotate(0deg) scale(1.04); opacity: 0.44; }
+  /* No opacity in it at all: the light comes and goes because the matter
+     moves over it, which is a thing being uncovered rather than a thing
+     being turned up. And barely any travel — mild enough that a glance
+     shows you a still surface. */
+  0%   { transform: translate3d(-2.5%, 1%, 0) rotate(0deg) scale(1.04); }
+  50%  { transform: translate3d(2.5%, -1.5%, 0) rotate(1.2deg) scale(1.07); }
+  100% { transform: translate3d(-2.5%, 1%, 0) rotate(0deg) scale(1.04); }
 }
 
 @keyframes molten-churn {
-  0%   { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
-  40%  { opacity: 0.4; }
-  50%  { transform: scaleX(-1) translate3d(-5%, 3%, 0) rotate(-5deg) scale(1.12); opacity: 0.34; }
-  80%  { opacity: 0.26; }
-  100% { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
+  0%   { transform: scaleX(-1) rotate(7deg) translate3d(2%, -1%, 0) scale(1.1); }
+  50%  { transform: scaleX(-1) rotate(5.5deg) translate3d(-2%, 1.5%, 0) scale(1.13); }
+  100% { transform: scaleX(-1) rotate(7deg) translate3d(2%, -1%, 0) scale(1.1); }
 }
 
-@keyframes molten-breathe {
-  0%   { opacity: 0.78; }
-  100% { opacity: 1; }
-}
 
-/*
- * The flare turns all the way round every time, but is only visible for a
- * sliver of it: it arrives, runs the outline, and dies, and then the box is
- * quiet for the best part of twenty seconds.
- */
-@keyframes molten-flare {
-  0%   { opacity: 0; transform: rotate(0deg); }
-  62%  { opacity: 0; }
-  70%  { opacity: 0.85; }
-  86%  { opacity: 0.5; }
-  94%  { opacity: 0; }
-  100% { opacity: 0; transform: rotate(360deg); }
-}
 
-/* Mostly nothing, then one spark that rises and goes out. */
-@keyframes molten-ember {
-  /* It fades up over a second rather than appearing, which is the difference
-     between a spark coming off an edge and a dot being switched on. */
-  0%, 72%  { opacity: 0; transform: translate3d(0, 0, 0) scale(0.5); }
-  78%      { opacity: 0.5; transform: translate3d(0, -2px, 0) scale(0.85); }
-  83%      { opacity: 0.85; transform: translate3d(1px, -6px, 0) scale(1); }
-  91%      { opacity: 0.4; transform: translate3d(2px, -13px, 0) scale(0.75); }
-  100%     { opacity: 0; transform: translate3d(4px, -22px, 0) scale(0.4); }
-}
 
 /* Lit, and still. A construct that is read as glowing does not have to move. */
 @media (prefers-reduced-motion: reduce) {

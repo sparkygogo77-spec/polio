@@ -29,6 +29,8 @@ import { headlineOf } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { useStudio } from "./store";
+import { cn } from "@/core/lib/cn";
+import { moltenClass, moltenSeed, type MoltenKind } from "@/core/ui/molten";
 import { drawOnPart, writeOnPart } from "./RadialMenu";
 
 /**
@@ -267,7 +269,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
       <div className="flex flex-col gap-3 p-3 lg:flex-row">
         {/* What it came to, in one line each. */}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <Row skin={skin} icon={<Wand2 className="size-3.5" />} title={`What it changed${changed.length ? ` · ${changed.length}` : ""}`}>
+          <Row skin={skin} kind={element ? "ember" : "verdant"} seed={`${thread.id}-changed`} icon={<Wand2 className="size-3.5" />} title={`What it changed${changed.length ? ` · ${changed.length}` : ""}`}>
             {changed.length ? (
               <ul className="space-y-0.5 font-mono text-[10.5px]">{changed.slice(0, 8).map((l, i) => <li key={i}>{l}</li>)}</ul>
             ) : thread.changes.length ? (
@@ -276,7 +278,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
               <p className="text-[11px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
             )}
           </Row>
-          <Row skin={skin} icon={<ListChecks className="size-3.5" />} title={`Findings${findings.length ? ` · ${findings.length}` : ""}`}>
+          <Row skin={skin} kind={element ? "ember" : "verdant"} seed={`${thread.id}-findings`} icon={<ListChecks className="size-3.5" />} title={`Findings${findings.length ? ` · ${findings.length}` : ""}`}>
             {findings.length ? (
               <ul className="space-y-1.5">
                 {findings.map((f) => (
@@ -296,7 +298,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
             )}
           </Row>
           {children.length ? (
-            <Row skin={skin} icon={<ArrowRight className="size-3.5" />} title={`What came next · ${children.length}`}>
+            <Row skin={skin} kind={element ? "ember" : "verdant"} seed={`${thread.id}-next`} icon={<ArrowRight className="size-3.5" />} title={`What came next · ${children.length}`}>
               <ul className="flex flex-wrap gap-1.5">
                 {children.map((c) => (
                   <li key={c.id}>
@@ -358,9 +360,32 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
 export type Skin = typeof FIELD;
 
 /** One band of the section, in the timeline's own colours. */
-export function Row({ skin, icon, title, children }: { skin: Skin; icon: React.ReactNode; title: string; children: React.ReactNode }) {
+export function Row({ skin, icon, title, kind = "verdant", seed = "row", children }: {
+  skin: Skin;
+  icon: React.ReactNode;
+  title: string;
+  /** Green under an iteration, red under a drawing: the same rule as above. */
+  kind?: MoltenKind;
+  /** Its own offset into the shared drift, so a column of them is not one sheet. */
+  seed?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-lg border p-2.5" style={{ borderColor: skin.rim, background: skin.face }}>
+    /*
+     * The same matter the boards are made of.
+     *
+     * These were flat panels with a border, under a timeline made of light,
+     * which is two materials on one screen. They are constructs now: the
+     * colour varies across each one the way a plate of the stuff does — dark
+     * through to lit, some of it glowing and some of it falling away — and
+     * none of it repeats, because it is clouds over a lit ground rather than
+     * a pattern stamped into a surface.
+     */
+    <section
+      className={cn(moltenClass(kind), "rounded-lg p-2.5")}
+      style={{ ...moltenSeed(seed), boxShadow: `0 2px 10px oklch(0 0 0 / 0.35)` }}
+    >
+      <span data-molten="" />
       <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
         {icon} {title}
       </p>
