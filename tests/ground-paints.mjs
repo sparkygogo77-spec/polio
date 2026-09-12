@@ -125,6 +125,20 @@ async function look(w, h, tag) {
   });
   check(`${tag}: the embers are lit`, lit > 20, `${lit} lit pixels`);
 
+  /* Both surfaces, not one.
+     The board and the timeline stand on the same ground, and the whole point
+     of mounting it once outside the switch is that pressing Finish changes
+     what is on the ground and never the ground. So the pixels are sampled on
+     each in turn, and the count of grounds is taken on each: one holder, one
+     sky, four layers, on both. A second instance would show up here. */
+  const groundsOn = () => page.evaluate(() => ({
+    holders: document.querySelectorAll("[data-ground-clouds]").length,
+    skies: document.querySelectorAll("[data-ground-sky]").length,
+    layers: document.querySelectorAll("[data-cloud-layer]").length,
+    blends: [...new Set([...document.querySelectorAll("[data-cloud-layer]")].map((c) => getComputedStyle(c).mixBlendMode))].join(","),
+    canvases: document.querySelectorAll("canvas").length,
+  }));
+
   /* And the thing itself: what is on the screen where bare ground is. */
   const clip = await page.evaluate(() => {
     const g = document.querySelector("[data-workspace-ground]").getBoundingClientRect();
@@ -150,6 +164,39 @@ async function look(w, h, tag) {
   check(`${tag}: it is violet and magenta, not grey`, mr > mg * 1.25 && mb > mg * 1.5, `r${mr.toFixed(0)} g${mg.toFixed(0)} b${mb.toFixed(0)}`);
   check(`${tag}: nothing threw while it painted`, noise.length === 0, noise.slice(0, 2).join(" | ") || "clean");
   await page.screenshot({ path: `.screenshots/ground-paints-${tag}.png`, clip });
+
+  const onBoard = await groundsOn();
+  check(`${tag}: one ground on the board`, onBoard.holders === 1 && onBoard.skies === 1 && onBoard.layers === 4,
+    `${onBoard.holders} holder, ${onBoard.skies} sky, ${onBoard.layers} layers, ${onBoard.canvases} canvases`);
+  check(`${tag}: one blend mode`, onBoard.blends === "screen", onBoard.blends);
+
+  /* Press Finish and look again: same ground, still painting. */
+  const fin = page.locator("[data-finish]");
+  if (await fin.count()) {
+    await fin.click();
+    await page.waitForTimeout(2200);
+    const onLine = await groundsOn();
+    check(`${tag}: the timeline stands on the same one ground`,
+      onLine.holders === 1 && onLine.skies === 1 && onLine.layers === 4,
+      `${onLine.holders} holder, ${onLine.skies} sky, ${onLine.layers} layers, ${onLine.canvases} canvases`);
+    check(`${tag}: and the same blend mode`, onLine.blends === "screen", onLine.blends);
+
+    const c2 = await page.evaluate(() => {
+      const g = document.querySelector("[data-workspace-ground]").getBoundingClientRect();
+      return { x: Math.round(g.left + 12), y: Math.round(g.top + g.height * 0.25), width: 260, height: 200 };
+    });
+    const s2 = decodePng(await page.screenshot({ clip: c2 }));
+    let t2 = 0, n2 = 0; const v2 = [];
+    for (let i = 0; i < s2.data.length; i += s2.chan) {
+      const y = 0.2126 * s2.data[i] + 0.7152 * s2.data[i + 1] + 0.0722 * s2.data[i + 2];
+      t2 += y; n2++; v2.push(y);
+    }
+    const m2 = t2 / n2;
+    const d2 = Math.sqrt(v2.reduce((a, v) => a + (v - m2) ** 2, 0) / n2);
+    console.log(`       ${tag}: the timeline's ground — mean ${m2.toFixed(1)}, spread ${d2.toFixed(1)}`);
+    check(`${tag}: the timeline's ground paints too`, m2 > 6 && d2 > 3, `mean ${m2.toFixed(1)}, spread ${d2.toFixed(1)}`);
+    await page.screenshot({ path: `.screenshots/ground-paints-${tag}-timeline.png`, clip: c2 });
+  }
   await page.close();
 }
 

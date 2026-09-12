@@ -424,6 +424,22 @@ export function cloudTravel(l: CloudLayer, t: number): { x: number; y: number } 
 }
 
 /** How fast a layer goes at the start, for sizing the material it needs. */
+/**
+ * One tile period on screen, along the layer's own heading.
+ *
+ * The pattern repeats every `TILE` in its own space, so sliding a layer by
+ * `R(turn)·S(scale)·(TILE, 0)` lands the pattern exactly back on itself. That
+ * is the whole trick behind a ground that drifts for ever without a seam and
+ * without ever being repainted: oversize the canvas by one of these, animate
+ * one of these, loop. Nothing to recycle, nothing to exhaust, nothing to
+ * compensate for.
+ */
+export function cloudStep(l: CloudLayer): { x: number; y: number; len: number } {
+  const a = (l.turn * Math.PI) / 180;
+  const len = TILE * l.scale;
+  return { x: Math.cos(a) * len, y: Math.sin(a) * len, len };
+}
+
 export function cloudSpeed(l: CloudLayer): number {
   const { vx, vy } = cloudDrift(l);
   return Math.hypot(vx, vy);
@@ -456,7 +472,22 @@ export function cloudDrift(l: CloudLayer): { vx: number; vy: number } {
 export function paintCloudLayer(
   c: CanvasRenderingContext2D,
   layer: CloudLayer,
-  opts: { w: number; h: number; dim?: number; turn: number; dx: number; dy: number },
+  opts: {
+    w: number; h: number; dim?: number; turn: number; dx: number; dy: number;
+    /**
+     * How strongly to bake the layer in, 0..1. Defaults to the layer's own
+     * weight times the distance, which is what a single-canvas render needs.
+     *
+     * A layer on its own element passes 1 and carries the weight as CSS
+     * `opacity` instead. The composite is identical — for a `screen` layer,
+     * scaling the source's alpha and scaling the element's opacity land in
+     * the same place — but the bitmap is then the real picture at full
+     * strength rather than a picture at 16% that looks broken to anyone who
+     * reads it back. Which is exactly what happened: a probe of the bitmap
+     * showed a maximum alpha of 42 and was reasonably taken for a fault.
+     */
+    alpha?: number;
+  },
 ) {
   const { w, h } = opts;
   const dim = opts.dim ?? 1;
@@ -464,7 +495,7 @@ export function paintCloudLayer(
   const p = c.createPattern(layer.tile === "violet" ? T.violet : T.magenta, "repeat");
   if (!p) return;
   p.setTransform(new DOMMatrix().translate(w / 2, h / 2).rotate(opts.turn).scale(layer.scale).translate(opts.dx, opts.dy));
-  c.globalAlpha = layer.alpha * dim;
+  c.globalAlpha = opts.alpha ?? layer.alpha * dim;
   c.fillStyle = p;
   /* `copy` rather than a `clearRect` and then a blend. Same pixels, but the
      canvas is never in a cleared state: a clear followed by a fill is two

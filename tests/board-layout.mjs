@@ -351,8 +351,8 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   const { context, page } = await open(1440, 900);
   // Count every pattern fill: four of them is one lay of the whole field.
   const WATCH = `(()=>{const w=window;w.__lays=0;const p=CanvasRenderingContext2D.prototype.createPattern;CanvasRenderingContext2D.prototype.createPattern=function(...a){w.__lays++;return p.apply(this,a);};
-    w.__f=[];w.__moved=0;const el=document.querySelector("[data-cloud-layer]");let seen=el?el.style.transform:"";
-    (function l(){w.__r=requestAnimationFrame((t)=>{w.__f.push(t);if(el&&el.style.transform!==seen){seen=el.style.transform;w.__moved++;}l();});})();})()`;
+    w.__f=[];w.__moved=0;const el=document.querySelector("[data-cloud-layer]");let seen=el?getComputedStyle(el).transform:"";
+    (function l(){w.__r=requestAnimationFrame((t)=>{w.__f.push(t);if(el){const t=getComputedStyle(el).transform;if(t!==seen){seen=t;w.__moved++;}}l();});})();})()`;
   const STATS = `cancelAnimationFrame(window.__r);(()=>{const w=window,f=w.__f,d=[];for(let i=1;i<f.length;i++)d.push(f[i]-f[i-1]);
     const beat=[...d].sort((a,b)=>a-b)[Math.floor(d.length*0.5)];
     return {beat:+beat.toFixed(1),late:d.filter(v=>v>beat*1.5).length,frames:d.length,moved:w.__moved,lays:w.__lays,max:+Math.max(...d).toFixed(1)};})()`;
@@ -378,23 +378,38 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
     check(`${where} draws the clouds at full resolution`, field.backing === Math.round(field.css), `${field.backing} backing for ${field.css} css`);
     // And bigger than the box, or there would be nothing to slide into.
     check(`${where} has material past the edge to slide into`, field.css > field.box + 60, `${field.css} of field for a ${field.box} box`);
-    // Four headings, not one: each layer carries its own drift and its own
-    // slow turn, which is the look the speed pass had traded away.
+    /* Four headings, not one, and each on its own clock.
+     *
+     * Read from the *computed* transform, because nothing in JavaScript
+     * writes the inline one any more: a layer is painted once and slid by a
+     * CSS animation. Reading `el.style.transform` here reported every layer
+     * motionless, which was the test looking in the wrong place rather than
+     * the ground standing still.
+     *
+     * The turn is gone from the check because it is gone from the ground. A
+     * slow rotation is the one thing a repeating pattern cannot be slid into,
+     * and it was the source of the seam; the ask was nearly static, so it was
+     * dropped rather than the mechanism bent around it. What is checked
+     * instead is that each layer still has a heading of its own, which is
+     * what the parallax is made of. */
     const headings = await page.evaluate(() => new Promise((done) => {
       const els = [...document.querySelectorAll("[data-cloud-layer]")];
-      const read = () => els.map((el) => el.style.transform);
+      const read = () => els.map((el) => getComputedStyle(el).transform);
+      const dirs = els.map((el) => `${el.style.getPropertyValue("--gx")},${el.style.getPropertyValue("--gy")}`);
       const first = read();
       setTimeout(() => {
         const now = read();
-        const moved = now.filter((t, i) => t !== first[i]).length;
-        const distinct = new Set(now).size;
-        const turning = now.filter((t) => !/rotate\(-?0(\.0+)?deg\)/.test(t) && /rotate/.test(t)).length;
-        done({ moved, distinct, turning, of: els.length });
-      }, 700);
+        done({
+          moved: now.filter((t, i) => t !== first[i]).length,
+          distinct: new Set(dirs).size,
+          inline: els.filter((el) => el.style.transform !== "").length,
+          of: els.length,
+        });
+      }, 900);
     }));
     check(`${where} moves all four layers`, headings.moved === headings.of, `${headings.moved} of ${headings.of}`);
-    check(`${where} gives each its own heading`, headings.distinct === headings.of, `${headings.distinct} distinct transforms`);
-    check(`${where} turns them as they go`, headings.turning === headings.of, `${headings.turning} of ${headings.of} turning`);
+    check(`${where} gives each its own heading`, headings.distinct === headings.of, `${headings.distinct} distinct headings`);
+    check(`${where} moves them without touching the DOM`, headings.inline === 0, `${headings.inline} inline transforms written`);
 
     /*
      * What this machine costs with no ground at all, to measure the ground
@@ -415,7 +430,12 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
     await page.evaluate(WATCH);
     await page.waitForTimeout(5000);
     const s = await page.evaluate(STATS);
-    check(`${where} moves on every frame`, s.moved >= s.frames - 1 && s.frames > 40, `${s.moved} of ${s.frames} frames`);
+    /* It moves on the compositor, so it moves on every frame without any
+       frame of ours being spent on it. `moved` counts frames where the
+       computed transform changed; `lays` counts pattern fills, and that is
+       the number that should now be nailed to the floor — the ground is
+       painted once per size and never again. */
+    check(`${where} moves on every frame`, s.moved >= s.frames - 2 && s.frames > 40, `${s.moved} of ${s.frames} frames`);
     // One pattern fill is one lay of one layer; each carries about fourteen
     // seconds of material, so five seconds of it should need very few.
     // Counted against every layer on the page, because the timeline floats
@@ -449,7 +469,7 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
    * a transform write now, so there is nothing left to buy. Both the flag
    * and a real pointer are put in place here, which is exactly the state
    * that used to freeze it. */
-  const cloud = () => page.evaluate(() => document.querySelector("[data-cloud-layer]")?.style.transform ?? "");
+  const cloud = () => page.evaluate(() => getComputedStyle(document.querySelector("[data-cloud-layer]")).transform);
   await page.evaluate(() => { document.documentElement.dataset.boardDrag = "1"; });
   await page.mouse.move(400, 400);
   await page.mouse.down();
@@ -462,11 +482,15 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   await page.evaluate(() => { delete document.documentElement.dataset.boardDrag; });
   await page.waitForTimeout(700);
   const later = await cloud();
-  const px = (t) => Number(/translate3d\(([-\d.]+)px/.exec(t)?.[1] ?? 0);
-  const went = px(later) - px(after);
-  // And it keeps the same steady pace afterwards, about 7.4px a second:
-  // there is no pause to catch up from, so there is nothing to jump.
-  check("and it keeps the same pace afterwards", went > 0.5 && went < 12, `${went.toFixed(1)}px in 0.7s`);
+  /* A matrix, not a translate3d string: the drift is a CSS animation now and
+     the computed value comes back as `matrix(a, b, c, d, tx, ty)`. */
+  const px = (t) => { const m = /matrix\(([^)]+)\)/.exec(t); return m ? Number(m[1].split(",")[4]) : 0; };
+  const went = Math.abs(px(later) - px(after));
+  /* And it keeps the same steady pace afterwards — there is no pause to catch
+     up from, so there is nothing to jump. The pace itself is deliberately
+     tiny: the first layer travels 0.23px a second, so seven tenths of a
+     second is about a sixth of a pixel. Nearly static is the point. */
+  check("and it keeps the same pace afterwards", went > 0.02 && went < 3, `${went.toFixed(3)}px in 0.7s`);
   await context.close();
 }
 

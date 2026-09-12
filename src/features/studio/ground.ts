@@ -1,67 +1,61 @@
 "use client";
 /**
- * The weather. One implementation, everywhere it appears.
+ * The weather. One implementation, one instance per surface, everywhere.
  *
- * Four surfaces stand on this: the workspace behind the page, the timeline's
- * own floor, the disc you pull parts out of, and the disc you draw on. They
- * used to be two implementations and four clocks — the walls repainted the
- * clouds every 420ms, the discs repainted *everything* on a 33ms
- * `setInterval`, which against a 16.7ms frame lands two frames on one beat
- * and none on the next. All four skipped, in their own ways, for the same
- * reason: the nebula was being **redrawn** to move it, and a redraw rate is
- * a frame rate however fast the page around it runs.
+ * Four surfaces stand on this: the workspace behind the page, the disc you
+ * pull parts out of, and the disc you draw on. The workspace's is mounted
+ * once in `StudioPage`, *outside* the switch between the board and the
+ * timeline, so moving between them changes what stands on the ground and
+ * never the ground itself. There is no second ground anywhere; if you are
+ * counting canvases and get a different number in the timeline, the extra
+ * one is the timeline's own wires.
  *
- * So the clouds are not redrawn to move any more. They move:
+ * **How it moves, and why it is barely anything.**
  *
- *  · **A canvas per layer, bigger than the box.** Each of `CLOUD_LAYERS`
- *    gets its own, so each keeps its own heading, its own speed and its own
- *    slow turn. The near cloud passes the far one, the two near tiles
- *    counter-drift, and the bloom where they cross goes on shifting.
- *  · **Full resolution.** A pixel a pixel. The clouds were drawn at half
- *    size once so a whole repaint would fit inside a frame; there is no
- *    whole repaint any more, so there is no reason to.
- *  · **Screened together, as they always were.** `mix-blend-mode: screen`
- *    over a sky that is the same radial gradient, painted by the compositor
- *    instead of by us.
- *  · **Moved on the compositor.** `translate3d` for the drift and `rotate`
- *    for the turn, every frame, which the compositor does without touching
- *    the page: no layout, no paint, no main-thread raster.
- *  · **Repainted only when the material runs out** — or on a resize, or when
- *    the distance changes. A recycle re-lays that one layer with the turn
- *    and the drift it had reached baked in and its transform reset, so it is
- *    the same pixels in the same place and there is nothing to see. One
- *    layer to a frame, so even that moment fits in a frame.
+ * A layer is painted **once** and then slid by a CSS animation. That is the
+ * whole mechanism. It works because a repeating pattern lands exactly back on
+ * itself after one tile period: oversize the canvas by one period along the
+ * layer's heading, animate a translation of exactly one period, loop. The
+ * loop point is the same pixels in the same place, so it runs for ever with
+ * no seam, and — the part that matters — **nothing is ever repainted**.
  *
- * A disc is the same thing in a round hole: the holder is clipped to a
- * circle and wears its horizon as a static gradient, because a horizon does
- * not move either.
+ * What that deleted, all of which existed to manage a repaint that no longer
+ * happens:
  *
- * **What it costs, and where that number came from.** Four window-sized
- * layers blended by the compositor every frame. On a graphics card that is
- * the compositor's day job. The container this repository is tested in has
- * **no GPU** — ANGLE/SwiftShader, software rasterisation — and there it
- * measures 13.9fps against a one-layer field's 60. That number is a floor
- * for software, not a verdict on the design: J runs hardware, and the call
- * was his. `docs/shelf/README.md` has the whole table.
+ *  · the per-frame transform writes, and the clock that drove them
+ *  · the recycle: `lay` on exhaustion, `spent`, the queue, `marginFor`,
+ *    `REFRESH_S`, `MARGIN_MIN`
+ *  · the turn limit `TURN_MAX` and the margin the corners swept
+ *  · `carry`, which existed to undo the rotation of an offset baked into a
+ *    paint that is no longer re-baked
+ *  · with them, the whole class of bug that ate a night: the seam at a
+ *    recycle, the black frame between a clear and a fill, the buffer swap
  *
- * The embers are untouched: their own canvas at the box's own size, thirty
- * times a second, which is what a streak needs.
+ * **What was dropped from the look, deliberately.** The layers no longer turn
+ * as they drift — `spin` is unused. A slow rotation is the one thing that
+ * cannot be done by translating a repeating pattern, and it was the source of
+ * the seam. The ask was nearly static, so the rotation went rather than the
+ * mechanism being bent back around it. Each layer keeps its own fixed angle,
+ * its own heading, its own scale and its own speed, so the parallax and the
+ * shifting bloom where two layers cross are both still there — they change
+ * more slowly, which is the point. Drift is `CALM` of what it was.
  *
- * **Nothing stops it.** There used to be a pause: a flag on the root while
- * the hand was down on the board, and the ground held where it was until it
- * let go. That was bought when the clouds were repainted every frame to move
- * them, and a pan and a full-surface repaint wanted the same main thread.
- * The field is painted once and slid on the compositor now, so a drifting
- * cloud costs a transform write, and the bill the pause was paying no longer
- * arrives — measured, with the whole ground running through a pan, in
- * `tests/pan-weather.mjs`. It is gone, and with it the flag that could go on
- * and not come off, which is how the sparks got stuck still.
+ * **The embers are the only thing still on a clock**, and they are what says
+ * the page is alive: their own canvas at the box's own size, thirty times a
+ * second, which is what a streak needs.
+ *
+ * **On blending.** The cloud layers screen over the sky, inside a holder that
+ * is `isolation: isolate`, so they screen against *the sky gradient* and not
+ * against whatever the app happens to put behind. That isolation is what
+ * makes `screen` the right mode rather than a guess. If the ground ever looks
+ * black, the first thing to check is not the blend mode but whether something
+ * opaque is painted on top of it — which is exactly what went wrong once.
  */
 import * as React from "react";
 import {
   CLOUD_LAYERS,
   cloudSpeed,
-  cloudTravel,
+  cloudStep,
   DRIFT_MS,
   paintCloudLayer,
   paintDarkMatter,
@@ -85,46 +79,18 @@ export const SPARK_MS = DRIFT_MS;
 const CLOUD_SCALE = 1;
 
 /**
- * How long a layer's material should last before it needs more.
+ * How much of the old drift speed is kept.
  *
- * Raising it costs memory and compositing — the canvas is oversized by the
- * layer's own speed times this, and the compositor samples the whole layer
- * every frame. Lowering it costs how often a recycle runs, and a recycle is
- * one pattern fill that cannot be seen.
+ * Nearly static is the ask: a glance should show nothing and only time should
+ * reveal it. The relative speeds are untouched, so the near clouds still pass
+ * the far ones — everything is simply slower together.
  */
-const REFRESH_S = 14;
-/** A little room either way even for a layer that barely moves, for a resize. */
-const MARGIN_MIN = 48;
-/**
- * How far a layer may turn before it is laid again, in degrees.
- *
- * A recycle is exact — the turn it had reached is baked in and the transform
- * reset — so this is not a fidelity number, it is how often a full-resolution
- * pattern fill runs. Ten degrees is twelve seconds for the fastest-turning
- * layer, and costs about 150px of extra margin to keep the box covered while
- * the corners sweep.
- */
-const TURN_MAX = 10;
+const CALM = 0.15;
 
-/** How much material a layer needs past the box's edge, in CSS pixels. */
-export function marginFor(l: CloudLayer, w: number, h: number): number {
-  const drift = cloudSpeed(l) * REFRESH_S;
-  // Turning sweeps the corners in: enough that the box stays covered at the
-  // most this layer will have turned before it is laid again.
-  const sweep = (Math.hypot(w, h) / 2) * Math.sin((TURN_MAX * Math.PI) / 180);
-  return Math.round(Math.max(MARGIN_MIN, drift) + sweep);
-}
-
-/** One layer's canvas, and where its paint and its transform each stand. */
+/** One layer's canvas and the definition it was painted from. */
 interface Live {
   el: HTMLCanvasElement;
   def: CloudLayer;
-  /** How far past the box this one reaches. */
-  m: number;
-  /** The moment the paint has baked in. */
-  at: number;
-  /** What the transform is showing, so an unchanged one is not written again. */
-  said: string;
 }
 
 export interface GroundOpts {
@@ -169,9 +135,9 @@ export function useGround(
     const layers: Live[] = CLOUD_LAYERS.map((def) => {
       const el = document.createElement("canvas");
       el.dataset.cloudLayer = def.id;
-      el.style.cssText = "position:absolute;mix-blend-mode:screen;will-change:transform;transform-origin:50% 50%;";
+      el.style.cssText = "position:absolute;mix-blend-mode:screen;will-change:transform;";
       holder.appendChild(el);
-      return { el, def, m: 0, at: 0, said: "" };
+      return { el, def };
     });
 
     /* A disc's horizon: the edge falls off to near black. It does not move
@@ -187,100 +153,50 @@ export function useGround(
     const embersField: { current: SparkField | null } = { current: null };
     let size = { w: 0, h: 0 };
     let raf = 0;
-    /** Seconds of weather that have passed. Nothing ever stops it. */
     let clock = 0;
     let last = performance.now();
     let nextSpark = 0;
-    /** Layers waiting to be laid again, one to a frame. */
-    const queue: Live[] = [];
-    /* The paint, straight onto the layer, in one operation.
-     *
-     * This used to go through an `OffscreenCanvas` and arrive by
-     * `transferFromImageBitmap` — a pointer swap rather than a copy, which
-     * measured beautifully here: the beat went 18.9ms to 10ms and the frames
-     * over 80ms went 13 to 5.
-     *
-     * **It shipped to a machine with a graphics card and the ground went
-     * black.** Four layers holding a bitmap renderer, waiting for an
-     * ImageBitmap that never arrived, and not one line in the console. The
-     * measurement that justified it came from a container with no GPU that
-     * rasterises in software, so it was never evidence about the hardware it
-     * was for. A number from the wrong machine is not a smaller number, it
-     * is a different question answered confidently.
-     *
-     * So the layer keeps a plain 2D context and is painted directly. What
-     * survives is the part that was never in doubt: `paintCloudLayer` fills
-     * with `globalCompositeOperation = "copy"`, one operation with no
-     * cleared canvas in the middle of it, which is what closed the
-     * black-frame window in the first place.
-     *
-     * Do not put the transfer back without watching the ground on hardware
-     * with a graphics card, and without `ground-paints.mjs` passing there.
-     */
-    const lay = (l: Live, at: number) => {
-      const c = l.el.getContext("2d");
-      if (!c) return;
-      const w = size.w + l.m * 2;
-      const h = size.h + l.m * 2;
-      c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
-      paintCloudLayer(c, l.def, {
-        w,
-        h,
-        dim,
-        turn: l.def.turn + l.def.spin * at,
-        dx: l.def.dx * at,
-        dy: l.def.dy * at,
-      });
-      c.setTransform(1, 0, 0, 1, 0, 0);
-      l.at = at;
-      l.el.dataset.laidAt = at.toFixed(4);
-    };
 
     /**
-     * Where the compositor has to carry this layer, from where it was laid.
+     * Size a layer, paint it once, and set it drifting.
      *
-     * **The rotation turns the paint's own offset, so it has to be taken off
-     * again.** `transform: translate3d(d) rotate(t)` is the matrix `T·R`: the
-     * canvas is rotated about its centre and then shifted. But the drift up
-     * to the moment it was laid is baked *into the paint*, inside the canvas,
-     * so `R` turns that too. The layer therefore sits at
-     * `R(turn)·laid + d` when it should sit at `travel(now)`, and the
-     * difference — `(R(turn) − I)·laid` — grows with the drift and with the
-     * angle together, then snaps to nothing the moment the layer is laid
-     * again. That snap was the reset. It had two periods per layer, because
-     * a layer is laid again either when the drift exhausts its margin or
-     * when the turn passes `TURN_MAX`, and the two beat against each other,
-     * which is why it read as irregular rather than as a cycle.
-     *
-     * So the baked offset is turned by the same angle and subtracted. Then
-     * the layer sits at `travel(now)` at every instant, whatever it was laid
-     * with, and being laid again changes nothing anybody can see: the paint
-     * takes the offset, the transform gives up exactly what the paint took.
+     * The canvas is the box plus one tile period along the heading, and it is
+     * offset so the box stays covered at both ends of the slide: the layer
+     * travels exactly that period and starts over, and because the pattern
+     * repeats on it there is nothing to see at the loop.
      */
-    const carry = (l: Live) => {
-      const now = cloudTravel(l.def, clock);
-      const laid = cloudTravel(l.def, l.at);
-      const turn = l.def.spin * (clock - l.at);
-      const a = (turn * Math.PI) / 180;
-      const cos = Math.cos(a);
-      const sin = Math.sin(a);
-      return { x: now.x - (laid.x * cos - laid.y * sin), y: now.y - (laid.x * sin + laid.y * cos), turn };
-    };
+    const dress = (l: Live, w: number, h: number) => {
+      const step = cloudStep(l.def);
+      const cw = Math.round(w + Math.abs(step.x));
+      const ch = Math.round(h + Math.abs(step.y));
+      l.el.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
+      l.el.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
+      l.el.style.width = `${cw}px`;
+      l.el.style.height = `${ch}px`;
+      l.el.style.left = `${Math.min(0, -step.x)}px`;
+      l.el.style.top = `${Math.min(0, -step.y)}px`;
 
-    const move = (l: Live, force = false) => {
-      const { x, y, turn } = carry(l);
-      const said = `translate3d(${x.toFixed(3)}px, ${y.toFixed(3)}px, 0) rotate(${turn.toFixed(4)}deg)`;
-      if (!force && said === l.said) return;
-      l.el.style.transform = said;
-      l.said = said;
-    };
+      const c = l.el.getContext("2d");
+      if (!c) return;
+      c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
+      // Painted at its own angle, with no travel baked in: the travel is the
+      // animation's job now, so the paint never has to be redone for it.
+      paintCloudLayer(c, l.def, { w: cw, h: ch, dim, turn: l.def.turn, dx: 0, dy: 0, alpha: 1 });
+      c.setTransform(1, 0, 0, 1, 0, 0);
 
-    /** Has this layer run out of the material it was laid with? */
-    const spent = (l: Live) => {
-      // The distance the compositor is actually carrying it, which is what
-      // runs off the edge of the paint — not the raw difference in travel.
-      const { x, y, turn } = carry(l);
-      return Math.hypot(x, y) >= l.m - MARGIN_MIN || Math.abs(turn) >= TURN_MAX;
+      /* The layer's weight, once, here, and visible in the DOM.
+         The pattern goes onto the canvas at full strength and the weighting
+         is this one property. It composites to the same thing — for a screen
+         layer, scaling the source's alpha and scaling the element's opacity
+         land in the same place — but it means the bitmap is the real picture.
+         Reading a layer back used to show a maximum alpha of 42, which looks
+         exactly like a broken paint and cost somebody an evening. */
+      l.el.style.opacity = String(l.def.alpha * dim);
+
+      l.el.style.setProperty("--gx", `${step.x.toFixed(2)}px`);
+      l.el.style.setProperty("--gy", `${step.y.toFixed(2)}px`);
+      const secs = step.len / Math.max(0.01, cloudSpeed(l.def) * CALM);
+      l.el.style.animation = still ? "none" : `ground-drift ${secs.toFixed(0)}s linear infinite`;
     };
 
     const fit = () => {
@@ -293,27 +209,9 @@ export function useGround(
       sp.height = h;
       sp.style.width = `${w}px`;
       sp.style.height = `${h}px`;
-      for (const l of layers) {
-        l.m = marginFor(l.def, w, h);
-        const cw = w + l.m * 2;
-        const ch = h + l.m * 2;
-        l.el.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
-        l.el.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
-        l.el.style.width = `${cw}px`;
-        l.el.style.height = `${ch}px`;
-        l.el.style.left = `${-l.m}px`;
-        l.el.style.top = `${-l.m}px`;
-      }
+      for (const l of layers) dress(l, w, h);
       embersField.current = embersField.current ? resizeField(embersField.current, w, h) : sparkField(shape, w, h);
       return true;
-    };
-
-    const layAll = () => {
-      queue.length = 0;
-      for (const l of layers) {
-        lay(l, clock);
-        move(l, true);
-      }
     };
 
     const embers = () => {
@@ -323,37 +221,27 @@ export function useGround(
     };
 
     fit();
-    layAll();
     embers();
+
+    const ro = new ResizeObserver(() => { if (fit()) embers(); });
+    ro.observe(box);
 
     if (still) {
       // One frame, and then the weather holds.
-      const ro = new ResizeObserver(() => { if (fit()) { layAll(); embers(); } });
-      ro.observe(box);
       return () => {
         ro.disconnect();
         holder.replaceChildren();
       };
     }
 
+    /* The only clock left in the ground, and it drives the embers alone. The
+       clouds are the compositor's business now. */
     const tick = (t: number) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.25, Math.max(0, (t - last) / 1000));
       last = t;
       if (document.hidden) return;
       clock += dt;
-
-      // One recycle to a frame, so the only expensive moment in this file
-      // never doubles up.
-      const due = queue.shift();
-      if (due) {
-        lay(due, clock);
-        move(due, true);
-      } else {
-        for (const l of layers) if (spent(l) && !queue.includes(l)) queue.push(l);
-      }
-      for (const l of layers) if (l !== due) move(l);
-
       if (clock >= nextSpark) {
         nextSpark = clock + SPARK_MS / 1000;
         embers();
@@ -361,8 +249,6 @@ export function useGround(
     };
     raf = requestAnimationFrame(tick);
 
-    const ro = new ResizeObserver(() => { if (fit()) { layAll(); embers(); } });
-    ro.observe(box);
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();

@@ -546,3 +546,17 @@
   0%, 100% { box-shadow: 0 1.5px 0 oklch(0.16 0.05 150), 0 2px 8px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(0.66 0.17 150 / 0.25), inset 0 1px 0 oklch(0.82 0.16 150 / 0.45); }
   50% { box-shadow: 0 1.5px 0 oklch(0.16 0.05 150), 0 2px 8px oklch(0 0 0 / 0.6), 0 0 0 2px oklch(0.78 0.19 150 / 0.65), 0 0 16px oklch(0.66 0.2 150 / 0.45), inset 0 1px 0 oklch(0.88 0.17 150 / 0.6); }
 }
+
+/*
+ * The ground's whole motion, as one keyframe shared by every cloud layer.
+ *
+ * A layer is painted once, oversized by exactly one tile period, and slides
+ * by exactly that period before looping. Because the pattern repeats on that
+ * period the loop point is the same pixels in the same place, so it can run
+ * for ever without a seam and without a single repaint. The distance is per
+ * layer, in `--gx` and `--gy`, and the duration sets the speed.
+ */
+@keyframes ground-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0); }
+}
