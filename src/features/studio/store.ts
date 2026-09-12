@@ -573,7 +573,8 @@ interface StudioState extends Doc {
    * — the files pushed, the site built on Vercel — happens after it. That is
    * still what this iteration did, so it is written on the same card.
    */
-  noteThread: (lines: string[]) => void;
+  /** Lines onto an iteration's card. `on` when the answer may outlive the live one. */
+  noteThread: (lines: string[], on?: string) => void;
   /**
    * Add to what this iteration spent at the renderer.
    *
@@ -588,7 +589,10 @@ interface StudioState extends Doc {
    * per press — so an iteration carries one honest bill rather than a
    * number the bench knew and nobody else did.
    */
-  noteSpend: (spend: Spend) => void;
+  /** What a call cost, onto an iteration. `on` when the answer may outlive the live one. */
+  noteSpend: (spend: Spend, on?: string) => void;
+  /** One pass's own line on the bill: what ran, how long, what it cost. */
+  notePass: (line: string, on?: string) => void;
   /** Move one thread or piece on the trail. Only that one moves. */
   moveThread: (id: string, x: number, y: number) => void;
   /** Vine a piece to the next call, or cut it loose. */
@@ -1415,13 +1419,17 @@ export const useStudio = create<StudioState>()(
 
         noteCost: (dollars) => get().noteSpend({ dollars, ms: 0, calls: dollars > 0 ? 1 : 0, ...(dollars > 0 ? { renderer: dollars } : {}) }),
 
-        noteSpend: (spend) =>
+        noteSpend: (spend, on) =>
           set((s) => {
-            if (!s.liveThreadId) return {};
+            // Named when it was fired, not when it came back: a second pass
+            // that takes ten seconds must charge the iteration that asked
+            // for it, not whichever one is live when it lands.
+            const id = on ?? s.liveThreadId;
+            if (!id) return {};
             if (!spend.dollars && !spend.ms && !spend.calls) return {};
             return {
               threads: s.threads.map((t) => {
-                if (t.id !== s.liveThreadId) return t;
+                if (t.id !== id) return t;
                 const had = t.usage;
                 // Kept to the tenth of a cent, not the cent: a four-tenths
                 // call rounded to two places reads as free and is not.
@@ -1444,6 +1452,24 @@ export const useStudio = create<StudioState>()(
               }),
             };
           }),
+        notePass: (line, on) =>
+          set((s) => {
+            // Named when the pass was fired, not when it answered: a second
+            // pass that takes ten seconds belongs to the iteration that
+            // asked for it.
+            const id = on ?? s.liveThreadId;
+            const said = line.trim();
+            if (!id || !said) return {};
+            return {
+              threads: s.threads.map((t) => {
+                if (t.id !== id) return t;
+                const had = t.usage?.passes ?? [];
+                if (had.includes(said)) return t;
+                return { ...t, usage: { sent: 0, skipped: 0, ...(t.usage ?? {}), passes: [...had, said] } };
+              }),
+            };
+          }),
+
         markThread: (id, state) =>
           set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, state } : t)) })),
 
@@ -1562,9 +1588,9 @@ export const useStudio = create<StudioState>()(
 
         clearFinishedJobs: () => set((s) => ({ queue: s.queue.filter((j) => j.status === "waiting" || j.status === "running") })),
 
-        noteThread: (lines) =>
+        noteThread: (lines, on) =>
           set((s) => {
-            const id = s.liveThreadId;
+            const id = on ?? s.liveThreadId;
             const add = lines.map((l) => l.trim()).filter(Boolean);
             if (!id || !add.length) return {};
             return {

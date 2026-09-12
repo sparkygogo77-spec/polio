@@ -176,3 +176,58 @@ export async function timed<T>(run: () => Promise<T>): Promise<{ value: T; ms: n
     throw err;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* What a prediction says about itself                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What one pass cost and how long it took, read off the prediction.
+ *
+ * `dollars` is `null` when the prediction did not report a number, and null
+ * is a real answer rather than a missing one. Replicate publishes no rate
+ * for the models the second pass runs on, so there is nothing here to price
+ * a call against — and a made-up figure on a card is worse than a card that
+ * says the cost was not reported. `sayPass` writes it that way.
+ */
+export interface Metered {
+  ms: number;
+  dollars: number | null;
+}
+
+/** The spellings a cost has arrived under. None of them is guaranteed. */
+const COST_KEYS = ["cost", "total_cost", "predict_cost", "usd", "charge"] as const;
+
+/**
+ * What a prediction reported, with the measured wait as the floor.
+ *
+ * `predict_time` is the model's own time and leaves out the queue; the wait
+ * is what the person actually sat through, so the longer of the two is the
+ * honest number.
+ */
+export function fromMetrics(metrics: Record<string, unknown> | null | undefined, wall: number): Metered {
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const secs = num(metrics?.total_time) ?? num(metrics?.predict_time);
+  let dollars: number | null = null;
+  for (const k of COST_KEYS) {
+    const v = num(metrics?.[k]);
+    if (v !== null) {
+      dollars = v;
+      break;
+    }
+  }
+  return { ms: Math.max(wall, secs ? Math.round(secs * 1000) : 0), dollars };
+}
+
+/**
+ * One pass, on the card: what it was, what it cost, how long it took.
+ *
+ * "second pass · Nano Banana 2 · 4.1s · cost not reported". The stages are
+ * said separately because they are separate charges on somebody's bill and
+ * a total hides which one is expensive.
+ */
+export function sayPass(name: string, m: Metered): string {
+  return [name, took(m.ms), m.dollars === null ? "cost not reported" : spent(m.dollars)]
+    .filter(Boolean)
+    .join(" · ");
+}

@@ -26,12 +26,20 @@ import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from
 import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
-import { writeBody } from "./bodyRun";
+import { targetFor, writeBody, type Attempt } from "./bodyRun";
+import { refinePart } from "./refineRun";
+import type { PartCode } from "./snippet";
 import { drawBody } from "./drawRun";
 import { pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
 import { roleFromWords } from "./vector";
-import { claudeSpend, sayBill } from "./spend";
+import { claudeSpend, sayBill, sayPass } from "./spend";
+
+/** A data URL down to its bytes, which is all the second pass takes. */
+const bare = (dataUrl: string | null | undefined): string | null => {
+  const at = dataUrl?.indexOf("base64,") ?? -1;
+  return at < 0 ? null : dataUrl!.slice(at + 7);
+};
 
 /** The catalog as the answer check reads it: the entry without its icon. */
 const kindInfo = (id: string): KindInfo | null => {
@@ -492,7 +500,86 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
     ...(written.vector ? { vector: written.vector } : {}),
     ...(role ? { role } : {}),
   });
+  // What the first pass was, on the bill as its own line, because the second
+  // pass puts its own beside it and a total hides which was expensive.
+  useStudio.getState().notePass(
+    `first pass · ${sayPass(written.code.source === "renderer" ? `traced, ${written.code.kind ?? ""}`.trim() : "written", { ms: written.ms ?? 0, dollars: written.cost })}`,
+  );
+  secondPass(nodeId, node, drawn, written.code, written.attempts, role, deps);
   return [written.message, role ? `used as ${role}` : written.vector ? "no role chosen yet" : ""].filter(Boolean).join(" · ");
+}
+
+/**
+ * Fire the second pass and walk away.
+ *
+ * Deliberately not awaited: the part is on the board and the person is
+ * looking at it, and holding the job open for a large image model would
+ * undo the whole reason the first pass exists. What comes back replaces the
+ * body and writes its own line on the card — on *this* iteration, named
+ * now, because by the time it lands a different one may be live.
+ *
+ * Every road out of it is a line on the card. A second pass that did not
+ * run is never silent: the person is looking at something that was meant to
+ * be replaced.
+ */
+function secondPass(
+  nodeId: string,
+  node: StudioNode,
+  drawn: Sketch,
+  code: PartCode,
+  attempts: Attempt[],
+  role: string | null,
+  deps: RunDeps,
+) {
+  /*
+   * The picture of what the first pass actually put on the board.
+   *
+   * Already taken: the loop photographs every go to score it, so the
+   * winning shot is the first pass's own render and costs nothing to reuse.
+   * Without one there is nothing to refine and the second pass does not
+   * run — quietly, because a part with no photograph is a part the server
+   * could not render, which the first pass has already said on the card.
+   */
+  const kept = attempts.reduce<Attempt | null>((a, b) => (!a || b.overlap > a.overlap ? b : a), null);
+  const first = bare(kept?.shot);
+  if (!first) return;
+  const on = useStudio.getState().liveThreadId ?? undefined;
+  const { mask, mode } = targetFor(node.outline ?? null, drawn.strokes);
+  void refinePart({
+    nodeId,
+    code,
+    first,
+    label: node.label,
+    prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim(),
+    role,
+    kind: code.kind,
+    w: node.w,
+    h: node.h,
+    score: { target: mask, mode, clip: node.outline?.cut ?? "" },
+  }, { onStep: deps.onStep })
+    .then((r) => {
+      useStudio.getState().notePass(r.line, on);
+      if (r.ok) {
+        useStudio.getState().noteSpend({
+          dollars: r.cost ?? 0,
+          ms: r.ms ?? 0,
+          calls: 1,
+          ...(r.cost ? { renderer: r.cost } : {}),
+        }, on);
+      }
+      deps.publish({
+        key: `refine:${nodeId}`,
+        title: r.ok ? "The better pass landed" : "The better pass did not run",
+        body: r.line,
+        level: r.ok ? "info" : "warn",
+        source: "studio",
+        toast: true,
+      });
+    })
+    .catch(() => {
+      // A thrown second pass is still a second pass that did not run.
+      useStudio.getState().notePass("second pass · did not run: it failed on the way out", on);
+    });
 }
 
 /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */

@@ -86,6 +86,17 @@ export interface Thread {
     ms?: number;
     /** How many paid calls it took. */
     calls?: number;
+    /**
+     * One line per pass, in the order they ran.
+     *
+     * A drawing lands twice and the two passes are two charges on somebody's
+     * bill, so a total is not enough: it hides which of them was expensive.
+     * Each says what ran, how long it took, and what it cost — or that the
+     * cost was not reported, which is the truth for a model Replicate
+     * publishes no rate for and better than a number nobody can stand
+     * behind.
+     */
+    passes?: string[];
   };
   /**
    * How the process behind this iteration ended, if it has.

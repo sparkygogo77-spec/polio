@@ -13,6 +13,15 @@ import {
   renderPrompt,
   type RenderKind,
 } from "@/features/studio/renderer";
+import {
+  inputFor,
+  makingOf,
+  needsAlpha,
+  noModelSays,
+  route,
+  wordsFor,
+} from "@/features/studio/imageRoute";
+import { fromMetrics } from "@/features/studio/spend";
 
 /**
  * The renderer service: a part's body, drawn rather than written.
@@ -49,6 +58,32 @@ import {
  *
  * The price of the call rides back with the answer (`cost`), because this
  * is the first thing here that spends money per press.
+ *
+ * **Two stages.** A drawing lands twice. Stage one is everything above: the
+ * path a part already took, answered as fast as it can be, so what was
+ * drawn is on the board while the person is still looking at it. Stage two
+ * is a large image model that takes stage one's picture and refines it, and
+ * replaces it on the card when it arrives. It is asked for with `stage: 2`
+ * and is a second request rather than a longer first one, because the whole
+ * point is that the first answer is not held back for the second.
+ *
+ * Which model runs stage two is read out of `imageRoute.ts`, which routes on
+ * two questions and never on a slug written here: *what is being made* —
+ * a mark, a surface, a picture, something with real type in it, an object
+ * you can turn — and *which step this is*. A mark and a surface have to
+ * come back with a transparent ground or they land on the board as filled
+ * rectangles, and only part of the table can do that; a surface often wants
+ * a band no other model's ratio list has.
+ *
+ * Stage two never fails the render. No token, no model in the table that
+ * can make what this part needs, or a call that failed: stage one stands,
+ * and the answer says on the card that the better pass did not run and why.
+ *
+ * What stage two cost and how long it took is read off the prediction
+ * itself rather than a price list. Replicate publishes no rate for these
+ * models, so when the prediction reports no number the card says the cost
+ * was not reported — which is the true thing to say, and better than a
+ * figure somebody invented.
  */
 
 export const runtime = "nodejs";
@@ -67,6 +102,27 @@ interface Body {
   w?: number;
   h?: number;
   palette?: { bg?: string; text?: string; accent?: string; muted?: string };
+  /** 2 asks for the second pass. Anything else is the first, unchanged. */
+  stage?: number;
+  /** What stage one produced, as a picture: PNG, base64, no data-URL head. */
+  first?: string;
+  /** What the part is for, which is what decides whether it needs a transparent ground. */
+  role?: string | null;
+  /**
+   * A drawing and what it became once somebody was happy with it.
+   *
+   * Handed to a model that does example-based editing as the first two
+   * images: it works out what was done between them and does the same to
+   * the drawing that follows. This is the house style, carried by an
+   * example rather than by a paragraph describing it.
+   */
+  example?: { before?: string; after?: string };
+  /** Does the thing being made have real text in it? That changes which model draws it. */
+  hasText?: boolean;
+  /** Is the part the ground rather than a thing on it? A ground wants no alpha and a wide frame. */
+  ground?: boolean;
+  /** Which model runs the second pass, when something wants to say. */
+  model?: string;
 }
 
 /**
@@ -175,20 +231,149 @@ function mimeOf(bytes: Uint8Array, said: string): string {
   return "image/png";
 }
 
-export async function POST(request: Request) {
-  // Looked for before the body is read, so a request that could not be drawn
-  // whatever it said gets the one answer worth giving.
-  const token = tokenFor(request);
-  if (!token) {
-    return NextResponse.json({ ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE });
+/** A picture that arrived as base64, or nothing. Never a data URL, never a URL. */
+function picture(v: unknown, limit = 4_000_000): string | null {
+  return typeof v === "string" && /^[A-Za-z0-9+/=]+$/.test(v) && v.length < limit ? v : null;
+}
+
+/**
+ * The second pass.
+ *
+ * Stage one's picture goes in, a better one comes out, and the two-axis
+ * table in `imageRoute.ts` decides which model sees it — from what is being
+ * made and which step this is, never from a slug written here. Nothing in
+ * this function can fail the render: every road out that is not a finished
+ * picture is an `ok: false` the caller shows on the card while keeping what
+ * stage one drew.
+ */
+async function refine(body: Body, token: string) {
+  const first = picture(body.first);
+  if (!first) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "no-first", message: "The second pass had no first pass to work from." }, { status: 400 });
+  }
+  const w = Math.round(Math.max(24, Math.min(4000, Number(body.w) || 320)));
+  const h = Math.round(Math.max(24, Math.min(4000, Number(body.h) || 320)));
+  const before = picture(body.example?.before);
+  const after = picture(body.example?.after);
+  const hasPair = !!before && !!after;
+
+  /*
+   * The two questions, in order. What is being made comes first because it
+   * decides whether a transparent ground is required, and that rules most
+   * of the table out before the step is even considered.
+   */
+  const making = makingOf({ kind: body.kind, role: body.role ?? null, hasText: !!body.hasText, ground: !!body.ground, w, h });
+  const transparent = needsAlpha(making);
+  const picked = route({ making, step: "refine", fromImage: true, example: hasPair, w, h, prefer: body.model });
+  if (!picked.model) {
+    return NextResponse.json({ ok: false, stage: 2, reason: picked.why, making, message: noModelSays(picked.why ?? "nothing-serves", making) });
+  }
+  const pick = picked.model;
+  const pair = !!picked.usedExample;
+  const asUri = (b: string) => `data:image/png;base64,${b}`;
+  const images = [...(pair ? [asUri(before!), asUri(after!)] : []), asUri(first)];
+  const input = inputFor(pick, {
+    prompt: wordsFor({ step: "refine", making, said: body.prompt, label: body.label, transparent, example: pair }),
+    images,
+    w,
+    h,
+    transparent,
+  });
+
+  const replicate = new Replicate({ auth: token });
+  const began = Date.now();
+  let done: { output?: unknown; metrics?: Record<string, unknown>; error?: unknown; status?: string };
+  try {
+    /*
+     * A prediction rather than `run`, because `run` hands back the output
+     * alone and what this pass has to report — what it cost, how long the
+     * model itself took — is on the prediction.
+     */
+    const started = await replicate.predictions.create({ model: pick.slug, input });
+    done = await replicate.wait(started, { interval: 700 });
+  } catch (error) {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    const message = error instanceof Error ? safe(error.message, token) : "the model failed";
+    const reason = status === 401 || status === 403 ? "auth" : status === 429 ? "rate-limit" : "refine";
+    return NextResponse.json({ ok: false, stage: 2, reason, model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `${pick.name} said: ${message}.`) });
+  }
+  if (done.status !== "succeeded") {
+    const said = typeof done.error === "string" ? safe(done.error, token) : String(done.status ?? "no answer");
+    return NextResponse.json({ ok: false, stage: 2, reason: "refine", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `${pick.name} said: ${said}.`) });
   }
 
-  let body: Body;
+  const meter = fromMetrics(done.metrics, Date.now() - began);
+  let file: { bytes: Uint8Array; type: string } | null;
+  try {
+    file = await bytesOf(done.output);
+  } catch (error) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "fetch", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `The refined picture could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).`), ms: meter.ms, cost: meter.dollars });
+  }
+  if (!file || !file.bytes.length) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "empty-answer", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `${pick.name} answered with nothing.`), ms: meter.ms, cost: meter.dollars });
+  }
+  const mime = mimeOf(file.bytes, file.type);
+  const dataUri = `data:${mime};base64,${Buffer.from(file.bytes).toString("base64")}`;
+  if (dataUri.length > RASTER_LIMIT) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "too-big", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `It came back as ${Math.round(dataUri.length / 1024)}KB, more than a document should carry.`), ms: meter.ms, cost: meter.dollars });
+  }
+  const html = rasterFragment(dataUri);
+  if (!html) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "empty-body", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, "What came back could not be read as an image.") });
+  }
+  return NextResponse.json({
+    ok: true,
+    stage: 2,
+    model: pick.slug,
+    name: pick.name,
+    /* What was actually asked of it, so a card can say why it looks like it does. */
+    making,
+    transparent,
+    example: pair,
+    ratio: input.aspect_ratio ?? `${input.width}x${input.height}`,
+    html,
+    image: dataUri,
+    bytes: dataUri.length,
+    ms: meter.ms,
+    // Null is the answer when the prediction reported no number, and the
+    // card says so rather than showing a price nobody can stand behind.
+    cost: meter.dollars,
+  });
+}
+
+export async function POST(request: Request) {
+  // Looked for first, so a request that could not be drawn whatever it said
+  // gets the one answer worth giving — in the words of the stage that asked.
+  const token = tokenFor(request);
+
+  /*
+   * The body is read for the sentence, not for the decision.
+   *
+   * No token is still the first answer and a request that could not
+   * possibly be drawn still gets it — but the two stages say it
+   * differently, so which stage asked has to be known. A body that will not
+   * parse simply leaves that unknown, and the first pass's words are the
+   * right default: it is the one with nothing to fall back to.
+   */
+  let body: Body | null = null;
   try {
     body = (await request.json()) as Body;
   } catch {
+    body = null;
+  }
+  const second = Number(body?.stage) === 2;
+  if (!token) {
+    return NextResponse.json(second
+      ? { ok: false, stage: 2, reason: "unavailable", message: noModelSays("no-key", makingOf({ kind: body!.kind, role: body!.role ?? null, hasText: !!body!.hasText, ground: !!body!.ground, w: Number(body!.w) || 0, h: Number(body!.h) || 0 })) }
+      : { ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE });
+  }
+  if (!body) {
     return NextResponse.json({ ok: false, reason: "bad-request", message: "Expected a JSON body." }, { status: 400 });
   }
+
+  // The second pass is its own road: it has a picture already and needs
+  // none of the first pass's shaping.
+  if (second) return refine(body, token);
 
   const kind: RenderKind = isRenderKind(body.kind) ? body.kind : "vector";
   const prompt = (body.prompt ?? "").trim().slice(0, 2000);

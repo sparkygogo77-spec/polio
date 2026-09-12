@@ -52,6 +52,25 @@ export interface PartCode {
   cost?: number;
   /** What was taken out of the code on the way in, if anything. */
   stripped?: string[];
+  /**
+   * The second pass, when one ran.
+   *
+   * A drawing lands twice: once the way it always has, and again refined by
+   * a large image model. What is in `html` after that is the second one, so
+   * what made it is written down here — and the score beside it is the
+   * refined body's own, judged against the same drawing, not the first
+   * pass's number left standing over somebody else's picture.
+   *
+   * `cost` is null when the prediction reported no number, which is not the
+   * same as free.
+   */
+  refined?: {
+    model: string;
+    name: string;
+    ms: number;
+    cost: number | null;
+    at: number;
+  };
 }
 
 /** What a fragment may not carry, and what it is called when it is taken out. */

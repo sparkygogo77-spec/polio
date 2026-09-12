@@ -1,0 +1,479 @@
+/**
+ * Which model draws this, and at which step.
+ *
+ * Not a list of models with a default. A default is the wrong shape for
+ * what this actually is: different kinds of element want different models,
+ * and so do different steps of making one. So the route asks two questions
+ * and a model declares which of the answers it can serve.
+ *
+ * **What is being made.**
+ *
+ * - An **icon** or small mark needs a transparent background and crisp
+ *   edges, so it goes down the vector path or to a model that can really do
+ *   alpha. Most cannot; the ones that say they can are the only ones
+ *   offered it.
+ * - A **surface** — a texture, a ground, a backdrop — needs no alpha and
+ *   often wants a ratio nothing else offers. 21:9 and wider is a real
+ *   requirement here and it rules most models out on its own.
+ * - A **picture**, an illustrative element, wants prompt fidelity above
+ *   everything.
+ * - Something with **real text in it** wants the typography model, which is
+ *   what ideogram is for. No amount of prompting makes a general image
+ *   model set type.
+ * - An **object** you can turn goes to a 3D model. Nothing in this table
+ *   serves that yet, and `route` says so rather than handing it to
+ *   something that will return a picture of a cube.
+ *
+ * **Which step we are at.**
+ *
+ * - **read** — what did the person actually draw? This is not an image
+ *   model's job at all. It is a vision read of the strokes and it decides
+ *   everything after it, so `route` refuses it by design rather than
+ *   quietly picking a drawing model.
+ * - **first** — the cheap pass that lands on the board while the person is
+ *   still looking at what they drew.
+ * - **refine** — an approved version worked on again, with different
+ *   inputs: reference images, and where we have one an example pair.
+ * - **alpha** — cutting the ground away *after* a render, for the case
+ *   where the model that drew it could not leave one out. Nothing serves
+ *   this yet either.
+ *
+ * Adding a model is one entry in `MODELS` and changes no call site. A model
+ * declares only the cells it should actually be chosen for — declaring
+ * narrowly *is* the ranking — and within a cell the table's own order
+ * decides. That is the whole mechanism; there is no score, no weight and no
+ * slug anywhere outside this file.
+ *
+ * **Every row was read off the model's own published schema** at
+ * `replicate.com/<slug>/api/schema`, not off a datasheet. Three things that
+ * were believed here and are not true are written down at their rows.
+ *
+ * Prices are not in this table. Replicate publishes no rate for most of
+ * these, and a number invented for a card is worse than a card that says
+ * the cost was not reported — so what a pass cost is read off the
+ * prediction itself (`spend.ts`, `fromMetrics`) or not shown. The one
+ * published price we have been given is noted at its row as a note, not as
+ * something anything computes with.
+ *
+ * Pure: no fetch, no keys, no Replicate client. Tested by `tests/imaging.mjs`.
+ */
+
+/** What is being made. The first question. */
+export type Making = "icon" | "surface" | "picture" | "type" | "object";
+
+/** Which step of making it. The second. */
+export type Step = "read" | "first" | "refine" | "alpha";
+
+export const MAKINGS: readonly Making[] = ["icon", "surface", "picture", "type", "object"];
+export const STEPS: readonly Step[] = ["read", "first", "refine", "alpha"];
+
+/** How a model is asked for a thing, when it has a field for it at all. */
+export interface Field {
+  field: string;
+  value: string;
+}
+
+export interface ImageModel {
+  /** The Replicate slug. The only place it is written. */
+  slug: `${string}/${string}`;
+  /** What it is called in a sentence on a card. */
+  name: string;
+  /**
+   * Which kinds it should be chosen for, at which step.
+   *
+   * Narrow on purpose. A model that could technically produce an icon but
+   * produces a bad one does not list `icon`, because listing it is what
+   * makes it get picked.
+   */
+  serves: Partial<Record<Step, readonly Making[]>>;
+  /** How many reference images it takes, and in which field. Zero means text only. */
+  references: number;
+  refField: string | null;
+  /**
+   * Can it be shown a before and an after and apply the same change to a
+   * third image?
+   *
+   * The one that matters most. Once a person has taken one drawing to an
+   * element they are happy with, that pair *is* the house style — every
+   * later drawing gets the same treatment with nobody writing a prompt
+   * describing it and nobody training a LoRA.
+   */
+  examplePair: boolean;
+  /**
+   * The `aspect_ratio` value meaning "keep the frame you were given", or
+   * null. An edit that comes back reframed is the biggest single cause of
+   * an iteration being worse than what went into it.
+   */
+  keepFrame: string | null;
+  /** The ratios it will draw in, its own spelling. */
+  ratios: readonly string[];
+  /** How to ask for a transparent background, or false if it cannot make one. */
+  alpha: Field | false;
+  /** How to ask for the frame, when it takes pixels rather than a ratio. */
+  pixels: { widthField: string; heightField: string; max: number; step: number; via?: Field } | null;
+  /** How to ask for the largest sensible frame, if it has a field for it. */
+  size: Field | null;
+  /** How to ask for PNG out. */
+  format: Field;
+  /** Anything it has that we do not set, and anything believed about it that is wrong. */
+  also?: string;
+}
+
+/**
+ * The models, in the order a cell prefers them.
+ *
+ * Nothing here is a default. A model earns a cell by declaring it.
+ */
+export const MODELS: readonly ImageModel[] = [
+  {
+    slug: "google/nano-banana-2",
+    name: "Nano Banana 2",
+    // The widest ratio list of anything here, so it is the one that can
+    // actually make a 21:9 band, and `match_input_image` makes it the safe
+    // choice for an edit.
+    serves: { first: ["surface", "picture"], refine: ["surface", "picture"] },
+    references: 14,
+    refField: "image_input",
+    examplePair: false,
+    keepFrame: "match_input_image",
+    ratios: ["1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9"],
+    alpha: false,
+    pixels: null,
+    size: { field: "resolution", value: "2K" },
+    format: { field: "output_format", value: "png" },
+    also: "resolution is 1K, 2K or 4K — there is no 512px, which was believed. It can also search the web for references, which is off.",
+  },
+  {
+    slug: "bytedance/seedream-5-lite",
+    name: "Seedream 5 Lite",
+    // The only one that does example-based editing, which is this app's own
+    // loop expressed as a model feature, so it leads the refine step.
+    serves: { refine: ["picture", "surface"], first: ["picture"] },
+    references: 14,
+    refField: "image_input",
+    examplePair: true,
+    keepFrame: "match_input_image",
+    ratios: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9"],
+    alpha: false,
+    pixels: null,
+    size: { field: "size", value: "2K" },
+    format: { field: "output_format", value: "png" },
+    also: "size is 2K or 3K; sequential_image_generation auto gives a batch, which is off; max_images up to 15.",
+  },
+  {
+    slug: "openai/gpt-image-2",
+    name: "GPT Image 2",
+    // Alpha, and a wide enough ratio list to be useful with it.
+    serves: { first: ["icon", "picture"], refine: ["icon", "picture"] },
+    references: 10,
+    refField: "input_images",
+    examplePair: false,
+    keepFrame: null,
+    ratios: ["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16"],
+    alpha: { field: "background", value: "transparent" },
+    pixels: null,
+    size: null,
+    format: { field: "output_format", value: "png" },
+    also:
+      "It was briefed here as unable to do transparency at all: its schema carries background auto|transparent|opaque, the same field gpt-image-1.5 has. "
+      + "The 1:1/3:2/2:3-only ratio list belongs to gpt-image-1.5, not to this — this also takes 4:3, 3:4, 16:9, 9:16, auto and explicit pixel sizes up to 3840x2160.",
+  },
+  {
+    slug: "openai/gpt-image-1.5",
+    name: "GPT Image 1.5",
+    serves: { first: ["icon"], refine: ["icon"] },
+    references: 10,
+    refField: "input_images",
+    examplePair: false,
+    keepFrame: null,
+    ratios: ["1:1", "3:2", "2:3"],
+    alpha: { field: "background", value: "transparent" },
+    pixels: null,
+    size: null,
+    format: { field: "output_format", value: "png" },
+    also: "Three ratios and no more, so it is the alpha model of last resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
+  },
+  {
+    slug: "prunaai/p-image-ideogram",
+    name: "Ideogram (Pruna)",
+    /*
+     * Text only, and that asymmetry is exactly why this table has two axes:
+     * it is a real first pass for anything prompted from words and cannot
+     * serve `refine` or anything that starts from a drawing, because it has
+     * no input image field at all.
+     */
+    serves: { first: ["type", "picture"] },
+    references: 0,
+    refField: null,
+    examplePair: false,
+    keepFrame: null,
+    ratios: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
+    alpha: false,
+    pixels: { widthField: "width", heightField: "height", max: 2560, step: 16, via: { field: "aspect_ratio", value: "custom" } },
+    size: { field: "image_size", value: "2K" },
+    format: { field: "output_format", value: "png" },
+    also:
+      "Said here to be jpg out: it takes png, jpg or webp, and png is what we ask for — a flat graphic with type on it should not carry jpeg artefacts. "
+      + "Width and height only apply with aspect_ratio custom, rounded to a multiple of 16, up to 2560. "
+      + "It also has a seed, prompt_upsampling (on by default) and a thinking level. "
+      + "Quoted at $0.003 a generation, which is not in the schema and is not priced against here.",
+  },
+];
+
+/**
+ * The one asked for when a cell offers more than one that can do alpha.
+ *
+ * Named rather than falling out of row order, because it is a real choice
+ * and belongs where it can be argued with. It is still held to the table:
+ * `route` will not return a model whose row says it cannot.
+ */
+export const ALPHA_FIRST = "openai/gpt-image-2";
+
+export function model(slug: string): ImageModel | null {
+  return MODELS.find((m) => m.slug === slug) ?? null;
+}
+
+/**
+ * What is being made, worked out from the part rather than from a switch.
+ *
+ * Two senses of the word "surface" meet here and they are not the same
+ * thing. A drawn part's `surface` **role** is a frame — the outline holds
+ * what is placed inside it — so it is a mark with a hole in it and it needs
+ * the ground left out exactly as an icon does. A `surface` in this table is
+ * a texture, a backdrop, a ground: it *is* the background, wants no alpha,
+ * and usually wants a band no ordinary ratio list has. So a drawn frame
+ * routes as a mark, and only a wide raster ground routes as a surface.
+ *
+ * A motion path is a line, and a line wants the same alpha and the same
+ * crisp edges a mark does, so it is routed as one. A part with no role yet
+ * is treated as a mark too, which is the only answer that cannot land a
+ * filled rectangle on the board.
+ */
+export function makingOf(what: {
+  kind?: string;
+  role?: string | null;
+  hasText?: boolean;
+  /** A part that is the ground rather than a thing on it. */
+  ground?: boolean;
+  w?: number;
+  h?: number;
+}): Making {
+  if (what.hasText) return "type";
+  // A drawn frame is a mark with a hole in it, not a backdrop.
+  if (what.role === "icon" || what.role === "motion" || what.role === "surface") return "icon";
+  if (what.kind === "raster") {
+    // A band far wider than it is tall is a ground, whatever it was called.
+    const wide = what.w && what.h ? what.w / what.h >= 2.5 : false;
+    return what.ground || wide ? "surface" : "picture";
+  }
+  return what.role ? "picture" : "icon";
+}
+
+/**
+ * Does what is being made need a transparent background?
+ *
+ * Only a mark. It drops onto a button, onto whatever colour it lands on,
+ * and an opaque ground turns it into a filled rectangle sitting on the
+ * page. Everything else fills its own box: a surface *is* the ground, a
+ * picture covers what it is placed over, and type sits on something of its
+ * own. Asking for alpha where it is not needed narrows the table to two
+ * models for no reason.
+ */
+export function needsAlpha(making: Making): boolean {
+  return making === "icon";
+}
+
+/** Can this model be asked for this cell at all? */
+function serves(m: ImageModel, making: Making, step: Step): boolean {
+  return (m.serves[step] ?? []).includes(making);
+}
+
+export interface Need {
+  making: Making;
+  step: Step;
+  /** Is there an image going in? A refine has one; a first pass may not. */
+  fromImage?: boolean;
+  /** Do we have a before-and-after pair to teach it with? */
+  example?: boolean;
+  /** The frame, so a model that cannot hold it is not offered the job. */
+  w?: number;
+  h?: number;
+  /** Override the pick. Honoured only if that model actually serves the cell. */
+  prefer?: string;
+}
+
+/** Why a cell has no model, in the words the card will use. */
+export type NoModel = "not-a-model-job" | "nothing-serves" | "cannot-take-an-image" | "cannot-do-alpha";
+
+export interface Routed {
+  model: ImageModel | null;
+  /** Set when `model` is null. Never both. */
+  why?: NoModel;
+  /** What the pick can do of what was wanted, so the caller can say so. */
+  usedExample?: boolean;
+}
+
+/**
+ * Which model, for this cell.
+ *
+ * Honours `prefer` when that model really serves the cell, then the
+ * declared alpha-first when alpha is required, then the table's order. A
+ * cell with nobody in it is an answer, not an error: the caller keeps what
+ * it has and says on the card that nothing ran.
+ */
+export function route(need: Need): Routed {
+  // Reading a drawing is a vision job. Refusing it here is the point: the
+  // alternative is quietly handing strokes to a model that draws.
+  if (need.step === "read") return { model: null, why: "not-a-model-job" };
+
+  const wantAlpha = needsAlpha(need.making);
+  const fits = (m: ImageModel) => {
+    if (!serves(m, need.making, need.step)) return false;
+    // A step that starts from a picture needs somewhere to put it.
+    if (need.fromImage && (m.references < 1 || !m.refField)) return false;
+    if (wantAlpha && m.alpha === false) return false;
+    return true;
+  };
+
+  const asked = need.prefer ? model(need.prefer) : null;
+  const alphaFirst = wantAlpha ? model(ALPHA_FIRST) : null;
+  const order = [asked, alphaFirst, ...MODELS].filter((m): m is ImageModel => !!m);
+  const pick = order.find(fits) ?? null;
+  if (pick) return { model: pick, usedExample: !!need.example && pick.examplePair };
+
+  // Why there is nobody, in the most useful order: the reason a person can
+  // do something about first.
+  const declared = MODELS.filter((m) => serves(m, need.making, need.step));
+  if (!declared.length) return { model: null, why: "nothing-serves" };
+  if (wantAlpha && declared.every((m) => m.alpha === false)) return { model: null, why: "cannot-do-alpha" };
+  return { model: null, why: "cannot-take-an-image" };
+}
+
+/**
+ * The ratio to ask for: the model's own nearest to the box, never a stretch.
+ *
+ * `match_input_image` wins whenever the model has it and there is a picture
+ * going in, because the frame that came out of the step before is already
+ * the part's frame and anything else is a reframe. Otherwise the nearest by
+ * proportion, judged on the log of the ratio so 2:1 and 1:2 are the same
+ * distance out — and the caller crops to the box rather than stretching to
+ * it, because a stretched drawing is a wrong drawing.
+ */
+export function ratioFor(m: ImageModel, w: number, h: number, fromImage: boolean): string {
+  if (fromImage && m.keepFrame) return m.keepFrame;
+  const want = Math.max(0.05, Math.min(20, (w || 1) / (h || 1)));
+  let best = m.ratios[0]!;
+  let gap = Infinity;
+  for (const v of m.ratios) {
+    const [a, b] = v.split(":").map(Number);
+    const d = Math.abs(Math.log(a! / b!) - Math.log(want));
+    if (d < gap) {
+      gap = d;
+      best = v;
+    }
+  }
+  return best;
+}
+
+/**
+ * What goes in the box, built from the row rather than from a slug.
+ *
+ * `images` is ordered and the order carries meaning for a model that does
+ * example-based editing: the pair first — what a drawing looked like and
+ * what it became once somebody was happy with it — then the image being
+ * worked on. A model that has no example pair gets the same list as plain
+ * references, which is still the house style riding along. A model with no
+ * reference field gets no images at all, which is why it may only be routed
+ * to a step that does not start from one.
+ */
+export function inputFor(
+  m: ImageModel,
+  ask: { prompt: string; images?: string[]; w?: number; h?: number; transparent?: boolean },
+): Record<string, unknown> {
+  const images = m.refField ? (ask.images ?? []).slice(0, m.references) : [];
+  const input: Record<string, unknown> = { prompt: ask.prompt };
+  if (images.length && m.refField) input[m.refField] = images;
+  /*
+   * A model that takes real pixels is given the part's real box, rounded to
+   * what it will accept. That is the whole reason to prefer one for a
+   * surface: no ratio in any list is the band a person actually drew.
+   */
+  if (m.pixels && ask.w && ask.h) {
+    const fit = (n: number) => Math.max(m.pixels!.step, Math.min(m.pixels!.max, Math.round(n / m.pixels!.step) * m.pixels!.step));
+    if (m.pixels.via) input[m.pixels.via.field] = m.pixels.via.value;
+    input[m.pixels.widthField] = fit(ask.w);
+    input[m.pixels.heightField] = fit(ask.h);
+  } else {
+    input.aspect_ratio = ratioFor(m, ask.w ?? 1, ask.h ?? 1, images.length > 0);
+    if (m.size) input[m.size.field] = m.size.value;
+  }
+  input[m.format.field] = m.format.value;
+  if (ask.transparent && m.alpha) input[m.alpha.field] = m.alpha.value;
+  return input;
+}
+
+/**
+ * The words a step is given.
+ *
+ * A refine is not a second guess: what came out of the first pass is
+ * already the right shape in the right frame, and the job is to render
+ * *that* well. So the prompt is mostly about what must not change, and the
+ * words the person typed come last and quietly — on this step the picture
+ * is the brief and the words are the footnote, which is the other way round
+ * from a first pass, where there is no picture yet.
+ */
+export function wordsFor(ask: {
+  step: Step;
+  making: Making;
+  said?: string;
+  label?: string;
+  transparent?: boolean;
+  example?: boolean;
+}): string {
+  const said = (ask.said || ask.label || "").trim().slice(0, 300);
+  const bits: string[] = [];
+  if (ask.step === "refine") {
+    bits.push(
+      ask.example
+        ? "The first two images are a before and an after: work out what was done between them and do the same thing to the last image."
+        : "Redraw the image you were given at full quality.",
+      "Keep its exact shape, proportions, composition and framing — every line where it is. Nothing moves, nothing is added, nothing is cropped.",
+    );
+  } else {
+    bits.push(said || "an abstract mark");
+    bits.push(
+      ask.making === "surface"
+        ? "filling the whole frame edge to edge as a texture, with no subject in the middle of it"
+        : "filling the whole frame, edge to edge, nothing floating small in the middle",
+    );
+  }
+  if (ask.making === "type") bits.push("The words must be set correctly and be the subject of the image.");
+  bits.push("Clean edges, even weight, no sketch texture, no paper, no drop shadow, no border, no frame, no caption, no watermark, no signature.");
+  if (ask.transparent) bits.push("Transparent background: the subject alone, nothing behind it.");
+  if (ask.step === "refine" && said) bits.push(`It is ${said}.`);
+  return bits.join(" ");
+}
+
+/**
+ * What to say on the card when a step did not run.
+ *
+ * Never silently: the person is looking at something that was meant to be
+ * replaced, and the only thing worse than not refining it is not saying so.
+ */
+export function noModelSays(why: NoModel | "no-key" | "failed", making: Making, detail = ""): string {
+  const head =
+    why === "no-key"
+      ? "The better pass did not run: no Replicate token, so only the first pass happened."
+      : why === "not-a-model-job"
+        ? "That step is a vision read of the strokes, not an image model's job."
+        : why === "nothing-serves"
+          ? `The better pass did not run: no model in the table serves a ${making} at that step yet.`
+          : why === "cannot-do-alpha"
+            ? `The better pass did not run: a ${making} needs a transparent ground and nothing offered for it can make one.`
+            : why === "cannot-take-an-image"
+              ? `The better pass did not run: the models for a ${making} take words only, and this step starts from a picture.`
+              : "The better pass failed, so the first pass is what is on the board.";
+  // One full stop at the end, whatever the model's own message ended with.
+  const said = detail.trim().replace(/[\s.]+$/, "");
+  return said ? `${head} ${said}.` : head;
+}

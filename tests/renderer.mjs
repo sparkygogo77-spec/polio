@@ -234,9 +234,31 @@ await page.route("**/api/studio/body", (route) => {
 });
 
 let token = true;
+/*
+ * The drawing path lands twice now, and the two stages are two different
+ * answers through one route. `drawn` is the first pass — the tracer, which
+ * is what everything below is about — and `refined` is the second, kept
+ * apart so a count of tracer calls is still a count of tracer calls.
+ */
 const drawn = [];
+const refined = [];
+/** A 2x2 PNG, so the second pass comes back with real bytes. */
+const REFINED_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR4nGP8z8Dwn4EIwESMokGmEADbCwEjxtqm4wAAAABJRU5ErkJggg==";
 await page.route("**/api/studio/image", (route) => {
-  drawn.push({ at: Date.now(), body: JSON.parse(route.request().postData() ?? "{}"), headers: route.request().headers() });
+  const body = JSON.parse(route.request().postData() ?? "{}");
+  if (Number(body.stage) === 2) {
+    refined.push({ at: Date.now(), body, headers: route.request().headers() });
+    if (!token) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false, stage: 2, reason: "unavailable", message: "The better pass did not run: no Replicate token, so only the first pass happened." }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      ok: true, stage: 2, model: "openai/gpt-image-2", name: "GPT Image 2", making: "icon",
+      transparent: true, example: false, ratio: "1:1", ms: 4130, cost: null, bytes: 200,
+      html: `<img src="data:image/png;base64,${REFINED_PNG}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;">`,
+      image: `data:image/png;base64,${REFINED_PNG}`,
+    }) });
+  }
+  drawn.push({ at: Date.now(), body, headers: route.request().headers() });
   if (!token) {
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE }) });
   }
@@ -260,6 +282,8 @@ const read = () => page.evaluate(() => {
     made: n.length,
     code: last?.code ? { source: last.code.source, kind: last.code.kind, cost: last.code.cost, overlap: last.code.overlap, attempts: last.code.attempts, scores: last.code.scores } : null,
     cost: th?.usage?.cost ?? 0,
+    passes: th?.usage?.passes ?? [],
+    refined: last?.code?.refined ?? null,
     said: (th?.changes ?? []).join(" | "),
   };
 });
@@ -318,6 +342,17 @@ check("the body kept is the traced one", state.code?.source === "renderer" && st
 check("scored on the same bar, against the drawn outline", (state.code?.overlap ?? 0) >= 0.72, String(state.code?.overlap));
 check("what it cost is kept with the part", state.code?.cost === state.code?.attempts * RENDER_COST.vectorize, `${state.code?.cost} over ${state.code?.attempts}`);
 check("and reaches the iteration's usage line", state.cost === state.code?.cost, String(state.cost));
+check("the second pass fires on its own, with nobody pressing anything", refined.length === 1, `${refined.length} second passes`);
+check("it is given the first pass's own picture to work from",
+  typeof refined[0]?.body?.first === "string" && refined[0].body.first.length > 100, `${refined[0]?.body?.first?.length ?? 0} bytes of PNG`);
+check("the held token rides on it too", refined[0]?.headers?.["x-replicate-key"] === SECRET);
+check("and no Claude key rides with it either", !refined[0]?.headers?.["x-anthropic-key"]);
+check("what it replaced the body with is recorded on the part",
+  state.refined?.model === "openai/gpt-image-2" && state.refined?.cost === null, JSON.stringify(state.refined));
+check("both passes are on the bill, separately", state.passes.length === 2
+  && /^first pass ·/.test(state.passes[0]) && /^second pass ·/.test(state.passes[1]), state.passes.join(" | "));
+check("a pass with no published price says so rather than showing one",
+  /cost not reported/.test(state.passes[1] ?? ""), state.passes[1]);
 check("the card says it was traced, and the price", /was traced/i.test(state.said) && /\$0\.\d\d/.test(state.said), state.said.slice(0, 110));
 
 /* The one door Claude comes through: nothing traced, and words to work
@@ -328,6 +363,17 @@ check("the board takes a second drawing", await drawOne(star, "a star of five cl
 state = await settle(2);
 console.log(`     written: ${JSON.stringify(state.code)}`);
 check("with nothing traced, the tracer is asked once and no more", drawn.length === traced + 1, `${drawn.length - traced} calls on the second drawing`);
+/*
+ * A written body is still a first pass that landed, so the second pass is
+ * fired on it too — and with no token it answers that it did not run. That
+ * is the contract: never silent. A person looking at a body that was meant
+ * to be replaced is told why it was not.
+ */
+check("a written body gets a second pass offered to it as well", refined.length === 2, `${refined.length} second passes in total`);
+check("…and with no token it says on the bill that the better pass did not run", (() => {
+  const last = state.passes[state.passes.length - 1] ?? "";
+  return /^second pass ·/.test(last) && /did not run/.test(last) && /token/.test(last);
+})(), state.passes[state.passes.length - 1]);
 check("and the words get a written body instead", wrote.length > 0 && state.code?.source === "written", `${wrote.length} written, ${state.code?.source}`);
 check("the writer is given the drawing as its reference", typeof wrote[0]?.body?.picture === "string" && wrote[0].body.picture.length > 100, `${wrote[0]?.body?.picture?.length ?? 0} bytes of PNG`);
 check("nothing is charged for a tracer that was not there", !state.code?.cost, String(state.code?.cost));

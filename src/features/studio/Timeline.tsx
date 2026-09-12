@@ -1225,7 +1225,22 @@ function Bill({ thread, skin }: { thread: Thread; skin: { rim: string; dim: stri
       </p>
       <p className="num text-[11px]" style={{ color: skin.text }}>{head}</p>
       {who ? <p className="num text-[10px]" style={{ color: skin.dim }}>{who}</p> : null}
-      {thread.model ? <p className="text-[9px]" style={{ color: skin.dim }}>{thread.model}</p> : null}
+      {/*
+        And then each pass on its own line.
+
+        A drawing lands twice — the pass that shows at once, and the model
+        that refines it — and they are two charges. The total above cannot
+        say which of them was expensive, and one of them routinely has no
+        price at all, because Replicate publishes no rate for the models the
+        second pass runs on. A line that says the cost was not reported is
+        the true thing to put there.
+      */}
+      {u.passes?.length ? (
+        <ul className="mt-1 space-y-0.5 border-t pt-1 num text-[10px]" style={{ borderColor: skin.rim, color: skin.dim }}>
+          {u.passes.map((l, i) => <li key={i}>{l}</li>)}
+        </ul>
+      ) : null}
+      {thread.model ? <p className="mt-0.5 text-[9px]" style={{ color: skin.dim }}>{thread.model}</p> : null}
     </div>
   );
 }
