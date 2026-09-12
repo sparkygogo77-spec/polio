@@ -96,13 +96,32 @@ async function look(w, h, tag) {
      back as `oklch(L C H)`, so the hue is read straight off; 27 is the
      process red and 150 the process green, the same pair the timeline and
      the Finish key use, which is the point. */
+  /* Read the colour with transitions switched off.
+     `disabled` is a DOM property and flips the instant the state changes;
+     `color` is transitioned and arrives later. Reading both together caught
+     an enabled button still wearing its disabled grey — and waiting for two
+     equal reads did not fix it, because two reads taken before the fade has
+     even started agree with each other perfectly. Chrome also serialises a
+     colour mid-fade as `oklab(...)` rather than the authored `oklch(...)`,
+     which is how this showed itself. There is no fade to wait out here: the
+     check is about which colour was authored, so the transition is switched
+     off for the read and put back afterwards. */
+  const frozen = await page.addStyleTag({ content: "*,*::before,*::after{transition:none !important;animation:none !important}" });
   const arrow = (label) => page.evaluate((l) => {
     const b = [...document.querySelectorAll("button")].find((x) => x.getAttribute("aria-label") === l);
     return b ? { colour: getComputedStyle(b).color, off: b.disabled } : null;
   }, label);
-  const hueOf = (c) => { const m = /oklch\(\s*[\d.]+\s+[\d.]+\s+([\d.]+)/.exec(c || ""); return m ? Number(m[1]) : null; };
+  const hueOf = (c) => {
+    const ch = /oklch\(\s*[\d.]+\s+[\d.]+\s+([\d.]+)/.exec(c || "");
+    if (ch) return Number(ch[1]);
+    const la = /oklab\(\s*[-\d.]+\s+(-?[\d.]+)\s+(-?[\d.]+)/.exec(c || "");
+    if (!la) return null;
+    const d = (Math.atan2(Number(la[2]), Number(la[1])) * 180) / Math.PI;
+    return d < 0 ? d + 360 : d;
+  };
+  /* 27 is the process red and 150 the process green — the same pair the
+     timeline and the Finish key use, which is the whole point of them. */
   const near = (h, want) => h !== null && Math.min(Math.abs(h - want), 360 - Math.abs(h - want)) < 20;
-
   const undo = await arrow("Undo");
   check(`${tag}: undo is live after two moves`, !!undo && !undo.off, undo?.off ? "greyed" : "live");
   if (undo && !undo.off) check(`${tag}: undo is the process red`, near(hueOf(undo.colour), 27), undo.colour);
@@ -112,6 +131,7 @@ async function look(w, h, tag) {
   const redo = await arrow("Redo");
   check(`${tag}: redo is live after a step back`, !!redo && !redo.off, redo?.off ? "greyed" : "live");
   if (redo && !redo.off) check(`${tag}: redo is the process green`, near(hueOf(redo.colour), 150), redo.colour);
+  await frozen.evaluate((el) => el.remove());
 
   /* The cursor pans on bare ground and marquees on the page.
      Measured by where the page frame ends up: if the view panned, the frame
