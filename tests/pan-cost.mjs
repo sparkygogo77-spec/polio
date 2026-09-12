@@ -13,9 +13,13 @@
  *
  * Run it against a build, not the dev server:
  *
- *   node tests/pan-cost.mjs        # http://localhost:3000
+ *   node tests/pan-cost.mjs [url]  # default http://localhost:3000
  */
 import { chromium } from "playwright-core";
+/* The URL comes in as an argument, the way every other suite here takes it,
+   so the sweep can point this at whichever port it built on. It was pinned
+   to :3000, which meant it only ever ran against a dev server. */
+const URL_ = process.argv[2] ?? "http://localhost:3000";
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 const seed = (n) => {
   const threads = [], spots = {};
@@ -76,7 +80,7 @@ const sweep = async (p, from, to, steps) => {
 for (const n of [1, 6, 30]) {
   const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
   await p.addInitScript(seed, n);
-  await p.goto("http://localhost:3000/builder", { waitUntil: "networkidle" });
+  await p.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
   await p.waitForTimeout(1800);
   await p.locator("[data-finish]").click();
   await p.waitForTimeout(2600);
