@@ -527,7 +527,9 @@ interface StudioState extends Doc {
   /** Keep what Claude found, each finding beside the prompt it was about. */
   recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
   /** An API call came back: hang a thread off the live one and stand on it. */
-  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string }; state?: "running" | "done" | "cut" }) => string;
+  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string }; state?: "running" | "done" | "cut"; madeId?: string }) => string;
+  /** Say which part an iteration made, once it is known. */
+  noteMade: (threadId: string, madeId: string) => void;
   /** How the process behind one iteration ended: still going, done, or given up on. */
   markThread: (id: string, state: "running" | "done" | "cut") => void;
   /**
@@ -1437,10 +1439,13 @@ export const useStudio = create<StudioState>()(
         markThread: (id, state) =>
           set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, state } : t)) })),
 
+        noteMade: (threadId, madeId) =>
+          set((s) => ({ threads: s.threads.map((t) => (t.id === threadId ? { ...t, madeId } : t)) })),
+
         setCurrentThread: (id) =>
           set((s) => (s.threads.some((t) => t.id === id) || id === null ? { currentThreadId: id, openThreadId: id } : {})),
 
-        landThread: ({ mode, model, ask, answer, changes, sketch, state }) => {
+        landThread: ({ mode, model, ask, answer, changes, sketch, state, madeId }) => {
           const id = uid("th");
           set((s) => ({
             threads: [
@@ -1459,6 +1464,7 @@ export const useStudio = create<StudioState>()(
                 at: Date.now(), mode, model, state: state ?? "done",
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 ...(sketch ? { sketch } : {}),
+                ...(madeId ? { madeId } : {}),
                 doc: snapshot(s) as ThreadDoc,
                 // What was vined to the call is what the thread was about.
                 pieces: [...s.draftPieces],

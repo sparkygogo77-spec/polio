@@ -87,6 +87,13 @@ type Open = {
   hand: { x: number; y: number };
   /** Where a part drawn on a nodeless board lands, in canvas space. */
   at: { x: number; y: number } | null;
+  /**
+   * Open straight onto one slot rather than on the wheel.
+   *
+   * For "change this" from the timeline: the wheel is a way to choose what
+   * to do, and that choice has already been made.
+   */
+  slot?: SlotId | null;
 } | null;
 let current: Open = null;
 let opened = 0;
@@ -137,11 +144,27 @@ function keepOnScreen(x: number, y: number): [number, number] {
 }
 
 /** Open the wheel about a part or the page. `at` is the same spot in canvas space, where the page's Add lands a part. */
-export function openRadial(nodeId: string, x: number, y: number, at: { x: number; y: number } | null = null) {
+export function openRadial(nodeId: string, x: number, y: number, at: { x: number; y: number } | null = null, slot: SlotId | null = null) {
   const [px, py] = keepOnScreen(x, y);
-  current = { nodeId, x: px, y: py, seq: ++opened, hand: { x, y }, at };
+  current = { nodeId, x: px, y: py, seq: ++opened, hand: { x, y }, at, slot };
   openedAt = performance.now();
   listeners.forEach((l) => l(current));
+}
+
+/**
+ * Go straight to drawing on a part that already exists.
+ *
+ * From the timeline: "change this" has to change *that* part, so the board
+ * opens on the part the iteration made rather than on empty space — which is
+ * what made going back to change something produce a second something.
+ */
+export function drawOnPart(nodeId: string, x: number, y: number) {
+  openRadial(nodeId, x, y, null, "draw");
+}
+
+/** …and straight to writing on it, which is the other half of "change this". */
+export function writeOnPart(nodeId: string, x: number, y: number) {
+  openRadial(nodeId, x, y, null, "write");
 }
 /**
  * The drawing board on its own, for a part that does not exist yet.
@@ -462,10 +485,12 @@ export function RadialMenu() {
 
   const seq = open?.seq ?? 0;
   React.useEffect(() => {
-    setPicked(null);
+    // …unless it was opened straight onto a slot, which is what "change this
+    // part" does: the choice the wheel exists to offer has been made already.
+    setPicked(open?.slot ?? null);
     setSubPick(null);
     setAdding(false);
-  }, [seq]);
+  }, [seq, open?.slot]);
 
   React.useEffect(() => {
     if (!open) return;

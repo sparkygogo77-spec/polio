@@ -1,0 +1,80 @@
+/**
+ * Changing a thing from the timeline changes that thing.
+ *
+ * Going back to an iteration and drawing again made a second part, because
+ * nothing on the thread said which part on the board it was about. Now:
+ *
+ *   · an iteration remembers what it made, on every road it can take;
+ *   · the card offers to change that part, by drawing or by writing;
+ *   · it offers nothing when the part has since been deleted, because then
+ *     there is nothing to change and the offer would be to make a new one;
+ *   · and the board opens on that part, so what comes back reshapes it.
+ *
+ *   node tests/change-made.mjs [url]      # default http://localhost:3000
+ */
+import { readFileSync } from "node:fs";
+
+const results = [];
+const check = (name, ok, detail = "") => {
+  results.push(ok);
+  console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
+};
+
+/* ------------------------------------------------------------------ */
+/* 1. The thread remembers                                             */
+/* ------------------------------------------------------------------ */
+
+const threads = readFileSync("src/features/studio/threads.ts", "utf8");
+check("a thread has somewhere to keep what it made", /madeId\?: string;/.test(threads));
+
+const store = readFileSync("src/features/studio/store.ts", "utf8");
+check("it can be set as the thread lands", /landThread: \(\{ mode, model, ask, answer, changes, sketch, state, madeId \}\)/.test(store));
+check("and afterwards, for a road that only knows later", /noteMade: \(threadId, madeId\)/.test(store));
+
+const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
+check("the catalogue road records it", /madeId: made\.id,/.test(run));
+check("the reader road records it", (run.match(/noteMade\(landed, made\.id\)/g) ?? []).length >= 1);
+check("and the no-reader road does too", (run.match(/noteMade\(landed, made\.id\)/g) ?? []).length >= 2,
+  `${(run.match(/noteMade\(landed, made\.id\)/g) ?? []).length} of 2`);
+
+/* ------------------------------------------------------------------ */
+/* 2. The card offers to change that part                              */
+/* ------------------------------------------------------------------ */
+
+const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
+check("there is a way to draw more on it", /Draw more on it/.test(detail));
+check("and a way to write more about it", /Write more about it/.test(detail));
+check("both name the part rather than saying \"it\" and hoping", /\$\{madeLabel\}/.test(detail));
+check("neither is offered when the part has gone",
+  /nodes\.find\(\(n\) => n\.id === thread\.madeId\) \?\? null/.test(detail) && /\{made \? \(/.test(detail));
+check("it goes to the board, to that page, with that part picked",
+  /setMode\("design"\)/.test(detail) && /setActivePage\(made\.pageId\)/.test(detail) && /setSelection\(\[made\.id\]\)/.test(detail));
+check("and waits a frame, because the board has to exist first", /requestAnimationFrame/.test(detail));
+
+/* ------------------------------------------------------------------ */
+/* 3. The board opens on the part                                      */
+/* ------------------------------------------------------------------ */
+
+const radial = readFileSync("src/features/studio/RadialMenu.tsx", "utf8");
+check("the wheel can be opened straight onto one slot", /slot\?: SlotId \| null;/.test(radial));
+check("drawing on a part is one call", /export function drawOnPart/.test(radial));
+check("writing on it is the other", /export function writeOnPart/.test(radial));
+check("the slot survives the open rather than being reset to the wheel",
+  /setPicked\(open\?\.slot \?\? null\)/.test(radial));
+
+const board = readFileSync("src/features/studio/DrawBoard.tsx", "utf8");
+check("a drawing made on a part reshapes that part", /nodeId: node\?\.id \?\? null/.test(board));
+check("and says so rather than saying it is making one", /Reshaping \$\{label\}/.test(board));
+
+/* ------------------------------------------------------------------ */
+/* 4. In the browser                                                   */
+/* ------------------------------------------------------------------ */
+
+const url = process.argv[2] || "http://localhost:3000";
+let live = false;
+try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) })).ok; } catch { live = false; }
+check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
+
+const passed = results.filter(Boolean).length;
+console.log(`\nall good — ${passed}/${results.length}`);
+process.exit(passed === results.length ? 0 : 1);

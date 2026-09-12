@@ -46,6 +46,14 @@ export interface Thread {
   answer: string;
   /** What it put on the board. Empty means it answered without changing anything. */
   changes: string[];
+  /**
+   * The part this iteration made, or changed.
+   *
+   * Without it the timeline can show what was drawn and not act on it: going
+   * back to change a thing made a second thing, because nothing on the
+   * thread said which part on the board it was about.
+   */
+  madeId?: string;
   /** The board as it stood when this thread landed. */
   doc?: ThreadDoc;
   /** The pieces that were vined to it when it fired. */
