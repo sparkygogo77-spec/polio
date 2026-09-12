@@ -53,16 +53,13 @@
  */
 import * as React from "react";
 import {
-  CLOUD_LAYERS,
-  cloudSpeed,
-  cloudStep,
   DRIFT_MS,
-  paintCloudLayer,
+  GROUND_TILE,
+  groundTile,
   paintDarkMatter,
   resizeField,
   skyGradient,
   sparkField,
-  type CloudLayer,
   type Shape,
   type SparkField,
 } from "./darkMatter";
@@ -87,11 +84,25 @@ const CLOUD_SCALE = 1;
  */
 const CALM = 0.15;
 
-/** One layer's canvas and the definition it was painted from. */
-interface Live {
-  el: HTMLCanvasElement;
-  def: CloudLayer;
-}
+/**
+ * How far away the whole nebula sits, per surface, as the one layer's opacity.
+ *
+ * The four depths' weights against each other are baked into the tile — they
+ * are what the picture is — and this is the only weighting applied outside
+ * it. One property, one place.
+ *
+ * Above one on purpose, and clamped: the workspace sits at `dim` 0.5 and
+ * wants 0.55, the discs sit at 1 and want the picture at full strength.
+ * Chosen by matching pixels against the four-layer ground it replaces, not by
+ * eye: at 0.55 the bare ground reads mean 20.7, spread 7.0, rgb 32/14/52
+ * against the old 19.6, 7.7, 30/14/44. The first attempt multiplied 0.55 by
+ * `dim` and landed on 0.275, which looked exactly like the flat, washed-out
+ * haze that number deserves.
+ */
+const FAR = 1.1;
+
+/** How long the one layer takes to slide one whole tile, in seconds. */
+const DRIFT_S = Math.round(GROUND_TILE / (7.5 * CALM));
 
 export interface GroundOpts {
   /** How far away the weather is, 0..1. One is the disc's own. */
@@ -132,13 +143,23 @@ export function useGround(
     sky.style.cssText = `position:absolute;inset:0;background:${skyGradient(dim)};`;
     holder.appendChild(sky);
 
-    const layers: Live[] = CLOUD_LAYERS.map((def) => {
-      const el = document.createElement("canvas");
-      el.dataset.cloudLayer = def.id;
-      el.style.cssText = "position:absolute;mix-blend-mode:screen;will-change:transform;";
-      holder.appendChild(el);
-      return { el, def };
-    });
+    /* One layer, not four.
+     *
+     * The nebula is screened together once into a seamless tile
+     * (`groundTile`) and this is the only thing that moves: a plain layer,
+     * no blend mode, sliding one tile's width. Four full-screen layers
+     * blended with `screen` every frame was the cost — hiding them during a
+     * pan took p95 from 63.5ms to 9.6ms, and stopping only the animation
+     * left it at 61.8ms, so it was the blending and never the motion.
+     *
+     * No `mix-blend-mode`. The tile already carries the screened result and
+     * the sky behind it is nearly black, so plain compositing puts the same
+     * pixels on the screen for none of the cost. */
+    const layer = document.createElement("canvas");
+    layer.dataset.cloudLayer = "nebula";
+    layer.style.cssText = "position:absolute;will-change:transform;";
+    layer.style.opacity = String(Math.min(1, FAR * dim));
+    holder.appendChild(layer);
 
     /* A disc's horizon: the edge falls off to near black. It does not move
        either, so it is a gradient rather than a pass of the paint. */
@@ -158,45 +179,36 @@ export function useGround(
     let nextSpark = 0;
 
     /**
-     * Size a layer, paint it once, and set it drifting.
+     * Size the layer, fill it once, and set it drifting.
      *
-     * The canvas is the box plus one tile period along the heading, and it is
-     * offset so the box stays covered at both ends of the slide: the layer
-     * travels exactly that period and starts over, and because the pattern
-     * repeats on it there is nothing to see at the loop.
+     * It is one tile wider than the box and slides exactly one tile, so the
+     * loop lands the pattern back on itself and there is nothing to see at
+     * the join. Sideways only: a second axis would cost another tile of
+     * canvas for a difference nobody can name.
      */
-    const dress = (l: Live, w: number, h: number) => {
-      const step = cloudStep(l.def);
-      const cw = Math.round(w + Math.abs(step.x));
-      const ch = Math.round(h + Math.abs(step.y));
-      l.el.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
-      l.el.height = Math.max(1, Math.round(ch * CLOUD_SCALE));
-      l.el.style.width = `${cw}px`;
-      l.el.style.height = `${ch}px`;
-      l.el.style.left = `${Math.min(0, -step.x)}px`;
-      l.el.style.top = `${Math.min(0, -step.y)}px`;
+    const dress = (w: number, h: number) => {
+      const cw = w + GROUND_TILE;
+      layer.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
+      layer.height = Math.max(1, Math.round(h * CLOUD_SCALE));
+      layer.style.width = `${cw}px`;
+      layer.style.height = `${h}px`;
+      layer.style.left = `${-GROUND_TILE}px`;
+      layer.style.top = "0px";
 
-      const c = l.el.getContext("2d");
+      const c = layer.getContext("2d");
       if (!c) return;
+      const pattern = c.createPattern(groundTile(), "repeat");
+      if (!pattern) return;
       c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
-      // Painted at its own angle, with no travel baked in: the travel is the
-      // animation's job now, so the paint never has to be redone for it.
-      paintCloudLayer(c, l.def, { w: cw, h: ch, dim, turn: l.def.turn, dx: 0, dy: 0, alpha: 1 });
+      c.globalCompositeOperation = "copy";
+      c.fillStyle = pattern;
+      c.fillRect(0, 0, cw, h);
+      c.globalCompositeOperation = "source-over";
       c.setTransform(1, 0, 0, 1, 0, 0);
 
-      /* The layer's weight, once, here, and visible in the DOM.
-         The pattern goes onto the canvas at full strength and the weighting
-         is this one property. It composites to the same thing — for a screen
-         layer, scaling the source's alpha and scaling the element's opacity
-         land in the same place — but it means the bitmap is the real picture.
-         Reading a layer back used to show a maximum alpha of 42, which looks
-         exactly like a broken paint and cost somebody an evening. */
-      l.el.style.opacity = String(l.def.alpha * dim);
-
-      l.el.style.setProperty("--gx", `${step.x.toFixed(2)}px`);
-      l.el.style.setProperty("--gy", `${step.y.toFixed(2)}px`);
-      const secs = step.len / Math.max(0.01, cloudSpeed(l.def) * CALM);
-      l.el.style.animation = still ? "none" : `ground-drift ${secs.toFixed(0)}s linear infinite`;
+      layer.style.setProperty("--gx", `${GROUND_TILE}px`);
+      layer.style.setProperty("--gy", "0px");
+      layer.style.animation = still ? "none" : `ground-drift ${DRIFT_S}s linear infinite`;
     };
 
     const fit = () => {
@@ -209,7 +221,7 @@ export function useGround(
       sp.height = h;
       sp.style.width = `${w}px`;
       sp.style.height = `${h}px`;
-      for (const l of layers) dress(l, w, h);
+      dress(w, h);
       embersField.current = embersField.current ? resizeField(embersField.current, w, h) : sparkField(shape, w, h);
       return true;
     };

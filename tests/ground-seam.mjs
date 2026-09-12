@@ -38,13 +38,8 @@ const { chromium } = (() => {
 })();
 
 /* Copied, not imported: a test that reads the same constants as the code
-   cannot catch the code changing them. TILE is 256. */
-const LAYERS = {
-  "far-violet": { scale: 2.8, turn: 0 },
-  "far-magenta": { scale: 2.3, turn: 70 },
-  "near-violet": { scale: 0.95, turn: 30 },
-  "near-magenta": { scale: 0.75, turn: 150 },
-};
+   cannot catch the code changing them. The composite tile is 1536px. */
+const GROUND_TILE = 1536;
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM, args: ["--no-sandbox"] } : {}) });
@@ -53,46 +48,34 @@ await page.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector("[data-cloud-layer]", { timeout: 20000 });
 await page.waitForTimeout(2500);
 
-const seen = await page.evaluate(() => [...document.querySelectorAll("[data-cloud-layer]")].map((c) => {
+const l = await page.evaluate(() => {
+  const c = document.querySelector("[data-cloud-layer]");
   const st = getComputedStyle(c);
   return {
-    id: c.dataset.cloudLayer,
+    n: document.querySelectorAll("[data-cloud-layer]").length,
     gx: Number((c.style.getPropertyValue("--gx") || "0").replace("px", "")),
     gy: Number((c.style.getPropertyValue("--gy") || "0").replace("px", "")),
-    name: st.animationName,
-    secs: parseFloat(st.animationDuration),
-    timing: st.animationTimingFunction,
-    iter: st.animationIterationCount,
-    w: c.width, h: c.height, box: c.getBoundingClientRect(),
+    name: st.animationName, secs: parseFloat(st.animationDuration),
+    timing: st.animationTimingFunction, iter: st.animationIterationCount,
+    blend: st.mixBlendMode, opacity: st.opacity,
+    box: c.getBoundingClientRect(), inline: c.style.transform,
     laidAt: c.dataset.laidAt ?? null,
   };
-}));
+});
 
-check("all four layers are there", seen.length === 4, `${seen.length}`);
-check("nothing records having been laid again", seen.every((l) => l.laidAt === null), "no data-laid-at, because nothing is re-laid");
-check("they share one keyframe", new Set(seen.map((l) => l.name)).size === 1 && seen[0].name === "ground-drift", seen.map((l) => l.name).join(","));
-check("it runs for ever, at a constant rate", seen.every((l) => l.iter === "infinite" && l.timing === "linear"));
+check("there is one layer, not four", l.n === 1, `${l.n}`);
+check("nothing records having been laid again", l.laidAt === null, "no data-laid-at, because nothing is re-laid");
+check("it runs for ever, at a constant rate", l.iter === "infinite" && l.timing === "linear" && l.name === "ground-drift", `${l.name} ${l.timing} ${l.iter}`);
+check("it slides exactly one tile", Math.abs(l.gx - GROUND_TILE) < 0.01 && l.gy === 0, `${l.gx},${l.gy} against ${GROUND_TILE},0`);
+check("the canvas carries a whole tile of spare", l.box.width - GROUND_TILE > 0, `${l.box.width.toFixed(0)} wide for a ${GROUND_TILE} slide`);
+check("no blend mode: the screening is baked into the tile", l.blend === "normal", l.blend);
+console.log(`       one layer, ${GROUND_TILE}px every ${l.secs.toFixed(0)}s — ${(GROUND_TILE / l.secs).toFixed(2)}px a second, at opacity ${l.opacity}`);
 
-for (const l of seen) {
-  const def = LAYERS[l.id];
-  const period = 256 * def.scale;
-  const want = { x: Math.cos((def.turn * Math.PI) / 180) * period, y: Math.sin((def.turn * Math.PI) / 180) * period };
-  const off = Math.hypot(l.gx - want.x, l.gy - want.y);
-  check(`${l.id}: it slides exactly one tile period`, off < 0.02, `${l.gx},${l.gy} against ${want.x.toFixed(2)},${want.y.toFixed(2)}`);
-  // And the canvas is oversized by that much, or the box would run off it.
-  const spare = { x: l.box.width - Math.abs(l.gx), y: l.box.height - Math.abs(l.gy) };
-  check(`${l.id}: the canvas carries a period of spare`, spare.x > 0 && spare.y > 0,
-    `${l.box.width.toFixed(0)}×${l.box.height.toFixed(0)} for a ${Math.abs(l.gx).toFixed(0)},${Math.abs(l.gy).toFixed(0)} slide`);
-  console.log(`       ${l.id.padEnd(13)} ${Math.round(period)}px every ${l.secs.toFixed(0)}s — ${(period / l.secs).toFixed(2)}px a second`);
-}
-
-/* And it is genuinely moving, on the compositor rather than in the DOM. */
 const a = await page.evaluate(() => getComputedStyle(document.querySelector("[data-cloud-layer]")).transform);
-const inlineA = await page.evaluate(() => document.querySelector("[data-cloud-layer]").style.transform);
 await page.waitForTimeout(2500);
-const b = await page.evaluate(() => getComputedStyle(document.querySelector("[data-cloud-layer]")).transform);
-check("the layer is travelling", a !== b, `${a} then ${b}`);
-check("and nothing in JavaScript is writing the transform", inlineA === "", inlineA || "the inline style is untouched");
+const b2 = await page.evaluate(() => getComputedStyle(document.querySelector("[data-cloud-layer]")).transform);
+check("the layer is travelling", a !== b2, `${a} then ${b2}`);
+check("and nothing in JavaScript is writing the transform", l.inline === "", l.inline || "the inline style is untouched");
 
 await browser.close();
 const bad = results.filter((r) => !r.ok);

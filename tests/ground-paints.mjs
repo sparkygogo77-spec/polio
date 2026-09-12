@@ -109,8 +109,10 @@ async function look(w, h, tag) {
       sky: !!document.querySelector("[data-ground-sky]"),
     };
   });
-  check(`${tag}: four cloud layers, sized`, mech.n === 4 && mech.sized === 4, `${mech.n} layers, ${mech.sized} sized`);
-  check(`${tag}: every layer can still be read as 2D`, mech.twoD === 4, `${mech.twoD}/4 — a bitmap renderer cannot be checked`);
+  // One layer. The four were screened into a single tile once; four
+  // full-screen layers blended every frame was the whole cost.
+  check(`${tag}: one cloud layer, sized`, mech.n === 1 && mech.sized === 1, `${mech.n} layers, ${mech.sized} sized`);
+  check(`${tag}: it can still be read as 2D`, mech.twoD === 1, `${mech.twoD}/1 — a bitmap renderer cannot be checked`);
   check(`${tag}: the sky is there`, mech.sky);
 
   /* The embers, from their own canvas. */
@@ -166,9 +168,9 @@ async function look(w, h, tag) {
   await page.screenshot({ path: `.screenshots/ground-paints-${tag}.png`, clip });
 
   const onBoard = await groundsOn();
-  check(`${tag}: one ground on the board`, onBoard.holders === 1 && onBoard.skies === 1 && onBoard.layers === 4,
+  check(`${tag}: one ground on the board`, onBoard.holders === 1 && onBoard.skies === 1 && onBoard.layers === 1,
     `${onBoard.holders} holder, ${onBoard.skies} sky, ${onBoard.layers} layers, ${onBoard.canvases} canvases`);
-  check(`${tag}: one blend mode`, onBoard.blends === "screen", onBoard.blends);
+  check(`${tag}: no blend mode to get wrong`, onBoard.blends === "normal", onBoard.blends);
 
   /* Press Finish and look again: same ground, still painting. */
   const fin = page.locator("[data-finish]");
@@ -177,9 +179,9 @@ async function look(w, h, tag) {
     await page.waitForTimeout(2200);
     const onLine = await groundsOn();
     check(`${tag}: the timeline stands on the same one ground`,
-      onLine.holders === 1 && onLine.skies === 1 && onLine.layers === 4,
+      onLine.holders === 1 && onLine.skies === 1 && onLine.layers === 1,
       `${onLine.holders} holder, ${onLine.skies} sky, ${onLine.layers} layers, ${onLine.canvases} canvases`);
-    check(`${tag}: and the same blend mode`, onLine.blends === "screen", onLine.blends);
+    check(`${tag}: and the same, in the timeline`, onLine.blends === "normal", onLine.blends);
 
     const c2 = await page.evaluate(() => {
       const g = document.querySelector("[data-workspace-ground]").getBoundingClientRect();

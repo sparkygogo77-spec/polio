@@ -359,9 +359,9 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
 
   let hidden = null;
   const ground = async (where) => {
-    check(`${where} is a sky, four cloud layers and the embers`,
+    check(`${where} is a sky, one cloud layer and the embers`,
       (await page.locator("[data-ground-sky]").count()) === 1
-      && (await page.locator("[data-cloud-layer]").count()) === 4
+      && (await page.locator("[data-cloud-layer]").count()) === 1
       && (await page.locator("[data-ground-sparks]").count()) === 1,
       `${await page.locator("[data-cloud-layer]").count()} layers`);
     // Read off the DOM rather than through a locator, so a ground built the
@@ -407,8 +407,8 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
         });
       }, 900);
     }));
-    check(`${where} moves all four layers`, headings.moved === headings.of, `${headings.moved} of ${headings.of}`);
-    check(`${where} gives each its own heading`, headings.distinct === headings.of, `${headings.distinct} distinct headings`);
+    check(`${where} moves its layer`, headings.moved === headings.of, `${headings.moved} of ${headings.of}`);
+    check(`${where} has a heading`, headings.distinct === headings.of, `${headings.distinct} heading`);
     check(`${where} moves them without touching the DOM`, headings.inline === 0, `${headings.inline} inline transforms written`);
 
     /*
