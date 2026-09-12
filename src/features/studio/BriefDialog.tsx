@@ -47,6 +47,7 @@ import { Badge } from "@/core/ui/badge";
 import { Tooltip } from "@/core/ui/tooltip";
 import { useActions } from "@/core/actions";
 import { screenFace, SCREEN, VOID } from "@/core/ui/void";
+import { claudeSpend } from "./spend";
 
 export function useCompiledBrief() {
   const pages = useStudio((s) => s.pages);
@@ -338,6 +339,18 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         // What went, and what the cache gave back. The second call of a
         // thread reads its brief rather than sending it, and that number is
         // the whole point of splitting the two apart.
+        /*
+         * What the call cost and how long it took, on the iteration.
+         *
+         * Not only when pieces were vined: a call is a call, and an
+         * iteration with no bill on it reads as a free one. `recordSent`
+         * writes what went; `noteSpend` adds the money and the wait, so the
+         * card carries both however the call was made.
+         */
+        useStudio.getState().noteSpend(claudeSpend(
+          { input: r.input, output: r.output, cached: r.cached, written: r.written },
+          r.ms,
+        ));
         if (vined) {
           useStudio.getState().recordSent(
             threadId,

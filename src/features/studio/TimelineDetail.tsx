@@ -27,7 +27,7 @@ import { useActions } from "@/core/actions";
 import { IterationBook } from "./BriefDialog";
 import { headlineOf } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
-import { money } from "./renderer";
+import { sayBill } from "./spend";
 import { useStudio } from "./store";
 
 /**
@@ -165,10 +165,11 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
   /*
    * What this iteration cost, in one line.
    *
-   * Tokens are an estimate of a bill and the renderer is the bill, so the
-   * dollars sit at the end of the same line rather than in a place of their
-   * own: an iteration that drew something says so where an iteration that
-   * only wrote says how much of it came out of the cache.
+   * Both halves are a real bill now — Claude per token and the renderer per
+   * press — so the dollars, the wait and who was paid sit at the end of the
+   * same line rather than in a place of their own: an iteration that drew
+   * something says so where an iteration that only wrote says how much of it
+   * came out of the cache.
    */
   const usage = React.useMemo(() => {
     const u = thread.usage;
@@ -176,7 +177,8 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
     return [
       u.sent ? `${u.sent} pieces sent${u.skipped ? `, ${u.skipped} unchanged` : ""}` : "",
       u.cached ? `${u.cached.toLocaleString()} tokens read from the cache` : "",
-      u.cost ? `${money(u.cost)} at the renderer` : "",
+      // The bill, in the same words the card uses: what, how long, to whom.
+      sayBill({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer }),
     ].filter(Boolean).join(" · ");
   }, [thread.usage]);
 

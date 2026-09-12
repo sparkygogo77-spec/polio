@@ -40,6 +40,7 @@ let held: Held | null = null;
 export const heldBackground = () => (held?.kind === "background" ? held : null);
 export const heldNodes = () => (held?.kind === "nodes" ? held : null);
 import { newMotion, SLEEVES, type MotionAsset } from "./motion";
+import type { Spend } from "./spend";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
@@ -578,6 +579,14 @@ interface StudioState extends Doc {
    * accumulates, because one drawing can reach the renderer more than once.
    */
   noteCost: (dollars: number) => void;
+  /**
+   * Add what a call cost, how long it took and who was paid.
+   *
+   * Every paid call goes through here — Claude per token and the renderer
+   * per press — so an iteration carries one honest bill rather than a
+   * number the bench knew and nobody else did.
+   */
+  noteSpend: (spend: Spend) => void;
   /** Move one thread or piece on the trail. Only that one moves. */
   moveThread: (id: string, x: number, y: number) => void;
   /** Vine a piece to the next call, or cut it loose. */
@@ -1402,15 +1411,35 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        noteCost: (dollars) =>
+        noteCost: (dollars) => get().noteSpend({ dollars, ms: 0, calls: dollars > 0 ? 1 : 0, ...(dollars > 0 ? { renderer: dollars } : {}) }),
+
+        noteSpend: (spend) =>
           set((s) => {
-            if (!s.liveThreadId || !(dollars > 0)) return {};
+            if (!s.liveThreadId) return {};
+            if (!spend.dollars && !spend.ms && !spend.calls) return {};
             return {
-              threads: s.threads.map((t) =>
-                t.id === s.liveThreadId
-                  ? { ...t, usage: { sent: 0, skipped: 0, ...(t.usage ?? {}), cost: Math.round(((t.usage?.cost ?? 0) + dollars) * 100) / 100 } }
-                  : t,
-              ),
+              threads: s.threads.map((t) => {
+                if (t.id !== s.liveThreadId) return t;
+                const had = t.usage;
+                // Kept to the tenth of a cent, not the cent: a four-tenths
+                // call rounded to two places reads as free and is not.
+                const money = (a = 0, b = 0) => Math.round((a + b) * 10000) / 10000;
+                const claude = money(had?.claude, spend.claude);
+                const renderer = money(had?.renderer, spend.renderer);
+                return {
+                  ...t,
+                  usage: {
+                    sent: 0,
+                    skipped: 0,
+                    ...(had ?? {}),
+                    cost: money(had?.cost, spend.dollars),
+                    ms: (had?.ms ?? 0) + spend.ms,
+                    calls: (had?.calls ?? 0) + spend.calls,
+                    ...(claude ? { claude } : {}),
+                    ...(renderer ? { renderer } : {}),
+                  },
+                };
+              }),
             };
           }),
         markThread: (id, state) =>
@@ -1477,7 +1506,10 @@ export const useStudio = create<StudioState>()(
         recordSent: (threadId, sent, usage) =>
           set((s) => ({
             sentPieces: { ...s.sentPieces, ...sent },
-            threads: s.threads.map((t) => (t.id === threadId ? { ...t, usage } : t)),
+            // Merged, not replaced: the money and the wait were already
+            // noted against this thread and a call that also sent pieces
+            // must not wipe its own bill.
+            threads: s.threads.map((t) => (t.id === threadId ? { ...t, usage: { ...(t.usage ?? {}), ...usage } } : t)),
           })),
 
         resetThreadSpots: () => set({ threadSpots: {} }),

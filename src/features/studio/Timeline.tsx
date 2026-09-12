@@ -53,7 +53,7 @@
  * hue and nothing else.
  */
 import * as React from "react";
-import { Brush, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -61,6 +61,7 @@ import { Button } from "@/core/ui/button";
 import { useGround } from "./ground";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
+import { sayWhere, saySpend } from "./spend";
 import { diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 
@@ -947,6 +948,7 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
         ) : (
           <div className="space-y-2">
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
+            <Bill thread={thread} skin={skin} />
             <div className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
               <p className="mb-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what changed on the board</p>
               {changed.length ? (
@@ -960,6 +962,33 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * What this iteration cost and how long it took, on the card.
+ *
+ * The card named the model and stopped there, so a person drawing on the
+ * deploy had no way at all to find out what a drawing costs them — the only
+ * place that number existed was the bench. Claude per token and the renderer
+ * per press, added, with the wait measured rather than guessed, and who was
+ * paid said out loud: that last part is the only way to tell from the
+ * outside whether a drawing reached the renderer at all.
+ */
+function Bill({ thread, skin }: { thread: Thread; skin: { rim: string; dim: string; text: string } }) {
+  const u = thread.usage;
+  if (!u || (!u.cost && !u.ms && !u.calls)) return null;
+  const head = saySpend({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0 });
+  const who = sayWhere({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer });
+  return (
+    <div data-bill={thread.id} className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
+      <p className="mb-0.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
+        <Coins className="size-3" /> what it cost
+      </p>
+      <p className="num text-[11px]" style={{ color: skin.text }}>{head}</p>
+      {who ? <p className="num text-[10px]" style={{ color: skin.dim }}>{who}</p> : null}
+      {thread.model ? <p className="text-[9px]" style={{ color: skin.dim }}>{thread.model}</p> : null}
     </div>
   );
 }
