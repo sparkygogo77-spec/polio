@@ -193,76 +193,46 @@ export function useGround(
     let nextSpark = 0;
     /** Layers waiting to be laid again, one to a frame. */
     const queue: Live[] = [];
-
-    /* The second buffer, swapped rather than copied.
+    /* The paint, straight onto the layer, in one operation.
      *
-     * A recycle is the one moment a visible layer is rewritten, and it is a
-     * full-resolution pattern fill — the most expensive thing in this file.
-     * Doing it on the canvas the compositor is sampling means the layer's
-     * pixels are in flux while it is on screen, and if any of that raster is
-     * deferred, what shows is an empty canvas: a black hole in the ground
-     * for a frame.
+     * This used to go through an `OffscreenCanvas` and arrive by
+     * `transferFromImageBitmap` — a pointer swap rather than a copy, which
+     * measured beautifully here: the beat went 18.9ms to 10ms and the frames
+     * over 80ms went 13 to 5.
      *
-     * So the fill happens on an `OffscreenCanvas` nothing displays, and the
-     * visible layer takes the result through `transferFromImageBitmap`,
-     * which hands over the buffer rather than copying it. That distinction
-     * is the whole design: painting the buffer and then `drawImage`-ing it
-     * onto the visible canvas was measured here at 33 stalls over 80ms in
-     * forty seconds against 13 for painting in place, because a full-surface
-     * blit is a second full-surface raster. A transfer is a pointer swap and
-     * costs nothing, so the visible canvas is never mid-paint and never
-     * cleared, and the recycle costs what it always did.
+     * **It shipped to a machine with a graphics card and the ground went
+     * black.** Four layers holding a bitmap renderer, waiting for an
+     * ImageBitmap that never arrived, and not one line in the console. The
+     * measurement that justified it came from a container with no GPU that
+     * rasterises in software, so it was never evidence about the hardware it
+     * was for. A number from the wrong machine is not a smaller number, it
+     * is a different question answered confidently.
      *
-     * One offscreen for all four layers: they recycle one to a frame, so
-     * they never need it at once, and four more window-sized backing stores
-     * is the memory that makes a browser start dropping them.
+     * So the layer keeps a plain 2D context and is painted directly. What
+     * survives is the part that was never in doubt: `paintCloudLayer` fills
+     * with `globalCompositeOperation = "copy"`, one operation with no
+     * cleared canvas in the middle of it, which is what closed the
+     * black-frame window in the first place.
      *
-     * Where `OffscreenCanvas` or the bitmap renderer is missing, the layer
-     * keeps a plain 2D context and `paintCloudLayer` writes straight to it —
-     * one `copy` fill, so even then there is no cleared canvas to catch. */
-    const canSwap =
-      typeof OffscreenCanvas !== "undefined" &&
-      !!document.createElement("canvas").getContext("bitmaprenderer");
-    let buf: OffscreenCanvas | null = null;
-
+     * Do not put the transfer back without watching the ground on hardware
+     * with a graphics card, and without `ground-paints.mjs` passing there.
+     */
     const lay = (l: Live, at: number) => {
+      const c = l.el.getContext("2d");
+      if (!c) return;
       const w = size.w + l.m * 2;
       const h = size.h + l.m * 2;
-      const pw = Math.max(1, Math.round(w * CLOUD_SCALE));
-      const ph = Math.max(1, Math.round(h * CLOUD_SCALE));
-      const paint = (c: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) => {
-        c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
-        paintCloudLayer(c as CanvasRenderingContext2D, l.def, {
-          w,
-          h,
-          dim,
-          turn: l.def.turn + l.def.spin * at,
-          dx: l.def.dx * at,
-          dy: l.def.dy * at,
-        });
-        c.setTransform(1, 0, 0, 1, 0, 0);
-      };
-
-      if (canSwap) {
-        if (!buf) buf = new OffscreenCanvas(pw, ph);
-        // Sizing it resets it, which is what a fresh field wants anyway, and
-        // a transfer detaches the old buffer regardless.
-        buf.width = pw;
-        buf.height = ph;
-        const bc = buf.getContext("2d");
-        if (!bc) return;
-        paint(bc);
-        const view = l.el.getContext("bitmaprenderer");
-        if (!view) return;
-        view.transferFromImageBitmap(buf.transferToImageBitmap());
-      } else {
-        const c = l.el.getContext("2d");
-        if (!c) return;
-        paint(c);
-      }
+      c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
+      paintCloudLayer(c, l.def, {
+        w,
+        h,
+        dim,
+        turn: l.def.turn + l.def.spin * at,
+        dx: l.def.dx * at,
+        dy: l.def.dy * at,
+      });
+      c.setTransform(1, 0, 0, 1, 0, 0);
       l.at = at;
-      // What it was laid with, so a test can work out where the layer ought
-      // to be and say whether it is there. Nothing reads it at runtime.
       l.el.dataset.laidAt = at.toFixed(4);
     };
 
