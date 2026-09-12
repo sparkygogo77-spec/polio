@@ -53,7 +53,7 @@
  * hue and nothing else.
  */
 import * as React from "react";
-import { Brush, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, ChevronLeft, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -64,18 +64,25 @@ import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { connected, diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
+import { Block, themeFrom } from "./blocks";
+import { resolvePalette } from "./parts/theme";
 
 /**
- * One size for everything that stands on the timeline.
+ * Two shapes, because the two hold different things.
  *
- * An element prompt used to be a chip a third the size of an iteration box,
- * which said "this is a lesser thing" — and it is not, it is a drawing made
- * real, which is most of what happens here. Two kinds of thing differ by the
- * colour they are made of and by what they show inside them, not by being
- * big or small.
+ * An iteration's board carries a line of prose — a headline that has to be
+ * readable without wrapping three times — so it is wide: 248 by 104, near
+ * enough 2.4 to 1. A drawing's board carries a picture, and a picture wants
+ * a square, so it is 168 by 148, near enough 1.15 to 1.
+ *
+ * The areas are within four per cent of each other on purpose. Neither is
+ * the lesser thing — a drawing made real is most of what happens here — so
+ * they have to read as equal weight on the screen while being different
+ * shapes, and equal *area* is what does that, not equal width or height.
  */
 const BOX = { w: 248, h: 104 };
-const PIECE = BOX;
+const PIECE = { w: 168, h: 148 };
+
 /** How far a card stands off the box it grew out of, for the connector to run. */
 const GROW = 22;
 /** How far apart the scatter puts them, before anybody drags anything. */
@@ -132,8 +139,8 @@ function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
 }
 
 /** The size of whatever stands for this iteration. */
-// One size, whatever it is. The kind is said in colour and in the preview.
-const sizeOf = (_t: Thread) => BOX;
+// Which shape it is: wide for prose, square for a picture.
+const sizeOf = (t: Thread) => (isElement(t) ? PIECE : BOX);
 
 /** The main update of an iteration: what it actually did, in a few words. */
 export function headlineOf(t: Thread): string {
@@ -850,11 +857,14 @@ function ElementPiece({
       >
         <span data-molten="" />
         {/*
-          The same shape as an iteration's box, because it is the same sort
-          of thing: a label line, then the preview beside the headline. What
-          differs is the colour it is made of and what the preview shows —
-          here the line that was actually drawn, where an iteration shows the
-          page it left behind.
+          The drawing is the subject.
+          
+          It was a thumbnail beside a line of text, which made the words the
+          thing and the picture an illustration of them — and for a drawing
+          that is backwards: the line he drew is what he recognises from
+          across the screen, and "Bird" is only what it ended up being
+          called. So the mark is large and central, and the name and the
+          small line sit under it, supporting it.
         */}
         <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.7_0.09_18)]">
           <Brush className="size-3" />
@@ -865,17 +875,15 @@ function ElementPiece({
             <StateMark thread={thread} />
           </span>
         </span>
-        <div className="flex items-start gap-2">
-          <span className="shrink-0 rounded border p-1" style={{ borderColor: "oklch(0.38 0.1 18)", background: "oklch(0.13 0.04 18)" }}>
-            <Drawn sketch={thread.sketch} size={44} tone="oklch(0.9 0.17 18)" />
+        <span className="flex min-h-0 flex-1 items-center justify-center py-0.5">
+          <Drawn sketch={thread.sketch} size={62} tone="oklch(0.9 0.17 22)" />
+        </span>
+        <span className="block text-center">
+          <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
+          <span className="mt-0.5 block text-[9px] text-[oklch(0.68_0.07_18)]">
+            {thread.changes.length > 1 ? `and ${thread.changes.length - 1} more` : "made real"}
           </span>
-          <span className="min-w-0 flex-1">
-            <span data-headline="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
-            <span className="mt-1 block text-[9px] text-[oklch(0.68_0.07_18)]">
-              {thread.changes.length > 1 ? `and ${thread.changes.length - 1} more` : "made real"}
-            </span>
-          </span>
-        </div>
+        </span>
       </button>
       {open ? <Card thread={thread} side="out" /> : null}
     </div>
@@ -1021,20 +1029,24 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
           <CopyBit text={side === "in" ? thread.ask : thread.answer} />
         </p>
         {side === "in" ? (
-          <div className="flex items-start gap-2">
-            {element ? (
-              <span className="shrink-0 rounded border p-1" style={{ borderColor: skin.rim, background: "oklch(0.15 0.04 18)" }}>
-                <Drawn sketch={thread.sketch} size={72} tone="oklch(0.92 0.17 18)" />
-              </span>
-            ) : null}
-            <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed">{thread.ask || "nothing was typed"}</p>
-          </div>
+          <WentIn thread={thread} skin={skin} element={element} />
         ) : (
           <div className="space-y-2">
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
             <Bill thread={thread} skin={skin} />
             <div className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
               <p className="mb-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what changed on the board</p>
+              {/*
+                The thing, not a description of it.
+                
+                "drew Diagonal divider at 297 × 66" is a receipt. What a person
+                wants from a card that says what changed is to see what it
+                changed into, and the part is right there on the board — so it
+                is rendered, still, at the size the card has room for. The
+                line of text stays underneath rather than instead: the picture
+                says which one it is, the words say what was done to it.
+              */}
+              <Made thread={thread} skin={skin} />
               {changed.length ? (
                 <ul className="max-h-24 space-y-0.5 overflow-auto font-mono text-[10px]">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
               ) : thread.changes.length ? (
@@ -1073,6 +1085,120 @@ function Bill({ thread, skin }: { thread: Thread; skin: { rim: string; dim: stri
       <p className="num text-[11px]" style={{ color: skin.text }}>{head}</p>
       {who ? <p className="num text-[10px]" style={{ color: skin.dim }}>{who}</p> : null}
       {thread.model ? <p className="text-[9px]" style={{ color: skin.dim }}>{thread.model}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * What went in — and, where a part was drawn on more than once, every go.
+ *
+ * A part that was drawn, looked at, and drawn again has a history of inputs,
+ * and the card showed only the one belonging to this iteration: the others
+ * were on their own boards elsewhere on the timeline, so "which drawing led
+ * to this" could not be answered from the thing it led to. They are paged
+ * through here instead, oldest first, one to a page — stepping back through
+ * the attempts on the same part rather than stacking them or replacing one
+ * with the next.
+ *
+ * A part drawn once has no pager, because one page is not a sequence.
+ */
+function WentIn({ thread, skin, element }: { thread: Thread; skin: { rim: string; dim: string; text: string }; element: boolean }) {
+  const threads = useStudio((s) => s.threads);
+  /*
+   * The goes: every iteration that worked on the same part, in the order
+   * they happened. Keyed on what each one made, which is the only thing that
+   * says two drawings are about one part — the chain does not, because a go
+   * can hang off anywhere.
+   */
+  const goes = React.useMemo(
+    () => (thread.madeId ? threads.filter((t) => t.madeId === thread.madeId) : [thread]),
+    [threads, thread],
+  );
+  const mine = Math.max(0, goes.findIndex((t) => t.id === thread.id));
+  const [page, setPage] = React.useState(mine);
+  // Opening a different iteration lands on that one's own go, not on
+  // whichever page was last looked at.
+  React.useEffect(() => setPage(mine), [mine, thread.id]);
+  const at = goes[Math.min(page, goes.length - 1)] ?? thread;
+  const many = goes.length > 1;
+  const step = (by: number) => setPage((p) => Math.min(goes.length - 1, Math.max(0, p + by)));
+
+  return (
+    <div className="space-y-1.5">
+      {many ? (
+        <div data-goes={goes.length} className="flex items-center gap-1.5 text-[9px]" style={{ color: skin.dim }}>
+          <button
+            type="button"
+            data-go-back=""
+            disabled={page === 0}
+            onClick={(e) => { e.stopPropagation(); play("tick"); step(-1); }}
+            className="tactile grid size-4 place-items-center rounded-sm border disabled:opacity-35"
+            style={{ borderColor: skin.rim }}
+          >
+            <ChevronLeft className="size-3" />
+          </button>
+          <span className="num">go {page + 1} of {goes.length}</span>
+          {at.id === thread.id ? <span style={{ color: skin.text }}>· this one</span> : null}
+          <button
+            type="button"
+            data-go-next=""
+            disabled={page >= goes.length - 1}
+            onClick={(e) => { e.stopPropagation(); play("tick"); step(1); }}
+            className="tactile grid size-4 place-items-center rounded-sm border disabled:opacity-35"
+            style={{ borderColor: skin.rim }}
+          >
+            <ChevronRight className="size-3" />
+          </button>
+        </div>
+      ) : null}
+      <div className="flex items-start gap-2">
+        {element || at.sketch ? (
+          <span className="shrink-0 rounded border p-1" style={{ borderColor: skin.rim, background: "oklch(0.15 0.04 18)" }}>
+            <Drawn sketch={at.sketch} size={72} tone="oklch(0.92 0.17 18)" />
+          </span>
+        ) : null}
+        <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed">{at.ask || "nothing was typed"}</p>
+      </div>
+      {many && at.id !== thread.id ? (
+        <p className="text-[9px]" style={{ color: skin.dim }}>what that one led to: {at.changes[0] ?? "nothing recorded"}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The part this iteration made, rendered still, at card size.
+ *
+ * The board's own renderer (`Block`) with `mode="board"`, scaled to fit:
+ * nothing interactive, no second way of drawing a part, and it follows the
+ * palette because it *is* the part. Nothing when the part has since been
+ * deleted — a picture of something that is not there any more would be worse
+ * than the line of text alone.
+ */
+function Made({ thread, skin }: { thread: Thread; skin: { rim: string; dim: string } }) {
+  const nodes = useStudio((s) => s.nodes);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const node = thread.madeId ? nodes.find((n) => n.id === thread.madeId) ?? null : null;
+  const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
+  const palette = React.useMemo(() => resolvePalette(look?.palette), [look?.palette]);
+  if (!node) return null;
+  const W = 380;
+  const H = 96;
+  // Fit, never crop: a part twice the card's width shrinks rather than
+  // showing its left half, which for most parts is an empty margin.
+  const scale = Math.min(W / Math.max(1, node.w), H / Math.max(1, node.h), 1);
+  return (
+    <div
+      data-made-preview={node.id}
+      aria-hidden
+      inert
+      className="mb-1.5 grid place-items-center overflow-hidden rounded-md border"
+      style={{ height: H, borderColor: skin.rim, background: theme.surface }}
+    >
+      <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
+        <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode="board" size={{ w: node.w, h: node.h }} />
+      </div>
     </div>
   );
 }

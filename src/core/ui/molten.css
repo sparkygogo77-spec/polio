@@ -112,6 +112,27 @@
   --ember-edge-hot: oklch(0.888 0.17 52);
   --ember-vein: oklch(0.797 0.19 32);
 
+  /*
+   * The five older names, kept as aliases.
+   *
+   * The palette was white/hot/body/deep/char before it was named for what
+   * each stop is, and the sibling branch has components written against those
+   * names. They map onto the seven: `white` is the hot edge, `hot` is the
+   * edge, `deep` is the field. Nothing new should use them — `char`, `field`,
+   * `body`, `lit`, `edge`, `edge-hot` and `vein` are the canonical set, and
+   * only they can say where the veining and the lit places go — but code that
+   * already does keeps working rather than breaking on a merge.
+   */
+  --verdant-white: var(--verdant-edge-hot);
+  --verdant-hot: var(--verdant-edge);
+  --verdant-deep: var(--verdant-field);
+  --ember-white: var(--ember-edge-hot);
+  --ember-hot: var(--ember-edge);
+  --ember-deep: var(--ember-field);
+  --molten-white: var(--verdant-edge-hot);
+  --molten-hot: var(--verdant-edge);
+  --molten-deep: var(--verdant-field);
+
   /* The base set: the green, for a construct that has not said which it is. */
   --molten-char: var(--verdant-char);
   --molten-field: var(--verdant-field);
