@@ -43,6 +43,7 @@ import { money, RENDER_COST, type RenderKind } from "./renderer";
 import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
 import { CLIP_STROKE, type OutlineClip, type SketchPoint } from "./sketch";
 import type { DrawnVector } from "./vector";
+import { priceTokens, type TokenUse } from "./spend";
 
 /** How much of the drawing a body has to cover before it is left alone. */
 export const GOOD_ENOUGH = 0.72;
@@ -69,8 +70,16 @@ export interface BodyResult {
   attempts: Attempt[];
   message: string;
   reason?: string;
-  /** What the renderer cost, in dollars. Zero when it was never reached. */
+  /** What it cost, in dollars: the renderer per press and Claude per token. */
   cost: number;
+  /** How long the person waited, measured rather than estimated. */
+  ms?: number;
+  /** How many paid calls it took. */
+  calls?: number;
+  /** Of the cost, what went to the renderer per press… */
+  renderer?: number;
+  /** …and what to Claude per token. */
+  claude?: number;
   /** Why the renderer was not used, when it was not. Shown, not swallowed. */
   rendererSays?: string;
   /** The drawing itself, as vector, when one was traced. */
@@ -380,7 +389,7 @@ export function compare(target: boolean[], got: boolean[], mode: Compare = { clo
 /* The loop                                                            */
 /* ------------------------------------------------------------------ */
 
-async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string }> {
+async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse }> {
   const res = await fetch("/api/studio/body", {
     method: "POST",
     headers: { "content-type": "application/json", ...keyHeader() },
@@ -396,7 +405,7 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
       ...(prev ? { previous: prev.html, critique: prev.says, shot: prev.shot?.split(",")[1] ?? null } : {}),
     }),
   });
-  return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string };
+  return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse };
 }
 
 /**
@@ -455,6 +464,10 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
   const attempts: Attempt[] = [];
   let prev: { html: string; says: string; shot: string | null } | undefined;
   let spent = 0;
+  let toClaude = 0;
+  let toRenderer = 0;
+  let calls = 0;
+  const from = Date.now();
   let rendererSays: string | undefined;
   const kind: RenderKind | false = input.renderer ?? "vector";
 
@@ -468,7 +481,10 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
       drew = { ok: false, message: err instanceof Error ? err.message : "The renderer could not be reached." };
     }
     if (drew.ok && drew.html) {
-      spent += drew.cost ?? RENDER_COST[kind];
+      const press = drew.cost ?? RENDER_COST[kind];
+      spent += press;
+      toRenderer += press;
+      calls++;
       const { html } = cleanSnippet(drew.html, RENDER_LIMIT);
       deps.onStep?.("Looking at what the renderer drew…");
       const judged = await judge(html, input, target, mode);
@@ -488,10 +504,15 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
   for (let n = 1; !drawnWell && n <= MAX_ATTEMPTS; n++) {
     deps.onStep?.(n === 1 ? "Claude is writing the body…" : `Attempt ${n} of ${MAX_ATTEMPTS}${attempts.length ? ` · best ${(bestOf(attempts).overlap * 100).toFixed(0)}%` : ""}…`);
     const answer = await askForBody(input, prev);
+    // Claude charges per token whether or not the answer was usable, so it
+    // is counted before the answer is judged rather than after.
+    const tokens = priceTokens(answer.usage);
+    if (tokens) { spent += tokens; toClaude += tokens; }
+    if (answer.usage) calls++;
     if (!answer.ok || !answer.html) {
       // Nothing to judge. If an earlier attempt landed, that one stands.
       if (attempts.length) break;
-      return { ok: false, code: null, attempts, cost: spent, rendererSays, message: answer.message ?? "No body came back.", reason: answer.reason };
+      return { ok: false, code: null, attempts, cost: spent, ms: Date.now() - from, calls, renderer: toRenderer, claude: toClaude, rendererSays, message: answer.message ?? "No body came back.", reason: answer.reason };
     }
     const { html } = cleanSnippet(answer.html);
     deps.onStep?.(`Looking at attempt ${n}…`);
@@ -501,7 +522,7 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
     prev = { html, says, shot };
   }
 
-  if (!attempts.length) return { ok: false, code: null, attempts, cost: spent, rendererSays, message: rendererSays ?? "No body came back.", reason: "empty" };
+  if (!attempts.length) return { ok: false, code: null, attempts, cost: spent, ms: Date.now() - from, calls, renderer: toRenderer, claude: toClaude, rendererSays, message: rendererSays ?? "No body came back.", reason: "empty" };
   const best = bestOf(attempts);
   const code: PartCode = {
     html: best.html,
@@ -516,7 +537,12 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
   };
   const scored = attempts.map((a) => `${a.source === "renderer" ? "drawn" : "written"} ${a.overlap < 0 ? "not compared" : a.overlap.toFixed(2)}`).join(", ");
   const made = best.source === "renderer" ? "The renderer drew the body" : "A body was written";
-  const price = spent ? `, ${money(spent)} at the renderer` : "";
+  // Who was paid, not just how much: the renderer per press and Claude per
+  // token, which is the only way to tell from the outside which road a body
+  // came down.
+  const price = spent
+    ? `, ${money(spent)}${[toRenderer ? `${money(toRenderer)} at the renderer` : "", toClaude ? `${money(toClaude)} in tokens` : ""].filter(Boolean).length > 1 ? ` (${[toRenderer ? `${money(toRenderer)} at the renderer` : "", toClaude ? `${money(toClaude)} in tokens` : ""].filter(Boolean).join(", ")})` : toRenderer ? " at the renderer" : " in tokens"}`
+    : "";
   // Why the renderer was not used is part of what happened, so it is said
   // rather than left for someone to notice the absence of — whole, because
   // the useful half of "no token yet" is the half that says what to press.
@@ -526,6 +552,10 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
     code,
     attempts,
     cost: spent,
+    ms: Date.now() - from,
+    calls,
+    renderer: toRenderer,
+    claude: toClaude,
     rendererSays,
     message:
       best.overlap < 0

@@ -7,11 +7,16 @@
  *
  * Two kinds of thing stand on it, and they do not look alike, because
  * they are not alike. A **chain prompt** — a plan, a critique, a build,
- * anything asked of the whole site — is an emerald box with a headline
+ * anything asked of the whole site — is a lantern-red box with a headline
  * and a thumbnail of what it left behind, like a news snippet. An
- * **element prompt** — a drawing made real on one part — is a small
- * purple construct piece with no headline at all: an icon, the part's
- * name, and the line that was drawn. A drawing is not a headline.
+ * **element prompt** — a drawing made real on one part — is a small ember
+ * construct piece with no headline at all: an icon, the part's name, and
+ * the line that was drawn. A drawing is not a headline.
+ *
+ * Both are red because both were losing: the pieces were purple and purple
+ * on a purple nebula is nothing at all, and an emerald box on it was the
+ * same colour as the vines running between the boxes. The lanterns lead now
+ * and the green vines support them.
  *
  * Nothing is aligned and nothing is grouped. Boxes are scattered where
  * they landed, dragged anywhere, and the whole surface pans out past the
@@ -31,8 +36,24 @@
  * of. The section under the timeline keeps the prompt, pinned and large,
  * and what this generation can be turned into.
  */
+/*
+ * The two hues the timeline is built on.
+ *
+ * It was emerald for iterations and purple for element prompts, and purple
+ * on purple lost the pieces in the nebula. Both are red now: a lantern red
+ * for the iteration boxes — warm and deep, the colour of a lamp rather than
+ * of a warning — and an ember a shade cooler for the element pieces, so the
+ * two kinds still read apart at a glance. The vines between them are the
+ * green (`strand.ts`), which is the other half of the same decision: the
+ * boxes lead, the vines support.
+ *
+ * The numbers below are written out in place rather than referenced, because
+ * every one of them is a different lightness and chroma of these two hues:
+ * 34 is the lantern, 18 is the ember, and moving either is a search for the
+ * hue and nothing else.
+ */
 import * as React from "react";
-import { Brush, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -40,6 +61,7 @@ import { Button } from "@/core/ui/button";
 import { useGround } from "./ground";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintConnector, paintStrand, strandMiddle, type Point, type StrandTone } from "./strand";
+import { sayWhere, saySpend } from "./spend";
 import { diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 
@@ -635,9 +657,9 @@ function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
       }}
       className="flex shrink-0 items-center gap-1 rounded-sm border px-1 py-px text-[8px] uppercase tracking-[0.12em] transition-[background,border-color]"
       style={{
-        borderColor: on ? "oklch(0.78 0.18 158)" : "oklch(0.42 0.08 158)",
-        background: on ? "oklch(0.5 0.15 158)" : "transparent",
-        color: on ? "oklch(0.14 0.02 158)" : "oklch(0.66 0.08 158)",
+        borderColor: on ? "oklch(0.78 0.17 34)" : "oklch(0.42 0.106 34)",
+        background: on ? "oklch(0.5 0.17 34)" : "transparent",
+        color: on ? "oklch(0.16 0.026 34)" : "oklch(0.66 0.106 34)",
       }}
     >
       <Flag className="size-2.5" />
@@ -674,13 +696,22 @@ function IterationBox({
         className="flex w-full cursor-grab flex-col gap-1 rounded-lg border p-2 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing"
         style={{
           minHeight: BOX.h,
-          // Emerald, and not shouting: the ground behind is nebula, and a box
-          // that fights it makes the whole screen a poster.
-          background: open ? "oklch(0.26 0.07 158)" : "oklch(0.21 0.05 158 / 0.92)",
-          borderColor: open ? "oklch(0.66 0.16 158)" : live ? "oklch(0.5 0.12 158)" : "oklch(0.36 0.07 158)",
-          color: "oklch(0.9 0.05 158)",
+          /*
+           * A lantern, lit: warm and deep, not a signal and not a maroon.
+           *
+           * The ground behind is nebula, so the box does not shout — but it
+           * has to look like there is light inside it, which at this
+           * lightness means the colour has to be in it rather than greyed
+           * out of it. A red with the chroma of the old emerald came out
+           * brown.
+           */
+          background: open
+            ? "linear-gradient(160deg, oklch(0.34 0.115 38), oklch(0.26 0.09 30))"
+            : "linear-gradient(160deg, oklch(0.28 0.095 38 / 0.94), oklch(0.21 0.07 28 / 0.94))",
+          borderColor: open ? "oklch(0.66 0.17 34)" : live ? "oklch(0.5 0.157 34)" : "oklch(0.36 0.091 34)",
+          color: "oklch(0.9 0.066 34)",
           boxShadow: open
-            ? "0 0 0 1px oklch(0.66 0.16 158 / 0.5), 0 8px 26px oklch(0 0 0 / 0.5)"
+            ? "0 0 0 1px oklch(0.66 0.17 34 / 0.5), 0 8px 26px oklch(0 0 0 / 0.5)"
             : "0 6px 18px oklch(0 0 0 / 0.45)",
           transform: dragging ? "scale(1.02)" : "none",
         }}
@@ -748,14 +779,18 @@ function ElementPiece({
         className="flex w-full cursor-grab items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-2.5 text-left transition-[box-shadow,border-color,transform] active:cursor-grabbing"
         style={{
           minHeight: PIECE.h,
-          background: open ? "oklch(0.3 0.1 300)" : "oklch(0.24 0.07 300 / 0.92)",
-          borderColor: open ? "oklch(0.8 0.17 300)" : "oklch(0.48 0.13 300)",
-          color: "oklch(0.93 0.05 300)",
-          boxShadow: open ? "0 0 0 1px oklch(0.8 0.17 300 / 0.45), 0 8px 24px oklch(0 0 0 / 0.5)" : "0 4px 14px oklch(0 0 0 / 0.45)",
+          // The ember: the same lamp, a shade cooler and brighter, so a piece
+          // and a box are told apart at a glance without leaving the family.
+          background: open
+            ? "linear-gradient(160deg, oklch(0.37 0.15 20), oklch(0.28 0.115 12))"
+            : "linear-gradient(160deg, oklch(0.31 0.125 20 / 0.94), oklch(0.23 0.095 12 / 0.94))",
+          borderColor: open ? "oklch(0.8 0.17 18)" : "oklch(0.48 0.17 18)",
+          color: "oklch(0.93 0.066 18)",
+          boxShadow: open ? "0 0 0 1px oklch(0.8 0.17 18 / 0.45), 0 8px 24px oklch(0 0 0 / 0.5)" : "0 4px 14px oklch(0 0 0 / 0.45)",
           transform: dragging ? "scale(1.03)" : "none",
         }}
       >
-        <Drawn sketch={thread.sketch} size={30} tone="oklch(0.9 0.14 300)" />
+        <Drawn sketch={thread.sketch} size={30} tone="oklch(0.9 0.17 18)" />
         <span className="min-w-0 flex-1 truncate text-[11px] leading-tight">{name}</span>
         <CurrentButton thread={thread} on={current} />
         <StateMark thread={thread} />
@@ -825,7 +860,7 @@ function Snippet({ thread }: { thread: Thread }) {
   const H = 44;
   if (!nodes.length) {
     return (
-      <span className="grid shrink-0 place-items-center rounded" style={{ width: W, height: H, background: "oklch(0.16 0.03 158)", border: "1px solid oklch(0.3 0.06 158)" }}>
+      <span className="grid shrink-0 place-items-center rounded" style={{ width: W, height: H, background: "oklch(0.18 0.04 34)", border: "1px solid oklch(0.3 0.078 34)" }}>
         <Sparkles className="size-4 opacity-50" />
       </span>
     );
@@ -840,7 +875,7 @@ function Snippet({ thread }: { thread: Thread }) {
       preserveAspectRatio="xMidYMin slice"
       aria-hidden
       className="shrink-0 rounded"
-      style={{ background: "oklch(0.14 0.025 158)", border: "1px solid oklch(0.3 0.06 158)" }}
+      style={{ background: "oklch(0.16 0.034 34)", border: "1px solid oklch(0.3 0.078 34)" }}
     >
       {nodes.slice(0, 60).map((n) => {
         const lit = changed.has(n.label);
@@ -852,8 +887,8 @@ function Snippet({ thread }: { thread: Thread }) {
             width={Math.max(4, n.w ?? 0)}
             height={Math.max(4, n.h ?? 0)}
             rx={6}
-            fill={lit ? "oklch(0.72 0.19 158 / 0.6)" : "oklch(0.62 0.1 158 / 0.3)"}
-            stroke={lit ? "oklch(0.9 0.2 158)" : "oklch(0.62 0.11 158 / 0.75)"}
+            fill={lit ? "oklch(0.72 0.17 34 / 0.6)" : "oklch(0.62 0.131 34 / 0.3)"}
+            stroke={lit ? "oklch(0.9 0.17 34)" : "oklch(0.62 0.144 34 / 0.75)"}
             strokeWidth={lit ? 8 : 4}
           />
         );
@@ -877,8 +912,8 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
   const changed = React.useMemo(() => diffDocs(parent?.doc, thread.doc), [parent, thread]);
   const element = isElement(thread);
   const skin = element
-    ? { face: "oklch(0.19 0.055 300)", rim: "oklch(0.46 0.12 300)", text: "oklch(0.92 0.04 300)", dim: "oklch(0.72 0.08 300)" }
-    : { face: "oklch(0.17 0.04 158)", rim: "oklch(0.42 0.09 158)", text: "oklch(0.92 0.04 158)", dim: "oklch(0.7 0.07 158)" };
+    ? { face: "oklch(0.21 0.072 18)", rim: "oklch(0.46 0.157 18)", text: "oklch(0.92 0.053 18)", dim: "oklch(0.72 0.106 18)" }
+    : { face: "oklch(0.19 0.053 34)", rim: "oklch(0.42 0.118 34)", text: "oklch(0.92 0.053 34)", dim: "oklch(0.7 0.091 34)" };
   return (
     <div
       data-card={side}
@@ -904,8 +939,8 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
         {side === "in" ? (
           <div className="flex items-start gap-2">
             {element ? (
-              <span className="shrink-0 rounded border p-1" style={{ borderColor: skin.rim, background: "oklch(0.13 0.03 300)" }}>
-                <Drawn sketch={thread.sketch} size={72} tone="oklch(0.92 0.14 300)" />
+              <span className="shrink-0 rounded border p-1" style={{ borderColor: skin.rim, background: "oklch(0.15 0.04 18)" }}>
+                <Drawn sketch={thread.sketch} size={72} tone="oklch(0.92 0.17 18)" />
               </span>
             ) : null}
             <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed">{thread.ask || "nothing was typed"}</p>
@@ -913,6 +948,7 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
         ) : (
           <div className="space-y-2">
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
+            <Bill thread={thread} skin={skin} />
             <div className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
               <p className="mb-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what changed on the board</p>
               {changed.length ? (
@@ -926,6 +962,33 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * What this iteration cost and how long it took, on the card.
+ *
+ * The card named the model and stopped there, so a person drawing on the
+ * deploy had no way at all to find out what a drawing costs them — the only
+ * place that number existed was the bench. Claude per token and the renderer
+ * per press, added, with the wait measured rather than guessed, and who was
+ * paid said out loud: that last part is the only way to tell from the
+ * outside whether a drawing reached the renderer at all.
+ */
+function Bill({ thread, skin }: { thread: Thread; skin: { rim: string; dim: string; text: string } }) {
+  const u = thread.usage;
+  if (!u || (!u.cost && !u.ms && !u.calls)) return null;
+  const head = saySpend({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0 });
+  const who = sayWhere({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer });
+  return (
+    <div data-bill={thread.id} className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
+      <p className="mb-0.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
+        <Coins className="size-3" /> what it cost
+      </p>
+      <p className="num text-[11px]" style={{ color: skin.text }}>{head}</p>
+      {who ? <p className="num text-[10px]" style={{ color: skin.dim }}>{who}</p> : null}
+      {thread.model ? <p className="text-[9px]" style={{ color: skin.dim }}>{thread.model}</p> : null}
     </div>
   );
 }
@@ -963,10 +1026,10 @@ function LoopStarter({ at, from, to, on, onClick }: { at: Point; from?: Thread; 
         style={{
           left: at.x,
           top: at.y,
-          background: on ? "oklch(0.7 0.18 158)" : "oklch(0.2 0.05 158)",
-          border: `1px solid ${on ? "oklch(0.86 0.18 158)" : "oklch(0.5 0.12 158)"}`,
-          color: on ? "oklch(0.14 0.02 158)" : "oklch(0.82 0.12 158)",
-          boxShadow: on ? "0 0 14px oklch(0.7 0.2 158 / 0.6)" : "0 2px 8px oklch(0 0 0 / 0.5)",
+          background: on ? "oklch(0.7 0.17 34)" : "oklch(0.22 0.066 34)",
+          border: `1px solid ${on ? "oklch(0.86 0.17 34)" : "oklch(0.5 0.157 34)"}`,
+          color: on ? "oklch(0.16 0.026 34)" : "oklch(0.82 0.157 34)",
+          boxShadow: on ? "0 0 14px oklch(0.7 0.17 34 / 0.6)" : "0 2px 8px oklch(0 0 0 / 0.5)",
         }}
       >
         <Repeat className="size-3" />
@@ -1006,7 +1069,7 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
       data-box-menu=""
       onPointerDown={(e) => e.stopPropagation()}
       className="fixed z-50 w-56 rounded-lg border p-1 shadow-pop"
-      style={{ left: at.x, top: at.y, background: "oklch(0.19 0.045 158)", borderColor: "oklch(0.4 0.09 158)" }}
+      style={{ left: at.x, top: at.y, background: "oklch(0.21 0.059 34)", borderColor: "oklch(0.4 0.118 34)" }}
     >
       <p className="truncate px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[oklch(0.66_0.08_158)]">{thread.mode} · {new Date(thread.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
       {item("Open it below", <Wand2 className="size-3" />, () => useStudio.getState().openThread(thread.id))}

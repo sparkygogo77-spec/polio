@@ -282,7 +282,24 @@ export async function screenshotPages(
 /* ------------------------------------------------------------------ */
 
 export type AskResult =
-  | { ok: true; text: string; model?: string; pictures: number; truncated: boolean; files: GeneratedFile[]; cached: number; input: number; /** Findings with the prompt that settles each, from critique, fill and finish. */ revisions: Revision[] }
+  | {
+      ok: true;
+      text: string;
+      model?: string;
+      pictures: number;
+      truncated: boolean;
+      files: GeneratedFile[];
+      cached: number;
+      input: number;
+      /** What came back, in tokens: the expensive half of the bill. */
+      output: number;
+      /** What was written into the cache, charged at more than an input token. */
+      written: number;
+      /** How long the person waited for it, measured. */
+      ms: number;
+      /** Findings with the prompt that settles each, from critique, fill and finish. */
+      revisions: Revision[];
+    }
   | { ok: false; message: string; reason?: string };
 
 /**
@@ -356,7 +373,7 @@ export async function askClaude(
      * the reader nothing. The status is what happened; say it.
      */
     const raw = await res.text();
-    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; cached?: number; written?: number }; revisions?: Revision[] };
+    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number }; revisions?: Revision[] };
     try {
       data = JSON.parse(raw) as typeof data;
     } catch {
@@ -377,6 +394,11 @@ export async function askClaude(
         revisions: Array.isArray(data.revisions) ? data.revisions : [],
         cached: data.usage?.cached ?? 0,
         input: data.usage?.input ?? 0,
+        output: data.usage?.output ?? 0,
+        written: data.usage?.written ?? 0,
+        // Measured from the moment the request went out, so it is the wait
+        // the person actually had rather than the model's own timing.
+        ms: Date.now() - started,
       };
     }
     return { ok: false, message: data.message ?? "Couldn't reach Claude.", reason: data.reason };

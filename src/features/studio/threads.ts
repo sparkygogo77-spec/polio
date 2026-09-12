@@ -63,7 +63,22 @@ export interface Thread {
    * back, and the dollars, when an iteration reached a renderer that charges
    * by the press rather than by the token.
    */
-  usage?: { sent: number; skipped: number; cached?: number; input?: number; cost?: number };
+  usage?: {
+    sent: number;
+    skipped: number;
+    cached?: number;
+    input?: number;
+    output?: number;
+    /** What it cost, in dollars, Claude and the renderer together. */
+    cost?: number;
+    /** Of that, what went to Claude per token, and what to the renderer per press. */
+    claude?: number;
+    renderer?: number;
+    /** How long the person actually waited, retries included. */
+    ms?: number;
+    /** How many paid calls it took. */
+    calls?: number;
+  };
   /**
    * How the process behind this iteration ended, if it has.
    *
