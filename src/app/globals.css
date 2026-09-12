@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* The shared surface for glowing constructs: the stops, the keyframes and the
+   two classes, in one file because two branches render them. See molten.css. */
+@import "../core/ui/molten.css";
 
 /* ---------------------------------------------------------------------------
    Design tokens. Runtime-switchable: the ThemeProvider writes data-* attrs and
