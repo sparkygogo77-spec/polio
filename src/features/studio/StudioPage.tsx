@@ -10,7 +10,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Circle, Eraser, Eye, FileText, History, Link, Link2, Link2Off, PlayCircle, Frame, Hand, Layers, Monitor, MousePointer2, PanelLeft, Search,
+  ChevronDown, Circle, Eraser, Eye, FileText, History, Link, Link2, Link2Off, PlayCircle, Layers, Monitor, MousePointer2, PanelLeft, Search,
   Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 import { Bakers } from "./Bakers";
@@ -43,8 +43,9 @@ import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
-import { Kbd } from "@/core/ui/kbd";
 import { useActions } from "@/core/actions";
+import { Dropdown } from "@/core/ui/dropdown-menu";
+import { PROCESS } from "./threads";
 
 /**
  * How much of the window the bottom band keeps — the parts shelf under the
@@ -59,13 +60,34 @@ import { useActions } from "@/core/actions";
  */
 const BAND_H = "clamp(132px, 32vh, 248px)";
 
+/**
+ * Four tools, in one control.
+ *
+ * Six buttons became four in a dropdown that wears whichever is in your hand.
+ * Two left the bar and for different reasons:
+ *
+ *  · **Pan.** The cursor pans. A press on the bare ground outside the page
+ *    drags the view, a press on a part moves the part, and a press on empty
+ *    space *inside* the page still draws a marquee — the nebula is the ground
+ *    you push, the page is the surface you select on. Alt-drag and the middle
+ *    button still pan anywhere, as they always did.
+ *  · **Draw a region.** Worth being exact about, because it was not what it
+ *    looked like: it is not a selection tool and never was. It draws a
+ *    rectangle *annotation*, a `frame` shape, sibling to a pen stroke and an
+ *    arrow. So marquee-plus-shift-click does not replace it — they were never
+ *    doing the same job. What it is, is a third way to draw on a board that
+ *    already has two, and it costs a permanent slot in the bar to get it.
+ *    It is off the bar; the shape kind stays, so every frame already drawn
+ *    still renders and no board loses anything.
+ *
+ * Selecting several at once needs neither of them and needed no change:
+ * dragging a box on empty page already worked, and so did shift-clicking.
+ */
 const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: string }[] = [
   { id: "select", label: "Select & move", icon: MousePointer2, shortcut: "v" },
   { id: "pen", label: "Draw freehand", icon: Pencil, shortcut: "d" },
-  { id: "frame", label: "Draw a region", icon: Frame, shortcut: "r" },
-  { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
   { id: "erase", label: "Erase", icon: Eraser, shortcut: "e" },
-  { id: "pan", label: "Pan", icon: Hand, shortcut: "h" },
+  { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
 ];
 
 /**
@@ -108,7 +130,7 @@ function SiteHead() {
       >
         {initial}
       </span>
-      <span data-site-build="" className="max-w-[170px] truncate text-[12px] font-semibold text-fg" title={name}>
+      <span data-site-build="" className="hidden max-w-[170px] truncate text-[12px] font-semibold text-fg sm:inline" title={name}>
         {name}
       </span>
     </>
@@ -195,6 +217,35 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
     );
   }
 
+  /*
+   * What gives way, and in what order.
+   *
+   * Narrow the window and the bar used to keep "Desktop", "Tablet" and
+   * "Phone" spelled out in full while the controls on the right walked off
+   * the edge — the least important thing in the bar surviving at the expense
+   * of the most. Nothing is cut off now. Things give way in a stated order,
+   * from the first to go to the last:
+   *
+   *   1. the tool's name           (below 2xl) — the icon says it
+   *   2. Updates and Preview words (below xl)  — the icons say them
+   *   3. the search's own words    (below xl)  — it becomes a magnifier
+   *   4. the ink hues              (below lg)  — only out while drawing
+   *   5. the zoom readout          (below lg)  — the minus and plus stay
+   *   6. Fit and Wires             (below lg)  — both have a key, f and w
+   *   7. Updates entirely          (below lg)
+   *   8. the search entirely       (below md)  — mod+k still opens it
+   *   9. the menu's edge switch    (below md)
+   *  10. the site's name           (below sm)  — its mark stays
+   *
+   * What never goes, at any width: the tool in your hand, the three devices,
+   * undo and redo, zoom's minus and plus, Preview, Finish, the panel toggle
+   * and the pages. Those are the ones you cannot work without, so they are
+   * the ones that survive to the narrowest window.
+   *
+   * `menu-pass.mjs` measures the bar's scroll width against its own width at
+   * eight sizes from 640 up, because a ladder that is merely written down is
+   * a comment, not a guarantee.
+   */
   return (
     <div data-studio-bar="" className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
       <SiteHead />
@@ -207,27 +258,10 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
       </Tooltip>
       <span className="mx-1 h-4 w-px bg-border" />
-      <div className="flex items-center gap-0.5 rounded-md border border-border bg-elevated p-0.5">
-        {TOOLS.map((t) => {
-          const Icon = t.icon;
-          return (
-            <Tooltip key={t.id} content={t.label} shortcut={t.shortcut}>
-              <Button
-                variant={tool === t.id ? "subtle" : "ghost"}
-                size="iconXs"
-                aria-label={t.label}
-                aria-pressed={tool === t.id}
-                onClick={() => setTool(t.id)}
-              >
-                <Icon />
-              </Button>
-            </Tooltip>
-          );
-        })}
-      </div>
+      <ToolPicker tool={tool} setTool={setTool} />
 
-      {tool === "pen" || tool === "frame" || tool === "arrow" ? (
-        <div className="flex items-center gap-1 rounded-md border border-border bg-elevated px-1 py-0.5">
+      {tool === "pen" || tool === "arrow" ? (
+        <div data-ink-hues="" className="hidden items-center gap-1 rounded-md border border-border bg-elevated px-1 py-0.5 lg:flex">
           {HUES.map((h) => (
             <button
               key={h}
@@ -242,23 +276,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       ) : null}
 
       <span className="mx-1 h-4 w-px bg-border" />
-      <Tooltip content="Page frame width, positions stay put, the frame shows what fits">
-        <div>
-          <Segmented
-            size="xs"
-            value={String(frameWidth)}
-            onChange={(v) => useStudio.getState().setFrameWidth(Number(v))}
-            options={[
-              { value: String(FRAME_WIDTHS.desktop), label: "Desktop", icon: <Monitor /> },
-              { value: String(FRAME_WIDTHS.tablet), label: "Tablet", icon: <Tablet /> },
-              { value: String(FRAME_WIDTHS.phone), label: "Phone", icon: <Smartphone /> },
-            ]}
-            aria-label="Frame width"
-          />
-        </div>
-      </Tooltip>
-
-      <span className="flex-1" />
+      <DeviceSwitch width={frameWidth} />
 
       {/*
         The search for a tool, in the row of tools.
@@ -268,6 +286,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         this bar. It sits where the hand already is, between the devices and
         the menu's own switch.
       */}
+      <span className="flex-1 xl:hidden" />
       <SearchTools />
 
       {/*
@@ -283,7 +302,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           aria-label={shape === "square" ? "Round the part menu" : "Square off the part menu"}
           aria-pressed={shape === "round"}
           data-menu-shape={shape}
-          className={cn(menuOpen && "ring-1 ring-accent")}
+          className={cn("hidden md:inline-flex", menuOpen && "ring-1 ring-accent")}
           onClick={() => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); }}
         >
           {shape === "square" ? <Square /> : <Circle />}
@@ -291,22 +310,34 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       </Tooltip>
 
       <Tooltip content="Fit the frame in view" shortcut="f">
-        <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => useStudio.getState().requestFit()}>
+        <Button variant="ghost" size="iconXs" aria-label="Fit frame" className="hidden lg:inline-flex" onClick={() => useStudio.getState().requestFit()}>
           <Scan />
         </Button>
       </Tooltip>
       <Tooltip content={showWires ? "Hide the wires between parts" : "Show the wires between parts"} shortcut="w">
-        <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>
+        <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} className="hidden lg:inline-flex" onClick={() => useStudio.getState().setShowWires(!showWires)}>
           {showWires ? <Link2 /> : <Link2Off />}
         </Button>
       </Tooltip>
+      {/* Back is red, forward is green — the same pair as every process
+          state in the app, because undo and redo are the same question:
+          is this going back or going on. Only when there is something to
+          undo: a disabled control that still wears a colour is a lie. */}
       <Tooltip content="Undo" shortcut="mod+z">
-        <Button variant="ghost" size="iconXs" aria-label="Undo" disabled={!past} onClick={() => useStudio.getState().undo()}>
+        <Button
+          variant="ghost" size="iconXs" aria-label="Undo" disabled={!past}
+          style={past ? { color: PROCESS.open } : undefined}
+          onClick={() => useStudio.getState().undo()}
+        >
           <Undo2 />
         </Button>
       </Tooltip>
       <Tooltip content="Redo" shortcut="mod+shift+z">
-        <Button variant="ghost" size="iconXs" aria-label="Redo" disabled={!future} onClick={() => useStudio.getState().redo()}>
+        <Button
+          variant="ghost" size="iconXs" aria-label="Redo" disabled={!future}
+          style={future ? { color: PROCESS.done } : undefined}
+          onClick={() => useStudio.getState().redo()}
+        >
           <Redo2 />
         </Button>
       </Tooltip>
@@ -318,7 +349,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         <button
           type="button"
           onClick={() => useStudio.getState().requestFit()}
-          className="num w-10 text-center text-[10px] text-fg-muted hover:text-fg"
+          className="num hidden w-10 text-center text-[10px] text-fg-muted hover:text-fg lg:block"
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -337,6 +368,115 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   );
 }
 
+/**
+ * The tool in your hand, and the four to choose from.
+ *
+ * A row of six flat ghost buttons said "here are some icons" and made the
+ * one that was actually in your hand the quietest thing in the bar — a
+ * slightly darker background among five identical siblings. This wears the
+ * tool instead: one lit button showing the current icon and its name, and
+ * the rest a press away.
+ *
+ * It takes the app's own red rather than the process pair. Red because the
+ * tool is the loudest thing about what a press will do; **not** `PROCESS.open`
+ * because that red means a state — unfinished, abandoned — and a tool is not
+ * a state. Two reds with two meanings is one too many.
+ */
+function ToolPicker({ tool, setTool }: { tool: Tool; setTool: (t: Tool) => void }) {
+  const cur = TOOLS.find((t) => t.id === tool) ?? TOOLS[0]!;
+  const Icon = cur.icon;
+  return (
+    <Dropdown
+      id="tools"
+      align="start"
+      entries={TOOLS.map((t) => ({
+        id: t.id,
+        label: t.label,
+        icon: t.icon,
+        shortcut: t.shortcut,
+        checked: t.id === tool,
+        onSelect: () => setTool(t.id),
+      }))}
+    >
+      <button
+        type="button"
+        data-tool-picker=""
+        aria-label={`Tool: ${cur.label}`}
+        className="tactile inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium [&_svg]:size-3.5"
+        style={{
+          borderColor: "oklch(0.62 0.19 25)",
+          background: "linear-gradient(oklch(0.4 0.13 25), oklch(0.29 0.1 25))",
+          color: "oklch(1 0 0)",
+          boxShadow: "0 1px 0 oklch(0.2 0.06 25), inset 0 1px 0 oklch(0.72 0.15 25 / 0.5)",
+        }}
+      >
+        <Icon />
+        <span className="hidden 2xl:inline">{cur.label}</span>
+        <ChevronDown className="opacity-80" />
+      </button>
+    </Dropdown>
+  );
+}
+
+/**
+ * Desktop, tablet, phone — three icons, no words, one colour each.
+ *
+ * Both were on offer and the choice is icons plus colour, for a reason that
+ * is about this bar rather than about taste: the words were the widest thing
+ * between the tools and the search, and dropping them is what lets the search
+ * fill its gap. But an outline glyph at 14px is a weak signal on its own —
+ * a tablet and a phone are the same rectangle at different sizes — so with
+ * the label gone the colour has to carry the distinction, and the two changes
+ * are really one.
+ *
+ * The hues are 100° apart around the **accent's own** wheel rather than three
+ * colours picked by eye, so they move with the accent when it is changed and
+ * can never collapse into three shades of one colour. Only the chosen one is
+ * lit; the others sit muted, or three colours all shouting says nothing.
+ */
+const DEVICES = [
+  { key: "desktop", label: "Desktop", icon: Monitor, turn: 0 },
+  { key: "tablet", label: "Tablet", icon: Tablet, turn: 100 },
+  { key: "phone", label: "Phone", icon: Smartphone, turn: 200 },
+] as const;
+
+function DeviceSwitch({ width }: { width: number }) {
+  return (
+    <div
+      data-device-switch=""
+      role="radiogroup"
+      aria-label="Frame width"
+      className="flex items-center gap-0.5 rounded-md border border-border bg-elevated p-0.5"
+    >
+      {DEVICES.map((d) => {
+        const w = FRAME_WIDTHS[d.key];
+        const on = width === w;
+        const hue = `oklch(0.74 0.17 calc(var(--accent-h) + ${d.turn}))`;
+        const Icon = d.icon;
+        return (
+          <Tooltip key={d.key} content={`${d.label} · ${w}px, positions stay put and the frame shows what fits`}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={d.label}
+              data-device={d.key}
+              onClick={() => { play("select"); useStudio.getState().setFrameWidth(w); }}
+              className={cn(
+                "tactile inline-flex size-6 items-center justify-center rounded-sm [&_svg]:size-3.5",
+                on ? "bg-panel shadow-[0_1px_0_var(--border)]" : "opacity-70 hover:opacity-100",
+              )}
+              style={{ color: on ? hue : undefined }}
+            >
+              <Icon />
+            </button>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 /** The command palette, from the bar it is about. */
 function SearchTools() {
   const ctx = useActions();
@@ -346,11 +486,17 @@ function SearchTools() {
         type="button"
         data-tool-search=""
         onClick={() => ctx.togglePanel("commands")}
-        className="tactile hidden h-6 w-44 shrink items-center gap-1.5 rounded-md border border-border bg-elevated px-1.5 text-[11px] text-fg-faint hover:border-border-strong hover:text-fg-muted lg:flex"
+        /* It takes the whole gap between the devices and the menu's switch
+           rather than a fixed 176px with dead bar either side, and it is a
+           lit well rather than the bar's own colour: a search that matches
+           its surroundings reads as a label, not as somewhere to type. The
+           shortcut chip is gone — it was the widest thing in a control whose
+           job is to be typed into, and the tooltip still says it. */
+        className="tactile mx-1 hidden h-6 w-7 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2"
+        style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
-        <Search className="size-3.5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left">Search tools…</span>
-        <Kbd>mod+k</Kbd>
+        <Search className="size-3.5 shrink-0 text-accent" />
+        <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search tools…</span>
       </button>
     </Tooltip>
   );
@@ -371,9 +517,9 @@ function UpdatesToggle() {
   return (
     <>
       <Tooltip content="What has landed, and what is new to use">
-        <Button variant="ghost" size="xs" data-updates-toggle="" aria-pressed={open} onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="xs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
           <History />
-          Updates
+          <span className="hidden xl:inline">Updates</span>
         </Button>
       </Tooltip>
       <UpdatesPanel open={open} onOpenChange={setOpen} />
@@ -391,11 +537,12 @@ function PreviewToggle() {
         variant={on ? "subtle" : "ghost"}
         size="xs"
         aria-pressed={on}
+        aria-label="Preview"
         data-preview-toggle=""
         onClick={() => { play("navigate"); useStudio.getState().setMode(on ? "design" : "preview"); }}
       >
         <PlayCircle />
-        Preview
+        <span className="hidden xl:inline">Preview</span>
       </Button>
     </Tooltip>
   );
@@ -520,9 +667,10 @@ export function StudioPage() {
                 ]}
                 aria-label="Side panel"
               />
-              <button type="button" onClick={() => setLibraryOpen(false)} aria-label="Hide the side panel" className="tactile shrink-0 rounded-sm p-1 text-fg-muted hover:bg-hover hover:text-fg">
-                <PanelLeft className="size-3.5" />
-              </button>
+              {/* The panel used to carry its own hide button here, beside the
+                  bar's. Two controls for one panel, and only one of them
+                  could bring it back — so the one that could only hide it is
+                  gone and the bar's toggle is the whole story. */}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {sideTab === "inspector" ? <Inspector />
