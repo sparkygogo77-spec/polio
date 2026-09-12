@@ -10,12 +10,9 @@
  * one glow passing through all three at once rather than chasing along one
  * of them at a time.
  *
- * It is dimmer than it was on purpose, and dimmer again since a chain
- * prompt's own box started sharing this green: the boxes are the constructs
- * and these are what holds them up. Same hue family, different weight —
- * `rim` and `pulse`, the brightest a vine gets, stay well under a box's own
- * `--verdant-hot`, and nowhere near its white core, so a vine growing out of
- * a green box still reads as the thing joining it rather than more of it.
+ * It is dimmer than it was on purpose. The boxes are the lanterns and these
+ * are what holds them up: a vine that outshines the fruit is the wrong way
+ * round, and a screen of bright green lines was reading as the subject.
  *
  * The path is not the shortest line either. It bows out to one side, always
  * the same side for the same pair, so a run of boxes is joined by curves
@@ -35,8 +32,10 @@
  *    colour end to end.
  * 4. **The fibre.** A deterministic jitter in width and alpha along each
  *    beam, so the body has grain in it rather than being a smooth tube.
- * 5. **The rim.** A hair of pale green on the beam nearest the eye, which is
- *    what stops the whole thing reading as a glow.
+ * 5. **The rim.** A hair of lighter green on the beam nearest the eye, which
+ *    is what stops the whole thing reading as a glow. Lighter, not white:
+ *    a white hair here would put a hot core on the vine, and that is the
+ *    board's.
  * 6. **The glow.** One band of light travelling the length, hitting the same
  *    place on all three beams at the same moment.
  *
@@ -56,20 +55,26 @@ export interface Point {
  * Green, in shades, for the four states a vine can be in.
  *
  * Three shades rather than one colour: a vine walks through them along its
- * length, so the eye reads a grown thing rather than a stroked path. The
- * numbers are lower than the emerald they replace because these support the
- * boxes rather than compete with them.
+ * length, so the eye reads a grown thing rather than a stroked path.
+ *
+ * The vines stayed green when the boards went green, rather than changing
+ * hue to get out of the way — so they get out of the way by being pulled
+ * back instead: lower through the whole range and less colour in them, and
+ * **nothing on a vine is near-white**. The hot core belongs to the board,
+ * which is what makes a board read as the lit thing and a vine as what holds
+ * it. The brightest thing here is the travelling glow at 0.64, against a
+ * board's 0.97 skin.
  */
 export const STRAND = {
   live: {
-    shades: ["oklch(0.56 0.14 152)", "oklch(0.66 0.16 138)", "oklch(0.48 0.12 164)"],
-    rim: "oklch(0.68 0.09 145)",
-    pulse: "oklch(0.72 0.1 142)",
+    shades: ["oklch(0.46 0.095 152)", "oklch(0.54 0.11 140)", "oklch(0.4 0.08 162)"],
+    rim: "oklch(0.58 0.085 148)",
+    pulse: "oklch(0.64 0.1 145)",
   },
   landed: {
-    shades: ["oklch(0.44 0.1 152)", "oklch(0.52 0.12 138)", "oklch(0.38 0.09 164)"],
-    rim: "oklch(0.58 0.08 145)",
-    pulse: "oklch(0.62 0.09 142)",
+    shades: ["oklch(0.35 0.065 152)", "oklch(0.41 0.075 140)", "oklch(0.3 0.055 162)"],
+    rim: "oklch(0.44 0.055 148)",
+    pulse: "oklch(0.5 0.065 145)",
   },
   /**
    * An element prompt's vine.
@@ -80,9 +85,9 @@ export const STRAND = {
    * This one is a shade younger and quicker, which is what "pending" meant.
    */
   pending: {
-    shades: ["oklch(0.6 0.15 142)", "oklch(0.7 0.17 128)", "oklch(0.5 0.13 155)"],
-    rim: "oklch(0.7 0.1 138)",
-    pulse: "oklch(0.74 0.11 135)",
+    shades: ["oklch(0.5 0.105 142)", "oklch(0.58 0.12 130)", "oklch(0.43 0.09 154)"],
+    rim: "oklch(0.62 0.095 138)",
+    pulse: "oklch(0.68 0.105 136)",
   },
   cut: {
     shades: ["oklch(0.36 0.02 152)", "oklch(0.4 0.02 152)", "oklch(0.33 0.02 152)"],

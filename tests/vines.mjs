@@ -43,9 +43,23 @@ for (const [tone, skin] of Object.entries(STRAND)) {
 check("nothing on a vine is the emerald the boxes used to be",
   Object.values(STRAND).every((s) => s.shades.every((c) => hueOf(c) !== 158)));
 check("a cut vine has no colour left in it", STRAND.cut.shades.every((c) => chromaOf(c) <= 0.03));
-check("the vines are dimmer than the old bright green",
-  Object.entries(STRAND).filter(([t]) => t !== "cut").every(([, s]) => s.shades.every((c) => lightOf(c) <= 0.72)),
-  "brightest " + Math.max(...Object.entries(STRAND).filter(([t]) => t !== "cut").flatMap(([, s]) => s.shades.map(lightOf))));
+/*
+ * The vines stayed green when the boards did, so they get out of the way by
+ * being pulled back rather than by changing hue. Nothing on a vine may be
+ * near-white: the hot core is the board's, and that is what makes a board
+ * read as the lit thing and a vine as what holds it up.
+ */
+const everyVineColour = Object.entries(STRAND).filter(([t]) => t !== "cut")
+  .flatMap(([, s]) => [...s.shades, s.rim, s.pulse]);
+check("no part of a vine is near-white", everyVineColour.every((c) => lightOf(c) <= 0.7),
+  "brightest " + Math.max(...everyVineColour.map(lightOf)));
+check("and none of it is loud", everyVineColour.every((c) => chromaOf(c) <= 0.13),
+  "most colour " + Math.max(...everyVineColour.map(chromaOf)));
+check("a board is far brighter than any vine, which is what makes it lead", (() => {
+  const molten = readFileSync("src/core/ui/molten.css", "utf8");
+  const skin = Number(/--verdant-white:\s*oklch\(([\d.]+)/.exec(molten)?.[1]);
+  return skin > Math.max(...everyVineColour.map(lightOf)) + 0.2;
+})());
 
 /* ------------------------------------------------------------------ */
 /* 2. A wider path than the shortest line                              */
