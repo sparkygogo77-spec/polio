@@ -423,78 +423,241 @@ export function cloudTravel(l: CloudLayer, t: number): { x: number; y: number } 
   return { x: l.scale * (dx * cos - dy * sin), y: l.scale * (dx * sin + dy * cos) };
 }
 
-/** How fast a layer goes at the start, for sizing the material it needs. */
 /**
- * One tile period on screen, along the layer's own heading.
+ * The nebula, generated once at the size it is actually shown.
  *
- * The pattern repeats every `TILE` in its own space, so sliding a layer by
- * `R(turn)·S(scale)·(TILE, 0)` lands the pattern exactly back on itself. That
- * is the whole trick behind a ground that drifts for ever without a seam and
- * without ever being repainted: oversize the canvas by one of these, animate
- * one of these, loop. Nothing to recycle, nothing to exhaust, nothing to
- * compensate for.
+ * **Why it is not a small tile any more.** It was: two 256px noise tiles,
+ * coloured, then screened together at scales 3, 2, 1 and 0.75. That is four
+ * periods of 768, 512, 256 and 192 pixels, and a 192px period repeats
+ * thirteen times across a 2560 screen. Enlarging the *composite* cannot fix
+ * it, because the sub-patterns inside keep their own periods — which is why
+ * the field read as repeating squares and repeating circles whatever the
+ * outer tile was sized at. The circles are what value noise looks like when
+ * you can see its lattice: a puff at every cell, on a grid.
+ *
+ * The straight lines were a second fault with the same cure. Filling with a
+ * `createPattern` that carries a `setTransform` scale makes the browser
+ * filter across the tile's edge, and at the edge it samples *clamped* pixels
+ * rather than wrapping ones — a hard seam every period, in a straight line.
+ * Nothing here scales a pattern now; the field is drawn one to one.
+ *
+ * So the field is generated at the size it is shown, with the octaves being
+ * the depth rather than four scaled copies of one tile, and the rule its
+ * width has to satisfy is: **at least the box's extent along the direction of
+ * travel, and comfortably more.** `FIELD_ROOM` is the comfortably.
+ *
+ * **The look is matched, not re-invented.** The octaves are named by the size
+ * of their features in pixels rather than by a cell count, so a wide box and
+ * a tall one get the same clouds rather than clouds stretched to their shape,
+ * and the two colours keep the relationship the old tile had: violet through
+ * the body of the cloud, magenta only where it is thickest, screened. The
+ * numbers below were fitted against a render of the tile they replace, on
+ * mean, spread, the three channel means, and how much detail sits at 4, 8,
+ * 16, 32, 64 and 128 pixels — eleven measures, not an opinion. The fit is
+ * 5%; the gammas came out at the values that were already authored, so only
+ * the size of a puff and the two strengths actually moved.
+ *
+ * **What it costs**, measured, because it is the real trade.
+ *
+ * *Memory.* On a 2332×1079 board the field is 3072×1152 (13.5MB) and the
+ * layer canvas it fills is 5404×1079 (22.2MB): 35.7MB, against 25.4MB for
+ * the 1536px tile it replaces and about 90MB for the four-layer ground
+ * before that. So ten megabytes more than the immediate predecessor, and
+ * fifty-four less than the thing everyone actually complained about. On a
+ * 1054×556 board it is 9.2MB.
+ *
+ * *Time.* Generating one is a long task of about 280ms — against 53ms for a
+ * small tile — and that is why `fieldPeriod` and `fieldHeight` step in 256
+ * and 128 and the last two fields are kept. Dragging a pane across 260px of
+ * width crosses one step: twelve of thirteen sizes on the way are free, one
+ * generates. It is never on a frame; nothing here runs per frame at all.
+ *
+ * Two things bought most of that time back and neither costs anything you
+ * can see: the noise is made at half size and read bilinearly (`COARSE`),
+ * and the curve from a noise value to an alpha is a lookup rather than a
+ * `Math.pow` per pixel (`CURVE`). Together, 790ms to 280.
  */
+
+/** The field's width steps in this, so a resize drag does not re-generate every pixel. */
+const FIELD_STEP = 256;
+
+/** And its height in this. The extra below the box is simply clipped. */
+const FIELD_ROW = 128;
+
 /**
- * The whole nebula as one seamless tile, screened together once.
+ * How much wider than the box the field must be before it may repeat.
  *
- * Four window-sized layers blended with `screen` every frame is where the
- * cost of this ground actually sat — measured, not guessed: hiding the clouds
- * during a pan took p95 from 63.5ms to 9.6ms, and switching only the
- * *animation* off left it at 61.8ms. The motion was never the problem. So the
- * screening happens once, here, into one image, and what slides afterwards is
- * a single plain layer.
- *
- * **Why the scales are not the old ones.** A single image can only slide for
- * ever if it tiles, and it only tiles if every pattern inside it fits a whole
- * number of times. So each layer's scale is nudged to the nearest that
- * divides `GROUND_TILE`: 2.8 → 3, 2.3 → 2, 0.95 → 1, 0.75 → 0.75. Four
- * distinct depths, all within a few percent of where they were.
- *
- * **What is lost, plainly.** The four no longer move relative to each other,
- * so the parallax is gone and the bloom where two layers cross no longer
- * shifts. That is the trade, taken deliberately: depth that costs fourteen
- * milliseconds a frame is not worth it, and the ask was nearly static
- * anyway. The per-layer headings and rotations go with it, because both would
- * break the wrap.
- *
- * The distance is *not* baked in. The relative weights of the four are — they
- * are what the picture is made of — but how far away the whole thing sits is
- * the element's own opacity, one property in one place.
+ * At one, the same cloud would touch both edges of the screen at once. A
+ * quarter more is the margin that stops that being a near miss, and it costs
+ * a quarter of a screen of canvas.
  */
-export const GROUND_TILE = 1536;
+const FIELD_ROOM = 1.25;
 
-const COMPOSITE: { tile: "violet" | "magenta"; scale: number; alpha: number }[] = [
-  { tile: "violet", scale: 3, alpha: 0.9 },
-  { tile: "magenta", scale: 2, alpha: 0.7 },
-  { tile: "violet", scale: 1, alpha: 0.55 },
-  { tile: "magenta", scale: 0.75, alpha: 0.45 },
-];
+/** The width the field wraps on, for a box this wide. */
+export function fieldPeriod(w: number): number {
+  return Math.max(1024, Math.ceil((w * FIELD_ROOM) / FIELD_STEP) * FIELD_STEP);
+}
 
-let ground: HTMLCanvasElement | null = null;
+/** The height the field is generated at, for a box this tall. */
+export function fieldHeight(h: number): number {
+  return Math.max(512, Math.ceil(h / FIELD_ROW) * FIELD_ROW);
+}
 
-export function groundTile(): HTMLCanvasElement {
-  if (ground) return ground;
-  const c = document.createElement("canvas");
-  c.width = GROUND_TILE;
-  c.height = GROUND_TILE;
-  const g = c.getContext("2d");
-  if (!g) return c;
-  const T = darkMatterTiles();
-  for (const l of COMPOSITE) {
-    const p = g.createPattern(l.tile === "violet" ? T.violet : T.magenta, "repeat");
-    if (!p) continue;
-    p.setTransform(new DOMMatrix().scale(l.scale));
-    g.globalAlpha = l.alpha;
-    // Screened into each other exactly once, at build-the-tile time. This is
-    // the only `screen` left anywhere in the ground.
-    g.globalCompositeOperation = "screen";
-    g.fillStyle = p;
-    g.fillRect(0, 0, GROUND_TILE, GROUND_TILE);
+/**
+ * Value noise wrapping on `w × h`, in octaves named by the size of their
+ * features in pixels.
+ *
+ * Naming octaves by feature size rather than by a cell count is what keeps
+ * the clouds the same size whatever shape the box is: a count divides the
+ * width and the height by the same number, so on a 2816×1079 field the cells
+ * come out two and a half times wider than they are tall and the whole sky
+ * is smeared sideways. Rounding a size to a whole number of cells per axis
+ * keeps them square and still wraps.
+ */
+function nebulaNoise(w: number, h: number, seed: number, feature: number, oct: number): Float32Array {
+  const out = new Float32Array(w * h);
+  for (let o = 0, amp = 0.5; o < oct; o++, amp *= 0.5) {
+    const f = feature / (1 << o);
+    const cx = Math.max(2, Math.round(w / f));
+    const cy = Math.max(2, Math.round(h / f));
+    /* The lattice once, then read: the hash is a `sin`, and calling it four
+       times per pixel per octave was most of the generation. */
+    const lat = new Float32Array(cx * cy);
+    for (let j = 0; j < cy; j++) {
+      for (let i = 0; i < cx; i++) {
+        const v = Math.sin(i * 127.1 + j * 311.7 + (seed + o * 13) * 74.7) * 43758.5453;
+        lat[j * cx + i] = v - Math.floor(v);
+      }
+    }
+    const sw = w / cx, sh = h / cy;
+    for (let y = 0; y < h; y++) {
+      const v = y / sh, j0 = Math.floor(v), fy = v - j0;
+      const sy = fy * fy * (3 - 2 * fy);
+      const r0 = (j0 % cy) * cx, r1 = ((j0 + 1) % cy) * cx;
+      for (let x = 0; x < w; x++) {
+        const u = x / sw, i0 = Math.floor(u), fx = u - i0;
+        const sx = fx * fx * (3 - 2 * fx);
+        const c0 = i0 % cx, c1 = (i0 + 1) % cx;
+        const a = lat[r0 + c0]!, b = lat[r0 + c1]!, c = lat[r1 + c0]!, d = lat[r1 + c1]!;
+        out[y * w + x]! += amp * ((a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy);
+      }
+    }
   }
-  g.globalAlpha = 1;
-  g.globalCompositeOperation = "source-over";
-  ground = c;
-  return c;
+  return out;
+}
+
+/**
+ * The two clouds, and how they are cut out of their noise.
+ *
+ * `feature` is the size of the largest puff in pixels; each octave halves it,
+ * so six octaves reach a couple of pixels and the cloud has detail all the
+ * way down. `from`/`to` is the slice of the noise the colour occupies and
+ * `gamma` how hard the edge of that slice is; `alpha` is how much of it
+ * survives. Violet takes the body of the cloud, magenta only the thick of it.
+ */
+const CLOUDS = [
+  { rgb: [112, 50, 204], seed: 3, feature: 120, from: 0.3, to: 0.78, gamma: 1.35, alpha: 0.74 },
+  { rgb: [176, 58, 198], seed: 11, feature: 80, from: 0.42, to: 0.84, gamma: 1.6, alpha: 0.6 },
+] as const;
+
+/** How many octaves deep, i.e. down to `feature / 32`. */
+const OCTAVES = 6;
+
+/**
+ * The noise is generated at half the field's size and read bilinearly.
+ *
+ * It costs nothing that can be measured — the fit against the tile this
+ * replaces is 5.0% either way, across all eleven measures — and it is the
+ * difference between 330ms of noise and 87ms, because a cloud has no detail
+ * at the pixel level to lose.
+ */
+const COARSE = 2;
+
+/** How finely the noise-to-alpha curve is sampled before it is looked up. */
+const CURVE = 1024;
+
+/**
+ * Two of them, at the two sizes the app asks for: the workspace's, and
+ * whichever disc is open. A third would be a resize in flight, and the older
+ * of the two is the one that goes.
+ */
+const fields = new Map<string, HTMLCanvasElement>();
+const FIELDS_KEPT = 2;
+
+/**
+ * The whole nebula at `pw × ph`, wrapping on both.
+ *
+ * Kept between calls because a resize drag asks for one every frame, and
+ * generating it is a third of a second. `fieldPeriod` and `fieldHeight` step
+ * in 256 and 128, so a drag crosses a boundary rarely and hits this the rest
+ * of the time.
+ */
+export function nebulaField(pw: number, ph: number): HTMLCanvasElement {
+  const key = `${pw}x${ph}`;
+  const had = fields.get(key);
+  if (had) return had;
+
+  const el = document.createElement("canvas");
+  el.width = pw;
+  el.height = ph;
+  const c = el.getContext("2d");
+  if (!c) return el;
+
+  const nw = Math.max(64, Math.round(pw / COARSE));
+  const nh = Math.max(64, Math.round(ph / COARSE));
+  const [V, M] = CLOUDS;
+  const nv = nebulaNoise(nw, nh, V.seed, V.feature / COARSE, OCTAVES);
+  const nm = nebulaNoise(nw, nh, M.seed, M.feature / COARSE, OCTAVES);
+
+  /* The curve from a noise value to an alpha is one dimensional, so it is
+     sampled a thousand times here rather than raised to a power three million
+     times below. That one change took the colouring pass from 460ms to 90. */
+  const curve = (cl: (typeof CLOUDS)[number]) => {
+    const t = new Float32Array(CURVE + 1);
+    for (let i = 0; i <= CURVE; i++) {
+      const n = i / CURVE;
+      t[i] = Math.pow(Math.max(0, Math.min(1, (n - cl.from) / (cl.to - cl.from))), cl.gamma) * cl.alpha;
+    }
+    return t;
+  };
+  const lv = curve(V), lm = curve(M);
+  const [v0, v1, v2] = V.rgb;
+  const [m0, m1, m2] = M.rgb;
+
+  const img = c.createImageData(pw, ph);
+  const px = img.data;
+  const sx = nw / pw, sy = nh / ph;
+  for (let y = 0, p = 0; y < ph; y++) {
+    const v = y * sy, y0 = v | 0, fy = v - y0;
+    const r0 = (y0 % nh) * nw, r1 = ((y0 + 1) % nh) * nw;
+    for (let x = 0; x < pw; x++, p += 4) {
+      const u = x * sx, x0 = u | 0, fx = u - x0;
+      const c0 = x0 % nw, c1 = (x0 + 1) % nw;
+      const a00 = nv[r0 + c0]!, a10 = nv[r0 + c1]!, a01 = nv[r1 + c0]!, a11 = nv[r1 + c1]!;
+      const b00 = nm[r0 + c0]!, b10 = nm[r0 + c1]!, b01 = nm[r1 + c0]!, b11 = nm[r1 + c1]!;
+      const av = lv[(((a00 + (a10 - a00) * fx) * (1 - fy) + (a01 + (a11 - a01) * fx) * fy) * CURVE) | 0]!;
+      const am = lm[(((b00 + (b10 - b00) * fx) * (1 - fy) + (b01 + (b11 - b01) * fx) * fy) * CURVE) | 0]!;
+      const ao = am + av * (1 - am);
+      if (ao <= 0) continue;
+      /* Magenta screened over violet, in colour scaled 0..255 because screen
+         is linear in one term and the other is divided back out — the same
+         operation the old tile did once at build time, so the two clouds
+         bloom where they cross instead of one hiding the other. */
+      const k = am * (1 - av), q = am * av, z = (1 - am) * av;
+      px[p] = ((k * m0 + q * (v0 + m0 - (v0 * m0) / 255) + z * v0) / ao + 0.5) | 0;
+      px[p + 1] = ((k * m1 + q * (v1 + m1 - (v1 * m1) / 255) + z * v1) / ao + 0.5) | 0;
+      px[p + 2] = ((k * m2 + q * (v2 + m2 - (v2 * m2) / 255) + z * v2) / ao + 0.5) | 0;
+      px[p + 3] = (ao * 255 + 0.5) | 0;
+    }
+  }
+  c.putImageData(img, 0, 0);
+
+  fields.set(key, el);
+  for (const k of fields.keys()) {
+    if (fields.size <= FIELDS_KEPT) break;
+    fields.delete(k);
+  }
+  return el;
 }
 
 export function cloudStep(l: CloudLayer): { x: number; y: number; len: number } {

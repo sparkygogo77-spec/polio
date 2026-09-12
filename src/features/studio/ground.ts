@@ -31,31 +31,32 @@
  *  · with them, the whole class of bug that ate a night: the seam at a
  *    recycle, the black frame between a clear and a fill, the buffer swap
  *
- * **What was dropped from the look, deliberately.** The layers no longer turn
- * as they drift — `spin` is unused. A slow rotation is the one thing that
- * cannot be done by translating a repeating pattern, and it was the source of
- * the seam. The ask was nearly static, so the rotation went rather than the
- * mechanism being bent back around it. Each layer keeps its own fixed angle,
- * its own heading, its own scale and its own speed, so the parallax and the
- * shifting bloom where two layers cross are both still there — they change
- * more slowly, which is the point. The pace is `DRIFT_PX_S`.
+ * **What was dropped from the look, deliberately.** There were four layers,
+ * each turning slowly on its own heading at its own scale, and they are one
+ * layer now that does not turn. A slow rotation is the one thing that cannot
+ * be done by translating a repeating pattern, and it was the source of the
+ * seam; the four cost fourteen milliseconds a frame in blending, measured.
+ * With them went the parallax and the shifting bloom where two crossed. The
+ * ask was nearly static, so both were paid rather than the mechanism being
+ * bent back around them. The pace is `DRIFT_PX_S`.
  *
  * **The embers are the only thing still on a clock**, and they are what says
  * the page is alive: their own canvas at the box's own size, thirty times a
  * second, which is what a streak needs.
  *
- * **On blending.** The cloud layers screen over the sky, inside a holder that
- * is `isolation: isolate`, so they screen against *the sky gradient* and not
- * against whatever the app happens to put behind. That isolation is what
- * makes `screen` the right mode rather than a guess. If the ground ever looks
- * black, the first thing to check is not the blend mode but whether something
+ * **On blending: there is none.** The two clouds are screened into each other
+ * once, inside `nebulaField`, and what the compositor gets is a plain layer
+ * over a nearly black sky. The holder is still `isolation: isolate` so that
+ * nothing the app puts behind can reach into the ground. If the ground ever
+ * looks black, the thing to check is not the blend mode but whether something
  * opaque is painted on top of it — which is exactly what went wrong once.
  */
 import * as React from "react";
 import {
   DRIFT_MS,
-  GROUND_TILE,
-  groundTile,
+  fieldHeight,
+  fieldPeriod,
+  nebulaField,
   paintDarkMatter,
   resizeField,
   skyGradient,
@@ -92,13 +93,10 @@ const CLOUD_SCALE = 1;
  */
 const DRIFT_PX_S = 6;
 
-/** How long one whole tile takes at that speed. */
-const DRIFT_S = Math.round(GROUND_TILE / DRIFT_PX_S);
-
 /**
  * How far away the whole nebula sits, per surface, as the one layer's opacity.
  *
- * The four depths' weights against each other are baked into the tile — they
+ * The two clouds' weights against each other are baked into the field — they
  * are what the picture is — and this is the only weighting applied outside
  * it. One property, one place.
  *
@@ -153,14 +151,14 @@ export function useGround(
 
     /* One layer, not four.
      *
-     * The nebula is screened together once into a seamless tile
-     * (`groundTile`) and this is the only thing that moves: a plain layer,
-     * no blend mode, sliding one tile's width. Four full-screen layers
+     * The nebula is screened together once into a field wider than the board
+     * (`nebulaField`) and this is the only thing that moves: a plain layer,
+     * no blend mode, sliding exactly one field. Four full-screen layers
      * blended with `screen` every frame was the cost — hiding them during a
      * pan took p95 from 63.5ms to 9.6ms, and stopping only the animation
      * left it at 61.8ms, so it was the blending and never the motion.
      *
-     * No `mix-blend-mode`. The tile already carries the screened result and
+     * No `mix-blend-mode`. The field already carries the screened result and
      * the sky behind it is nearly black, so plain compositing puts the same
      * pixels on the screen for none of the cost. */
     const layer = document.createElement("canvas");
@@ -195,28 +193,39 @@ export function useGround(
      * canvas for a difference nobody can name.
      */
     const dress = (w: number, h: number) => {
-      const cw = w + GROUND_TILE;
+      /* The field wraps on `period`, which is at least 1.15× the box wide, so
+         nothing repeats inside one screenful. The canvas is the box plus that
+         period and slides exactly it, so the loop lands the pattern back on
+         itself. */
+      const period = fieldPeriod(w);
+      const cw = w + period;
       layer.width = Math.max(1, Math.round(cw * CLOUD_SCALE));
       layer.height = Math.max(1, Math.round(h * CLOUD_SCALE));
       layer.style.width = `${cw}px`;
       layer.style.height = `${h}px`;
-      layer.style.left = `${-GROUND_TILE}px`;
+      layer.style.left = `${-period}px`;
       layer.style.top = "0px";
 
       const c = layer.getContext("2d");
       if (!c) return;
-      const pattern = c.createPattern(groundTile(), "repeat");
-      if (!pattern) return;
+      /* The field is generated a little taller than the box and the surplus
+         is clipped, so that dragging a pane taller by a pixel does not throw
+         a third of a second of generation away. */
+      const nebula = nebulaField(period, fieldHeight(h));
       c.setTransform(CLOUD_SCALE, 0, 0, CLOUD_SCALE, 0, 0);
-      c.globalCompositeOperation = "copy";
-      c.fillStyle = pattern;
-      c.fillRect(0, 0, cw, h);
-      c.globalCompositeOperation = "source-over";
+      c.clearRect(0, 0, cw, h);
+      /* Drawn one to one, twice, rather than filled with a scaled pattern.
+         A `createPattern` carrying a scale makes the browser filter across
+         the tile's edge and sample clamped pixels there, which is a hard
+         straight seam every period — the lines that were reported. At 1:1
+         there is no filtering and the field's own wrap does the joining. */
+      for (let x = 0; x < cw; x += period) c.drawImage(nebula, x, 0);
       c.setTransform(1, 0, 0, 1, 0, 0);
 
-      layer.style.setProperty("--gx", `${GROUND_TILE}px`);
+      layer.style.setProperty("--gx", `${period}px`);
       layer.style.setProperty("--gy", "0px");
-      layer.style.animation = still ? "none" : `ground-drift ${DRIFT_S}s linear infinite`;
+      const secs = Math.round(period / DRIFT_PX_S);
+      layer.style.animation = still ? "none" : `ground-drift ${secs}s linear infinite`;
     };
 
     const fit = () => {

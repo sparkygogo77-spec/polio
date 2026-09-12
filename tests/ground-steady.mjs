@@ -11,7 +11,11 @@
  *    `holder.replaceChildren()`, so anything that re-runs the effect empties
  *    the holder and the app's own background shows until the first paint. A
  *    `MutationObserver` on the holder catches it: one childList burst is the
- *    mount, any later one is a reload.
+ *    mount, any later one is a reload. Only the later ones count. React's
+ *    strict mode — on, in `next.config.ts` — runs every effect twice on
+ *    mount by design, so in development there is always exactly one teardown
+ *    in the first moments and it is not the fault being hunted. A teardown
+ *    once the ground is up and steady is.
  *  · *A canvas loses its backing store.* Four window-sized canvases at 1440p
  *    are about 80MB of backing store, and a browser under memory pressure
  *    may drop one; it reads back transparent until something draws to it
@@ -53,11 +57,15 @@ const SECONDS = Number(process.argv[3] ?? 60);
    drops the sampling and leaves the frame timing, to check the timings are
    the ground's and not the probe's. */
 const PIXELS = !process.argv.includes("--no-pixels");
+/* How long after the probe starts the ground is allowed to be settling.
+   Strict mode's second mount lands inside this; a rebuild after it does
+   not, and that is the one worth failing over. */
+const SETTLE_MS = 3000;
 
 /** Installed in the page before the ground exists, so the mount is seen too. */
-function watch(PIXELS) {
+function watch([PIXELS, SETTLE_MS]) {
   const w = {
-    rebuilds: 0, mountSeen: false, blank: [], resizes: 0, frames: 0, gaps: [],
+    rebuilds: 0, lateRebuilds: 0, mountSeen: false, blank: [], resizes: 0, frames: 0, gaps: [],
     still: 0, stillMax: 0, stillNow: 0, lastInk: "", dragOn: 0, dragSince: 0, dragMax: 0, stalls: [], empties: 0, errors: [],
   };
   window.__ground = w;
@@ -75,7 +83,10 @@ function watch(PIXELS) {
            rebuilds if additions were counted. Only `replaceChildren` on a
            holder that already has children removes anything, and that is
            exactly the teardown being hunted. */
-        if (r.removedNodes.length) w.rebuilds++;
+        if (r.removedNodes.length) {
+          w.rebuilds++;
+          if (performance.now() - start > SETTLE_MS) w.lateRebuilds++;
+        }
       }
     }).observe(holder, { childList: true });
     return true;
@@ -183,7 +194,7 @@ const browser = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {}),
 });
 const page = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
-await page.addInitScript(watch, PIXELS);
+await page.addInitScript(watch, [PIXELS, SETTLE_MS]);
 await page.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector("[data-cloud-layer]", { timeout: 20000 });
 
@@ -194,7 +205,7 @@ const w = await page.evaluate(() => {
   const g = window.__ground;
   const gaps = g.gaps.slice(5).sort((a, b) => a - b);
   return {
-    rebuilds: g.rebuilds, blank: g.blank.slice(0, 12), blanks: g.blank.length, resizes: g.resizes,
+    rebuilds: g.rebuilds, lateRebuilds: g.lateRebuilds, blank: g.blank.slice(0, 12), blanks: g.blank.length, resizes: g.resizes,
     frames: g.frames, beat: gaps[Math.floor(gaps.length / 2)] ?? 0, worst: gaps[gaps.length - 1] ?? 0,
     stillMax: g.stillMax, dragMax: Math.round(g.dragMax), layers: document.querySelectorAll("[data-cloud-layer]").length,
     stalls: g.stalls.filter((x) => x.at > 5000), over80: g.stalls.filter((x) => x.at > 5000).length,
@@ -207,7 +218,11 @@ console.log(`       over 80ms: ${w.early} while loading (first 5s), ${w.over80} 
 console.log(`       steady-state stalls: ${w.stalls.slice(0, 14).map((s) => `${s.at}ms/${s.gap}`).join("  ") || "none"}`);
 console.log(`       ember window empty on ${w.empties} samples\n`);
 check("the probe itself never threw", w.errorCount === 0, w.errorCount ? `${w.errorCount} error(s): ${w.errors.join(" | ")}` : "every sample ran");
-check("the ground is never torn down and rebuilt", w.rebuilds === 0, `${w.rebuilds} teardown(s) of the holder`);
+check(
+  "the ground is never torn down and rebuilt once it is up",
+  w.lateRebuilds === 0,
+  `${w.lateRebuilds} teardown(s) after the first ${SETTLE_MS}ms, ${w.rebuilds} in total — strict mode accounts for one at mount`,
+);
 if (PIXELS) check("no layer ever loses its paint", w.blanks === 0, w.blanks ? `${w.blanks} blank reads, first: ${w.blank.slice(0, 4).map((b) => `${b.layer}@${b.at}ms`).join(", ")}` : "all layers inked throughout");
 check("no unexplained canvas resize", w.resizes === 0, `${w.resizes} resize(s)`);
 if (PIXELS) check("the embers never stop", w.stillMax < 3, `longest still run ${w.stillMax} samples (${w.stillMax * 100}ms)`);

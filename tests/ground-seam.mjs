@@ -9,9 +9,9 @@
  * so the rotation turned the offset baked into the paint as well.
  *
  * None of that exists now. A layer is painted **once**, oversized by exactly
- * one tile period along its heading, and slid by exactly that period by a CSS
- * animation that loops. A repeating pattern lands back on itself after one
- * period, so the loop point is the same pixels in the same place. There is no
+ * one field along its heading, and slid by exactly that much by a CSS
+ * animation that loops. The field wraps on its own width, so it lands back on
+ * itself and the loop point is the same pixels in the same place. There is no
  * recycle, no exhaustion, no baked offset and nothing to compensate for, so
  * the seam is not fixed — it is unrepresentable.
  *
@@ -37,9 +37,11 @@ const { chromium } = (() => {
   throw new Error("No Playwright found.");
 })();
 
-/* Copied, not imported: a test that reads the same constants as the code
-   cannot catch the code changing them. The composite tile is 1536px. */
-const GROUND_TILE = 1536;
+/* Nothing is copied from the code any more, because there is no longer a
+   constant to copy: the period is whatever the board's width asks for. What
+   is checked instead is the *relation* that makes the loop seamless — the
+   canvas is the board plus one period, and the slide is exactly that period —
+   which holds at any size and cannot be satisfied by a stale number. */
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM, args: ["--no-sandbox"] } : {}) });
@@ -59,6 +61,7 @@ const l = await page.evaluate(() => {
     timing: st.animationTimingFunction, iter: st.animationIterationCount,
     blend: st.mixBlendMode, opacity: st.opacity,
     box: c.getBoundingClientRect(), inline: c.style.transform,
+    board: c.parentElement.getBoundingClientRect().width,
     laidAt: c.dataset.laidAt ?? null,
   };
 });
@@ -66,10 +69,15 @@ const l = await page.evaluate(() => {
 check("there is one layer, not four", l.n === 1, `${l.n}`);
 check("nothing records having been laid again", l.laidAt === null, "no data-laid-at, because nothing is re-laid");
 check("it runs for ever, at a constant rate", l.iter === "infinite" && l.timing === "linear" && l.name === "ground-drift", `${l.name} ${l.timing} ${l.iter}`);
-check("it slides exactly one tile", Math.abs(l.gx - GROUND_TILE) < 0.01 && l.gy === 0, `${l.gx},${l.gy} against ${GROUND_TILE},0`);
-check("the canvas carries a whole tile of spare", l.box.width - GROUND_TILE > 0, `${l.box.width.toFixed(0)} wide for a ${GROUND_TILE} slide`);
-check("no blend mode: the screening is baked into the tile", l.blend === "normal", l.blend);
-console.log(`       one layer, ${GROUND_TILE}px every ${l.secs.toFixed(0)}s — ${(GROUND_TILE / l.secs).toFixed(2)}px a second, at opacity ${l.opacity}`);
+const spare = l.box.width - l.board;
+check("it slides sideways only", l.gy === 0, `${l.gx},${l.gy}`);
+check(
+  "it slides exactly the spare the canvas was given",
+  Math.abs(l.gx - spare) < 1,
+  `slides ${l.gx}px, and the canvas is ${spare.toFixed(0)}px wider than the ${l.board.toFixed(0)}px board`,
+);
+check("no blend mode: the screening is baked into the field", l.blend === "normal", l.blend);
+console.log(`       one layer, ${l.gx}px every ${l.secs.toFixed(0)}s — ${(l.gx / l.secs).toFixed(2)}px a second, at opacity ${l.opacity}`);
 
 const a = await page.evaluate(() => getComputedStyle(document.querySelector("[data-cloud-layer]")).transform);
 await page.waitForTimeout(2500);
