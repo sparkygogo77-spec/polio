@@ -252,15 +252,16 @@ function hotspots(phase: number): { u: number; b: number; bright: number }[] {
  * Nothing is blended and nothing is translucent — a vine is a thing, not a
  * glow, and you cannot see the nebula through it.
  *
- * `t` is seconds, and almost nothing here uses it: the vine is a still
- * object. `phase` is the pair's own seed, which sets where the winding
- * starts and where the hotspots fall.
+ * Nothing here takes a clock. The vine is a still object and painting it
+ * is a pure function of the two ends, so it is painted when something
+ * moves and not otherwise. `phase` is the pair's own seed, which sets
+ * where the winding starts and where the hotspots fall.
  */
 export function paintStrand(
   c: CanvasRenderingContext2D,
   from: Point,
   to: Point,
-  opts: { t: number; tone: StrandTone; phase?: number; lit?: number; ends?: [VineEnd, VineEnd] },
+  opts: { tone: StrandTone; phase?: number; lit?: number; ends?: [VineEnd, VineEnd] },
 ) {
   const lit = opts.lit ?? 1;
   const phase = (opts.phase ?? 0) * Math.PI * 2;
@@ -363,7 +364,7 @@ export function strandMiddle(from: Point, to: Point): Point {
  * The same construct, straight up or straight down, so the card reads as
  * something the box extruded rather than a panel that appeared next to it.
  */
-export function paintConnector(c: CanvasRenderingContext2D, from: Point, to: Point, opts: { t: number; tone: StrandTone; end?: VineEnd }) {
+export function paintConnector(c: CanvasRenderingContext2D, from: Point, to: Point, opts: { tone: StrandTone; end?: VineEnd }) {
   // Both ends are the same board, so it is one colour end to end.
   const end = opts.end ?? "iteration";
   paintStrand(c, from, to, { ...opts, phase: 0.5, ends: [end, end] });

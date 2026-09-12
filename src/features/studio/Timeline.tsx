@@ -213,6 +213,9 @@ export function Timeline() {
    */
   const viewAt = React.useRef({ pan, zoom });
   if (!settling.current) viewAt.current = { pan, zoom };
+  /* The vine painter, held so a settle can reach it — the tween moves the
+     plot a frame at a time without a render, and the canvas goes with it. */
+  const paintAt = React.useRef<() => void>(() => {});
 
   const stopSettle = React.useCallback(() => {
     if (!settling.current) return;
@@ -261,9 +264,10 @@ export function Timeline() {
         zoom: from.zoom + (to.zoom - from.zoom) * k,
       };
       viewAt.current = at;
-      // Straight to the element: no render, and the strand loop is already
-      // running and reads the same ref on its own clock.
+      // Straight to the element, and the vines painted by hand off the same
+      // ref: no render, and nothing detaches while it moves.
       grid.style.transform = `translate(${at.pan.x}px, ${at.pan.y}px) scale(${at.zoom})`;
+      paintAt.current();
       if (u < 1) {
         settling.current = requestAnimationFrame(step);
         return;
@@ -351,68 +355,106 @@ export function Timeline() {
   const openId = openThreadId;
   const openTone: StrandTone = openId && byId.get(openId) && isElement(byId.get(openId)!) ? "pending" : "live";
 
-  React.useEffect(() => {
+  /*
+   * Painting the vines, and when.
+   *
+   * A vine is a still object: its shape is a function of where its two
+   * boards are and nothing else. So a frame in which nothing moved paints
+   * exactly the pixels already on the canvas, and the loop that ran anyway
+   * cost about a third of a millisecond per vine per frame, forever —
+   * thirty boards spent a second of script for every three seconds of
+   * sitting and looking at it.
+   *
+   * It paints on change instead: once after any commit that moves an end
+   * (a drag, a pan, a zoom, a card opening, the set of vines changing),
+   * once when something that carries an end resizes, and once a frame from
+   * the settle tween, which moves the plot without a render. Idle costs
+   * nothing at all.
+   *
+   * `useLayoutEffect`, and no frame cap: the canvas is written in the same
+   * commit as the boxes, so the vines and the plot's own transform land
+   * together. The old 33ms cap held the canvas at half rate while the
+   * transform ran uncapped, which is what made a pan look like the whole
+   * surface sliding out from under every vine at once.
+   */
+  const paint = React.useCallback(() => {
     const el = wires.current;
     const box = host.current;
     const c = el?.getContext("2d");
     if (!el || !c || !box) return;
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    let raf = 0;
-    let last = 0;
-    const start = performance.now();
-    const paint = (now: number) => {
-      raf = requestAnimationFrame(paint);
-      if (now - last < 33) return;
-      last = now;
-      const w = Math.max(1, Math.round(box.clientWidth));
-      const h = Math.max(1, Math.round(box.clientHeight));
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      if (el.width !== w * dpr || el.height !== h * dpr) {
-        el.width = w * dpr;
-        el.height = h * dpr;
-        el.style.width = `${w}px`;
-        el.style.height = `${h}px`;
+    const w = Math.max(1, Math.round(box.clientWidth));
+    const h = Math.max(1, Math.round(box.clientHeight));
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (el.width !== w * dpr || el.height !== h * dpr) {
+      el.width = w * dpr;
+      el.height = h * dpr;
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+    }
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    // The strands live in the plot's frame; the plot is panned and scaled.
+    c.save();
+    // The live view, not the rendered one: a settle moves the plot without
+    // a render, and the strands have to go with it.
+    const { pan: at, zoom: z } = viewAt.current;
+    c.translate(at.x, at.y);
+    c.scale(z, z);
+    for (const cord of cords) {
+      const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
+      paintStrand(c, from, to, { tone: cord.tone, phase: seed(cord.to), ends: cord.ends });
+    }
+    /*
+     * The card's own connector: the same construct, from the card's edge
+     * to the box's. Measured rather than assumed, because the card is as
+     * tall as what is in it — and it is two rectangles a paint, not a
+     * layout pass a frame.
+     */
+    const grid = plot.current;
+    if (openId && grid) {
+      const a = anchorOf(openId);
+      const origin = grid.getBoundingClientRect();
+      const tone: StrandTone = openTone;
+      for (const side of ["in", "out"] as const) {
+        const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
+        if (!card) continue;
+        const r = card.getBoundingClientRect();
+        const cx = (r.left - origin.left) / z + r.width / z / 2;
+        const edge = side === "in" ? (r.bottom - origin.top) / z : (r.top - origin.top) / z;
+        paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom },
+          { tone, end: openTone === "pending" ? "drawing" : "iteration" });
       }
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      c.clearRect(0, 0, w, h);
-      const t = still ? 0 : (now - start) / 1000;
-      // The strands live in the plot's frame; the plot is panned and scaled.
-      c.save();
-      // The live view, not the rendered one: a settle moves the plot without
-      // a render, and the strands have to go with it.
-      const { pan: at, zoom: z } = viewAt.current;
-      c.translate(at.x, at.y);
-      c.scale(z, z);
-      for (const cord of cords) {
-        const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
-        paintStrand(c, from, to, { t, tone: cord.tone, phase: seed(cord.to), ends: cord.ends });
-      }
-      /*
-       * The card's own connector: the same construct, from the card's edge
-       * to the box's. Measured rather than assumed, because the card is as
-       * tall as what is in it — and it is two rectangles a frame, not a
-       * layout pass.
-       */
-      const grid = plot.current;
-      if (openId && grid) {
-        const a = anchorOf(openId);
-        const origin = grid.getBoundingClientRect();
-        const tone: StrandTone = openTone;
-        for (const side of ["in", "out"] as const) {
-          const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
-          if (!card) continue;
-          const r = card.getBoundingClientRect();
-          const cx = (r.left - origin.left) / z + r.width / z / 2;
-          const edge = side === "in" ? (r.bottom - origin.top) / z : (r.top - origin.top) / z;
-          paintConnector(c, { x: cx, y: edge }, { x: a.cx, y: side === "in" ? a.top : a.bottom },
-            { t, tone, end: openTone === "pending" ? "drawing" : "iteration" });
-        }
-      }
-      c.restore();
-    };
-    raf = requestAnimationFrame(paint);
-    return () => cancelAnimationFrame(raf);
+    }
+    c.restore();
   }, [cords, anchorOf, openId, openTone]);
+  // The settle tween is the one mover that never renders, so it paints by
+  // hand; this is how it reaches the current one.
+  paintAt.current = paint;
+
+  React.useLayoutEffect(() => {
+    paint();
+  }, [paint, pan, zoom]);
+
+  /*
+   * The two things that move an end without a render of this component:
+   * the host changing size, and the open card growing when what is in it
+   * finishes loading. Kept off the pan and zoom deps deliberately — a new
+   * observer costs a spare paint on the next frame, and a pan is sixty
+   * renders a second.
+   */
+  React.useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => paintAt.current());
+    if (host.current) ro.observe(host.current);
+    const grid = plot.current;
+    if (openId && grid) {
+      for (const side of ["in", "out"] as const) {
+        const card = grid.querySelector<HTMLElement>(`[data-card="${side}"][data-card-of="${openId}"]`);
+        if (card) ro.observe(card);
+      }
+    }
+    return () => ro.disconnect();
+  }, [openId]);
 
   /* -------------------------------------------------------- the pointer */
   const startDrag = (id: string, e: React.PointerEvent) => {
