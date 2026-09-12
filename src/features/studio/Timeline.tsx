@@ -764,7 +764,7 @@ function IterationBox({
           The line above the headline is a label, and it is sized like one:
           what the iteration made is the biggest thing on the box.
         */}
-        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.66_0.07_34)]">
+        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.66_0.07_152)]">
           {icon}
           {kind}
           {pinned ? <Pin className="size-2.5 fill-current" /> : null}
