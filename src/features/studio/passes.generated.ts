@@ -2,9 +2,70 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T18:08:59.138Z";
+export const GENERATED_AT = "2026-09-13T18:40:26.508Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "3667ac4",
+    "when": "2026-09-13T18:40:18+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "d15b6d9",
+        "says": "The console's colour menus move onto the one system",
+        "when": "2026-09-13T18:29:36+00:00",
+        "detail": [
+          "Two of the six. BackgroundEditors and RingEditors now take their chip size, their corner and their empty and inherited swatches from colourMenu.ts, and nine hand-written sizes come out.",
+          "What the measurement found once the surfaces were opened:",
+          "The five \"nothing\" chips were not one thing. Two mean nothing is there — \"No aura\", \"No texture\" — and those get the chequer. Three mean this follows the site: \"From the accent\", \"Follow the site\", and the texture row's \"SITE\", which had already broken ranks and used a word instead of the glyph. A part that follows the site is not empty; it has a colour, and the menu was hiding it behind a dark box with a cross on it. Those get inheritChip, which wears the colour it inherits under a folded corner. The fifth, \"No entrance\", is not a colour chip at all — a row of motion icons with an off switch — and keeps its Ban.",
+          "There were nine hand-written sizes, not seven, in six values. Two rows chose between two sizes with a ternary (`size={sharing ? 22 : 26}`), and `sharing` was that row's own way of saying \"there is less room here\" — the question chipSize already answers from the radius. Two more rows and one grid ran on defaults of 28 and 22 that nobody had chosen. No call site writes a size now; ArcChips reads it off the slab."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "4aa3f48",
+        "says": "gpt-image-2 does do transparency: it leads the alpha step, and every field is data",
+        "when": "2026-09-13T18:21:39+00:00",
+        "detail": [
+          "The correction, taken: J has produced transparent PNGs from gpt-image-2 on Replicate with background set to transparent — real alpha, quality intact — so the row that said it could not is wrong and is gone. Its schema was read again at the source (replicate.com/api/models/…/versions), and the table now carries what the schema carries rather than what it was briefed.",
+          "**The alpha step is a render, not a cut.** gpt-image-2 serves it first and gpt-image-1.5 is the other option; the segmenter stays behind both. The step is the picture handed back to a model that renders with no ground — exact by construction, no matte, no halo, no filled hole — and a cutter guessing at an edge after the fact is what happens only when neither will serve. `wordsFor` has the words for it (\"again exactly as it is, with a transparent background, nothing moves\"), the progress word is \"Taking the ground off…\", and the card line is \"ground left out · …\".",
+          "Alpha is therefore a **pass of its own** in a plan rather than a flag on the last one: refine, recreate and alpha run in the order the plan gives them, each starting from what the one before it made. (It was `alpha: boolean` on the last pass; that is gone.)",
+          "**Every field of every model is data now** (`ModelField` on each row): name, label, kind, allowed values, min, max, default, how many images, which of them the route already fills (`managed`), and a line from the schema worth keeping. Read off the published schemas, field for field, for all seven rows — gpt-image-2 and 1.5 (aspect_ratio including auto and the explicit pixel sizes up to 3840×2160, input_images, background, quality, number_of_images, output_compression, output_format, moderation, user_id, openai_api_key), nano-banana-2, seedream-5-lite, ideogram, hunyuan3d-2mv and the remover. `optionsFor` holds what a person sets to what the model takes — an enum to its values, a number clamped and an integer rounded, images to the count the field allows, anything else dropped rather than sent — and `inputFor` applies it last, so a person's ratio or background wins over the route's own choice. The request carries `options`, the plan carries `options`, and the answer says which of them were applied."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0af2c02",
+    "when": "2026-09-13T18:09:19+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "0af2c02",
+        "says": "Regenerate the passes for the colour menu",
+        "when": "2026-09-13T18:09:19+00:00",
+        "detail": [
+          "Hypatia's pass: what a colour menu is, said once. New file and new suite, nothing else touched."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "e90c82d",
     "when": "2026-09-13T18:08:58+00:00",
@@ -924,51 +985,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9f8aed6",
-    "when": "2026-09-12T21:02:22+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "a27a45b",
-        "says": "Paint the vines when something moves, not every frame",
-        "when": "2026-09-12T19:43:51+00:00",
-        "detail": [
-          "The vine is a still object — its shape is a function of where its two boards are and nothing else — so the loop that repainted it every frame was redrawing the pixels already on the canvas. It cost about half a millisecond per vine per frame for as long as the timeline was open.",
-          "Painting is now driven from a layout effect keyed on the geometry, from a ResizeObserver on the host and the open card, and from the settle tween, which moves the plot without a render. The 33ms cap is gone with the loop: the canvas is written in the same commit as the boxes, so the vines and the plot's transform land together rather than the surface sliding half a frame ahead of everything on it. `t` is dropped from paintStrand and paintConnector, which never used it.",
-          "No look change: same bark, same still hotspots, same colour from both ends.",
-          "tests/pan-cost.mjs measured two gestures that moved nothing — the pan started on a button below the timeline and the drag used a rectangle read before the pan had moved it, so both rows were really the paint loop running on its own clock. It now finds bare ground and a board actually under the pointer, and says so when either fails to move."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "1104420",
-    "when": "2026-09-12T19:51:27+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "1104420",
-        "says": "pan-cost takes the url as an argument, like every other suite",
-        "when": "2026-09-12T19:51:27+00:00",
-        "detail": [
-          "It was pinned to http://localhost:3000, so it could only ever run against a dev server on that port and threw ERR_CONNECTION_REFUSED in the sweep, which builds and serves on a fresh port each pass. Every sibling reads process.argv[2] with the same default; this now does too.",
-          "Nothing about what it measures changed. Against the current tree it reports script/style/layout for 1, 6 and 30 boards, idle against pan against drag."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
       }
     ],
     "more": 0
