@@ -2,9 +2,58 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T17:16:59.743Z";
+export const GENERATED_AT = "2026-09-13T18:03:39.128Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "1de2aab",
+    "when": "2026-09-13T18:03:13+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "1de2aab",
+        "says": "The create space shots, retaken on the merged tree",
+        "when": "2026-09-13T18:03:13+00:00",
+        "detail": [
+          "Same four, from the run that verified the merge: the placeholder, the hole after it has consumed the area, the part inside it with its own panel, and the construct box. The ground moves under them, so no two captures are the same file; these are the ones that go with the tree as it stands."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "f01b597",
+        "says": "solid waits for the question the run now asks",
+        "when": "2026-09-13T17:52:26+00:00",
+        "detail": [
+          "The 3D suite lost five checks to a third resting state. `oddness.ts` stops a drawing that could be two things and asks before anything is spent, and a job that is `asking` is neither running nor waiting — so the wait loop saw a quiet queue, walked past an unanswered question, and read a part that had never been made. Every check after it was reading null off a drawing still sitting behind the question.",
+          "It answers now: with the answer a call names, and otherwise by waving it on, which is what these drawings mean — they say in words what they are. The default keeps every call that predates the question saying exactly what it said before.",
+          "The cube offer is asked where it went. It used to be a line in the thread's changes, the part made flat first and told afterwards that a cube was one word off, and it now comes in front of the first paid call with the cube as the likeliest answer. This suite only holds that a box nobody claimed does not go quietly; what the question is made of belongs to tests/oddness.mjs, which covers the rules and every answer and passes. 13/13.",
+          "One for whoever owns the gate, because it is a judgement rather than a fault: the box question exempts a drawing whose words say \"cube\", but not one that has been described some other way. \"a chunk of rock, in 3d, turnable\" is asked whether it is a box, which reads oddly for someone who has plainly said what they want. The scribble question has the exemption — words beside it mean it has been described — and the box question does not."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "053e5b4",
+        "says": "Settle the recreate wording on trunk, and regenerate the passes",
+        "when": "2026-09-13T17:17:34+00:00",
+        "detail": [
+          "The pass: the timeline closes a card on any press off it, edits an element from its card, and asks before it spends.",
+          "The same two hunks conflicted again, with the sides swapped. Both of us had fixed the recreate step within the hour, I resolved in favour of his wording, he merged trunk and resolved in favour of mine, and each deferring to the other is a loop that does not end on its own. Trunk keeps what is already pushed and green: \"Recreate the real thing\" for the panel, and the step-move check pinned by name rather than by position — the shorter of the two and the better instrument. Neither is mine; that is rather the point.",
+          "If either session wants different words there, say so and it changes once, rather than trading it back and forth a merge at a time."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "3b37be4",
     "when": "2026-09-13T17:16:59+00:00",
@@ -904,62 +953,6 @@ export const PASSES: Pass[] = [
           "What was lost, plainly, as asked. The parallax is gone — the four no longer move relative to each other, so the bloom where two cross no longer shifts. The per-layer headings and rotations went with it. And the scales are nudged to the nearest that divides the tile, 2.8 to 3, 2.3 to 2, 0.95 to 1, 0.75 unchanged, because a single image only slides for ever if every pattern in it fits a whole number of times. Four depths of texture in one still image instead of four planes at different speeds."
         ],
         "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0d38513",
-    "when": "2026-09-12T19:17:08+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "2c7e1ca",
-        "says": "Measure where the timeline's time goes before changing the pan",
-        "when": "2026-09-12T18:53:35+00:00",
-        "detail": [
-          "The complaint was that dragging a board is smooth and panning is not, so tests/pan-cost.mjs measures both. Frame timing cannot tell them apart in this container — no GPU, 33ms a frame at idle, the rasteriser swamps everything — so it reads Chrome's own main-thread counters through CDP instead: script, style recalc and layout, which is the part a handler running per pointermove is responsible for. Sixty pointer moves per gesture, three board counts.",
-          "idle script    pan script   drag script 1 board            28.6ms        52.1ms       101.8ms 6 boards            234ms        321.8ms      460.6ms 30 boards          1023ms        2713ms        2572ms",
-          "Two things fall out, and neither is the pan handler.",
-          "The pan and the drag cost the same. At thirty boards it is 2713ms against 2572ms over sixty moves — within six per cent, and the drag is the dearer one at every count below thirty. Whatever makes a pan feel worse, it is not that its handler does more work."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "41a2c42",
-        "says": "The vine is bark: opaque, wound, coloured by what it joins",
-        "when": "2026-09-12T18:47:49+00:00",
-        "detail": [
-          "It was a construct of light with a glow running down it, which reads as a signal being sent — cargo in a pipe, the thing this has been trying not to be since it was a cord with a bead on it.",
-          "It is a thing now. Opaque: no blending, no translucency, and you cannot see the nebula through it. Three strands a third of a turn apart, sorted at every step along the axis by how much each faces the eye and drawn furthest first, so the near one covers the far one the way a real winding does — that, rather than dimming the far side, is what makes it read as wound. How much a strand faces the eye is also its shading, mixed between a shaded side and a lit one, with a deterministic grain moving it either way so no strand is a smooth tube. A dark pass underneath, offset a pixel or two, puts it on the ground rather than over it.",
-          "It takes its colour from what it joins. Green where it leaves a green board, red where it arrives at a red drawing, mixed along the length rather than meeting at a join — hue the short way round, so green to red passes through the yellows into brown rather than through a colour neither end has. Two boards of the same kind give one colour end to end, which is most vines.",
-          "And the light in it sits still: fourteen hotspots scattered through the length, some brighter than others, hidden when the fibre they sit on has turned away. Where they fall and how bright each one is comes from the pair alone — no `t` anywhere in it — so they are in the same places on every frame and after every drag."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "b55eb14",
-        "says": "Take hypatia's molten.css and drop the enamel rewrite",
-        "when": "2026-09-12T18:41:09+00:00",
-        "detail": [
-          "Two sessions locked the same colour reference to the same shared file at the same time, from opposite ends: hypatia kept the five-stop naming (white/hot/body/deep/char) and mapped the reference's lightnesses onto it; this branch went to seven stops named for what each one is. Both encode the same photograph. Neither can merge while both exist, and only one of them can be the definition.",
-          "Hypatia's is the one, at ee476f0. src/core/ui/molten.css, src/core/ui/molten.ts and tests/molten.mjs are taken from that commit wholesale, and everything the seven-stop version added goes with it: the field/lit/edge/vein stops, the veining SVGs under public/molten, and this branch's own checks in molten.mjs, which asserted a shape the file no longer has. tests/vines.mjs keeps its rule — a board's core has to be far brighter than anything on a vine — and reads whatever the shared definition calls that stop rather than a name of its own.",
-          "Nothing this branch renders had to change: Timeline and TimelineDetail ask for constructs through `moltenClass` and `moltenSeed`, which is what the handle is for.",
-          "While in the file: the made-real preview on a card keeps the part's own page surface, because that is how the part really looks and a repainted preview would be a lie about it, but it now sits inset with the card's dark ground round it instead of running edge to edge — a picture on the card rather than a hole through it."
-        ],
-        "areas": [
-          "core",
           "studio",
           "tests"
         ],
