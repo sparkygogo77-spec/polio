@@ -295,11 +295,15 @@ export function Palette() {
         {/*
           One scroller for the whole shelf, and nothing inside it scrolls.
 
-          The parts used to live in a second scroller nested in this one: a
-          173px letterbox with 1,585px of cards inside it, which is a
-          category read four lines at a time through a slot. The planets, the
-          open categories and their parts are all in this one flow now, so
-          the wheel does what you expect wherever the pointer is.
+          Not a correction of a nested scroller — there never was one, and an
+          earlier version of this comment said there was. What there was: a
+          fixed crumb row with a 173px box of cards scrolling beneath it, so
+          the elements moved while the header sat still and the thing read as
+          a box scrolling inside a box. The planets, the open categories and
+          their parts are all in this one flow now, and a section's header
+          pins with `sticky` rather than being a separate fixed row, so one
+          wheel moves everything and the pointer never has to be anywhere in
+          particular.
         */}
         <div ref={shelfRef} data-shelf="" className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
         {searching ? (

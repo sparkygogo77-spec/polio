@@ -111,6 +111,57 @@ async function look(w, h, tag) {
   const back = await state();
   check(`${tag}: pressing an open category shuts it`, back.open.length === 1 && !back.open.some((o) => o.id === "media"), JSON.stringify(back.open.map((o) => o.id)));
 
+  /* One wheel, and it moves everything.
+     With two categories open the shelf holds several thousand pixels of
+     cards. The complaint was that the elements scrolled inside their own box
+     — a fixed header with a small scrolling area under it — so what is
+     checked is the thing that made it feel that way: there is exactly one
+     place in the shelf a wheel does anything, and turning it moves the
+     planets too rather than only the cards.
+
+     Previews are excluded by *why* they cannot be scrolled rather than by
+     what they are: a part rendered inside a card can overflow its own clip
+     box, but the whole preview is `pointer-events: none`, so no wheel ever
+     reaches it. */
+  await press("hero");
+  const wheels = await page.evaluate(() => {
+    const drawer = document.querySelector("[data-drawer]");
+    return [drawer, ...drawer.querySelectorAll("*")]
+      .filter((e) => {
+        const st = getComputedStyle(e);
+        if (st.pointerEvents === "none") return false;
+        return e.scrollHeight > e.clientHeight + 4 && ["auto", "scroll"].includes(st.overflowY);
+      })
+      .map((e) => `${e.tagName.toLowerCase()}${e.dataset.shelf !== undefined ? "[shelf]" : ""} ${e.clientHeight}/${e.scrollHeight}`);
+  });
+  /* Note what this one is and is not. The old shelf had exactly one scroller
+     too, so this does not prove the fix — it is the guard that stops a second
+     one appearing later. The check below is the one that tells the two
+     apart. */
+  check(
+    `${tag}: one place in the shelf the wheel does anything`,
+    wheels.length === 1,
+    wheels.length ? wheels.join("  |  ") : "nothing scrolls at all",
+  );
+
+  const moved = await page.evaluate(async () => {
+    const shelf = document.querySelector("[data-shelf]") ?? document.querySelector("[data-drawer] .overflow-y-auto");
+    const planet = document.querySelector('[data-category="hero"]');
+    if (!shelf) return { why: "no scroller in the shelf at all" };
+    if (!planet) return { why: "the planets are not on the shelf once a category is open" };
+    shelf.scrollTop = 0;
+    await new Promise((r) => requestAnimationFrame(r));
+    const top = planet.getBoundingClientRect().top;
+    shelf.scrollTop = 120;
+    await new Promise((r) => requestAnimationFrame(r));
+    return { top: Math.round(top), after: Math.round(planet.getBoundingClientRect().top) };
+  });
+  check(
+    `${tag}: scrolling it moves the planets too, not only the cards`,
+    !moved.why && Math.abs(moved.after - moved.top) > 60,
+    moved.why ?? `a planet sat at ${moved.top} and moved to ${moved.after}`,
+  );
+
   const box = await page.evaluate(() => {
     const d = document.querySelector("[data-drawer]").getBoundingClientRect();
     return { x: d.x, y: d.y, width: d.width, height: d.height };

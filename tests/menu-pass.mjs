@@ -334,12 +334,24 @@ async function look(w, h, tag) {
 }
 
 /**
- * Nothing is ever cut off.
+ * Nothing is ever cut off, and the ladder is the ladder that is written down.
  *
- * The bar's own scroll width against its own width, at eight sizes. A ladder
- * of breakpoints that is only written down in a comment is a comment; this is
- * the guarantee. It also reads which rungs have given way at each size, so
- * the stated order is checked rather than asserted.
+ * Two passes. The first is the bar's own scroll width against its own width
+ * at eight sizes: a breakpoint ladder that is only written down in a comment
+ * is a comment, and this is the guarantee.
+ *
+ * The second is the ladder itself, rung by rung, and it is here because the
+ * first pass cannot see the thing the complaint was about. Nothing being cut
+ * off is satisfied by a bar that drops its controls in any order it likes,
+ * and the fault was precisely that the wrong ones survived — "Desktop",
+ * "Tablet" and "Phone" spelled out in full while the controls on the right
+ * walked off the edge. So each rung is read on both sides of its own
+ * breakpoint: there one pixel above, gone one pixel below, and never back
+ * again at anything narrower.
+ *
+ * An earlier version of this comment said the first pass already checked the
+ * order. It did not: it read three rungs and asserted two of them, and never
+ * once checked that a rung was still *there* above its breakpoint.
  */
 async function ladder() {
   console.log(`\n  the bar giving way — nothing may overflow at any width:`);
@@ -402,6 +414,84 @@ async function ladder() {
     if (w < 768) check(`${w}px: the search has gone`, !r.search);
     if (w < 1024) check(`${w}px: Updates has gone`, !r.updates);
   }
+  /* ---------------------------------------------- the ladder, rung by rung */
+  /* Copied from the bar's comment, not imported from its classes, so that
+     moving an `lg:` to an `xl:` fails here rather than quietly rewriting the
+     ladder it is supposed to be keeping. */
+  const LADDER = [
+    { rung: 1, what: "the search's own words", goes: 1280, key: "words" },
+    { rung: 2, what: "the ink hues", goes: 1024, key: "hues" },
+    { rung: 3, what: "the zoom readout", goes: 1024, key: "zoom" },
+    { rung: 4, what: "Fit", goes: 1024, key: "fit" },
+    { rung: 4, what: "Wires", goes: 1024, key: "wires" },
+    { rung: 5, what: "Updates", goes: 1024, key: "updates" },
+    { rung: 6, what: "the search entirely", goes: 768, key: "search" },
+    { rung: 7, what: "the menu's edge switch", goes: 768, key: "edge" },
+    { rung: 8, what: "the site's name", goes: 640, key: "name" },
+  ];
+  /* What the comment says never goes, at any width. */
+  const SURVIVES = ["tool", "devices", "undo", "redo", "zoomOut", "zoomIn", "preview", "finish", "panel", "pages"];
+
+  /* The ink hues are only out while drawing, so the pen goes in hand — with a
+     press on the board first, or `d` lands in whatever field has focus. */
+  await page.setViewportSize({ width: 1600, height: 950 });
+  await page.waitForTimeout(300);
+  await page.mouse.click(900, 520);
+  await page.keyboard.press("d");
+  await page.waitForTimeout(400);
+
+  const rungsAt = {};
+  for (const w of [...new Set(LADDER.flatMap((r) => [r.goes + 1, r.goes - 1]))].sort((a, b) => b - a)) {
+    await page.setViewportSize({ width: w, height: 950 });
+    await page.waitForTimeout(340);
+    rungsAt[w] = await page.evaluate(() => {
+      const vis = (el) => { if (!el) return false; const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0; };
+      const bar = document.querySelector("[data-studio-bar]");
+      const byLabel = (l) => vis(bar.querySelector(`[aria-label='${l}']`));
+      const btns = [...bar.querySelectorAll("button")];
+      return {
+        words: vis([...bar.querySelectorAll("span")].find((x) => /Search tools/.test(x.textContent || ""))),
+        hues: vis(bar.querySelector("[data-ink-hues]")),
+        zoom: btns.some((e) => /^\d+%$/.test((e.textContent || "").trim()) && vis(e)),
+        fit: byLabel("Fit frame"),
+        wires: byLabel("Toggle wires"),
+        updates: vis(bar.querySelector("[data-updates-toggle]")),
+        search: vis(bar.querySelector("[data-tool-search]")),
+        edge: vis(bar.querySelector("[data-menu-shape]")),
+        name: vis(bar.querySelector("[data-site-build]")),
+        tool: vis(bar.querySelector("[data-tool-picker]")),
+        devices: bar.querySelectorAll("[data-device]").length === 3,
+        undo: byLabel("Undo"),
+        redo: byLabel("Redo"),
+        zoomOut: byLabel("Zoom out"),
+        zoomIn: byLabel("Zoom in"),
+        preview: vis(bar.querySelector("[data-preview-toggle]")),
+        finish: vis(bar.querySelector("[data-finish]")),
+        panel: byLabel("Toggle look"),
+        pages: vis(bar.querySelector("[data-page-strip]")),
+        over: Math.max(0, bar.scrollWidth - bar.clientWidth),
+      };
+    });
+  }
+  const rungWidths = Object.keys(rungsAt).map(Number).sort((a, b) => b - a);
+  console.log(`\n  the ladder, on both sides of every rung:`);
+  for (const r of LADDER) {
+    const above = rungsAt[r.goes + 1], below = rungsAt[r.goes - 1];
+    check(
+      `rung ${r.rung}: ${r.what} goes below ${r.goes}`,
+      above[r.key] === true && below[r.key] === false,
+      `${above[r.key] ? "there" : "gone"} at ${r.goes + 1}px, ${below[r.key] ? "there" : "gone"} at ${r.goes - 1}px`,
+    );
+    const back = rungWidths.filter((w) => w < r.goes && rungsAt[w][r.key]);
+    check(`rung ${r.rung}: and does not come back`, back.length === 0, back.length ? `there again at ${back.join("px, ")}px` : "gone and stays gone");
+  }
+  for (const k of SURVIVES) {
+    const lost = rungWidths.filter((w) => !rungsAt[w][k]);
+    check(`${k} survives every rung`, lost.length === 0, lost.length ? `missing at ${lost.join("px, ")}px` : `there at all ${rungWidths.length}`);
+  }
+  const spilled = rungWidths.filter((w) => rungsAt[w].over > 1);
+  check("nothing is cut off on either side of a rung", spilled.length === 0, spilled.length ? spilled.map((w) => `${rungsAt[w].over}px at ${w}`).join(", ") : "0px past the edge at all of them");
+
   await page.screenshot({ path: ".screenshots/bar-half.png", clip: { x: 0, y: 0, width: 1280, height: 44 } });
   await page.setViewportSize({ width: 1280, height: 950 });
   await page.waitForTimeout(300);
