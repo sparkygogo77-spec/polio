@@ -218,6 +218,14 @@ export interface StudioNode {
    * own preview nodes, need nothing added.
    */
   plan?: Plan | null;
+  /**
+   * The live element this was recreated from, when one was (`recreate.ts`).
+   *
+   * Kept so the panel can say whose it was and read it again, and so the
+   * blueprint can say a part is a recreation rather than an invention.
+   * Absent on every part that was drawn or placed.
+   */
+  from?: { url: string; host: string; selector: string; at: number } | null;
 }
 
 export interface StudioGroup {
