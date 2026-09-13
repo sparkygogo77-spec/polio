@@ -2,9 +2,55 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T20:18:01.099Z";
+export const GENERATED_AT = "2026-09-13T20:51:10.131Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "95068c4",
+    "when": "2026-09-13T20:51:09+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "475299d",
+        "says": "The face of a construct is J's own render, not a likeness of it",
+        "when": "2026-09-13T20:41:10+00:00",
+        "detail": [
+          "J rendered the lantern boxes and cut seamless 512 tiles out of their faces, bright and dark of each colour, plus the rim sprites. They are under `public/construct/` and the tile is the face now: the filaments, the flares and the dark between them are his, and nothing is painted here.",
+          "The mechanism is untouched, because it was never the problem — one tile per temperature, a layer one period wider than the box, slid exactly one period by transform, so the loop lands on itself and nothing repaints.",
+          "Two things had to move to carry a photograph rather than noise:",
+          "**The falloff.** The dark centre and the soft ease out to the edges were baked into the painted tile's alpha; a photograph has none, so they are the same curve as a mask on the same two layers — thin in the middle so the face's own `--mo-core` shows through, full at the top and bottom so the cloud holds the edges. Nothing else about the layers changed. Measured at thirty boards against the same build with the painted tile, a still mask costs nothing: idle style 168.2ms against 168.8ms, idle tasks 714.8ms against 739.0ms — inside the noise between two runs. The suite said \"no mask on an animated layer\", which was a precaution rather than a measured rule; it now says what is true and why, which is that no mask's own value animates."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e6e56b4",
+    "when": "2026-09-13T20:18:32+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "e6e56b4",
+        "says": "Regenerate the passes for the drawn-out vine and the withdrawn question",
+        "when": "2026-09-13T20:18:32+00:00",
+        "detail": [
+          "Three passes, the three sessions converged into one tip again: the other four colour menus onto the one system; the words always win, so a question that no longer fits is withdrawn and its answer dropped; and the vine as the boxes' own construct drawn out into a line rather than a cable.",
+          "No conflicts."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "419979e",
     "when": "2026-09-13T20:18:00+00:00",
@@ -974,51 +1020,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e9c75f7",
-    "when": "2026-09-13T02:59:45+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "e9c75f7",
-        "says": "Regenerate the passes for the shelf stack and the alpha step",
-        "when": "2026-09-13T02:59:45+00:00",
-        "detail": [
-          "The deployed build has no .git to read, so the Updates list is only ever as current as this file. Two passes landed in this sweep: hypatia's shelf categories merging into one stack with two open at a time, and euler's alpha step arriving as the last of three answers rather than the first."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "644d3b6",
-    "when": "2026-09-13T02:58:31+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "20ee2a6",
-        "says": "The alpha step, and it is the last of three answers rather than the first",
-        "when": "2026-09-13T02:57:09+00:00",
-        "detail": [
-          "**Decision: alpha is a property of the render, not a step after it — and before either of those, the drawn line already is the alpha.** The step exists, it is wired, and it is deliberately last.",
-          "What settled it was looking rather than reasoning. A fully opaque picture put on a refined mark does *not* land as a filled rectangle: the board already clips a drawn part to the line it was drawn as (`blocks.tsx`, `Cut`), so the gull comes out as the gull. That clip is exact, free, instant, and preserves the holes in a mark by construction — it *is* the person's own path — and no segmenter can beat it, because a segmenter is guessing at an edge the clip already knows.",
-          "So the order is:",
-          "1. **The drawn line.** A clipped part is never sent to a model for its alpha. `route` takes `clipped` and drops the requirement, which is the real win here: a mark was previously locked to the two OpenAI rows because they are the only ones that can leave a ground out, and those are the rows least related to how good the picture is. A drawn mark now goes to Nano Banana 2 — widest frames, keeps the input framing — or to Seedream, which means **the house-style example pair is reachable for marks for the first time**. Verified against the live route: clipped → nano-banana-2, unclipped → gpt-image-2. 2. **Asked of the model.** No drawn line: ask the row that declares `background: transparent`. It never draws a ground, so there is no matte, no halo and no filled hole. Exact by construction, no second call, nothing to go wrong. 3. **Cut out afterwards.** Only when neither holds. Five removers were compared and they are all one technique — a salient-object matte: bria/remove-background (its only knob keeps alpha the input already had), men1scus/birefnet, lucataco/remove-bg and smoretalk/rembg-enhance (no options at all between them). `851-labs/background-remover` takes it because it is the only one that declares control over the matte: `threshold` 0 asks for soft alpha rather than a hard cut, which is what the antialiased edge of a mark needs, and the output format is ours. None of them declares that it keeps the hole in a ring, which is the honest reason this is third."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
       }
     ],
     "more": 0
