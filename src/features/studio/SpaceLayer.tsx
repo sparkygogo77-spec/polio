@@ -29,17 +29,20 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Box as BoxIcon, Circle } from "lucide-react";
+import { Box as BoxIcon, Circle, Sparkles } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
 import { DRIFT_MS } from "./darkMatter";
 import { HALO, paintHoleAlong, paintHorizonShadowAlong } from "./blackHole";
 import { useGround } from "./ground";
-import { boundaryPath, centroid, consumed, grownBoundary, spaceBox, spaceOf, type Space } from "./space";
+import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
+import type { SketchPoint as Pt } from "./sketch";
 import type { SketchPoint } from "./sketch";
-import { pageNodes, pageSpaces, useStudio } from "./store";
-import { SpacePanel } from "./SpacePanel";
+import { nodeInSpace } from "./space";
+import { pageNodes, pageShapes, pageSpaces, useStudio } from "./store";
+import { inkGroups } from "./inkGroups";
+import { SpaceOwnPanel, SpacePanel } from "./SpacePanel";
 
 /** The placeholder's line, and the keys on it: the void's lit rim, because it is not yet anything. */
 const PLACEHOLDER = "oklch(0.62 0.08 290)";
@@ -51,6 +54,106 @@ export function SpaceMarks({ zoom }: { zoom: number }) {
     <>
       {spaces.map((sp) => <SpaceMark key={sp.id} space={sp} zoom={zoom} />)}
     </>
+  );
+}
+
+/**
+ * Ink drawn inside an open hole, marked as belonging to it.
+ *
+ * A drawing knows its space the same way a part does — by where it is, not
+ * by a pointer written on it — so this is read rather than stored, and a
+ * stroke dragged out of a space stops belonging to it. Without the mark
+ * the belonging was invisible: a person pressed Make real inside a space
+ * they had steered and got an ordinary part, with nothing on the board to
+ * say the space had any bearing on it. The part that lands does inherit
+ * the space's plan (`store.addNode`); this is how you can see that coming.
+ */
+export function SpaceInk({ zoom }: { zoom: number }) {
+  const spaces = useStudio(useShallow(pageSpaces));
+  const shapes = useStudio(useShallow(pageShapes));
+  const pageId = useStudio((s) => s.activePageId);
+  const drawings = React.useMemo(() => inkGroups(shapes.filter((sh) => sh.kind === "pen")), [shapes]);
+  const now = Date.now();
+  if (!spaces.length || !drawings.length) return null;
+  return (
+    <>
+      {drawings.map((g) => {
+        const space = spaceOfDrawing(spaces, { pageId, bounds: g.bounds }, now);
+        if (!space) return null;
+        return (
+          <div
+            key={`ink-space-${g.id}`}
+            data-ink-space={g.id}
+            data-ink-in={space.id}
+            className="pointer-events-none absolute z-10 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium"
+            style={{
+              left: g.bounds.x,
+              top: g.bounds.y + g.bounds.h + 4,
+              transform: `scale(${Math.max(1, 1 / zoom)})`,
+              transformOrigin: "0 0",
+              background: "oklch(0.06 0.01 290 / 0.85)",
+              border: "1px solid oklch(0.86 0.16 72 / 0.55)",
+              color: "oklch(0.92 0.09 78)",
+            }}
+          >
+            in {space.label.trim() || "this space"}
+            {space.plan?.steps?.length ? ", made its way" : ""}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Why a line did not become a space, said where the line was drawn.
+ *
+ * It was a toast at the bottom right of the window, truncated to about a
+ * hundred and forty pixels: a person watching their own hand at the top of
+ * the board never saw it, and J has toasts off altogether, which makes the
+ * corner worse than useless. A refusal belongs at the gesture it refuses,
+ * so this is drawn on the line the hand just let go of, and fades on its
+ * own rather than needing to be dismissed.
+ */
+export function SpaceRefused({ at, zoom }: { at: { points: Pt[]; at: number } | null; zoom: number }) {
+  const [gone, setGone] = React.useState(false);
+  React.useEffect(() => {
+    setGone(false);
+    if (!at) return;
+    const t = setTimeout(() => setGone(true), 3200);
+    return () => clearTimeout(t);
+  }, [at]);
+  if (!at || gone) return null;
+  const box = boundaryBox(at.points);
+  const ends: Pt[] = [at.points[0]!, at.points[at.points.length - 1]!];
+  return (
+    <div className="pointer-events-none absolute z-30" style={{ left: box.x, top: box.y, width: Math.max(1, box.w), height: Math.max(1, box.h) }}>
+      {/* The two ends that did not meet, ringed: the thing to fix, on the thing itself. */}
+      <svg className="absolute overflow-visible" style={{ left: 0, top: 0 }} width={Math.max(1, box.w)} height={Math.max(1, box.h)} aria-hidden>
+        {ends.map((p, i) => (
+          <circle key={i} cx={p[0] - box.x} cy={p[1] - box.y} r={7 / zoom} fill="none" stroke="oklch(0.7 0.19 27)" strokeWidth={1.5 / zoom} />
+        ))}
+        <line
+          x1={ends[0]![0] - box.x} y1={ends[0]![1] - box.y} x2={ends[1]![0] - box.x} y2={ends[1]![1] - box.y}
+          stroke="oklch(0.7 0.19 27 / 0.5)" strokeWidth={1.2 / zoom} strokeDasharray={`${4 / zoom} ${4 / zoom}`}
+        />
+      </svg>
+      <div
+        data-space-refused=""
+        role="status"
+        className="absolute whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium shadow-lg"
+        style={{
+          left: box.w / 2,
+          top: -6,
+          transform: `translate(-50%, -100%) scale(${Math.max(1, 1 / zoom)})`,
+          background: "oklch(0.16 0.04 25)",
+          border: "1px solid oklch(0.7 0.19 27)",
+          color: "oklch(0.95 0.06 30)",
+        }}
+      >
+        A space is a closed line. Come back to where you started.
+      </div>
+    </div>
   );
 }
 
@@ -105,6 +208,7 @@ function SpaceMark({ space, zoom }: { space: Space; zoom: number }) {
           <path data-space-rim="" d={boundaryPath(local)} fill="none" stroke="var(--molten-hot)" strokeWidth={1.5 / zoom} strokeLinejoin="round" />
         </svg>
       ) : null}
+      {space.kind === "hole" ? <FillKey space={space} zoom={zoom} at={[mx, my]} /> : null}
       {space.kind === "undecided" ? (
         <>
           <svg className="absolute left-0 top-0 overflow-visible" width={box.w + pad * 2} height={box.h + pad * 2} aria-hidden>
@@ -146,6 +250,46 @@ function SpaceMark({ space, zoom }: { space: Space; zoom: number }) {
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The one key an empty hole carries: the way to its own panel.
+ *
+ * A hole with something in it is steered through that thing — pick it and
+ * its panel opens. A hole with nothing in it had no way in at all, which
+ * is where a recreation from a real site would land, so the space had to
+ * be reachable as itself. One key, at the middle of the area, and only
+ * while the hole is both open and empty.
+ */
+function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number, number] }) {
+  const nodes = useStudio(useShallow(pageNodes));
+  const picked = useStudio((s) => s.selection.includes(space.id));
+  const [open, setOpen] = React.useState(() => consumed(space, Date.now()) >= 1);
+  React.useEffect(() => {
+    if (open) return;
+    const t = setTimeout(() => setOpen(true), Math.max(0, CONSUME_MS - (Date.now() - (space.since ?? 0))) + 60);
+    return () => clearTimeout(t);
+  }, [open, space.since]);
+  if (!open || picked) return null;
+  if (nodes.some((n) => nodeInSpace(space, n))) return null;
+  return (
+    <button
+      type="button"
+      data-space-fill={space.id}
+      title="What this space is for, and how to fill it"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); play("select"); useStudio.getState().setSelection([space.id]); }}
+      className="tactile pointer-events-auto absolute z-30 flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm"
+      style={{
+        left: at[0], top: at[1],
+        transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`,
+        borderColor: "oklch(0.86 0.16 72 / 0.7)", background: "oklch(0.09 0.02 290 / 0.9)", color: "oklch(0.95 0.08 80)",
+      }}
+    >
+      <Sparkles className="size-3" />
+      Fill this space
+    </button>
   );
 }
 
@@ -248,16 +392,18 @@ export function SpaceSide() {
   const now = Date.now();
   const picked = selection.length === 1 ? nodes.find((n) => n.id === selection[0]) : undefined;
   const space = picked ? spaceOf(spaces, picked, now) : null;
-  if (!picked || !space) return null;
+  // A space picked as itself: an empty hole, steered before anything is in it.
+  const own = !picked && selection.length === 1 ? spaces.find((sp) => sp.id === selection[0] && sp.kind === "hole") : undefined;
+  if ((!picked || !space) && !own) return null;
   return (
     <aside
-      data-space-panel={picked.id}
+      data-space-panel={picked?.id ?? own!.id}
       className="absolute bottom-3 right-3 top-3 z-30 flex w-[248px] flex-col overflow-hidden rounded-lg"
       style={{ background: VOID.face, border: `1px solid ${VOID.rim}`, boxShadow: VOID.drop, color: VOID.text }}
       onPointerDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
-      <SpacePanel node={picked} space={space} />
+      {picked && space ? <SpacePanel node={picked} space={space} /> : <SpaceOwnPanel space={own!} />}
     </aside>
   );
 }

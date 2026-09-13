@@ -27,10 +27,123 @@ import { Input } from "@/core/ui/input";
 import { getFeature } from "./catalog";
 import { STEPS, type Step } from "./imageRoute";
 import { KIND_MEANS } from "./shapeKind";
-import { moveStep, STEP_MEANS, type Plan, type Space } from "./space";
+import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Space } from "./space";
 import { choicesFor, readingOf, writePlan } from "./planEdit";
 import { useStudio, type StudioNode } from "./store";
 import { SCREEN_FIELD } from "./PlateEditors";
+import { FromASite } from "./FromASite";
+
+/**
+ * The space's own panel, for a hole with nothing in it yet.
+ *
+ * The per-element panel needs an element, so an empty hole had no way to
+ * reach From a site at all — which is where a recreation would land. This
+ * is the same panel about the space rather than about one part in it: what
+ * it is for, how anything made in it is to be made, and the way to point
+ * at something real.
+ */
+export function SpaceOwnPanel({ space }: { space: Space }) {
+  const update = useStudio((s) => s.updateSpace);
+  /* The plan read as if the space were the thing being made, off its own
+     box and its own words, so the space and the parts in it are steered by
+     the same control saying the same things. */
+  const box = spaceBox(space);
+  const reading = React.useMemo(() => planFor({
+    label: space.label || "This space", prompt: space.prompt, featureId: "custom-idea",
+    w: Math.round(box.w), h: Math.round(box.h), plan: space.plan ?? null,
+  }), [space, box.w, box.h]);
+  const write = (patch: Partial<Plan>) => {
+    const plan: Plan = { model: space.plan?.model ?? null, steps: space.plan?.steps?.length ? space.plan.steps : reading.steps, ...patch };
+    update(space.id, { plan });
+  };
+  return (
+    <div className="flex h-full min-h-0 flex-col text-[11px]">
+      <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
+        <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>This space</div>
+        <Input
+          aria-label="What this space is called"
+          data-space-name=""
+          value={space.label}
+          placeholder="A black hole"
+          onChange={(e) => update(space.id, { label: e.target.value })}
+          className={cn("mt-1 h-7 text-[12px] font-semibold", SCREEN_FIELD)}
+        />
+        <div className="mt-1 text-[10px]" style={{ color: VOID.muted }}>nothing in it yet</div>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
+        <section>
+          <Label>What it is for</Label>
+          <Textarea
+            autoGrow rows={3} aria-label="What this space is for" data-space-prompt=""
+            placeholder="Say what belongs in here. Everything made in it starts from this."
+            value={space.prompt}
+            onChange={(e) => update(space.id, { prompt: e.target.value })}
+            className={cn("text-[11px]", SCREEN_FIELD)}
+          />
+        </section>
+        <section>
+          <Label>Anything made here goes this way</Label>
+          <Steps reading={reading} write={write} />
+        </section>
+        <FromASite space={space} />
+      </div>
+      {space.plan ? (
+        <div className="shrink-0 border-t px-3 py-2" style={{ borderColor: VOID.rim }}>
+          <button
+            type="button" data-space-plan-reset=""
+            onClick={() => { play("tap"); update(space.id, { plan: null }); }}
+            className="tactile flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
+          >
+            <RotateCcw className="size-3" />
+            Let the route decide
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The order, as a list with earlier, later and leave-out keys. One control, two subjects. */
+function Steps({ reading, write }: { reading: ReturnType<typeof planFor>; write: (p: Partial<Plan>) => void }) {
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= reading.steps.length) return;
+    play("tick");
+    write({ steps: moveStep(reading.steps, from, to) });
+  };
+  const left = STEPS.filter((st) => !reading.steps.includes(st));
+  return (
+    <>
+      <ol data-space-steps="" className="space-y-1">
+        {reading.steps.map((st, i) => (
+          <li key={st} data-space-step={st} className="flex items-center gap-1 rounded-md px-1.5 py-1" style={screenFace}>
+            <span className="w-3 text-center font-mono text-[10px]" style={{ color: SCREEN.dim }}>{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate font-mono" style={{ color: SCREEN.ink }}>{STEP_MEANS[st]}</span>
+            <Key title="Earlier" onClick={() => move(i, i - 1)} disabled={i === 0} testId={`space-step-up-${st}`}><ArrowUp /></Key>
+            <Key title="Later" onClick={() => move(i, i + 1)} disabled={i === reading.steps.length - 1} testId={`space-step-down-${st}`}><ArrowDown /></Key>
+            <Key title="Leave this step out" onClick={() => { if (reading.steps.length > 1) { play("tap"); write({ steps: reading.steps.filter((s) => s !== st) }); } }} disabled={reading.steps.length <= 1} testId={`space-step-drop-${st}`}><X /></Key>
+          </li>
+        ))}
+      </ol>
+      {left.length ? (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {left.map((st) => (
+            <button
+              key={st} type="button" data-space-step-add={st}
+              onClick={() => { play("tap"); write({ steps: [...reading.steps, st] }); }}
+              className="tactile flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]"
+              style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
+              title="Put this step back, at the end"
+            >
+              <Plus className="size-2.5" />
+              {STEP_MEANS[st]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) {
   const reading = React.useMemo(() => readingOf(node), [node]);
@@ -159,6 +272,15 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
             </div>
           ) : null}
         </section>
+
+        {/*
+          And the other way to fill a space: point at something real.
+          Below the steering rather than above it, because most elements in
+          a space were put there rather than recreated, and a section that
+          asks for a web address at the top of a panel about *this* part
+          would read as the panel's subject.
+        */}
+        <FromASite space={space} />
       </div>
 
       {/* The way back to the route's own judgement, below the reading matter and never cut by it. */}

@@ -201,6 +201,19 @@
    * cannot smoothstep. It is on the cloud layers, so the face's own core
    * shows through the middle of every card and the cloud holds the edges.
    */
+  /*
+   * THE RIM, DRAWN. A thin bright line of the construct's own colour with a
+   * hair of near-white inside it and nothing thrown outward. It is named
+   * here rather than written into `[data-molten]` because a construct whose
+   * temperature has one of J's rim sprites wears that instead, and the ones
+   * without — the plain lantern, and anything the size of a bar — still need
+   * this one.
+   */
+  --molten-rim-lines:
+    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 82%, transparent),
+    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
+    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
+
   --molten-vignette: linear-gradient(
     to bottom,
     rgb(0 0 0 / 1) 0%,
@@ -222,6 +235,58 @@
   /* The core: the darkest thing on the card, and not black. */
   --mo-core: var(--molten-core);
   --mo-nebula: var(--nebula-ember, none);
+  /*
+   * HOW MUCH CLOUD, per temperature. The one dial that matches the two
+   * families to each other, and the reason it is a dial rather than a
+   * number in the rule below.
+   *
+   * J's two tiles are cuts of two different renders, and they are not the
+   * same brightness: the red is a hot picture and the green is a dark one,
+   * so the same pair of opacities over them gave a red 21% lighter than the
+   * green in oklab L and half again as bright at its peaks — two systems
+   * rather than two temperatures. The tiles are his and are not to be
+   * touched, so the match is made here.
+   *
+   * The two layers pull opposite ways, which is what makes this work at all:
+   *
+   *  · `--mo-cloud` is the gliding copy at its own scale, and more of it is
+   *    more of J's picture. It stays high for both.
+   *  · `--mo-cloud-still` is the second copy at 1.7×, sampling a darker part
+   *    of the same tile. Over the green it stacks dark on dark and swallows
+   *    the filaments; over the red it is depth the hot picture wants. So
+   *    green gets almost none of it and red gets nearly all.
+   *
+   * Measured on a board, mean of a card's lower third in oklab L, red
+   * against green: 1.211 → 1.115, and at the 99th percentile — the
+   * brightest filaments, which is what actually reads as heat — 1.49 → 1.33.
+   * Red stays the hotter of the two, which is the point; the green is no
+   * longer an afterthought. Turning the gliding layer down as well buys
+   * another 0.01 of ratio for a quarter of the moving texture, which is a
+   * bad trade and was measured before it was refused.
+   */
+  --mo-cloud: 0.92;
+  --mo-cloud-still: 0.38;
+
+  /*
+   * THE RIM, AS A SPRITE. Which picture the edge is, how thick it draws, and
+   * what to draw instead when there is no picture.
+   *
+   * A rim is the most particular part of one of J's boxes — a moulded bezel
+   * with its own glass, its own highlight along the top and its own light
+   * caught in the corners — and an inset shadow will never be that. It is
+   * also the part a stretched photograph ruins fastest, because a card is a
+   * band on one row and a square on another, so the picture is cut into nine
+   * and only the four sides stretch; the corners keep their moulding and
+   * their radius at every size. That is `border-image`, and it is the whole
+   * of the mechanism.
+   *
+   * The base is `none`: the plain lantern and anything the size of a bar
+   * wear `--molten-rim-lines` above, which is what every construct wore
+   * before. A temperature with a sprite re-points these three below.
+   */
+  --mo-rim: none;
+  --mo-rim-width: 0px;
+  --mo-rim-shadow: var(--molten-rim-lines);
   --molten-seed: 0;
   background:
     /* the grain, faint, over everything */
@@ -267,7 +332,7 @@
    */
   background-size: var(--nebula-period, 512px) auto;
   background-position: 0 50%;
-  opacity: 0.92;
+  opacity: var(--mo-cloud, 0.92);
   /* The centre thin, the edges full: the falloff the painted tile carried
      in its alpha, on the layer instead. Same curve, same place. */
   -webkit-mask-image: var(--molten-vignette);
@@ -302,7 +367,7 @@
   background-repeat: repeat;
   background-size: calc(var(--nebula-period, 512px) * 1.7) auto;
   background-position: 23% 50%;
-  opacity: 0.38;
+  opacity: var(--mo-cloud-still, 0.38);
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
   animation: none;
@@ -338,11 +403,11 @@
 }
 .molten[data-forming]::before,
 .molten[data-forming]::after {
-  opacity: calc(var(--form-surface, 1) * 0.92);
+  opacity: calc(var(--form-surface, 1) * var(--mo-cloud, 0.92));
   clip-path: inset(calc((1 - var(--form-surface, 1)) * 50%) round inherit);
 }
 .molten[data-forming]::after {
-  opacity: calc(var(--form-surface, 1) * 0.38);
+  opacity: calc(var(--form-surface, 1) * var(--mo-cloud-still, 0.38));
 }
 .molten[data-forming] > * {
   /* The words arrive with the centre. */
@@ -354,6 +419,14 @@
      the middle darkens into place. */
   opacity: 1;
   background-image: radial-gradient(70% 88% at 50% 50%, color-mix(in oklab, var(--mo-core) calc(var(--form-core, 1) * 100%), transparent) 0%, color-mix(in oklab, var(--mo-core) calc(var(--form-core, 1) * 100%), transparent) 18%, transparent 62%);
+  /*
+   * And the sprite rim thickens as the surface arrives, instead of being
+   * nothing throughout and then a whole bezel at the end. At zero it is not
+   * there and the trace below is the rim, which is how this always looked;
+   * by the time the cloud is in, J's moulding is at its full nine pixels.
+   */
+  border-width: calc(var(--form-surface, 1) * var(--mo-rim-width));
+  border-image-width: calc(var(--form-surface, 1) * var(--mo-rim-width));
   /*
    * The construct's own rim arrives as the traced one closes in; until then
    * the trace on the canvas is the rim. And the closing in itself: a band of
@@ -379,15 +452,31 @@
   border-radius: inherit;
   pointer-events: none;
   /*
-   * The rim. A thin bright line of the construct's own colour, with a hair
-   * of near-white inside it, and nothing thrown outward: a rim is self-lit,
-   * and the reference has no glow past it. The construct's containment
-   * clips anything that tried.
+   * The rim, whichever of the two it is.
+   *
+   * The sprite, cut into nine: the four corners are drawn at their own size
+   * into the corners of the border box and keep their moulding and their
+   * radius, and only the four sides stretch. No `fill`, so the middle of the
+   * sheet is thrown away and the face underneath is what shows — which is
+   * why the sheets are cut with their middles transparent in the first
+   * place. `stretch` rather than `repeat` because the light along one of
+   * J's edges runs the length of it and is not a pattern to tile.
+   *
+   * `border-box` sizing and `inset: 0` together mean the border box is the
+   * card, so the rim sits exactly on the card's edge whatever it is made of;
+   * the parent's own radius and its `overflow: hidden` clip the corners, so
+   * a sprite whose arc is a pixel off the card's radius is trimmed to it
+   * rather than hanging over the edge.
+   *
+   * And when there is no sprite: the drawn rim, exactly as it was. A thin
+   * bright line of the construct's own colour with a hair of near-white
+   * inside it and nothing thrown outward — a rim is self-lit, and the
+   * reference has no glow past it.
    */
-  box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 82%, transparent),
-    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
-    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
+  box-sizing: border-box;
+  border: var(--mo-rim-width) solid transparent;
+  border-image: var(--mo-rim) var(--mo-rim-slice, 20) / var(--mo-rim-width) stretch;
+  box-shadow: var(--mo-rim-shadow);
   animation: molten-breathe 42s ease-in-out infinite alternate;
   animation-delay: calc(var(--molten-seed) * -1.7s);
 }
@@ -428,6 +517,15 @@
   --mo-char: var(--verdant-char);
   --mo-core: var(--verdant-core);
   --mo-nebula: var(--nebula-verdant, none);
+  /* All of the gliding picture and almost none of the still one: the green
+     tile is the dark of the two, and doubling it over itself is what made
+     this card read as the afterthought beside a red. */
+  --mo-cloud: 1;
+  --mo-cloud-still: 0.12;
+  /* J's green box, cut to its frame. */
+  --mo-rim: url("/construct/rim-green.png");
+  --mo-rim-width: 9px;
+  --mo-rim-shadow: none;
 }
 
 /* An ember construct: the same rules, re-pointed at the cooler, brighter set. */
@@ -439,6 +537,20 @@
   --mo-char: var(--ember-char);
   --mo-core: var(--ember-core);
   --mo-nebula: var(--nebula-ember, none);
+  /* The gliding layer as it was, and the still one nearly full: the red tile
+     is the hot picture, so the second copy reads as depth behind it rather
+     than as murk over it, and it is what brings the red down to meet the
+     green without taking any of J's render away. */
+  --mo-cloud: 0.92;
+  --mo-cloud-still: 0.95;
+  /*
+   * J's red box, cut to its frame. He sent two reds; this is the one with
+   * the thicker moulding and the brighter corners, and `box-red-alt.png` is
+   * the other, cut the same way by `scripts/cut-rims.mjs` if it is wanted.
+   */
+  --mo-rim: url("/construct/rim-red.png");
+  --mo-rim-width: 9px;
+  --mo-rim-shadow: none;
 }
 
 /*
@@ -461,6 +573,16 @@
     linear-gradient(to bottom, var(--mo-hot) 0%, var(--mo-body) 46%, var(--mo-deep) 100%);
   background-size: 64px 64px, 100% 100%;
   background-blend-mode: overlay, normal;
+  /*
+   * And the drawn rim back, whatever temperature it is. J's sprite is a
+   * moulded bezel nine pixels thick on each side; a bar is ten pixels tall
+   * altogether, so the two sides would meet in the middle and there would be
+   * no bar left. A line of its own colour is the right rim at this size, and
+   * it is the one this has always had.
+   */
+  --mo-rim: none;
+  --mo-rim-width: 0px;
+  --mo-rim-shadow: var(--molten-rim-lines);
 }
 
 /* Its nebula would be a smear at this height, and the flare has nowhere to
