@@ -150,38 +150,39 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
 /* The crumbs                                                          */
 /* ------------------------------------------------------------------ */
 
-function Crumb({ hue, children, onClear, label }: { hue: number; children: React.ReactNode; onClear: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      aria-label={`Back from ${label}`}
-      onClick={() => { play("close"); onClear(); }}
-      className="tactile flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-      // Where you are is solid and the writing on it is black. A tinted wash
-      // behind coloured text is the one combination that fails in both themes
-      // at once: too faint to see on the dark one, too pale to read on the
-      // light one, and never distinguishable from the places you are not.
-      style={{
-        background: `oklch(0.78 0.17 ${hue})`,
-        color: "oklch(0.16 0.04 0)",
-        boxShadow: `inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -1px 0 oklch(0 0 0 / 0.28), 0 0 12px oklch(0.78 0.17 ${hue} / 0.35)`,
-      }}
-    >
-      {children}
-      <X className="size-3 opacity-80" />
-    </button>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* The shelf                                                           */
+/**
+ * How many categories may be open at once.
+ *
+ * Two, so you can hold a hero next to a text block and choose between them,
+ * and not three, because the shelf is a 248px band and a third turns it from
+ * something you read into something you scroll.
+ */
+const OPEN_AT_MOST = 2;
+
 /* ------------------------------------------------------------------ */
 
 export function Palette() {
   const [query, setQuery] = React.useState("");
-  const [cat, setCat] = React.useState<CategoryId | null>(null);
-  const [sub, setSub] = React.useState<string | null>(null);
+  /*
+   * Which categories are open, and never more than two.
+   *
+   * It used to be one `cat`, and choosing it took the whole shelf: the row of
+   * planets vanished and was replaced by that category's parts, so comparing
+   * a hero against a text block meant going back and starting again. They are
+   * merged now — the planets stay where they are and a category opens
+   * *underneath* them, in the flow, with a second one stacking below the
+   * first. A third pushes the oldest out, because three open categories in a
+   * 248px band is a list you scroll rather than a shelf you read.
+   */
+  const [open, setOpen] = React.useState<CategoryId[]>([]);
   const [showRemoved, setShowRemoved] = React.useState(false);
+  const toggleCat = React.useCallback((id: CategoryId) => {
+    play("select");
+    setOpen((was) => (was.includes(id) ? was.filter((c) => c !== id) : [...was, id].slice(-OPEN_AT_MOST)));
+  }, []);
 
   const hidden = useStudio(useShallow((s) => s.hiddenFeatures));
   const hiddenSet = React.useMemo(() => new Set(hidden), [hidden]);
@@ -194,26 +195,11 @@ export function Palette() {
     () => CATEGORIES.filter((c) => live.some((f) => f.category === c.id)),
     [live],
   );
-  const subs = React.useMemo(() => {
-    if (!cat) return [];
-    return (SUBGROUPS[cat] ?? []).filter((g) => g.ids.some((id) => live.some((f) => f.id === id)));
-  }, [cat, live]);
-
-  const shown = React.useMemo(() => {
-    if (searching) return live;
-    if (!cat) return [];
-    const group = subs.find((g) => g.id === sub);
-    const ids = group ? group.ids : subs.flatMap((g) => g.ids);
-    return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
-  }, [searching, live, cat, sub, subs]);
-
   const removed = showRemoved ? all.filter((f) => hiddenSet.has(f.id)) : [];
-  const chosen = cat ? CATEGORIES.find((c) => c.id === cat) : null;
-  const chosenSub = subs.find((g) => g.id === sub) ?? null;
 
-  // In the order a page reads: what goes across the top, then the first
-  // screen, the body, further down, the foot.
-  const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
+  /* Searching is the one view that is not the accordion: a name typed in
+     crosses every category, so the results are one flat list of bands. */
+  const found = React.useMemo(() => (searching ? groupIntoBands(live) : []), [searching, live]);
 
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
@@ -288,54 +274,9 @@ export function Palette() {
         </div>
       </div>
 
-      {/* ------------------------------------------------ where you are */}
-      <div className={cn("flex shrink-0 items-center gap-2 px-3", chosen || hidden.length ? "border-b border-border py-1.5" : "h-0 overflow-hidden")}>
-        {chosen ? (
-          <Crumb hue={chosen.hue} label={chosen.label} onClear={() => { setCat(null); setSub(null); }}>
-            {React.createElement(PLANET[chosen.id], { size: 14 })}
-            {chosen.label}
-          </Crumb>
-        ) : null}
-        {chosenSub ? (
-          <>
-            <span aria-hidden className="shrink-0 text-fg-faint">›</span>
-            <Crumb hue={chosen?.hue ?? 265} label={chosenSub.label} onClear={() => setSub(null)}>
-              {React.createElement(moonFor(chosenSub.id), { size: 13 })}
-              {chosenSub.label}
-            </Crumb>
-          </>
-        ) : null}
-
-        <div className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-          {chosen && !chosenSub
-            ? subs.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => { play("select"); setSub(g.id); }}
-                  className="tactile group/sub flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium"
-                  style={{
-                    background: `oklch(0.72 0.15 ${chosen?.hue ?? 265} / 0.16)`,
-                    color: `oklch(0.86 0.12 ${chosen?.hue ?? 265})`,
-                    boxShadow: `inset 0 0 0 1px oklch(0.72 0.15 ${chosen?.hue ?? 265} / 0.4)`,
-                  }}
-                  onPointerEnter={(e) => {
-                    e.currentTarget.style.background = `oklch(0.78 0.17 ${chosen?.hue ?? 265})`;
-                    e.currentTarget.style.color = "oklch(0.16 0.04 0)";
-                  }}
-                  onPointerLeave={(e) => {
-                    e.currentTarget.style.background = `oklch(0.72 0.15 ${chosen?.hue ?? 265} / 0.16)`;
-                    e.currentTarget.style.color = `oklch(0.86 0.12 ${chosen?.hue ?? 265})`;
-                  }}
-                >
-                  {React.createElement(moonFor(g.id), { size: 13 })}
-                  <span className="whitespace-nowrap">{g.label}</span>
-                  <span className="num text-[9px] opacity-60">{g.ids.filter((id) => live.some((f) => f.id === id)).length}</span>
-                </button>
-              ))
-            : null}
-        </div>
-
+      {/* --------------------------------------- only what is not a category */}
+      <div className={cn("flex shrink-0 items-center gap-2 px-3", hidden.length ? "border-b border-border py-1.5" : "h-0 overflow-hidden")}>
+        <span className="ml-auto" />
         {hidden.length ? (
           <button
             type="button"
@@ -351,105 +292,235 @@ export function Palette() {
 
       {/* ------------------------------------------------ the parts */}
       <div className="relative min-h-0 flex-1" style={{ background: behind }}>
-        <div ref={shelfRef} className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
-        {!chosen && !searching ? (
-          // Fourteen planets, all of them on screen, one per kind of part.
-          /*
-            A planet is a round thing, so its button is round.
-            
-            They were rounded rectangles in a fixed seven across, with the
-            icon at twenty-six pixels — small enough that the line-art each
-            one is drawn in was lost. The icon is half again as big now, in a
-            disc of its own colour with a rim to match, and the row wraps to
-            as many lines as it needs rather than being held to two.
-          */
-          <div className="relative z-[1] flex flex-wrap justify-center gap-x-3 gap-y-2 px-4 py-3">
-            {[...categories].map((c) => (
-              <Tooltip key={c.id} content={c.blurb} side="top">
+        {/*
+          One scroller for the whole shelf, and nothing inside it scrolls.
+
+          The parts used to live in a second scroller nested in this one: a
+          173px letterbox with 1,585px of cards inside it, which is a
+          category read four lines at a time through a slot. The planets, the
+          open categories and their parts are all in this one flow now, so
+          the wheel does what you expect wherever the pointer is.
+        */}
+        <div ref={shelfRef} data-shelf="" className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
+        {searching ? (
+          found.length ? (
+            <div className="relative z-[1] px-3 py-3">
+              {found.map(({ band, items }) => (
+                <Band key={band} title={BAND_LABEL[band]}>
+                  <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
+                    {items.map((f) => {
+                      const { width, tall } = sizeFor(f);
+                      return <Card key={f.id} feature={f} width={width} tall={tall} />;
+                    })}
+                  </div>
+                </Band>
+              ))}
+              <div className="h-10" />
+            </div>
+          ) : (
+            <div className="relative z-[1] flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">
+              Nothing by that name. Drop a <span className="text-accent">&nbsp;New idea&nbsp;</span> and describe it.
+            </div>
+          )
+        ) : (
+          <>
+            {/*
+              The planets stay put.
+
+              Choosing one used to remove them all, which is what made this a
+              drill-down rather than a shelf. They are the way in and they are
+              also the way to the *second* thing you want to look at, so they
+              do not go anywhere; the one you have open is simply lit.
+            */}
+            <div className="relative z-[1] flex flex-wrap justify-center gap-x-3 gap-y-2 px-4 py-3">
+              {[...categories].map((c) => {
+                const isOpen = open.includes(c.id);
+                return (
+                  <Tooltip key={c.id} content={c.blurb} side="top">
+                    <button
+                      type="button"
+                      data-category={c.id}
+                      aria-expanded={isOpen}
+                      onClick={() => toggleCat(c.id)}
+                      className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1"
+                      style={{ color: `oklch(0.84 0.13 ${c.hue})` }}
+                    >
+                      <span
+                        className="flex size-[52px] items-center justify-center rounded-full transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
+                        style={{
+                          background: `oklch(0.2 0.045 ${c.hue} / ${isOpen ? 0.85 : 0.55})`,
+                          // Under the hand it lifts and its rim brightens; open,
+                          // it stays lit. It does not change colour: the colour
+                          // is what says which kind of part this is.
+                          boxShadow: isOpen
+                            ? `inset 0 0 0 1.5px oklch(0.8 0.17 ${c.hue}), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.4)`
+                            : `inset 0 0 0 1px oklch(0.62 0.14 ${c.hue} / 0.42), 0 1px 0 oklch(0 0 0 / 0.5)`,
+                          "--lit": `inset 0 0 0 1.5px oklch(0.78 0.16 ${c.hue} / 0.85), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.35)`,
+                        } as React.CSSProperties}
+                      >
+                        {React.createElement(PLANET[c.id], { size: 38 })}
+                      </span>
+                      <span className="text-center text-[10px] leading-tight">{c.label}</span>
+                      <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                    </button>
+                  </Tooltip>
+                );
+              })}
+              {/*
+                And one that is not a kind of part: something the library does
+                not have, which you describe yourself. Same shape as the rest,
+                drawn in a dashed rim so it reads as an opening rather than a
+                thing.
+              */}
+              <Tooltip content="Something the library has not got: describe it and place it" side="top">
                 <button
                   type="button"
-                  data-category={c.id}
-                  onClick={() => { play("select"); setCat(c.id); setSub(null); }}
-                  className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1"
-                  style={{ color: `oklch(0.84 0.13 ${c.hue})` }}
+                  data-category="custom-idea"
+                  onClick={() => addFeatureToCanvas("custom-idea")}
+                  className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1 text-accent"
                 >
                   <span
-                    className="flex size-[52px] items-center justify-center rounded-full transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
-                    style={{
-                      background: `oklch(0.2 0.045 ${c.hue} / 0.55)`,
-                      // Under the hand it lifts and its rim brightens. It does
-                      // not change colour: the colour is what says which kind
-                      // of part this is.
-                      boxShadow: `inset 0 0 0 1px oklch(0.62 0.14 ${c.hue} / 0.42), 0 1px 0 oklch(0 0 0 / 0.5)`,
-                      "--lit": `inset 0 0 0 1.5px oklch(0.78 0.16 ${c.hue} / 0.85), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.35)`,
-                    } as React.CSSProperties}
+                    className="flex size-[52px] items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
+                    style={{ background: "oklch(0.2 0.04 265 / 0.45)" }}
                   >
-                    {React.createElement(PLANET[c.id], { size: 38 })}
+                    <Sparkles className="size-[30px]" />
                   </span>
-                  <span className="text-center text-[10px] leading-tight">{c.label}</span>
-                  <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                  <span className="text-center text-[10px] leading-tight">New idea</span>
+                  <span className="num text-[9px] text-fg-faint">yours</span>
                 </button>
               </Tooltip>
+            </div>
+
+            {/* The open ones, stacked, in the catalogue's order so that
+                opening a second never shuffles the first out from under the
+                pointer. */}
+            {CATEGORIES.filter((c) => open.includes(c.id)).map((c) => (
+              <CategorySection
+                key={c.id}
+                category={c}
+                live={live}
+                sizeFor={sizeFor}
+                gap={GAP}
+                onClose={() => toggleCat(c.id)}
+              />
             ))}
-            {/*
-              And one that is not a kind of part: something the library does
-              not have, which you describe yourself. Same shape as the rest,
-              drawn in a dashed rim so it reads as an opening rather than a
-              thing.
-            */}
-            <Tooltip content="Something the library has not got: describe it and place it" side="top">
-              <button
-                type="button"
-                data-category="custom-idea"
-                onClick={() => addFeatureToCanvas("custom-idea")}
-                className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1 text-accent"
-              >
-                <span
-                  className="flex size-[52px] items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
-                  style={{ background: "oklch(0.2 0.04 265 / 0.45)" }}
-                >
-                  <Sparkles className="size-[30px]" />
-                </span>
-                <span className="text-center text-[10px] leading-tight">New idea</span>
-                <span className="num text-[9px] text-fg-faint">yours</span>
-              </button>
-            </Tooltip>
-          </div>
-        ) : shown.length || removed.length ? (
-          <div className="relative z-[1] px-3 py-3">
-            {bands.map(({ band, items }) => (
-              <Band key={band} title={BAND_LABEL[band]}>
-                {/* items-start, or a flex line makes every card as tall as the
-                    tallest one in it, and the stretched-out part of a short
-                    card is empty space with the fire showing through it. */}
-                <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                  {items.map((f) => {
-                    const { width, tall } = sizeFor(f);
-                    return <Card key={f.id} feature={f} width={width} tall={tall} />;
-                  })}
-                </div>
-              </Band>
-            ))}
+
             {removed.length ? (
-              <Band title="Removed">
-                <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                  {removed.map((f) => <Card key={f.id} feature={f} width={sizeFor(f).width} tall={72} removed />)}
-                </div>
-              </Band>
+              <div className="relative z-[1] px-3 pb-3">
+                <Band title="Removed">
+                  <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
+                    {removed.map((f) => <Card key={f.id} feature={f} width={sizeFor(f).width} tall={72} removed />)}
+                  </div>
+                </Band>
+              </div>
             ) : null}
-            {/* A little room past the last thing, so nothing sits on the edge. */}
-            <div className="h-10" />
-          </div>
-        ) : (
-          <div className="relative z-[1] flex h-full items-center justify-center px-6 text-center text-[11px] text-fg-muted">
-            {searching
-              ? <>Nothing by that name. Drop a <span className="text-accent">New idea</span> and describe it.</>
-              : "Everything here is removed."}
-          </div>
-          )}
+
+            {open.length || removed.length ? <div className="h-10" /> : null}
+          </>
+        )}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One open category, stacked under the planets.
+ *
+ * Its own header so you can tell where one ends and the next begins, its
+ * sub-groups as a filter rather than a second drill level, and its parts in
+ * the flow — no scroller of its own, so the shelf's single scroller is the
+ * only thing the wheel talks to.
+ */
+function CategorySection({
+  category, live, sizeFor, gap, onClose,
+}: {
+  category: (typeof CATEGORIES)[number];
+  live: FeatureDef[];
+  sizeFor: (f: FeatureDef) => { width: number; tall: number };
+  gap: number;
+  onClose: () => void;
+}) {
+  const [sub, setSub] = React.useState<string | null>(null);
+  /* Opening one brings it into view.
+     The planets fill the shelf's 209px on their own, so a section that opens
+     underneath them opens off the bottom of it, and pressing a planet looked
+     like pressing a dead button. It mounts when it opens, so mounting is
+     exactly the moment to scroll — and only the new one moves, because the
+     one already open never remounts. */
+  const box = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    box.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, []);
+  const subs = React.useMemo(
+    () => (SUBGROUPS[category.id] ?? []).filter((g) => g.ids.some((id) => live.some((f) => f.id === id))),
+    [category.id, live],
+  );
+  const shown = React.useMemo(() => {
+    const group = subs.find((g) => g.id === sub);
+    const ids = group ? group.ids : subs.flatMap((g) => g.ids);
+    return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
+  }, [live, sub, subs]);
+  const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
+
+  return (
+    <section ref={box} data-category-open={category.id} className="relative z-[1] border-t border-border/70">
+      <div
+        className="sticky top-0 z-[2] flex items-center gap-2 px-3 py-1.5 backdrop-blur-sm"
+        style={{ background: `oklch(0.16 0.03 ${category.hue} / 0.9)` }}
+      >
+        <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: `oklch(0.86 0.12 ${category.hue})` }}>
+          {React.createElement(PLANET[category.id], { size: 14 })}
+          {category.label}
+        </span>
+        <div className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {subs.map((g) => {
+            const on = sub === g.id;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => { play("select"); setSub(on ? null : g.id); }}
+                aria-pressed={on}
+                className="tactile flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  background: on ? `oklch(0.78 0.17 ${category.hue})` : `oklch(0.72 0.15 ${category.hue} / 0.16)`,
+                  color: on ? "oklch(0.16 0.04 0)" : `oklch(0.86 0.12 ${category.hue})`,
+                  boxShadow: `inset 0 0 0 1px oklch(0.72 0.15 ${category.hue} / 0.4)`,
+                }}
+              >
+                {React.createElement(moonFor(g.id), { size: 12 })}
+                <span className="whitespace-nowrap">{g.label}</span>
+                <span className="num text-[9px] opacity-60">{g.ids.filter((id) => live.some((f) => f.id === id)).length}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${category.label}`}
+          className="tactile shrink-0 rounded-sm p-0.5 text-fg-muted hover:bg-hover hover:text-fg"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+      <div className="px-3 py-2">
+        {bands.map(({ band, items }) => (
+          <Band key={band} title={BAND_LABEL[band]}>
+            {/* items-start, or a flex line makes every card as tall as the
+                tallest one in it, and the stretched-out part of a short
+                card is empty space with the fire showing through it. */}
+            <div className="flex flex-wrap items-start" style={{ gap }}>
+              {items.map((f) => {
+                const { width, tall } = sizeFor(f);
+                return <Card key={f.id} feature={f} width={width} tall={tall} />;
+              })}
+            </div>
+          </Band>
+        ))}
+      </div>
+    </section>
   );
 }
 
