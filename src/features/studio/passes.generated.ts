@@ -2,9 +2,85 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T19:12:36.538Z";
+export const GENERATED_AT = "2026-09-13T19:45:15.951Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "71c3424",
+    "when": "2026-09-13T19:45:15+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "956a9b4",
+        "says": "A boundary is thinned where the space is made, and a hand says so",
+        "when": "2026-09-13T19:42:22+00:00",
+        "detail": [
+          "Phase one, re-verified by hand rather than by seed now that hypatia's entry points let a hand reach it. `tests/space-by-hand.mjs` draws the three things a seed never produces: a loop drawn slowly with a stop to look halfway, a loop whose ends do not quite meet, and a loop round a part that is already there, pressed on top of it.",
+          "One real defect, and it is the same shape as the one hypatia found. Nothing thinned a boundary on the way in: a two hundred move loop was kept as two hundred and one points, every one of them persisted and written into a `clip-path: path(…)` the compositor re-parses on every frame while the hole consumes. A drawn stroke has been tidied since the drawing board existed; a boundary never was, and it is the one that pays. `tidyBoundary` drops points within two pixels of the one before and caps at ninety-six, which is `outlinePath`'s own cap for its own reason: past about a hundred points a drawn line has no shape left to lose. It runs in `addSpace` rather than at each door, so the hand, the menu and the wheel all get it and a space is the same record however it arrived. The same loop is ninety-six points now; reverted, the check fails at 201.",
+          "What a hand found that held: a pause does not split a loop in two, ends forty pixels short still close, a press that lands on a part still draws round it, and the part inside is still there with its own panel afterwards. And the claim nothing had ever asked about — that a consumed area becomes drawing space — is true as far as it goes: a pen draws inside an open hole. The note says the rest plainly, that the ink is ink on the page and nothing ties it to the space it was drawn in.",
+          "Three of the first run's failures were the check's own fault and are written into it so nobody repeats them: a loop sized off a part was 348px across and started above the window, an \"open line\" was drawn at y=760 which is the parts shelf, and a gesture that presses in the middle of a part and lets go on the rim is a line with a tail, which the board rightly calls open. A gesture that leaves the pane is not a gesture the board ever sees."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "5bb7f9c",
+    "when": "2026-09-13T19:35:14+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "5bb7f9c",
+        "says": "Eleven more suites stop announcing a failed run as a clean one",
+        "when": "2026-09-13T19:35:14+00:00",
+        "detail": [
+          "The same lie as the last commit, swept rather than met one at a time. Eleven suites ended on an unconditional",
+          "console.log(`all good — ${passed}/${results.length}`)",
+          "so a run with failures in it printed \"all good\" and only the count beside it and the exit code disagreed. The sweep prints the tail of each log, so this is the line a person actually reads: cards, connected, drawn-size, formation, imaging, ink, molten, part-colour, part-select, solid and vines could all have reported a break as a pass to anyone who did not check the arithmetic. Most of the suite family already said FAILED when it had failed; these are now the same shape as those.",
+          "No check changed, and none of these eleven is failing — this is the reporting line only."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "72ff852",
+        "says": "Two wiring checks hold their claim, and both suites stop saying \"all good\"",
+        "when": "2026-09-13T19:34:43+00:00",
+        "detail": [
+          "Both failures were greps pinned to a spelling rather than to what they claim, and in both cases the thing they claim had just become more true.",
+          "bill wanted `noteSpend(readCost)` exactly. The call is now `noteSpend(readCost, job.threadId)` — the cost noted on the iteration it belongs to, which is what the check is named after, now saying which iteration out loud. It asserts the cost is noted and lets the call carry whatever else it needs.",
+          "change-made wanted `landThread` destructured as exactly eight names in exactly that order. A ninth arrived — the id a forming box fills in — and nothing about what lands changed. It asserts that `madeId` is one of the things a landing thread is given, which is the claim.",
+          "The third fix is the one worth keeping: both suites ended on `console.log(\"all good — ${passed}/${results.length}\")` with no condition, so a run with a failure in it announced itself as a clean one and only the exit code disagreed. Anyone reading the tail of that log — which is what the sweep prints — was told a lie. They say FAILED now when they have failed. 53/53 and 19/19."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "6126c16",
+        "says": "Regenerate the passes for the space tool, the crescent and the model table",
+        "when": "2026-09-13T19:13:11+00:00",
+        "detail": [
+          "Five passes, all three sessions converged into one tip again: the box forms with the iteration, beginning when the job is queued and completing when it lands; the model table as data a panel can render from; the light outside a hole as a crescent rather than a halo; a live element measured and made a real part of the library; and the space tool and Create, so a space can be made by hand.",
+          "No conflicts, and three new suites came with it — recreate, forming-live and space-entries."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "74f9f57",
     "when": "2026-09-13T19:12:31+00:00",
@@ -930,72 +1006,6 @@ export const PASSES: Pass[] = [
           "pages",
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "df1e831",
-    "when": "2026-09-13T00:47:34+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "df1e831",
-        "says": "Test fallout from the permanent side tabs",
-        "when": "2026-09-13T00:47:34+00:00",
-        "detail": [
-          "Picking a part no longer brings Element to the front — the five tabs are permanent now and only a press moves them, so a panel being worked in cannot be taken away mid-adjustment. Everything that selected a part and then reached straight for one of Element's own fields has to press the tab first: bird's role picker, and the cube face lists in cube and cube-part, which timed out waiting for panels that were no longer in front.",
-          "board-layout still described the old strip in three checks — that it read Look and Motion with nothing held, that picking something summoned Element/Format/Pages, and that letting go gave the column back. Those are the behaviours the change deliberately removed, so they now hold the rule that replaced them: the same five, in one order, and neither picking something up nor letting it go moves them.",
-          "Nothing in src changed. 67/67 board-layout, 33/33 bird, 59/59 cube, 29/29 cube-part."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "37e00b5",
-    "when": "2026-09-12T23:42:10+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "37e00b5",
-        "says": "One set of side tabs, and the tab you are on is the tab you stay on",
-        "when": "2026-09-12T23:42:10+00:00",
-        "detail": [
-          "It moved under you twice over. The set changed with the selection — Element, Format and Pages appeared when something was held and vanished when it was not, so the strip you were reaching for depended on what you had just clicked. And an effect on `selection` wrote the active tab on every change, so clicking bare ground to let go of a part threw you off Motion and back to Look, mid-adjustment.",
-          "Now: five tabs, always the same five, in one order, and nothing but a press moves them.",
-          "That costs the one helpful jump — picking a part no longer brings Element to the front. It cannot both never swap and swap when it judges you would like it to, and being thrown off a panel you were working in is the worse of the two. Element is one press away, and with nothing held it shows the page's own prompt, which is a real thing to be looking at rather than a sign saying nothing is selected.",
-          "Making the set permanent broke the strip and that is fixed here rather than left: five words and five icons want 347px in a 215px column, so Look and Motion hung off the end. Only the tab you are on says its name now — the word that is doing work — and the other four keep theirs for a screen reader. 218px of tabs in 215px of strip becomes 200."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "faf6c9b",
-        "says": "The strip along the bottom goes, and the extension point with it",
-        "when": "2026-09-12T23:33:39+00:00",
-        "detail": [
-          "It read: a pulsing dot, live, a simulated latency, tweets, compact, sound, the clock, a version tag. Two groups of grey words, both muted, 26px of every page spent on none of it. Gone.",
-          "What went with it, because leaving any of it would be leaving a stub: the StatusBar component, the `appearance.statusBar` setting and the `site.layout.statusBar` flag behind it, and `statusItems` — the module contract that existed so a feature could put a widget down there, with nothing left to render into. That is `StatusItemDef`, the registry's array and sort, and the row in the AGENTS contract table. `topBarItems` is untouched and its doc no longer points at a sibling that is gone.",
-          "The tweets console is not lost with its button: it is on the command palette and on `t`, which is what its own tooltip already said.",
-          "Everything that left room for the strip stops doing so — the Builder, the preview page and the brief dialog were all `100dvh - topbar - statusbar`, the slide-over sat above it, and the toaster floated over it. The Builder is 26px taller for it; the frame goes from 63% to 66% at pane size."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "pages",
-          "studio",
-          "tests",
-          "tweets"
         ],
         "kind": "new"
       }
