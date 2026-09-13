@@ -167,7 +167,21 @@ export function Timeline() {
   const wires = React.useRef<HTMLCanvasElement>(null);
 
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
-  const [zoom, setZoom] = React.useState(1);
+  /*
+   * The zoom is the store's, not this component's.
+   *
+   * It was `React.useState(1)` here, which is why the minus and plus in the
+   * header did nothing while the timeline was showing: they were moving the
+   * store's number and this surface was reading its own. One number, and the
+   * one control in the bar acts on whichever surface you are looking at.
+   *
+   * Only the zoom moves. The pan and the settle stay exactly where they were:
+   * the settle animates `viewAt` straight onto the element for the length of
+   * the move and lands on one `setZoom` at the end, which now happens to
+   * write to the store, and reads no differently for it.
+   */
+  const zoom = useStudio((s) => s.zoom);
+  const setZoom = useStudio((s) => s.setZoom);
   /** The settle in flight, if there is one. Zero when the view is state's again. */
   const settling = React.useRef(0);
   const [dragging, setDragging] = React.useState<{ id: string; at: Point } | null>(null);
@@ -634,7 +648,10 @@ export function Timeline() {
       setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
       return;
     }
-    setZoom((z) => Math.max(0.4, Math.min(1.8, z * (e.deltaY < 0 ? 1.08 : 0.93))));
+    /* The store's setter takes a number, not an updater, and its own clamp is
+       the clamp — the timeline used to hold itself to 0.4–1.8 while the bar's
+       buttons ran to 0.25–2.5, which is two answers to one question. */
+    setZoom(useStudio.getState().zoom * (e.deltaY < 0 ? 1.08 : 0.93));
   };
 
   const nothing = !threads.length;

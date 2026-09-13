@@ -66,6 +66,25 @@ export type Priority = "must" | "nice" | "idea";
 export type ShapeKind = "pen" | "frame" | "arrow";
 /** The board shows either the design surface or the site it describes. */
 /** The board, the site as it runs, or the iteration book: brief, JSON and every thread. */
+/**
+ * What 100% means on the board.
+ *
+ * The readout is the *nominal* zoom — the number in the bar, and the number
+ * the clamp below is measured in — and the preview is drawn at that times
+ * this. They were the same thing until J pointed out that the size he
+ * actually works at is two presses of the plus above a fitted board: 1.1
+ * twice over, which is 121%. That size is the size, so it is called 100 and
+ * everything else is measured from it.
+ *
+ * Only the preview takes it. The timeline is not a preview of anything and
+ * fits itself to its own boxes, so it draws at the nominal zoom.
+ */
+export const BASE_ZOOM = 1.21;
+
+/** The clamp, in nominal terms: a quarter of the base to two and a half times it. */
+export const ZOOM_MIN = 0.25;
+export const ZOOM_MAX = 2.5;
+
 export type BoardMode = "design" | "preview" | "book";
 export type ShapeRelation = "flow" | "data";
 
@@ -1287,7 +1306,7 @@ export const useStudio = create<StudioState>()(
         },
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
-        setZoom: (z) => set({ zoom: Math.max(0.25, Math.min(2.5, z)) }),
+        setZoom: (z) => set({ zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) }),
         setPan: (p) => set({ pan: p }),
         setPageScroll: (y) => set({ pageScroll: Math.max(0, y) }),
         resetView: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
