@@ -41,13 +41,11 @@
  * menu itself), which is the draft option to compare against.
  */
 import * as React from "react";
-import {
-  Brush, ChevronsDown, ChevronsUp, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit,
-  Monitor, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, X,
-} from "lucide-react";
+import { Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Monitor, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
+import { createSpaceAt } from "./createSpace";
 import { BackgroundEditor } from "./BackgroundEditors";
 import { readImage } from "./ImageIntake";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
@@ -378,8 +376,15 @@ const SLOTS_BG: Record<SlotId, Slot> = {
   delete: { id: "delete", label: "Strip", icon: Eraser, hue: 18, kind: "action" },
 };
 
-/** What the green level holds for each blue group, when the subject is the page. */
-function bgChoicesFor(group: SlotId): Choice[] {
+/**
+ * What the green level holds for each blue group, when the subject is the page.
+ *
+ * `at` is where the press landed on the page, in canvas space — the same
+ * point the wheel already hands Add. Create needs it and nothing else here
+ * does, so it is passed rather than reached for: a choice that fires on the
+ * spot has to know which spot.
+ */
+function bgChoicesFor(group: SlotId, at: { x: number; y: number } | null): Choice[] {
   switch (group) {
     case "look":
       // Color is one editor: the page's colour off the spectrum, the fill
@@ -400,6 +405,15 @@ function bgChoicesFor(group: SlotId): Choice[] {
     case "edit":
       // How the page is built: its width, and (a placeholder) a background of its own per page.
       return [
+        // The one thing here that makes something rather than setting
+        // something: an area of the page set aside to become a part
+        // (`createSpace.ts`). Without a point there is no spot to put it on,
+        // so it is dim rather than a ring landing in the corner.
+        // The wheel is closed on the way out: it is centred on the spot the
+        // space lands, so leaving it up would hide the thing just made. The
+        // green pick already sounds, so this adds no sound of its own.
+        { id: "create", label: "Create", icon: CircleDashed, dim: !at,
+          act: () => { if (!at) { play("deny"); return; } createSpaceAt(at.x, at.y); closeRadial(); } },
         { id: "width", label: "Width", icon: Monitor },
         { id: "pages-soon", label: "Per page (soon)", icon: Files, act: () => play("tap") },
       ];
@@ -841,7 +855,7 @@ export function RadialMenu() {
   // More is the tray's items as green pieces, each firing on the spot.
   const choicesOf = (g: SlotId): Choice[] => {
     if (g === "more") return tray.map((it) => ({ id: it.id, label: it.label, icon: TRAY_ICON[it.id] ?? Ellipsis, dim: it.disabled, act: () => { if (!it.disabled) it.onClick(); else play("deny"); } }));
-    return bg ? bgChoicesFor(g) : choicesFor(g, node!);
+    return bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!);
   };
 
   /* ---------------------------------------------------------- level 2 */
