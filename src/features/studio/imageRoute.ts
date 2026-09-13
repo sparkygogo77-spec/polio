@@ -42,8 +42,13 @@
  *   finds is what it draws. The step is declared here for the create space
  *   (`claude/amazing-dijkstra-cznfor`), whose second phase runs it; nothing
  *   on this branch calls it yet.
- * - **alpha** — cutting the ground away *after* a render. It is the **last
- *   resort of three**, and the order matters more than the models do:
+ * - **alpha** — the ground left out, as a step of its own when a plan
+ *   asks for one: a model that renders with a transparent background is
+ *   handed the picture and asked for it again with no ground (gpt-image-2
+ *   first, gpt-image-1.5 the other option — J has produced real alpha from
+ *   both on Replicate), and only a model that cannot is a cutter. For the
+ *   ordinary run, alpha is not a step but a property: the **last resort of
+ *   three**, and the order matters more than the models do:
  *
  *   1. **The drawn line is the alpha.** A part drawn on the board is
  *      clipped to the line it was drawn as (`blocks.tsx`, `Cut`), and that
@@ -105,6 +110,36 @@ export const STEPS: readonly Step[] = ["read", "first", "refine", "recreate", "a
 export interface Field {
   field: string;
   value: string;
+}
+
+/**
+ * One input a model takes, as the panel renders it and the route checks it.
+ *
+ * Read off the model's published schema, field for field, with the values
+ * it allows: this is what lets a person choose a model *and* everything the
+ * model can be told, without a field name written in a component anywhere.
+ * `managed` marks the fields the route already sets from the need — the
+ * prompt, the images, the ratio, the format, the ground — which a person
+ * may still override; everything else is theirs alone.
+ */
+export interface ModelField {
+  /** The field's name on the schema, exactly. */
+  name: string;
+  /** What to call it in a sentence. */
+  label: string;
+  kind: "enum" | "integer" | "number" | "boolean" | "text" | "image" | "images" | "secret";
+  /** The values an enum allows, the schema's own spelling. */
+  values?: readonly string[];
+  min?: number;
+  max?: number;
+  /** The schema's default, or null when it has none. */
+  default: string | number | boolean | null;
+  /** How many an images field takes. */
+  maxItems?: number;
+  /** What the route fills this with, when it does. */
+  managed?: "prompt" | "images" | "ratio" | "size" | "format" | "alpha" | "grounding" | "pixels";
+  /** A line from the schema worth keeping. */
+  note?: string;
 }
 
 export interface ImageModel {
@@ -171,6 +206,11 @@ export interface ImageModel {
    */
   grounding: { web: string; images: string } | null;
   /**
+   * Every input the model takes, off its schema (`ModelField`). The panel
+   * renders these; `optionsFor` holds what a person set to them.
+   */
+  fields: readonly ModelField[];
+  /**
    * How a mesh model is asked, when `returns` is "mesh".
    *
    * None of the picture fields apply: there is no aspect ratio on a solid,
@@ -235,6 +275,16 @@ export const MODELS: readonly ImageModel[] = [
     // search and `image_search` fetches image references. Both off unless
     // the step or the person asks (`groundingFor`).
     grounding: { web: "google_search", images: "image_search" },
+    fields: [
+      { name: "prompt", label: "Prompt", kind: "text", default: null, managed: "prompt" },
+      { name: "image_input", label: "Input images", kind: "images", default: null, maxItems: 14, managed: "images" },
+      { name: "aspect_ratio", label: "Aspect ratio", kind: "enum", default: "match_input_image", managed: "ratio",
+        values: ["match_input_image", "1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9"] },
+      { name: "resolution", label: "Resolution", kind: "enum", values: ["1K", "2K", "4K"], default: "1K", managed: "size", note: "higher takes longer" },
+      { name: "google_search", label: "Ground in web search", kind: "boolean", default: false, managed: "grounding", note: "real-time information: weather, scores, recent events" },
+      { name: "image_search", label: "Ground in image search", kind: "boolean", default: false, managed: "grounding", note: "web images as visual context; turns web search on too" },
+      { name: "output_format", label: "Output format", kind: "enum", values: ["jpg", "png"], default: "jpg", managed: "format" },
+    ],
     mesh: null,
     cut: null,
     also: "resolution is 1K, 2K or 4K — there is no 512px, which was believed; aspect_ratio defaults to match_input_image and output_format to jpg, so png is asked for. It can search the web and search images for references, which is off unless the step is recreate or the person asked, and its log reports a token count and a generation time.",
@@ -256,6 +306,15 @@ export const MODELS: readonly ImageModel[] = [
     size: { field: "size", value: "2K" },
     format: { field: "output_format", value: "png" },
     grounding: null,
+    fields: [
+      { name: "prompt", label: "Prompt", kind: "text", default: null, managed: "prompt" },
+      { name: "image_input", label: "Input images", kind: "images", default: null, maxItems: 14, managed: "images", note: "1–14 images; the first two may be a before and an after" },
+      { name: "size", label: "Resolution", kind: "enum", values: ["2K", "3K"], default: "2K", managed: "size" },
+      { name: "aspect_ratio", label: "Aspect ratio", kind: "enum", values: ["match_input_image", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "21:9"], default: "match_input_image", managed: "ratio" },
+      { name: "sequential_image_generation", label: "Sequential generation", kind: "enum", values: ["disabled", "auto"], default: "disabled", note: "auto lets the model make a related set" },
+      { name: "max_images", label: "Most images", kind: "integer", min: 1, max: 15, default: 1, note: "input plus generated cannot pass 15" },
+      { name: "output_format", label: "Output format", kind: "enum", values: ["png", "jpeg"], default: "png", managed: "format" },
+    ],
     mesh: null,
     cut: null,
     also: "size is 2K or 3K; sequential_image_generation auto gives a batch, which is off; max_images up to 15.",
@@ -264,8 +323,10 @@ export const MODELS: readonly ImageModel[] = [
     slug: "openai/gpt-image-2",
     name: "GPT Image 2",
     returns: "picture",
-    // Alpha, and a wide enough ratio list to be useful with it.
-    serves: { first: ["icon", "picture"], refine: ["icon", "picture"] },
+    // Alpha, and a wide enough ratio list to be useful with it — and so the
+    // first pick for the alpha step: handed a picture, it renders it again
+    // with no ground, which beats cutting one off.
+    serves: { first: ["icon", "picture"], refine: ["icon", "picture"], alpha: ["icon", "picture", "surface"] },
     references: 10,
     refField: "input_images",
     examplePair: false,
@@ -276,17 +337,33 @@ export const MODELS: readonly ImageModel[] = [
     size: null,
     format: { field: "output_format", value: "png" },
     grounding: null,
+    fields: [
+      { name: "prompt", label: "Prompt", kind: "text", default: null, managed: "prompt" },
+      { name: "input_images", label: "Input images", kind: "images", default: null, maxItems: 10, managed: "images" },
+      { name: "aspect_ratio", label: "Aspect ratio", kind: "enum", default: "1:1", managed: "ratio",
+        values: ["1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "9:16", "auto", "1024x1024", "1536x1024", "1024x1536", "1536x1152", "1152x1536", "2048x2048", "2048x1152", "1152x2048", "3840x2160", "2160x3840"],
+        note: "auto lets the model pick; sizes above 2560x1440 are experimental" },
+      { name: "background", label: "Background", kind: "enum", values: ["auto", "transparent", "opaque"], default: "auto", managed: "alpha" },
+      { name: "quality", label: "Quality", kind: "enum", values: ["low", "medium", "high", "auto"], default: "auto" },
+      { name: "number_of_images", label: "Number of images", kind: "integer", min: 1, max: 10, default: 1 },
+      { name: "output_compression", label: "Output compression", kind: "integer", min: 0, max: 100, default: 90, note: "0–100%" },
+      { name: "output_format", label: "Output format", kind: "enum", values: ["png", "jpeg", "webp"], default: "webp", managed: "format" },
+      { name: "moderation", label: "Moderation", kind: "enum", values: ["auto", "low"], default: "auto" },
+      { name: "user_id", label: "User id", kind: "text", default: null, note: "an optional end-user identifier for OpenAI's abuse monitoring" },
+      { name: "openai_api_key", label: "OpenAI API key", kind: "secret", default: null, note: "optional; the proxy is used without it. Passed through, never kept" },
+    ],
     mesh: null,
     cut: null,
     also:
-      "It was briefed here as unable to do transparency at all: its schema carries background auto|transparent|opaque, the same field gpt-image-1.5 has. "
+      "Transparency confirmed: J has produced transparent PNGs from it on Replicate with background set to transparent, real alpha, quality intact. "
       + "The 1:1/3:2/2:3-only ratio list belongs to gpt-image-1.5, not to this — this also takes 4:3, 3:4, 16:9, 9:16, auto and explicit pixel sizes up to 3840x2160.",
   },
   {
     slug: "openai/gpt-image-1.5",
     name: "GPT Image 1.5",
     returns: "picture",
-    serves: { first: ["icon"], refine: ["icon"] },
+    // The other option for the alpha step, after gpt-image-2.
+    serves: { first: ["icon"], refine: ["icon"], alpha: ["icon", "picture"] },
     references: 10,
     refField: "input_images",
     examplePair: false,
@@ -297,9 +374,23 @@ export const MODELS: readonly ImageModel[] = [
     size: null,
     format: { field: "output_format", value: "png" },
     grounding: null,
+    fields: [
+      { name: "prompt", label: "Prompt", kind: "text", default: null, managed: "prompt" },
+      { name: "input_images", label: "Input images", kind: "images", default: null, maxItems: 10, managed: "images" },
+      { name: "aspect_ratio", label: "Aspect ratio", kind: "enum", values: ["1:1", "3:2", "2:3"], default: "1:1", managed: "ratio" },
+      { name: "input_fidelity", label: "Input fidelity", kind: "enum", values: ["low", "high"], default: "low", note: "high holds an edit closer to what it was given" },
+      { name: "background", label: "Background", kind: "enum", values: ["auto", "transparent", "opaque"], default: "auto", managed: "alpha" },
+      { name: "quality", label: "Quality", kind: "enum", values: ["low", "medium", "high", "auto"], default: "auto" },
+      { name: "number_of_images", label: "Number of images", kind: "integer", min: 1, max: 10, default: 1 },
+      { name: "output_compression", label: "Output compression", kind: "integer", min: 0, max: 100, default: 90 },
+      { name: "output_format", label: "Output format", kind: "enum", values: ["png", "jpeg", "webp"], default: "webp", managed: "format" },
+      { name: "moderation", label: "Moderation", kind: "enum", values: ["auto", "low"], default: "auto" },
+      { name: "user_id", label: "User id", kind: "text", default: null },
+      { name: "openai_api_key", label: "OpenAI API key", kind: "secret", default: null, note: "optional; passed through, never kept" },
+    ],
     mesh: null,
     cut: null,
-    also: "Three ratios and no more, so it is the alpha model of last resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
+    also: "Three ratios and no more, so it is the alpha model of second resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
   },
   {
     slug: "tencent/hunyuan3d-2mv",
@@ -346,6 +437,21 @@ export const MODELS: readonly ImageModel[] = [
     size: null,
     format: { field: "file_type", value: "glb" },
     grounding: null,
+    fields: [
+      { name: "front_image", label: "Front view", kind: "image", default: null, managed: "images" },
+      { name: "back_image", label: "Back view", kind: "image", default: null, managed: "images" },
+      { name: "left_image", label: "Left view", kind: "image", default: null, managed: "images" },
+      { name: "right_image", label: "Right view", kind: "image", default: null, managed: "images" },
+      { name: "steps", label: "Steps", kind: "integer", min: 1, max: 100, default: 30 },
+      { name: "guidance_scale", label: "Guidance", kind: "number", default: 5 },
+      { name: "seed", label: "Seed", kind: "integer", default: 1234 },
+      { name: "randomize_seed", label: "Random seed", kind: "boolean", default: true },
+      { name: "octree_resolution", label: "Octree resolution", kind: "integer", min: 16, max: 512, default: 256 },
+      { name: "num_chunks", label: "Chunks", kind: "integer", min: 1000, max: 5000000, default: 200000 },
+      { name: "remove_background", label: "Remove the background", kind: "boolean", default: true, managed: "alpha" },
+      { name: "target_face_num", label: "Faces", kind: "integer", min: 100, max: 1000000, default: 10000, managed: "size", note: "the document has to carry the file" },
+      { name: "file_type", label: "File type", kind: "enum", values: ["glb", "obj", "ply", "stl"], default: "glb", managed: "format" },
+    ],
     mesh: {
       imageField: "front_image",
       alsoViews: ["back_image", "left_image", "right_image"],
@@ -390,6 +496,13 @@ export const MODELS: readonly ImageModel[] = [
     size: null,
     format: { field: "format", value: "png" },
     grounding: null,
+    fields: [
+      { name: "image", label: "Image", kind: "image", default: null, managed: "images" },
+      { name: "threshold", label: "Threshold", kind: "number", min: 0, max: 1, default: 0, managed: "alpha", note: "0 keeps a soft alpha; above it the cut is hard" },
+      { name: "reverse", label: "Keep the ground instead", kind: "boolean", default: false },
+      { name: "background_type", label: "Background", kind: "enum", values: ["rgba", "map", "green", "white", "blur", "overlay"], default: "rgba", note: "the schema also takes an [R,G,B] array or a path to an image" },
+      { name: "format", label: "Output format", kind: "enum", values: ["png", "jpg"], default: "png", managed: "format" },
+    ],
     mesh: null,
     cut: {
       imageField: "image",
@@ -419,6 +532,18 @@ export const MODELS: readonly ImageModel[] = [
     size: { field: "image_size", value: "2K" },
     format: { field: "output_format", value: "png" },
     grounding: null,
+    fields: [
+      { name: "prompt", label: "Prompt", kind: "text", default: null, managed: "prompt", note: "short" },
+      { name: "thinking", label: "Thinking", kind: "enum", values: ["very low", "low", "medium", "high", "very high"], default: "high", note: "higher is better and slower" },
+      { name: "prompt_upsampling", label: "Enhance the prompt", kind: "boolean", default: true, note: "off passes the words straight through" },
+      { name: "aspect_ratio", label: "Aspect ratio", kind: "enum", values: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "custom"], default: "1:1", managed: "ratio" },
+      { name: "image_size", label: "Resolution", kind: "enum", values: ["1K", "2K"], default: "1K", managed: "size", note: "ignored when the ratio is custom" },
+      { name: "width", label: "Width", kind: "integer", min: 0, max: 2560, default: 1024, managed: "pixels", note: "with aspect_ratio custom; rounded to a multiple of 16" },
+      { name: "height", label: "Height", kind: "integer", min: 0, max: 2560, default: 1024, managed: "pixels" },
+      { name: "seed", label: "Seed", kind: "integer", default: null },
+      { name: "output_format", label: "Output format", kind: "enum", values: ["png", "jpg", "webp"], default: "jpg", managed: "format" },
+      { name: "output_quality", label: "Output quality", kind: "integer", min: 0, max: 100, default: 80, note: "ignored for png" },
+    ],
     mesh: null,
     cut: null,
     also:
@@ -671,9 +796,56 @@ export function groundingFor(m: ImageModel, ask: { step?: Step; grounded?: boole
   return { [m.grounding.web]: on, [m.grounding.images]: on };
 }
 
+/**
+ * What a person set on a model, held to what the model takes.
+ *
+ * Only fields the row declares, only values the field allows: an enum must
+ * be one of its values, a number is clamped to its range and an integer
+ * rounded, a boolean is a boolean, images are a list of strings no longer
+ * than the field takes, text and a secret are strings. Anything else is
+ * dropped rather than sent, because a model given a field it does not have
+ * fails the whole call. Applied *after* the route's own choices, so a person
+ * who set the ratio or the ground gets theirs.
+ */
+export function optionsFor(m: ImageModel, raw: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!raw) return out;
+  for (const f of m.fields) {
+    if (!(f.name in raw)) continue;
+    const v = raw[f.name];
+    if (v === undefined || v === null || v === "") continue;
+    switch (f.kind) {
+      case "enum":
+        if (typeof v === "string" && f.values?.includes(v)) out[f.name] = v;
+        break;
+      case "integer":
+      case "number": {
+        const n = typeof v === "number" ? v : Number(v);
+        if (!Number.isFinite(n)) break;
+        const clamped = Math.max(f.min ?? -Infinity, Math.min(f.max ?? Infinity, n));
+        out[f.name] = f.kind === "integer" ? Math.round(clamped) : clamped;
+        break;
+      }
+      case "boolean":
+        if (typeof v === "boolean") out[f.name] = v;
+        else if (v === "true" || v === "false") out[f.name] = v === "true";
+        break;
+      case "images":
+        if (Array.isArray(v) && v.every((x) => typeof x === "string")) out[f.name] = v.slice(0, f.maxItems ?? v.length);
+        break;
+      case "image":
+      case "text":
+      case "secret":
+        if (typeof v === "string") out[f.name] = v;
+        break;
+    }
+  }
+  return out;
+}
+
 export function inputFor(
   m: ImageModel,
-  ask: { prompt: string; images?: string[]; w?: number; h?: number; transparent?: boolean; step?: Step; grounded?: boolean },
+  ask: { prompt: string; images?: string[]; w?: number; h?: number; transparent?: boolean; step?: Step; grounded?: boolean; options?: Record<string, unknown> | null },
 ): Record<string, unknown> {
   /*
    * A solid is asked for differently, and mostly by *not* asking: there is
@@ -727,6 +899,8 @@ export function inputFor(
   input[m.format.field] = m.format.value;
   if (ask.transparent && m.alpha) input[m.alpha.field] = m.alpha.value;
   Object.assign(input, groundingFor(m, ask));
+  // What the person set, last, so it wins over the route's own choices.
+  Object.assign(input, optionsFor(m, ask.options));
   return input;
 }
 
@@ -756,7 +930,12 @@ export function wordsFor(ask: {
    * describes the line — and is also how these models want to be asked.
    */
   if (ask.making === "object") return "";
-  if (ask.step === "recreate") {
+  if (ask.step === "alpha") {
+    bits.push(
+      "Render the image you were given again exactly as it is, with a transparent background: the subject alone and nothing behind it.",
+      "Keep its exact shape, proportions, composition and framing — every line where it is. Nothing moves, nothing is added, nothing is cropped.",
+    );
+  } else if (ask.step === "recreate") {
     bits.push(
       said
         ? `Make the real ${said}, as it actually is in the world — look it up rather than invent it — in the composition and framing of the image you were given.`
