@@ -301,5 +301,5 @@ check("dragging turns it, and where it was left is written on the part",
 
 await b.close();
 const passed = results.filter(Boolean).length;
-console.log(`\nall good — ${passed}/${results.length}`);
+console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);
 process.exit(passed === results.length ? 0 : 1);

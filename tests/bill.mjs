@@ -107,7 +107,11 @@ check("a call that failed still reports its time", await (async () => {
 
 const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
 check("the reader's call is priced and timed", /claudeSpend\(data\.usage, Date\.now\(\) - readFrom\)/.test(run));
-check("and noted on the iteration it belongs to", /noteSpend\(readCost\)/.test(run));
+/* The cost is what is asserted, not the argument list. This was pinned to
+   `noteSpend(readCost)` exactly and broke when the call grew the thread it
+   belongs to — `noteSpend(readCost, job.threadId)` — which is the check's
+   own claim becoming *more* true than it was. */
+check("and noted on the iteration it belongs to", /noteSpend\(\s*readCost\s*(?:,[^)]*)?\)/.test(run));
 check("the body's whole bill is noted, renderer and Claude both",
   /noteSpend\(\{\s*dollars: written\.cost/.test(run) && /renderer: written\.renderer/.test(run) && /claude: written\.claude/.test(run));
 
@@ -155,5 +159,7 @@ try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) 
 check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
 
 const passed = results.filter(Boolean).length;
-console.log(`\nall good — ${passed}/${results.length}`);
+/* Says what happened. It read "all good" whatever the count was, so a run
+   with a failure in it announced itself as a clean one. */
+console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);
 process.exit(passed === results.length ? 0 : 1);
