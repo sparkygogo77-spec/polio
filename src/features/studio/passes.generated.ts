@@ -2,9 +2,81 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T09:17:41.767Z";
+export const GENERATED_AT = "2026-09-13T09:18:14.113Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "a0ae136",
+    "when": "2026-09-13T09:17:45+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "5fefed3",
+        "says": "Regenerate the passes for the timeline's visual system",
+        "when": "2026-09-13T08:58:50+00:00",
+        "detail": [
+          "The Updates entry for the set, read out of git as the rules say: the five commits — one chain, the cards, the box surface, the formation, the vine — appear as the passes they landed in, with their bodies as the lines."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1aa5b7e",
+        "says": "The vine is a twisted pair of the boxes' own material",
+        "when": "2026-09-13T08:58:21+00:00",
+        "detail": [
+          "The fifth of the timeline's visual system. The four-strand cable read as threaded and would not stay; this is the reference: a twisted cable, fewer strands, smoother, its colour moving, made of what the boxes are.",
+          "Two strands, not four, thick, in a tight helix about a dark core — a crossing every seventeen pixels, half again the cable's width, which is a twisted pair; tighter read as a chain of links, looser as a ribbon. Twice the samples a turn, and the grain moves the shade and never the width, which was the lumpiness. The core goes down once, whole, under both strands, and shows only as the seam between them: the old cable put it down between the back strands and the front ones step by step, and where a strand turned away it showed through as a row of dark teeth along the edge.",
+          "Both colours run the whole length. One strand carries one end's colour and the other the other's, end to end; neither ever changes over, so there is no seam anywhere. The ratio is thickness — the green strand fat at a green board and thin at a red drawing, the red one the other way — three to one at either end, never all of one colour, and never a blend: a green-to-red cable is green and red side by side at every point, and brown is not in it. Two boards of the same kind get one colour in two equal strands.",
+          "The same material as the boxes. The strands are the construct's own stops — `deep` shaded, `body` lit, `hot` down the edge facing the light, the same numbers `molten.css` paints the faces and rims with, held to the stylesheet by the test — and the same cloud drifts over them, by the same mechanism: two small elements per vine, one per strand at that strand's temperature, over the canvas, each clipped to its strand's near side (`strandEnvelope`) and carrying the construct's nebula on `molten-drift` at the boxes' rate. Nothing is repainted and nothing is blended; the two clips never overlap, so no colour is ever laid over the other."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0556aa6",
+        "says": "A queue strip in the header: what is running, as bars, beside the bell",
+        "when": "2026-09-13T08:32:32+00:00",
+        "detail": [
+          "Toasts are off, so this and the timeline are how work gets watched. One small bar per task in flight, no words, nothing to press, and when a task finishes its bar goes. Nothing running is no strip at all and the header looks as it always did.",
+          "The two colours are not chosen here. A drawing being read is `ember` and an iteration working on the board is `verdant` — the two temperatures of the shared construct, whose own doc calls `ember` \"a drawing, and the pieces that came off one\" and `verdant` \"an iteration\". The timeline's boxes and the Finish key are the same two, so a red bar up here and a red box down there are the same thing.",
+          "Newest on the right: the row is packed right, so an arriving task lands at the end and shoulders the older ones left.",
+          "A bar is as long as its task has actually got. It first grew on a ninety-second timer, because nothing here knew any better — it looked right and said nothing true. The sibling's formation work landed the model while this was being built, so it reads that instead: `progressOf` turns a drawing job's own step strings into a number, and a running iteration carries `form.p`. One answer to \"how far along is this\", not two. A bar that has stopped growing is now a task that has stopped, which is worth being able to see."
+        ],
+        "areas": [
+          "core",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1dba495",
+        "says": "Every iteration forms from nothing, driven by the work",
+        "when": "2026-09-13T08:21:51+00:00",
+        "detail": [
+          "The fourth of the timeline's visual system. A new iteration is not faded in when it lands; it forms, in stages, as far as its task in the queue has got, and finishes when the task does. Once per iteration, and again on every update to it.",
+          "The order, as J gave it:",
+          "the vine grows from the previous card where the vine arrives, the rim starts and is traced round the box in green while the work is running as the task nears completion the green closes in from the edges the nebula surface grows from zero the centre is the last thing to form",
+          "`formation.ts` is the model: five bands over 0..1, `progressOf(step)` reading the queue's own step strings as milestones (reading 0.15, the trace goes through the middle, the second pass the last stretch), and `formVars` turning one number into the custom properties the stylesheet reads. The store keeps `form: { p, gen }` on a thread — `noteProgress` only climbs, landing is 1, and every update (a pass, a spend, a line) bumps `gen` so the box forms again. Nothing forms on a reload of a thing that did not change."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "c5d3350",
     "when": "2026-09-13T08:47:44+00:00",
@@ -824,59 +896,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "47cd5f8",
-    "when": "2026-09-12T07:08:04+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "47cd5f8",
-        "says": "Dim the vines below the box's own core; catch one missed amber label",
-        "when": "2026-09-12T07:08:04+00:00",
-        "detail": [
-          "Two small pieces of the green-boards/red-drawings work, on top of euler's 07471e6 which did the rest (box colour, size, preview, and removing every clock).",
-          "strand.ts: the vines share the boxes' green hue family, which is the exact collision that took boxes off green the first time. Pulled the brightest vine values (each tone's rim and pulse) down — lower lightness and less saturation than before — so a vine's brightest moment stays under the box's own --verdant-hot and nowhere near its white core; the box carries the hot near-white centre, the vine never does. Checked by eye at a pane's size and 1440p with a screenshot, not just by number.",
-          "Timeline.tsx: IterationBox's uppercase label row was still the old amber (hue 34) as a Tailwind arbitrary-value class — invisible to vines.mjs's own hue-scanning regex, which only matches inline style values, not underscore-syntax classes, so it went uncaught. Its two sibling colours in the same box were already green; this one line wasn't. Now oklch(0.66 0.07 152), matching them.",
-          "Unsure of: whether a green box next to a green vine still reads as one shape at the smallest pane size on real hardware rather than this sandbox's software rasteriser — the screenshots I took looked distinct, but that is a call for whoever owns this file to make on their own screen, not something I can settle from here."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "07471e6",
-        "says": "Green boards, red drawings, one size, and no clocks",
-        "when": "2026-09-12T06:58:33+00:00",
-        "detail": [
-          "The shared definition is src/core/ui/molten.css, with its handle in src/core/ui/molten.ts, and the meanings are now part of the agreement rather than a preference, because the sibling renders the same language for the element cards: verdant is an ITERATION (the timeline's boards, and the Finish key that opens them), ember is a DRAWING and anything that came off one, molten is the base set. Green holds, red was drawn. A construct that is green on one branch and red on the other is worse than either colour, so it is written at the top of that file and in AGENTS.md.",
-          "This is a swap of which stops are used where, not of the language: the veining, the five keyframes, the edge, the seed and the grain are untouched, so nothing about the look changes except which things are which.",
-          "One size for everything on it. A drawing was a chip a third the size of an iteration, which said \"this is a lesser thing\" — and it is not, it is most of what happens here. Both are 248 by 104 now and differ by the colour they are made of and by the preview they carry: an iteration shows the page it left behind, a drawing shows the line that was actually drawn.",
-          "And no clocks. Time is irrelevant here: the chain says what came after what, and the first board says where it began by being first, so the timestamp came off every board, off the box menu, and off the section underneath. Ordering went with it — `connected` and `orphans` walk the list's own order rather than sorting by `at`, which also means the chain no longer depends on the machine's clock having been right. `at` stays on a thread because the passes generator and the book read it; nothing about the timeline does."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "806e15f",
-        "says": "Regenerate passes.generated.ts after merging this pass",
-        "when": "2026-09-12T01:37:02+00:00",
-        "detail": [
-          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
