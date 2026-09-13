@@ -9,14 +9,24 @@
  *
  * So it is said here, the way a person would say it.
  *
- * - **Close in time.** Strokes laid down one after another belong together,
- *   and a pause closes the group: stop for `PAUSE_MS` and the next stroke
- *   starts a new drawing. That is the rule a person already follows without
- *   being told, and it is the one that needs no cleverness.
- * - **Close in space.** Within a run, strokes that overlap or sit near each
- *   other are one thing, transitively — the bird's wing joins the body
- *   because it touches it, and the body joins the head. A stroke on the far
- *   side of the page during the same run is its own drawing.
+ * - **What touches is one thing.** A stroke laid over or against what is
+ *   already there is more of it, however long the hand stopped first. This
+ *   is the rule, and it is first.
+ * - **What merely sits nearby is one thing if it was drawn in the same
+ *   sitting.** Near but not touching — a leg under a body, a dot over an i
+ *   — joins while you are still at it, and stops joining once you have been
+ *   away (`SITTING_MS`). Nearness grows transitively, so a chain of small
+ *   strokes across a bird stays one bird.
+ * - **A stroke somewhere else is somewhere else.** Distance separates
+ *   whatever the clock says: that is how a person starts a second drawing.
+ *
+ * Time used to come *first* — a pause of a second and a half closed the
+ * group and space could only work inside it — and that was the whole bug. A
+ * person drawing a careful bird stops to look at it before adding the head,
+ * and the head arrived in a new run where it could never reach the body it
+ * was drawn on top of. Fifteen strokes came out as several drawings and
+ * loose ink. Pausing is what a person does while drawing one thing; going
+ * somewhere else is what they do to start another.
  * - **A person's word beats the guess.** This will get it wrong sometimes, so
  *   `group` on a stroke is a decision, and a decision is never overruled:
  *   join by giving strokes one key, split by giving each its own.
@@ -49,13 +59,17 @@ export interface InkGroup {
 }
 
 /**
- * A pause this long closes a drawing.
+ * How long a hand may rest before *nearby* strokes stop joining.
  *
- * A second and a half: long enough that lifting the pen to reposition does
- * not split a bird in two, short enough that going to look at something and
- * coming back starts a new one.
+ * Half a minute: long enough to look at what you have drawn, think, change
+ * colour and carry on — all of which a person does in the middle of one
+ * drawing — and short enough that leaving the board and coming back to it
+ * starts a new one.
+ *
+ * It does not apply to a stroke that touches what is already there. Nothing
+ * closes a drawing you are still drawing on.
  */
-export const PAUSE_MS = 1500;
+export const SITTING_MS = 30_000;
 
 /** How far apart two strokes may sit and still be one drawing, as a fraction of the bigger one. */
 export const NEAR = 0.4;
@@ -89,10 +103,23 @@ export function gap(a: InkBounds, b: InkBounds): number {
   return Math.hypot(dx, dy);
 }
 
-/** Near enough to be the same drawing. */
+/** Near enough to be the same drawing, if it was drawn in the same sitting. */
 export function near(a: InkBounds, b: InkBounds): boolean {
   const span = Math.max(a.w, a.h, b.w, b.h);
   return gap(a, b) <= Math.max(NEAR_FLOOR, span * NEAR);
+}
+
+/**
+ * Touching: one drawing whatever the clock says.
+ *
+ * Judged on the boxes rather than the ink, which is deliberately generous —
+ * a diagonal's box covers a lot of nothing. Generous is the right way to be
+ * wrong here: a stroke put down on top of a drawing is part of it far more
+ * often than it is a new drawing that happens to land there, and Split is
+ * one press away when it is not.
+ */
+export function touching(a: InkBounds, b: InkBounds): boolean {
+  return gap(a, b) <= 0;
 }
 
 /**
@@ -107,46 +134,58 @@ export function inkGroups(strokes: InkStroke[]): InkGroup[] {
   // time on it at all — groups by space alone rather than shuffling.
   const order = new Map(strokes.map((s, i) => [s.id, i]));
   const inTime = [...strokes].sort((a, b) => (a.at ?? 0) - (b.at ?? 0) || order.get(a.id)! - order.get(b.id)!);
-
   const box = new Map(strokes.map((s) => [s.id, boundsOf(s.points)]));
 
-  /* 1. A pause closes a run. */
-  const runs: InkStroke[][] = [];
-  let run: InkStroke[] = [];
-  let last: number | null = null;
-  for (const s of inTime) {
-    const at = s.at ?? null;
-    // Ink with no time on it never opens a gap: it falls through to space.
-    const paused = at !== null && last !== null && at - last > PAUSE_MS;
-    if (paused && run.length) { runs.push(run); run = []; }
-    run.push(s);
-    if (at !== null) last = at;
+  /*
+   * Built in the order the strokes were drawn, because that is the order the
+   * question is actually asked in: does this one belong to anything already
+   * on the board? One stroke can answer yes to several — a wing bridging a
+   * body and a tail — and then those were always one drawing and are merged.
+   */
+  interface Growing {
+    ids: string[];
+    /** Everything it covers so far, so a chain of small strokes stays one. */
+    reach: InkBounds;
+    /** When it was last drawn on, which is what a pause is measured from. */
+    lastAt: number | null;
   }
-  if (run.length) runs.push(run);
-
-  /* 2. Within a run, near strokes are one drawing, transitively. */
-  const guessed = new Map<string, string>();
-  for (const r of runs) {
-    const parent = new Map(r.map((s) => [s.id, s.id]));
-    const find = (id: string): string => {
-      let at = id;
-      while (parent.get(at) !== at) at = parent.get(at)!;
-      return at;
-    };
-    // The box of a whole set grows as strokes join it, so a chain of small
-    // strokes across a bird stays one bird rather than falling apart at the
-    // pair that happens to sit furthest apart.
-    const reach = new Map(r.map((s) => [s.id, box.get(s.id)!]));
-    for (let i = 0; i < r.length; i++) {
-      for (let j = i + 1; j < r.length; j++) {
-        const a = find(r[i]!.id), b = find(r[j]!.id);
-        if (a === b) continue;
-        if (!near(reach.get(a)!, reach.get(b)!)) continue;
-        parent.set(b, a);
-        reach.set(a, union(reach.get(a)!, reach.get(b)!));
-      }
+  const open: Growing[] = [];
+  for (const s of inTime) {
+    const b = box.get(s.id)!;
+    const at = s.at ?? null;
+    const joins = open.filter((g) => {
+      // Touching is one drawing whatever the clock says.
+      if (touching(g.reach, b)) return true;
+      if (!near(g.reach, b)) return false;
+      // Near, but not touching: only while the hand is still on this one.
+      // Ink with no time on it never opens a gap; it falls through to space.
+      if (at === null || g.lastAt === null) return true;
+      return at - g.lastAt <= SITTING_MS;
+    });
+    if (!joins.length) {
+      open.push({ ids: [s.id], reach: b, lastAt: at });
+      continue;
     }
-    for (const s of r) guessed.set(s.id, find(s.id));
+    const keep = joins[0]!;
+    keep.ids.push(s.id);
+    keep.reach = union(keep.reach, b);
+    if (at !== null) keep.lastAt = at;
+    for (const g of joins.slice(1)) {
+      keep.ids.push(...g.ids);
+      keep.reach = union(keep.reach, g.reach);
+      if (g.lastAt !== null) keep.lastAt = Math.max(keep.lastAt ?? g.lastAt, g.lastAt);
+      open.splice(open.indexOf(g), 1);
+    }
+  }
+
+  /* The key is the stroke that started it, so it does not move as the
+     drawing grows and a merge does not rename anything. */
+  const when = new Map(strokes.map((s) => [s.id, s.at ?? 0]));
+  const earlier = (a: string, b: string) => when.get(a)! - when.get(b)! || order.get(a)! - order.get(b)!;
+  const guessed = new Map<string, string>();
+  for (const g of open) {
+    const first = g.ids.reduce((a, b) => (earlier(b, a) < 0 ? b : a));
+    for (const id of g.ids) guessed.set(id, first);
   }
 
   /* 3. A person's word beats the guess. */
