@@ -16,6 +16,7 @@ import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { ColourOverride } from "./ColourOverride";
+import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
 import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "./vector";
 import { resolvePalette } from "./parts/theme";
@@ -306,6 +307,12 @@ export function Inspector() {
               onChange={(e) => useStudio.getState().updatePage(page.id, { prompt: e.target.value })}
             />
           </Field>
+          <Field label="Where it would go">
+            <AuditReadout
+              subject="a part made from these words"
+              planned={{ label: page.name, prompt: page.prompt, featureId: "custom-idea", w: 1440, h: 800, role: null, outline: null, content: "" }}
+            />
+          </Field>
           {/*
             The "select something to prompt it" block stood here and told the
             reader what they were already doing. A prompt lives on the element
@@ -375,6 +382,14 @@ export function Inspector() {
               onChange={(e) => useStudio.getState().updateShape(shape.id, { prompt: e.target.value })}
             />
           </Field>
+          {shape.kind === "pen" ? (
+            <Field label="Where it would go">
+              <AuditReadout
+                subject="this drawing"
+                planned={{ label: shape.label, prompt: shape.prompt, featureId: "custom-idea", w: 320, h: 200, role: null, outline: null, content: "" }}
+              />
+            </Field>
+          ) : null}
           {shape.kind === "arrow" ? (
             <Field
               label="Carries data"
@@ -585,6 +600,17 @@ export function Inspector() {
             placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
             onChange={(e) => update({ prompt: e.target.value })}
           />
+        </Field>
+
+        {/*
+          Under the prompt, not beside it: what the words are handed to. The
+          panel had four prompt boxes and nothing about the model any of them
+          reached, which is the half `AuditPanel` adds. It writes `node.plan`,
+          the field create space's right panel edits, through the one writer
+          both use.
+        */}
+        <Field label="Where it goes" hint="The route's own choice unless you say otherwise. Every option below is the model's own.">
+          <AuditPanel node={node} />
         </Field>
 
         <Field label="Shape" hint="What the part is cut to. A circle drawn round it on the board sets this.">
