@@ -25,7 +25,17 @@
  * Nothing else lights the screen. The colour is the near-white-into-amber a
  * hot disc actually is, not orange paint, and it falls off fast enough that
  * a few tens of pixels out there is nothing left.
+ *
+ * **Two horizons.** The drawing disc's is a circle, and `paintBlackHole`
+ * draws that. A space drawn on the page (`space.ts`) is a black hole whose
+ * horizon is the line a person drew, so `paintHoleAlong` draws the same
+ * four things along any closed path: the beaming is still angular about the
+ * middle of the area, the ring is still one pixel on the line, and the
+ * slivers are the far side bent over and under the shape rather than the
+ * circle. Pass the path grown from its centroid and the hole is consuming.
  */
+import { centroid } from "./space.ts";
+import type { SketchPoint } from "./sketch.ts";
 
 export interface HoleOptions {
   /** The middle of the hole, in canvas pixels. */
@@ -198,6 +208,223 @@ export function paintHorizonShadow(c: CanvasRenderingContext2D, size: number) {
   c.beginPath();
   c.arc(r, r, r, 0, Math.PI * 2);
   c.fill();
+}
+
+/* ------------------------------------------------------------------ */
+/* Along a drawn line                                                  */
+/* ------------------------------------------------------------------ */
+
+/** How many pieces a path is cut into for the per-piece beaming. */
+const PIECES = 160;
+
+/** Evenly spaced points round a closed path, by arc length. */
+function resample(path: SketchPoint[], n: number): SketchPoint[] {
+  const pts = path.length > 1 && Math.hypot(path[0]![0] - path[path.length - 1]![0], path[0]![1] - path[path.length - 1]![1]) < 1e-6 ? path.slice(0, -1) : path;
+  const m = pts.length;
+  if (m < 2) return pts.slice();
+  const seg: number[] = [];
+  let total = 0;
+  for (let i = 0; i < m; i++) {
+    const a = pts[i]!, b = pts[(i + 1) % m]!;
+    const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    seg.push(d);
+    total += d;
+  }
+  if (total < 1e-6) return pts.slice();
+  const out: SketchPoint[] = [];
+  let i = 0, along = 0;
+  for (let k = 0; k < n; k++) {
+    const want = (k / n) * total;
+    while (i < m - 1 && along + seg[i]! < want) { along += seg[i]!; i++; }
+    const a = pts[i]!, b = pts[(i + 1) % m]!;
+    const f = seg[i]! > 0 ? Math.min(1, (want - along) / seg[i]!) : 0;
+    out.push([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]);
+  }
+  return out;
+}
+
+function trace(c: CanvasRenderingContext2D, pts: SketchPoint[]) {
+  c.beginPath();
+  pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+  c.closePath();
+}
+
+/** Everything outside the line, as a clip. Nothing painted under it reaches the inside. */
+function clipOutside(c: CanvasRenderingContext2D, pts: SketchPoint[]) {
+  c.beginPath();
+  c.rect(-1e5, -1e5, 2e5, 2e5);
+  pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+  c.closePath();
+  c.clip("evenodd");
+}
+
+export interface HoleAlongOptions {
+  /** The horizon: a closed line in the canvas's own pixels. */
+  path: SketchPoint[];
+  /** Seconds since the space opened; the disc turns, slowly. */
+  t: number;
+  /** Which way the approaching side is, in degrees. Left by default. */
+  beam?: number;
+  /**
+   * What one pixel is, in the canvas's units. A space's canvas lives in the
+   * page layer and is scaled by the board's zoom, so the things that are one
+   * pixel wide on the disc (the ring, its hairs of bloom) are drawn this
+   * many units wide to land as one pixel on the screen. One by default.
+   */
+  hair?: number;
+}
+
+/**
+ * The hole along a drawn line. Same light, same order, any shape.
+ *
+ * Each piece of the path is lit by the angle of its middle about the
+ * centroid of the area, so a blob's bright side is still the side coming at
+ * you and the dim side is still barely there. Widths scale with the mean
+ * radius, so a small hole wears a small crescent.
+ */
+export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions) {
+  const pts = resample(o.path, PIECES);
+  if (pts.length < 3) return;
+  const [cx, cy] = centroid(pts);
+  const R = pts.reduce((acc, [x, y]) => acc + Math.hypot(x - cx, y - cy), 0) / pts.length;
+  if (R < 1) return;
+  const beam = ((o.beam ?? 180) * Math.PI) / 180;
+  const hair = o.hair ?? 1;
+  const TAU = Math.PI * 2;
+  const breathe = 0.92 + 0.08 * Math.sin((o.t / 26) * TAU);
+  const angleOf = (p: SketchPoint) => Math.atan2(p[1] - cy, p[0] - cx);
+  const norm = (a: number) => ((a % TAU) + TAU) % TAU;
+
+  c.save();
+  c.lineCap = "round";
+  c.lineJoin = "round";
+
+  /* The bent slivers: the far side, lifted over the top and under the
+     bottom of the shape. The same shape, stretched a little, drawn only in
+     the two arcs the circle's slivers occupy, tapering to nothing. */
+  c.globalCompositeOperation = "lighter";
+  {
+    const bent = pts.map(([x, y]) => [cx + (x - cx) * 1.15, cy + (y - cy) * 1.055] as SketchPoint);
+    c.lineWidth = Math.max(1.1, R * 0.02);
+    const bands: [number, number][] = [[Math.PI + 0.42, TAU - 0.42], [0.42, Math.PI - 0.42]];
+    for (let i = 0; i < bent.length; i++) {
+      const a = bent[i]!, b = bent[(i + 1) % bent.length]!;
+      const th = norm(angleOf([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]));
+      for (const [from, to] of bands) {
+        if (th < from || th > to) continue;
+        const face = Math.max(0, Math.cos(th - beam));
+        const taper = Math.sin((Math.PI * (th - from)) / (to - from));
+        const lit = (0.12 + 0.88 * Math.pow(face, 3)) * taper;
+        if (lit < 0.02) continue;
+        c.strokeStyle = WARM(0.5 * lit * breathe);
+        c.beginPath();
+        c.moveTo(a[0], a[1]);
+        c.lineTo(b[0], b[1]);
+        c.stroke();
+      }
+    }
+  }
+
+  /* Outside the line only, from here: the inside is the space's own. */
+  clipOutside(c, pts);
+
+  /* The disc, beamed: one piece at a time, each faded outward along its own
+     normal, laid down rather than added so the pieces never comb. */
+  c.globalCompositeOperation = "source-over";
+  {
+    const reach = R * 0.42;
+    c.lineWidth = reach * 2;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i]!, b = pts[(i + 1) % pts.length]!;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const th = angleOf([mx, my]);
+      const face = Math.max(0, Math.cos(th - beam));
+      const lit = Math.pow(face, 4) * 0.96 + 0.04;
+      // Outward is away from the middle of the area.
+      const d = Math.hypot(mx - cx, my - cy) || 1;
+      const nx = (mx - cx) / d, ny = (my - cy) / d;
+      const g = c.createLinearGradient(mx, my, mx + nx * reach, my + ny * reach);
+      g.addColorStop(0, HOT(0.5));
+      g.addColorStop(0.06, WARM(0.34));
+      g.addColorStop(0.22, WARM(0.13));
+      g.addColorStop(0.5, FAR(0.05));
+      g.addColorStop(1, "oklch(0 0 0 / 0)");
+      c.strokeStyle = g;
+      c.globalAlpha = lit * breathe;
+      c.beginPath();
+      c.moveTo(a[0], a[1]);
+      c.lineTo(b[0], b[1]);
+      c.stroke();
+    }
+    c.globalAlpha = 1;
+  }
+
+  /* The bright side's bloom, into the dark outside the line. */
+  c.globalCompositeOperation = "lighter";
+  {
+    const bx = cx + Math.cos(beam) * R * 0.5;
+    const by = cy + Math.sin(beam) * R * 0.5;
+    const g = c.createRadialGradient(bx, by, R * 0.2, bx, by, R * 1.25);
+    g.addColorStop(0, WARM(0.12 * breathe));
+    g.addColorStop(0.45, WARM(0.05 * breathe));
+    g.addColorStop(1, "oklch(0 0 0 / 0)");
+    c.fillStyle = g;
+    c.fillRect(cx - R * 2, cy - R * 2, R * 4, R * 4);
+  }
+
+  /* The photon ring, and its hair of bloom: widest first, so the thin white
+     line lands on top. Everything here is centred on the line and clipped
+     to its outer half. */
+  for (const [style, width] of [[WARM(0.22), 10.4], [HOT(0.5), 5.6], ["oklch(1 0.02 90 / 1)", 2.8]] as [string, number][]) {
+    c.strokeStyle = style;
+    c.lineWidth = width * hair;
+    trace(c, pts);
+    c.stroke();
+  }
+  c.restore();
+
+  // And the one hair inside the line.
+  c.save();
+  trace(c, pts);
+  c.clip();
+  c.globalCompositeOperation = "lighter";
+  c.strokeStyle = WARM(0.2);
+  c.lineWidth = 2.4 * hair;
+  trace(c, pts);
+  c.stroke();
+  c.restore();
+}
+
+/**
+ * The shadow inside a drawn line: the surface falls to black as it nears
+ * the horizon, whatever shape the horizon is.
+ *
+ * A gradient from the middle would reach a near edge too soon and a far one
+ * too late, so the shadow is laid as bands along the line itself, each a
+ * share of the mean radius wide, darker as they narrow. Clipped to the
+ * inside, so nothing here touches the light outside.
+ */
+export function paintHorizonShadowAlong(c: CanvasRenderingContext2D, path: SketchPoint[], hair = 1) {
+  const pts = resample(path, PIECES);
+  if (pts.length < 3) return;
+  const [cx, cy] = centroid(pts);
+  const R = pts.reduce((acc, [x, y]) => acc + Math.hypot(x - cx, y - cy), 0) / pts.length;
+  c.save();
+  trace(c, pts);
+  c.clip();
+  c.lineJoin = "round";
+  const bands: [number, number][] = [[0.5, 0.1], [0.4, 0.12], [0.3, 0.15], [0.22, 0.19], [0.16, 0.24], [0.11, 0.3], [0.07, 0.4], [0.04, 0.55]];
+  for (const [share, a] of bands) {
+    c.strokeStyle = `oklch(0.01 0.005 290 / ${a})`;
+    c.lineWidth = Math.max(2, R * share * 2);
+    trace(c, pts);
+    c.stroke();
+  }
+  c.strokeStyle = "oklch(0 0 0 / 1)";
+  c.lineWidth = 3 * hair;
+  trace(c, pts);
+  c.stroke();
+  c.restore();
 }
 
 /** How much room the light needs outside the disc. */
