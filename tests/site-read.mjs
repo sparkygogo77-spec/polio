@@ -28,7 +28,55 @@ const { chromium } = (() => {
 })();
 
 const BUILDER = process.argv[2] ?? "http://localhost:3000";
-const FIXTURE = process.argv[3] ?? "http://localhost:8899/";
+
+/*
+ * The page this reads is served from here.
+ *
+ * It used to default to http://localhost:8899/ and expect somebody to have
+ * put a server there, so in a sweep it died on ERR_CONNECTION_REFUSED
+ * before measuring anything — a suite that could only pass on the machine
+ * it was written on. The page is not invented: every number below says what
+ * it must contain, so it is written to those numbers and served next to
+ * them. Plain http on this machine on purpose, because one of the checks
+ * above is that the bounds refuse exactly this kind of address.
+ *
+ * Pass a URL as the third argument to read something else instead.
+ */
+const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</title><style>
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:#111}
+  header{display:flex;align-items:center;gap:24px;height:72px;padding:0 32px;background:rgb(17,19,31);color:#fff}
+  .name{font-size:22px;font-weight:600;letter-spacing:-0.01em}
+  header nav{display:flex;gap:20px;margin-left:auto}
+  header nav a{color:#fff;text-decoration:none;font-size:14px}
+  header button{font-size:14px;padding:8px 14px;border:0;border-radius:4px;background:#fff;color:#111}
+  .hero{font-family:Georgia,serif;display:flex;align-items:center;gap:40px;padding:64px 32px}
+  .hero h1{font-size:48px;line-height:1.1;margin:0 0 16px}
+  .hero p{font-size:18px;margin:0;color:#444}
+  .hero img{width:640px;height:360px;display:block}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:0 32px 64px}
+  .cards article{padding:24px;border:1px solid #e3e3e6;border-radius:8px}
+  .cards h2{font-size:20px;margin:0 0 8px}
+  footer{padding:32px;background:#f4f4f6;font-size:13px;color:#555}
+</style></head><body>
+  <header><span class="name">Harbour</span><nav><a href="/product">Product</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a></nav><button>Start free</button></header>
+  <section class="hero">
+    <div><h1>Everything arrives somewhere</h1><p>Freight, tracked from the quay to the door, in one place.</p></div>
+    <img width="640" height="360" alt="A harbour at first light" src="data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#9fb6c8"/><rect y="240" width="640" height="120" fill="#31506b"/><circle cx="520" cy="90" r="44" fill="#f3e2c0"/></svg>')}">
+  </section>
+  <section class="cards">
+    <article><h2>Quiet</h2><p>Nothing moves without a reason.</p></article>
+    <article><h2>Fast</h2><p>Every hop measured, nothing guessed.</p></article>
+    <article><h2>Yours</h2><p>Your keys, your data, your account.</p></article>
+  </section>
+  <footer>Harbour Freight Ltd. Built on the quay.</footer>
+</body></html>`;
+
+const http = req("node:http");
+let served = null;
+const FIXTURE = process.argv[3] ?? await new Promise((go) => {
+  served = http.createServer((_, res) => { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); res.end(PAGE); });
+  served.listen(0, "127.0.0.1", () => go(`http://localhost:${served.address().port}/`));
+});
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
@@ -166,6 +214,7 @@ if (live.ok) {
 }
 
 await browser.close();
+served?.close();
 const failed = results.filter((ok) => !ok).length;
 console.log(`\n${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}`);
 process.exit(failed ? 1 : 0);
