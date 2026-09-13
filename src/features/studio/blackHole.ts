@@ -217,6 +217,17 @@ export function paintHorizonShadow(c: CanvasRenderingContext2D, size: number) {
 /** How many pieces a path is cut into for the per-piece beaming. */
 const PIECES = 160;
 
+/**
+ * How far the light reaches on the receding side, as a share of the coming
+ * side's reach.
+ *
+ * The one number here that is not the disc's, and it exists because the
+ * disc's own falloff is quoted as a share of a 320px plate: over a shorter
+ * line the same share closes into a ring. A fifth is what leaves the going
+ * side present but hugging the line, so what you see is a crescent.
+ */
+const DIM_REACH = 0.2;
+
 /** Evenly spaced points round a closed path, by arc length. */
 function resample(path: SketchPoint[], n: number): SketchPoint[] {
   const pts = path.length > 1 && Math.hypot(path[0]![0] - path[path.length - 1]![0], path[0]![1] - path[path.length - 1]![1]) < 1e-6 ? path.slice(0, -1) : path;
@@ -332,24 +343,38 @@ export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions)
      normal, laid down rather than added so the pieces never comb. */
   c.globalCompositeOperation = "source-over";
   {
+    /*
+     * A crescent is thin where it is dim, not only dim.
+     *
+     * The disc's own falloff is 0.42 of the radius and its own beaming is
+     * the fourth power of the facing, and both of those are kept. What was
+     * missing is that on the disc the light reaches 67px out of a 320px
+     * plate, so the receding side's four per cent is a smear nobody sees;
+     * over a shorter line the same four per cent at the same width closed
+     * up into a ring, which is a halo — a glow round a plate, the thing
+     * this stopped being. So the reach itself is beamed: the coming side
+     * keeps the whole 0.42 and the going side gets `DIM_REACH` of it, and
+     * the light narrows round to nothing the way it dims round to nothing.
+     */
     const reach = R * 0.42;
-    c.lineWidth = reach * 2;
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i]!, b = pts[(i + 1) % pts.length]!;
       const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
       const th = angleOf([mx, my]);
       const face = Math.max(0, Math.cos(th - beam));
       const lit = Math.pow(face, 4) * 0.96 + 0.04;
+      const far = reach * (DIM_REACH + (1 - DIM_REACH) * Math.pow(face, 2));
       // Outward is away from the middle of the area.
       const d = Math.hypot(mx - cx, my - cy) || 1;
       const nx = (mx - cx) / d, ny = (my - cy) / d;
-      const g = c.createLinearGradient(mx, my, mx + nx * reach, my + ny * reach);
+      const g = c.createLinearGradient(mx, my, mx + nx * far, my + ny * far);
       g.addColorStop(0, HOT(0.5));
       g.addColorStop(0.06, WARM(0.34));
       g.addColorStop(0.22, WARM(0.13));
       g.addColorStop(0.5, FAR(0.05));
       g.addColorStop(1, "oklch(0 0 0 / 0)");
       c.strokeStyle = g;
+      c.lineWidth = far * 2;
       c.globalAlpha = lit * breathe;
       c.beginPath();
       c.moveTo(a[0], a[1]);
@@ -364,7 +389,9 @@ export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions)
   {
     const bx = cx + Math.cos(beam) * R * 0.5;
     const by = cy + Math.sin(beam) * R * 0.5;
-    const g = c.createRadialGradient(bx, by, R * 0.2, bx, by, R * 1.25);
+    // Tight to the coming side rather than a cloud over the whole shape:
+    // the bloom is an overexposed edge, and an edge is where it is.
+    const g = c.createRadialGradient(bx, by, R * 0.2, bx, by, R * 0.95);
     g.addColorStop(0, WARM(0.12 * breathe));
     g.addColorStop(0.45, WARM(0.05 * breathe));
     g.addColorStop(1, "oklch(0 0 0 / 0)");
@@ -373,12 +400,21 @@ export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions)
   }
 
   /* The photon ring, and its hair of bloom: widest first, so the thin white
-     line lands on top. Everything here is centred on the line and clipped
-     to its outer half. */
-  for (const [style, width] of [[WARM(0.22), 10.4], [HOT(0.5), 5.6], ["oklch(1 0.02 90 / 1)", 2.8]] as [string, number][]) {
+     line lands on top.
+
+     The disc's own widths — 2.4, 1.6 and 1.4 at 4, 2 and half a pixel out —
+     laid *outside* the line the way the disc lays them outside its rim,
+     rather than centred on it at twice the width and clipped back to half.
+     Centred and doubled came to the same number outside on paper and did
+     not on the screen: an amber band five pixels wide, unbeamed, all the
+     way round, which is most of what read as a halo. The ring itself stays
+     bright the whole way round on purpose. It is light that went round the
+     hole, so it is there on the going side too; it is a hair, and a hair is
+     not a halo. */
+  for (const [style, width, out] of [[WARM(0.22), 2.4, 4], [HOT(0.5), 1.6, 2], ["oklch(1 0.02 90 / 1)", 1.4, 0.6]] as [string, number, number][]) {
     c.strokeStyle = style;
     c.lineWidth = width * hair;
-    trace(c, pts);
+    trace(c, pts.map(([x, y]) => [cx + (x - cx) * (1 + (out * hair) / R), cy + (y - cy) * (1 + (out * hair) / R)] as SketchPoint));
     c.stroke();
   }
   c.restore();
