@@ -7,9 +7,10 @@
  *
  * The state this replaced, measured off the source:
  *
- *   · six chip sizes — 16, 18 and 24 written as numbers to ArcChips over
- *     seven call sites, and 18, 20, 24, 32, 36 written as Tailwind classes
- *     on four other surfaces
+ *   · six chip sizes — 16, 18, 20, 22, 24, 26 — over nine hand-written call
+ *     sites, plus two more rows on ArcChips' unchosen default of 28 and a
+ *     grid on GridChips' 22, plus 18, 20, 24, 32 and 36 written as Tailwind
+ *     classes on four other surfaces
  *   · five declarations of the same "nothing" chip: four an `X` at two glyph
  *     sizes, one a `Ban`, over three different dark fills
  *   · two independent builds of the same three controls — a 96px field over
@@ -57,12 +58,21 @@ const onIt = MENUS.filter((f) => /from "\.\/colourMenu"/.test(source[f]));
 console.log(`  --   on the system: ${onIt.length} of ${MENUS.length} colour menus${onIt.length ? ` (${onIt.join(", ")})` : ""}`);
 console.log(`  --   still to move: ${MENUS.filter((f) => !onIt.includes(f)).join(", ") || "none"}`);
 
-/** A chip size handed to the console's rows as a plain number. `[^>]` will
-    not do for the window: the props in between carry arrow functions, and
-    the first `=>` ends the match — which is how the first version of this
-    scan reported five of the seven and looked right doing it. */
+/*
+ * A chip size written at a call site. Two things this has to get right, and
+ * earlier versions got each of them wrong:
+ *
+ *   · `[^>]` will not do for the window between the tag and the prop — the
+ *     props carry arrow functions, and the first `=>` ends the match. That
+ *     reported five of the nine and looked right doing it.
+ *   · `size=\{(\d+)\}` will not do for the value. Two rows chose between two
+ *     sizes with a ternary — `size={sharing ? 22 : 26}` — and a scan for a
+ *     bare number walks straight past them. That is how 22 and 26 came to be
+ *     called a misreading when they were on the screen the whole time.
+ */
 const numeric = Object.entries(source).flatMap(([f, s]) =>
-  [...s.matchAll(/<(?:Arc|Grid)Chips\b(?:[^>]|=>)*?\bsize=\{(\d+)\}/gs)].map((m) => `${f} ${m[1]}`));
+  [...s.matchAll(/<(?:Arc|Grid)Chips\b(?:[^>]|=>)*?\bsize=\{([^}]*)\}/gs)]
+    .flatMap((m) => [...m[1].matchAll(/\b(\d+)\b/g)].map((n) => `${f} ${n[1]}`)));
 
 /** A hand-made "nothing" chip: an empty id, its own fill, a glyph over it.
     The fill is usually `{ background: … }`, so the pattern has to cross one
@@ -136,6 +146,88 @@ check("and it is deeper than the 96 it was", BAND.surface > 96, `${BAND.surface}
 /* A 12px strip carried a 12px thumb, so the thumb was the strip and there
    was nothing behind it to read the value off. */
 check("a strip is thicker than the thumb that rides it", BAND.strip > 12, `${BAND.strip}px, against the 12 it was`);
+
+/* ------------------------------------------------------------------ */
+/* 5. The menus themselves, if there is a Builder to open              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The one thing that cannot be read off the source. `GridChips` laid its
+ * swatches out at whatever size it was handed and then dropped the ones that
+ * did not fit — `items.slice(0, spots.length)` — so a slab short of room
+ * showed fewer colours than it was given and said nothing about it. The aura
+ * grid had seven swatches and room for exactly seven at 22px; the moment the
+ * chip grew, the seventh was gone. Nothing in the source says which colours
+ * a menu ends up showing, so this has to be looked at.
+ */
+const up = await fetch("http://localhost:3000/builder").then((r) => r.ok).catch(() => false);
+if (!up) {
+  console.log("  --   no Builder at localhost:3000 — the menus themselves were not opened");
+} else {
+  const { createRequire } = await import("node:module");
+  const req = createRequire(import.meta.url);
+  let chromium = null;
+  for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {
+    try { ({ chromium } = req(c)); break; } catch { /* next */ }
+  }
+  if (!chromium) console.log("  --   no Playwright — the menus themselves were not opened");
+  else {
+    const browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+    await page.goto("http://localhost:3000/builder", { waitUntil: "networkidle" });
+    await page.waitForTimeout(900);
+    await page.keyboard.press("Control+k");
+    await page.waitForTimeout(250);
+    await page.keyboard.type("drop a new idea");
+    await page.waitForTimeout(350);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(800);
+    const nb = await page.locator("[data-node-id]").first().boundingBox();
+
+    const open = async (words) => {
+      await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2, { button: "right" });
+      await page.waitForTimeout(600);
+      for (const w of words) {
+        const el = page.locator("[data-radial]").getByText(w).first();
+        if (!(await el.count())) return false;
+        await el.click({ force: true });
+        await page.waitForTimeout(700);
+      }
+      return true;
+    };
+    const read = () => page.$$eval("[data-arc-chip]", (els) => els.map((e) => {
+      const r = e.getBoundingClientRect();
+      return { id: e.getAttribute("data-arc-chip"), w: Math.round(parseFloat(getComputedStyle(e).width)),
+               round: getComputedStyle(e).borderRadius, cx: r.x + r.width / 2, cy: r.y + r.height / 2, r: r.width / 2 };
+    }));
+
+    for (const [name, words] of [["the aura menu", [/^Looks$/, /^Aura$/]], ["the part's colour menu", [/^Looks$/, /^Hue$/]]]) {
+      if (!(await open(words))) { check(`${name} opens`, false, "the wedge was not there"); continue; }
+      const chips = await read();
+      const ids = new Set(chips.map((c) => c.id));
+      const ROLES = ["bg", "surface", "text", "muted", "accent", "highlight"];
+      const missing = ROLES.filter((r) => !ids.has(r));
+      check(`${name} shows every colour it was given`, missing.length === 0 && ids.has(""),
+        missing.length ? `no ${missing.join(", ")}` : `all six roles and the empty one, ${chips.length} chips`);
+      const odd = [...new Set(chips.map((c) => c.w))].filter((w) => w !== CHIP.near && w !== CHIP.far);
+      check(`${name} draws them at the two agreed sizes`, odd.length === 0,
+        odd.length ? `also ${odd.join(", ")}px` : `${[...new Set(chips.map((c) => c.w))].sort().join(" and ")}px`);
+      let worst = Infinity, pair = "";
+      for (let i = 0; i < chips.length; i++) for (let j = i + 1; j < chips.length; j++) {
+        const a = chips[i], b = chips[j];
+        const d = Math.round(Math.hypot(a.cx - b.cx, a.cy - b.cy) - a.r - b.r);
+        if (d < worst) { worst = d; pair = `${a.id || "«empty»"}↔${b.id || "«empty»"}`; }
+      }
+      check(`${name} keeps them apart`, worst >= 0, `closest pair ${worst}px apart (${pair})`);
+      const corners = [...new Set(chips.map((c) => c.round))];
+      check(`${name} gives them all one corner`, corners.length === 1,
+        corners.length === 1 ? corners[0] : `${corners.join(" and ")} on one menu`);
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
+    }
+    await browser.close();
+  }
+}
 
 console.log("");
 const failed = results.filter((r) => !r).length;

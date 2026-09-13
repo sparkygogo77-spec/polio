@@ -15,6 +15,7 @@
  * bent round a curve reads as a logo.
  */
 import * as React from "react";
+import { CHIP, chipSize } from "./colourMenu";
 import { SCREEN, VOID } from "@/core/ui/void";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { play } from "@/core/audio/engine";
@@ -199,17 +200,25 @@ export interface ArcItem {
  * seven still fit.
  */
 export function ArcChips({
-  slab, items, value, onPick, radius, size = 28, tone = "slab",
+  slab, items, value, onPick, radius, size, tone = "slab",
 }: {
   slab: Slab;
   items: ArcItem[];
   value: string | null;
   onPick: (id: string) => void;
   radius: number;
+  /**
+   * Left out, and taken from `colourMenu`. A row's size is a reading of the
+   * room it has — how far out from the hole it sits — and every call site
+   * that wrote its own number was answering that question again, differently.
+   * Seven of them did, in three sizes, and two more took a default of 28 that
+   * nobody had chosen either.
+   */
   size?: number;
   /** On a slab, or keys set into a screen. */
   tone?: "slab" | "screen";
 }) {
+  const chip = size ?? chipSize(radius, slab.rings.hole);
   const n = Math.max(1, items.length);
   const { from, to, spin, shape, rings } = slab;
   const screen = tone === "screen";
@@ -218,7 +227,7 @@ export function ArcChips({
   // has there. Round: the same chips, ridden round the band.
   const square = shape === "square";
   const pad = padFor(tone);
-  const pitch = size + 9;
+  const pitch = chip + 9;
   /*
    * Rows, when they are needed.
    *
@@ -230,7 +239,7 @@ export function ArcChips({
   const sweep = (to - from) * 0.8;
   const runAt = (d: number) => {
     const { a0, a1 } = slabRun(slab.from, d, rings, pad);
-    return { left: a0 + size / 2, right: a1 - size / 2 };
+    return { left: a0 + chip / 2, right: a1 - chip / 2 };
   };
   const fits = (r: number, d: number) => {
     if (square) {
@@ -248,7 +257,7 @@ export function ArcChips({
     rows.push({ r: radius, d: d0, items: items.slice(0, outer) });
     // Just inside the first row — and no further, or it lands on the caption
     // that sits by the hole.
-    rows.push({ r: radius - (size + 8), d: Math.max(pad + size / 2, d0 - pitch), items: items.slice(outer) });
+    rows.push({ r: radius - (chip + 8), d: Math.max(pad + chip / 2, d0 - pitch), items: items.slice(outer) });
   }
   // Square: the depth asked for is where the *block* sits, not its first row.
   // Lifted here, before anything measures a row — a row measured at the depth
@@ -275,7 +284,7 @@ export function ArcChips({
   const step = square
     ? Math.min(Math.min(...runs) / Math.max(1, most - 1), pitch * 2)
     : Math.min(
-      Math.max(sweep / most, (size + 3) / (Math.PI * 2 * Math.min(...radii))),
+      Math.max(sweep / most, (chip + 3) / (Math.PI * 2 * Math.min(...radii))),
       (pitch * 2) / (Math.PI * 2 * Math.max(...radii)),
     );
   // Every row starts at the same column, set by the fullest one, so a row that
@@ -298,10 +307,10 @@ export function ArcChips({
         return (
           <foreignObject
             key={item.id}
-            x={at[0] - size / 2 - 4}
-            y={at[1] - size / 2 - 4}
-            width={size + 8}
-            height={size + 8}
+            x={at[0] - chip / 2 - 4}
+            y={at[1] - chip / 2 - 4}
+            width={chip + 8}
+            height={chip + 8}
             className="overflow-visible"
           >
             <div className="flex h-full w-full items-center justify-center" style={{ transform: `rotate(${(-spin * 360).toFixed(2)}deg)` }}>
@@ -312,10 +321,13 @@ export function ArcChips({
                 data-arc-chip={item.id}
                 title={item.label}
                 onClick={() => { play("select"); onPick(item.id); }}
-                className={cn("pointer-events-auto flex items-center justify-center transition-transform", square ? "rounded-[6px]" : "rounded-full")}
+                className="pointer-events-auto flex items-center justify-center transition-transform"
                 style={{
-                  width: size,
-                  height: size,
+                  width: chip,
+                  height: chip,
+                  // One corner, from `colourMenu`. The arc rounded to 6px and
+                  // the grid to 5px, two answers to a question asked once.
+                  borderRadius: square ? CHIP.radius.square : CHIP.radius.round,
                   transform: on ? "scale(1.09)" : undefined,
                   ...(screen ? SCREEN_KEY : {}),
                   ...item.style,
@@ -356,7 +368,7 @@ export function ArcChips({
  * to wherever this slab is, so every slab packs the same way.
  */
 export function GridChips({
-  slab, items, value, values, onPick, size = 22, gap = 6,
+  slab, items, value, values, onPick, size = CHIP.far, gap = CHIP.gap,
 }: {
   slab: Slab;
   items: ArcItem[];
@@ -369,7 +381,6 @@ export function GridChips({
 }) {
   const { from, to, spin, rings, shape } = slab;
   const square = shape === "square";
-  const pitch = size + gap;
   /*
    * A grid on the slab: rows out from the middle, columns along them.
    *
@@ -386,17 +397,46 @@ export function GridChips({
    * hugging the edge nearest the pointer with the rest of it empty.
    */
   const sweep = (to - from) * 0.86;
-  const near = square
-    ? Math.max(SLAB_PAD + 20 + size / 2, rings.hole + size / 2 + 6)
-    : rings.hole + size / 2 + 10;
-  const far = square ? slabFar(rings) - size / 2 : rings.reach - SHRINK - 8 - size / 2;
-  const lanes = Math.max(1, Math.floor((far - near) / pitch) + 1);
-  const run = slabRun(from, far, rings);
-  const step = square ? pitch : Math.max((size + 3) / (Math.PI * 2 * near), pitch / (Math.PI * 2 * far));
-  const perRow = Math.max(1, square
-    ? Math.floor((run.a1 - run.a0 - size) / pitch) + 1
-    : Math.floor(sweep / step));
-  const used = Math.max(1, Math.min(lanes, Math.ceil(items.length / perRow)));
+  /** What a grid of this chip size holds on this slab. */
+  const fit = (px: number) => {
+    const pitch = px + gap;
+    const near = square
+      ? Math.max(SLAB_PAD + 20 + px / 2, rings.hole + px / 2 + 6)
+      : rings.hole + px / 2 + 10;
+    const far = square ? slabFar(rings) - px / 2 : rings.reach - SHRINK - 8 - px / 2;
+    const lanes = Math.max(1, Math.floor((far - near) / pitch) + 1);
+    const run = slabRun(from, far, rings);
+    const step = square ? pitch : Math.max((px + 3) / (Math.PI * 2 * near), pitch / (Math.PI * 2 * far));
+    const perRow = Math.max(1, square
+      ? Math.floor((run.a1 - run.a0 - px) / pitch) + 1
+      : Math.floor(sweep / step));
+    return { px, pitch, near, far, lanes, run, step, perRow, holds: lanes * perRow };
+  };
+  /*
+   * The room picks the size, and a colour is never dropped to make it work.
+   *
+   * This used to lay the grid out at whatever size it was handed and then
+   * `items.slice(0, spots.length)` — so a slab that could not hold them all
+   * quietly showed fewer colours than it was given, with nothing to say a
+   * colour was missing. It went unnoticed because the numbers happened to
+   * fit: the aura grid had seven swatches and room for exactly seven at 22px,
+   * and the first time anything moved, the seventh vanished.
+   *
+   * So: the full size if it holds everything, the tight one if that is what
+   * it takes, and if neither does, the same lanes with the columns closed up
+   * until they all fit. An overlapping swatch is a bug you can see; a missing
+   * colour is one you cannot.
+   */
+  const g = [fit(size), fit(CHIP.near)].find((f) => f.holds >= items.length) ?? fit(CHIP.near);
+  const { pitch, near, far, lanes, run } = g;
+  const px = g.px;
+  const used = Math.max(1, Math.min(lanes, Math.ceil(items.length / g.perRow)));
+  /* Every lane the grid is using carries its share, so the last one is not a
+     lone chip under a full row — and if that asks more of a lane than the
+     natural spacing allows, the spacing closes up rather than the row ending
+     early. */
+  const cols = Math.max(1, Math.ceil(items.length / used));
+  const step = cols <= g.perRow ? g.step : (square ? (run.a1 - run.a0 - px) / (cols - 1) : (to - from) * 0.86 / cols);
   // Centred on the middle of the slab as it is drawn, not on the middle of the
   // rows that happen to be legal: the first row or two are ruled out by the
   // hole, and centring inside what is left leaves a few swatches sitting high
@@ -404,24 +444,24 @@ export function GridChips({
   const mid = square ? (SLAB_PAD + slabFar(rings)) / 2 : (rings.hole + far) / 2;
   const spanH = pitch * (used - 1);
   const first = Math.min(Math.max(near, mid - spanH / 2), Math.max(near, far - spanH));
-  const cols = Math.min(perRow, items.length);
+  const wide = Math.min(cols, items.length);
   const origin = square
-    ? (run.a0 + run.a1) / 2 - (step * (cols - 1)) / 2
-    : (from + to) / 2 - (step * cols) / 2;
+    ? (run.a0 + run.a1) / 2 - (step * (wide - 1)) / 2
+    : (from + to) / 2 - (step * wide) / 2;
   const spots: Pt[] = [];
   for (let j = 0; j < used; j++) {
     const out = first + pitch * j;
-    for (let i = 0; i < perRow; i++) {
+    for (let i = 0; i < cols; i++) {
       spots.push(square ? onSlab(from, origin + step * i, out, rings) : onCircle(origin + step * (i + 0.5), out));
     }
   }
   return (
     <>
-      {items.slice(0, spots.length).map((item, i) => {
+      {items.map((item, i) => {
         const at = spots[i]!;
         const on = values ? values.has(item.id) : value === item.id;
         return (
-          <foreignObject key={item.id} x={at[0] - size / 2 - 4} y={at[1] - size / 2 - 4} width={size + 8} height={size + 8} className="overflow-visible">
+          <foreignObject key={item.id} x={at[0] - px / 2 - 4} y={at[1] - px / 2 - 4} width={px + 8} height={px + 8} className="overflow-visible">
             <div className="flex h-full w-full items-center justify-center" style={{ transform: `rotate(${(-spin * 360).toFixed(2)}deg)` }}>
               <button
                 type="button"
@@ -430,10 +470,11 @@ export function GridChips({
                 data-arc-chip={item.id}
                 title={item.label}
                 onClick={() => { play("select"); onPick(item.id); }}
-                className={cn("pointer-events-auto flex items-center justify-center transition-transform", square ? "rounded-[5px]" : "rounded-full")}
+                className="pointer-events-auto flex items-center justify-center transition-transform"
                 style={{
-                  width: size,
-                  height: size,
+                  width: px,
+                  height: px,
+                  borderRadius: square ? CHIP.radius.square : CHIP.radius.round,
                   transform: on ? "scale(1.07)" : undefined,
                   ...item.style,
                   boxShadow: [on ? PICKED : `${litEdge(CONSOLE_HUE)}, 0 1px 3px oklch(0 0 0 / 0.45)`, item.style.boxShadow].filter(Boolean).join(", "),

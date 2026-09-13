@@ -20,9 +20,7 @@
  * quadrant.
  */
 import * as React from "react";
-import {
-  Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Ban, Blend, Check, CircleDot, Expand, FlipVertical2, Focus, ImagePlus, MoveRight, Play, Shuffle, Sparkles, Spline, X, Zap,
-} from "lucide-react";
+import { Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Ban, Blend, Check, CircleDot, Expand, FlipVertical2, Focus, ImagePlus, MoveRight, Play, Shuffle, Sparkles, Spline, Zap } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { readImage } from "./ImageIntake";
 import {
@@ -38,6 +36,7 @@ import {
   ArcChips, ArcSlider, ArcStepper, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SCREEN_KEY, RUN_END, SectorButton, SHRINK, SLAB_AURA, slabMiddle, spotOn, straightBands,
   type ArcItem, type Slab, type StepItem,
 } from "./RingConsole";
+import { emptyChip, inheritChip } from "./colourMenu";
 
 /** The quadrants the console has been given, clockwise from the green. */
 export interface ConsoleSpan {
@@ -283,7 +282,9 @@ export function HueQuads({
   const { mid, reach } = spec.rings;
 
   const targetItems: ArcItem[] = [
-    { id: "", label: "Follow the site", style: { background: CONSOLE.well }, glyph: <X className="size-3.5" style={{ color: CONSOLE.text }} /> },
+    // Not empty: the part has this colour, it just came from the site. The
+    // chip wears it, with a folded corner to say so.
+    inheritChip("Follow the site", palette[role]),
     ...ROLES.map((r): ArcItem => ({
       id: r,
       label: `Use the site's ${ROLE_LABEL[r].toLowerCase()}`,
@@ -310,12 +311,15 @@ export function HueQuads({
       />
 
       {/* what to set it to */}
-      <ArcChips slab={targets} items={targetItems} radius={sharing ? reach - 24 : chipsAt(targets)} size={sharing ? 22 : 26}
+      {/* No size: `sharing` was this row's own way of saying "there is less
+          room here", which is the question `chipSize` answers from the radius
+          it is already given. */}
+      <ArcChips slab={targets} items={targetItems} radius={sharing ? reach - 24 : chipsAt(targets)}
         value={named ? current : current ? null : ""} onPick={(id) => set(id === "" ? null : id)} />
       {sharing ? null : <Caption slab={targets}>Set it to</Caption>}
 
       {/* which of this part's six you are painting */}
-      <ArcChips slab={roles} items={roleItems} radius={sharing ? mid - 10 : chipsAt(roles)} size={sharing ? 20 : 24}
+      <ArcChips slab={roles} items={roleItems} radius={sharing ? mid - 10 : chipsAt(roles)}
         value={role} onPick={(id) => setRole(id as RoleId)} />
       {sharing ? null : <Caption slab={roles}>Painting</Caption>}
     </>
@@ -365,7 +369,7 @@ export function TextureQuads({
         onPick={(id) => onChange(id === "site" ? null : id)}
         items={[
           { id: "site", label: "Follow the site", style: { background: CONSOLE.well }, glyph: <span className="text-[7px] font-bold" style={{ color: CONSOLE.text }}>SITE</span> },
-          { id: "none", label: "No texture", style: { background: CONSOLE.box }, glyph: <X className="size-3.5" style={{ color: CONSOLE.text }} /> },
+          emptyChip("No texture", "none"),
           ...layers.map((l, i): ArcItem => ({
             id: l.id,
             label: `${TEXTURE_KINDS.find((k) => k.id === l.kind)?.label ?? l.kind} (layer ${i + 1})`,
@@ -473,7 +477,7 @@ export function AuraQuads({
   const c = parseColor(colour ?? palette.accent) ?? { l: 0.7, c: 0.18, h: 265 };
 
   const items: ArcItem[] = [
-    { id: "", label: "No aura", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
+    emptyChip("No aura"),
     ...recent.map((col): ArcItem => ({ id: col, label: `Recent colour ${col}`, style: { background: col } })),
     ...ROLES.map((r): ArcItem => ({ id: r, label: `${ROLE_LABEL[r]} aura`, style: { background: palette[r] } })),
   ];
@@ -502,7 +506,7 @@ export function AuraQuads({
       />
 
       {/* the sample: what the part wears, and the ways to wear it */}
-      <ArcChips slab={sample} items={styleItems} radius={hole + 18} size={18} value={style} onPick={(id) => onChange({ auraStyle: id as AuraStyle })} />
+      <ArcChips slab={sample} items={styleItems} radius={hole + 18} value={style} onPick={(id) => onChange({ auraStyle: id as AuraStyle })} />
       <ArcSlider
         slab={sample}
         {...runOf(sample)}
@@ -642,14 +646,13 @@ export function AnimQuads({
       <ScreenFace slab={extras} />
 
       {/* how it comes in: the kinds, and where a slide comes from */}
-      <ArcChips slab={entrance} tone="screen" items={ENTRANCE_TYPES} radius={chipsAt(entrance)} size={24} value={type}
+      <ArcChips slab={entrance} tone="screen" items={ENTRANCE_TYPES} radius={chipsAt(entrance)} value={type}
         onPick={(id) => onChange({ anim: id === "" ? null : id === "slide" ? (SLIDE_IDS.has(anim) ? anim : "el-rise") : id })} />
       <ArcChips
         slab={entrance}
         tone="screen"
         items={SLIDES.map((s, i) => ({ id: s.id, label: s.label, style: keyOf(8 + i), glyph: s.glyph }))}
         radius={hole + 24}
-        size={18}
         value={SLIDE_IDS.has(anim) ? anim : null}
         onPick={(id) => onChange({ anim: id })}
       />
@@ -663,7 +666,7 @@ export function AnimQuads({
       <ArcSlider slab={extras} tone="screen" live={false} {...runOf(extras)} {...bandOf(extras)} label="Delay"
         value={wait / DELAY_MS} onChange={(f) => onChange({ animDelay: Math.round((f * DELAY_MS) / 10) * 10 })} />
       <ArcChips slab={extras} tone="screen" items={ANIM_EASE.map((e) => ({ id: e.id, label: `${e.label} easing`, style: EASE_KEY[e.id], glyph: EASE_GLYPH[e.id] }))}
-        radius={chipsAt(extras)} size={24} value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
+        radius={chipsAt(extras)} value={node.animEase ?? "smooth"} onPick={(id) => onChange({ animEase: id as AnimEase })} />
       <Caption slab={extras}>{`Delay · ${wait ? `${wait} ms` : "none"}`}</Caption>
 
       {/* the demo, and the way to see it again */}

@@ -11,7 +11,7 @@
  * wheels are one object with two subjects.
  */
 import * as React from "react";
-import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Link2, Maximize2, Monitor, Smartphone, Square, Sun, Tablet, Waves, X } from "lucide-react";
+import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Link2, Maximize2, Monitor, Smartphone, Square, Sun, Tablet, Waves } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Textarea } from "@/core/ui/textarea";
 import { readImage } from "./ImageIntake";
@@ -21,6 +21,7 @@ import { resolvePalette } from "./parts/theme";
 import {
   ArcChips, ArcSlider, Caption, CONSOLE, GridChips, Glued, keyOf, ScreenFace, SectorButton, SHRINK, type ArcItem, type Slab,
 } from "./RingConsole";
+import { inheritChip } from "./colourMenu";
 import { centreOf, chipsAt, runOf, SpectrumSlab, stackedRuns, wholeOf } from "./RingEditors";
 import { carryLight } from "./LightPlacer";
 import { middleOf, piece } from "./menuGeometry";
@@ -141,7 +142,8 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
       s().setLook({ palette: next ? { ...rest, bg: next } : rest });
     };
     const swatches: ArcItem[] = [
-      { id: "", label: "From the accent", style: { background: CONSOLE.well }, glyph: <X className="size-3" style={{ color: CONSOLE.text }} /> },
+      // Not empty: the page has this background, derived rather than set.
+      inheritChip("From the accent", palette.bg),
       ...recent.slice(0, 5).map((r): ArcItem => ({ id: r, label: `Recent colour ${r}`, style: { background: r } })),
     ];
     const fill = String(format["palette.background"] ?? "flat");
@@ -156,8 +158,8 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
           caption="Page color"
         />
         <ScreenFace slab={b} />
-        <ArcChips slab={b} tone="screen" items={FILLS} radius={chipsAt(b)} size={24} value={fill} onPick={(id) => s().setFormat("palette.background", id)} />
-        <ArcChips slab={b} tone="screen" items={swatches} radius={hole + 26} size={16} value={override ?? ""} onPick={(id) => set(id || null)} />
+        <ArcChips slab={b} tone="screen" items={FILLS} radius={chipsAt(b)} value={fill} onPick={(id) => s().setFormat("palette.background", id)} />
+        <ArcChips slab={b} tone="screen" items={swatches} radius={hole + 26} value={override ?? ""} onPick={(id) => set(id || null)} />
         <Caption slab={b}>{`Fill · ${FILLS.find((f) => f.id === fill)?.label ?? fill}`}</Caption>
         <ScreenFace slab={c} />
         <ArcSlider
@@ -192,7 +194,7 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
     return (
       <>
         <ScreenFace slab={a} />
-        <ArcChips slab={a} tone="screen" items={widths} radius={chipsAt(a)} size={24} value={String(fw)} onPick={(id) => s().setFrameWidth(Number(id))} />
+        <ArcChips slab={a} tone="screen" items={widths} radius={chipsAt(a)} value={String(fw)} onPick={(id) => s().setFrameWidth(Number(id))} />
         <Caption slab={a}>{`Width · ${fw}`}</Caption>
         <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} shape={b.shape} label="Fit in view" icon={<Maximize2 className="size-3.5" />} onClick={() => s().requestFit()} />
         <SectorButton d={wholeOf(c)} at={centreOf(c, hole, "edge")} spin={c.spin} shape={c.shape} label={wires ? "Hide the wires" : "Show the wires"} icon={<Link2 className="size-3.5" />} on={wires} onClick={() => s().setShowWires(!wires)} />
