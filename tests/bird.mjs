@@ -165,6 +165,15 @@ check("nothing chose a role for him", node?.role === null, String(node?.role));
 
 await page.locator(`[data-node-id="${node.id}"]`).click({ force: true });
 await page.waitForTimeout(700);
+/* Picking a part no longer brings Element to the front: the five side tabs
+   are permanent and only a press moves them, so a panel being worked in
+   cannot be taken away mid-adjustment. Element is one press away. */
+const openElement = async () => {
+  const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Element" }).first();
+  if (await tab.count()) await tab.click().catch(() => {});
+  await page.waitForTimeout(250);
+};
+await openElement();
 await page.locator("[data-role-picker]").scrollIntoViewIfNeeded().catch(() => {});
 await page.waitForTimeout(400);
 check("the panel offers all three", (await page.locator("[data-role-picker] [data-role]").count()) === 3);

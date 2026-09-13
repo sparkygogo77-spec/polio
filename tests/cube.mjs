@@ -258,6 +258,15 @@ await page.locator(`[data-node-id="${node.id}"]`).click({ force: true });
 await page.waitForTimeout(700);
 
 /* Editable after it exists. */
+/* Picking a part no longer brings Element to the front: the five side tabs
+   are permanent and only a press moves them, so a panel being worked in
+   cannot be taken away mid-adjustment. Element is one press away. */
+const openElement = async () => {
+  const tab = page.locator("[data-side-panel] [role=radio]").filter({ hasText: "Element" }).first();
+  if (await tab.count()) await tab.click().catch(() => {});
+  await page.waitForTimeout(250);
+};
+await openElement();
 const panel = page.locator("[data-face-list]").first();
 check("the panel lists all six faces", (await panel.locator("[data-cube-face]").count()) === 6, String(await panel.locator("[data-cube-face]").count()));
 await panel.locator('[data-cube-face="left"] input').first().fill("Trust");

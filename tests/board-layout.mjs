@@ -221,14 +221,20 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   const { context, page } = await open(1280, 900);
   check("there is one side panel, not two", (await page.locator("aside[data-side-panel]").count()) === 1 && (await page.locator("main aside, aside").count()) <= 2);
 
+  /* The strip is the same five in the same order whatever is held.
+     It used to grow and shrink with the selection — Element, Format and
+     Pages appearing when something was picked up and going when it was let
+     go — so the tab you were reaching for depended on what you had just
+     clicked. Permanence is the rule now, so that is what is asked. */
   const tabs = () => page.locator("[data-side-panel] [role=radio]").evaluateAll((els) => els.map((e) => e.textContent?.trim()));
+  const FIVE = "Element,Format,Pages,Look,Motion";
   const before = await tabs();
-  check("with nothing picked it is Look and Motion", before.slice(0, 2).join(",") === "Look,Motion", before.slice(0, 4).join(" · "));
+  check("with nothing picked it is still all five, in order", before.join(",") === FIVE, before.join(" · "));
 
   await page.locator('[data-node-id="cta"]').click();
   await page.waitForTimeout(600);
   const after = await tabs();
-  check("picking something summons its own panel, on the same side", after.slice(0, 3).join(",") === "Element,Format,Pages", after.slice(0, 5).join(" · "));
+  check("picking something does not move them", after.join(",") === FIVE, after.join(" · "));
   check("and the panel is showing it", /Join|Element/.test((await page.locator("[data-side-panel]").innerText()).slice(0, 200)));
 
   const win = await page.locator("[data-page-window]").boundingBox();
@@ -241,7 +247,7 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   await page.mouse.click(pane.x + 12, pane.y + 12);
   await page.waitForTimeout(600);
   const back = await tabs();
-  check("letting go of it gives the column back to Look", back.slice(0, 2).join(",") === "Look,Motion", back.slice(0, 3).join(" · "));
+  check("and letting go does not move them either", back.join(",") === FIVE, back.join(" · "));
   await context.close();
 }
 
