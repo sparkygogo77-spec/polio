@@ -201,6 +201,19 @@
    * cannot smoothstep. It is on the cloud layers, so the face's own core
    * shows through the middle of every card and the cloud holds the edges.
    */
+  /*
+   * THE RIM, DRAWN. A thin bright line of the construct's own colour with a
+   * hair of near-white inside it and nothing thrown outward. It is named
+   * here rather than written into `[data-molten]` because a construct whose
+   * temperature has one of J's rim sprites wears that instead, and the ones
+   * without — the plain lantern, and anything the size of a bar — still need
+   * this one.
+   */
+  --molten-rim-lines:
+    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 82%, transparent),
+    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
+    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
+
   --molten-vignette: linear-gradient(
     to bottom,
     rgb(0 0 0 / 1) 0%,
@@ -254,6 +267,26 @@
   --mo-cloud: 0.92;
   --mo-cloud-still: 0.38;
 
+  /*
+   * THE RIM, AS A SPRITE. Which picture the edge is, how thick it draws, and
+   * what to draw instead when there is no picture.
+   *
+   * A rim is the most particular part of one of J's boxes — a moulded bezel
+   * with its own glass, its own highlight along the top and its own light
+   * caught in the corners — and an inset shadow will never be that. It is
+   * also the part a stretched photograph ruins fastest, because a card is a
+   * band on one row and a square on another, so the picture is cut into nine
+   * and only the four sides stretch; the corners keep their moulding and
+   * their radius at every size. That is `border-image`, and it is the whole
+   * of the mechanism.
+   *
+   * The base is `none`: the plain lantern and anything the size of a bar
+   * wear `--molten-rim-lines` above, which is what every construct wore
+   * before. A temperature with a sprite re-points these three below.
+   */
+  --mo-rim: none;
+  --mo-rim-width: 0px;
+  --mo-rim-shadow: var(--molten-rim-lines);
   --molten-seed: 0;
   background:
     /* the grain, faint, over everything */
@@ -387,6 +420,14 @@
   opacity: 1;
   background-image: radial-gradient(70% 88% at 50% 50%, color-mix(in oklab, var(--mo-core) calc(var(--form-core, 1) * 100%), transparent) 0%, color-mix(in oklab, var(--mo-core) calc(var(--form-core, 1) * 100%), transparent) 18%, transparent 62%);
   /*
+   * And the sprite rim thickens as the surface arrives, instead of being
+   * nothing throughout and then a whole bezel at the end. At zero it is not
+   * there and the trace below is the rim, which is how this always looked;
+   * by the time the cloud is in, J's moulding is at its full nine pixels.
+   */
+  border-width: calc(var(--form-surface, 1) * var(--mo-rim-width));
+  border-image-width: calc(var(--form-surface, 1) * var(--mo-rim-width));
+  /*
    * The construct's own rim arrives as the traced one closes in; until then
    * the trace on the canvas is the rim. And the closing in itself: a band of
    * green growing inward from the edges and thinning out as it grows, on
@@ -411,15 +452,31 @@
   border-radius: inherit;
   pointer-events: none;
   /*
-   * The rim. A thin bright line of the construct's own colour, with a hair
-   * of near-white inside it, and nothing thrown outward: a rim is self-lit,
-   * and the reference has no glow past it. The construct's containment
-   * clips anything that tried.
+   * The rim, whichever of the two it is.
+   *
+   * The sprite, cut into nine: the four corners are drawn at their own size
+   * into the corners of the border box and keep their moulding and their
+   * radius, and only the four sides stretch. No `fill`, so the middle of the
+   * sheet is thrown away and the face underneath is what shows — which is
+   * why the sheets are cut with their middles transparent in the first
+   * place. `stretch` rather than `repeat` because the light along one of
+   * J's edges runs the length of it and is not a pattern to tile.
+   *
+   * `border-box` sizing and `inset: 0` together mean the border box is the
+   * card, so the rim sits exactly on the card's edge whatever it is made of;
+   * the parent's own radius and its `overflow: hidden` clip the corners, so
+   * a sprite whose arc is a pixel off the card's radius is trimmed to it
+   * rather than hanging over the edge.
+   *
+   * And when there is no sprite: the drawn rim, exactly as it was. A thin
+   * bright line of the construct's own colour with a hair of near-white
+   * inside it and nothing thrown outward — a rim is self-lit, and the
+   * reference has no glow past it.
    */
-  box-shadow:
-    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 82%, transparent),
-    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
-    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
+  box-sizing: border-box;
+  border: var(--mo-rim-width) solid transparent;
+  border-image: var(--mo-rim) var(--mo-rim-slice, 20) / var(--mo-rim-width) stretch;
+  box-shadow: var(--mo-rim-shadow);
   animation: molten-breathe 42s ease-in-out infinite alternate;
   animation-delay: calc(var(--molten-seed) * -1.7s);
 }
@@ -465,6 +522,10 @@
      this card read as the afterthought beside a red. */
   --mo-cloud: 1;
   --mo-cloud-still: 0.12;
+  /* J's green box, cut to its frame. */
+  --mo-rim: url("/construct/rim-green.png");
+  --mo-rim-width: 9px;
+  --mo-rim-shadow: none;
 }
 
 /* An ember construct: the same rules, re-pointed at the cooler, brighter set. */
@@ -482,6 +543,14 @@
      green without taking any of J's render away. */
   --mo-cloud: 0.92;
   --mo-cloud-still: 0.95;
+  /*
+   * J's red box, cut to its frame. He sent two reds; this is the one with
+   * the thicker moulding and the brighter corners, and `box-red-alt.png` is
+   * the other, cut the same way by `scripts/cut-rims.mjs` if it is wanted.
+   */
+  --mo-rim: url("/construct/rim-red.png");
+  --mo-rim-width: 9px;
+  --mo-rim-shadow: none;
 }
 
 /*
@@ -504,6 +573,16 @@
     linear-gradient(to bottom, var(--mo-hot) 0%, var(--mo-body) 46%, var(--mo-deep) 100%);
   background-size: 64px 64px, 100% 100%;
   background-blend-mode: overlay, normal;
+  /*
+   * And the drawn rim back, whatever temperature it is. J's sprite is a
+   * moulded bezel nine pixels thick on each side; a bar is ten pixels tall
+   * altogether, so the two sides would meet in the middle and there would be
+   * no bar left. A line of its own colour is the right rim at this size, and
+   * it is the one this has always had.
+   */
+  --mo-rim: none;
+  --mo-rim-width: 0px;
+  --mo-rim-shadow: var(--molten-rim-lines);
 }
 
 /* Its nebula would be a smear at this height, and the flare has nowhere to

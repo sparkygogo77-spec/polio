@@ -263,11 +263,75 @@ check("no mask is animated: the ones there are still, and cost nothing", (() => 
 check("one nebula layer glides and one stands still, for the same picture at half the cost",
   /\.molten::after \{[\s\S]*?animation: none/.test(css) && /\.molten::before \{[\s\S]*?animation: molten-drift/.test(css));
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
-  // The edge rule itself, at the start of a line — not a forming rule that
-  // happens to end in the same selector.
+  // The drawn rim is a named set now, because a temperature with one of J's
+  // sprites wears that instead and the ones without still need this. Both
+  // are the edge, so both are read.
   const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
-  const shadows = [...edge.matchAll(/^\s+(inset )?0 /gm)];
+  const lines = /--molten-rim-lines:([\s\S]*?);\n/.exec(css)?.[1] ?? "";
+  const shadows = [...`${lines}\n${edge}`.matchAll(/^\s+(inset )?0 /gm)];
   return shadows.length > 0 && shadows.every((m) => m[1] === "inset ") && /\[data-molten\]::after \{\s*content: none;/.test(css);
+})());
+/*
+ * THE RIM IS ONE OF J'S, CUT INTO NINE.
+ *
+ * The rim is the most particular part of one of his boxes — a moulded bezel
+ * with its own glass, its own highlight along the top and its own light
+ * caught in the corners — and an inset shadow will never be that. It is also
+ * the part a stretched photograph ruins fastest, because a card is a band on
+ * one row and a square on another. So the sheet is cut into nine: the four
+ * corners are drawn at their own size and keep their moulding and their
+ * radius at every card size, and only the four sides stretch.
+ */
+check("the rim is a nine-slice of J's sprite, so only the sides stretch", (() => {
+  const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
+  return /border-image: var\(--mo-rim\) var\(--mo-rim-slice, 20\) \/ var\(--mo-rim-width\) stretch;/.test(edge)
+    && /border: var\(--mo-rim-width\) solid transparent;/.test(edge)
+    && /box-sizing: border-box;/.test(edge);
+})());
+check("…with no `fill`, so the middle is J's face rather than J's sheet", (() => {
+  const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
+  return !/border-image:[^;]*\bfill\b/.test(edge);
+})());
+check("…and the sheets are cut and served", (() => {
+  for (const f of ["rim-green.png", "rim-red.png"]) if (!existsSync(`public/construct/${f}`)) return false;
+  return existsSync("scripts/cut-rims.mjs");
+})());
+check("each temperature names its own sheet, and the plain construct has none", (() => {
+  const v = /\.molten-verdant \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const e = /\.molten-ember \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const base = /^\.molten \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
+  return /--mo-rim: url\("\/construct\/rim-green\.png"\);/.test(v)
+    && /--mo-rim: url\("\/construct\/rim-red\.png"\);/.test(e)
+    && /--mo-rim: none;/.test(base) && /--mo-rim-shadow: var\(--molten-rim-lines\);/.test(base);
+})());
+check("a construct with a sprite drops the drawn rim, so there are never two", (() => {
+  const v = /\.molten-verdant \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const e = /\.molten-ember \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /--mo-rim-shadow: none;/.test(v) && /--mo-rim-shadow: none;/.test(e);
+})());
+/*
+ * A bar is ten pixels tall and the bezel is nine on each side: the two would
+ * meet in the middle and there would be no bar left. The drawn line is the
+ * right rim at that size, and it is the one a bar has always had.
+ */
+check("a bar keeps the drawn rim, because a moulded bezel would eat it", (() => {
+  const bar = /\.molten-bar \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /--mo-rim: none;/.test(bar) && /--mo-rim-width: 0px;/.test(bar) && /--mo-rim-shadow: var\(--molten-rim-lines\);/.test(bar);
+})());
+check("…and it wins, because the shape is declared after the temperatures", css.indexOf(".molten-bar {") > css.indexOf(".molten-ember {"));
+check("the bezel thickens as the construct forms, rather than arriving whole at the end",
+  /border-width: calc\(var\(--form-surface, 1\) \* var\(--mo-rim-width\)\);/.test(css)
+  && /border-image-width: calc\(var\(--form-surface, 1\) \* var\(--mo-rim-width\)\);/.test(css));
+/*
+ * The tabs. Every one of J's boxes has a small decorative tab sticking out at
+ * the middle of a left or right edge — which is exactly where a nine-slice's
+ * side strip is, and a side strip stretches. One tab would be a bar down the
+ * whole side of the card. The cut leaves them outside the sheet, and this is
+ * the pin that says so: the sheet's own edges are where the box's edges are.
+ */
+check("the sheets have no tab hanging off a side, which a stretched strip would smear", (() => {
+  const cut = readFileSync("scripts/cut-rims.mjs", "utf8");
+  return /The tabs come off/.test(cut) && /\["box-green\.png", "rim-green\.png", \[6, 5, 530, 268\]\]/.test(cut);
 })());
 check("and the boxes throw only weight, never colour",
   !/0 0 2\dpx -\dpx oklch\(0\.[78]/.test(readFileSync("src/features/studio/Timeline.tsx", "utf8")));

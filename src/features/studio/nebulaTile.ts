@@ -59,17 +59,24 @@ export const FACES: Record<FacePair, Record<NebulaKind, string>> = {
 };
 
 /**
- * The rim sprites, with their alpha, as J cut them.
+ * The rim, and where it comes from.
  *
- * Not wired to anything yet: the rim on the board is still drawn by the
- * stylesheet's inset shadows, which stretch to any size a card happens to
- * be, and a sprite does not. They are here so the files are where the rest
- * of the material is when that is taken on.
+ * `box-*` are J's whole boxes, as he rendered them. `rim-*` are the
+ * nine-slice sheets cut out of them by `scripts/cut-rims.mjs` — the box's
+ * own bounding rectangle, so the decorative tab at the middle of an edge is
+ * left outside it, with the middle cleared and the whole thing halved.
+ *
+ * Nothing here hands them over. Unlike the faces, which come in two pairs
+ * and swap, there is one rim per temperature and it never changes, so
+ * `molten.css` names the file itself and a card is framed before any of
+ * this has run. These are here so the paths are written down once, beside
+ * the rest of the material.
  */
 export const RIMS = {
-  verdant: "/construct/box-green.png",
-  ember: "/construct/box-red.png",
-  emberAlt: "/construct/box-red-alt.png",
+  verdant: { from: "/construct/box-green.png", sheet: "/construct/rim-green.png" },
+  ember: { from: "/construct/box-red.png", sheet: "/construct/rim-red.png" },
+  /* The other red J sent. Cut it if it is wanted; nothing wears it today. */
+  emberAlt: { from: "/construct/box-red-alt.png", sheet: null },
 } as const;
 
 /** Which pair is on, once something has asked. Read by `tests/molten.mjs`. */
