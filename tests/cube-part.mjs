@@ -41,9 +41,27 @@ check("a cube with nothing typed still has faces", facesFrom("Overview, How it w
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
-/* Nothing here may reach a model. Any call fails the run. */
+/*
+ * Nothing here may reach a model. Any call fails the run.
+ *
+ * The net still catches everything under /api/studio so no call escapes to
+ * the network, but two of those routes reach no model and must not be
+ * counted as one. `publish` is the read the top bar does on load to say
+ * which repository this site has; it talks to GitHub, never to a model, and
+ * answering it with `{}` is worse than letting it through — the top bar
+ * reads `status.github.repo`, which on an empty object throws and takes the
+ * whole Builder down with it, so this suite was failing on a blank page
+ * rather than on anything about cubes. It gets the shape it reads, with
+ * nothing configured, which is the honest answer for a test server.
+ */
+const NO_MODEL = new Set(["publish", "deploy"]);
+const STATUS = { github: { configured: false, token: null, repo: null, branch: "main", missing: ["GITHUB_TOKEN"], allow: null }, vercel: { hook: false } };
 const asked = [];
-for (const r of ["**/api/studio/**"]) await page.route(r, (route) => { asked.push(route.request().url().split("/").pop()); return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });
+for (const r of ["**/api/studio/**"]) await page.route(r, (route) => {
+  const what = route.request().url().split("/").pop().split("?")[0];
+  if (!NO_MODEL.has(what)) asked.push(what);
+  return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(what === "publish" ? STATUS : {}) });
+});
 
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
