@@ -59,6 +59,12 @@ export interface Space {
 export interface Plan {
   model: string | null;
   steps: Step[];
+  /**
+   * What the person set on the model, by field name, when they set anything
+   * (`ModelField` on the route's table). The run hands it to every later
+   * pass; the route holds it to what the model takes.
+   */
+  options?: Record<string, unknown> | null;
 }
 
 /** A closed line has to be at least this big, either way, to be a space. Smaller is a dot. */

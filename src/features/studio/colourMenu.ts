@@ -5,17 +5,20 @@
  * Six places in the Builder offer a colour, and each was its own small
  * design. Measured off the source before this file existed:
  *
- *  · **Six chip sizes.** Three written as numbers to `ArcChips`/`GridChips`
- *    — 16, 18, 24 over seven call sites in `BackgroundEditors` and
- *    `RingEditors` — and three more written as Tailwind classes elsewhere:
- *    18 on `RadialMenu`'s background chip, 20 and 24 on `ColourOverride`'s
- *    role swatches, 32 and 36 on `LookPanel`'s. Nothing said which was
- *    which; a slab picked one and its neighbour picked another.
- *  · **Five declarations of the same "nothing" chip.** Four an `X` (at two
- *    glyph sizes, 3 and 3.5) and one a `Ban`, over three different dark
- *    fills — `CONSOLE.well` three times, `CONSOLE.box` once, `SCREEN_KEY`
- *    once. Five words for it too: "From the accent", "Follow the site",
- *    "No texture", "No aura", "No entrance".
+ *  · **Six chip sizes** — 16, 18, 20, 22, 24, 26 — over nine hand-written
+ *    call sites in `BackgroundEditors` and `RingEditors`, two of which chose
+ *    between two of those sizes with a ternary on whether the slab was
+ *    sharing. Two more rows took `ArcChips`' default of 28 and a grid took
+ *    `GridChips`' 22, neither of which anybody had picked. Four other
+ *    surfaces size their swatches in Tailwind classes on top of that: 18 on
+ *    `RadialMenu`'s background chip, 20 and 24 on `ColourOverride`'s role
+ *    swatches, 32 and 36 on `LookPanel`'s. Nothing said which was which; a
+ *    slab picked one and its neighbour picked another.
+ *  · **Five declarations of the same "nothing" chip** — four an `X` (at two
+ *    glyph sizes) and one a `Ban`, over three different dark fills — **which
+ *    on reading turned out not to be one thing at all.** Two mean nothing is
+ *    there; three mean this follows the site, which is not emptiness; and
+ *    one, "No entrance", is not a colour chip. See `INHERIT` below.
  *  · **Two independent builds of the same three controls.** `LookPanel`'s
  *    mixer is a 96px lightness-by-chroma field over a 12px hue strip;
  *    `MenuConsole` has no field at all — a row of 9px hue dots over a 12px
@@ -76,11 +79,15 @@ export function chipSize(radius: number, hole: number): number {
 /**
  * What no-colour looks like: the chequer under a transparent pixel.
  *
- * All five console declarations were a dark box with a glyph on it, which
- * reads as a very dark colour rather than as the absence of one — and on a
- * console whose every surface is already near-black, it read as nothing at
- * all. The glyph did not save it: an X over a swatch says "not allowed",
- * which is not what an empty swatch means.
+ * Every one of these was a dark box with a glyph on it, which reads as a
+ * very dark colour rather than as the absence of one — and on a console
+ * whose every surface is already near-black, it read as nothing at all. The
+ * glyph did not save it: an X over a swatch says "not allowed", which is not
+ * what an empty swatch means.
+ *
+ * This is for the chips that really do mean nothing — "No aura", "No
+ * texture". A chip that follows the site is not empty and wants `inheritChip`
+ * instead.
  *
  * One place had already found the answer. `LookPanel`'s `CHECKS` puts a
  * chequer behind a texture swatch, so the chip shows the layer rather than
@@ -118,6 +125,53 @@ export interface Chip {
   label: string;
   style: CSSProperties;
   glyph?: ReactNode;
+}
+
+/* ------------------------------------------------------------------ */
+/* Inherited                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The other thing an X on a dark box was being used to mean.
+ *
+ * Five chips wore that glyph and they were not saying one thing. Two meant
+ * *nothing is here* — "No aura", "No texture". Three meant *this follows the
+ * site*: "From the accent" on the page background, "Follow the site" on a
+ * part's role, and the texture row's "SITE", which had already broken ranks
+ * and used the word instead of the glyph. Those three are not empty. The
+ * part has a colour; it is the site's colour, and the menu was hiding it
+ * behind a dark box with a cross on it.
+ *
+ * So an inherited chip wears the colour it inherits and carries a folded
+ * corner to say the colour is not its own. A person sees what they will get
+ * and that it came from somewhere else, which is two facts the X gave
+ * neither of.
+ *
+ * The fold is a light wedge over a slightly larger dark one, so it reads on
+ * an inherited colour at either end of the range — a white mark alone
+ * disappears on a pale background, which is the failure that put a dark box
+ * there in the first place.
+ */
+export const INHERIT = {
+  /** How far the fold reaches along each edge, at the far chip size. */
+  corner: 7,
+  light: "oklch(0.97 0 0)",
+  dark: "oklch(0.22 0.01 288)",
+} as const;
+
+/** A chip wearing a colour that came from the site rather than from itself. */
+export function inheritChip(label: string, colour: string, id = ""): Chip {
+  const { corner: c, light, dark } = INHERIT;
+  return {
+    id,
+    label,
+    style: {
+      backgroundColor: colour,
+      backgroundImage:
+        `linear-gradient(135deg, ${light} 0 ${c}px, transparent ${c}px),` +
+        `linear-gradient(135deg, ${dark} 0 ${c + 1.5}px, transparent ${c + 1.5}px)`,
+    },
+  };
 }
 
 /**

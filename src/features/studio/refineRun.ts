@@ -85,7 +85,9 @@ export interface RefineInput {
    * Which stage-two step this is. `recreate` is the grounded one — the
    * real thing the drawing stands for, from the world. Refine when unsaid.
    */
-  step?: "refine" | "recreate";
+  step?: "refine" | "recreate" | "alpha";
+  /** What the person set on the model, by field name. Held to the row by the route. */
+  options?: Record<string, unknown> | null;
   /**
    * The model the node's plan named, if it named one. Honoured by the route
    * when that model serves the job, and said on the card when it is not.
@@ -170,8 +172,8 @@ interface Answer {
  * there is something better to put on it.
  */
 export async function refinePart(input: RefineInput, deps: { onStep?: (s: string) => void } = {}): Promise<RefineResult> {
-  const pass = input.step === "recreate" ? "recreated" : "second pass";
-  deps.onStep?.(input.step === "recreate" ? "Recreating the real thing…" : "Refining the drawing…");
+  const pass = input.step === "recreate" ? "recreated" : input.step === "alpha" ? "ground left out" : "second pass";
+  deps.onStep?.(input.step === "recreate" ? "Recreating the real thing…" : input.step === "alpha" ? "Taking the ground off…" : "Refining the drawing…");
   const from = Date.now();
   let answer: Answer;
   try {
@@ -193,6 +195,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
         // The plan's say, when it has one: which step, which model, and
         // whether the ground comes off. Left out, the route decides.
         step: input.step ?? "refine",
+        ...(input.options && Object.keys(input.options).length ? { options: input.options } : {}),
         ...(input.prefer ? { model: input.prefer } : {}),
         ...(typeof input.alpha === "boolean" ? { alpha: input.alpha } : {}),
         w: input.w,
