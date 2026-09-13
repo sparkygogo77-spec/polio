@@ -907,9 +907,9 @@ function IterationBox({
           // the light in it comes from the surface, not from here.
           // The weight under it, and the heat it throws: the construct's own
           // shadow, because paint containment clips anything inside it.
-          boxShadow: open
-            ? "0 10px 30px oklch(0 0 0 / 0.55), 0 0 26px -6px oklch(0.78 0.17 150 / 0.5)"
-            : "0 6px 18px oklch(0 0 0 / 0.45), 0 0 18px -8px oklch(0.78 0.17 150 / 0.38)",
+          // Weight under it and nothing thrown outward: the rim is self-lit
+          // and the reference has no glow past it.
+          boxShadow: open ? "0 10px 30px oklch(0 0 0 / 0.55)" : "0 6px 18px oklch(0 0 0 / 0.45)",
           filter: open ? "brightness(1.14)" : live ? "brightness(1.06)" : "none",
           transform: dragging ? "scale(1.02)" : "none",
         }}
@@ -997,9 +997,7 @@ function ElementPiece({
           minHeight: PIECE.h,
           ...moltenSeed(thread.id),
           color: "oklch(0.95 0.05 22)",
-          boxShadow: open
-            ? "0 10px 28px oklch(0 0 0 / 0.55), 0 0 24px -6px oklch(0.8 0.185 18 / 0.5)"
-            : "0 5px 16px oklch(0 0 0 / 0.45), 0 0 16px -8px oklch(0.8 0.185 18 / 0.38)",
+          boxShadow: open ? "0 10px 28px oklch(0 0 0 / 0.55)" : "0 5px 16px oklch(0 0 0 / 0.45)",
           filter: open ? "brightness(1.14)" : "none",
           transform: dragging ? "scale(1.03)" : "none",
         }}

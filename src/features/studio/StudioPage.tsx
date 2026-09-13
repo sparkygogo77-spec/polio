@@ -34,6 +34,7 @@ import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
 import { Timeline } from "./Timeline";
 import { TimelineDetail, TimelinePanel } from "./TimelineDetail";
+import { mountNebula } from "./nebulaTile";
 import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -585,6 +586,8 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const design = mode === "design";
   const book = mode === "book";
+  // The two nebula tiles every construct reads, painted once for the page.
+  React.useEffect(() => { mountNebula(); }, []);
 
   /*
    * The tab you are on is the tab you stay on.
