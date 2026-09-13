@@ -2,9 +2,85 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T19:45:15.951Z";
+export const GENERATED_AT = "2026-09-13T20:18:01.099Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "419979e",
+    "when": "2026-09-13T20:18:00+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "d7fc54f",
+        "says": "The vine is not a cable: it is the boxes' own construct, drawn out into a line",
+        "when": "2026-09-13T20:16:26+00:00",
+        "detail": [
+          "Third time on this, and the note has been the same each time — too threaded, too fake, it should read as the boxes rather than as rope. It was never really about the number of strands. A cord with a bead was cargo in a pipe; four bright strands round a core were frayed; two thick ones were cleaner and still a cable. So there is no cable.",
+          "A vine is a **construct**, the same one the boxes are, stretched along a path. The cross-section of a box — near-black core at the middle, easing out through char to deep, the thin bright rim of `hot` at the edge with a sliver of `white` inside it — run down a curve. The proportions are the face's own (`radial-gradient(… core 0%, core 18%, char 62%, deep 100%)`) and the rim's own (`1px hot at 82%`, `2px white at 22%`, the inner glow at a third), read off `molten.css` rather than chosen to look similar, and held to it by the suite stop for stop.",
+          "**The light comes from within it.** Dark down the middle, lit at both edges — which is what makes a box read as a thing glowing rather than a thing with a shine on it. There is no specular anywhere: the hard line down the lit side was the single thing that made the old one read as wet rope, and it is gone, along with the winding, the pitch, the fibre and the still hotspots.",
+          "**Both colours still run the whole length, and the seam is the dark.** One side of the ribbon is green and the other red, end to end; what shifts is where the seam sits across the width — three-quarters green at a green board, a quarter at a red drawing. The two meet only at the core, the darkest line on it, so they never mix and never go through brown. Two boards of the same kind put the seam down the middle and the rule costs nothing to look at. (The seam was measured the wrong way round on the first go — the near end's colour got the *smaller* share at its own end.)"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0a7e640",
+        "says": "The words always win: a question that no longer fits is withdrawn, and its answer dropped",
+        "when": "2026-09-13T19:55:26+00:00",
+        "detail": [
+          "Two more ways an answer can end up attached to a drawing it no longer matches, both real, both now closed by one rule.",
+          "**Words that arrive while the question is up.** A bare box drawn on a part is asked whether it is a cube, and the job waits. The person then goes and says, in their own words, what the part is — which is a better answer than any of the choices. The question was left standing over a drawing that had since been described, waiting to be answered about nothing. It is withdrawn now: the question is asked again of what is true, and when it would no longer be asked the job goes back on the queue without it.",
+          "**Words edited after answering.** Between answering and the job running — which can be minutes, behind another drawing — the part can be described, and the answer then contradicts it: \"A cube\", against a part now captioned \"the pricing table\". The run folds an answer in only while its question still stands, so the stale one is dropped and the words are what the reader is briefed with.",
+          "`stillAsks(q, sketch, said)` is the whole rule, and it is the same question asked again: false once the drawing has been described or has become a different kind of ambiguous, true only when the very same question would be asked today. The job carries `why` so there is something to compare; one queued before that is judged on the drawing alone."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "fixed"
+      },
+      {
+        "id": "7ed0652",
+        "says": "The other four colour menus move onto the one system",
+        "when": "2026-09-13T19:49:43+00:00",
+        "detail": [
+          "All six are on it now, and the reporting lines from the first commit are checks: every colour menu imports the shared file, none writes a chip size of its own, and the only hand-made \"nothing\" swatch left is the one that is not a colour — the motion row's Ban, which means this element does not animate in, not that it is transparent.",
+          "Three things the four surfaces turned up.",
+          "The wheel's preview badges were the same disease one level up. A badge is not a chip: you read it, you do not pick it. The wheel carries three side by side and every one was its own — the page's colour 18x18 at 4px, a part's aura 15x15 at 4px, a part's hue 34x14 at 3px. Three heights and two corners. PREVIEW gives them one height and one corner and leaves width alone, because width is the badge's own business: the hue badge is wide since it carries five of a part's colours across it, and five stripes in 18px is not five stripes. Measured on the wheel afterwards: 34x18, 18x18, 18x18, all at 6px.",
+          "ColourOverride said \"Site\" in a word among swatches, which is the same \"follow the site\" the console now says with an inherited chip. It says it the same way: the colour it would take, under a folded corner. Its six role blocks stay blocks — they stretch to their grid column, and forcing a chip's width there would leave five gaps — but they take the corner. Seven things in that row now, all 20x20 at 6px, where there had been a text button, five 20px swatches and a colour input at three corners."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "3efef40",
+    "when": "2026-09-13T19:45:43+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "3efef40",
+        "says": "Regenerate the passes for the thinned boundary",
+        "when": "2026-09-13T19:45:43+00:00",
+        "detail": [
+          "Dijkstra's pass: a boundary is thinned where the space is made, and a hand says so. A new suite and its shots came with it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "71c3424",
     "when": "2026-09-13T19:45:15+00:00",
@@ -943,71 +1019,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "better"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "31c5841",
-    "when": "2026-09-13T02:57:27+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "31c5841",
-        "says": "The shelf's categories merge into one stack, two open at a time",
-        "when": "2026-09-13T02:57:27+00:00",
-        "detail": [
-          "It was a drill-down that took the whole band. Pressing a planet removed all fourteen of them and put that category's parts where they had been, so holding a hero next to a text block meant clearing the crumb and starting again — measured: thirteen category buttons before the press, zero after.",
-          "They are merged now. The planets stay exactly where they are, a category opens underneath them in the same flow, and a second stacks below the first. A third pushes the oldest out. Two, because the shelf is a 248px band and three open categories is a list you scroll rather than a shelf you read; `OPEN_AT_MOST` says so in one place.",
-          "An open category keeps a header of its own so you can tell where one ends and the next begins, and its sub-groups become a filter inside it rather than a second level to drill through — pressing one twice takes the filter off again, which the old chips could not do.",
-          "Opening one scrolls it into view. Without that the change reads as a dead button: the planets fill the band's 209px on their own, so a section that opens under them opens off the bottom. It mounts when it opens, so mounting is when it scrolls, and only the new one moves because the one already open never remounts."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "8dc0e60",
-        "says": "Measure the settle in frames it drops, not in how many",
-        "when": "2026-09-13T02:04:24+00:00",
-        "detail": [
-          "The late-frame allowance on \"centre costs nothing\" was a flat three more than sitting still, and it began failing — not because the settle got worse but because the page got better. Three was about a quarter of the window when it was written: no GPU, 15fps, thirteen frames in the 900ms this measures. The ground rewrite gave the page its 60fps back, so the same window holds fifty-odd frames and the same proportion of stutter is eight late frames rather than two. The instrument was reading a faster page as a regression. It is a share of the frames now, which says the same thing at whatever rate this ends up running at.",
-          "The number is measured rather than picked. Twenty-one runs of this exact sequence: sitting still drops 0-6 of ~52 frames, settling drops 0-10 of ~45-57, and settling is never more than 17 points worse than sitting still. The drops fall singly and scattered through the window rather than in a run, which is the container's scheduler rather than the settle. The allowance is 35 points, twice the worst honest gap, and eight consecutive runs pass with it.",
-          "What the check can see is worth writing down, because it is less than it looks. A cost injected a frame at a time into the settle window reads as 9-11% late at 4-12ms a frame with the beat unchanged, which is inside the noise and invisible here. At 24ms a frame the beat doubles to 50ms and the late count falls to zero — once every frame is late, none of them is late against the median. So the beat check above is the one that catches a render a frame, and this one only ever catches stutter that comes and goes. Tightening it buys failures on a quiet page and nothing else.",
-          "Also regenerates passes.generated.ts, which was left at 4fa6382 when f67ef61 went out, so the deployed Updates list is two passes short."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f67ef61",
-    "when": "2026-09-13T00:47:43+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "2ffea8a",
-        "says": "Wire the 3D kind: a drawn box is a cube, a drawn thing is a solid",
-        "when": "2026-09-13T00:35:04+00:00",
-        "detail": [
-          "The oldest unkept promise here was a box drawn on the board coming back as a flat cutout. There are two roads out of that and they are not the same road, so both are wired and the words decide which.",
-          "**A box is the catalogue's own cube.** That road already existed and it works: a closed shape plus the word \"cube\" or \"box\" becomes `cube-3d` — six faces, turnable, editable afterwards, no model called and nothing charged — and the words fill the faces when they are a list. Verified rather than assumed, and `tests/solid.mjs` now holds it shut.",
-          "**A box nobody claimed is no longer silent about it.** The geometry alone is deliberately not enough (every part in the library is a rectangle), and the cost of that decision was that a person drew a box, got a flat cutout, and nothing anywhere said a real cube was one word away. The guess is too risky to take and it was never too risky to offer, so `nearlyCoded` offers it — on the card and in a toast, once, with the word that would do it.",
-          "**Anything else that asks to be turnable becomes a real solid.** The `object` cell is served, and by a model chosen on what these things actually hand back rather than on a datasheet. Seven were compared and the comparison is written at the row: firtoz/trellis (GLB, but off by default), fishwowater/trellis2 (4096 textures, a million faces), tencent/hunyuan-3d-3.1 (format not declared, 500k faces), prunaai/hunyuan3d-2 (40k faces), hyper3d/rodin (needs a prompt, so it cannot work from a drawing alone), cjwbw/shap-e (older, coarser), and tencent/hunyuan3d-2mv — which wins on the thing that decides it: the document has to *carry* the file, and 10,000 faces is the only default already of the right order. It also names `glb` in an enum and takes four views, which is what a drawn box gives you."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
