@@ -2,14 +2,50 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T18:03:39.128Z";
+export const GENERATED_AT = "2026-09-13T18:08:59.138Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "1de2aab",
-    "when": "2026-09-13T18:03:13+00:00",
+    "id": "e90c82d",
+    "when": "2026-09-13T18:08:58+00:00",
     "day": "13 September",
     "changes": [
+      {
+        "id": "f72fdd0",
+        "says": "What a colour menu is, said once",
+        "when": "2026-09-13T18:08:10+00:00",
+        "detail": [
+          "Six places in the Builder offer a colour and each was its own small design. Measured off the source, not remembered:",
+          "Six chip sizes. Three as numbers to ArcChips — 16, 18, 24 over seven call sites in BackgroundEditors and RingEditors — and three more as Tailwind classes: 18 on RadialMenu's background chip, 20 and 24 on ColourOverride's role swatches, 32 and 36 on LookPanel's.",
+          "Five declarations of the same \"nothing\" chip. Four an X at two glyph sizes and one a Ban, over three different dark fills, under five different words.",
+          "Two independent builds of the same three controls: a 96px lightness-by- chroma field over a 12px hue strip in LookPanel, and in MenuConsole no field at all — 9px hue dots over two 12px strips. They agree on 12 by accident and on nothing else."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "71dc7b6",
+    "when": "2026-09-13T18:04:06+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "71dc7b6",
+        "says": "Regenerate the passes for the retaken create-space shots",
+        "when": "2026-09-13T18:04:06+00:00",
+        "detail": [
+          "Four screenshots under docs/shots, retaken on the merged tree, and nothing else — no source, no tests. Typecheck and build pass; the full sweep is not run for replaced images, because there is nothing a PNG under docs/ can change about what the suites measure, and a thirty-five minute battery for four pictures is the delay this process exists to avoid. Said out loud rather than quietly skipped."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "1de2aab",
         "says": "The create space shots, retaken on the merged tree",
@@ -933,30 +969,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5942264",
-    "when": "2026-09-12T19:17:11+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "9c9d448",
-        "says": "Collapse the ground to one pre-composited layer",
-        "when": "2026-09-12T18:49:18+00:00",
-        "detail": [
-          "The pan table said it plainly: with the ground p50 16.5 and p95 63.5, clouds hidden 2.2 and 9.6, clouds still with the animation off 13.7 and 61.8. Four screen-blended full-screen layers were the cost and the motion never was. So the four are screened together once into a single seamless tile and what slides is one plain layer.",
-          "pan at 1440p        p50    p95 four layers        16.5   63.5 ONE LAYER           4.8   21.2 clouds hidden       2.1    9.9 one layer, still    4.8   21.4",
-          "Three and a half times better at the median, three times at the 95th. Not the 9.6 floor, and it will not be: that floor is the cost of no ground at all, and 21.2 is the cost of compositing one full-screen layer, which is the price of having a nebula. The last row is the same as the second, which says again that the drift is free.",
-          "What was lost, plainly, as asked. The parallax is gone — the four no longer move relative to each other, so the bloom where two cross no longer shifts. The per-layer headings and rotations went with it. And the scales are nudged to the nearest that divides the tile, 2.8 to 3, 2.3 to 2, 0.95 to 1, 0.75 unchanged, because a single image only slides for ever if every pattern in it fits a whole number of times. Four depths of texture in one still image instead of four planes at different speeds."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
