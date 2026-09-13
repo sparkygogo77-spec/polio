@@ -105,7 +105,18 @@ const bogus = planFor({ ...part, plan: { model: "nobody/nothing", steps: [] } })
 check("naming a model that is not in the table falls back to the route's pick, and says so", !bogus.chosen && bogus.model?.slug === picked);
 
 check("tidying keeps only the route's own steps, once each", tidySteps(["first", "read", "first", "polish", "alpha"]).join(",") === "first,read,alpha");
-check("moving a step puts it where it was dropped", moveStep(STEPS, 3, 0).join(",") === "alpha,read,first,refine");
+/* Said about whatever STEPS holds rather than about four named steps.
+   This read "alpha,read,first,refine", which was true of the four the route
+   had when it was written and stopped being true the moment a fifth was
+   declared for this space to run — index 3 is `recreate` now, and the check
+   failed on the list growing rather than on moveStep doing anything wrong.
+   What it is actually claiming is the property: the one that was picked up
+   is where it was put down, nothing is lost, and the rest keep their order. */
+const dropped = moveStep(STEPS, 3, 0);
+const rest = STEPS.filter((_, i) => i !== 3);
+check("moving a step puts it where it was dropped",
+  dropped[0] === STEPS[3] && dropped.length === STEPS.length && dropped.slice(1).join(",") === rest.join(","),
+  dropped.join(" › "));
 check("moving a step nowhere changes nothing", moveStep(STEPS, 1, 9).join(",") === STEPS.join(","));
 
 /* ------------------------------------------------------------------ */
