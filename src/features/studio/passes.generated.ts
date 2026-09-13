@@ -2,9 +2,45 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T03:27:52.974Z";
+export const GENERATED_AT = "2026-09-13T06:11:06.848Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "2c15e29",
+    "when": "2026-09-13T06:10:40+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "2c15e29",
+        "says": "A pause is not a new drawing: what touches is one thing",
+        "when": "2026-09-13T06:10:40+00:00",
+        "detail": [
+          "Stroke grouping was built and it worked — on a hand that never stops. A fifteen-stroke bird laid down in one unbroken run came out as one drawing, one button, one part. A person drawing a careful bird does not do that. They draw the body, look at it, then add the head.",
+          "Two seconds of looking, twice, and the bird came out as several drawings and loose ink: pressing Make real made a part out of two strokes and left the rest behind. That is J's complaint, and it was still live.",
+          "The cause was structural rather than a number. Time came *first*: a pause of a second and a half closed the run, and space could only group **within** a run. So a head drawn on top of a body it touches could never reach it, because it had arrived in a different run.",
+          "The rule is inverted, and it now reads the way a person would say it:"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "61f3117",
+        "says": "Regenerate the passes for the shelf wheel and the ladder check",
+        "when": "2026-09-13T03:28:25+00:00",
+        "detail": [
+          "Hypatia's pass: one wheel in the shelf with a correction to what the commit before it claimed, and the give-way ladder now checked rung by rung rather than only for clipping. The deployed build has no .git, so the Updates list only moves when this file does."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "2197946",
     "when": "2026-09-13T03:27:52+00:00",
@@ -758,33 +794,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7a87b73",
-    "when": "2026-09-12T00:38:30+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "32673e6",
-        "says": "Constructs of molten light, defined once in core/ui/molten.css",
-        "when": "2026-09-12T00:37:57+00:00",
-        "detail": [
-          "The shared definition is src/core/ui/molten.css, with the handle beside it in src/core/ui/molten.ts. The sibling has the same brief for the element cards, so the failure to avoid is two reds that nearly match: that file holds the stops, the keyframes and the two classes, nothing else may declare a --molten-* property or a molten-* keyframe, AGENTS.md says so, and tests/molten.mjs checks that no other file does.",
-          "The stops, hottest to coldest, are --molten-white oklch(0.97 0.045 48), --molten-hot oklch(0.78 0.17 38), --molten-body oklch(0.38 0.16 27), --molten-deep oklch(0.21 0.1 22) and --molten-char oklch(0.11 0.04 20), with an --ember-* set at the same shape for the hotter temperature the element pieces wear. Five colours, not one colour at five opacities: char arrives well before the far corner so a construct genuinely goes out at its edge rather than being one red with a bright line round it.",
-          "The keyframes are molten-drift, molten-churn, molten-breathe, molten-flare and molten-ember. The body is veined — nine radial blobs at irregular sizes across two layers, one drifting over one still, because the relative motion is what reads as brightness moving through and two moving layers cost twice as much for the same picture — over one 64px grain tile decoded once for the whole page. The veining stays off the middle so nothing ever crawls under a line of text.",
-          "Measured over 25 seconds of one construct: the veining drifts between 0.40 and 0.51 opacity and never moves more than 0.010 of it in a second; the edge breathes 0.78 to 1.00 at no more than 0.029 a second; the flare is visible for 7 seconds in 25 and the ember for 4, both fading up rather than switching on. Nothing under nine seconds, no two durations equal, only transform and opacity animated, and reduced motion stops all of it and leaves the construct lit."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
