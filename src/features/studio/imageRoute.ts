@@ -36,6 +36,12 @@
  *   still looking at what they drew.
  * - **refine** — an approved version worked on again, with different
  *   inputs: reference images, and where we have one an example pair.
+ * - **recreate** — the real thing the drawing stands for, from the world
+ *   rather than from the model's idea of it. This is the one step that is
+ *   **grounded**: a model that can look things up is told to, and what it
+ *   finds is what it draws. The step is declared here for the create space
+ *   (`claude/amazing-dijkstra-cznfor`), whose second phase runs it; nothing
+ *   on this branch calls it yet.
  * - **alpha** — cutting the ground away *after* a render. It is the **last
  *   resort of three**, and the order matters more than the models do:
  *
@@ -67,6 +73,15 @@
  * `replicate.com/<slug>/api/schema`, not off a datasheet. Three things that
  * were believed here and are not true are written down at their rows.
  *
+ * **Grounding is a capability and a per-call choice, not a default.** A
+ * model that can search the web or search images for references declares
+ * the two flags by name (`grounding`), the route passes them on every call
+ * it makes to that model, and they are **off** unless the step is
+ * `recreate` or the person explicitly asked for something real-world
+ * (`groundingFor`). Off means sent as `false`, not left out: the log of a
+ * call should say what was decided. A model with no such flags is never
+ * sent them, asked or not.
+ *
  * Prices are not in this table. Replicate publishes no rate for most of
  * these, and a number invented for a card is worse than a card that says
  * the cost was not reported — so what a pass cost is read off the
@@ -81,10 +96,10 @@
 export type Making = "icon" | "surface" | "picture" | "type" | "object";
 
 /** Which step of making it. The second. */
-export type Step = "read" | "first" | "refine" | "alpha";
+export type Step = "read" | "first" | "refine" | "recreate" | "alpha";
 
 export const MAKINGS: readonly Making[] = ["icon", "surface", "picture", "type", "object"];
-export const STEPS: readonly Step[] = ["read", "first", "refine", "alpha"];
+export const STEPS: readonly Step[] = ["read", "first", "refine", "recreate", "alpha"];
 
 /** How a model is asked for a thing, when it has a field for it at all. */
 export interface Field {
@@ -144,6 +159,18 @@ export interface ImageModel {
   /** How to ask for PNG out. */
   format: Field;
   /**
+   * Can it look things up, and in which fields?
+   *
+   * Two flags, by their names on the schema: one to search the web for
+   * what the words mean, one to search images for references. Declared,
+   * never assumed — and never sent to a model that does not declare them.
+   * Whether they are *on* for a call is `groundingFor`'s decision: off by
+   * default, on for the recreate step and on when the person asked for the
+   * real thing. Grounding costs more and takes longer, and a person drawing
+   * a mark does not want the web consulted about it.
+   */
+  grounding: { web: string; images: string } | null;
+  /**
    * How a mesh model is asked, when `returns` is "mesh".
    *
    * None of the picture fields apply: there is no aspect ratio on a solid,
@@ -192,7 +219,9 @@ export const MODELS: readonly ImageModel[] = [
     // The widest ratio list of anything here, so it is the one that can
     // actually make a 21:9 band, and `match_input_image` makes it the safe
     // choice for an edit.
-    serves: { first: ["surface", "picture", "icon"], refine: ["surface", "picture", "icon"] },
+    // …and the one model that can look things up, so it alone serves the
+    // recreate step, which is the grounded one.
+    serves: { first: ["surface", "picture", "icon"], refine: ["surface", "picture", "icon"], recreate: ["picture", "surface", "icon"] },
     references: 14,
     refField: "image_input",
     examplePair: false,
@@ -202,9 +231,13 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: { field: "resolution", value: "2K" },
     format: { field: "output_format", value: "png" },
+    // From J's own run of it: `google_search` grounds the words in a web
+    // search and `image_search` fetches image references. Both off unless
+    // the step or the person asks (`groundingFor`).
+    grounding: { web: "google_search", images: "image_search" },
     mesh: null,
     cut: null,
-    also: "resolution is 1K, 2K or 4K — there is no 512px, which was believed. It can also search the web for references, which is off.",
+    also: "resolution is 1K, 2K or 4K — there is no 512px, which was believed; aspect_ratio defaults to match_input_image and output_format to jpg, so png is asked for. It can search the web and search images for references, which is off unless the step is recreate or the person asked, and its log reports a token count and a generation time.",
   },
   {
     slug: "bytedance/seedream-5-lite",
@@ -222,6 +255,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: { field: "size", value: "2K" },
     format: { field: "output_format", value: "png" },
+    grounding: null,
     mesh: null,
     cut: null,
     also: "size is 2K or 3K; sequential_image_generation auto gives a batch, which is off; max_images up to 15.",
@@ -241,6 +275,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: null,
     format: { field: "output_format", value: "png" },
+    grounding: null,
     mesh: null,
     cut: null,
     also:
@@ -261,6 +296,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: null,
     format: { field: "output_format", value: "png" },
+    grounding: null,
     mesh: null,
     cut: null,
     also: "Three ratios and no more, so it is the alpha model of last resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
@@ -309,6 +345,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: null,
     format: { field: "file_type", value: "glb" },
+    grounding: null,
     mesh: {
       imageField: "front_image",
       alsoViews: ["back_image", "left_image", "right_image"],
@@ -352,6 +389,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: null,
     format: { field: "format", value: "png" },
+    grounding: null,
     mesh: null,
     cut: {
       imageField: "image",
@@ -380,6 +418,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: { widthField: "width", heightField: "height", max: 2560, step: 16, via: { field: "aspect_ratio", value: "custom" } },
     size: { field: "image_size", value: "2K" },
     format: { field: "output_format", value: "png" },
+    grounding: null,
     mesh: null,
     cut: null,
     also:
@@ -617,9 +656,24 @@ export function ratioFor(m: ImageModel, w: number, h: number, fromImage: boolean
  * reference field gets no images at all, which is why it may only be routed
  * to a step that does not start from one.
  */
+/**
+ * Whether a model that can look things up is told to, on this call.
+ *
+ * On for the recreate step — the whole point of that step is the real
+ * thing, from the world — and on when the person explicitly asked for
+ * something real; off otherwise, and *sent* off rather than left out, so
+ * the record of a call says what was decided. A model with no grounding
+ * fields gets nothing, however it is asked.
+ */
+export function groundingFor(m: ImageModel, ask: { step?: Step; grounded?: boolean }): Record<string, boolean> {
+  if (!m.grounding) return {};
+  const on = ask.step === "recreate" || !!ask.grounded;
+  return { [m.grounding.web]: on, [m.grounding.images]: on };
+}
+
 export function inputFor(
   m: ImageModel,
-  ask: { prompt: string; images?: string[]; w?: number; h?: number; transparent?: boolean },
+  ask: { prompt: string; images?: string[]; w?: number; h?: number; transparent?: boolean; step?: Step; grounded?: boolean },
 ): Record<string, unknown> {
   /*
    * A solid is asked for differently, and mostly by *not* asking: there is
@@ -672,6 +726,7 @@ export function inputFor(
   }
   input[m.format.field] = m.format.value;
   if (ask.transparent && m.alpha) input[m.alpha.field] = m.alpha.value;
+  Object.assign(input, groundingFor(m, ask));
   return input;
 }
 
@@ -701,7 +756,13 @@ export function wordsFor(ask: {
    * describes the line — and is also how these models want to be asked.
    */
   if (ask.making === "object") return "";
-  if (ask.step === "refine") {
+  if (ask.step === "recreate") {
+    bits.push(
+      said
+        ? `Make the real ${said}, as it actually is in the world — look it up rather than invent it — in the composition and framing of the image you were given.`
+        : "Make the real thing this image stands for, as it actually is in the world — look it up rather than invent it — in the same composition and framing.",
+    );
+  } else if (ask.step === "refine") {
     bits.push(
       ask.example
         ? "The first two images are a before and an after: work out what was done between them and do the same thing to the last image."

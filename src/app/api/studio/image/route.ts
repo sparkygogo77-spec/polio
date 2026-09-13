@@ -132,6 +132,20 @@ interface Body {
   example?: { before?: string; after?: string };
   /** Does the thing being made have real text in it? That changes which model draws it. */
   hasText?: boolean;
+  /**
+   * Which step this is, when it is not the refine: `recreate` is the
+   * grounded step — the real thing the drawing stands for, from the world —
+   * which the create space's second phase runs.
+   */
+  step?: "refine" | "recreate";
+  /**
+   * Did the person explicitly ask for something real-world?
+   *
+   * Grounding is off by default: a model that can search the web and search
+   * images is told not to, in so many words, unless the step is recreate or
+   * this is set. Only a model that declares the fields is sent them.
+   */
+  grounded?: boolean;
   /** Is the part the ground rather than a thing on it? A ground wants no alpha and a wide frame. */
   ground?: boolean;
   /**
@@ -280,6 +294,21 @@ async function predict(replicate: Replicate, slug: `${string}/${string}`, input:
   return replicate.wait(started, { interval: 700 });
 }
 
+/**
+ * The token count a model's log reports, when it reports one.
+ *
+ * Nano Banana 2's log says how many tokens a generation took, which is the
+ * number its price is set by; it is on the card next to the cost when it is
+ * there, and absent when it is not. Read off the log, never computed.
+ */
+export function tokensOf(logs: unknown): number | null {
+  if (typeof logs !== "string") return null;
+  const m = /(\d[\d,]*)\s*(?:output\s+|total\s+)?tokens?\b/i.exec(logs);
+  if (!m) return null;
+  const n = Number(m[1]!.replace(/,/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 /** A picture that arrived as base64, or nothing. Never a data URL, never a URL. */
 function picture(v: unknown, limit = 4_000_000): string | null {
   return typeof v === "string" && /^[A-Za-z0-9+/=]+$/.test(v) && v.length < limit ? v : null;
@@ -321,7 +350,15 @@ async function refine(body: Body, token: string) {
    * table for the step it is really at, which is also what keeps a mesh
    * model out of every other cell.
    */
-  const step = isSolid(making) ? "first" : "refine";
+  /*
+   * …or recreate, when the caller says so: the grounded step, which the
+   * create space's second phase runs. A solid is still made, not recreated.
+   */
+  const step = isSolid(making) ? "first" : body.step === "recreate" ? "recreate" : "refine";
+  // Grounding: on for the recreate step, on when the person explicitly asked
+  // for the real thing, off otherwise. `inputFor` sends the flags only to a
+  // model that declares them.
+  const grounded = step === "recreate" || !!body.grounded;
   const clipped = !!body.clipped;
   const picked = route({ making, step, fromImage: true, example: hasPair, clipped, w, h, prefer: body.model });
   if (!picked.model) {
@@ -344,6 +381,8 @@ async function refine(body: Body, token: string) {
     w,
     h,
     transparent,
+    step,
+    grounded,
   });
 
   const replicate = new Replicate({ auth: token });
@@ -451,6 +490,10 @@ async function refine(body: Body, token: string) {
     alpha: clipped ? "the drawn line" : transparent ? "asked of the model" : cut ? "cut out after" : "none",
     ...(cut ? { cut } : {}),
     example: pair,
+    /* Whether it was told to look things up, and what the log said it took
+       — the number its price is set by — when the log says. */
+    grounded: grounded && !!pick.grounding,
+    ...(tokensOf((done as { logs?: unknown }).logs) !== null ? { tokens: tokensOf((done as { logs?: unknown }).logs) } : {}),
     ratio: input.aspect_ratio ?? `${input.width}x${input.height}`,
     html,
     image: dataUri,
