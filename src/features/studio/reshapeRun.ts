@@ -35,6 +35,7 @@ import { kindOfSketch } from "./shapeKind";
 import { roleFromWords } from "./vector";
 import { claudeSpend, sayBill, sayPass } from "./spend";
 import { tidySteps } from "./space";
+import { oddness, withAnswer } from "./oddness";
 import type { Step } from "./imageRoute";
 
 /** A data URL down to its bytes, which is all the second pass takes. */
@@ -68,6 +69,8 @@ export interface RunResult {
   ok: boolean;
   madeId?: string;
   note: string;
+  /** The run stopped to ask one question; the job is `asking`, not over. */
+  asked?: boolean;
 }
 
 /**
@@ -209,7 +212,9 @@ function boxOf(strokes: SketchPoint[][]): { x: number; y: number; w: number; h: 
 
 /** Run one job: read the drawing if a reader can be reached, and put it on the board either way. */
 export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult> {
-  const drawn = job.sketch;
+  // The answer to the one question, when one was asked, as words beside
+  // the drawing: everything after this reads the words and nothing knows.
+  const drawn = withAnswer(job.sketch, job.question?.answer);
   const s = useStudio.getState();
   const node = job.nodeId ? s.nodes.find((n) => n.id === job.nodeId) ?? null : null;
   const feature = node ? getFeature(node.featureId) : null;
@@ -238,7 +243,8 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
      * risky to take (every part in the library is a rectangle) and it is
      * not too risky to *offer*.
      */
-    const nearly = picked ? "" : nearlyCoded(ctx);
+    // Not offered after the fact when it was asked before (below).
+    const nearly = picked || job.question ? "" : nearlyCoded(ctx);
     if (picked) {
       deps.onStep?.(`Reading the shape: ${picked.part.id}…`);
       const made = applyProportion(drawn, node, job);
@@ -267,6 +273,25 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         toast: true,
       });
       return { ok: true, madeId: made.id, note: did };
+    }
+
+    /*
+     * One question before anything is spent.
+     *
+     * A drawing that is plainly ambiguous — a box one word from being a
+     * cube, a scribble with nothing typed beside it — stops here and asks
+     * (`oddness.ts`), once. The job goes back on the queue as `asking`
+     * until the person answers or waves it on, and the answer comes in as
+     * words beside the drawing, so the reader is briefed rather than left
+     * to guess at the first paid call. After the catalogue, which is free
+     * and needs no question; before the read, which is neither.
+     */
+    if (!job.question) {
+      const q = oddness(drawn, node?.prompt ?? "");
+      if (q) {
+        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices }, step: undefined });
+        return { ok: true, asked: true, note: q.ask };
+      }
     }
 
     /*

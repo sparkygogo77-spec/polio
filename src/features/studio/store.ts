@@ -621,6 +621,8 @@ interface StudioState extends Doc {
   enqueueDraw: (job: Omit<DrawJob, "id" | "status" | "queued">) => string;
   /** How a job is getting on. */
   updateJob: (id: string, patch: Partial<DrawJob>) => void;
+  /** The person's answer to the one question a job asked; the job goes back on the queue with it. */
+  answerJob: (id: string, answer: string) => void;
   /** Forget the jobs that are over. */
   clearFinishedJobs: () => void;
   /**
@@ -1711,6 +1713,11 @@ export const useStudio = create<StudioState>()(
         },
 
         updateJob: (id, patch) => set((s) => ({ queue: s.queue.map((j) => (j.id === id ? { ...j, ...patch } : j)) })),
+
+        answerJob: (id, answer) =>
+          set((s) => ({
+            queue: s.queue.map((j) => (j.id === id && j.question ? { ...j, status: "waiting" as const, question: { ...j.question, answer } } : j)),
+          })),
 
         clearFinishedJobs: () => set((s) => ({ queue: s.queue.filter((j) => j.status === "waiting" || j.status === "running") })),
 

@@ -245,7 +245,8 @@ export interface Reading {
  */
 export function defaultSteps(making: Making, clipped: boolean): Step[] {
   // Recreate — the grounded step, the real thing from the world — is never a
-  // default: it is taken when a person puts it in the order, and not before.
+  // default: the run takes it when a person puts it in the order, and not
+  // before, so the panel must not show it as a step the run will take.
   return STEPS.filter((st) => st !== "recreate" && (st !== "alpha" || (needsAlpha(making) && !clipped)));
 }
 
@@ -306,6 +307,11 @@ export const STEP_MEANS: Record<Step, string> = {
   read: "Read the drawing",
   first: "First pass",
   refine: "Refine it",
-  recreate: "Recreate the real thing",
+  /* Declared on the image route for this space to run in its second phase:
+     the real thing the drawing stands for, from the world rather than from
+     the model's idea of it. This table is the panel's sentence for it, and
+     it is here now because a step with no name here is a step the panel
+     cannot say out loud. */
+  recreate: "Make the real thing it stands for",
   alpha: "Take the ground off",
 };
