@@ -2,9 +2,74 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T02:03:54.992Z";
+export const GENERATED_AT = "2026-09-13T02:58:36.318Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "644d3b6",
+    "when": "2026-09-13T02:58:31+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "20ee2a6",
+        "says": "The alpha step, and it is the last of three answers rather than the first",
+        "when": "2026-09-13T02:57:09+00:00",
+        "detail": [
+          "**Decision: alpha is a property of the render, not a step after it — and before either of those, the drawn line already is the alpha.** The step exists, it is wired, and it is deliberately last.",
+          "What settled it was looking rather than reasoning. A fully opaque picture put on a refined mark does *not* land as a filled rectangle: the board already clips a drawn part to the line it was drawn as (`blocks.tsx`, `Cut`), so the gull comes out as the gull. That clip is exact, free, instant, and preserves the holes in a mark by construction — it *is* the person's own path — and no segmenter can beat it, because a segmenter is guessing at an edge the clip already knows.",
+          "So the order is:",
+          "1. **The drawn line.** A clipped part is never sent to a model for its alpha. `route` takes `clipped` and drops the requirement, which is the real win here: a mark was previously locked to the two OpenAI rows because they are the only ones that can leave a ground out, and those are the rows least related to how good the picture is. A drawn mark now goes to Nano Banana 2 — widest frames, keeps the input framing — or to Seedream, which means **the house-style example pair is reachable for marks for the first time**. Verified against the live route: clipped → nano-banana-2, unclipped → gpt-image-2. 2. **Asked of the model.** No drawn line: ask the row that declares `background: transparent`. It never draws a ground, so there is no matte, no halo and no filled hole. Exact by construction, no second call, nothing to go wrong. 3. **Cut out afterwards.** Only when neither holds. Five removers were compared and they are all one technique — a salient-object matte: bria/remove-background (its only knob keeps alpha the input already had), men1scus/birefnet, lucataco/remove-bg and smoretalk/rembg-enhance (no options at all between them). `851-labs/background-remover` takes it because it is the only one that declares control over the matte: `threshold` 0 asks for soft alpha rather than a hard cut, which is what the antialiased edge of a mark needs, and the output format is ours. None of them declares that it keeps the hole in a ring, which is the honest reason this is third."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "better"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "31c5841",
+    "when": "2026-09-13T02:57:27+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "31c5841",
+        "says": "The shelf's categories merge into one stack, two open at a time",
+        "when": "2026-09-13T02:57:27+00:00",
+        "detail": [
+          "It was a drill-down that took the whole band. Pressing a planet removed all fourteen of them and put that category's parts where they had been, so holding a hero next to a text block meant clearing the crumb and starting again — measured: thirteen category buttons before the press, zero after.",
+          "They are merged now. The planets stay exactly where they are, a category opens underneath them in the same flow, and a second stacks below the first. A third pushes the oldest out. Two, because the shelf is a 248px band and three open categories is a list you scroll rather than a shelf you read; `OPEN_AT_MOST` says so in one place.",
+          "An open category keeps a header of its own so you can tell where one ends and the next begins, and its sub-groups become a filter inside it rather than a second level to drill through — pressing one twice takes the filter off again, which the old chips could not do.",
+          "Opening one scrolls it into view. Without that the change reads as a dead button: the planets fill the band's 209px on their own, so a section that opens under them opens off the bottom. It mounts when it opens, so mounting is when it scrolls, and only the new one moves because the one already open never remounts."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "8dc0e60",
+        "says": "Measure the settle in frames it drops, not in how many",
+        "when": "2026-09-13T02:04:24+00:00",
+        "detail": [
+          "The late-frame allowance on \"centre costs nothing\" was a flat three more than sitting still, and it began failing — not because the settle got worse but because the page got better. Three was about a quarter of the window when it was written: no GPU, 15fps, thirteen frames in the 900ms this measures. The ground rewrite gave the page its 60fps back, so the same window holds fifty-odd frames and the same proportion of stutter is eight late frames rather than two. The instrument was reading a faster page as a regression. It is a share of the frames now, which says the same thing at whatever rate this ends up running at.",
+          "The number is measured rather than picked. Twenty-one runs of this exact sequence: sitting still drops 0-6 of ~52 frames, settling drops 0-10 of ~45-57, and settling is never more than 17 points worse than sitting still. The drops fall singly and scattered through the window rather than in a run, which is the container's scheduler rather than the settle. The allowance is 35 points, twice the worst honest gap, and eight consecutive runs pass with it.",
+          "What the check can see is worth writing down, because it is less than it looks. A cost injected a frame at a time into the settle window reads as 9-11% late at 4-12ms a frame with the beat unchanged, which is inside the noise and invisible here. At 24ms a frame the beat doubles to 50ms and the late count falls to zero — once every frame is late, none of them is late against the median. So the beat check above is the one that catches a render a frame, and this one only ever catches stutter that comes and goes. Tightening it buys failures on a quiet page and nothing else.",
+          "Also regenerates passes.generated.ts, which was left at 4fa6382 when f67ef61 went out, so the deployed Updates list is two passes short."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "f67ef61",
     "when": "2026-09-13T00:47:43+00:00",
@@ -717,66 +782,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0f2942d",
-    "when": "2026-09-12T00:37:55+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "2ad0d0e",
-        "says": "What a drawing costs, on the card and in the toast",
-        "when": "2026-09-11T23:38:25+00:00",
-        "detail": [
-          "Nothing anywhere said what a call cost or how long it took. The iteration card named the model and stopped, so the only place a price existed was the bench — which is no use at all to the person paying for the drawing.",
-          "One price list now, in spend.ts: the renderer per press at the numbers already in use, 0.08 vector and vectorize and 0.04 raster, and Anthropic's Opus list per million tokens, with a cache read at a tenth of an input token and a cache write at a quarter more than one. If a rate moves it moves there and nowhere else. Every paid call goes through it — the reader, the tracer's every go, the writer's every attempt whether or not the answer was usable, and the whole generate path, vined or not.",
-          "The wait is measured rather than estimated, from the moment the request goes out, retries included, because that is the wait the person actually had.",
-          "And the bill says who was paid: \"Claude $0.03, renderer $0.08\". That is the only way to tell from the outside which road a drawing took — once the part is on the board the two look identical, which is exactly the question that could not be answered about the diagonal."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "9c24ba2",
-        "says": "The timeline is red lanterns joined by green vines",
-        "when": "2026-09-11T23:24:03+00:00",
-        "detail": [
-          "Purple pieces on a purple nebula were nothing at all, and an emerald box was the same colour as the strands running out of it, so the screen had no subject. Both kinds of box are red now: a lantern for an iteration, warm and deep and lit from inside rather than a signal, and an ember a shade cooler for an element prompt so the two still read apart. A red at the emerald's chroma came out brown, so the colour had to go up as the hue moved; the faces are a gradient because a lantern is lit, not filled. The section underneath followed, because it is the same place.",
-          "The connections are the green, and not the bright simple green they were. Each is three beams of light wound about one axis, a third of a turn apart, with the far side of every turn dimmed and thinned — which is the whole of why it reads as wound rather than as three parallel lines. Several shades walk along each beam's length, there is deterministic fibre in the width and the alpha so the body has grain, and one glow travels the length hitting the same place on all three at once instead of chasing along one at a time. All of it dimmer than before: the boxes lead, the vines support.",
-          "The path is less direct and a little longer, bowing out to one side of the way it is going — a side of travel rather than a side picked from where the boxes happen to be, because that would flip under the hand as a box was dragged a pixel. Ends are still read from where the boxes are on every frame, so a vine stretches in the same frame as the hand, and the loop starter is still the middle of the strand it is about.",
-          "Shown at a pane's size and at 1440p with seven boxes and two element pieces. 39/39 in tests/vines.mjs; timeline-view, timeline-centre, current and threads still pass."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "39775e4",
-    "when": "2026-09-11T23:59:32+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "39775e4",
-        "says": "Fix scaffold.ts's own import of bodyPaint to include .ts",
-        "when": "2026-09-11T23:59:32+00:00",
-        "detail": [
-          "Every other file scaffold.ts's tests import directly under plain Node (shapeKind.ts, sketch.ts, cubeFaces.ts) spells its relative imports with an explicit .ts, because Node's own resolver — unlike tsc or Next's bundler — does not try extensions on your behalf. The new import of bodyPaint left it off, so tests/cube.mjs and tests/scaffold.mjs (both of which import scaffold.ts directly) threw ERR_MODULE_NOT_FOUND before a single check ran."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "fixed"
       }
     ],
     "more": 0
