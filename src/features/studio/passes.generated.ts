@@ -2,9 +2,68 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T22:20:22.671Z";
+export const GENERATED_AT = "2026-09-13T22:55:58.330Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "9ed27d3",
+    "when": "2026-09-13T22:55:57+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "bf2cc2b",
+        "says": "The vine is one strand of the construct, lit from within",
+        "when": "2026-09-13T22:37:26+00:00",
+        "detail": [
+          "J has said three times that a vine reads as rope. The last go made it the boxes' section rather than a cable, and it still was: green down one side, red down the other, a seam sliding between them — and two colours lying side by side down a curve is two strands however it is drawn. Now that there is a real render to match against rather than noise, three things were wrong and each is answered here.",
+          "**One strand.** The section is symmetric about the axis: the core is the middle of the ribbon, the light gathers at both edges, no seam anywhere. The colour runs along its length instead — green where it leaves a board, red where it arrives at a drawing, and the material's own dark between. Not a blend: blending the ends put yellow and then brown through the middle of every vine, so one end's colour holds to 0.42, the dark holds the middle and the other comes up out of it. The dark is a clamp rather than a colour — the two bands are mixed and then pulled to `char`'s lightness and chroma, where a hue cannot be read. One gradient per band, so it is still one fill per band whatever the colours are.",
+          "**It had no rim at all, and that is why it read as a tube.** A band is drawn in the colour at its middle, so with eight bands the highest `t` ever asked for was 0.9375 — and the last two breakpoints sat at 0.93 and 0.98, which made `mix(hot, white)` a stop no band could reach. Every threshold falls between two band centres now, and there are ten bands so each stop gets two of them: a rim one band wide is three quarters of a pixel and antialiasing against the shadow ate a third of the light on whichever edge it fell — measured, one edge peaked at 76 of green and the other at 49, which is a vine lit from one side. Two bands is a pixel and a half: 78 and 85 across the same section now.",
+          "**The cloud reads, and it lies where a box's lies.** Turned up from 0.4, which showed nothing at all over a real render, and clipped to the body of the section rather than the whole width: over the whole width at two thirds it lifted the core from 7 of green to 28 and pulled the rims down from 82 and 92 to 65 and 60 — the section flattened and the light taken out of the edges, which is the note again. On a box the cloud lies on the face, the core shows through the middle of it and the rim sits over it; a vine is arranged the same way. Two elements per vine still, now one per half of its length at that end's temperature, so the green cloud is over the green half and the red over the red and they meet where the vine is darkest."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "7d7bb81",
+    "when": "2026-09-13T22:55:45+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "7d7bb81",
+        "says": "site-read serves the page it reads",
+        "when": "2026-09-13T22:55:45+00:00",
+        "detail": [
+          "The suite pointed a browser at http://localhost:8899/ and expected somebody to have put a server there, so in a sweep it died on ERR_CONNECTION_REFUSED before measuring anything. Nothing in the repository serves that port and there is no fixture file: it could only ever pass on the machine it was written on, and it went red the first time it ran anywhere else.",
+          "The page is served from inside the suite now, on an ephemeral port, closed when it finishes. It is not invented — every number in the file says what the page has to contain, so it is written to those numbers: a bar 1280x72 painted rgb(17,19,31) with Harbour at one end and Product, Pricing, Docs and a Start free button at the other; a hero set in Georgia whose largest line is \"Everything arrives somewhere\", with a 640px picture beside it; and three cards in a three-column grid titled Quiet, Fast and Yours. Plain http on this machine on purpose, because one of the suite's own checks is that the bounds refuse exactly that kind of address.",
+          "Passing a URL as the third argument still reads something else instead, so the route can be pointed at a real page when there is one. 44 of 44."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "dcff75d",
+        "says": "Regenerate the passes for site-read, the cloud match and J's rims",
+        "when": "2026-09-13T22:21:02+00:00",
+        "detail": [
+          "Three passes, all three sessions converged into one tip again: point at one element on a real page and it lands as a part of the library; the red matched to the green on the cloud's opacity per temperature; and J's rims wired, the bezel a nine-slice of his own sprite."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "50b1be8",
     "when": "2026-09-13T22:20:21+00:00",
@@ -912,106 +971,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5371b97",
-    "when": "2026-09-13T08:14:18+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "945ecae",
-        "says": "The box surface: a nebula of its colour, painted once and gliding for ever",
-        "when": "2026-09-13T07:58:11+00:00",
-        "detail": [
-          "The reference is a rounded rectangle with a thin bright rim of its colour, self-lit and throwing nothing past the rim, and inside it a nebula of that colour — red or green — gliding endlessly, darkest at the centre.",
-          "The mechanism is the ground's, as J said it should be. One cloud tile per temperature is painted once (`nebulaTile.ts`, off the same `nebulaNoise` the sky uses, coloured red or green), handed to the stylesheet as two custom properties on the root, and every construct's face is a pseudo-element one period wider than the box sliding exactly one period by transform. The loop lands the tile on itself, nothing repaints, and a thirtieth card costs what one composited layer costs. A still, mirrored copy behind it gives the far depth for the price of a paint.",
-          "The centre is the darkest part and it is not black: a `--*-core` stop per family at L 0.13 with chroma in it, and the face runs inside out — core at the middle easing to the field at the edges — while the tile is painted thin in its middle and full towards its edges, so the two agree without either knowing about the other. Only the opaque reference decides how the centre darkens, and this follows it.",
-          "Nothing leaves the rim. The outward colour on the boxes' shadows is gone (weight stays), and so are the flare and the ember. The ember was the one thing that left the rim. The flare was an arc run behind a disc punched in the body colour, which only hid the disc while the face was one flat colour; over a face lit from around its centre the disc showed every time it came round. The reference is a rim and a nebula and nothing else, so nothing else is here. Both keyframes stay declared."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4263b3e",
-    "when": "2026-09-13T08:14:18+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "ca77cc5",
-        "says": "121% becomes 100%: the preview is drawn at a base of its own",
-        "when": "2026-09-13T08:12:01+00:00",
-        "detail": [
-          "The size J works at is two presses of the plus above a fitted board — 1.1 twice over, which is 1.21. That size is the size, so it is called 100 and everything else is measured from it. `BASE_ZOOM` is that number, in one place beside the clamp it is measured against.",
-          "Where 121 comes from is worth writing down, because the brief said \"at rest\" and at rest it cannot happen: `fitZoom` is capped at 1, so a fitted board reads 100% at 2560 and less on anything narrower — 86% at 1920, 64% at 1600, 44% at 1282, measured. 121% is two presses from a fitted 100, not a resting state. The change is the same either way: at a readout of 100 the board now draws at what 121 drew at before.",
-          "The store holds the *nominal* zoom — the number in the bar, and the number the 0.25–2.5 clamp is in — and the board is drawn at nominal times the base. Inside `Canvas` every use of `zoom` means the applied scale: the transform, turning a pointer into board coordinates, the hit thresholds, and the 1/zoom counter-scaling that keeps a chip the same size however far in you are. So the multiplication happens once where the store is read and nothing downstream had to be touched.",
-          "Two things did have to move. `fitZoom` divides by the base, because what is being fitted to the pane is the drawn frame and not the nominal one. And the pan that centres it had to as well: it centred on `frameWidth * z` while the frame was drawn at `z` times the base, which put a 1.21× frame in a 1× gap and hung it off the right of the pane. `board-layout` caught that — \"frame 324,149 677×437 in 752×733\" — rather than my reading it in the diff."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "a547326",
-        "says": "One zoom, and it acts on whichever surface is showing",
-        "when": "2026-09-13T08:01:44+00:00",
-        "detail": [
-          "The timeline kept `React.useState(1)` of its own. The minus and plus in the header move the store's zoom, so on the timeline they moved a number nothing was reading: the readout climbed to 85% while the plot stayed at scale 1. That is the whole of it, and it now reads from the store.",
-          "The pan and the settle are untouched. The settle still animates its own `viewAt` straight onto the element for the length of the move and lands on one `setZoom` at the end; that setter happens to write to the store now and the animation reads no differently for it.",
-          "One thing did have to change beyond the source: the wheel zoom held itself to 0.4–1.8 while the bar's buttons ran to the store's 0.25–2.5, which is two answers to one question. The store's clamp is the clamp.",
-          "`tests/one-zoom.mjs` is new. It goes in through the Finish key, the way a person does, and checks the surface in front of you gets bigger when the header's plus is pressed — on both surfaces — and that the readout is the scale the timeline is actually drawn at. Against the split zoom the last two fail: \"scale 1 then 1\", and \"85% against a scale of 1\"."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "253ba85",
-        "says": "The GitHub token is the person's, and the first publish makes the repo",
-        "when": "2026-09-13T07:55:56+00:00",
-        "detail": [
-          "Same architecture the renderer already has for Replicate, for the same reason: the account being written to is somebody's own, so the token that writes to it is theirs. Typed into the Keys panel, held in their browser, riding to the publish route as `x-github-token` and to no other route. `GITHUB_TOKEN` in the environment stays as a silent fallback rather than the path.",
-          "What was there: `GithubButton.tsx` told people to set GITHUB_TOKEN and GITHUB_REPO on the server, and its own comment said \"a browser cannot hold a GitHub token that would do anything\". That was wrong, and the file now says so.",
-          "The Vercel-shaped flow. A site with no repository sends `create` — a name, made from what the site is already called — and gets a private repository of its own on the spot. The name it settled on comes back as `created` and the browser writes `owner/name` on the site, so every publish after that goes to the same place. Nobody is asked for a repository up front, ever. An existing name is never taken over: pushing into a repository somebody made earlier for something else is the one unrecoverable thing this route could do, so a clash gets a suffix and a repository of its own.",
-          "A repository made a moment ago has no commits, so no branch, so both ref lookups 404 and there is no parent to hang a commit from. That path is the normal one now rather than the odd one, and it commits with no parents and creates the ref instead of patching it."
-        ],
-        "areas": [
-          "docs",
-          "keys",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0ee472d",
-        "says": "The cards: no label on the red box, one-word headlines, and the panel stays",
-        "when": "2026-09-13T07:49:37+00:00",
-        "detail": [
-          "Four things J asked for on the cards, and they are one change because they are all about the same thing: a card should say what it is by being it, and the words around it should be as few as will do.",
-          "The red box no longer says \"drawing\" across its top. The drawing is right there under where the word was — a caption for a picture you are already looking at. The row keeps the pin, the flag and the state, because those do something.",
-          "The detail boxes that grow out of a clicked card headline exactly \"Input\" and \"Output\" and nothing more. \"What went in\" and \"what came out\" were sentences about the two halves; the halves are Input and Output and that is the whole headline. The copy control moves off the headline into the corner, because a headline with a button in it is a toolbar.",
-          "Those boxes are the reading family now, not the card family. They grew out of the box in the same red or green, rounded the same and lit the same, and read as two more cards. They are not cards: they are where you read. So the face is near-neutral dark with a tint of the family, the colour lives in a hairline rim and the headline, there is no lift and no glow, and the corners are squarer than anything on the timeline that is a thing. Same family, different member."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
