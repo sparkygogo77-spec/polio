@@ -11,7 +11,7 @@
  *   node tests/oddness.mjs
  */
 import { readFileSync } from "node:fs";
-import { oddness, withAnswer, ANSWER_WORDS } from "../src/features/studio/oddness.ts";
+import { oddness, stillAsks, withAnswer, ANSWER_WORDS } from "../src/features/studio/oddness.ts";
 import { pendingJobs, askingJob, nextJob } from "../src/features/studio/queue.ts";
 
 const results = [];
@@ -72,6 +72,44 @@ check("every choice offered has a meaning", (() => {
 check("once answered, the box is claimed by the catalogue and asked nothing more", oddness(withAnswer({ strokes: [box], words: "" }, "A cube")) === null);
 
 /* ------------------------------------------------------------------ */
+/* 2b. The words always win, whenever they arrive                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A question and its answer are about the drawing as it stood when it was
+ * asked. A person can describe it afterwards — while the question is still
+ * up, or after answering it — by typing on the part it was drawn on. Then
+ * what is left is an answer attached to a drawing that no longer matches
+ * it, so the question is asked again of what is true now.
+ */
+const bareBox = { strokes: [box], words: "" };
+const cubeQ = oddness(bareBox);
+check("a question stands while nothing has been said", stillAsks(cubeQ, bareBox, ""));
+check("…and is withdrawn the moment the part is described", !stillAsks(cubeQ, bareBox, "the pricing table"));
+check("…however it is described: a word on the drawing does it too", !stillAsks(cubeQ, { ...bareBox, words: "a shelf" }, ""));
+const markQ = oddness({ strokes: [scribble, wiggle], words: "" });
+check("the same holds for the other question", stillAsks(markQ, { strokes: [scribble, wiggle], words: "" }, "")
+  && !stillAsks(markQ, { strokes: [scribble, wiggle], words: "" }, "a gull, as an icon"));
+check("a question of one kind does not stand for an answer to another",
+  !stillAsks({ why: "kind" }, bareBox, "") && stillAsks({ why: "cube" }, bareBox, ""));
+check("one carried from before the kind was written down is judged on the drawing alone",
+  stillAsks({ ask: "Is this box a cube?", choices: [] }, bareBox, ""));
+check("nothing asked, nothing standing", !stillAsks(null, bareBox, "") && !stillAsks(undefined, bareBox, ""));
+/*
+ * And the answer goes with it. The run folds an answer in as words only
+ * while its question stands; otherwise the drawing keeps the words the
+ * person actually typed, whatever they answered earlier.
+ */
+check("an answer to a question that no longer stands is not folded in", (() => {
+  const held = stillAsks(cubeQ, bareBox, "the pricing table") ? "A cube" : undefined;
+  return withAnswer(bareBox, held).words === "";
+})());
+check("…and one to a question that does stand is", (() => {
+  const held = stillAsks(cubeQ, bareBox, "") ? "A cube" : undefined;
+  return withAnswer(bareBox, held).words === "cube";
+})());
+
+/* ------------------------------------------------------------------ */
 /* 3. The queue holds the question                                      */
 /* ------------------------------------------------------------------ */
 
@@ -98,11 +136,114 @@ check("the run asks after the catalogue, which is free, and before the read, whi
   return cat > 0 && ask > cat && read > ask;
 })());
 check("…once: a job that has its question is not asked again", /if \(!job\.question\) \{/.test(run));
-check("…and reads the answer back in as words", /const drawn = withAnswer\(job\.sketch, job\.question\?\.answer\);/.test(run));
+check("…and reads the answer back in as words", /const drawn = withAnswer\(job\.sketch, answered\);/.test(run));
 check("the cube is no longer offered as a toast after the fact when it was asked before", /const nearly = picked \|\| job\.question \? "" : nearlyCoded\(ctx\);/.test(run));
 check("the runner leaves an asking job alone", /if \(r\.asked\) return;/.test(dq));
 check("the question is put where the counter is, with the drawing and the answers as keys", /data-queue-question=\{job\.id\}/.test(dq) && /data-queue-answer=\{c\}/.test(dq) && /make it anyway/.test(dq));
 check("an answer puts the job back on the queue with it", /answerJob: \(id, answer\) =>/.test(store) && /status: "waiting" as const, question: \{ \.\.\.j\.question, answer \}/.test(store));
+check("the job remembers which question it asked, so staleness can be judged",
+  /question: \{ ask: q\.ask, choices: q\.choices, why: q\.why \}/.test(run) && /why\?: "cube" \| "kind"/.test(readFileSync("src/features/studio/queue.ts", "utf8")));
+check("the run folds in an answer only while its question stands",
+  /const answered = stillAsks\(job\.question, job\.sketch, node\?\.prompt \?\? ""\) \? job\.question\?\.answer : undefined;/.test(run));
+check("a question nobody needs any more is withdrawn while it waits, and the job goes on",
+  /if \(stillAsks\(job\.question, job\.sketch, said\)\) return;/.test(dq)
+  && /updateJob\(job\.id, \{ status: "waiting", question: null \}\);/.test(dq));
+
+/* ------------------------------------------------------------------ */
+/* 5. On the board: a question withdrawn by what a person typed         */
+/* ------------------------------------------------------------------ */
+
+const url = process.argv[2] || "http://localhost:3000";
+let live = false;
+try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) })).ok; } catch { live = false; }
+check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
+
+if (live) {
+  const { chromium } = await import("playwright-core");
+  const b = await chromium.launch({ executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium" });
+  const page = await b.newPage({ viewport: { width: 1300, height: 950 } });
+  /* The models, answered at the edge; nothing else is stubbed. */
+  await page.route("**/api/studio/reshape", (r) => r.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, patch: { featureId: "custom-idea", label: "Drawn", w: 300, h: 200, note: "an idea" }, usage: { model: "stub" } }) }));
+  await page.route("**/api/studio/image", (r) => r.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, kind: "vectorize", cost: 0, model: "stub", stripped: [], html: `<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#333"/></svg>` }) }));
+  await page.goto(`${url}/builder`, { waitUntil: "networkidle" });
+  await page.evaluate(() => {
+    localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "studio.drawMode": "raw" }, advanced: false }, version: 0 }));
+    localStorage.setItem("builder.keys.plain", JSON.stringify({ ANTHROPIC_API_KEY: "sk-ant-stub", REPLICATE_API_TOKEN: "r8_stub" }));
+  });
+  await page.goto(`${url}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1200);
+
+  // A part, and a bare box drawn on it: the one drawing that gets asked about.
+  await page.keyboard.press("Control+k");
+  await page.waitForTimeout(400);
+  await page.keyboard.type("drop a new idea");
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(1200);
+  const pb = await page.locator("[data-node-id]").last().boundingBox();
+  await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2, { button: "right" });
+  await page.waitForTimeout(700);
+  await page.locator('[data-radial] [data-shard="draw"]').first().click({ force: true });
+  await page.waitForTimeout(1300);
+  const on = await page.locator("[data-draw-board]").boundingBox();
+  const seg = (p0, p1, n = 10) => Array.from({ length: n }, (_, i) => [p0[0] + (p1[0] - p0[0]) * (i + 1) / n, p0[1] + (p1[1] - p0[1]) * (i + 1) / n]);
+  const SQUARE = [[0.25, 0.25], ...seg([0.25, 0.25], [0.75, 0.25]), ...seg([0.75, 0.25], [0.75, 0.75]), ...seg([0.75, 0.75], [0.25, 0.75]), ...seg([0.25, 0.75], [0.25, 0.25])];
+  await page.mouse.move(on.x + SQUARE[0][0] * on.width, on.y + SQUARE[0][1] * on.height);
+  await page.mouse.down();
+  for (const [x, y] of SQUARE) { await page.mouse.move(on.x + x * on.width, on.y + y * on.height); await page.waitForTimeout(4); }
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  // Nothing typed beside it — that is the whole point — but Make real is
+  // the words field's own Enter, so the focus has to be there.
+  await page.locator("[data-draw-words]").fill("");
+  await page.keyboard.press("Enter");
+
+  await page.locator("[data-queue-question]").first().waitFor({ timeout: 15000 }).catch(() => {});
+  check("a bare box drawn on a part is asked about", (await page.locator("[data-queue-question]").count()) === 1);
+  const asked = await page.evaluate(() => (window.__studioQueue?.() ?? []).map((j) => ({ status: j.status })));
+  check("…and the job waits on the person rather than on the queue", asked.some((j) => j.status === "asking"), JSON.stringify(asked));
+  /*
+   * And it does not cover the one button you press to go and look at what
+   * it is asking about. It did: the key at y 51–79, the card from 56.
+   */
+  const overlap = () => page.evaluate(() => {
+    const f = document.querySelector("[data-finish]").getBoundingClientRect();
+    const q = document.querySelector("[data-queue-question]").getBoundingClientRect();
+    return { clear: q.top >= f.bottom || q.bottom <= f.top || q.left >= f.right || q.right <= f.left,
+      said: `key ${Math.round(f.top)}–${Math.round(f.bottom)}, card ${Math.round(q.top)}–${Math.round(q.bottom)}` };
+  });
+  const over = await overlap();
+  check("the question does not sit over the Finish key", over.clear, over.said);
+
+  /*
+   * And then the person says what it is, in their own words, on the card
+   * the drawing made — which is a better answer than any of the choices.
+   */
+  await page.locator("[data-finish]").first().click();
+  await page.waitForTimeout(1200);
+  await page.locator("[data-box]").last().click({ force: true });
+  await page.waitForTimeout(600);
+  const editor = page.locator("[data-edit-prompt]");
+  check("the iteration is already on the timeline to be typed on", (await editor.count()) === 1);
+  await editor.fill("the pricing table, flat");
+  await editor.blur();
+  await page.waitForTimeout(1200);
+  check("the question is withdrawn rather than left up", (await page.locator("[data-queue-question]").count()) === 0);
+  const after = await page.evaluate(() => (window.__studioQueue?.() ?? []).map((j) => ({ status: j.status, q: !!j.question })));
+  check("…and the job goes on without it", after.every((j) => j.status !== "asking" && !j.q), JSON.stringify(after));
+  let ended = [];
+  for (let i = 0; i < 30; i++) {
+    ended = await page.evaluate(() => (window.__studioQueue?.() ?? []).map((j) => j.status));
+    if (ended.every((st) => st === "done" || st === "failed")) break;
+    await page.waitForTimeout(1000);
+  }
+  check("…and lands, with no cube made of a pricing table", ended.every((st) => st === "done" || st === "failed"), ended.join(","));
+  const made = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.map((n) => n.featureId).join(","));
+  check("the part is what the words said, not what the question offered", !/cube-3d/.test(made), made);
+  await b.close();
+}
 
 const failed = results.filter((r) => !r).length;
 console.log(failed ? `\n${failed} failed of ${results.length}` : `\nall good — ${results.length}/${results.length}`);
