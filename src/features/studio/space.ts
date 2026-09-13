@@ -244,7 +244,10 @@ export interface Reading {
  * Reading is always first: a drawing has to be read before anything draws.
  */
 export function defaultSteps(making: Making, clipped: boolean): Step[] {
-  return STEPS.filter((st) => st !== "alpha" || (needsAlpha(making) && !clipped));
+  // Recreate — the grounded step, the real thing from the world — is never a
+  // default: the run takes it when a person puts it in the order, and not
+  // before, so the panel must not show it as a step the run will take.
+  return STEPS.filter((st) => st !== "recreate" && (st !== "alpha" || (needsAlpha(making) && !clipped)));
 }
 
 /** Only steps the route knows, once each, in the order given. */
