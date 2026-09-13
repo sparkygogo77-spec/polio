@@ -24,6 +24,9 @@ import {
   MAKINGS,
   MODELS,
   STEPS,
+  modelTable,
+  modelsFor,
+  optionsFor,
   groundingFor,
   inputFor,
   isSolid,
@@ -471,6 +474,86 @@ check("adding a model is one entry: every cell the route asks for is answered by
   })));
 check("the table says it was read off the published schemas rather than a datasheet",
   /replicate\.com\/<slug>\/api\/schema/.test(table));
+
+/* ------------------------------------------------------------------ */
+/* 7. The table as data, for the audit panel                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The panel renders from this and never from a field name written in a
+ * component: a model it has never heard of has to draw correctly. So the
+ * shape has to be plain, complete, and the same table the route picks from.
+ */
+const shape = modelTable();
+check("the table hands over both axes and every row", (() => (
+  shape.makings.length === MAKINGS.length && shape.steps.length === STEPS.length && shape.models.length === MODELS.length
+))(), `${shape.makings.length} makings, ${shape.steps.length} steps, ${shape.models.length} models`);
+check("it is plain data: it survives being written down and read back", (() => {
+  const round = JSON.parse(JSON.stringify(shape));
+  return JSON.stringify(round) === JSON.stringify(shape);
+})());
+check("every kind is said in words, so a panel need not invent one",
+  shape.makings.every((m) => (shape.meanings.makings[m] ?? "").length > 20));
+check("every row says what it is and what it can do", shape.models.every((m) => (
+  typeof m.slug === "string" && typeof m.name === "string"
+  && (m.returns === "picture" || m.returns === "mesh")
+  && typeof m.alpha === "boolean" && typeof m.examplePair === "boolean" && typeof m.grounding === "boolean"
+  && typeof m.references === "number" && typeof m.cuts === "boolean"
+)));
+check("…and which cells it is offered for, by name", shape.models.every((m) => m.serves.every((sv) => (
+  STEPS.includes(sv.step) && sv.makings.length > 0 && sv.makings.every((k) => MAKINGS.includes(k))
+))), shape.models.map((m) => `${m.name}: ${m.serves.map((sv) => sv.step).join("+")}`).join(" | "));
+check("every model brings its own fields, and every field can be drawn as a control", shape.models.every((m) => (
+  m.fields.length > 0 && m.fields.every((f) => (
+    typeof f.name === "string" && typeof f.label === "string"
+    && ["enum", "integer", "number", "boolean", "text", "image", "images", "secret"].includes(f.kind)
+    && (f.kind !== "enum" || (Array.isArray(f.values) && f.values.length > 0))
+    && ("default" in f)
+  ))
+)), shape.models.map((m) => `${m.name} ${m.fields.length}`).join(", "));
+check("the fields are the model's own, named as the schema names them", (() => {
+  const g2 = shape.models.find((m) => m.slug === "openai/gpt-image-2");
+  const names = g2.fields.map((f) => f.name);
+  return ["prompt", "input_images", "aspect_ratio", "background", "quality", "number_of_images", "output_compression", "output_format", "moderation", "user_id", "openai_api_key"]
+    .every((n) => names.includes(n));
+})(), shape.models.find((m) => m.slug === "openai/gpt-image-2").fields.map((f) => f.name).join(", "));
+check("…with the values that field actually allows", (() => {
+  const g2 = shape.models.find((m) => m.slug === "openai/gpt-image-2");
+  const bg = g2.fields.find((f) => f.name === "background");
+  const ar = g2.fields.find((f) => f.name === "aspect_ratio");
+  return bg.values.join() === "auto,transparent,opaque" && bg.default === "auto"
+    && ar.values.includes("auto") && ar.values.includes("3840x2160");
+})());
+check("…and says which ones the route fills in itself", (() => {
+  const g2 = shape.models.find((m) => m.slug === "openai/gpt-image-2");
+  const managed = g2.fields.filter((f) => f.managed).map((f) => f.managed);
+  return managed.includes("prompt") && managed.includes("images") && managed.includes("ratio") && managed.includes("alpha") && managed.includes("format");
+})());
+check("a cell narrows to the models that serve it, the route's pick first", (() => {
+  const list = modelsFor({ making: "icon", step: "alpha", fromImage: true });
+  return list[0]?.slug === route({ making: "icon", step: "alpha", fromImage: true }).model?.slug;
+})(), modelsFor({ making: "icon", step: "alpha", fromImage: true }).map((m) => m.slug).join(" › "));
+check("…and offers every one of them, not only the winner",
+  modelsFor({ making: "picture", step: "refine", fromImage: true }).length > 1,
+  modelsFor({ making: "picture", step: "refine", fromImage: true }).map((m) => m.name).join(" › "));
+check("a cell nothing serves is an empty list rather than a guess",
+  modelsFor({ making: "type", step: "alpha", fromImage: true }).length === 0);
+check("what a person sets is held to what the model takes", (() => {
+  const m = model("openai/gpt-image-2");
+  const got = optionsFor(m, {
+    quality: "high", background: "transparent", number_of_images: 99, output_compression: "40",
+    aspect_ratio: "7:3", moderation: "off", nonsense: "x", input_images: ["a", "b"],
+  });
+  return got.quality === "high" && got.background === "transparent"
+    && got.number_of_images === 10 && got.output_compression === 40
+    && got.aspect_ratio === undefined && got.moderation === undefined && got.nonsense === undefined
+    && got.input_images.length === 2;
+})(), JSON.stringify(optionsFor(model("openai/gpt-image-2"), { quality: "high", number_of_images: 99, aspect_ratio: "7:3", nonsense: "x" })));
+check("…and wins over what the route would have chosen", (() => {
+  const m = model("openai/gpt-image-2");
+  const got = inputFor(m, { prompt: "x", w: 1600, h: 900, options: { aspect_ratio: "2048x2048", quality: "high" } });
+  return got.aspect_ratio === "2048x2048" && got.quality === "high";
+})());
 
 const passed = results.filter(Boolean).length;
 console.log(`\nall good — ${passed}/${results.length}`);
