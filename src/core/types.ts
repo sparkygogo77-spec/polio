@@ -298,6 +298,15 @@ export interface NavEntry {
 export interface TopBarItemDef {
   id: string;
   order?: number;
+  /**
+   * Which side of the bell it sits on.
+   *
+   * `action` is the default and the old behaviour: a control, over on the
+   * right with the theme and the settings. `status` is for something that
+   * *shows* rather than does — it sits before the news bell, where the eye
+   * already goes to find out what is happening.
+   */
+  slot?: "status" | "action";
   component: ComponentType;
 }
 

@@ -81,6 +81,21 @@ export function moltenClass(kind: MoltenKind = "lantern"): string {
 }
 
 /**
+ * The same construct at the size of a bar.
+ *
+ * A card's face is dark because words sit on it. Ten pixels tall there is no
+ * face to speak of and the rim is the whole of what shows, so a small
+ * construct reads as an outline around nothing. `molten-bar` lights the body
+ * instead — same stops, same keyframes, same rim — so a bar reads as a piece
+ * of hot metal rather than a container waiting to be filled.
+ *
+ * A shape, not a temperature: it composes with whichever kind is asked for.
+ */
+export function moltenBarClass(kind: MoltenKind = "lantern"): string {
+  return `${moltenClass(kind)} molten-bar`;
+}
+
+/**
  * A construct's own offset into the shared animations.
  *
  * Any stable number will do — an index, or a hash of an id — because it is

@@ -59,10 +59,11 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
-import { paintStrand, strandBounds, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
+import { paintStrand, strandBounds, strandEnvelope, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
+import { FORM, formOf, formVars, within } from "./formation";
 import { useStudio } from "./store";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
@@ -96,6 +97,151 @@ function seed(s: string): number {
     h = Math.imul(h, 16777619);
   }
   return ((h >>> 0) % 1000) / 1000;
+}
+
+/**
+ * How far each box has formed, as shown, eased towards where it really is.
+ *
+ * The store holds the truth — the real progress of the job and how many
+ * times the thread has been updated (`formation.ts`). This is the number the
+ * timeline draws, which follows the truth at a capped rate so a milestone
+ * arrives as a stage forming rather than a jump, and which starts again from
+ * nothing when a thread is new to this session or its generation goes up.
+ *
+ * Never on a reload of something that did not change: whatever is on the
+ * board when the timeline mounts is shown as it is. Only what lands or
+ * changes after that forms. One rAF runs while anything is still moving and
+ * none when nothing is, so a still timeline costs nothing here.
+ */
+function useForming(threads: Thread[]): Map<string, number> {
+  const [shown, setShown] = React.useState<Map<string, number>>(() => new Map());
+  const state = React.useRef({ shown: new Map<string, number>(), gen: new Map<string, number>(), mounted: false, raf: 0 });
+  React.useEffect(() => {
+    const st = state.current;
+    const target = new Map<string, number>();
+    let moving = false;
+    for (const t of threads) {
+      const f = formOf(t);
+      target.set(t.id, f.p);
+      const had = st.gen.get(t.id);
+      if (had === undefined) {
+        st.gen.set(t.id, f.gen);
+        // First sight. At mount it is as it is; after mount it is new, and forms.
+        st.shown.set(t.id, st.mounted ? 0 : f.p);
+      } else if (had !== f.gen) {
+        st.gen.set(t.id, f.gen);
+        st.shown.set(t.id, 0);
+      }
+      if ((st.shown.get(t.id) ?? 1) < f.p) moving = true;
+    }
+    for (const id of [...st.shown.keys()]) if (!target.has(id)) { st.shown.delete(id); st.gen.delete(id); }
+    st.mounted = true;
+    setShown(new Map(st.shown));
+    if (!moving || st.raf) return;
+    /* A whole formation, from nothing to landed, takes about this long when
+       the work is already done; while the work is running it can only get
+       as far as the work has. */
+    const WHOLE_MS = 2600;
+    let last = performance.now();
+    const tick = (now: number) => {
+      st.raf = 0;
+      const dt = Math.min(64, now - last);
+      last = now;
+      let still = false;
+      for (const [id, to] of target) {
+        const at = st.shown.get(id) ?? to;
+        if (at >= to) continue;
+        const next = Math.min(to, at + dt / WHOLE_MS);
+        st.shown.set(id, next);
+        if (next < to) still = true;
+      }
+      setShown(new Map(st.shown));
+      if (still) st.raf = requestAnimationFrame(tick);
+    };
+    st.raf = requestAnimationFrame(tick);
+    return () => { if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; } };
+  }, [threads]);
+  return shown;
+}
+
+/** The corner the boxes are drawn with (`rounded-lg`). */
+const BOX_RADIUS = 8;
+
+/**
+ * The rim of a forming box: traced round it in green, then closing in.
+ *
+ * Through the `rim` band the trace runs the perimeter from where the vine
+ * arrived — a dash the length of how far it has got, on a rounded-rect path
+ * — and through the `close` band the trace is whole and thickens inward,
+ * which is the green closing in from the edges before the surface comes.
+ * The colour is the one that means "finished" on the state light, because
+ * this is what finishing looks like while it happens.
+ */
+function paintRim(c: CanvasRenderingContext2D, rim: { p: number; rect: { x: number; y: number; w: number; h: number }; start: Point }) {
+  const { p, start } = rim;
+  const tracing = within(p, "rim");
+  const closing = within(p, "close");
+  /*
+   * Just outside the box, not on its edge. The canvas is under the boxes,
+   * so a stroke on the edge is half hidden by the face; two and a half
+   * pixels out, the whole of it shows. The closing in happens on the box
+   * itself (`molten.css`), over the face, so this only has to fade as it
+   * hands over.
+   */
+  const out = 2.5;
+  const rect = { x: rim.rect.x - out, y: rim.rect.y - out, w: rim.rect.w + out * 2, h: rim.rect.h + out * 2 };
+  const r = BOX_RADIUS + out;
+  const quarter = (Math.PI * r) / 2;
+  const top = rect.w - 2 * r, tall = rect.h - 2 * r;
+  const perimeter = 2 * (top + tall) + 4 * quarter;
+  /*
+   * Where along the perimeter the vine arrived, so the trace starts there.
+   * Measured along the path as it is drawn below — top, right, bottom,
+   * left, each straight followed by its corner — so the dash begins where
+   * the vine does and not a corner's worth off.
+   */
+  const side = (() => {
+    const ex = Math.max(rect.x, Math.min(rect.x + rect.w, start.x));
+    const ey = Math.max(rect.y, Math.min(rect.y + rect.h, start.y));
+    const dl = Math.abs(ex - rect.x), dr = Math.abs(rect.x + rect.w - ex), dt = Math.abs(ey - rect.y), db = Math.abs(rect.y + rect.h - ey);
+    const m = Math.min(dl, dr, dt, db);
+    const along = (v: number, max: number) => Math.max(0, Math.min(max, v));
+    if (m === dt) return along(ex - (rect.x + r), top);
+    if (m === dr) return top + quarter + along(ey - (rect.y + r), tall);
+    if (m === db) return top + quarter + tall + quarter + along(rect.x + rect.w - r - ex, top);
+    return 2 * top + tall + 3 * quarter + along(rect.y + rect.h - r - ey, tall);
+  })();
+  c.save();
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  c.strokeStyle = PROCESS.done;
+  c.lineWidth = 2.6;
+  // A dash as long as it has got, from where the vine arrived; whole once
+  // traced, and fading as the green closes in on the box and its own rim
+  // arrives underneath.
+  const len = perimeter * Math.max(0.01, closing > 0 ? 1 : tracing);
+  /*
+   * Two laps of the path, not one. A dash does not run on past the end of
+   * a closed path and round again, so a vine arriving on the left — the
+   * last leg — would get a trace cut off at the top-left corner, a few
+   * pixels in. Round twice, and a dash that starts anywhere on the first
+   * lap has the whole of the second to run into; the pattern's gap is two
+   * laps long so it is drawn once.
+   */
+  c.setLineDash([len, perimeter * 2]);
+  c.lineDashOffset = -side;
+  c.beginPath();
+  c.moveTo(rect.x + r, rect.y);
+  for (let lap = 0; lap < 2; lap++) {
+    c.arcTo(rect.x + rect.w, rect.y, rect.x + rect.w, rect.y + rect.h, r);
+    c.arcTo(rect.x + rect.w, rect.y + rect.h, rect.x, rect.y + rect.h, r);
+    c.arcTo(rect.x, rect.y + rect.h, rect.x, rect.y, r);
+    c.arcTo(rect.x, rect.y, rect.x + rect.w, rect.y, r);
+    c.lineTo(rect.x + r, rect.y);
+  }
+  c.globalAlpha = 1 - closing;
+  c.stroke();
+  c.restore();
 }
 
 /**
@@ -165,6 +311,9 @@ export function Timeline() {
   const host = React.useRef<HTMLDivElement>(null);
   const plot = React.useRef<HTMLDivElement>(null);
   const wires = React.useRef<HTMLCanvasElement>(null);
+  /** The vines' cloud: two small elements per vine, one per strand, over the canvas (`syncLights`). */
+  const lights = React.useRef<HTMLDivElement>(null);
+  const lightEls = React.useRef(new Map<string, HTMLDivElement>());
 
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
   /*
@@ -204,6 +353,8 @@ export function Timeline() {
     [threads],
   );
   const home = React.useMemo(() => scatter(all), [all]);
+  const forming = useForming(threads);
+  const shownOf = React.useCallback((id: string) => forming.get(id) ?? 1, [forming]);
   const spotOf = React.useCallback(
     (id: string): Point => {
       if (dragging?.id === id) return dragging.at;
@@ -402,14 +553,6 @@ export function Timeline() {
    * A full repaint happens only when the canvas itself changes: the boards
    * spread past the edge of it, or the zoom crosses into a sharper one.
    */
-  interface Vine {
-    from: Point;
-    to: Point;
-    tone: StrandTone;
-    phase: number;
-    ends: [VineEnd, VineEnd];
-    box: { x: number; y: number; w: number; h: number };
-  }
   /** What is on the canvas now, so the next paint can tell what changed. */
   const drawn = React.useRef(new Map<string, Vine>());
   /** The canvas's own frame: where it sits in the boards' coordinates, and how finely. */
@@ -425,8 +568,31 @@ export function Timeline() {
     const want = new Map<string, Vine>();
     for (const cord of cords) {
       const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
+      // The first stage of forming: the vine grows from the previous card.
+      const grow = Math.min(1, shownOf(cord.to) / FORM.vine[1]);
       want.set(`${cord.from}>${cord.to}`, {
-        from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to),
+        from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to), grow,
+      });
+    }
+    /*
+     * The rim, while a box is forming: where the vine arrives the rim starts
+     * and is traced round the box in green, and as the work nears its end
+     * the green closes in from the edges. Painted here, on the canvas, which
+     * already knows where every box is and repaints only what changed.
+     */
+    for (const t of threads) {
+      const p = shownOf(t.id);
+      if (p < FORM.rim[0] || p >= FORM.surface[0]) continue;
+      const a = anchorOf(t.id);
+      const size = sizeOf(t);
+      const rect = { x: a.left, y: a.top, w: size.w, h: size.h };
+      const into = cords.find((cd) => cd.to === t.id);
+      const start = into ? ends(anchorOf(into.from), anchorOf(into.to))[1] : { x: a.left, y: a.top };
+      const pad = 12;
+      want.set(`rim:${t.id}`, {
+        from: start, to: start, tone: "live", phase: 0, ends: ["iteration", "iteration"], grow: 1,
+        box: { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 },
+        rim: { p, rect, start },
       });
     }
     /*
@@ -450,7 +616,7 @@ export function Timeline() {
         };
         const to = { x: a.cx, y: side === "in" ? a.top : a.bottom };
         want.set(`card:${side}`, {
-          from, to, tone: openTone, phase: 0.5, ends: [end, end], box: strandBounds(from, to),
+          from, to, tone: openTone, phase: 0.5, ends: [end, end], box: strandBounds(from, to), grow: 1,
         });
       }
     }
@@ -507,16 +673,21 @@ export function Timeline() {
     c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
 
     /* What differs from what is on the canvas. */
-    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]}`;
+    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
     const dirty: { x: number; y: number; w: number; h: number }[] = [];
+    const changed = new Set<string>();
     for (const [k, v] of want) {
       const had = drawn.current.get(k);
       if (had && mark(had) === mark(v)) continue;
+      changed.add(k);
       if (had) dirty.push(had.box);
       dirty.push(v.box);
     }
     for (const [k, had] of drawn.current) if (!want.has(k)) dirty.push(had.box);
     if (!dirty.length) return;
+    // The cloud over each vine is laid when the vine comes to rest, and not
+    // while it moves (see `syncLights`).
+    if (lights.current) syncLights(lights.current, lightEls.current, want, changed, !dragging);
 
     const hits = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
       a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -532,12 +703,13 @@ export function Timeline() {
     c.clip();
     for (const v of want.values()) {
       if (!dirty.some((r) => hits(r, v.box))) continue;
-      paintStrand(c, v.from, v.to, { tone: v.tone, phase: v.phase, ends: v.ends });
+      if (v.rim) { paintRim(c, v.rim); continue; }
+      paintStrand(c, v.from, v.to, { tone: v.tone, phase: v.phase, ends: v.ends, grow: v.grow });
     }
     c.restore();
 
     drawn.current = want;
-  }, [cords, anchorOf, openId, openTone]);
+  }, [cords, anchorOf, openId, openTone, threads, shownOf, dragging]);
   // The open card can grow without this component rendering, and that moves
   // an end; this is how the observer below reaches the current painter.
   paintAt.current = paint;
@@ -674,6 +846,8 @@ export function Timeline() {
         {/* Inside the plot, in the boards' own coordinates, so a pan moves it
             the way it moves a box — and first, so the boards sit over it. */}
         <canvas ref={wires} data-timeline-vines aria-hidden className="pointer-events-none absolute" />
+        {/* The vines' cloud: over the canvas, under the boards. Filled by `syncLights`. */}
+        <div ref={lights} data-timeline-light aria-hidden className="pointer-events-none absolute left-0 top-0" />
 
         {all.map((n) => {
           const t = n.thread;
@@ -685,6 +859,7 @@ export function Timeline() {
               key={t.id}
               thread={t}
               at={at}
+              forming={shownOf(t.id)}
               live={live}
               open={open}
               pinned={pinned.includes(t.id)}
@@ -774,6 +949,109 @@ export function Timeline() {
  * and the other way round when the child ended up to the left of its
  * parent — which it will, the moment anything is dragged.
  */
+/** One thing on the vine canvas: a vine, or the rim of a forming box. */
+interface Vine {
+  from: Point;
+  to: Point;
+  tone: StrandTone;
+  phase: number;
+  ends: [VineEnd, VineEnd];
+  box: { x: number; y: number; w: number; h: number };
+  /** How much of it there is yet, 0..1. A vine into a forming box grows. */
+  grow: number;
+  /**
+   * Not a vine at all: the rim of a forming box, traced round it in green
+   * and then closing in. It lives in the same map because it is painted
+   * by the same canvas, repainted by the same rule, and gone the same way.
+   */
+  rim?: { p: number; rect: { x: number; y: number; w: number; h: number }; start: Point };
+}
+
+/**
+ * The cloud over the vines, kept in step with the canvas.
+ *
+ * A vine is painted once and its colour still moves, the way a box's does:
+ * not by repainting, but by two small elements per vine over the canvas —
+ * one per strand, at that strand's temperature — each clipped to its
+ * strand's near side and carrying the construct's own cloud gliding on the
+ * same keyframe as every box (`.molten-vine`, `molten.css`). The green cloud
+ * is on the green strand and the red on the red, and the clips never
+ * overlap, so no colour is ever laid over the other. This is the whole of
+ * the bookkeeping: two elements per vine that exists, placed on the vine's
+ * own box, their clips rewritten only when that vine's mark changed — which
+ * is the same rule the canvas repaints by — and gone when the vine is. The
+ * rim traces are the canvas's alone; no cloud is laid over them.
+ *
+ * AT REST ONLY. Measured: restyling an element whose child carries a
+ * running animation costs about two milliseconds, and a drag restyles the
+ * two vines on the moving board every pointer move — fifteen milliseconds
+ * a move at thirty boards, which is the drag going from smooth to not. So
+ * while a board is held, the cloud on its vines is lifted (one restyle) and
+ * laid again when it is let go; and a vine still growing has no cloud until
+ * it has grown, which is also the order the formation asks for — the vine
+ * first, the weather after. `rest` says whether anything is held.
+ */
+function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want: Map<string, Vine>, changed: Set<string>, rest: boolean) {
+  for (const [k, el] of els) {
+    const of = want.get(k.slice(0, -2));
+    if (of && !of.rim && of.tone !== "cut") continue;
+    el.remove();
+    els.delete(k);
+  }
+  const period = 512;
+  for (const [k, v] of want) {
+    if (v.rim || v.tone === "cut") continue;
+    for (const b of [0, 1] as const) {
+      const key = `${k}#${b}`;
+      let el = els.get(key);
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "molten-vine";
+        el.dataset.laid = "0";
+        el.appendChild(document.createElement("i"));
+        host.appendChild(el);
+        els.set(key, el);
+      }
+      if (!rest || v.grow < 1) {
+        // Lifted while the vine moves or grows: one change, then nothing.
+        if (el.dataset.laid !== "0") { el.dataset.laid = "0"; el.style.clipPath = "inset(100%)"; }
+        continue;
+      }
+      if (el.dataset.laid === "1" && !changed.has(k)) continue;
+      el.dataset.laid = "1";
+      /*
+       * The strand's temperature, as one attribute and not as `.molten`.
+       * Measured: any style change on an element carrying the construct's
+       * class costs close to two milliseconds of recalc — its face is a
+       * stack of colour-mixed shadows and two pseudo-elements — against a
+       * tenth of that for a plain one. The light needs the construct's
+       * cloud, not its face, so it takes the tile by name and nothing else.
+       */
+      const heat = v.ends[b] === "drawing" ? "ember" : "verdant";
+      if (el.dataset.heat !== heat) el.dataset.heat = heat;
+      const { box } = v;
+      el.style.left = `${box.x}px`;
+      el.style.top = `${box.y}px`;
+      el.style.width = `${box.w}px`;
+      el.style.height = `${box.h}px`;
+      // The outline in the element's own coordinates: the same path, moved
+      // by the box, because a curve does not care where its ends are.
+      const d = strandEnvelope(
+        { x: v.from.x - box.x, y: v.from.y - box.y },
+        { x: v.to.x - box.x, y: v.to.y - box.y },
+        b,
+        { ends: v.ends, grow: v.grow, phase: v.phase, tone: v.tone },
+      );
+      el.style.clipPath = d ? `path("${d}")` : "inset(100%)";
+      // One weather across the board: every element shows the tile at the
+      // phase its own place gives it, so the cloud is continuous from vine
+      // to vine and from a vine to the box beside it.
+      const tile = el.firstElementChild as HTMLElement | null;
+      if (tile) tile.style.backgroundPositionX = `${-(((box.x % period) + period) % period)}px`;
+    }
+  }
+}
+
 function ends(a: { left: number; right: number; mid: number }, b: { left: number; right: number; mid: number }): [Point, Point] {
   const backwards = b.left < a.left;
   return [
@@ -790,6 +1068,8 @@ function ends(a: { left: number; right: number; mid: number }, b: { left: number
 function Standing(props: {
   thread: Thread;
   at: Point;
+  /** How far it has formed, as shown: 0..1. One is formed. */
+  forming: number;
   live: boolean;
   open: boolean;
   pinned: boolean;
@@ -881,10 +1161,11 @@ function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
 }
 
 function IterationBox({
-  thread, at, live, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
+  thread, at, forming, live, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
+  forming: number;
   live: boolean;
   open: boolean;
   pinned: boolean;
@@ -916,9 +1197,11 @@ function IterationBox({
           moltenClass("verdant"),
           "flex w-full cursor-grab flex-col gap-1 rounded-lg p-2 text-left transition-[box-shadow,transform] active:cursor-grabbing",
         )}
+        data-forming={forming < 1 ? "" : undefined}
         style={{
           minHeight: BOX.h,
           ...moltenSeed(thread.id),
+          ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
           color: "oklch(0.93 0.055 150)",
           // Depth is the shadow under it and the lift when it is picked up;
           // the light in it comes from the surface, not from here.
@@ -980,10 +1263,11 @@ function IterationBox({
  * any sentence about the line would.
  */
 function ElementPiece({
-  thread, at, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
+  thread, at, forming, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
+  forming: number;
   live: boolean;
   open: boolean;
   pinned: boolean;
@@ -1010,9 +1294,11 @@ function ElementPiece({
           moltenClass("ember"),
           "flex w-full cursor-grab flex-col gap-1 rounded-lg p-2 text-left transition-[box-shadow,transform] active:cursor-grabbing",
         )}
+        data-forming={forming < 1 ? "" : undefined}
         style={{
           minHeight: PIECE.h,
           ...moltenSeed(thread.id),
+          ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
           color: "oklch(0.95 0.05 22)",
           boxShadow: open ? "0 10px 28px oklch(0 0 0 / 0.55)" : "0 5px 16px oklch(0 0 0 / 0.45)",
           filter: open ? "brightness(1.14)" : "none",

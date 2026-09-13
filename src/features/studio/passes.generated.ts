@@ -2,9 +2,60 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T08:14:24.064Z";
+export const GENERATED_AT = "2026-09-13T09:17:41.767Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c5d3350",
+    "when": "2026-09-13T08:47:44+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "c5d3350",
+        "says": "pan-cost brings the boards back before it drags one",
+        "when": "2026-09-13T08:47:44+00:00",
+        "detail": [
+          "The suite threw \"1 boards: no board on screen to drag\" and measured nothing at all, which is its own instrument rather than the timeline.",
+          "It pans 420px sideways, measures that, and then looks for a board still fully on screen to drag — and whether one is there is luck. Measured on this build at 1200x900: with six boards exactly one of the six survives the pan, and with one board the only board there is lands at x 1010 with a width of 248 and overflows the right edge by 66px. Nothing about the pan or the drag changed; the settle draws a lone board larger than it used to, and that was enough to decide whether the suite ran at all.",
+          "So it centres before picking one. That costs nothing measured — the pan row is already taken and the drag row has not started — and it holds at any board count and any box size. All three rows report again.",
+          "pan-weather's \"the embers burned through the pan\" failed in the same sweep and is not in this commit: it passes 10/10 on its own, and it failed while three browsers were competing for a container with no GPU. Noted rather than patched, and watched in the next sweep."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "1bfe4ef",
+        "says": "The model tripwire in cube-part catches models, not the top bar",
+        "when": "2026-09-13T08:30:11+00:00",
+        "detail": [
+          "cube-part went red on the merge, and not on anything about cubes: it timed out waiting for the shelf's search box on a page that had gone blank with \"Cannot read properties of undefined (reading 'repo')\".",
+          "The cause is its own net. The suite stubs everything under /api/studio with `{}` as a tripwire for model calls, and the top bar now reads that family too — GithubButton asks /api/studio/publish on load for the repository this site has. That read reaches GitHub and never a model, so it was miscounted either way: answered with `{}` it takes the whole Builder down, and had it survived, \"publish\" would have landed in `asked` and failed the two checks that say no model was called.",
+          "So the net still catches every studio route, nothing escapes to the network, but the two that reach no model are not counted as one, and the publish status gets the shape the top bar reads, with nothing configured — the honest answer for a test server. 29/29 again.",
+          "Worth passing to whoever owns the top bar, because the test only exposed it: `status?.github.repo` guards `status` and not `status.github`, and publishStatus() casts the response with `as PublishStatus` without checking it, so its catch covers a failed fetch but not a reply of the wrong shape. The route's GET always answers well-formed today, so nothing is broken on the deploy — but one malformed reply blanks the Builder rather than degrading to \"no repository yet\", and that is a lot of blast radius for a tooltip."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "8fe544b",
+        "says": "Regenerate the passes for the zoom, the token and the box surface",
+        "when": "2026-09-13T08:15:12+00:00",
+        "detail": [
+          "Five passes in this sweep. Euler: the cards, with no label on the red box, one-word headlines and a panel that stays; and the box surface, a nebula of its colour painted once and gliding for ever. Hypatia: the GitHub token is the person's and the first publish makes the repo; one zoom, acting on whichever surface is showing; and 121% becoming 100%, the preview drawn at a base of its own.",
+          "The deployed build has no .git, so the Updates list only moves when this file does."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "5371b97",
     "when": "2026-09-13T08:14:18+00:00",
@@ -828,29 +879,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4fa6382",
-    "when": "2026-09-12T01:36:47+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "c215176",
-        "says": "Read a colour with the transition switched off, not while it is still fading",
-        "when": "2026-09-12T01:18:00+00:00",
-        "detail": [
-          "menu-pass failed about one run in three on \"redo is the process green\", reporting oklab(0.68 0.005 -0.015) — which is the disabled grey, on a button that had already reported itself enabled.",
-          "Both halves of that were the same cause. `disabled` is a DOM property and flips the instant the state changes; `color` is transitioned and arrives later, so the two disagree for a few hundred milliseconds. Chrome serialises a colour mid-fade as oklab rather than the authored oklch, which is what gave it away.",
-          "Waiting for two consecutive reads to agree did not fix it, and the reason is worth writing down: two reads taken before the fade has started agree with each other perfectly. A settle loop cannot tell \"finished\" from \"not begun\".",
-          "There is nothing to wait out here — the check is about which colour was authored — so transitions and animations are switched off for the read and put back afterwards. The hue parser takes either serialisation now, so a mid-fade value would be read correctly rather than skipped, and near() is back beside it."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
       }
     ],
     "more": 0

@@ -272,6 +272,60 @@
 }
 
 /* ---------------------------------------------------------------------------
+   Forming.
+
+   A construct that is still forming carries `data-forming` and two numbers
+   the timeline works out from the job's real progress (`formation.ts`):
+   `--form-surface`, how much of the nebula there is yet, and `--form-core`,
+   how much of the centre. The vine and the rim trace are drawn on the
+   timeline's own canvas, which knows where the box is; only the surface and
+   the centre are the stylesheet's.
+
+   The surface grows from zero at its edges inward — the rim has just closed
+   in, so the cloud comes in from where the rim is — and the centre, the
+   darkest part, is the last thing to form: until it does the middle is the
+   field, and the core darkens into place at the end.
+--------------------------------------------------------------------------- */
+.molten[data-forming] {
+  /* No core yet: while it forms the face is the field alone, and the
+     centre darkens into place last, on the edge node below. */
+  background:
+    var(--molten-grain),
+    radial-gradient(70% 88% at 50% 50%, var(--mo-char) 0%, var(--mo-char) 62%, var(--mo-deep) 100%);
+}
+.molten[data-forming]::before,
+.molten[data-forming]::after {
+  opacity: calc(var(--form-surface, 1) * 0.92);
+  clip-path: inset(calc((1 - var(--form-surface, 1)) * 50%) round inherit);
+}
+.molten[data-forming]::after {
+  opacity: calc(var(--form-surface, 1) * 0.38);
+}
+.molten[data-forming] > * {
+  /* The words arrive with the centre. */
+  opacity: var(--form-core, 1);
+}
+.molten[data-forming] > [data-molten] {
+  /* The core, arriving last: the face's own dark centre, faded in over the
+     field by its alpha, so the rim on the same node stays fully lit while
+     the middle darkens into place. */
+  opacity: 1;
+  background-image: radial-gradient(70% 88% at 50% 50%, color-mix(in oklab, var(--mo-core) calc(var(--form-core, 1) * 100%), transparent) 0%, color-mix(in oklab, var(--mo-core) calc(var(--form-core, 1) * 100%), transparent) 18%, transparent 62%);
+  /*
+   * The construct's own rim arrives as the traced one closes in; until then
+   * the trace on the canvas is the rim. And the closing in itself: a band of
+   * green growing inward from the edges and thinning out as it grows, on
+   * the box rather than under it, so it is over the face. Green whichever
+   * colour the box is — it is the work finishing, not the box's own light.
+   */
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) calc(var(--form-rim, 1) * 82%), transparent),
+    inset 0 0 0 2px color-mix(in oklab, var(--mo-white) calc(var(--form-rim, 1) * 22%), transparent),
+    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) calc(var(--form-rim, 1) * 34%), transparent),
+    inset 0 0 calc(var(--form-close, 0) * 10px) calc(var(--form-close, 0) * 30px) color-mix(in oklab, var(--verdant-hot) calc((1 - var(--form-close, 0)) * 72%), transparent);
+}
+
+/* ---------------------------------------------------------------------------
    The edge, the flare and the ember: one child, three jobs.
 --------------------------------------------------------------------------- */
 
@@ -343,6 +397,79 @@
   --mo-core: var(--ember-core);
   --mo-nebula: var(--nebula-ember, none);
 }
+
+/*
+ * A construct the size of a bar: lit through, not lit around.
+ *
+ * The face is a dark core easing out to char, because a card is a surface
+ * words sit on. Ten pixels tall there is no room for a face — the rim is the
+ * only part with space to show, so a small construct read as an outlined
+ * capsule waiting to be filled, which is the opposite of what the queue strip
+ * is for. This lights the body instead: the same five stops, the same
+ * keyframes, the same rim, the gradient turned the other way up so the thing
+ * reads as a piece of hot metal rather than a container for one.
+ *
+ * A shape decision rather than a sixth temperature, so it composes: any of
+ * the three kinds can be a bar, and none of them declares a stop of its own.
+ */
+.molten-bar {
+  background:
+    var(--molten-grain),
+    linear-gradient(to bottom, var(--mo-hot) 0%, var(--mo-body) 46%, var(--mo-deep) 100%);
+  background-size: 64px 64px, 100% 100%;
+  background-blend-mode: overlay, normal;
+}
+
+/* Its nebula would be a smear at this height, and the flare has nowhere to
+   run; the boil stays, in the grain and in the rim's breathing. */
+.molten-bar::before { display: none; }
+
+/* ---------------------------------------------------------------------------
+   THE VINE'S CLOUD: the same weather, on the cable.
+
+   A vine (`strand.ts`) is a rope of the boxes' own stops, and its colour
+   moves the way a box's does — not by repainting the canvas, which is the
+   cost the timeline got rid of, but by this: two small elements per vine,
+   one per strand at that strand's temperature, laid over the canvas, each
+   clipped to its strand's near side (`strandEnvelope`), with the
+   construct's own nebula gliding across it on the same keyframe at the
+   same rate as the cloud on every box. Nothing repaints, and nothing is
+   blended: it is the box's `::before`, cut to the shape of a strand.
+
+   The green cloud is on the green strand and the red on the red, and the
+   two clips never overlap, so no colour is ever laid over the other and
+   the two that run the length of a green-to-red cable never meet. The clip
+   is the whole rule about where the cloud is: on that strand's bark and
+   nowhere else. Not on the other strand, not a halo round the cable, not a
+   glow on the ground beside it — outside the outline there is nothing.
+--------------------------------------------------------------------------- */
+.molten-vine {
+  position: absolute;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+.molten-vine > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--nebula-period, 512px));
+  width: calc(100% + var(--nebula-period, 512px));
+  background-repeat: repeat;
+  background-size: var(--nebula-period, 512px) auto;
+  background-position: 0 50%;
+  /* Thinner than on a face. A face is the dark core with the cloud as its
+     light; a strand has its own lit side and shaded side under this, and
+     the cloud is weather over them, not a coat that flattens them. */
+  opacity: 0.4;
+  will-change: transform;
+  animation: molten-drift 150s linear infinite;
+}
+/* The tile by name, not through `.molten`: a light is not a face. Any
+   style change on an element carrying the construct's class costs close to
+   two milliseconds of recalc, measured, against a tenth of that here. */
+.molten-vine[data-heat="verdant"] > i { background-image: var(--nebula-verdant, none); }
+.molten-vine[data-heat="ember"] > i { background-image: var(--nebula-ember, none); }
 
 /* ---------------------------------------------------------------------------
    The five keyframes. Nothing else may define one named molten-*.

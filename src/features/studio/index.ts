@@ -6,6 +6,7 @@ import {
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
+import { QueueStrip } from "./QueueStrip";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
 import { isLinkable } from "./parts";
@@ -131,7 +132,13 @@ export const studio = defineFeature({
    * head of that same bar; the command palette and /builder still get here.
    */
   nav: [],
-  topBarItems: [{ id: "studio.github", order: 20, component: GithubButton }],
+  topBarItems: [
+    /* Work in flight goes on the near side of the bell, where the eye already
+       looks to find out what is happening; the repository link is a control
+       and stays over with the rest of them. */
+    { id: "studio.queue", order: 10, slot: "status", component: QueueStrip },
+    { id: "studio.github", order: 20, component: GithubButton },
+  ],
 
   commands: [
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },

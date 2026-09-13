@@ -135,10 +135,17 @@ for (const k of MOLTEN_KEYFRAMES) {
   check(`${k} is declared`, new RegExp(`@keyframes ${k}\\b`).test(css));
   check(`${k} says what it is for`, (MOLTEN_MOTION[k] ?? "").length > 20);
 }
-const durations = [...css.matchAll(/animation:\s*molten-[a-z]+\s+([\d.]+)s/g)].map((m) => Number(m[1]));
+const runs = [...css.matchAll(/animation:\s*(molten-[a-z]+)\s+([\d.]+)s/g)].map((m) => ({ name: m[1], s: Number(m[2]) }));
+const durations = runs.map((r) => r.s);
 check("every animation is slow: nothing under nine seconds", durations.length > 0 && durations.every((d) => d >= 9),
   durations.join("s, ") + "s");
-check("nothing is a timer: no two are the same length", new Set(durations).size === durations.length);
+/* One motion may run on more than one thing — the glide is on a box's face
+   and on a vine's strands, at the same rate, because they are one weather.
+   Two *different* motions at one length would be a beat; that is the rule. */
+const byMotion = new Map();
+for (const r of runs) byMotion.set(r.name, r.s);
+check("nothing is a timer: no two motions are the same length", new Set(byMotion.values()).size === byMotion.size);
+check("and one motion runs at one rate wherever it is", runs.every((r) => byMotion.get(r.name) === r.s));
 check("only transform and opacity are animated, never a colour or a size", (() => {
   const frames = [...css.matchAll(/@keyframes molten-[a-z]+ \{([\s\S]*?)\n\}/g)].map((m) => m[1]);
   const props = new Set(frames.flatMap((f) => [...f.matchAll(/\n\s*([a-z-]+):/g)].map((m) => m[1])));
@@ -172,7 +179,9 @@ check("no mask on an animated layer", !/mask-image:/.test(css));
 check("one nebula layer glides and one stands still, for the same picture at half the cost",
   /\.molten::after \{[\s\S]*?animation: none/.test(css) && /\.molten::before \{[\s\S]*?animation: molten-drift/.test(css));
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
-  const edge = /\[data-molten\] \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  // The edge rule itself, at the start of a line — not a forming rule that
+  // happens to end in the same selector.
+  const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
   const shadows = [...edge.matchAll(/^\s+(inset )?0 /gm)];
   return shadows.length > 0 && shadows.every((m) => m[1] === "inset ") && /\[data-molten\]::after \{\s*content: none;/.test(css);
 })());
