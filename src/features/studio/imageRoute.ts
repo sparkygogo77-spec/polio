@@ -20,9 +20,11 @@
  * - Something with **real text in it** wants the typography model, which is
  *   what ideogram is for. No amount of prompting makes a general image
  *   model set type.
- * - An **object** you can turn goes to a 3D model. Nothing in this table
- *   serves that yet, and `route` says so rather than handing it to
- *   something that will return a picture of a cube.
+ * - An **object** you can turn goes to a model that returns a solid rather
+ *   than a picture — a GLB the board mounts and rotates. A drawn *box*
+ *   never gets here: the catalogue already has a real cube with editable
+ *   faces and it costs nothing, so the words-and-geometry road claims it
+ *   first. This cell is for the things that are not boxes.
  *
  * **Which step we are at.**
  *
@@ -79,6 +81,15 @@ export interface ImageModel {
   /** What it is called in a sentence on a card. */
   name: string;
   /**
+   * What it hands back.
+   *
+   * A picture is a body the board draws. A **mesh** is a solid: a GLB the
+   * board mounts in a viewer and turns, which is a different answer, a
+   * different part and a different set of input fields — so it is declared
+   * rather than guessed from the kind being made.
+   */
+  returns: "picture" | "mesh";
+  /**
    * Which kinds it should be chosen for, at which step.
    *
    * Narrow on purpose. A model that could technically produce an icon but
@@ -115,6 +126,26 @@ export interface ImageModel {
   size: Field | null;
   /** How to ask for PNG out. */
   format: Field;
+  /**
+   * How a mesh model is asked, when `returns` is "mesh".
+   *
+   * None of the picture fields apply: there is no aspect ratio on a solid,
+   * no transparent ground, and the thing that matters instead is how many
+   * faces come back, because the board has to carry the file.
+   */
+  mesh: {
+    /** Where the drawing goes. */
+    imageField: string;
+    /** Other views it will take, in the order it names them. A drawn box has more than one. */
+    alsoViews?: readonly string[];
+    /** How to ask for a GLB, which is the one format the viewer mounts. */
+    format: Field;
+    /** How to ask for a mesh small enough for a document to carry, and what to ask for. */
+    facesField?: string;
+    faces?: number;
+    /** Ask it to cut the ground out of the drawing before it reads it. */
+    cutGround?: Field;
+  } | null;
   /** Anything it has that we do not set, and anything believed about it that is wrong. */
   also?: string;
 }
@@ -128,6 +159,7 @@ export const MODELS: readonly ImageModel[] = [
   {
     slug: "google/nano-banana-2",
     name: "Nano Banana 2",
+    returns: "picture",
     // The widest ratio list of anything here, so it is the one that can
     // actually make a 21:9 band, and `match_input_image` makes it the safe
     // choice for an edit.
@@ -141,11 +173,13 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: { field: "resolution", value: "2K" },
     format: { field: "output_format", value: "png" },
+    mesh: null,
     also: "resolution is 1K, 2K or 4K — there is no 512px, which was believed. It can also search the web for references, which is off.",
   },
   {
     slug: "bytedance/seedream-5-lite",
     name: "Seedream 5 Lite",
+    returns: "picture",
     // The only one that does example-based editing, which is this app's own
     // loop expressed as a model feature, so it leads the refine step.
     serves: { refine: ["picture", "surface"], first: ["picture"] },
@@ -158,11 +192,13 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: { field: "size", value: "2K" },
     format: { field: "output_format", value: "png" },
+    mesh: null,
     also: "size is 2K or 3K; sequential_image_generation auto gives a batch, which is off; max_images up to 15.",
   },
   {
     slug: "openai/gpt-image-2",
     name: "GPT Image 2",
+    returns: "picture",
     // Alpha, and a wide enough ratio list to be useful with it.
     serves: { first: ["icon", "picture"], refine: ["icon", "picture"] },
     references: 10,
@@ -174,6 +210,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: null,
     format: { field: "output_format", value: "png" },
+    mesh: null,
     also:
       "It was briefed here as unable to do transparency at all: its schema carries background auto|transparent|opaque, the same field gpt-image-1.5 has. "
       + "The 1:1/3:2/2:3-only ratio list belongs to gpt-image-1.5, not to this — this also takes 4:3, 3:4, 16:9, 9:16, auto and explicit pixel sizes up to 3840x2160.",
@@ -181,6 +218,7 @@ export const MODELS: readonly ImageModel[] = [
   {
     slug: "openai/gpt-image-1.5",
     name: "GPT Image 1.5",
+    returns: "picture",
     serves: { first: ["icon"], refine: ["icon"] },
     references: 10,
     refField: "input_images",
@@ -191,11 +229,69 @@ export const MODELS: readonly ImageModel[] = [
     pixels: null,
     size: null,
     format: { field: "output_format", value: "png" },
+    mesh: null,
     also: "Three ratios and no more, so it is the alpha model of last resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
+  },
+  {
+    slug: "tencent/hunyuan3d-2mv",
+    name: "Hunyuan3D 2 (multi-view)",
+    returns: "mesh",
+    /*
+     * The only cell that wants a solid, and the reason this one has it.
+     *
+     * Seven image-to-3D models were compared on what they actually hand
+     * back, because "3D model" is not a format:
+     *
+     *   firtoz/trellis          GLB, but only with generate_model on — off
+     *                           by default — plus turntable videos and a
+     *                           gaussian PLY; texture 1024, simplify 0.95.
+     *   fishwowater/trellis2    GLB, and a video; but texture 4096 and a
+     *                           decimation target of a million faces.
+     *   tencent/hunyuan-3d-3.1  one file, format not declared anywhere in
+     *                           the schema; 500,000 faces by default.
+     *   tencent/hunyuan3d-2mv   glb | obj | ply | stl as an enum, 10,000
+     *                           faces by default, removes the background
+     *                           itself, and takes front, back, left and
+     *                           right views.
+     *   prunaai/hunyuan3d-2     glb | obj, 40,000 faces.
+     *   hyper3d/rodin           glb and four others, but a prompt is
+     *                           required — it will not work from a drawing
+     *                           alone, which is this app's whole rule.
+     *   cjwbw/shap-e            an array of files, older and coarser.
+     *
+     * This one wins on the thing that decides it: the board has to *carry*
+     * the file. A document keeps its parts inside itself, so a mesh is
+     * bytes in the page, and ten thousand faces is the only default here
+     * that is already the right order of magnitude. It also names `glb` in
+     * an enum rather than leaving the format to be discovered, and it takes
+     * four views — which is exactly what a drawn box gives you.
+     */
+    serves: { first: ["object"] },
+    references: 4,
+    refField: null,
+    examplePair: false,
+    keepFrame: null,
+    ratios: [],
+    alpha: false,
+    pixels: null,
+    size: null,
+    format: { field: "file_type", value: "glb" },
+    mesh: {
+      imageField: "front_image",
+      alsoViews: ["back_image", "left_image", "right_image"],
+      format: { field: "file_type", value: "glb" },
+      facesField: "target_face_num",
+      faces: 10000,
+      cutGround: { field: "remove_background", value: "true" },
+    },
+    also:
+      "It also has steps, guidance_scale, octree_resolution, num_chunks and a seed, none of which are set. "
+      + "The face count is the one that matters: a mesh has to fit inside the document that carries it.",
   },
   {
     slug: "prunaai/p-image-ideogram",
     name: "Ideogram (Pruna)",
+    returns: "picture",
     /*
      * Text only, and that asymmetry is exactly why this table has two axes:
      * it is a real first pass for anything prompted from words and cannot
@@ -212,6 +308,7 @@ export const MODELS: readonly ImageModel[] = [
     pixels: { widthField: "width", heightField: "height", max: 2560, step: 16, via: { field: "aspect_ratio", value: "custom" } },
     size: { field: "image_size", value: "2K" },
     format: { field: "output_format", value: "png" },
+    mesh: null,
     also:
       "Said here to be jpg out: it takes png, jpg or webp, and png is what we ask for — a flat graphic with type on it should not carry jpeg artefacts. "
       + "Width and height only apply with aspect_ratio custom, rounded to a multiple of 16, up to 2560. "
@@ -249,15 +346,35 @@ export function model(slug: string): ImageModel | null {
  * is treated as a mark too, which is the only answer that cannot land a
  * filled rectangle on the board.
  */
+/**
+ * Words that ask for a solid rather than a picture of one.
+ *
+ * Deliberately narrow. A solid costs a model call and lands as a file the
+ * document has to carry, so it is never guessed at from geometry: somebody
+ * has to have asked. "cube" and "box" are not in here on purpose — those
+ * are the catalogue's own cube, which is free, turnable and editable, and
+ * they are claimed long before anything reaches this table.
+ */
+const SAYS_SOLID = /\b(3d|three[- ]d|solid|mesh|model|sculpt|turnable|rotatable|spin(?:nable)?|orbit(?:able)?|from every (?:side|angle))\b/i;
+
+export function saysSolid(words: string): boolean {
+  return SAYS_SOLID.test(words ?? "");
+}
+
 export function makingOf(what: {
   kind?: string;
   role?: string | null;
   hasText?: boolean;
   /** A part that is the ground rather than a thing on it. */
   ground?: boolean;
+  /** What was said next to the drawing. A solid has to be asked for. */
+  said?: string;
   w?: number;
   h?: number;
 }): Making {
+  // Asked for in words, and only in words: a thing you can turn is a file
+  // the page has to carry, so nobody gets one by accident.
+  if (what.said && saysSolid(what.said)) return "object";
   if (what.hasText) return "type";
   // A drawn frame is a mark with a hole in it, not a backdrop.
   if (what.role === "icon" || what.role === "motion" || what.role === "surface") return "icon";
@@ -281,6 +398,11 @@ export function makingOf(what: {
  */
 export function needsAlpha(making: Making): boolean {
   return making === "icon";
+}
+
+/** Is this a solid rather than something flat? It lands as a different part. */
+export function isSolid(making: Making): boolean {
+  return making === "object";
 }
 
 /** Can this model be asked for this cell at all? */
@@ -330,7 +452,10 @@ export function route(need: Need): Routed {
   const fits = (m: ImageModel) => {
     if (!serves(m, need.making, need.step)) return false;
     // A step that starts from a picture needs somewhere to put it.
-    if (need.fromImage && (m.references < 1 || !m.refField)) return false;
+    // A mesh model takes its picture in a field of its own rather than in a
+    // reference list, so it is asked the same question a different way.
+    const takesPicture = m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField;
+    if (need.fromImage && !takesPicture) return false;
     if (wantAlpha && m.alpha === false) return false;
     return true;
   };
@@ -390,6 +515,25 @@ export function inputFor(
   m: ImageModel,
   ask: { prompt: string; images?: string[]; w?: number; h?: number; transparent?: boolean },
 ): Record<string, unknown> {
+  /*
+   * A solid is asked for differently, and mostly by *not* asking: there is
+   * no ratio on a mesh, no transparent ground, and no prompt — the drawing
+   * is the whole brief, which is this app's rule for the drawing path and
+   * happens to be how these models work anyway. What replaces all of it is
+   * a face count, because the document has to carry what comes back.
+   */
+  if (m.returns === "mesh" && m.mesh) {
+    const views = (ask.images ?? []).slice(0, 1 + (m.mesh.alsoViews?.length ?? 0));
+    const out: Record<string, unknown> = {};
+    if (views[0]) out[m.mesh.imageField] = views[0];
+    (m.mesh.alsoViews ?? []).forEach((field, i) => {
+      if (views[i + 1]) out[field] = views[i + 1];
+    });
+    out[m.mesh.format.field] = m.mesh.format.value;
+    if (m.mesh.facesField && m.mesh.faces) out[m.mesh.facesField] = m.mesh.faces;
+    if (m.mesh.cutGround) out[m.mesh.cutGround.field] = m.mesh.cutGround.value === "true";
+    return out;
+  }
   const images = m.refField ? (ask.images ?? []).slice(0, m.references) : [];
   const input: Record<string, unknown> = { prompt: ask.prompt };
   if (images.length && m.refField) input[m.refField] = images;
@@ -432,6 +576,12 @@ export function wordsFor(ask: {
 }): string {
   const said = (ask.said || ask.label || "").trim().slice(0, 300);
   const bits: string[] = [];
+  /*
+   * A solid takes no words at all. The model is handed the drawing and
+   * nothing else, which is this app's rule for the drawing path — nothing
+   * describes the line — and is also how these models want to be asked.
+   */
+  if (ask.making === "object") return "";
   if (ask.step === "refine") {
     bits.push(
       ask.example

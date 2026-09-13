@@ -386,6 +386,7 @@ const RAW: FeatureDef[] = [
   f("orb-webgl", "Orb, in 3D", "media", Globe, "A real sphere in WebGL that turns and relights under the pointer.", { tags: ["sphere", "three", "webgl", "3d", "planet"] }),
   f("orb-image", "Orb, from a picture", "media", Orbit, "A picture of a sphere with orbit rings, a glow and a tag around it.", { tags: ["sphere", "photo", "render", "planet"] }),
   f("cube-3d", "Cube", "media", Box, "Six faces in real 3D: drag to turn it, arrow keys to step round, and words on every side.", { hint: "One line per face, in the order you want them: front, right, back, left, top, bottom.", tags: ["cube", "box", "3d", "isometric", "faces", "turn", "rotate"], w: 420, h: 420 }),
+  f("mesh-3d", "Solid", "media", Boxes, "A drawing made into a thing you can turn: a real mesh, dragged round with the pointer or the arrow keys.", { tags: ["3d", "solid", "mesh", "model", "turn", "rotate", "object", "sculpt"], w: 420, h: 420 }),
   f("drawn-icon", "Your drawing, as an icon", "media", PenTool, "The lines you drew, small and crisp, in whatever colour they sit on. Drops onto a button.", { hint: "Draw it on the board and make it real; this shows the drawing itself.", tags: ["icon", "glyph", "mark", "logo", "drawn", "vector", "symbol"], w: 96, h: 96 }),
   f("corner-glow", "Corner glow", "media", Sun, "A wash of colour blurred into a corner, the way a light off-screen falls on a dark page.", { tags: ["vignette", "glow", "gradient", "atmosphere"] }),
   f("physics", "Physics", "motion", Orbit, "Things that move like they have mass.", {}),
@@ -516,6 +517,13 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
       range("size", "Size", 82, 20, 100, { unit: "%" }),
       range("paths", "Paths kept", 6, 1, 24),
       { id: "drawn as", label: "Drawn as", values: ["solid", "line"] },
+    ],
+  },
+  "mesh-3d": {
+    w: 420, h: 420,
+    options: [
+      range("size", "Size", 86, 30, 100, { unit: "%" }),
+      { id: "turning", label: "Turning", values: ["when you turn it", "on its own"] },
     ],
   },
   "cube-3d": {
@@ -811,6 +819,7 @@ const EXPLAIN: Record<string, string> = {
   "podcast": "A list of episodes, each playable in place.",
   "image-blur-up": "Pictures arrive as a blurred smudge that sharpens as they load, so the layout never jumps.",
   "3d-viewer": "A model you can spin and zoom, in the page.",
+  "mesh-3d": "A solid made from a drawing, turned with the pointer. Use it when the thing is a thing rather than a picture of one.",
   "map-embed": "A map with your places marked on it.",
   "photo-credit": "Captions under pictures and the credit line the photographer is owed.",
   "avatar-stack": "A row of overlapping profile pictures with “+12 more” at the end. Use it to show a crowd in very little space.",

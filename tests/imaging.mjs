@@ -25,12 +25,14 @@ import {
   MODELS,
   STEPS,
   inputFor,
+  isSolid,
   makingOf,
   model,
   needsAlpha,
   noModelSays,
   ratioFor,
   route,
+  saysSolid,
   wordsFor,
 } from "../src/features/studio/imageRoute.ts";
 
@@ -57,6 +59,14 @@ const SCHEMA = {
   "prunaai/p-image-ideogram": { alpha: false, refs: 0, refField: null, keepFrame: false, widest: "16:9" },
 };
 
+/**
+ * The solid, pinned separately: it has no ratios and no alpha, and what
+ * matters about it is what it hands back and how big that is.
+ */
+const MESH_SCHEMA = {
+  "tencent/hunyuan3d-2mv": { format: "glb", faces: 10000, views: 4, cutsGround: true },
+};
+
 for (const [slug, said] of Object.entries(SCHEMA)) {
   const m = model(slug);
   check(`${slug}: in the table`, !!m);
@@ -72,6 +82,27 @@ for (const [slug, said] of Object.entries(SCHEMA)) {
   });
   check(`${slug}: the widest ratio it offers is ${said.widest}`, wide === said.widest, wide);
 }
+for (const [slug, said] of Object.entries(MESH_SCHEMA)) {
+  const m = model(slug);
+  check(`${slug}: in the table, and hands back a solid`, m?.returns === "mesh");
+  check(`${slug}: asks for a GLB, which is the one format the viewer mounts`,
+    m?.mesh?.format.value === said.format, m?.mesh?.format.value);
+  check(`${slug}: asks for a mesh a document can carry`, m?.mesh?.faces === said.faces, String(m?.mesh?.faces));
+  check(`${slug}: takes ${said.views} views, which is what a drawn box gives you`,
+    1 + (m?.mesh?.alsoViews?.length ?? 0) === said.views);
+  check(`${slug}: cuts the ground out of the drawing itself`, !!m?.mesh?.cutGround === said.cutsGround);
+  check(`${slug}: offers no ratios, because a solid has none`, (m?.ratios.length ?? -1) === 0);
+}
+check("every model that hands back a solid says how it is asked, and no other does",
+  MODELS.every((m) => (m.returns === "mesh") === (m.mesh !== null)));
+check("the comparison that chose it is written down rather than asserted", (() => {
+  const src = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+  // Seven were compared on what they hand back; the losers are named with
+  // the reason, so the next person can disagree with the reason.
+  return ["firtoz/trellis", "fishwowater/trellis2", "tencent/hunyuan-3d-3.1", "prunaai/hunyuan3d-2", "hyper3d/rodin", "cjwbw/shap-e"]
+    .every((slug) => src.includes(slug));
+})());
+
 check("gpt-image-2 is recorded as able to do transparency, which it was briefed as unable to do",
   model("openai/gpt-image-2").alpha !== false
   && /briefed here as unable to do transparency/.test(model("openai/gpt-image-2").also ?? ""));
@@ -90,7 +121,8 @@ for (const m of MODELS) {
     check(`${m.slug}: does not claim a step that does not exist (${step})`, STEPS.includes(step));
     for (const k of kinds) check(`${m.slug}: ${step} names a real kind (${k})`, MAKINGS.includes(k));
     if (step === "refine") {
-      check(`${m.slug}: claims refine and can actually take a picture`, m.references > 0 && !!m.refField);
+      check(`${m.slug}: claims refine and can actually take a picture`,
+        m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField);
     }
     for (const k of kinds) {
       if (needsAlpha(k)) {
@@ -126,10 +158,24 @@ check("reading a drawing is refused rather than given to a model that draws", ((
   const r = route({ making: "icon", step: "read" });
   return r.model === null && r.why === "not-a-model-job";
 })());
-check("a 3D object has nobody yet, and says so rather than getting a picture of one", (() => {
-  const r = route({ making: "object", step: "first" });
-  return r.model === null && r.why === "nothing-serves";
+check("a solid goes to a model that hands back a solid",
+  route({ making: "object", step: "first", fromImage: true }).model?.returns === "mesh",
+  route({ making: "object", step: "first", fromImage: true }).model?.name);
+check("…and no picture model is ever offered one, nor it a picture", (() => {
+  const flat = MAKINGS.filter((k) => k !== "object");
+  const solidEverywhereElse = flat.some((k) => STEPS.some((st) => route({ making: k, step: st, fromImage: true }).model?.returns === "mesh"));
+  const pictureForSolid = STEPS.some((st) => route({ making: "object", step: st, fromImage: true }).model?.returns === "picture");
+  return !solidEverywhereElse && !pictureForSolid;
 })());
+check("a solid has to be asked for in words, and a box never asks for one",
+  saysSolid("a chunk of rock, in 3d") && saysSolid("make it turnable")
+  && !saysSolid("a cube") && !saysSolid("a box of three pillars"),
+  "the catalogue's own cube is free, turnable and editable — it is claimed before anything reaches here");
+check("what was said decides it: the same drawing is a mark without the words and a solid with them",
+  makingOf({ role: null, said: "" }) === "icon" && makingOf({ role: null, said: "a rock, in 3d" }) === "object");
+check("and a solid is known to be one, so it lands as a different part",
+  isSolid("object") && !isSolid("picture") && !isSolid("icon"));
+check("a solid is never asked for a transparent ground it has no field for", !needsAlpha("object"));
 check("text only: a refine never reaches the model with no input image field", (() => {
   const r = route({ making: "type", step: "refine", fromImage: true });
   return r.model?.slug !== "prunaai/p-image-ideogram";
@@ -224,6 +270,15 @@ check("a surface is asked for a texture rather than a subject in the middle",
   /no subject in the middle/.test(wordsFor({ step: "first", making: "surface", said: "bark" })));
 check("something with type in it is told the words are the subject",
   /words must be set correctly/.test(wordsFor({ step: "first", making: "type", said: "SALE" })));
+check("a solid is handed the drawing and no words at all, which is the drawing path's own rule",
+  wordsFor({ step: "first", making: "object", said: "a chunk of rock" }) === "");
+check("the box built for a solid carries the drawing, a GLB and a face count, and nothing flat", (() => {
+  const m = MODELS.find((x) => x.returns === "mesh");
+  const got = inputFor(m, { prompt: "ignored", images: ["data:image/png;base64,AA"], w: 400, h: 300 });
+  return got.front_image === "data:image/png;base64,AA" && got.file_type === "glb"
+    && got.target_face_num === 10000 && got.remove_background === true
+    && got.aspect_ratio === undefined && got.prompt === undefined && got.output_format === undefined;
+})(), JSON.stringify(inputFor(MODELS.find((x) => x.returns === "mesh"), { prompt: "x", images: ["a"], w: 4, h: 3 })));
 check("nothing anywhere asks for a border, a caption or a watermark",
   /no border, no frame, no caption, no watermark/.test(wordsFor({ step: "first", making: "picture" })));
 for (const why of ["no-key", "not-a-model-job", "nothing-serves", "cannot-do-alpha", "cannot-take-an-image", "failed"]) {
@@ -244,7 +299,9 @@ const slugs = MODELS.map((m) => m.slug);
 check("no model slug is written anywhere but the table",
   slugs.every((s) => !routeSrc.includes(s) && !runSrc.includes(s)));
 check("the route asks both questions rather than picking a model",
-  /makingOf\(/.test(routeSrc) && /route\(\{ making, step: "refine"/.test(routeSrc));
+  /makingOf\(/.test(routeSrc) && /route\(\{ making, step, fromImage: true/.test(routeSrc));
+check("…and works out which step it is at rather than assuming the refine one",
+  /const step = isSolid\(making\)/.test(routeSrc));
 const refineSrc = (routeSrc.split("async function refine")[1] ?? "").split("export async function POST")[0] ?? "";
 check("what a pass cost is read off the prediction rather than a price list",
   /predictions\.create\(/.test(routeSrc) && /fromMetrics\(/.test(refineSrc) && !/RENDER_COST/.test(refineSrc));

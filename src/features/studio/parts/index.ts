@@ -26,6 +26,7 @@ import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Player, V
 import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./Forms";
 import { SearchBox } from "./SearchBox";
 import { Cube } from "./Cube";
+import { Mesh } from "./Mesh";
 import { DrawnIcon } from "./DrawnIcon";
 import { Orb } from "./Orb";
 import { Tabs } from "./Tabs";
@@ -74,6 +75,7 @@ export const DEFS: PartDef[] = [
   { component: Art, ids: ["generative-art"], tier: "A" },
   { component: Orb, ids: ["orb-css", "orb-webgl", "orb-image"], tier: "A" },
   { component: Cube, ids: ["cube-3d"], tier: "A" },
+  { component: Mesh, ids: ["mesh-3d"], tier: "A" },
   { component: DrawnIcon, ids: ["drawn-icon"], tier: "A" },
   { component: CornerGlow, ids: ["corner-glow"], tier: "A" },
 

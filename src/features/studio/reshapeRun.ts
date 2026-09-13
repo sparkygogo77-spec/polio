@@ -30,7 +30,7 @@ import { targetFor, writeBody, type Attempt } from "./bodyRun";
 import { refinePart } from "./refineRun";
 import type { PartCode } from "./snippet";
 import { drawBody } from "./drawRun";
-import { pickCoded } from "./coded";
+import { nearlyCoded, pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
 import { roleFromWords } from "./vector";
 import { claudeSpend, sayBill, sayPass } from "./spend";
@@ -206,6 +206,16 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     const drawnRole = kindOfSketch(drawn, node?.prompt ?? "");
     const ctx = { sketch: drawn, prompt: node?.prompt ?? "", node };
     const picked = pickCoded(ctx);
+    /*
+     * What it nearly was, said out loud.
+     *
+     * A drawn box that nobody claimed used to land as a flat cutout in
+     * silence, and the cube it nearly was — six faces, turnable, editable —
+     * was one word away with nothing anywhere to say so. The guess is too
+     * risky to take (every part in the library is a rectangle) and it is
+     * not too risky to *offer*.
+     */
+    const nearly = picked ? "" : nearlyCoded(ctx);
     if (picked) {
       deps.onStep?.(`Reading the shape: ${picked.part.id}…`);
       const made = applyProportion(drawn, node, job);
@@ -299,12 +309,22 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         // The drawing goes on the thread: an element prompt is the line,
         // and the timeline shows the line rather than a sentence about it.
         sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
-        changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : [])],
+        changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(made.kindChanged ? [`now a ${made.kind}`] : []), ...(nearly ? [nearly] : [])],
       });
       // The reading is the first paid call of this iteration; the tracer and
       // the writer add theirs to the same bill as they go.
       useStudio.getState().noteSpend(readCost);
       useStudio.getState().noteMade(landed, made.id);
+      if (nearly) {
+        deps.publish({
+          key: `studio:nearly:${made.id}`,
+          title: "This could be a cube",
+          body: nearly,
+          level: "info",
+          source: "studio",
+          toast: true,
+        });
+      }
       const body = [
         `${made.w} × ${made.h}`,
         made.kindChanged ? `now ${made.kind}` : null,
@@ -352,7 +372,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
       answer: [role.did, "read off the drawing, with no reader"].filter(Boolean).join(", "),
       sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
-      changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`],
+      changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, ...(nearly ? [nearly] : [])],
     });
     useStudio.getState().noteMade(landed, made.id);
     if (data.reason === "no-key") deps.onNoKey();
@@ -551,6 +571,9 @@ function secondPass(
     first,
     label: node.label,
     prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim(),
+    // What was said, for deciding what is being made. A drawing that asked
+    // for something you can turn is a solid, and nothing else is.
+    said: [node.prompt, drawn.words].filter(Boolean).join(" ").trim(),
     role,
     kind: code.kind,
     w: node.w,

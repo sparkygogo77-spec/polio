@@ -15,6 +15,7 @@ import {
 } from "@/features/studio/renderer";
 import {
   inputFor,
+  isSolid,
   makingOf,
   needsAlpha,
   noModelSays,
@@ -92,6 +93,17 @@ export const maxDuration = 180;
 /** A raster body is carried in the document, so it has a ceiling a document can hold. */
 const RASTER_LIMIT = 2_400_000;
 
+/**
+ * …and a solid is carried the same way, so it has one too.
+ *
+ * Higher, because a mesh is the whole part rather than one picture inside a
+ * page, and because a solid small enough to be worthless is not a cheaper
+ * solid. Still a ceiling: the document goes into this browser's own storage
+ * and into publish, and a file nobody can save is not a part. The face
+ * count asked for in the table is what usually keeps it under.
+ */
+const MESH_LIMIT = 3_600_000;
+
 interface Body {
   kind?: string;
   /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
@@ -121,6 +133,14 @@ interface Body {
   hasText?: boolean;
   /** Is the part the ground rather than a thing on it? A ground wants no alpha and a wide frame. */
   ground?: boolean;
+  /**
+   * What was said next to the drawing.
+   *
+   * Read only to decide *what is being made*, never handed to a model on
+   * the drawing path — a solid is asked for in words and drawn in strokes,
+   * and the strokes are the whole brief.
+   */
+  said?: string;
   /** Which model runs the second pass, when something wants to say. */
   model?: string;
 }
@@ -262,18 +282,29 @@ async function refine(body: Body, token: string) {
    * decides whether a transparent ground is required, and that rules most
    * of the table out before the step is even considered.
    */
-  const making = makingOf({ kind: body.kind, role: body.role ?? null, hasText: !!body.hasText, ground: !!body.ground, w, h });
+  const making = makingOf({ kind: body.kind, role: body.role ?? null, hasText: !!body.hasText, ground: !!body.ground, said: body.said, w, h });
   const transparent = needsAlpha(making);
-  const picked = route({ making, step: "refine", fromImage: true, example: hasPair, w, h, prefer: body.model });
+  /*
+   * A solid is made rather than refined: there is no earlier solid to
+   * improve on, and the drawing is the input either way. So it asks the
+   * table for the step it is really at, which is also what keeps a mesh
+   * model out of every other cell.
+   */
+  const step = isSolid(making) ? "first" : "refine";
+  const picked = route({ making, step, fromImage: true, example: hasPair, w, h, prefer: body.model });
   if (!picked.model) {
     return NextResponse.json({ ok: false, stage: 2, reason: picked.why, making, message: noModelSays(picked.why ?? "nothing-serves", making) });
   }
   const pick = picked.model;
   const pair = !!picked.usedExample;
   const asUri = (b: string) => `data:image/png;base64,${b}`;
-  const images = [...(pair ? [asUri(before!), asUri(after!)] : []), asUri(first)];
+  // A solid is handed the drawing alone: no pair, no house style, nothing
+  // describing the line. Everything else gets the ordered list.
+  const images = pick.returns === "mesh"
+    ? [asUri(first)]
+    : [...(pair ? [asUri(before!), asUri(after!)] : []), asUri(first)];
   const input = inputFor(pick, {
-    prompt: wordsFor({ step: "refine", making, said: body.prompt, label: body.label, transparent, example: pair }),
+    prompt: wordsFor({ step, making, said: body.prompt, label: body.label, transparent, example: pair }),
     images,
     w,
     h,
@@ -312,6 +343,27 @@ async function refine(body: Body, token: string) {
   if (!file || !file.bytes.length) {
     return NextResponse.json({ ok: false, stage: 2, reason: "empty-answer", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `${pick.name} answered with nothing.`), ms: meter.ms, cost: meter.dollars });
   }
+  /*
+   * A solid comes back as a file rather than a picture, so it is answered
+   * as one: the board mounts it in a viewer and turns it, and nothing here
+   * tries to make an `<img>` out of a GLB.
+   */
+  if (pick.returns === "mesh") {
+    const glb = `data:model/gltf-binary;base64,${Buffer.from(file.bytes).toString("base64")}`;
+    if (glb.length > MESH_LIMIT) {
+      return NextResponse.json({ ok: false, stage: 2, reason: "too-big", model: pick.slug, name: pick.name, making,
+        message: noModelSays("failed", making, `The solid came back as ${Math.round(glb.length / 1024)}KB, more than a document should carry — it needs fewer faces.`),
+        ms: meter.ms, cost: meter.dollars });
+    }
+    return NextResponse.json({
+      ok: true, stage: 2, model: pick.slug, name: pick.name, making,
+      solid: true,
+      mesh: { glb, bytes: glb.length, from: pick.slug },
+      ms: meter.ms,
+      cost: meter.dollars,
+    });
+  }
+
   const mime = mimeOf(file.bytes, file.type);
   const dataUri = `data:${mime};base64,${Buffer.from(file.bytes).toString("base64")}`;
   if (dataUri.length > RASTER_LIMIT) {
@@ -364,7 +416,7 @@ export async function POST(request: Request) {
   const second = Number(body?.stage) === 2;
   if (!token) {
     return NextResponse.json(second
-      ? { ok: false, stage: 2, reason: "unavailable", message: noModelSays("no-key", makingOf({ kind: body!.kind, role: body!.role ?? null, hasText: !!body!.hasText, ground: !!body!.ground, w: Number(body!.w) || 0, h: Number(body!.h) || 0 })) }
+      ? { ok: false, stage: 2, reason: "unavailable", message: noModelSays("no-key", makingOf({ kind: body!.kind, role: body!.role ?? null, hasText: !!body!.hasText, ground: !!body!.ground, said: body!.said, w: Number(body!.w) || 0, h: Number(body!.h) || 0 })) }
       : { ok: false, reason: "unavailable", message: RENDER_UNAVAILABLE });
   }
   if (!body) {
