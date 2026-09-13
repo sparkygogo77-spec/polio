@@ -12,13 +12,18 @@
  *
  * Two questions, and no more than one is ever asked of a drawing:
  *
+ * **Nothing is ever asked of a drawing with words beside it.** A described
+ * drawing is not ambiguous, whatever the strokes look like: a box captioned
+ * "a chunk of rock, in 3d, turnable" is a solid, and asking whether it is a
+ * cube would be asking a person to repeat themselves — which is worse than
+ * guessing. So both questions below are questions about a *silent* drawing.
+ *
  * 1. **Is this box a cube?** One closed line with four-ish corners filling
- *    its frame and nobody having said "cube" — the catalogue has a real cube
- *    with editable faces, free, and the flat box is one word away from it.
- *    This used to be offered as a toast after the part had already been
- *    made the other way; now it is asked before.
- * 2. **What is this meant to be?** Nothing typed, and the strokes read as a
- *    bare mark — not a box round something, not a ring, not a list, not a
+ *    its frame — the catalogue has a real cube with editable faces, free,
+ *    and the flat box is one word away from it. This used to be offered as
+ *    a toast after the part had already been made the other way; now it is
+ *    asked before.
+ * 2. **What is this meant to be?** The strokes read as a bare mark — not a box round something, not a ring, not a list, not a
  *    connector — and there is more than a single stroke or the one stroke
  *    is not straight. An icon, a picture and a surface go to different
  *    models at different steps (`imageRoute.ts`), and a person's one word
@@ -47,13 +52,22 @@ export function oddness(sketch: Sketch, said = ""): Question | null {
   const strokes = sketch.strokes.filter((s) => s.length >= 2);
   if (!strokes.length) return null;
 
-  // A box that is one word from being a cube.
+  /*
+   * A drawing with words beside it has been described, and a described
+   * drawing is not ambiguous — whatever the strokes look like. This is the
+   * whole gate: a box captioned "a chunk of rock, in 3d, turnable" is a
+   * solid and asking whether it is a cube would be asking a person to
+   * repeat themselves, which is worse than guessing.
+   */
+  if (words) return null;
+
+  // A box that is one word from being a cube, and nobody has said the word.
   if (nearlyCoded({ sketch, prompt: said, node: null })) {
     return { ask: "Is this box a cube?", choices: ["A cube", "A flat box"], why: "cube" };
   }
 
-  // Nothing said, and the pen said nothing the reader can name either.
-  if (!words) {
+  // The pen said nothing the reader can name either.
+  {
     const role = kindOfSketch(sketch, said);
     const closed = strokes.filter(strokeClosed);
     const oneLine = strokes.length === 1 && !closed.length && straightness(strokes[0]!) > 0.9;

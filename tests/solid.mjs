@@ -114,7 +114,15 @@ await page.waitForTimeout(1200);
 const seg = (a, z, n = 10) => Array.from({ length: n }, (_, i) => [a[0] + (z[0] - a[0]) * (i + 1) / n, a[1] + (z[1] - a[1]) * (i + 1) / n]);
 const SQUARE = [[[0.25, 0.25], ...seg([0.25, 0.25], [0.75, 0.25]), ...seg([0.75, 0.25], [0.75, 0.75]), ...seg([0.75, 0.75], [0.25, 0.75]), ...seg([0.25, 0.75], [0.25, 0.25])]];
 
-const draw = async (strokes, words) => {
+/**
+ * One drawing, made real.
+ *
+ * `answer` is for the one question an ambiguous drawing now raises before
+ * anything is spent (`oddness.ts`): a bare box is asked whether it is a
+ * cube, and nothing runs until somebody says. A drawing with words beside
+ * it is never asked, so most of these pass no answer at all.
+ */
+const draw = async (strokes, words, answer) => {
   await page.keyboard.press("Control+k");
   await page.waitForTimeout(400);
   await page.keyboard.type("drop a new idea");
@@ -139,9 +147,16 @@ const draw = async (strokes, words) => {
   await page.keyboard.press("Enter");
   for (let i = 0; i < 30; i++) {
     await page.waitForTimeout(1000);
+    // A job that stopped to ask waits on a person, not on the queue.
+    const asking = await page.locator("[data-queue-question]").count();
+    if (asking) {
+      await page.locator(answer === undefined ? '[data-queue-answer=""]' : `[data-queue-answer="${answer}"]`).first().click();
+      await page.waitForTimeout(600);
+      continue;
+    }
     if (await page.evaluate(() => {
       const s = JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {};
-      return (s.queue ?? []).every((j) => j.status !== "running" && j.status !== "waiting");
+      return (s.queue ?? []).every((j) => j.status !== "running" && j.status !== "waiting" && j.status !== "asking");
     })) break;
   }
   await page.waitForTimeout(1400);
@@ -169,12 +184,22 @@ check("and no model was called to make one", asked.length === 0, `${asked.length
 /* 2. A box nobody claimed is not silent about it                      */
 /* ------------------------------------------------------------------ */
 
-const quiet = await draw(SQUARE, "");
+/*
+ * It is asked now, before anything is spent, rather than guessed at and
+ * explained afterwards: a bare box is the ambiguous case the question
+ * exists for. Answer "A flat box" and it is the flat box it always was.
+ */
+const quiet = await draw(SQUARE, "", "A flat box");
 check("a drawn box with nothing said is not turned into a cube behind your back",
   quiet?.featureId !== "cube-3d", quiet?.featureId);
-check("…but it says a cube is one word away, which it never used to",
-  quiet.changes.some((c) => /can be a real cube/.test(c) && /"cube" or "box"/.test(c)),
-  quiet.changes.find((c) => /cube/.test(c)) ?? "nothing said");
+check("…it is asked first, and answering \"A flat box\" lands the flat box it always was",
+  !!quiet?.id && quiet.featureId === "custom-idea", `${quiet?.id} ${quiet?.featureId}`);
+/* Answering "A cube" instead is the same as having typed the word — the
+   answer goes in beside the drawing as that word (`tests/oddness.mjs`), and
+   a box that says cube is the real cube, which is the first case above.
+   Proved in two halves rather than by drawing a third box here, because
+   every extra drawing in this suite is another part on the board and this
+   one is about the solid. */
 
 /* ------------------------------------------------------------------ */
 /* 3. Anything else that asks to be turnable becomes a real solid      */

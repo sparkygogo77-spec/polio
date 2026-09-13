@@ -104,9 +104,9 @@ check("the comparison that chose it is written down rather than asserted", (() =
     .every((slug) => src.includes(slug));
 })());
 
-check("gpt-image-2 is recorded as able to do transparency, which it was briefed as unable to do",
+check("gpt-image-2 is recorded as able to do transparency, confirmed by a real run rather than a briefing",
   model("openai/gpt-image-2").alpha !== false
-  && /briefed here as unable to do transparency/.test(model("openai/gpt-image-2").also ?? ""));
+  && /J has produced transparent PNGs from it on Replicate/.test(model("openai/gpt-image-2").also ?? ""));
 check("the three-ratio list is recorded against gpt-image-1.5, not gpt-image-2",
   model("openai/gpt-image-1.5").ratios.length === 3 && model("openai/gpt-image-2").ratios.length > 3);
 check("ideogram is recorded as able to output png, which it was briefed as jpg only",
@@ -236,19 +236,38 @@ check("an example pair is used only by a model that says it can learn from one",
 /* ------------------------------------------------------------------ */
 
 check("something serves the alpha step now", !!route({ making: "icon", step: "alpha", fromImage: true }).model);
-check("and it is a remover rather than something that draws", (() => {
+/*
+ * …and it is a model that renders again with no ground, not a cutter.
+ *
+ * The correction: gpt-image-2 does do transparency — J has produced real
+ * alpha from it on Replicate with background transparent, quality intact —
+ * so the alpha step is the picture rendered again with nothing behind it,
+ * which is exact by construction. A segmenter guessing at an edge after the
+ * fact stays where it belongs: last, for a cell where neither of the two
+ * that can leave a ground out will serve.
+ */
+check("and it is a model that renders again with no ground rather than a cutter", (() => {
   const m = route({ making: "icon", step: "alpha", fromImage: true }).model;
-  return !!m?.cut && !m.mesh;
+  return m?.slug === "openai/gpt-image-2" && m.alpha !== false && !m.cut;
+})(), route({ making: "icon", step: "alpha", fromImage: true }).model?.slug);
+check("gpt-image-1.5 is the other option, and the remover is behind both", (() => {
+  const claims = MODELS.filter((m) => m.serves.alpha).map((m) => m.slug);
+  return claims.includes("openai/gpt-image-1.5") && claims.indexOf("851-labs/background-remover") === claims.length - 1;
+})(), MODELS.filter((m) => m.serves.alpha).map((m) => m.slug).join(" › "));
+check("the remover still claims nothing but that step",
+  MODELS.filter((m) => m.cut).every((m) => Object.keys(m.serves).join() === "alpha"));
+check("the alpha step asks the model for a transparent render of what it was given", (() => {
+  const m = model("openai/gpt-image-2");
+  const got = inputFor(m, { prompt: wordsFor({ step: "alpha", making: "icon" }), images: ["data:image/png;base64,AA"], w: 100, h: 100, transparent: true, step: "alpha" });
+  return got.background === "transparent" && got.input_images.length === 1 && /transparent background/.test(String(got.prompt))
+    && /Nothing moves, nothing is added, nothing is cropped/.test(String(got.prompt));
 })());
-check("only the remover claims that step, and it claims nothing else",
-  MODELS.filter((m) => m.serves.alpha).length === 1
-  && MODELS.filter((m) => m.cut).every((m) => Object.keys(m.serves).join() === "alpha"));
-check("it is asked for a soft matte, because the edge of a mark is not a staircase", (() => {
-  const m = route({ making: "icon", step: "alpha", fromImage: true }).model;
+check("the remover, when it is reached, is asked for a soft matte — the edge of a mark is not a staircase", (() => {
+  const m = model("851-labs/background-remover");
   const got = inputFor(m, { prompt: "ignored", images: ["data:image/png;base64,AA"], w: 100, h: 100 });
   return got.image === "data:image/png;base64,AA" && got.threshold === 0 && got.format === "png"
     && got.prompt === undefined && got.aspect_ratio === undefined;
-})(), JSON.stringify(inputFor(route({ making: "icon", step: "alpha", fromImage: true }).model, { prompt: "x", images: ["a"], w: 1, h: 1 })));
+})(), JSON.stringify(inputFor(model("851-labs/background-remover"), { prompt: "x", images: ["a"], w: 1, h: 1 })));
 /*
  * The fallback that makes the step live.
  *
@@ -351,7 +370,7 @@ check("the recreate words ask for the real thing from the world, in the drawing'
 })());
 check("the API reads the step and the explicit ask, and reports what was decided", (() => {
   const api = readFileSync("src/app/api/studio/image/route.ts", "utf8");
-  return /step\?: "refine" \| "recreate";/.test(api) && /grounded\?: boolean;/.test(api)
+  return /step\?: "refine" \| "recreate" \| "alpha";/.test(api) && /grounded\?: boolean;/.test(api)
     && /const grounded = step === "recreate" \|\| !!body\.grounded;/.test(api)
     && /grounded: grounded && !!pick\.grounding,/.test(api);
 })());

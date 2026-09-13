@@ -22,6 +22,7 @@ import {
   noModelSays,
   route,
   wordsFor,
+  optionsFor,
 } from "@/features/studio/imageRoute";
 import { fromMetrics } from "@/features/studio/spend";
 
@@ -137,7 +138,13 @@ interface Body {
    * grounded step — the real thing the drawing stands for, from the world —
    * which the create space's second phase runs.
    */
-  step?: "refine" | "recreate";
+  step?: "refine" | "recreate" | "alpha";
+  /**
+   * What the person set on the model, by field name (`ModelField`). Held to
+   * the row's declared fields and values by `optionsFor`; applied after the
+   * route's own choices, so theirs win.
+   */
+  options?: Record<string, unknown>;
   /**
    * Did the person explicitly ask for something real-world?
    *
@@ -359,7 +366,7 @@ async function refine(body: Body, token: string) {
    * …or recreate, when the caller says so: the grounded step, which the
    * create space's second phase runs. A solid is still made, not recreated.
    */
-  const step = isSolid(making) ? "first" : body.step === "recreate" ? "recreate" : "refine";
+  const step = isSolid(making) ? "first" : body.step === "recreate" ? "recreate" : body.step === "alpha" ? "alpha" : "refine";
   // Grounding: on for the recreate step, on when the person explicitly asked
   // for the real thing, off otherwise. `inputFor` sends the flags only to a
   // model that declares them.
@@ -379,7 +386,9 @@ async function refine(body: Body, token: string) {
     : [...(pair ? [asUri(before!), asUri(after!)] : []), asUri(first)];
   // Asked of the model when it has the field; otherwise the ground comes
   // off afterwards, which is what `cutAfter` means.
-  const transparent = wantsAlpha && pick.alpha !== false && !picked.cutAfter;
+  // The alpha step is the ground left out, whatever is being made: asked of
+  // the model when it can, cut afterwards when it cannot.
+  const transparent = step === "alpha" ? pick.alpha !== false : wantsAlpha && pick.alpha !== false && !picked.cutAfter;
   const input = inputFor(pick, {
     prompt: wordsFor({ step, making, said: body.prompt, label: body.label, transparent, example: pair }),
     images,
@@ -388,6 +397,7 @@ async function refine(body: Body, token: string) {
     transparent,
     step,
     grounded,
+    options: body.options,
   });
 
   const replicate = new Replicate({ auth: token });
@@ -498,6 +508,8 @@ async function refine(body: Body, token: string) {
     /* Whether it was told to look things up, and what the log said it took
        — the number its price is set by — when the log says. */
     grounded: grounded && !!pick.grounding,
+    /* What the person set, as applied — the names, so a card can say them. */
+    set: Object.keys(optionsFor(pick, body.options)),
     ...(tokensOf((done as { logs?: unknown }).logs) !== null ? { tokens: tokensOf((done as { logs?: unknown }).logs) } : {}),
     ratio: input.aspect_ratio ?? `${input.width}x${input.height}`,
     html,
