@@ -12,9 +12,10 @@
  *     along a path — the near-black core down the middle, the section
  *     easing out through char to deep, and the thin bright rim at each
  *     edge, all read off `molten.css`;
- *   · both ends' colours run its whole length, one down each side, and only
- *     where the seam sits across the width shifts — nothing is blended into
- *     a third hue, because the two meet at the darkest line on it;
+ *   · it is one strand and not two: the section is symmetric, dark down the
+ *     axis and lit at both edges, and the colour runs along its length
+ *     instead — green where it leaves a board, red where it arrives at a
+ *     drawing, and the material's own dark between, never a third hue;
  *   · the light comes from within it — dark middle, lit edges — rather than
  *     from a highlight painted along one side;
  *   · the colour moves the way a box's does, by the same cloud on the same
@@ -84,20 +85,57 @@ const strandSrc = readFileSync("src/features/studio/strand.ts", "utf8");
  */
 check("neither end's colour is ever mixed into the other's",
   !/barkA/.test(strandSrc) && !/barkZ/.test(strandSrc) && !/mix\(\s*SECTION/.test(strandSrc));
-check("one side carries one end's colour and the other the other's, and neither ever changes over",
-  /const ramp = SECTION\[ends\[side\]\]!;/.test(strandSrc) && !/CROSSOVER/.test(strandSrc) && !/function changeAt\(/.test(strandSrc));
-check("the ratio is where the seam sits across the width", (() => {
-  const shift = Number(/const SHIFT = ([\d.]+)/.exec(strandSrc)?.[1]);
-  return shift > 0 && shift <= 0.3 && /function seamAt\(/.test(strandSrc);
-})(), `shift ${/const SHIFT = ([\d.]+)/.exec(strandSrc)?.[1]}`);
-check("…and the near end's colour has the larger share at its own end", (() => {
-  // The seam is measured in from the + edge, which is side 0's edge.
-  return /const seam = \(1 - 2 \* seamAt\(u, mixed\)\) \* half;/.test(strandSrc)
-    && /return 0\.5 \+ \(0\.5 - u\) \* SHIFT \* 2;/.test(strandSrc);
-})());
-check("two boards of the same kind put the seam down the middle", /if \(!mixed\) return 0\.5;/.test(strandSrc));
-check("the two colours meet at the darkest line on it, which is why they never go through brown",
-  /the seam at nought, the rim at one/.test(strandSrc) && /if \(t < 0\.18\) out\.push\(bark\.core\);/.test(strandSrc));
+/*
+ * ONE STRAND. It was two — green down one side, red down the other, a seam
+ * sliding across the width between them — and two colours side by side down
+ * a curve is two strands however it is drawn. The section is symmetric now:
+ * the axis is the dark, both edges are lit, and there is no seam anywhere.
+ */
+check("the section is symmetric about the axis, so there is one strand and not two", (() => (
+  /function bandAt\(u: number, side: 0 \| 1, k: number, half: number\)/.test(strandSrc)
+  && /const edge = side === 0 \? half : -half;\n  return edge \* \(k \/ BANDS\) \* gather\(u\);/.test(strandSrc)
+  && !/function seamAt\(/.test(strandSrc) && !/const SHIFT =/.test(strandSrc)
+))());
+check("…so the axis is the darkest part of it and both edges carry the rim",
+  /the axis at nought, the rim at one/.test(strandSrc) && /if \(t < 0\.25\) out\.push\(bark\.core\);/.test(strandSrc));
+/*
+ * The colour runs ALONG it instead, and the two ends still never meet:
+ * blending them put yellow and then brown through the middle of every vine,
+ * which is a colour neither board has. So one end's colour holds, the
+ * material's own dark holds the middle, and the other comes up out of it.
+ */
+check("the colour runs along the length, as one gradient per band", (() => (
+  /const g = c\.createLinearGradient\(from\.x, from\.y, to\.x, to\.y\);/.test(strandSrc)
+  && /g\.addColorStop\(FADE, dark\);/.test(strandSrc) && /g\.addColorStop\(1 - FADE, dark\);/.test(strandSrc)
+))());
+check("…with a plateau of dark between them, so neither end's colour reaches the other", (() => {
+  const fade = Number(/const FADE = ([\d.]+)/.exec(strandSrc)?.[1]);
+  return fade > 0.3 && fade < 0.5;
+})(), `fade ${/const FADE = ([\d.]+)/.exec(strandSrc)?.[1]}`);
+check("…and that dark is a clamp rather than a colour: pulled to char's lightness, where a hue cannot be read", (() => (
+  /function dusk\(a: string, z: string, floor: Lch\): string/.test(strandSrc)
+  && /Math\.min\(m\.l, floor\.l\)/.test(strandSrc) && /Math\.min\(m\.c, floor\.c\)/.test(strandSrc)
+  && /const floor = lch\(VINE\[ends\[0\]\]\.char\);/.test(strandSrc)
+))());
+check("two boards of the same kind get no gradient at all", /\} else \{\n      c\.fillStyle = near\[k\]!;/.test(strandSrc));
+/*
+ * The rim was a stop no band could reach. A band is drawn in the colour at
+ * its middle, and with eight of them the highest `t` asked for is 0.9375 —
+ * while the last breakpoints sat at 0.93 and 0.98, `mix(hot, white)` was
+ * never once used and a vine had no rim: a tube of dark material rather
+ * than the construct, which was exactly the note. Every threshold falls
+ * between two band centres now, and this is the pin that keeps it so.
+ */
+check("every stop of the section is one some band actually reaches", (() => {
+  const cuts = [...strandSrc.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]));
+  const first = Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strandSrc)?.[1]);
+  const bands = Number(/const BANDS = (\d+);/.exec(strandSrc)?.[1]);
+  const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
+  const edges = [first, ...cuts];
+  // Every band lands in exactly one region, and every region has a band.
+  const hit = new Set(centres.map((t) => edges.findIndex((e) => t < e)));
+  return edges.length > 0 && hit.size === edges.length + 1;
+})(), `${/const BANDS = (\d+);/.exec(strandSrc)?.[1]} bands, ${[...strandSrc.matchAll(/t < ([\d.]+)/g)].map((m) => m[1]).join(" ")}`);
 check("hue still takes the short way round within one bark's own section",
   /if \(dh > 180\) dh -= 360;/.test(strandSrc));
 check("the light comes from within: no specular painted down a side, and no light source",
@@ -188,13 +226,21 @@ const strand = readFileSync("src/features/studio/strand.ts", "utf8");
 check("one ribbon, not strands: nothing is wound round anything",
   !/const STRANDS/.test(strand) && !/function wind\(/.test(strand) && !/function turned\(/.test(strand) && !/PITCH/.test(strand));
 check("its section is the box's own: core, char, deep, the rim's glow, the rim",
-  /const BANDS = 8;/.test(strand) && /function section\(bark: Bark\)/.test(strand)
+  /const BANDS = 10;/.test(strand) && /function section\(bark: Bark\)/.test(strand)
   && /out\.push\(mix\(core, char,/.test(strand) && /out\.push\(mix\(char, deep,/.test(strand)
   && /out\.push\(mix\(hot, white, 0\.22\)\);/.test(strand));
-check("…in the proportions the face is drawn in: core to eighteen, char to sixty-two",
-  /if \(t < 0\.18\)/.test(strand) && /t < 0\.62/.test(strand) && /t < 0\.86/.test(strand));
-check("a band is one long fill, not a stroke a step: eighteen fills for a vine of any length",
-  /sidePath\(s, side, k, Math\.min\(BANDS, k \+ 1\.12\), half, mixed, c\);/.test(strand) && /c\.fill\(\);/.test(strand));
+check("…in the proportions the face is drawn in: the core a quarter of the way out, char to a half",
+  /if \(t < 0\.25\)/.test(strand) && /t < 0\.45/.test(strand) && /t < 0\.65/.test(strand) && /t < 0\.85/.test(strand));
+check("…and every stop gets two bands, because a rim one band wide is three quarters of a pixel", (() => {
+  const bands = Number(/const BANDS = (\d+);/.exec(strand)?.[1]);
+  const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
+  const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
+  const per = new Map();
+  for (const t of centres) { const r = edges.findIndex((e) => t < e); per.set(r, (per.get(r) ?? 0) + 1); }
+  return [...per.values()].every((n) => n >= 2);
+})(), `${/const BANDS = (\d+);/.exec(strand)?.[1]} bands`);
+check("a band is one long fill, not a stroke a step: ten fills for a vine of any length",
+  /for \(const side of \[0, 1\] as const\) sidePath\(s, side, k, Math\.min\(BANDS, k \+ 1\.12\), half, c\);/.test(strand) && /c\.fill\(\);/.test(strand));
 check("…and the curve is sampled for smoothness rather than for a twist", (() => {
   const per = /Math\.max\(24, Math\.min\(72, Math\.round\(run \/ 11\)\)\)/.test(strand);
   return per && /function sampleCount\(run: number\)/.test(strand);
@@ -207,10 +253,12 @@ check("nothing travels along it, and nothing sits on it",
 check("a vine is wide enough for its own section to read", STRAND_WIDTH >= 12 && STRAND_WIDTH <= 18, `${STRAND_WIDTH}`);
 /*
  * The colour is animated, and not by repainting. The timeline lays two small
- * elements per vine over the canvas — one per side of the ribbon, at that
- * side's temperature — each clipped to that side and carrying the
- * construct's own cloud on the same keyframe as every box. The green cloud
- * is on the green side and the red on the red, and nothing is blended.
+ * elements per vine over the canvas — one per half of its length, at that
+ * end's temperature — each clipped to that half and carrying the construct's
+ * own cloud on the same keyframe as every box. The green cloud is over the
+ * half that leaves the green board and the red over the half that arrives at
+ * the red one; they meet in the middle, where the vine is at its darkest and
+ * neither of them shows, and nothing is blended.
  */
 check("the colour moves: the construct's cloud glides over the vine on the boxes' own keyframe", (() => {
   const css = readFileSync("src/core/ui/molten.css", "utf8");
@@ -220,7 +268,7 @@ check("…laid over the bark rather than painted on it, so nothing is repainted 
   const css = readFileSync("src/core/ui/molten.css", "utf8");
   return /\.molten-vine \{/.test(css) && !/mix-blend-mode/.test(css) && /Nothing here takes a clock/.test(strand);
 })());
-check("…each strand under its own colour's cloud, so a red strand goes redder and never brown", (() => {
+check("…each half under its own end's cloud, so a red half goes redder and never brown", (() => {
   const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
   const css = readFileSync("src/core/ui/molten.css", "utf8");
   return /for \(const b of \[0, 1\] as const\)/.test(tl)
@@ -233,12 +281,36 @@ check("…and not through the construct's own class, which costs two millisecond
   const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
   return fn.length > 0 && !/moltenClass\(/.test(fn) && /el\.className = "molten-vine";/.test(fn);
 })());
-check("…clipped to that side of the ribbon, so the two clouds meet at the seam and stop", (() => {
+check("…clipped to one half of its length each, over the body of it, so the filaments cross a vine as they cross a card", (() => {
   const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
-  return /export function strandEnvelope\(/.test(strand) && /return sidePath\(s, side, 0, BANDS, half, mixed, null\);/.test(strand)
+  return /export function strandEnvelope\(/.test(strand)
+    && /return `\$\{sidePath\(sub, 0, CLOUD_IN, CLOUD_OUT, half, null\)\}\$\{sidePath\(sub, 1, CLOUD_IN, CLOUD_OUT, half, null\)\}`;/.test(strand)
+    && /const cut = s\.findIndex\(\(p\) => p\.t >= 0\.5\);/.test(strand)
     && /el\.style\.clipPath = d \? `path\("\$\{d\}"\)` : "inset\(100%\)";/.test(tl)
     && /if \(lights\.current\) syncLights\(lights\.current, lightEls\.current, want, changed, !dragging\);/.test(tl);
 })());
+/*
+ * And enough of it to read. The layer was held to 0.4 because a strand had a
+ * lit side and a shaded side under it that it flattened; the section is
+ * symmetric now and that shape is painted rather than implied, so what the
+ * cloud adds is J's filaments and at 0.4 over a real render they did not
+ * show at all.
+ */
+/*
+ * And it stops short of both ends of the section, the way a box's does: the
+ * dark core shows through the middle of the cloud and the rim sits over it.
+ * Over the whole width at two thirds it lifted the core from 7 of green to
+ * 28 and pulled the rims down from 82 and 92 to 65 and 60 — the section
+ * flattened and the light taken out of the edges, which is the note.
+ */
+check("…over the body of the section only: the core shows through it and the rim sits over it", (() => (
+  /const CLOUD_IN = 2;/.test(strand) && /const CLOUD_OUT = BANDS - 2;/.test(strand)
+))());
+check("…and enough of the cloud to read, now that there is a render in it rather than noise", (() => {
+  const css = readFileSync("src/core/ui/molten.css", "utf8");
+  const o = Number(/\.molten-vine > i \{[\s\S]*?opacity: ([\d.]+);/.exec(css)?.[1]);
+  return o >= 0.55 && o <= 0.8;
+})(), `${/\.molten-vine > i \{[\s\S]*?opacity: ([\d.]+);/.exec(readFileSync("src/core/ui/molten.css", "utf8"))?.[1]}`);
 check("…and laid only when the vine is at rest: lifted while its board is held, and not until it has grown", (() => {
   const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
   return /if \(!rest \|\| v\.grow < 1\) \{/.test(tl) && /el\.style\.clipPath = "inset\(100%\)"; \}\s*continue;/.test(tl);

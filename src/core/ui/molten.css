@@ -623,10 +623,18 @@
   background-repeat: repeat;
   background-size: var(--nebula-period, 512px) auto;
   background-position: 0 50%;
-  /* Thinner than on a face. A face is the dark core with the cloud as its
-     light; a strand has its own lit side and shaded side under this, and
-     the cloud is weather over them, not a coat that flattens them. */
-  opacity: 0.4;
+  /*
+   * Nearly as much as on a face, and it used to be less than half of it.
+   *
+   * The reason for holding it down was that a strand had a lit side and a
+   * shaded side under it and the cloud flattened them. It has neither now —
+   * the section is symmetric, dark down the axis and lit at both edges, and
+   * that shape is painted, not implied — so what the layer adds is J's
+   * filaments crossing the vine the way they cross a card, which is most of
+   * what makes it the same material rather than a matte stripe near the
+   * colour of one. At 0.4 over a real render they did not read at all.
+   */
+  opacity: 0.66;
   will-change: transform;
   animation: molten-drift 150s linear infinite;
 }
