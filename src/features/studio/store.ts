@@ -52,6 +52,7 @@ import type { MeshData } from "./parts/types";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
+import type { Plan, Space, SpaceKind } from "./space";
 
 /**
  * What is in your hand. Four, not six.
@@ -60,8 +61,12 @@ import { trimQueue, type DrawJob } from "./queue";
  * the page drags the view. `frame` is gone from the *bar*, but it stays in
  * `ShapeKind` below: it drew a rectangle annotation, and every one already
  * drawn still renders. Not persisted, so nothing has to be migrated.
+ *
+ * `space` is the fifth, and the second thing a closed line can become: with
+ * it in hand a closed boundary on the page is a placeholder, not ink
+ * (`space.ts`).
  */
-export type Tool = "select" | "pen" | "arrow" | "erase";
+export type Tool = "select" | "pen" | "arrow" | "erase" | "space";
 export type Priority = "must" | "nice" | "idea";
 export type ShapeKind = "pen" | "frame" | "arrow";
 /** The board shows either the design surface or the site it describes. */
@@ -205,6 +210,14 @@ export interface StudioNode {
    * can say what was drawn, and "make real" can be run again later.
    */
   sketch: Sketch | null;
+  /**
+   * How this one part is to be made, when a person has said: the model and
+   * the order of the steps, set from its own panel inside a space
+   * (`space.ts`). Null or absent means the route decides, as it always did.
+   * Optional, so a saved board from before this existed, and the shelf's
+   * own preview nodes, need nothing added.
+   */
+  plan?: Plan | null;
 }
 
 export interface StudioGroup {
@@ -307,6 +320,8 @@ interface Doc {
   nodes: StudioNode[];
   groups: StudioGroup[];
   shapes: StudioShape[];
+  /** Closed lines that are placeholders, construct boxes or black holes. See `space.ts`. */
+  spaces: Space[];
   format: FormatValues;
   brief: StudioBrief;
   /** Colour roles and the texture stack. */
@@ -499,6 +514,16 @@ interface StudioState extends Doc {
   /** Marking a wire as a data link fills the target part's data box. */
   setShapeRelation: (id: string, relation: ShapeRelation) => void;
   removeShapes: (ids: string[]) => void;
+
+  /* spaces */
+  /** A closed line becomes a placeholder. Returns its id. */
+  addSpace: (space: Omit<Space, "id" | "at" | "kind" | "since"> & Partial<Pick<Space, "kind" | "since">>) => string;
+  /** Construct box or black hole. A hole starts consuming from now. */
+  decideSpace: (id: string, kind: Exclude<SpaceKind, "undecided">) => void;
+  updateSpace: (id: string, patch: Partial<Space>) => void;
+  removeSpaces: (ids: string[]) => void;
+  /** The model and step order for one part, or null to let the route decide. */
+  setPlan: (nodeId: string, plan: Plan | null) => void;
 
   /* pages */
   addPage: (name?: string) => string;
@@ -741,6 +766,7 @@ function docPatch(doc: ThreadDoc | undefined): Partial<StudioState> {
   if (Array.isArray(d.nodes)) patch.nodes = d.nodes;
   if (Array.isArray(d.groups)) patch.groups = d.groups;
   if (Array.isArray(d.shapes)) patch.shapes = d.shapes;
+  if (Array.isArray(d.spaces)) patch.spaces = d.spaces;
   if (d.format) patch.format = { ...formatDefaults(), ...d.format };
   if (d.brief) patch.brief = d.brief;
   if (d.look) patch.look = { ...emptyLook(), ...d.look };
@@ -758,6 +784,7 @@ function snapshot(s: StudioState): Doc {
     nodes: s.nodes,
     groups: s.groups,
     shapes: s.shapes,
+    spaces: s.spaces,
     format: s.format,
     brief: s.brief,
     look: s.look,
@@ -775,6 +802,7 @@ function starterDoc(): Doc {
     nodes: [],
     groups: [],
     shapes: [],
+    spaces: [],
     format: formatDefaults(),
     brief: { name: "", gimmick: "", master: "" },
     look: emptyLook(),
@@ -915,7 +943,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, kind: null, cube: null, mesh: null, vector: null, role: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, kind: null, cube: null, mesh: null, vector: null, role: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, plan: null,
                 w,
                 h,
                 groupId: null,
@@ -1198,6 +1226,24 @@ export const useStudio = create<StudioState>()(
           set((s) => ({ shapes: s.shapes.filter((sh) => !set_.has(sh.id)), selection: s.selection.filter((id) => !set_.has(id)) }));
         },
 
+        addSpace: (space) => {
+          const id = uid("sp");
+          push();
+          set((s) => ({ spaces: [...s.spaces, { kind: "undecided", since: null, ...space, id, at: Date.now() }] }));
+          return id;
+        },
+        decideSpace: (id, kind) => {
+          push();
+          set((s) => ({ spaces: s.spaces.map((sp) => (sp.id === id && sp.kind === "undecided" ? { ...sp, kind, since: Date.now() } : sp)) }));
+        },
+        updateSpace: (id, patch) => set((s) => ({ spaces: s.spaces.map((sp) => (sp.id === id ? { ...sp, ...patch } : sp)) })),
+        removeSpaces: (ids) => {
+          const set_ = new Set(ids);
+          push();
+          set((s) => ({ spaces: s.spaces.filter((sp) => !set_.has(sp.id)), selection: s.selection.filter((sid) => !set_.has(sid)) }));
+        },
+        setPlan: (nodeId, plan) => set((s) => ({ nodes: s.nodes.map((n) => (n.id === nodeId ? { ...n, plan } : n)) })),
+
         addPage: (name) => {
           const id = uid("page");
           push();
@@ -1224,6 +1270,7 @@ export const useStudio = create<StudioState>()(
               nodes: s.nodes.filter((n) => n.pageId !== id),
               groups: s.groups.filter((g) => g.pageId !== id),
               shapes: s.shapes.filter((sh) => sh.pageId !== id),
+              spaces: s.spaces.filter((sp) => sp.pageId !== id),
               activePageId: s.activePageId === id ? pages[0]!.id : s.activePageId,
               selection: [],
             };
@@ -1726,6 +1773,7 @@ export const useStudio = create<StudioState>()(
             nodes: s.nodes.filter((n) => n.pageId !== pageId),
             groups: s.groups.filter((g) => g.pageId !== pageId),
             shapes: s.shapes.filter((sh) => sh.pageId !== pageId),
+            spaces: s.spaces.filter((sp) => sp.pageId !== pageId),
             selection: [],
           }));
         },
@@ -1744,6 +1792,7 @@ export const useStudio = create<StudioState>()(
               nodes: doc.nodes ?? s.nodes,
               groups: doc.groups ?? s.groups,
               shapes: doc.shapes ?? s.shapes,
+              spaces: doc.spaces ?? s.spaces,
               format: { ...formatDefaults(), ...(doc.format ?? {}) },
               brief: { ...s.brief, ...(doc.brief ?? {}) },
               // The look and the behaviours are the document too. Leaving
@@ -1809,6 +1858,8 @@ export const useStudio = create<StudioState>()(
           })),
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
+          // A board saved before spaces existed has none; a broken entry is dropped rather than drawn.
+          spaces: Array.isArray(p.spaces) ? p.spaces.filter((sp) => sp && Array.isArray(sp.boundary) && sp.boundary.length >= 4) : [],
           hiddenFeatures: p.hiddenFeatures ?? [],
           trail: Array.isArray(p.trail) ? p.trail : [],
           threads: Array.isArray(p.threads) ? p.threads : [],
@@ -1844,6 +1895,7 @@ export const useStudio = create<StudioState>()(
         nodes: s.nodes,
         groups: s.groups,
         shapes: s.shapes,
+        spaces: s.spaces,
         format: s.format,
         brief: s.brief,
         look: s.look,
@@ -1899,6 +1951,7 @@ export const useStudio = create<StudioState>()(
  */
 export const pageNodes = (s: StudioState) => s.nodes.filter((n) => n.pageId === s.activePageId);
 export const pageShapes = (s: StudioState) => s.shapes.filter((sh) => sh.pageId === s.activePageId);
+export const pageSpaces = (s: StudioState) => s.spaces.filter((sp) => sp.pageId === s.activePageId);
 export const pageGroups = (s: StudioState) => s.groups.filter((g) => g.pageId === s.activePageId);
 export const activePage = (s: StudioState) => s.pages.find((p) => p.id === s.activePageId) ?? s.pages[0]!;
 
