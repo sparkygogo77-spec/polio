@@ -192,6 +192,33 @@ export function swatchChip(id: string, label: string, colour: string, glyph?: Re
 }
 
 /* ------------------------------------------------------------------ */
+/* A preview                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The badge on a menu piece that shows what the choice currently is.
+ *
+ * Not a chip: you do not pick it, it tells you what picking would open. The
+ * wheel carries three and every one was its own size — the page's colour
+ * 18x18 at 4px, a part's aura 15x15 at 4px, a part's hue 34x14 at 3px. Three
+ * heights and two corners on one wheel, on badges that sit side by side.
+ *
+ * `size` is the height they all take. Width is the badge's own business: a
+ * flat colour is square, and the hue badge is wide because it carries five
+ * of a part's colours across it and five stripes in 18px is not five
+ * stripes. What they share is how tall they stand and how their corner is
+ * cut, which is what made them look like three unrelated things.
+ */
+export const PREVIEW = {
+  /** The height every badge stands at, and the width of a square one. */
+  size: 18,
+  /** A wide badge — one carrying more than a single colour. */
+  wide: 34,
+  /** The same corner the chips take: one answer, not a third. */
+  radius: CHIP.radius.square,
+} as const;
+
+/* ------------------------------------------------------------------ */
 /* A band                                                              */
 /* ------------------------------------------------------------------ */
 

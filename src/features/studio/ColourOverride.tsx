@@ -16,6 +16,7 @@ import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { Tooltip } from "@/core/ui/tooltip";
 import { parseColor, toHex, ROLES, ROLE_LABEL, type Palette, type RoleId } from "./look";
+import { CHIP, inheritChip } from "./colourMenu";
 import type { NodeColour } from "./parts/theme";
 
 export function effectiveColour(colour: NodeColour | null, palette: Palette, role: RoleId): string {
@@ -55,11 +56,14 @@ export function ColourOverride({
               aria-label={`${ROLE_LABEL[r]} on this part`}
               aria-pressed={role === r}
               onClick={() => { play("select"); setRole(r); }}
+              // A block, not a chip: it stretches to its column, so it takes
+              // the corner from the one definition and its own width from the
+              // grid. Forcing a chip's width here would leave five gaps.
               className={cn(
-                "relative h-6 rounded-sm border-2 transition-colors",
+                "relative h-6 border-2 transition-colors",
                 role === r ? "border-accent" : "border-border hover:border-border-strong",
               )}
-              style={{ background: effectiveColour(colour, palette, r) }}
+              style={{ borderRadius: CHIP.radius.square, background: effectiveColour(colour, palette, r) }}
             >
               {colour?.[r] ? <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-accent" /> : null}
             </button>
@@ -69,24 +73,29 @@ export function ColourOverride({
 
       {/* What to set it to: the site again, another role, or a colour. */}
       <div className="flex flex-wrap items-center gap-1">
-        <button
-          type="button"
-          onClick={() => { play("select"); set(null); }}
-          className={cn(
-            "tactile rounded-sm border px-1.5 py-0.5 text-[10px]",
-            !current ? "border-fg text-fg" : "border-border text-fg-muted hover:text-fg",
-          )}
-        >
-          Site
-        </button>
+        {/*
+          "Site" was a word among swatches, and the word said less than the
+          swatch would: it is the same "this follows the site" the console
+          says with an inherited chip, so it says it the same way here — the
+          colour it would take, under a folded corner.
+        */}
+        <Tooltip content={`Follow the site's ${ROLE_LABEL[role].toLowerCase()}`}>
+          <button
+            type="button"
+            aria-label={`Follow the site's ${ROLE_LABEL[role]}`}
+            onClick={() => { play("select"); set(null); }}
+            className={cn("tactile border-2", !current ? "border-fg" : "border-transparent")}
+            style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square, ...inheritChip("", palette[role]).style }}
+          />
+        </Tooltip>
         {ROLES.filter((r) => r !== role).map((r) => (
           <Tooltip key={r} content={`Use the site's ${ROLE_LABEL[r].toLowerCase()}`}>
             <button
               type="button"
               aria-label={`Use ${ROLE_LABEL[r]}`}
               onClick={() => { play("select"); set(r); }}
-              className={cn("tactile size-5 rounded-sm border-2", current === r ? "border-fg" : "border-transparent")}
-              style={{ background: palette[r] }}
+              className={cn("tactile border-2", current === r ? "border-fg" : "border-transparent")}
+              style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square, background: palette[r] }}
             />
           </Tooltip>
         ))}
@@ -95,7 +104,8 @@ export function ColourOverride({
           aria-label={`${ROLE_LABEL[role]} colour`}
           value={toHexish(effectiveColour(colour, palette, role))}
           onChange={(e) => set(e.target.value)}
-          className="size-5 cursor-pointer rounded-sm border border-border bg-transparent p-0"
+          className="cursor-pointer border border-border bg-transparent p-0"
+          style={{ width: CHIP.near, height: CHIP.near, borderRadius: CHIP.radius.square }}
         />
       </div>
 

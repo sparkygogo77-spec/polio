@@ -12,6 +12,7 @@ import * as React from "react";
 import { play } from "@/core/audio/engine";
 import { css as oklchCss, parseColor } from "./look";
 import { CONSOLE_HUE, litEdge } from "./RingConsole";
+import { PREVIEW } from "./colourMenu";
 
 const HUE_BAR = `linear-gradient(90deg, ${Array.from({ length: 13 }, (_, i) => oklchCss({ l: 0.7, c: 0.19, h: i * 30 })).join(", ")})`;
 
@@ -57,9 +58,10 @@ export function Spectrum({
     <div className="mb-2">
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[9px] uppercase tracking-wider" style={{ color: "oklch(0.9 0.05 20)" }}>{label}</span>
+        {/* What the colour is right now. A badge, not a chip: it is read,
+            not picked, so it takes `PREVIEW` like the wheel's three. */}
         <span
-          className="size-4 rounded-[4px]"
-          style={{ background: value, boxShadow: litEdge(CONSOLE_HUE), outline: "1px solid oklch(0.3 0.04 20)" }}
+          style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: value, boxShadow: litEdge(CONSOLE_HUE), outline: "1px solid oklch(0.3 0.04 20)" }}
         />
       </div>
       {/* the spectrum, and the white line that says where on it you are */}
@@ -84,7 +86,14 @@ export function Spectrum({
           style={{ left: `calc(${((parsed.h % 360) / 360) * 100}% - 1.5px)`, boxShadow: "0 0 0 1px oklch(0 0 0 / 0.5)" }}
         />
       </div>
-      {/* the same spectrum in steps, so a colour can be hit rather than hunted */}
+      {/*
+        The same spectrum in steps, so a colour can be hit rather than hunted.
+        These are deliberately not chips, and the reason is a measurement: the
+        panel gives this row 203px, and twelve chips at `CHIP.near` need 240
+        before any gap at all — 37px more than there is. They are a band
+        sampled into twelve places to press, not a menu of twelve colours, so
+        they keep a size of their own and the size is stated here.
+      */}
       <div className="mt-1 flex justify-between">
         {Array.from({ length: 12 }, (_, i) => {
           const h = i * 30;
