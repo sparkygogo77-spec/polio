@@ -417,8 +417,17 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         deploy: pubDeploy,
         repo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
         branch: project?.repo?.branch,
+        /* No repository yet: what to call the one this publish will make.
+           Nobody is asked for a name — the site already has one. */
+        create: project?.repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
       });
       if (r.ok) {
+        /* It made one. Write it on the site so every publish after this goes
+           to the same place, and the button can say which place that is. */
+        if (r.created && project) {
+          const [owner, name] = r.created.split("/");
+          if (owner && name) useBuilds.getState().setRepo(project.id, { owner, name, branch: r.branch });
+        }
         setPubResult({ url: r.commitUrl, files: r.files, deployed: r.deployed, hook: r.hook, note: r.deployNote });
         // Written on the live thread's card, because this is what that
         // iteration came to: the card says what was made of the answer.
@@ -426,7 +435,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           `${r.files} files pushed to ${r.repo} on ${r.branch}`,
           r.deployed ? "Vercel deploy started by the hook" : "",
         ]);
-        ctx.publish({ key: "studio:publish", title: `Published to ${r.repo}`, body: `${r.files} files on ${r.branch}${r.deployed ? " · Vercel deploy started" : ""}`, level: "success", source: "studio", toast: true, href: r.commitUrl });
+        ctx.publish({ key: "studio:publish", title: r.created ? `Made ${r.repo} and published to it` : `Published to ${r.repo}`, body: `${r.files} files on ${r.branch}${r.deployed ? " · Vercel deploy started" : ""}`, level: "success", source: "studio", toast: true, href: r.commitUrl });
       } else {
         setNote(r.message);
         ctx.publish({ key: "studio:publish", title: "Publish failed", body: r.message, level: "error", source: "studio", toast: true });

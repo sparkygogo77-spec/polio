@@ -61,6 +61,20 @@ export function rendererHeader(): Record<string, string> {
 }
 
 /**
+ * The same again, for GitHub.
+ *
+ * A publish writes to somebody's own account, so the token that does it is
+ * theirs: typed into the vault, held in this browser, sent only to the
+ * publish route. Separate from the other two for the same reason they are
+ * separate from each other — a route that has no use for a key should never
+ * be handed one.
+ */
+export function publisherHeader(): Record<string, string> {
+  const held = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN;
+  return held ? { "x-github-token": held } : {};
+}
+
+/**
  * Where this browser stands with a Claude key: holding one and open, holding
  * one but locked, or holding none. The server's own key is invisible from
  * here and wins regardless; this is only for saying the right thing when a
@@ -451,16 +465,16 @@ export function filesFromMarkdown(text: string): GeneratedFile[] {
 /* ------------------------------------------------------------------ */
 
 export interface PublishStatus {
-  github: { configured: boolean; repo: string | null; branch: string; missing: string[]; allow?: string[] | null };
+  github: { configured: boolean; token: "browser" | "server" | null; repo: string | null; branch: string; missing: string[]; allow?: string[] | null };
   vercel: { hook: boolean };
 }
 
 export async function publishStatus(): Promise<PublishStatus> {
   try {
-    const res = await fetch("/api/studio/publish", { cache: "no-store" });
+    const res = await fetch("/api/studio/publish", { cache: "no-store", headers: publisherHeader() });
     return (await res.json()) as PublishStatus;
   } catch {
-    return { github: { configured: false, repo: null, branch: "main", missing: ["unreachable"] }, vercel: { hook: false } };
+    return { github: { configured: false, token: null, repo: null, branch: "main", missing: ["unreachable"] }, vercel: { hook: false } };
   }
 }
 
@@ -474,7 +488,7 @@ export function siteFiles(markdown: string, json: string): GeneratedFile[] {
 }
 
 export type PublishResult =
-  | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string }
+  | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string }
   | { ok: false; message: string; reason?: string };
 
 /* ------------------------------------------------------------------ */
@@ -571,11 +585,11 @@ export async function watchDeploy(
   }
 }
 
-export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string }): Promise<PublishResult> {
+export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string }): Promise<PublishResult> {
   try {
     const res = await fetch("/api/studio/publish", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...publisherHeader() },
       body: JSON.stringify({
         files: input.files.map((f) => ({ path: f.path, content: f.content })),
         message: input.message,
@@ -583,6 +597,8 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
         // Which site this is. The server decides whether it may go there.
         ...(input.repo ? { repo: input.repo } : {}),
         ...(input.branch ? { branch: input.branch } : {}),
+        // What to call a repository if this site has not got one yet.
+        ...(input.create ? { create: input.create } : {}),
       }),
     });
     const data = (await res.json()) as PublishResult;

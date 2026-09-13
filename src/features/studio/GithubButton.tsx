@@ -2,23 +2,28 @@
 /**
  * The repository, in the top bar.
  *
- * A link, and only a link. It opens the repository the server names
- * (`GITHUB_REPO`) or, failing that, the one `site.config.ts` names; with
- * neither it is not there at all. It never asks anyone to log in and never
- * opens the key vault: a browser cannot hold a GitHub token that would do
- * anything, so "connect it" from here was a door to nowhere. The tooltip
- * says whether Publish can push — that needs a token on the server — and
- * where to put one.
+ * A link, and it says what it is linking to. Which repository that is comes
+ * from the *site*, not the server: each build on the Builds page carries its
+ * own `owner/name`, written there by the publish that made it. A site with
+ * none yet has not been published, and the tooltip says what the first one
+ * will do rather than asking for a name.
  *
- * It reads the same status route the vault reads, which reports whether a key
- * is set and never what it is. The repository name is not a secret and is the
- * one value that comes back.
+ * "A browser cannot hold a GitHub token that would do anything" is what this
+ * file used to say, and it was wrong — it is exactly where the token belongs,
+ * for the same reason the Replicate one does: the account is the person's.
+ * So the tooltip's advice is the Keys panel now, not the server's
+ * environment, and `GITHUB_TOKEN` on the server is the fallback.
+ *
+ * It reads the same status route the vault reads, which reports whether a
+ * token would be found and never what it is.
  */
 import * as React from "react";
 import site from "@site";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { cn } from "@/core/lib/cn";
+import { publishStatus, type PublishStatus } from "@/features/studio/agent";
+import { useBuilds } from "@/features/builds/store";
 
 /**
  * The GitHub mark.
@@ -35,50 +40,57 @@ function GithubMark({ className }: { className?: string }) {
   );
 }
 
-interface Status {
-  set: Record<string, boolean>;
-  repo: string | null;
-  branch: string;
-}
-
-/** "owner/name" from a GitHub URL, for the tooltip. */
-function nameOf(url: string): string {
-  const m = /github\.com\/([^/]+\/[^/#?]+)/.exec(url);
-  return m ? m[1]!.replace(/\.git$/, "") : url;
-}
-
 export function GithubButton() {
-  const [status, setStatus] = React.useState<Status | null>(null);
+  const [status, setStatus] = React.useState<PublishStatus | null>(null);
+  const projects = useBuilds((s) => s.projects);
+  const activeId = useBuilds((s) => s.activeId);
+  const project = projects.find((p) => p.id === activeId) ?? null;
 
   React.useEffect(() => {
     let alive = true;
-    void fetch("/api/keys/status", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((s: Status) => { if (alive) setStatus(s); })
-      .catch(() => { if (alive) setStatus(null); });
+    void publishStatus().then((s) => { if (alive) setStatus(s); });
     return () => { alive = false; };
   }, []);
 
-  const serverRepo = status?.repo ?? null;
-  const url = serverRepo ? `https://github.com/${serverRepo}` : (site.repository ?? null);
-  if (!url) return null;
-  const name = serverRepo ?? nameOf(url);
-  const canPush = !!serverRepo && !!status?.set.GITHUB_TOKEN;
+  /* The site's own repository first, then the server's, then whatever
+     `site.config.ts` says. The first is the one a publish actually uses. */
+  const mine = project?.repo ? `${project.repo.owner}/${project.repo.name}` : null;
+  const name = mine ?? status?.github.repo ?? null;
+  const url = name ? `https://github.com/${name}` : (site.repository ?? null);
+  const canPush = !!status?.github.configured;
+  const where = status?.github.token;
 
-  const label = canPush
-    ? `${name} · ${status?.branch ?? "main"}, Publish pushes here`
-    : serverRepo
-      ? `${name}, no GITHUB_TOKEN on the server, so Publish cannot push; download the files instead`
-      : `${name}, to let Publish push, set GITHUB_TOKEN and GITHUB_REPO on the server`;
+  const label = !canPush
+    ? name
+      ? `${name} — no GitHub token, so Publish cannot push. Put one in the Keys panel, or set GITHUB_TOKEN on the server.`
+      : "No GitHub token yet. Put one in the Keys panel and the first Publish makes this site a repository of its own."
+    : name
+      ? `${name} · ${project?.repo?.branch ?? status?.github.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
+      : `The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
+
+  /* Nothing to open and nothing yet to describe: before a site is published
+     and with no token anywhere, this button has nothing to say. */
+  if (!url && !canPush) return null;
 
   return (
     <Tooltip content={label}>
       <Button
         variant="ghost"
         size="icon"
-        aria-label={`Open ${name} on GitHub`}
+        /* "GitHub" stays in the name whatever state this is in: it is the
+           GitHub button, and something looking for it by name — a screen
+           reader, or the vault suite — should find it before a repository
+           exists as readily as after. */
+        aria-label={name ? `Open ${name} on GitHub` : "GitHub: this site has no repository yet"}
+        data-github-button=""
+        data-repo={name ?? ""}
         className="relative"
-        onClick={() => window.open(url, "_blank", "noopener")}
+        /* `aria-disabled`, not `disabled`: a disabled button takes no pointer
+           events, and with no repository yet the tooltip is the entire point
+           of this control — it is the only place that says the first publish
+           will make one. */
+        aria-disabled={!url}
+        onClick={() => { if (url) window.open(url, "_blank", "noopener"); }}
       >
         <GithubMark className={cn("size-3.5", canPush ? "text-fg" : "text-fg-muted")} />
         {canPush ? null : (

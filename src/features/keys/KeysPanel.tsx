@@ -258,6 +258,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
     const typed = (id: string) => (draft[id] ?? "").trim();
     if (service === "anthropic" && typed("ANTHROPIC_API_KEY")) header["x-anthropic-key"] = typed("ANTHROPIC_API_KEY");
     if (service === "replicate" && typed("REPLICATE_API_TOKEN")) header["x-replicate-key"] = typed("REPLICATE_API_TOKEN");
+    if (service === "github" && typed("GITHUB_TOKEN")) header["x-github-token"] = typed("GITHUB_TOKEN");
     if (service === "vercel" && typed("VERCEL_TOKEN")) header["x-vercel-token"] = typed("VERCEL_TOKEN");
     try {
       const res = await fetch("/api/keys/test", {

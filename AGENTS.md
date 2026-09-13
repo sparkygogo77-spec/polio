@@ -1805,11 +1805,14 @@ a kicker with a rule, and label-and-value rows that copy.
   adding to `MODE_INSTRUCTIONS` and to `MODES` in `agent.ts`; nothing else
   knows the list.
 - **Publish** (`publish/route.ts`) makes one commit on a branch of a
-  repository with `GITHUB_TOKEN` through the git data API, then calls
-  `VERCEL_DEPLOY_HOOK` when set. It pushes `site/document.json` (the
-  document; the app renders it at `/site`), `site/BLUEPRINT.md`, `site/blueprint.json`
-  and any generated files. Paths are checked (`safePath`); files are capped.
-  The token never reaches the browser; `GET` says only what is set.
+  repository through the git data API, then calls `VERCEL_DEPLOY_HOOK` when
+  set. It pushes `site/document.json` (the document; the app renders it at
+  `/site`), `site/BLUEPRINT.md`, `site/blueprint.json` and any generated
+  files. Paths are checked (`safePath`); files are capped. The token rides
+  from the browser as `x-github-token` and `GITHUB_TOKEN` is the fallback;
+  `GET` says only whether one would be found, never what it is. A site with
+  no repository sends `create` and gets a private one made for it, named
+  after the site — nobody is asked for a repository up front.
   A request may name its own `repo` and `branch`, because the Builds page
   keeps more than one site and each says where it publishes; `GITHUB_REPO` is
   where anything that names nowhere goes. What a request may name is bounded
@@ -2105,15 +2108,20 @@ remove it from `src/features/index.ts` when you're sure.
   component }]` on a feature module. The bar renders
   whatever is registered and imports no feature; anything that has to live up
   there arrives this way. `keys` contributes the key, `studio` the GitHub mark.
-- **Keys belong on the server.** `ANTHROPIC_API_KEY`, `VERCEL_TOKEN`, the four
-  `X_*`, `GITHUB_TOKEN`/`GITHUB_REPO`, `VERCEL_DEPLOY_HOOK`: read in route
-  handlers, never prefixed for the browser, never returned. `/api/keys/status`
-  answers only which names are set, plus the repository name, which is not a
-  secret. Anything added there must pass the same test: a name and a yes or no.
-- **Two keys can be held in the browser, and only two.** The Claude key and
-  the Vercel token, because those are the two the routes take as a header
-  (`x-anthropic-key`, `x-vercel-token`). A GitHub token in a browser would do
-  nothing, so the panel says so rather than offering a field. Adding a
+- **Keys are read on the server and never prefixed for the browser.**
+  `ANTHROPIC_API_KEY`, `REPLICATE_API_TOKEN`, `GITHUB_TOKEN`, `VERCEL_TOKEN`,
+  the four `X_*`, `VERCEL_DEPLOY_HOOK`: read in route handlers, never
+  returned. `/api/keys/status` answers only which names are set, plus the
+  repository name, which is not a secret. Anything added there must pass the
+  same test: a name and a yes or no.
+- **A key the person is billed or credited for is held in their browser.**
+  Claude, Replicate, GitHub and Vercel, each riding to its own route as its
+  own header (`x-anthropic-key`, `x-replicate-key`, `x-github-token`,
+  `x-vercel-token`) and never to any other, because a route with no use for a
+  key should never be handed one. The environment variable of the same name
+  stays as a silent fallback. This file used to say a GitHub token in a
+  browser would do nothing; that was wrong, and Publish now pushes with the
+  person's own. Adding a
   service to `SERVICES` means adding a header a route reads and an arm to
   `/api/keys/test`, which asks each service the smallest question it answers
   — one answer per service, never one standing in for another.
