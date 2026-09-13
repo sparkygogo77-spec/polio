@@ -84,7 +84,7 @@ export function progressOf(step: string | undefined | null): number | null {
   const attempt = /^Attempt (\d) of/.exec(s);
   if (attempt) return 0.4 + (Number(attempt[1]) - 1) * 0.12;
   if (/^Looking at (what the renderer drew|attempt)/.test(s)) return 0.6;
-  if (/^Refining the drawing/.test(s)) return 0.82;
+  if (/^Refining the drawing|^Recreating the real thing/.test(s)) return 0.82;
   return null;
 }
 

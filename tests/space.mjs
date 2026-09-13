@@ -105,7 +105,9 @@ const bogus = planFor({ ...part, plan: { model: "nobody/nothing", steps: [] } })
 check("naming a model that is not in the table falls back to the route's pick, and says so", !bogus.chosen && bogus.model?.slug === picked);
 
 check("tidying keeps only the route's own steps, once each", tidySteps(["first", "read", "first", "polish", "alpha"]).join(",") === "first,read,alpha");
-check("moving a step puts it where it was dropped", moveStep(STEPS, 3, 0).join(",") === "alpha,read,first,refine");
+// By name, not by position: the route's list grew a step (recreate) after
+// this was written, and a pin on index three moved with it.
+check("moving a step puts it where it was dropped", moveStep(STEPS, STEPS.indexOf("alpha"), 0).join(",") === ["alpha", ...STEPS.filter((st) => st !== "alpha")].join(","));
 check("moving a step nowhere changes nothing", moveStep(STEPS, 1, 9).join(",") === STEPS.join(","));
 
 /* ------------------------------------------------------------------ */
