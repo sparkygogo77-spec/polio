@@ -2,14 +2,178 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T07:44:11.363Z";
+export const GENERATED_AT = "2026-09-13T08:58:35.009Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "1899dcd",
-    "when": "2026-09-13T07:43:13+00:00",
+    "id": "1aa5b7e",
+    "when": "2026-09-13T08:58:21+00:00",
     "day": "13 September",
     "changes": [
+      {
+        "id": "1aa5b7e",
+        "says": "The vine is a twisted pair of the boxes' own material",
+        "when": "2026-09-13T08:58:21+00:00",
+        "detail": [
+          "The fifth of the timeline's visual system. The four-strand cable read as threaded and would not stay; this is the reference: a twisted cable, fewer strands, smoother, its colour moving, made of what the boxes are.",
+          "Two strands, not four, thick, in a tight helix about a dark core — a crossing every seventeen pixels, half again the cable's width, which is a twisted pair; tighter read as a chain of links, looser as a ribbon. Twice the samples a turn, and the grain moves the shade and never the width, which was the lumpiness. The core goes down once, whole, under both strands, and shows only as the seam between them: the old cable put it down between the back strands and the front ones step by step, and where a strand turned away it showed through as a row of dark teeth along the edge.",
+          "Both colours run the whole length. One strand carries one end's colour and the other the other's, end to end; neither ever changes over, so there is no seam anywhere. The ratio is thickness — the green strand fat at a green board and thin at a red drawing, the red one the other way — three to one at either end, never all of one colour, and never a blend: a green-to-red cable is green and red side by side at every point, and brown is not in it. Two boards of the same kind get one colour in two equal strands.",
+          "The same material as the boxes. The strands are the construct's own stops — `deep` shaded, `body` lit, `hot` down the edge facing the light, the same numbers `molten.css` paints the faces and rims with, held to the stylesheet by the test — and the same cloud drifts over them, by the same mechanism: two small elements per vine, one per strand at that strand's temperature, over the canvas, each clipped to its strand's near side (`strandEnvelope`) and carrying the construct's nebula on `molten-drift` at the boxes' rate. Nothing is repainted and nothing is blended; the two clips never overlap, so no colour is ever laid over the other."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "673fee0",
+    "when": "2026-09-13T08:32:43+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "1dba495",
+        "says": "Every iteration forms from nothing, driven by the work",
+        "when": "2026-09-13T08:21:51+00:00",
+        "detail": [
+          "The fourth of the timeline's visual system. A new iteration is not faded in when it lands; it forms, in stages, as far as its task in the queue has got, and finishes when the task does. Once per iteration, and again on every update to it.",
+          "The order, as J gave it:",
+          "the vine grows from the previous card where the vine arrives, the rim starts and is traced round the box in green while the work is running as the task nears completion the green closes in from the edges the nebula surface grows from zero the centre is the last thing to form",
+          "`formation.ts` is the model: five bands over 0..1, `progressOf(step)` reading the queue's own step strings as milestones (reading 0.15, the trace goes through the middle, the second pass the last stretch), and `formVars` turning one number into the custom properties the stylesheet reads. The store keeps `form: { p, gen }` on a thread — `noteProgress` only climbs, landing is 1, and every update (a pass, a spend, a line) bumps `gen` so the box forms again. Nothing forms on a reload of a thing that did not change."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "945ecae",
+        "says": "The box surface: a nebula of its colour, painted once and gliding for ever",
+        "when": "2026-09-13T07:58:11+00:00",
+        "detail": [
+          "The reference is a rounded rectangle with a thin bright rim of its colour, self-lit and throwing nothing past the rim, and inside it a nebula of that colour — red or green — gliding endlessly, darkest at the centre.",
+          "The mechanism is the ground's, as J said it should be. One cloud tile per temperature is painted once (`nebulaTile.ts`, off the same `nebulaNoise` the sky uses, coloured red or green), handed to the stylesheet as two custom properties on the root, and every construct's face is a pseudo-element one period wider than the box sliding exactly one period by transform. The loop lands the tile on itself, nothing repaints, and a thirtieth card costs what one composited layer costs. A still, mirrored copy behind it gives the far depth for the price of a paint.",
+          "The centre is the darkest part and it is not black: a `--*-core` stop per family at L 0.13 with chroma in it, and the face runs inside out — core at the middle easing to the field at the edges — while the tile is painted thin in its middle and full towards its edges, so the two agree without either knowing about the other. Only the opaque reference decides how the centre darkens, and this follows it.",
+          "Nothing leaves the rim. The outward colour on the boxes' shadows is gone (weight stays), and so are the flare and the ember. The ember was the one thing that left the rim. The flare was an arc run behind a disc punched in the body colour, which only hid the disc while the face was one flat colour; over a face lit from around its centre the disc showed every time it came round. The reference is a rim and a nebula and nothing else, so nothing else is here. Both keyframes stay declared."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "2a8a4d1",
+        "says": "Regenerate the passes for the one-chain timeline",
+        "when": "2026-09-13T07:44:54+00:00",
+        "detail": [
+          "Euler's pass: the timeline is one chain in the order things landed, and nothing else. The deployed build has no .git, so the Updates list only moves when this file does."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0556aa6",
+    "when": "2026-09-13T08:32:32+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "0556aa6",
+        "says": "A queue strip in the header: what is running, as bars, beside the bell",
+        "when": "2026-09-13T08:32:32+00:00",
+        "detail": [
+          "Toasts are off, so this and the timeline are how work gets watched. One small bar per task in flight, no words, nothing to press, and when a task finishes its bar goes. Nothing running is no strip at all and the header looks as it always did.",
+          "The two colours are not chosen here. A drawing being read is `ember` and an iteration working on the board is `verdant` — the two temperatures of the shared construct, whose own doc calls `ember` \"a drawing, and the pieces that came off one\" and `verdant` \"an iteration\". The timeline's boxes and the Finish key are the same two, so a red bar up here and a red box down there are the same thing.",
+          "Newest on the right: the row is packed right, so an arriving task lands at the end and shoulders the older ones left.",
+          "A bar is as long as its task has actually got. It first grew on a ninety-second timer, because nothing here knew any better — it looked right and said nothing true. The sibling's formation work landed the model while this was being built, so it reads that instead: `progressOf` turns a drawing job's own step strings into a number, and a running iteration carries `form.p`. One answer to \"how far along is this\", not two. A bar that has stopped growing is now a task that has stopped, which is worth being able to see."
+        ],
+        "areas": [
+          "core",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "ca77cc5",
+        "says": "121% becomes 100%: the preview is drawn at a base of its own",
+        "when": "2026-09-13T08:12:01+00:00",
+        "detail": [
+          "The size J works at is two presses of the plus above a fitted board — 1.1 twice over, which is 1.21. That size is the size, so it is called 100 and everything else is measured from it. `BASE_ZOOM` is that number, in one place beside the clamp it is measured against.",
+          "Where 121 comes from is worth writing down, because the brief said \"at rest\" and at rest it cannot happen: `fitZoom` is capped at 1, so a fitted board reads 100% at 2560 and less on anything narrower — 86% at 1920, 64% at 1600, 44% at 1282, measured. 121% is two presses from a fitted 100, not a resting state. The change is the same either way: at a readout of 100 the board now draws at what 121 drew at before.",
+          "The store holds the *nominal* zoom — the number in the bar, and the number the 0.25–2.5 clamp is in — and the board is drawn at nominal times the base. Inside `Canvas` every use of `zoom` means the applied scale: the transform, turning a pointer into board coordinates, the hit thresholds, and the 1/zoom counter-scaling that keeps a chip the same size however far in you are. So the multiplication happens once where the store is read and nothing downstream had to be touched.",
+          "Two things did have to move. `fitZoom` divides by the base, because what is being fitted to the pane is the drawn frame and not the nominal one. And the pan that centres it had to as well: it centred on `frameWidth * z` while the frame was drawn at `z` times the base, which put a 1.21× frame in a 1× gap and hung it off the right of the pane. `board-layout` caught that — \"frame 324,149 677×437 in 752×733\" — rather than my reading it in the diff."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "a547326",
+        "says": "One zoom, and it acts on whichever surface is showing",
+        "when": "2026-09-13T08:01:44+00:00",
+        "detail": [
+          "The timeline kept `React.useState(1)` of its own. The minus and plus in the header move the store's zoom, so on the timeline they moved a number nothing was reading: the readout climbed to 85% while the plot stayed at scale 1. That is the whole of it, and it now reads from the store.",
+          "The pan and the settle are untouched. The settle still animates its own `viewAt` straight onto the element for the length of the move and lands on one `setZoom` at the end; that setter happens to write to the store now and the animation reads no differently for it.",
+          "One thing did have to change beyond the source: the wheel zoom held itself to 0.4–1.8 while the bar's buttons ran to the store's 0.25–2.5, which is two answers to one question. The store's clamp is the clamp.",
+          "`tests/one-zoom.mjs` is new. It goes in through the Finish key, the way a person does, and checks the surface in front of you gets bigger when the header's plus is pressed — on both surfaces — and that the readout is the scale the timeline is actually drawn at. Against the split zoom the last two fail: \"scale 1 then 1\", and \"85% against a scale of 1\"."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "253ba85",
+        "says": "The GitHub token is the person's, and the first publish makes the repo",
+        "when": "2026-09-13T07:55:56+00:00",
+        "detail": [
+          "Same architecture the renderer already has for Replicate, for the same reason: the account being written to is somebody's own, so the token that writes to it is theirs. Typed into the Keys panel, held in their browser, riding to the publish route as `x-github-token` and to no other route. `GITHUB_TOKEN` in the environment stays as a silent fallback rather than the path.",
+          "What was there: `GithubButton.tsx` told people to set GITHUB_TOKEN and GITHUB_REPO on the server, and its own comment said \"a browser cannot hold a GitHub token that would do anything\". That was wrong, and the file now says so.",
+          "The Vercel-shaped flow. A site with no repository sends `create` — a name, made from what the site is already called — and gets a private repository of its own on the spot. The name it settled on comes back as `created` and the browser writes `owner/name` on the site, so every publish after that goes to the same place. Nobody is asked for a repository up front, ever. An existing name is never taken over: pushing into a repository somebody made earlier for something else is the one unrecoverable thing this route could do, so a clash gets a suffix and a repository of its own.",
+          "A repository made a moment ago has no commits, so no branch, so both ref lookups 404 and there is no parent to hang a commit from. That path is the normal one now rather than the odd one, and it commits with no parents and creates the ref instead of patching it."
+        ],
+        "areas": [
+          "docs",
+          "keys",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0ee472d",
+        "says": "The cards: no label on the red box, one-word headlines, and the panel stays",
+        "when": "2026-09-13T07:49:37+00:00",
+        "detail": [
+          "Four things J asked for on the cards, and they are one change because they are all about the same thing: a card should say what it is by being it, and the words around it should be as few as will do.",
+          "The red box no longer says \"drawing\" across its top. The drawing is right there under where the word was — a caption for a picture you are already looking at. The row keeps the pin, the flag and the state, because those do something.",
+          "The detail boxes that grow out of a clicked card headline exactly \"Input\" and \"Output\" and nothing more. \"What went in\" and \"what came out\" were sentences about the two halves; the halves are Input and Output and that is the whole headline. The copy control moves off the headline into the corner, because a headline with a button in it is a toolbar.",
+          "Those boxes are the reading family now, not the card family. They grew out of the box in the same red or green, rounded the same and lit the same, and read as two more cards. They are not cards: they are where you read. So the face is near-neutral dark with a tint of the family, the colour lives in a hairline rim and the headline, there is no lift and no glow, and the corners are squarer than anything on the timeline that is a thing. Same family, different member."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
       {
         "id": "1899dcd",
         "says": "The timeline is one chain in the order things landed, and nothing else",
@@ -739,88 +903,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c46f70a",
-    "when": "2026-09-12T01:35:57+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "f637e04",
-        "says": "Change a thing from the timeline and it changes that thing",
-        "when": "2026-09-12T01:24:53+00:00",
-        "detail": [
-          "Going back to an iteration and drawing again made a second part. Nothing on the thread said which part on the board it was about, so \"change this\" had nothing to change and the only thing it could do was make another.",
-          "An iteration now remembers what it made, on all three roads through the drawing path — the catalogue answers it outright, the reader and the no-reader roads note it once the part exists — and the card offers two ways to change that part: draw more on it, or write more about it. Both name the part rather than saying \"it\", and both are absent when the part has since been deleted, because then the offer really would be to make a new one.",
-          "Pressing either goes to the board, to that part's page, with that part picked, and opens the drawing board on it a frame later, once the board exists. The wheel can now be opened straight onto a slot, which is what that needs: the wheel is a way to choose what to do and the choice has been made already. What is drawn there carries the part's id, so it reshapes that part and says \"Reshaping\" rather than \"Making\".",
-          "Driven in Chromium: the card shows both controls, pressing Draw more lands on the board with Diagonal divider selected and the drawing disc open on it, reading \"Draw the shape it should be\". 19/19 in tests/change-made.mjs; connected, current, timeline-view, threads and picked still pass."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "f0bb23c",
-        "says": "Finish is the green counterpart, from the same shared definition",
-        "when": "2026-09-12T01:20:20+00:00",
-        "detail": [
-          "It was a green slab with a gradient, a border, an inset highlight and a glow painted behind each digit — decoration standing in for light, beside a timeline made of actual light. It is a construct now: `--verdant-*` added to core/ui/molten.css as the third temperature beside the lantern and the ember, same five stops, same veining, same slow boil and breathing edge, and `moltenClass(\"verdant\")` asks for it. A fourth temperature is a decision to take in that file, not in a component.",
-          "Quieter than the reds on purpose. They are read from across the screen; this one is pressed, carries words and a count at seven pixels, and has to stay legible while it moves, so its veining runs at a third of theirs.",
-          "Less decoration, more construct. The slash between the two numbers is gone and so is the glow behind each — colour already said which number is which, and a thing made of light does not need light painted on top of it. What stays in `.process-key` is the part that makes it a key rather than a picture of one: the weight under it, and the way it goes down under a finger.",
-          "74/74 in tests/molten.mjs, which now holds all three temperatures; header updated to expect two numbers rather than a slash and passes 38/38, with tour, square-console and timeline-view unchanged."
-        ],
-        "areas": [
-          "core",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e398798",
-        "says": "One ground for the whole app, and a timeline joined end to end",
-        "when": "2026-09-12T01:15:09+00:00",
-        "detail": [
-          "Four things, all of them the same complaint: something that should have been continuous was being rebuilt.",
-          "The ground was mounted twice — once by the board, once by the timeline — so pressing Preview swapped between two instances and the nebula visibly changed. A button that means \"show me the site\" must not change the weather. There is one instance now, behind all three views in StudioPage, and each view is transparent over it; driven in Chromium, the same DOM node survives design to preview to timeline, one ground and one cloud layer throughout.",
-          "Iterations floated loose. A thread hangs off the one being worked in or off whatever landed last, and when both were missing it had no parent at all; the oldest threads are also dropped when the list gets long, which left their children pointing at something gone. Both are fixed at the source, and `connected()` heals what is already stored: an iteration with no parent, or one naming a parent that is missing or that landed after it, hangs off the newest iteration that landed before it — which is the board it was actually drawn against. Only the earliest has none. The test caught a real one on the way: a parent from the future was being kept.",
-          "The headline is what was made. \"This iteration\" was the widest thing on a box so it read as the title, and on an element piece it pushed the name of the part off the end entirely; it is a small flag now with its words in the tooltip, and what the iteration made is the biggest thing on the box."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9f93f43",
-    "when": "2026-09-12T01:34:48+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "9f93f43",
-        "says": "Fix onBareGround swallowing clicks on shapes and losing deselection",
-        "when": "2026-09-12T01:34:48+00:00",
-        "detail": [
-          "Two real regressions from the cursor-pans refactor, both the same root cause: onBareGround decided \"bare ground\" by target.closest(\"[data-frame]\"), but a wire, an ink stroke or a drawn region renders as a sibling of [data-frame] inside [data-page-window], not a descendant of it (the same reason parts are siblings, per the comment two lines up). So a press on any shape was misclassified as bare ground and swallowed into a pan before ever reaching the shape-selection logic further down:",
-          "clicking a wire/drawing no longer selected it (data.mjs, ink-related suites) — fixed by also excluding target.closest(\"[data-shape-id]\") from onBareGround.",
-          "clicking the ground outside the page no longer cleared the selection, because the old else-branch clearSelection() this replaced was the only place that ran it, and it's unreachable now that onBareGround intercepts and returns first — fixed by clearing selection in the onBareGround branch itself, matching what a press there always did.",
-          "Found via a fresh battery run after merging this pass's toolbar/menu overhaul; confirmed against the DOM directly (elementsFromPoint at the click target, and the live selection state before/after) rather than guessed at."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "fixed"
       }
     ],
     "more": 0
