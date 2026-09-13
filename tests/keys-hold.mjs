@@ -58,14 +58,17 @@ async function run(label, { noCrypto }) {
   await panel.getByRole("button", { name: holdName }).click();
   await page.waitForTimeout(300);
   check("holding opens the panel with no PIN", await panel.getByText("Hold in this tab").isVisible());
-  // Three secrets can be held here — Claude's key, Replicate's token and
-  // Vercel's — because those are the three the routes take as a header.
-  // GitHub's cannot be used from a browser at all, so it is a note and never
-  // a field.
-  check("the three headers a browser can carry are fields, and GitHub is a note",
-    (await panel.locator('input[type="password"]').count()) === 3
-    && (await panel.getByText("Only on the server").isVisible())
-    && (await panel.locator("section").filter({ hasText: "Only on the server" }).getByText("GitHub").count()) > 0);
+  /* Four secrets can be held here — Claude's key, Replicate's token,
+     GitHub's and Vercel's — because those are the four the routes take as a
+     header. GitHub used to be a note saying a browser could not use one,
+     which was not true: publishing writes to the person's own account, so
+     the token is the person's, and it rides as `x-github-token`. What is
+     left on the server-only list is the things a browser genuinely cannot
+     send: the four X secrets and the Vercel deploy hook. */
+  const fields = await panel.locator('input[type="password"]').count();
+  check("every key a route takes as a header is a field", fields === 4, `${fields} fields`);
+  const ghNote = await panel.locator("section").filter({ hasText: "Only on the server" }).getByText("GitHub").count();
+  check("and GitHub is no longer filed as server-only", ghNote === 0, ghNote ? "still on the server-only list" : "it has a field of its own");
 
   await panel.locator('input[type="password"]').first().fill(SECRET);
   await panel.getByRole("button", { name: "Hold in this tab" }).click();

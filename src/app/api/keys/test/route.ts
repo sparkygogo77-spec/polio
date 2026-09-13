@@ -103,14 +103,58 @@ async function tryReplicate(request: Request): Promise<Answer> {
   }
 }
 
+/**
+ * GitHub, asked who the token belongs to and whether it may make a repository.
+ *
+ * The browser's is tried first, because that is the one the publish route
+ * will use — a test that tried the server's would be a test of a different
+ * token. The scopes come back in a header rather than the body, so a classic
+ * token can say whether `repo` is on it; a fine-grained one reports nothing
+ * there and the only honest answer is that the first publish will find out.
+ */
+async function tryGithub(request: Request): Promise<Answer> {
+  const supplied = request.headers.get("x-github-token")?.trim();
+  const own = process.env.GITHUB_TOKEN?.trim();
+  const token = (supplied && supplied.length > 8 ? supplied : null) || own || null;
+  if (!token) {
+    return { ok: false, reason: "no-key", message: "No token to try: nothing held in this browser and nothing on the server." };
+  }
+  const source = supplied && supplied.length > 8 ? "browser" : "server";
+  try {
+    const res = await fetch("https://api.github.com/user", {
+      headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28" },
+      cache: "no-store",
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, reason: "auth", source, message: `GitHub rejected the ${source}'s token. Check it is copied whole and has not expired.` };
+    }
+    const data = (await res.json().catch(() => ({}))) as { login?: string; message?: string };
+    if (!res.ok) {
+      return { ok: false, reason: "error", source, message: `GitHub answered ${res.status}${data.message ? `: ${data.message}` : ""}.` };
+    }
+    const who = data.login ?? "someone";
+    const scopes = res.headers.get("x-oauth-scopes");
+    const canMake = scopes === null ? null : /(^|,\s*)(repo|public_repo)(\s*,|$)/.test(scopes);
+    const note = canMake === null
+      ? " Whether it can make one is settled on the first publish."
+      : canMake ? " It can make one." : " It cannot make repositories: add the repo scope.";
+    return { ok: true, source, who, message: `The ${source}'s token works: it belongs to ${who}.${note}` };
+  } catch (err) {
+    return { ok: false, reason: "network", source, message: `The server could not reach GitHub${err instanceof Error ? ` (${err.message})` : ""}.` };
+  }
+}
+
 export async function POST(request: Request) {
   let service = "anthropic";
   try {
     const body = (await request.json()) as { service?: unknown };
-    if (body?.service === "vercel" || body?.service === "replicate") service = body.service;
+    if (body?.service === "vercel" || body?.service === "replicate" || body?.service === "github") service = body.service;
   } catch {
     /* no body: the Claude key, which is what the button meant before there was a choice */
   }
-  const answer = service === "vercel" ? await tryVercel(request) : service === "replicate" ? await tryReplicate(request) : await tryClaude(request);
+  const answer = service === "vercel" ? await tryVercel(request)
+    : service === "replicate" ? await tryReplicate(request)
+      : service === "github" ? await tryGithub(request)
+        : await tryClaude(request);
   return NextResponse.json(answer);
 }

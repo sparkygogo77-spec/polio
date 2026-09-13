@@ -49,7 +49,7 @@ import { create } from "zustand";
 import { getSetting } from "@/core/settings/store";
 import { isPin, open, seal, type SealedBox } from "./crypto";
 
-export type ServiceId = "anthropic" | "replicate" | "vercel";
+export type ServiceId = "anthropic" | "replicate" | "github" | "vercel";
 
 export interface FieldDef {
   id: string;
@@ -85,6 +85,14 @@ export const SERVICES: ServiceDef[] = [
     fields: [{ id: "REPLICATE_API_TOKEN", label: "API token", hint: "r8_…", secret: true }],
   },
   {
+    id: "github",
+    label: "GitHub",
+    blurb:
+      "Publish: the site is pushed to a repository of its own. The first publish makes one, named after the site and private; every one after goes to the same place.",
+    where: "https://github.com/settings/tokens?type=beta",
+    fields: [{ id: "GITHUB_TOKEN", label: "Token", hint: "Contents write, and Administration write to make the repository", secret: true }],
+  },
+  {
     id: "vercel",
     label: "Vercel",
     blurb: "Go live: the site is deployed from the repository it was pushed to and the address comes back.",
@@ -98,7 +106,6 @@ export const SERVICES: ServiceDef[] = [
 
 /** Keys that only the server can use. The panel says so rather than offering a field that would do nothing. */
 export const SERVER_ONLY: { label: string; names: string[]; does: string }[] = [
-  { label: "GitHub", names: ["GITHUB_TOKEN", "GITHUB_REPO"], does: "Publish pushes the site to a repository" },
   { label: "X", names: ["X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"], does: "the tweet console posts" },
   { label: "Vercel hook", names: ["VERCEL_DEPLOY_HOOK"], does: "Push also pokes a project that is not connected to the repository" },
 ];
