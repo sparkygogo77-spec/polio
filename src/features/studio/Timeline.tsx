@@ -63,6 +63,7 @@ import { paintStrand, strandBounds, strandEnvelope, strandMiddle, type Point, ty
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
+import { pictureOf } from "./reshapeRun";
 import { FORM, formOf, formVars, within } from "./formation";
 import { useStudio } from "./store";
 import { Block, themeFrom } from "./blocks";
@@ -525,6 +526,30 @@ export function Timeline() {
   );
 
   const openId = openThreadId;
+
+  /*
+   * A press anywhere off the card puts it away.
+   *
+   * The press on the ground below does this for the timeline's own surface;
+   * this is the rest of the window — the bar, the shelf, the page behind —
+   * because "off the card" means off the card, not off the timeline. Not the
+   * card itself, not a box (a box press opens or closes its own), not the
+   * panel showing the open card's prompts, and not a menu or dialog that is
+   * open over it. The ground is left to its own handler, which knows a pan
+   * from a press.
+   */
+  React.useEffect(() => {
+    if (!openThreadId) return;
+    const KEEP = '[data-box], [data-card], [data-timeline-panel], [data-side-panel-timeline], [data-thread-menu], [role="dialog"], [role="menu"], [data-radial]';
+    const down = (e: PointerEvent) => {
+      const el = e.target instanceof Element ? e.target : null;
+      if (!el || el.closest(KEEP) || el.closest("[data-timeline]")) return;
+      play("close");
+      useStudio.getState().openThread(null);
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, [openThreadId]);
   const openTone: StrandTone = openId && byId.get(openId) && isElement(byId.get(openId)!) ? "pending" : "live";
 
   /*
@@ -790,7 +815,9 @@ export function Timeline() {
     const from = { x: e.clientX - viewAt.current.pan.x, y: e.clientY - viewAt.current.pan.y };
     let moved = false;
     const move = (ev: PointerEvent) => {
-      if (Math.abs(ev.clientX - e.clientX) > 3 || Math.abs(ev.clientY - e.clientY) > 3) moved = true;
+      // Six, not three: a press with a mouse moves a pixel or two on its own,
+      // and a trackpad more, and a press that read as a pan closed nothing.
+      if (Math.abs(ev.clientX - e.clientX) > 6 || Math.abs(ev.clientY - e.clientY) > 6) moved = true;
       setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
     };
     const up = () => {
@@ -1649,6 +1676,100 @@ function WentIn({ thread, skin, element }: { thread: Thread; skin: { rim: string
       {many && at.id !== thread.id ? (
         <p className="text-[9px]" style={{ color: skin.dim }}>what that one led to: {at.changes[0] ?? "nothing recorded"}</p>
       ) : null}
+      {element && thread.madeId ? <EditHere id={thread.madeId} skin={skin} /> : null}
+    </div>
+  );
+}
+
+/**
+ * Edit the element from its card.
+ *
+ * The card showed the element and offered two roads back to the board to
+ * change it. The things a person most often wants to change — what it is
+ * called and what it is meant to be — need no board: they are written on
+ * the part from here, at once, and "draw it again with these words" puts
+ * the same drawing back on the queue with the new words beside it, so the
+ * part is reshaped rather than a second one made. The size is shown, not
+ * edited: a size is set by hand on the board, where the hand is.
+ */
+function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; text: string } }) {
+  const node = useStudio((s) => s.nodes.find((n) => n.id === id) ?? null);
+  const frameWidth = useStudio((s) => s.frameWidth);
+  const [label, setLabel] = React.useState(node?.label ?? "");
+  const [prompt, setPrompt] = React.useState(node?.prompt ?? "");
+  // Another card, or the part renamed on the board: the fields follow.
+  React.useEffect(() => {
+    setLabel(node?.label ?? "");
+    setPrompt(node?.prompt ?? "");
+  }, [node?.id, node?.label, node?.prompt]);
+  if (!node) {
+    return <p className="border-t pt-1.5 text-[9px]" style={{ borderColor: skin.rim, color: skin.dim }}>the part this made is no longer on the board</p>;
+  }
+  const commit = () => {
+    const name = label.trim() || node.label;
+    if (name === node.label && prompt === node.prompt) return;
+    useStudio.getState().updateNode(node.id, { label: name, prompt });
+  };
+  const again = () => {
+    commit();
+    if (!node.sketch) return;
+    const sketch = { ...node.sketch, words: prompt.trim() };
+    play("confirm");
+    useStudio.getState().enqueueDraw({
+      nodeId: node.id,
+      at: null,
+      frameWidth,
+      sketch,
+      picture: pictureOf(sketch.strokes),
+      label: `Reshaping ${label.trim() || node.label}`,
+    });
+  };
+  const field = "w-full rounded-sm border bg-transparent px-1.5 py-0.5 text-[11px] leading-snug outline-none focus:ring-1";
+  return (
+    <div
+      data-edit-here={node.id}
+      className="space-y-1 border-t pt-1.5"
+      style={{ borderColor: skin.rim }}
+      // The card stops presses reaching the ground; the keys must not reach
+      // the board's shortcuts either, or typing a name would delete a part.
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <p className="text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>edit it here</p>
+      <input
+        data-edit-label=""
+        aria-label="What it is called"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+        className={field}
+        style={{ borderColor: skin.rim, color: skin.text }}
+      />
+      <textarea
+        data-edit-prompt=""
+        aria-label="What it is meant to be"
+        rows={2}
+        value={prompt}
+        placeholder="what it is meant to be"
+        onChange={(e) => setPrompt(e.target.value)}
+        onBlur={commit}
+        className={`${field} resize-none`}
+        style={{ borderColor: skin.rim, color: skin.text }}
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-edit-again=""
+          disabled={!node.sketch}
+          onClick={again}
+          className="tactile rounded-sm border px-2 py-0.5 text-[10px] disabled:opacity-40"
+          style={{ borderColor: skin.rim, color: skin.text }}
+          title={node.sketch ? "The same drawing, back on the queue, with these words beside it" : "This part was not drawn, so there is nothing to draw again"}
+        >
+          Draw it again with these words
+        </button>
+        <span className="num text-[9px]" style={{ color: skin.dim }}>{node.w} × {node.h}</span>
+      </div>
     </div>
   );
 }
@@ -1777,6 +1898,7 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
   );
   return (
     <div
+      data-thread-menu=""
       data-box-menu=""
       onPointerDown={(e) => e.stopPropagation()}
       className="fixed z-50 w-56 rounded-lg border p-1 shadow-pop"

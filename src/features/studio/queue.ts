@@ -19,7 +19,7 @@
  */
 import type { Sketch } from "./sketch";
 
-export type JobStatus = "waiting" | "running" | "done" | "failed";
+export type JobStatus = "waiting" | "asking" | "running" | "done" | "failed";
 
 export interface DrawJob {
   id: string;
@@ -43,6 +43,13 @@ export interface DrawJob {
    * than on the page and there is no size to keep.
    */
   drawn?: { w: number; h: number } | null;
+  /**
+   * The one question the run asked before spending, and the answer once
+   * there is one (`oddness.ts`). A job with a question and no answer is
+   * `asking`: it waits on the person, not on the queue, and other drawings
+   * go past it.
+   */
+  question?: { ask: string; choices: readonly string[]; answer?: string } | null;
   /** What the counter and the book call it. */
   label: string;
   status: JobStatus;
@@ -57,8 +64,10 @@ export interface DrawJob {
   ended?: number;
 }
 
-/** Waiting and running: what the counter calls pending. */
-export const pendingJobs = (q: DrawJob[]): DrawJob[] => q.filter((j) => j.status === "waiting" || j.status === "running");
+/** Waiting, asking and running: what the counter calls pending. */
+export const pendingJobs = (q: DrawJob[]): DrawJob[] => q.filter((j) => j.status === "waiting" || j.status === "asking" || j.status === "running");
+/** The one with a question nobody has answered, if there is one. */
+export const askingJob = (q: DrawJob[]): DrawJob | null => q.find((j) => j.status === "asking" && !!j.question && j.question.answer === undefined) ?? null;
 export const doneJobs = (q: DrawJob[]): DrawJob[] => q.filter((j) => j.status === "done");
 export const failedJobs = (q: DrawJob[]): DrawJob[] => q.filter((j) => j.status === "failed");
 

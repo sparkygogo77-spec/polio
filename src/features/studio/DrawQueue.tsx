@@ -22,7 +22,7 @@ import { LoaderCircle } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Tooltip } from "@/core/ui/tooltip";
-import { doneJobs, failedJobs, nextJob, pendingJobs } from "./queue";
+import { askingJob, doneJobs, failedJobs, nextJob, pendingJobs, type DrawJob } from "./queue";
 import { runDrawJob } from "./reshapeRun";
 import { progressOf } from "./formation";
 import { useStudio } from "./store";
@@ -58,6 +58,9 @@ export function DrawQueue() {
       },
     })
       .then((r) => {
+        // Stopped to ask: the job is `asking` now, and the person's answer
+        // puts it back on the queue. Nothing to write over.
+        if (r.asked) return;
         useStudio.getState().updateJob(job.id, {
           status: r.ok ? "done" : "failed",
           note: r.note,
@@ -71,7 +74,69 @@ export function DrawQueue() {
       });
   }, [queue, ctx]);
 
-  return null;
+  const asking = askingJob(queue);
+  return asking ? <QueueQuestion job={asking} /> : null;
+}
+
+/**
+ * The one question a drawing raised, asked where the counter is.
+ *
+ * A drawing that could be two things stops before the first paid call and
+ * asks (`oddness.ts`): the drawing itself, one line, and the answers as
+ * keys — the likeliest first — with "make it anyway" for a person who would
+ * rather have the guess. Under the bar, by the Finish key that carries the
+ * queue, because that is where a person looks to see what the queue is
+ * doing; not a dialog, because the board stays theirs while it waits.
+ */
+function QueueQuestion({ job }: { job: DrawJob }) {
+  const q = job.question!;
+  const answer = (a: string) => {
+    play(a ? "confirm" : "tick");
+    useStudio.getState().answerJob(job.id, a);
+  };
+  return (
+    <div
+      data-queue-question={job.id}
+      role="group"
+      aria-label={q.ask}
+      className="fixed right-4 top-14 z-50 w-[300px] rounded-[4px] border p-2.5 text-[11px] shadow-panel backdrop-blur"
+      style={{ background: "oklch(0.15 0.018 18 / 0.96)", borderColor: "oklch(0.46 0.157 18 / 0.7)", color: "oklch(0.92 0.02 18)" }}
+    >
+      <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: "oklch(0.72 0.106 18)" }}>before anything is spent</p>
+      <div className="flex items-start gap-2">
+        {job.picture ? (
+          <span className="shrink-0 rounded border p-1" style={{ borderColor: "oklch(0.46 0.157 18 / 0.7)", background: "oklch(0.15 0.04 18)" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`data:image/png;base64,${job.picture}`} alt="" width={56} height={56} className="block size-14 object-contain" style={{ filter: "invert(0.9)" }} />
+          </span>
+        ) : null}
+        <p className="min-w-0 flex-1 text-[12px] font-medium leading-snug">{q.ask}</p>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {q.choices.map((c) => (
+          <button
+            key={c}
+            type="button"
+            data-queue-answer={c}
+            className="tactile rounded-sm border px-2 py-1 text-[11px]"
+            style={{ borderColor: "oklch(0.46 0.157 18 / 0.7)", background: "oklch(0.2 0.03 18)", color: "oklch(0.92 0.02 18)" }}
+            onClick={() => answer(c)}
+          >
+            {c}
+          </button>
+        ))}
+        <button
+          type="button"
+          data-queue-answer=""
+          className="tactile rounded-sm px-2 py-1 text-[10px]"
+          style={{ color: "oklch(0.72 0.106 18)" }}
+          onClick={() => answer("")}
+        >
+          make it anyway
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -111,11 +176,12 @@ export function ProcessCounter() {
   const busy = pending.length > 0;
 
   const now = pending.find((j) => j.status === "running");
+  const asking = askingJob(queue);
   // Red is everything not finished, which is the waiting, the running and
   // the ones that were given up on. Green is what landed.
   const open = pending.length + failed;
   const told = busy
-    ? `Finish · ${pending.length} drawing${pending.length === 1 ? "" : "s"} to make real${now?.step ? ` · ${now.step}` : ""}${done ? ` · ${done} done` : ""}`
+    ? `Finish · ${pending.length} drawing${pending.length === 1 ? "" : "s"} to make real${asking ? " · one has a question for you" : now?.step ? ` · ${now.step}` : ""}${done ? ` · ${done} done` : ""}`
     : done || failed
       ? `Finish · ${done} made real${failed ? `, ${failed} that could not be read` : ""}`
       : mode === "book"
@@ -206,6 +272,7 @@ export function QueueList() {
             style={{
               background:
                 j.status === "running" ? "oklch(0.7 0.22 300)"
+                  : j.status === "asking" ? "oklch(0.75 0.16 60)"
                   : j.status === "waiting" ? "oklch(0.5 0.12 300)"
                     : j.status === "done" ? "oklch(0.72 0.22 148)"
                       : "oklch(0.62 0.2 25)",
@@ -213,7 +280,7 @@ export function QueueList() {
           />
           <span className="min-w-0 flex-1 text-fg-muted">
             <span className="text-fg">{j.label}</span>
-            {j.step ? `, ${j.step}` : j.note ? `, ${j.note}` : j.status === "waiting" ? ", waiting" : ""}
+            {j.status === "asking" && j.question ? `, asking: ${j.question.ask}` : j.step ? `, ${j.step}` : j.note ? `, ${j.note}` : j.status === "waiting" ? ", waiting" : ""}
           </span>
         </li>
       ))}
