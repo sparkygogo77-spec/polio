@@ -73,6 +73,14 @@ export interface RefineInput {
    * ground out.
    */
   clipped?: boolean;
+  /**
+   * Did the person explicitly ask for the real thing?
+   *
+   * Grounding — the model looking the words up on the web and fetching
+   * image references — is off unless this is set or the step is recreate.
+   * Only a model that declares the flags is sent them (`imageRoute.ts`).
+   */
+  grounded?: boolean;
   w: number;
   h: number;
 }
@@ -130,6 +138,10 @@ interface Answer {
   name?: string;
   ms?: number;
   cost?: number | null;
+  /** Was the model told to look things up? Said on the card, because it costs more. */
+  grounded?: boolean;
+  /** The token count the model's log reported, when it did: the number its price is set by. */
+  tokens?: number;
   message?: string;
   reason?: string;
 }
@@ -159,6 +171,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
         ground: !!input.ground,
         said: input.said ?? "",
         clipped: !!input.clipped,
+        grounded: !!input.grounded,
         w: input.w,
         h: input.h,
         ...(house ? { example: house } : {}),
@@ -282,7 +295,13 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
     name: answer.name,
     ms: meter.ms,
     cost: meter.dollars,
-    line: `second pass · ${sayPass(answer.name ?? answer.model ?? "the refiner", meter)}`,
+    line: [
+      `second pass · ${sayPass(answer.name ?? answer.model ?? "the refiner", meter)}`,
+      // Alongside the cost, from the log: what it took, and whether it was
+      // told to look things up, which is what makes it take more.
+      ...(typeof answer.tokens === "number" ? [`${answer.tokens.toLocaleString("en-GB")} tokens`] : []),
+      ...(answer.grounded ? ["grounded"] : []),
+    ].join(" · "),
     // Its own line, because it is its own call and its own charge — and
     // because a person looking at a mark with a clean edge is entitled to
     // know whether that edge was drawn, rendered or guessed at.

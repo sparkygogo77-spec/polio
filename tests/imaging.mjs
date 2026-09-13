@@ -24,6 +24,7 @@ import {
   MAKINGS,
   MODELS,
   STEPS,
+  groundingFor,
   inputFor,
   isSolid,
   makingOf,
@@ -132,8 +133,11 @@ for (const m of MODELS) {
      */
     for (const k of kinds) {
       if (needsAlpha(k) && m.alpha === false && step !== "alpha") {
-        check(`${m.slug}: claims ${k} without alpha, so it is only reachable on a part cut to a drawn line`,
-          route({ making: k, step, fromImage: step === "refine", clipped: false }).model?.slug !== m.slug);
+        // …or, where nothing alpha-capable serves the cell at all, reachable
+        // only with the ground cut out after — the third answer, said so.
+        const r = route({ making: k, step, fromImage: step !== "first", clipped: false });
+        check(`${m.slug}: claims ${k} without alpha, so it is only reachable on a part cut to a drawn line, or with the ground cut out after`,
+          r.model?.slug !== m.slug || r.cutAfter === true);
       }
     }
   }
@@ -307,6 +311,56 @@ check("an ordinary raster body is a picture", makingOf({ kind: "raster", role: "
 check("real text in it beats everything else", makingOf({ role: "icon", hasText: true }) === "type");
 check("only a mark needs a transparent ground — a surface is the ground",
   needsAlpha("icon") && !needsAlpha("surface") && !needsAlpha("picture") && !needsAlpha("type"));
+
+/* ------------------------------------------------------------------ */
+/* 4b. Grounding: a capability and a per-call choice, off by default   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * From J's own run of nano-banana-2: two flags, `google_search` and
+ * `image_search`. The table declares them by name on the one model that has
+ * them, the route passes them on every call to that model, and they are off
+ * unless the step is recreate or the person explicitly asked.
+ */
+check("the recreate step exists, for the create space's second phase", STEPS.includes("recreate"));
+check("nano-banana-2 declares both grounding flags by their schema names", (() => {
+  const g = model("google/nano-banana-2").grounding;
+  return !!g && g.web === "google_search" && g.images === "image_search";
+})());
+check("and it is the only row that does", MODELS.filter((m) => m.grounding).map((m) => m.slug).join() === "google/nano-banana-2");
+check("it alone serves the recreate step", MODELS.filter((m) => (m.serves.recreate ?? []).length).map((m) => m.slug).join() === "google/nano-banana-2");
+check("off by default — and sent as off, not left out", (() => {
+  const got = inputFor(model("google/nano-banana-2"), { prompt: "a gull", w: 1, h: 1, step: "refine" });
+  return got.google_search === false && got.image_search === false;
+})(), JSON.stringify(groundingFor(model("google/nano-banana-2"), { step: "refine" })));
+check("on for the recreate step", (() => {
+  const got = inputFor(model("google/nano-banana-2"), { prompt: "a gull", w: 1, h: 1, step: "recreate" });
+  return got.google_search === true && got.image_search === true;
+})());
+check("on when the person explicitly asked for the real thing, at any step", (() => {
+  const got = inputFor(model("google/nano-banana-2"), { prompt: "a gull", w: 1, h: 1, step: "first", grounded: true });
+  return got.google_search === true && got.image_search === true;
+})());
+check("a model without the flags is never sent them, asked or not", (() => {
+  const got = inputFor(model("openai/gpt-image-2"), { prompt: "a gull", w: 1, h: 1, step: "recreate", grounded: true });
+  return !("google_search" in got) && !("image_search" in got) && Object.keys(groundingFor(model("openai/gpt-image-2"), { step: "recreate" })).length === 0;
+})());
+check("the recreate words ask for the real thing from the world, in the drawing's framing", (() => {
+  const w = wordsFor({ step: "recreate", making: "picture", said: "a gull" });
+  return /real a gull/.test(w) && /look it up rather than invent it/.test(w) && /composition and framing/.test(w);
+})());
+check("the API reads the step and the explicit ask, and reports what was decided", (() => {
+  const api = readFileSync("src/app/api/studio/image/route.ts", "utf8");
+  return /step\?: "refine" \| "recreate";/.test(api) && /grounded\?: boolean;/.test(api)
+    && /const grounded = step === "recreate" \|\| !!body\.grounded;/.test(api)
+    && /grounded: grounded && !!pick\.grounding,/.test(api);
+})());
+check("…and the token count off the log, alongside the cost, when the log says", (() => {
+  const api = readFileSync("src/app/api/studio/image/route.ts", "utf8");
+  const run = readFileSync("src/features/studio/refineRun.ts", "utf8");
+  return /export function tokensOf\(logs: unknown\)/.test(api) && /tokensOf\(\(done as \{ logs\?: unknown \}\)\.logs\)/.test(api)
+    && /tokens`\]/.test(run) && /\["grounded"\]/.test(run);
+})());
 
 /* ------------------------------------------------------------------ */
 /* 5. The box is built from the row and nothing else                   */
