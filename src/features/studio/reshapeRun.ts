@@ -574,6 +574,13 @@ function secondPass(
     // What was said, for deciding what is being made. A drawing that asked
     // for something you can turn is a solid, and nothing else is.
     said: [node.prompt, drawn.words].filter(Boolean).join(" ").trim(),
+    /*
+     * The part is cut to the line it was drawn as, so the picture behind it
+     * never shows and nothing has to be asked for a transparent ground.
+     * That is the first and best of the three answers to alpha, and saying
+     * so lets the best model for the picture take the job.
+     */
+    clipped: !!node.outline,
     role,
     kind: code.kind,
     w: node.w,
@@ -582,6 +589,7 @@ function secondPass(
   }, { onStep: deps.onStep })
     .then((r) => {
       useStudio.getState().notePass(r.line, on);
+      if (r.cut) useStudio.getState().notePass(r.cut, on);
       if (r.ok) {
         useStudio.getState().noteSpend({
           dollars: r.cost ?? 0,
