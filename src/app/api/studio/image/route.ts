@@ -146,6 +146,11 @@ interface Body {
    * this is set. Only a model that declares the fields is sent them.
    */
   grounded?: boolean;
+  /**
+   * Whether the ground comes off, when the node's plan has said. Unsaid,
+   * decided here from what is being made and whether the part is clipped.
+   */
+  alpha?: boolean;
   /** Is the part the ground rather than a thing on it? A ground wants no alpha and a wide frame. */
   ground?: boolean;
   /**
@@ -343,7 +348,7 @@ async function refine(body: Body, token: string) {
   const making = makingOf({ kind: body.kind, role: body.role ?? null, hasText: !!body.hasText, ground: !!body.ground, said: body.said, w, h });
   // Wanted, and then asked for only if the render can supply it. What the
   // render cannot supply and the drawn line does not cover is cut out after.
-  const wantsAlpha = needsAlpha(making) && !body.clipped;
+  const wantsAlpha = typeof body.alpha === "boolean" ? body.alpha : needsAlpha(making) && !body.clipped;
   /*
    * A solid is made rather than refined: there is no earlier solid to
    * improve on, and the drawing is the input either way. So it asks the

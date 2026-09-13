@@ -34,6 +34,8 @@ import { nearlyCoded, pickCoded } from "./coded";
 import { kindOfSketch } from "./shapeKind";
 import { roleFromWords } from "./vector";
 import { claudeSpend, sayBill, sayPass } from "./spend";
+import { tidySteps } from "./space";
+import type { Step } from "./imageRoute";
 
 /** A data URL down to its bytes, which is all the second pass takes. */
 const bare = (dataUrl: string | null | undefined): string | null => {
@@ -66,6 +68,26 @@ export interface RunResult {
   ok: boolean;
   madeId?: string;
   note: string;
+}
+
+/**
+ * What the node's plan says, read once per job.
+ *
+ * The create space writes `plan` on a node — the model and the ordered
+ * steps — and this run reads it. `steps` is null when nobody has said, and
+ * then the run does what it always did. A step left out is a step not
+ * taken; the model is preferred wherever a model is picked, and the route
+ * says on the card when it could not be.
+ */
+interface Planned {
+  steps: Step[] | null;
+  model: string | null;
+}
+
+function planOf(node: StudioNode | null): Planned {
+  const p = node?.plan;
+  const steps = p?.steps?.length ? tidySteps(p.steps) : [];
+  return { steps: steps.length ? steps : null, model: p?.model ?? null };
 }
 
 /**
@@ -192,6 +214,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
   const node = job.nodeId ? s.nodes.find((n) => n.id === job.nodeId) ?? null : null;
   const feature = node ? getFeature(node.featureId) : null;
   const { frameWidth } = job;
+  const plan = planOf(node);
 
   try {
     /*
@@ -244,6 +267,41 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         toast: true,
       });
       return { ok: true, madeId: made.id, note: did };
+    }
+
+    /*
+     * As planned: not read.
+     *
+     * A node whose plan leaves the reading out is not sent up to be read.
+     * The drawing still shapes the part and the shape still says what it
+     * does — both are measured off the strokes — and the work goes on to
+     * whichever steps the plan kept. Said on the card as a decision, not as
+     * a failure.
+     */
+    if (plan.steps && !plan.steps.includes("read")) {
+      const made = applyProportion(drawn, node, job);
+      const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
+      const landed = useStudio.getState().landThread({
+        mode: "drawing",
+        state: "running",
+        ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
+        answer: [role.did, "not read: the plan left the reading out"].filter(Boolean).join(", "),
+        sketch: { strokes: drawn.strokes as [number, number][][], words: drawn.words },
+        changes: [`${node ? "reshaped" : "drew"} ${made.label} at ${made.w} × ${made.h}`, `as planned: ${plan.steps.join(" › ")}`],
+      });
+      useStudio.getState().noteMade(landed, made.id);
+      deps.publish({
+        key: `studio:reshape:${made.id}`,
+        title: `${node ? "Reshaped" : "Drew"} ${made.label} as planned`,
+        body: `Not read: the plan goes ${plan.steps.join(" › ")}.`,
+        level: "info",
+        source: "studio",
+        toast: true,
+      });
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan) : "";
+      useStudio.getState().markThread(landed, "done");
+      billToast(landed, deps, `studio:reshape:${made.id}`);
+      return { ok: true, madeId: made.id, note: [role.did, bodied].filter(Boolean).join(" · ") };
     }
 
     deps.onStep?.("Claude is reading the drawing…");
@@ -344,7 +402,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       // The shape said what the part looks like; it also said what it does.
       // The clip is already on, and this adds behaviour on top of it.
       const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
-      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan) : "";
       useStudio.getState().markThread(landed, "done");
       /*
        * What it cost, said where the person is looking.
@@ -391,7 +449,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // The body does not need a reader either. Tracing the drawing is
     // Claude-free from end to end, so a locked vault costs the description
     // and nothing else.
-    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps) : "";
+    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan) : "";
     // The reader was missing, not the work: the shape, the behaviour and
     // the traced body all landed, so this iteration finished.
     useStudio.getState().markThread(landed, "done");
@@ -453,10 +511,26 @@ function billToast(threadId: string, deps: RunDeps, key: string) {
  * is, and a heading that quietly became a hand-written SVG would be a part
  * nobody could edit again.
  */
-async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<string> {
+async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Planned = { steps: null, model: null }): Promise<string> {
   const s = useStudio.getState();
   const node = s.nodes.find((n) => n.id === nodeId);
   if (!node || node.featureId !== "custom-idea") return "";
+  /*
+   * As planned: no first pass.
+   *
+   * A plan that leaves the first pass out goes straight to the later ones,
+   * and what they start from is the drawing itself — its own picture, in
+   * place of the photograph of a traced body. Nothing is traced and nothing
+   * is written; the card says so.
+   */
+  if (plan.steps && !plan.steps.includes("first")) {
+    useStudio.getState().notePass("first pass · left out by the plan");
+    const role = roleFromWords([node.prompt, drawn.words].filter(Boolean).join(" "));
+    if (role) useStudio.getState().updateNode(nodeId, { role });
+    const code: PartCode = node.code ?? { html: "", overlap: 0, attempts: 0, at: Date.now(), source: "renderer", kind: "vectorize" };
+    laterPasses(nodeId, node, drawn, code, bare(pictureOf(drawn.strokes)), role, deps, plan);
+    return "no first pass, as planned";
+  }
   const palette = s.look?.palette as Record<string, string> | undefined;
   // The drawing is traced, not described. No model that writes is asked
   // what the line meant, because the line is right there.
@@ -525,12 +599,22 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
   useStudio.getState().notePass(
     `first pass · ${sayPass(written.code.source === "renderer" ? `traced, ${written.code.kind ?? ""}`.trim() : "written", { ms: written.ms ?? 0, dollars: written.cost })}`,
   );
-  secondPass(nodeId, node, drawn, written.code, written.attempts, role, deps);
+  /*
+   * The picture of what the first pass actually put on the board.
+   *
+   * Already taken: the loop photographs every go to score it, so the
+   * winning shot is the first pass's own render and costs nothing to reuse.
+   * Without one there is nothing to refine and the later passes do not run
+   * — quietly, because a part with no photograph is a part the server
+   * could not render, which the first pass has already said on the card.
+   */
+  const kept = written.attempts.reduce<Attempt | null>((a, b) => (!a || b.overlap > a.overlap ? b : a), null);
+  laterPasses(nodeId, node, drawn, written.code, bare(kept?.shot), role, deps, plan);
   return [written.message, role ? `used as ${role}` : written.vector ? "no role chosen yet" : ""].filter(Boolean).join(" · ");
 }
 
 /**
- * Fire the second pass and walk away.
+ * Fire the later passes and walk away.
  *
  * Deliberately not awaited: the part is on the board and the person is
  * looking at it, and holding the job open for a large image model would
@@ -538,56 +622,69 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps): Promise<st
  * body and writes its own line on the card — on *this* iteration, named
  * now, because by the time it lands a different one may be live.
  *
- * Every road out of it is a line on the card. A second pass that did not
- * run is never silent: the person is looking at something that was meant to
- * be replaced.
+ * Which later steps, in what order: the plan's, when there is one, and the
+ * one refine there always was when there is not. Refine and recreate run
+ * one after the other in the order the plan gives them, each starting from
+ * what the one before it made; alpha is whether the ground comes off after
+ * the last of them; the plan's model is preferred at each. Read and first
+ * come before all of these by the shape of the pipeline — there is nothing
+ * to refine before something has been drawn — whatever position the plan
+ * wrote them at.
+ *
+ * Every road out of it is a line on the card. A pass that did not run is
+ * never silent: the person is looking at something that was meant to be
+ * replaced.
  */
-function secondPass(
+function laterPasses(
   nodeId: string,
   node: StudioNode,
   drawn: Sketch,
   code: PartCode,
-  attempts: Attempt[],
+  first: string | null,
   role: string | null,
   deps: RunDeps,
+  plan: Planned,
 ) {
-  /*
-   * The picture of what the first pass actually put on the board.
-   *
-   * Already taken: the loop photographs every go to score it, so the
-   * winning shot is the first pass's own render and costs nothing to reuse.
-   * Without one there is nothing to refine and the second pass does not
-   * run — quietly, because a part with no photograph is a part the server
-   * could not render, which the first pass has already said on the card.
-   */
-  const kept = attempts.reduce<Attempt | null>((a, b) => (!a || b.overlap > a.overlap ? b : a), null);
-  const first = bare(kept?.shot);
   if (!first) return;
   const on = useStudio.getState().liveThreadId ?? undefined;
+  const stages = plan.steps
+    ? plan.steps.filter((st): st is "refine" | "recreate" => st === "refine" || st === "recreate")
+    : (["refine"] as const);
+  if (!stages.length) {
+    useStudio.getState().notePass("second pass · left out by the plan", on);
+    return;
+  }
+  const alpha = plan.steps ? plan.steps.includes("alpha") : undefined;
   const { mask, mode } = targetFor(node.outline ?? null, drawn.strokes);
-  void refinePart({
-    nodeId,
-    code,
-    first,
-    label: node.label,
-    prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim(),
-    // What was said, for deciding what is being made. A drawing that asked
-    // for something you can turn is a solid, and nothing else is.
-    said: [node.prompt, drawn.words].filter(Boolean).join(" ").trim(),
-    /*
-     * The part is cut to the line it was drawn as, so the picture behind it
-     * never shows and nothing has to be asked for a transparent ground.
-     * That is the first and best of the three answers to alpha, and saying
-     * so lets the best model for the picture take the job.
-     */
-    clipped: !!node.outline,
-    role,
-    kind: code.kind,
-    w: node.w,
-    h: node.h,
-    score: { target: mask, mode, clip: node.outline?.cut ?? "" },
-  }, { onStep: deps.onStep })
-    .then((r) => {
+  void (async () => {
+    let picture = first;
+    let base = code;
+    for (const step of stages) {
+      const r = await refinePart({
+        nodeId,
+        code: base,
+        first: picture,
+        step,
+        prefer: plan.model ?? undefined,
+        alpha,
+        label: node.label,
+        prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim(),
+        // What was said, for deciding what is being made. A drawing that
+        // asked for something you can turn is a solid, and nothing else is.
+        said: [node.prompt, drawn.words].filter(Boolean).join(" ").trim(),
+        /*
+         * The part is cut to the line it was drawn as, so the picture behind
+         * it never shows and nothing has to be asked for a transparent
+         * ground. That is the first and best of the three answers to alpha,
+         * and saying so lets the best model for the picture take the job.
+         */
+        clipped: !!node.outline,
+        role,
+        kind: code.kind,
+        w: node.w,
+        h: node.h,
+        score: { target: mask, mode, clip: node.outline?.cut ?? "" },
+      }, { onStep: deps.onStep });
       useStudio.getState().notePass(r.line, on);
       if (r.cut) useStudio.getState().notePass(r.cut, on);
       if (r.ok) {
@@ -600,17 +697,21 @@ function secondPass(
       }
       deps.publish({
         key: `refine:${nodeId}`,
-        title: r.ok ? "The better pass landed" : "The better pass did not run",
+        title: r.ok ? (step === "recreate" ? "The real thing landed" : "The better pass landed") : `The ${step === "recreate" ? "recreate" : "better pass"} did not run`,
         body: r.line,
         level: r.ok ? "info" : "warn",
         source: "studio",
         toast: true,
       });
-    })
-    .catch(() => {
-      // A thrown second pass is still a second pass that did not run.
-      useStudio.getState().notePass("second pass · did not run: it failed on the way out", on);
-    });
+      // The next step starts from what this one made, and writes over it.
+      if (!r.ok) return;
+      if (r.image) picture = r.image;
+      base = useStudio.getState().nodes.find((n) => n.id === nodeId)?.code ?? base;
+    }
+  })().catch(() => {
+    // A thrown pass is still a pass that did not run.
+    useStudio.getState().notePass("second pass · did not run: it failed on the way out", on);
+  });
 }
 
 /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */

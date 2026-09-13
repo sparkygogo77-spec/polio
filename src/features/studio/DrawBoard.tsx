@@ -42,7 +42,7 @@ import { CONSOLE, HoverTray } from "./RingConsole";
 import { DRIFT_MS as GROUND_MS } from "./darkMatter";
 import { useGround } from "./ground";
 import { HALO, paintBlackHole, paintHorizonShadow } from "./blackHole";
-import { describeSketch, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { describeSketch, discLanding, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
 import { pictureOf } from "./reshapeRun";
 import { useStudio, type StudioNode } from "./store";
 
@@ -212,12 +212,16 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
     const drawn = sketch();
     play("confirm");
     const label = (drawn.words.trim().slice(0, 40) || (node ? node.label : describeSketch({ strokes: drawn.strokes, words: "" }))) || "a drawing";
+    // The size and the place it was drawn at, off the disc's own pixels and
+    // the zoom (`discLanding`): a mark drawn small lands small, where it sat.
+    const landing = discLanding(drawn.strokes, at, size, useStudio.getState().zoom || 1);
     useStudio.getState().enqueueDraw({
       nodeId: node?.id ?? null,
-      at,
+      at: landing.at,
       frameWidth,
       sketch: drawn,
       picture: pictureOf(drawn.strokes),
+      ...(landing.drawn ? { drawn: landing.drawn } : {}),
       label: node ? `Reshaping ${label}` : `Making ${label}`,
     });
     // The drawing is on the part the moment it is queued, so nothing is lost

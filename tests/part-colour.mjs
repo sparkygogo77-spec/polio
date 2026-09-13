@@ -86,10 +86,10 @@ check("the roles a frame declares are the four", (() => {
 /* ------------------------------------------------------------------ */
 
 const blocks = readFileSync("src/features/studio/blocks.tsx", "utf8");
-check("the board paints the body it renders", /frameDoc\(paintRoles\(node\.code!\.html\)/.test(blocks));
+check("the board paints the body it renders", /frameDoc\(paintRoles\(node\.code!\.html, \{ prefer: own \}\)/.test(blocks));
 check("and declares the roles from the theme", /roles: roleVars\(/.test(blocks));
-check("so it repaints when the palette changes rather than only at creation",
-  /\[node\.code, t\.text, t\.bodyFamily, t\.bg, t\.accent, t\.muted\]/.test(blocks));
+check("so it repaints when the palette changes rather than only at creation — and when the part's own colours do",
+  /\[node\.code, own, t\.text, t\.bodyFamily, t\.bg, t\.accent, t\.muted\]/.test(blocks));
 
 const snippet = readFileSync("src/features/studio/snippet.ts", "utf8");
 check("the frame has somewhere to put them", /:root \{ \$\{opts\.roles \?\? ""\} \}/.test(snippet));

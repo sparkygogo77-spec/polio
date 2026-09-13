@@ -146,13 +146,24 @@ function CodedBody({ node, t, mode, size }: { node: StudioNode; t: Theme; mode: 
    * the palette changes, not only at the moment it was made. What is stored
    * is untouched; this is a reading of it.
    */
+  /*
+   * Which of its own colours the part has set, the one a person means by
+   * "the colour" first: a one-ink body follows the first of these
+   * (`paintRoles`), so a drawn line answers the wheel whichever slab was
+   * turned, and reads as before when none was. Never the ground: a line
+   * that took its own background's colour would vanish into it.
+   */
+  const own = React.useMemo(
+    () => (["accent", "text", "muted"] as const).filter((r) => !!node.colour?.[r]),
+    [node.colour],
+  );
   const doc = React.useMemo(
-    () => frameDoc(paintRoles(node.code!.html), {
+    () => frameDoc(paintRoles(node.code!.html, { prefer: own }), {
       colour: t.text,
       font: t.bodyFamily,
       roles: roleVars({ bg: t.bg, text: t.text, accent: t.accent, muted: t.muted }),
     }),
-    [node.code, t.text, t.bodyFamily, t.bg, t.accent, t.muted],
+    [node.code, own, t.text, t.bodyFamily, t.bg, t.accent, t.muted],
   );
   return (
     <iframe

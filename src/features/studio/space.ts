@@ -244,7 +244,9 @@ export interface Reading {
  * Reading is always first: a drawing has to be read before anything draws.
  */
 export function defaultSteps(making: Making, clipped: boolean): Step[] {
-  return STEPS.filter((st) => st !== "alpha" || (needsAlpha(making) && !clipped));
+  // Recreate — the grounded step, the real thing from the world — is never a
+  // default: it is taken when a person puts it in the order, and not before.
+  return STEPS.filter((st) => st !== "recreate" && (st !== "alpha" || (needsAlpha(making) && !clipped)));
 }
 
 /** Only steps the route knows, once each, in the order given. */
@@ -304,11 +306,6 @@ export const STEP_MEANS: Record<Step, string> = {
   read: "Read the drawing",
   first: "First pass",
   refine: "Refine it",
-  /* Declared on the image route for this space to run in its second phase:
-     the real thing the drawing stands for, from the world rather than from
-     the model's idea of it. This table is the panel's sentence for it, and
-     it is here now because a step with no name here is a step the panel
-     cannot say out loud. */
-  recreate: "Make the real thing it stands for",
+  recreate: "Recreate the real thing",
   alpha: "Take the ground off",
 };

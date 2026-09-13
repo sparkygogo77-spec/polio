@@ -55,17 +55,22 @@ export function GithubButton() {
   /* The site's own repository first, then the server's, then whatever
      `site.config.ts` says. The first is the one a publish actually uses. */
   const mine = project?.repo ? `${project.repo.owner}/${project.repo.name}` : null;
-  const name = mine ?? status?.github.repo ?? null;
+  /* Through `github`, not into it. `status?.github.repo` guards the reply and
+     not the field inside it, which is a crash for any answer that is an
+     object without a `github` on it. `publishStatus` will not hand one over
+     any more, but a control in the top bar is the wrong place to find out
+     that something upstream was wrong about that. */
+  const name = mine ?? status?.github?.repo ?? null;
   const url = name ? `https://github.com/${name}` : (site.repository ?? null);
-  const canPush = !!status?.github.configured;
-  const where = status?.github.token;
+  const canPush = status?.github?.configured === true;
+  const where = status?.github?.token ?? null;
 
   const label = !canPush
     ? name
       ? `${name} — no GitHub token, so Publish cannot push. Put one in the Keys panel, or set GITHUB_TOKEN on the server.`
       : "No GitHub token yet. Put one in the Keys panel and the first Publish makes this site a repository of its own."
     : name
-      ? `${name} · ${project?.repo?.branch ?? status?.github.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
+      ? `${name} · ${project?.repo?.branch ?? status?.github?.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
       : `The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
 
   /* Nothing to open and nothing yet to describe: before a site is published

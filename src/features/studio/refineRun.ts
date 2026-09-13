@@ -81,6 +81,21 @@ export interface RefineInput {
    * Only a model that declares the flags is sent them (`imageRoute.ts`).
    */
   grounded?: boolean;
+  /**
+   * Which stage-two step this is. `recreate` is the grounded one — the
+   * real thing the drawing stands for, from the world. Refine when unsaid.
+   */
+  step?: "refine" | "recreate";
+  /**
+   * The model the node's plan named, if it named one. Honoured by the route
+   * when that model serves the job, and said on the card when it is not.
+   */
+  prefer?: string;
+  /**
+   * Whether the ground comes off after, when the plan has said. Unsaid, the
+   * route decides from what is being made and whether the part is clipped.
+   */
+  alpha?: boolean;
   w: number;
   h: number;
 }
@@ -99,6 +114,8 @@ export interface RefineResult {
   /** Null is a real answer: the prediction reported no cost and none is shown. */
   cost?: number | null;
   reason?: string;
+  /** What came back, as bare base64, so a later step can start from it. */
+  image?: string;
 }
 
 /** A data URL down to its bytes, which is all the route takes. */
@@ -153,7 +170,8 @@ interface Answer {
  * there is something better to put on it.
  */
 export async function refinePart(input: RefineInput, deps: { onStep?: (s: string) => void } = {}): Promise<RefineResult> {
-  deps.onStep?.("Refining the drawing…");
+  const pass = input.step === "recreate" ? "recreated" : "second pass";
+  deps.onStep?.(input.step === "recreate" ? "Recreating the real thing…" : "Refining the drawing…");
   const from = Date.now();
   let answer: Answer;
   try {
@@ -172,6 +190,11 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
         said: input.said ?? "",
         clipped: !!input.clipped,
         grounded: !!input.grounded,
+        // The plan's say, when it has one: which step, which model, and
+        // whether the ground comes off. Left out, the route decides.
+        step: input.step ?? "refine",
+        ...(input.prefer ? { model: input.prefer } : {}),
+        ...(typeof input.alpha === "boolean" ? { alpha: input.alpha } : {}),
         w: input.w,
         h: input.h,
         ...(house ? { example: house } : {}),
@@ -180,7 +203,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
     answer = (await res.json()) as Answer;
   } catch (error) {
     const why = error instanceof Error ? error.message : "the call did not complete";
-    return { ok: false, reason: "network", line: `second pass · did not run: ${why}` };
+    return { ok: false, reason: "network", line: `${pass} · did not run: ${why}` };
   }
 
   const meter: Metered = { ms: answer.ms ?? Date.now() - from, dollars: answer.cost ?? null };
@@ -195,7 +218,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
       name: answer.name,
       ms: meter.ms,
       cost: meter.dollars,
-      line: `second pass · ${answer.message ?? "did not run"}`,
+      line: `${pass} · ${answer.message ?? "did not run"}`,
     };
   }
 
@@ -295,8 +318,9 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
     name: answer.name,
     ms: meter.ms,
     cost: meter.dollars,
+    ...(after ? { image: after } : {}),
     line: [
-      `second pass · ${sayPass(answer.name ?? answer.model ?? "the refiner", meter)}`,
+      `${pass} · ${sayPass(answer.name ?? answer.model ?? "the refiner", meter)}`,
       // Alongside the cost, from the log: what it took, and whether it was
       // told to look things up, which is what makes it take more.
       ...(typeof answer.tokens === "number" ? [`${answer.tokens.toLocaleString("en-GB")} tokens`] : []),

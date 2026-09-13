@@ -122,12 +122,26 @@ export function rolesFor(inks: Ink[]): Map<string, PaintRole> {
  * body with no colours at all comes back unchanged, and a frame that supplies
  * no roles renders exactly what the renderer drew.
  */
-export function paintRoles(html: string): string {
+export function paintRoles(html: string, opts: { prefer?: readonly PaintRole[] } = {}): string {
   if (!html) return html;
   // Painting twice would nest a role inside its own fallback, so anything
   // already painted is taken back to the colour it fell back to first.
   const plain = unpaint(html);
-  const roles = rolesFor(inksOf(plain));
+  const inks = inksOf(plain);
+  const roles = rolesFor(inks);
+  /*
+   * A body with one colour in it follows whichever colour the person set.
+   *
+   * A traced drawing is one ink — the line, in near-black — and the reading
+   * above calls near-black "text", which is right for a body with several
+   * colours and wrong for a diagonal: a person who picks up a drawn line
+   * and turns its colour to red means the line, and "the colour" on the
+   * wheel is the accent, so the line went on ignoring them. When there is
+   * only one ink there is nothing else it could be but the colour of the
+   * thing, so it takes the first role the person has actually set on this
+   * part, and reads as before when they have set none.
+   */
+  if (inks.length === 1 && opts.prefer?.length) roles.set(inks[0]!.raw.toLowerCase(), opts.prefer[0]!);
   if (!roles.size) return plain;
   return plain.replace(COLOUR, (raw) => {
     const role = roles.get(raw.toLowerCase());

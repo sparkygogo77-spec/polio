@@ -350,6 +350,34 @@ function fillShare(pts: SketchPoint[]): number {
 }
 
 /**
+ * Where a drawing made on the disc lands, and how big.
+ *
+ * The strokes are fractions of the disc, and the disc is a known number of
+ * screen pixels across; a screen pixel is a page pixel over the zoom
+ * (`pageSpot` does the same sum the other way). So a mark drawn eighty
+ * pixels wide on the disc lands eighty pixels wide on the page, where it
+ * sat on the disc relative to where the disc was opened — not as a band
+ * across the whole page, which is what a drawing with no size became once
+ * the strokes were fractions of their own box. `at` is where the disc was
+ * opened, in page pixels; null when the disc is reshaping a part that
+ * already has a place.
+ */
+export function discLanding(
+  strokes: SketchPoint[][],
+  at: { x: number; y: number } | null,
+  discPx: number,
+  zoom: number,
+): { drawn: { w: number; h: number } | null; at: { x: number; y: number } | null } {
+  const box = sketchBox(strokes);
+  const unit = discPx / Math.max(0.01, zoom || 1);
+  if (!box || box.w <= 0 || box.h <= 0) return { drawn: null, at };
+  return {
+    drawn: { w: Math.max(1, Math.round(box.w * unit)), h: Math.max(1, Math.round(box.h * unit)) },
+    at: at ? { x: at.x + (box.x + box.w / 2 - 0.5) * unit, y: at.y + (box.y + box.h / 2 - 0.5) * unit } : at,
+  };
+}
+
+/**
  * The part's exact edge, in its own box, or nothing when the drawing says
  * no more than "a box this shape".
  */
@@ -373,7 +401,13 @@ export function outlinePath(sketch: Sketch): OutlineClip | null {
     if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) < CLIP_GAP) continue;
     kept.push([Math.max(0, Math.min(1, p[0])), Math.max(0, Math.min(1, p[1]))]);
   }
-  if (kept.length < 3) return null;
+  /*
+   * A closed line needs three points to enclose anything. An open one needs
+   * two: a straight diagonal snapped to its ends *is* two points, and asking
+   * three of it is why a drawn diagonal had no outline — and so a square
+   * selection with a lot of empty corners, and an aura that glowed the box.
+   */
+  if (kept.length < (open ? 2 : 3)) return null;
   // Thinned to something a browser can cut with and a person can read.
   while (kept.length > CLIP_MAX) {
     for (let i = kept.length - 2; i > 0; i -= 2) kept.splice(i, 1);

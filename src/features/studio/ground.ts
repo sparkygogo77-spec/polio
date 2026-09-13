@@ -115,6 +115,13 @@ export interface GroundOpts {
   dim?: number;
   /** A wall, or a round hole. A disc is clipped and wears a horizon. */
   shape?: Shape;
+  /**
+   * A hole of any shape: a CSS `clip-path` value in the host's own pixels,
+   * for a space drawn on the page (`space.ts`). The clouds and the embers
+   * are cut to it; the horizon is the space's own to paint, because a
+   * gradient from the middle does not follow a drawn line.
+   */
+  clip?: string;
 }
 
 export function useGround(
@@ -126,6 +133,7 @@ export function useGround(
   const o: GroundOpts = typeof opts === "number" ? { dim: opts } : opts;
   const dim = o.dim ?? 1;
   const shape: Shape = o.shape ?? "ground";
+  const clip = o.clip ?? "";
 
   React.useEffect(() => {
     const box = host.current;
@@ -144,6 +152,8 @@ export function useGround(
       holder.style.borderRadius = "50%";
       holder.style.overflow = "hidden";
     }
+    holder.style.clipPath = clip;
+    sp.style.clipPath = clip;
     const sky = document.createElement("div");
     sky.dataset.groundSky = "";
     sky.style.cssText = `position:absolute;inset:0;background:${skyGradient(dim)};`;
@@ -283,5 +293,5 @@ export function useGround(
       ro.disconnect();
       holder.replaceChildren();
     };
-  }, [host, clouds, spark, dim, shape]);
+  }, [host, clouds, spark, dim, shape, clip]);
 }
