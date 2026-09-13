@@ -70,6 +70,54 @@ export interface Plan {
 /** A closed line has to be at least this big, either way, to be a space. Smaller is a dot. */
 export const MIN_SPACE = 24;
 
+/**
+ * How close two points on a boundary may be before the second is the same
+ * point, in canvas pixels, and how many are kept at the very most.
+ *
+ * A hand drawing one careful loop sends a point on every pointer move for
+ * as long as it is down: a two hundred move loop was kept as two hundred
+ * and one points, because nothing thinned it. A drawn stroke has been
+ * tidied on the way in since the drawing board existed (`tidyStroke`); a
+ * boundary never was, and it is the one that pays for it — every point
+ * lands in a `clip-path: path(…)` string that the compositor re-parses on
+ * every frame while the hole consumes, and in localStorage for ever after.
+ *
+ * The cap is `outlinePath`'s own, for the same reason it has one: past
+ * about a hundred points a drawn line has no shape left to lose.
+ */
+export const BOUNDARY_GAP = 2;
+export const BOUNDARY_POINTS = 96;
+
+/**
+ * A boundary as it is worth keeping: no two points on top of each other,
+ * and no more of them than the line has shape.
+ *
+ * Thinning happens where the space is made rather than where it is drawn,
+ * so every door gets it — the hand, the menu and the wheel alike — and a
+ * space is the same record however it arrived. The ends are always kept:
+ * whether a line is closed is measured from them.
+ */
+export function tidyBoundary(points: SketchPoint[]): SketchPoint[] {
+  if (points.length < 3) return points.map(([x, y]) => [round1(x), round1(y)]);
+  const near: SketchPoint[] = [points[0]!];
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i]!;
+    const last = near[near.length - 1]!;
+    if (Math.hypot(p[0] - last[0], p[1] - last[1]) >= BOUNDARY_GAP) near.push(p);
+  }
+  near.push(points[points.length - 1]!);
+  // Still too many: keep every nth, and both ends.
+  let out = near;
+  if (near.length > BOUNDARY_POINTS) {
+    const step = (near.length - 1) / (BOUNDARY_POINTS - 1);
+    out = Array.from({ length: BOUNDARY_POINTS }, (_, i) => near[Math.round(i * step)]!);
+    out[out.length - 1] = near[near.length - 1]!;
+  }
+  return out.map(([x, y]) => [round1(x), round1(y)]);
+}
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
 /** How long a black hole takes to consume the area inside its boundary. */
 export const CONSUME_MS = 1100;
 
