@@ -2,9 +2,45 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T20:51:10.131Z";
+export const GENERATED_AT = "2026-09-13T21:47:18.995Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "d6cabd1",
+    "when": "2026-09-13T21:46:14+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "d6cabd1",
+        "says": "The audit panel: choose a model, and see everything it takes",
+        "when": "2026-09-13T21:46:14+00:00",
+        "detail": [
+          "What the left panel already had, measured first: four prompt boxes — for the page, a drawing, a group and an element — and nothing at all about what happens to the words after they are typed. Which model the route would take, what it would send it, and what else that model can be told were facts the table knew and no screen said. So there is no fifth prompt box here. The audit sits under the one that is already there.",
+          "Everything is drawn from euler's table. `modelsFor` gives the models that serve this part in the route's own order, the first marked as what would be taken unasked; `ModelOptions` draws one control per field from the field's own `kind`. No model and no field is named in the renderer, and the check for that is not a promise: it takes all 43 field names the table declares and looks for each in the file. It fails on any of them, proved by putting one back. Two words are excused and named in the output — `kind` and the `managed` vocabulary are what the renderer switches on, and one field is called `image`, which no amount of reading text can tell from the `image` kind.",
+          "Against a model the table does not have: an invented row using all eight kinds, with bounds, defaults, an enum and a managed field, goes through the same code and comes out renderable. A panel written around today's seven rows passes every test that only uses today's seven rows.",
+          "Managed fields are shown rather than hidden, wearing what the route chose, and give way. Driven in the browser: 11 controls for GPT Image 2, three of them routed, picking a value on one turns it to \"yours\", the reset hands it back, and choosing the other model redraws 12 — which is the table's own count for GPT Image 1.5."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "bfb00d1",
+        "says": "Regenerate the passes for the construct's face",
+        "when": "2026-09-13T20:51:30+00:00",
+        "detail": [
+          "Euler's pass: the face of a construct is J's own render rather than a likeness of it, with the renders themselves landing under public/construct."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "95068c4",
     "when": "2026-09-13T20:51:09+00:00",
@@ -979,45 +1015,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2197946",
-    "when": "2026-09-13T03:27:52+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "e275b59",
-        "says": "The give-way ladder is checked rung by rung, not just for clipping",
-        "when": "2026-09-13T03:09:40+00:00",
-        "detail": [
-          "The order was already written down — eight rungs, each with the width it goes at — and it turns out to be true. Measured on both sides of every breakpoint, with the pen in hand so the ink hues are out to be counted:",
-          "1. the search's own words   there at 1281, gone at 1279 2. the ink hues             there at 1025, gone at 1023 3. the zoom readout         there at 1025, gone at 1023 4. Fit and Wires            there at 1025, gone at 1023 5. Updates                  there at 1025, gone at 1023 6. the search entirely      there at  769, gone at  767 7. the menu's edge switch   there at  769, gone at  767 8. the site's name          there at  641, gone at  639",
-          "Nothing overflows at any of them, and the ten controls the comment says never go — tool, devices, undo, redo, both zooms, Preview, Finish, the panel toggle, the pages — are there at all eight widths.",
-          "So this commit is the enforcement, not a fix. What the suite checked before was that nothing was cut off, which a bar satisfies by dropping its controls in any order it likes — and the fault that started this was exactly that the wrong ones survived, \"Desktop\", \"Tablet\" and \"Phone\" spelled out while the right-hand controls walked off the edge. Every rung is now read above and below its own breakpoint, and checked not to come back at anything narrower."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "7758598",
-        "says": "One wheel in the shelf, and a correction to what the last commit claimed",
-        "when": "2026-09-13T03:02:02+00:00",
-        "detail": [
-          "The last commit said the parts used to live in a second scroller nested inside the shelf's. They did not. I measured the shelf before and after with the same probe and both have exactly one scrolling element; the earlier reading that looked like two had the side panel's own nested scroller in it, which is a real fault but is not in the shelf. The comment in `Palette.tsx` that repeated the claim is corrected here.",
-          "What was actually wrong is still worth the item. A fixed crumb row with a 173px box of cards scrolling beneath it reads as a box scrolling inside a box, and once a category was open the planets were not on the shelf at all, so scrolling moved the cards and nothing else. A section's header pins with `sticky` now, inside the one scroller, so the planets travel with the parts.",
-          "Two checks, and they do different jobs, which the test says out loud:",
-          "one place in the shelf the wheel does anything — a regression guard. It passes against the old shelf too, because the old shelf also had one. Written down as a guard rather than dressed up as a proof."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
