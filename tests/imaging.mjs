@@ -124,10 +124,16 @@ for (const m of MODELS) {
       check(`${m.slug}: claims refine and can actually take a picture`,
         m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField);
     }
+    /*
+     * A model may claim a mark without being able to leave a ground out:
+     * a part drawn on the board is clipped to the line it was drawn as, and
+     * that clip is the alpha. What must hold is that routing refuses it for
+     * an *unclipped* one — which is checked where routing is checked.
+     */
     for (const k of kinds) {
-      if (needsAlpha(k)) {
-        check(`${m.slug}: claims ${k}, which needs a transparent ground, and can make one`, m.alpha !== false,
-          m.alpha === false ? "it cannot — routing will refuse it" : "");
+      if (needsAlpha(k) && m.alpha === false && step !== "alpha") {
+        check(`${m.slug}: claims ${k} without alpha, so it is only reachable on a part cut to a drawn line`,
+          route({ making: k, step, fromImage: step === "refine", clipped: false }).model?.slug !== m.slug);
       }
     }
   }
@@ -185,12 +191,26 @@ check("…and the reason given is that those models take words only",
   || route({ making: "type", step: "refine", fromImage: true }).why === "nothing-serves");
 check("type at the first step goes to the typography model",
   route({ making: "type", step: "first" }).model?.slug === "prunaai/p-image-ideogram");
-check("a mark goes to a model that can leave the ground out", (() => {
-  const m = route({ making: "icon", step: "refine", fromImage: true }).model;
+check("a mark with no drawn line behind it goes to a model that can leave the ground out", (() => {
+  const m = route({ making: "icon", step: "refine", fromImage: true, clipped: false }).model;
   return !!m && m.alpha !== false;
-})(), `${route({ making: "icon", step: "refine", fromImage: true }).model?.name}`);
-check("a mark goes to the named alpha-first model when it serves the cell",
-  route({ making: "icon", step: "refine", fromImage: true }).model?.slug === ALPHA_FIRST);
+})(), `${route({ making: "icon", step: "refine", fromImage: true, clipped: false }).model?.name}`);
+check("…and it is the named one", route({ making: "icon", step: "refine", fromImage: true, clipped: false }).model?.slug === ALPHA_FIRST);
+/*
+ * The whole point of asking whether the part is clipped: a mark drawn on
+ * the board already has its alpha, so the job can go to whichever model is
+ * best at the *picture* rather than to the only two that can leave a
+ * ground out.
+ */
+check("a mark that is already cut to a drawn line goes to the best model for the picture instead", (() => {
+  const m = route({ making: "icon", step: "refine", fromImage: true, clipped: true }).model;
+  return !!m && m.alpha === false;
+})(), `${route({ making: "icon", step: "refine", fromImage: true, clipped: true }).model?.name}`);
+check("…which is a different model from the one an unclipped mark gets",
+  route({ making: "icon", step: "refine", fromImage: true, clipped: true }).model?.slug
+  !== route({ making: "icon", step: "refine", fromImage: true, clipped: false }).model?.slug);
+check("…and it can be shown the house style, which the alpha models cannot",
+  route({ making: "icon", step: "refine", fromImage: true, clipped: true, example: true, prefer: "bytedance/seedream-5-lite" }).usedExample === true);
 check("a surface goes to the model with the widest frames, and is not asked for alpha it does not need", (() => {
   const r = route({ making: "surface", step: "refine", fromImage: true });
   return r.model?.slug === "google/nano-banana-2";
@@ -205,6 +225,69 @@ check("an example pair is used only by a model that says it can learn from one",
   const withPair = route({ making: "picture", step: "refine", fromImage: true, example: true, prefer: "bytedance/seedream-5-lite" });
   const without = route({ making: "picture", step: "refine", fromImage: true, example: true, prefer: "google/nano-banana-2" });
   return withPair.usedExample === true && without.usedExample === false;
+})());
+
+/* ------------------------------------------------------------------ */
+/* 3b. Cutting the ground out, which is the last of three answers      */
+/* ------------------------------------------------------------------ */
+
+check("something serves the alpha step now", !!route({ making: "icon", step: "alpha", fromImage: true }).model);
+check("and it is a remover rather than something that draws", (() => {
+  const m = route({ making: "icon", step: "alpha", fromImage: true }).model;
+  return !!m?.cut && !m.mesh;
+})());
+check("only the remover claims that step, and it claims nothing else",
+  MODELS.filter((m) => m.serves.alpha).length === 1
+  && MODELS.filter((m) => m.cut).every((m) => Object.keys(m.serves).join() === "alpha"));
+check("it is asked for a soft matte, because the edge of a mark is not a staircase", (() => {
+  const m = route({ making: "icon", step: "alpha", fromImage: true }).model;
+  const got = inputFor(m, { prompt: "ignored", images: ["data:image/png;base64,AA"], w: 100, h: 100 });
+  return got.image === "data:image/png;base64,AA" && got.threshold === 0 && got.format === "png"
+    && got.prompt === undefined && got.aspect_ratio === undefined;
+})(), JSON.stringify(inputFor(route({ making: "icon", step: "alpha", fromImage: true }).model, { prompt: "x", images: ["a"], w: 1, h: 1 })));
+/*
+ * The fallback that makes the step live.
+ *
+ * With the table as it stands the cut is unreachable, and that is the right
+ * outcome rather than dead code: the first two answers cover every cell the
+ * current rows can produce, and a transparent render always beats a cut.
+ * But the table is expected to be replaced — that is why it is a table —
+ * and the cell that matters must not simply empty out when the two models
+ * that can leave a ground out go. So the situation is built here, on the
+ * real routing, by taking alpha away from the rows that have it.
+ */
+check("as the table stands, a transparent render always wins and nothing is cut after", (() => {
+  const r = route({ making: "icon", step: "refine", fromImage: true, clipped: false });
+  return r.model?.alpha !== false && r.cutAfter !== true;
+})(), `${route({ making: "icon", step: "refine", fromImage: true, clipped: false }).model?.name}`);
+
+{
+  const had = MODELS.filter((m) => m.alpha !== false).map((m) => [m, m.alpha]);
+  for (const [m] of had) m.alpha = false;
+  try {
+    const r = route({ making: "icon", step: "refine", fromImage: true, clipped: false });
+    check("with nothing alpha-capable left, a mark still gets the best model for the picture",
+      !!r.model && r.model.alpha === false, r.model?.name ?? "nobody");
+    check("…and the caller is told the ground has to come off afterwards", r.cutAfter === true);
+    check("…rather than the cell simply having nobody in it", r.why === undefined);
+    check("a clipped mark is unaffected, because its alpha was never the model's job",
+      route({ making: "icon", step: "refine", fromImage: true, clipped: true }).cutAfter !== true);
+  } finally {
+    for (const [m, alpha] of had) m.alpha = alpha;
+  }
+  check("and the table is put back", MODELS.some((m) => m.alpha !== false));
+}
+
+check("the file says why cutting it out afterwards is the last answer and not the first", (() => {
+  const src = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+  return /The drawn line is the alpha/.test(src)
+    && /alpha is a property of the render/.test(src)
+    && /Only then, cut it out afterwards/.test(src);
+})());
+check("and it names the removers it was chosen over", (() => {
+  const src = readFileSync("src/features/studio/imageRoute.ts", "utf8");
+  return ["bria/remove-background", "men1scus/birefnet", "lucataco/remove-bg", "smoretalk/rembg-enhance"]
+    .every((slug) => src.includes(slug));
 })());
 
 /* ------------------------------------------------------------------ */

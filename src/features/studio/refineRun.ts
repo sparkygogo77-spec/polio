@@ -63,6 +63,16 @@ export interface RefineInput {
   ground?: boolean;
   /** What was said next to the drawing. A solid has to be asked for in words. */
   said?: string;
+  /**
+   * Is the part cut to a line somebody drew?
+   *
+   * The best answer to a transparent ground and the cheapest: the board
+   * clips a drawn part to its own path, so what is behind the picture never
+   * shows. Saying so here is what frees the job to go to whichever model is
+   * best at the picture rather than to one of the two that can leave a
+   * ground out.
+   */
+  clipped?: boolean;
   w: number;
   h: number;
 }
@@ -71,6 +81,10 @@ export interface RefineResult {
   ok: boolean;
   /** What the card says about this pass, whichever way it went. */
   line: string;
+  /** A second line, when the ground had to be cut out after the render. */
+  cut?: string;
+  /** How the ground was left out, in a word: the drawn line, the model, or a cut. */
+  alpha?: string;
   model?: string;
   name?: string;
   ms?: number;
@@ -105,6 +119,10 @@ interface Answer {
   ok?: boolean;
   html?: string;
   image?: string;
+  /** How the ground was left out: the drawn line, the model, or a cut after. */
+  alpha?: string;
+  /** The cutting-out, when it ran. Its own call and its own charge. */
+  cut?: { model: string; name: string; ms: number; cost: number | null };
   /** A solid rather than a body: the board mounts it and turns it. */
   solid?: boolean;
   mesh?: { glb: string; bytes?: number; from?: string };
@@ -140,6 +158,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
         hasText: !!input.hasText,
         ground: !!input.ground,
         said: input.said ?? "",
+        clipped: !!input.clipped,
         w: input.w,
         h: input.h,
         ...(house ? { example: house } : {}),
@@ -264,5 +283,12 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
     ms: meter.ms,
     cost: meter.dollars,
     line: `second pass · ${sayPass(answer.name ?? answer.model ?? "the refiner", meter)}`,
+    // Its own line, because it is its own call and its own charge — and
+    // because a person looking at a mark with a clean edge is entitled to
+    // know whether that edge was drawn, rendered or guessed at.
+    ...(answer.cut
+      ? { cut: `ground cut out · ${sayPass(answer.cut.name, { ms: answer.cut.ms, dollars: answer.cut.cost })}` }
+      : {}),
+    ...(answer.alpha ? { alpha: answer.alpha } : {}),
   };
 }

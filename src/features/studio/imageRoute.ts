@@ -36,9 +36,26 @@
  *   still looking at what they drew.
  * - **refine** — an approved version worked on again, with different
  *   inputs: reference images, and where we have one an example pair.
- * - **alpha** — cutting the ground away *after* a render, for the case
- *   where the model that drew it could not leave one out. Nothing serves
- *   this yet either.
+ * - **alpha** — cutting the ground away *after* a render. It is the **last
+ *   resort of three**, and the order matters more than the models do:
+ *
+ *   1. **The drawn line is the alpha.** A part drawn on the board is
+ *      clipped to the line it was drawn as (`blocks.tsx`, `Cut`), and that
+ *      clip is exact, free, instant, and preserves the holes in a mark by
+ *      construction — because it *is* the person's own path. An opaque
+ *      picture on a drawn mark does not land as a rectangle; it lands as
+ *      the gull that was drawn. So a clipped part never asks for alpha at
+ *      all, which is what lets the best model for the picture take the job
+ *      instead of the only one that can leave a ground out.
+ *   2. **Otherwise alpha is a property of the render.** A model told
+ *      `background: transparent` never draws a ground, so there is no matte
+ *      to cut: no halo, no filled hole, no second call, nothing to go
+ *      wrong. Exact by construction.
+ *   3. **Only then, cut it out afterwards.** For the case where neither
+ *      holds — no drawn line, and the right model for this job cannot make
+ *      a transparent one. It is a segmenter guessing at an edge after the
+ *      fact, which is precisely the thing that fills in the hole in a ring
+ *      and haloes a thin line, so it is where it belongs: last.
  *
  * Adding a model is one entry in `MODELS` and changes no call site. A model
  * declares only the cells it should actually be chosen for — declaring
@@ -146,6 +163,18 @@ export interface ImageModel {
     /** Ask it to cut the ground out of the drawing before it reads it. */
     cutGround?: Field;
   } | null;
+  /**
+   * How a remover is asked, when it serves the `alpha` step.
+   *
+   * A different shape again: one picture in, the same picture out with the
+   * ground gone. No prompt, no ratio, no frame — it is not drawing
+   * anything.
+   */
+  cut: {
+    imageField: string;
+    /** How to ask for a soft matte rather than a hard cut, if it has the field. */
+    softness?: Field;
+  } | null;
   /** Anything it has that we do not set, and anything believed about it that is wrong. */
   also?: string;
 }
@@ -163,7 +192,7 @@ export const MODELS: readonly ImageModel[] = [
     // The widest ratio list of anything here, so it is the one that can
     // actually make a 21:9 band, and `match_input_image` makes it the safe
     // choice for an edit.
-    serves: { first: ["surface", "picture"], refine: ["surface", "picture"] },
+    serves: { first: ["surface", "picture", "icon"], refine: ["surface", "picture", "icon"] },
     references: 14,
     refField: "image_input",
     examplePair: false,
@@ -174,6 +203,7 @@ export const MODELS: readonly ImageModel[] = [
     size: { field: "resolution", value: "2K" },
     format: { field: "output_format", value: "png" },
     mesh: null,
+    cut: null,
     also: "resolution is 1K, 2K or 4K — there is no 512px, which was believed. It can also search the web for references, which is off.",
   },
   {
@@ -182,7 +212,7 @@ export const MODELS: readonly ImageModel[] = [
     returns: "picture",
     // The only one that does example-based editing, which is this app's own
     // loop expressed as a model feature, so it leads the refine step.
-    serves: { refine: ["picture", "surface"], first: ["picture"] },
+    serves: { refine: ["picture", "surface", "icon"], first: ["picture"] },
     references: 14,
     refField: "image_input",
     examplePair: true,
@@ -193,6 +223,7 @@ export const MODELS: readonly ImageModel[] = [
     size: { field: "size", value: "2K" },
     format: { field: "output_format", value: "png" },
     mesh: null,
+    cut: null,
     also: "size is 2K or 3K; sequential_image_generation auto gives a batch, which is off; max_images up to 15.",
   },
   {
@@ -211,6 +242,7 @@ export const MODELS: readonly ImageModel[] = [
     size: null,
     format: { field: "output_format", value: "png" },
     mesh: null,
+    cut: null,
     also:
       "It was briefed here as unable to do transparency at all: its schema carries background auto|transparent|opaque, the same field gpt-image-1.5 has. "
       + "The 1:1/3:2/2:3-only ratio list belongs to gpt-image-1.5, not to this — this also takes 4:3, 3:4, 16:9, 9:16, auto and explicit pixel sizes up to 3840x2160.",
@@ -230,6 +262,7 @@ export const MODELS: readonly ImageModel[] = [
     size: null,
     format: { field: "output_format", value: "png" },
     mesh: null,
+    cut: null,
     also: "Three ratios and no more, so it is the alpha model of last resort rather than the first. input_fidelity high makes an edit hold closer to what it was given.",
   },
   {
@@ -284,9 +317,48 @@ export const MODELS: readonly ImageModel[] = [
       faces: 10000,
       cutGround: { field: "remove_background", value: "true" },
     },
+    cut: null,
     also:
       "It also has steps, guidance_scale, octree_resolution, num_chunks and a seed, none of which are set. "
       + "The face count is the one that matters: a mesh has to fit inside the document that carries it.",
+  },
+  {
+    slug: "851-labs/background-remover",
+    name: "Background remover",
+    returns: "picture",
+    /*
+     * The last resort, and the only cell it serves.
+     *
+     * Five removers were compared and they are all the same technique — a
+     * salient-object matte, the rembg/BiRefNet family: bria/remove-background
+     * (commercial, but its only knob keeps alpha the input already had),
+     * men1scus/birefnet, lucataco/remove-bg and smoretalk/rembg-enhance
+     * (no options at all between them). This one wins because it is the
+     * only one that declares control over the matte itself: `threshold` 0
+     * asks for **soft** alpha rather than a hard cut, which is what the
+     * antialiased edge of a mark needs, and the output format is ours to
+     * pick rather than whatever it feels like.
+     *
+     * None of them declares that it preserves the hole in a ring, and that
+     * is the honest reason this step is third rather than first.
+     */
+    serves: { alpha: ["icon", "picture"] },
+    references: 1,
+    refField: null,
+    examplePair: false,
+    keepFrame: null,
+    ratios: [],
+    alpha: { field: "background_type", value: "rgba" },
+    pixels: null,
+    size: null,
+    format: { field: "format", value: "png" },
+    mesh: null,
+    cut: {
+      imageField: "image",
+      /** 0 is soft alpha. A hard cut on a drawn line is a staircase. */
+      softness: { field: "threshold", value: "0" },
+    },
+    also: "It can also reverse the matte, paint the ground a colour, blur it or map it, none of which is wanted here.",
   },
   {
     slug: "prunaai/p-image-ideogram",
@@ -309,6 +381,7 @@ export const MODELS: readonly ImageModel[] = [
     size: { field: "image_size", value: "2K" },
     format: { field: "output_format", value: "png" },
     mesh: null,
+    cut: null,
     also:
       "Said here to be jpg out: it takes png, jpg or webp, and png is what we ask for — a flat graphic with type on it should not carry jpeg artefacts. "
       + "Width and height only apply with aspect_ratio custom, rounded to a multiple of 16, up to 2560. "
@@ -413,6 +486,16 @@ function serves(m: ImageModel, making: Making, step: Step): boolean {
 export interface Need {
   making: Making;
   step: Step;
+  /**
+   * Is the part already cut to a line somebody drew?
+   *
+   * The first and best answer to alpha, and the reason it is a question
+   * asked of the *need* rather than a property of the kind: a mark on a
+   * drawn part is clipped to that drawing, so it does not need a
+   * transparent render and need not be sent to one of the two models that
+   * can manage one. The best model for the picture can have the job.
+   */
+  clipped?: boolean;
   /** Is there an image going in? A refine has one; a first pass may not. */
   fromImage?: boolean;
   /** Do we have a before-and-after pair to teach it with? */
@@ -433,6 +516,17 @@ export interface Routed {
   why?: NoModel;
   /** What the pick can do of what was wanted, so the caller can say so. */
   usedExample?: boolean;
+  /**
+   * The pick cannot leave the ground out, and it is wanted, so it has to be
+   * cut out afterwards.
+   *
+   * This is how the third answer is reached and the only way it is. It
+   * exists so that a cell with nothing alpha-capable in it still gets a
+   * picture — the best one for the job, with the ground taken off after —
+   * rather than nothing at all. When the table changes and both models that
+   * can do transparency go, this is what keeps marks working.
+   */
+  cutAfter?: boolean;
 }
 
 /**
@@ -448,13 +542,14 @@ export function route(need: Need): Routed {
   // alternative is quietly handing strokes to a model that draws.
   if (need.step === "read") return { model: null, why: "not-a-model-job" };
 
-  const wantAlpha = needsAlpha(need.making);
+  // A drawn line is alpha already, so nothing is asked for twice.
+  const wantAlpha = needsAlpha(need.making) && !need.clipped;
   const fits = (m: ImageModel) => {
     if (!serves(m, need.making, need.step)) return false;
     // A step that starts from a picture needs somewhere to put it.
     // A mesh model takes its picture in a field of its own rather than in a
     // reference list, so it is asked the same question a different way.
-    const takesPicture = m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField;
+    const takesPicture = m.cut ? true : m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField;
     if (need.fromImage && !takesPicture) return false;
     if (wantAlpha && m.alpha === false) return false;
     return true;
@@ -470,7 +565,18 @@ export function route(need: Need): Routed {
   // do something about first.
   const declared = MODELS.filter((m) => serves(m, need.making, need.step));
   if (!declared.length) return { model: null, why: "nothing-serves" };
-  if (wantAlpha && declared.every((m) => m.alpha === false)) return { model: null, why: "cannot-do-alpha" };
+  if (wantAlpha && declared.every((m) => m.alpha === false)) {
+    /*
+     * Nothing that draws this can leave the ground out — but something can
+     * take it off afterwards, so the job still gets done. The best model
+     * for the picture draws it and the cut follows, which is worse than a
+     * transparent render and far better than no pass at all.
+     */
+    const after = need.step !== "alpha" && MODELS.some((m) => serves(m, need.making, "alpha") && !!m.cut);
+    const best = declared.find((m) => (!need.fromImage || (m.cut ? true : m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField)));
+    if (after && best) return { model: best, usedExample: !!need.example && best.examplePair, cutAfter: true };
+    return { model: null, why: "cannot-do-alpha" };
+  }
   return { model: null, why: "cannot-take-an-image" };
 }
 
@@ -522,6 +628,19 @@ export function inputFor(
    * happens to be how these models work anyway. What replaces all of it is
    * a face count, because the document has to carry what comes back.
    */
+  /*
+   * A remover is asked for one thing and given one thing. No prompt, no
+   * ratio, no frame: it is not drawing, it is cutting.
+   */
+  if (m.cut) {
+    const out: Record<string, unknown> = {};
+    const one = (ask.images ?? [])[0];
+    if (one) out[m.cut.imageField] = one;
+    if (m.cut.softness) out[m.cut.softness.field] = Number(m.cut.softness.value);
+    if (m.alpha) out[m.alpha.field] = m.alpha.value;
+    out[m.format.field] = m.format.value;
+    return out;
+  }
   if (m.returns === "mesh" && m.mesh) {
     const views = (ask.images ?? []).slice(0, 1 + (m.mesh.alsoViews?.length ?? 0));
     const out: Record<string, unknown> = {};

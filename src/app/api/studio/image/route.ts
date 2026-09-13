@@ -16,6 +16,7 @@ import {
 import {
   inputFor,
   isSolid,
+  model as modelNamed,
   makingOf,
   needsAlpha,
   noModelSays,
@@ -134,6 +135,15 @@ interface Body {
   /** Is the part the ground rather than a thing on it? A ground wants no alpha and a wide frame. */
   ground?: boolean;
   /**
+   * Is the part cut to a line somebody drew?
+   *
+   * The first and best answer to a transparent ground, and it costs
+   * nothing: the board clips a drawn part to its own path, so the picture
+   * behind it never shows. A clipped part is not sent to a model for its
+   * alpha, which leaves the job to whichever model is best at the picture.
+   */
+  clipped?: boolean;
+  /**
    * What was said next to the drawing.
    *
    * Read only to decide *what is being made*, never handed to a model on
@@ -251,6 +261,25 @@ function mimeOf(bytes: Uint8Array, said: string): string {
   return "image/png";
 }
 
+interface Prediction {
+  output?: unknown;
+  metrics?: Record<string, unknown>;
+  error?: unknown;
+  status?: string;
+}
+
+/**
+ * One prediction, run and waited on.
+ *
+ * `predictions.create` rather than `run`, because `run` hands back the
+ * output alone and what a pass has to report — what it cost, how long the
+ * model itself took — is on the prediction.
+ */
+async function predict(replicate: Replicate, slug: `${string}/${string}`, input: Record<string, unknown>): Promise<Prediction> {
+  const started = await replicate.predictions.create({ model: slug, input });
+  return replicate.wait(started, { interval: 700 });
+}
+
 /** A picture that arrived as base64, or nothing. Never a data URL, never a URL. */
 function picture(v: unknown, limit = 4_000_000): string | null {
   return typeof v === "string" && /^[A-Za-z0-9+/=]+$/.test(v) && v.length < limit ? v : null;
@@ -283,7 +312,9 @@ async function refine(body: Body, token: string) {
    * of the table out before the step is even considered.
    */
   const making = makingOf({ kind: body.kind, role: body.role ?? null, hasText: !!body.hasText, ground: !!body.ground, said: body.said, w, h });
-  const transparent = needsAlpha(making);
+  // Wanted, and then asked for only if the render can supply it. What the
+  // render cannot supply and the drawn line does not cover is cut out after.
+  const wantsAlpha = needsAlpha(making) && !body.clipped;
   /*
    * A solid is made rather than refined: there is no earlier solid to
    * improve on, and the drawing is the input either way. So it asks the
@@ -291,7 +322,8 @@ async function refine(body: Body, token: string) {
    * model out of every other cell.
    */
   const step = isSolid(making) ? "first" : "refine";
-  const picked = route({ making, step, fromImage: true, example: hasPair, w, h, prefer: body.model });
+  const clipped = !!body.clipped;
+  const picked = route({ making, step, fromImage: true, example: hasPair, clipped, w, h, prefer: body.model });
   if (!picked.model) {
     return NextResponse.json({ ok: false, stage: 2, reason: picked.why, making, message: noModelSays(picked.why ?? "nothing-serves", making) });
   }
@@ -303,6 +335,9 @@ async function refine(body: Body, token: string) {
   const images = pick.returns === "mesh"
     ? [asUri(first)]
     : [...(pair ? [asUri(before!), asUri(after!)] : []), asUri(first)];
+  // Asked of the model when it has the field; otherwise the ground comes
+  // off afterwards, which is what `cutAfter` means.
+  const transparent = wantsAlpha && pick.alpha !== false && !picked.cutAfter;
   const input = inputFor(pick, {
     prompt: wordsFor({ step, making, said: body.prompt, label: body.label, transparent, example: pair }),
     images,
@@ -313,15 +348,9 @@ async function refine(body: Body, token: string) {
 
   const replicate = new Replicate({ auth: token });
   const began = Date.now();
-  let done: { output?: unknown; metrics?: Record<string, unknown>; error?: unknown; status?: string };
+  let done: Prediction;
   try {
-    /*
-     * A prediction rather than `run`, because `run` hands back the output
-     * alone and what this pass has to report — what it cost, how long the
-     * model itself took — is on the prediction.
-     */
-    const started = await replicate.predictions.create({ model: pick.slug, input });
-    done = await replicate.wait(started, { interval: 700 });
+    done = await predict(replicate, pick.slug, input);
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status;
     const message = error instanceof Error ? safe(error.message, token) : "the model failed";
@@ -364,8 +393,41 @@ async function refine(body: Body, token: string) {
     });
   }
 
-  const mime = mimeOf(file.bytes, file.type);
-  const dataUri = `data:${mime};base64,${Buffer.from(file.bytes).toString("base64")}`;
+  let mime = mimeOf(file.bytes, file.type);
+  let bytes = file.bytes;
+  /*
+   * The third answer, and only when the first two are gone.
+   *
+   * The part is not cut to a drawn line, and the model that drew this could
+   * not leave the ground out — so it is cut out afterwards by a segmenter,
+   * which is a guess at an edge rather than an edge. It is its own call and
+   * its own charge, and it never fails the pass: a mark on a ground is
+   * worse than a mark and better than nothing on the board.
+   */
+  let cut: { model: string; name: string; ms: number; cost: number | null } | null = null;
+  if (wantsAlpha && !transparent && picked.cutAfter) {
+    const cutter = route({ making, step: "alpha", fromImage: true, clipped }).model;
+    if (cutter) {
+      const from = Date.now();
+      try {
+        const said = await predict(replicate, cutter.slug, inputFor(cutter, {
+          prompt: "",
+          images: [`data:${mime};base64,${Buffer.from(bytes).toString("base64")}`],
+        }));
+        const meterCut = fromMetrics(said.metrics, Date.now() - from);
+        const got = said.status === "succeeded" ? await bytesOf(said.output) : null;
+        if (got?.bytes.length) {
+          bytes = got.bytes;
+          mime = mimeOf(got.bytes, got.type);
+          cut = { model: cutter.slug, name: cutter.name, ms: meterCut.ms, cost: meterCut.dollars };
+        }
+      } catch {
+        // A ground that would not come out is a ground. The picture stands.
+      }
+    }
+  }
+
+  const dataUri = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
   if (dataUri.length > RASTER_LIMIT) {
     return NextResponse.json({ ok: false, stage: 2, reason: "too-big", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `It came back as ${Math.round(dataUri.length / 1024)}KB, more than a document should carry.`), ms: meter.ms, cost: meter.dollars });
   }
@@ -381,6 +443,13 @@ async function refine(body: Body, token: string) {
     /* What was actually asked of it, so a card can say why it looks like it does. */
     making,
     transparent,
+    /*
+     * How this one got its ground left out — or that it never needed to,
+     * because the part is cut to a line somebody drew. The card says which,
+     * because "why has this got a background" is otherwise unanswerable.
+     */
+    alpha: clipped ? "the drawn line" : transparent ? "asked of the model" : cut ? "cut out after" : "none",
+    ...(cut ? { cut } : {}),
     example: pair,
     ratio: input.aspect_ratio ?? `${input.width}x${input.height}`,
     html,
