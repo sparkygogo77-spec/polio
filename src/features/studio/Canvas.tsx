@@ -26,6 +26,8 @@ import { auraFilter, auraStyle, complementOf, markColour, washCss, type Light, t
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
+import { SpaceMarks, SpaceSide } from "./SpaceLayer";
+import { isBoundary } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
 import {
@@ -645,6 +647,10 @@ export function Canvas() {
         store.setSelection(hits);
         play("select");
       }
+    } else if (drag.kind === "draw" && tool === "space" && drag.points && drag.points.length >= 2) {
+      // The space tool: a closed line is a placeholder (`space.ts`), an open one is nothing, and says so.
+      if (isBoundary(drag.points)) { store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" }); play("confirm"); }
+      else { play("deny"); news.publish({ key: "studio:space", title: "A space is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: true }); }
     } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
       const kind = tool === "pen" ? "pen" : "arrow";
       const pts = drag.points;
@@ -783,6 +789,7 @@ export function Canvas() {
           style={{ width: frameWidth, height: pageH, transform: `translateY(${-scrolled}px)` }}
         >
         <TextureDrift layers={look.texture} palette={palette} />
+        <SpaceMarks zoom={zoom} />
         {/* The pool the lamp puts on the page, when it has been asked for. Under
             the parts, because a lamp lights a table and the things on it cast
             their shadows down on to it. */}
@@ -845,7 +852,7 @@ export function Canvas() {
               reason={reasonOn(sh, nodes)}
             />
           ))}
-          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "pen" ? "pen" : "arrow", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
+          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "arrow" ? "arrow" : "pen", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
           {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
           {guides.y.map((y) => <line key={`gy${y}`} y1={y} y2={y} x1={-40} x2={frameWidth + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
@@ -1027,6 +1034,8 @@ export function Canvas() {
         </div>
       </div>
 
+      {/* The panel for the one part picked inside an open black hole (`SpaceLayer.tsx`). */}
+      <SpaceSide />
     </div>
   );
 }
