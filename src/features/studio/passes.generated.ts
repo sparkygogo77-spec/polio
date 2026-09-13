@@ -2,14 +2,86 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T21:47:18.995Z";
+export const GENERATED_AT = "2026-09-13T22:20:22.671Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "d6cabd1",
-    "when": "2026-09-13T21:46:14+00:00",
+    "id": "50b1be8",
+    "when": "2026-09-13T22:20:21+00:00",
     "day": "13 September",
     "changes": [
+      {
+        "id": "2e5f31f",
+        "says": "Wire J's rims: the bezel is a nine-slice of his own sprite",
+        "when": "2026-09-13T22:11:10+00:00",
+        "detail": [
+          "The rim is the most particular part of one of J's boxes — a moulded bezel with its own glass, its own highlight along the top and its own light caught in the corners — and the inset shadows that stood in for it were never going to be that. It is also the part a stretched photograph ruins fastest, because a card is a band on one row and a square on another.",
+          "So the sprite is cut into nine: the four corners are drawn at their own size into the corners of the border box and keep their moulding and their radius at every card size, and only the four sides stretch. `border-image` on the rim node, with `border-box` sizing and `inset: 0`, so the border box is the card and nothing about the card's own layout moves.",
+          "Three things had to be done to a sprite before it could be one, and `scripts/cut-rims.mjs` does them:",
+          "**The tabs come off.** Every one of J's boxes has a small decorative tab sticking out at the middle of a left or right edge — exactly where a nine-slice's side strip is, and a side strip stretches, so one tab would become a bar down the whole side of the card. Cropping to the rounded box's own bounding rectangle leaves them outside it."
+        ],
+        "areas": [
+          "core",
+          "scripts",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "8a2627b",
+        "says": "Match the red to the green, on the cloud's opacity per temperature",
+        "when": "2026-09-13T21:54:02+00:00",
+        "detail": [
+          "J's two face tiles are cuts of two different renders and are not the same brightness. Under one pair of cloud opacities the red card read 21% lighter than the green in oklab L and half again as bright at its peaks — two systems rather than two temperatures, with the green as the afterthought.",
+          "The tiles are his and are not touched. How much cloud there is becomes a dial per temperature, `--mo-cloud` and `--mo-cloud-still`, and the two layers turn out to pull opposite ways: the gliding copy is more of J's picture and stays high for both, while the still copy at 1.7× samples a darker part of the same tile — over the green it stacks dark on dark and swallows the filaments, over the red it is depth the hot picture wants. So the green takes almost none of the still layer and the red nearly all, and neither loses any of the render.",
+          "Measured on a board, mean of a card's lower third, red against green: oklab L 1.211 → 1.115, and at the 99th percentile — the brightest filaments, which is what actually reads as heat — 1.487 → 1.328. Red is still the hotter of the two, which is the point.",
+          "Turning the gliding layer down as well buys another 0.01 of ratio for a quarter of the moving texture; it was measured and refused. Cost at 30 boards is unchanged, as two numbers becoming two variables should be: idle tasks 1163 → 1148ms, drag script 730 → 810ms, drag tasks 4126 → 3995ms."
+        ],
+        "areas": [
+          "core",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "48e3917",
+        "says": "Point at one element on a real page, and it lands as a part of the library",
+        "when": "2026-09-13T21:48:11+00:00",
+        "detail": [
+          "Phase two's other half: the route that measures, and the way in.",
+          "`api/studio/element` opens an address in the browser this server already finds and either lists what is worth pointing at, with a picture of the page to point at them on, or measures the one that was picked. Every value is the browser's own answer, `getComputedStyle`'s string for a colour and its number for a size, so no model is asked what colour it thinks a background was. The measuring lives in `siteRead.ts` rather than in the route, so it can be run against any page by anything holding a browser; the route is plumbing.",
+          "The bounds are `siteFetch.ts`, checked before anything opens and not loosened for the tests: https only, no private addresses (loopback, the private ranges, link-local and the cloud metadata address with it, `.local` and any bare hostname), one page, one element a person points at, and a budget at both ends with a sentence at every ending. The local fixture this repository's own check serves is refused by those rules, so the check reads it the other way rather than making a hole for itself.",
+          "`FromASite` is the way in, on the space's panel, because a black hole is space not yet decided and something real is one way of deciding it. Read the page, press one of the things it found, and the measurements become a real library part that lands in the space and inherits its plan."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "8246e41",
+    "when": "2026-09-13T21:47:48+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "8246e41",
+        "says": "Regenerate the passes for the audit panel",
+        "when": "2026-09-13T21:47:48+00:00",
+        "detail": [
+          "Hypatia's pass: the audit panel — choose a model, and see everything it takes. Two new panels, a new plan editor and its own suite."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "under"
+      },
       {
         "id": "d6cabd1",
         "says": "The audit panel: choose a model, and see everything it takes",
@@ -940,81 +1012,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2a8a4d1",
-    "when": "2026-09-13T07:44:54+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "2a8a4d1",
-        "says": "Regenerate the passes for the one-chain timeline",
-        "when": "2026-09-13T07:44:54+00:00",
-        "detail": [
-          "Euler's pass: the timeline is one chain in the order things landed, and nothing else. The deployed build has no .git, so the Updates list only moves when this file does."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1899dcd",
-        "says": "The timeline is one chain in the order things landed, and nothing else",
-        "when": "2026-09-13T07:43:13+00:00",
-        "detail": [
-          "It drew the tree `parentId` makes: a thread hung off whatever was being worked in, the layout stepped sideways by depth, and a vine was drawn per parent link. That is why it read as branches, with some boxes having several vines into them. What a person wants from a timeline is what happened, in the order it happened.",
-          "`chainOf` is the whole rule now: each iteration is joined to the one that landed immediately before it, the first to nothing. No branches, no forks, ever. `parentId` stays on the thread — it is true, an iteration really was worked in another one, and the panel's tree still reads it — but it is not what the timeline draws. The boxes are laid out as one chain too, the sideways step coming from the index rather than from depth, so the lean is the same for everyone.",
-          "`connected` and `orphans` go with the tree they served: nothing can be an orphan in a chain. tests/connected.mjs holds the new shape shut, including the case that used to fan out — three iterations with the third worked in the first, and it still hangs off the second."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e9ab1c4",
-        "says": "Regenerate the passes for the ink grouping",
-        "when": "2026-09-13T06:11:45+00:00",
-        "detail": [
-          "Euler's pass: a pause is not a new drawing, so what touches is one thing. The deployed build has no .git, so the Updates list only moves when this file does."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "2c15e29",
-        "says": "A pause is not a new drawing: what touches is one thing",
-        "when": "2026-09-13T06:10:40+00:00",
-        "detail": [
-          "Stroke grouping was built and it worked — on a hand that never stops. A fifteen-stroke bird laid down in one unbroken run came out as one drawing, one button, one part. A person drawing a careful bird does not do that. They draw the body, look at it, then add the head.",
-          "Two seconds of looking, twice, and the bird came out as several drawings and loose ink: pressing Make real made a part out of two strokes and left the rest behind. That is J's complaint, and it was still live.",
-          "The cause was structural rather than a number. Time came *first*: a pause of a second and a half closed the run, and space could only group **within** a run. So a head drawn on top of a body it touches could never reach it, because it had arrived in a different run.",
-          "The rule is inverted, and it now reads the way a person would say it:"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "61f3117",
-        "says": "Regenerate the passes for the shelf wheel and the ladder check",
-        "when": "2026-09-13T03:28:25+00:00",
-        "detail": [
-          "Hypatia's pass: one wheel in the shelf with a correction to what the commit before it claimed, and the give-way ladder now checked rung by rung rather than only for clipping. The deployed build has no .git, so the Updates list only moves when this file does."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
