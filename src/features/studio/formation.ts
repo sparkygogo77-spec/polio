@@ -16,9 +16,18 @@
  *   0.95–1.00  the centre is the last thing to form
  *
  * THE SIGNAL. The queue has no number; it has the step the job is on, in
- * words, and those words are the milestones. `progressOf` reads them. A
- * thread lands `running` once the drawing has been read (0.15) and climbs as
- * the tracer takes its goes and the second pass runs; landing is 1.
+ * words, and those words are the milestones. `progressOf` reads them.
+ *
+ * **It begins when the job is queued**, not when the work comes back. A
+ * drawing put on the queue lands its iteration there and then, `running`
+ * and at `QUEUED` — a hair of vine, because the thing has begun and nothing
+ * more — and every step the job says climbs *that* box: the read, the
+ * tracer's goes, the second pass. It reaches 1 when the job is over, which
+ * is the last pass landing rather than the first answer coming back. Before
+ * this the thread was made when the read returned, so the box could not
+ * start forming until most of the work was done, and the progress of
+ * everything before it was written onto the *previous* iteration's box —
+ * there being nothing else to write it on.
  *
  * AGAIN ON UPDATE. A finished card that is updated — a pass added, a cost
  * noted, a line written on it — forms again: its `gen` goes up and the box
@@ -36,6 +45,16 @@ export interface Form {
   /** Bumped on every update, so the box forms again. */
   gen: number;
 }
+
+/**
+ * How far formed a job is the instant it is queued.
+ *
+ * Not zero: the iteration exists and the first thing a formation does is
+ * grow the vine out of the card before it. The store sets it
+ * (`enqueueDraw`) and nothing else reads it, but it lives here because it
+ * is the first milestone and the rest are here.
+ */
+export const QUEUED = 0.04;
 
 /** The five bands, in order. Each ends where the next begins. */
 export const FORM = {
@@ -72,17 +91,22 @@ export function within(p: number, stage: FormStage): number {
  * the floor; the three trace goes climb through the middle; the second pass
  * is the last stretch before it lands.
  */
+/** Four places is plenty for a number that drives a paint, and 0.6 stays 0.6. */
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
+
 export function progressOf(step: string | undefined | null): number | null {
   const s = (step ?? "").trim();
   if (!s) return null;
+  // Waiting its turn behind another drawing: begun, and nothing more.
+  if (/^Queued|^Waiting/.test(s)) return QUEUED;
   if (/^Reading the (drawing|shape)|^Claude is reading/.test(s)) return 0.15;
   if (/^Tracing the drawing/.test(s)) return 0.32;
   const go = /^Trace (\d) of (\d)/.exec(s);
-  if (go) return 0.32 + (Number(go[1]) - 1) * 0.14;
-  if (/^Looking at trace (\d)/.test(s)) return 0.42 + (Number(/(\d)/.exec(s)![1]) - 1) * 0.14;
+  if (go) return round4(0.32 + (Number(go[1]) - 1) * 0.14);
+  if (/^Looking at trace (\d)/.test(s)) return round4(0.42 + (Number(/(\d)/.exec(s)![1]) - 1) * 0.14);
   if (/^The renderer is drawing|^Claude is writing the body|^Nothing traced/.test(s)) return 0.4;
   const attempt = /^Attempt (\d) of/.exec(s);
-  if (attempt) return 0.4 + (Number(attempt[1]) - 1) * 0.12;
+  if (attempt) return round4(0.4 + (Number(attempt[1]) - 1) * 0.12);
   if (/^Looking at (what the renderer drew|attempt)/.test(s)) return 0.6;
   if (/^Refining the drawing|^Recreating the real thing/.test(s)) return 0.82;
   if (/^Taking the ground off/.test(s)) return 0.9;

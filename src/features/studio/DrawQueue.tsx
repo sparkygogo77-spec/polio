@@ -52,9 +52,15 @@ export function DrawQueue() {
       onStep: (step) => {
         const st = useStudio.getState();
         st.updateJob(job.id, { step });
-        // The same words drive the box forming on the timeline: the step the
-        // job is on is the real progress of the iteration it is making.
-        st.noteProgress(st.liveThreadId, progressOf(step));
+        /*
+         * The same words drive the box forming on the timeline: the step the
+         * job is on is the real progress of the iteration it is making.
+         *
+         * The job's own thread, landed when it was queued — not whatever is
+         * live, which is the last thread to land and stops being this one
+         * the moment a second drawing is queued behind it.
+         */
+        st.noteProgress(job.threadId ?? st.liveThreadId, progressOf(step));
       },
     })
       .then((r) => {
@@ -68,6 +74,15 @@ export function DrawQueue() {
           step: undefined,
           ended: Date.now(),
         });
+        /*
+         * The box is complete when the job is, and not before.
+         *
+         * The run marks it itself on every road it knows; this is the one
+         * that catches a road it does not — and it never cuts a formation
+         * short, because a job whose later pass is still running says so
+         * and finishes itself when that lands.
+         */
+        if (!r.pending && job.threadId) useStudio.getState().markThread(job.threadId, "done");
       })
       .finally(() => {
         running.current = null;
