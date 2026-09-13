@@ -67,6 +67,15 @@ export interface Thread {
    */
   sketch?: { strokes: [number, number][][]; words: string };
   /**
+   * How far it has formed, and how many times.
+   *
+   * `p` is the real progress of the job behind it, 0..1, from the steps the
+   * job says it is on; landing is 1. `gen` goes up on every update to the
+   * thread, and the box plays its formation again from nothing. See
+   * `formation.ts`.
+   */
+  form?: { p: number; gen: number };
+  /**
    * What the call cost: what was sent, what was skipped, what the cache gave
    * back, and the dollars, when an iteration reached a renderer that charges
    * by the press rather than by the token.

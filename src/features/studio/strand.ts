@@ -452,14 +452,23 @@ export function paintStrand(
   c: CanvasRenderingContext2D,
   from: Point,
   to: Point,
-  opts: { tone: StrandTone; phase?: number; lit?: number; ends?: [VineEnd, VineEnd] },
+  opts: { tone: StrandTone; phase?: number; lit?: number; ends?: [VineEnd, VineEnd]; grow?: number },
 ) {
   const lit = opts.lit ?? 1;
   const seed = opts.phase ?? 0;
   const phase = seed * Math.PI * 2;
   const W = STRAND_WIDTH;
   const turns = turnsFor(from, to);
-  const s = samples(strandPath(from, to), sampleCount(turns));
+  /*
+   * A vine forming grows from where it leaves: `grow` is how much of it there
+   * is yet, and only that much of the curve is drawn. The winding, the
+   * colours and the hotspots are all functions of where a point is along the
+   * whole vine, so what has grown looks exactly as it will when it is done.
+   */
+  const whole = samples(strandPath(from, to), sampleCount(turns));
+  const grow = Math.max(0, Math.min(1, opts.grow ?? 1));
+  const s = grow >= 1 ? whole : whole.slice(0, Math.max(2, Math.ceil(whole.length * grow)));
+  if (s.length < 2) return;
   const dead = opts.tone === "cut";
 
   // What it joins, at each end. A cut vine is grey at both.

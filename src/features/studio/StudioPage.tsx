@@ -623,12 +623,16 @@ export function StudioPage() {
       __studioSetBrief?: (v: boolean) => void;
       __studioSetLibrary?: (v: boolean) => void;
       __studioSetLeftPanel?: (id: string) => void;
+      __studioNotePass?: (line: string, on?: string) => void;
     };
     w.__studioOpenBrief = () => setBriefOpen(true);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);
     w.__studioSetLeftPanel = (id) => setLeftPanel(id);
+    // For the formation test: an update to a finished iteration, the way the
+    // second pass makes one.
+    w.__studioNotePass = (line: string, on?: string) => useStudio.getState().notePass(line, on);
     /*
      * The lamp's drag, without a mouse.
      *

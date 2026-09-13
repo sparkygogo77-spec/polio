@@ -172,7 +172,9 @@ check("no mask on an animated layer", !/mask-image:/.test(css));
 check("one nebula layer glides and one stands still, for the same picture at half the cost",
   /\.molten::after \{[\s\S]*?animation: none/.test(css) && /\.molten::before \{[\s\S]*?animation: molten-drift/.test(css));
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
-  const edge = /\[data-molten\] \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  // The edge rule itself, at the start of a line — not a forming rule that
+  // happens to end in the same selector.
+  const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
   const shadows = [...edge.matchAll(/^\s+(inset )?0 /gm)];
   return shadows.length > 0 && shadows.every((m) => m[1] === "inset ") && /\[data-molten\]::after \{\s*content: none;/.test(css);
 })());
