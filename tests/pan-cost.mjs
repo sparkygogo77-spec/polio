@@ -115,6 +115,21 @@ for (const n of [1, 6, 30]) {
   // rectangle read at the start is empty ground by the time the drag runs —
   // which made the drag row a second pan and not a drag at all.
   await p.waitForTimeout(900);
+  /*
+   * The boards are brought back before one is picked to drag.
+   *
+   * The pan that was just measured carries the surface 420px sideways, and
+   * whether any board is still on screen afterwards is luck: at six exactly
+   * one survived, and at one the only board there is lands at x 1010 with a
+   * width of 248 and overflows the right edge by 66px, so this threw "no
+   * board on screen to drag" and measured nothing. That is the geometry of
+   * the settle deciding whether the suite runs at all, which is no way to
+   * hold a number. Centring costs nothing measured — the pan row is already
+   * taken and the drag row has not started — and it leaves every board on
+   * screen at any count.
+   */
+  const home = p.locator("[data-timeline-centre]").first();
+  if (await home.count()) { await home.click().catch(() => {}); await p.waitForTimeout(1300); }
   // A board that is actually under the pointer: at thirty they are spread
   // wider than the window, and dragging at a rectangle that is off-screen
   // is another pan with a different name.
