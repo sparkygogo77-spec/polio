@@ -25,22 +25,38 @@
  * — the old one had a hard line down the lit side, which is the single
  * thing that made it read as wet rope.
  *
- * **Both colours run the whole length, and the dark middle is the seam.**
- * A vine joins a green board to a red drawing and belongs to both. So the
- * ribbon is green down one side and red down the other, end to end, and
- * what shifts is where the seam sits across its width: the green side is
- * three-quarters of it at a green board and a quarter at a red drawing. The
- * two colours meet only at the seam, which is the near-black core — the
- * darkest line on the vine — so they never mix and never go through brown.
- * A vine between two boards of the same kind is that colour on both sides,
- * seam down the middle, and the rule costs nothing to look at.
+ * **One strand, and the dark is down the middle of it.** It was two for a
+ * while — green down one side and red down the other, with the seam between
+ * them sliding across the width — and two colours side by side down a curve
+ * is two strands however it is drawn. So the section is symmetric now: the
+ * core is the axis, the light gathers at both edges, and there is one
+ * ribbon rather than a pair lying against each other.
+ *
+ * **The colour runs along it instead, and the two never meet.** A vine
+ * joins a green board to a red drawing and belongs to both, so it is green
+ * where it leaves the green one, red where it arrives at the red one, and
+ * in between it goes down to the material's own dark — not through a mix.
+ * Blending the ends was tried and the middle of every vine came out yellow
+ * and then brown, which is a colour neither board has; the way through is
+ * that the light in a construct gathers where the construct is, and a vine
+ * far from either board has nothing lighting it. Each band is one fill with
+ * a gradient along the run, so it is still one fill per band whatever the
+ * colours are, and the darkening is a clamp rather than a colour: the two
+ * ends' bands are mixed and then pulled down to the lightness and the
+ * chroma of `char`, where a hue cannot be read. A vine between two boards
+ * of the same kind has no gradient at all.
  *
  * **The colour moves the way a box's does.** Not painted here: the timeline
- * lays the construct's own nebula over each side of the ribbon, clipped to
- * that side (`strandEnvelope`) and gliding on the same keyframe at the same
- * rate as the cloud on every box. So a vine is not a still picture of the
- * material next to a moving one — it is the same weather, and it costs no
- * repaint.
+ * lays the construct's own nebula over the ribbon, clipped to it
+ * (`strandEnvelope`) and gliding on the same keyframe at the same rate as
+ * the cloud on every box. Two elements per vine, one for each half of its
+ * length, each at that end's temperature — so the green cloud is over the
+ * green half and the red over the red, and they meet where the vine is at
+ * its darkest and neither shows. J's filaments cross a vine the way they
+ * cross a card, which is most of what makes it the same material; it took
+ * turning the layer up from a coat that flattened the section to weather
+ * that reads, now that there is a real render in it rather than noise. And
+ * it costs no repaint.
  *
  * The path is not the shortest line either. It bows out to one side, always
  * the same side for the same pair, so a run of boxes is joined by curves
@@ -50,10 +66,10 @@
  *
  * 1. **The shadow.** One dark stroke under everything, offset a pixel or
  *    two. It is what makes the vine sit on the ground rather than float.
- * 2. **The section.** Each side of the ribbon is filled as a few long
- *    bands, from the seam out to the edge, in the colours the box's own
+ * 2. **The section.** The ribbon is filled as a few long bands, both sides
+ *    of the axis at once, from the axis out to the edges, in the colours the box's own
  *    face and rim are made of. Bands rather than strokes: a band is one
- *    fill of one polygon down the whole length, so a vine is eighteen fills
+ *    fill of one polygon down the whole length, so a vine is ten fills
  *    however long it is, where the cable was six hundred short strokes.
  * 3. **The rim.** The outermost band, in `hot` with a sliver of `white` —
  *    the box's rim, on the edge of the ribbon, and nothing past it.
@@ -62,8 +78,8 @@
  * of a board rather than being butted against it.
  *
  * Everything is sampled off the curve rather than stroked as a bezier,
- * because the offsets — the seam, the widths, the gather — are functions of
- * how far along the vine a point is, which a bezier cannot say.
+ * because the offsets — the widths and the gather — are functions of how
+ * far along the vine a point is, which a bezier cannot say.
  */
 
 export interface Point {
@@ -83,7 +99,7 @@ export interface Point {
 export type VineEnd = "iteration" | "drawing" | "cut";
 
 interface Bark {
-  /** The darkest line on it: the middle of the ribbon, and the seam. `--*-core`. */
+  /** The darkest line on it: the axis, down the middle of the ribbon. `--*-core`. */
   core: string;
   /** Out of the core: `--*-char`. */
   char: string;
@@ -140,10 +156,11 @@ function lch(s: string): Lch {
  * Two colours, `u` of the way between them.
  *
  * This mixes *within* one bark — its core toward its char, its deep toward
- * its rim — and nothing else. The two ends are never mixed with each other:
- * a side of the ribbon is green or it is red. An earlier vine blended the
- * ends along its length and the middle of every long one came out yellow
- * and then brown, which is a colour neither board has.
+ * its rim — and it is the one place two ends are ever brought together, in
+ * `dusk`, which immediately clamps what comes out into the dark. An earlier
+ * vine blended the ends along its length without the clamp and the middle
+ * of every long one came out yellow and then brown, which is a colour
+ * neither board has.
  *
  * Hue still goes the short way round, so a bark's own section never swings
  * through the far side of the wheel.
@@ -157,7 +174,7 @@ function mix(a: Lch, b: Lch, u: number): string {
 }
 
 /**
- * The section, as the bands it is drawn in: the seam at nought, the rim at one.
+ * The section, as the bands it is drawn in: the axis at nought, the rim at one.
  *
  * Read straight off the box's own face and rim in `molten.css`:
  *
@@ -166,13 +183,37 @@ function mix(a: Lch, b: Lch, u: number): string {
  *            inset 0 0 0 2px  white at 22%
  *            inset 0 0 10px -4px hot at 34%
  *
- * so the section runs core, core, core→char, char→deep, deep, deep warmed
- * by the rim's inner glow, hot, hot with the white sliver in it. The box
- * eases; a ribbon nine pixels wide has no room to ease, so it is stepped —
- * and the steps are what let a whole side be eight fills rather than eight
+ * so the section runs core, core, core→char, char→deep, the rim's inner
+ * glow, and then the rim itself with the white sliver in it. The box eases;
+ * a ribbon fifteen pixels wide has no room to ease, so it is stepped — and
+ * the steps are what let a whole section be eight fills rather than eight
  * hundred strokes.
+ *
+ * **The breakpoints sit on band centres and that is not incidental.** A
+ * band is drawn in the colour at its middle, so with eight of them the
+ * highest `t` any band ever asked for was 0.9375 — and while the last two
+ * breakpoints sat at 0.93 and 0.98, `mix(hot, white)` was a stop no band
+ * could reach and a vine had no rim at all. It read as a tube of dark
+ * material rather than as the construct, which is exactly the note. Every
+ * threshold below falls between two band centres.
+ *
+ * **And ten bands rather than eight, so each stop gets two of them.** A rim
+ * one band wide is three quarters of a pixel on a ribbon this size, and
+ * antialiasing against the shadow under it ate a third of the light on
+ * whichever edge the shadow fell — measured across the section, one edge
+ * peaked at 76 of green and the other at 49, which reads as a vine lit from
+ * one side rather than lit from within. Two bands is a pixel and a half and
+ * survives it. Ten fills for a vine of any length instead of eight.
  */
-const BANDS = 8;
+const BANDS = 10;
+
+/**
+ * Which bands the drifting cloud is laid over: the body, and neither end of
+ * the section. Inside `CLOUD_IN` is the dark axis, outside `CLOUD_OUT` is
+ * the rim, and both are the vine's own light rather than the weather's.
+ */
+const CLOUD_IN = 2;
+const CLOUD_OUT = BANDS - 2;
 
 function section(bark: Bark): string[] {
   const core = lch(bark.core);
@@ -184,13 +225,12 @@ function section(bark: Bark): string[] {
   for (let i = 0; i < BANDS; i++) {
     // The middle of the band, as a share of the half-width.
     const t = (i + 0.5) / BANDS;
-    if (t < 0.18) out.push(bark.core);
-    else if (t < 0.62) out.push(mix(core, char, (t - 0.18) / 0.44));
-    else if (t < 0.86) out.push(mix(char, deep, (t - 0.62) / 0.24));
+    if (t < 0.25) out.push(bark.core);
+    else if (t < 0.45) out.push(mix(core, char, (t - 0.25) / 0.20));
+    else if (t < 0.65) out.push(mix(char, deep, (t - 0.45) / 0.20));
     // The rim's inner glow: the face, warmed towards the rim rather than
     // jumping to it, which is the `inset 0 0 10px -4px` at a third.
-    else if (t < 0.93) out.push(mix(deep, hot, 0.34));
-    else if (t < 0.98) out.push(mix(deep, hot, 0.82));
+    else if (t < 0.85) out.push(mix(deep, hot, 0.34));
     // The rim itself, with the white sliver mixed into it.
     else out.push(mix(hot, white, 0.22));
   }
@@ -203,18 +243,19 @@ const SECTION: Record<VineEnd, string[]> = {
   cut: section(VINE.cut),
 };
 
-/** How wide the ribbon is, across both sides of the seam. */
+/** How wide the ribbon is, across both sides of the axis. */
 export const STRAND_WIDTH = 15;
 
 /**
- * How far the seam moves across the width from one end to the other.
+ * Where the colour stops being one end's and starts being the other's.
  *
- * The share of the ribbon one end's colour has runs from `0.5 - SHIFT` at
- * the far board to `0.5 + SHIFT` at its own: three to one at either end,
- * never all of one colour, so both are there the whole length. Two boards
- * of the same kind sit at a half each and the shift does nothing at all.
+ * Not a crossover: the two never touch. One end's colour holds to `FADE`,
+ * the material's own dark holds the middle from there to `1 - FADE`, and
+ * the other end's colour comes up out of it. A fifth of the length is dark,
+ * which on a long vine reads as a thing lit from the boards it joins and on
+ * a short one barely shows, because a short vine is nearly all end.
  */
-const SHIFT = 0.25;
+const FADE = 0.42;
 
 /**
  * How far the path bows away from the straight line, as a share of the run.
@@ -333,26 +374,15 @@ function gather(u: number): number {
   return 0.62 + 0.38 * Math.min(1, Math.min(u, 1 - u) / 0.06);
 }
 
-/**
- * Where the seam sits across the width at `u`, as a share of the ribbon.
- *
- * Nought is hard against one edge, one against the other, a half is the
- * middle. The near end's colour has the larger share at its own end.
- */
-function seamAt(u: number, mixed: boolean): number {
-  if (!mixed) return 0.5;
-  return 0.5 + (0.5 - u) * SHIFT * 2;
-}
-
 /** What one vine is made of, before anything is painted: the same for the paint and the outline. */
 function build(from: Point, to: Point, opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone }) {
   const run = Math.hypot(to.x - from.x, to.y - from.y) * (1 + BOW * 0.8);
   const whole = samples(strandPath(from, to), sampleCount(run));
   /*
    * A vine forming grows from where it leaves: `grow` is how much of it
-   * there is yet, and only that much of the curve is drawn. The seam and
-   * the widths are functions of where a point is along the *whole* vine, so
-   * what has grown looks exactly as it will when it is done.
+   * there is yet, and only that much of the curve is drawn. The widths and
+   * the gradient are functions of where a point is along the *whole* vine,
+   * so what has grown looks exactly as it will when it is done.
    */
   const grow = Math.max(0, Math.min(1, opts.grow ?? 1));
   const s = grow >= 1 ? whole : whole.slice(0, Math.max(2, Math.ceil(whole.length * grow)));
@@ -362,34 +392,51 @@ function build(from: Point, to: Point, opts: { ends?: [VineEnd, VineEnd]; grow?:
 }
 
 /**
- * Where one band of the section runs, across the ribbon, at `u`.
+ * The middle of a mixed vine: the two ends' bands, pulled down into the dark.
  *
- * `side` 0 is the near end's colour and 1 the far end's; `k` counts out
- * from the seam, so band 0 is the seam itself and band `BANDS` the edge.
- * Both are offsets from the axis, in pixels, signed: side 0 is the positive
- * way across and side 1 the negative.
+ * Neither end's colour reaches the other, so the only question is what sits
+ * between them, and the answer cannot be a mix — green and red meet at
+ * yellow going one way round the wheel and at blue going the other, and
+ * both are colours neither board has. So the mix is taken and then clamped
+ * to the lightness and the chroma of `char`, the second darkest stop the
+ * material has. At that lightness a hue cannot be read, so what is left is
+ * the material's own dark rather than a third colour — and the inner bands,
+ * which are already darker than `char`, are not touched by the clamp at
+ * all.
  */
-function bandAt(u: number, side: 0 | 1, k: number, half: number, mixed: boolean): number {
-  /* `seamAt` is the share of the width side 0 has, and side 0 is the
-     positive way across, so the seam sits that far in from the + edge. */
-  const seam = (1 - 2 * seamAt(u, mixed)) * half;
-  const edge = side === 0 ? half : -half;
-  return (seam + (edge - seam) * (k / BANDS)) * gather(u);
+function dusk(a: string, z: string, floor: Lch): string {
+  const m = lch(mix(lch(a), lch(z), 0.5));
+  return `oklch(${Math.min(m.l, floor.l).toFixed(3)} ${Math.min(m.c, floor.c).toFixed(3)} ${m.h.toFixed(1)})`;
 }
 
 /**
- * One side of the ribbon, as a path: the seam down one way, the edge back.
+ * Where one band of the section runs, across the ribbon, at `u`.
  *
- * `k0`..`k1` are band numbers out from the seam, so the whole side is 0 to
+ * `k` counts out from the axis, so band 0 is the middle of the ribbon and
+ * band `BANDS` its edge, and `side` is which way out — 0 the positive way
+ * across and 1 the negative. The two sides are the same section mirrored,
+ * which is what makes it one strand: the dark is down the middle of it and
+ * the light is at both edges, the way a box is dark in the middle and lit
+ * around it.
+ */
+function bandAt(u: number, side: 0 | 1, k: number, half: number): number {
+  const edge = side === 0 ? half : -half;
+  return edge * (k / BANDS) * gather(u);
+}
+
+/**
+ * One side of the ribbon, as a path: the axis down one way, the edge back.
+ *
+ * `k0`..`k1` are band numbers out from the axis, so the whole side is 0 to
  * `BANDS` and one band is `k` to `k + 1`.
  */
-function sidePath(s: Sample[], side: 0 | 1, k0: number, k1: number, half: number, mixed: boolean, into: CanvasRenderingContext2D | null): string {
+function sidePath(s: Sample[], side: 0 | 1, k0: number, k1: number, half: number, into: CanvasRenderingContext2D | null): string {
   const outer: string[] = [];
   const inner: string[] = [];
   for (let i = 0; i < s.length; i++) {
     const p = s[i]!;
-    const a = bandAt(p.t, side, k1, half, mixed);
-    const b = bandAt(p.t, side, k0, half, mixed);
+    const a = bandAt(p.t, side, k1, half);
+    const b = bandAt(p.t, side, k0, half);
     const ax = p.x + p.nx * a, ay = p.y + p.ny * a;
     const bx = p.x + p.nx * b, by = p.y + p.ny * b;
     if (into) {
@@ -403,7 +450,7 @@ function sidePath(s: Sample[], side: 0 | 1, k0: number, k1: number, half: number
   if (into) {
     for (let i = s.length - 1; i >= 0; i--) {
       const p = s[i]!;
-      const b = bandAt(p.t, side, k0, half, mixed);
+      const b = bandAt(p.t, side, k0, half);
       into.lineTo(p.x + p.nx * b, p.y + p.ny * b);
     }
     into.closePath();
@@ -413,32 +460,57 @@ function sidePath(s: Sample[], side: 0 | 1, k0: number, k1: number, half: number
 }
 
 /**
- * The outline of one side of the ribbon, as an SVG path in the canvas's own
- * coordinates.
+ * The outline of one half of the ribbon's *length*, as an SVG path in the
+ * canvas's own coordinates.
  *
- * The timeline lays the construct's drifting cloud over each side of the
- * vine, clipped to this — the green cloud on the green side and the red on
- * the red — so the weather on a vine is the weather on a box, and the two
- * colours still never touch: the clips meet at the seam and stop. Sampled
- * off the same curve with the same widths as the paint, so the two cannot
- * disagree.
+ * The timeline lays the construct's drifting cloud over the vine, clipped
+ * to this, so the weather on a vine is the weather on a box. It is halves
+ * of the length rather than sides of the width because that is where the
+ * colour changes now: the green cloud goes over the half that leaves the
+ * green board and the red over the half that arrives at the red one, and
+ * they meet in the middle, where the vine is at its darkest and neither of
+ * them shows. The whole width each, so J's filaments cross a vine the way
+ * they cross a card.
+ *
+ * **Not the whole width: the body of it, between the axis and the rim.**
+ * The cloud is a layer at two thirds, so wherever it lies it pulls what is
+ * under it towards the tile's own middling dark — measured across a vine,
+ * over the whole width it lifted the core from 7 of green to 28 and pulled
+ * the rims down from 82 and 92 to 65 and 60, which is the section flattened
+ * and the light taken out of the edges. That is the same note as before,
+ * answered properly this time: on a box the cloud lies on the *face*, the
+ * dark core shows through the middle of it and the rim sits over it, and a
+ * vine is arranged the same way. The two innermost bands and the two
+ * outermost are the vine's core and its rim, and the cloud stops short of
+ * both.
+ *
+ * Two subpaths, one per side of the axis, because that is what `sidePath`
+ * makes and the union of them is the ribbon's body. Sampled off the same
+ * curve with the same widths as the paint, so the two cannot disagree.
  */
 export function strandEnvelope(
   from: Point,
   to: Point,
-  side: 0 | 1,
+  part: 0 | 1,
   opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone } = {},
 ): string {
-  const { s, mixed, half, dead } = build(from, to, opts);
+  const { s, half, dead } = build(from, to, opts);
   if (dead || s.length < 2) return "";
-  return sidePath(s, side, 0, BANDS, half, mixed, null);
+  /* A hair of overlap at the join, so a rounding error cannot leave a gap
+     of bare bark between the two clouds. */
+  const cut = s.findIndex((p) => p.t >= 0.5);
+  const sub = part === 0
+    ? s.slice(0, cut < 0 ? s.length : Math.min(s.length, cut + 2))
+    : s.slice(Math.max(0, (cut < 0 ? s.length : cut) - 1));
+  if (sub.length < 2) return "";
+  return `${sidePath(sub, 0, CLOUD_IN, CLOUD_OUT, half, null)}${sidePath(sub, 1, CLOUD_IN, CLOUD_OUT, half, null)}`;
 }
 
 /**
  * Draw one vine.
  *
  * Opaque, and built from the middle out: the shadow, then each side of the
- * section band by band from the seam to the rim. Nothing is blended and
+ * section band by band from the axis out to both rims. Nothing is blended and
  * nothing is translucent — you cannot see the nebula through a vine,
  * because it is a construct rather than a glow.
  *
@@ -473,22 +545,40 @@ export function paintStrand(
   c.stroke();
 
   /*
-   * The section, a band at a time, from the seam out to each rim.
+   * The section, a band at a time, from the axis out to both rims.
    *
-   * One fill of one long polygon per band — eighteen fills for a vine of
-   * any length — where the cable was a stroke per strand per step, six
-   * hundred of them. The bands overlap by a hair so there is no seam
-   * between them; the only seam on a vine is the one in the middle, where
-   * the two colours meet at their darkest.
+   * One fill per band, both sides of the axis in the same path — ten
+   * fills for a vine of any length — where the cable was a stroke per
+   * strand per step, six hundred of them. The bands overlap by a hair so
+   * there is no line between them, and there is no seam anywhere: the
+   * darkest part of a vine is its axis, which is where the section starts.
    */
-  for (const side of [0, 1] as const) {
-    const ramp = SECTION[ends[side]]!;
-    for (let k = 0; k < BANDS; k++) {
-      c.fillStyle = ramp[k]!;
-      c.beginPath();
-      sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, mixed, c);
-      c.fill();
+  const near = SECTION[ends[0]]!;
+  const far = SECTION[ends[1]]!;
+  const floor = lch(VINE[ends[0]].char);
+  for (let k = 0; k < BANDS; k++) {
+    /*
+     * One fill, and the colour along it is the gradient's job rather than
+     * another polygon's. The axis is the straight line between the boards
+     * and not the curve, which is right: a linear gradient projects onto
+     * its axis, so a point halfway along the bow is halfway along the
+     * gradient, and a vine still growing is coloured as it will be when it
+     * is done.
+     */
+    if (mixed) {
+      const g = c.createLinearGradient(from.x, from.y, to.x, to.y);
+      const dark = dusk(near[k]!, far[k]!, floor);
+      g.addColorStop(0, near[k]!);
+      g.addColorStop(FADE, dark);
+      g.addColorStop(1 - FADE, dark);
+      g.addColorStop(1, far[k]!);
+      c.fillStyle = g;
+    } else {
+      c.fillStyle = near[k]!;
     }
+    c.beginPath();
+    for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
+    c.fill();
   }
 
   c.restore();
