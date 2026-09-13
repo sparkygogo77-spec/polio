@@ -88,6 +88,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       theme={t}
       mode={mode}
       cube={node.cube}
+      mesh={node.mesh}
       vector={node.vector}
       onNavigate={onNavigate}
       emit={emit}

@@ -34,7 +34,7 @@
  * Pure, and tested by `tests/coded.mjs`.
  */
 import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./parts/cubeFaces.ts";
-import { kindOfSketch } from "./shapeKind.ts";
+import { corners, kindOfSketch } from "./shapeKind.ts";
 import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
 import type { StudioNode } from "./store.ts";
 
@@ -217,3 +217,37 @@ export function isCoded(featureId: string): boolean {
 
 /** A box round the drawing, for a matcher that needs one. */
 export const boxOf = (sketch: Sketch) => sketchBox(sketch.strokes.filter((s) => s.length >= 2));
+
+/* ------------------------------------------------------------------ */
+/* What it nearly was                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What the catalogue *nearly* claimed, and the one word that would have
+ * done it.
+ *
+ * A closed box is the most-drawn shape there is, and the library's cube is
+ * the part it nearly always means — but a rectangle is also every other
+ * part in the library, so the geometry alone is deliberately not enough
+ * (`isCube`). The cost of that decision used to be silence: a person drew a
+ * box, got a flat cutout, and nothing anywhere said a real cube with
+ * editable faces was one word away. That is the oldest complaint on this
+ * project and the guess was never wrong — it was never offered.
+ *
+ * So it is offered. Not taken: taking it would turn every drawn rectangle
+ * into a spinning cube, which is far worse. This is the house rule about a
+ * guess being visible and changeable rather than hidden, applied to the
+ * guess that was too risky to make.
+ */
+export function nearlyCoded(c: CodedContext): string {
+  const said = `${c.sketch.words ?? ""} ${c.prompt}`;
+  if (saysCube(said)) return "";
+  const closed = c.sketch.strokes.filter((s) => s.length >= 2).filter(strokeClosed);
+  if (closed.length !== 1) return "";
+  const n = corners(closed[0]!);
+  // Four corners and a box that fills its frame: a box, drawn as a box.
+  if (n < 3 || n > 6) return "";
+  const box = sketchBox(closed)!;
+  if (box.w < 0.2 || box.h < 0.2) return "";
+  return 'a closed box like this can be a real cube instead — six faces you can turn and write on. Say "cube" or "box" beside the drawing and it will be one.';
+}

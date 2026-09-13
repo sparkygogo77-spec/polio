@@ -38,7 +38,9 @@ export type PartEvent =
   | { type: "auth"; signedIn: boolean; name?: string }
   | { type: "theme"; light?: boolean; hue?: number }
   /** A cube has been turned and has settled: this is where it was left. */
-  | { type: "cube"; turn: { x: number; y: number } };
+  | { type: "cube"; turn: { x: number; y: number } }
+  /** …and the same for a solid, which is turned the same way. */
+  | { type: "mesh"; turn: { x: number; y: number } };
 
 /**
  * One side of a cube, and what is written on it.
@@ -69,6 +71,30 @@ export interface CubeData {
   turn?: { x: number; y: number };
 }
 
+/**
+ * A solid the board mounts and turns.
+ *
+ * The mesh itself rides inside the document as a `data:` URI, the way a
+ * raster body does, because a generated site ships what it draws — nothing
+ * is fetched at render time, because nothing may be. That is also why the
+ * table asks the model for a small face count: this is bytes in a page.
+ *
+ * `still` is a photograph of it, and is what the board draws and what any
+ * browser that will not give a WebGL context gets. A solid with no still is
+ * a solid that may show nothing on a machine that cannot turn it.
+ */
+export interface MeshData {
+  /** The solid: a GLB, as a `data:` URI. */
+  glb: string;
+  /** A photograph of it, for the board and for anywhere it cannot be turned. */
+  still?: string;
+  /** Where it is left standing, in degrees. The still is taken at this angle. */
+  turn?: { x: number; y: number };
+  /** Which model made it, and how many bytes it costs the document. */
+  from?: string;
+  bytes?: number;
+}
+
 export const emptyFace = (): CubeFace => ({ heading: "", body: "", colour: "" });
 export const emptyCube = (): CubeData => ({ faces: CUBE_SIDES.map(emptyFace), turn: { x: -18, y: -32 } });
 
@@ -87,6 +113,8 @@ export interface PartProps {
   mode: PartMode;
   /** The six faces, for the one part that has them. */
   cube?: CubeData | null;
+  /** The solid, for the one part that mounts one. */
+  mesh?: MeshData | null;
   /**
    * The drawing this part carries, as vector.
    *

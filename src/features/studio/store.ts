@@ -48,6 +48,7 @@ import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawnVector, VectorRole } from "./vector";
 import { emptyCube, type CubeData, type CubeFace } from "./parts/cubeFaces";
+import type { MeshData } from "./parts/types";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { trimQueue, type DrawJob } from "./queue";
@@ -153,6 +154,16 @@ export interface StudioNode {
    * them and draws them.
    */
   cube: CubeData | null;
+  /**
+   * The solid, when this part is one.
+   *
+   * A GLB as a `data:` URI, on the node for the same reason the faces are:
+   * the document carries what it draws, so publish, Build and the live page
+   * all ship the same bytes and nothing is fetched when the part renders.
+   * It is the largest thing a node can hold, which is why the model is
+   * asked for a small face count rather than the best mesh it can make.
+   */
+  mesh: MeshData | null;
   /**
    * A body written for this part, when the drawing asked for something no
    * part in the library is: a helix of sentences, a spiral of names. SVG or
@@ -455,6 +466,8 @@ interface StudioState extends Doc {
   setCubeFace: (nodeId: string, index: number, patch: Partial<CubeFace> | null) => void;
   /** Where a cube is left standing, so the board draws the angle it was turned to. */
   setCubeTurn: (nodeId: string, turn: { x: number; y: number }) => void;
+  /** …and the same for a solid, which is turned the same way. */
+  setMeshTurn: (nodeId: string, turn: { x: number; y: number }) => void;
 
   /* groups */
   groupSelection: (label?: string) => void;
@@ -867,7 +880,7 @@ export const useStudio = create<StudioState>()(
                 content: "",
                 data: "",
                 colour: null, font: null, anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth",
-                shape: null, outline: null, kind: null, cube: null, vector: null, role: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
+                shape: null, outline: null, kind: null, cube: null, mesh: null, vector: null, role: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null,
                 w,
                 h,
                 groupId: null,
@@ -979,6 +992,11 @@ export const useStudio = create<StudioState>()(
         setCubeTurn: (nodeId, turn) =>
           set((s) => ({
             nodes: s.nodes.map((n) => (n.id === nodeId ? { ...n, cube: { ...(n.cube ?? emptyCube()), turn } } : n)),
+          })),
+
+        setMeshTurn: (nodeId, turn) =>
+          set((s) => ({
+            nodes: s.nodes.map((n) => (n.id === nodeId && n.mesh ? { ...n, mesh: { ...n.mesh, turn } } : n)),
           })),
 
         applyDrawnKind: (nodeId, role, said = "") => {

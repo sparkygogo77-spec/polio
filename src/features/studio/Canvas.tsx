@@ -40,8 +40,14 @@ import { openRadial, pageSpot } from "./RadialMenu";
 
 const GRID = 8;
 
-/** Parts that take the pointer on the board once they are selected. See `handsOn`. */
-const HANDS_ON = new Set(["cube-3d"]);
+/**
+ * Parts that take the pointer on the board once they are selected.
+ *
+ * A very short list on purpose, and both of them are on it for the same
+ * reason: they are solids, and looking at a solid tells you nothing that
+ * turning it does. See `handsOn`.
+ */
+const HANDS_ON = new Set(["cube-3d", "mesh-3d"]);
 
 /** Parts that wear a drawn icon when one is dropped on them. */
 const WEARS_AN_ICON = new Set(["cta-primary", "quick-action", "follow"]);
@@ -1459,7 +1465,12 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
            * touch the document, so it says where it settled and the board
            * writes it down.
            */
-          emit={(e) => { if (e.type === "cube") useStudio.getState().setCubeTurn(node.id, e.turn); }}
+          emit={(e) => {
+            // Where a thing you can turn was left is worth keeping, so the
+            // board draws that angle and publish ships it.
+            if (e.type === "cube") useStudio.getState().setCubeTurn(node.id, e.turn);
+            if (e.type === "mesh") useStudio.getState().setMeshTurn(node.id, e.turn);
+          }}
         />
       </div>
       {/* The mark along the drawn edge, in place of the box. */}

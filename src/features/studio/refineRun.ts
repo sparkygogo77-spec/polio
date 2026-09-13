@@ -61,6 +61,8 @@ export interface RefineInput {
   /** Real text in it wants the typography model; a ground wants the widest frames. */
   hasText?: boolean;
   ground?: boolean;
+  /** What was said next to the drawing. A solid has to be asked for in words. */
+  said?: string;
   w: number;
   h: number;
 }
@@ -103,6 +105,9 @@ interface Answer {
   ok?: boolean;
   html?: string;
   image?: string;
+  /** A solid rather than a body: the board mounts it and turns it. */
+  solid?: boolean;
+  mesh?: { glb: string; bytes?: number; from?: string };
   model?: string;
   name?: string;
   ms?: number;
@@ -134,6 +139,7 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
         kind: input.kind,
         hasText: !!input.hasText,
         ground: !!input.ground,
+        said: input.said ?? "",
         w: input.w,
         h: input.h,
         ...(house ? { example: house } : {}),
@@ -146,7 +152,10 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
   }
 
   const meter: Metered = { ms: answer.ms ?? Date.now() - from, dollars: answer.cost ?? null };
-  if (!answer.ok || !answer.html) {
+  // A solid has no body, so "did it come back with markup" is the wrong
+  // question to ask of it first.
+  const solid = !!answer.ok && !!answer.solid && !!answer.mesh?.glb;
+  if (!answer.ok || (!answer.html && !solid)) {
     return {
       ok: false,
       reason: answer.reason ?? "refine",
@@ -168,11 +177,53 @@ export async function refinePart(input: RefineInput, deps: { onStep?: (s: string
     return { ok: false, reason: "gone", ms: meter.ms, cost: meter.dollars, line: "second pass · came back to a part that was no longer there" };
   }
   /*
+   * A solid is not a body, so it does not go through any of what follows.
+   *
+   * It becomes a different part: the viewer mounts the mesh and turns it,
+   * and the drawing that made it stays on the node as the still, so a
+   * machine that will not give a WebGL context still shows the thing. There
+   * is nothing to sanitise — a GLB is data, not markup — and nothing to
+   * score, because a silhouette is not what a solid is for.
+   */
+  if (solid && answer.mesh) {
+    useStudio.getState().updateNode(input.nodeId, {
+      featureId: "mesh-3d",
+      custom: false,
+      // A solid cannot live inside a still silhouette, the same way a cube
+      // cannot: the clip goes.
+      shape: null,
+      outline: null,
+      /*
+       * …and the traced body goes with it. It was the first pass's answer
+       * to "what does this look like", and the solid is a better answer to
+       * the same question — it is kept as the still rather than left
+       * underneath, where the board would draw it instead of the part.
+       */
+      code: null,
+      mesh: {
+        glb: answer.mesh.glb,
+        still: `data:image/png;base64,${input.first}`,
+        turn: { x: -12, y: -28 },
+        from: answer.mesh.from ?? answer.model,
+        bytes: answer.mesh.bytes,
+      },
+    });
+    return {
+      ok: true,
+      model: answer.model,
+      name: answer.name,
+      ms: meter.ms,
+      cost: meter.dollars,
+      line: `made solid · ${sayPass(answer.name ?? answer.model ?? "the modeller", meter)}`,
+    };
+  }
+
+  /*
    * Cleaned exactly like a body Claude wrote, and under the same locks: a
    * second model's markup is not more trusted than a first model's, and a
    * refinement is not a way round the rule.
    */
-  const { html, stripped } = cleanSnippet(answer.html, RENDER_LIMIT);
+  const { html, stripped } = cleanSnippet(answer.html ?? "", RENDER_LIMIT);
   if (!html) {
     return { ok: false, reason: "empty-body", ms: meter.ms, cost: meter.dollars, line: "second pass · nothing usable was left of it once it was cleaned" };
   }
