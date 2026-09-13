@@ -28,7 +28,11 @@ const threads = readFileSync("src/features/studio/threads.ts", "utf8");
 check("a thread has somewhere to keep what it made", /madeId\?: string;/.test(threads));
 
 const store = readFileSync("src/features/studio/store.ts", "utf8");
-check("it can be set as the thread lands", /landThread: \(\{ mode, model, ask, answer, changes, sketch, state, madeId \}\)/.test(store));
+/* That `madeId` is one of the things a landing thread is given, rather than
+   the whole parameter list in that order. Pinned to all eight names, this
+   broke the first time somebody added a ninth — the id a forming box fills
+   in — while what it claims was untouched. */
+check("it can be set as the thread lands", /landThread: \(\{[^}]*\bmadeId\b[^}]*\}\)/.test(store));
 check("and afterwards, for a road that only knows later", /noteMade: \(threadId, madeId\)/.test(store));
 
 const run = readFileSync("src/features/studio/reshapeRun.ts", "utf8");
@@ -76,5 +80,7 @@ try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) 
 check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
 
 const passed = results.filter(Boolean).length;
-console.log(`\nall good — ${passed}/${results.length}`);
+/* Says what happened. It read "all good" whatever the count was, so a run
+   with a failure in it announced itself as a clean one. */
+console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);
 process.exit(passed === results.length ? 0 : 1);
