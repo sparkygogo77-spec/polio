@@ -18,6 +18,7 @@ import {
 import { flattenLayers } from "./texture";
 import { CropPicker } from "./CropPicker";
 import { Spectrum } from "./MenuConsole";
+import { CHIP, emptyFill } from "./colourMenu";
 import { resolvePalette } from "./parts/theme";
 import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
@@ -235,18 +236,25 @@ function ColourSection() {
  * and you could not tell, from the panel, which of your layers was see-through
  * and which was a lid.
  */
-const CHECKS: React.CSSProperties = {
-  backgroundImage:
-    "conic-gradient(var(--elevated) 25%, var(--bg) 0 50%, var(--elevated) 0 75%, var(--bg) 0)",
-  backgroundSize: "10px 10px",
-};
+/*
+ * This was the one place that had already found the answer, and it is the
+ * one the console's five "nothing" chips were given. It moves the other way
+ * now: the chequer comes from `colourMenu` so there is one of it, at the
+ * same 10px pitch this chose. The two greys are fixed rather than theme
+ * variables, because the same chequer has to read as transparent on the
+ * near-black console as well as on this panel.
+ */
+const CHECKS: React.CSSProperties = emptyFill();
 
 function Swatch({ layer, palette }: { layer: TextureLayer; palette: Palette }) {
   // The real compositor, on one layer, over nothing — so the chip shows the
   // layer itself rather than the layer plus a ground it may not have.
   const style = textureCss([{ ...layer, on: true }], palette, "transparent");
   return (
-    <div className="size-8 shrink-0 overflow-hidden rounded-md border border-border" style={CHECKS}>
+    <div
+      className="shrink-0 overflow-hidden border border-border"
+      style={{ width: CHIP.far, height: CHIP.far, borderRadius: CHIP.radius.square, ...CHECKS }}
+    >
       <div className="size-full" style={style} />
     </div>
   );

@@ -49,7 +49,7 @@ export interface DrawJob {
    * `asking`: it waits on the person, not on the queue, and other drawings
    * go past it.
    */
-  question?: { ask: string; choices: readonly string[]; answer?: string } | null;
+  question?: { ask: string; choices: readonly string[]; answer?: string; why?: "cube" | "kind" } | null;
   /**
    * The iteration this job is making, landed the moment it was queued.
    *

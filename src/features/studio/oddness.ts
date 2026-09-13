@@ -31,7 +31,19 @@
  *
  * Everything else is left alone. A drawing with words beside it has been
  * described; a shape the reader can name has been named by the pen; a
- * single straight stroke is a line. Pure, and tested by `tests/oddness.mjs`.
+ * single straight stroke is a line.
+ *
+ * **THE WORDS ALWAYS WIN.** A question and its answer are about the drawing
+ * as it stood when it was asked, and a person can describe the drawing
+ * afterwards — while the question is still up, or after answering it, by
+ * typing on the part the drawing was made on. Either way what is left is an
+ * answer attached to a drawing that no longer matches it: "A cube", against
+ * a part now captioned "the pricing table". So the question is asked again
+ * of what is true *now*, at the moment the job runs and while it waits: a
+ * question that would no longer be asked is withdrawn, and an answer to it
+ * is dropped. `stillAsks` is that one rule, and it is the whole of it.
+ *
+ * Pure, and tested by `tests/oddness.mjs`.
  */
 import { kindOfSketch, straightness } from "./shapeKind.ts";
 import { nearlyCoded } from "./coded.ts";
@@ -76,6 +88,26 @@ export function oddness(sketch: Sketch, said = ""): Question | null {
     }
   }
   return null;
+}
+
+/**
+ * Does the question still stand, of the drawing as it is now?
+ *
+ * The strokes cannot change once a drawing is queued; the words can, and
+ * words are what silence the question. So this asks it again: false when
+ * the drawing has since been described, or has become a different kind of
+ * ambiguous, and true only when the very same question would be asked of
+ * it today. A job whose question is no longer standing runs without it, and
+ * whatever was answered is dropped — the person's later words are a better
+ * account of what they meant than their earlier answer.
+ */
+export function stillAsks(q: { why?: Question["why"] } | null | undefined, sketch: Sketch, said = ""): boolean {
+  if (!q) return false;
+  const now = oddness(sketch, said);
+  if (!now) return false;
+  // A question from before `why` was carried is judged on the drawing alone:
+  // if anything would still be asked of it, what was answered stands.
+  return q.why === undefined || now.why === q.why;
 }
 
 /**

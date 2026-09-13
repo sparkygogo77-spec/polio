@@ -46,6 +46,7 @@ import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
 import { createSpaceAt } from "./createSpace";
+import { PREVIEW } from "./colourMenu";
 import { BackgroundEditor } from "./BackgroundEditors";
 import { readImage } from "./ImageIntake";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
@@ -1040,7 +1041,7 @@ export function RadialMenu() {
                 preview:
                   bg
                     ? p.choice.id === "bg-color"
-                      ? <span className="block size-[18px] rounded-[4px]" style={{ background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
+                      ? <span className="block" style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
                       : undefined
                     : p.choice.id === "hue" ? <HueSwatch node={node!} palette={palette} />
                       // Aura shows the aura this part has, worn the way it wears
@@ -1424,7 +1425,10 @@ function HueSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
   const t = overrideTheme(themeFrom(useStudio.getState().format), node.colour ?? {}, palette);
   const roles: RoleId[] = ["bg", "surface", "accent", "highlight", "text"];
   return (
-    <span className="flex h-[14px] w-[34px] overflow-hidden rounded-[3px]" style={{ outline: "1px solid oklch(0 0 0 / 0.45)" }}>
+    <span
+      className="flex overflow-hidden"
+      style={{ height: PREVIEW.size, width: PREVIEW.wide, borderRadius: PREVIEW.radius, outline: "1px solid oklch(0 0 0 / 0.45)" }}
+    >
       {roles.map((r) => <span key={r} className="flex-1" style={{ background: t[r] }} />)}
     </span>
   );
@@ -1471,8 +1475,8 @@ function AuraSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
   return (
     <span
       data-aura-swatch=""
-      className="block size-[15px] rounded-[4px]"
-      style={{ background: palette.surface, outline: `1px solid ${worn ? "transparent" : "oklch(1 0 0 / 0.45)"}`, ...((worn ?? {}) as React.CSSProperties) }}
+      className="block"
+      style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: palette.surface, outline: `1px solid ${worn ? "transparent" : "oklch(1 0 0 / 0.45)"}`, ...((worn ?? {}) as React.CSSProperties) }}
     />
   );
 }

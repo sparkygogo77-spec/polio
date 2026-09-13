@@ -35,7 +35,7 @@ import { kindOfSketch } from "./shapeKind";
 import { roleFromWords } from "./vector";
 import { claudeSpend, sayBill, sayPass } from "./spend";
 import { tidySteps } from "./space";
-import { oddness, withAnswer } from "./oddness";
+import { oddness, stillAsks, withAnswer } from "./oddness";
 import type { Step } from "./imageRoute";
 
 /** A data URL down to its bytes, which is all the second pass takes. */
@@ -222,11 +222,20 @@ function boxOf(strokes: SketchPoint[][]): { x: number; y: number; w: number; h: 
 
 /** Run one job: read the drawing if a reader can be reached, and put it on the board either way. */
 export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult> {
-  // The answer to the one question, when one was asked, as words beside
-  // the drawing: everything after this reads the words and nothing knows.
-  const drawn = withAnswer(job.sketch, job.question?.answer);
   const s = useStudio.getState();
   const node = job.nodeId ? s.nodes.find((n) => n.id === job.nodeId) ?? null : null;
+  /*
+   * The answer, but only if the question it answers still stands.
+   *
+   * A person can describe the drawing after answering — by typing on the
+   * part it was made on — and then the answer is about a drawing that no
+   * longer matches it. The words are the better account of what they meant,
+   * so the stale answer is dropped and the question is not asked again
+   * either (`stillAsks`). When it does stand, the answer goes in as words
+   * beside the drawing and everything after this reads the words.
+   */
+  const answered = stillAsks(job.question, job.sketch, node?.prompt ?? "") ? job.question?.answer : undefined;
+  const drawn = withAnswer(job.sketch, answered);
   const feature = node ? getFeature(node.featureId) : null;
   const { frameWidth } = job;
   const plan = planOf(node);
@@ -300,7 +309,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     if (!job.question) {
       const q = oddness(drawn, node?.prompt ?? "");
       if (q) {
-        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices }, step: undefined });
+        // `why` travels with it: a question is only worth answering while
+        // the same one would still be asked (`stillAsks`).
+        useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices, why: q.why }, step: undefined });
         return { ok: true, asked: true, note: q.ask };
       }
     }

@@ -23,6 +23,7 @@ import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
 import { Tooltip } from "@/core/ui/tooltip";
 import { askingJob, doneJobs, failedJobs, nextJob, pendingJobs, type DrawJob } from "./queue";
+import { stillAsks } from "./oddness";
 import { runDrawJob } from "./reshapeRun";
 import { progressOf } from "./formation";
 import { useStudio } from "./store";
@@ -89,6 +90,26 @@ export function DrawQueue() {
       });
   }, [queue, ctx]);
 
+  /*
+   * A question nobody needs any more is withdrawn.
+   *
+   * While a job waits to be answered, the person can go to the part it was
+   * drawn on and say in words what it is — which is a better answer than
+   * any of the choices, and makes the question a thing to dismiss rather
+   * than a thing to answer. So the question is asked again of what is true
+   * now, and when it would no longer be asked the job goes back on the
+   * queue without it. `nodes` is watched because that is where the words
+   * are; the body does nothing at all unless something is asking.
+   */
+  const nodes = useStudio((s) => s.nodes);
+  React.useEffect(() => {
+    const job = askingJob(queue);
+    if (!job) return;
+    const said = job.nodeId ? nodes.find((n) => n.id === job.nodeId)?.prompt ?? "" : "";
+    if (stillAsks(job.question, job.sketch, said)) return;
+    useStudio.getState().updateJob(job.id, { status: "waiting", question: null });
+  }, [queue, nodes]);
+
   const asking = askingJob(queue);
   return asking ? <QueueQuestion job={asking} /> : null;
 }
@@ -102,6 +123,12 @@ export function DrawQueue() {
  * rather have the guess. Under the bar, by the Finish key that carries the
  * queue, because that is where a person looks to see what the queue is
  * doing; not a dialog, because the board stays theirs while it waits.
+ *
+ * Clear of the whole bar, not merely below its first row. It sat at
+ * `top-14`, which is under the header and straight over the toolbar
+ * beneath it — over the Finish key itself, measured: the key at y 51–79
+ * and the card from 56. So the one button you press to go and look at what
+ * is being asked about could not be pressed.
  */
 function QueueQuestion({ job }: { job: DrawJob }) {
   const q = job.question!;
@@ -114,7 +141,7 @@ function QueueQuestion({ job }: { job: DrawJob }) {
       data-queue-question={job.id}
       role="group"
       aria-label={q.ask}
-      className="fixed right-4 top-14 z-50 w-[300px] rounded-[4px] border p-2.5 text-[11px] shadow-panel backdrop-blur"
+      className="fixed right-4 top-24 z-50 w-[300px] rounded-[4px] border p-2.5 text-[11px] shadow-panel backdrop-blur"
       style={{ background: "oklch(0.15 0.018 18 / 0.96)", borderColor: "oklch(0.46 0.157 18 / 0.7)", color: "oklch(0.92 0.02 18)" }}
     >
       <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: "oklch(0.72 0.106 18)" }}>before anything is spent</p>
