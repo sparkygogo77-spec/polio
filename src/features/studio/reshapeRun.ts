@@ -71,6 +71,14 @@ export interface RunResult {
   note: string;
   /** The run stopped to ask one question; the job is `asking`, not over. */
   asked?: boolean;
+  /**
+   * A later pass is still running and will finish the iteration itself.
+   *
+   * The second pass is deliberately not awaited — the part is on the board
+   * and the person is looking at it — so the run returns before the
+   * iteration is over. Whoever finishes last marks it done.
+   */
+  pending?: boolean;
 }
 
 /**
@@ -254,6 +262,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       useStudio.getState().updateNode(made.id, patch);
       const label = patch.featureId ? getFeature(patch.featureId)?.name ?? made.label : made.label;
       useStudio.getState().landThread({
+        id: job.threadId,
         mode: "drawing",
         // A part out of the catalogue is one step and it is over: nothing
         // is written or traced after it.
@@ -309,6 +318,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       const made = applyProportion(drawn, node, job);
       const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
       const landed = useStudio.getState().landThread({
+        id: job.threadId,
         mode: "drawing",
         state: "running",
         ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
@@ -325,10 +335,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         source: "studio",
         toast: true,
       });
-      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan) : "";
-      useStudio.getState().markThread(landed, "done");
-      billToast(landed, deps, `studio:reshape:${made.id}`);
-      return { ok: true, madeId: made.id, note: [role.did, bodied].filter(Boolean).join(" · ") };
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
+      if (!bodied.pending) finish(landed, deps, `studio:reshape:${made.id}`);
+      return { ok: true, madeId: made.id, pending: bodied.pending, note: [role.did, bodied.note].filter(Boolean).join(" · ") };
     }
 
     deps.onStep?.("Claude is reading the drawing…");
@@ -386,6 +395,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
        * flight.
        */
       const landed = useStudio.getState().landThread({
+        id: job.threadId,
         mode: "drawing",
         state: "running",
         model: data.usage?.model,
@@ -398,7 +408,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       });
       // The reading is the first paid call of this iteration; the tracer and
       // the writer add theirs to the same bill as they go.
-      useStudio.getState().noteSpend(readCost);
+      useStudio.getState().noteSpend(readCost, job.threadId);
       useStudio.getState().noteMade(landed, made.id);
       if (nearly) {
         deps.publish({
@@ -429,18 +439,18 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       // The shape said what the part looks like; it also said what it does.
       // The clip is already on, and this adds behaviour on top of it.
       const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
-      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan) : "";
-      useStudio.getState().markThread(landed, "done");
+      const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
       /*
-       * What it cost, said where the person is looking.
+       * What it cost, said where the person is looking — and the iteration
+       * marked finished, which is the same moment.
        *
-       * The toast has to be published before the body is traced, because a
-       * toast that arrives ten seconds after the part did is not a report;
-       * so the bill is added to it here, once everything that spends has
-       * spent, off the thread the whole iteration wrote to.
+       * The toast has to be published once everything that spends has
+       * spent, off the thread the whole iteration wrote to; when a later
+       * pass is still running, that moment is its end rather than this one,
+       * and it does both there.
        */
-      billToast(landed, deps, `studio:reshape:${made.id}`);
-      return { ok: true, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
+      if (!bodied.pending) finish(landed, deps, `studio:reshape:${made.id}`);
+      return { ok: true, madeId: made.id, pending: bodied.pending, note: [body, role.did, bodied.note].filter(Boolean).join(" · ") };
     }
 
     // No key, a refusal, a bad reply: the drawing still shapes the part, and
@@ -452,6 +462,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // was involved: the shape, the crop, the behaviour and the traced body
     // all happened, and the timeline is where what happened is written.
     const landed = useStudio.getState().landThread({
+      id: job.threadId,
       mode: "drawing",
       state: "running",
       ask: [drawn.words.trim(), `a drawing of ${describeSketch({ strokes: drawn.strokes, words: "" })}`].filter(Boolean).join("\n"),
@@ -476,12 +487,12 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     // The body does not need a reader either. Tracing the drawing is
     // Claude-free from end to end, so a locked vault costs the description
     // and nothing else.
-    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan) : "";
+    const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
     // The reader was missing, not the work: the shape, the behaviour and
-    // the traced body all landed, so this iteration finished.
-    useStudio.getState().markThread(landed, "done");
-    billToast(landed, deps, `studio:reshape:${made.id}`);
-    return { ok: false, madeId: made.id, note: [body, role.did, bodied].filter(Boolean).join(" · ") };
+    // the traced body all landed, so this iteration finished — unless a
+    // later pass is still going, which finishes it itself.
+    if (!bodied.pending) finish(landed, deps, `studio:reshape:${made.id}`);
+    return { ok: false, madeId: made.id, pending: bodied.pending, note: [body, role.did, bodied.note].filter(Boolean).join(" · ") };
   } catch (err) {
     // The request itself failed. The drawing is still worth keeping, and the
     // proportion it says is still the part's.
@@ -495,9 +506,32 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       source: "studio",
       toast: true,
     });
+    // The box on the timeline is this job: it stops forming where the job
+    // stopped rather than sitting half-formed for ever.
+    if (job.threadId) {
+      useStudio.getState().noteThread([body], job.threadId);
+      finish(job.threadId, deps, `studio:reshape:${made.id}`);
+    }
     return { ok: false, madeId: made.id, note: body };
   }
 }
+
+/**
+ * The iteration is over: it is complete, and the bill is said.
+ *
+ * One place, because "complete" and "what it cost" are the same moment and
+ * were drifting apart — the box reached complete when the read came back
+ * and the bill was said before the second pass had spent anything. Whoever
+ * finishes last calls this: the run when nothing was left going, and the
+ * later passes when they were.
+ */
+function finish(threadId: string, deps: RunDeps, key: string) {
+  useStudio.getState().markThread(threadId, "done");
+  billToast(threadId, deps, key);
+}
+
+/** Nothing was made, so nothing is pending either. */
+const NOTHING_MADE = { note: "", pending: false };
 
 /**
  * Say what the iteration cost, where the person is already looking.
@@ -538,10 +572,16 @@ function billToast(threadId: string, deps: RunDeps, key: string) {
  * is, and a heading that quietly became a hand-written SVG would be a part
  * nobody could edit again.
  */
-async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Planned = { steps: null, model: null, options: null }): Promise<string> {
+async function bodyFor(
+  nodeId: string,
+  drawn: Sketch,
+  deps: RunDeps,
+  plan: Planned = { steps: null, model: null, options: null },
+  threadId?: string,
+): Promise<{ note: string; pending: boolean }> {
   const s = useStudio.getState();
   const node = s.nodes.find((n) => n.id === nodeId);
-  if (!node || node.featureId !== "custom-idea") return "";
+  if (!node || node.featureId !== "custom-idea") return NOTHING_MADE;
   /*
    * As planned: no first pass.
    *
@@ -551,12 +591,12 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Plann
    * is written; the card says so.
    */
   if (plan.steps && !plan.steps.includes("first")) {
-    useStudio.getState().notePass("first pass · left out by the plan");
+    useStudio.getState().notePass("first pass · left out by the plan", threadId);
     const role = roleFromWords([node.prompt, drawn.words].filter(Boolean).join(" "));
     if (role) useStudio.getState().updateNode(nodeId, { role });
     const code: PartCode = node.code ?? { html: "", overlap: 0, attempts: 0, at: Date.now(), source: "renderer", kind: "vectorize" };
-    laterPasses(nodeId, node, drawn, code, bare(pictureOf(drawn.strokes)), role, deps, plan);
-    return "no first pass, as planned";
+    const going = laterPasses(nodeId, node, drawn, code, bare(pictureOf(drawn.strokes)), role, deps, plan, threadId);
+    return { note: "no first pass, as planned", pending: going };
   }
   const palette = s.look?.palette as Record<string, string> | undefined;
   // The drawing is traced, not described. No model that writes is asked
@@ -605,9 +645,9 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Plann
     calls: written.calls ?? 0,
     ...(written.renderer ? { renderer: written.renderer } : {}),
     ...(written.claude ? { claude: written.claude } : {}),
-  });
-  if (written.message) useStudio.getState().noteThread([written.message]);
-  if (!written.ok || !written.code) return "";
+  }, threadId);
+  if (written.message) useStudio.getState().noteThread([written.message], threadId);
+  if (!written.ok || !written.code) return NOTHING_MADE;
   /*
    * The drawing lands as vector first and takes a role after. The words
    * choose it when they say one; otherwise it stays null and the panel
@@ -625,6 +665,7 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Plann
   // pass puts its own beside it and a total hides which was expensive.
   useStudio.getState().notePass(
     `first pass · ${sayPass(written.code.source === "renderer" ? `traced, ${written.code.kind ?? ""}`.trim() : "written", { ms: written.ms ?? 0, dollars: written.cost })}`,
+    threadId,
   );
   /*
    * The picture of what the first pass actually put on the board.
@@ -636,8 +677,11 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Plann
    * could not render, which the first pass has already said on the card.
    */
   const kept = written.attempts.reduce<Attempt | null>((a, b) => (!a || b.overlap > a.overlap ? b : a), null);
-  laterPasses(nodeId, node, drawn, written.code, bare(kept?.shot), role, deps, plan);
-  return [written.message, role ? `used as ${role}` : written.vector ? "no role chosen yet" : ""].filter(Boolean).join(" · ");
+  const going = laterPasses(nodeId, node, drawn, written.code, bare(kept?.shot), role, deps, plan, threadId);
+  return {
+    note: [written.message, role ? `used as ${role}` : written.vector ? "no role chosen yet" : ""].filter(Boolean).join(" · "),
+    pending: going,
+  };
 }
 
 /**
@@ -672,15 +716,25 @@ function laterPasses(
   role: string | null,
   deps: RunDeps,
   plan: Planned,
-) {
-  if (!first) return;
-  const on = useStudio.getState().liveThreadId ?? undefined;
+  threadId?: string,
+): boolean {
+  if (!first) return false;
+  /*
+   * This iteration's own card, not whatever is live.
+   *
+   * The job carries the thread it is making, and a second drawing queued
+   * while this one runs would otherwise take the lines: `liveThreadId` is
+   * whatever landed last, which stopped being this one the moment another
+   * was queued.
+   */
+  const on = threadId ?? useStudio.getState().liveThreadId ?? undefined;
+  const done = () => { if (on) finish(on, deps, `studio:reshape:${nodeId}`); };
   const stages = plan.steps
     ? plan.steps.filter((st): st is "refine" | "recreate" | "alpha" => st === "refine" || st === "recreate" || st === "alpha")
     : (["refine"] as const);
   if (!stages.length) {
     useStudio.getState().notePass("second pass · left out by the plan", on);
-    return;
+    return false;
   }
   const { mask, mode } = targetFor(node.outline ?? null, drawn.strokes);
   void (async () => {
@@ -737,10 +791,15 @@ function laterPasses(
       if (r.image) picture = r.image;
       base = useStudio.getState().nodes.find((n) => n.id === nodeId)?.code ?? base;
     }
-  })().catch(() => {
-    // A thrown pass is still a pass that did not run.
-    useStudio.getState().notePass("second pass · did not run: it failed on the way out", on);
-  });
+  })()
+    .catch(() => {
+      // A thrown pass is still a pass that did not run.
+      useStudio.getState().notePass("second pass · did not run: it failed on the way out", on);
+    })
+    // Whichever way it went, this was the last thing the iteration was
+    // waiting for: it is complete here, and the bill is said here.
+    .finally(done);
+  return true;
 }
 
 /** Claude answered: hold every field to the catalog, the frame and the drawing (`reshape.ts`), then apply it. */

@@ -51,6 +51,7 @@ import { emptyCube, type CubeData, type CubeFace } from "./parts/cubeFaces";
 import type { MeshData } from "./parts/types";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
+import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
 import type { Plan, Space, SpaceKind } from "./space";
 
@@ -218,6 +219,14 @@ export interface StudioNode {
    * own preview nodes, need nothing added.
    */
   plan?: Plan | null;
+  /**
+   * The live element this was recreated from, when one was (`recreate.ts`).
+   *
+   * Kept so the panel can say whose it was and read it again, and so the
+   * blueprint can say a part is a recreation rather than an invention.
+   * Absent on every part that was drawn or placed.
+   */
+  from?: { url: string; host: string; selector: string; at: number } | null;
 }
 
 export interface StudioGroup {
@@ -592,7 +601,7 @@ interface StudioState extends Doc {
   /** Keep what Claude found, each finding beside the prompt it was about. */
   recordAsk: (input: { mode: string; model?: string; revisions: Revision[] }) => void;
   /** An API call came back: hang a thread off the live one and stand on it. */
-  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string }; state?: "running" | "done" | "cut"; madeId?: string }) => string;
+  landThread: (input: { mode: string; model?: string; ask: string; answer: string; changes?: string[]; sketch?: { strokes: [number, number][][]; words: string }; state?: "running" | "done" | "cut"; madeId?: string; id?: string }) => string;
   /** Say which part an iteration made, once it is known. */
   noteMade: (threadId: string, madeId: string) => void;
   /** How the process behind one iteration ended: still going, done, or given up on. */
@@ -1604,7 +1613,33 @@ export const useStudio = create<StudioState>()(
         setCurrentThread: (id) =>
           set((s) => (s.threads.some((t) => t.id === id) || id === null ? { currentThreadId: id, openThreadId: id } : {})),
 
-        landThread: ({ mode, model, ask, answer, changes, sketch, state, madeId }) => {
+        landThread: ({ mode, model, ask, answer, changes, sketch, state, madeId, id: fill }) => {
+          /*
+           * Filling one in rather than making a second.
+           *
+           * A drawing's iteration is landed the moment it is queued, so that
+           * the box exists while the work happens rather than after it. When
+           * the work comes back it fills that one in — keeping when it began,
+           * what it hangs off, and how far it has formed — and only a thread
+           * with no id of its own is a new one.
+           */
+          if (fill && get().threads.some((t) => t.id === fill)) {
+            set((s) => ({
+              threads: s.threads.map((t) => (t.id === fill
+                ? {
+                  ...t,
+                  mode, model, state: state ?? "done",
+                  ask: ask.trim(), answer: answer.trim(), changes: changes ?? t.changes,
+                  ...(sketch ? { sketch } : {}),
+                  ...(madeId ? { madeId } : {}),
+                  doc: snapshot(s) as ThreadDoc,
+                  form: (state ?? "done") === "done" ? { ...(t.form ?? { p: 0, gen: 1 }), p: 1 } : t.form,
+                }
+                : t)),
+              liveThreadId: fill,
+            }));
+            return fill;
+          }
           const id = uid("th");
           set((s) => ({
             threads: [
@@ -1708,7 +1743,28 @@ export const useStudio = create<StudioState>()(
 
         enqueueDraw: (job) => {
           const id = uid("job");
-          set((s) => ({ queue: trimQueue([...s.queue, { ...job, id, status: "waiting" as const, queued: Date.now() }]) }));
+          /*
+           * The iteration begins here, not when the read comes back.
+           *
+           * A box lands on the timeline at the press of Make real, running
+           * and formed from nothing, and the job carries its id so every
+           * step of the work climbs *this* box. It reaches complete when the
+           * job does. Before this the thread was made when Claude answered,
+           * which is why a box appeared already finished and then played its
+           * formation afterwards.
+           */
+          const threadId = get().landThread({
+            mode: "drawing",
+            state: "running",
+            ask: job.sketch.words.trim(),
+            answer: "",
+            changes: [],
+            sketch: { strokes: job.sketch.strokes as [number, number][][], words: job.sketch.words },
+            ...(job.nodeId ? { madeId: job.nodeId } : {}),
+          });
+          // Queued is the very start of the vine: begun, and nothing more.
+          set((s) => ({ threads: s.threads.map((t) => (t.id === threadId ? { ...t, form: { p: QUEUED, gen: 1 } } : t)) }));
+          set((s) => ({ queue: trimQueue([...s.queue, { ...job, id, threadId, status: "waiting" as const, queued: Date.now() }]) }));
           return id;
         },
 

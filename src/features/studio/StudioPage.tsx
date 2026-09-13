@@ -9,10 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import {
-  ChevronDown, Circle, Eraser, Eye, FileText, History, Link, Link2, Link2Off, PlayCircle, Layers, Monitor, MousePointer2, PanelLeft, Search,
-  Palette as PaletteIcon, Pencil, Plus, Clapperboard, Redo2, Scan, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut,
-} from "lucide-react";
+import { ChevronDown, Circle, CircleDashed, Clapperboard, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Scan, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
@@ -89,6 +86,11 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pen", label: "Draw freehand", icon: Pencil, shortcut: "d" },
   { id: "erase", label: "Erase", icon: Eraser, shortcut: "e" },
   { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
+  // The fifth. A closed line drawn with it is a space — an area of the page
+  // set aside before anything is in it (`space.ts`) — so the icon is a ring
+  // that has not closed. It takes no ink hue: a space is not a drawn line
+  // that stays on the page, it is a boundary that becomes a part.
+  { id: "space", label: "Draw a space", icon: CircleDashed, shortcut: "s" },
 ];
 
 /**
@@ -624,6 +626,7 @@ export function StudioPage() {
       __studioSetLibrary?: (v: boolean) => void;
       __studioSetLeftPanel?: (id: string) => void;
       __studioNotePass?: (line: string, on?: string) => void;
+      __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null }[];
     };
     w.__studioOpenBrief = () => setBriefOpen(true);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
@@ -633,6 +636,14 @@ export function StudioPage() {
     // For the formation test: an update to a finished iteration, the way the
     // second pass makes one.
     w.__studioNotePass = (line: string, on?: string) => useStudio.getState().notePass(line, on);
+    /*
+     * The queue, for a test that watches one job go through.
+     *
+     * It is not written to storage — a queue is what is happening now, not
+     * what happened — so there is no other way to see from outside which
+     * step a job is on and which iteration it is making.
+     */
+    w.__studioQueue = () => useStudio.getState().queue.map((j) => ({ id: j.id, status: j.status, step: j.step ?? null, threadId: j.threadId ?? null }));
     /*
      * The lamp's drag, without a mouse.
      *
