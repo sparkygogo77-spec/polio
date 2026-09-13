@@ -1,8 +1,4 @@
-import {
-  Brush, Copy, Eraser, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Link, Lock,
-  MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star,
-  Trash2, Undo2, Ungroup, Wand2, ZoomIn, Eye, EyeOff, Link2, Link2Off, Scissors, ClipboardPaste,
-} from "lucide-react";
+import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Scissors, Send, Sparkles, Star, Trash2, Undo2, Ungroup, Wand2, ZoomIn } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
@@ -14,6 +10,7 @@ import { CATEGORIES, categoryOf, featuresByCategory, getFeature, type FeatureDef
 import { FORMAT_FIELDS } from "./format";
 import { compileSpec, specToJson, specToMarkdown } from "./spec";
 import { BACKGROUND_ID, heldBackground, heldNodes, HUES, livePath, useStudio, type StudioGroup, type StudioNode, type StudioPage as PageType, type StudioShape } from "./store";
+import { createSpaceAt } from "./createSpace";
 import { addFeatureToCanvas, dropPoint } from "./Palette";
 import { openBoard } from "./RadialMenu";
 
@@ -180,6 +177,7 @@ export const studio = defineFeature({
     { keys: "d", label: "Draw tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("pen") },
     { keys: "a", label: "Arrow tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("arrow") },
     { keys: "e", label: "Erase tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("erase") },
+    { keys: "s", label: "Space tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("space") },
     { keys: "f", label: "Fit the frame in view", group: "Builder", when: onDesign, run: () => useStudio.getState().requestFit() },
     { keys: "mod+z", label: "Undo", group: "Builder", when: onDesign, run: () => useStudio.getState().undo() },
     { keys: "mod+shift+z", label: "Redo", group: "Builder", when: onDesign, run: () => useStudio.getState().redo() },
@@ -472,6 +470,10 @@ export const studio = defineFeature({
           addFeatureMenu(at),
           { id: "studio.canvas.idea", label: "Drop a new idea here", icon: Lightbulb, onSelect: () => { s.addNode("custom-idea", at.x - 66, at.y - 38); } },
           { id: "studio.canvas.note", label: "Pin a note here", icon: Wand2, onSelect: () => { s.addNode("note", at.x - 66, at.y - 38); } },
+          // A space is the third thing a press on the page can put down: not
+          // a part yet, an area set aside to become one. The same point the
+          // two above are given, because it means the same thing here.
+          { id: "studio.canvas.space", label: "Create a space here", icon: CircleDashed, onSelect: () => { createSpaceAt(at.x, at.y); } },
           // The same drawing board a part's wheel opens, with no part under
           // it: draw a shape, and a new part lands here in that shape.
           { id: "studio.canvas.draw", label: "Draw a new part here", icon: Brush, onSelect: () => openBoard(target.x, target.y, at) },
@@ -485,6 +487,7 @@ export const studio = defineFeature({
               { id: "tool.pen", label: "Draw freehand", icon: Pencil, shortcut: "d", checked: s.tool === "pen", onSelect: () => s.setTool("pen") },
               { id: "tool.arrow", label: "Connect elements", icon: Link, shortcut: "a", checked: s.tool === "arrow", onSelect: () => s.setTool("arrow") },
               { id: "tool.erase", label: "Erase", icon: Eraser, shortcut: "e", checked: s.tool === "erase", onSelect: () => s.setTool("erase") },
+              { id: "tool.space", label: "Draw a space", icon: CircleDashed, shortcut: "s", checked: s.tool === "space", onSelect: () => s.setTool("space") },
             ],
           },
           { id: "studio.canvas.selectAll", label: "Select everything", shortcut: "mod+a", onSelect: () => s.selectAll() },

@@ -80,7 +80,21 @@ check("…and one still being worked on is left forming", /if \(\(t\.state \?\? 
 check("a pass, a cost and a line are all updates",
   (store.match(/form: reformed\(t\)/g) ?? []).length >= 3);
 const queue = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
-check("the job's own step drives it", /st\.noteProgress\(st\.liveThreadId, progressOf\(step\)\)/.test(queue));
+check("the job's own step drives its own box, not whatever landed last",
+  /st\.noteProgress\(job\.threadId \?\? st\.liveThreadId, progressOf\(step\)\)/.test(queue));
+/*
+ * It begins at the press of Make real, not when the answer comes back.
+ * The queue lands the iteration and hands the job its id; the job reaching
+ * complete is what completes the box, and a later pass still running says
+ * so rather than letting the queue call it finished early.
+ */
+check("the iteration is landed when the drawing is queued, at the first milestone",
+  /const threadId = get\(\)\.landThread\(\{/.test(store) && /form: \{ p: QUEUED, gen: 1 \}/.test(store) && /threadId, status: "waiting" as const/.test(store));
+check("…and the landing that follows fills that one in rather than making a second",
+  /if \(fill && get\(\)\.threads\.some\(\(t\) => t\.id === fill\)\)/.test(store));
+check("the box is complete when the job is, and a pass still running says so",
+  /if \(!r\.pending && job\.threadId\) useStudio\.getState\(\)\.markThread\(job\.threadId, "done"\);/.test(queue)
+  && /\.finally\(done\);/.test(readFileSync("src/features/studio/reshapeRun.ts", "utf8")));
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
 check("what is shown follows the truth at a capped rate rather than jumping", /const WHOLE_MS = 2600;/.test(timeline) && /at \+ dt \/ WHOLE_MS/.test(timeline));
 check("nothing forms on a reload of something that did not change", /st\.shown\.set\(t\.id, st\.mounted \? 0 : f\.p\);/.test(timeline));

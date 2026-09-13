@@ -524,7 +524,20 @@ export function Canvas() {
     }
 
     if (drag.kind === "draw") {
-      const pts: [number, number][] = tool === "pen" ? [...(drag.points ?? []), [p.x, p.y]] : [[drag.startX, drag.startY], [p.x, p.y]];
+      /*
+       * A trail for the tools that draw a line, two points for the one that
+       * draws between two points.
+       *
+       * The space tool was on the wrong side of this. It kept only where the
+       * press started and where the pointer is, so the loop a person drew was
+       * thrown away as they drew it and `isBoundary` was handed a straight
+       * two-point line — which is never closed, so every space drawn by hand
+       * came back "A space is a closed line" however carefully it was closed.
+       * It could not be found until the tool could be picked: nothing in the
+       * bar or the menus reached it, so nothing had ever drawn with it.
+       */
+      const trail = tool === "pen" || tool === "space";
+      const pts: [number, number][] = trail ? [...(drag.points ?? []), [p.x, p.y]] : [[drag.startX, drag.startY], [p.x, p.y]];
       setDrag({ ...drag, points: pts });
       setInk(pts);
       return;

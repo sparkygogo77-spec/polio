@@ -51,7 +51,7 @@ check("the panel routes a plan whose first drawing step is recreate to the one m
 check("read left out: the drawing is not sent up to be read, and the card says so as a decision",
   /if \(plan\.steps && !plan\.steps\.includes\("read"\)\) \{/.test(run) && /"not read: the plan left the reading out"/.test(run) && /as planned: \$\{plan\.steps\.join\(" › "\)\}/.test(run));
 check("first left out: nothing is traced or written, and the later passes start from the drawing's own picture",
-  /if \(plan\.steps && !plan\.steps\.includes\("first"\)\) \{/.test(run) && /notePass\("first pass · left out by the plan"\)/.test(run) && /bare\(pictureOf\(drawn\.strokes\)\)/.test(run));
+  /if \(plan\.steps && !plan\.steps\.includes\("first"\)\) \{/.test(run) && /notePass\("first pass · left out by the plan", threadId\)/.test(run) && /bare\(pictureOf\(drawn\.strokes\)\)/.test(run));
 check("no later pass in the plan: the second pass does not run, and the card says so",
   /notePass\("second pass · left out by the plan", on\)/.test(run));
 check("the later passes are the plan's, in the plan's order, refine, recreate and alpha alike",

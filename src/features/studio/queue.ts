@@ -50,6 +50,17 @@ export interface DrawJob {
    * go past it.
    */
   question?: { ask: string; choices: readonly string[]; answer?: string } | null;
+  /**
+   * The iteration this job is making, landed the moment it was queued.
+   *
+   * The box on the timeline is the job: it exists from the press of Make
+   * real, forms as the job works (`formation.ts`), and is complete when the
+   * job is. Before this the thread was created when the read came back, so
+   * nothing could form until most of the work was already done — and every
+   * step's progress before that landed on the *previous* iteration's box,
+   * because there was nothing else to write it on.
+   */
+  threadId?: string;
   /** What the counter and the book call it. */
   label: string;
   status: JobStatus;
