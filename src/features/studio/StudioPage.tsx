@@ -624,6 +624,7 @@ export function StudioPage() {
       __studioSetLibrary?: (v: boolean) => void;
       __studioSetLeftPanel?: (id: string) => void;
       __studioNotePass?: (line: string, on?: string) => void;
+      __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null }[];
     };
     w.__studioOpenBrief = () => setBriefOpen(true);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
@@ -633,6 +634,14 @@ export function StudioPage() {
     // For the formation test: an update to a finished iteration, the way the
     // second pass makes one.
     w.__studioNotePass = (line: string, on?: string) => useStudio.getState().notePass(line, on);
+    /*
+     * The queue, for a test that watches one job go through.
+     *
+     * It is not written to storage — a queue is what is happening now, not
+     * what happened — so there is no other way to see from outside which
+     * step a job is on and which iteration it is making.
+     */
+    w.__studioQueue = () => useStudio.getState().queue.map((j) => ({ id: j.id, status: j.status, step: j.step ?? null, threadId: j.threadId ?? null }));
     /*
      * The lamp's drag, without a mouse.
      *
