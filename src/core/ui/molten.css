@@ -156,20 +156,26 @@
    glow spilling past the rim. Inside it is the important part: a nebula of
    that colour, red or green, gliding endlessly.
 
-   THE NEBULA IS THE GROUND'S MECHANISM. A cloud field is painted once — one
-   tile per temperature, wrapping on `--nebula-period` — and handed to this
-   stylesheet as `--nebula-verdant` and `--nebula-ember` on the root
-   (`nebulaTile.ts`). The face's `::before` is one period wider than the box
-   and slides exactly one period by `transform`, so the loop lands on itself
-   and nothing repaints, ever. Thirty cards cost what one composited layer
-   costs. A construct rendered before the tiles exist falls back to the flat
-   dark face below and picks the cloud up the moment the properties land.
+   THE NEBULA IS THE GROUND'S MECHANISM. One tile per temperature, wrapping
+   on `--nebula-period`, handed to this stylesheet as `--nebula-verdant` and
+   `--nebula-ember` on the root (`nebulaTile.ts`). The face's `::before` is
+   one period wider than the box and slides exactly one period by
+   `transform`, so the loop lands on itself and nothing repaints, ever.
+   Thirty cards cost what one composited layer costs. A construct rendered
+   before the tiles exist falls back to the flat dark face below and picks
+   the cloud up the moment the properties land.
+
+   THE TILE IS J'S OWN RENDER. It was painted here from noise, which was a
+   likeness of the reference rather than the reference; it is now a seamless
+   cut of the face he rendered, served from `public/construct/`.
 
    THE CENTRE IS THE DARKEST PART. A very, very dark red or green in the
    middle — `--mo-core`, never black — with the light sitting around it and
-   easing in rather than falling off a cliff. The face carries the core; the
-   tile is painted thin in its middle and full towards its edges, so the two
-   agree without either knowing about the other.
+   easing in rather than falling off a cliff. The face carries the core, and
+   the cloud is thin in its middle and full towards its edges so the core
+   shows through it. That thinning was baked into the painted tile's alpha;
+   a photograph has no alpha, so it is the mask below — the same curve, on
+   the same layer, and the only thing about the layer that changed.
 --------------------------------------------------------------------------- */
 
 .molten {
@@ -186,6 +192,26 @@
    */
   contain: layout paint;
   overflow: hidden;
+  /*
+   * The falloff: thin through the middle, full at the top and the bottom.
+   *
+   * Three tenths in the centre and whole at the edges, eased rather than
+   * ramped — the same curve the painted tile carried in its own alpha
+   * (`0.3 + 0.7 * smoothstep`), written as stops because a mask gradient
+   * cannot smoothstep. It is on the cloud layers, so the face's own core
+   * shows through the middle of every card and the cloud holds the edges.
+   */
+  --molten-vignette: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 1) 0%,
+    rgb(0 0 0 / 0.78) 16%,
+    rgb(0 0 0 / 0.46) 32%,
+    rgb(0 0 0 / 0.3) 50%,
+    rgb(0 0 0 / 0.46) 68%,
+    rgb(0 0 0 / 0.78) 84%,
+    rgb(0 0 0 / 1) 100%
+  );
+
   /* Every construct reads these; an ember one re-points them and nothing
      else in the rule has to know which kind it is. */
   --mo-white: var(--molten-white);
@@ -233,9 +259,19 @@
   z-index: 0;
   background-image: var(--mo-nebula);
   background-repeat: repeat;
-  background-size: var(--nebula-period, 512px) 100%;
+  /*
+   * `auto` rather than `100%`: the tile is square and a card is a band, so
+   * stretching it to the card's height squashed the filaments five to one.
+   * At its own scale the card shows a band of it, centred, which is what a
+   * cut of a bigger render is meant to look like.
+   */
+  background-size: var(--nebula-period, 512px) auto;
   background-position: 0 50%;
   opacity: 0.92;
+  /* The centre thin, the edges full: the falloff the painted tile carried
+     in its alpha, on the layer instead. Same curve, same place. */
+  -webkit-mask-image: var(--molten-vignette);
+  mask-image: var(--molten-vignette);
   will-change: transform;
   animation: molten-drift 150s linear infinite;
   animation-delay: calc(var(--molten-seed) * -3.1s);
@@ -246,9 +282,15 @@
  *
  * Two gliding layers cost twice as much and look the same: what reads as
  * cloud passing through cloud is the *relative* motion of one against
- * another, so the second stands still. Mirrored, so it is a different
- * picture rather than the same one twice, and dimmer, so it reads as the
- * far depth.
+ * another, so the second stands still. Dimmer, so it reads as the far
+ * depth, and at a different scale, so it is a different picture rather than
+ * the same one twice.
+ *
+ * It used to be the same scale, mirrored. Against painted noise that was
+ * enough; against a real render it was not — a photograph reflected on top
+ * of itself put a plain axis of symmetry down the middle of every card,
+ * which is exactly the kind of tell that makes a thing look made rather
+ * than found. Nearly twice the size and off to one side has no axis in it.
  */
 .molten::after {
   content: "";
@@ -258,10 +300,11 @@
   z-index: 0;
   background-image: var(--mo-nebula);
   background-repeat: repeat;
-  background-size: var(--nebula-period, 512px) 100%;
-  background-position: 37% 50%;
+  background-size: calc(var(--nebula-period, 512px) * 1.7) auto;
+  background-position: 23% 50%;
   opacity: 0.38;
-  transform: scaleX(-1);
+  -webkit-mask-image: var(--molten-vignette);
+  mask-image: var(--molten-vignette);
   animation: none;
 }
 

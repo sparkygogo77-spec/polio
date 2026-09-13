@@ -17,7 +17,7 @@
  *
  *   node tests/molten.mjs [url]      # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { MOLTEN_KEYFRAMES, MOLTEN_MEANS, MOLTEN_MOTION, MOLTEN_STOPS, moltenClass, moltenSeed } from "../src/core/ui/molten.ts";
 
 const results = [];
@@ -120,11 +120,46 @@ check("the centre is the darkest part, and it is not black", (() => {
 check("every temperature has its own core", /--ember-core:/.test(css) && /--verdant-core:/.test(css));
 check("the face is lit from around the centre, easing in rather than falling off",
   /radial-gradient\(70% 88% at 50% 50%, var\(--mo-core\) 0%, var\(--mo-core\) 18%, var\(--mo-char\) 62%/.test(css));
-check("the tile is painted once, by the ground's own noise, and never in the stylesheet", (() => {
+/*
+ * The face is J's own render now, not a likeness of it painted here from
+ * noise: seamless 512 tiles cut out of the lantern boxes he rendered,
+ * served from `public/construct/` as files — cacheable, and not a quarter
+ * of a megabyte of base64 on the root element.
+ */
+check("the face is J's tile, served as a file rather than painted or inlined", (() => {
   const tile = readFileSync("src/features/studio/nebulaTile.ts", "utf8");
-  return /import \{ nebulaNoise \} from "\.\/darkMatter"/.test(tile) && /tiles\.set\(kind, url\)/.test(tile) && /toDataURL/.test(tile);
+  return /\/construct\/face-green-dark\.png/.test(tile) && /\/construct\/face-red-dark\.png/.test(tile)
+    && !/toDataURL/.test(tile) && !/nebulaNoise/.test(tile);
 })());
-check("and its centre is thin, so it is calm where it is read", /const vig = 0\.3 \+ 0\.7/.test(readFileSync("src/features/studio/nebulaTile.ts", "utf8")));
+check("…the dark cut of it, with the bright one there to compare against", (() => {
+  const tile = readFileSync("src/features/studio/nebulaTile.ts", "utf8");
+  return /export function mountNebula\(pair: FacePair = "dark"\)/.test(tile) && /bright: \{/.test(tile);
+})());
+check("…and the files are where they are served from", (() => {
+  for (const f of ["face-green-dark.png", "face-red-dark.png", "face-green.png", "face-red.png"]) {
+    if (!existsSync(`public/construct/${f}`)) return false;
+  }
+  return true;
+})());
+/*
+ * The centre stays thin, so it is calm where it is read. It was baked into
+ * the painted tile's alpha; a photograph has no alpha, so it is the same
+ * curve as a mask on the same layers instead.
+ */
+check("and its centre is thin, so it is calm where it is read",
+  /--molten-vignette: linear-gradient\(/.test(css) && /rgb\(0 0 0 \/ 0\.3\) 50%/.test(css)
+  && /rgb\(0 0 0 \/ 1\) 0%/.test(css) && /rgb\(0 0 0 \/ 1\) 100%/.test(css));
+check("…on both cloud layers, and nowhere else", (() => (
+  (css.match(/mask-image: var\(--molten-vignette\);/g) ?? []).length === 4
+))(), `${(css.match(/mask-image: var\(--molten-vignette\);/g) ?? []).length} of them, prefixed and not`);
+check("the tile keeps its own shape rather than being stretched to the card",
+  /background-size: var\(--nebula-period, 512px\) auto;/.test(css));
+check("the still copy is a different size rather than the same one mirrored, which put an axis down every card", (() => {
+  // The churn keyframe still mirrors, and nothing uses it; what matters is
+  // that the layer itself no longer does.
+  const after = /\.molten::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /background-size: calc\(var\(--nebula-period, 512px\) \* 1\.7\) auto;/.test(after) && !/scaleX\(-1\)/.test(after);
+})());
 
 /* ------------------------------------------------------------------ */
 /* 4. Always moving, never demanding                                   */
@@ -175,7 +210,18 @@ check("reduced motion stops all of it and leaves the construct lit",
 
 check("a construct's boil is contained to the construct", /contain: layout paint/.test(css));
 check("no blend mode, which costs a read-back of everything under it", !/mix-blend-mode/.test(css));
-check("no mask on an animated layer", !/mask-image:/.test(css));
+/*
+ * A mask that does not itself change is rasterised once and then only
+ * composited, so it costs nothing on a layer whose animation is a
+ * transform. Measured at thirty boards, against the same build with the
+ * painted tile: idle style 168.2ms against 168.8ms, idle tasks 714.8ms
+ * against 739.0ms — inside the noise between two runs of the same build.
+ * What would cost is a mask whose own value animates, and none does.
+ */
+check("no mask is animated: the ones there are still, and cost nothing", (() => {
+  const framed = [...css.matchAll(/@keyframes molten-[a-z]+ \{([\s\S]*?)\n\}/g)].map((m) => m[1]).join("\n");
+  return !/mask/.test(framed) && !/transition:[^;]*mask/.test(css);
+})());
 check("one nebula layer glides and one stands still, for the same picture at half the cost",
   /\.molten::after \{[\s\S]*?animation: none/.test(css) && /\.molten::before \{[\s\S]*?animation: molten-drift/.test(css));
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {

@@ -589,6 +589,13 @@ export function StudioPage() {
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
+  /*
+   * J's own face on every construct, once.
+   *
+   * The dark pair by default — the boxes are cards with words on them and
+   * the bright cut is about twice the luminance. `__studioFacePair` puts
+   * the other one on without a reload, which is how the two were compared.
+   */
   React.useEffect(() => { mountNebula(); }, []);
 
   /*
@@ -627,6 +634,7 @@ export function StudioPage() {
       __studioSetLeftPanel?: (id: string) => void;
       __studioNotePass?: (line: string, on?: string) => void;
       __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null }[];
+      __studioFacePair?: (pair: "dark" | "bright") => void;
     };
     w.__studioOpenBrief = () => setBriefOpen(true);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
@@ -644,6 +652,8 @@ export function StudioPage() {
      * step a job is on and which iteration it is making.
      */
     w.__studioQueue = () => useStudio.getState().queue.map((j) => ({ id: j.id, status: j.status, step: j.step ?? null, threadId: j.threadId ?? null }));
+    // Swap J's two cuts of the face on a live board, for comparing them.
+    w.__studioFacePair = (pair) => mountNebula(pair);
     /*
      * The lamp's drag, without a mouse.
      *
