@@ -25,29 +25,13 @@ import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
 import { getFeature } from "./catalog";
-import { MODELS, STEPS, type Step } from "./imageRoute";
+import { STEPS, type Step } from "./imageRoute";
 import { KIND_MEANS } from "./shapeKind";
 import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Space } from "./space";
+import { choicesFor, readingOf, writePlan } from "./planEdit";
 import { useStudio, type StudioNode } from "./store";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { FromASite } from "./FromASite";
-
-/** What the panel hands `planFor`: the node, in the words the plan understands. */
-function planned(n: StudioNode) {
-  return {
-    label: n.label,
-    prompt: n.prompt,
-    featureId: n.featureId,
-    w: n.w,
-    h: n.h,
-    role: n.role,
-    outline: n.outline,
-    content: n.content,
-    pictureKind: n.vector ? "vector" : null,
-    plan: n.plan ?? null,
-    sketch: n.sketch ? { words: n.sketch.words } : null,
-  };
-}
 
 /**
  * The space's own panel, for a hole with nothing in it yet.
@@ -162,28 +146,27 @@ function Steps({ reading, write }: { reading: ReturnType<typeof planFor>; write:
 }
 
 export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) {
-  const reading = React.useMemo(() => planFor(planned(node)), [node]);
+  const reading = React.useMemo(() => readingOf(node), [node]);
   const feature = getFeature(node.featureId);
   const update = useStudio((s) => s.updateNode);
   const setPlan = useStudio((s) => s.setPlan);
 
-  /* The models that can take this job, in the table's order, so the arrows
-     step through real choices and never land on a model that would be
-     refused and silently swapped. */
-  const choices = React.useMemo(() => {
-    const base = planned(node);
-    const out: string[] = [];
-    for (const m of MODELS) {
-      const r = planFor({ ...base, plan: { model: m.slug, steps: base.plan?.steps ?? [] } });
-      if (r.model?.slug === m.slug && !out.includes(m.slug)) out.push(m.slug);
-    }
-    return out;
-  }, [node]);
+  /*
+   * The models that can take this job, so the arrows step through real
+   * choices and never land on one that would be refused and silently
+   * swapped — and in the route's own order, first being what it would take
+   * unasked.
+   *
+   * This used to put every model in `MODELS` through `planFor` and keep the
+   * survivors. That agreed with `modelsFor` on all four shapes it was
+   * measured against — same models, same order, same first — so this is one
+   * derivation replacing two that matched, not a fix. Two derivations of the
+   * same fact is how the left panel and this one would come to disagree
+   * after a change to the table, which is the thing that must not happen.
+   */
+  const choices = React.useMemo(() => choicesFor(node, reading).map((c) => c.slug), [node, reading]);
 
-  const write = (patch: Partial<Plan>) => {
-    const plan: Plan = { model: node.plan?.model ?? null, steps: node.plan?.steps?.length ? node.plan.steps : reading.steps, ...patch };
-    setPlan(node.id, plan);
-  };
+  const write = (patch: Partial<Plan>) => writePlan(node, reading, patch);
   const stepModel = (dir: 1 | -1) => {
     if (!choices.length) return;
     const at = reading.model ? choices.indexOf(reading.model.slug) : -1;
