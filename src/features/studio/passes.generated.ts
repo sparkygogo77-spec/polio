@@ -2,9 +2,118 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T18:40:26.508Z";
+export const GENERATED_AT = "2026-09-13T19:12:36.538Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "74f9f57",
+    "when": "2026-09-13T19:12:31+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "bceb9bb",
+        "says": "The space tool and Create, so a space can be made by hand",
+        "when": "2026-09-13T19:07:52+00:00",
+        "detail": [
+          "Create space's phase one had no way in. `space` was in the store's Tool type and nothing in the bar or the menus could select it; `createSpaceAt` had no caller. Four entry points, all driven by hand in tests/space-entries.mjs rather than seeded:",
+          "the bar's tool picker gains a fifth tool, \"Draw a space\", on a dashed ring — a boundary that has not closed. It takes no ink hue: a space is not a line that stays on the page, it is one that becomes a part.",
+          "the key s, free and the obvious mnemonic.",
+          "the Tool submenu on the canvas menu."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e4548e7",
+        "says": "A live element is measured, and becomes a real part of the library",
+        "when": "2026-09-13T19:04:04+00:00",
+        "detail": [
+          "Phase two's foundation, and the decision under it: measure first, model second. This app already holds that rule three times over, that the drawn line is the specification and nothing may paraphrase it, that the clip is exact by construction and no segmenter beats it. A live element is the same situation. Its box, its words, its colours, its type and its layout are readable exactly by the headless browser this app already ships, so screenshotting it and asking a model what colour it thinks the background was is the line-described-is-a-line-lost mistake in another costume.",
+          "So the reading is exact and free, and it picks a real library part out of a catalogue the way `coded.ts` picks one off a drawing: a declaration, a number off the measurements, and a patch, with nothing asked of anything. Six entries to start, most particular first: the top bar, the first screen, a card grid, the main button, the footer, and a band of words as the fall-through, so there is always an answer and it is always a real part.",
+          "That is what makes J's constraint hold. The part arrives with the real words in `content`, the real colours in `colour`, the real type in `font`, the measured columns in `options` and a prompt of its own, so it is an ordinary node made of a real component from that moment: the Inspector edits it, the wheel repaints it, the blueprint writes it, Build ships it. Not a picture with fields bolted on, which is the thing this had to not be.",
+          "Three things it deliberately does not copy. A font stack is *named* as the nearest of this app's own faces, because somebody else's list is a face the generated project has no licence to. A role nobody measured is left alone rather than guessed, so the part follows the project it lands in for the rest. And a size is relative to the site's base, not a pixel count, so it stays a shade larger when the site's type changes."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "c134bc1",
+        "says": "The light outside a hole is a crescent, not a halo",
+        "when": "2026-09-13T18:58:11+00:00",
+        "detail": [
+          "J read the first pictures as a glow round a plate, which is exactly what the drawing disc's edge stopped being. Three things made it one, and the disc's own numbers are kept in all three.",
+          "The photon ring was the worst of it: three strokes up to ten pixels wide, centred on the line and clipped back to half, which came to the disc's own widths on paper and to a five-pixel amber band on the screen, unbeamed, all the way round. They are the disc's own 2.4, 1.6 and 1.4 now, laid outside the line at 4, 2 and half a pixel out the way the disc lays them outside its rim. The ring stays bright the whole way round on purpose: it is light that went round the hole, so it is there on the going side too, and a hair is not a halo.",
+          "The crescent is now thin where it is dim, not only dim. The disc's 0.42 falloff and fourth-power beaming are unchanged, but that falloff is quoted as a share of a 320px plate, and over a shorter line the same share closes into a ring. The reach is beamed too: the coming side keeps the whole of it, the going side gets a fifth (`DIM_REACH`), and the light narrows round to nothing the way it dims round to nothing.",
+          "The bloom was a cloud over the whole shape at 1.25 of the radius; it is 0.95 and tight to the coming side, because an overexposed edge is where the edge is."
+        ],
+        "areas": [
+          "docs",
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "69865c9",
+        "says": "The model table, as data a panel can render from",
+        "when": "2026-09-13T18:56:46+00:00",
+        "detail": [
+          "For the audit panel in the left side panel: a person prompts and audits every part of the site with every model's real options in front of them. A panel that hardcodes a field name can only draw the models somebody thought of, so it draws from this instead — `modelTable()`, the same table the route picks from, as plain JSON with no functions, no classes and no types to import.",
+          "modelTable() → { makings: Making[]                     the first axis: icon, surface, picture, type, object steps:   Step[]                       the second: read, first, refine, recreate, alpha meanings: { makings }                 each kind in a sentence, so the panel need not invent one models: ModelCard[] }",
+          "ModelCard = { slug, name, returns: \"picture\" | \"mesh\", serves: { step, makings[] }[]         which cells it is offered for fields: ModelField[]                  every input it takes alpha, examplePair, grounding,        what it can do, as flags references, cuts, note                                  what the fields do not say }",
+          "ModelField = { name                                  exactly as the schema names it label                                 what to call it in a sentence kind: enum | integer | number |       which control to draw boolean | text | image | images | secret values?, min?, max?, maxItems?        what it will accept default                               what the model does unasked managed?                              the route fills this one in: prompt | images | ratio | size | format | alpha | grounding | pixels — a person may override note?                                 a line from the schema }"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "c65c345",
+        "says": "The box forms with the iteration: it begins when the job is queued and completes when the job lands",
+        "when": "2026-09-13T18:44:08+00:00",
+        "detail": [
+          "J: the box forms and animates after the iteration is complete rather than with it. True, and for two reasons, both now gone.",
+          "The iteration was landed when the **read came back** — so there was nothing on the timeline to form until most of the work was already done, and the formation played out afterwards over a box whose job was over. And every step before that landing wrote its progress to `liveThreadId`, which is whatever landed *last*: the previous iteration's box, there being nothing else to write it on.",
+          "So the iteration is landed at the press of Make real (`enqueueDraw`), at `QUEUED` — a hair of vine, because it has begun and nothing more — and the job carries its thread id. Every step climbs that box. The landing that follows fills the same thread in rather than making a second, so when it began, what it hangs off and how far it has formed all survive. It is complete when the **job** is: the later passes are not awaited, so whoever finishes last says so — the run when nothing was left going, the second pass when it was (`finish`, one place, because \"complete\" and \"what it cost\" are the same moment and had drifted apart: the bill was being said before the second pass had spent anything).",
+          "Watched against a real slow job — `tests/forming-live.mjs`, the real press, queue, run, steps, store and bands, with only the models answered at the edge and answered *slowly*, there being no token here — the milestones were:"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "348d5aa",
+    "when": "2026-09-13T18:41:08+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "348d5aa",
+        "says": "Regenerate the passes for the one colour system and the alpha lead",
+        "when": "2026-09-13T18:41:08+00:00",
+        "detail": [
+          "Two passes, hypatia's tip carrying euler's: the console's colour menus move onto the one system, and gpt-image-2 does do transparency, so it leads the alpha step and every field is data.",
+          "The second answers the judgement I raised on the last pass from the other side of it — the question's own doc now reads \"a drawing with words beside it is never asked\", which is the exemption the box rule was missing. Its suites came with it, so nothing here had to be restated."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "3667ac4",
     "when": "2026-09-13T18:40:18+00:00",
@@ -887,102 +996,6 @@ export const PASSES: Pass[] = [
           "studio",
           "tests",
           "tweets"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "cefc86e",
-    "when": "2026-09-12T23:08:19+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "d04019f",
-        "says": "Delete the tiled clouds, which nothing had called since the collapse",
-        "when": "2026-09-12T23:07:40+00:00",
-        "detail": [
-          "The code that drew the repeating squares was still in the file. Nothing reached it — `paintDarkMatter` is called from exactly one place and asks for sparks, the sky is a CSS gradient and the clouds are one pre-screened field — so it sat there as a second, wrong implementation of the thing just fixed, waiting for somebody to call it again.",
-          "Gone: the 256px violet and magenta tiles and the noise that made them, the four-layer table with its scales and spins, cloudTravel, cloudStep, cloudSpeed, cloudDrift and paintCloudLayer, and the clouds half of paintDarkMatter with the `layers` and `vignette` options that existed only to ask for it. 280 lines; the file goes from 880 to 600.",
-          "paintDarkMatter now paints the embers and clips a disc, which is all anybody ever asked it for.",
-          "Verified as a no-op on the picture, not assumed: the live canvas reads mean 41.6, spread 15.6, rgb 55/28/83 with detail 1.7/3.0/5.2/8.5/12.5 /16.1 — the same numbers to the digit as before the deletion. The ten suites that touch the ground, the board and the menu all pass."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1b92774",
-        "says": "The nebula is one field wider than the board, so nothing repeats on screen",
-        "when": "2026-09-12T23:00:06+00:00",
-        "detail": [
-          "The report was repeating squares, straight lines down the board and repeating circles. All three were real and there were two causes.",
-          "The squares and the circles were the tile. The nebula was two 256px noise tiles screened together at scales 3, 2, 1 and 0.75, so inside the 1536px composite there were four periods — 768, 512, 256 and 192 — and a 192px puff repeats thirteen times across a 2560 screen. Enlarging the composite could never fix that, because the sub-patterns keep their own periods. The circles are what value noise looks like when its lattice shows: a puff per cell, on a grid.",
-          "The straight lines were the fill. `createPattern` with a `setTransform` scale makes the browser filter across the tile's edge, and there it samples clamped pixels instead of wrapping ones — a hard seam every period, in a straight line. Nothing scales a pattern now; the field is drawn one to one.",
-          "So the field is generated at the size it is shown. The rule it obeys is the one that was asked for: the period along the heading is at least the board's extent along that heading and comfortably more — 1.25x, stepped to 256 — and the octaves are named by the size of their features in pixels rather than by a cell count, so the cells stay square on a wide board instead of smearing the sky sideways."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "dc8b0b7",
-    "when": "2026-09-12T23:08:14+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "dc8b0b7",
-        "says": "Two stages on the image route, routed on kind and step",
-        "when": "2026-09-12T23:08:14+00:00",
-        "detail": [
-          "A drawing lands twice. The first pass is whatever the part gets today and goes on the board at once, because somebody who drew something wants to see it. The second is a large image model that takes the first one's own photograph and refines it, fired automatically with nobody pressing anything, and it replaces the body when it arrives.",
-          "**The table is a routing decision, not a list with a default.** Different kinds of element want different models and so do different steps of making one, so `imageRoute.ts` asks two questions and a model declares which answers it can serve. What is being made: a mark needs a transparent ground and crisp edges; a surface is the ground, wants no alpha and often a band no ordinary ratio list has; a picture wants prompt fidelity; something with real type in it wants the typography model; an object you can turn wants a 3D model. Which step: reading a drawing is a vision job and is refused here by design rather than quietly handed to a model that draws; a first pass is cheap; a refine starts from a picture and takes references and an example pair; cutting alpha may be its own step after a render.",
-          "Adding a model is one entry and changes no call site. A model declares only the cells it should be chosen for — declaring narrowly is the ranking — and within a cell the table's order decides. No slug is written anywhere else, and `tests/imaging.mjs` holds that.",
-          "Rows carry `prunaai/p-image-ideogram`, `google/nano-banana-2`, `bytedance/seedream-5-lite`, `openai/gpt-image-2` and `openai/gpt-image-1.5`, each read off its own published schema at replicate.com/<slug>/api/schema. Nothing serves the 3D kind or the alpha step yet and the route says so rather than sending the job somewhere it cannot go. `seedream-5-lite` is the only one that learns from a before and after pair, so once one drawing has been through both passes that pair is handed to every later one — the house style carried as a picture rather than a paragraph, kept in memory for the session."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "c41180f",
-        "says": "Green and red twisted together, and only what moved is repainted",
-        "when": "2026-09-12T22:30:26+00:00",
-        "detail": [
-          "**The vine.** The colour rule was wrong: blending the two ends along the length put yellow and then brown through the middle of every green-to-red span, a colour neither board has. Both colours now run the whole length on separate strands — four of them wound tight about a near-black core — so at every point you see green and red side by side and only the ratio changes, three-to-one green at a green board through two-to-two to one-to-three at a red drawing. Each strand changes over once, and it does it while it is turned behind the core, so there is no seam anywhere.",
-          "The core is what the bright ones wind around: it goes down between the strands that have turned away and the ones facing you, which is what stops a cable reading as a flat ribbon.",
-          "The twist is a pitch, not a count of turns per span. Three turns across a short gap is a tight cable; three across a long one is four lines lying almost parallel, which is what a count gave. One turn every thirty pixels, never fewer than three, and it still tightens through the middle of a span and opens out where it meets a board. Samples scale with the turns, because a fixed count made a long vine read as beads on a wire.",
-          "Each strand carries a hard thin line down the edge that faces the light — a highlight, not a bloom. There is no halo on a vine anywhere; every bright pixel is on a strand. The cable gathers into its axis over the last few percent so it meets a board's edge and terminates rather than fanning against it. The still hotspots are unchanged."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "bfe76b9",
-        "says": "The ground drifts at six pixels a second, and there is one speed",
-        "when": "2026-09-12T21:10:40+00:00",
-        "detail": [
-          "Measured the same way it was reported, computed transform sampled 16.8s apart rather than read off the CSS:",
-          "nebula   opacity 0.55   5.998 px/s",
-          "Before: 1.13 px/s, which is five seconds to move five pixels. A still image with a duration attached. Nearly static was the ask and 15% of the old pace overshot it into frozen, so the speed is stated as a speed now rather than as a fraction of something else — a fraction is how it went wrong. Six a second moves the field about a fifth of a cloud-width while you read a sentence, and it is close to what the near clouds did before any of the speed work, 7.5, so it is a return rather than an invention.",
-          "The 70x spread is gone because there is nothing left to spread. Those four numbers were d16ef5b, the four-layer build; the collapse in 9c9d448 screened them into one tile, so there is a single layer at a single speed and no frozen backdrop for anything to slide across. What is behind it is the sky, which is a smooth gradient with no features to read as still."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
