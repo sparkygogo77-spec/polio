@@ -2,9 +2,71 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T09:18:14.113Z";
+export const GENERATED_AT = "2026-09-13T16:13:23.542Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "63cd76d",
+    "when": "2026-09-13T16:12:05+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "4b6ed7b",
+        "says": "Grounding is a capability and a per-call choice, off by default",
+        "when": "2026-09-13T16:11:05+00:00",
+        "detail": [
+          "From J's own run of nano-banana-2: two flags, `google_search` (ground the words in a web search) and `image_search` (fetch image references). The table now has a `grounding` capability — the two field names, declared on the one model that has them and null on every other row — and the route passes them on every call it makes to that model (`groundingFor`, `inputFor`). They are off by default, and sent as `false` rather than left out, so the record of a call says what was decided. On for the recreate step and on when the person explicitly asked for the real thing (`grounded` on the request); a model without the flags is never sent them, asked or not.",
+          "`recreate` is a step now — the real thing the drawing stands for, from the world rather than from the model's idea of it, in the drawing's own composition and framing (`wordsFor`). Declared here for the create space (claude/amazing-dijkstra-cznfor), whose second phase runs it; nano-banana-2 alone serves it; nothing on this branch calls it yet. The API takes `step: \"recreate\"` and `grounded` on a stage-two request, decides once, and says on the answer whether the model was told to look things up.",
+          "Also from the amendment: the log reports a token count, which is the number the price is set by, so it is read off the log (`tokensOf`, never computed) and put on the card beside the cost when it is there — \"second pass · Nano Banana 2 · 4.1s · $0.03 · 1,240 tokens · grounded\". The row's note now records what J confirmed: aspect_ratio defaults to match_input_image, resolution to 1K with 2K and 4K above and no 512, output_format to jpg so png is asked for.",
+          "One pin in `tests/imaging.mjs` learned the third answer: a model that claims a mark without alpha may be reached with the ground cut out after, where nothing alpha-capable serves the cell — which is the case for the recreate step, and is said so on the route."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "7755496",
+    "when": "2026-09-13T16:09:57+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "7755496",
+        "says": "A space is a closed line that is not yet a part",
+        "when": "2026-09-13T16:09:57+00:00",
+        "detail": [
+          "Today a line drawn on the background becomes an element. This is the model for the second thing it can become: a placeholder, one of two kinds once a person decides. A construct box, in the timeline's lantern construct language, or a black hole, which signifies space not yet decided and, chosen, consumes the area inside the boundary and leaves it as drawing space.",
+          "`space.ts` is the pure part: the record, what counts as a boundary (a closed loop at least 24px each way; a tiny loop is a dot), whether a part has landed inside (its middle is inside), the consuming as a clock from the moment the hole was picked rather than a state to transition, and the plan a part's own panel will read: what it is, what was asked, the model `route` will pick for its first drawing pass, and the steps in order, with a person's own model and order honoured the way the run will honour them. Alpha is a step only for a mark that is not already cut to a line.",
+          "The store carries `spaces` through the document, the snapshot, a thread's doc, load, clear and remove page, and a saved board from before this gets an empty list. A node gains an optional `plan`; optional so the shelf's preview nodes and old boards need nothing. `space` is a fifth tool.",
+          "`tests/space.mjs` holds what a person sees in numbers. Run with three rules broken on purpose it fails five checks; restored, 38 of 38 hold."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "a0fa5e3",
+        "says": "Regenerate the passes for the queue strip and the twisted vine",
+        "when": "2026-09-13T09:18:24+00:00",
+        "detail": [
+          "Four passes, both sessions having cross-merged so euler's tip carried hypatia's as well: every iteration forms from nothing, driven by the work; a queue strip in the header showing what is running as bars beside the bell; and the vine as a twisted pair of the boxes' own material.",
+          "The merge's one conflict was this file, which is generated, so it is regenerated rather than arbitrated. pan-cost merged clean and now carries both fixes for the same fault — centring before picking a board, and testing the board's middle rather than its whole rectangle."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "a0ae136",
     "when": "2026-09-13T09:17:45+00:00",
@@ -828,70 +890,6 @@ export const PASSES: Pass[] = [
           "The board's root carried bg-bg, an opaque fill. That was harmless while <Workspace /> was rendered inside Canvas.tsx, because the ground sat above it. e398798 moved the ground out to be shared behind all three views, and wrote the contract in StudioPage: each view is transparent over it. The fill stayed. So an opaque board painted straight over the nebula in design mode, while the timeline, which has no background of its own, kept its ground and looked fine. The root is transparent now, which is what the contract already said.",
           "The other fault was mine and had to go regardless. Layers were painted into an OffscreenCanvas and handed over by transferFromImageBitmap — a pointer swap, measured here at 18.9ms to 10ms and 13 stalls to 5. It shipped to a machine with a graphics card and the layers sat holding a bitmap renderer, waiting for an ImageBitmap that never arrived, with nothing in the console. That measurement came from a container with no GPU that rasterises in software, so it was never evidence about the hardware it was for. A number from the wrong machine is not a smaller number, it is a different question answered confidently. The layers keep a plain 2D context. What survives is the part that was never in doubt: paintCloudLayer fills with composite \"copy\", one operation with no cleared canvas in the middle of it.",
           "tests/ground-paints.mjs is the check that was missing. Every ground test written tonight read a canvas backing store — what the page meant to draw — which is exactly why four suites stayed green while the workspace was black. This screenshots bare ground, decodes the PNG with zlib and the spec rather than a library, and asks whether a person would see anything: not black, not a flat fill, and carrying the nebula's own violet and magenta rather than level channels. It also refuses a layer that cannot be read as 2D, since a layer holding a bitmap renderer is unreadable and one missing frame from invisible."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2fa4013",
-    "when": "2026-09-12T08:23:01+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "ee476f0",
-        "says": "Lock the construct colours to the reference, and take the boil right down",
-        "when": "2026-09-12T08:13:44+00:00",
-        "detail": [
-          "The definition lives in src/core/ui/molten.css, with src/core/ui/molten.ts holding the names and the prose. That one file is the answer to which one holds it — nothing else may declare a --molten-* property or a molten-* keyframe, and the sibling's suite enforces that.",
-          "The relationship, which is the thing to match rather than any single value:",
-          "field   L 0.25-0.31   C 0.06-0.08   at the anchor hue body    L 0.51-0.70   C 0.15-0.22   at the anchor hue edge    L 0.80-0.89   C ~0.21       shifted 13-22 degrees towards yellow vein    L 0.80        C 0.25        at the anchor, the highest chroma of all",
-          "Three things in that are the whole look and are easy to get wrong. The field is dark AND unsaturated where the body is dark and saturated — a dark saturated red for the field is the old look and reads as a coloured box, while a near-grey dark red reads as unlit material. The edge leans towards yellow, and towards is signed: yellow sits near hue 90, so green shifts down from 144 to 131 and 122 while red shifts up from 27 to 40 and 49, and rotating both the same direction sends one of them the wrong way round the wheel. And most of the surface stays dark, with the brightness in the edge and the veins and never across the face."
-        ],
-        "areas": [
-          "core",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1abe559",
-        "says": "No control in the bar wears a word its icon already says",
-        "when": "2026-09-12T08:09:12+00:00",
-        "detail": [
-          "The tool control is the icon and the caret, nothing else: the icon is the tool, the caret is the promise of more, and the names live in the menu it opens and in the tooltip. Updates and Preview lose their words the same way.",
-          "That shortened the give-way ladder from ten rungs to eight, and it is the better kind of narrow-window fix — the top two rungs used to be the tool's name and those two words, and a control that never carries text never has to give one up. Fixing the thing rather than managing it.",
-          "Builds keeps its word, as the one deliberate exception: it is the only way out of the Builder and the only wayfinding in the bar, and a bare stack of layers at the far left is a guess rather than a label.",
-          "The check for this started too broad and flagged four things that carry text and are not labels — a page's name, the search's placeholder, the zoom percentage and the Finish count. Those are content and readings, so they are exempt by name in the test rather than by a loose rule that would quietly excuse a real label later."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2bf7b57",
-    "when": "2026-09-12T07:41:13+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "b3ea3d1",
-        "says": "Pull the vines back so the boards carry the light",
-        "when": "2026-09-12T07:09:37+00:00",
-        "detail": [
-          "The decision taken while I was not there — vines stay green rather than changing hue, pulled back so the boards lead, and only the board carries the hot near-white core — is right, and my vines did not match it. They carried a rim at 0.82 and a travelling glow at 0.92, which is a hot core on the vine, and that is the board's.",
-          "Every vine colour is now lower and has less colour in it: the brightest thing on a vine is the glow at 0.64 against a board's 0.97 skin, and the rim is a lighter green rather than a white hair. Nothing about the shape changed — three wound beams, the shades walking the length, the fibre, the one glow through all three — only how loud it is.",
-          "Driven at a pane's size, which is where \"do the boards still lead\" is actually decided: they do, and the vines are still plainly connections rather than smudges, so the decision stands as taken.",
-          "tests/vines.mjs holds it rather than trusting the numbers: no part of a vine may be near-white, none of it may be loud, and a board has to be at least 0.2 brighter than anything on a vine. 42/42 there; molten, connected, current, timeline-view and timeline-centre all pass."
         ],
         "areas": [
           "studio",

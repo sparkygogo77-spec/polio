@@ -304,5 +304,11 @@ export const STEP_MEANS: Record<Step, string> = {
   read: "Read the drawing",
   first: "First pass",
   refine: "Refine it",
+  /* Declared on the image route for this space to run in its second phase:
+     the real thing the drawing stands for, from the world rather than from
+     the model's idea of it. This table is the panel's sentence for it, and
+     it is here now because a step with no name here is a step the panel
+     cannot say out loud. */
+  recreate: "Make the real thing it stands for",
   alpha: "Take the ground off",
 };
