@@ -963,6 +963,126 @@ export function wordsFor(ask: {
   return bits.join(" ");
 }
 
+/* ------------------------------------------------------------------ */
+/* The table, as data                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What each kind of thing is, in a sentence, so a panel need not invent one.
+ */
+export const MAKING_MEANS: Record<Making, string> = {
+  icon: "a mark or small icon: crisp edges, and the ground left out",
+  surface: "a surface: a texture or a backdrop, filling its frame, often a band no ordinary ratio has",
+  picture: "a picture: an illustrative element, where what was asked for matters most",
+  type: "type: real words, set properly, which no general image model does",
+  object: "an object you can turn: a solid rather than a picture of one",
+};
+
+/** One model, as a panel needs it: everything, and nothing it has to interpret. */
+export interface ModelCard {
+  slug: string;
+  name: string;
+  /** A picture the board draws, or a mesh it mounts and turns. */
+  returns: "picture" | "mesh";
+  /** Which cells it is offered for: one entry a step, in the table's own order. */
+  serves: { step: Step; makings: Making[] }[];
+  /** Every input it takes, in the order it is worth showing. */
+  fields: ModelField[];
+  /** Can it leave the ground out of a render? */
+  alpha: boolean;
+  /** Can it be shown a before and an after and do the same to a third? */
+  examplePair: boolean;
+  /** Can it look things up — the web, images — when asked? */
+  grounding: boolean;
+  /** How many reference images it takes. Zero is words only. */
+  references: number;
+  /** Is it a cutter rather than something that draws? */
+  cuts: boolean;
+  /** What is worth knowing about it that the fields do not say. */
+  note: string;
+}
+
+/**
+ * The whole table, as plain data.
+ *
+ * For the audit panel: a person prompts and audits every part of the site
+ * with every model's real options in front of them, so the panel has to be
+ * able to render a model it has never heard of — which means it renders
+ * from this and never from a field name written in a component. Nothing
+ * here is a function, a class or a type the panel has to import; it is
+ * JSON, and it is the same table the route picks from, so a field that
+ * appears here is a field a call will actually accept.
+ *
+ * What a panel does with it:
+ *
+ *   · `makings` and `steps` with `meanings` are the two axes, in words;
+ *   · `models` is every row, each with its own `fields` to draw controls
+ *     from — kind says which control, `values` fills a menu, `min`/`max`
+ *     bound a number, `default` is what the model does when nothing is
+ *     said, and `managed` marks the ones the route fills in itself, which
+ *     a person may still override;
+ *   · `modelsFor(need)` narrows it to the models that serve one cell, in
+ *     the order the route prefers them, for a panel offering a choice for
+ *     one part rather than a list of everything;
+ *   · and what a person sets goes back through `optionsFor`, which holds
+ *     it to what the model takes, and rides on the request as `options`.
+ */
+export function modelTable(): {
+  makings: Making[];
+  steps: Step[];
+  meanings: { makings: Record<Making, string>; };
+  models: ModelCard[];
+} {
+  return {
+    makings: [...MAKINGS],
+    steps: [...STEPS],
+    meanings: { makings: { ...MAKING_MEANS } },
+    models: MODELS.map(cardOf),
+  };
+}
+
+/** One row, projected. */
+function cardOf(m: ImageModel): ModelCard {
+  return {
+    slug: m.slug,
+    name: m.name,
+    returns: m.returns,
+    serves: STEPS.filter((st) => (m.serves[st] ?? []).length).map((st) => ({ step: st, makings: [...(m.serves[st] ?? [])] })),
+    fields: m.fields.map((f) => ({ ...f })),
+    alpha: m.alpha !== false,
+    examplePair: m.examplePair,
+    grounding: !!m.grounding,
+    references: m.references,
+    cuts: !!m.cut,
+    note: m.also ?? "",
+  };
+}
+
+/**
+ * The models that serve one cell, in the order the route prefers them.
+ *
+ * The same question `route` asks, answered as a list rather than as one
+ * pick, so a panel can offer the choice and show which one would be taken
+ * if nobody chose — it is the first of these.
+ */
+export function modelsFor(need: Pick<Need, "making" | "step" | "clipped" | "fromImage">): ModelCard[] {
+  const wantAlpha = needsAlpha(need.making) && !need.clipped;
+  const first = wantAlpha ? model(ALPHA_FIRST) : null;
+  const order = [first, ...MODELS].filter((m): m is ImageModel => !!m);
+  const seen = new Set<string>();
+  const out: ModelCard[] = [];
+  for (const m of order) {
+    if (seen.has(m.slug)) continue;
+    if (!serves(m, need.making, need.step)) continue;
+    const takesPicture = m.cut ? true : m.returns === "mesh" ? !!m.mesh : m.references > 0 && !!m.refField;
+    if (need.fromImage && !takesPicture) continue;
+    if (wantAlpha && m.alpha === false && need.step !== "alpha") continue;
+    seen.add(m.slug);
+    out.push(cardOf(m));
+  }
+  return out;
+}
+
 /**
  * What to say on the card when a step did not run.
  *
