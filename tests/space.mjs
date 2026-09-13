@@ -105,21 +105,9 @@ const bogus = planFor({ ...part, plan: { model: "nobody/nothing", steps: [] } })
 check("naming a model that is not in the table falls back to the route's pick, and says so", !bogus.chosen && bogus.model?.slug === picked);
 
 check("tidying keeps only the route's own steps, once each", tidySteps(["first", "read", "first", "polish", "alpha"]).join(",") === "first,read,alpha");
-/* Both branches found this brittle at once and fixed half of it each. It
-   read "alpha,read,first,refine", true of the four steps the route had when
-   it was written and false the moment a fifth was declared — so it failed on
-   the list growing rather than on `moveStep` doing anything wrong.
-
-   The step is named rather than indexed, so reordering the route's list does
-   not move the pin; and what is checked is the property rather than one
-   joined string: the one picked up is where it was put down, nothing is
-   lost, and everything else keeps its order. */
-const from = STEPS.indexOf("alpha");
-const dropped = moveStep(STEPS, from, 0);
-const rest = STEPS.filter((_, i) => i !== from);
-check("moving a step puts it where it was dropped",
-  dropped[0] === "alpha" && dropped.length === STEPS.length && dropped.slice(1).join(",") === rest.join(","),
-  dropped.join(" › "));
+// By name, not by position: the route's list grew a step (recreate) after
+// this was written, and a pin on index three moved with it.
+check("moving a step puts it where it was dropped", moveStep(STEPS, STEPS.indexOf("alpha"), 0).join(",") === ["alpha", ...STEPS.filter((st) => st !== "alpha")].join(","));
 check("moving a step nowhere changes nothing", moveStep(STEPS, 1, 9).join(",") === STEPS.join(","));
 
 /* ------------------------------------------------------------------ */

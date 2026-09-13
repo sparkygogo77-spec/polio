@@ -2,9 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T16:44:58.716Z";
+export const GENERATED_AT = "2026-09-13T17:16:59.743Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "3b37be4",
+    "when": "2026-09-13T17:16:59+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "198da4b",
+        "says": "The timeline closes a card on any press off it, edits an element from its card, and asks before it spends",
+        "when": "2026-09-13T16:52:46+00:00",
+        "detail": [
+          "Three timeline behaviours, from J.",
+          "Clicking off a card closes it. A press on the timeline's ground already did (and still tells a press from a pan — six pixels wide now, not three, because a mouse press moves a pixel or two on its own and a trackpad more, and a press that read as a pan closed nothing). The rest of the window did not: the bar, the shelf, the page behind. \"Off the card\" means off the card, so a press anywhere puts it away except on the card itself, on a box (a box press opens or closes its own), on the panel showing the open card's prompts, or on a menu or dialog open over it.",
+          "An element can be edited directly from its card. The card offered two roads back to the board; the things a person most often wants to change — what it is called and what it is meant to be — need no board. They are written on the part from the card, at once, and \"draw it again with these words\" puts the same drawing back on the queue with the new words beside it, on the same part, so it is reshaped rather than a second one made. The size is shown, not edited: a size is set by hand on the board, where the hand is. Keys typed in the editor never reach the board's shortcuts.",
+          "When a drawing is odd or ambiguous, the run asks one question before spending money on it rather than guessing. The first paid call on a drawing is the read; `oddness.ts` looks at the strokes for free first, after the catalogue (free, needs no question) and before the read (neither). Two questions, never more than one per drawing: a box that is one word from being a cube — \"Is this box a cube?\", which used to be offered as a toast after the part had been made the other way — and a scribble with nothing typed beside it — \"What is this drawing meant to be?\", an icon, a picture, a surface or just a mark, because those go to different models at different steps. The job stops as `asking`, the question sits where the counter is with the drawing and the answers as keys and \"make it anyway\" for a person who would rather have the guess, other drawings go past it, and the answer comes back in as words beside the drawing so the reader is briefed and nothing downstream knows a question was asked. Verified live: a bare box asks, \"A cube\" is answered, and the catalogue claims it with no model called."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f325eae",
+    "when": "2026-09-13T16:45:43+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "f325eae",
+        "says": "Regenerate the passes for the create space and the drawn part",
+        "when": "2026-09-13T16:45:43+00:00",
+        "detail": [
+          "Five passes, all three sessions having cross-merged so one tip carried the lot: a closed line becoming a placeholder, a construct box or a black hole; create, the action behind the menu's entry for a new space; a node's plan honoured by the run; a drawn part answering the wheel, wrapping its line and landing where it was drawn; and a bad answer from a status route no longer taking the Builder with it.",
+          "Both conflicts were the two halves of the recreate step, fixed on both sides at once, and both went to the file's owner. The panel's sentence for it is his wording rather than my stopgap. The step-move check is his too, and it is the better instrument: it pins the step by name, where mine still keyed off position three and would have followed whatever landed there."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "560c793",
     "when": "2026-09-13T16:44:58+00:00",
@@ -915,55 +960,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d16ef5b",
-    "when": "2026-09-12T18:24:21+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "d16ef5b",
-        "says": "One ground, painted once, slid by CSS, and it paints on both surfaces",
-        "when": "2026-09-12T18:24:21+00:00",
-        "detail": [
-          "A cloud layer is now painted once and slid by a CSS animation. That works because a repeating pattern lands back on itself after one tile period: oversize the canvas by one period along the layer's heading, animate exactly that period, loop. The loop point is the same pixels in the same place, so it runs for ever with no seam and nothing is ever repainted.",
-          "What that deleted, all of it machinery for managing a repaint that no longer happens: the per-frame transform writes and the clock behind them, the recycle (lay-on-exhaustion, spent, the queue, marginFor, REFRESH_S, MARGIN_MIN), the turn limit and the margin its corners swept, and carry(), which existed to undo the rotation of an offset baked into a paint that is no longer re-baked. With them goes the whole class of bug that ate the night: the seam at a recycle, the black frame between a clear and a fill, the buffer swap.",
-          "Dropped from the look, deliberately: the layers no longer turn as they drift. A slow rotation is the one thing a repeating pattern cannot be slid into, and it was the source of the seam. The ask was nearly static, so the rotation went rather than the mechanism being bent around it. Each layer keeps its own angle, heading, scale and speed, so the parallax is still there at 15% of the old pace.",
-          "The weighting is applied once and the bitmap is full strength. The pattern goes on at alpha 1 and the layer's weight is the element's CSS opacity. It composites identically — for a screen layer, scaling source alpha and scaling element opacity land in the same place — but reading a layer back now shows 187 to 251 of 255 rather than 42, which is what made a correct paint look like a broken one."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0d6be33",
-    "when": "2026-09-12T18:01:40+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "367a716",
-        "says": "The cards show the thing, and the drawing's board is about the drawing",
-        "when": "2026-09-12T18:00:19+00:00",
-        "detail": [
-          "Four changes, all the same mistake in different places: words standing in for what they describe.",
-          "What changed on the board now renders the part, still, using the board's own renderer so it is the part rather than a second drawing of one — fitted, never cropped, and absent entirely when the part has been deleted since, because a picture of something that is not there is worse than the line alone. The line of text stays underneath it rather than instead of it: the picture says which one, the words say what was done to it.",
-          "What went in pages through every go at the same part, oldest first, one to a page. A part drawn, looked at and drawn again had its other inputs scattered across other boards, so \"which drawing led to this\" could not be answered from the thing it led to. The goes are keyed on what each one made, which is the only thing that says two drawings are about one part — the chain does not, because a go can hang off anywhere. It opens on the go belonging to the iteration you opened, and a part drawn once gets no pager, because one page is not a sequence.",
-          "On a drawing's own board the mark is the subject: large and central at 62px, with the name and the small line under it. It led with the name and illustrated it with a thumbnail, which is backwards — the line he drew is what he recognises from across the screen, and \"Bird\" is only what it ended up being called."
-        ],
-        "areas": [
           "studio",
           "tests"
         ],
