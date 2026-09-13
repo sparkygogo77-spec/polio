@@ -53,6 +53,7 @@ import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
+import { tidyBoundary } from "./space";
 import type { Plan, Space, SpaceKind } from "./space";
 
 /**
@@ -1240,7 +1241,9 @@ export const useStudio = create<StudioState>()(
         addSpace: (space) => {
           const id = uid("sp");
           push();
-          set((s) => ({ spaces: [...s.spaces, { kind: "undecided", since: null, ...space, id, at: Date.now() }] }));
+          // Thinned here rather than at each door, so a space is the same
+          // record whether a hand drew it or the menu made it (`space.ts`).
+          set((s) => ({ spaces: [...s.spaces, { kind: "undecided", since: null, ...space, boundary: tidyBoundary(space.boundary), id, at: Date.now() }] }));
           return id;
         },
         decideSpace: (id, kind) => {
