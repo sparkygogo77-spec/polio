@@ -199,8 +199,37 @@ const edges = () => page.evaluate(() => {
    * the settle does anything at all.
    */
   check("settling holds whatever rate the timeline already had", s.beat <= idle.beat * 1.25, `beat ${s.beat}ms against ${idle.beat}ms sitting still`);
-  check("and costs no more than sitting still does", s.late <= idle.late + 3,
-    `${s.late} late of ${s.frames} settling · ${idle.late} of ${idle.frames} idle · worst ${s.max}ms`);
+  /*
+   * A share of the frames, not a count of them.
+   *
+   * This was "three more late frames than idle", and three was about a
+   * quarter of the window when it was written: the container had no frames
+   * to spare and 900ms held thirteen of them. The ground rewrite gave the
+   * page its 60fps back, so the same window now holds fifty-odd, the same
+   * proportion of stutter is eight late frames rather than two, and a flat
+   * three started failing a page that had got faster. A share holds the same
+   * claim at whatever rate this ends up running at.
+   *
+   * The number is measured rather than picked. Over twenty-one runs of this
+   * exact sequence at 60fps, sitting still drops 0-6 frames of ~52 and
+   * settling drops 0-10 of ~45-57, and settling is never more than 17 points
+   * worse than sitting still. They fall singly and scattered through the
+   * window rather than in a run, which is the container's scheduler and not
+   * the settle. 35 points is twice the worst honest gap.
+   *
+   * What this can and cannot see, injected a frame at a time into the settle
+   * window to find out: a cost of 4-12ms a frame reads as 9-11% late with
+   * the beat unchanged, which is inside the noise and invisible here; a cost
+   * of 24ms a frame doubles the beat to 50ms and drops the late count to
+   * ZERO, because once every frame is late none of them is late against the
+   * median. So the check above is the one that catches a render a frame, and
+   * this one is only here for stutter that comes and goes. Tightening it
+   * would buy nothing but failures on a quiet page.
+   */
+  const share = (o) => (o.frames ? o.late / o.frames : 0);
+  const pct = (o) => `${(share(o) * 100).toFixed(0)}%`;
+  check("and drops no greater a share of its frames than sitting still does", share(s) <= share(idle) + 0.35,
+    `${s.late} late of ${s.frames} settling (${pct(s)}) · ${idle.late} of ${idle.frames} idle (${pct(idle)}) · worst ${s.max}ms`);
 
   const e = await edges();
   check("everything is back on the screen", e && Math.min(e.left, e.top, e.right, e.bottom) > 20,

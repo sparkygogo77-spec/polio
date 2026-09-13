@@ -2,9 +2,537 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-12T01:36:51.218Z";
+export const GENERATED_AT = "2026-09-13T02:03:54.992Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "f67ef61",
+    "when": "2026-09-13T00:47:43+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "2ffea8a",
+        "says": "Wire the 3D kind: a drawn box is a cube, a drawn thing is a solid",
+        "when": "2026-09-13T00:35:04+00:00",
+        "detail": [
+          "The oldest unkept promise here was a box drawn on the board coming back as a flat cutout. There are two roads out of that and they are not the same road, so both are wired and the words decide which.",
+          "**A box is the catalogue's own cube.** That road already existed and it works: a closed shape plus the word \"cube\" or \"box\" becomes `cube-3d` — six faces, turnable, editable afterwards, no model called and nothing charged — and the words fill the faces when they are a list. Verified rather than assumed, and `tests/solid.mjs` now holds it shut.",
+          "**A box nobody claimed is no longer silent about it.** The geometry alone is deliberately not enough (every part in the library is a rectangle), and the cost of that decision was that a person drew a box, got a flat cutout, and nothing anywhere said a real cube was one word away. The guess is too risky to take and it was never too risky to offer, so `nearlyCoded` offers it — on the card and in a toast, once, with the word that would do it.",
+          "**Anything else that asks to be turnable becomes a real solid.** The `object` cell is served, and by a model chosen on what these things actually hand back rather than on a datasheet. Seven were compared and the comparison is written at the row: firtoz/trellis (GLB, but off by default), fishwowater/trellis2 (4096 textures, a million faces), tencent/hunyuan-3d-3.1 (format not declared, 500k faces), prunaai/hunyuan3d-2 (40k faces), hyper3d/rodin (needs a prompt, so it cannot work from a drawing alone), cjwbw/shap-e (older, coarser), and tencent/hunyuan3d-2mv — which wins on the thing that decides it: the document has to *carry* the file, and 10,000 faces is the only default already of the right order. It also names `glb` in an enum and takes four views, which is what a drawn box gives you."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "df1e831",
+    "when": "2026-09-13T00:47:34+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "df1e831",
+        "says": "Test fallout from the permanent side tabs",
+        "when": "2026-09-13T00:47:34+00:00",
+        "detail": [
+          "Picking a part no longer brings Element to the front — the five tabs are permanent now and only a press moves them, so a panel being worked in cannot be taken away mid-adjustment. Everything that selected a part and then reached straight for one of Element's own fields has to press the tab first: bird's role picker, and the cube face lists in cube and cube-part, which timed out waiting for panels that were no longer in front.",
+          "board-layout still described the old strip in three checks — that it read Look and Motion with nothing held, that picking something summoned Element/Format/Pages, and that letting go gave the column back. Those are the behaviours the change deliberately removed, so they now hold the rule that replaced them: the same five, in one order, and neither picking something up nor letting it go moves them.",
+          "Nothing in src changed. 67/67 board-layout, 33/33 bird, 59/59 cube, 29/29 cube-part."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "37e00b5",
+    "when": "2026-09-12T23:42:10+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "37e00b5",
+        "says": "One set of side tabs, and the tab you are on is the tab you stay on",
+        "when": "2026-09-12T23:42:10+00:00",
+        "detail": [
+          "It moved under you twice over. The set changed with the selection — Element, Format and Pages appeared when something was held and vanished when it was not, so the strip you were reaching for depended on what you had just clicked. And an effect on `selection` wrote the active tab on every change, so clicking bare ground to let go of a part threw you off Motion and back to Look, mid-adjustment.",
+          "Now: five tabs, always the same five, in one order, and nothing but a press moves them.",
+          "That costs the one helpful jump — picking a part no longer brings Element to the front. It cannot both never swap and swap when it judges you would like it to, and being thrown off a panel you were working in is the worse of the two. Element is one press away, and with nothing held it shows the page's own prompt, which is a real thing to be looking at rather than a sign saying nothing is selected.",
+          "Making the set permanent broke the strip and that is fixed here rather than left: five words and five icons want 347px in a 215px column, so Look and Motion hung off the end. Only the tab you are on says its name now — the word that is doing work — and the other four keep theirs for a screen reader. 218px of tabs in 215px of strip becomes 200."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "faf6c9b",
+        "says": "The strip along the bottom goes, and the extension point with it",
+        "when": "2026-09-12T23:33:39+00:00",
+        "detail": [
+          "It read: a pulsing dot, live, a simulated latency, tweets, compact, sound, the clock, a version tag. Two groups of grey words, both muted, 26px of every page spent on none of it. Gone.",
+          "What went with it, because leaving any of it would be leaving a stub: the StatusBar component, the `appearance.statusBar` setting and the `site.layout.statusBar` flag behind it, and `statusItems` — the module contract that existed so a feature could put a widget down there, with nothing left to render into. That is `StatusItemDef`, the registry's array and sort, and the row in the AGENTS contract table. `topBarItems` is untouched and its doc no longer points at a sibling that is gone.",
+          "The tweets console is not lost with its button: it is on the command palette and on `t`, which is what its own tooltip already said.",
+          "Everything that left room for the strip stops doing so — the Builder, the preview page and the brief dialog were all `100dvh - topbar - statusbar`, the slide-over sat above it, and the toaster floated over it. The Builder is 26px taller for it; the frame goes from 63% to 66% at pane size."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "pages",
+          "studio",
+          "tests",
+          "tweets"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "cefc86e",
+    "when": "2026-09-12T23:08:19+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "d04019f",
+        "says": "Delete the tiled clouds, which nothing had called since the collapse",
+        "when": "2026-09-12T23:07:40+00:00",
+        "detail": [
+          "The code that drew the repeating squares was still in the file. Nothing reached it — `paintDarkMatter` is called from exactly one place and asks for sparks, the sky is a CSS gradient and the clouds are one pre-screened field — so it sat there as a second, wrong implementation of the thing just fixed, waiting for somebody to call it again.",
+          "Gone: the 256px violet and magenta tiles and the noise that made them, the four-layer table with its scales and spins, cloudTravel, cloudStep, cloudSpeed, cloudDrift and paintCloudLayer, and the clouds half of paintDarkMatter with the `layers` and `vignette` options that existed only to ask for it. 280 lines; the file goes from 880 to 600.",
+          "paintDarkMatter now paints the embers and clips a disc, which is all anybody ever asked it for.",
+          "Verified as a no-op on the picture, not assumed: the live canvas reads mean 41.6, spread 15.6, rgb 55/28/83 with detail 1.7/3.0/5.2/8.5/12.5 /16.1 — the same numbers to the digit as before the deletion. The ten suites that touch the ground, the board and the menu all pass."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1b92774",
+        "says": "The nebula is one field wider than the board, so nothing repeats on screen",
+        "when": "2026-09-12T23:00:06+00:00",
+        "detail": [
+          "The report was repeating squares, straight lines down the board and repeating circles. All three were real and there were two causes.",
+          "The squares and the circles were the tile. The nebula was two 256px noise tiles screened together at scales 3, 2, 1 and 0.75, so inside the 1536px composite there were four periods — 768, 512, 256 and 192 — and a 192px puff repeats thirteen times across a 2560 screen. Enlarging the composite could never fix that, because the sub-patterns keep their own periods. The circles are what value noise looks like when its lattice shows: a puff per cell, on a grid.",
+          "The straight lines were the fill. `createPattern` with a `setTransform` scale makes the browser filter across the tile's edge, and there it samples clamped pixels instead of wrapping ones — a hard seam every period, in a straight line. Nothing scales a pattern now; the field is drawn one to one.",
+          "So the field is generated at the size it is shown. The rule it obeys is the one that was asked for: the period along the heading is at least the board's extent along that heading and comfortably more — 1.25x, stepped to 256 — and the octaves are named by the size of their features in pixels rather than by a cell count, so the cells stay square on a wide board instead of smearing the sky sideways."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "dc8b0b7",
+    "when": "2026-09-12T23:08:14+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "dc8b0b7",
+        "says": "Two stages on the image route, routed on kind and step",
+        "when": "2026-09-12T23:08:14+00:00",
+        "detail": [
+          "A drawing lands twice. The first pass is whatever the part gets today and goes on the board at once, because somebody who drew something wants to see it. The second is a large image model that takes the first one's own photograph and refines it, fired automatically with nobody pressing anything, and it replaces the body when it arrives.",
+          "**The table is a routing decision, not a list with a default.** Different kinds of element want different models and so do different steps of making one, so `imageRoute.ts` asks two questions and a model declares which answers it can serve. What is being made: a mark needs a transparent ground and crisp edges; a surface is the ground, wants no alpha and often a band no ordinary ratio list has; a picture wants prompt fidelity; something with real type in it wants the typography model; an object you can turn wants a 3D model. Which step: reading a drawing is a vision job and is refused here by design rather than quietly handed to a model that draws; a first pass is cheap; a refine starts from a picture and takes references and an example pair; cutting alpha may be its own step after a render.",
+          "Adding a model is one entry and changes no call site. A model declares only the cells it should be chosen for — declaring narrowly is the ranking — and within a cell the table's order decides. No slug is written anywhere else, and `tests/imaging.mjs` holds that.",
+          "Rows carry `prunaai/p-image-ideogram`, `google/nano-banana-2`, `bytedance/seedream-5-lite`, `openai/gpt-image-2` and `openai/gpt-image-1.5`, each read off its own published schema at replicate.com/<slug>/api/schema. Nothing serves the 3D kind or the alpha step yet and the route says so rather than sending the job somewhere it cannot go. `seedream-5-lite` is the only one that learns from a before and after pair, so once one drawing has been through both passes that pair is handed to every later one — the house style carried as a picture rather than a paragraph, kept in memory for the session."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "c41180f",
+        "says": "Green and red twisted together, and only what moved is repainted",
+        "when": "2026-09-12T22:30:26+00:00",
+        "detail": [
+          "**The vine.** The colour rule was wrong: blending the two ends along the length put yellow and then brown through the middle of every green-to-red span, a colour neither board has. Both colours now run the whole length on separate strands — four of them wound tight about a near-black core — so at every point you see green and red side by side and only the ratio changes, three-to-one green at a green board through two-to-two to one-to-three at a red drawing. Each strand changes over once, and it does it while it is turned behind the core, so there is no seam anywhere.",
+          "The core is what the bright ones wind around: it goes down between the strands that have turned away and the ones facing you, which is what stops a cable reading as a flat ribbon.",
+          "The twist is a pitch, not a count of turns per span. Three turns across a short gap is a tight cable; three across a long one is four lines lying almost parallel, which is what a count gave. One turn every thirty pixels, never fewer than three, and it still tightens through the middle of a span and opens out where it meets a board. Samples scale with the turns, because a fixed count made a long vine read as beads on a wire.",
+          "Each strand carries a hard thin line down the edge that faces the light — a highlight, not a bloom. There is no halo on a vine anywhere; every bright pixel is on a strand. The cable gathers into its axis over the last few percent so it meets a board's edge and terminates rather than fanning against it. The still hotspots are unchanged."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "bfe76b9",
+        "says": "The ground drifts at six pixels a second, and there is one speed",
+        "when": "2026-09-12T21:10:40+00:00",
+        "detail": [
+          "Measured the same way it was reported, computed transform sampled 16.8s apart rather than read off the CSS:",
+          "nebula   opacity 0.55   5.998 px/s",
+          "Before: 1.13 px/s, which is five seconds to move five pixels. A still image with a duration attached. Nearly static was the ask and 15% of the old pace overshot it into frozen, so the speed is stated as a speed now rather than as a fraction of something else — a fraction is how it went wrong. Six a second moves the field about a fifth of a cloud-width while you read a sentence, and it is close to what the near clouds did before any of the speed work, 7.5, so it is a return rather than an invention.",
+          "The 70x spread is gone because there is nothing left to spread. Those four numbers were d16ef5b, the four-layer build; the collapse in 9c9d448 screened them into one tile, so there is a single layer at a single speed and no frozen backdrop for anything to slide across. What is behind it is the sky, which is a smooth gradient with no features to read as still."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9f8aed6",
+    "when": "2026-09-12T21:02:22+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "a27a45b",
+        "says": "Paint the vines when something moves, not every frame",
+        "when": "2026-09-12T19:43:51+00:00",
+        "detail": [
+          "The vine is a still object — its shape is a function of where its two boards are and nothing else — so the loop that repainted it every frame was redrawing the pixels already on the canvas. It cost about half a millisecond per vine per frame for as long as the timeline was open.",
+          "Painting is now driven from a layout effect keyed on the geometry, from a ResizeObserver on the host and the open card, and from the settle tween, which moves the plot without a render. The 33ms cap is gone with the loop: the canvas is written in the same commit as the boxes, so the vines and the plot's transform land together rather than the surface sliding half a frame ahead of everything on it. `t` is dropped from paintStrand and paintConnector, which never used it.",
+          "No look change: same bark, same still hotspots, same colour from both ends.",
+          "tests/pan-cost.mjs measured two gestures that moved nothing — the pan started on a button below the timeline and the drag used a rectangle read before the pan had moved it, so both rows were really the paint loop running on its own clock. It now finds bare ground and a board actually under the pointer, and says so when either fails to move."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "1104420",
+    "when": "2026-09-12T19:51:27+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "1104420",
+        "says": "pan-cost takes the url as an argument, like every other suite",
+        "when": "2026-09-12T19:51:27+00:00",
+        "detail": [
+          "It was pinned to http://localhost:3000, so it could only ever run against a dev server on that port and threw ERR_CONNECTION_REFUSED in the sweep, which builds and serves on a fresh port each pass. Every sibling reads process.argv[2] with the same default; this now does too.",
+          "Nothing about what it measures changed. Against the current tree it reports script/style/layout for 1, 6 and 30 boards, idle against pan against drag."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "5942264",
+    "when": "2026-09-12T19:17:11+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "9c9d448",
+        "says": "Collapse the ground to one pre-composited layer",
+        "when": "2026-09-12T18:49:18+00:00",
+        "detail": [
+          "The pan table said it plainly: with the ground p50 16.5 and p95 63.5, clouds hidden 2.2 and 9.6, clouds still with the animation off 13.7 and 61.8. Four screen-blended full-screen layers were the cost and the motion never was. So the four are screened together once into a single seamless tile and what slides is one plain layer.",
+          "pan at 1440p        p50    p95 four layers        16.5   63.5 ONE LAYER           4.8   21.2 clouds hidden       2.1    9.9 one layer, still    4.8   21.4",
+          "Three and a half times better at the median, three times at the 95th. Not the 9.6 floor, and it will not be: that floor is the cost of no ground at all, and 21.2 is the cost of compositing one full-screen layer, which is the price of having a nebula. The last row is the same as the second, which says again that the drift is free.",
+          "What was lost, plainly, as asked. The parallax is gone — the four no longer move relative to each other, so the bloom where two cross no longer shifts. The per-layer headings and rotations went with it. And the scales are nudged to the nearest that divides the tile, 2.8 to 3, 2.3 to 2, 0.95 to 1, 0.75 unchanged, because a single image only slides for ever if every pattern in it fits a whole number of times. Four depths of texture in one still image instead of four planes at different speeds."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0d38513",
+    "when": "2026-09-12T19:17:08+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "2c7e1ca",
+        "says": "Measure where the timeline's time goes before changing the pan",
+        "when": "2026-09-12T18:53:35+00:00",
+        "detail": [
+          "The complaint was that dragging a board is smooth and panning is not, so tests/pan-cost.mjs measures both. Frame timing cannot tell them apart in this container — no GPU, 33ms a frame at idle, the rasteriser swamps everything — so it reads Chrome's own main-thread counters through CDP instead: script, style recalc and layout, which is the part a handler running per pointermove is responsible for. Sixty pointer moves per gesture, three board counts.",
+          "idle script    pan script   drag script 1 board            28.6ms        52.1ms       101.8ms 6 boards            234ms        321.8ms      460.6ms 30 boards          1023ms        2713ms        2572ms",
+          "Two things fall out, and neither is the pan handler.",
+          "The pan and the drag cost the same. At thirty boards it is 2713ms against 2572ms over sixty moves — within six per cent, and the drag is the dearer one at every count below thirty. Whatever makes a pan feel worse, it is not that its handler does more work."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "41a2c42",
+        "says": "The vine is bark: opaque, wound, coloured by what it joins",
+        "when": "2026-09-12T18:47:49+00:00",
+        "detail": [
+          "It was a construct of light with a glow running down it, which reads as a signal being sent — cargo in a pipe, the thing this has been trying not to be since it was a cord with a bead on it.",
+          "It is a thing now. Opaque: no blending, no translucency, and you cannot see the nebula through it. Three strands a third of a turn apart, sorted at every step along the axis by how much each faces the eye and drawn furthest first, so the near one covers the far one the way a real winding does — that, rather than dimming the far side, is what makes it read as wound. How much a strand faces the eye is also its shading, mixed between a shaded side and a lit one, with a deterministic grain moving it either way so no strand is a smooth tube. A dark pass underneath, offset a pixel or two, puts it on the ground rather than over it.",
+          "It takes its colour from what it joins. Green where it leaves a green board, red where it arrives at a red drawing, mixed along the length rather than meeting at a join — hue the short way round, so green to red passes through the yellows into brown rather than through a colour neither end has. Two boards of the same kind give one colour end to end, which is most vines.",
+          "And the light in it sits still: fourteen hotspots scattered through the length, some brighter than others, hidden when the fibre they sit on has turned away. Where they fall and how bright each one is comes from the pair alone — no `t` anywhere in it — so they are in the same places on every frame and after every drag."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "b55eb14",
+        "says": "Take hypatia's molten.css and drop the enamel rewrite",
+        "when": "2026-09-12T18:41:09+00:00",
+        "detail": [
+          "Two sessions locked the same colour reference to the same shared file at the same time, from opposite ends: hypatia kept the five-stop naming (white/hot/body/deep/char) and mapped the reference's lightnesses onto it; this branch went to seven stops named for what each one is. Both encode the same photograph. Neither can merge while both exist, and only one of them can be the definition.",
+          "Hypatia's is the one, at ee476f0. src/core/ui/molten.css, src/core/ui/molten.ts and tests/molten.mjs are taken from that commit wholesale, and everything the seven-stop version added goes with it: the field/lit/edge/vein stops, the veining SVGs under public/molten, and this branch's own checks in molten.mjs, which asserted a shape the file no longer has. tests/vines.mjs keeps its rule — a board's core has to be far brighter than anything on a vine — and reads whatever the shared definition calls that stop rather than a name of its own.",
+          "Nothing this branch renders had to change: Timeline and TimelineDetail ask for constructs through `moltenClass` and `moltenSeed`, which is what the handle is for.",
+          "While in the file: the made-real preview on a card keeps the part's own page surface, because that is how the part really looks and a repainted preview would be a lie about it, but it now sits inset with the card's dark ground round it instead of running edge to edge — a picture on the card rather than a hole through it."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "d16ef5b",
+    "when": "2026-09-12T18:24:21+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "d16ef5b",
+        "says": "One ground, painted once, slid by CSS, and it paints on both surfaces",
+        "when": "2026-09-12T18:24:21+00:00",
+        "detail": [
+          "A cloud layer is now painted once and slid by a CSS animation. That works because a repeating pattern lands back on itself after one tile period: oversize the canvas by one period along the layer's heading, animate exactly that period, loop. The loop point is the same pixels in the same place, so it runs for ever with no seam and nothing is ever repainted.",
+          "What that deleted, all of it machinery for managing a repaint that no longer happens: the per-frame transform writes and the clock behind them, the recycle (lay-on-exhaustion, spent, the queue, marginFor, REFRESH_S, MARGIN_MIN), the turn limit and the margin its corners swept, and carry(), which existed to undo the rotation of an offset baked into a paint that is no longer re-baked. With them goes the whole class of bug that ate the night: the seam at a recycle, the black frame between a clear and a fill, the buffer swap.",
+          "Dropped from the look, deliberately: the layers no longer turn as they drift. A slow rotation is the one thing a repeating pattern cannot be slid into, and it was the source of the seam. The ask was nearly static, so the rotation went rather than the mechanism being bent around it. Each layer keeps its own angle, heading, scale and speed, so the parallax is still there at 15% of the old pace.",
+          "The weighting is applied once and the bitmap is full strength. The pattern goes on at alpha 1 and the layer's weight is the element's CSS opacity. It composites identically — for a screen layer, scaling source alpha and scaling element opacity land in the same place — but reading a layer back now shows 187 to 251 of 255 rather than 42, which is what made a correct paint look like a broken one."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0d6be33",
+    "when": "2026-09-12T18:01:40+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "367a716",
+        "says": "The cards show the thing, and the drawing's board is about the drawing",
+        "when": "2026-09-12T18:00:19+00:00",
+        "detail": [
+          "Four changes, all the same mistake in different places: words standing in for what they describe.",
+          "What changed on the board now renders the part, still, using the board's own renderer so it is the part rather than a second drawing of one — fitted, never cropped, and absent entirely when the part has been deleted since, because a picture of something that is not there is worse than the line alone. The line of text stays underneath it rather than instead of it: the picture says which one, the words say what was done to it.",
+          "What went in pages through every go at the same part, oldest first, one to a page. A part drawn, looked at and drawn again had its other inputs scattered across other boards, so \"which drawing led to this\" could not be answered from the thing it led to. The goes are keyed on what each one made, which is the only thing that says two drawings are about one part — the chain does not, because a go can hang off anywhere. It opens on the go belonging to the iteration you opened, and a part drawn once gets no pager, because one page is not a sequence.",
+          "On a drawing's own board the mark is the subject: large and central at 62px, with the name and the small line under it. It led with the name and illustrated it with a thumbnail, which is backwards — the line he drew is what he recognises from across the screen, and \"Bird\" is only what it ended up being called."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "40c430e",
+    "when": "2026-09-12T17:52:24+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "0c55931",
+        "says": "The construct is enamel: a dark field, light in the edge and the veins",
+        "when": "2026-09-12T08:22:48+00:00",
+        "detail": [
+          "The shared definition is src/core/ui/molten.css, with its handle in src/core/ui/molten.ts, and the palette there is now seven stops whose *relationship* is the agreement rather than any one value, taken from the photograph of green enamel: char/field is the field and most of a construct is this, very dark and low in colour; body/lit is the lit body, seen in a few places rather than across the face; edge/edge-hot is the edge only, the brightest thing there is, turning toward yellow as it lightens; vein is fine bright filaments at low coverage. The green never washes out to pale. The red side is the same structure at a red hue — same lightnesses, same steps, the same turn as the edge lightens, chroma a little lower at the top only because red runs out of gamut sooner.",
+          "Nothing plays any more. The flare that ran the outline, the spark shed at a corner and the breathing edge are gone, and so is the card's entrance: they were things that happened, and a construct you look at fifty times an hour must look the same every time. What is left is two layers of darker matter crossing the field at a hundred and ninety and two hundred and sixty seconds, travelling two and a half per cent — you would not notice it looking for a second, and over a minute the light has moved. Nothing in either keyframe touches opacity: what changes is only what is covered.",
+          "Three things had to be got right by looking rather than by reasoning. The veining was a ramp on the noise's midpoint, so half of every tile survived and the whole face turned the vein colour — bright green with dark gaps, the surface inside out; it is a discrete step now, top fifth only, at full strength. The grain was a half-grey rect, which is grain but also a wash that lifted a near-black field to mid-green. And the noise moved out of data URIs into public/molten/*.svg, because a URI that long fights the CSS parser and a file can carry its own comment.",
+          "The rows under the timeline are the same matter, green under an iteration and red under a drawing, each with its own offset so a column of them is not one sheet."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "520741c",
+    "when": "2026-09-12T16:01:32+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "520741c",
+        "says": "The board stopped painting over the ground",
+        "when": "2026-09-12T16:01:32+00:00",
+        "detail": [
+          "The workspace was flat black in design mode. Two separate faults, and only the second one was actually hiding the nebula.",
+          "The board's root carried bg-bg, an opaque fill. That was harmless while <Workspace /> was rendered inside Canvas.tsx, because the ground sat above it. e398798 moved the ground out to be shared behind all three views, and wrote the contract in StudioPage: each view is transparent over it. The fill stayed. So an opaque board painted straight over the nebula in design mode, while the timeline, which has no background of its own, kept its ground and looked fine. The root is transparent now, which is what the contract already said.",
+          "The other fault was mine and had to go regardless. Layers were painted into an OffscreenCanvas and handed over by transferFromImageBitmap — a pointer swap, measured here at 18.9ms to 10ms and 13 stalls to 5. It shipped to a machine with a graphics card and the layers sat holding a bitmap renderer, waiting for an ImageBitmap that never arrived, with nothing in the console. That measurement came from a container with no GPU that rasterises in software, so it was never evidence about the hardware it was for. A number from the wrong machine is not a smaller number, it is a different question answered confidently. The layers keep a plain 2D context. What survives is the part that was never in doubt: paintCloudLayer fills with composite \"copy\", one operation with no cleared canvas in the middle of it.",
+          "tests/ground-paints.mjs is the check that was missing. Every ground test written tonight read a canvas backing store — what the page meant to draw — which is exactly why four suites stayed green while the workspace was black. This screenshots bare ground, decodes the PNG with zlib and the spec rather than a library, and asks whether a person would see anything: not black, not a flat fill, and carrying the nebula's own violet and magenta rather than level channels. It also refuses a layer that cannot be read as 2D, since a layer holding a bitmap renderer is unreadable and one missing frame from invisible."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2fa4013",
+    "when": "2026-09-12T08:23:01+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "ee476f0",
+        "says": "Lock the construct colours to the reference, and take the boil right down",
+        "when": "2026-09-12T08:13:44+00:00",
+        "detail": [
+          "The definition lives in src/core/ui/molten.css, with src/core/ui/molten.ts holding the names and the prose. That one file is the answer to which one holds it — nothing else may declare a --molten-* property or a molten-* keyframe, and the sibling's suite enforces that.",
+          "The relationship, which is the thing to match rather than any single value:",
+          "field   L 0.25-0.31   C 0.06-0.08   at the anchor hue body    L 0.51-0.70   C 0.15-0.22   at the anchor hue edge    L 0.80-0.89   C ~0.21       shifted 13-22 degrees towards yellow vein    L 0.80        C 0.25        at the anchor, the highest chroma of all",
+          "Three things in that are the whole look and are easy to get wrong. The field is dark AND unsaturated where the body is dark and saturated — a dark saturated red for the field is the old look and reads as a coloured box, while a near-grey dark red reads as unlit material. The edge leans towards yellow, and towards is signed: yellow sits near hue 90, so green shifts down from 144 to 131 and 122 while red shifts up from 27 to 40 and 49, and rotating both the same direction sends one of them the wrong way round the wheel. And most of the surface stays dark, with the brightness in the edge and the veins and never across the face."
+        ],
+        "areas": [
+          "core",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1abe559",
+        "says": "No control in the bar wears a word its icon already says",
+        "when": "2026-09-12T08:09:12+00:00",
+        "detail": [
+          "The tool control is the icon and the caret, nothing else: the icon is the tool, the caret is the promise of more, and the names live in the menu it opens and in the tooltip. Updates and Preview lose their words the same way.",
+          "That shortened the give-way ladder from ten rungs to eight, and it is the better kind of narrow-window fix — the top two rungs used to be the tool's name and those two words, and a control that never carries text never has to give one up. Fixing the thing rather than managing it.",
+          "Builds keeps its word, as the one deliberate exception: it is the only way out of the Builder and the only wayfinding in the bar, and a bare stack of layers at the far left is a guess rather than a label.",
+          "The check for this started too broad and flagged four things that carry text and are not labels — a page's name, the search's placeholder, the zoom percentage and the Finish count. Those are content and readings, so they are exempt by name in the test rather than by a loose rule that would quietly excuse a real label later."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2bf7b57",
+    "when": "2026-09-12T07:41:13+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "b3ea3d1",
+        "says": "Pull the vines back so the boards carry the light",
+        "when": "2026-09-12T07:09:37+00:00",
+        "detail": [
+          "The decision taken while I was not there — vines stay green rather than changing hue, pulled back so the boards lead, and only the board carries the hot near-white core — is right, and my vines did not match it. They carried a rim at 0.82 and a travelling glow at 0.92, which is a hot core on the vine, and that is the board's.",
+          "Every vine colour is now lower and has less colour in it: the brightest thing on a vine is the glow at 0.64 against a board's 0.97 skin, and the rim is a lighter green rather than a white hair. Nothing about the shape changed — three wound beams, the shades walking the length, the fibre, the one glow through all three — only how loud it is.",
+          "Driven at a pane's size, which is where \"do the boards still lead\" is actually decided: they do, and the vines are still plainly connections rather than smudges, so the decision stands as taken.",
+          "tests/vines.mjs holds it rather than trusting the numbers: no part of a vine may be near-white, none of it may be loud, and a board has to be at least 0.2 brighter than anything on a vine. 42/42 there; molten, connected, current, timeline-view and timeline-centre all pass."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "47cd5f8",
+    "when": "2026-09-12T07:08:04+00:00",
+    "day": "12 September",
+    "changes": [
+      {
+        "id": "47cd5f8",
+        "says": "Dim the vines below the box's own core; catch one missed amber label",
+        "when": "2026-09-12T07:08:04+00:00",
+        "detail": [
+          "Two small pieces of the green-boards/red-drawings work, on top of euler's 07471e6 which did the rest (box colour, size, preview, and removing every clock).",
+          "strand.ts: the vines share the boxes' green hue family, which is the exact collision that took boxes off green the first time. Pulled the brightest vine values (each tone's rim and pulse) down — lower lightness and less saturation than before — so a vine's brightest moment stays under the box's own --verdant-hot and nowhere near its white core; the box carries the hot near-white centre, the vine never does. Checked by eye at a pane's size and 1440p with a screenshot, not just by number.",
+          "Timeline.tsx: IterationBox's uppercase label row was still the old amber (hue 34) as a Tailwind arbitrary-value class — invisible to vines.mjs's own hue-scanning regex, which only matches inline style values, not underscore-syntax classes, so it went uncaught. Its two sibling colours in the same box were already green; this one line wasn't. Now oklch(0.66 0.07 152), matching them.",
+          "Unsure of: whether a green box next to a green vine still reads as one shape at the smallest pane size on real hardware rather than this sandbox's software rasteriser — the screenshots I took looked distinct, but that is a call for whoever owns this file to make on their own screen, not something I can settle from here."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "07471e6",
+        "says": "Green boards, red drawings, one size, and no clocks",
+        "when": "2026-09-12T06:58:33+00:00",
+        "detail": [
+          "The shared definition is src/core/ui/molten.css, with its handle in src/core/ui/molten.ts, and the meanings are now part of the agreement rather than a preference, because the sibling renders the same language for the element cards: verdant is an ITERATION (the timeline's boards, and the Finish key that opens them), ember is a DRAWING and anything that came off one, molten is the base set. Green holds, red was drawn. A construct that is green on one branch and red on the other is worse than either colour, so it is written at the top of that file and in AGENTS.md.",
+          "This is a swap of which stops are used where, not of the language: the veining, the five keyframes, the edge, the seed and the grain are untouched, so nothing about the look changes except which things are which.",
+          "One size for everything on it. A drawing was a chip a third the size of an iteration, which said \"this is a lesser thing\" — and it is not, it is most of what happens here. Both are 248 by 104 now and differ by the colour they are made of and by the preview they carry: an iteration shows the page it left behind, a drawing shows the line that was actually drawn.",
+          "And no clocks. Time is irrelevant here: the chain says what came after what, and the first board says where it began by being first, so the timestamp came off every board, off the box menu, and off the section underneath. Ordering went with it — `connected` and `orphans` walk the list's own order rather than sorting by `at`, which also means the chain no longer depends on the machine's clock having been right. `at` stays on a thread because the passes generator and the book read it; nothing about the timeline does."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "806e15f",
+        "says": "Regenerate passes.generated.ts after merging this pass",
+        "when": "2026-09-12T01:37:02+00:00",
+        "detail": [
+          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "4fa6382",
     "when": "2026-09-12T01:36:47+00:00",
@@ -106,18 +634,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "fixed"
-      },
-      {
-        "id": "dbb1b06",
-        "says": "Regenerate passes.generated.ts after merging this pass",
-        "when": "2026-09-12T00:38:44+00:00",
-        "detail": [
-          "npm run passes, so Updates reads the merges just made into trunk rather than a snapshot from before they landed."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
@@ -261,575 +777,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "b45273e",
-    "when": "2026-09-11T23:17:45+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "b818e51",
-        "says": "Count what grows while the Builder is left open",
-        "when": "2026-09-11T23:07:47+00:00",
-        "detail": [
-          "The complaint is that it gets worse the longer it stays open, which means something is accumulating rather than being replaced. This does not guess which: it wraps the browser's own bookkeeping before the page's scripts run and counts every candidate over a long run.",
-          "Animation loops are counted as callbacks per frame rather than calls made — a loop restarted on a re-render without the old one being cancelled shows up as that ratio climbing, where a running total only ever goes up and says nothing. Listeners are counted net and by type off the prototype, so one added per part and never removed is visible by name. Timers and intervals the same way. Canvases are counted with their backing store in megabytes, which is what a laying allocating rather than reusing would show. Heap and node count come along for the ride.",
-          "Nothing here reads pixels. A readback off a promoted layer costs enough to be its own confound, and none of these questions need one."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "fad1ffc",
-    "when": "2026-09-11T23:17:35+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "6dd4f50",
-        "says": "The selection hugs the shape rather than the box round it",
-        "when": "2026-09-11T23:13:33+00:00",
-        "detail": [
-          "A diagonal picked up drew a square with a lot of empty corners. The drawn outline was already on the node and already cutting the part to it, so the mark was the only thing still working off the bounding box.",
-          "It now walks the same path the crop uses — so the mark and the crop cannot disagree — and strokes it with a non-scaling stroke, and the box outline stands down while it does. The handles go on that path's extremes rather than on the box's corners: on a diagonal band the two corner handles land on the two ends of the line and the rest sit on its sides, so nothing is left standing in an empty corner. They carry the same data-resize they always did, so resizing is unchanged.",
-          "A path that says too little to place handles on falls back to the box, which is the right answer then.",
-          "Driven in Chromium on a 420 by 150 diagonal: one mark along the band, eight handles on it, the box outline transparent. 14/14 in tests/part-select.mjs."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      },
-      {
-        "id": "8813d7c",
-        "says": "A drawn part answers the palette like every other part",
-        "when": "2026-09-11T23:13:21+00:00",
-        "detail": [
-          "Select the diagonal, change a colour role, nothing happens. The body that came back from the renderer has its colours baked into it — fill=\"#8FE04A\" and that is that — so a made real part sat on the board ignoring the theme, which is the loudest way it reads as a picture somebody pasted in.",
-          "Each baked colour is now handed to the role it plainly stands in for, with no model and by what the colour is: near white is the ground, near black is the ink, the one colour with the most colour in it is the accent, and the rest is muted. The colour becomes var(--part-accent, #8FE04A) — the original left as the fallback, so a frame with no roles renders exactly what came back and nothing is lost by trying, and painting is both reversible and idempotent.",
-          "Nothing stored is rewritten: this is a reading of the body at render, so it follows the palette afterwards rather than only at creation, and an older part gets it without being remade. The built site does it too, with the site's own roles carried into the frame because the frame is its own document and cannot see them. The judge does not: it looks at what came back, not at a repaint.",
-          "Driven in Chromium: the body's stroke reads var(--part-accent, #8FE04A), the frame declared the theme's blue, and changing the accent to #ff2d95 turned the part pink on reload. 26/26 in tests/part-colour.mjs."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "94c8f19",
-        "says": "A made real part lands at the size and place it was drawn",
-        "when": "2026-09-11T23:05:19+00:00",
-        "detail": [
-          "A diagonal drawn a couple of hundred pixels wide came back as a band across the whole page, and an earlier one came back 760 by 760. Two causes, both in the same blind spot: by the time a drawing reaches the reader its strokes are fractions of their own box, so nothing downstream knew how big it had been.",
-          "The size was simply never carried. The board now measures the drawing it is making real and sends that with the job, and both roads honour it: the reader's numbers are a guess about a part it has never seen on a page, and the measurement is not a guess.",
-          "The proportion was worse, because it was being read off those same normalised strokes — which are always about as wide as they are tall. That is where 760 by 760 came from: a wide shallow diagonal measured as square, and the reader's own wide answer \"corrected\" to it. When the board measured the drawing, that box is the proportion and the strokes are not asked.",
-          "Two things are genuinely full width and keep the wide answer: a drawing a person actually drew across the page, and a kind that is full bleed by nature — a corner glow, a hero — which the library says by its own width. Everything else lands where it was drawn. The toast says \"at the size it was drawn\" when a size was put back, so it is never silent."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "394905e",
-        "says": "Strokes lay down as one drawing, and a person can say otherwise",
-        "when": "2026-09-11T22:59:12+00:00",
-        "detail": [
-          "A gull drawn as four strokes came back as three Make real buttons in a row, because the board only ever knew about strokes. A fifteen-stroke bird would have been fifteen unrelated parts, which kills the bird case outright.",
-          "So the board is told what a drawing is, the way a person already means it. Strokes laid down one after another and near each other are one drawing, transitively — the wing joins the body, the body joins the head — and a pause of a second and a half closes it, so the next stroke starts a new one. Lifting the pen to reposition is not a pause. A stroke on the far side of the page during the same run is its own drawing.",
-          "It will guess wrong, so the guess is visible and changeable rather than hidden. Every drawing of more than one stroke is ringed where it is, dashed while it is a guess and solid once a person has said; the chip on it reads \"Make real · 4 strokes\" and carries Join, which takes in the nearest drawing, and Split, which gives every stroke its own again. A decision is written on the strokes themselves and is never overruled by the guess, in either direction, and both go through push() so undo takes them back.",
-          "Make real now takes the group: every stroke in it, normalised against the group's box rather than each stroke's own, so the wing stays where it was drawn relative to the body, and the whole drawing leaves the board together."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "acb3546",
-    "when": "2026-09-11T22:49:14+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "a14f802",
-        "says": "Read the history again after the merge",
-        "when": "2026-09-11T22:35:13+00:00",
-        "detail": [
-          "`npm run passes` after a merge, which is the whole rule: the generated file is the deployed build's only way to know what landed, because there is no .git out there to read. The merge itself is now a pass and the panel says so."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "d6944aa",
-        "says": "Updates is a slide over, read out of the history rather than written",
-        "when": "2026-09-11T22:32:37+00:00",
-        "detail": [
-          "He wanted updates back, but not as a page like Builds or Preview: knowing what changed is something you do while you are working, so it stands over nearly the whole screen and Escape or a press outside puts it away with the board exactly where you left it.",
-          "Two rules it is built on.",
-          "Real history, not a changelog. `npm run passes` reads git: a pass is one merge into the branch (or one day of commits that landed straight on it), and the commits it carried are the lines, because merge subjects say nothing you could use. Nobody writes an entry per commit — that chore was killed on purpose and stays dead, and tests/updates.mjs holds it dead: every sha must be a real commit, every line the commit's own words, and no changelog file may exist for anything to read.",
-          "Features first. A pass leads with the strongest thing in it, the rest is a line each, and the specifics — the body as whole paragraphs rather than the lines a terminal wrapped it to, what it touched, the sha — stay folded until asked for. Twenty-four passes, forty-one changes, two minutes to read, with a \"things I can use\" switch that drops the plumbing. It borrows the timeline's own cards (FIELD, Row) rather than inventing a second way to show a list of things that happened."
-        ],
-        "areas": [
-          "docs",
-          "scripts",
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "8d214b2",
-    "when": "2026-09-11T22:27:18+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "bcde343",
-        "says": "Write down which layer a seam shows on first, and why",
-        "when": "2026-09-11T22:27:07+00:00",
-        "detail": [
-          "near-violet spins fastest at 0.8 degrees a second, so it is laid again every 12.5s where the far layers take 50s and 67s. That makes it the canary for any seam and the one that gets reported — not a special case. One code path for all four layers, both tiles the same 256px."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "3a86d12",
-    "when": "2026-09-11T22:27:00+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "2374fd9",
-        "says": "Prove the seam in pixels, not only in arithmetic",
-        "when": "2026-09-11T22:26:49+00:00",
-        "detail": [
-          "The position check reads the transform and works out where a layer is. It would pass even if the paint itself came back different, so ground-seam now also samples what is actually painted under a fixed point on screen: for a grid of points it runs the transform backwards to find the pixel of the layer's own bitmap under each, and compares consecutive samples. Over ninety seconds at 1440p, fourteen layings, every one of them resetting a transform:",
-          "far-violet     0.000px   pixels 1.22 at a laying vs 4.09 quiet far-magenta    0.000px   pixels 7.56 at a laying vs 13.94 quiet near-violet    0.000px   pixels 9.30 at a laying vs 12.17 quiet near-magenta   0.014px   pixels 7.81 at a laying vs 17.47 quiet",
-          "Being laid again changes the picture less than an ordinary frame does.",
-          "near-violet is the layer a seam shows on first, and the one being reported: its spin is the largest, so it is laid every 12.5s where the far layers take 50s and 67s. There is no reset of its own and no different tile — one code path for all four, both tiles 256px. It is the canary, not a special case."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "4c4aac9",
-        "says": "The ground's reset was the rotation turning the paint's own offset",
-        "when": "2026-09-11T22:10:53+00:00",
-        "detail": [
-          "A layer is painted with the drift so far baked into the pattern and carried the rest of the way by transform: translate3d(d) rotate(t). That is the matrix T*R, so the rotation turns the baked offset too. The layer sat at R(t)*laid + d when it should have sat at travel(now), and the error, (R(t) - I)*laid, grew with the drift and the angle together and snapped to nothing the next time the layer was laid. Measured at 32px on near-violet.",
-          "It read as irregular rather than as a cycle because a layer is laid again on either of two triggers, drift exhausting its margin or the turn passing its limit, and the two periods beat against each other — which is exactly the two periods measured off the deploy.",
-          "carry() turns the baked offset by the same angle and subtracts it. The layer then sits at travel(now) at every instant, whatever it was laid with, and being laid again changes nothing anybody can see. spent() measures the same carried distance, since that is what runs off the edge of the paint.",
-          "Sampling transforms cannot settle this: a transform jumping to zero at a laying is the mechanism working, not failing — the paint takes the offset and the transform gives up exactly what the paint took. What has to be continuous is R(t)*laid + d, the layer's actual position, and tests/ground-seam.mjs watches that on all four layers for sixty seconds. Worst step at a laying, settled: 0.000px, against a quiet-frame noise floor of 0.7px. With the subtraction reverted the same test reports 31.975px, so it catches the bug it was written for. data-laid-at exists only so that position can be worked out from outside."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "1e32f4f",
-    "when": "2026-09-11T22:05:57+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "f6c38d5",
-        "says": "Make real has a door: the control is on the drawing",
-        "when": "2026-09-11T21:53:53+00:00",
-        "detail": [
-          "Someone spent an hour in the deployed Builder with a key in the browser and could not find Make real. They did the obvious thing — picked the pencil, drew a triangle, looked at all 104 controls on the page — and there was nothing. That is not a discoverability problem, it is a missing door.",
-          "Where it lived: right-press an existing part, pick Draw in the wheel, and Make real is in the tray hung under the drawing disc. Two gestures deep, behind a part you have to already have, on a surface you have to already know exists. And the pencil, which is the tool anyone reaches for to draw something, produced ink that could never become anything at all: a pen shape is an annotation and there was no road from one to a part.",
-          "So the ink carries the control. Finish a stroke with the pencil and a button appears beside it saying \"Make real\", from the moment the stroke is finished, on the drawing, named for what it does. Pressing it takes the strokes into their own box, rasterises them for the reader, and queues the job exactly as the disc does, so everything downstream is the machinery that was already there: the catalogue, the tracer, the queue counter, the iteration on the timeline. The ink goes, because it is the part now.",
-          "Driven by doing precisely what they did: pick Draw freehand, draw a triangle on the page, and there is one control on it. Pressing it lands a part cut to the triangle and takes the ink away."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "cebabcd",
-        "says": "A drawing lands as vector first, and takes a role after",
-        "when": "2026-09-11T21:53:33+00:00",
-        "detail": [
-          "His bird, back as his bird. The trace used to end as a fragment clipped to its own outline, which is one use of a drawing and the least interesting one. It now lands as vector on the node — the paths and the box he drew them in, kept whole — and what it is *for* is decided separately.",
-          "Three things make a trace survive being an icon, and all three are here rather than in the drawing. The box is normalised by wrapping, not by rewriting the path data, so his line is his line to the coordinate. Nothing carries a colour, so it takes whatever it sits on. And getting to few paths **merges** rather than discards.",
-          "That last one is the whole of it and I only found it by drawing. The first version kept the biggest six paths and dropped the rest, which on a trace whose paths are arbitrary fragments deleted most of the bird: what came back on screen was four disconnected specks. Path data in one coordinate system concatenates, so the paths are merged in draw order until there are few enough and every line survives. Two more things fell out of driving it: the extent used to pair every number in a path as an x and a y, which is only true if the path never uses h or v, so a horizontal run measured zero wide and a real line was binned as noise; and a long thin line is not noise for being thin, so span counts as well as area.",
-          "Roles: icon, surface, motion. The words choose one when they say one, \"a bird\" chooses nothing, and naming two chooses nothing either. When nothing is chosen the panel asks with all three offered, none preselected, and says in as many words that nothing will be chosen for you. Icon is a part of its own (drawn-icon, in the shelf under Media); surface is the clip that already exists; motion is not built yet and is offered but does nothing, which I would rather say than hide."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "80b8e2a",
-    "when": "2026-09-11T21:45:22+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "587729f",
-        "says": "The ground never stops, and the drag pause is gone",
-        "when": "2026-09-11T21:32:05+00:00",
-        "detail": [
-          "The pause was bought when the clouds were repainted on every frame to move them: a pan and a full-surface repaint wanted the same main thread. The field is painted once and slid on the compositor now, so a drifting cloud costs a transform write, and the bill stopped arriving.",
-          "Measured rather than assumed, with the whole ground running through a real pan, three runs. At a pane's size p50 3.9-4.1ms, p95 5.6-6.0ms, max 11-13.7ms. At 1440p p50 9.6-10.2ms, p95 13.5-17.5ms, max 29.8-97.6ms, the high max being a recycle landing inside the pan, which is the only cost left. The run with the pause still in was no better: p95 17ms and 41.5ms, max 36.7ms and 128.8ms. No layer needed keeping, so none was kept.",
-          "That also takes out the flag that could go on and not come off, which is how the sparks got stuck still, so the two fixes are one. Nothing reads or writes data-board-drag now; board-speed sets it anyway so that if anything ever starts reading it again the suite says so.",
-          "tests/pan-weather.mjs is the measurement, and it checks the clouds and the embers are both genuinely moving during the pan — a pan that measures well because the ground quietly stopped is the thing being tested for."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "32d25d3",
-    "when": "2026-09-11T21:24:54+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "0d4bb74",
-        "says": "Nothing reads a pixel back on a loop, and a measurement says why that matters",
-        "when": "2026-09-11T21:20:22+00:00",
-        "detail": [
-          "A 60x40 getImageData off a ground layer on the deploy was timed at about 950ms — a whole composited layer forced to rasterise, not a sync. So every getImageData, toDataURL, toBlob and canvas-to-canvas drawImage in src/ was audited: all are user-triggered one-shots, and the noise tiles are memoized. Nothing reads back on a loop, so that is not the blink.",
-          "The number still explains it, for the other direction. If reading 60x40 off a window-sized promoted screen-blended canvas costs that, rewriting the whole of one pays the same class of cost, and that is what a recycle used to do every few seconds per layer. It is what the bitmap transfer already removes.",
-          "tests/ground-readback.mjs measures it three ways and rebuilds the old promoted-and-blended conditions on purpose. This container returns 0ms for all of them, so it is blind to the phenomenon: the fix stands on the hardware measurement, not on anything measurable here. The layers carry a bitmaprenderer context now, so sampling one means drawImage into a scratch canvas — a direct getContext(\"2d\") returns null.",
-          "ground-steady gains --no-pixels: with sampling off the beat is 9.5ms against 10ms with it, so the before-and-after timings are the ground's, not the probe's."
-        ],
-        "areas": [
-          "docs",
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "a88d122",
-        "says": "The ground stops blinking, and nothing on it is ever still",
-        "when": "2026-09-11T21:09:47+00:00",
-        "detail": [
-          "The blink was not a reload. Three causes were checked by name against a running page rather than guessed at, and all three came back zero over 45 seconds: the holder torn down and rebuilt, a layer losing its backing store, an unexplained canvas resize. What was left was the repaint itself, and it had a window in it — clearRect and then a blended fillRect are two operations with an empty canvas between them, and an empty canvas is a black hole in the ground if anything lands between the two. paintCloudLayer fills with composite \"copy\" now: same pixels, one operation, nothing to catch.",
-          "A recycle paints an OffscreenCanvas the compositor is not sampling, and the visible layer takes it through transferFromImageBitmap. That is a pointer swap rather than a copy, and the difference was measured: painting a buffer and blitting it cost 33 frames over 80ms in forty seconds against 13 for painting in place, because a full-surface blit is a second full-surface raster. The transfer measured 5, and the beat went 18.9ms to 10ms.",
-          "The pause now holds the clouds only. Holding the embers too bought nothing — what a pan competes with is a pattern fill, not thirty dots — and stopped the ground dead, which is what reads as broken. It also always ends: it needs a pointer genuinely down, and it is capped and latched, so a flag that never comes off is a hitch rather than a dead ground. Darters idle between kicks instead of parking, and a spark whose life ends is relit and drawn in the same frame rather than skipped.",
-          "tests/ground-steady.mjs watches all of it for a minute. It reports its own failures rather than passing vacuously: the layers carry a bitmaprenderer context now, and an earlier draft read them with getContext(\"2d\"), threw inside its sampler, and reported six green checks having measured nothing."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "ceeffb3",
-    "when": "2026-09-11T21:03:56+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "5820d96",
-        "says": "The first thing anyone does makes iteration one",
-        "when": "2026-09-11T20:53:57+00:00",
-        "detail": [
-          "J has never seen a timeline box, and the reason is that nothing seeds one. Threads are landed by an ask coming back and by a drawing being made real, and by nothing else. Lay out a board for an hour and the timeline is still empty, which reads as broken rather than as \"nothing has happened yet\", because plenty has.",
-          "The fix is not to invent history. It is to mark the beginning. seed() hangs off push(), the undo checkpoint every genuine mutation already takes, so \"a real action\" needs no second definition and no action has to remember to call anything. The first one lands a single iteration, mode start, holding the board as it was before that change: somewhere to stand and something for the next iteration to hang off. It fires once. A second action does not make a second beginning.",
-          "And until it fires the empty timeline says what is true — nothing has happened yet, which is not the same as something being wrong — and what will change that, rather than describing a machine the person cannot see working.",
-          "Driven on a cleared browser: a fresh build has no threads, the empty timeline says so, dropping one part makes iteration one, and a box saying \"where it began\" is standing there with the flag and the green state mark on it. Screenshot in the scratchpad."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5fc8797",
-    "when": "2026-09-11T20:59:48+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "605f038",
-        "says": "The ground is nebula and nothing else, and one ember in five is green",
-        "when": "2026-09-11T20:42:40+00:00",
-        "detail": [
-          "The dotted grid was not the workspace's: it was a fixed .ambient-grid over every page, drawn by the bg-grid utility in --grid-line, switched by effects.grid. All of it is gone — the div, the utility, the colour, the [data-grid] attribute in ThemeProvider and in the pre-hydration boot, the setting, its switch on the showcase page and its field in site.config.ts — so nothing draws it and no setting brings it back. Three things that sound like it and are not, left alone deliberately: GRID/snapGrid in Canvas.tsx is the 8px snapping rule with nothing drawn; SCREEN.dots is the plate editors' typing-screen face; the Texture panel's Grid and Dots layers belong to the site being built and are drawn inside the frame.",
-          "One ember in five is green. Fixed on the spark at the cast rather than rolled per life, so a spark keeps its colour instead of flickering, and so the share does not wander the way a coin flipped per relight would. The stride is five against a cast of seventeen, so the green walks through all five kinds rather than settling on one, and every spark lights at a fresh random spot, so there is no band to it. The colour is PROCESS.done — the Finish flag's green — converted rather than written down, so the ground follows the palette. Drift, size and count are untouched.",
-          "tests/ground-clean.mjs asserts the absence of each grid source by name, so an overlay left at zero opacity would pass the eye and fail here, and counts green against red off the ember canvas's own pixels."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "pages",
-          "showcase",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "f3b193b",
-        "says": "A drawn box picks the cube out of the catalogue, and turns",
-        "when": "2026-09-11T20:30:15+00:00",
-        "detail": [
-          "Third of three, and the one with the done-criterion attached: draw a box, type cube with three things on the sides, turn it with the mouse.",
-          "The wiring is small because the two pushes before it did the work. The drawing path now asks the catalogue before it asks anything else, and the ad-hoc cube branch that used to sit in the middle of runDrawJob is gone: whatever pickCoded returns is placed, configured from its own entry, and that is the end of it. Nothing matched still means the reader, and then the vectorizer, exactly as before.",
-          "Driven rather than asserted. A hand-drawn rectangle on the real board, the words \"a cube: Speed, Proof, Reach\", and what comes back is a cube-3d node with Speed, Proof and Reach on its first three faces and three blank ones behind them, no outline, no written body, and the reader, the writer and the tracer all blocked with the log reading none. Selecting it on the board and dragging turns it; letting go settles it on a face; the words are still on it afterwards. Screenshots mid-turn in the scratchpad.",
-          "tests/cube.mjs carries that as its last section now, 59 checks, and the plain box is the case it drives, because a rectangle is the cheapest thing to draw and \"cube\" the cheapest thing to type."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "dbcd3af",
-        "says": "An accordion as the catalogue's second entry, proven by drawing one",
-        "when": "2026-09-11T20:23:55+00:00",
-        "detail": [
-          "The catalogue is worth nothing if it only has the part it was built around, so here is one that needed no new component at all: an accordion has been in the library since the beginning, and the whole of this change is a declaration over it. What it is, what it needs, what a drawing has to look like to mean it, that sentence as a number, and a patch. Thirty lines in coded.ts and a line in CODED.",
-          "It is gated, deliberately. Three parallel bars are already read as a list, and most of the time that is exactly what someone drew. A stack of bars only means an accordion when the words say accordion, FAQ, expand or collapse, or when the bars are drawn inside a box, which is not how anyone draws a plain list. Everything that was a list is still a list, and the bench says so.",
-          "I drew it rather than asserting it. Three bars on the real board, the words \"an accordion: How it works, Pricing: from nothing, Support\", and what came back is an accordion part carrying those three rows, with no call to the reader, the writer or the tracer: the run blocks all three and the log says none. On the live page the rows open and close one at a time, and the colon inside a row survived as its answer while the colon after the lead-in was dropped.",
-          "The splitter that reads a typed list moved out from under the cube's name and is now listItems, because nothing about it is cube-shaped."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "ad5e775",
-        "says": "The deploy check's record, as the live site answered it",
-        "when": "2026-09-11T20:19:51+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "d33c933",
-        "says": "Ask the deployment whether it is the site we think it is",
-        "when": "2026-09-11T20:17:20+00:00",
-        "detail": [
-          "A deployment eleven commits behind looks exactly like one that is current, and every suite here talks to localhost — which is how a cube drawn on the live site did nothing and nobody knew.",
-          "tests/deploy-check.mjs fetches the real URL, follows no redirect, and puts the commit being served next to trunk's head in one line: current, N behind, or a commit this clone has never seen. /api/version is what makes that answerable and carries a commit, a branch, an environment and a build time and nothing else. Then it opens the Builder and asks by visibility, never by existence, for the things that have each broken once — the bar and its controls, the shelf, both searches, a side panel, the nebula, Finish, the Keys panel naming Claude and Replicate, and the cube found by typing for it. Anything absent names itself, a failure part-way through the browser half is reported rather than swallowed, and what it found goes to docs/DEPLOY-CHECK.md. A workflow runs it after every trunk push, once the deployment is actually serving that commit.",
-          "Replaces tests/deployed.mjs, which asked three of these questions and could not ask the one that mattered."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0b0e85e",
-        "says": "Interpretation picks from a catalogue of coded parts before it traces",
-        "when": "2026-09-11T20:14:44+00:00",
-        "detail": [
-          "Second of three, and the structural one. There was one road out of the drawing board: whatever was drawn became a picture of itself, traced and clipped to the line. That is right for a helix and wrong for anything that has to do something, and it is why a drawn cube came back as a cube-shaped hole.",
-          "coded.ts is the second road. The drawing and the words are offered to it before anything is read or traced, and an entry in it declares four things so the next one is a file rather than a rewrite: what it is, what it needs from the author, what a drawing has to look like to mean it, and that same sentence as a number. Then a configure that builds the node patch from the drawing. Best match over the bar wins.",
-          "Two rules hold it honest. A matcher may read the words as well as the strokes, because \"a box\" and \"a box, as a cube\" are different instructions and only one of them is a cube; but it may never call anything, so the layer decides for free and decides the same way twice. The test proves that by replacing fetch and counting.",
-          "The fall-through stays exactly where it was. Nothing matched means the reader names a library part and, failing that, the vectorizer traces the line. It is no longer the only road; it is the one for everything the catalogue does not know."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2a10147",
-    "when": "2026-09-11T20:05:10+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "9d5d222",
-        "says": "Put the ground away where a test is measuring something else",
-        "when": "2026-09-11T20:00:02+00:00",
-        "detail": [
-          "Four window-sized layers composited every frame take this GPU-less container to a 50ms beat, which swamps any check about something other than the ground: the lamp rig's frame budget, panning, the timeline settle, and the cube's settle — which counts animation frames rather than elapsed time, so it was still mid-turn when the test looked. Each of those now measures what it is named after, with the ground's own numbers kept in board-layout and in docs/shelf/README.md.",
-          "Left for the cube's author rather than changed here: a settle driven by elapsed time would not care about the frame rate, and on a slow machine the current one is slow for a person too."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "c46dd10",
-        "says": "The nebula is restored and every surface shares it",
-        "when": "2026-09-11T19:41:06+00:00",
-        "detail": [
-          "Four layers, each keeping its own heading, speed and slow turn, screened together at full resolution, slid and turned on the compositor, repainted only on resize, theme change or exhaustion. J read the measurements, weighed them against the card he actually runs, and took it off the shelf; the numbers and the reasoning stay in docs/shelf/README.md.",
-          "The two discs used to keep their own copy of the weather and repaint it on a 33ms setInterval, which is why they skipped too. There is one implementation now, with a shape option for the round ones.",
-          "The workspace loses its dot grid: the nebula is the ground. Finish is a deep slab with a bright rim, a white flag and its counts lit at 13px. Process state is red for unfinished or abandoned and green for completed, from one pair of colours and one set of names in threads.ts, shared with the timeline's boxes."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2da33fc",
-    "when": "2026-09-11T19:50:57+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "2da33fc",
-        "says": "docs/AUDIT.md: what actually works, ranked and evidence-backed",
-        "when": "2026-09-11T19:50:57+00:00",
-        "detail": [
-          "Two rankings on the merged tree at d1084ea: the features fluid website design needs under it, and the ones genuinely novel to this app, each given a verdict (works / half works with the exact stopping point / does not work) backed by a fresh battery run, direct hands-on checks against the running app and the live deployment's key status, and docs/PRODUCTION-LOOP.md's own reading of the code. Then the same items re-ranked by the gap between promise and delivery, biggest first."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d1084ea",
-    "when": "2026-09-11T19:30:15+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "df13ed8",
-        "says": "The cube is a part you can drop, and it turns on the board",
-        "when": "2026-09-11T19:18:57+00:00",
-        "detail": [
-          "First of three, and the one that can be used today. The cube is an ordinary entry in the library: search the shelf for \"cube\", drop it, and there is a six-faced solid on the board with words on it before anything is typed. No drawing, no interpretation, no model anywhere near it.",
-          "Three things had to change for it to be usable rather than merely present.",
-          "The part now reads its faces the way every other part reads its content: it takes node.cube when a face has been written, the content field when it has not, and falls back to three examples so the shelf tile shows a cube rather than a blank box.",
-          "It takes the pointer on the board. Everything on the canvas is inert, because the canvas is a layout surface and a part that grabbed the pointer could not be picked up, but a cube you cannot turn is a picture of a cube. So one short list of parts is hands-on once selected, and the cube is on it: pick it up and it turns with the mouse and steps with the arrow keys; let go of it and it is inert again, which is how it is still dragged around the page."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f869604",
-    "when": "2026-09-11T19:29:37+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "f869604",
-        "says": "Cube.tsx: fix missing data-part attribute",
-        "when": "2026-09-11T19:29:37+00:00",
-        "detail": [
-          "Cube's root used id=\"cube-3d\" where every other part passes data-part={id} to Fill, breaking the \"every part's root carries data-part\" convention for exactly this one part (caught by all.mjs and parts.mjs: 225/226, 208/209, 110/111 coverage checks all off by one)."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d3592d1",
-    "when": "2026-09-11T19:10:10+00:00",
-    "day": "11 September",
-    "changes": [
-      {
-        "id": "995e4c7",
-        "says": "A flag on the box for where the work is, and one dot for whether it finished",
-        "when": "2026-09-11T19:06:51+00:00",
-        "detail": [
-          "Two questions a timeline exists to answer, and neither was on it.",
-          "\"This iteration\" sits on every box, one per timeline, and pressing it moves it there. What follows it: the section below reads whatever is open and falls back to whatever is flagged, the prompt area in that section says \"working here\" so the two are never out of step, and a new iteration hangs off the flagged one rather than off whatever happened to land last. It is written in the document, so it is still there after a reload, which is the whole point of marking a place. Pressing it again puts the flag down.",
-          "Beside it, one dot, and it only ever says one of two things: green when the work behind that iteration finished, red while it is still going or was abandoned. No third colour, because a third colour turns a glance into a legend, and nothing decorative. An iteration is not one call, so a drawing now lands as running and is marked done when its body has been traced; anything still running when the store rehydrates is turned to abandoned, because the process that was running is gone with the tab. Both of those read red, which is what makes one mark enough for two states.",
-          "The box keeps its own emerald and the element piece its purple: the state mark is the only thing in the timeline that is red or green, so it reads as a state rather than as a repaint. Say the word if you meant the whole box."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0c26b67",
-        "says": "A drawn box becomes a cube: six faces, real 3D, editable after it exists",
-        "when": "2026-09-11T09:56:52+00:00",
-        "detail": [
-          "This is the one a vectoriser cannot make. A traced drawing is a picture and a picture of a cube does not turn, so this part is not drawn at all: the drawing supplies the kind and the proportions, the prompt supplies what goes on the faces, and the element is code.",
-          "Recognition is geometric and free. Three quadrilaterals meeting at a vertex, a hexagon with a Y in it, or a plain rectangle when the words say cube or box. A cube skips the reshape route entirely, so the whole path, kind, size, faces and part, happens with no model call of any sort. Everything else the shape kinds do is untouched: a ring is still a container, a rectangle with nothing said about it is still a surface, and the clip machinery is not touched at all.",
-          "The part is six faces in a preserve-3d box with no library. Drag to turn; the last pointer samples become spin that decays; under a threshold it eases onto the nearest right angle, so it is never left where nothing reads. Arrow keys step a quarter turn. Each face is shaded by how much it faces the page's lamp, which is what stops six rectangles reading as a folded net. It does not snap until it has been turned, so the three-quarter view survives arriving. The one thing a cube gives up is the clip: a solid that turns cannot live inside a still silhouette, so the outline is cleared for this kind and only this kind.",
-          "The faces live on the node, not in the part, because they are the author's words. facesFrom splits the content field, or the prompt after a \"a cube with…:\" lead-in, one item a face, and leaves the rest blank: inventing filler for a face nobody wrote is what makes a page read as generated. The inspector lists all six with a heading, a line, a palette role and clear. Turning it in Preview writes the angle back through a cube PartEvent tagged with its node, so where it was left is what the board draws. Everything is on the node, so a reload, a publish and Build all carry it, and Build writes it as a component with its own state rather than a snapshot of one angle, the only part the scaffold writes rather than copies."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
