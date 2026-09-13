@@ -27,7 +27,7 @@ import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { Workspace } from "./Workspace";
-import { BACKGROUND_ID } from "./store";
+import { BASE_ZOOM, BACKGROUND_ID } from "./store";
 import {
   activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -100,7 +100,18 @@ export function Canvas() {
   const page = useStudio(activePage);
   const selection = useStudio((s) => s.selection);
   const tool = useStudio((s) => s.tool);
-  const zoom = useStudio((s) => s.zoom);
+  /*
+   * `zoom` here is the *applied* scale, not the number in the bar.
+   *
+   * The bar's readout is nominal and the board is drawn at nominal times
+   * `BASE_ZOOM`, so that the size J works at reads as 100%. Every use of
+   * `zoom` below — the transform, turning a pointer into board coordinates,
+   * the hit thresholds, and the 1/zoom counter-scaling that keeps a chip the
+   * same size however far in you are — wants the applied one, so the
+   * multiplication happens once, here, and nothing downstream has to know.
+   */
+  const nominalZoom = useStudio((s) => s.zoom);
+  const zoom = nominalZoom * BASE_ZOOM;
   const pan = useStudio((s) => s.pan);
   const inkHue = useStudio((s) => s.inkHue);
   const inkWidth = useStudio((s) => s.inkWidth);
@@ -188,7 +199,9 @@ export function Canvas() {
       // the site is in the pane with the ground showing all the way round it,
       // which is what says "this is a page standing on something" rather than
       // "this is the window".
-      Math.max(0.2, Math.min(1, Math.min((vw - FRAME_GUTTER) / frameWidth, (vh - FRAME_GUTTER) / Math.max(1, fh)))),
+      // In nominal terms, because that is what the store holds: the widths are
+      // divided by the base so the *drawn* frame is what is being fitted.
+      Math.max(0.2, Math.min(1, Math.min((vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM), (vh - FRAME_GUTTER) / Math.max(1, fh * BASE_ZOOM)))),
     [frameWidth],
   );
 
@@ -204,11 +217,16 @@ export function Canvas() {
       const fh = Math.round(stock * lean);
       const z = fitZoom(vw, vh, fh);
       useStudio.getState().setZoom(z);
+      /* Centred on the frame as *drawn*, which is `z` times the base and not
+         `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
+         hung it off the right of the pane — `board-layout` caught it: "frame
+         324,149 677×437 in 752×733". */
+      const drawn = z * BASE_ZOOM;
       useStudio.getState().setPan({
-        x: Math.round((vw - frameWidth * z) / 2),
+        x: Math.round((vw - frameWidth * drawn) / 2),
         // Centred, not pinned to the top: there is no page below the fold to
         // leave room for any more.
-        y: Math.max(TOP_MARGIN / 2, Math.round((vh - fh * z) / 2)),
+        y: Math.max(TOP_MARGIN / 2, Math.round((vh - fh * drawn) / 2)),
       });
     };
     measure();

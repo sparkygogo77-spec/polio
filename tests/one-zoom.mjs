@@ -98,6 +98,56 @@ if (inBook) {
   );
 }
 
+/* ------------------------------------------------------- what 100% means */
+/*
+ * The size J works at is two presses of the plus above a fitted board — 1.1
+ * twice, which is 121% — so that size is called 100 and everything else is
+ * measured from it. Checked on a window wide enough for the fit to reach
+ * 100%, because below that the window is the constraint and the readout says
+ * whatever fits.
+ *
+ * Both numbers are copied, not imported: a test that read `BASE_ZOOM` out of
+ * the store would agree with the code whatever the code said.
+ */
+const DESKTOP = 1440;
+const BASE = 1.21;
+const wide = await browser.newPage({ viewport: { width: 2560, height: 1440 } });
+await wide.goto(`${URL_}/builder`, { waitUntil: "domcontentloaded" });
+await wide.waitForSelector("[data-studio-bar]", { timeout: 20000 });
+await wide.waitForTimeout(2500);
+const at = await wide.evaluate(() => {
+  const bar = document.querySelector("[data-studio-bar]");
+  const h = [...bar.querySelectorAll("button")].find((e) => /^\d+%$/.test((e.textContent || "").trim()));
+  const f = document.querySelector("[data-frame]");
+  return { hud: h ? Number((h.textContent || "").replace("%", "")) : null, frame: f ? Math.round(f.getBoundingClientRect().width) : null };
+});
+check("on a wide window the board comes to rest at 100%", at.hud === 100, `${at.hud}%`);
+check(
+  "and at 100% a desktop frame is drawn at the base, not at one to one",
+  at.frame !== null && Math.abs(at.frame / DESKTOP - BASE) < 0.02,
+  `${at.frame}px for a ${DESKTOP}px frame — ${(at.frame / DESKTOP).toFixed(3)}×, wanted ${BASE}`,
+);
+
+/* The clamp is in the same nominal terms, so it is still a quarter to two and
+   a half however the base moves. */
+for (let i = 0; i < 14; i++) await wide.evaluate(() => document.querySelector("[aria-label='Zoom in']")?.click());
+await wide.waitForTimeout(500);
+const top = await wide.evaluate(() => {
+  const bar = document.querySelector("[data-studio-bar]");
+  const h = [...bar.querySelectorAll("button")].find((e) => /^\d+%$/.test((e.textContent || "").trim()));
+  return Number((h.textContent || "").replace("%", ""));
+});
+check("holding the plus down stops at 250%", top === 250, `${top}%`);
+for (let i = 0; i < 30; i++) await wide.evaluate(() => document.querySelector("[aria-label='Zoom out']")?.click());
+await wide.waitForTimeout(500);
+const bottom = await wide.evaluate(() => {
+  const bar = document.querySelector("[data-studio-bar]");
+  const h = [...bar.querySelectorAll("button")].find((e) => /^\d+%$/.test((e.textContent || "").trim()));
+  return Number((h.textContent || "").replace("%", ""));
+});
+check("and the minus stops at 25%", bottom === 25, `${bottom}%`);
+await wide.close();
+
 await browser.close();
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} passed`);
