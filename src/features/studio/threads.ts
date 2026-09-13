@@ -186,58 +186,26 @@ export interface ThreadNode {
 
 /** The threads as a forest, oldest first at every level. */
 /**
- * Every iteration joined to the one it was founded on. Nothing floats.
+ * What each iteration is drawn hanging off: the one that landed before it.
  *
- * A thread hangs off the one being worked in, or off whatever landed last —
- * but both can be missing, and the oldest threads are dropped when the list
- * gets long, which leaves their children pointing at a parent that is not
- * there any more. Either way the timeline shows a piece on its own with no
- * strand into it, and "what was this founded on" has no answer.
+ * One chain in time order and nothing else. No branches, no forks, ever.
  *
- * So the question is answered here instead of being left to whatever was set
- * at the time: an iteration with no parent, or a parent that has gone, hangs
- * off the one before it. That is what it was founded on — it is the state the
- * board was in when the person drew.
+ * `parentId` is still on the thread and is still true — an iteration really
+ * was worked in another one, and the panel's tree still reads it — but it is
+ * not what the timeline draws. Drawing it gave a thread hanging off whatever
+ * was being worked in, which fanned the timeline into branches and gave some
+ * boxes several vines into them. What a person wants from a timeline is what
+ * happened, in the order it happened.
  *
- * Only the first thread of all has no parent, because nothing came before it.
- * Returns one entry per thread, in the order given.
+ * The order is the list's own order, not the clock on the threads: the list
+ * is appended to, so its order *is* what happened, and a timestamp makes the
+ * chain depend on the machine's clock being right rather than on the record.
+ * The first entry is where it began and says so by being first.
  */
-export function connected(threads: Thread[]): Map<string, string | null> {
-  /*
-   * The order is the order they landed in, which is the order they are in.
-   *
-   * Not the clock on them: a timestamp is a thing to read that answers a
-   * question nobody asks, and sorting by it makes the chain depend on the
-   * machine's clock being right rather than on what actually happened. The
-   * list is appended to, so its own order *is* what happened; the first
-   * entry is where it began and says so by being first.
-   */
-  const place = new Map(threads.map((t, i) => [t.id, i]));
-  const byId = new Map(threads.map((t) => [t.id, t]));
+export function chainOf(threads: Thread[]): Map<string, string | null> {
   const out = new Map<string, string | null>();
-  for (let i = 0; i < threads.length; i++) {
-    const t = threads[i]!;
-    const said = t.parentId;
-    /*
-     * The parent it names, when that one is still here, is not itself, and
-     * came before it. A thread naming a parent that came after it is not a
-     * chain, it is a loop waiting to happen — and it does happen, because
-     * the flag can be moved to an older iteration and the next thing to land
-     * hangs off it.
-     */
-    if (said && said !== t.id && byId.has(said) && place.get(said)! < i) { out.set(t.id, said); continue; }
-    // Otherwise the one before it, which is what it was founded on.
-    out.set(t.id, i > 0 ? threads[i - 1]!.id : null);
-  }
+  for (let i = 0; i < threads.length; i++) out.set(threads[i]!.id, i > 0 ? threads[i - 1]!.id : null);
   return out;
-}
-
-/** Anything the timeline would draw with no strand into it. The earliest is not one. */
-export function orphans(threads: Thread[]): Thread[] {
-  const byId = new Set(threads.map((t) => t.id));
-  const place = new Map(threads.map((t, i) => [t.id, i]));
-  return threads.filter((t, i) =>
-    i > 0 && (!t.parentId || t.parentId === t.id || !byId.has(t.parentId) || place.get(t.parentId)! > i));
 }
 
 export function threadTree(threads: Thread[]): ThreadNode[] {

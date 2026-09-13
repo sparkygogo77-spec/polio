@@ -62,7 +62,7 @@ import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
 import { paintStrand, strandBounds, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
-import { connected, diffDocs, flatten, PROCESS, processDone, threadTitle, threadTree, type Thread, type ThreadNode } from "./threads";
+import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
 import { useStudio } from "./store";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
@@ -101,9 +101,13 @@ function seed(s: string): number {
 /**
  * Where the boxes sit before anyone moves them.
  *
- * Down and to the right, one step per iteration, with a shove either way
- * off the thread's own id — enough that no two rows line up and the eye
- * reads it as a place rather than a column.
+ * One chain, down and to the right, one step per iteration, with a shove
+ * either way off the thread's own id — enough that no two rows line up and
+ * the eye reads it as a place rather than a column.
+ *
+ * The sideways step used to come from how deep in the tree a thread was,
+ * which is what made the timeline read as branches. It is the index now:
+ * the chain leans as it goes, and the lean is the same for everyone.
  */
 function scatter(nodes: ThreadNode[]): Map<string, Point> {
   const out = new Map<string, Point>();
@@ -111,8 +115,8 @@ function scatter(nodes: ThreadNode[]): Map<string, Point> {
     const jx = seed(n.thread.id) - 0.5;
     const jy = seed(`${n.thread.id}y`) - 0.5;
     out.set(n.thread.id, {
-      x: 140 + n.depth * DRIFT.x + jx * 150,
-      y: 130 + i * DRIFT.y + jy * 90,
+      x: 140 + (i % 3) * DRIFT.x * 0.62 + jx * 120,
+      y: 130 + i * DRIFT.y + jy * 70,
     });
   });
   return out;
@@ -172,8 +176,19 @@ export function Timeline() {
   /** When a drag ended, so the click it fires can be ignored. */
   const dropped = React.useRef(0);
 
-  const roots = React.useMemo(() => threadTree(threads), [threads]);
-  const all = React.useMemo(() => flatten(roots), [roots]);
+  /*
+   * The timeline is one chain in the order things landed, and nothing else.
+   *
+   * It used to walk the tree `parentId` makes, which put a thread under
+   * whatever was being worked in and fanned the whole thing into branches —
+   * boxes with several vines into them and a shape that answered a question
+   * nobody was asking. `parentId` is still on the thread and the panel's
+   * tree still reads it; the timeline reads the record instead.
+   */
+  const all = React.useMemo<ThreadNode[]>(
+    () => threads.map((thread) => ({ thread, children: [], depth: 0 })),
+    [threads],
+  );
   const home = React.useMemo(() => scatter(all), [all]);
   const spotOf = React.useCallback(
     (id: string): Point => {
@@ -318,17 +333,10 @@ export function Timeline() {
   );
 
   /*
-   * Every iteration joined to the one it was founded on.
-   *
-   * Not `parentId` straight off the thread: that can be missing, and the
-   * oldest threads are dropped when the list gets long, which leaves their
-   * children pointing at nothing. Either way a piece sat on its own with no
-   * strand into it, which is exactly the question the timeline is for — what
-   * was this drawing founded on. `connected` heals both: an iteration with
-   * no parent hangs off the newest one that landed before it, which is the
-   * board it was actually drawn against. Only the earliest has none.
+   * Every iteration joined to the one that landed before it, and to nothing
+   * else. One chain, no branches, no forks — `chainOf` is the whole rule.
    */
-  const joins = React.useMemo(() => connected(threads), [threads]);
+  const joins = React.useMemo(() => chainOf(threads), [threads]);
   const cords = React.useMemo(
     () =>
       all

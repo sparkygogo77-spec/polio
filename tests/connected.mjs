@@ -1,22 +1,21 @@
 /**
- * The timeline is joined end to end. Nothing floats.
+ * The timeline is one chain in the order things landed. Nothing else.
  *
- * A drawing made real landed as a piece with no strand into it whenever
- * nothing was live and nothing was current — and the oldest iterations are
- * dropped when the list gets long, which leaves their children pointing at a
- * parent that is not there. Either way the one question the timeline exists
- * to answer — what was this founded on — had no answer for that piece.
+ * It used to draw the tree `parentId` makes — a thread hung off whatever
+ * was being worked in — which fanned it into branches and gave some boxes
+ * several vines into them. What a person wants from a timeline is what
+ * happened, in the order it happened. So:
  *
- *   · every iteration but the earliest has a strand into it;
- *   · a named parent is kept when it is still there;
- *   · a missing one is healed to what actually came before;
- *   · nothing hangs off itself, and nothing hangs off the future;
- *   · and the store stops making them in the first place.
+ *   · every iteration but the earliest is joined to the one before it;
+ *   · a named parent is kept on the thread and is not what the vine draws;
+ *   · nothing hangs off itself, nothing off the future, nothing off two
+ *     things — no branches, no forks, ever;
+ *   · and the list's own order is the order, not the clocks.
  *
  *   node tests/connected.mjs [url]     # default http://localhost:3000
  */
 import { readFileSync } from "node:fs";
-import { connected, orphans } from "../src/features/studio/threads.ts";
+import { chainOf } from "../src/features/studio/threads.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -34,70 +33,69 @@ const th = (id, at, parentId = null, mode = "plan") => ({
 });
 
 /* ------------------------------------------------------------------ */
-/* 1. A chain that is already whole is left alone                      */
+/* 1. One chain, in the order it happened                              */
 /* ------------------------------------------------------------------ */
 
 const chain = [th("a", 1), th("b", 2, "a"), th("c", 3, "b")];
-const j1 = connected(chain);
-check("the earliest has no parent, because nothing came before it", j1.get("a") === null);
-check("a named parent is kept", j1.get("b") === "a" && j1.get("c") === "b");
-check("nothing in a whole chain is an orphan", orphans(chain).length === 0);
+const j1 = chainOf(chain);
+check("the earliest has nothing before it", j1.get("a") === null);
+check("each of the rest is joined to the one before it", j1.get("b") === "a" && j1.get("c") === "b");
 
 /* ------------------------------------------------------------------ */
-/* 2. A piece that landed loose is joined to what it was founded on     */
+/* 2. parentId is kept, and is not what the vine draws                 */
 /* ------------------------------------------------------------------ */
 
-const loose = [th("a", 1), th("b", 2, "a"), th("drawing", 3, null, "drawing")];
-check("a drawing that landed with no parent is seen as an orphan",
-  orphans(loose).map((t) => t.id).join() === "drawing");
-const j2 = connected(loose);
-check("and it is joined to the iteration that came before it", j2.get("drawing") === "b");
-check("joining it does not disturb the rest", j2.get("b") === "a" && j2.get("a") === null);
+/*
+ * Three iterations, the third worked in the first. That is true and it is
+ * still on the thread; the panel's tree reads it. The timeline draws the
+ * record: the third landed after the second, so it hangs off the second.
+ */
+const worked = [th("a", 1), th("b", 2, "a"), th("c", 3, "a")];
+const j2 = chainOf(worked);
+check("a thread worked in an older iteration still hangs off the one that landed before it",
+  j2.get("c") === "b", `c → ${j2.get("c")}`);
+check("so no box ever has two vines into it, and no vine ever forks", (() => {
+  const into = new Map();
+  for (const [, p] of j2) if (p) into.set(p, (into.get(p) ?? 0) + 1);
+  return [...into.values()].every((n) => n === 1);
+})());
+check("and parentId is untouched on the thread", worked[2].parentId === "a");
 
 /* ------------------------------------------------------------------ */
-/* 3. A parent that has been dropped                                   */
-/* ------------------------------------------------------------------ */
-
-const dropped = [th("b", 2, "gone"), th("c", 3, "b")];
-check("a parent that is not there any more is an orphan", orphans(dropped).length === 0 || orphans(dropped)[0].id === "c" || orphans(dropped)[0].id === "b");
-const j3 = connected(dropped);
-check("the child of a dropped parent becomes the new root", j3.get("b") === null);
-check("and everything after it still hangs together", j3.get("c") === "b");
-
-/* ------------------------------------------------------------------ */
-/* 4. Nothing impossible                                               */
+/* 3. Nothing impossible                                               */
 /* ------------------------------------------------------------------ */
 
 const silly = [th("a", 1, "a"), th("b", 2, "c"), th("c", 3)];
-const j4 = connected(silly);
-check("nothing hangs off itself", [...j4.entries()].every(([id, p]) => p !== id));
+const j3 = chainOf(silly);
+check("nothing hangs off itself", [...j3.entries()].every(([id, p]) => p !== id));
 check("nothing hangs off something that came after it", (() => {
   const place = new Map(silly.map((t, i) => [t.id, i]));
-  return [...j4.entries()].every(([id, p]) => !p || place.get(p) < place.get(id));
-})(), JSON.stringify([...j4]));
-check("every thread gets an answer", j4.size === silly.length);
-check("nothing at all is nothing", connected([]).size === 0 && orphans([]).length === 0);
+  return [...j3.entries()].every(([id, p]) => !p || place.get(p) < place.get(id));
+})(), JSON.stringify([...j3]));
+check("every thread gets an answer", j3.size === silly.length);
+check("a dropped parent changes nothing, because the vine never read it",
+  chainOf([th("b", 2, "gone"), th("c", 3, "b")]).get("b") === null);
+check("nothing at all is nothing", chainOf([]).size === 0);
 
 /* ------------------------------------------------------------------ */
-/* 5. The list's own order is what happened                            */
+/* 4. The list's own order is what happened                            */
 /* ------------------------------------------------------------------ */
 
 /*
  * Not the clock on each thread. Time is irrelevant on the timeline: the
  * chain says what came after what and the first board says where it began by
  * being first, so nothing here reads a timestamp — which also means the
- * chain no longer depends on the machine's clock having been right.
+ * chain does not depend on the machine's clock having been right.
  */
 const shuffled = [th("c", 999), th("a", 1), th("b", 2)];
-const j5 = connected(shuffled);
+const j4 = chainOf(shuffled);
 check("the list's own order is what happened, whatever the clocks say",
-  j5.get("c") === null && j5.get("a") === "c" && j5.get("b") === "a",
-  JSON.stringify([...j5]));
-check("and nothing anywhere in it reads a timestamp", (() => {
+  j4.get("c") === null && j4.get("a") === "c" && j4.get("b") === "a",
+  JSON.stringify([...j4]));
+check("and nothing in it reads a timestamp or a parent", (() => {
   const src = readFileSync("src/features/studio/threads.ts", "utf8");
-  const fn = /export function connected[\s\S]*?\n\}/.exec(src)?.[0] ?? "";
-  const orph = /export function orphans[\s\S]*?\n\}/.exec(src)?.[0] ?? "";
-  return !/\.at\b/.test(fn) && !/\.at\b/.test(orph);
+  const fn = /export function chainOf[\s\S]*?\n\}/.exec(src)?.[0] ?? "";
+  return fn.length > 0 && !/\.at\b/.test(fn) && !/parentId/.test(fn);
 })());
 
 check("no clock is printed on a board or under one",
@@ -105,7 +103,7 @@ check("no clock is printed on a board or under one",
   && !/toLocaleTimeString/.test(readFileSync("src/features/studio/TimelineDetail.tsx", "utf8")));
 
 /* ------------------------------------------------------------------ */
-/* 6. …and the store stops making them                                 */
+/* 5. …and the store still records what was worked in                  */
 /* ------------------------------------------------------------------ */
 
 const store = readFileSync("src/features/studio/store.ts", "utf8");
@@ -115,11 +113,12 @@ check("dropping the oldest re-hangs whoever hung off them",
   /t\.parentId && !here\.has\(t\.parentId\)/.test(store));
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
-check("the timeline draws the healed joins, not the raw parentId", /connected\(threads\)/.test(timeline));
+check("the timeline draws the chain, not the tree", /chainOf\(threads\)/.test(timeline) && !/threadTree\(/.test(timeline));
+check("and lays the boxes out as one chain rather than by depth", !/n\.depth \* DRIFT/.test(timeline));
 check("and never draws a strand from something that is not there", /byId\.has\(c\.from\)/.test(timeline));
 
 /* ------------------------------------------------------------------ */
-/* 7. In the browser                                                   */
+/* 6. In the browser                                                   */
 /* ------------------------------------------------------------------ */
 
 const url = process.argv[2] || "http://localhost:3000";
