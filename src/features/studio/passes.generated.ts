@@ -2,9 +2,68 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T02:58:36.318Z";
+export const GENERATED_AT = "2026-09-13T03:27:52.974Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "2197946",
+    "when": "2026-09-13T03:27:52+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "e275b59",
+        "says": "The give-way ladder is checked rung by rung, not just for clipping",
+        "when": "2026-09-13T03:09:40+00:00",
+        "detail": [
+          "The order was already written down — eight rungs, each with the width it goes at — and it turns out to be true. Measured on both sides of every breakpoint, with the pen in hand so the ink hues are out to be counted:",
+          "1. the search's own words   there at 1281, gone at 1279 2. the ink hues             there at 1025, gone at 1023 3. the zoom readout         there at 1025, gone at 1023 4. Fit and Wires            there at 1025, gone at 1023 5. Updates                  there at 1025, gone at 1023 6. the search entirely      there at  769, gone at  767 7. the menu's edge switch   there at  769, gone at  767 8. the site's name          there at  641, gone at  639",
+          "Nothing overflows at any of them, and the ten controls the comment says never go — tool, devices, undo, redo, both zooms, Preview, Finish, the panel toggle, the pages — are there at all eight widths.",
+          "So this commit is the enforcement, not a fix. What the suite checked before was that nothing was cut off, which a bar satisfies by dropping its controls in any order it likes — and the fault that started this was exactly that the wrong ones survived, \"Desktop\", \"Tablet\" and \"Phone\" spelled out while the right-hand controls walked off the edge. Every rung is now read above and below its own breakpoint, and checked not to come back at anything narrower."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "7758598",
+        "says": "One wheel in the shelf, and a correction to what the last commit claimed",
+        "when": "2026-09-13T03:02:02+00:00",
+        "detail": [
+          "The last commit said the parts used to live in a second scroller nested inside the shelf's. They did not. I measured the shelf before and after with the same probe and both have exactly one scrolling element; the earlier reading that looked like two had the side panel's own nested scroller in it, which is a real fault but is not in the shelf. The comment in `Palette.tsx` that repeated the claim is corrected here.",
+          "What was actually wrong is still worth the item. A fixed crumb row with a 173px box of cards scrolling beneath it reads as a box scrolling inside a box, and once a category was open the planets were not on the shelf at all, so scrolling moved the cards and nothing else. A section's header pins with `sticky` now, inside the one scroller, so the planets travel with the parts.",
+          "Two checks, and they do different jobs, which the test says out loud:",
+          "one place in the shelf the wheel does anything — a regression guard. It passes against the old shelf too, because the old shelf also had one. Written down as a guard rather than dressed up as a proof."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e9c75f7",
+    "when": "2026-09-13T02:59:45+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "e9c75f7",
+        "says": "Regenerate the passes for the shelf stack and the alpha step",
+        "when": "2026-09-13T02:59:45+00:00",
+        "detail": [
+          "The deployed build has no .git to read, so the Updates list is only ever as current as this file. Two passes landed in this sweep: hypatia's shelf categories merging into one stack with two open at a time, and euler's alpha step arriving as the last of three answers rather than the first."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "644d3b6",
     "when": "2026-09-13T02:58:31+00:00",
@@ -722,62 +781,6 @@ export const PASSES: Pass[] = [
           "core",
           "docs",
           "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2ef0a54",
-    "when": "2026-09-12T00:38:04+00:00",
-    "day": "12 September",
-    "changes": [
-      {
-        "id": "46710ff",
-        "says": "The bar gives way in a stated order rather than walking off the edge",
-        "when": "2026-09-12T00:14:24+00:00",
-        "detail": [
-          "Narrow the window and the bar kept Desktop, Tablet and Phone spelled out in full while the controls on the right were clipped away: the least important thing surviving at the expense of the most. Nothing is cut off now, at any width from 640 up.",
-          "What goes, first to last:",
-          "1. the tool's name           below 2xl  the icon says it 2. Updates and Preview words below xl   the icons say them 3. the search's own words    below xl   it becomes a magnifier 4. the ink hues              below lg   only out while drawing 5. the zoom readout          below lg   the minus and plus stay 6. Fit and Wires             below lg   both have a key, f and w 7. Updates entirely          below lg 8. the search entirely       below md   mod+k still opens it 9. the menu's edge switch    below md 10. the site's name           below sm   its mark stays",
-          "What never goes: the tool in your hand, the three devices, undo and redo, zoom's minus and plus, Preview, Finish, the panel toggle and the pages."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      },
-      {
-        "id": "060c274",
-        "says": "Four tools in one red control, and the cursor pans",
-        "when": "2026-09-11T23:40:28+00:00",
-        "detail": [
-          "Six flat ghost buttons became one lit button wearing whichever tool is in your hand, with the rest a press away. A row of identical icons made the tool you were actually holding the quietest thing in the bar — a slightly darker background among five siblings. It takes the app's own red rather than PROCESS.open: that red means a state, unfinished or abandoned, and a tool is not a state. Two reds with two meanings is one too many.",
-          "Two tools left the bar, for different reasons.",
-          "Pan is gone because the cursor pans, and which drag you get is decided by what is under the hand rather than by a mode: bare ground outside the page pushes the view, a part moves, and empty space inside the page still draws a marquee. The nebula is the ground you push, the page is the surface you select on. Alt-drag and the middle button still pan from anywhere.",
-          "Draw a region is off the bar, and it is worth being exact about why, because it is not what it looked like. It was never a selection tool: it draws a rectangle annotation, a frame shape, sibling to a pen stroke and an arrow. So marquee-plus-shift-click does not replace it — they were never doing the same job. What it actually is, is a third way to draw on a board that already has two, holding a permanent slot in the bar. The shape kind stays in ShapeKind, so every frame already drawn still renders and no board loses anything."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "7fee48a",
-        "says": "Four things in the bar: one panel toggle, coloured arrows, bare devices, a real search",
-        "when": "2026-09-11T23:28:00+00:00",
-        "detail": [
-          "The side panel had two controls, one in the bar and one in the panel's own header, and only the bar's could bring it back. The one that could only hide it is gone.",
-          "Undo takes the process red and redo the process green, from PROCESS in threads.ts rather than a third pair — going back and going on is the same question every process state answers. Only while they can be pressed: a greyed control still wearing a colour is a lie.",
-          "Desktop, tablet and phone lose their words and keep their icons, each with its own colour. Both were on offer and this is the reason for taking icons plus colour rather than one or the other: the words were the widest thing between the tools and the search, and dropping them is what lets the search fill its gap, but an outline glyph at 14px is a weak signal on its own — a tablet and a phone are the same rectangle at different sizes — so with the label gone the colour has to carry the distinction. The hues are 100 degrees apart around the accent's own wheel rather than picked by eye, so they move with the accent and can never collapse into three shades of one colour. Only the chosen one is lit.",
-          "The search takes the whole gap it sits in rather than a fixed 176px with dead bar either side, drops the shortcut chip, which was the widest thing in a control whose job is to be typed into, and sits in a lit well instead of the bar's own colour. A search that matches its surroundings reads as a label."
-        ],
-        "areas": [
           "studio",
           "tests"
         ],
