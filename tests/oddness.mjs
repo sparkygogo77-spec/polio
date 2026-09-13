@@ -34,6 +34,13 @@ check("a box with nothing said beside it is asked whether it is a cube", oddness
 check("…and the first answer offered is the cube", oddness({ strokes: [box], words: "" })?.choices[0] === "A cube");
 check("a box already called a cube is not asked", oddness({ strokes: [box], words: "cube" }) === null);
 check("a box drawn on a part whose prompt says cube is not asked", oddness({ strokes: [box], words: "" }, "a cube of photos") === null);
+/*
+ * …and neither is a box described as anything else. A drawing with words
+ * beside it has been described, whatever the strokes look like, and asking
+ * is asking a person to repeat themselves.
+ */
+check("a box captioned as something else is not asked either", oddness({ strokes: [box], words: "a chunk of rock, in 3d, turnable" }) === null);
+check("…nor one captioned on the part it was drawn on", oddness({ strokes: [box], words: "" }, "the pricing table") === null);
 check("a scribble with nothing typed is asked what it is meant to be", oddness({ strokes: [scribble, wiggle], words: "" })?.why === "kind");
 check("…with the kinds the route draws differently as the answers", (() => {
   const q = oddness({ strokes: [scribble, wiggle], words: "" });

@@ -85,12 +85,14 @@ export interface RunResult {
 interface Planned {
   steps: Step[] | null;
   model: string | null;
+  /** What the person set on the model, by field name, when the plan carries it. */
+  options: Record<string, unknown> | null;
 }
 
 function planOf(node: StudioNode | null): Planned {
   const p = node?.plan;
   const steps = p?.steps?.length ? tidySteps(p.steps) : [];
-  return { steps: steps.length ? steps : null, model: p?.model ?? null };
+  return { steps: steps.length ? steps : null, model: p?.model ?? null, options: p?.options ?? null };
 }
 
 /**
@@ -536,7 +538,7 @@ function billToast(threadId: string, deps: RunDeps, key: string) {
  * is, and a heading that quietly became a hand-written SVG would be a part
  * nobody could edit again.
  */
-async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Planned = { steps: null, model: null }): Promise<string> {
+async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Planned = { steps: null, model: null, options: null }): Promise<string> {
   const s = useStudio.getState();
   const node = s.nodes.find((n) => n.id === nodeId);
   if (!node || node.featureId !== "custom-idea") return "";
@@ -648,13 +650,14 @@ async function bodyFor(nodeId: string, drawn: Sketch, deps: RunDeps, plan: Plann
  * now, because by the time it lands a different one may be live.
  *
  * Which later steps, in what order: the plan's, when there is one, and the
- * one refine there always was when there is not. Refine and recreate run
- * one after the other in the order the plan gives them, each starting from
- * what the one before it made; alpha is whether the ground comes off after
- * the last of them; the plan's model is preferred at each. Read and first
- * come before all of these by the shape of the pipeline — there is nothing
- * to refine before something has been drawn — whatever position the plan
- * wrote them at.
+ * one refine there always was when there is not. Refine, recreate and alpha
+ * run one after the other in the order the plan gives them, each starting
+ * from what the one before it made — alpha as a pass of its own, routed to
+ * a model that serves the alpha step (gpt-image-2 first: the picture again
+ * with no ground, which beats cutting one off); the plan's model is
+ * preferred at each. Read and first come before all of these by the shape
+ * of the pipeline — there is nothing to refine before something has been
+ * drawn — whatever position the plan wrote them at.
  *
  * Every road out of it is a line on the card. A pass that did not run is
  * never silent: the person is looking at something that was meant to be
@@ -673,13 +676,12 @@ function laterPasses(
   if (!first) return;
   const on = useStudio.getState().liveThreadId ?? undefined;
   const stages = plan.steps
-    ? plan.steps.filter((st): st is "refine" | "recreate" => st === "refine" || st === "recreate")
+    ? plan.steps.filter((st): st is "refine" | "recreate" | "alpha" => st === "refine" || st === "recreate" || st === "alpha")
     : (["refine"] as const);
   if (!stages.length) {
     useStudio.getState().notePass("second pass · left out by the plan", on);
     return;
   }
-  const alpha = plan.steps ? plan.steps.includes("alpha") : undefined;
   const { mask, mode } = targetFor(node.outline ?? null, drawn.strokes);
   void (async () => {
     let picture = first;
@@ -691,7 +693,7 @@ function laterPasses(
         first: picture,
         step,
         prefer: plan.model ?? undefined,
-        alpha,
+        options: plan.options,
         label: node.label,
         prompt: [node.prompt, drawn.words].filter(Boolean).join("\n").trim(),
         // What was said, for deciding what is being made. A drawing that
@@ -722,7 +724,9 @@ function laterPasses(
       }
       deps.publish({
         key: `refine:${nodeId}`,
-        title: r.ok ? (step === "recreate" ? "The real thing landed" : "The better pass landed") : `The ${step === "recreate" ? "recreate" : "better pass"} did not run`,
+        title: r.ok
+          ? (step === "recreate" ? "The real thing landed" : step === "alpha" ? "The ground came off" : "The better pass landed")
+          : `The ${step === "recreate" ? "recreate" : step === "alpha" ? "ground" : "better pass"} did not run`,
         body: r.line,
         level: r.ok ? "info" : "warn",
         source: "studio",

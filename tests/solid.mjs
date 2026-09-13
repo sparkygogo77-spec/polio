@@ -116,6 +116,15 @@ const SQUARE = [[[0.25, 0.25], ...seg([0.25, 0.25], [0.75, 0.25]), ...seg([0.75,
 
 /* The question the last drawing raised, if it raised one. */
 let lastAsked = null;
+
+/**
+ * One drawing, made real.
+ *
+ * `answer` is for the one question an ambiguous drawing now raises before
+ * anything is spent (`oddness.ts`): a bare box is asked whether it is a
+ * cube, and nothing runs until somebody says. A drawing with words beside
+ * it is never asked, so most of these pass no answer at all.
+ */
 const draw = async (strokes, words, answer) => {
   await page.keyboard.press("Control+k");
   await page.waitForTimeout(400);
@@ -155,14 +164,16 @@ const draw = async (strokes, words, answer) => {
   lastAsked = null;
   for (let i = 0; i < 30; i++) {
     await page.waitForTimeout(1000);
+    // A job that stopped to ask waits on a person, not on the queue. What it
+    // asked is kept, so a later check can say the box was asked about a cube
+    // rather than only that something was asked.
     const q = page.locator("[data-queue-question]").first();
     if (await q.count()) {
       lastAsked = {
         ask: await q.getAttribute("aria-label"),
         choices: await q.locator("[data-queue-answer]").evaluateAll((els) => els.map((e) => e.getAttribute("data-queue-answer")).filter(Boolean)),
       };
-      const pick = answer && lastAsked.choices.includes(answer) ? answer : "";
-      await q.locator(`[data-queue-answer="${pick}"]`).first().click({ force: true }).catch(() => {});
+      await page.locator(answer === undefined ? '[data-queue-answer=""]' : `[data-queue-answer="${answer}"]`).first().click();
       await page.waitForTimeout(900);
       continue;
     }
@@ -196,7 +207,12 @@ check("and no model was called to make one", asked.length === 0, `${asked.length
 /* 2. A box nobody claimed is not silent about it                      */
 /* ------------------------------------------------------------------ */
 
-const quiet = await draw(SQUARE, "");
+/*
+ * It is asked now, before anything is spent, rather than guessed at and
+ * explained afterwards: a bare box is the ambiguous case the question
+ * exists for. Answer "A flat box" and it is the flat box it always was.
+ */
+const quiet = await draw(SQUARE, "", "A flat box");
 check("a drawn box with nothing said is not turned into a cube behind your back",
   quiet?.featureId !== "cube-3d", quiet?.featureId);
 /*
@@ -205,15 +221,28 @@ check("a drawn box with nothing said is not turned into a cube behind your back"
  * It used to be a line in the thread's changes — the part made the flat way
  * first and told afterwards that a cube was one word off — and `oddness.ts`
  * moved it in front of the first paid call: the box is asked before
- * anything is spent, with the cube as the likeliest answer. Waving it on is
- * what this call does, so the flat box above is still the flat box. What
- * the question is made of belongs to `tests/oddness.mjs`, which holds the
- * rules and every answer; all this suite needs to know is that a box
- * nobody claimed still does not go quietly.
+ * anything is spent, with the cube as the likeliest answer. What the
+ * question is made of belongs to `tests/oddness.mjs`, which holds the rules
+ * and every answer; all this suite needs to know is that a box nobody
+ * claimed still does not go quietly, and that waving it on leaves the flat
+ * box the flat box.
+ *
+ * Both branches wrote half of that at once. Kept as two checks rather than
+ * one: a suite that only answers the question cannot tell an empty question
+ * from a right one, and a suite that only reads the question cannot tell
+ * that answering it does anything.
  */
 check("…but it is asked about, before anything is spent",
   /cube/i.test(lastAsked?.ask ?? "") && (lastAsked?.choices ?? []).some((c) => /cube/i.test(c)),
   lastAsked ? `${lastAsked.ask} — ${lastAsked.choices.join(" / ")}` : "nothing asked");
+check("…and answering \"A flat box\" lands the flat box it always was",
+  !!quiet?.id && quiet.featureId === "custom-idea", `${quiet?.id} ${quiet?.featureId}`);
+/* Answering "A cube" instead is the same as having typed the word — the
+   answer goes in beside the drawing as that word (`tests/oddness.mjs`), and
+   a box that says cube is the real cube, which is the first case above.
+   Proved in two halves rather than by drawing a third box here, because
+   every extra drawing in this suite is another part on the board and this
+   one is about the solid. */
 
 /* ------------------------------------------------------------------ */
 /* 3. Anything else that asks to be turnable becomes a real solid      */

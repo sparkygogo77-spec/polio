@@ -85,6 +85,7 @@ export function progressOf(step: string | undefined | null): number | null {
   if (attempt) return 0.4 + (Number(attempt[1]) - 1) * 0.12;
   if (/^Looking at (what the renderer drew|attempt)/.test(s)) return 0.6;
   if (/^Refining the drawing|^Recreating the real thing/.test(s)) return 0.82;
+  if (/^Taking the ground off/.test(s)) return 0.9;
   return null;
 }
 
