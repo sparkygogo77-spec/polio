@@ -1,23 +1,41 @@
 "use client";
 /**
- * The vines between iterations: a cable of strands wound round a dark core.
+ * The vines between iterations: a twisted cable of the boxes' own material.
  *
  * A cord with a bead travelling it reads as cargo in a pipe, and a single
  * bright line reads as a diagram. What is actually between two iterations is
  * growth — the second one is made of what the first one produced — so a vine
- * is drawn as a thing: bright strands in a tight helix about a near-black
- * core, bark with grain in it, a lit side and a shaded side, and light caught
- * still in its fibres.
+ * is drawn as a thing: two thick strands wound tight about a dark core, made
+ * of the same stuff the boxes are, with a lit side and a shaded side and
+ * light caught still in the fibres.
  *
- * **Both colours run the whole length.** Not a gradient: a strand carries one
- * end's colour or the other's and never a blend, so at every point along the
- * cable you see green and red side by side. What changes from end to end is
- * only the ratio — green strands outnumber red near a green board and the
- * other way round at a red drawing. Each strand changes over once, and it
- * does it while it is turned behind the core, so the change is never a seam.
+ * **Two strands, not four.** The four-strand cable read as threaded — a rope
+ * of loose ends rather than a cable — and it will not stay. Two thick strands
+ * in a tight helix is the reference: a twisted pair, smooth, with a crossing
+ * every half turn and nothing frayed about it.
  *
- * A vine that joins two boards of the same kind is one colour, because both
- * its ends are.
+ * **Both colours run the whole length.** Not a gradient: one strand carries
+ * one end's colour and the other strand the other's, end to end, so at every
+ * point along the cable you see green and red side by side and never a blend
+ * of the two. What shifts from end to end is the *ratio*, and with two
+ * strands the ratio is thickness — the green strand is the fat one at a
+ * green board and the thin one at a red drawing, and the red strand the
+ * other way about. Neither ever changes colour, so there is no change-over
+ * and no seam anywhere. A vine that joins two boards of the same kind is one
+ * colour and its two strands are the same width.
+ *
+ * **The same material as the boxes.** The strands are painted in the
+ * construct's own stops — `deep` for the shaded side, `body` for the lit
+ * side, `hot` for the hard line of light down the edge — so a vine is
+ * literally a rope of what the boxes are made of, at the same temperatures
+ * (`molten.css`). The cloud that drifts over a box's face drifts over the
+ * cable too, and by the same mechanism: it is not painted here. The timeline
+ * lays the construct's cloud over each strand — the green cloud over the
+ * green strand, the red over the red — clipped to that strand's near side
+ * (`strandEnvelope`) and sliding by the same transform as a box's, so the
+ * colour of a vine moves the way a box's does and costs what a box's costs,
+ * which is no repaint at all. Each strand gets its own colour's cloud and
+ * nothing else's: two colours that never meet cannot go through brown.
  *
  * The path is not the shortest line either. It bows out to one side, always
  * the same side for the same pair, so a run of boxes is joined by curves that
@@ -27,31 +45,28 @@
  *
  * 1. **The shadow.** One dark pass, offset a pixel or two, under everything.
  *    It is what makes the vine sit on the ground rather than float over it.
- * 2. **The core.** Near black, straight down the axis, drawn between the
- *    strands that have turned away and the ones facing the eye. It is what
- *    the bright ones wind *around*, and what stops a cable from reading as a
- *    flat ribbon.
- * 3. **The strands.** Sorted at every step by how much each faces the eye and
- *    drawn furthest first — so the near one covers the far one, the way a
- *    real winding does. Nothing is blended and nothing is translucent: you
- *    cannot see the nebula through a vine, because it is a thing rather than
- *    a glow. The helix is tight, three full turns across a span, and it
- *    tightens further in the middle and relaxes where it meets a board.
- * 4. **The speculars.** A hard thin line down the edge of each strand that
+ * 2. **The core.** Near black, straight down the axis, under both strands
+ *    for the whole length. It is what the two wind *around*: the dark seam
+ *    you see between them wherever they part. The four-strand cable put its
+ *    core down *between* the back strands and the front ones, a step at a
+ *    time, and where the front strand turned away the core showed through
+ *    as a row of dark teeth along the edge — the serration in the old one.
+ *    Once, underneath, there is nothing to poke through.
+ * 3. **The strands.** The one turned away goes down first, then the one
+ *    facing you — so the near one covers the far one, the way a real
+ *    winding does. Nothing is blended and nothing is translucent.
+ * 4. **The speculars.** A hard thin line down the edge of the strand that
  *    faces the light — a highlight, not a bloom. There is no halo anywhere
  *    on a vine; every bright pixel is on a strand.
  * 5. **The hotspots.** Light caught in the fibres, and it stays where it is.
- *    A glow that travelled the length read as a signal being sent, which is
- *    the one thing this has been trying not to be since it was a cord with a
- *    bead on it. Their places and brightnesses come from the pair alone, so
- *    they are the same on every frame and after every drag, and one on the
- *    far side of the turn is hidden.
+ *    Their places and brightnesses come from the pair alone, so they are the
+ *    same on every frame and after every drag.
  *
  * The cable gathers into the axis over the last few percent at each end, so
  * it meets a board's edge and terminates rather than blooming into it.
  *
  * Everything is sampled off the curve rather than stroked as a bezier,
- * because the offsets — the winding, the shades, the fibre — are all
+ * because the offsets — the winding, the shades, the widths — are all
  * functions of how far along the vine a point is, which a bezier cannot say.
  */
 
@@ -63,37 +78,37 @@ export interface Point {
 /**
  * A vine takes its colour from what it joins.
  *
- * Green at a green board, red at a red drawing — but carried by whole
- * strands rather than mixed into the body, so the cable is green and red
- * twisted together for its whole length and the ratio is what shifts. Both
- * ends of a pair of boards of the same kind are the same, so most vines are
- * one colour and the rule costs nothing to look at.
+ * Green at a green board, red at a red drawing — carried by whole strands
+ * rather than mixed into the body, so a green-to-red cable is green and red
+ * twisted together for its whole length and the ratio is what shifts.
  *
- * Three tones per end, and they are the tones of *bark*, not of light: this
- * is an opaque thing with a lit side and a shaded side, and the brightness in
- * it is in the speculars and the hotspots rather than in the body.
+ * The three tones per end are the construct's own stops, the same numbers
+ * `molten.css` paints the boxes with: `deep` is the shaded side, `body` the
+ * lit side, `hot` the light down the edge. Held to the stylesheet by
+ * `tests/vines.mjs`, so the copy cannot drift from the source. A vine is the
+ * boxes' material in a rope, not a colour that happens to be near theirs.
  */
 export type VineEnd = "iteration" | "drawing" | "cut";
 
 interface Bark {
-  /** The shaded side of a strand. */
+  /** The shaded side of a strand: the construct's `deep`. */
   dark: string;
-  /** The lit side. */
+  /** The lit side: the construct's `body`. */
   lit: string;
-  /** A hotspot caught in the fibres. */
+  /** The light down the edge, and a hotspot: the construct's `hot`. */
   hot: string;
 }
 
 export const VINE: Record<VineEnd, Bark> = {
   iteration: {
-    dark: "oklch(0.22 0.045 150)",
-    lit: "oklch(0.48 0.105 146)",
-    hot: "oklch(0.7 0.16 143)",
+    dark: "oklch(0.309 0.076 148)",
+    lit: "oklch(0.506 0.152 144)",
+    hot: "oklch(0.798 0.209 135)",
   },
   drawing: {
-    dark: "oklch(0.22 0.045 24)",
-    lit: "oklch(0.48 0.1 22)",
-    hot: "oklch(0.7 0.15 26)",
+    dark: "oklch(0.309 0.075 16)",
+    lit: "oklch(0.506 0.15 18)",
+    hot: "oklch(0.798 0.207 31)",
   },
   cut: {
     dark: "oklch(0.2 0.012 150)",
@@ -179,19 +194,22 @@ const RAMP: Record<VineEnd, Ramp> = {
 /** How far the strands swing from the axis. The vine is about this wide. */
 export const STRAND_WIDTH = 9;
 
-/** How many bright strands are wound about the core. */
-const STRANDS = 4;
+/** How many strands are wound about the core. Two: a twisted pair. */
+const STRANDS = 2;
 
 /**
  * How tight the helix is: one full turn every this many pixels of cable.
  *
  * A count of turns per span cannot be right on its own — three turns across
- * a short gap is a tight cable and three across a long one is four lines
- * lying almost parallel, which is what the first attempt at this looked
- * like. A pitch keeps the same cable at every length. Three turns across a
- * short span is what it works out as, which is what the reference shows.
+ * a short gap is a tight cable and three across a long one is two lines
+ * lying almost parallel. A pitch keeps the same cable at every length. With
+ * two strands a turn is two crossings, so this is a crossing every
+ * seventeen pixels: half again the cable's width between crossings, which
+ * is a twisted pair. Tighter than that and each strand shows for less than
+ * its own width between crossings, and the cable reads as a chain of links
+ * rather than two tubes wound together; looser and it is a ribbon.
  */
-const PITCH = 30;
+const PITCH = 34;
 
 /** …and never fewer than this many turns, however short the gap. */
 const LEAST_TURNS = 3;
@@ -199,27 +217,28 @@ const LEAST_TURNS = 3;
 /**
  * How much tighter the helix is in the middle of a span than at its ends.
  *
- * A real vine is wound hardest where it is under tension and opens out where
- * it is anchored, so the turn rate runs from a little under half in the last
- * few percent to about one and a half times in the middle.
+ * A real cable is wound hardest where it is under tension and opens out
+ * where it is anchored. Kept small: the four-strand cable ran this at over a
+ * half and the middle of every span turned busy, which is part of what read
+ * as threaded.
  */
-const TIGHTEN = 0.55;
+const TIGHTEN = 0.3;
 
 /**
- * Where along the cable each strand changes which end's colour it carries.
+ * How far the ratio of the two colours shifts from one end to the other.
  *
- * One strand never changes and one has changed before it starts, so both
- * colours are present at both ends: the ratio runs three-to-one, two-to-two,
- * one-to-three rather than all of one to all of the other. The two that do
- * change are staggered, and each change is moved to where that strand is
- * behind the core (see `changeAt`) so it is never a visible seam.
+ * The share of the cable's width that one end's strand has runs from
+ * `0.5 - SHIFT` at the other end to `0.5 + SHIFT` at its own: three-to-one
+ * at either board, never all of one colour, so both are present the whole
+ * length. Two boards of the same kind sit at a half each and the shift does
+ * nothing.
  */
-const CROSSOVER = [2, 0.36, 0.64, -1];
+const SHIFT = 0.25;
 
 /** Where the light is, in the plane the timeline is drawn on: above and left. */
 const LIGHT = { x: -0.55, y: -0.83 };
 
-/** The core the bright strands wind round. Near black, and it is what gives depth. */
+/** The core the two strands wind round. Near black, and it is what gives depth. */
 const CORE = "oklch(0.13 0.014 150)";
 
 /**
@@ -298,12 +317,13 @@ function at(p: [Point, Point, Point, Point], t: number): Point {
 /**
  * How many points the curve is sampled at.
  *
- * Enough per turn that the winding is smooth rather than faceted, so a long
- * cable with twenty turns in it gets more samples than a short one with
- * three. A fixed count made long vines read as beads on a wire.
+ * Enough per turn that the winding is a curve rather than a chain of
+ * facets — twice what the four-strand cable had, because a thick strand
+ * shows a corner a thin one hides. A long cable with twenty turns in it
+ * gets more samples than a short one with three.
  */
 function sampleCount(turns: number): number {
-  return Math.max(48, Math.min(340, turns * 11));
+  return Math.max(64, Math.min(640, turns * 22));
 }
 
 interface Sample extends Point {
@@ -333,7 +353,9 @@ function samples(p: [Point, Point, Point, Point], n: number): Sample[] {
  *
  * Three sines that do not share a period, which is enough to read as
  * irregular and is the same every frame for the same point — a body that
- * boiled would be noise, not texture.
+ * boiled would be noise, not texture. It moves the shade a little and the
+ * width not at all: a strand whose width wobbled was the lumpiness in the
+ * old cable.
  */
 function fibre(u: number, seed: number): number {
   return (
@@ -346,7 +368,7 @@ function fibre(u: number, seed: number): number {
 /**
  * How far round the helix has turned at `u`, as a share of the whole twist.
  *
- * Not `u`: its slope is under half at the ends and about one and a half in
+ * Not `u`: its slope is a little under one at the ends and a little over in
  * the middle, so the winding is tight across the span and opens out where
  * the cable meets a board.
  */
@@ -354,18 +376,11 @@ function turned(u: number): number {
   return u - (TIGHTEN / (Math.PI * 2)) * Math.sin(u * Math.PI * 2);
 }
 
-/** `turned` run backwards, by iteration — it contracts, so five passes is exact enough. */
-function unturn(T: number): number {
-  let u = T;
-  for (let i = 0; i < 5; i++) u = T + (TIGHTEN / (Math.PI * 2)) * Math.sin(u * Math.PI * 2);
-  return u;
-}
-
 /**
  * How wide the helix is at `u`: gathered into the axis where it meets a board.
  *
- * A cable that kept its full radius to the very end left four strands
- * fanning against the box edge. This brings them together over the last few
+ * A cable that kept its full radius to the very end left the strands fanning
+ * against the box edge. This brings them together over the last few
  * percent, so the vine arrives as one thing and stops.
  */
 function girth(u: number): number {
@@ -385,30 +400,22 @@ function wind(u: number, b: number, phase: number, radius: number, turns: number
 }
 
 /**
- * Where strand `b` changes which end's colour it carries.
+ * The share of the cable strand `b` has at `u`: the ratio of the two colours.
  *
- * As near `want` as possible, but moved to a point where that strand has
- * turned behind the core — a strand that changed colour in plain sight would
- * be a join, and the whole point of carrying the two colours on separate
- * strands is that there is no join anywhere.
+ * Strand 0 carries the near end's colour and strand 1 the far end's. When
+ * the ends differ, strand 0 is the fat one at its own end and thins toward
+ * the other, and strand 1 the reverse; when they are the same, both are a
+ * half the whole way and the cable is one colour with two equal strands.
  */
-function changeAt(b: number, want: number, phase: number, turns: number): number {
-  if (want < 0 || want > 1) return want;
-  const off = (b * Math.PI * 2) / STRANDS + phase;
-  const full = turns * Math.PI * 2;
-  let best = want;
-  let gap = Infinity;
-  // Facing is least where the turn is an odd multiple of π.
-  for (let m = -turns; m <= turns * 2; m++) {
-    const T = (Math.PI + 2 * Math.PI * m - off) / full;
-    if (T < 0 || T > 1) continue;
-    const u = unturn(T);
-    if (Math.abs(u - want) < gap) {
-      gap = Math.abs(u - want);
-      best = u;
-    }
-  }
-  return best;
+function share(u: number, b: number, mixed: boolean): number {
+  if (!mixed) return 0.5;
+  const s = 0.5 + (u - 0.5) * SHIFT * 2;
+  return b === 0 ? 1 - s : s;
+}
+
+/** The width of a strand that has this share of the cable. */
+function widthOf(s: number): number {
+  return STRAND_WIDTH * 0.62 * (2 * s);
 }
 
 /**
@@ -419,34 +426,95 @@ function changeAt(b: number, want: number, phase: number, turns: number): number
  * cord with a bead on it. These sit still. Where they are and how bright
  * each one is comes from the pair alone, so they are in the same places on
  * every frame and after every drag, and they differ from vine to vine.
+ * Fewer than the four-strand cable carried: two smooth strands want less
+ * on them.
  */
 function hotspots(phase: number): { u: number; b: number; bright: number }[] {
   const out: { u: number; b: number; bright: number }[] = [];
   // A deterministic scatter: enough to read as many, few enough to read as
   // caught rather than painted on.
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 8; i++) {
     const r = Math.sin((i + 1) * 12.9898 + phase * 7.233) * 43758.5453;
     const f = r - Math.floor(r);
     const r2 = Math.sin((i + 1) * 78.233 + phase * 3.17) * 12345.678;
     const g = r2 - Math.floor(r2);
-    out.push({ u: (i + f * 0.9) / 14, b: i % STRANDS, bright: 0.35 + g * 0.65 });
+    out.push({ u: (i + f * 0.9) / 8, b: i % STRANDS, bright: 0.35 + g * 0.65 });
   }
   return out;
+}
+
+/** What one vine is made of, before anything is painted: the same for the paint and the outline. */
+function build(from: Point, to: Point, opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone }) {
+  const turns = turnsFor(from, to);
+  const whole = samples(strandPath(from, to), sampleCount(turns));
+  /*
+   * A vine forming grows from where it leaves: `grow` is how much of it there
+   * is yet, and only that much of the curve is drawn. The winding, the
+   * colours and the hotspots are all functions of where a point is along the
+   * whole vine, so what has grown looks exactly as it will when it is done.
+   */
+  const grow = Math.max(0, Math.min(1, opts.grow ?? 1));
+  const s = grow >= 1 ? whole : whole.slice(0, Math.max(2, Math.ceil(whole.length * grow)));
+  const dead = opts.tone === "cut";
+  const [a, z] = dead ? (["cut", "cut"] as [VineEnd, VineEnd]) : (opts.ends ?? ["iteration", "iteration"]);
+  return { turns, s, dead, ends: [a, z] as [VineEnd, VineEnd], mixed: a !== z, R: STRAND_WIDTH * 0.34 };
+}
+
+/**
+ * The outline of one strand's near side, as an SVG path in the canvas's own
+ * coordinates.
+ *
+ * The timeline lays the construct's drifting cloud over each vine — the
+ * green cloud over the green strand and the red over the red, each clipped
+ * to this — so the light is on that strand's bark and nowhere else: not on
+ * the other strand, not a halo round the cable, not a glow on the ground
+ * beside it. Only the runs where the strand faces the eye, because those
+ * are the runs you see; where it has turned behind the other one, the
+ * other one's cloud is there instead. So the two clouds never overlap and
+ * the two colours never meet. Sampled off the same curve with the same
+ * widths as the paint, so the two cannot disagree.
+ */
+export function strandEnvelope(
+  from: Point,
+  to: Point,
+  strand: 0 | 1,
+  opts: { ends?: [VineEnd, VineEnd]; grow?: number; phase?: number; tone?: StrandTone } = {},
+): string {
+  const { turns, s, mixed, R, dead } = build(from, to, opts);
+  if (dead || s.length < 2) return "";
+  const phase = (opts.phase ?? 0) * Math.PI * 2;
+  const runs: string[] = [];
+  let left: string[] = [];
+  let right: string[] = [];
+  const close = () => {
+    if (left.length >= 2) runs.push(`M${left.join("L")}L${right.reverse().join("L")}Z`);
+    left = [];
+    right = [];
+  };
+  for (const p of s) {
+    const { across, facing } = wind(p.t, strand, phase, R * girth(p.t), turns);
+    if (facing < 0.5) { close(); continue; }
+    const half = widthOf(share(p.t, strand, mixed)) / 2;
+    left.push(`${(p.x + p.nx * (across + half)).toFixed(1)} ${(p.y + p.ny * (across + half)).toFixed(1)}`);
+    right.push(`${(p.x + p.nx * (across - half)).toFixed(1)} ${(p.y + p.ny * (across - half)).toFixed(1)}`);
+  }
+  close();
+  return runs.join("");
 }
 
 /**
  * Draw one vine.
  *
- * Opaque, and painted back to front: at every step along the axis the
- * strands are sorted by how much each faces the eye, the ones turned away go
- * down first, then the core, then the ones facing you. That order is the
- * whole trick — it is what makes a flat set of curves read as a cable with
- * something solid inside it.
+ * Opaque, and painted back to front: the core under everything, then at
+ * every step along the axis the strand turned away, then the one facing
+ * you. That order is the whole trick — it is what makes two curves read as
+ * a cable with something solid inside it.
  *
  * Nothing here takes a clock. The vine is a still object and painting it is
  * a pure function of its two ends, so it is painted when one of them moves
- * and not otherwise. `phase` is the pair's own seed, which sets where the
- * winding starts, where the colours change over and where the hotspots fall.
+ * and not otherwise; the colour that moves over it is the timeline's light,
+ * not a repaint. `phase` is the pair's own seed, which sets where the winding
+ * starts and where the hotspots fall.
  */
 export function paintStrand(
   c: CanvasRenderingContext2D,
@@ -458,22 +526,11 @@ export function paintStrand(
   const seed = opts.phase ?? 0;
   const phase = seed * Math.PI * 2;
   const W = STRAND_WIDTH;
-  const turns = turnsFor(from, to);
-  /*
-   * A vine forming grows from where it leaves: `grow` is how much of it there
-   * is yet, and only that much of the curve is drawn. The winding, the
-   * colours and the hotspots are all functions of where a point is along the
-   * whole vine, so what has grown looks exactly as it will when it is done.
-   */
-  const whole = samples(strandPath(from, to), sampleCount(turns));
-  const grow = Math.max(0, Math.min(1, opts.grow ?? 1));
-  const s = grow >= 1 ? whole : whole.slice(0, Math.max(2, Math.ceil(whole.length * grow)));
+  const { turns, s, dead, ends, mixed, R } = build(from, to, opts);
   if (s.length < 2) return;
-  const dead = opts.tone === "cut";
 
   // What it joins, at each end. A cut vine is grey at both.
-  const [a, z] = dead ? (["cut", "cut"] as [VineEnd, VineEnd]) : (opts.ends ?? ["iteration", "iteration"]);
-  const bark = [RAMP[a], RAMP[z]];
+  const bark = [RAMP[ends[0]], RAMP[ends[1]]];
 
   c.save();
   c.lineCap = "round";
@@ -495,15 +552,23 @@ export function paintStrand(
    * floating on it. One pass, the width of the vine and a little more.
    */
   c.strokeStyle = "oklch(0.08 0.01 150)";
-  c.lineWidth = W * 1.25;
+  c.lineWidth = W * 1.3;
   c.beginPath();
   s.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
   c.stroke();
 
-  /* Where each strand swaps which end's colour it is carrying. */
-  const change = CROSSOVER.map((want, b) => changeAt(b, want, phase, turns));
+  /*
+   * The core: once, whole, under both strands. It shows as the dark seam
+   * between them wherever they part and nowhere else. Not put down between
+   * the back strand and the front one step by step — that is what left a
+   * row of dark teeth along every edge of the old cable.
+   */
+  c.strokeStyle = CORE;
+  c.lineWidth = W * 0.5;
+  c.beginPath();
+  s.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+  c.stroke();
 
-  const R = W * 0.52;
   for (let i = 0; i < s.length - 1; i++) {
     const p = s[i]!;
     const q = s[i + 1]!;
@@ -511,41 +576,26 @@ export function paintStrand(
     const here0 = R * girth(u);
     const next0 = R * girth(q.t);
 
-    const legs = [0, 1, 2, 3].map((b) => ({
+    const legs = [0, 1].map((b) => ({
       b,
       here: wind(u, b, phase, here0, turns),
       next: wind(q.t, b, phase, next0, turns),
-      // One end's colour or the other's, never a mix of the two.
-      end: u < change[b]! ? 0 : 1,
+      // Strand 0 is the near end's colour, strand 1 the far end's, the whole
+      // way: neither ever changes over.
+      ramp: bark[b]!,
+      width: widthOf(share(u, b, mixed)),
     })).sort((x, y) => x.here.facing - y.here.facing);
 
-    let cored = false;
-    const core = () => {
-      if (cored) return;
-      cored = true;
-      c.strokeStyle = CORE;
-      c.lineWidth = W * 0.44;
-      c.beginPath();
-      c.moveTo(p.x, p.y);
-      c.lineTo(q.x, q.y);
-      c.stroke();
-    };
-
     for (const leg of legs) {
-      // The core goes in once the strands behind it are down: anything from
-      // here on is in front of it.
-      if (leg.here.facing >= 0.5) core();
-      const { here, next, b } = leg;
-      const ramp = bark[leg.end]!;
+      const { here, next, b, ramp, width } = leg;
       const grain = fibre(u, b * 2.7 + seed * 9);
       /*
        * The lit side and the shaded side of one strand. `facing` is how much
        * of it is turned toward the eye, so it is also the shading — and the
        * grain moves the mix a little either way, which is what stops each
-       * strand being a smooth tube.
+       * strand being a smooth tube. A little: the width does not move at all.
        */
-      const shade = Math.max(0, Math.min(1, here.facing * 0.85 + grain * 0.12));
-      const width = Math.max(1.4, W * 0.42 * (0.74 + here.facing * 0.4) * (0.92 + grain * 0.1));
+      const shade = Math.max(0, Math.min(1, here.facing * 0.85 + grain * 0.06));
       c.strokeStyle = ramp.body[Math.round(shade * (SHADES - 1))]!;
       c.lineWidth = width;
       c.beginPath();
@@ -555,13 +605,15 @@ export function paintStrand(
 
       /*
        * The specular: a hard thin line down the edge that faces the light,
-       * not a glow around the strand. Only on the strands turned toward the
+       * not a glow around the strand. Only on the strand turned toward the
        * eye — an edge you cannot see cannot catch anything — and it is what
-       * makes the cable read as wet bark rather than as painted lines.
+       * makes the cable read as the boxes' rim does: a thin bright line on a
+       * dark body. Nothing down the other edge: a dark line there turned the
+       * strand into a ribbon with a hem, not a tube.
        */
       if (here.facing > 0.58) {
         const side = p.nx * LIGHT.x + p.ny * LIGHT.y >= 0 ? 1 : -1;
-        const off = side * (width / 2 - 0.3);
+        const off = side * (width / 2 - 0.4);
         const keen = Math.round(((here.facing - 0.58) / 0.42) * (SHADES - 1));
         c.strokeStyle = ramp.spec[Math.max(0, Math.min(SHADES - 1, keen))]!;
         c.lineWidth = 0.9;
@@ -571,8 +623,6 @@ export function paintStrand(
         c.stroke();
       }
     }
-    // Every strand was behind it: the core is the front of the cable here.
-    core();
   }
 
   /* The hotspots, still, some brighter than others. */
@@ -583,8 +633,8 @@ export function paintStrand(
     // Only the ones on this side of the turn: a light caught in the fibres
     // is hidden when the fibre it is on has turned away.
     if (here.facing < 0.45) continue;
-    const hot = bark[p.t < change[spot.b]! ? 0 : 1]!.hot;
-    const r = 0.7 + spot.bright * 1.5;
+    const hot = bark[spot.b]!.hot;
+    const r = 0.6 + spot.bright * 1.3;
     c.fillStyle = hot;
     c.globalAlpha = lit * (0.45 + spot.bright * 0.55) * ((here.facing - 0.45) / 0.55);
     c.beginPath();
@@ -599,4 +649,3 @@ export function paintStrand(
 export function strandMiddle(from: Point, to: Point): Point {
   return at(strandPath(from, to), 0.5);
 }
-

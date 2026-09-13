@@ -47,7 +47,21 @@ check("a vine at a green board is green", hueOf(VINE.iteration.lit) >= 130 && hu
 check("a vine at a red drawing is red", hueOf(VINE.drawing.lit) <= 45, `${hueOf(VINE.drawing.lit)}`);
 check("a cut one has no colour left in it", chromaOf(VINE.cut.dark) <= 0.03);
 check("the body is bark rather than light: dark, and never near-white",
-  Object.values(VINE).every((v) => lightOf(v.dark) <= 0.3 && lightOf(v.lit) <= 0.5));
+  Object.values(VINE).every((v) => lightOf(v.dark) <= 0.32 && lightOf(v.lit) <= 0.52));
+/*
+ * The same material as the boxes: a vine's three tones are the construct's
+ * own stops — deep, body, hot — read out of `molten.css`, not colours that
+ * happen to be near them. Held here so the copy cannot drift.
+ */
+{
+  const molten = readFileSync("src/core/ui/molten.css", "utf8");
+  const stop = (name) => /oklch\([^)]*\)/.exec(new RegExp(`--${name}:\\s*(oklch\\([^)]*\\))`).exec(molten)?.[1] ?? "")?.[0];
+  for (const [end, kind] of [["iteration", "verdant"], ["drawing", "ember"]]) {
+    check(`${end}: the shaded side is the ${kind} construct's deep`, VINE[end].dark === stop(`${kind}-deep`), `${VINE[end].dark} vs ${stop(`${kind}-deep`)}`);
+    check(`${end}: the lit side is its body`, VINE[end].lit === stop(`${kind}-body`), `${VINE[end].lit} vs ${stop(`${kind}-body`)}`);
+    check(`${end}: the light down the edge is its hot`, VINE[end].hot === stop(`${kind}-hot`), `${VINE[end].hot} vs ${stop(`${kind}-hot`)}`);
+  }
+}
 
 const strandSrc = readFileSync("src/features/studio/strand.ts", "utf8");
 /*
@@ -61,24 +75,24 @@ const strandSrc = readFileSync("src/features/studio/strand.ts", "utf8");
  */
 check("neither end's colour is ever mixed into the other's",
   !/barkA/.test(strandSrc) && !/barkZ/.test(strandSrc) && !/mix\(\s*RAMP/.test(strandSrc));
-check("a strand carries one end's colour or the other's, and changes over once",
-  /const CROSSOVER/.test(strandSrc) && /end: u < change\[b\]! \? 0 : 1/.test(strandSrc));
+check("one strand carries one end's colour and the other the other's, and neither ever changes over",
+  /ramp: bark\[b\]!,/.test(strandSrc) && !/CROSSOVER/.test(strandSrc) && !/function changeAt\(/.test(strandSrc));
+check("the ratio is thickness: the fat strand at a board is that board's colour", (() => {
+  const shift = Number(/const SHIFT = ([\d.]+)/.exec(strandSrc)?.[1]);
+  return shift > 0 && shift < 0.5 && /function share\(/.test(strandSrc) && /function widthOf\(/.test(strandSrc);
+})(), `shift ${/const SHIFT = ([\d.]+)/.exec(strandSrc)?.[1]}`);
 check("both colours are present at both ends, so the ratio shifts rather than the hue", (() => {
-  // One strand never changes over and one has changed before the cable
-  // starts: three-to-one at worst, never all of one colour.
-  const table = /const CROSSOVER = \[([^\]]+)\]/.exec(strandSrc)?.[1] ?? "";
-  const at = table.split(",").map((n) => Number(n.trim()));
-  return at.length === 4 && at.some((v) => v > 1) && at.some((v) => v < 0)
-    && at.filter((v) => v >= 0 && v <= 1).length === 2;
+  // A shift under a half: the thin strand is never nothing.
+  const shift = Number(/const SHIFT = ([\d.]+)/.exec(strandSrc)?.[1]);
+  return shift <= 0.3;
 })());
-check("the change-over happens where that strand is behind the core, so it is never a seam",
-  /function changeAt\(/.test(strandSrc) && /Facing is least where the turn is an odd multiple/.test(strandSrc));
-check("the bright strands wind round a near-black core", (() => {
+check("two boards of the same kind get one colour in two equal strands", /if \(!mixed\) return 0\.5;/.test(strandSrc));
+check("the two strands wind round a near-black core", (() => {
   const core = /const CORE = "oklch\(([\d.]+)/.exec(strandSrc)?.[1];
   return core !== undefined && Number(core) < 0.2;
 })(), `core lightness ${/const CORE = "oklch\(([\d.]+)/.exec(strandSrc)?.[1]}`);
-check("the core goes down between the strands that face away and the ones that face you",
-  /if \(leg\.here\.facing >= 0\.5\) core\(\);/.test(strandSrc));
+check("the core goes down once, whole, under both strands — not between them step by step, which left teeth along every edge",
+  /The core: once, whole, under both strands/.test(strandSrc) && !/core\(\)/.test(strandSrc));
 check("hue still takes the short way round within one bark's own shading",
   /if \(dh > 180\) dh -= 360;/.test(strandSrc));
 check("each strand carries a hard line down the edge facing the light, not a glow",
@@ -96,8 +110,10 @@ check("the board says what each vine joins", (() => {
 check("a board's own core is far brighter than anything on a vine, which is what makes it lead", (() => {
   const molten = readFileSync("src/core/ui/molten.css", "utf8");
   const core = Number(/--verdant-white:\s*oklch\(([\d.]+)/.exec(molten)?.[1]);
+  // The edge light on a vine is the construct's hot, the same as a box's
+  // rim; the box's white sits above both, and nothing on a vine reaches it.
   const brightest = Math.max(...Object.values(VINE).map((v) => lightOf(v.hot)));
-  return core > brightest + 0.15;
+  return core > brightest + 0.05;
 })());
 
 /* ------------------------------------------------------------------ */
@@ -161,11 +177,54 @@ check("a very short run does not bow into a loop", (() => {
 })(), `${strandMiddle({ x: 0, y: 0 }, { x: 20, y: 0 }).y.toFixed(1)}`);
 
 /* ------------------------------------------------------------------ */
-/* 3. Three strands, wound, opaque, with the light standing still      */
+/* 3. Two strands, wound, opaque, with the light standing still        */
 /* ------------------------------------------------------------------ */
 
 const strand = readFileSync("src/features/studio/strand.ts", "utf8");
-check("four strands, not one line", /\[0, 1, 2, 3\]\.map\(\(b\) =>/.test(strand));
+check("two strands, a twisted pair — not four, which read as threaded", /const STRANDS = 2;/.test(strand) && /\[0, 1\]\.map\(\(b\) =>/.test(strand) && !/\[0, 1, 2, 3\]/.test(strand));
+check("smooth: twice the samples a turn the four-strand cable had", (() => {
+  const per = Number(/turns \* (\d+)\)/.exec(strand)?.[1]);
+  return per >= 20;
+})(), `${/turns \* (\d+)\)/.exec(strand)?.[1]} a turn`);
+check("and the grain moves the shade, never the width", /grain \* 0\.06/.test(strand) && !/0\.92 \+ grain/.test(strand));
+/*
+ * The colour is animated, and not by repainting. The timeline lays two small
+ * elements per vine over the canvas — one per strand, at that strand's
+ * temperature — each clipped to its strand's near side and carrying the
+ * construct's own cloud on the same keyframe as every box. The green cloud
+ * is on the green strand and the red on the red, and nothing is blended.
+ */
+check("the colour moves: the construct's cloud glides over the cable on the boxes' own keyframe", (() => {
+  const css = readFileSync("src/core/ui/molten.css", "utf8");
+  return /\.molten-vine > i \{[\s\S]*?animation: molten-drift 150s linear infinite;/.test(css);
+})());
+check("…laid over the bark rather than painted on it, so nothing is repainted and nothing is blended", (() => {
+  const css = readFileSync("src/core/ui/molten.css", "utf8");
+  return /\.molten-vine \{/.test(css) && !/mix-blend-mode/.test(css) && /Nothing here takes a clock/.test(strand);
+})());
+check("…each strand under its own colour's cloud, so a red strand goes redder and never brown", (() => {
+  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const css = readFileSync("src/core/ui/molten.css", "utf8");
+  return /for \(const b of \[0, 1\] as const\)/.test(tl)
+    && /const heat = v\.ends\[b\] === "drawing" \? "ember" : "verdant";/.test(tl)
+    && /\.molten-vine\[data-heat="verdant"\] > i \{ background-image: var\(--nebula-verdant, none\); \}/.test(css)
+    && /\.molten-vine\[data-heat="ember"\] > i \{ background-image: var\(--nebula-ember, none\); \}/.test(css);
+})());
+check("…and not through the construct's own class, which costs two milliseconds a change", (() => {
+  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
+  return fn.length > 0 && !/moltenClass\(/.test(fn) && /el\.className = "molten-vine";/.test(fn);
+})());
+check("…clipped to that strand's near side, so the two clouds never overlap and there is none beside the cable", (() => {
+  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  return /export function strandEnvelope\(/.test(strand) && /if \(facing < 0\.5\) \{ close\(\); continue; \}/.test(strand)
+    && /el\.style\.clipPath = d \? `path\("\$\{d\}"\)` : "inset\(100%\)";/.test(tl)
+    && /if \(lights\.current\) syncLights\(lights\.current, lightEls\.current, want, changed, !dragging\);/.test(tl);
+})());
+check("…and laid only when the vine is at rest: lifted while its board is held, and not until it has grown", (() => {
+  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  return /if \(!rest \|\| v\.grow < 1\) \{/.test(tl) && /el\.style\.clipPath = "inset\(100%\)"; \}\s*continue;/.test(tl);
+})());
 check("and drawn back to front, which is what makes a winding read as one",
   /\.sort\(\(x, y\) => x\.here\.facing - y\.here\.facing\)/.test(strand));
 check("it is opaque: nothing blended, nothing see-through",
@@ -179,7 +238,7 @@ check("they are wound about one axis", /function wind\(/.test(strand));
  */
 check("the twist is tight at every length, because it is a pitch", (() => {
   const pitch = Number(/const PITCH = (\d+)/.exec(strand)?.[1]);
-  return pitch > 0 && pitch <= 40 && /function turnsFor\(/.test(strand);
+  return pitch > 0 && pitch <= 50 && /function turnsFor\(/.test(strand);
 })(), `one turn every ${/const PITCH = (\d+)/.exec(strand)?.[1]}px`);
 check("and it tightens in the middle of a span and relaxes at the boards",
   /const TIGHTEN/.test(strand) && /function turned\(/.test(strand));
@@ -192,6 +251,7 @@ check("the hotspots come from the pair alone, so they are in the same place ever
   return fn.length > 0 && /phase/.test(fn) && !/\bt\b\s*[*+]/.test(fn);
 })());
 check("some are brighter than others", /bright: 0\.35 \+ g \* 0\.65/.test(strand));
+check("fewer of them: two smooth strands want less on them", /i < 8; i\+\+/.test(strand));
 check("one on the far side of the turn is hidden", /if \(here\.facing < 0\.45\) continue;/.test(strand));
 check("nothing travels along it any more",
   !/bright bands running the length/.test(strand) && !/travelling the length/.test(strand));

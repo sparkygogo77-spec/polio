@@ -59,7 +59,7 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
-import { paintStrand, strandBounds, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
+import { paintStrand, strandBounds, strandEnvelope, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
@@ -311,6 +311,9 @@ export function Timeline() {
   const host = React.useRef<HTMLDivElement>(null);
   const plot = React.useRef<HTMLDivElement>(null);
   const wires = React.useRef<HTMLCanvasElement>(null);
+  /** The vines' cloud: two small elements per vine, one per strand, over the canvas (`syncLights`). */
+  const lights = React.useRef<HTMLDivElement>(null);
+  const lightEls = React.useRef(new Map<string, HTMLDivElement>());
 
   const [pan, setPan] = React.useState<Point>({ x: 0, y: 0 });
   /*
@@ -550,22 +553,6 @@ export function Timeline() {
    * A full repaint happens only when the canvas itself changes: the boards
    * spread past the edge of it, or the zoom crosses into a sharper one.
    */
-  interface Vine {
-    from: Point;
-    to: Point;
-    tone: StrandTone;
-    phase: number;
-    ends: [VineEnd, VineEnd];
-    box: { x: number; y: number; w: number; h: number };
-    /** How much of it there is yet, 0..1. A vine into a forming box grows. */
-    grow: number;
-    /**
-     * Not a vine at all: the rim of a forming box, traced round it in green
-     * and then closing in. It lives in the same map because it is painted
-     * by the same canvas, repainted by the same rule, and gone the same way.
-     */
-    rim?: { p: number; rect: { x: number; y: number; w: number; h: number }; start: Point };
-  }
   /** What is on the canvas now, so the next paint can tell what changed. */
   const drawn = React.useRef(new Map<string, Vine>());
   /** The canvas's own frame: where it sits in the boards' coordinates, and how finely. */
@@ -688,14 +675,19 @@ export function Timeline() {
     /* What differs from what is on the canvas. */
     const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
     const dirty: { x: number; y: number; w: number; h: number }[] = [];
+    const changed = new Set<string>();
     for (const [k, v] of want) {
       const had = drawn.current.get(k);
       if (had && mark(had) === mark(v)) continue;
+      changed.add(k);
       if (had) dirty.push(had.box);
       dirty.push(v.box);
     }
     for (const [k, had] of drawn.current) if (!want.has(k)) dirty.push(had.box);
     if (!dirty.length) return;
+    // The cloud over each vine is laid when the vine comes to rest, and not
+    // while it moves (see `syncLights`).
+    if (lights.current) syncLights(lights.current, lightEls.current, want, changed, !dragging);
 
     const hits = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
       a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -717,7 +709,7 @@ export function Timeline() {
     c.restore();
 
     drawn.current = want;
-  }, [cords, anchorOf, openId, openTone, threads, shownOf]);
+  }, [cords, anchorOf, openId, openTone, threads, shownOf, dragging]);
   // The open card can grow without this component rendering, and that moves
   // an end; this is how the observer below reaches the current painter.
   paintAt.current = paint;
@@ -854,6 +846,8 @@ export function Timeline() {
         {/* Inside the plot, in the boards' own coordinates, so a pan moves it
             the way it moves a box — and first, so the boards sit over it. */}
         <canvas ref={wires} data-timeline-vines aria-hidden className="pointer-events-none absolute" />
+        {/* The vines' cloud: over the canvas, under the boards. Filled by `syncLights`. */}
+        <div ref={lights} data-timeline-light aria-hidden className="pointer-events-none absolute left-0 top-0" />
 
         {all.map((n) => {
           const t = n.thread;
@@ -955,6 +949,109 @@ export function Timeline() {
  * and the other way round when the child ended up to the left of its
  * parent — which it will, the moment anything is dragged.
  */
+/** One thing on the vine canvas: a vine, or the rim of a forming box. */
+interface Vine {
+  from: Point;
+  to: Point;
+  tone: StrandTone;
+  phase: number;
+  ends: [VineEnd, VineEnd];
+  box: { x: number; y: number; w: number; h: number };
+  /** How much of it there is yet, 0..1. A vine into a forming box grows. */
+  grow: number;
+  /**
+   * Not a vine at all: the rim of a forming box, traced round it in green
+   * and then closing in. It lives in the same map because it is painted
+   * by the same canvas, repainted by the same rule, and gone the same way.
+   */
+  rim?: { p: number; rect: { x: number; y: number; w: number; h: number }; start: Point };
+}
+
+/**
+ * The cloud over the vines, kept in step with the canvas.
+ *
+ * A vine is painted once and its colour still moves, the way a box's does:
+ * not by repainting, but by two small elements per vine over the canvas —
+ * one per strand, at that strand's temperature — each clipped to its
+ * strand's near side and carrying the construct's own cloud gliding on the
+ * same keyframe as every box (`.molten-vine`, `molten.css`). The green cloud
+ * is on the green strand and the red on the red, and the clips never
+ * overlap, so no colour is ever laid over the other. This is the whole of
+ * the bookkeeping: two elements per vine that exists, placed on the vine's
+ * own box, their clips rewritten only when that vine's mark changed — which
+ * is the same rule the canvas repaints by — and gone when the vine is. The
+ * rim traces are the canvas's alone; no cloud is laid over them.
+ *
+ * AT REST ONLY. Measured: restyling an element whose child carries a
+ * running animation costs about two milliseconds, and a drag restyles the
+ * two vines on the moving board every pointer move — fifteen milliseconds
+ * a move at thirty boards, which is the drag going from smooth to not. So
+ * while a board is held, the cloud on its vines is lifted (one restyle) and
+ * laid again when it is let go; and a vine still growing has no cloud until
+ * it has grown, which is also the order the formation asks for — the vine
+ * first, the weather after. `rest` says whether anything is held.
+ */
+function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want: Map<string, Vine>, changed: Set<string>, rest: boolean) {
+  for (const [k, el] of els) {
+    const of = want.get(k.slice(0, -2));
+    if (of && !of.rim && of.tone !== "cut") continue;
+    el.remove();
+    els.delete(k);
+  }
+  const period = 512;
+  for (const [k, v] of want) {
+    if (v.rim || v.tone === "cut") continue;
+    for (const b of [0, 1] as const) {
+      const key = `${k}#${b}`;
+      let el = els.get(key);
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "molten-vine";
+        el.dataset.laid = "0";
+        el.appendChild(document.createElement("i"));
+        host.appendChild(el);
+        els.set(key, el);
+      }
+      if (!rest || v.grow < 1) {
+        // Lifted while the vine moves or grows: one change, then nothing.
+        if (el.dataset.laid !== "0") { el.dataset.laid = "0"; el.style.clipPath = "inset(100%)"; }
+        continue;
+      }
+      if (el.dataset.laid === "1" && !changed.has(k)) continue;
+      el.dataset.laid = "1";
+      /*
+       * The strand's temperature, as one attribute and not as `.molten`.
+       * Measured: any style change on an element carrying the construct's
+       * class costs close to two milliseconds of recalc — its face is a
+       * stack of colour-mixed shadows and two pseudo-elements — against a
+       * tenth of that for a plain one. The light needs the construct's
+       * cloud, not its face, so it takes the tile by name and nothing else.
+       */
+      const heat = v.ends[b] === "drawing" ? "ember" : "verdant";
+      if (el.dataset.heat !== heat) el.dataset.heat = heat;
+      const { box } = v;
+      el.style.left = `${box.x}px`;
+      el.style.top = `${box.y}px`;
+      el.style.width = `${box.w}px`;
+      el.style.height = `${box.h}px`;
+      // The outline in the element's own coordinates: the same path, moved
+      // by the box, because a curve does not care where its ends are.
+      const d = strandEnvelope(
+        { x: v.from.x - box.x, y: v.from.y - box.y },
+        { x: v.to.x - box.x, y: v.to.y - box.y },
+        b,
+        { ends: v.ends, grow: v.grow, phase: v.phase, tone: v.tone },
+      );
+      el.style.clipPath = d ? `path("${d}")` : "inset(100%)";
+      // One weather across the board: every element shows the tile at the
+      // phase its own place gives it, so the cloud is continuous from vine
+      // to vine and from a vine to the box beside it.
+      const tile = el.firstElementChild as HTMLElement | null;
+      if (tile) tile.style.backgroundPositionX = `${-(((box.x % period) + period) % period)}px`;
+    }
+  }
+}
+
 function ends(a: { left: number; right: number; mid: number }, b: { left: number; right: number; mid: number }): [Point, Point] {
   const backwards = b.left < a.left;
   return [

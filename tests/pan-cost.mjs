@@ -123,7 +123,11 @@ for (const n of [1, 6, 30]) {
   let pick = -1;
   for (let i = 0; i < boxes.length; i++) {
     const r = await boxes[i].boundingBox();
-    if (!r || r.x < 8 || r.y < 8 || r.x + r.width > 1192 || r.y + r.height > 892) continue;
+    // Its middle on screen, not the whole of it: the drag takes the middle,
+    // and one board sits mid-screen now, so the pan carries its far edge
+    // past the window while the middle is still well under the pointer.
+    const cx = r ? r.x + r.width / 2 : -1, cy = r ? r.y + r.height / 2 : -1;
+    if (!r || cx < 8 || cy < 8 || cx > 1192 || cy > 892) continue;
     // On screen is not the same as under the pointer: the toolbar sits over
     // the top of the surface, and a board beneath it takes no press at all.
     const mine = await p.evaluate(([x, y, j]) => {
