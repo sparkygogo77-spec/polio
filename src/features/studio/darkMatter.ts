@@ -395,7 +395,7 @@ export function fieldHeight(h: number): number {
  * is smeared sideways. Rounding a size to a whole number of cells per axis
  * keeps them square and still wraps.
  */
-function nebulaNoise(w: number, h: number, seed: number, feature: number, oct: number): Float32Array {
+export function nebulaNoise(w: number, h: number, seed: number, feature: number, oct: number): Float32Array {
   const out = new Float32Array(w * h);
   for (let o = 0, amp = 0.5; o < oct; o++, amp *= 0.5) {
     const f = feature / (1 << o);
