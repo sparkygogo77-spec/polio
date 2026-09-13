@@ -2,14 +2,41 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T06:11:06.848Z";
+export const GENERATED_AT = "2026-09-13T07:44:11.363Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "2c15e29",
-    "when": "2026-09-13T06:10:40+00:00",
+    "id": "1899dcd",
+    "when": "2026-09-13T07:43:13+00:00",
     "day": "13 September",
     "changes": [
+      {
+        "id": "1899dcd",
+        "says": "The timeline is one chain in the order things landed, and nothing else",
+        "when": "2026-09-13T07:43:13+00:00",
+        "detail": [
+          "It drew the tree `parentId` makes: a thread hung off whatever was being worked in, the layout stepped sideways by depth, and a vine was drawn per parent link. That is why it read as branches, with some boxes having several vines into them. What a person wants from a timeline is what happened, in the order it happened.",
+          "`chainOf` is the whole rule now: each iteration is joined to the one that landed immediately before it, the first to nothing. No branches, no forks, ever. `parentId` stays on the thread — it is true, an iteration really was worked in another one, and the panel's tree still reads it — but it is not what the timeline draws. The boxes are laid out as one chain too, the sideways step coming from the index rather than from depth, so the lean is the same for everyone.",
+          "`connected` and `orphans` go with the tree they served: nothing can be an orphan in a chain. tests/connected.mjs holds the new shape shut, including the case that used to fan out — three iterations with the third worked in the first, and it still hangs off the second."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e9ab1c4",
+        "says": "Regenerate the passes for the ink grouping",
+        "when": "2026-09-13T06:11:45+00:00",
+        "detail": [
+          "Euler's pass: a pause is not a new drawing, so what touches is one thing. The deployed build has no .git, so the Updates list only moves when this file does."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "2c15e29",
         "says": "A pause is not a new drawing: what touches is one thing",

@@ -24,6 +24,7 @@ import { useActions } from "@/core/actions";
 import { Tooltip } from "@/core/ui/tooltip";
 import { doneJobs, failedJobs, nextJob, pendingJobs } from "./queue";
 import { runDrawJob } from "./reshapeRun";
+import { progressOf } from "./formation";
 import { useStudio } from "./store";
 import { PROCESS } from "./threads";
 import { cn } from "@/core/lib/cn";
@@ -48,7 +49,13 @@ export function DrawQueue() {
       // being drawn now. Pressing the counter, or the key button, is the
       // person's move to make.
       onNoKey: () => {},
-      onStep: (step) => useStudio.getState().updateJob(job.id, { step }),
+      onStep: (step) => {
+        const st = useStudio.getState();
+        st.updateJob(job.id, { step });
+        // The same words drive the box forming on the timeline: the step the
+        // job is on is the real progress of the iteration it is making.
+        st.noteProgress(st.liveThreadId, progressOf(step));
+      },
     })
       .then((r) => {
         useStudio.getState().updateJob(job.id, {

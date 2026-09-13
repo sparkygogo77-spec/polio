@@ -625,6 +625,8 @@ interface StudioState extends Doc {
   noteSpend: (spend: Spend, on?: string) => void;
   /** One pass's own line on the bill: what ran, how long, what it cost. */
   notePass: (line: string, on?: string) => void;
+  /** The real progress of the work behind an iteration, 0..1. Only ever climbs. */
+  noteProgress: (threadId: string | null | undefined, p: number | null) => void;
   /** Move one thread or piece on the trail. Only that one moves. */
   moveThread: (id: string, x: number, y: number) => void;
   /** Vine a piece to the next call, or cut it loose. */
@@ -650,6 +652,20 @@ interface StudioState extends Doc {
 }
 
 const HISTORY_LIMIT = 60;
+
+/**
+ * An updated thread forms again.
+ *
+ * Only a finished one: a thread still being worked on is already forming
+ * and its updates are its progress. Once it has landed, any change to it —
+ * a pass, a cost, a line — bumps the generation and the box plays its
+ * formation from nothing to where it stands. See `formation.ts`.
+ */
+function reformed(t: { state?: string; form?: { p: number; gen: number } }): { p: number; gen: number } {
+  const had = t.form ?? { p: 1, gen: 0 };
+  if ((t.state ?? "done") === "running") return had;
+  return { p: 1, gen: had.gen + 1 };
+}
 export const HUES = [265, 200, 160, 30, 340, 90, 240, 15];
 
 /**
@@ -1475,6 +1491,7 @@ export const useStudio = create<StudioState>()(
                 const renderer = money(had?.renderer, spend.renderer);
                 return {
                   ...t,
+                  form: reformed(t),
                   usage: {
                     sent: 0,
                     skipped: 0,
@@ -1489,6 +1506,21 @@ export const useStudio = create<StudioState>()(
               }),
             };
           }),
+        noteProgress: (threadId, p) =>
+          set((s) => {
+            if (!threadId || p === null) return {};
+            return {
+              threads: s.threads.map((t) => {
+                if (t.id !== threadId) return t;
+                const had = t.form ?? { p: t.state === "running" ? 0.15 : 1, gen: 0 };
+                // Only ever climbs: a later step that maps lower is a step the
+                // work took after a higher one, not the work going backwards.
+                const next = Math.max(had.p, Math.min(1, p));
+                return next === had.p ? t : { ...t, form: { ...had, p: next } };
+              }),
+            };
+          }),
+
         notePass: (line, on) =>
           set((s) => {
             // Named when the pass was fired, not when it answered: a second
@@ -1502,13 +1534,20 @@ export const useStudio = create<StudioState>()(
                 if (t.id !== id) return t;
                 const had = t.usage?.passes ?? [];
                 if (had.includes(said)) return t;
-                return { ...t, usage: { sent: 0, skipped: 0, ...(t.usage ?? {}), passes: [...had, said] } };
+                return { ...t, usage: { sent: 0, skipped: 0, ...(t.usage ?? {}), passes: [...had, said] }, form: reformed(t) };
               }),
             };
           }),
 
         markThread: (id, state) =>
-          set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, state } : t)) })),
+          set((s) => ({
+            threads: s.threads.map((t) => {
+              if (t.id !== id) return t;
+              // Landed: it has finished forming, whatever step it was on.
+              const form = state === "done" ? { ...(t.form ?? { p: 0, gen: 0 }), p: 1 } : t.form;
+              return { ...t, state, ...(form ? { form } : {}) };
+            }),
+          })),
 
         noteMade: (threadId, madeId) =>
           set((s) => ({ threads: s.threads.map((t) => (t.id === threadId ? { ...t, madeId } : t)) })),
@@ -1533,6 +1572,9 @@ export const useStudio = create<StudioState>()(
                 id,
                 parentId: s.currentThreadId ?? s.liveThreadId ?? (s.threads.length ? s.threads[s.threads.length - 1]!.id : null),
                 at: Date.now(), mode, model, state: state ?? "done",
+                // A thread landing still running has been read and is forming
+                // from there; one landing done formed as it arrived.
+                form: { p: (state ?? "done") === "running" ? 0.15 : 1, gen: 1 },
                 ask: ask.trim(), answer: answer.trim(), changes: changes ?? [],
                 ...(sketch ? { sketch } : {}),
                 ...(madeId ? { madeId } : {}),
@@ -1632,7 +1674,7 @@ export const useStudio = create<StudioState>()(
             if (!id || !add.length) return {};
             return {
               threads: s.threads.map((t) =>
-                t.id === id ? { ...t, changes: [...t.changes, ...add.filter((l) => !t.changes.includes(l))] } : t,
+                t.id === id ? { ...t, changes: [...t.changes, ...add.filter((l) => !t.changes.includes(l))], form: reformed(t) } : t,
               ),
             };
           }),

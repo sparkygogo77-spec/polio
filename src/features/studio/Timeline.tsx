@@ -63,6 +63,7 @@ import { paintStrand, strandBounds, strandMiddle, type Point, type StrandTone, t
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
+import { FORM, formOf, formVars, within } from "./formation";
 import { useStudio } from "./store";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
@@ -96,6 +97,151 @@ function seed(s: string): number {
     h = Math.imul(h, 16777619);
   }
   return ((h >>> 0) % 1000) / 1000;
+}
+
+/**
+ * How far each box has formed, as shown, eased towards where it really is.
+ *
+ * The store holds the truth — the real progress of the job and how many
+ * times the thread has been updated (`formation.ts`). This is the number the
+ * timeline draws, which follows the truth at a capped rate so a milestone
+ * arrives as a stage forming rather than a jump, and which starts again from
+ * nothing when a thread is new to this session or its generation goes up.
+ *
+ * Never on a reload of something that did not change: whatever is on the
+ * board when the timeline mounts is shown as it is. Only what lands or
+ * changes after that forms. One rAF runs while anything is still moving and
+ * none when nothing is, so a still timeline costs nothing here.
+ */
+function useForming(threads: Thread[]): Map<string, number> {
+  const [shown, setShown] = React.useState<Map<string, number>>(() => new Map());
+  const state = React.useRef({ shown: new Map<string, number>(), gen: new Map<string, number>(), mounted: false, raf: 0 });
+  React.useEffect(() => {
+    const st = state.current;
+    const target = new Map<string, number>();
+    let moving = false;
+    for (const t of threads) {
+      const f = formOf(t);
+      target.set(t.id, f.p);
+      const had = st.gen.get(t.id);
+      if (had === undefined) {
+        st.gen.set(t.id, f.gen);
+        // First sight. At mount it is as it is; after mount it is new, and forms.
+        st.shown.set(t.id, st.mounted ? 0 : f.p);
+      } else if (had !== f.gen) {
+        st.gen.set(t.id, f.gen);
+        st.shown.set(t.id, 0);
+      }
+      if ((st.shown.get(t.id) ?? 1) < f.p) moving = true;
+    }
+    for (const id of [...st.shown.keys()]) if (!target.has(id)) { st.shown.delete(id); st.gen.delete(id); }
+    st.mounted = true;
+    setShown(new Map(st.shown));
+    if (!moving || st.raf) return;
+    /* A whole formation, from nothing to landed, takes about this long when
+       the work is already done; while the work is running it can only get
+       as far as the work has. */
+    const WHOLE_MS = 2600;
+    let last = performance.now();
+    const tick = (now: number) => {
+      st.raf = 0;
+      const dt = Math.min(64, now - last);
+      last = now;
+      let still = false;
+      for (const [id, to] of target) {
+        const at = st.shown.get(id) ?? to;
+        if (at >= to) continue;
+        const next = Math.min(to, at + dt / WHOLE_MS);
+        st.shown.set(id, next);
+        if (next < to) still = true;
+      }
+      setShown(new Map(st.shown));
+      if (still) st.raf = requestAnimationFrame(tick);
+    };
+    st.raf = requestAnimationFrame(tick);
+    return () => { if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; } };
+  }, [threads]);
+  return shown;
+}
+
+/** The corner the boxes are drawn with (`rounded-lg`). */
+const BOX_RADIUS = 8;
+
+/**
+ * The rim of a forming box: traced round it in green, then closing in.
+ *
+ * Through the `rim` band the trace runs the perimeter from where the vine
+ * arrived — a dash the length of how far it has got, on a rounded-rect path
+ * — and through the `close` band the trace is whole and thickens inward,
+ * which is the green closing in from the edges before the surface comes.
+ * The colour is the one that means "finished" on the state light, because
+ * this is what finishing looks like while it happens.
+ */
+function paintRim(c: CanvasRenderingContext2D, rim: { p: number; rect: { x: number; y: number; w: number; h: number }; start: Point }) {
+  const { p, start } = rim;
+  const tracing = within(p, "rim");
+  const closing = within(p, "close");
+  /*
+   * Just outside the box, not on its edge. The canvas is under the boxes,
+   * so a stroke on the edge is half hidden by the face; two and a half
+   * pixels out, the whole of it shows. The closing in happens on the box
+   * itself (`molten.css`), over the face, so this only has to fade as it
+   * hands over.
+   */
+  const out = 2.5;
+  const rect = { x: rim.rect.x - out, y: rim.rect.y - out, w: rim.rect.w + out * 2, h: rim.rect.h + out * 2 };
+  const r = BOX_RADIUS + out;
+  const quarter = (Math.PI * r) / 2;
+  const top = rect.w - 2 * r, tall = rect.h - 2 * r;
+  const perimeter = 2 * (top + tall) + 4 * quarter;
+  /*
+   * Where along the perimeter the vine arrived, so the trace starts there.
+   * Measured along the path as it is drawn below — top, right, bottom,
+   * left, each straight followed by its corner — so the dash begins where
+   * the vine does and not a corner's worth off.
+   */
+  const side = (() => {
+    const ex = Math.max(rect.x, Math.min(rect.x + rect.w, start.x));
+    const ey = Math.max(rect.y, Math.min(rect.y + rect.h, start.y));
+    const dl = Math.abs(ex - rect.x), dr = Math.abs(rect.x + rect.w - ex), dt = Math.abs(ey - rect.y), db = Math.abs(rect.y + rect.h - ey);
+    const m = Math.min(dl, dr, dt, db);
+    const along = (v: number, max: number) => Math.max(0, Math.min(max, v));
+    if (m === dt) return along(ex - (rect.x + r), top);
+    if (m === dr) return top + quarter + along(ey - (rect.y + r), tall);
+    if (m === db) return top + quarter + tall + quarter + along(rect.x + rect.w - r - ex, top);
+    return 2 * top + tall + 3 * quarter + along(rect.y + rect.h - r - ey, tall);
+  })();
+  c.save();
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  c.strokeStyle = PROCESS.done;
+  c.lineWidth = 2.6;
+  // A dash as long as it has got, from where the vine arrived; whole once
+  // traced, and fading as the green closes in on the box and its own rim
+  // arrives underneath.
+  const len = perimeter * Math.max(0.01, closing > 0 ? 1 : tracing);
+  /*
+   * Two laps of the path, not one. A dash does not run on past the end of
+   * a closed path and round again, so a vine arriving on the left — the
+   * last leg — would get a trace cut off at the top-left corner, a few
+   * pixels in. Round twice, and a dash that starts anywhere on the first
+   * lap has the whole of the second to run into; the pattern's gap is two
+   * laps long so it is drawn once.
+   */
+  c.setLineDash([len, perimeter * 2]);
+  c.lineDashOffset = -side;
+  c.beginPath();
+  c.moveTo(rect.x + r, rect.y);
+  for (let lap = 0; lap < 2; lap++) {
+    c.arcTo(rect.x + rect.w, rect.y, rect.x + rect.w, rect.y + rect.h, r);
+    c.arcTo(rect.x + rect.w, rect.y + rect.h, rect.x, rect.y + rect.h, r);
+    c.arcTo(rect.x, rect.y + rect.h, rect.x, rect.y, r);
+    c.arcTo(rect.x, rect.y, rect.x + rect.w, rect.y, r);
+    c.lineTo(rect.x + r, rect.y);
+  }
+  c.globalAlpha = 1 - closing;
+  c.stroke();
+  c.restore();
 }
 
 /**
@@ -204,6 +350,8 @@ export function Timeline() {
     [threads],
   );
   const home = React.useMemo(() => scatter(all), [all]);
+  const forming = useForming(threads);
+  const shownOf = React.useCallback((id: string) => forming.get(id) ?? 1, [forming]);
   const spotOf = React.useCallback(
     (id: string): Point => {
       if (dragging?.id === id) return dragging.at;
@@ -409,6 +557,14 @@ export function Timeline() {
     phase: number;
     ends: [VineEnd, VineEnd];
     box: { x: number; y: number; w: number; h: number };
+    /** How much of it there is yet, 0..1. A vine into a forming box grows. */
+    grow: number;
+    /**
+     * Not a vine at all: the rim of a forming box, traced round it in green
+     * and then closing in. It lives in the same map because it is painted
+     * by the same canvas, repainted by the same rule, and gone the same way.
+     */
+    rim?: { p: number; rect: { x: number; y: number; w: number; h: number }; start: Point };
   }
   /** What is on the canvas now, so the next paint can tell what changed. */
   const drawn = React.useRef(new Map<string, Vine>());
@@ -425,8 +581,31 @@ export function Timeline() {
     const want = new Map<string, Vine>();
     for (const cord of cords) {
       const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
+      // The first stage of forming: the vine grows from the previous card.
+      const grow = Math.min(1, shownOf(cord.to) / FORM.vine[1]);
       want.set(`${cord.from}>${cord.to}`, {
-        from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to),
+        from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to), grow,
+      });
+    }
+    /*
+     * The rim, while a box is forming: where the vine arrives the rim starts
+     * and is traced round the box in green, and as the work nears its end
+     * the green closes in from the edges. Painted here, on the canvas, which
+     * already knows where every box is and repaints only what changed.
+     */
+    for (const t of threads) {
+      const p = shownOf(t.id);
+      if (p < FORM.rim[0] || p >= FORM.surface[0]) continue;
+      const a = anchorOf(t.id);
+      const size = sizeOf(t);
+      const rect = { x: a.left, y: a.top, w: size.w, h: size.h };
+      const into = cords.find((cd) => cd.to === t.id);
+      const start = into ? ends(anchorOf(into.from), anchorOf(into.to))[1] : { x: a.left, y: a.top };
+      const pad = 12;
+      want.set(`rim:${t.id}`, {
+        from: start, to: start, tone: "live", phase: 0, ends: ["iteration", "iteration"], grow: 1,
+        box: { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 },
+        rim: { p, rect, start },
       });
     }
     /*
@@ -450,7 +629,7 @@ export function Timeline() {
         };
         const to = { x: a.cx, y: side === "in" ? a.top : a.bottom };
         want.set(`card:${side}`, {
-          from, to, tone: openTone, phase: 0.5, ends: [end, end], box: strandBounds(from, to),
+          from, to, tone: openTone, phase: 0.5, ends: [end, end], box: strandBounds(from, to), grow: 1,
         });
       }
     }
@@ -507,7 +686,7 @@ export function Timeline() {
     c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
 
     /* What differs from what is on the canvas. */
-    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]}`;
+    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
     const dirty: { x: number; y: number; w: number; h: number }[] = [];
     for (const [k, v] of want) {
       const had = drawn.current.get(k);
@@ -532,12 +711,13 @@ export function Timeline() {
     c.clip();
     for (const v of want.values()) {
       if (!dirty.some((r) => hits(r, v.box))) continue;
-      paintStrand(c, v.from, v.to, { tone: v.tone, phase: v.phase, ends: v.ends });
+      if (v.rim) { paintRim(c, v.rim); continue; }
+      paintStrand(c, v.from, v.to, { tone: v.tone, phase: v.phase, ends: v.ends, grow: v.grow });
     }
     c.restore();
 
     drawn.current = want;
-  }, [cords, anchorOf, openId, openTone]);
+  }, [cords, anchorOf, openId, openTone, threads, shownOf]);
   // The open card can grow without this component rendering, and that moves
   // an end; this is how the observer below reaches the current painter.
   paintAt.current = paint;
@@ -685,6 +865,7 @@ export function Timeline() {
               key={t.id}
               thread={t}
               at={at}
+              forming={shownOf(t.id)}
               live={live}
               open={open}
               pinned={pinned.includes(t.id)}
@@ -790,6 +971,8 @@ function ends(a: { left: number; right: number; mid: number }, b: { left: number
 function Standing(props: {
   thread: Thread;
   at: Point;
+  /** How far it has formed, as shown: 0..1. One is formed. */
+  forming: number;
   live: boolean;
   open: boolean;
   pinned: boolean;
@@ -881,10 +1064,11 @@ function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
 }
 
 function IterationBox({
-  thread, at, live, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
+  thread, at, forming, live, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
+  forming: number;
   live: boolean;
   open: boolean;
   pinned: boolean;
@@ -916,17 +1100,19 @@ function IterationBox({
           moltenClass("verdant"),
           "flex w-full cursor-grab flex-col gap-1 rounded-lg p-2 text-left transition-[box-shadow,transform] active:cursor-grabbing",
         )}
+        data-forming={forming < 1 ? "" : undefined}
         style={{
           minHeight: BOX.h,
           ...moltenSeed(thread.id),
+          ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
           color: "oklch(0.93 0.055 150)",
           // Depth is the shadow under it and the lift when it is picked up;
           // the light in it comes from the surface, not from here.
           // The weight under it, and the heat it throws: the construct's own
           // shadow, because paint containment clips anything inside it.
-          boxShadow: open
-            ? "0 10px 30px oklch(0 0 0 / 0.55), 0 0 26px -6px oklch(0.78 0.17 150 / 0.5)"
-            : "0 6px 18px oklch(0 0 0 / 0.45), 0 0 18px -8px oklch(0.78 0.17 150 / 0.38)",
+          // Weight under it and nothing thrown outward: the rim is self-lit
+          // and the reference has no glow past it.
+          boxShadow: open ? "0 10px 30px oklch(0 0 0 / 0.55)" : "0 6px 18px oklch(0 0 0 / 0.45)",
           filter: open ? "brightness(1.14)" : live ? "brightness(1.06)" : "none",
           transform: dragging ? "scale(1.02)" : "none",
         }}
@@ -980,10 +1166,11 @@ function IterationBox({
  * any sentence about the line would.
  */
 function ElementPiece({
-  thread, at, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
+  thread, at, forming, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
+  forming: number;
   live: boolean;
   open: boolean;
   pinned: boolean;
@@ -1010,13 +1197,13 @@ function ElementPiece({
           moltenClass("ember"),
           "flex w-full cursor-grab flex-col gap-1 rounded-lg p-2 text-left transition-[box-shadow,transform] active:cursor-grabbing",
         )}
+        data-forming={forming < 1 ? "" : undefined}
         style={{
           minHeight: PIECE.h,
           ...moltenSeed(thread.id),
+          ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
           color: "oklch(0.95 0.05 22)",
-          boxShadow: open
-            ? "0 10px 28px oklch(0 0 0 / 0.55), 0 0 24px -6px oklch(0.8 0.185 18 / 0.5)"
-            : "0 5px 16px oklch(0 0 0 / 0.45), 0 0 16px -8px oklch(0.8 0.185 18 / 0.38)",
+          boxShadow: open ? "0 10px 28px oklch(0 0 0 / 0.55)" : "0 5px 16px oklch(0 0 0 / 0.45)",
           filter: open ? "brightness(1.14)" : "none",
           transform: dragging ? "scale(1.03)" : "none",
         }}

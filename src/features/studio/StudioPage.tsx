@@ -34,6 +34,7 @@ import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
 import { Timeline } from "./Timeline";
 import { TimelineDetail, TimelinePanel } from "./TimelineDetail";
+import { mountNebula } from "./nebulaTile";
 import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -585,6 +586,8 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const design = mode === "design";
   const book = mode === "book";
+  // The two nebula tiles every construct reads, painted once for the page.
+  React.useEffect(() => { mountNebula(); }, []);
 
   /*
    * The tab you are on is the tab you stay on.
@@ -620,12 +623,16 @@ export function StudioPage() {
       __studioSetBrief?: (v: boolean) => void;
       __studioSetLibrary?: (v: boolean) => void;
       __studioSetLeftPanel?: (id: string) => void;
+      __studioNotePass?: (line: string, on?: string) => void;
     };
     w.__studioOpenBrief = () => setBriefOpen(true);
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);
     w.__studioSetLeftPanel = (id) => setLeftPanel(id);
+    // For the formation test: an update to a finished iteration, the way the
+    // second pass makes one.
+    w.__studioNotePass = (line: string, on?: string) => useStudio.getState().notePass(line, on);
     /*
      * The lamp's drag, without a mouse.
      *

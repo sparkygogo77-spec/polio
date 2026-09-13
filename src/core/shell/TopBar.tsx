@@ -84,6 +84,13 @@ export function TopBar() {
           </>
         )}
 
+        {/* What a module wants *shown* rather than pressed, on the near side
+            of the bell: work in flight, and anything else that is a glance
+            rather than a control. The bar knows none of them by name. */}
+        {registry.topBarItems.filter((i) => i.slot === "status").map((i) => (
+          <i.component key={i.id} />
+        ))}
+
         <Tooltip content="News" shortcut="mod+i">
           <Button variant={panels.news ? "subtle" : "ghost"} size="icon" aria-label="News" onClick={() => ctx.togglePanel("news")} className="relative">
             <Bell />
@@ -109,7 +116,7 @@ export function TopBar() {
 
         {/* What the modules put here: the repository, the key vault. The bar
             knows none of them by name. */}
-        {registry.topBarItems.map((i) => (
+        {registry.topBarItems.filter((i) => i.slot !== "status").map((i) => (
           <i.component key={i.id} />
         ))}
 

@@ -103,14 +103,28 @@ check("the stylesheet says the same thing, for the branch that reads it",
 
 check("there is grain, and it is one shared tile rather than a filter per box",
   /--molten-grain:\s*url\("data:image\/svg\+xml/.test(css) && !/filter:\s*url\(#/.test(css));
-check("the body is veined: several blobs at irregular sizes", (() => {
-  const vein = /\.molten::before,\s*\n\.molten::after \{[\s\S]*?\n\}/.exec(css)?.[0] ?? "";
-  return (vein.match(/radial-gradient/g) ?? []).length >= 4;
+/*
+ * The surface is a nebula now, not veining: one cloud tile per temperature,
+ * painted once by the ground's own noise and slid by transform. The
+ * stylesheet reads the tile; it never makes one.
+ */
+check("the face is a nebula tile the stylesheet is handed, one per temperature",
+  /--mo-nebula: var\(--nebula-ember, none\)/.test(css) && /--mo-nebula: var\(--nebula-verdant, none\)/.test(css));
+check("the nebula layer is one period wider than the box and slides exactly one period",
+  /width: calc\(100% \+ var\(--nebula-period, 512px\)\)/.test(css)
+  && /to\s+\{ transform: translate3d\(var\(--nebula-period, 512px\), 0, 0\); \}/.test(css));
+check("the centre is the darkest part, and it is not black", (() => {
+  const core = /--molten-core:\s*oklch\(([\d.]+) ([\d.]+)/.exec(css);
+  return !!core && Number(core[1]) > 0.08 && Number(core[1]) < 0.18 && Number(core[2]) > 0.02;
+})(), /--molten-core:[^;]*/.exec(css)?.[0]);
+check("every temperature has its own core", /--ember-core:/.test(css) && /--verdant-core:/.test(css));
+check("the face is lit from around the centre, easing in rather than falling off",
+  /radial-gradient\(70% 88% at 50% 50%, var\(--mo-core\) 0%, var\(--mo-core\) 18%, var\(--mo-char\) 62%/.test(css));
+check("the tile is painted once, by the ground's own noise, and never in the stylesheet", (() => {
+  const tile = readFileSync("src/features/studio/nebulaTile.ts", "utf8");
+  return /import \{ nebulaNoise \} from "\.\/darkMatter"/.test(tile) && /tiles\.set\(kind, url\)/.test(tile) && /toDataURL/.test(tile);
 })());
-check("the density is uneven, because two veinings overlap",
-  /\.molten::after \{[\s\S]*?transform: scaleX\(-1\)/.test(css));
-check("nothing is a single smooth even gradient end to end",
-  (css.match(/radial-gradient/g) ?? []).length >= 6);
+check("and its centre is thin, so it is calm where it is read", /const vig = 0\.3 \+ 0\.7/.test(readFileSync("src/features/studio/nebulaTile.ts", "utf8")));
 
 /* ------------------------------------------------------------------ */
 /* 4. Always moving, never demanding                                   */
@@ -155,8 +169,17 @@ check("reduced motion stops all of it and leaves the construct lit",
 check("a construct's boil is contained to the construct", /contain: layout paint/.test(css));
 check("no blend mode, which costs a read-back of everything under it", !/mix-blend-mode/.test(css));
 check("no mask on an animated layer", !/mask-image:/.test(css));
-check("one veining layer moves and one stands still, for the same picture at half the cost",
-  /\.molten::after \{[\s\S]*?animation: none/.test(css));
+check("one nebula layer glides and one stands still, for the same picture at half the cost",
+  /\.molten::after \{[\s\S]*?animation: none/.test(css) && /\.molten::before \{[\s\S]*?animation: molten-drift/.test(css));
+check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
+  // The edge rule itself, at the start of a line — not a forming rule that
+  // happens to end in the same selector.
+  const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
+  const shadows = [...edge.matchAll(/^\s+(inset )?0 /gm)];
+  return shadows.length > 0 && shadows.every((m) => m[1] === "inset ") && /\[data-molten\]::after \{\s*content: none;/.test(css);
+})());
+check("and the boxes throw only weight, never colour",
+  !/0 0 2\dpx -\dpx oklch\(0\.[78]/.test(readFileSync("src/features/studio/Timeline.tsx", "utf8")));
 check("there is no canvas and no loop in any of it", (() => {
   // The word appears in the file's own account of itself; what matters is
   // that no rule draws into one and nothing here runs a frame loop.
@@ -176,7 +199,10 @@ check("a seed is stable for the same id", moltenSeed("t7")["--molten-seed"] === 
 check("and different for different ones", moltenSeed("t7")["--molten-seed"] !== moltenSeed("t8")["--molten-seed"]);
 check("the delays are built from it", /calc\(var\(--molten-seed\) \* -[\d.]+s\)/.test(css));
 check("every animation gets its own offset, so thirty are not one machine",
-  (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= 4);
+  // Two: the glide and the rim's breath. The flare and the ember had the
+  // other two and are gone on purpose: the reference is a rim and a nebula
+  // and nothing else, and the ember was the one thing that left the rim.
+  (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= 2);
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
 check("an iteration is the green construct", /moltenClass\("verdant"\)/.test(timeline));
