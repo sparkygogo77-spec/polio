@@ -35,53 +35,46 @@ const check = (name, ok, detail = "") => {
 /* ------------------------------------------------------------------ */
 
 /*
- * The check that nothing writes its own chip size or empty swatch lands with
- * the commit that moves the surfaces onto this, not with the commit that adds
- * it. Asserting it here would be asserting work that has not been done yet,
- * and a suite that is red on purpose teaches everybody to ignore it.
+ * These were reporting lines while the surfaces were still to move, because
+ * asserting work that has not been done teaches everybody to ignore a red
+ * suite. All six are on it now, so they are checks.
  *
- * What can be said today is how much there is to move, so the number is on
- * the record rather than in a commit message — and the number that matters
- * is how many of the six menus import from the shared file, which is exact.
- * Counting sizes is not: the first version of this scan swept every studio
- * file for a Tailwind size class near a background and reported 41 of them
- * over 16 files, most of which were timeline cards. Two counts that can be
- * made exactly are worth more than one that sounds thorough.
+ * Two things the scanner has to get right, and earlier versions got each of
+ * them wrong. `[^>]` will not do for the window between a tag and its prop —
+ * the props carry arrow functions and the first `=>` ends the match, which
+ * reported five of the nine sizes and looked right doing it. And a bare
+ * `\d+` will not do for the value: two rows chose between two sizes with a
+ * ternary, `size={sharing ? 22 : 26}`, which is how 22 and 26 came to be
+ * called a misreading when they were on the screen the whole time.
  */
 const dir = "src/features/studio";
 /** The six places in the Builder that offer a colour. */
 const MENUS = ["BackgroundEditors.tsx", "RingEditors.tsx", "ColourOverride.tsx", "LookPanel.tsx", "MenuConsole.tsx", "RadialMenu.tsx"];
 const source = Object.fromEntries(MENUS.map((f) => [f, readFileSync(`${dir}/${f}`, "utf8")]));
 
-/** Which of the six have moved onto the shared definition, and which have not. */
-const onIt = MENUS.filter((f) => /from "\.\/colourMenu"/.test(source[f]));
-console.log(`  --   on the system: ${onIt.length} of ${MENUS.length} colour menus${onIt.length ? ` (${onIt.join(", ")})` : ""}`);
-console.log(`  --   still to move: ${MENUS.filter((f) => !onIt.includes(f)).join(", ") || "none"}`);
+const off = MENUS.filter((f) => !/from "\.\/colourMenu"/.test(source[f]));
+check("every colour menu takes its answers from the one file", off.length === 0,
+  off.length ? `${off.join(", ")} still on their own` : `all ${MENUS.length}`);
 
-/*
- * A chip size written at a call site. Two things this has to get right, and
- * earlier versions got each of them wrong:
- *
- *   · `[^>]` will not do for the window between the tag and the prop — the
- *     props carry arrow functions, and the first `=>` ends the match. That
- *     reported five of the nine and looked right doing it.
- *   · `size=\{(\d+)\}` will not do for the value. Two rows chose between two
- *     sizes with a ternary — `size={sharing ? 22 : 26}` — and a scan for a
- *     bare number walks straight past them. That is how 22 and 26 came to be
- *     called a misreading when they were on the screen the whole time.
- */
 const numeric = Object.entries(source).flatMap(([f, s]) =>
   [...s.matchAll(/<(?:Arc|Grid)Chips\b(?:[^>]|=>)*?\bsize=\{([^}]*)\}/gs)]
     .flatMap((m) => [...m[1].matchAll(/\b(\d+)\b/g)].map((n) => `${f} ${n[1]}`)));
+check("none of them writes a chip size of its own", numeric.length === 0,
+  numeric.length ? numeric.join(", ") : "nine of them did, in six sizes");
 
-/** A hand-made "nothing" chip: an empty id, its own fill, a glyph over it.
-    The fill is usually `{ background: … }`, so the pattern has to cross one
-    level of braces to reach the glyph. */
+/* A hand-made "nothing" chip: an empty id, its own fill, a glyph over it.
+   The pattern crosses one level of braces because the fill is usually
+   `style: { background: … }`, which an earlier version could not get past —
+   it found one of the five and looked thorough. */
 const homemade = Object.entries(source).flatMap(([f, s]) =>
   [...s.matchAll(/\{\s*id:\s*"(?:|none)"\s*,\s*label:(?:[^{}]|\{[^{}]*\})*?glyph:\s*<(\w+)/gs)].map((m) => `${f} ${m[1]}`));
-
-console.log(`  --   still hand-written: ${numeric.length} chip sizes (${[...new Set(numeric.map((n) => n.split(" ")[1]))].sort().join(", ") || "none"}) over ${new Set(numeric.map((n) => n.split(" ")[0])).size} files`);
-console.log(`  --   still hand-made: ${homemade.length} empty swatches (${homemade.join(", ") || "none"})`);
+/* One is left on purpose. "No entrance" sits in a row of motion icons — fade,
+   slide, grow — and means this element does not animate in, which is not
+   emptiness: the element is not transparent, it simply does not move. A
+   chequer there would say something untrue, so it keeps its Ban. */
+check("the only hand-made one left is the motion row's off switch",
+  homemade.length === 1 && homemade[0] === "RingEditors.tsx Ban",
+  homemade.length ? homemade.join(", ") : "none at all — the Ban was expected");
 
 /* ------------------------------------------------------------------ */
 /* 2. What the definition says                                         */
@@ -225,6 +218,47 @@ if (!up) {
       await page.keyboard.press("Escape");
       await page.waitForTimeout(400);
     }
+    /* The wheel's three preview badges. Not chips — you read them, you do not
+       pick them — and every one had been its own size: the page's colour
+       18x18 at 4px, a part's aura 15x15 at 4px, a part's hue 34x14 at 3px.
+       Three heights and two corners, side by side on one wheel. */
+    const badges = async () => page.evaluate(() => {
+      const r = document.querySelector("[data-radial]");
+      if (!r) return [];
+      return [...r.querySelectorAll("span")].map((e) => {
+        const cs = getComputedStyle(e);
+        const w = parseFloat(cs.width), h = parseFloat(cs.height);
+        const shown = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || e.children.length > 0;
+        return w >= 10 && w <= 40 && h >= 10 && h <= 40 && shown ? { w: Math.round(w), h: Math.round(h), r: cs.borderRadius } : null;
+      }).filter(Boolean);
+    });
+    const seen = [];
+    for (const [who, words] of [["a part", [/^Looks$/]], ["the page", null]]) {
+      if (words) { if (!(await open(words))) continue; }
+      else {
+        const fr = await page.locator("[data-frame]").first().boundingBox();
+        await page.mouse.click(fr.x + fr.width * 0.3, fr.y + fr.height * 0.7, { button: "right" });
+        await page.waitForTimeout(600);
+        const look = page.locator('[data-radial] [data-shard="look"]').first();
+        if (!(await look.count())) continue;
+        await look.click({ force: true });
+        await page.waitForTimeout(700);
+      }
+      const got = await badges();
+      seen.push(...got);
+      check(`${who}'s Looks badges are on screen`, got.length > 0, got.map((g) => `${g.w}x${g.h}`).join(" ") || "none");
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
+    }
+    if (seen.length) {
+      const heights = [...new Set(seen.map((b) => b.h))];
+      const corners = [...new Set(seen.map((b) => b.r))];
+      check("every preview badge stands the same height", heights.length === 1, `${heights.join(" and ")}px, from three`);
+      check("and takes the same corner", corners.length === 1, `${corners.join(" and ")}, from two`);
+      check("a badge carrying several colours is still allowed to be wide",
+        seen.some((b) => b.w > b.h), seen.map((b) => `${b.w}x${b.h}`).join(" "));
+    }
+
     await browser.close();
   }
 }
