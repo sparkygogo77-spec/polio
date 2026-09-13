@@ -729,7 +729,7 @@ export function Timeline() {
     for (const v of want.values()) {
       if (!dirty.some((r) => hits(r, v.box))) continue;
       if (v.rim) { paintRim(c, v.rim); continue; }
-      paintStrand(c, v.from, v.to, { tone: v.tone, phase: v.phase, ends: v.ends, grow: v.grow });
+      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow });
     }
     c.restore();
 
@@ -1067,7 +1067,7 @@ function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want
         { x: v.from.x - box.x, y: v.from.y - box.y },
         { x: v.to.x - box.x, y: v.to.y - box.y },
         b,
-        { ends: v.ends, grow: v.grow, phase: v.phase, tone: v.tone },
+        { ends: v.ends, grow: v.grow, tone: v.tone },
       );
       el.style.clipPath = d ? `path("${d}")` : "inset(100%)";
       // One weather across the board: every element shows the tile at the
