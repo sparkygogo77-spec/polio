@@ -26,7 +26,7 @@ import { auraFilter, auraStyle, complementOf, markColour, washCss, type Light, t
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
-import { SpaceMarks, SpaceSide } from "./SpaceLayer";
+import { SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { isBoundary } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
@@ -168,6 +168,8 @@ export function Canvas() {
      exists — so nothing reads the flag and nothing writes it. */
   const [marquee, setMarquee] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [ink, setInk] = React.useState<[number, number][] | null>(null);
+  // The last line that was not a closed one, so the board can say so where it was drawn.
+  const [refused, setRefused] = React.useState<{ points: [number, number][]; at: number } | null>(null);
   // A wire that has just joined two parts: the wire draws itself on and
   // both parts ring once. Kept for half a second, then forgotten.
   const [fresh, setFresh] = React.useState<{ wire: string; nodes: string[] } | null>(null);
@@ -456,6 +458,7 @@ export function Canvas() {
     }
 
     capture();
+    setRefused(null);
     setInk([[p.x, p.y]]);
     setDrag({ kind: "draw", startX: p.x, startY: p.y, points: [[p.x, p.y]] });
   };
@@ -663,7 +666,14 @@ export function Canvas() {
     } else if (drag.kind === "draw" && tool === "space" && drag.points && drag.points.length >= 2) {
       // The space tool: a closed line is a placeholder (`space.ts`), an open one is nothing, and says so.
       if (isBoundary(drag.points)) { store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" }); play("confirm"); }
-      else { play("deny"); news.publish({ key: "studio:space", title: "A space is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: true }); }
+      else {
+        /* Said where the hand was, not in the corner of the window: the
+           feed still gets the line, and the message itself is drawn on the
+           line that was refused (`SpaceRefused`). */
+        play("deny");
+        setRefused({ points: drag.points, at: Date.now() });
+        news.publish({ key: "studio:space", title: "A space is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: false });
+      }
     } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
       const kind = tool === "pen" ? "pen" : "arrow";
       const pts = drag.points;
@@ -803,6 +813,8 @@ export function Canvas() {
         >
         <TextureDrift layers={look.texture} palette={palette} />
         <SpaceMarks zoom={zoom} />
+        <SpaceInk zoom={zoom} />
+        <SpaceRefused at={refused} zoom={zoom} />
         {/* The pool the lamp puts on the page, when it has been asked for. Under
             the parts, because a lamp lights a table and the things on it cast
             their shadows down on to it. */}

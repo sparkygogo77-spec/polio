@@ -340,11 +340,28 @@ const CARDS: Recreatable = {
   configure: (r) => {
     const kids = r.children.length;
     const cols = r.layout.columns > 1 ? r.layout.columns : Math.max(1, Math.round(r.box.w / Math.max(1, r.children[0]!.w)));
-    /* Every run, not every run but the biggest.
-       `body` drops the headline, which is right for a band that has one and
-       wrong here: a grid's titles are all the same size, so dropping the
-       largest silently ate the first card. Three cards came back as two. */
-    const titles = r.text.filter((t) => t.words.trim() && t.words.length < 60).slice(0, kids).map((t) => t.words);
+    /*
+     * A card's title, not a card's every word.
+     *
+     * `body` drops the headline, which is right for a band that has one and
+     * wrong here — a grid's titles are all the same size, so dropping the
+     * largest ate the first card. Taking the first few runs instead was
+     * wrong the other way: each card holds a title *and* a sentence, so
+     * three cards came back as "Quiet", "Nothing shouts here." and "Slow".
+     *
+     * The titles are the runs set at the largest size that appears about as
+     * many times as there are cards, which is what a title *is* on a grid
+     * of repeating boxes. Measured, not guessed at from tags: the page may
+     * mark them up however it likes.
+     */
+    const sizes = new Map<number, TextRun[]>();
+    for (const t of r.text) {
+      if (!t.words.trim() || t.words.length >= 60) continue;
+      sizes.set(t.px, [...(sizes.get(t.px) ?? []), t]);
+    }
+    const bySize = [...sizes.entries()].sort((a, b) => b[0] - a[0]);
+    const titleRuns = bySize.find(([, runs]) => runs.length >= kids)?.[1] ?? bySize[0]?.[1] ?? [];
+    const titles = titleRuns.slice(0, kids).map((t) => t.words);
     return {
       patch: {
         featureId: "card-grid",

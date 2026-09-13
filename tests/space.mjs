@@ -12,7 +12,8 @@
  */
 import {
   CONSUME_MS, MIN_SPACE, boundaryPath, centroid, consumed, defaultSteps, grownBoundary, isBoundary, isOpen,
-  moveStep, nodeInSpace, planFor, pointInBoundary, roundBoundary, spaceOf, tidySteps,
+  inheritedFrom, moveStep, nodeInSpace, planFor, pointInBoundary, roundBoundary, spaceOf, spaceOfDrawing,
+  tidyBoundary, tidySteps,
 } from "../src/features/studio/space.ts";
 import { STEPS } from "../src/features/studio/imageRoute.ts";
 
@@ -74,6 +75,32 @@ check("a part inside a hole still consuming is not in it yet", spaceOf([fresh], 
 check("a part inside a construct box is not in a space", spaceOf([box], inside, now) === null);
 const newer = { ...done, id: "sp2", at: 2 };
 check("where two open holes overlap, the newer owns the part", spaceOf([done, newer], inside, now)?.id === "sp2");
+
+/* A drawing belongs to a space the same way a part does: by where it is. */
+check("a drawing made inside an open hole belongs to it",
+  spaceOfDrawing([done], { pageId: "p", bounds: { x: 460, y: 370, w: 80, h: 60 } }, now)?.id === "sp1");
+check("one drawn outside it belongs to nothing",
+  spaceOfDrawing([done], { pageId: "p", bounds: { x: 700, y: 370, w: 80, h: 60 } }, now) === null);
+check("and one inside a hole that is still consuming belongs to nothing yet",
+  spaceOfDrawing([fresh], { pageId: "p", bounds: { x: 460, y: 370, w: 80, h: 60 } }, now) === null);
+
+/* What a part made in a space is made with. */
+const steered = { ...done, prompt: "everything here is a quiet, dark card", plan: { model: "openai/gpt-image-2", steps: ["read", "recreate"] } };
+check("a part made in a steered space inherits its plan", inheritedFrom(steered).plan?.steps.join(",") === "read,recreate");
+check("and what the space is for", inheritedFrom(steered).prompt === "everything here is a quiet, dark card");
+check("a space that says nothing hands nothing down", Object.keys(inheritedFrom(done)).length === 0);
+check("and nothing at all is inherited from no space", Object.keys(inheritedFrom(null)).length === 0);
+check("the plan handed down is a copy, so editing the part does not edit the space",
+  inheritedFrom(steered).plan?.steps !== steered.plan.steps);
+
+/* A boundary as it is kept. */
+const raw = Array.from({ length: 400 }, (_, i) => [500 + Math.cos((i / 399) * Math.PI * 2) * 120, 400 + Math.sin((i / 399) * Math.PI * 2) * 120]);
+const tidied = tidyBoundary(raw);
+check("a boundary a hand drew is thinned", tidied.length < raw.length && tidied.length <= 96, `${raw.length} → ${tidied.length}`);
+check("and still closed, because whether a line is closed is measured from its ends",
+  Math.hypot(tidied[0][0] - raw[0][0], tidied[0][1] - raw[0][1]) < 0.2
+  && Math.hypot(tidied.at(-1)[0] - raw.at(-1)[0], tidied.at(-1)[1] - raw.at(-1)[1]) < 0.2);
+check("a boundary that was already small is left as it is", tidyBoundary(ring).length === ring.length, `${ring.length}`);
 
 /* ------------------------------------------------------------------ */
 /* 4. What the panel says                                               */

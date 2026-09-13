@@ -256,8 +256,90 @@ if (await open.count()) {
     await draw([[ix - 40, iy - 20], [ix - 10, iy + 14], [ix + 22, iy - 16], [ix + 48, iy + 10]], { step: 18 });
     const inkAfter = await page.locator("[data-make-real]").count();
     check("a pen draws inside an open hole", inkAfter === inkBefore + 1, `${inkBefore} → ${inkAfter} drawings`);
-    note("the ink inside a hole is ink on the page: nothing ties it to the space it was drawn in, and its Make real door makes an ordinary part");
+    note("a drawing inside a hole now belongs to it, by geometry: see section 6");
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Said where the hand was                                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The refusal used to be a toast at the bottom right, truncated to about
+ * a hundred and forty pixels. A person watching their own hand at the top
+ * of the board never saw it, and with toasts off it was not said at all.
+ */
+await pickSpace();
+await draw([[430, 250], [530, 310], [630, 250], [730, 330]], { step: 20 });
+const at = page.locator("[data-space-refused]");
+check("a line that is not a loop says so on the board", (await at.count()) > 0);
+if (await at.count()) {
+  const rb = await at.boundingBox();
+  check("where the hand was, not in the corner of the window",
+    rb.x > 380 && rb.x < 800 && rb.y > PANE.y && rb.y < 420, `the message is at ${Math.round(rb.x)},${Math.round(rb.y)}; the corner is 1203,899`);
+  check("and it is not cut off", (await at.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)), `${rb.width}px wide`);
+  await shot("refused");
+}
+check("it goes on its own once the next line begins", await (async () => {
+  await draw([[460, 560], [560, 600]], { step: 20 });
+  return (await page.locator("[data-space-refused]").count()) <= 1;
+})());
+
+/* ------------------------------------------------------------------ */
+/* 6. A drawing knows the space it was drawn in                        */
+/* ------------------------------------------------------------------ */
+
+const hole = page.locator("[data-space-horizon][data-space-open]").first();
+if (await hole.count()) {
+  const hb = await hole.boundingBox();
+  const hx = hb.x + hb.width / 2;
+  const hy = hb.y + hb.height / 2;
+  if (inPane(hx, hy)) {
+    await page.mouse.move(hx, hy);
+    await page.keyboard.press("d");
+    await page.waitForTimeout(300);
+    await draw([[hx - 30, hy - 14], [hx - 4, hy + 12], [hx + 24, hy - 12], [hx + 44, hy + 8]], { step: 18 });
+    const marked = page.locator("[data-ink-space]");
+    check("a drawing made inside a hole says which space it is in", (await marked.count()) > 0,
+      (await marked.first().innerText().catch(() => "")).replace(/\n/g, " "));
+    // And one drawn outside does not claim a space it is not in.
+    await draw([[PANE.x + 60, PANE.y + 60], [PANE.x + 110, PANE.y + 90], [PANE.x + 160, PANE.y + 60]], { step: 18 });
+    check("and one drawn outside every space claims none",
+      (await page.locator("[data-ink-space]").count()) === (await marked.count()), `${await page.locator("[data-ink-space]").count()} marked`);
+    await shot("ink-in-a-space");
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 7. An empty hole can be steered before anything is in it            */
+/* ------------------------------------------------------------------ */
+
+/* A fresh one, with nothing in it: the only open hole so far has the part
+   this drew round inside it, and a hole with something in it is rightly
+   steered through that thing rather than through a key of its own. */
+await pickSpace();
+const spot = [PANE.x + 250, PANE.y + PANE.height - 150];
+await draw(loop(spot[0], spot[1], 90, 26), { step: 12 });
+await page.locator("[data-space-hole-key]").last().click({ force: true });
+await page.waitForTimeout(1800);
+await page.keyboard.press("v");
+await page.waitForTimeout(300);
+const fill = page.locator("[data-space-fill]").first();
+check("an empty hole offers one key: the way to its own panel", (await fill.count()) > 0);
+if (await fill.count()) {
+  await fill.click({ force: true });
+  await page.waitForTimeout(500);
+  const panel = page.locator("[data-space-panel]");
+  check("pressing it opens the space's own panel", (await panel.count()) > 0);
+  check("which is about the space, not about a part in it", (await panel.locator("[data-space-name]").count()) > 0);
+  check("and it carries the way to point at something real", (await panel.locator("[data-site-url]").count()) > 0);
+  // The bounds, said before anything is opened.
+  await panel.locator("[data-site-url]").fill("http://127.0.0.1/");
+  await page.waitForTimeout(300);
+  check("an address that will not be opened says so before it is opened",
+    (await panel.locator("[data-site-refused]").count()) > 0, (await panel.locator("[data-site-refused]").innerText().catch(() => "")));
+  check("and Read is not offered for it", await panel.locator("[data-site-read]").isDisabled());
+  await shot("space-panel");
 }
 
 /* ------------------------------------------------------------------ */

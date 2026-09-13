@@ -53,7 +53,7 @@ import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
-import { tidyBoundary } from "./space";
+import { inheritedFrom, spaceOf, tidyBoundary } from "./space";
 import type { Plan, Space, SpaceKind } from "./space";
 
 /**
@@ -790,6 +790,29 @@ function docPatch(doc: ThreadDoc | undefined): Partial<StudioState> {
   return patch;
 }
 
+/**
+ * What a part inherits from the open space it is landing in, if it is.
+ *
+ * The space's plan and, when the part has nothing to say for itself, the
+ * space's prompt. Nothing when it lands on bare page, which is every part
+ * placed before any of this existed.
+ */
+function inherit(
+  s: { spaces: Space[]; activePageId: string },
+  at: { x: number; y: number },
+  w: number,
+  h: number,
+  patch?: Partial<StudioNode>,
+): Partial<StudioNode> {
+  if (!s.spaces.length) return {};
+  const space = spaceOf(s.spaces, { ...at, w, h, pageId: patch?.pageId ?? s.activePageId }, Date.now());
+  const had = inheritedFrom(space);
+  return {
+    ...(had.plan && !patch?.plan ? { plan: had.plan } : {}),
+    ...(had.prompt && !patch?.prompt?.trim() ? { prompt: had.prompt } : {}),
+  };
+}
+
 function snapshot(s: StudioState): Doc {
   return {
     pages: s.pages,
@@ -972,6 +995,21 @@ export const useStudio = create<StudioState>()(
                 ...(patch?.x != null || patch?.y != null
                   ? placeInFrame(patch.x ?? home.x, patch.y ?? home.y, w, s.frameWidth)
                   : home),
+                /*
+                 * A part that lands inside an open black hole is made the
+                 * way that space is made.
+                 *
+                 * Decided here rather than at each door, and by geometry
+                 * rather than by a pointer, so it holds however the part
+                 * arrived: a drawing made real inside the space, a part
+                 * dropped from the shelf, a paste. A person who has steered
+                 * a space should not have to say the same thing again for
+                 * every element they put in it. Anything the part carries
+                 * of its own wins, because it is the more particular.
+                 */
+                ...inherit(s, patch?.x != null || patch?.y != null
+                  ? placeInFrame(patch.x ?? home.x, patch.y ?? home.y, w, s.frameWidth)
+                  : home, w, h, patch),
               },
             ],
             selection: [id],

@@ -44,6 +44,12 @@ export interface Space {
   /** What this space is for, in the person's words. */
   prompt: string;
   label: string;
+  /**
+   * How everything made in this space is to be made, when a person has
+   * said: the same record a part carries, set from the space's own panel.
+   * A part that lands inside inherits it unless it says otherwise.
+   */
+  plan?: Plan | null;
   /** When it was drawn. */
   at: number;
 }
@@ -251,6 +257,45 @@ export function spaceOf<S extends Space>(spaces: readonly S[], node: { x: number
   let hit: S | null = null;
   for (const s of spaces) if (isOpen(s, now) && nodeInSpace(s, node) && (!hit || s.at > hit.at)) hit = s;
   return hit;
+}
+
+/**
+ * The open space a drawing was drawn in, or null.
+ *
+ * A drawing belongs to a space by the same rule a part does — geometry,
+ * never a stored pointer — because both are things that sit somewhere on
+ * the page and the page is where the truth is. The middle of the drawing's
+ * own box is the test, so a stroke whose tail wanders over the line still
+ * belongs to the space it was drawn in, exactly as a part whose corner
+ * hangs over does.
+ *
+ * This is what was missing: a drawing made inside a hole did not know the
+ * hole, so its Make real door produced an ordinary part that happened to
+ * land in the same place, with none of the space's plan on it.
+ */
+export function spaceOfDrawing<S extends Space>(
+  spaces: readonly S[],
+  drawing: { pageId: string; bounds: { x: number; y: number; w: number; h: number } },
+  now: number,
+): S | null {
+  const { x, y, w, h } = drawing.bounds;
+  return spaceOf(spaces, { pageId: drawing.pageId, x, y, w, h }, now);
+}
+
+/**
+ * What a part made inside a space inherits from it.
+ *
+ * The space's own plan, when it has one, and its prompt as the words the
+ * part is made under. A part that lands in a space a person has already
+ * steered should be steered the same way without their saying it twice;
+ * anything the part says for itself wins, because it is more particular.
+ */
+export function inheritedFrom(space: Space | null): { plan?: Plan; prompt?: string } {
+  if (!space) return {};
+  return {
+    ...(space.plan ? { plan: { model: space.plan.model, steps: [...space.plan.steps] } } : {}),
+    ...(space.prompt.trim() ? { prompt: space.prompt.trim() } : {}),
+  };
 }
 
 /* ------------------------------------------------------------------ */
