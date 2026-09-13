@@ -154,6 +154,44 @@ check("…on both cloud layers, and nowhere else", (() => (
 ))(), `${(css.match(/mask-image: var\(--molten-vignette\);/g) ?? []).length} of them, prefixed and not`);
 check("the tile keeps its own shape rather than being stretched to the card",
   /background-size: var\(--nebula-period, 512px\) auto;/.test(css));
+/*
+ * THE MATCH. J's two tiles are cuts of two different renders and are not the
+ * same brightness, so the same pair of cloud opacities over them made the
+ * red read 21% lighter than the green — two systems rather than two
+ * temperatures. The cloud's opacity is the lever, per temperature, and the
+ * two layers pull opposite ways: the gliding copy is more of J's picture and
+ * stays high for both, while the still copy at 1.7× samples a darker part of
+ * the same tile, so the green takes almost none of it and the red nearly all.
+ *
+ * Measured on a board, mean of a card's lower third in oklab L, red against
+ * green: 1.211 before, 1.115 after; at the 99th percentile 1.487 before,
+ * 1.328 after. Red is still the hotter, which is the point.
+ */
+check("how much cloud is a dial per temperature, not a number in the rule", (() => (
+  /--mo-cloud: 0\.92;/.test(css) && /--mo-cloud-still: 0\.38;/.test(css)
+  && /opacity: var\(--mo-cloud, 0\.92\);/.test(css)
+  && /opacity: var\(--mo-cloud-still, 0\.38\);/.test(css)
+))());
+check("the green keeps all of the gliding picture and almost none of the still one", (() => {
+  const v = /\.molten-verdant \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /--mo-cloud: 1;/.test(v) && /--mo-cloud-still: 0\.12;/.test(v);
+})());
+check("the red keeps its glide and takes the still one nearly whole, which is what brings it down to meet the green", (() => {
+  const e = /\.molten-ember \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /--mo-cloud: 0\.92;/.test(e) && /--mo-cloud-still: 0\.95;/.test(e);
+})());
+check("red is still the hotter of the two: neither dial makes the green the brighter card", (() => {
+  const dial = (sel, name) => {
+    const b = new RegExp(`\\.molten-${sel} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "";
+    return Number(new RegExp(`--mo-${name}: ([\\d.]+);`).exec(b)?.[1]);
+  };
+  // The still layer darkens; more of it is a cooler card. Green must have
+  // less of it than red, and never the other way round.
+  return dial("verdant", "cloud-still") < dial("ember", "cloud-still");
+})());
+check("forming scales the same dials rather than the numbers they replaced",
+  /opacity: calc\(var\(--form-surface, 1\) \* var\(--mo-cloud, 0\.92\)\);/.test(css)
+  && /opacity: calc\(var\(--form-surface, 1\) \* var\(--mo-cloud-still, 0\.38\)\);/.test(css));
 check("the still copy is a different size rather than the same one mirrored, which put an axis down every card", (() => {
   // The churn keyframe still mirrors, and nothing uses it; what matters is
   // that the layer itself no longer does.
