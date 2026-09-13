@@ -1015,14 +1015,16 @@ function ElementPiece({
           called. So the mark is large and central, and the name and the
           small line sit under it, supporting it.
         */}
-        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.7_0.09_18)]">
-          <Brush className="size-3" />
-          drawing
+        {/*
+          No label. The red box used to say "drawing" across its top, and the
+          drawing is right there under it — a caption for a picture you are
+          already looking at. The row keeps only what does something: the
+          pin, the flag and the state, hard against the right edge.
+        */}
+        <span className="flex items-center justify-end gap-1.5 text-[8px] text-[oklch(0.7_0.09_18)]">
           {pinned ? <Pin className="size-2.5 fill-current" /> : null}
-          <span className="ml-auto flex items-center gap-1.5">
-            <CurrentButton thread={thread} on={current} />
-            <StateMark thread={thread} />
-          </span>
+          <CurrentButton thread={thread} on={current} />
+          <StateMark thread={thread} />
         </span>
         <span className="flex min-h-0 flex-1 items-center justify-center py-0.5">
           <Drawn sketch={thread.sketch} size={62} tone="oklch(0.9 0.17 22)" />
@@ -1063,7 +1065,7 @@ function thin(stroke: [number, number][], most = 64): [number, number][] {
   return out;
 }
 
-function Drawn({ sketch, size, tone }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string }) {
+export function Drawn({ sketch, size, tone }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string }) {
   if (!sketch?.strokes?.length) return <Brush className="size-3.5 shrink-0 opacity-70" />;
   return (
     <svg width={size} height={size} viewBox="0 0 1 1" aria-hidden className="shrink-0">
@@ -1139,8 +1141,8 @@ function Snippet({ thread }: { thread: Thread }) {
 /**
  * The card that grows out of the box.
  *
- * Up from the top edge: what went in — the prompt, and the drawing when
- * there was one. Down from the bottom: what came out — the answer, and
+ * Up from the top edge: Input — the prompt, and the drawing when there
+ * was one. Down from the bottom: Output — the answer, and
  * what it changed on the board. Both joined to the box by the connector
  * the strands are made of, so it reads as the box extending rather than a
  * panel arriving.
@@ -1150,9 +1152,20 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
   const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
   const changed = React.useMemo(() => diffDocs(parent?.doc, thread.doc), [parent, thread]);
   const element = isElement(thread);
+  /*
+   * The reading family, not the card family.
+   *
+   * These grew out of the box in the same red or green as the box, rounded
+   * the same, lit the same, and read as two more cards. They are not cards:
+   * they are where you read what went into one and what came out. So the
+   * face is near-neutral dark with only a tint of the family, the colour
+   * lives in a hairline rim and the headline, there is no lift and no glow,
+   * and the corners are squarer than anything on the timeline that is a
+   * thing. Same family, different member.
+   */
   const skin = element
-    ? { face: "oklch(0.21 0.072 18)", rim: "oklch(0.46 0.157 18)", text: "oklch(0.92 0.053 18)", dim: "oklch(0.72 0.106 18)" }
-    : { face: "oklch(0.19 0.053 152)", rim: "oklch(0.42 0.118 152)", text: "oklch(0.92 0.053 152)", dim: "oklch(0.7 0.091 152)" };
+    ? { face: "oklch(0.15 0.018 18)", rim: "oklch(0.46 0.157 18 / 0.7)", text: "oklch(0.92 0.02 18)", dim: "oklch(0.72 0.106 18)" }
+    : { face: "oklch(0.145 0.016 152)", rim: "oklch(0.42 0.118 152 / 0.7)", text: "oklch(0.92 0.02 152)", dim: "oklch(0.7 0.091 152)" };
   return (
     <div
       data-card={side}
@@ -1167,16 +1180,25 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
       }}
     >
       <div
-        className="rounded-lg border p-2.5 shadow-pop"
+        data-reading=""
+        className="relative rounded-[4px] border p-2.5"
         /* No entrance: a card that grows on arrival is a performance, and this is
-   something you open fifty times an hour. */
+   something you open fifty times an hour. No lift either: it is a page, not
+   a thing standing on the ground. */
         style={{ background: skin.face, borderColor: skin.rim, color: skin.text }}
       >
-        <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
-          {side === "in" ? <><Sparkles className="size-3" /> what went in</> : <><Wand2 className="size-3" /> what came out</>}
-          <span className="flex-1" />
-          <CopyBit text={side === "in" ? thread.ask : thread.answer} />
+        {/*
+          One word. "What went in" and "what came out" were sentences about
+          the two halves; the halves are Input and Output and that is all the
+          headline says. The copy control sits off the headline, in the
+          corner, because a headline with a button in it is a toolbar.
+        */}
+        <p data-reading-head={side} className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>
+          {side === "in" ? "Input" : "Output"}
         </p>
+        <span className="absolute right-2 top-1.5">
+          <CopyBit text={side === "in" ? thread.ask : thread.answer} />
+        </span>
         {side === "in" ? (
           <WentIn thread={thread} skin={skin} element={element} />
         ) : (

@@ -25,7 +25,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { useActions } from "@/core/actions";
 import { IterationBook } from "./BriefDialog";
-import { headlineOf } from "./Timeline";
+import { headlineOf, Drawn } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { useStudio } from "./store";
@@ -406,5 +406,67 @@ function Convert({ skin, label, icon, blurb, onClick, disabled }: { skin: Skin; 
       <span className="flex items-center gap-1.5 text-[11px]">{icon}{label}</span>
       <span className="text-[10px] leading-snug" style={{ color: skin.dim }}>{blurb}</span>
     </button>
+  );
+}
+
+/**
+ * The side panel's face of the timeline: the card you clicked, and only it.
+ *
+ * The panel used to leave when the timeline opened, which took away the one
+ * place a person reads what went into a thing. It stays now, and in the
+ * timeline it is this: the open card's own Input, its own Output, its
+ * drawing when it has one, and what it cost — that card's, not the goes
+ * before it and not the one being worked in. Click another card and this
+ * is that one instead.
+ */
+export function TimelinePanel() {
+  const openId = useStudio((s) => s.openThreadId);
+  const threads = useStudio((s) => s.threads);
+  const open = threads.find((t) => t.id === openId) ?? null;
+  const ctx = useActions();
+  if (!open) {
+    return (
+      <div data-timeline-panel="" data-timeline-panel-empty="" className="p-3">
+        <p className="text-[11px] leading-relaxed" style={{ color: FIELD.dim }}>
+          Click a card on the timeline to read exactly what went into it and what came out.
+        </p>
+      </div>
+    );
+  }
+  const element = open.mode === "drawing";
+  const skin = element ? PURPLE : FIELD;
+  const u = open.usage;
+  const bill = u ? sayBill({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer }) : "";
+  const Block = ({ head, text, what }: { head: "Input" | "Output"; text: string; what: string }) => (
+    <section data-panel-block={head.toLowerCase()} className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
+      <div className="mb-1 flex items-center">
+        <span className="text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{head}</span>
+        <span className="flex-1" />
+        <Button variant="ghost" size="xs" onClick={() => void ctx.copy(text, what)} style={{ color: skin.dim }}>
+          <Copy className="size-3" />
+        </Button>
+      </div>
+      <p className="whitespace-pre-wrap text-[12px] leading-snug" style={{ color: skin.text }}>
+        {text || `nothing ${head === "Input" ? "was typed with this one" : "came back"}`}
+      </p>
+    </section>
+  );
+  return (
+    <div data-timeline-panel="" data-timeline-panel-of={open.id} className="flex min-h-0 flex-col">
+      <div className="border-b px-3 py-2" style={{ borderColor: skin.rim, background: skin.raised }}>
+        <p className="line-clamp-2 text-[12px] font-medium leading-snug" style={{ color: skin.text }}>{threadTitle(open)}</p>
+        <p className="mt-0.5 text-[10px]" style={{ color: skin.dim }}>{open.mode}</p>
+      </div>
+      {open.sketch?.strokes?.length ? (
+        <div className="flex items-center justify-center border-b py-2" style={{ borderColor: skin.rim }}>
+          <Drawn sketch={open.sketch} size={72} tone={skin.lit} />
+        </div>
+      ) : null}
+      <Block head="Input" text={open.ask} what="the prompt" />
+      <Block head="Output" text={open.answer} what="the answer" />
+      {bill ? (
+        <p className="num px-3 py-2 text-[10px]" style={{ color: skin.dim }}>{bill}</p>
+      ) : null}
+    </div>
   );
 }

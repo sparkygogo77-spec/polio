@@ -90,6 +90,41 @@ check("and stepping off this one says what that go led to", /what that one led t
 check("the pager cannot run off either end", /disabled=\{page === 0\}/.test(timeline) && /disabled=\{page >= goes\.length - 1\}/.test(timeline));
 
 /* ------------------------------------------------------------------ */
+/* 4b. The cards, as J asked: no label, one-word headlines, a panel     */
+/* ------------------------------------------------------------------ */
+
+check("the red box no longer says \"drawing\" across its top", (() => {
+  const head = pieceBlock.slice(0, pieceBlock.indexOf("<Drawn sketch"));
+  return !/>\s*drawing\s*</.test(head) && !/<Brush className="size-3" \/>\s*drawing/.test(head);
+})());
+check("but keeps the pin, the flag and the state on that row", /<CurrentButton thread=\{thread\} on=\{current\} \/>[\s\S]{0,80}<StateMark thread=\{thread\} \/>/.test(pieceBlock));
+
+const cardBlock = timeline.slice(timeline.indexOf("function Card("), timeline.indexOf("function Bill("));
+// The words a person sees, not the comments explaining why they changed.
+const cardShown = cardBlock.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "");
+check("a detail box headlines exactly Input or Output and nothing more",
+  /\{side === "in" \? "Input" : "Output"\}/.test(cardShown) && !/what went in/.test(cardShown) && !/what came out/.test(cardShown));
+check("the copy control is off the headline, in the corner", (() => {
+  const head = cardBlock.indexOf('data-reading-head={side}');
+  const copy = cardBlock.indexOf("<CopyBit");
+  const headEnd = cardBlock.indexOf("</p>", head);
+  return head > 0 && copy > headEnd;
+})());
+check("a detail box is the reading family, not another card: no lift, squarer, near-neutral face",
+  /data-reading=""/.test(cardBlock) && !/shadow-pop/.test(cardBlock) && /rounded-\[4px\]/.test(cardBlock)
+  && /face: "oklch\(0\.15 0\.018 18\)"/.test(cardBlock) && /face: "oklch\(0\.145 0\.016 152\)"/.test(cardBlock));
+check("its colour lives in a hairline rim rather than a filled face", /rim: "oklch\([\d. ]+ 18 \/ 0\.7\)"/.test(cardBlock));
+
+const studio = readFileSync("src/features/studio/StudioPage.tsx", "utf8");
+check("the side panel stays up in the timeline", /\{book && libraryOpen \? \(/.test(studio) && /data-side-panel-timeline=""/.test(studio));
+check("and in the timeline it carries the card you clicked", /<TimelinePanel \/>/.test(studio));
+const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
+check("that panel reads the open card, and only it", /const open = threads\.find\(\(t\) => t\.id === openId\) \?\? null;/.test(detail.slice(detail.indexOf("export function TimelinePanel"))));
+check("with its own Input and Output, distinctly",
+  /<Block head="Input" text=\{open\.ask\}/.test(detail) && /<Block head="Output" text=\{open\.answer\}/.test(detail));
+check("and says what to do when nothing is open", /data-timeline-panel-empty=""/.test(detail));
+
+/* ------------------------------------------------------------------ */
 /* 5. Nothing else moved                                               */
 /* ------------------------------------------------------------------ */
 

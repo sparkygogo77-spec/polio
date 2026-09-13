@@ -33,7 +33,7 @@ import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
 import { Timeline } from "./Timeline";
-import { TimelineDetail } from "./TimelineDetail";
+import { TimelineDetail, TimelinePanel } from "./TimelineDetail";
 import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -677,6 +677,22 @@ export function StudioPage() {
           have in your hand: pick something and its own tabs are there, at the
           front; pick nothing and it is Look and Motion, as before.
         */}
+        {/*
+          …and it never leaves for the timeline. It used to: the aside was
+          the board's, so opening the timeline took away the one place a
+          person reads what went into a thing. In the timeline it carries
+          the card you clicked instead of the board's tabs.
+        */}
+        {book && libraryOpen ? (
+          <aside data-side-panel="" data-side-panel-timeline="" className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 md:flex">
+            <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2 text-[10px] uppercase tracking-[0.14em] text-fg-muted">
+              This card
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <TimelinePanel />
+            </div>
+          </aside>
+        ) : null}
         {design && libraryOpen ? (
           <aside data-side-panel="" className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 md:flex">
             <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
