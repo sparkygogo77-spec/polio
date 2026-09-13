@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Moon, Search, Settings, Sun, Volume2, VolumeX } from "lucide-react";
 import { registry, resolveRoute } from "@/core/registry";
+import { Guarded } from "./Guarded";
 import { useActions } from "@/core/actions";
 import { useUi } from "@/core/ui-state/store";
 import { selectUnread, useNews } from "@/core/news/store";
@@ -88,7 +89,7 @@ export function TopBar() {
             of the bell: work in flight, and anything else that is a glance
             rather than a control. The bar knows none of them by name. */}
         {registry.topBarItems.filter((i) => i.slot === "status").map((i) => (
-          <i.component key={i.id} />
+          <Guarded key={i.id} id={i.id}><i.component /></Guarded>
         ))}
 
         <Tooltip content="News" shortcut="mod+i">
@@ -117,7 +118,7 @@ export function TopBar() {
         {/* What the modules put here: the repository, the key vault. The bar
             knows none of them by name. */}
         {registry.topBarItems.filter((i) => i.slot !== "status").map((i) => (
-          <i.component key={i.id} />
+          <Guarded key={i.id} id={i.id}><i.component /></Guarded>
         ))}
 
         <Tooltip content="Settings" shortcut="mod+,">

@@ -469,12 +469,51 @@ export interface PublishStatus {
   vercel: { hook: boolean };
 }
 
+/** What a caller gets when the route says nothing usable. */
+const NO_PUBLISH: PublishStatus = {
+  github: { configured: false, token: null, repo: null, branch: "main", missing: ["unreachable"] },
+  vercel: { hook: false },
+};
+
+/**
+ * The answer, checked rather than cast.
+ *
+ * `as PublishStatus` is a promise to the compiler and nothing to the runtime:
+ * `{}`, `{"error":…}`, `null` for `github`, a proxy's own error page — all of
+ * them are valid JSON, all of them got past the cast, and the first
+ * `status.github.repo` after that threw inside render and took the whole
+ * Builder down to two buttons. Measured, in `bar-survives`: five shapes out
+ * of seven blanked it.
+ *
+ * So every field is read defensively and the shape that comes out is always
+ * the shape the type says. A route that has lost its mind reads here as a
+ * Builder that cannot publish, which is both true and survivable.
+ */
+function readPublishStatus(raw: unknown): PublishStatus {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return NO_PUBLISH;
+  const o = raw as Record<string, unknown>;
+  const gh = (o.github && typeof o.github === "object" && !Array.isArray(o.github) ? o.github : {}) as Record<string, unknown>;
+  const vc = (o.vercel && typeof o.vercel === "object" && !Array.isArray(o.vercel) ? o.vercel : {}) as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
+  return {
+    github: {
+      configured: gh.configured === true,
+      token: gh.token === "browser" || gh.token === "server" ? gh.token : null,
+      repo: str(gh.repo),
+      branch: str(gh.branch) ?? "main",
+      missing: Array.isArray(gh.missing) ? gh.missing.filter((m): m is string => typeof m === "string") : [],
+      allow: Array.isArray(gh.allow) ? gh.allow.filter((a): a is string => typeof a === "string") : null,
+    },
+    vercel: { hook: vc.hook === true },
+  };
+}
+
 export async function publishStatus(): Promise<PublishStatus> {
   try {
     const res = await fetch("/api/studio/publish", { cache: "no-store", headers: publisherHeader() });
-    return (await res.json()) as PublishStatus;
+    return readPublishStatus(await res.json());
   } catch {
-    return { github: { configured: false, token: null, repo: null, branch: "main", missing: ["unreachable"] }, vercel: { hook: false } };
+    return NO_PUBLISH;
   }
 }
 
