@@ -63,7 +63,7 @@ import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { LiveSite } from "./live/LiveSite";
-import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
+import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadDoc, type ThreadNode } from "./threads";
 import { pictureOf } from "./reshapeRun";
 import { FORM, formOf, formVars, within } from "./formation";
 import { useStudio } from "./store";
@@ -1355,6 +1355,30 @@ function IterationBox({
 }
 
 /**
+ * Which parts on the site are this update's own doing.
+ *
+ * Worked out from the two documents rather than from the sentences
+ * `diffDocs` writes about them: those read "+ Top bar placed" and
+ * "~ Hero: 240×80 → 240×120", and picking a name back out of a sentence is a
+ * parser waiting to be wrong about a part called "placed". The first update
+ * has nothing before it, so all of it is its own.
+ *
+ * Two things read this: the feature list, which lights them, and the preview,
+ * which frames them when they are not at the top of the page.
+ */
+function ownParts(thread: Thread, parent: Thread | null): { parts: NonNullable<ThreadDoc["nodes"]>; mine: Set<string> } {
+  const parts = (thread.doc?.nodes ?? []).filter((n) => n.label);
+  const before = new Map((parent?.doc?.nodes ?? []).map((n) => [n.id, n]));
+  const first = !parent?.doc;
+  const mine = new Set(parts.filter((n) => {
+    if (first || !before.has(n.id)) return true;
+    const b = before.get(n.id)!;
+    return b.w !== n.w || b.h !== n.h || b.x !== n.x || b.y !== n.y || (b.prompt ?? "") !== (n.prompt ?? "") || b.featureId !== n.featureId;
+  }).map((n) => n.id));
+  return { parts, mine };
+}
+
+/**
  * The prompting that made this update, above the site it made.
  *
  * Two pages, and the second is the point of the first. Page one is what was
@@ -1491,6 +1515,38 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
   const scale = W / Math.max(1, frameWidth);
   const pageId = from?.pages?.some((p) => p.id === from.activePageId) ? from.activePageId : from?.pages?.[0]?.id ?? "";
   const empty = !from?.nodes?.length;
+  /*
+   * WHERE THE FRAME SITS, AND WHY IT IS NOT ALWAYS THE TOP.
+   *
+   * A site is taller than a card and squeezing the whole of it into two
+   * hundred pixels reads as nothing at all, so the frame shows a band of it
+   * — and the top of the page is the right band nearly always, because that
+   * is what a site is. But two updates that both changed something below the
+   * fold would then be the same picture twice, and the preview's job is to
+   * show what *this* update did.
+   *
+   * So: the top, unless everything this update touched is below the band, and
+   * then the band moves to it and the card says it has. Nothing is scaled
+   * differently and nothing is cropped sideways — the frame slides down the
+   * page, which is what a person scrolling to look at it would do.
+   */
+  const threads = useStudio((s) => s.threads);
+  const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
+  const at = React.useMemo(() => {
+    if (!from?.nodes?.length) return { y: 0, moved: false };
+    const { mine } = ownParts(thread, parent);
+    const own = (from.nodes as unknown as NonNullable<ThreadDoc["nodes"]>).filter((n) => mine.has(n.id) && typeof n.y === "number");
+    if (!own.length) return { y: 0, moved: false };
+    const top = Math.min(...own.map((n) => n.y ?? 0));
+    const band = H / Math.max(0.001, scale);
+    // A part that begins inside the band is already in the picture.
+    if (top < band * 0.82) return { y: 0, moved: false };
+    const bottom = Math.max(...own.map((n) => (n.y ?? 0) + (n.h ?? 0)));
+    const page = Math.max(bottom, ...(from.nodes as unknown as NonNullable<ThreadDoc["nodes"]>).map((n) => (n.y ?? 0) + (n.h ?? 0)));
+    // Centred on what changed where it fits, and never past the end of the page.
+    const want = top - Math.max(0, (band - (bottom - top)) / 2);
+    return { y: Math.max(0, Math.min(want, Math.max(0, page - band))), moved: true };
+  }, [from, thread, parent, scale, H]);
   return (
     <div
       data-site-shot={thread.id}
@@ -1511,16 +1567,30 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
           {from ? "nothing on the site yet" : "no picture of the site was kept with this one"}
         </span>
       ) : (
-        <div style={{ width: frameWidth, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-          <LiveSite
-            pages={from!.pages}
-            nodes={from!.nodes}
-            pageId={pageId!}
-            device="desktop"
-            frameWidth={frameWidth}
-            format={from!.format}
-            look={from!.look}
-          />
+        <div className="relative h-full w-full overflow-hidden">
+          <div style={{ width: frameWidth, transform: `translateY(${-at.y * scale}px) scale(${scale})`, transformOrigin: "top left" }}>
+            <LiveSite
+              pages={from!.pages}
+              nodes={from!.nodes}
+              pageId={pageId!}
+              device="desktop"
+              frameWidth={frameWidth}
+              format={from!.format}
+              look={from!.look}
+            />
+          </div>
+          {/* And it says so. A band that is not the top of the site is a
+              different claim about the picture, and an unlabelled one would
+              read as a site with no masthead. */}
+          {at.moved ? (
+            <span
+              data-site-at="changed"
+              className="absolute right-1 top-1 rounded-sm border px-1 py-px text-[8px] uppercase tracking-[0.12em]"
+              style={{ borderColor: "oklch(0.58 0.14 152)", background: "oklch(0.18 0.05 152 / 0.86)", color: "oklch(0.86 0.1 152)" }}
+            >
+              {Math.round(at.y)}px down · where it changed
+            </span>
+          ) : null}
         </div>
       )}
     </div>
@@ -1539,24 +1609,9 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
 function Features({ thread }: { thread: Thread }) {
   const threads = useStudio((s) => s.threads);
   const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
-  const parts = React.useMemo(() => (thread.doc?.nodes ?? []).filter((n) => n.label), [thread]);
-  /*
-   * Which of them are this update's doing, worked out from the two documents
-   * rather than from the sentences `diffDocs` writes about them. Those read
-   * "+ Top bar placed" and "~ Hero: 240×80 → 240×120", and picking the name
-   * back out of a sentence is a parser waiting to be wrong about a part
-   * called "placed". The first update has nothing before it, so all of it is
-   * its own.
-   */
-  const mine = React.useMemo(() => {
-    const before = new Map((parent?.doc?.nodes ?? []).map((n) => [n.id, n]));
-    const first = !parent?.doc;
-    return new Set(parts.filter((n) => {
-      if (first || !before.has(n.id)) return true;
-      const b = before.get(n.id)!;
-      return b.w !== n.w || b.h !== n.h || (b.prompt ?? "") !== (n.prompt ?? "") || b.featureId !== n.featureId;
-    }).map((n) => n.id));
-  }, [parent, parts]);
+  /* The same rule the preview frames by, so the list and the picture cannot
+     disagree about which parts are this update's. */
+  const { parts, mine } = React.useMemo(() => ownParts(thread, parent), [thread, parent]);
   return (
     <div className="flex min-h-0 shrink-0 flex-col gap-1">
       <span data-headline="" className="line-clamp-1 block text-[10px] text-[oklch(0.72_0.08_152)]">
