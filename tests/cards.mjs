@@ -89,11 +89,21 @@ check("and it is centred, not tucked beside the words", /items-stretch justify-c
  * it, so each stroke is drawn twice.
  */
 {
-  const drawn = timeline.slice(timeline.indexOf("export function Drawn("), timeline.indexOf("export function Drawn(") + 1400);
-  check("the ink is drawn twice: a dark line under it, then the line itself", (() => (
-    /stroke=\{shade\} strokeWidth=\{0\.095\}/.test(drawn) && /stroke=\{tone\} strokeWidth=\{0\.04\}/.test(drawn)
-      && drawn.indexOf("stroke={shade}") < drawn.indexOf("stroke={tone}")
-  ))());
+  const drawn = timeline.slice(timeline.indexOf("export function Drawn("), timeline.indexOf("function Card("));
+  /*
+   * The two widths were pinned as fractions of the view — 0.095 under 0.04 —
+   * and that is the part that had to go: a fraction of the view means the
+   * more a drawing is scaled the fatter its ink, which is why a drawing with
+   * any detail in it closed into a mesh once it was given the whole card.
+   * They are pixels now, read in the viewport rather than in the drawing's
+   * own units, so the pin is the relationship rather than the numbers: dark
+   * first, light second, and the light line the thinner of the two.
+   */
+  check("the ink is drawn twice: a dark line under it, then the line itself", (() => {
+    const dark = /stroke=\{shade\} strokeWidth=\{dark\}/.test(drawn);
+    const lit = /stroke=\{tone\} strokeWidth=\{dark \* ([\d.]+)\}/.exec(drawn);
+    return dark && !!lit && Number(lit[1]) < 1 && drawn.indexOf("stroke={shade}") < drawn.indexOf("stroke={tone}");
+  })());
   check("…and the ink itself is near white, not a red on a red", (() => {
     const tones = [...timeline.matchAll(/<Drawn sketch=[^>]*tone="oklch\(([\d.]+)/g)].map((m) => Number(m[1]));
     return tones.length > 0 && tones.every((l) => l >= 0.95);
