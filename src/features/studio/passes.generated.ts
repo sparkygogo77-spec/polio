@@ -2,9 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T18:01:32.776Z";
+export const GENERATED_AT = "2026-09-14T18:41:55.860Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "2e43475",
+    "when": "2026-09-14T18:41:55+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "4e8239b",
+        "says": "The ink stands off the face, and a drawing is the size of the card",
+        "when": "2026-09-14T18:11:36+00:00",
+        "detail": [
+          "J's two outstanding card items from the same brief. Both are measured before and after rather than eyeballed, by a new suite that reads the real thing: every mark on a card is shot twice, once as it is and once with that one node hidden, so the pixels that changed are the mark and the same pixels in the second shot are the face directly behind it. The number is the mark against its own face, pixel for pixel, never against an average.",
+          "THE INK MATCHING ITS OWN FACE. The cause is worth writing down because it will happen again to anyone picking a colour for this surface: a construct's face is one of J's renders, and a render is not one value. It is near-black between the filaments and bright along them, so a green picked against \"the green\" is picked against an average that exists nowhere on the card. Small print at 0.62 lightness measured 2.81:1 mean and 2.38:1 at its worst pixel, with every one of its core pixels under 4.5:1; the headlines were already fine at 8 to 10:1, which is why this read as some lines blending rather than as the card being dark.",
+          "WCAG contrast against the face right behind the mark, worst pixel first:",
+          "before          after nothing stands on the site   2.38  100% under   5.68   none under 4.5 chain prompt                 2.93   93%       5.27 the feature headline         3.28   76%       5.84 \"and 1 more\", red card       2.86   97%       4.72 unlit feature chip           3.82    3%       5.05"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e0f5f6e",
+    "when": "2026-09-14T18:02:13+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "e0f5f6e",
+        "says": "Regenerate the passes for the zip import, the three slots and the dropped layer",
+        "when": "2026-09-14T18:02:13+00:00",
+        "detail": [
+          "Four passes, all three sessions converged into one tip: a zip's page opened and measured with every request answered from the zip; taking the whole page, so a zip arrives as parts in a surface, locked as it was laid out; three slots earning their place or losing it, with the key going plain; and the third layer on a construct, which is what was dropping the frames, gone.",
+          "That last one is the answer to what I reported this morning — the timeline delivering 33-37 frames per 900ms against ~53, gaps bimodal, 43-47% of them dropped while nothing was happening. Root-caused to the three-layer motion by the session that wrote it, which is how it should go. Measured again on the merged tree below."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "199d336",
     "when": "2026-09-14T18:01:32+00:00",
@@ -856,82 +901,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-13T19:45:43+00:00",
         "detail": [
           "Dijkstra's pass: a boundary is thinned where the space is made, and a hand says so. A new suite and its shots came with it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "71c3424",
-    "when": "2026-09-13T19:45:15+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "956a9b4",
-        "says": "A boundary is thinned where the space is made, and a hand says so",
-        "when": "2026-09-13T19:42:22+00:00",
-        "detail": [
-          "Phase one, re-verified by hand rather than by seed now that hypatia's entry points let a hand reach it. `tests/space-by-hand.mjs` draws the three things a seed never produces: a loop drawn slowly with a stop to look halfway, a loop whose ends do not quite meet, and a loop round a part that is already there, pressed on top of it.",
-          "One real defect, and it is the same shape as the one hypatia found. Nothing thinned a boundary on the way in: a two hundred move loop was kept as two hundred and one points, every one of them persisted and written into a `clip-path: path(…)` the compositor re-parses on every frame while the hole consumes. A drawn stroke has been tidied since the drawing board existed; a boundary never was, and it is the one that pays. `tidyBoundary` drops points within two pixels of the one before and caps at ninety-six, which is `outlinePath`'s own cap for its own reason: past about a hundred points a drawn line has no shape left to lose. It runs in `addSpace` rather than at each door, so the hand, the menu and the wheel all get it and a space is the same record however it arrived. The same loop is ninety-six points now; reverted, the check fails at 201.",
-          "What a hand found that held: a pause does not split a loop in two, ends forty pixels short still close, a press that lands on a part still draws round it, and the part inside is still there with its own panel afterwards. And the claim nothing had ever asked about — that a consumed area becomes drawing space — is true as far as it goes: a pen draws inside an open hole. The note says the rest plainly, that the ink is ink on the page and nothing ties it to the space it was drawn in.",
-          "Three of the first run's failures were the check's own fault and are written into it so nobody repeats them: a loop sized off a part was 348px across and started above the window, an \"open line\" was drawn at y=760 which is the parts shelf, and a gesture that presses in the middle of a part and lets go on the rim is a line with a tail, which the board rightly calls open. A gesture that leaves the pane is not a gesture the board ever sees."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5bb7f9c",
-    "when": "2026-09-13T19:35:14+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "5bb7f9c",
-        "says": "Eleven more suites stop announcing a failed run as a clean one",
-        "when": "2026-09-13T19:35:14+00:00",
-        "detail": [
-          "The same lie as the last commit, swept rather than met one at a time. Eleven suites ended on an unconditional",
-          "console.log(`all good — ${passed}/${results.length}`)",
-          "so a run with failures in it printed \"all good\" and only the count beside it and the exit code disagreed. The sweep prints the tail of each log, so this is the line a person actually reads: cards, connected, drawn-size, formation, imaging, ink, molten, part-colour, part-select, solid and vines could all have reported a break as a pass to anyone who did not check the arithmetic. Most of the suite family already said FAILED when it had failed; these are now the same shape as those.",
-          "No check changed, and none of these eleven is failing — this is the reporting line only."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "72ff852",
-        "says": "Two wiring checks hold their claim, and both suites stop saying \"all good\"",
-        "when": "2026-09-13T19:34:43+00:00",
-        "detail": [
-          "Both failures were greps pinned to a spelling rather than to what they claim, and in both cases the thing they claim had just become more true.",
-          "bill wanted `noteSpend(readCost)` exactly. The call is now `noteSpend(readCost, job.threadId)` — the cost noted on the iteration it belongs to, which is what the check is named after, now saying which iteration out loud. It asserts the cost is noted and lets the call carry whatever else it needs.",
-          "change-made wanted `landThread` destructured as exactly eight names in exactly that order. A ninth arrived — the id a forming box fills in — and nothing about what lands changed. It asserts that `madeId` is one of the things a landing thread is given, which is the claim.",
-          "The third fix is the one worth keeping: both suites ended on `console.log(\"all good — ${passed}/${results.length}\")` with no condition, so a run with a failure in it announced itself as a clean one and only the exit code disagreed. Anyone reading the tail of that log — which is what the sweep prints — was told a lie. They say FAILED now when they have failed. 53/53 and 19/19."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "6126c16",
-        "says": "Regenerate the passes for the space tool, the crescent and the model table",
-        "when": "2026-09-13T19:13:11+00:00",
-        "detail": [
-          "Five passes, all three sessions converged into one tip again: the box forms with the iteration, beginning when the job is queued and completing when it lands; the model table as data a panel can render from; the light outside a hole as a crescent rather than a halo; a live element measured and made a real part of the library; and the space tool and Create, so a space can be made by hand.",
-          "No conflicts, and three new suites came with it — recreate, forming-live and space-entries."
         ],
         "areas": [
           "studio"
