@@ -53,13 +53,13 @@
  * hue and nothing else.
  */
 import * as React from "react";
-import { Brush, ChevronLeft, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Repeat, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, ChevronLeft, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, type View } from "./timelineView";
-import { paintStrand, strandBounds, strandEnvelope, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
+import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
@@ -361,7 +361,6 @@ export function Timeline() {
   const settling = React.useRef(0);
   const [dragging, setDragging] = React.useState<{ id: string; at: Point } | null>(null);
   const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
-  const [loop, setLoop] = React.useState<{ from: string; to: string } | null>(null);
   /** When a drag ended, so the click it fires can be ignored. */
   const dropped = React.useRef(0);
 
@@ -1027,26 +1026,26 @@ export function Timeline() {
           );
         })}
 
-        {/* The loop starter, on the strand between two iterations. */}
-        {cords.map((cord) => {
-          const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
-          const mid = strandMiddle(from, to);
-          return (
-            <LoopStarter
-              key={`${cord.from}->${cord.to}`}
-              at={mid}
-              from={byId.get(cord.from)}
-              to={byId.get(cord.to)}
-              on={loop?.from === cord.from && loop?.to === cord.to}
-              onClick={() => {
-                play("confirm");
-                setLoop({ from: cord.from, to: cord.to });
-                useStudio.getState().openThread(cord.to);
-                window.dispatchEvent(new CustomEvent("studio:loop", { detail: { from: cord.from, to: cord.to } }));
-              }}
-            />
-          );
-        })}
+        {/*
+          The cut line down each vine, and nothing else on a vine.
+
+          There was a small green node at the middle of every strand that
+          opened the pair below. J did not know what it was, and it did not
+          earn the room: pressing either box already opens it. What a vine
+          is *for* is this — one line down its middle, and cutting it takes
+          the iteration out. So the line is the only thing on a vine, and
+          this is the press: an element clipped to the line itself, lifted
+          while anything is being dragged because the vine under it is
+          moving and a press then would be a press on the wrong one.
+        */}
+        {dragging ? null : cords.map((cord) => (
+          <VineCut
+            key={`${cord.from}->${cord.to}`}
+            of={byId.get(cord.to)}
+            at={ends(anchorOf(cord.from), anchorOf(cord.to))}
+            ends={cord.ends}
+          />
+        ))}
       </div>
 
       {menu ? (
@@ -1974,29 +1973,39 @@ function CopyBit({ text }: { text: string }) {
   );
 }
 
-/** The loop starter: what happened between these two, and what to do about it. */
-function LoopStarter({ at, from, to, on, onClick }: { at: Point; from?: Thread; to?: Thread; on: boolean; onClick: () => void }) {
-  if (!from || !to) return null;
+/**
+ * The cut line on a vine: press it and the iteration goes.
+ *
+ * A vine has one line down its middle and this is what it is for. The line
+ * itself is painted on the canvas with the rest of the vine, scored into
+ * the groove at its axis; this is the part that takes a press — an element
+ * clipped to the line's own shape, so a press lands on the line and not on
+ * the board around it, and hovering it lights the line in the construct's
+ * own white so what is about to happen is plain before it happens.
+ *
+ * It cuts the *later* of the two: a vine runs from what came before to what
+ * came out of it, and what the line is between is the iteration at its far
+ * end. Whatever hangs under that re-hangs from its parent (`threads.ts`), so
+ * cutting one iteration out of the middle of a run keeps the rest of the
+ * run.
+ */
+function VineCut({ of, at, ends: pair }: { of?: Thread; at: [Point, Point]; ends: [VineEnd, VineEnd] }) {
+  if (!of) return null;
+  const [from, to] = at;
+  const box = strandBounds(from, to);
+  const d = strandSeam({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y }, { ends: pair });
+  if (!d) return null;
   return (
-    <Tooltip content={`Examine, critique, iterate, from "${headlineOf(from)}" to "${headlineOf(to)}"`}>
+    <Tooltip content={`Cut it, and "${headlineOf(of)}" goes`}>
       <button
         type="button"
-        data-loop-starter=""
+        data-vine-cut={of.id}
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        aria-label="Start a loop between these two updates"
-        className="absolute flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-transform hover:scale-110"
-        style={{
-          left: at.x,
-          top: at.y,
-          background: on ? "oklch(0.7 0.17 152)" : "oklch(0.22 0.066 152)",
-          border: `1px solid ${on ? "oklch(0.86 0.17 152)" : "oklch(0.5 0.157 152)"}`,
-          color: on ? "oklch(0.16 0.026 152)" : "oklch(0.82 0.157 152)",
-          boxShadow: on ? "0 0 14px oklch(0.7 0.17 152 / 0.6)" : "0 2px 8px oklch(0 0 0 / 0.5)",
-        }}
-      >
-        <Repeat className="size-3" />
-      </button>
+        onClick={(e) => { e.stopPropagation(); play("deny"); useStudio.getState().pruneThread(of.id); }}
+        aria-label={`Cut the line, and "${headlineOf(of)}" goes`}
+        className="vine-cut absolute"
+        style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: `path("${d}")` }}
+      />
     </Tooltip>
   );
 }

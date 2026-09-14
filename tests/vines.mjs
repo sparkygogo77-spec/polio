@@ -9,9 +9,13 @@
  *   · a vine takes a wider path than the shortest line, the same way every
  *     time for the same pair, and is longer for it;
  *   · it is not a cable at all: it is the boxes' own construct, stretched
- *     along a path — the near-black core down the middle, the section
- *     easing out through char to deep, and the thin bright rim at each
- *     edge, all read off `molten.css`;
+ *     along a path — the groove down its middle, the field easing out
+ *     through char to deep with the cloud on it, and the rim at each edge,
+ *     all read off `molten.css`, and wide enough for the arrangement to be
+ *     legible at the size a vine actually is;
+ *   · it carries one line down that middle, and cutting it takes the
+ *     iteration out — which is what a vine is for, and the only thing on
+ *     one;
  *   · it is one strand and not two: the section is symmetric, dark down the
  *     axis and lit at both edges, and the colour runs along its length
  *     instead — green where it leaves a board, red where it arrives at a
@@ -97,7 +101,7 @@ check("the section is symmetric about the axis, so there is one strand and not t
   && !/function seamAt\(/.test(strandSrc) && !/const SHIFT =/.test(strandSrc)
 ))());
 check("…so the axis is the darkest part of it and both edges carry the rim",
-  /the axis at nought, the rim at one/.test(strandSrc) && /if \(t < 0\.25\) out\.push\(bark\.core\);/.test(strandSrc));
+  /the axis at nought, the rim at one/.test(strandSrc) && /if \(t < 0\.10\) out\.push\(bark\.core\);/.test(strandSrc));
 /*
  * The colour runs ALONG it instead, and the two ends still never meet:
  * blending them put yellow and then brown through the middle of every vine,
@@ -117,7 +121,7 @@ check("…and that dark is a clamp rather than a colour: pulled to char's lightn
   && /Math\.min\(m\.l, floor\.l\)/.test(strandSrc) && /Math\.min\(m\.c, floor\.c\)/.test(strandSrc)
   && /const floor = lch\(VINE\[ends\[0\]\]\.char\);/.test(strandSrc)
 ))());
-check("two boards of the same kind get no gradient at all", /\} else \{\n      c\.fillStyle = near\[k\]!;/.test(strandSrc));
+check("two boards of the same kind get no gradient at all", /c\.fillStyle = mixed \? ramp\(near\[k\]!, far\[k\]!\) : near\[k\]!;/.test(strandSrc));
 /*
  * The rim was a stop no band could reach. A band is drawn in the colour at
  * its middle, and with eight of them the highest `t` asked for is 0.9375 —
@@ -229,16 +233,17 @@ check("its section is the box's own: core, char, deep, the rim's glow, the rim",
   /const BANDS = 10;/.test(strand) && /function section\(bark: Bark\)/.test(strand)
   && /out\.push\(mix\(core, char,/.test(strand) && /out\.push\(mix\(char, deep,/.test(strand)
   && /out\.push\(mix\(hot, white, 0\.22\)\);/.test(strand));
-check("…in the proportions the face is drawn in: the core a quarter of the way out, char to a half",
-  /if \(t < 0\.25\)/.test(strand) && /t < 0\.45/.test(strand) && /t < 0\.65/.test(strand) && /t < 0\.85/.test(strand));
-check("…and every stop gets two bands, because a rim one band wide is three quarters of a pixel", (() => {
+check("…in the proportions the face is drawn in: a narrow groove, then the field, then the glow and the rim",
+  /if \(t < 0\.10\)/.test(strand) && /t < 0\.30/.test(strand) && /t < 0\.70/.test(strand) && /t < 0\.90/.test(strand));
+check("…and no stop is so thin it cannot be seen: every one of them is a pixel across at least", (() => {
   const bands = Number(/const BANDS = (\d+);/.exec(strand)?.[1]);
   const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
   const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
   const per = new Map();
   for (const t of centres) { const r = edges.findIndex((e) => t < e); per.set(r, (per.get(r) ?? 0) + 1); }
-  return [...per.values()].every((n) => n >= 2);
-})(), `${/const BANDS = (\d+);/.exec(strand)?.[1]} bands`);
+  const band = (STRAND_WIDTH / 2) / bands;
+  return per.size === edges.length + 1 && [...per.values()].every((n) => n * band >= 1);
+})(), `${((STRAND_WIDTH / 2) / Number(/const BANDS = (\d+);/.exec(strand)?.[1])).toFixed(2)}px a band`);
 check("a band is one long fill, not a stroke a step: ten fills for a vine of any length",
   /for \(const side of \[0, 1\] as const\) sidePath\(s, side, k, Math\.min\(BANDS, k \+ 1\.12\), half, c\);/.test(strand) && /c\.fill\(\);/.test(strand));
 check("…and the curve is sampled for smoothness rather than for a twist", (() => {
@@ -250,7 +255,22 @@ check("it is opaque: nothing blended, nothing see-through",
 check("it sits on the ground rather than floating on it", /A shadow under the whole thing/.test(strand));
 check("nothing travels along it, and nothing sits on it",
   !/bright bands running the length/.test(strand) && !/travelling the length/.test(strand) && !/function hotspots\(/.test(strand));
-check("a vine is wide enough for its own section to read", STRAND_WIDTH >= 12 && STRAND_WIDTH <= 18, `${STRAND_WIDTH}`);
+/*
+ * Wide enough for the material to be in it. At fifteen the whole section was
+ * seven and a half pixels a side and every band under a pixel, which is not
+ * a construct seen small — it is a tube with a line down each edge, and J
+ * said so three times.
+ */
+check("a vine is wide enough for its own section to read", STRAND_WIDTH >= 20 && STRAND_WIDTH <= 30, `${STRAND_WIDTH}`);
+check("…and the field is most of it, the way a card's face is most of a card", (() => {
+  const bands = Number(/const BANDS = (\d+);/.exec(strand)?.[1]);
+  const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
+  const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
+  const per = new Map();
+  for (const t of centres) { const r = edges.findIndex((e) => t < e); per.set(r, (per.get(r) ?? 0) + 1); }
+  // The char-to-deep field is region 2, and it takes more bands than any other.
+  return (per.get(2) ?? 0) > Math.max(...[...per.entries()].filter(([k]) => k !== 2).map(([, n]) => n));
+})());
 /*
  * The colour is animated, and not by repainting. The timeline lays two small
  * elements per vine over the canvas — one per half of its length, at that
@@ -303,8 +323,8 @@ check("…clipped to one half of its length each, over the body of it, so the fi
  * 28 and pulled the rims down from 82 and 92 to 65 and 60 — the section
  * flattened and the light taken out of the edges, which is the note.
  */
-check("…over the body of the section only: the core shows through it and the rim sits over it", (() => (
-  /const CLOUD_IN = 2;/.test(strand) && /const CLOUD_OUT = BANDS - 2;/.test(strand)
+check("…over the body of the section only: the groove shows through it and the rim sits over it", (() => (
+  /const CLOUD_IN = 1;/.test(strand) && /const CLOUD_OUT = BANDS - 1;/.test(strand)
 ))());
 check("…and enough of the cloud to read, now that there is a render in it rather than noise", (() => {
   const css = readFileSync("src/core/ui/molten.css", "utf8");
@@ -369,7 +389,40 @@ check("the vines ride the plot's own transform rather than being repainted on a 
 check("only the vines whose ends moved are repainted",
   /const dirty/.test(timeline) && /if \(!dirty\.length\) return;/.test(timeline)
   && /strandBounds\(from, to\)/.test(timeline));
-check("the loop starter is still on the middle of the strand", /strandMiddle\(from, to\)/.test(timeline));
+/*
+ * WHAT A VINE IS FOR, AND THE ONLY THING ON ONE.
+ *
+ * A small green node used to sit at the middle of every strand: it opened
+ * the pair in the section below, which pressing either box already does, and
+ * J did not know what it was. It is gone. What a vine carries instead is one
+ * line down its middle, and cutting that line takes the iteration out — the
+ * later of the two, because a vine runs from what came before to what came
+ * out of it. Whatever hangs under the cut one re-hangs from its parent, so
+ * cutting one out of the middle of a run keeps the run.
+ */
+check("nothing sits on a vine any more: the node at its middle is gone",
+  !/LoopStarter/.test(timeline) && !/data-loop-starter/.test(timeline)
+  && !/dispatchEvent\(new CustomEvent\("studio:loop"/.test(timeline)
+  && !/addEventListener\("studio:loop"/.test(readFileSync("src/features/studio/TimelineDetail.tsx", "utf8")));
+check("a vine carries one line down its middle, scored into the groove at its axis", (() => (
+  /THE CUT LINE, down the middle, and it is what the vine is for/.test(strand)
+  && /export function strandSeam\(/.test(strand) && /export const SEAM_WIDTH = \d+;/.test(strand)
+))());
+check("…and it is faint, or it would be a third rail and a vine would be a cable again", (() => {
+  const a = Number(/c\.globalAlpha = lit \* ([\d.]+);/.exec(strand)?.[1]);
+  return a > 0 && a <= 0.5;
+})(), `${/c\.globalAlpha = lit \* ([\d.]+);/.exec(strand)?.[1]} of the vine's own`);
+check("cutting the line takes the later of the two iterations out", (() => (
+  /function VineCut\(/.test(timeline) && /of=\{byId\.get\(cord\.to\)\}/.test(timeline)
+  && /useStudio\.getState\(\)\.pruneThread\(of\.id\)/.test(timeline)
+))());
+check("…and the press is on the line rather than on the board around it", (() => {
+  const css = readFileSync("src/core/ui/molten.css", "utf8");
+  return /clipPath: `path\("\$\{d\}"\)`/.test(timeline) && /strandSeam\(/.test(timeline)
+    && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{/.test(css);
+})());
+check("…lifted while a box is being dragged, because the vine under it is moving", /\{dragging \? null : cords\.map/.test(timeline));
+check("…and it says what would go before it goes", /Cut it, and "\$\{headlineOf\(of\)\}" goes/.test(timeline));
 
 /* ------------------------------------------------------------------ */
 /* 6. In the browser                                                   */
