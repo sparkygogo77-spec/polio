@@ -6,11 +6,6 @@
  * into the categories and the prompt sections below; and doing that must not
  * move the side panels.
  *
- * The scroll and the wider gutter went in together, as one decision: a
- * full-screen pane makes the board's fit width-held rather than height-held,
- * which grew the frame until there was almost no ground left to take hold of
- * — and dragging bare ground is how the board is panned.
- *
  * The bar is the awkward half to check. This container's browser draws
  * overlay scrollbars, so measuring `offsetWidth - clientWidth` reads zero on
  * every surface whether a bar is suppressed or not — it would pass with the
@@ -67,39 +62,52 @@ check("nothing that scrolls shows a bar", loud.length === 0,
   loud.length ? loud.join(", ") : "every scrolling surface asks for no bar");
 
 /* ------------------------------------------------------------------ */
-/* 2. The middle scrolls past the design box                           */
+/* 2. The pane moves down a full-length page                           */
 /* ------------------------------------------------------------------ */
 
-const mid = page.locator("[data-studio-scroll]");
-const room = await mid.evaluate((e) => ({ view: e.clientHeight, content: e.scrollHeight }));
-check("there is more below the design box than one screen", room.content > room.view + 40,
-  `${room.content} of content in ${room.view} of window`);
+/*
+ * It was the whole column that scrolled, with the shelf below the fold. J
+ * found three things wrong with that at once — the preview took the board
+ * edge to edge, the categories had gone, and the site scrolled in a box —
+ * and they were one thing: the frame was a fixed viewport. The frame is the
+ * whole site now, the pane it stands in is what moves, and the shelf is a
+ * band beside the pane that never goes anywhere.
+ */
+const pane = page.locator("[data-studio-pane]");
+check("the pane is what the site stands in", (await pane.count()) === 1);
+const win = await page.locator("[data-page-window]").evaluate((e) => e.scrollHeight - e.clientHeight);
+check("and nothing scrolls inside the frame", win === 0, `${win}px of inner scroll`);
 
 const before = await page.evaluate(() => ({
-  top: document.querySelector("[data-studio-scroll]").scrollTop,
+  head: Math.round(document.querySelector("[data-frame]").getBoundingClientRect().y),
+  shelf: Math.round(document.querySelector("[data-drawer]")?.getBoundingClientRect().y ?? -1),
   panels: [...document.querySelectorAll("[data-side-panel]")].map((a) => Math.round(a.getBoundingClientRect().top)),
 }));
-await mid.evaluate((e) => { e.scrollTop = e.scrollHeight; });
-await page.waitForTimeout(500);
+const box = await pane.boundingBox();
+await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+for (let i = 0; i < 25; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(25); }
+await page.waitForTimeout(400);
 const after = await page.evaluate(() => ({
-  top: document.querySelector("[data-studio-scroll]").scrollTop,
+  head: Math.round(document.querySelector("[data-frame]").getBoundingClientRect().y),
+  shelf: Math.round(document.querySelector("[data-drawer]")?.getBoundingClientRect().y ?? -1),
   panels: [...document.querySelectorAll("[data-side-panel]")].map((a) => Math.round(a.getBoundingClientRect().top)),
-  shelf: document.querySelector("[data-shelf]")?.getBoundingClientRect().height ?? 0,
 }));
-check("scrolling carries you down past it", after.top > before.top + 40, `${before.top} → ${after.top}`);
-check("and the categories are what you land in", after.shelf > 100, `${Math.round(after.shelf)}px of shelf`);
+check("wheeling over the site moves the surface down it", before.head - after.head > 40,
+  `the frame's head went ${before.head} → ${after.head}`);
 
 /* ------------------------------------------------------------------ */
-/* 3. The side panels hold still while it moves                        */
+/* 3. And nothing beside it moves at all                               */
 /* ------------------------------------------------------------------ */
 
-check("the side panels do not move with it",
+check("the categories stay exactly where they are", Math.abs(after.shelf - before.shelf) < 2,
+  `${before.shelf} → ${after.shelf}`);
+check("and the side panels do not move either",
   before.panels.length > 0 && before.panels.every((t, i) => t === after.panels[i]),
   before.panels.length ? `${before.panels.join(",")} → ${after.panels.join(",")}` : "no side panel was open");
 /* Which is why, rather than a rule holding them: they are not in it. */
-check("because they are outside the scroller, not held still by hand",
+check("because they are outside the pane, not held still by hand",
   await page.evaluate(() => [...document.querySelectorAll("[data-side-panel]")]
-    .every((a) => !document.querySelector("[data-studio-scroll]")?.contains(a))));
+    .every((a) => !document.querySelector("[data-studio-pane]")?.contains(a))));
 
 await browser.close();
 console.log("");
