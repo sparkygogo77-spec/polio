@@ -98,6 +98,30 @@ export function moltenBarClass(kind: MoltenKind = "lantern"): string {
 }
 
 /**
+ * A construct at the size of a key, for chrome rather than for a card.
+ *
+ * One definition, two settings: this is the second. Same stops, same two
+ * layers, same keyframes, same tiles, same seed — the tile asked for
+ * differently, not a second texture. What differs is written once, in
+ * `.molten.molten-key` in `molten.css`, and is four things: the bright cut
+ * of J's render rather than the dark one, a shorter period so the filaments
+ * read as filaments at 28 pixels, a shallow vignette, and an even face with
+ * no dark core, because the core that is depth on a card is a hole on a key.
+ *
+ * Use it for anything the size of a control. It costs nothing measurable:
+ * a construct's cost is its area, and twelve key-sized ones measured free
+ * (`tests/idle-cost.mjs`).
+ *
+ *     <button className={moltenKeyClass("verdant")} style={moltenSeed(id, i)}>
+ *       <span data-molten="" />
+ *       …the word…
+ *     </button>
+ */
+export function moltenKeyClass(kind: MoltenKind = "lantern"): string {
+  return `${moltenClass(kind)} molten-key`;
+}
+
+/**
  * A construct's own share of the shared animations: phase, pace, heading and
  * where in the tile it starts.
  *
