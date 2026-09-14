@@ -135,10 +135,32 @@ const brief = await panel.locator("[data-space-brief]").innerText();
 check("the brief is a complete brief, with the layout in it as shares of the surface",
   /How to read this/.test(brief) && /share of the surface/.test(brief) && /What the backend must provide/.test(brief), brief.split("\n")[0]);
 
+/*
+ * Watched from the press rather than sampled after it.
+ *
+ * This read `data-space-form` once, 300ms after Generate, and wanted it
+ * below 1. Formation does start at QUEUED — 0.04, a hair of vine, because
+ * the thing has begun and nothing has landed — but with the models stubbed
+ * both parts land in well under 300ms, so by the time it looked the surface
+ * had finished forming and the single sample read 1. The claim is that
+ * forming *starts* when it is asked for, so the attribute is recorded from
+ * the moment of the press and the lowest value it ever showed is what is
+ * asked about. That holds however fast the work behind it finishes.
+ */
+await page.evaluate(() => {
+  window.__form = [];
+  const el = document.querySelector("[data-space]");
+  if (!el) return;
+  const take = () => { const v = el.getAttribute("data-space-form"); if (v !== null) window.__form.push(Number(v)); };
+  take();
+  new MutationObserver(take).observe(el, { attributes: true, attributeFilter: ["data-space-form"] });
+});
 await panel.locator("[data-space-generate]").click();
 await page.waitForTimeout(300);
+const seen = await page.evaluate(() => window.__form ?? []);
 const formingEarly = await page.locator("[data-space]").getAttribute("data-space-form");
-check("it starts forming the moment it is asked for", formingEarly !== null && Number(formingEarly) < 1, `form=${formingEarly}`);
+check("it starts forming the moment it is asked for", seen.some((v) => v < 1),
+  seen.length ? `form went ${seen.join(" → ")}` : `nothing recorded, form=${formingEarly}`);
 check("both drawings are on the queue and off the board", (await page.locator("[data-make-real]").count()) === 0);
 
 check("both land as parts", await settle(2));
