@@ -27,15 +27,28 @@ import { ChevronRight, History, Sparkles, Wrench, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { FIELD, Row, type Skin } from "./TimelineDetail";
-import { KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
+import { KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, versionOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
 
-/** The kinds, in the colours the rest of the Builder already uses for them. */
+/**
+ * The kinds, in the colours the rest of the Builder already uses for them.
+ *
+ * Each is a plate with near-black words on it, so the plate's own lightness
+ * is the whole of whether the word can be read: dark ink at 0.13 needs a
+ * ground above about 0.78 to clear 4.5:1, and three of these four sat under
+ * that — "under it" worst at 2.9:1 and "better" at 3.7. They are all above
+ * it now. `under` stays the quiet one by having almost no colour in it
+ * rather than by being the dark one, which is the same move the second voice
+ * of the text makes.
+ */
 const KIND_LIT: Record<ChangeKind, string> = {
-  new: "oklch(0.76 0.17 300)",
-  better: "oklch(0.66 0.16 158)",
-  fixed: "oklch(0.78 0.15 85)",
-  under: "oklch(0.6 0.03 158)",
+  new: "oklch(0.81 0.16 300)",
+  better: "oklch(0.82 0.15 158)",
+  fixed: "oklch(0.85 0.14 85)",
+  under: "oklch(0.8 0.03 158)",
 };
+
+/** The words on a plate, dark enough that the plate's own lightness carries them. */
+const KIND_INK = "oklch(0.13 0.02 150)";
 
 /**
  * A press outside or Escape closes it, and it stands over nearly everything.
@@ -101,7 +114,7 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {passes.length ? (
               <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2.5">
-                {passes.map((pass) => <PassCard key={pass.id} pass={pass} skin={FIELD} />)}
+                {passes.map((pass, i) => <PassCard key={pass.id} pass={pass} skin={FIELD} at={i} />)}
               </div>
             ) : (
               <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
@@ -121,21 +134,21 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
  * A pass that carried one change is that one change — a heading repeating the
  * only line under it is the shape of a changelog, which is what this is not.
  */
-function PassCard({ pass, skin }: { pass: Pass; skin: Skin }) {
+function PassCard({ pass, skin, at }: { pass: Pass; skin: Skin; at: number }) {
   const lead = leadOf(pass);
   if (!lead) return null;
   const rest = pass.changes.filter((c) => c.id !== lead.id);
 
   if (!rest.length) {
     return (
-      <Row skin={skin} icon={<Sparkles className="size-3" />} title={`${pass.day} · one thing`}>
+      <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${versionOf(pass)} · one thing`}>
         <ChangeLine change={lead} skin={skin} lead />
       </Row>
     );
   }
 
   return (
-    <Row skin={skin} icon={<Sparkles className="size-3" />} title={`${pass.day} · ${sizeOf(pass)}`}>
+    <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${versionOf(pass)} · ${sizeOf(pass)}`}>
       <div className="flex flex-col gap-1">
         {/* The lead is the pass's headline and its first line at once: a
             heading that repeats the line under it is the shape of a
@@ -166,7 +179,7 @@ function ChangeLine({ change, skin, lead }: { change: Change; skin: Skin; lead?:
       >
         <span
           className="mt-[3px] shrink-0 rounded-sm px-1 text-[8.5px] uppercase tracking-[0.1em]"
-          style={{ background: KIND_LIT[change.kind], color: skin.face }}
+          style={{ background: KIND_LIT[change.kind], color: KIND_INK }}
         >
           {KIND_MEANS[change.kind]}
         </span>

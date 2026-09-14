@@ -13,7 +13,7 @@
 import {
   CONSUME_MS, MIN_SPACE, boundaryPath, centroid, consumed, defaultSteps, grownBoundary, isBoundary, isOpen,
   inheritedFrom, moveStep, nodeInSpace, planFor, pointInBoundary, roundBoundary, spaceOf, spaceOfDrawing,
-  tidyBoundary, tidySteps,
+  tidyBoundary, tidySteps, openOf, spaceAtLine, distanceToBoundary,
 } from "../src/features/studio/space.ts";
 import { STEPS } from "../src/features/studio/imageRoute.ts";
 
@@ -135,6 +135,23 @@ check("moving a step puts it where it was dropped", moveStep(STEPS, STEPS.indexO
 check("moving a step nowhere changes nothing", moveStep(STEPS, 1, 9).join(",") === STEPS.join(","));
 
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* One open at a time, and the eraser's hit                             */
+/* ------------------------------------------------------------------ */
+
+{
+  const sp = (id, at, extra = {}) => ({ id, pageId: "p", boundary: roundBoundary(100 * at, 100, 40, 24), since: at, prompt: "", label: "", at, ...extra });
+  check("the open space is the one drawn last, when none has been opened by hand", openOf([sp("a", 1), sp("b", 3), sp("c", 2)])?.id === "b");
+  check("opening one by hand makes it the open one, and closes the newer", openOf([sp("a", 1, { opened: 10 }), sp("b", 3), sp("c", 2)])?.id === "a");
+  check("a surface already made is not a hole, and is never the open one", openOf([sp("a", 1), sp("b", 3, { locked: [{ nodeId: "n", x: 0, y: 0, w: 1, h: 1 }] })])?.id === "a");
+  check("with nothing to open there is no open one", openOf([]) === null && openOf([sp("b", 3, { locked: [{ nodeId: "n", x: 0, y: 0, w: 1, h: 1 }] })]) === null);
+  const big = sp("big", 1); big.boundary = roundBoundary(300, 300, 200, 48);
+  const small = sp("small", 2); small.boundary = roundBoundary(300, 300, 40, 24);
+  check("the eraser on a line takes the space whose line it is, a small hole inside a big one by its own line", spaceAtLine([big, small], 342, 300, 10)?.id === "small" && spaceAtLine([big, small], 502, 300, 10)?.id === "big");
+  check("and inside a hole, off any line, the newest hole the point is in", spaceAtLine([big, small], 300, 180, 10)?.id === "big" && spaceAtLine([big, small], 900, 900, 10) === null);
+  check("the distance to a line is measured to its nearest piece", Math.abs(distanceToBoundary([[0, 0], [100, 0], [100, 100], [0, 100]], 50, 10) - 10) < 1e-9);
+}
 
 const failed = results.filter((ok) => !ok).length;
 console.log(`\n${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}`);

@@ -42,13 +42,24 @@ import { drawOnPart, writeOnPart } from "./RadialMenu";
  * green an iteration is made of; an element prompt's section wears the red
  * its drawing does, below.
  */
+/*
+ * `dim` is the second voice, and it was dim in the wrong sense.
+ *
+ * At 0.7 lightness it measured 4.4:1 through the middle of a construct's
+ * face and 3.6:1 at its worst pixel — under the bar for text that size
+ * everywhere, and under it on the flat panel too, where the same colour does
+ * the same job against a face of 0.175. So it goes up and its chroma comes
+ * down a little: it stays the quieter voice by being less coloured and
+ * smaller than `text`, not by being harder to read. Measured on the boxes,
+ * the worst pixel of a title goes 3.58 to 6.4.
+ */
 export const FIELD = {
   face: "oklch(0.175 0.042 152)",
   raised: "oklch(0.23 0.066 152)",
   rim: "oklch(0.36 0.091 152)",
   lit: "oklch(0.66 0.17 152)",
   text: "oklch(0.93 0.053 152)",
-  dim: "oklch(0.7 0.091 152)",
+  dim: "oklch(0.86 0.07 152)",
 };
 
 /** A drawing's section wears the red its own board does. */
@@ -58,7 +69,7 @@ const PURPLE = {
   rim: "oklch(0.42 0.131 18)",
   lit: "oklch(0.76 0.17 18)",
   text: "oklch(0.94 0.053 18)",
-  dim: "oklch(0.74 0.106 18)",
+  dim: "oklch(0.88 0.08 18)",
 };
 
 export function TimelineDetail() {
@@ -354,14 +365,25 @@ function Iteration({ thread }: { thread: Thread }) {
 export type Skin = typeof FIELD;
 
 /** One band of the section, in the timeline's own colours. */
-export function Row({ skin, icon, title, kind = "verdant", seed = "row", children }: {
+export function Row({ skin, icon, title, kind = "verdant", seed, at, children }: {
   skin: Skin;
   icon: React.ReactNode;
   title: string;
   /** Green under an iteration, red under a drawing: the same rule as above. */
   kind?: MoltenKind;
-  /** Its own offset into the shared drift, so a column of them is not one sheet. */
-  seed?: string;
+  /*
+   * Its own share of the drift, and it is required now.
+   *
+   * It defaulted to the string "row", which meant every caller that did not
+   * think about it got the *same* share — and the panel that did that had
+   * two neighbours measuring 0.99 correlation between their motion, which is
+   * not "alike", it is the same animation on two boxes. A default that makes
+   * a column of constructs one sheet is worse than a compile error.
+   */
+  seed: string;
+  /** Where in the list it sits, so consecutive boxes are guaranteed to run
+      opposite ways rather than merely likely to. */
+  at?: number;
   children: React.ReactNode;
 }) {
   return (
@@ -377,10 +399,13 @@ export function Row({ skin, icon, title, kind = "verdant", seed = "row", childre
      */
     <section
       className={cn(moltenClass(kind), "rounded-lg p-2.5")}
-      style={{ ...moltenSeed(seed), boxShadow: `0 2px 10px oklch(0 0 0 / 0.35)` }}
+      style={{ ...moltenSeed(seed, at), boxShadow: `0 2px 10px oklch(0 0 0 / 0.35)` }}
     >
       <span data-molten="" />
-      <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
+      {/* Slightly more of it, as asked: half a pixel bigger and a weight up,
+          which is as far as a label over a headline can go before it starts
+          competing with the thing it labels. */}
+      <p className="mb-1.5 flex items-center gap-1.5 text-[9.5px] font-medium uppercase tracking-[0.16em]" style={{ color: skin.dim }}>
         {icon} {title}
       </p>
       {children}

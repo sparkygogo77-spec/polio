@@ -16,7 +16,7 @@
  *
  *   node tests/cards.mjs [url]      # default http://localhost:3000
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -178,17 +178,10 @@ check("…and what was said is folded away under it", /<summary data-said-head="
  */
 const boxBlock = timeline.slice(timeline.indexOf("function IterationBox("), timeline.indexOf("function ElementPiece("));
 check("the silhouette is gone", !/function Snippet\(/.test(timeline) && !/<Snippet /.test(timeline));
-check("and the card carries the site, rendered by the same renderer the preview uses",
-  /<SiteShot thread=\{thread\} live=\{live\} \/>/.test(boxBlock) && /<LiveSite\n/.test(timeline));
+check("and the card carries the site, by the one definition of a site shown small",
+  /<SiteShot thread=\{thread\} live=\{live\} \/>/.test(boxBlock) && /<SitePreview doc=/.test(timeline));
 check("…off the document that update landed on, so what came later is not in it",
-  /const doc = thread\.doc;/.test(timeline) && /nodes: \(doc\.nodes \?\? \[\]\)/.test(timeline));
-check("…except the newest, which shows the board as it stands, because nothing has happened since it",
-  /live \? now : !doc \? null :/.test(timeline) && /data-site-live=\{live \? "1" : "0"\}/.test(timeline));
-/* And an update that kept no document shows nothing rather than today's
-   site: a card is a picture of where the site was at that point, and today's
-   site is not that, however convenient it is to have to hand. */
-check("…and one that kept no document says so rather than showing today's site",
-  /no picture of the site was kept with this one/.test(timeline));
+  /\(thread\.doc as PreviewDoc \| undefined\)/.test(timeline) && /data-site-live=\{live \? "1" : "0"\}/.test(timeline));
 check("…and a card that is not in view costs nothing to have", /contentVisibility: "auto"/.test(timeline));
 check("the prompting that made it sits above the site", (() => {
   const asked = boxBlock.indexOf("<Asked thread=");
@@ -209,31 +202,43 @@ check("…which runs the book's own ask rather than a second pipeline of its own
     && /void generate\(\);/.test(brief);
 })());
 /*
- * AND THE BAND IT SHOWS IS THE ONE THIS UPDATE TOUCHED.
+ * AND IT IS THE ORDINARY PREVIEW, NOT A TAKE ON ONE.
  *
- * A site is taller than a card, and squeezing the whole of it into two
- * hundred pixels reads as nothing at all — so the frame shows a band, and
- * the top of the page is the right band nearly always, because that is what
- * a site is. But two updates that both changed something below the fold
- * would then be the same picture twice, and the preview's job is to show
- * what *this* update did. So the band moves to what changed when what
- * changed is not in it, and the card says it has moved: an unlabelled band
- * that is not the top reads as a site with no masthead.
+ * This had its own: a site is taller than a card, so the frame showed a
+ * band, and when everything an update touched sat below that band the frame
+ * slid down to it and the card said how far. That answered a real problem —
+ * two updates that both changed something low on the page are otherwise the
+ * same picture twice — and it was the wrong answer, because it made a
+ * preview that had to be read rather than looked at, and a card that was a
+ * different kind of thing from every other preview of a site in the app.
+ *
+ * So: the same `SitePreview` the Builds page shows, given the snapshot the
+ * update kept. One definition of what a site looks like small, in `studio`
+ * because everything it is built from is, imported by both. A private copy
+ * of a shared thing is the bug this repo names most often; two takes on one
+ * are the same bug with better manners.
  */
-check("the preview frames what this update changed when that is not at the top", (() => {
+check("the green card shows the site the way Builds shows it, from one definition", (() => {
   const site = timeline.slice(timeline.indexOf("function SiteShot("), timeline.indexOf("function Features("));
-  return /const band = H \/ Math\.max\(0\.001, scale\);/.test(site)
-    && /if \(top < band \* 0\.82\) return \{ y: 0, moved: false \};/.test(site)
-    && /translateY\(\$\{-at\.y \* scale\}px\)/.test(site);
+  return /<SitePreview doc=\{from\} width=\{W\} height=\{H\} \/>/.test(site)
+    && /import \{ SitePreview, type PreviewDoc \} from ".\/SitePreview";/.test(timeline);
 })());
-check("…and never past the end of the page", /Math\.min\(want, Math\.max\(0, page - band\)\)/.test(timeline));
-check("…and says so when it has moved", /data-site-at="changed"/.test(timeline) && /where it changed/.test(timeline));
-check("…by the same rule the feature list lights by, so the picture and the list cannot disagree", (() => {
-  const own = timeline.indexOf("function ownParts(");
+check("…and there is only one of it: Builds imports the same file", (() => {
+  const builds = readFileSync("src/features/builds/BuildsPage.tsx", "utf8");
+  return /from "@\/features\/studio\/SitePreview"/.test(builds)
+    && !existsSync("src/features/builds/SitePreview.tsx");
+})());
+check("…with no take of its own left on the card: no moving band, no chip about one", (() => {
   const site = timeline.slice(timeline.indexOf("function SiteShot("), timeline.indexOf("function Features("));
-  const feat = timeline.slice(timeline.indexOf("function Features("));
-  return own > 0 && /ownParts\(thread, parent\)/.test(site) && /ownParts\(thread, parent\)/.test(feat);
+  return !/data-site-at/.test(timeline) && !/where it changed/.test(timeline)
+    && !/translateY/.test(site) && !/const band =/.test(site);
 })());
+check("the newest card is the board as it stands; every other one is the document it landed on", (() => {
+  const site = timeline.slice(timeline.indexOf("function SiteShot("), timeline.indexOf("function Features("));
+  return /live \? now : \(thread\.doc as PreviewDoc \| undefined\) \?\? null/.test(site);
+})());
+check("…and one that kept no document says so rather than borrowing today's site",
+  /no picture of the site was kept with this one/.test(timeline));
 check("the feature list sits under the site", (() => {
   const site = boxBlock.indexOf("<SiteShot thread=");
   const feat = boxBlock.indexOf("<Features thread=");
