@@ -244,7 +244,7 @@ interface Pull {
 /* What is on it                                                       */
 /* ------------------------------------------------------------------ */
 
-type SlotId = "anim" | "write" | "more" | "draw" | "duplicate" | "edit" | "look" | "delete";
+type SlotId = "anim" | "write" | "more" | "draw" | "create" | "duplicate" | "edit" | "look" | "delete";
 
 interface Slot {
   id: SlotId;
@@ -276,6 +276,9 @@ const SLOTS: Record<SlotId, Slot> = {
   edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
   look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
   delete: { id: "delete", label: "Delete", icon: Trash2, hue: 18, kind: "action" },
+  /* Only the page's wheel draws this one — see `level1`. A part is already
+     one element; setting an area aside is something you do to a page. */
+  create: { id: "create", label: "Create", icon: CircleDashed, hue: 205, kind: "action" },
 };
 
 const GREEN = 148;
@@ -370,8 +373,22 @@ const SLOTS_BG: Record<SlotId, Slot> = {
   anim: { id: "anim", label: "Motion", icon: Play, hue: 205, kind: "group" },
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
   more: { id: "more", label: "More", icon: Ellipsis, hue: 205, kind: "group" },
-  draw: { id: "draw", label: "Picture", icon: ImagePlus, hue: 205, kind: "action" },
-  duplicate: { id: "duplicate", label: "Cut", icon: Scissors, hue: 205, kind: "action" },
+  /*
+   * The outer top is two now: Draw and Create, side by side and neither
+   * replacing the other, because that is the whole distinction — Draw makes
+   * one element, Create sets an area aside for several. A person choosing
+   * between them has to be able to see both at once, so they are halves of
+   * one quadrant rather than a slab that changes its mind.
+   */
+  draw: { id: "draw", label: "Draw", icon: Brush, hue: 205, kind: "board" },
+  create: { id: "create", label: "Create", icon: CircleDashed, hue: 205, kind: "action" },
+  /*
+   * Picture takes the slot Cut leaves. Cut and Strip were the same thing
+   * twice — both take the background bare and hold it for a paste — and one
+   * of them had to go, which frees the room the split above needed. This is
+   * where Import will grow.
+   */
+  duplicate: { id: "duplicate", label: "Picture", icon: ImagePlus, hue: 205, kind: "action" },
   edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
   look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
   delete: { id: "delete", label: "Strip", icon: Eraser, hue: 18, kind: "action" },
@@ -768,12 +785,28 @@ export function RadialMenu() {
 
   const fire = (id: SlotId) => {
     if (bg) {
-      if (id === "draw") { picture.current?.click(); return; }
-      if (id === "duplicate" || id === "delete") {
+      /* Draw makes one element, on the spot the press landed: the same board
+         a part's own Draw opens, with nothing to reshape yet. */
+      if (id === "draw") {
+        if (!open.at) { play("deny"); return; }
+        openBoard(open.x, open.y, open.at);
+        return;
+      }
+      /* Create sets an area aside for several (`createSpace.ts`). */
+      if (id === "create") {
+        if (!open.at) { play("deny"); return; }
+        createSpaceAt(open.at.x, open.at.y);
+        closeRadial();
+        return;
+      }
+      // Picture moved here when Cut went; Cut and Strip were one thing twice.
+      if (id === "duplicate") { picture.current?.click(); return; }
+      if (id === "delete") {
         const took = s().cutBackground();
         ctx.publish({
           key: "studio:background",
-          title: took ? (id === "delete" ? "The background is stripped bare" : "Background cut") : "The background is already bare",
+          // Only Strip reaches here now, so the branch that named the other one has gone with it.
+          title: took ? "The background is stripped bare" : "The background is already bare",
           body: took ? "⌘V puts it back." : undefined,
           level: took ? "success" : "info",
           source: "studio",
@@ -812,7 +845,15 @@ export function RadialMenu() {
     { slot: slots.anim, d: piece(topA, t1, B.hole, B.mid, shape, B), at: middleOf(topA, t1, B.hole, B.mid, shape, B) },
     { slot: slots.write, d: piece(t1, t2, B.hole, B.mid, shape, B), at: middleOf(t1, t2, B.hole, B.mid, shape, B) },
     { slot: slots.more, d: piece(t2, topB, B.hole, B.mid, shape, B), at: middleOf(t2, topB, B.hole, B.mid, shape, B) },
-    { slot: slots.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) },
+    /* One slab on a part, two on the page: Draw and Create, visible together
+       so the choice between one element and several is a choice you can see
+       rather than a mode you are in. */
+    ...(bg
+      ? [
+        { slot: slots.draw, d: piece(topA, topMid, B.mid, "edge", shape, B), at: middleOf(topA, topMid, B.mid, "edge", shape, B) },
+        { slot: slots.create, d: piece(topMid, topB, B.mid, "edge", shape, B), at: middleOf(topMid, topB, B.mid, "edge", shape, B) },
+      ]
+      : [{ slot: slots.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) }]),
     { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
     { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
     // Looks wears the whole of what it opens: the colour or texture on its

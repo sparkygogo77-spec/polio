@@ -6,6 +6,11 @@
  * into the categories and the prompt sections below; and doing that must not
  * move the side panels.
  *
+ * The scroll and the wider gutter went in together, as one decision: a
+ * full-screen pane makes the board's fit width-held rather than height-held,
+ * which grew the frame until there was almost no ground left to take hold of
+ * — and dragging bare ground is how the board is panned.
+ *
  * The bar is the awkward half to check. This container's browser draws
  * overlay scrollbars, so measuring `offsetWidth - clientWidth` reads zero on
  * every surface whether a bar is suppressed or not — it would pass with the
@@ -62,36 +67,39 @@ check("nothing that scrolls shows a bar", loud.length === 0,
   loud.length ? loud.join(", ") : "every scrolling surface asks for no bar");
 
 /* ------------------------------------------------------------------ */
-/* 2. The panels are outside the middle, whatever the middle does      */
+/* 2. The middle scrolls past the design box                           */
 /* ------------------------------------------------------------------ */
 
-/*
- * The other half of what J asked for — scrolling down past the design box
- * and on into the categories and the prompt sections — is not in, and this
- * says so rather than passing quietly.
- *
- * It works: the middle becomes a scroller, the pane takes a whole screen,
- * and the panels hold still on their own because they are siblings of it
- * rather than children. It was taken out again because it reverses a
- * decision that sixteen checks in `tests/board-layout.mjs` deliberately
- * hold — "the workspace itself never needs scrolling", "the parts shelf is
- * on screen without going looking for it" — and because a full-screen pane
- * makes the board's fit width-held rather than height-held, which grows the
- * frame until there is almost no ground left to pan on. Both are decisions
- * to take on purpose.
- *
- * What can be checked today is the part that makes the rest free when it
- * does land: the panels are not inside the middle, so nothing the middle
- * does can move them.
- */
-const outside = await page.evaluate(() => {
-  const mid = document.querySelector("[data-studio-scroll]");
-  const asides = [...document.querySelectorAll("[data-side-panel]")];
-  return { n: asides.length, all: !!mid && asides.every((a) => !mid.contains(a)) };
-});
-check("the side panels sit outside the middle column", outside.n > 0 && outside.all,
-  `${outside.n} panel${outside.n === 1 ? "" : "s"}, none of them inside it`);
-console.log("  --   not in: scrolling down past the design box into the categories — it reverses board-layout's sixteen checks, so it is a decision rather than a fix");
+const mid = page.locator("[data-studio-scroll]");
+const room = await mid.evaluate((e) => ({ view: e.clientHeight, content: e.scrollHeight }));
+check("there is more below the design box than one screen", room.content > room.view + 40,
+  `${room.content} of content in ${room.view} of window`);
+
+const before = await page.evaluate(() => ({
+  top: document.querySelector("[data-studio-scroll]").scrollTop,
+  panels: [...document.querySelectorAll("[data-side-panel]")].map((a) => Math.round(a.getBoundingClientRect().top)),
+}));
+await mid.evaluate((e) => { e.scrollTop = e.scrollHeight; });
+await page.waitForTimeout(500);
+const after = await page.evaluate(() => ({
+  top: document.querySelector("[data-studio-scroll]").scrollTop,
+  panels: [...document.querySelectorAll("[data-side-panel]")].map((a) => Math.round(a.getBoundingClientRect().top)),
+  shelf: document.querySelector("[data-shelf]")?.getBoundingClientRect().height ?? 0,
+}));
+check("scrolling carries you down past it", after.top > before.top + 40, `${before.top} → ${after.top}`);
+check("and the categories are what you land in", after.shelf > 100, `${Math.round(after.shelf)}px of shelf`);
+
+/* ------------------------------------------------------------------ */
+/* 3. The side panels hold still while it moves                        */
+/* ------------------------------------------------------------------ */
+
+check("the side panels do not move with it",
+  before.panels.length > 0 && before.panels.every((t, i) => t === after.panels[i]),
+  before.panels.length ? `${before.panels.join(",")} → ${after.panels.join(",")}` : "no side panel was open");
+/* Which is why, rather than a rule holding them: they are not in it. */
+check("because they are outside the scroller, not held still by hand",
+  await page.evaluate(() => [...document.querySelectorAll("[data-side-panel]")]
+    .every((a) => !document.querySelector("[data-studio-scroll]")?.contains(a))));
 
 await browser.close();
 console.log("");
