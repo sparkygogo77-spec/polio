@@ -1474,7 +1474,7 @@ function ElementPiece({
           <StateMark thread={thread} />
         </span>
         <span className="flex min-h-0 flex-1 items-center justify-center py-0.5">
-          <Drawn sketch={thread.sketch} size={62} tone="oklch(0.9 0.17 22)" />
+          <Drawn sketch={thread.sketch} size={62} tone="oklch(0.97 0.045 24)" />
         </span>
         <span className="block text-center">
           <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
@@ -1512,20 +1512,32 @@ function thin(stroke: [number, number][], most = 64): [number, number][] {
   return out;
 }
 
-export function Drawn({ sketch, size, tone }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string }) {
+/**
+ * The ink is drawn twice: a dark line under it, then the line itself.
+ *
+ * A card's face is J's render now, and a render is not one value — it is
+ * dark between the filaments and near white along them, so any single ink
+ * colour lands on both. A red line at 0.9 lightness sat at nearly the value
+ * of the face it was on and the drawing disappeared into the card, which is
+ * the note. A near-white line over a near-black one of its own temperature
+ * reads against either: where the face is dark the ink carries it, where a
+ * filament is bright the shade under it carries it, and it is the same
+ * trick the construct already uses — light with the material's own dark
+ * behind it.
+ *
+ * Twice the polylines, and they are a dozen short ones at a thumbnail's
+ * size; a card repaints this when its drawing changes and not otherwise.
+ */
+export function Drawn({ sketch, size, tone, shade = "oklch(0.1 0.02 24 / 0.92)" }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string; shade?: string }) {
   if (!sketch?.strokes?.length) return <Brush className="size-3.5 shrink-0 opacity-70" />;
+  const lines = sketch.strokes.slice(0, 12).map((stroke) => thin(stroke).map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(" "));
   return (
     <svg width={size} height={size} viewBox="0 0 1 1" aria-hidden className="shrink-0">
-      {sketch.strokes.slice(0, 12).map((stroke, i) => (
-        <polyline
-          key={i}
-          points={thin(stroke).map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(" ")}
-          fill="none"
-          stroke={tone}
-          strokeWidth={0.04}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      {lines.map((points, i) => (
+        <polyline key={`u${i}`} points={points} fill="none" stroke={shade} strokeWidth={0.095} strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+      {lines.map((points, i) => (
+        <polyline key={i} points={points} fill="none" stroke={tone} strokeWidth={0.04} strokeLinecap="round" strokeLinejoin="round" />
       ))}
     </svg>
   );
@@ -1787,7 +1799,7 @@ function WentIn({ thread, skin, element }: { thread: Thread; skin: { rim: string
       <div className="flex items-start gap-2">
         {element || at.sketch ? (
           <span className="shrink-0 rounded border p-1" style={{ borderColor: skin.rim, background: "oklch(0.15 0.04 18)" }}>
-            <Drawn sketch={at.sketch} size={72} tone="oklch(0.92 0.17 18)" />
+            <Drawn sketch={at.sketch} size={72} tone="oklch(0.97 0.045 22)" />
           </span>
         ) : null}
         <p className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed">{at.ask || "nothing was typed"}</p>

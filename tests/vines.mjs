@@ -262,7 +262,7 @@ check("a vine is wide enough for its own section to read", STRAND_WIDTH >= 12 &&
  */
 check("the colour moves: the construct's cloud glides over the vine on the boxes' own keyframe", (() => {
   const css = readFileSync("src/core/ui/molten.css", "utf8");
-  return /\.molten-vine > i \{[\s\S]*?animation: molten-drift 150s linear infinite;/.test(css);
+  return /\.molten-vine > i \{[\s\S]*?animation: molten-drift 20s linear infinite;/.test(css);
 })());
 check("…laid over the bark rather than painted on it, so nothing is repainted and nothing is blended", (() => {
   const css = readFileSync("src/core/ui/molten.css", "utf8");

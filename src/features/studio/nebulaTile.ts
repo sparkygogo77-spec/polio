@@ -32,8 +32,25 @@
  * before it can draw anything.
  */
 
-/** The tile wraps on this width and slides exactly it. */
-export const NEBULA_PERIOD = 512;
+/**
+ * The tile wraps on this width and slides exactly it.
+ *
+ * **How much of J's render is in view, and how fast it goes past.** It was
+ * 512, the file's own pixel size, which drew the render at one to one: a
+ * card is about 220 across and 72 tall, so what showed was a third of the
+ * picture's width and a seventh of its height — five or six fat filaments,
+ * read as big lines rather than as cloud. At 180 a card holds more than a
+ * whole tile across and two fifths of its height, and the same filaments
+ * are hairlines in a field of them, which is what a nebula is.
+ *
+ * It is also the speed. The glide is exactly one period per turn of
+ * `molten-drift`, so halving the period halves the distance and doubles
+ * what a given travel does to the picture: at 512 over 150 seconds the
+ * surface crept at three and a half pixels a second and J could only just
+ * see it move. 180 over 20 is nine, and a filament crosses a card in under
+ * half a minute.
+ */
+export const NEBULA_PERIOD = 180;
 
 export type NebulaKind = "verdant" | "ember";
 

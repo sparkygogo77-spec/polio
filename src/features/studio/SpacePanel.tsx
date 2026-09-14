@@ -27,7 +27,7 @@ import { Input } from "@/core/ui/input";
 import { getFeature } from "./catalog";
 import { STEPS, type Step } from "./imageRoute";
 import { KIND_MEANS } from "./shapeKind";
-import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Space } from "./space";
+import { moveStep, planFor, spaceBox, STEP_MEANS, type Plan, type Reading, type Space } from "./space";
 import { choicesFor, readingOf, writePlan } from "./planEdit";
 import { useStudio, type StudioNode } from "./store";
 import { SCREEN_FIELD } from "./PlateEditors";
@@ -105,7 +105,7 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
 }
 
 /** The order, as a list with earlier, later and leave-out keys. One control, two subjects. */
-function Steps({ reading, write }: { reading: ReturnType<typeof planFor>; write: (p: Partial<Plan>) => void }) {
+function Steps({ reading, write }: { reading: Reading; write: (p: Partial<Plan>) => void }) {
   const move = (from: number, to: number) => {
     if (to < 0 || to >= reading.steps.length) return;
     play("tick");
@@ -174,21 +174,6 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
     play("tick");
     write({ model: next });
   };
-  const move = (from: number, to: number) => {
-    if (to < 0 || to >= reading.steps.length) return;
-    play("tick");
-    write({ steps: moveStep(reading.steps, from, to) });
-  };
-  const drop = (st: Step) => {
-    if (reading.steps.length <= 1) return;
-    play("tap");
-    write({ steps: reading.steps.filter((s) => s !== st) });
-  };
-  const add = (st: Step) => {
-    play("tap");
-    write({ steps: [...reading.steps, st] });
-  };
-  const left = STEPS.filter((st) => !reading.steps.includes(st));
   const what = [feature?.name ?? node.featureId, node.kind ? KIND_MEANS[node.kind] : null, node.role ? `a ${node.role}` : null].filter(Boolean).join(" · ");
 
   return (
@@ -239,38 +224,11 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
           </div>
         </section>
 
-        {/* The order */}
+        {/* The order. The same control the space's own panel uses: one
+            step list, two subjects, so they cannot drift apart. */}
         <section>
           <Label>{reading.ordered ? "In your order" : "In this order"}</Label>
-          <ol data-space-steps="" className="space-y-1">
-            {reading.steps.map((st, i) => (
-              <li key={st} data-space-step={st} className="flex items-center gap-1 rounded-md px-1.5 py-1" style={screenFace}>
-                <span className="w-3 text-center font-mono text-[10px]" style={{ color: SCREEN.dim }}>{i + 1}</span>
-                <span className="min-w-0 flex-1 truncate font-mono" style={{ color: SCREEN.ink }}>{STEP_MEANS[st]}</span>
-                <Key title="Earlier" onClick={() => move(i, i - 1)} disabled={i === 0} testId={`space-step-up-${st}`}><ArrowUp /></Key>
-                <Key title="Later" onClick={() => move(i, i + 1)} disabled={i === reading.steps.length - 1} testId={`space-step-down-${st}`}><ArrowDown /></Key>
-                <Key title="Leave this step out" onClick={() => drop(st)} disabled={reading.steps.length <= 1} testId={`space-step-drop-${st}`}><X /></Key>
-              </li>
-            ))}
-          </ol>
-          {left.length ? (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {left.map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  data-space-step-add={st}
-                  onClick={() => add(st)}
-                  className="tactile flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]"
-                  style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
-                  title="Put this step back, at the end"
-                >
-                  <Plus className="size-2.5" />
-                  {STEP_MEANS[st]}
-                </button>
-              ))}
-            </div>
-          ) : null}
+          <Steps reading={reading} write={write} />
         </section>
 
         {/*
