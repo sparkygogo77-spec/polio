@@ -307,8 +307,8 @@ export function ProcessCounter() {
          *
          * So: the same family, flat. `--verdant-body` is the stop the words
          * already sat on and `--verdant-hot` is the edge, so nothing about
-         * the colour changed — only the three moving layers went, which is
-         * also three fewer animated layers in the bar.
+         * the colour changed — only the moving layers went, which is also
+         * two fewer animated layers in the bar.
          *
          * `.process-key` keeps the press: a key that did not go down under
          * the finger would be a picture of a key.

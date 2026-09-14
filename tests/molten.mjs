@@ -255,7 +255,7 @@ check("the still copy is a different size rather than the same one mirrored, whi
 /* 4. Always moving, never demanding                                   */
 /* ------------------------------------------------------------------ */
 
-check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 7, MOLTEN_KEYFRAMES.join(", "));
+check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 6, MOLTEN_KEYFRAMES.join(", "));
 for (const k of MOLTEN_KEYFRAMES) {
   check(`${k} is declared`, new RegExp(`@keyframes ${k}\\b`).test(css));
   check(`${k} says what it is for`, (MOLTEN_MOTION[k] ?? "").length > 20);
@@ -326,23 +326,41 @@ check("no mask is animated: the ones there are still, and cost nothing", (() => 
  * temperatures. That is a photograph being dragged behind a window rather
  * than a surface that is alive, and it was the note.
  *
- * Three layers of the same material now, and no two of them move alike: one
- * slides across, one slides back over a bigger tile at a different rate, and
- * one turns. The same measure: 0.46 green and 0.58 red.
+ * Two layers of the same material now, opposed: one slides across, one
+ * slides back over a bigger tile at a different rate. The same measure, 0.44
+ * to 0.52 green.
  *
- * There was a fourth, a second turning layer the other way, and it was
- * measured out again: a mask is the expensive part of a layer, the second
- * one put pan at thirty boards from 2.8 seconds of task time to 3.6, and the
- * spread was no better with it than without.
+ * TWO, AND NOT THREE. There was a third that turned, and it is the one thing
+ * here that was reverted rather than kept. It cost a quarter to a third of
+ * the timeline's frames while nothing was moving — 14.0 to 15.8 frames per
+ * 900ms at thirty boards with it against 18.2 to 20.4 without, and 11.3
+ * against 16.5 on the run that first found it — because a third composited
+ * layer per construct is the cliff, whatever that layer does. The spread it
+ * was built for was no worse without it and slightly better, green 0.44 to
+ * 0.52 against 0.40 to 0.41 over three runs each, and brightness did not
+ * move (whole-face oklab L 0.2370 to 0.2363 green), so no dial had to be
+ * re-tuned when it came out. The full table is in the stylesheet, at
+ * `[data-molten]::before`.
+ *
+ * So: exactly two moving layers on a face, and a third is a thing to
+ * measure against that table before it goes in.
  */
-check("three layers of the same material, and no two of them move the same way", (() => {
+check("two layers of the same material, and they do not move the same way", (() => {
   const rule = (sel) => new RegExp(`${sel} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "";
-  const front = rule("\\.molten::before"), back = rule("\\.molten::after"), turn = rule("\\[data-molten\\]::before");
+  const front = rule("\\.molten::before"), back = rule("\\.molten::after");
   const of = (r) => /animation: (molten-[a-z]+) ([\d.]+)s[^;]*/.exec(r)?.slice(1).join(" ");
-  const moves = [of(front), of(back), of(turn)];
-  return moves.every(Boolean) && new Set(moves).size === 3
-    && /animation: molten-drift/.test(front) && /animation: molten-ebb/.test(back)
-    && /animation: molten-turn/.test(turn);
+  const moves = [of(front), of(back)];
+  return moves.every(Boolean) && new Set(moves).size === 2
+    && /animation: molten-drift/.test(front) && /animation: molten-ebb/.test(back);
+})());
+check("…and nothing else on a construct moves: the rim node's two are empty", (() => {
+  const both = /\[data-molten\]::before,\n\[data-molten\]::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /content: none;/.test(both) && !/--molten-swirl/.test(css) && !/@keyframes molten-turn\b/.test(css);
+})());
+check("…and the cost of having had a third is written down rather than forgotten", (() => {
+  const note = /\* {3}with the turn\s+([\d.]+)\s+([\d.]+)/.exec(css);
+  return /AND NOTHING TURNING\. THE MEASUREMENT/.test(css) && !!note
+    && /no layer on a card turns/.test(css);
 })());
 check("…and the two sliding ones are near enough in weight that neither is the only thing on the card", (() => {
   const w = (sel) => {
@@ -356,27 +374,6 @@ check("…and the two sliding ones are near enough in weight that neither is the
     return front > 0 && back > 0 && front <= 0.8 && Math.max(front, back) / Math.min(front, back) <= 1.6;
   });
 })(), ["verdant", "ember"].map((k) => `${k} ${/--mo-cloud: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}/${/--mo-cloud-still: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}`).join(", "));
-/*
- * A turning layer cannot be a period wider than the box the way a sliding
- * one can: its corners sweep through the frame, and covering a card at every
- * angle needs a square the size of its diagonal — two and a half times the
- * area, thirty times over. So the margin is alpha rather than pixels: a
- * circle, because a circle is the one shape a rotation leaves alone, already
- * transparent before it reaches a corner. What it costs is stated rather
- * than hidden: the turning reads in the middle of a card and fades before
- * its edges, and the edges are carried by the two sliding layers.
- */
-check("the turning layer is masked to a circle, so no corner of it ever enters the frame", (() => {
-  const swirl = /--molten-swirl: radial-gradient\(([\s\S]*?)\);/.exec(css)?.[1] ?? "";
-  const ends = /rgb\(0 0 0 \/ 0\) (\d+)%/.exec(swirl);
-  return /circle closest-side/.test(swirl) && !!ends && Number(ends[1]) <= 95
-    && (css.match(/mask-image: var\(--molten-swirl\);/g) ?? []).length === 2;
-})());
-check("…and it says so rather than hiding it", /the turning reads\n \* in the middle of a card and fades out before its edges/.test(css));
-check("the turn is one continuous heading, never an oscillation that would land on a beat", (() => {
-  const k = /@keyframes molten-turn \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /from \{ transform: rotate\(0deg\); \}/.test(k) && /to\s+\{ transform: rotate\(360deg\); \}/.test(k);
-})());
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
   // The drawn rim is a named set now, because a temperature with one of J's
   // sprites wears that instead and the ones without still need this. Both
@@ -483,8 +480,29 @@ check("each carries the edge, the flare and the ember on one node",
 check("and each is seeded from its own id", (timeline.match(/moltenSeed\(thread\.id\)/g) ?? []).length === 2);
 
 const key = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
-check("Finish is green, because it is the key to the green boards", /moltenClass\("verdant"\)/.test(key));
-check("and it carries the same edge node", /<span data-molten="" \/>/.test(key));
+/*
+ * The key is the same green, and it is not a construct.
+ *
+ * It was one — the key that opens the green boards made of what they are
+ * made of — and that was reverted on the sibling branch for a reason worth
+ * keeping written down: the material is a slow drift across a surface, and a
+ * key 28px tall in the corner of a bar has no surface for anything to drift
+ * across. It read as noise on a button. So the same family, flat: the stop
+ * the words already sat on for the face and the hot stop for the edge,
+ * which is the whole of what a construct would have given it at that size.
+ *
+ * The pin is on the colours rather than on the class, because the agreement
+ * is that it stays in the family — a second green here is the thing this
+ * file exists to prevent — and on the absence of the surface, so nobody puts
+ * three animated layers back into the bar by accident.
+ */
+check("Finish is the same green as the boards it opens", (() => {
+  const style = /className="process-key[\s\S]*?style=\{\{([\s\S]*?)\}\}/.exec(key)?.[1] ?? "";
+  return /background: "var\(--verdant-body\)"/.test(style) && /borderColor: "var\(--verdant-hot\)"/.test(style);
+})());
+check("…and flat, because a key is too small to be a surface anything drifts across",
+  !/moltenClass\("verdant"\)/.test(key) && !/<span data-molten="" \/>/.test(key)
+  && /has no surface to drift across/.test(key));
 check("the key still presses, because a construct that did not would be a picture of one",
   /process-key/.test(key) && /\.process-key:active/.test(readFileSync("src/app/globals.css", "utf8")));
 check("nothing is painted on top of the light to make it look lit",

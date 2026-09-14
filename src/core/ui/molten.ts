@@ -55,11 +55,10 @@ export const MOLTEN_MEANS: Record<MoltenKind, string> = {
 /** The five stops, hottest to coldest, as the custom properties that hold them. */
 export const MOLTEN_STOPS = ["white", "hot", "body", "deep", "char"] as const;
 
-/** The five keyframes. Every construct on the screen shares exactly these. */
+/** The keyframes. Every construct on the screen shares exactly these. */
 export const MOLTEN_KEYFRAMES = [
   "molten-drift",
   "molten-ebb",
-  "molten-turn",
   "molten-churn",
   "molten-breathe",
   "molten-flare",
@@ -69,8 +68,7 @@ export const MOLTEN_KEYFRAMES = [
 /** What each one is for, in a line, so nobody has to read the stylesheet to know. */
 export const MOLTEN_MOTION: Record<(typeof MOLTEN_KEYFRAMES)[number], string> = {
   "molten-drift": "the face sliding across, one tile's width every 20s",
-  "molten-ebb": "a bigger copy sliding back the other way, its own width every 42s",
-  "molten-turn": "a whole turn, for the layer that rotates instead of sliding, 150s",
+  "molten-ebb": "a bigger copy sliding back the other way, its own width every 47s",
   "molten-churn": "kept for a construct that wants a moving layer of its own; nothing uses it",
   "molten-breathe": "the edge thickening and thinning, 42s",
   "molten-flare": "an occasional run of light along the outline that dies, 74s, visible for a sliver of it",
