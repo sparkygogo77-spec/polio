@@ -2,9 +2,131 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T18:41:55.860Z";
+export const GENERATED_AT = "2026-09-14T19:21:41.923Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "27c269e",
+    "when": "2026-09-14T19:21:41+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "f599e04",
+        "says": "The green card is the preview the Builds page shows, from one definition",
+        "when": "2026-09-14T19:17:00+00:00",
+        "detail": [
+          "J's fourth note, and my earlier one is withdrawn with it.",
+          "The card had its own take on showing a site: a site is taller than a card, so the frame showed a band of it, and when everything an update touched sat below that band the frame slid down to it and the card said how far. That answered a real problem — two updates that both changed something low on the page are otherwise the same picture twice — and it was the wrong answer. It made a preview that had to be read rather than looked at, and a card that was a different kind of thing from every other preview of a site in the app.",
+          "So the card shows what Builds shows: the top of the page, the whole width, scaled down, the fold said with a fade. Nothing to interpret.",
+          "AND THERE IS ONE OF IT. `SitePreview` moved from `builds` into `studio`, because everything it is built out of already lives there — the blocks, the palette, the wash, the frame height — and Builds imports it from its new home. A private copy of a shared thing is the bug this repo names most often; two takes on one thing are the same bug with better manners."
+        ],
+        "areas": [
+          "builds",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7c04ad1",
+        "says": "Erase deletes a space",
+        "when": "2026-09-14T19:14:03+00:00",
+        "detail": [
+          "Canvas.tsx, two declared lines in the eraser's press: when nothing drawn and no part is under it, the space whose line it is on, or failing that the newest space it is inside, goes (`spaceAtLine`, in space.ts)."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "27bdb13",
+        "says": "The light on a hole is an aura, painted once, and one space is open at a time",
+        "when": "2026-09-14T19:14:03+00:00",
+        "detail": [
+          "Five open holes put the board at six frames a second: each repainted its horizon thirty times a second for a breathing nobody could see, and the light was the disc's crescent, a hundred and sixty gradient strokes beamed to the left of every shape, which read as one lamp off the page rather than as things that glow. The light is an even aura now, sized to the shape and capped to the room it has, laid in bands too fine to count, and it is painted once when the hole opens and left; every frame only while it is consuming.",
+          "One space is open at a time: the one opened most recently, drawing counting as opening, so a drawn space opens itself and a document from before needs nothing. The rest are closed lines with what they are for written on them, in the words from their panel, or \"This space\" until there are any, and pressing one opens it. A surface already made is its parts on their ground, never the open hole.",
+          "tests/space-speed.mjs puts the number on it, the same way for both sides: no spaces, five spaces, five lit at once, idle and panned."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "def4e58",
+        "says": "A box says which one it is, not what o'clock it was",
+        "when": "2026-09-14T19:06:59+00:00",
+        "detail": [
+          "J's third note. A box led with the day it landed, and a date is the wrong axis for a timeline: a person reading one wants to know which iteration they are looking at and how far along it is.",
+          "The boxes are numbered from the oldest instead, ten to the point — the first pass this project made is v0.1, and v0.9 is followed by v1.0. As it stands that runs v0.1 to v2.4 over twenty-four passes.",
+          "It is a position in the history, not a release. Nothing here is published or tagged and the number's whole job is to be an ordinal a person can hold in their head and refer to. The day is not deleted, only demoted: a pass still carries `day`, a change still carries `when`, and every folded line still carries its sha, so anything on the panel can still be traced back to the commit it came from.",
+          "Built once into a map rather than looked up per box, because a scan per box while scrolling is a scan per box while scrolling."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "56bda6e",
+        "says": "The second voice reads: the font on a box stands off its own face",
+        "when": "2026-09-14T19:04:55+00:00",
+        "detail": [
+          "J's second note, and the instrument from the last pass is the right one so it is extended rather than replaced: it measured the marks on the timeline's cards, and the boxes on the Updates panel are nothing but words on the same material, which is where a second voice that is too quiet actually costs somebody something.",
+          "MEASURED, on the Updates boxes, worst pixel first:",
+          "before                 after the box's own title      4.42 / 3.98 / 3.76    7.63 / 6.35 / 5.88 \"under it\"               4.04 / 3.45 / 2.90    8.50 / 6.96 / 5.61 \"better\"                 5.39 / 4.49 / 3.66    9.58 / 7.66 / 5.94 \"new\"                    5.92 / 4.18 / 3.79    8.19 / 6.83 / 5.38 the body of a line      10.5+ / 7.7  / 6.5     unchanged",
+          "(middle / tenth-worst in a hundred / worst.) The body text was always fine at 8 to 12:1, which is exactly why this read as some lines fading rather than as a panel being dark."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "194a15f",
+        "says": "Thirty things alight, not one machine: a construct takes its own share",
+        "when": "2026-09-14T18:55:59+00:00",
+        "detail": [
+          "J's first and most important note: individually the boxes look great, together they move as one, which gives the page a single rhythm and reads as a loop rather than as life.",
+          "MEASURED FIRST, on the real screen rather than on the stylesheet. Two shots a beat apart; the difference between them inside one box is that box's motion for that beat, as a picture; reduce each to a common grid so boxes of different sizes can be compared, then correlate each box with the one next to it. One machine is 1.0.",
+          "before   mean 0.614 across 7 pairs, and one pair at 0.987 after    mean 0.139, 0.142, 0.140 over three runs, closest pair 0.370",
+          "0.987 is not \"alike\". That is the same animation on two boxes."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f6ef427",
+    "when": "2026-09-14T18:42:25+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "f6ef427",
+        "says": "Regenerate the passes for the ink standing off the face",
+        "when": "2026-09-14T18:42:25+00:00",
+        "detail": [
+          "Euler's pass: the ink stands off the face, and a drawing is the size of the card, with tests/ink-on-cards.mjs holding it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "2e43475",
     "when": "2026-09-14T18:41:55+00:00",
@@ -825,82 +947,6 @@ export const PASSES: Pass[] = [
         "detail": [
           "Three passes, the three sessions converged into one tip again: the other four colour menus onto the one system; the words always win, so a question that no longer fits is withdrawn and its answer dropped; and the vine as the boxes' own construct drawn out into a line rather than a cable.",
           "No conflicts."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "419979e",
-    "when": "2026-09-13T20:18:00+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "d7fc54f",
-        "says": "The vine is not a cable: it is the boxes' own construct, drawn out into a line",
-        "when": "2026-09-13T20:16:26+00:00",
-        "detail": [
-          "Third time on this, and the note has been the same each time — too threaded, too fake, it should read as the boxes rather than as rope. It was never really about the number of strands. A cord with a bead was cargo in a pipe; four bright strands round a core were frayed; two thick ones were cleaner and still a cable. So there is no cable.",
-          "A vine is a **construct**, the same one the boxes are, stretched along a path. The cross-section of a box — near-black core at the middle, easing out through char to deep, the thin bright rim of `hot` at the edge with a sliver of `white` inside it — run down a curve. The proportions are the face's own (`radial-gradient(… core 0%, core 18%, char 62%, deep 100%)`) and the rim's own (`1px hot at 82%`, `2px white at 22%`, the inner glow at a third), read off `molten.css` rather than chosen to look similar, and held to it by the suite stop for stop.",
-          "**The light comes from within it.** Dark down the middle, lit at both edges — which is what makes a box read as a thing glowing rather than a thing with a shine on it. There is no specular anywhere: the hard line down the lit side was the single thing that made the old one read as wet rope, and it is gone, along with the winding, the pitch, the fibre and the still hotspots.",
-          "**Both colours still run the whole length, and the seam is the dark.** One side of the ribbon is green and the other red, end to end; what shifts is where the seam sits across the width — three-quarters green at a green board, a quarter at a red drawing. The two meet only at the core, the darkest line on it, so they never mix and never go through brown. Two boards of the same kind put the seam down the middle and the rule costs nothing to look at. (The seam was measured the wrong way round on the first go — the near end's colour got the *smaller* share at its own end.)"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0a7e640",
-        "says": "The words always win: a question that no longer fits is withdrawn, and its answer dropped",
-        "when": "2026-09-13T19:55:26+00:00",
-        "detail": [
-          "Two more ways an answer can end up attached to a drawing it no longer matches, both real, both now closed by one rule.",
-          "**Words that arrive while the question is up.** A bare box drawn on a part is asked whether it is a cube, and the job waits. The person then goes and says, in their own words, what the part is — which is a better answer than any of the choices. The question was left standing over a drawing that had since been described, waiting to be answered about nothing. It is withdrawn now: the question is asked again of what is true, and when it would no longer be asked the job goes back on the queue without it.",
-          "**Words edited after answering.** Between answering and the job running — which can be minutes, behind another drawing — the part can be described, and the answer then contradicts it: \"A cube\", against a part now captioned \"the pricing table\". The run folds an answer in only while its question still stands, so the stale one is dropped and the words are what the reader is briefed with.",
-          "`stillAsks(q, sketch, said)` is the whole rule, and it is the same question asked again: false once the drawing has been described or has become a different kind of ambiguous, true only when the very same question would be asked today. The job carries `why` so there is something to compare; one queued before that is judged on the drawing alone."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "fixed"
-      },
-      {
-        "id": "7ed0652",
-        "says": "The other four colour menus move onto the one system",
-        "when": "2026-09-13T19:49:43+00:00",
-        "detail": [
-          "All six are on it now, and the reporting lines from the first commit are checks: every colour menu imports the shared file, none writes a chip size of its own, and the only hand-made \"nothing\" swatch left is the one that is not a colour — the motion row's Ban, which means this element does not animate in, not that it is transparent.",
-          "Three things the four surfaces turned up.",
-          "The wheel's preview badges were the same disease one level up. A badge is not a chip: you read it, you do not pick it. The wheel carries three side by side and every one was its own — the page's colour 18x18 at 4px, a part's aura 15x15 at 4px, a part's hue 34x14 at 3px. Three heights and two corners. PREVIEW gives them one height and one corner and leaves width alone, because width is the badge's own business: the hue badge is wide since it carries five of a part's colours across it, and five stripes in 18px is not five stripes. Measured on the wheel afterwards: 34x18, 18x18, 18x18, all at 6px.",
-          "ColourOverride said \"Site\" in a word among swatches, which is the same \"follow the site\" the console now says with an inherited chip. It says it the same way: the colour it would take, under a folded corner. Its six role blocks stay blocks — they stretch to their grid column, and forcing a chip's width there would leave five gaps — but they take the corner. Seven things in that row now, all 20x20 at 6px, where there had been a text button, five 20px swatches and a colour input at three corners."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "3efef40",
-    "when": "2026-09-13T19:45:43+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "3efef40",
-        "says": "Regenerate the passes for the thinned boundary",
-        "when": "2026-09-13T19:45:43+00:00",
-        "detail": [
-          "Dijkstra's pass: a boundary is thinned where the space is made, and a hand says so. A new suite and its shots came with it."
         ],
         "areas": [
           "studio"
