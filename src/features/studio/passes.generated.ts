@@ -2,9 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-13T22:55:58.330Z";
+export const GENERATED_AT = "2026-09-14T01:06:13.774Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "63a7969",
+    "when": "2026-09-14T01:05:27+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "63a7969",
+        "says": "The chain from a space to the part made inside it, held end to end",
+        "when": "2026-09-14T01:05:27+00:00",
+        "detail": [
+          "Both things asked for landed in 48e3917, which is on trunk. What was missing is the proof that the chain works all the way through rather than link by link, and `tests/space-inherits.mjs` is that: draw a loop by hand, choose black hole, steer the space before anything is in it, draw inside it, press Make real, and the part that lands is inside the space and carries the space's plan and its words. A copy of the plan, so steering the part does not steer the space, and a drawing made real outside every space inherits nothing. 15 of 15.",
+          "The first run of that read as Make real being broken: nothing landed, ever, with no key. It was euler's new question waiting to be answered, \"is this box a cube?\", before anything is spent. A hand answers it, so the check does, and the file says so at the top rather than leaving the next person to rediscover it. The queue is not persisted either, so what says a run is over is a part on the board, not a row in storage.",
+          "One duplication of my own, closed. Adding the space's own panel gave this file a second step list, and hypatia's move to `planEdit` unified the helpers but not the control. There is one `Steps` now and two subjects use it, a part and the space it is in, so they cannot drift apart.",
+          "space-inherits 15/15, space-by-hand 29/29, space 49/49, create-space 28/28, site-read 44/44, recreate 41/41, space-entries 13/13, and hypatia's audit-panel 25/25. Typecheck and build clean."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "d2160e6",
+    "when": "2026-09-13T22:56:24+00:00",
+    "day": "13 September",
+    "changes": [
+      {
+        "id": "d2160e6",
+        "says": "Regenerate the passes for the vine lit from within",
+        "when": "2026-09-13T22:56:24+00:00",
+        "detail": [
+          "Euler's pass: the vine is one strand of the construct, lit from within. strand.ts rewritten and its suite with it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "9ed27d3",
     "when": "2026-09-13T22:55:57+00:00",
@@ -845,129 +890,6 @@ export const PASSES: Pass[] = [
         "detail": [
           "Four passes, both sessions having cross-merged so euler's tip carried hypatia's as well: every iteration forms from nothing, driven by the work; a queue strip in the header showing what is running as bars beside the bell; and the vine as a twisted pair of the boxes' own material.",
           "The merge's one conflict was this file, which is generated, so it is regenerated rather than arbitrated. pan-cost merged clean and now carries both fixes for the same fault — centring before picking a board, and testing the board's middle rather than its whole rectangle."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "a0ae136",
-    "when": "2026-09-13T09:17:45+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "5fefed3",
-        "says": "Regenerate the passes for the timeline's visual system",
-        "when": "2026-09-13T08:58:50+00:00",
-        "detail": [
-          "The Updates entry for the set, read out of git as the rules say: the five commits — one chain, the cards, the box surface, the formation, the vine — appear as the passes they landed in, with their bodies as the lines."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1aa5b7e",
-        "says": "The vine is a twisted pair of the boxes' own material",
-        "when": "2026-09-13T08:58:21+00:00",
-        "detail": [
-          "The fifth of the timeline's visual system. The four-strand cable read as threaded and would not stay; this is the reference: a twisted cable, fewer strands, smoother, its colour moving, made of what the boxes are.",
-          "Two strands, not four, thick, in a tight helix about a dark core — a crossing every seventeen pixels, half again the cable's width, which is a twisted pair; tighter read as a chain of links, looser as a ribbon. Twice the samples a turn, and the grain moves the shade and never the width, which was the lumpiness. The core goes down once, whole, under both strands, and shows only as the seam between them: the old cable put it down between the back strands and the front ones step by step, and where a strand turned away it showed through as a row of dark teeth along the edge.",
-          "Both colours run the whole length. One strand carries one end's colour and the other the other's, end to end; neither ever changes over, so there is no seam anywhere. The ratio is thickness — the green strand fat at a green board and thin at a red drawing, the red one the other way — three to one at either end, never all of one colour, and never a blend: a green-to-red cable is green and red side by side at every point, and brown is not in it. Two boards of the same kind get one colour in two equal strands.",
-          "The same material as the boxes. The strands are the construct's own stops — `deep` shaded, `body` lit, `hot` down the edge facing the light, the same numbers `molten.css` paints the faces and rims with, held to the stylesheet by the test — and the same cloud drifts over them, by the same mechanism: two small elements per vine, one per strand at that strand's temperature, over the canvas, each clipped to its strand's near side (`strandEnvelope`) and carrying the construct's nebula on `molten-drift` at the boxes' rate. Nothing is repainted and nothing is blended; the two clips never overlap, so no colour is ever laid over the other."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0556aa6",
-        "says": "A queue strip in the header: what is running, as bars, beside the bell",
-        "when": "2026-09-13T08:32:32+00:00",
-        "detail": [
-          "Toasts are off, so this and the timeline are how work gets watched. One small bar per task in flight, no words, nothing to press, and when a task finishes its bar goes. Nothing running is no strip at all and the header looks as it always did.",
-          "The two colours are not chosen here. A drawing being read is `ember` and an iteration working on the board is `verdant` — the two temperatures of the shared construct, whose own doc calls `ember` \"a drawing, and the pieces that came off one\" and `verdant` \"an iteration\". The timeline's boxes and the Finish key are the same two, so a red bar up here and a red box down there are the same thing.",
-          "Newest on the right: the row is packed right, so an arriving task lands at the end and shoulders the older ones left.",
-          "A bar is as long as its task has actually got. It first grew on a ninety-second timer, because nothing here knew any better — it looked right and said nothing true. The sibling's formation work landed the model while this was being built, so it reads that instead: `progressOf` turns a drawing job's own step strings into a number, and a running iteration carries `form.p`. One answer to \"how far along is this\", not two. A bar that has stopped growing is now a task that has stopped, which is worth being able to see."
-        ],
-        "areas": [
-          "core",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1dba495",
-        "says": "Every iteration forms from nothing, driven by the work",
-        "when": "2026-09-13T08:21:51+00:00",
-        "detail": [
-          "The fourth of the timeline's visual system. A new iteration is not faded in when it lands; it forms, in stages, as far as its task in the queue has got, and finishes when the task does. Once per iteration, and again on every update to it.",
-          "The order, as J gave it:",
-          "the vine grows from the previous card where the vine arrives, the rim starts and is traced round the box in green while the work is running as the task nears completion the green closes in from the edges the nebula surface grows from zero the centre is the last thing to form",
-          "`formation.ts` is the model: five bands over 0..1, `progressOf(step)` reading the queue's own step strings as milestones (reading 0.15, the trace goes through the middle, the second pass the last stretch), and `formVars` turning one number into the custom properties the stylesheet reads. The store keeps `form: { p, gen }` on a thread — `noteProgress` only climbs, landing is 1, and every update (a pass, a spend, a line) bumps `gen` so the box forms again. Nothing forms on a reload of a thing that did not change."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c5d3350",
-    "when": "2026-09-13T08:47:44+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "c5d3350",
-        "says": "pan-cost brings the boards back before it drags one",
-        "when": "2026-09-13T08:47:44+00:00",
-        "detail": [
-          "The suite threw \"1 boards: no board on screen to drag\" and measured nothing at all, which is its own instrument rather than the timeline.",
-          "It pans 420px sideways, measures that, and then looks for a board still fully on screen to drag — and whether one is there is luck. Measured on this build at 1200x900: with six boards exactly one of the six survives the pan, and with one board the only board there is lands at x 1010 with a width of 248 and overflows the right edge by 66px. Nothing about the pan or the drag changed; the settle draws a lone board larger than it used to, and that was enough to decide whether the suite ran at all.",
-          "So it centres before picking one. That costs nothing measured — the pan row is already taken and the drag row has not started — and it holds at any board count and any box size. All three rows report again.",
-          "pan-weather's \"the embers burned through the pan\" failed in the same sweep and is not in this commit: it passes 10/10 on its own, and it failed while three browsers were competing for a container with no GPU. Noted rather than patched, and watched in the next sweep."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "1bfe4ef",
-        "says": "The model tripwire in cube-part catches models, not the top bar",
-        "when": "2026-09-13T08:30:11+00:00",
-        "detail": [
-          "cube-part went red on the merge, and not on anything about cubes: it timed out waiting for the shelf's search box on a page that had gone blank with \"Cannot read properties of undefined (reading 'repo')\".",
-          "The cause is its own net. The suite stubs everything under /api/studio with `{}` as a tripwire for model calls, and the top bar now reads that family too — GithubButton asks /api/studio/publish on load for the repository this site has. That read reaches GitHub and never a model, so it was miscounted either way: answered with `{}` it takes the whole Builder down, and had it survived, \"publish\" would have landed in `asked` and failed the two checks that say no model was called.",
-          "So the net still catches every studio route, nothing escapes to the network, but the two that reach no model are not counted as one, and the publish status gets the shape the top bar reads, with nothing configured — the honest answer for a test server. 29/29 again.",
-          "Worth passing to whoever owns the top bar, because the test only exposed it: `status?.github.repo` guards `status` and not `status.github`, and publishStatus() casts the response with `as PublishStatus` without checking it, so its catch covers a failed fetch but not a reply of the wrong shape. The route's GET always answers well-formed today, so nothing is broken on the deploy — but one malformed reply blanks the Builder rather than degrading to \"no repository yet\", and that is a lot of blast radius for a tooltip."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "8fe544b",
-        "says": "Regenerate the passes for the zoom, the token and the box surface",
-        "when": "2026-09-13T08:15:12+00:00",
-        "detail": [
-          "Five passes in this sweep. Euler: the cards, with no label on the red box, one-word headlines and a panel that stays; and the box surface, a nebula of its colour painted once and gliding for ever. Hypatia: the GitHub token is the person's and the first publish makes the repo; one zoom, acting on whichever surface is showing; and 121% becoming 100%, the preview drawn at a base of its own.",
-          "The deployed build has no .git, so the Updates list only moves when this file does."
         ],
         "areas": [
           "studio"
