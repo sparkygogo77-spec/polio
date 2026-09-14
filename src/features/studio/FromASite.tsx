@@ -1,27 +1,34 @@
 "use client";
 /**
- * From a site: point at one element on a real page and recreate it here.
+ * From a site, or from a zip: point at something real and recreate it here.
  *
  * The way in for phase two, and it lives on the space's own panel because
  * a black hole is space not yet decided and recreating something real is
  * one way of deciding it.
  *
- * Two presses, and the first is the one that matters: **Read the page**
- * opens the address in the browser the server already has and comes back
- * with a picture of it and a list of what is worth pointing at. Nothing
- * has been recreated at that stage and nothing has been asked of a model.
- * Pressing one of the candidates measures it exactly (`api/studio/element`)
- * and turns the measurements into a real library part (`recreate.ts`),
- * which lands in this space, inherits its plan, and is an ordinary node
- * from that moment: the Inspector edits it, the wheel repaints it.
+ * Two sources, one flow. **Read the page** opens an address in the browser
+ * the server already has (`api/studio/element`); **a zip** is unpacked and
+ * its page opened by the same browser with every request answered out of
+ * the zip (`api/studio/zip`). Either way what comes back is a picture of
+ * the page and a list of what is worth pointing at, and nothing has been
+ * recreated or asked of a model at that stage.
  *
- * **The deadline is at both ends.** The route answers itself inside its
- * own budget; this keeps a longer one of its own for the case where
+ * Then either one thing or the whole page. Pressing a candidate measures
+ * it exactly and turns the measurements into a real library part
+ * (`recreate.ts`), which lands in this space and is an ordinary node from
+ * that moment. **Take the whole page** does that for every block the page
+ * is made of, lays them on the surface in the proportion they had, and
+ * locks the layout, so a page somebody else made arrives the way a page
+ * drawn here does: as parts, in a surface, movable and promptable. The
+ * line it ends with says which blocks reached that bar and which arrived
+ * as something less, because the difference is the point.
+ *
+ * **The deadline is at both ends.** The routes answer themselves inside
+ * their own budgets; this keeps a longer one of its own for the case where
  * nothing arrives at all, and the spinner always stops with a sentence.
- * Every refusal is the route's own words, said here rather than swallowed.
  */
 import * as React from "react";
-import { Globe, Loader2, Search } from "lucide-react";
+import { FileArchive, Globe, LayoutTemplate, Loader2, Search } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { SCREEN, VOID, screenFace } from "@/core/ui/void";
@@ -29,34 +36,27 @@ import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
-import { centroid, type Space } from "./space";
+import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio } from "./store";
+import { lockNow } from "./surfaceRun";
+import { fitToSurface, pageBlocks, saidOf, type Block } from "./zipImport";
 
-interface Candidate {
-  selector: string;
-  what: string;
-  box: { x: number; y: number; w: number; h: number };
-  words: string;
-}
+type Source =
+  | { kind: "site"; url: string; host: string }
+  | { kind: "zip"; file: File; name: string; entry: string };
 
 type Stage =
   | { at: "nothing" }
-  | { at: "reading" }
-  | { at: "picking"; url: string; host: string; page: { width: number; height: number; shot: string }; candidates: Candidate[] }
-  | { at: "making"; selector: string }
+  | { at: "busy"; says: string }
+  | { at: "picking"; source: Source; page: { width: number; height: number; shot: string }; candidates: Block[]; scripts: boolean }
   | { at: "said"; says: string };
 
-/** Ask the route, with a deadline of our own and a sentence for every ending. */
-async function ask(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+/** Ask a route, with a deadline of our own and a sentence for every ending. */
+async function ask(url: string, init: RequestInit): Promise<Record<string, unknown>> {
   const stop = new AbortController();
   const timer = setTimeout(() => stop.abort(), READ_DEADLINE_MS);
   try {
-    const res = await fetch("/api/studio/element", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-      signal: stop.signal,
-    });
+    const res = await fetch(url, { ...init, signal: stop.signal });
     // A gateway's own error page is not JSON. Read it as the status it is.
     const text = await res.text();
     try {
@@ -72,34 +72,72 @@ async function ask(body: Record<string, unknown>): Promise<Record<string, unknow
   }
 }
 
+const askSite = (body: Record<string, unknown>) =>
+  ask("/api/studio/element", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+/** The zip goes with every call: the route keeps nothing between them. */
+const askZip = (file: File, extra: Record<string, string> = {}) => {
+  const form = new FormData();
+  form.set("zip", file, file.name);
+  for (const [k, v] of Object.entries(extra)) form.set(k, v);
+  return ask("/api/studio/zip", { method: "POST", body: form });
+};
+
+const nameOf = (s: Source) => (s.kind === "site" ? s.host.replace(/^www\./, "") : s.name);
+
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
   const [stage, setStage] = React.useState<Stage>({ at: "nothing" });
   const gate = url.trim() ? allowed(url) : null;
+  const busy = stage.at === "busy";
 
   const read = async () => {
     if (!gate?.ok) return;
     play("tick");
-    setStage({ at: "reading" });
-    const r = await ask({ url: gate.url });
+    setStage({ at: "busy", says: "Opening the page…" });
+    const r = await askSite({ url: gate.url });
     if (!r.ok) { setStage({ at: "said", says: String(r.message ?? "That page could not be read.") }); return; }
     setStage({
       at: "picking",
-      url: String(r.url),
-      host: String(r.host),
+      source: { kind: "site", url: String(r.url), host: String(r.host) },
       page: r.page as { width: number; height: number; shot: string },
-      candidates: (r.candidates as Candidate[]) ?? [],
+      candidates: (r.candidates as Block[]) ?? [],
+      scripts: false,
     });
   };
 
-  const take = async (c: Candidate) => {
+  const readZip = async (file: File | null) => {
+    if (!file) return;
+    play("tick");
+    setStage({ at: "busy", says: `Opening ${file.name}…` });
+    const r = await askZip(file);
+    if (!r.ok) { setStage({ at: "said", says: String(r.message ?? "That zip could not be read.") }); return; }
+    setStage({
+      at: "picking",
+      source: { kind: "zip", file, name: String(r.name), entry: String(r.entry) },
+      page: r.page as { width: number; height: number; shot: string },
+      candidates: (r.candidates as Block[]) ?? [],
+      scripts: !!r.scripts,
+    });
+  };
+
+  /** Those elements, measured in full, from whichever source the page came. */
+  const measure = async (source: Source, selectors: string[]): Promise<{ readings: ElementReading[]; width: number } | string> => {
+    const r = source.kind === "site"
+      ? await askSite({ url: source.url, selectors })
+      : await askZip(source.file, { selectors: JSON.stringify(selectors) });
+    if (!r.ok || !Array.isArray(r.readings)) return String(r.message ?? "That could not be measured.");
+    const page = r.page as { width: number } | undefined;
+    return { readings: r.readings as ElementReading[], width: page?.width ?? 1280 };
+  };
+
+  const take = async (c: Block) => {
     if (stage.at !== "picking") return;
     play("tick");
-    const page = stage.page;
-    const url = stage.url;
-    setStage({ at: "making", selector: c.selector });
-    const r = await ask({ url, selector: c.selector });
-    if (!r.ok || !r.reading) { setStage({ at: "said", says: String(r.message ?? "That element could not be measured.") }); return; }
+    const { source } = stage;
+    setStage({ at: "busy", says: "Measuring it…" });
+    const got = await measure(source, [c.selector]);
+    if (typeof got === "string" || !got.readings[0]) { setStage({ at: "said", says: typeof got === "string" ? got : "That element is not on the page any more." }); return; }
 
     /*
      * Measured, and now a real part. Nothing was asked of a model to get
@@ -107,27 +145,65 @@ export function FromASite({ space }: { space: Space }) {
      * (`recreate.ts`), and the words, the colours and the type are the
      * page's own.
      */
-    const reading = r.reading as ElementReading;
-    const made = recreateFrom(reading);
+    const made = recreateFrom(got.readings[0]);
     const store = useStudio.getState();
     // Landed at the middle of the space, so it is inside it and inherits
     // the space's plan the way anything that lands inside does.
     const [cx, cy] = centroid(space.boundary);
     const w = Number(made.patch.w) || 320;
     const h = Number(made.patch.h) || 120;
-    const id = store.addNode(String(made.patch.featureId), Math.round(cx - w / 2), Math.round(cy - h / 2), made.patch);
-    store.setSelection([id]);
+    store.addNode(String(made.patch.featureId), Math.round(cx - w / 2), Math.round(cy - h / 2), made.patch);
+    // Adding picks what was added, which would swap this panel for the
+    // part's. The space stays picked, so the line under this is read where
+    // it was asked for; the part is on the board, a press away.
+    store.setSelection([space.id]);
     play("confirm");
     setStage({
       at: "said",
       says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture is the grounded step's job, so put Make the real thing in the order." : ""}`,
     });
-    void page;
+  };
+
+  /**
+   * The whole page: its blocks, measured, made into parts, and laid on
+   * the surface in the proportion they had; then the layout locked, so
+   * this surface is the page, the way a surface drawn here is its
+   * drawing.
+   */
+  const takeAll = async () => {
+    if (stage.at !== "picking") return;
+    const { source, scripts } = stage;
+    const blocks = pageBlocks(stage.candidates);
+    if (!blocks.length) { setStage({ at: "said", says: `Nothing on the page in ${nameOf(source)} could be made into a part.` }); return; }
+    play("tick");
+    setStage({ at: "busy", says: `Measuring ${blocks.length} block${blocks.length === 1 ? "" : "s"}…` });
+    const got = await measure(source, blocks.map((b) => b.selector));
+    if (typeof got === "string") { setStage({ at: "said", says: got }); return; }
+
+    const store = useStudio.getState();
+    const live = store.spaces.find((sp) => sp.id === space.id) ?? space;
+    const fit = fitToSurface(boundaryBox(live.boundary), got.width, got.readings.map((r) => r.box));
+    // The surface takes the page's proportion at the width it was drawn.
+    store.resizeSpace(space.id, fit.surface);
+    const landed = got.readings.map((reading, i) => {
+      const made = recreateFrom(reading);
+      const at = fit.places[i]!;
+      useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h });
+      return made;
+    });
+    // Locked as the page had it: the layout is the specification.
+    lockNow(space.id);
+    // Adding picks what was added, which would swap this panel for the
+    // last part's. The space stays picked, so the line under this is read
+    // where it was asked for, with the parts on the board beside it.
+    useStudio.getState().setSelection([space.id]);
+    play("confirm");
+    setStage({ at: "said", says: saidOf(landed, nameOf(source), scripts) });
   };
 
   return (
     <section data-from-a-site="">
-      <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a site</div>
+      <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a site, or a zip</div>
 
       <div className="flex items-center gap-1">
         <Input
@@ -142,13 +218,13 @@ export function FromASite({ space }: { space: Space }) {
         <button
           type="button"
           data-site-read=""
-          disabled={!gate?.ok || stage.at === "reading" || stage.at === "making"}
+          disabled={!gate?.ok || busy}
           onClick={() => void read()}
           title="Open the page and list what is worth pointing at"
           className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] disabled:opacity-40"
           style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         >
-          {stage.at === "reading" ? <Loader2 className="size-3 animate-spin" /> : <Globe className="size-3" />}
+          {busy && stage.says.startsWith("Opening the page") ? <Loader2 className="size-3 animate-spin" /> : <Globe className="size-3" />}
           Read
         </button>
       </div>
@@ -158,19 +234,53 @@ export function FromASite({ space }: { space: Space }) {
         <div data-site-refused="" className="mt-1 text-[10px]" style={{ color: "oklch(0.72 0.16 30)" }}>{gate.says}</div>
       ) : null}
 
-      {stage.at === "reading" ? <Waiting says="Opening the page…" /> : null}
-      {stage.at === "making" ? <Waiting says="Measuring it…" /> : null}
+      {/*
+        Or a zip. A file well rather than a second address field: the page
+        is on this machine, and it never leaves it. The label is the
+        button; the input under it is how a browser takes a file.
+      */}
+      <label
+        data-zip-well=""
+        className={cn("tactile mt-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-[10px]", busy && "pointer-events-none opacity-40")}
+        style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
+        title="A zip with a page in it: index.html and what it uses"
+      >
+        <FileArchive className="size-3" />
+        <span className="truncate">{stage.at === "picking" && stage.source.kind === "zip" ? stage.source.name : "Or a zip of a page"}</span>
+        <input
+          type="file"
+          accept=".zip,application/zip,application/x-zip-compressed"
+          data-zip-file=""
+          className="sr-only"
+          disabled={busy}
+          onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; void readZip(f); }}
+        />
+      </label>
+
+      {busy ? <Waiting says={stage.says} /> : null}
 
       {stage.at === "picking" ? (
         <div className="mt-2">
           <div className="mb-1 text-[10px]" style={{ color: VOID.muted }}>
-            {stage.candidates.length} things to point at on {stage.host.replace(/^www\./, "")}
+            {stage.candidates.length} things to point at on {nameOf(stage.source)}
+            {stage.source.kind === "zip" ? `, opened at ${stage.source.entry}` : ""}
           </div>
           {/* The page as it really looks, so a person points at what they can see. */}
           <div className="relative mb-1.5 overflow-hidden rounded" style={{ border: `1px solid ${VOID.rim}` }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img data-site-shot="" alt={`${stage.host} as it looks`} src={`data:image/png;base64,${stage.page.shot}`} className="block w-full" />
+            <img data-site-shot="" alt={`${nameOf(stage.source)} as it looks`} src={`data:image/png;base64,${stage.page.shot}`} className="block w-full" />
           </div>
+          <button
+            type="button"
+            data-site-take-all=""
+            onClick={() => void takeAll()}
+            title="Every block of the page, as parts, laid on this surface in the proportion they had"
+            className="tactile mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
+          >
+            <LayoutTemplate className="size-3" />
+            Take the whole page, {pageBlocks(stage.candidates).length} block{pageBlocks(stage.candidates).length === 1 ? "" : "s"}
+          </button>
           <ul data-site-candidates="" className="max-h-[220px] space-y-1 overflow-y-auto">
             {stage.candidates.slice(0, 24).map((c) => (
               <li key={c.selector}>
