@@ -73,21 +73,16 @@ export function TimelineDetail() {
    */
   const open = threads.find((t) => t.id === openId) ?? threads.find((t) => t.id === currentId) ?? null;
 
-  // The loop starter on a strand opens the pair here, on the critique step.
-  const [loop, setLoop] = React.useState<{ from: string; to: string } | null>(null);
+  /*
+   * The small green node that used to sit mid-strand is gone, and with it
+   * the event it fired: it opened the pair here on the critique step, which
+   * pressing either box already does, and J did not know what it was. What
+   * a vine carries now is its cut line and nothing else.
+   */
   React.useEffect(() => {
-    const on = (e: Event) => {
-      const d = (e as CustomEvent<{ from: string; to: string }>).detail;
-      setLoop(d);
-      setTab("iteration");
-    };
     const toBook = () => setTab("book");
-    window.addEventListener("studio:loop", on);
     window.addEventListener("studio:book", toBook);
-    return () => {
-      window.removeEventListener("studio:loop", on);
-      window.removeEventListener("studio:book", toBook);
-    };
+    return () => window.removeEventListener("studio:book", toBook);
   }, []);
 
   return (
@@ -99,7 +94,7 @@ export function TimelineDetail() {
       {/* Two menus, side by side and separate: this iteration, and the site. */}
       <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5" style={{ borderColor: FIELD.rim }}>
         <Tab on={tab === "iteration"} onClick={() => { play("select"); setTab("iteration"); }} icon={<Repeat className="size-3.5" />}>
-          {open ? "This iteration" : "No iteration open"}
+          {open ? "This update" : "No update open"}
         </Tab>
         <Tab on={tab === "book"} onClick={() => { play("select"); setTab("book"); }} icon={<BookOpen className="size-3.5" />}>
           The iteration book
@@ -118,7 +113,7 @@ export function TimelineDetail() {
           // same words. Only where it lives has moved.
           <IterationBook />
         ) : open ? (
-          <Iteration thread={open} loop={loop} />
+          <Iteration thread={open} />
         ) : (
           <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
             Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to. Press "this iteration" on a box to work in it, and this follows it.
@@ -153,7 +148,7 @@ function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void
 /* One iteration: the prompt, pinned, and what it can become           */
 /* ------------------------------------------------------------------ */
 
-function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to: string } | null }) {
+function Iteration({ thread }: { thread: Thread }) {
   const threads = useStudio((s) => s.threads);
   const trail = useStudio((s) => s.trail);
   const pinned = useStudio((s) => s.pinnedThreads.includes(thread.id));
@@ -166,7 +161,6 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
   const children = threads.filter((t) => t.parentId === thread.id);
   const findings = trail.filter((e) => e.threadId === thread.id && e.stage === "critique");
   const changed = React.useMemo(() => diffDocs(parent?.doc, thread.doc), [parent, thread]);
-  const loopHere = loop && (loop.to === thread.id || loop.from === thread.id);
   /*
    * What this iteration cost, in one line.
    *
@@ -260,7 +254,6 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
           <span>{thread.mode}</span>
           {thread.model ? <span className="truncate">{thread.model}</span> : null}
           {live ? <span style={{ color: skin.lit }}>the board stands on this</span> : null}
-          {loopHere ? <span style={{ color: skin.lit }}><Repeat className="mr-1 inline size-3" />in the loop you opened</span> : null}
           <span className="flex-1" />
           <span>the answer and what changed are on the card above, growing out of the box</span>
         </p>
@@ -322,7 +315,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
           <p className="px-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>turn this into</p>
           <Convert skin={skin} label="Take every finding" icon={<Check className="size-3.5" />} blurb={`${findings.filter((f) => !f.applied).length} prompts to write onto their parts`} disabled={!findings.some((f) => !f.applied)}
             onClick={() => { play("confirm"); for (const f of findings) if (!f.applied) useStudio.getState().applyRevision(f.id); }} />
-          <Convert skin={skin} label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this iteration left it" disabled={live || !thread.doc}
+          <Convert skin={skin} label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this update left it" disabled={live || !thread.doc}
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); }} />
           <Convert skin={skin} label={pinned ? "Unpin it" : "Pin it to the top"} icon={pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />} blurb="Keep it in view while the next ask is written"
             onClick={() => { play(pinned ? "close" : "confirm"); useStudio.getState().togglePinnedThread(thread.id); }} />
@@ -346,7 +339,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
                 onClick={() => { play("confirm"); changeMade("write"); }} />
             </>
           ) : null}
-          <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this iteration live under it"
+          <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this update live under it"
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
           {usage ? (
             <p className="px-1 pt-1 text-[9px]" style={{ color: skin.dim }}>{usage}</p>

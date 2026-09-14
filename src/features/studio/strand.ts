@@ -58,6 +58,15 @@
  * that reads, now that there is a real render in it rather than noise. And
  * it costs no repaint.
  *
+ * **And it carries one line down its middle, which is what it is for.**
+ * Cutting that line takes the iteration at the far end of the vine out of
+ * the run. The line is scored into the groove at the axis rather than laid
+ * on top of it, and it is faint until it is wanted: a bright line down the
+ * middle with a bright rim at each edge would be three rails, and a vine
+ * would be a cable again. The press that lights it and takes it is the
+ * timeline's (`molten.css`, `.vine-cut`); nothing here knows about
+ * pressing.
+ *
  * The path is not the shortest line either. It bows out to one side, always
  * the same side for the same pair, so a run of boxes is joined by curves
  * that take a little room rather than by something pulled taut.
@@ -208,12 +217,14 @@ function mix(a: Lch, b: Lch, u: number): string {
 const BANDS = 10;
 
 /**
- * Which bands the drifting cloud is laid over: the body, and neither end of
- * the section. Inside `CLOUD_IN` is the dark axis, outside `CLOUD_OUT` is
- * the rim, and both are the vine's own light rather than the weather's.
+ * Which bands the drifting cloud is laid over: everything but the seat of
+ * the cut line and the rim. Inside `CLOUD_IN` is the groove the cut line
+ * runs in, outside `CLOUD_OUT` is the rim, and both are the vine's own light
+ * rather than the weather's — exactly as on a card, where the cloud lies on
+ * the face with the core showing through it and the bezel over it.
  */
-const CLOUD_IN = 2;
-const CLOUD_OUT = BANDS - 2;
+const CLOUD_IN = 1;
+const CLOUD_OUT = BANDS - 1;
 
 function section(bark: Bark): string[] {
   const core = lch(bark.core);
@@ -225,12 +236,12 @@ function section(bark: Bark): string[] {
   for (let i = 0; i < BANDS; i++) {
     // The middle of the band, as a share of the half-width.
     const t = (i + 0.5) / BANDS;
-    if (t < 0.25) out.push(bark.core);
-    else if (t < 0.45) out.push(mix(core, char, (t - 0.25) / 0.20));
-    else if (t < 0.65) out.push(mix(char, deep, (t - 0.45) / 0.20));
+    if (t < 0.10) out.push(bark.core);
+    else if (t < 0.30) out.push(mix(core, char, (t - 0.10) / 0.20));
+    else if (t < 0.70) out.push(mix(char, deep, (t - 0.30) / 0.40));
     // The rim's inner glow: the face, warmed towards the rim rather than
     // jumping to it, which is the `inset 0 0 10px -4px` at a third.
-    else if (t < 0.85) out.push(mix(deep, hot, 0.34));
+    else if (t < 0.90) out.push(mix(deep, hot, 0.34));
     // The rim itself, with the white sliver mixed into it.
     else out.push(mix(hot, white, 0.22));
   }
@@ -243,8 +254,17 @@ const SECTION: Record<VineEnd, string[]> = {
   cut: section(VINE.cut),
 };
 
-/** How wide the ribbon is, across both sides of the axis. */
-export const STRAND_WIDTH = 15;
+/**
+ * How wide the ribbon is, across both sides of the axis.
+ *
+ * Wide enough for the material to be in it. At fifteen the whole section —
+ * the groove, the field, the glow and the rim — was seven and a half pixels
+ * a side and every band under a pixel, which is not a construct seen small,
+ * it is a tube with a line down each edge. J said so three times. At
+ * twenty-four there is a field to put the cloud on and the arrangement a
+ * card has is legible at the size a vine actually is.
+ */
+export const STRAND_WIDTH = 24;
 
 /**
  * Where the colour stops being one end's and starts being the other's.
@@ -507,6 +527,34 @@ export function strandEnvelope(
 }
 
 /**
+ * How wide the cut line's own target is, across the ribbon, in pixels.
+ *
+ * The line is what a vine is *for* — cutting it takes the iteration out —
+ * so it has to be pressable without being a thing you press by accident. A
+ * third of the ribbon, centred on the groove the line already sits in.
+ */
+export const SEAM_WIDTH = 7;
+
+/**
+ * The cut line down the middle of a vine, as an SVG path.
+ *
+ * The timeline lays one small element over each vine clipped to this: it is
+ * the thing that takes the press, and hovering it lights the line so what
+ * would be cut is plain before anything is. Two subpaths, one each side of
+ * the axis, because that is what `sidePath` makes.
+ */
+export function strandSeam(
+  from: Point,
+  to: Point,
+  opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone } = {},
+): string {
+  const { s, half, dead } = build(from, to, opts);
+  if (dead || s.length < 2) return "";
+  const k = (SEAM_WIDTH / 2) / half * BANDS;
+  return `${sidePath(s, 0, 0, k, half, null)}${sidePath(s, 1, 0, k, half, null)}`;
+}
+
+/**
  * Draw one vine.
  *
  * Opaque, and built from the middle out: the shadow, then each side of the
@@ -556,6 +604,16 @@ export function paintStrand(
   const near = SECTION[ends[0]]!;
   const far = SECTION[ends[1]]!;
   const floor = lch(VINE[ends[0]].char);
+  /** One band's colour along the run: this end's, the dark, then the other's. */
+  const ramp = (a: string, z: string): CanvasGradient => {
+    const g = c.createLinearGradient(from.x, from.y, to.x, to.y);
+    const dark = dusk(a, z, floor);
+    g.addColorStop(0, a);
+    g.addColorStop(FADE, dark);
+    g.addColorStop(1 - FADE, dark);
+    g.addColorStop(1, z);
+    return g;
+  };
   for (let k = 0; k < BANDS; k++) {
     /*
      * One fill, and the colour along it is the gradient's job rather than
@@ -565,26 +623,53 @@ export function paintStrand(
      * gradient, and a vine still growing is coloured as it will be when it
      * is done.
      */
-    if (mixed) {
-      const g = c.createLinearGradient(from.x, from.y, to.x, to.y);
-      const dark = dusk(near[k]!, far[k]!, floor);
-      g.addColorStop(0, near[k]!);
-      g.addColorStop(FADE, dark);
-      g.addColorStop(1 - FADE, dark);
-      g.addColorStop(1, far[k]!);
-      c.fillStyle = g;
-    } else {
-      c.fillStyle = near[k]!;
-    }
+    c.fillStyle = mixed ? ramp(near[k]!, far[k]!) : near[k]!;
     c.beginPath();
     for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
     c.fill();
   }
 
+  /*
+   * THE CUT LINE, down the middle, and it is what the vine is for.
+   *
+   * One line scored along the axis: the core band either side of it is the
+   * groove it lies in, so it reads as a seam in the material rather than as
+   * a highlight painted along it — dark, then light, then dark, which is
+   * how a scored line looks and is the opposite of the shine on a cable.
+   * It is drawn in the rim's own colour, because the light on a construct
+   * is one light.
+   *
+   * The timeline puts a small element over it to take the press
+   * (`strandSeam`); nothing here knows about pressing.
+   */
+  if (!dead) {
+    /*
+     * Faint, and that is the whole of why it is not a third strand. The
+     * core band either side of it is already a dark groove two pixels
+     * across; a bright line in the middle of it, with a bright rim at each
+     * edge, would be three rails and a vine would be a cable again. A
+     * thread at two fifths is a line scored in the material, and the press
+     * over it takes it white hot when it is wanted (`molten.css`).
+     */
+    c.globalAlpha = lit * 0.4;
+    c.strokeStyle = mixed ? ramp(near[BANDS - 1]!, far[BANDS - 1]!) : near[BANDS - 1]!;
+    c.lineWidth = 1.1;
+    c.beginPath();
+    s.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+    c.stroke();
+  }
+
   c.restore();
 }
 
-/** The middle of a strand, where the loop starter sits. */
+/**
+ * The middle of a strand: the point on the curve, not on the line between
+ * the boxes.
+ *
+ * Nothing sits there any more — a small green node did, and it is gone —
+ * but where the curve's middle is *against* that straight line is how far a
+ * vine bows, which is the thing `tests/vines.mjs` measures.
+ */
 export function strandMiddle(from: Point, to: Point): Point {
   return at(strandPath(from, to), 0.5);
 }

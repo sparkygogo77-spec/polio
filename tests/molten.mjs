@@ -111,8 +111,8 @@ check("there is grain, and it is one shared tile rather than a filter per box",
 check("the face is a nebula tile the stylesheet is handed, one per temperature",
   /--mo-nebula: var\(--nebula-ember, none\)/.test(css) && /--mo-nebula: var\(--nebula-verdant, none\)/.test(css));
 check("the nebula layer is one period wider than the box and slides exactly one period",
-  /width: calc\(100% \+ var\(--nebula-period, 512px\)\)/.test(css)
-  && /to\s+\{ transform: translate3d\(var\(--nebula-period, 512px\), 0, 0\); \}/.test(css));
+  /width: calc\(100% \+ var\(--nebula-period, 180px\)\)/.test(css)
+  && /to\s+\{ transform: translate3d\(var\(--nebula-period, 180px\), 0, 0\); \}/.test(css));
 check("the centre is the darkest part, and it is not black", (() => {
   const core = /--molten-core:\s*oklch\(([\d.]+) ([\d.]+)/.exec(css);
   return !!core && Number(core[1]) > 0.08 && Number(core[1]) < 0.18 && Number(core[2]) > 0.02;
@@ -153,7 +153,7 @@ check("…on both cloud layers, and nowhere else", (() => (
   (css.match(/mask-image: var\(--molten-vignette\);/g) ?? []).length === 4
 ))(), `${(css.match(/mask-image: var\(--molten-vignette\);/g) ?? []).length} of them, prefixed and not`);
 check("the tile keeps its own shape rather than being stretched to the card",
-  /background-size: var\(--nebula-period, 512px\) auto;/.test(css));
+  /background-size: var\(--nebula-period, 180px\) auto;/.test(css));
 /*
  * THE MATCH. J's two tiles are cuts of two different renders and are not the
  * same brightness, so the same pair of cloud opacities over them made the
@@ -172,13 +172,11 @@ check("how much cloud is a dial per temperature, not a number in the rule", (() 
   && /opacity: var\(--mo-cloud, 0\.92\);/.test(css)
   && /opacity: var\(--mo-cloud-still, 0\.38\);/.test(css)
 ))());
-check("the green keeps all of the gliding picture and almost none of the still one", (() => {
+check("the green takes all of the gliding picture and the red three quarters of it", (() => {
   const v = /\.molten-verdant \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /--mo-cloud: 1;/.test(v) && /--mo-cloud-still: 0\.12;/.test(v);
-})());
-check("the red keeps its glide and takes the still one nearly whole, which is what brings it down to meet the green", (() => {
   const e = /\.molten-ember \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /--mo-cloud: 0\.92;/.test(e) && /--mo-cloud-still: 0\.95;/.test(e);
+  return /--mo-cloud: 1;/.test(v) && /--mo-cloud-still: 0\.3;/.test(v)
+    && /--mo-cloud: 0\.75;/.test(e) && /--mo-cloud-still: 0\.75;/.test(e);
 })());
 check("red is still the hotter of the two: neither dial makes the green the brighter card", (() => {
   const dial = (sel, name) => {
@@ -192,11 +190,53 @@ check("red is still the hotter of the two: neither dial makes the green the brig
 check("forming scales the same dials rather than the numbers they replaced",
   /opacity: calc\(var\(--form-surface, 1\) \* var\(--mo-cloud, 0\.92\)\);/.test(css)
   && /opacity: calc\(var\(--form-surface, 1\) \* var\(--mo-cloud-still, 0\.38\)\);/.test(css));
+/*
+ * IT HAS TO READ AS MOVING, AND AS CLOUD.
+ *
+ * Both were notes off a screenshot. The surface crept: one period per turn
+ * of the drift, 512 pixels over 150 seconds, is three and a half pixels a
+ * second, and on the red it was worse than that because the still layer sat
+ * over the moving one. And the tile drew at one to one, so a card held a
+ * third of the picture's width and a seventh of its height — five or six
+ * fat filaments, which read as big lines rather than as cloud.
+ *
+ * One number fixes both, because the glide is exactly one period: a smaller
+ * period is more of the render in view AND more of it going past per second
+ * of the same animation.
+ */
+check("the tile draws small enough that a card holds a field of filaments rather than a few", (() => {
+  const tile = readFileSync("src/features/studio/nebulaTile.ts", "utf8");
+  const p = Number(/export const NEBULA_PERIOD = (\d+);/.exec(tile)?.[1]);
+  // A card is about 220 across: the period has to be under it for a whole
+  // tile to be in view, and the files are 512 square.
+  return p > 0 && p <= 220;
+})(), `${/export const NEBULA_PERIOD = (\d+);/.exec(readFileSync("src/features/studio/nebulaTile.ts", "utf8"))?.[1]}px of a 512px file`);
+check("…and goes past fast enough to be seen moving at a glance", (() => {
+  const tile = readFileSync("src/features/studio/nebulaTile.ts", "utf8");
+  const p = Number(/export const NEBULA_PERIOD = (\d+);/.exec(tile)?.[1]);
+  const secs = Number(/animation: molten-drift ([\d.]+)s/.exec(css)?.[1]);
+  const speed = p / secs;
+  // Plain at a glance and never busy: it crept at 3.4 and it may not race.
+  return speed >= 6 && speed <= 14;
+})(), `${(Number(/export const NEBULA_PERIOD = (\d+);/.exec(readFileSync("src/features/studio/nebulaTile.ts", "utf8"))?.[1]) / Number(/animation: molten-drift ([\d.]+)s/.exec(css)?.[1])).toFixed(1)}px a second`);
+/*
+ * And the one that moves is the one in front. Under a still layer at 0.95 —
+ * which is what the red wore to match the green's brightness — five per
+ * cent of the card was the only part of it that glided, and the card read
+ * as static. A still sheet behind a moving one is depth; in front of one it
+ * is a lid.
+ */
+check("the gliding copy is in front of the still one, or nothing on the card moves", (() => {
+  const before = /\.molten::before \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const after = /\.molten::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const z = (rule) => Number(/z-index: (-?\d+);/.exec(rule)?.[1]);
+  return /animation: molten-drift/.test(before) && /animation: none/.test(after) && z(before) > z(after);
+})());
 check("the still copy is a different size rather than the same one mirrored, which put an axis down every card", (() => {
   // The churn keyframe still mirrors, and nothing uses it; what matters is
   // that the layer itself no longer does.
   const after = /\.molten::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /background-size: calc\(var\(--nebula-period, 512px\) \* 1\.7\) auto;/.test(after) && !/scaleX\(-1\)/.test(after);
+  return /background-size: calc\(var\(--nebula-period, 180px\) \* 1\.7\) auto;/.test(after) && !/scaleX\(-1\)/.test(after);
 })());
 
 /* ------------------------------------------------------------------ */

@@ -51,8 +51,35 @@ export interface View {
 export const SETTLE_MARGIN = 56;
 /** How far out it will pull to take everything in. */
 export const SETTLE_MIN_ZOOM = 0.4;
-/** And it will not push in past life size: fitting is for pulling out. */
-export const SETTLE_MAX_ZOOM = 1;
+/**
+ * How far in it will push, at the very most.
+ *
+ * It used to be 1, on the reasoning that fitting is for pulling out. That is
+ * true of a board covered in work and wrong of the case a person actually
+ * opens on: measured with three updates in a 1272x615 board, the fit stopped
+ * at 1 and the chain covered 26% of it — three cards adrift in the middle of
+ * an empty floor. Fitting is for filling the window with what there is,
+ * whichever direction that means moving.
+ */
+export const SETTLE_MAX_ZOOM = 1.8;
+
+/**
+ * The most one card may take of the window, across.
+ *
+ * This is what stops a single update becoming a poster, and it is why the
+ * ceiling is not a number that depends on the count. A count rule guesses;
+ * this measures — the fewer the updates the more room each has, which is the
+ * same thing arrived at from the card rather than from a table of counts,
+ * and it follows the card's own size, so cards drawn two and a half times
+ * wider are held to the same share of the screen without this changing.
+ */
+export const CARD_SHARE = 0.42;
+
+/** The ceiling for a board this wide showing cards this wide. */
+export function zoomCeiling(viewW: number, cardW: number): number {
+  if (!(viewW > 1) || !(cardW > 1)) return SETTLE_MAX_ZOOM;
+  return Math.max(SETTLE_MIN_ZOOM, Math.min(SETTLE_MAX_ZOOM, (CARD_SHARE * viewW) / cardW));
+}
 /** How long the move takes. Long enough to follow, short enough not to wait on. */
 export const SETTLE_MS = 420;
 
@@ -121,4 +148,28 @@ export function settleView(
 /** Is this view near enough to that one that moving would be fidgeting? */
 export function sameView(a: View, b: View): boolean {
   return Math.hypot(a.pan.x - b.pan.x, a.pan.y - b.pan.y) < 1 && Math.abs(a.zoom - b.zoom) < 0.004;
+}
+
+/**
+ * How many updates go across before the chain wraps.
+ *
+ * The old scatter stepped every update *down* and cycled sideways through
+ * three offsets, so the chain was a column however wide the board was:
+ * measured with eight updates in a 1272x615 board, the set stood 1214 tall
+ * and 563 across, the fit was pinned to the height at 41%, and the chain
+ * covered 15% of the floor with the width unused. A board is landscape and a
+ * column cannot fill one.
+ *
+ * So the run wraps, and where it wraps is a reading of the board rather than
+ * a number: enough across that the set comes out roughly as wide as the
+ * board is, given how tall the rows are. `√(n · aspect)` is the count that
+ * makes a grid match an aspect, rounded to a whole run and never fewer than
+ * one.
+ */
+export function acrossFor(n: number, aspect: number, step: { x: number; y: number }): number {
+  if (n <= 1) return 1;
+  // In steps, not pixels: a row is `x` wide a card and a column `y` tall, so
+  // the shape of the grid is the shape of the set only after that is in.
+  const shape = Math.max(0.1, (aspect * step.y) / step.x);
+  return Math.max(1, Math.min(n, Math.round(Math.sqrt(n * shape))));
 }
