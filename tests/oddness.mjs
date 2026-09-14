@@ -136,10 +136,11 @@ check("the run asks after the catalogue, which is free, and before the read, whi
   return cat > 0 && ask > cat && read > ask;
 })());
 check("…once: a job that has its question is not asked again", /if \(!job\.question\) \{/.test(run));
-/* The assignment, not the declaration. This wanted `const drawn =` and the
-   const moved out to the top of the run so the failure path can see `drawn`
-   too — which is what a throw failing its own job rather than stopping the
-   queue needs. Where the variable is declared is not what this is about. */
+/* The assignment, not the declaration. `drawn` is declared above the try
+   and assigned inside it, so a throw anywhere in here is a failure the job
+   can report rather than a rejection that leaves it running for ever
+   (`tests/two-in-a-row.mjs`). Where the variable is declared is not what
+   this check is about, so it does not ask. */
 check("…and reads the answer back in as words", /\bdrawn = withAnswer\(job\.sketch, answered\)/.test(run));
 check("the cube is no longer offered as a toast after the fact when it was asked before", /const nearly = picked \|\| job\.question \? "" : nearlyCoded\(ctx\);/.test(run));
 check("the runner leaves an asking job alone", /if \(r\.asked\) return;/.test(dq));

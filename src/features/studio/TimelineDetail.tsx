@@ -25,7 +25,7 @@ import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { useActions } from "@/core/actions";
 import { IterationBook } from "./BriefDialog";
-import { headlineOf, Drawn } from "./Timeline";
+import { headlineOf, Drawn, Made } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { useStudio } from "./store";
@@ -434,7 +434,17 @@ export function TimelinePanel() {
   const made = open.madeId ? (nodes.find((n) => n.id === open.madeId) ?? null) : null;
   const u = open.usage;
   const bill = u ? sayBill({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer }) : "";
-  const Block = ({ head, text, what }: { head: "Input" | "Output"; text: string; what: string }) => (
+  /*
+   * Each side leads with the thing and follows with the words.
+   *
+   * The drawing used to sit above both blocks on its own and the output was
+   * a paragraph: "four closed shapes, two of them circles" where the element
+   * itself was two inches away on the board. A description of a thing is not
+   * the thing. So the drawing is *inside* Input, because the drawing is what
+   * went in, and the part is inside Output, live, because the part is what
+   * came out; what Claude said stays under it, as the record of the call.
+   */
+  const Block = ({ head, text, what, show }: { head: "Input" | "Output"; text: string; what: string; show?: React.ReactNode }) => (
     <section data-panel-block={head.toLowerCase()} className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
       <div className="mb-1 flex items-center">
         <span className="text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{head}</span>
@@ -443,6 +453,7 @@ export function TimelinePanel() {
           <Copy className="size-3" />
         </Button>
       </div>
+      {show ? <div className="mb-1.5">{show}</div> : null}
       <p className="whitespace-pre-wrap text-[12px] leading-snug" style={{ color: skin.text }}>
         {text || `nothing ${head === "Input" ? "was typed with this one" : "came back"}`}
       </p>
@@ -454,13 +465,20 @@ export function TimelinePanel() {
         <p className="line-clamp-2 text-[12px] font-medium leading-snug" style={{ color: skin.text }}>{threadTitle(open)}</p>
         <p className="mt-0.5 text-[10px]" style={{ color: skin.dim }}>{open.mode}</p>
       </div>
-      {open.sketch?.strokes?.length ? (
-        <div className="flex items-center justify-center border-b py-2" style={{ borderColor: skin.rim }}>
-          <Drawn sketch={open.sketch} size={72} tone={skin.lit} />
-        </div>
-      ) : null}
-      <Block head="Input" text={open.ask} what="the prompt" />
-      <Block head="Output" text={open.answer} what="the answer" />
+      <Block
+        head="Input"
+        text={open.ask}
+        what="the prompt"
+        show={open.sketch?.strokes?.length ? (
+          <span className="flex items-center justify-center"><Drawn sketch={open.sketch} size={72} tone={skin.lit} /></span>
+        ) : null}
+      />
+      <Block
+        head="Output"
+        text={open.answer}
+        what="the answer"
+        show={open.madeId ? <Made thread={open} skin={skin} width={186} height={120} live /> : null}
+      />
       {/*
         Where the next pass goes. This is the panel a person is looking at
         when they want to change the model, and until now the only way to

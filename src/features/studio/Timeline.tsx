@@ -332,7 +332,6 @@ export function Timeline() {
   const openThreadId = useStudio((s) => s.openThreadId);
   const spots = useStudio((s) => s.threadSpots);
   const pinned = useStudio((s) => s.pinnedThreads);
-  const currentId = useStudio((s) => s.currentThreadId);
 
   const host = React.useRef<HTMLDivElement>(null);
   const plot = React.useRef<HTMLDivElement>(null);
@@ -1008,7 +1007,6 @@ export function Timeline() {
               live={live}
               open={open}
               pinned={pinned.includes(t.id)}
-              current={currentId === t.id}
               dragging={dragging?.id === t.id}
               onOpen={() => {
                 if (Date.now() - dropped.current < 250) return;
@@ -1218,7 +1216,6 @@ function Standing(props: {
   live: boolean;
   open: boolean;
   pinned: boolean;
-  current: boolean;
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.PointerEvent) => void;
@@ -1234,79 +1231,8 @@ function Standing(props: {
  * of the page the iteration produced is the thing you recognise from
  * across the screen, which is what a timeline is for.
  */
-/**
- * Red or green, and nothing else.
- *
- * The only question a box has to answer from across the screen is whether
- * the work behind it finished. Red while a process is still going or gave
- * up, green the moment it is done. Two colours, no shades between them,
- * and no other state allowed in here: a third colour would make it a
- * legend rather than a glance.
- */
-function StateMark({ thread }: { thread: Thread }) {
-  // The one pair, from `threads.ts`, so this and the bar's Finish key cannot
-  // drift into two sets of colours for one idea.
-  const done = processDone(thread.state);
-  return (
-    <span
-      data-state={done ? "done" : thread.state}
-      aria-label={done ? "finished" : thread.state === "cut" ? "given up" : "still running"}
-      title={done ? "finished" : thread.state === "cut" ? "given up" : "still running"}
-      className="ml-auto size-2 shrink-0 rounded-full"
-      style={{
-        background: done ? PROCESS.done : PROCESS.open,
-        boxShadow: `0 0 6px ${done ? PROCESS.doneGlow : PROCESS.openGlow}`,
-      }}
-    />
-  );
-}
-
-/**
- * The flag: this is the one I am working in.
- *
- * One per timeline, on the box rather than beside it, and pressing it
- * moves it here. What follows it is the section below, the prompt area in
- * it, and where the next ask hangs from; it stays put across a reload,
- * because the whole point of marking a place is coming back to it.
- */
-function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
-  return (
-    <button
-      type="button"
-      data-current={on ? "1" : "0"}
-      data-current-for={thread.id}
-      aria-pressed={on}
-      title={on ? "The update you are working in" : "Work in this update"}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={(e) => {
-        e.stopPropagation();
-        play(on ? "close" : "confirm");
-        useStudio.getState().setCurrentThread(on ? null : thread.id);
-      }}
-      /*
-       * A mark, not a title.
-       *
-       * It was a chip reading "this iteration" across the top of every box,
-       * which is the widest thing on the box and so read as its heading —
-       * and on an element piece it pushed the name of the part off the end
-       * entirely. What the iteration made is the headline; where you are
-       * working is a flag beside it, and the words live in the tooltip.
-       */
-      className="grid size-4 shrink-0 place-items-center rounded-sm border transition-[background,border-color]"
-      style={{
-        borderColor: on ? "oklch(0.78 0.17 152)" : "oklch(0.38 0.09 152)",
-        background: on ? "oklch(0.6 0.17 152)" : "transparent",
-        color: on ? "oklch(0.16 0.026 152)" : "oklch(0.6 0.09 152)",
-      }}
-    >
-      <Flag className="size-2.5" />
-      <span className="sr-only">this update</span>
-    </button>
-  );
-}
-
 function IterationBox({
-  thread, at, forming, live, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
+  thread, at, forming, live, open, pinned, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
@@ -1314,7 +1240,6 @@ function IterationBox({
   live: boolean;
   open: boolean;
   pinned: boolean;
-  current: boolean;
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.PointerEvent) => void;
@@ -1328,6 +1253,10 @@ function IterationBox({
         type="button"
         data-box={thread.id}
         data-open={open ? "1" : "0"}
+        /* No dot, and the state is still said: what a card is in the middle of
+           is what the board and the suite ask it, and the picture of it is the
+           formation while it works and a grey vine when it was given up on. */
+        data-state={processDone(thread.state) ? "done" : thread.state}
         onPointerDown={onDragStart}
         onClick={onOpen}
         onContextMenu={onMenu}
@@ -1368,12 +1297,13 @@ function IterationBox({
         <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.66_0.07_152)]">
           {icon}
           {kind}
-          {pinned ? <Pin className="size-2.5 fill-current" /> : null}
-          {/* The flag, then the state, hard against the right edge. */}
-          <span className="ml-auto flex items-center gap-1.5">
-            <CurrentButton thread={thread} on={current} />
-            <StateMark thread={thread} />
-          </span>
+          {/* Nothing else on this row. The flag that marked the update being
+              worked in is in the box's own menu now, and the dot that said
+              whether the process had finished is gone: a card still working
+              is visibly forming, one that was given up on hangs off a grey
+              vine, and "finished" was a mark on nearly every card nearly all
+              of the time. */}
+          {pinned ? <span className="ml-auto"><Pin className="size-2.5 fill-current" /></span> : null}
         </span>
         <div className="flex items-start gap-2">
           {/* What it produced, at a glance: the page it left behind. */}
@@ -1408,7 +1338,7 @@ function IterationBox({
  * any sentence about the line would.
  */
 function ElementPiece({
-  thread, at, forming, open, pinned, current, dragging, onOpen, onDragStart, onMenu,
+  thread, at, forming, open, pinned, dragging, onOpen, onDragStart, onMenu,
 }: {
   thread: Thread;
   at: Point;
@@ -1416,7 +1346,6 @@ function ElementPiece({
   live: boolean;
   open: boolean;
   pinned: boolean;
-  current: boolean;
   dragging: boolean;
   onOpen: () => void;
   onDragStart: (e: React.PointerEvent) => void;
@@ -1426,13 +1355,29 @@ function ElementPiece({
   return (
     <div className="absolute" style={{ left: at.x, top: at.y, width: PIECE.w, zIndex: open ? 40 : dragging ? 30 : 12 }}>
       {open ? <Card thread={thread} side="in" /> : null}
-      <button
-        type="button"
+      {/*
+        A surface, not a button.
+
+        It carries a live element now, and an element inside a `<button>` is
+        both invalid and unusable — every press inside it would be a press on
+        the button. So the card is a div that takes a press, a drag and a
+        right-press, reachable from the keyboard, and the element inside it
+        stops its own presses from reaching the card.
+      */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`the update that made ${name}`}
         data-box={thread.id}
         data-piece=""
         data-open={open ? "1" : "0"}
+        /* No dot, and the state is still said: what a card is in the middle of
+           is what the board and the suite ask it, and the picture of it is the
+           formation while it works and a grey vine when it was given up on. */
+        data-state={processDone(thread.state) ? "done" : thread.state}
         onPointerDown={onDragStart}
         onClick={onOpen}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
         onContextMenu={onMenu}
         /* The same construct at the ember temperature: `core/ui/molten.css`. */
         className={cn(
@@ -1452,36 +1397,63 @@ function ElementPiece({
       >
         <span data-molten="" />
         {/*
-          The drawing is the subject.
-          
-          It was a thumbnail beside a line of text, which made the words the
-          thing and the picture an illustration of them — and for a drawing
-          that is backwards: the line he drew is what he recognises from
-          across the screen, and "Bird" is only what it ended up being
-          called. So the mark is large and central, and the name and the
-          small line sit under it, supporting it.
+          The element is the subject.
+
+          It was a thumbnail beside a line of text, then the drawing large and
+          central; it is the part itself now, and the name and the small line
+          sit under it, supporting it.
         */}
         {/*
-          No label. The red box used to say "drawing" across its top, and the
-          drawing is right there under it — a caption for a picture you are
-          already looking at. The row keeps only what does something: the
-          pin, the flag and the state, hard against the right edge.
+          No label either. The red box used to say "drawing" across its top,
+          and the thing is right there under it — a caption for a picture you
+          are already looking at.
         */}
-        <span className="flex items-center justify-end gap-1.5 text-[8px] text-[oklch(0.7_0.09_18)]">
-          {pinned ? <Pin className="size-2.5 fill-current" /> : null}
-          <CurrentButton thread={thread} on={current} />
-          <StateMark thread={thread} />
-        </span>
-        <span className="flex min-h-0 flex-1 items-center justify-center py-0.5">
-          <Drawn sketch={thread.sketch} size={62} tone="oklch(0.97 0.045 24)" />
+        {/*
+          Nothing but the pin.
+
+          There was a green flag and a green dot up here on every card. The
+          flag marked the update being worked in and the dot said whether the
+          process behind it had finished — two green marks on a red card,
+          neither of which is about the element the card is *for*. The flag
+          moved to the box's own menu, where the rest of what can be done to
+          an update lives; the dot went, because a card that is still working
+          is visibly forming and one that was given up on hangs off a grey
+          vine, and a green dot saying "finished" on every finished card is a
+          mark that is on almost all of them almost all of the time.
+        */}
+        {pinned ? (
+          <span className="flex items-center justify-end text-[8px] text-[oklch(0.7_0.09_18)]"><Pin className="size-2.5 fill-current" /></span>
+        ) : null}
+        {/*
+          THE ELEMENT, NOT THE DRAWING OF IT.
+
+          This was the strokes played back — two circles and a square drawn,
+          two circles and a square returned, which tells a person nothing
+          they did not just draw. What belongs on the card is the thing the
+          drawing became, as it exists on the page: the board's own renderer,
+          the real node, the site's own palette and light, live when the card
+          is open. And while it is still being made there is no element yet,
+          so the drawing stands in for it until there is one — that is
+          honestly all there is at that moment.
+        */}
+        <span className="flex min-h-0 flex-1 items-stretch justify-center py-0.5">
+          {forming < 1 && !thread.madeId ? (
+            <span className="grid flex-1 place-items-center">
+              <Drawn sketch={thread.sketch} size={62} tone="oklch(0.97 0.045 24)" />
+            </span>
+          ) : (
+            <span className="block w-full">
+              <Made thread={thread} skin={{ rim: "oklch(0.46 0.157 18 / 0.7)", dim: "oklch(0.72 0.106 18)" }} width={PIECE.w - 18} height={PIECE.h - 62} live={open} quiet />
+            </span>
+          )}
         </span>
         <span className="block text-center">
           <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
-          <span className="mt-0.5 block text-[9px] text-[oklch(0.68_0.07_18)]">
-            {thread.changes.length > 1 ? `and ${thread.changes.length - 1} more` : "made real"}
-          </span>
+          {thread.changes.length > 1 ? (
+            <span className="mt-0.5 block text-[9px] text-[oklch(0.68_0.07_18)]">and {thread.changes.length - 1} more</span>
+          ) : null}
         </span>
-      </button>
+      </div>
       {open ? <Card thread={thread} side="out" /> : null}
     </div>
   );
@@ -1661,29 +1633,34 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
           <WentIn thread={thread} skin={skin} element={element} />
         ) : (
           <div className="space-y-2">
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
+            {/*
+              THE OUTPUT IS THE ELEMENT.
+
+              This began with a text box: four closed shapes described in
+              prose, at the top of the card, with the part itself further
+              down under a heading about the board. A sentence about a thing
+              is not the output of making it — the thing is. So the part
+              leads, live, at the size the card has room for; it takes its
+              own presses and it is the part off the page, so changing it
+              here changes it there.
+
+              What Claude said is still kept, because it is the record of the
+              call and sometimes says why something came out as it did. It is
+              under the thing now rather than instead of it.
+            */}
+            <Made thread={thread} skin={skin} height={element ? 150 : 96} live />
+            {changed.length ? (
+              <ul className="max-h-24 space-y-0.5 overflow-auto font-mono text-[10px]">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
+            ) : thread.changes.length ? (
+              <ul className="space-y-0.5 text-[10px]">{thread.changes.map((cx, i) => <li key={i}>{cx}</li>)}</ul>
+            ) : (
+              <p className="text-[10px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
+            )}
             <Bill thread={thread} skin={skin} />
-            <div className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
-              <p className="mb-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what changed on the board</p>
-              {/*
-                The thing, not a description of it.
-                
-                "drew Diagonal divider at 297 × 66" is a receipt. What a person
-                wants from a card that says what changed is to see what it
-                changed into, and the part is right there on the board — so it
-                is rendered, still, at the size the card has room for. The
-                line of text stays underneath rather than instead: the picture
-                says which one it is, the words say what was done to it.
-              */}
-              <Made thread={thread} skin={skin} />
-              {changed.length ? (
-                <ul className="max-h-24 space-y-0.5 overflow-auto font-mono text-[10px]">{changed.map((l, i) => <li key={i}>{l}</li>)}</ul>
-              ) : thread.changes.length ? (
-                <ul className="space-y-0.5 text-[10px]">{thread.changes.map((cx, i) => <li key={i}>{cx}</li>)}</ul>
-              ) : (
-                <p className="text-[10px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
-              )}
-            </div>
+            <details className="border-t pt-1.5" style={{ borderColor: skin.rim }}>
+              <summary data-said-head="" className="cursor-pointer text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>what was said</summary>
+              <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed">{thread.answer || "nothing came back"}</pre>
+            </details>
           </div>
         )}
       </div>
@@ -1905,54 +1882,89 @@ function EditHere({ id, skin }: { id: string; skin: { rim: string; dim: string; 
 }
 
 /**
- * The part this iteration made, rendered still, at card size.
+ * The part this iteration made: the real one, off the page.
  *
- * The board's own renderer (`Block`) with `mode="board"`, scaled to fit:
- * nothing interactive, no second way of drawing a part, and it follows the
- * palette because it *is* the part. Nothing when the part has since been
- * deleted — a picture of something that is not there any more would be worse
- * than the line of text alone.
+ * The board's own renderer (`Block`), scaled to fit, following the palette
+ * and the light because it **is** the part rather than a picture of one. A
+ * card used to show the strokes that were drawn — the input echoed back,
+ * which tells a person nothing they did not just draw — and the answer as
+ * prose, which is a description of a thing rather than the thing.
+ *
+ * `live` is what makes it a surface rather than a photograph of one, and it
+ * is not always on: a closed box is a token you drag around the timeline,
+ * and a part that took presses inside it would fight the drag. Closed it is
+ * `inert`; open — the card grown out of it, and the box while that card is
+ * open — it is `mode="live"` and takes its own presses. Closed is a thing
+ * you move, open is the thing itself.
+ *
+ * **And it is tied to the part still being there.** A part can be deleted
+ * off the board after the iteration that made it; the card then says so,
+ * which is the one thing that was already true of the editor below and was
+ * not driving the picture.
  */
-function Made({ thread, skin }: { thread: Thread; skin: { rim: string; dim: string } }) {
+export function Made({ thread, skin, width = 380, height = 96, live = false, quiet = false }: {
+  thread: Thread;
+  skin: { rim: string; dim: string };
+  /** The widest the part may draw. It shrinks to fit and never grows. */
+  width?: number;
+  height?: number;
+  /** Takes its own presses, and the part runs. Never on a box being dragged. */
+  live?: boolean;
+  /** No surround: on a box the card's own ground is the surround, and the
+      frame takes the part's own shape rather than a fixed band. */
+  quiet?: boolean;
+}) {
   const nodes = useStudio((s) => s.nodes);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const node = thread.madeId ? nodes.find((n) => n.id === thread.madeId) ?? null : null;
   const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
   const palette = React.useMemo(() => resolvePalette(look?.palette), [look?.palette]);
-  if (!node) return null;
-  const W = 380;
-  const H = 96;
+  if (!node) {
+    return (
+      <p data-made-gone="" className="px-1 py-2 text-center text-[9px] leading-snug" style={{ color: skin.dim }}>
+        {thread.madeId ? "the part this made is no longer on the board" : "this one made nothing on the board"}
+      </p>
+    );
+  }
+  const W = width;
   // Fit, never crop: a part twice the card's width shrinks rather than
   // showing its left half, which for most parts is an empty margin.
-  const scale = Math.min(W / Math.max(1, node.w), H / Math.max(1, node.h), 1);
-  return (
-    /*
-     * Inset, on a dark surround.
-     *
-     * The part keeps its own page surface, because that is how it really
-     * looks and a repainted preview would be a lie about it — but a pale
-     * rectangle edge to edge on a dark card was the loudest thing on the
-     * card. Sitting it in from the edges with the card's own ground round it
-     * makes it a picture *on* the card rather than a hole through it.
-     */
+  const scale = Math.min(W / Math.max(1, node.w), height / Math.max(1, node.h), 1);
+  /*
+   * And on a box, the frame is the part's own shape rather than a fixed
+   * band: most parts are wide and short, and a short one centred in a tall
+   * frame is a part with two empty bars round it. `height` is the most it
+   * may take, not what it takes.
+   */
+  const frame = quiet ? Math.max(34, Math.min(height, Math.round(node.h * scale))) : height;
+  const inner = (
     <div
-      className="mb-1.5 rounded-md p-1.5"
-      style={{ background: "oklch(0.16 0.03 20 / 0.55)" }}
+      data-made-preview={node.id}
+      data-made-live={live ? "1" : "0"}
+      {...(live ? {} : { "aria-hidden": true, inert: true })}
+      /* A live part takes its own presses; the box under it does not get
+         them, or opening a card would drag the box it grew out of. */
+      {...(live ? { onPointerDown: (e: React.PointerEvent) => e.stopPropagation(), onClick: (e: React.MouseEvent) => e.stopPropagation() } : {})}
+      className="grid place-items-center overflow-hidden rounded-sm border"
+      style={{ height: frame, borderColor: skin.rim, background: theme.surface }}
     >
-      <div
-        data-made-preview={node.id}
-        aria-hidden
-        inert
-        className="grid place-items-center overflow-hidden rounded-sm border"
-        style={{ height: H, borderColor: skin.rim, background: theme.surface }}
-      >
-        <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
-          <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode="board" size={{ w: node.w, h: node.h }} />
-        </div>
+      <div style={{ width: node.w, height: node.h, transform: `scale(${scale})`, transformOrigin: "center" }}>
+        <Block node={node} t={theme} palette={palette} page={{ w: node.w, h: node.h }} mode={live ? "live" : "board"} size={{ w: node.w, h: node.h }} />
       </div>
     </div>
   );
+  if (quiet) return inner;
+  /*
+   * Inset, on a dark surround.
+   *
+   * The part keeps its own page surface, because that is how it really
+   * looks and a repainted preview would be a lie about it — but a pale
+   * rectangle edge to edge on a dark card was the loudest thing on the
+   * card. Sitting it in from the edges with the card's own ground round it
+   * makes it a picture *on* the card rather than a hole through it.
+   */
+  return <div className="mb-1.5 rounded-md p-1.5" style={{ background: "oklch(0.16 0.03 20 / 0.55)" }}>{inner}</div>;
 }
 
 function CopyBit({ text }: { text: string }) {
@@ -2014,6 +2026,7 @@ function VineCut({ of, at, ends: pair }: { of?: Thread; at: [Point, Point]; ends
 function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread: Thread; onClose: () => void }) {
   const pinned = useStudio((s) => s.pinnedThreads.includes(thread.id));
   const live = useStudio((s) => s.liveThreadId === thread.id);
+  const current = useStudio((s) => s.currentThreadId === thread.id);
   React.useEffect(() => {
     const shut = () => onClose();
     window.addEventListener("pointerdown", shut);
@@ -2023,9 +2036,10 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
       window.removeEventListener("keydown", shut);
     };
   }, [onClose]);
-  const item = (label: string, icon: React.ReactNode, run: () => void, danger = false) => (
+  const item = (label: string, icon: React.ReactNode, run: () => void, danger = false, mark?: Record<string, string>) => (
     <button
       type="button"
+      {...mark}
       onClick={() => { run(); onClose(); }}
       className={cn(
         "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] hover:bg-[oklch(0.3_0.07_152)]",
@@ -2046,6 +2060,20 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
     >
       <p className="truncate px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-[oklch(0.66_0.08_152)]">{thread.mode}</p>
       {item("Open it below", <Wand2 className="size-3" />, () => useStudio.getState().openThread(thread.id))}
+      {/*
+        The flag, off the card and into the menu.
+
+        It was a green square on every box — a second green mark on a red
+        card, about neither the element nor the update's own state. What it
+        does has not changed: it says which update the section below, the
+        prompt area in it and the next ask all follow, and it survives a
+        reload, because "where was I" is the question a timeline exists to
+        answer. `data-current-for` is kept on it so it is still the one
+        control that means this.
+      */}
+      {item(current ? "Stop working in this one" : "Work in this one", <Flag className="size-3" />,
+        () => useStudio.getState().setCurrentThread(current ? null : thread.id), false,
+        { "data-current-for": thread.id, "data-current": current ? "1" : "0" })}
       {item(live ? "The board is on this" : "Stand on it", <MapPin className="size-3" />, () => useStudio.getState().standOn(thread.id))}
       {item(pinned ? "Unpin it" : "Pin it", pinned ? <PinOff className="size-3" /> : <Pin className="size-3" />, () => useStudio.getState().togglePinnedThread(thread.id))}
       {item("Copy the prompt", <Sparkles className="size-3" />, () => void navigator.clipboard?.writeText(thread.ask))}
