@@ -13,8 +13,13 @@
  * their faces, so the face *is* his render now: the filaments, the flares
  * and the dark between them are his, and nothing here draws anything.
  *
- * TWO PAIRS. A bright one and a dark one, cut from the same renders. The
- * boxes wear the dark pair — measured, it is about half the luminance of
+ * TWO PAIRS, AND BOTH ARE ON THE PAGE. A bright one and a dark one, cut from
+ * the same renders. `mountNebula` publishes the pair the page wears as
+ * `--nebula-verdant` / `--nebula-ember` and the bright cut as
+ * `--nebula-verdant-lit` / `--nebula-ember-lit`, because the choice is no
+ * longer page-wide: a card wants the dark cut and a construct the size of a
+ * key wants the bright one, and both are on the screen at once. The boxes
+ * wear the dark pair — measured, it is about half the luminance of
  * the bright one (mean 23 against 45 for the green, 21 against 38 for the
  * red), which is what a card carrying words at eleven pixels wants.
  * `mountNebula("bright")` puts the other pair on, for comparing them.
@@ -117,6 +122,22 @@ export function mountNebula(pair: FacePair = "dark"): void {
   root.style.setProperty("--nebula-period", `${NEBULA_PERIOD}px`);
   root.style.setProperty("--nebula-verdant", `url("${FACES[pair].verdant}")`);
   root.style.setProperty("--nebula-ember", `url("${FACES[pair].ember}")`);
+  /*
+   * AND THE BRIGHT CUT, ALWAYS, WHATEVER THE PAGE IS WEARING.
+   *
+   * Two names rather than one, because the choice stopped being a page-wide
+   * one. A construct the size of a key wants the bright cut and a card wants
+   * the dark cut, and both are on the screen at once — so the pair above is
+   * "what this page wears" and this is "the bright one, always", and a rule
+   * that wants it names it (`.molten-key` in `molten.css`) instead of asking
+   * for a swap nobody else wanted.
+   *
+   * Nothing extra is fetched by naming them: a `url()` in a custom property
+   * is a string until a rule uses it, so the bright pair is loaded only on a
+   * page that actually puts a key on the screen.
+   */
+  root.style.setProperty("--nebula-verdant-lit", `url("${FACES.bright.verdant}")`);
+  root.style.setProperty("--nebula-ember-lit", `url("${FACES.bright.ember}")`);
   root.dataset.facePair = pair;
   wearing = pair;
 }
