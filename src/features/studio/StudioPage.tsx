@@ -775,23 +775,24 @@ export function StudioPage() {
         <div
           data-studio-scroll=""
           /*
-           * The middle column scrolls; the panels either side do not.
+           * A pane that scrolls, and a band that does not.
            *
-           * It was a pane and a band with the band always on screen and
-           * nothing scrolling at all. J wants the scroll: down past the
-           * design box, out of its view, and on into the categories and the
-           * prompt sections under the timeline. The panels are siblings of
-           * this rather than children, so they hold still while it moves —
-           * which is the other half of what he asked for and comes for free
-           * from where the scroll lives, not from holding them in place.
+           * Three of J's reports were one thing: the preview filled the board
+           * edge to edge, the categories and the search had gone, and the
+           * site scrolled inside a box in the frame. All three come of
+           * treating the frame as a fixed viewport — a window the site slides
+           * behind — and of the whole column scrolling rather than the pane.
            *
-           * `no-bars` is what makes it invisible. Overlay scrollbars are what
-           * this container's browser draws, so nothing showed here however
-           * hard it was measured; on a machine set to keep bars in view there
-           * was one down the website page and another down the design
-           * background.
+           * So the site is laid out at its full height (`Canvas`), this pane
+           * scrolls it, and the shelf below is a band the pane never eats:
+           * hovering the site and scrolling moves down the whole length of
+           * it, the surface moving rather than the site sliding behind an
+           * edge, and the categories stay where they were the whole time.
+           *
+           * The panels either side are siblings of this, so they hold still
+           * on their own.
            */
-          className="no-bars flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden"
+          className="no-bars flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           {/*
             The timeline is the board's twin: it fills the window less a
@@ -800,11 +801,11 @@ export function StudioPage() {
             shelf is under the board.
           */}
           <div
-            /* A whole screen, always: the scroll below carries you past it
-               rather than shrinking it, which is the difference between a
-               scroll and a split. */
-            className="relative w-full shrink-0"
-            style={{ height: "100%" }}
+            data-studio-pane=""
+            /* The pane the site stands in, and the only thing that scrolls.
+               `no-bars` because a bar down the design background is the
+               thing J does not want to see. */
+            className="no-bars relative min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden"
           >
             {/*
               One ground, for the whole app.

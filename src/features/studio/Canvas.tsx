@@ -150,27 +150,38 @@ export function Canvas() {
    * the viewer's own viewport, with the site scrolling inside it, is what the
    * live preview shows and what a visitor will see.
    */
-  const pageH = frameHeight(nodes);
   const [viewport, setViewport] = React.useState({ w: 1440, h: 900 });
-  const frameH = React.useMemo(() => {
-    /*
-     * One screen of the site, in the shape a screen is.
-     *
-     * Each frame width is a real device, so each has a real viewport to go
-     * with it: a desktop page is 1440×900, a tablet 834×1112, a phone
-     * 390×844. That is what makes the board feel 1:1 with the preview — it
-     * is the same rectangle a visitor will have. The pane's own shape leans
-     * it a little either way, and no further: a board pane that happens to
-     * be short and wide must not turn the site into a letterbox.
-     */
-    const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
-    const ratio = stock / frameWidth;
-    const lean = Math.max(0.9, Math.min(1.1, (viewport.h / Math.max(1, viewport.w)) / ratio));
-    return Math.round(frameWidth * ratio * lean);
-  }, [frameWidth, viewport]);
-  /** How far the page can scroll inside its window. */
-  const scrollMax = Math.max(0, pageH - frameH);
-  const scrolled = Math.min(pageScroll, scrollMax);
+  /*
+   * One height, where there were two.
+   *
+   * It had been two: `pageH` for the site and `frameH` for one screen of it,
+   * with the site sliding behind the frame's edge as the wheel turned — a
+   * window the shape of a visitor's viewport. J has asked for the opposite
+   * and was specific about it: hovering the site and scrolling should move
+   * down the entire length of the site, the whole of it rendered, *not*
+   * scrolling within the same web frame. A window is a boundary, and he does
+   * not want one.
+   *
+   * So the frame is the whole site again, as tall as the last part reaches,
+   * and what moves is the surface it stands on — the pane in `StudioPage`.
+   * There is no scrollbox inside the frame and no bar on it.
+   *
+   * The window existed for a reason worth recording, because it is the thing
+   * that has to stay solved: a site that grows downwards used to push the
+   * parts shelf below the workspace's horizon. It does not now, because the
+   * shelf is a band beside the pane rather than something below the page —
+   * the pane scrolls and the band does not.
+   *
+   * A stock viewport height is still the floor, so an empty page is a page
+   * rather than a sliver.
+   */
+  const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
+  const pageH = Math.max(stock, frameHeight(nodes));
+  const frameH = pageH;
+  /* Nothing scrolls inside the frame any more; the surface moves instead. */
+  const scrollMax = 0;
+  const scrolled = 0;
+  void pageScroll;
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
 
@@ -210,14 +221,24 @@ export function Canvas() {
    * fine: that is what scrolling is for.
    */
   const fitZoom = React.useCallback(
-    (vw: number, vh: number, fh: number) =>
-      // Both ways at once, and a little short of either: the whole screen of
-      // the site is in the pane with the ground showing all the way round it,
-      // which is what says "this is a page standing on something" rather than
-      // "this is the window".
-      // In nominal terms, because that is what the store holds: the widths are
-      // divided by the base so the *drawn* frame is what is being fitted.
-      Math.max(0.2, Math.min(1, Math.min((vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM), (vh - FRAME_GUTTER) / Math.max(1, fh * BASE_ZOOM)))),
+    (vw: number, vh: number, fh: number) => {
+      /*
+       * By the width, and only the width.
+       *
+       * It fitted both ways, which was right while the frame was one screen
+       * of the site and wrong now that it is the whole of it: a long page
+       * fitted by its height shrinks to a ribbon, and a short one blows up to
+       * fill the pane edge to edge — which is what J saw on opening, a frame
+       * with nothing else to look at. The width is the dimension that has a
+       * right answer, and the height is however far the site goes.
+       *
+       * In nominal terms, because that is what the store holds: the width is
+       * divided by the base so the *drawn* frame is what is being fitted.
+       */
+      void fh;
+      void vh;
+      return Math.max(0.2, Math.min(1, (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM)));
+    },
     [frameWidth],
   );
 
@@ -265,8 +286,9 @@ export function Canvas() {
    * and stops at the foot of it. The board's own pan is still there on the
    * middle button and the pan tool, for moving the frame about the ground.
    */
-  const reach = React.useRef({ max: 0 });
+  const reach = React.useRef({ max: 0, pageH: 0 });
   reach.current.max = scrollMax;
+  reach.current.pageH = pageH;
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -283,12 +305,32 @@ export function Canvas() {
         store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y });
         return;
       }
-      const max = reach.current.max;
-      if (max <= 0) return;
-      const next = Math.max(0, Math.min(max, store.pageScroll + e.deltaY));
-      if (next === store.pageScroll) return;
+      /*
+       * The surface moves, and it is the surface that stops.
+       *
+       * This used to slide the site behind the frame's edge and stop at the
+       * foot of it — a scrollbox in all but name, which is the thing J said
+       * he does not want. What moves now is the board itself: the wheel pans
+       * it, so the whole length of a rendered page goes by under the pointer
+       * and nothing is ever clipped to a window.
+       *
+       * It still stops, because a surface you can throw into empty space is
+       * worse than one that ends. The floor is the foot of the page a screen
+       * short of leaving, and the ceiling is its head, both in drawn pixels
+       * — the frame is drawn at `zoom * BASE_ZOOM` and the pan is in the same
+       * units.
+       */
+      const drawn = store.zoom * BASE_ZOOM;
+      const view = el.clientHeight;
+      const tall = reach.current.pageH * drawn;
+      // Head of the page a little below the top edge, foot a little above the
+      // bottom one: a margin of ground either end, never a void.
+      const top = FRAME_GUTTER / 2;
+      const floor = Math.min(top, view - tall - top);
+      const next = Math.max(floor, Math.min(top, store.pan.y - e.deltaY));
+      if (Math.abs(next - store.pan.y) < 0.5) return;
       e.preventDefault();
-      store.setPageScroll(next);
+      store.setPan({ x: store.pan.x, y: next });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);

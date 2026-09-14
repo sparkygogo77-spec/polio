@@ -103,34 +103,34 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 
 /* ------------------------------------------------------------------ */
-/* 4. The key in the corner is plain                                    */
+/* 4. The key in the corner wears the setting built for a key           */
 /* ------------------------------------------------------------------ */
 
+/*
+ * This asked for the opposite an hour ago, and both readings were half
+ * right: the surface is the right material for the key — it is what the
+ * boxes it opens are made of — and `molten.css` is built for a card, whose
+ * dark core is depth there and a hole at 28px.
+ *
+ * Only the integration is checked here. Whether the key setting is actually
+ * brighter, more even and free of a middle void is measured off the pixels
+ * in `tests/key-construct.mjs`, which owns that and does it better than a
+ * second copy would: this only has to know that the key uses it.
+ *
+ * I had tuned five values by hand before euler's landed. They agreed on
+ * every one, so the hand tuning went and the class says it.
+ */
 const key = page.locator('[aria-label^="Finish"]').first();
-const dressed = await key.evaluate((e) => {
-  /* Through a canvas, because a computed colour comes back in whatever
-     space the author wrote — `lab(...)` here, which a regex for `rgb(` or
-     `oklch(` reads as no colour at all. Asking the canvas gives channels. */
-  const cv = document.createElement("canvas");
-  cv.width = cv.height = 1;
-  const cx = cv.getContext("2d", { willReadFrequently: true });
-  cx.fillStyle = getComputedStyle(e).backgroundColor;
-  cx.fillRect(0, 0, 1, 1);
-  const [r, g, b, a] = cx.getImageData(0, 0, 1, 1).data;
-  return {
-    molten: e.className.includes("molten"),
-    inner: e.querySelector("[data-molten]") !== null,
-    bg: getComputedStyle(e).backgroundImage,
-    colour: getComputedStyle(e).backgroundColor,
-    rgb: { r, g, b, a },
-  };
-});
-check("the key in the corner wears no construct surface", !dressed.molten && !dressed.inner,
-  dressed.molten ? "still molten" : "plain");
-check("and nothing is drifting across it", dressed.bg === "none", dressed.bg.slice(0, 48));
-const { r, g, b, a } = dressed.rgb;
-check("but it is still green, and solid", a > 250 && g > r + 20 && g > b + 20,
-  `${dressed.colour} — rgb ${r},${g},${b}`);
+const dressed = await key.evaluate((e) => ({
+  molten: e.className.includes("molten"),
+  keyed: e.className.includes("molten-key"),
+  inner: e.querySelector("[data-molten]") !== null,
+  own: ["--molten-vignette", "--mo-cloud", "--mo-core", "--nebula-period"].filter((v) => e.style.getPropertyValue(v)),
+}));
+check("the key wears the construct surface", dressed.molten && dressed.inner);
+check("at the setting built for a key", dressed.keyed, dressed.keyed ? "molten-key" : "the card's");
+check("and tunes none of it by hand", dressed.own.length === 0,
+  dressed.own.length ? `it sets ${dressed.own.join(", ")} itself` : "every value comes from the one definition");
 
 await browser.close();
 console.log("");

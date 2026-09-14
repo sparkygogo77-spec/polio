@@ -156,15 +156,24 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
  * nothing else — not behind a control, not on another screen.
  */
 
-/** Scroll the workspace to its foot and give back where the shelf ended up. */
+/**
+ * Take the surface to the foot of the page, and say where the shelf is.
+ *
+ * The column does not scroll any more and the shelf is not below the page:
+ * the *pane* moves and the shelf is a band beside it, which is how a site
+ * that grows downwards stops pushing the categories below the horizon. So
+ * this wheels the surface rather than setting a scrollTop, and the shelf
+ * should be exactly where it was when it finishes.
+ */
 async function toTheFoot(page) {
-  const mid = page.locator("[data-studio-scroll]");
-  const room = await mid.evaluate((el) => el.scrollHeight - el.clientHeight);
-  await mid.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-  await page.waitForTimeout(450);
+  const pane = await page.locator("[data-studio-pane]").boundingBox();
+  const before = await page.locator("[data-frame]").boundingBox().catch(() => null);
+  await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
+  for (let i = 0; i < 30; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(25); }
+  await page.waitForTimeout(400);
+  const after = await page.locator("[data-frame]").boundingBox().catch(() => null);
   const shelf = await page.locator("[data-drawer]").boundingBox().catch(() => null);
-  const top = await mid.evaluate((el) => el.scrollTop);
-  return { room, top, shelf };
+  return { room: before && after ? Math.round(before.y - after.y) : 0, top: before && after ? Math.round(before.y - after.y) : 0, shelf };
 }
 
 /* ------------------------------------------------------------------ */
@@ -195,24 +204,33 @@ async function toTheFoot(page) {
     return m ? m[1] : "1";
   })));
   const pageH = Math.round(win.height / zoom);
-  check("the frame is one screen of the site, not all of it", pageH > 520 && pageH < 1000, `${Math.round(win.width / zoom)}×${pageH}`);
-  check(
-    "and it is a screen's shape, not a letterbox",
-    pageH / (win.width / zoom) > 0.5 && pageH / (win.width / zoom) < 0.8,
-    (pageH / (win.width / zoom)).toFixed(2),
-  );
+  /*
+   * The frame is the whole site, not one screen of it.
+   *
+   * These two said the opposite, and were right while the frame was a window
+   * the site slid behind. J asked for the reverse in as many words: all of it
+   * should be rendered, not scrolling within the same web frame. So the
+   * height is the site's own and the only thing with a right answer is the
+   * width; an empty page still stands a screen tall rather than a sliver.
+   */
+  check("the frame is the site's own width", Math.round(win.width / zoom) >= 380, `${Math.round(win.width / zoom)} across`);
+  check("and at least a screen tall, however empty the page", pageH >= 520, `${pageH} down`);
   check("it is zoomed out a little, so the ground shows round it", zoom < 0.95, `${Math.round(zoom * 100)}%`);
 
-  const pane = await page.locator("[data-studio-scroll]").boundingBox();
-  check("the ground shows above and below the page", win.y > pane.y + 4 && win.y + win.height < pane.y + pane.height - 4, `frame ${Math.round(win.y)}–${Math.round(win.y + win.height)} in pane ${Math.round(pane.y)}–${Math.round(pane.y + pane.height)}`);
+  const pane = await page.locator("[data-studio-pane]").boundingBox();
+  /* Ground either side and above the head of the page. Below it is the rest
+     of the site, which is the point of it being the whole site. */
+  check("the ground shows either side of the page and above its head",
+    win.x > pane.x + 4 && win.x + win.width < pane.x + pane.width - 4 && win.y > pane.y + 4,
+    `frame ${Math.round(win.x)}–${Math.round(win.x + win.width)} in pane ${Math.round(pane.x)}–${Math.round(pane.x + pane.width)}, head at ${Math.round(win.y)}`);
 
-  /* The workspace scrolls, and what is below the design box is the shelf. */
+  /* The surface moves down the page, and the shelf does not move at all. */
   const panelsBefore = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  const shelfBefore = await page.locator("[data-drawer]").boundingBox();
   const foot = await toTheFoot(page);
-  check("the workspace scrolls past the design box", foot.room > 40 && foot.top > 40, `${foot.room}px of scroll, went to ${foot.top}`);
-  check("and the parts shelf is what you land in, whole",
-    !!foot.shelf && foot.shelf.y >= 0 && foot.shelf.y + foot.shelf.height <= 901 && foot.shelf.height > 120,
-    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}` : "no shelf");
+  check("the surface moves down the page", foot.room > 40, `the frame's head went up ${foot.room}px`);
+  check("and the parts shelf never left", !!foot.shelf && Math.abs(foot.shelf.y - shelfBefore.y) < 2 && foot.shelf.height > 120,
+    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}, was ${Math.round(shelfBefore.y)}` : "no shelf");
   const panelsAfter = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   check("and the side panels did not move while it did",
     panelsBefore.length > 0 && panelsBefore.every((t, i) => t === panelsAfter[i]),
@@ -229,42 +247,44 @@ async function toTheFoot(page) {
   await page.waitForTimeout(350);
   const shelf = foot.shelf;
 
-  // The site scrolls inside the frame, and stops at its foot.
-  const at = () => page.locator("[data-page-scroll]").evaluate((el) => Math.abs(Number(/matrix\([^)]*?,\s*([-\d.]+)\)$/.exec(getComputedStyle(el).transform)?.[1] ?? 0)));
-  check("the page starts at its top", (await at()) === 0);
-  await page.mouse.move(win.x + win.width / 2, win.y + win.height / 2);
+  /*
+   * The surface moves down the site, and stops at its foot.
+   *
+   * This section used to be about the site sliding behind the frame's edge
+   * and the workspace holding still — a scrollbox in all but name, which is
+   * what J asked to be rid of. What is left of the rule is the half that was
+   * always true and still is: a wheel over the page moves you down the whole
+   * of it, and it ends rather than running on into empty space.
+   */
+  const head = async () => (await page.locator("[data-frame]").boundingBox()).y;
+  /* Back to the top of the page first: the check above already took the
+     surface to the foot, and a surface already at its floor does not move,
+     which reads as a broken wheel rather than a spent one. */
+  const back = await page.locator("[data-studio-pane]").boundingBox();
+  await page.mouse.move(back.x + back.width / 2, back.y + back.height / 2);
+  for (let i = 0; i < 40; i++) { await page.mouse.wheel(0, -400); await page.waitForTimeout(18); }
+  await page.waitForTimeout(400);
+  const h0 = await head();
+  /* The pane's middle, not the frame's: a full-length page is taller than
+     the window, so its centre is somewhere off the bottom of the screen and
+     a wheel aimed there lands on nothing. */
+  const over = await page.locator("[data-studio-pane]").boundingBox();
+  await page.mouse.move(over.x + over.width / 2, over.y + over.height / 2);
   await page.mouse.wheel(0, 500);
   await page.waitForTimeout(400);
-  const mid = await at();
-  check("the wheel scrolls the site inside its frame", mid > 100, `${Math.round(mid)}px down`);
-  await page.mouse.wheel(0, 99999);
+  const h1 = await head();
+  check("a wheel over the page moves the surface down it", h0 - h1 > 100, `${Math.round(h0 - h1)}px down`);
+  for (let i = 0; i < 40; i++) { await page.mouse.wheel(0, 400); await page.waitForTimeout(20); }
   await page.waitForTimeout(400);
-  const end = await at();
+  const h2 = await head();
   await page.mouse.wheel(0, 99999);
   await page.waitForTimeout(300);
-  check("and stops at the foot of the page", Math.abs((await at()) - end) < 2, `${Math.round(end)}px`);
-  /*
-   * And only then does the wheel carry on into the workspace.
-   *
-   * This used to read "the workspace did not move while the site did", which
-   * was the right rule when the workspace could not move at all. Now that it
-   * can, the question is the order: the site takes the wheel first and keeps
-   * it until it is at its foot, and what is left over goes to the column —
-   * which is how a person gets from the bottom of the page to the shelf in
-   * one gesture. The checks above have already shown the site scrolled and
-   * stopped, so anything the workspace has done is what came after it.
-   */
-  const chained = await page.locator("[data-studio-scroll]").evaluate((el) => el.scrollTop);
-  await page.locator("[data-studio-scroll]").evaluate((el) => { el.scrollTop = 0; });
-  await page.waitForTimeout(250);
-  const held = await page.evaluate(async () => {
-    const mid = document.querySelector("[data-studio-scroll]");
-    const before = mid.scrollTop;
-    document.querySelector("[data-page-scroll]")?.scrollIntoView?.();
-    return before;
-  });
-  check("the site takes the wheel before the workspace does", held === 0 && chained >= 0,
-    `the column was at ${chained} once the page had run out`);
+  check("and stops at the foot of the page", Math.abs((await head()) - h2) < 4, `${Math.round(h2)}`);
+  /* And the shelf is exactly where it was the whole time — which is the
+     thing the window was protecting when it clipped the page to a screen. */
+  const shelfNow = await page.locator("[data-drawer]").boundingBox();
+  check("the categories never moved while all that happened", Math.abs(shelfNow.y - shelfBefore.y) < 2,
+    `${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}`);
 
   /* ---------------------------------------------- the shelf's own shape */
   // The screen itself, not the text cursor inside it: the field has a rim and
@@ -334,9 +354,12 @@ async function toTheFoot(page) {
 {
   const { context, page } = await open(980, 820);
   const win = await page.locator("[data-page-window]").boundingBox();
-  const pane = await page.locator("[data-studio-scroll]").boundingBox();
-  check("the frame still fits the pane whole", win.x >= pane.x && win.x + win.width <= pane.x + pane.width + 1 && win.y + win.height <= pane.y + pane.height + 1,
-    `frame ${Math.round(win.x)},${Math.round(win.y)} ${Math.round(win.width)}×${Math.round(win.height)} in ${Math.round(pane.width)}×${Math.round(pane.height)}`);
+  const pane = await page.locator("[data-studio-pane]").boundingBox();
+  /* Width, not height: the height is the site's and goes past the pane on
+     purpose. A frame that fitted the pane whole would be the window again. */
+  check("the frame still fits the pane's width, with ground either side",
+    win.x > pane.x && win.x + win.width < pane.x + pane.width,
+    `frame ${Math.round(win.x)}–${Math.round(win.x + win.width)} in pane ${Math.round(pane.x)}–${Math.round(pane.x + pane.width)}`);
   check("the categories wrap rather than shrink", (await page.locator("[data-category]").evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))).size)) >= 2);
   const small = await toTheFoot(page);
   check("and the shelf is whole when you reach it", !!small.shelf && small.shelf.y >= 0 && small.shelf.y + small.shelf.height <= 821,

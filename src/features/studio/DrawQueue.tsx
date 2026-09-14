@@ -29,6 +29,7 @@ import { progressOf } from "./formation";
 import { useStudio } from "./store";
 import { PROCESS } from "./threads";
 import { cn } from "@/core/lib/cn";
+import { moltenKeyClass, moltenSeed } from "@/core/ui/molten";
 
 /** The runner. Mounted once; everything else only looks at the queue. */
 export function DrawQueue() {
@@ -294,33 +295,36 @@ export function ProcessCounter() {
           useStudio.getState().setMode(mode === "book" ? "design" : "book");
         }}
         /*
-         * A plain green key, in the same green.
+         * The construct surface, at the setting built for a key.
          *
-         * It wore the shared construct surface from `core/ui/molten.css` —
-         * the five stops, the veining, the slow boil — on the reasoning that
-         * the key which opens the red boxes should be made of what they are
-         * made of. That reasoning holds at the size of a box and does not at
-         * the size of a key: this thing is 28px tall in the corner of the
-         * bar, and a material whose whole point is a slow drift across a
-         * surface has no surface to drift across here. It read as noise on a
-         * button rather than as the same stuff.
+         * It wore this, went flat, and is wearing it again — and the reason
+         * the flat version was wrong is the reason the first one was too.
+         * `molten.css` is built for a card: its vignette masks the tile to
+         * almost nothing through the middle so words stay readable over it,
+         * and its face is a radial run with `--mo-core` at the centre, the
+         * darkest thing on a card, deliberately. At 28px that calm dark
+         * middle *is* the button, so the core shows through as a hole.
          *
-         * So: the same family, flat. `--verdant-body` is the stop the words
-         * already sat on and `--verdant-hot` is the edge, so nothing about
-         * the colour changed — only the moving layers went, which is also
-         * two fewer animated layers in the bar.
+         * `moltenKeyClass` is the second setting of the one definition:
+         * the bright cut of the same render, a shorter period so filaments
+         * read as filaments, a shallow vignette, an even face with no core,
+         * and the drawn rim instead of the nine-pixel sprite — which on
+         * something 28 tall would meet in the middle with no key left.
+         *
+         * I had tuned five of those by hand here before euler's landed. They
+         * agreed on every one, including the rim arithmetic, so the hand
+         * tuning is gone and the class is what says it.
          *
          * `.process-key` keeps the press: a key that did not go down under
          * the finger would be a picture of a key.
          */
-        className="process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md border pl-2 pr-2.5 text-[10px] font-medium outline-none"
-        style={{
-          background: "var(--verdant-body)",
-          borderColor: "var(--verdant-hot)",
-          color: "oklch(0.98 0.02 140)",
-          boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.18), 0 1px 0 oklch(0.2 0.05 148)",
-        }}
+        className={cn(
+          moltenKeyClass("verdant"),
+          "process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-[10px] font-medium outline-none",
+        )}
+        style={moltenSeed("finish") as React.CSSProperties}
       >
+        <span data-molten="" />
         {busy ? <LoaderCircle className="size-4 animate-spin" /> : <FlagCheck className="size-4" />}
         {/*
           The process, on the right where the count lives, and lit.
