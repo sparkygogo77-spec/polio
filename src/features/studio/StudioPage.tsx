@@ -47,7 +47,7 @@ import { PROCESS } from "./threads";
 
 /**
  * How much of the window the bottom band keeps — the parts shelf under the
- * board, and "This iteration" under the timeline.
+ * board, and "This update" under the timeline.
  *
  * Enough for the round buttons and a second row of them, and no more: the
  * board is the subject and the shelf is where you reach. It is a clamp rather

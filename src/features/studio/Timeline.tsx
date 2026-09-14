@@ -58,7 +58,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { sameView, settleEase, settleView, SETTLE_MS } from "./timelineView";
+import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, type View } from "./timelineView";
 import { paintStrand, strandBounds, strandEnvelope, strandMiddle, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
@@ -82,13 +82,33 @@ import { resolvePalette } from "./parts/theme";
  * they have to read as equal weight on the screen while being different
  * shapes, and equal *area* is what does that, not equal width or height.
  */
+/**
+ * The view a person put the timeline in, kept across a close and reopen.
+ *
+ * Not state — state dies with the mount, and the mount is exactly what
+ * Finish tears down. Not the store either: this is where somebody is
+ * looking, not part of the site, and it has no business in the saved
+ * document. Cleared by pressing centre, which is how a person asks for the
+ * fit back.
+ */
+let ownView: View | null = null;
+/** Whether they have taken hold of it at all. */
+let owns = false;
+
 const BOX = { w: 248, h: 104 };
 const PIECE = { w: 168, h: 148 };
 
 /** How far a card stands off the box it grew out of, for the connector to run. */
 const GROW = 22;
-/** How far apart the scatter puts them, before anybody drags anything. */
-const DRIFT = { x: 268, y: 158 };
+/**
+ * The gap the scatter leaves between two cards, before anybody drags one.
+ *
+ * A gap, not a step: the step is this plus the card, so a card drawn wider
+ * pushes its neighbours out rather than growing into them. `DRIFT` used to be
+ * the whole step — 268 by 158 against a card 248 by 104 — which meant a card
+ * two and a half times wider would have overlapped the one beside it.
+ */
+const GAP = { x: 20, y: 54 };
 
 /** A number from a string: the same box lands in the same place every time. */
 function seed(s: string): number {
@@ -248,22 +268,27 @@ function paintRim(c: CanvasRenderingContext2D, rim: { p: number; rect: { x: numb
 /**
  * Where the boxes sit before anyone moves them.
  *
- * One chain, down and to the right, one step per iteration, with a shove
- * either way off the thread's own id — enough that no two rows line up and
- * the eye reads it as a place rather than a column.
+ * One chain, left to right and wrapping, with a shove either way off the
+ * thread's own id — enough that no two rows line up and the eye reads it as
+ * a place rather than a grid.
  *
  * The sideways step used to come from how deep in the tree a thread was,
  * which is what made the timeline read as branches. It is the index now:
- * the chain leans as it goes, and the lean is the same for everyone.
+ * the chain runs in reading order, and the run is the same for everyone.
  */
-function scatter(nodes: ThreadNode[]): Map<string, Point> {
+function scatter(nodes: ThreadNode[], aspect = 2, size: { w: number; h: number } = BOX): Map<string, Point> {
   const out = new Map<string, Point>();
+  const step = { x: size.w + GAP.x, y: size.h + GAP.y };
+  const across = acrossFor(nodes.length, aspect, step);
   nodes.forEach((n, i) => {
     const jx = seed(n.thread.id) - 0.5;
     const jy = seed(`${n.thread.id}y`) - 0.5;
+    // The lean is kept: a row that started exactly under the one above read
+    // as a table of results rather than a chain of them.
+    const row = Math.floor(i / across);
     out.set(n.thread.id, {
-      x: 140 + (i % 3) * DRIFT.x * 0.62 + jx * 120,
-      y: 130 + i * DRIFT.y + jy * 70,
+      x: 140 + (i % across) * step.x + row * step.x * 0.16 + jx * 40,
+      y: 130 + row * step.y + jy * 26,
     });
   });
   return out;
@@ -353,7 +378,13 @@ export function Timeline() {
     () => threads.map((thread) => ({ thread, children: [], depth: 0 })),
     [threads],
   );
-  const home = React.useMemo(() => scatter(all), [all]);
+  /*
+   * The board's shape, so the chain wraps to the board rather than to a
+   * guess. Read once a frame after mount like everything else here; before
+   * that there is nothing to measure and 2 is close enough to a board.
+   */
+  const [aspect, setAspect] = React.useState(2);
+  const home = React.useMemo(() => scatter(all, aspect, BOX), [all, aspect]);
   const forming = useForming(threads);
   const shownOf = React.useCallback((id: string) => forming.get(id) ?? 1, [forming]);
   const spotOf = React.useCallback(
@@ -394,9 +425,32 @@ export function Timeline() {
    */
   const viewAt = React.useRef({ pan, zoom });
   if (!settling.current) viewAt.current = { pan, zoom };
+  /*
+   * Once it is theirs, it stays theirs, at wherever it has got to — but not
+   * before the view has been put back.
+   *
+   * The zoom is the store's and the store is shared with the board, so on the
+   * first render after Finish this ref holds *the board's* zoom, not the
+   * timeline's. Writing that into the held view is what made a reopened
+   * timeline come back at 0.58 — the board's number — instead of either the
+   * fit or the person's own. So nothing is kept until the effect below has
+   * restored or settled.
+   */
+  const settled = React.useRef(false);
+  if (owns && settled.current) ownView = viewAt.current;
   /* The vine painter, held so the observers below can reach the current one
      without being torn down and rebuilt every time it changes. */
   const paintAt = React.useRef<() => void>(() => {});
+
+  /*
+   * The view becomes the person's the moment they move it.
+   *
+   * A flag rather than a snapshot: taking the snapshot here would take it
+   * *before* the move — `viewAt` is synced from state, and the state this
+   * handler is about to set has not rendered yet — so what got kept was the
+   * view they were leaving. The sync below keeps it current instead.
+   */
+  const claim = React.useCallback(() => { owns = true; }, []);
 
   const stopSettle = React.useCallback(() => {
     if (!settling.current) return;
@@ -420,7 +474,10 @@ export function Timeline() {
       const size = sizeOf(t);
       return { x: at.x, y: at.y, w: size.w, h: size.h };
     });
-    const to = settleView(boxes, { w: box.clientWidth, h: box.clientHeight });
+    /* The ceiling is a reading of the card against the board, not a fixed 1:
+       three updates used to stop at 1 and cover a quarter of the floor. */
+    const widest = Math.max(BOX.w, ...boxes.map((b) => b.w));
+    const to = settleView(boxes, { w: box.clientWidth, h: box.clientHeight }, { max: zoomCeiling(box.clientWidth, widest) });
     stopSettle();
     if (!to) return;
     const from = viewAt.current;
@@ -461,15 +518,42 @@ export function Timeline() {
     settling.current = requestAnimationFrame(step);
   }, [stopSettle]);
 
-  /* Opening the timeline is one of the two moments it settles. One frame
-     late, so the host has a size to fit against. */
+  /*
+   * Opening the timeline settles it — the first time, and only then.
+   *
+   * Finish is the only door into this view and it is a toggle, so every trip
+   * to the board and back mounted this again and refitted, which threw away
+   * whatever the person had been looking at. Measured before the fix: zoom
+   * 1.85 back to 1 with three updates, 0.77 back to 0.41 with eight, every
+   * time Finish was pressed.
+   *
+   * So a view a person has moved is theirs and is put back. It is a module
+   * variable rather than state, because state dies with the mount and that
+   * is the whole problem; and rather than the store, because it is where
+   * somebody is looking and not part of the site — it should not be written
+   * into the saved document or carried into a new session.
+   */
   React.useEffect(() => {
-    const id = requestAnimationFrame(() => settle());
+    const box = host.current;
+    if (box) setAspect(box.clientHeight > 1 ? box.clientWidth / box.clientHeight : 2);
+    const id = requestAnimationFrame(() => {
+      const mine = owns ? ownView : null;
+      if (mine) {
+        setPan(mine.pan);
+        setZoom(mine.zoom);
+        settled.current = true;
+        return;
+      }
+      settle();
+      settled.current = true;
+    });
     return () => {
       cancelAnimationFrame(id);
       stopSettle();
     };
-  }, [settle, stopSettle]);
+    // Once, on the way in. `settle` and `stopSettle` are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /*
    * The floor is not this component's. One ground stands behind the board,
@@ -550,6 +634,39 @@ export function Timeline() {
     document.addEventListener("pointerdown", down, true);
     return () => document.removeEventListener("pointerdown", down, true);
   }, [openThreadId]);
+
+  /*
+   * An opened card comes into view if it is not already in it.
+   *
+   * A card opens beside its box, so a box near an edge puts its card over
+   * the edge — and the more the board is zoomed in, the further out the card
+   * lands. That went unnoticed while the fit stopped at 1: raising the
+   * ceiling so three updates fill the floor rather than a quarter of it is
+   * what made a card open half off the window, and the card is where a
+   * person edits, so half of it is no card at all.
+   *
+   * The pan moves, never the zoom: a card sliding into view is one thing
+   * moving, and the board jumping out a step to fit a panel is another.
+   */
+  React.useEffect(() => {
+    if (!openThreadId) return;
+    const id = requestAnimationFrame(() => {
+      const box = host.current;
+      const grid = plot.current;
+      if (!box || !grid) return;
+      const card = grid.querySelector<HTMLElement>(`[data-card][data-card-of="${openThreadId}"]`);
+      if (!card) return;
+      const c = card.getBoundingClientRect();
+      const v = box.getBoundingClientRect();
+      const pad = 12;
+      const dx = c.left < v.left + pad ? v.left + pad - c.left : c.right > v.right - pad ? v.right - pad - c.right : 0;
+      const dy = c.top < v.top + pad ? v.top + pad - c.top : c.bottom > v.bottom - pad ? v.bottom - pad - c.bottom : 0;
+      if (!dx && !dy) return;
+      claim();
+      setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [openThreadId, claim]);
   const openTone: StrandTone = openId && byId.get(openId) && isElement(byId.get(openId)!) ? "pending" : "live";
 
   /*
@@ -818,6 +935,7 @@ export function Timeline() {
       // Six, not three: a press with a mouse moves a pixel or two on its own,
       // and a trackpad more, and a press that read as a pan closed nothing.
       if (Math.abs(ev.clientX - e.clientX) > 6 || Math.abs(ev.clientY - e.clientY) > 6) moved = true;
+      claim();
       setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
     };
     const up = () => {
@@ -843,6 +961,7 @@ export function Timeline() {
 
   const onWheel = (e: React.WheelEvent) => {
     stopSettle();
+    claim();
     if (!e.ctrlKey && !e.metaKey) {
       setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
       return;
@@ -953,7 +1072,7 @@ export function Timeline() {
       <div className="pointer-events-auto absolute bottom-2 left-2 flex items-center gap-1 rounded-md border border-[oklch(0.36_0.07_152)] bg-[oklch(0.16_0.03_158/0.75)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.07_152)] backdrop-blur-sm">
         <GitBranch className="size-3" />
         <span className="num">{threads.length}</span>
-        <span className="opacity-60">iterations</span>
+        <span className="opacity-60">{threads.length === 1 ? "update" : "updates"}</span>
         <span className="mx-1 h-3 w-px bg-[oklch(0.36_0.07_152)]" />
         <button
           type="button"
@@ -961,7 +1080,7 @@ export function Timeline() {
           className="tactile rounded px-1 hover:text-[oklch(0.92_0.1_152)]"
           // Centre used to mean the origin, which is only where the boxes
           // were before anybody touched them.
-          onClick={(e) => { e.stopPropagation(); play("tap"); settle(); }}
+          onClick={(e) => { e.stopPropagation(); play("tap"); owns = false; ownView = null; settle(); }}
         >
           centre
         </button>
@@ -1158,7 +1277,7 @@ function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
       data-current={on ? "1" : "0"}
       data-current-for={thread.id}
       aria-pressed={on}
-      title={on ? "The iteration you are working in" : "Work in this iteration"}
+      title={on ? "The update you are working in" : "Work in this update"}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         e.stopPropagation();
@@ -1182,7 +1301,7 @@ function CurrentButton({ thread, on }: { thread: Thread; on: boolean }) {
       }}
     >
       <Flag className="size-2.5" />
-      <span className="sr-only">this iteration</span>
+      <span className="sr-only">this update</span>
     </button>
   );
 }
@@ -1853,7 +1972,7 @@ function LoopStarter({ at, from, to, on, onClick }: { at: Point; from?: Thread; 
         data-loop-starter=""
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onClick(); }}
-        aria-label="Start a loop between these two iterations"
+        aria-label="Start a loop between these two updates"
         className="absolute flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-transform hover:scale-110"
         style={{
           left: at.x,
@@ -1911,7 +2030,7 @@ function BoxMenu({ at, thread, onClose }: { at: { x: number; y: number }; thread
       {item("Copy the prompt", <Sparkles className="size-3" />, () => void navigator.clipboard?.writeText(thread.ask))}
       {item("Copy what came back", <Sparkles className="size-3" />, () => void navigator.clipboard?.writeText(thread.answer))}
       <div className="my-1 h-px bg-[oklch(0.32_0.06_152)]" />
-      {item("Prune this iteration", <Scissors className="size-3" />, () => useStudio.getState().pruneThread(thread.id), true)}
+      {item("Prune this update", <Scissors className="size-3" />, () => useStudio.getState().pruneThread(thread.id), true)}
     </div>
   );
 }

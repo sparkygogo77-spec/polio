@@ -99,7 +99,7 @@ export function TimelineDetail() {
       {/* Two menus, side by side and separate: this iteration, and the site. */}
       <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5" style={{ borderColor: FIELD.rim }}>
         <Tab on={tab === "iteration"} onClick={() => { play("select"); setTab("iteration"); }} icon={<Repeat className="size-3.5" />}>
-          {open ? "This iteration" : "No iteration open"}
+          {open ? "This update" : "No update open"}
         </Tab>
         <Tab on={tab === "book"} onClick={() => { play("select"); setTab("book"); }} icon={<BookOpen className="size-3.5" />}>
           The iteration book
@@ -322,7 +322,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
           <p className="px-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>turn this into</p>
           <Convert skin={skin} label="Take every finding" icon={<Check className="size-3.5" />} blurb={`${findings.filter((f) => !f.applied).length} prompts to write onto their parts`} disabled={!findings.some((f) => !f.applied)}
             onClick={() => { play("confirm"); for (const f of findings) if (!f.applied) useStudio.getState().applyRevision(f.id); }} />
-          <Convert skin={skin} label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this iteration left it" disabled={live || !thread.doc}
+          <Convert skin={skin} label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this update left it" disabled={live || !thread.doc}
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); }} />
           <Convert skin={skin} label={pinned ? "Unpin it" : "Pin it to the top"} icon={pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />} blurb="Keep it in view while the next ask is written"
             onClick={() => { play(pinned ? "close" : "confirm"); useStudio.getState().togglePinnedThread(thread.id); }} />
@@ -346,7 +346,7 @@ function Iteration({ thread, loop }: { thread: Thread; loop: { from: string; to:
                 onClick={() => { play("confirm"); changeMade("write"); }} />
             </>
           ) : null}
-          <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this iteration live under it"
+          <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this update live under it"
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
           {usage ? (
             <p className="px-1 pt-1 text-[9px]" style={{ color: skin.dim }}>{usage}</p>

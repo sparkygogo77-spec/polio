@@ -116,7 +116,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
     return (
       <aside
         data-book-panel=""
-        aria-label="The iteration book"
+        aria-label="The book of updates"
         className="fixed right-0 top-[var(--topbar-h)] z-[60] flex h-[calc(100dvh-var(--topbar-h))] w-[min(520px,96vw)] flex-col border-l border-border bg-panel shadow-panel"
       >
         <Book layout="panel" onClose={() => onOpenChange(false)} />
@@ -137,7 +137,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       // the shell's tokens.
       className="border-[color:var(--void-rim)] bg-[color:var(--void-face)] shadow-[var(--void-drop)]"
       style={{ "--void-face": VOID.face, "--void-rim": VOID.rim, "--void-drop": VOID.drop } as React.CSSProperties}
-      title="The iteration book"
+      title="The book of updates"
       description={`${spec.stats.pages} pages · ${spec.stats.elements} elements · ${spec.stats.prompted} with their own prompt`}
     >
       <Book layout="dialog" onClose={() => onOpenChange(false)} />
@@ -777,7 +777,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         </div>
         <aside className="hidden w-[420px] shrink-0 flex-col gap-3 overflow-y-auto lg:flex">
           <Card
-            title="The iteration book"
+            title="The book of updates"
             note="The brief, the JSON and the trail are one page: the last thread is read while the next ask is written."
             right={pin}
           >
@@ -801,7 +801,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       {layout === "panel" ? (
         <div className="flex items-center gap-2 border-b border-border pb-2">
           <BookOpen className="size-3.5 text-accent" />
-          <h2 className="flex-1 text-sm font-semibold text-fg">The iteration book</h2>
+          <h2 className="flex-1 text-sm font-semibold text-fg">The book of updates</h2>
           {pin}
           <Button variant="ghost" size="iconXs" aria-label="Close the book" onClick={onClose}><X /></Button>
         </div>
