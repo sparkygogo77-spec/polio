@@ -6,7 +6,7 @@
  * the parts made inside it is decoration. Concretely, all the way through,
  * with a hand rather than a seed:
  *
- *   draw a loop → black hole → steer the space → draw inside it →
+ *   draw a loop → it is a black hole → steer the space → draw inside it →
  *   Make real → the part that lands is inside the space and carries the
  *   space's plan.
  *
@@ -95,7 +95,7 @@ const cx = PANE.x + PANE.width / 2 - 60;
 const cy = PANE.y + PANE.height / 2;
 await tool("s");
 await draw(loop(cx, cy, 170));
-await page.locator("[data-space-hole-key]").last().click({ force: true });
+// A drawn space is a black hole from that instant: nothing to choose.
 await page.waitForTimeout(1900);
 check("a loop drawn by hand becomes a black hole that has consumed its area",
   (await page.locator("[data-space-horizon][data-space-open]").count()) === 1);

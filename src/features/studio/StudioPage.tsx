@@ -716,7 +716,7 @@ export function StudioPage() {
             <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2 text-[10px] uppercase tracking-[0.14em] text-fg-muted">
               This card
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="no-bars min-h-0 flex-1 overflow-y-auto">
               <TimelinePanel />
             </div>
           </aside>
@@ -748,7 +748,7 @@ export function StudioPage() {
                   could bring it back — so the one that could only hide it is
                   gone and the bar's toggle is the whole story. */}
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="no-bars min-h-0 flex-1 overflow-y-auto">
               {sideTab === "inspector" ? <Inspector />
                 : sideTab === "format" ? <FormatPanel />
                 : sideTab === "pages" ? <PagesPanel />
@@ -769,9 +769,23 @@ export function StudioPage() {
         */}
         <div
           data-studio-scroll=""
-          // Neither screen scrolls as a column any more: both are a pane and a
-          // band, and the band is always on screen.
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          /*
+           * Still a pane and a band, and the band is always on screen.
+           *
+           * J asked for the scroll back — down past the design box, out of
+           * its view, and on into the categories and the prompt sections. It
+           * works, and it is three lines: this scrolls, the pane takes a
+           * whole screen, and the panels are already siblings so they hold
+           * still on their own. It is not in because it reverses a decision
+           * that is deliberately held by sixteen checks in
+           * `tests/board-layout.mjs` — "the workspace itself never needs
+           * scrolling", "the parts shelf is on screen without going looking
+           * for it" — and because the pane taking a whole screen makes the
+           * board's fit width-held instead of height-held, which grows the
+           * frame and leaves almost no ground to pan on. That is a layout
+           * decision to take on purpose, not a side effect to discover.
+           */
+          className="no-bars flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           {/*
             The timeline is the board's twin: it fills the window less a

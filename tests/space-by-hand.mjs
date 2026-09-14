@@ -206,21 +206,13 @@ if (parts > 0) {
   check("a loop drawn round a part, starting on top of it, lands a space", overlap.after === overlap.before + 1, `${overlap.before} → ${overlap.after}`);
   check("and the part is still there: drawing a space did not take it", (await page.locator("[data-node-id]").count()) === parts);
 
-  // The keys have to be reachable even though they sit over somebody's part.
-  const holeKey = page.locator("[data-space-hole-key]").last();
-  const reachable = await holeKey.count() ? await holeKey.evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-    return !!top && (top === el || el.contains(top));
-  }).catch(() => false) : false;
-  check("its Black hole key is the thing under the pointer, not the part beneath it", reachable);
   await shot("over-a-part");
-
-  if (reachable) {
-    await holeKey.click();
-    await page.waitForTimeout(1800);
-    const open = await page.locator("[data-space-horizon][data-space-open]").count();
-    check("choosing it consumes the area round the part", open > 0, `${open} open`);
+  /* No keys any more: a space drawn is a black hole from that instant, and
+     it consumes the area round the part on its own. */
+  await page.waitForTimeout(1800);
+  const open = await page.locator("[data-space-horizon][data-space-open]").count();
+  check("it consumes the area round the part on its own, with nothing to choose", open > 0, `${open} open`);
+  {
     // And the part that was inside is now a part inside a space: its own panel.
     const node = page.locator("[data-node-id]").first();
     const nb = await node.boundingBox();
@@ -320,7 +312,6 @@ if (await hole.count()) {
 await pickSpace();
 const spot = [PANE.x + 250, PANE.y + PANE.height - 150];
 await draw(loop(spot[0], spot[1], 90, 26), { step: 12 });
-await page.locator("[data-space-hole-key]").last().click({ force: true });
 await page.waitForTimeout(1800);
 await page.keyboard.press("v");
 await page.waitForTimeout(300);

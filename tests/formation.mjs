@@ -156,6 +156,7 @@ if (live) {
       surface: cs.getPropertyValue("--form-surface").trim(),
       core: cs.getPropertyValue("--form-core").trim(),
       cloudOpacity: before.opacity,
+      cloudWanted: cs.getPropertyValue("--mo-cloud").trim(),
     };
   });
 
@@ -180,7 +181,12 @@ if (live) {
   const done = await open(1, "done");
   const d = await read(done);
   check("a landed box has finished forming", d.forming === false && d.form === "", JSON.stringify(d));
-  check("and its cloud is there", Number(d.cloudOpacity) > 0.8, d.cloudOpacity);
+  /* Against the construct's own dial rather than a number: how much cloud a
+   temperature takes is set per temperature (`molten.css`), and what this is
+   about is that forming has finished handing it over. */
+check("and its cloud is all the way in", (() => (
+  Number(d.cloudWanted) > 0 && Math.abs(Number(d.cloudOpacity) - Number(d.cloudWanted)) < 0.02
+))(), `${d.cloudOpacity} of ${d.cloudWanted}`);
   if (shots) {
     const box = await done.locator('[data-box="g2"]').boundingBox();
     const prev = await done.locator('[data-box="g1"]').boundingBox();

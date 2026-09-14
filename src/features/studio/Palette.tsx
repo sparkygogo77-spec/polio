@@ -305,7 +305,7 @@ export function Palette() {
           wheel moves everything and the pointer never has to be anywhere in
           particular.
         */}
-        <div ref={shelfRef} data-shelf="" className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
+        <div ref={shelfRef} data-shelf="" className="no-bars relative z-[1] h-full overflow-y-auto overflow-x-hidden">
         {searching ? (
           found.length ? (
             <div className="relative z-[1] px-3 py-3">
@@ -352,7 +352,11 @@ export function Palette() {
                       <span
                         className="flex size-[52px] items-center justify-center rounded-full transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
                         style={{
-                          background: `oklch(0.2 0.045 ${c.hue} / ${isOpen ? 0.85 : 0.55})`,
+                          // The disc carries the colour, so it has to have
+                          // some: at a chroma of 0.045 every one of these was
+                          // black with a rumour of a hue in it, and the row
+                          // read as thirteen identical circles.
+                          background: `oklch(0.22 0.1 ${c.hue} / ${isOpen ? 0.85 : 0.6})`,
                           // Under the hand it lifts and its rim brightens; open,
                           // it stays lit. It does not change colour: the colour
                           // is what says which kind of part this is.

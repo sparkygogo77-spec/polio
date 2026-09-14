@@ -113,21 +113,33 @@ export interface CategoryDef {
   label: string;
   icon: LucideIcon;
   blurb: string;
+  /**
+   * The colour that says which kind of part this is.
+   *
+   * Spaced 30 degrees apart, all the way round, and that is the whole rule.
+   * They used to be picked one at a time and had drifted together: measured
+   * across the twelve, five pairs sat 20 degrees or less apart and the
+   * closest two were 10 — Under the hood at 20 against First screen at 30 —
+   * which at this chroma is not a difference a person can see, so the row
+   * read as one thing. Nothing moved more than 20 degrees to fix it, so
+   * every category kept its neighbourhood: Motion is still cyan, Media is
+   * still magenta.
+   */
   hue: number;
 }
 
 export const CATEGORIES: CategoryDef[] = [
-  { id: "structure", label: "Layout", icon: LayoutTemplate, blurb: "How the page is divided.", hue: 210 },
+  { id: "structure", label: "Layout", icon: LayoutTemplate, blurb: "How the page is divided.", hue: 200 },
   { id: "nav", label: "Navigation", icon: NavigationIcon, blurb: "How people move around.", hue: 230 },
-  { id: "hero", label: "First screen", icon: Sunrise, blurb: "The first screen.", hue: 30 },
-  { id: "content", label: "Text", icon: Type, blurb: "Words, and how they are set.", hue: 60 },
-  { id: "media", label: "Media", icon: Images, blurb: "Images, video, audio, 3D.", hue: 300 },
-  { id: "motion", label: "Motion", icon: Waves, blurb: "What happens as you scroll.", hue: 190 },
-  { id: "interact", label: "Interaction", icon: MousePointerClick, blurb: "Feedback, menus, shortcuts.", hue: 160 },
-  { id: "forms", label: "Forms & shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 130 },
-  { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 265 },
-  { id: "social", label: "Social", icon: Users, blurb: "People and their traces.", hue: 340 },
-  { id: "ai", label: "AI", icon: Sparkles, blurb: "Model-powered surfaces.", hue: 280 },
+  { id: "hero", label: "First screen", icon: Sunrise, blurb: "The first screen.", hue: 50 },
+  { id: "content", label: "Text", icon: Type, blurb: "Words, and how they are set.", hue: 80 },
+  { id: "media", label: "Media", icon: Images, blurb: "Images, video, audio, 3D.", hue: 320 },
+  { id: "motion", label: "Motion", icon: Waves, blurb: "What happens as you scroll.", hue: 170 },
+  { id: "interact", label: "Interaction", icon: MousePointerClick, blurb: "Feedback, menus, shortcuts.", hue: 140 },
+  { id: "forms", label: "Forms & shop", icon: CheckSquare, blurb: "Capturing what people type, and selling things.", hue: 110 },
+  { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 260 },
+  { id: "social", label: "Social", icon: Users, blurb: "People and their traces.", hue: 350 },
+  { id: "ai", label: "AI", icon: Sparkles, blurb: "Model-powered surfaces.", hue: 290 },
   { id: "platform", label: "Under the hood", icon: ShieldCheck, blurb: "The things that make it real.", hue: 20 },
 ];
 

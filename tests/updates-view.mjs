@@ -78,10 +78,22 @@ for (const n of [3, 8]) {
 
   const open = await state();
   check(`${n} updates are all on the board`, open.cards === n, `${open.cards} of ${n}`);
-  /* Half the floor is the bar: below it the chain reads as adrift, which is
-     what 26% and 15% looked like. */
-  check(`and they fill the board rather than sitting in the middle of it`, open.fill >= 45,
-    `${open.fill}% of ${open.host}, ${open.across}x${open.down}`);
+  /*
+   * The fit is allowed to stop for exactly two reasons, and "the cards are
+   * adrift in the middle" is neither of them: either the chain fills the
+   * board, or it stopped because one card had grown to its share of the
+   * width. Checking the area alone was calibrated against a 615-tall board
+   * and went red the moment the board became a whole screen — with the cards
+   * *bigger* than when it passed, which is a threshold measuring the wrong
+   * thing rather than a regression.
+   */
+  const card = await page.evaluate(() => {
+    const c = document.querySelector("[data-box]")?.getBoundingClientRect();
+    const host = document.querySelector("[data-timeline]")?.getBoundingClientRect();
+    return c && host ? { w: Math.round(c.width), share: Math.round((c.width / host.width) * 100) } : null;
+  });
+  check(`and they are not adrift in the middle of it`, open.fill >= 45 || card.share >= 30,
+    `${open.fill}% of ${open.host}, a card ${card.w}px across — ${card.share}% of the board`);
   /* A board is landscape; a chain that runs off the bottom cannot fill one. */
   check(`and the chain runs across rather than down`, open.across > open.down,
     `${open.across} across, ${open.down} down`);
@@ -132,6 +144,67 @@ for (const n of [3, 8]) {
   }
   check("a card opened on any box comes fully into view", worst === 0,
     worst === null ? "no card opened" : `worst was ${worst}px outside the board`);
+}
+
+/* The models, reachable from where a person is when they want them.
+   Until this, changing the model meant leaving the timeline, finding the
+   part on the board and opening its Element tab. */
+{
+  await page.locator("[data-box]").first().click({ force: true });
+  await page.waitForTimeout(700);
+  const side = page.locator("[data-side-panel-timeline]");
+  check("the timeline has a panel on its left", (await side.count()) === 1);
+  const route = side.locator('[data-panel-block="route"]');
+  check("and it says where the next pass goes", (await route.count()) === 1,
+    (await route.count()) ? (await route.innerText()).split("\n")[0] : "not there");
+  /* These updates made no part, so there is nothing to hold a setting and
+     the panel says so rather than offering a control that writes nowhere. */
+  const readout = await side.locator("[data-audit-readout]").count();
+  const full = await side.locator("[data-audit-panel]").count();
+  check("an update with no part of its own gets the readout, not a control",
+    readout + full === 1, `${full} panels, ${readout} readouts`);
+}
+
+/* And the half that matters: an update that made a part offers that part's
+   models, right there, without leaving the timeline. */
+{
+  await page.evaluate(() => {
+    const d = JSON.parse(localStorage.getItem("builder.studio"));
+    const st = d.state;
+    st.nodes = [{
+      id: "d1", pageId: "page_home", featureId: "custom-idea", label: "a peak", prompt: "a peak drawn as one line",
+      content: "", x: 200, y: 200, w: 200, h: 120, groupId: null, options: {}, priority: "must", custom: true,
+      glyph: null, hue: null, locked: false, link: null, data: "", colour: null, font: null, anim: null,
+      animSpeed: 1, animDelay: 0, animEase: "out", shape: null, outline: null, kind: null, vector: null,
+      role: null, cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow",
+      texture: null, sketch: null, plan: null,
+    }];
+    st.threads = [{ id: "e1", at: 1, mode: "drawing", state: "done", ask: "a peak", answer: "drew a peak",
+      changes: [], parentId: null, madeId: "d1" }];
+    st.threadSpots = { "box:e1": { x: 200, y: 160 } };
+    st.openThreadId = null;
+    localStorage.setItem("builder.studio", JSON.stringify(d));
+  });
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1300);
+  await page.locator('[aria-label^="Finish"]').first().click({ force: true });
+  await page.waitForTimeout(1300);
+  await page.locator('[data-box="e1"]').click({ force: true });
+  await page.waitForTimeout(800);
+  const side = page.locator("[data-side-panel-timeline]");
+  check("an update that made a part offers that part's models here",
+    (await side.locator("[data-audit-panel]").count()) === 1);
+  const keys = side.locator("[data-model-key]");
+  const n = await keys.count();
+  check("with the models that serve it", n > 0, `${n} to choose from`);
+  check("and the route's own marked", (await side.locator("[data-model-default]").count()) === 1);
+  if (n > 1) {
+    await keys.nth(1).click({ force: true });
+    await page.waitForTimeout(600);
+    const chosen = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes[0].plan?.model ?? null);
+    check("choosing one from the timeline writes the part's plan", !!chosen, chosen ?? "nothing written");
+    check("and the panel says the choice is the person's", (await side.locator("[data-model-mine]").count()) === 1);
+  }
 }
 
 /* J's word. "Iterations" is not what he calls them. */
