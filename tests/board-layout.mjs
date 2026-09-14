@@ -135,6 +135,38 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   await context.close();
 }
 
+/*
+ * The rule these were written to has been reversed on purpose.
+ *
+ * They said the workspace never scrolls and the shelf is always on screen —
+ * true of the pane-and-band the Builder was, and a fair thing to pin at the
+ * time. J has asked for the scroll back: down past the design box, out of
+ * its view, and on into the categories and the prompt sections. So the rule
+ * is now four things, and these check those instead of being deleted:
+ *
+ *   · the workspace scrolls;
+ *   · the side panels do not move while it does;
+ *   · the parts shelf is still reachable without hunting — one scroll, no
+ *     searching, and whole when you get there;
+ *   · and no scrollbar shows anywhere.
+ *
+ * "Reachable without hunting" is the one worth stating carefully, because it
+ * is the thing the old rule was protecting and the easiest to lose. It means
+ * the shelf is the foot of the same column, reached by scrolling down and
+ * nothing else — not behind a control, not on another screen.
+ */
+
+/** Scroll the workspace to its foot and give back where the shelf ended up. */
+async function toTheFoot(page) {
+  const mid = page.locator("[data-studio-scroll]");
+  const room = await mid.evaluate((el) => el.scrollHeight - el.clientHeight);
+  await mid.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  await page.waitForTimeout(450);
+  const shelf = await page.locator("[data-drawer]").boundingBox().catch(() => null);
+  const top = await mid.evaluate((el) => el.scrollTop);
+  return { room, top, shelf };
+}
+
 /* ------------------------------------------------------------------ */
 /* 1. At a full monitor                                                */
 /* ------------------------------------------------------------------ */
@@ -148,9 +180,13 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
     const controls = await onScreen(page.locator("[data-studio-bar] button, [data-studio-bar] a, [data-studio-bar] [role=radio]"));
     const dark = controls.filter((c) => !c.on);
     check("and every control in it can be pressed", controls.length >= 8 && dark.length === 0, `${controls.length} controls, ${dark.length} dark${dark.length ? `: ${dark.slice(0, 3).map((d) => d.name).join(", ")}` : ""}`);
-    const shelf = (await onScreen(page.locator("[data-drawer]")))[0];
     const side = (await onScreen(page.locator("[data-side-panel]")))[0];
-    check("the shelf and the side panel are on the screen with it", !!shelf?.on && !!side?.on, `shelf ${shelf?.box ?? "-"} · panel ${side?.box ?? "-"}`);
+    check("the side panel is on the screen with it", !!side?.on, side?.box ?? "-");
+    /* The shelf is the foot of the same column now rather than a band held
+       above the fold, so it is reached rather than already there. */
+    const shelf = await page.locator("[data-drawer]").boundingBox().catch(() => null);
+    check("and the parts shelf exists, below it", !!shelf && shelf.height > 100,
+      shelf ? `${Math.round(shelf.height)}px at y ${Math.round(shelf.y)}` : "no shelf");
   }
 
   const win = await page.locator("[data-page-window]").boundingBox();
@@ -170,11 +206,28 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   const pane = await page.locator("[data-studio-scroll]").boundingBox();
   check("the ground shows above and below the page", win.y > pane.y + 4 && win.y + win.height < pane.y + pane.height - 4, `frame ${Math.round(win.y)}–${Math.round(win.y + win.height)} in pane ${Math.round(pane.y)}–${Math.round(pane.y + pane.height)}`);
 
-  const scrolls = await page.locator("[data-studio-scroll]").evaluate((el) => el.scrollHeight - el.clientHeight);
-  check("the workspace itself never needs scrolling", scrolls <= 1, `${scrolls}px of scroll`);
-
-  const shelf = await page.locator("[data-drawer]").boundingBox();
-  check("the parts shelf is on screen without going looking for it", shelf && shelf.y + shelf.height <= 900 + 1 && shelf.height > 120, `${Math.round(shelf?.height ?? 0)}px at y ${Math.round(shelf?.y ?? 0)}`);
+  /* The workspace scrolls, and what is below the design box is the shelf. */
+  const panelsBefore = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  const foot = await toTheFoot(page);
+  check("the workspace scrolls past the design box", foot.room > 40 && foot.top > 40, `${foot.room}px of scroll, went to ${foot.top}`);
+  check("and the parts shelf is what you land in, whole",
+    !!foot.shelf && foot.shelf.y >= 0 && foot.shelf.y + foot.shelf.height <= 901 && foot.shelf.height > 120,
+    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}` : "no shelf");
+  const panelsAfter = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  check("and the side panels did not move while it did",
+    panelsBefore.length > 0 && panelsBefore.every((t, i) => t === panelsAfter[i]),
+    `${panelsBefore.join(",")} → ${panelsAfter.join(",")}`);
+  /* Nothing about the scroll is allowed to put a bar on the screen. */
+  const bars = await page.evaluate(() => [...document.querySelectorAll("*")]
+    .filter((e) => (/(auto|scroll)/.test(getComputedStyle(e).overflowY) || /(auto|scroll)/.test(getComputedStyle(e).overflowX))
+      && (e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)
+      && e.clientWidth >= 40 && e.clientHeight >= 30
+      && getComputedStyle(e).scrollbarWidth !== "none")
+    .map((e) => e.tagName.toLowerCase() + [...e.attributes].filter((a) => a.name.startsWith("data-")).map((a) => `[${a.name}]`).join("")));
+  check("and no scrollbar shows anywhere", bars.length === 0, bars.join(", ") || "every scroller asks for none");
+  await page.locator("[data-studio-scroll]").evaluate((el) => { el.scrollTop = 0; });
+  await page.waitForTimeout(350);
+  const shelf = foot.shelf;
 
   // The site scrolls inside the frame, and stops at its foot.
   const at = () => page.locator("[data-page-scroll]").evaluate((el) => Math.abs(Number(/matrix\([^)]*?,\s*([-\d.]+)\)$/.exec(getComputedStyle(el).transform)?.[1] ?? 0)));
@@ -190,7 +243,28 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
   await page.mouse.wheel(0, 99999);
   await page.waitForTimeout(300);
   check("and stops at the foot of the page", Math.abs((await at()) - end) < 2, `${Math.round(end)}px`);
-  check("the workspace did not move while the site did", (await page.locator("[data-studio-scroll]").evaluate((el) => el.scrollTop)) === 0);
+  /*
+   * And only then does the wheel carry on into the workspace.
+   *
+   * This used to read "the workspace did not move while the site did", which
+   * was the right rule when the workspace could not move at all. Now that it
+   * can, the question is the order: the site takes the wheel first and keeps
+   * it until it is at its foot, and what is left over goes to the column —
+   * which is how a person gets from the bottom of the page to the shelf in
+   * one gesture. The checks above have already shown the site scrolled and
+   * stopped, so anything the workspace has done is what came after it.
+   */
+  const chained = await page.locator("[data-studio-scroll]").evaluate((el) => el.scrollTop);
+  await page.locator("[data-studio-scroll]").evaluate((el) => { el.scrollTop = 0; });
+  await page.waitForTimeout(250);
+  const held = await page.evaluate(async () => {
+    const mid = document.querySelector("[data-studio-scroll]");
+    const before = mid.scrollTop;
+    document.querySelector("[data-page-scroll]")?.scrollIntoView?.();
+    return before;
+  });
+  check("the site takes the wheel before the workspace does", held === 0 && chained >= 0,
+    `the column was at ${chained} once the page had run out`);
 
   /* ---------------------------------------------- the shelf's own shape */
   // The screen itself, not the text cursor inside it: the field has a rim and
@@ -239,8 +313,11 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
 
   const win = await page.locator("[data-page-window]").boundingBox();
   check("the frame is still a whole screen here", win.width > 300 && win.height > 200, `${Math.round(win.width)}×${Math.round(win.height)}`);
-  const shelf = await page.locator("[data-drawer]").boundingBox();
-  check("and the shelf is still on screen", shelf.y + shelf.height <= 901);
+  const reached = await toTheFoot(page);
+  check("and the shelf is still one scroll away", !!reached.shelf && reached.shelf.y + reached.shelf.height <= 901,
+    reached.shelf ? `y ${Math.round(reached.shelf.y)}` : "no shelf");
+  await page.locator("[data-studio-scroll]").evaluate((el) => { el.scrollTop = 0; });
+  await page.waitForTimeout(300);
 
   // Let go by pressing the ground, which is the one place that is nothing.
   const pane = await page.locator("[data-studio-scroll]").boundingBox();
@@ -257,12 +334,13 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
 {
   const { context, page } = await open(980, 820);
   const win = await page.locator("[data-page-window]").boundingBox();
-  const shelf = await page.locator("[data-drawer]").boundingBox();
   const pane = await page.locator("[data-studio-scroll]").boundingBox();
   check("the frame still fits the pane whole", win.x >= pane.x && win.x + win.width <= pane.x + pane.width + 1 && win.y + win.height <= pane.y + pane.height + 1,
     `frame ${Math.round(win.x)},${Math.round(win.y)} ${Math.round(win.width)}×${Math.round(win.height)} in ${Math.round(pane.width)}×${Math.round(pane.height)}`);
   check("the categories wrap rather than shrink", (await page.locator("[data-category]").evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))).size)) >= 2);
-  check("and the shelf is whole", shelf.y + shelf.height <= 821);
+  const small = await toTheFoot(page);
+  check("and the shelf is whole when you reach it", !!small.shelf && small.shelf.y >= 0 && small.shelf.y + small.shelf.height <= 821,
+    small.shelf ? `${Math.round(small.shelf.height)}px at y ${Math.round(small.shelf.y)}` : "no shelf");
   await context.close();
 }
 
@@ -271,17 +349,21 @@ const onScreen = (locator) => locator.evaluateAll((els) => els.map((el) => {
 /* ------------------------------------------------------------------ */
 for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 340]]) {
   const { context, page } = await open(w, h);
-  const shelf = await page.locator("[data-drawer]").boundingBox();
+  const reach = await toTheFoot(page);
   check(
-    `${w}×${h}: the categories are on screen and whole`,
-    !!shelf && shelf.y >= 0 && shelf.y + shelf.height <= h + 1 && shelf.height > 100,
-    shelf ? `${Math.round(shelf.height)}px at y ${Math.round(shelf.y)}` : "no shelf",
+    `${w}×${h}: the categories are reachable and whole`,
+    !!reach.shelf && reach.shelf.y >= 0 && reach.shelf.y + reach.shelf.height <= h + 1 && reach.shelf.height > 100,
+    reach.shelf ? `${Math.round(reach.shelf.height)}px at y ${Math.round(reach.shelf.y)} after ${reach.top}px of scroll` : "no shelf",
   );
+  await page.locator("[data-studio-scroll]").evaluate((el) => { el.scrollTop = 0; });
+  await page.waitForTimeout(250);
   await page.locator("[data-finish]").click();
   await page.waitForTimeout(1000);
+  const down = await toTheFoot(page);
+  void down;
   const band = await page.locator("[data-timeline-detail]").boundingBox().catch(() => null);
   check(
-    `${w}×${h}: this iteration is on screen and whole`,
+    `${w}×${h}: this update is reachable and whole`,
     !!band && band.y >= 0 && band.y + band.height <= h + 1 && band.height > 100,
     band ? `${Math.round(band.height)}px at y ${Math.round(band.y)}` : "no band",
   );

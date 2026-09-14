@@ -775,22 +775,23 @@ export function StudioPage() {
         <div
           data-studio-scroll=""
           /*
-           * Still a pane and a band, and the band is always on screen.
+           * The middle column scrolls; the panels either side do not.
            *
-           * J asked for the scroll back — down past the design box, out of
-           * its view, and on into the categories and the prompt sections. It
-           * works, and it is three lines: this scrolls, the pane takes a
-           * whole screen, and the panels are already siblings so they hold
-           * still on their own. It is not in because it reverses a decision
-           * that is deliberately held by sixteen checks in
-           * `tests/board-layout.mjs` — "the workspace itself never needs
-           * scrolling", "the parts shelf is on screen without going looking
-           * for it" — and because the pane taking a whole screen makes the
-           * board's fit width-held instead of height-held, which grows the
-           * frame and leaves almost no ground to pan on. That is a layout
-           * decision to take on purpose, not a side effect to discover.
+           * It was a pane and a band with the band always on screen and
+           * nothing scrolling at all. J wants the scroll: down past the
+           * design box, out of its view, and on into the categories and the
+           * prompt sections under the timeline. The panels are siblings of
+           * this rather than children, so they hold still while it moves —
+           * which is the other half of what he asked for and comes for free
+           * from where the scroll lives, not from holding them in place.
+           *
+           * `no-bars` is what makes it invisible. Overlay scrollbars are what
+           * this container's browser draws, so nothing showed here however
+           * hard it was measured; on a machine set to keep bars in view there
+           * was one down the website page and another down the design
+           * background.
            */
-          className="no-bars flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          className="no-bars flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden"
         >
           {/*
             The timeline is the board's twin: it fills the window less a
@@ -799,8 +800,11 @@ export function StudioPage() {
             shelf is under the board.
           */}
           <div
-            className={cn("relative w-full", design || book ? "min-h-0 flex-1" : "shrink-0")}
-            style={design || book ? undefined : { height: "100%" }}
+            /* A whole screen, always: the scroll below carries you past it
+               rather than shrinking it, which is the difference between a
+               scroll and a split. */
+            className="relative w-full shrink-0"
+            style={{ height: "100%" }}
           >
             {/*
               One ground, for the whole app.

@@ -110,10 +110,16 @@ check("a closed line drawn with it lands a space", drawn === before + 1, `${befo
 /* ------------------------------------------------------------------ */
 
 await pickTool(/select/i);
-/* Off the frame. A right-press *on* the frame is the background's wheel; the
-   app's own canvas menu is the ground around it, which is where "Drop a new
-   idea here" and "Pin a note here" already live. */
-await page.mouse.click(Math.max(12, frame.x - 120), frame.y + 200, { button: "right" });
+/* Off the frame *and* off the side panel. A right-press on the frame is the
+   background's wheel; the app's own canvas menu is the ground around it. The
+   frame grew when the workspace became a scroller, so the point is derived
+   from where the frame actually is rather than assumed. */
+const bare = await page.evaluate(() => {
+  const f = document.querySelector("[data-frame]").getBoundingClientRect();
+  const mid = document.querySelector("[data-studio-scroll]").getBoundingClientRect();
+  return { x: Math.round((mid.x + f.x) / 2), y: Math.round(f.y + f.height / 2) };
+});
+await page.mouse.click(bare.x, bare.y, { button: "right" });
 await page.waitForTimeout(600);
 const entry = page.getByText(/Create a space here/i).first();
 const onMenu = await entry.count();
@@ -129,7 +135,76 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
 
 /* ------------------------------------------------------------------ */
-/* 5. Create, on the background's wheel                                 */
+/* 5. Draw and Create, side by side on the wheel's outer ring           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Create space asked for these two together, and together is the point: Draw
+ * makes one element and Create sets an area aside for several, so a person
+ * choosing between them has to see both at once. Neither is ever a mode the
+ * other replaces.
+ */
+{
+  const fr = await page.locator("[data-frame]").first().boundingBox();
+  await page.mouse.click(fr.x + fr.width * 0.4, fr.y + fr.height * 0.6, { button: "right" });
+  await page.waitForTimeout(650);
+  const wheel = page.locator("[data-radial]");
+  const draw = wheel.locator('[data-shard="draw"]');
+  const make = wheel.locator('[data-shard="create"]');
+  check("the page's wheel carries Draw and Create at once",
+    (await draw.count()) === 1 && (await make.count()) === 1,
+    `${await draw.count()} Draw, ${await make.count()} Create`);
+  if ((await draw.count()) && (await make.count())) {
+    /*
+     * Both on the outer ring — measured as distance from the wheel's middle,
+     * not as a shared y. They are two halves of a quadrant *arc*: one comes
+     * out wide and short and the other tall and narrow, because they sit at
+     * different angles round the same band. Checking that their boxes lined
+     * up horizontally was checking for a row, which is not what a ring is.
+     */
+    const band = await wheel.evaluate((w) => {
+      /* The band each slab spans, off its own path, from the wheel's own
+         middle. A bounding box will not do: an arc segment's box centre is
+         not on the arc — it is pulled towards the corner the arc bends
+         round, which is why Draw measured 65 from the middle and Create 112
+         when both sit on the same ring. */
+      const svg = w.querySelector("svg");
+      const box = svg.getBoundingClientRect();
+      const cx = box.width / 2, cy = box.height / 2;
+      const read = (id) => {
+        const el = w.querySelector(`[data-shard="${id}"]`);
+        if (!el || !el.getTotalLength) return null;
+        const n = 24, len = el.getTotalLength();
+        let lo = Infinity, hi = -Infinity;
+        for (let i = 0; i <= n; i++) {
+          const pt = el.getPointAtLength((i / n) * len);
+          const d = Math.hypot(pt.x - cx, pt.y - cy);
+          lo = Math.min(lo, d); hi = Math.max(hi, d);
+        }
+        return { lo: Math.round(lo), hi: Math.round(hi) };
+      };
+      return { draw: read("draw"), create: read("create") };
+    });
+    check("both span the same ring, in from the same edge and out to it",
+      !!band.draw && !!band.create && Math.abs(band.draw.lo - band.create.lo) < 12 && Math.abs(band.draw.hi - band.create.hi) < 12,
+      band.draw ? `Draw ${band.draw.lo}–${band.draw.hi}, Create ${band.create.lo}–${band.create.hi}` : "no path to read");
+    const a = await draw.boundingBox();
+    const b = await make.boundingBox();
+    check("and they are two slabs, not one", Math.hypot(a.x - b.x, a.y - b.y) > 20);
+    check("Draw says Draw and Create says Create",
+      (await draw.getAttribute("aria-label")) === "Draw" && (await make.getAttribute("aria-label")) === "Create",
+      `${await draw.getAttribute("aria-label")} · ${await make.getAttribute("aria-label")}`);
+    const was = await spaces();
+    await make.click({ force: true });
+    await page.waitForTimeout(800);
+    check("pressing Create lands a space", (await spaces()) === was + 1, `${was} → ${await spaces()} on the page`);
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. Create is still under Edit as well                                */
 /* ------------------------------------------------------------------ */
 
 await page.mouse.click(frame.x + frame.width * 0.7, frame.y + frame.height * 0.8, { button: "right" });
