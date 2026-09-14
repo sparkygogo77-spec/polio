@@ -116,13 +116,41 @@ const sides = {
   top: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - OUT, bigBox),
   bottom: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + OUT, bigBox),
 };
-const lit = {};
+/*
+ * Each side against its own background, not against one reading taken on
+ * the right.
+ *
+ * Raw luminance 7px out was read as the aura, with a single page sample off
+ * to the right standing for "unlit". That worked while the page behind the
+ * hole was one flat colour. It is a full-length page on a surface that
+ * moves now, so the backdrop is not flat, and the four readings came back
+ * left 254, top 249, right 214, bottom 164 — a 90 point spread with a clean
+ * fall from top-left to bottom-right, which is the page underneath showing
+ * through the measurement rather than a lopsided aura.
+ *
+ * So each side is measured against the same direction further out: how much
+ * the aura lifts its own patch of background. That is what "lit the same
+ * all the way round" means, and it holds whatever is painted behind it.
+ */
+const FAR_REF = 180;
+const refs = {
+  left: await toScreen("sp_big", BIG.x - FAR_REF, BIG.y + BIG.h / 2, bigBox),
+  right: await toScreen("sp_big", BIG.x + BIG.w + FAR_REF, BIG.y + BIG.h / 2, bigBox),
+  top: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - FAR_REF, bigBox),
+  bottom: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + FAR_REF, bigBox),
+};
+const lit = {}, base = {}, lift = {};
 for (const [side, [x, y]] of Object.entries(sides)) lit[side] = await glow(x, y);
-const [px, py] = await toScreen("sp_big", BIG.x + BIG.w + 180, BIG.y + BIG.h / 2, bigBox);
-const pageLuma = await glow(px, py);
-const vals = Object.values(lit);
-check("every side of the open hole is lit", vals.every((v) => v > pageLuma + 14), `left ${lit.left}, right ${lit.right}, top ${lit.top}, bottom ${lit.bottom}, page ${pageLuma}`);
-check("and lit the same all the way round, not heavier on the left", Math.max(...vals) - Math.min(...vals) < 45 && lit.left < lit.right + 45, `left ${lit.left} vs right ${lit.right}`);
+for (const [side, [x, y]] of Object.entries(refs)) base[side] = await glow(x, y);
+for (const side of Object.keys(lit)) lift[side] = lit[side] - base[side];
+const say = Object.keys(lit).map((k) => `${k} ${lit[k]}-${base[k]}=${lift[k]}`).join(", ");
+/* Unlit page, for the reach checks below: the right-hand reference, which
+   is what this was before each side got one of its own. */
+const pageLuma = base.right;
+const vals = Object.values(lift);
+check("every side of the open hole is lit", vals.every((v) => v > 14), say);
+check("and lit the same all the way round, not heavier on the left",
+  Math.max(...vals) - Math.min(...vals) < 45 && lift.left < lift.right + 45, say);
 /* Size follows the shape: the big hole's aura reaches further than the
    small one's will. Sampled where the big one is still lit and the small
    one, at the same distance, is not. */

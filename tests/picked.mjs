@@ -128,11 +128,33 @@ check("a picked part wears one ring, not the hover dashes as well", dashed === 0
 // The page itself, which is picked by pressing the frame it is drawn on.
 const frame = page.locator("[data-frame]").first();
 const unpicked = await outlineOf(frame);
-// Somewhere on the frame that is on screen and has no part on it: the
-// frame runs off the bottom of the viewport, and Playwright's own centre
-// would land under the toolbar.
-const fb = await frame.boundingBox();
-await page.mouse.click(fb.x + 40, Math.min(fb.y + fb.height - 40, 900));
+/*
+ * Somewhere the frame actually answers to, found rather than computed.
+ *
+ * This took the frame's rectangle and pressed 40px in from its left and up
+ * from its foot, clamped to y 900 because the frame used to run off the
+ * bottom of the viewport. It does not any more — the page is a full-length
+ * page on a surface that moves, and here the frame is 715 tall and ends at
+ * 820 — so that arithmetic put the press at y 780, which is the shelf's
+ * search box sitting over it, and the page was never pressed at all.
+ *
+ * Asking the document what is under a point costs nothing and cannot go
+ * stale: the first spot that answers as the frame and not as a part on it
+ * is the spot to press.
+ */
+const spot = await page.evaluate(() => {
+  const f = document.querySelector("[data-frame]");
+  if (!f) return null;
+  const r = f.getBoundingClientRect();
+  for (let y = Math.max(8, r.top + 12); y < Math.min(innerHeight - 8, r.bottom - 12); y += 16)
+    for (let x = Math.max(8, r.left + 12); x < Math.min(innerWidth - 8, r.right - 12); x += 16) {
+      const el = document.elementFromPoint(x, y);
+      if (el && f.contains(el) && !el.closest("[data-node-id]")) return { x, y };
+    }
+  return null;
+});
+check("there is somewhere on the page to press", !!spot, spot ? `${spot.x},${spot.y}` : "the frame is covered everywhere");
+await page.mouse.click(spot.x, spot.y);
 await page.waitForTimeout(400);
 const picked = await outlineOf(frame);
 check("the page is picked by pressing it", (await page.locator("[data-frame][data-selected]").count()) === 1);
