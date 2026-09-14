@@ -2,9 +2,91 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T02:51:06.509Z";
+export const GENERATED_AT = "2026-09-14T03:28:57.905Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "f0e35e4",
+    "when": "2026-09-14T03:28:57+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "edd2bd4",
+        "says": "The red card carries the element it made, not a playback of the strokes",
+        "when": "2026-09-14T03:08:29+00:00",
+        "detail": [
+          "J's note off a screenshot: he drew two circles and a square and got the same two circles and a square back, which tells him nothing he did not just draw. Four changes, and the first is the one that matters.",
+          "**The element, as it exists on the page.** The board's own renderer, the real node, the site's palette and its light — the part itself rather than a picture of one. It is live where there is room: a closed box is a token you drag round the timeline and a part taking presses inside it would fight the drag, so closed it is inert and open — the card grown out of it, and the box while that card is open — it runs and takes its own presses. Closed is a thing you move, open is the thing itself. That also means the card is a surface rather than a `<button>`, because an element inside a button is both invalid and unusable; it keeps the press, the drag, the right-press and the keyboard.",
+          "While a drawing is still being made there is no element yet, so the strokes stand in until there is one. That is honestly all there is at that moment.",
+          "**Tied to the part still being there.** The link was in the data all along — the editor underneath already said \"the part this made is no longer on the board\" — and it was not driving the picture. Now the picture is what it drives: the part, or that sentence, or \"this one made nothing on the board\"."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e6a6d23",
+    "when": "2026-09-14T03:28:19+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "2ed8716",
+        "says": "The workspace scrolls again, and the wheel offers one element or several",
+        "when": "2026-09-14T03:08:32+00:00",
+        "detail": [
+          "**The scroll and the gutter, as one decision.** The middle column scrolls: down past the design box, out of its view, and on into the categories and the prompt sections. The side panels hold still because they are siblings of the scroller rather than children — not because anything holds them. And a full-screen pane makes the board's fit width-held instead of height-held, which grew the frame from 979 to 1201 of 1272 and left 35px of ground either side; dragging bare ground is how the board is panned, so the gutter goes to 128 and gives back 64 a side. The scroll takes the ground away and the gutter is what returns it.",
+          "**board-layout's sixteen checks, rewritten rather than deleted.** They said the workspace never scrolls and the shelf is always on screen, which was true of the pane-and-band and is a fair thing to have pinned. The rule is now four things and they check those: the workspace scrolls, the side panels do not move while it does, the parts shelf is still reachable without hunting — one scroll, no searching, whole when you get there — and no scrollbar shows.",
+          "Run against the old code, one of them fails: \"the workspace scrolls past the design box — 0px of scroll, went to 0\". The others pass under both layouts, which is why they were safe to keep rather than rewrite: a shelf that is reachable and a panel that holds still were true before and are true now. The bars check bites too — proved separately by taking `no-bars` off the column, which names it.",
+          "One check changed meaning rather than sides. \"The workspace did not move while the site did\" was right when the workspace could not move at all; now the question is the order, so it says the site takes the wheel first and keeps it until its foot, and what is left over goes to the column — which is how a person gets from the bottom of the page to the shelf in one gesture."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0f1d905",
+    "when": "2026-09-14T03:27:55+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "0f1d905",
+        "says": "The answer check is about the assignment, not the declaration",
+        "when": "2026-09-14T03:27:55+00:00",
+        "detail": [
+          "`oddness` wanted the exact text `const drawn = withAnswer(job.sketch, answered);` in the run. The const moved out to the top of the function so the failure path can see `drawn` as well, which is precisely what a thrown run failing its own job rather than stopping the queue needs — and the line the check is named after still does what it says.",
+          "It asks for the assignment now and lets the declaration sit wherever it has to. 53/53.",
+          "That is the fourth grep this week pinned to a spelling rather than a claim, after noteSpend(readCost), landThread's parameter list, and the flag's innerText. They fail on the code around them changing shape while what they assert stays true, and each one costs a sweep. Worth a look at the family of source-text checks as a whole rather than mending them one at a time as they break."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "86abd9b",
+        "says": "Regenerate the passes for the queue surviving a thrown run",
+        "when": "2026-09-14T02:51:32+00:00",
+        "detail": [
+          "Euler's pass: a run that throws fails its job rather than stopping the queue, with tests/two-in-a-row.mjs holding it shut."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "50d6741",
     "when": "2026-09-14T02:51:05+00:00",
@@ -846,115 +928,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e90c82d",
-    "when": "2026-09-13T18:08:58+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "f72fdd0",
-        "says": "What a colour menu is, said once",
-        "when": "2026-09-13T18:08:10+00:00",
-        "detail": [
-          "Six places in the Builder offer a colour and each was its own small design. Measured off the source, not remembered:",
-          "Six chip sizes. Three as numbers to ArcChips — 16, 18, 24 over seven call sites in BackgroundEditors and RingEditors — and three more as Tailwind classes: 18 on RadialMenu's background chip, 20 and 24 on ColourOverride's role swatches, 32 and 36 on LookPanel's.",
-          "Five declarations of the same \"nothing\" chip. Four an X at two glyph sizes and one a Ban, over three different dark fills, under five different words.",
-          "Two independent builds of the same three controls: a 96px lightness-by- chroma field over a 12px hue strip in LookPanel, and in MenuConsole no field at all — 9px hue dots over two 12px strips. They agree on 12 by accident and on nothing else."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "71dc7b6",
-    "when": "2026-09-13T18:04:06+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "71dc7b6",
-        "says": "Regenerate the passes for the retaken create-space shots",
-        "when": "2026-09-13T18:04:06+00:00",
-        "detail": [
-          "Four screenshots under docs/shots, retaken on the merged tree, and nothing else — no source, no tests. Typecheck and build pass; the full sweep is not run for replaced images, because there is nothing a PNG under docs/ can change about what the suites measure, and a thirty-five minute battery for four pictures is the delay this process exists to avoid. Said out loud rather than quietly skipped."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1de2aab",
-        "says": "The create space shots, retaken on the merged tree",
-        "when": "2026-09-13T18:03:13+00:00",
-        "detail": [
-          "Same four, from the run that verified the merge: the placeholder, the hole after it has consumed the area, the part inside it with its own panel, and the construct box. The ground moves under them, so no two captures are the same file; these are the ones that go with the tree as it stands."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "f01b597",
-        "says": "solid waits for the question the run now asks",
-        "when": "2026-09-13T17:52:26+00:00",
-        "detail": [
-          "The 3D suite lost five checks to a third resting state. `oddness.ts` stops a drawing that could be two things and asks before anything is spent, and a job that is `asking` is neither running nor waiting — so the wait loop saw a quiet queue, walked past an unanswered question, and read a part that had never been made. Every check after it was reading null off a drawing still sitting behind the question.",
-          "It answers now: with the answer a call names, and otherwise by waving it on, which is what these drawings mean — they say in words what they are. The default keeps every call that predates the question saying exactly what it said before.",
-          "The cube offer is asked where it went. It used to be a line in the thread's changes, the part made flat first and told afterwards that a cube was one word off, and it now comes in front of the first paid call with the cube as the likeliest answer. This suite only holds that a box nobody claimed does not go quietly; what the question is made of belongs to tests/oddness.mjs, which covers the rules and every answer and passes. 13/13.",
-          "One for whoever owns the gate, because it is a judgement rather than a fault: the box question exempts a drawing whose words say \"cube\", but not one that has been described some other way. \"a chunk of rock, in 3d, turnable\" is asked whether it is a box, which reads oddly for someone who has plainly said what they want. The scribble question has the exemption — words beside it mean it has been described — and the box question does not."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "053e5b4",
-        "says": "Settle the recreate wording on trunk, and regenerate the passes",
-        "when": "2026-09-13T17:17:34+00:00",
-        "detail": [
-          "The pass: the timeline closes a card on any press off it, edits an element from its card, and asks before it spends.",
-          "The same two hunks conflicted again, with the sides swapped. Both of us had fixed the recreate step within the hour, I resolved in favour of his wording, he merged trunk and resolved in favour of mine, and each deferring to the other is a loop that does not end on its own. Trunk keeps what is already pushed and green: \"Recreate the real thing\" for the panel, and the step-move check pinned by name rather than by position — the shorter of the two and the better instrument. Neither is mine; that is rather the point.",
-          "If either session wants different words there, say so and it changes once, rather than trading it back and forth a merge at a time."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "3b37be4",
-    "when": "2026-09-13T17:16:59+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "198da4b",
-        "says": "The timeline closes a card on any press off it, edits an element from its card, and asks before it spends",
-        "when": "2026-09-13T16:52:46+00:00",
-        "detail": [
-          "Three timeline behaviours, from J.",
-          "Clicking off a card closes it. A press on the timeline's ground already did (and still tells a press from a pan — six pixels wide now, not three, because a mouse press moves a pixel or two on its own and a trackpad more, and a press that read as a pan closed nothing). The rest of the window did not: the bar, the shelf, the page behind. \"Off the card\" means off the card, so a press anywhere puts it away except on the card itself, on a box (a box press opens or closes its own), on the panel showing the open card's prompts, or on a menu or dialog open over it.",
-          "An element can be edited directly from its card. The card offered two roads back to the board; the things a person most often wants to change — what it is called and what it is meant to be — need no board. They are written on the part from the card, at once, and \"draw it again with these words\" puts the same drawing back on the queue with the new words beside it, on the same part, so it is reshaped rather than a second one made. The size is shown, not edited: a size is set by hand on the board, where the hand is. Keys typed in the editor never reach the board's shortcuts.",
-          "When a drawing is odd or ambiguous, the run asks one question before spending money on it rather than guessing. The first paid call on a drawing is the read; `oddness.ts` looks at the strokes for free first, after the catalogue (free, needs no question) and before the read (neither). Two questions, never more than one per drawing: a box that is one word from being a cube — \"Is this box a cube?\", which used to be offered as a toast after the part had been made the other way — and a scribble with nothing typed beside it — \"What is this drawing meant to be?\", an icon, a picture, a surface or just a mark, because those go to different models at different steps. The job stops as `asking`, the question sits where the counter is with the drawing and the answers as keys and \"make it anyway\" for a person who would rather have the guess, other drawings go past it, and the answer comes back in as words beside the drawing so the reader is briefed and nothing downstream knows a question was asked. Verified live: a bare box asks, \"A cube\" is answered, and the catalogue claims it with no model called."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
