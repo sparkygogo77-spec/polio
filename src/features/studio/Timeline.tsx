@@ -1305,7 +1305,7 @@ function IterationBox({
           The line above the headline is a label, and it is sized like one:
           what the iteration made is the biggest thing on the box.
         */}
-        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.66_0.07_152)]">
+        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.9_0.05_152)]">
           {icon}
           {kind}
           {/* Nothing else on this row. The flag that marked the update being
@@ -1563,7 +1563,7 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
       }}
     >
       {empty ? (
-        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.64 0.07 152)" }}>
+        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.88 0.05 152)" }}>
           {from ? "nothing on the site yet" : "no picture of the site was kept with this one"}
         </span>
       ) : (
@@ -1614,7 +1614,7 @@ function Features({ thread }: { thread: Thread }) {
   const { parts, mine } = React.useMemo(() => ownParts(thread, parent), [thread, parent]);
   return (
     <div className="flex min-h-0 shrink-0 flex-col gap-1">
-      <span data-headline="" className="line-clamp-1 block text-[10px] text-[oklch(0.72_0.08_152)]">
+      <span data-headline="" className="line-clamp-1 block text-[10px] text-[oklch(0.93_0.06_152)]">
         {headlineOf(thread)}
         {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
       </span>
@@ -1625,17 +1625,33 @@ function Features({ thread }: { thread: Thread }) {
               key={n.id}
               data-feature-new={mine.has(n.id) ? "1" : "0"}
               className="rounded-sm border px-1 py-px"
+              /*
+               * Both kinds stand on a ground of their own.
+               *
+               * A chip is an object, not a sentence, and it already carries a
+               * border — so the one thing it was missing was a floor. The
+               * unlit one had none, which put nine-pixel words straight onto
+               * the render: fine over the dark between the filaments, and
+               * 3.8:1 over a bright one, which is the note. A near-opaque
+               * plate makes its face one value instead of a moving one — and it
+               * is opaque rather than nearly so, because six per cent of a
+               * bright filament coming through was still enough to put the
+               * worst pixels of a chip at 4.1:1 — and
+               * then the ink can stay the family's green rather than being
+               * driven to white to survive the brightest pixel under it.
+               * Lit is still the loud one: brighter plate, brighter edge.
+               */
               style={mine.has(n.id)
                 ? { borderColor: "oklch(0.7 0.17 152)", background: "oklch(0.3 0.09 152)", color: "oklch(0.95 0.07 152)" }
-                : { borderColor: "oklch(0.32 0.07 152)", color: "oklch(0.7 0.07 152)" }}
+                : { borderColor: "oklch(0.4 0.09 152)", background: "oklch(0.17 0.03 152)", color: "oklch(0.92 0.05 152)" }}
             >
               {n.label}
             </li>
           ))}
-          {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.62 0.06 152)" }}>and {parts.length - 14} more</li> : null}
+          {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.88 0.045 152)" }}>and {parts.length - 14} more</li> : null}
         </ul>
       ) : (
-        <span className="text-[9px]" style={{ color: "oklch(0.62 0.06 152)" }}>nothing stands on the site yet</span>
+        <span className="text-[9px]" style={{ color: "oklch(0.88 0.045 152)" }}>nothing stands on the site yet</span>
       )}
     </div>
   );
@@ -1733,7 +1749,7 @@ function ElementPiece({
           mark that is on almost all of them almost all of the time.
         */}
         {pinned ? (
-          <span className="flex items-center justify-end text-[8px] text-[oklch(0.7_0.09_18)]"><Pin className="size-2.5 fill-current" /></span>
+          <span className="flex items-center justify-end text-[8px] text-[oklch(0.9_0.07_18)]"><Pin className="size-2.5 fill-current" /></span>
         ) : null}
         {/*
           THE ELEMENT, NOT THE DRAWING OF IT.
@@ -1750,7 +1766,10 @@ function ElementPiece({
         <span className="flex min-h-0 flex-1 items-stretch justify-center py-0.5">
           {forming < 1 && !thread.madeId ? (
             <span className="grid flex-1 place-items-center">
-              <Drawn sketch={thread.sketch} size={62} tone="oklch(0.97 0.045 24)" />
+              {/* The room the element gets when there is one, so the drawing
+                  standing in for it is the same size as the thing it stands
+                  in for rather than a stamp in the middle of an empty card. */}
+              <Drawn sketch={thread.sketch} size={62} width={PIECE.w - 22} height={PIECE.h - 66} tone="oklch(0.97 0.045 24)" />
             </span>
           ) : (
             <span className="block w-full">
@@ -1761,7 +1780,7 @@ function ElementPiece({
         <span className="block text-center">
           <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
           {thread.changes.length > 1 ? (
-            <span className="mt-0.5 block text-[9px] text-[oklch(0.68_0.07_18)]">and {thread.changes.length - 1} more</span>
+            <span className="mt-0.5 block text-[9px] text-[oklch(0.9_0.06_18)]">and {thread.changes.length - 1} more</span>
           ) : null}
         </span>
       </div>
@@ -1807,19 +1826,72 @@ function thin(stroke: [number, number][], most = 64): [number, number][] {
  * trick the construct already uses — light with the material's own dark
  * behind it.
  *
- * Twice the polylines, and they are a dozen short ones at a thumbnail's
- * size; a card repaints this when its drawing changes and not otherwise.
+ * Twice the polylines, over a points budget rather than a stroke count, so
+ * the whole drawing is on the card and the cost is bounded by how much line
+ * there is rather than by how many times the hand lifted; a card repaints
+ * this when its drawing changes and not otherwise.
  */
-export function Drawn({ sketch, size, tone, shade = "oklch(0.1 0.02 24 / 0.92)" }: { sketch?: { strokes: [number, number][][] } | null; size: number; tone: string; shade?: string }) {
+export function Drawn({ sketch, size, width, height, tone, shade = "oklch(0.1 0.02 24 / 0.92)" }: { sketch?: { strokes: [number, number][][] } | null; size: number; width?: number; height?: number; tone: string; shade?: string }) {
   if (!sketch?.strokes?.length) return <Brush className="size-3.5 shrink-0 opacity-70" />;
-  const lines = sketch.strokes.slice(0, 12).map((stroke) => thin(stroke).map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).join(" "));
+  const W = width ?? size;
+  const H = height ?? size;
+  /*
+   * ALL OF THEM. A bird put on the board in fifteen strokes is one drawing
+   * everywhere else in this app — the ink groups it as one, the ring round
+   * it counts fifteen, one Make real is drawn for it — and it was twelve
+   * here, so the same bird lost its legs on the card that is meant to be a
+   * picture of it. The budget is points rather than strokes now: the whole
+   * drawing gets about six hundred of them and each stroke takes its share,
+   * which is what the thinning was always for.
+   */
+  const strokes = sketch.strokes.filter((st) => st.length > 1);
+  const each = Math.max(8, Math.floor(600 / Math.max(1, strokes.length)));
+  const drawn = strokes.map((stroke) => thin(stroke, each));
+  const lines = drawn.map((stroke) => stroke.map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`).join(" "));
+  /*
+   * THE DRAWING FILLS THE ROOM IT IS GIVEN.
+   *
+   * The box was the unit square on the reasoning that the strokes are
+   * normalised into it, and they are not: a line drawn across the middle of
+   * a board normalises to a band through the middle of that square, so the
+   * mark arrived as a small clump in the centre of a card with air all round
+   * it. The view is the drawing's own bounds with a margin now, so whatever
+   * was drawn is as large as the space allows — which is the whole of the
+   * note, a drawing on a card has to read at card size.
+   *
+   * A margin of a twelfth, and a floor under the extent so a straight line
+   * or a single dot — zero high or zero wide — is not divided by nothing and
+   * blown up to infinity.
+   */
+  const xs = drawn.flat().map(([x]) => x);
+  const ys = drawn.flat().map(([, y]) => y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const span = Math.max(0.04, x1 - x0, y1 - y0);
+  const pad = span / 12;
+  const vw = Math.max(span / 6, x1 - x0) + pad * 2;
+  const vh = Math.max(span / 6, y1 - y0) + pad * 2;
+  const vx = (x0 + x1) / 2 - vw / 2;
+  const vy = (y0 + y1) / 2 - vh / 2;
+  /*
+   * And the line's weight is in pixels, not in the drawing's own units.
+   *
+   * It was a fraction of the unit square, so the more the drawing was scaled
+   * up the fatter its ink went: at a thumbnail's size the dark line under it
+   * was six pixels wide and a drawing of any detail closed into a mesh. With
+   * `non-scaling-stroke` the width is read in the viewport instead, so a
+   * stroke is the same weight however far the view is zoomed and detail
+   * survives being made large. Slightly heavier on a bigger drawing, because
+   * a hairline across 150px reads as a scratch.
+   */
+  const dark = Math.max(2.1, Math.min(3.6, Math.min(W, H) / 40));
   return (
-    <svg width={size} height={size} viewBox="0 0 1 1" aria-hidden className="shrink-0">
+    <svg width={W} height={H} viewBox={`${vx.toFixed(4)} ${vy.toFixed(4)} ${vw.toFixed(4)} ${vh.toFixed(4)}`} preserveAspectRatio="xMidYMid meet" aria-hidden className="shrink-0">
       {lines.map((points, i) => (
-        <polyline key={`u${i}`} points={points} fill="none" stroke={shade} strokeWidth={0.095} strokeLinecap="round" strokeLinejoin="round" />
+        <polyline key={`u${i}`} points={points} fill="none" stroke={shade} strokeWidth={dark} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
       ))}
       {lines.map((points, i) => (
-        <polyline key={i} points={points} fill="none" stroke={tone} strokeWidth={0.04} strokeLinecap="round" strokeLinejoin="round" />
+        <polyline key={i} points={points} fill="none" stroke={tone} strokeWidth={dark * 0.42} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
       ))}
     </svg>
   );
