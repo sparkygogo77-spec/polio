@@ -2,9 +2,69 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T03:28:57.905Z";
+export const GENERATED_AT = "2026-09-14T04:28:36.727Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "f2dce00",
+    "when": "2026-09-14T04:28:36+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "affe417",
+        "says": "A green card is the site: the preview it left, at the size of a site",
+        "when": "2026-09-14T03:45:05+00:00",
+        "detail": [
+          "It was a line of prose beside a silhouette of grey rectangles, which says how many things stand on a page and nothing about what they are, and it called itself \"the board as you started it\".",
+          "**It is the site.** Every update snapshots the whole document it landed on, so the card renders that document with the same renderer the preview uses: the real parts, the real theme, laid out at the width the site is built at and scaled down to the card. Only the parts that existed by that update are in it, because the ones that come later arrive on the cards that made them — which is the point of a chain of them. The newest card is the exception: nothing has happened since it, so it shows the board as it stands rather than a snapshot that is already behind the thing it is a picture of. An update that kept no document shows nothing and says so, rather than showing today's site under an old card.",
+          "**At the size J drew.** 620 × 208, about two and a half times the width it was and twice the height, so a green card reads as the site and the red cards read as steps against it. The two used to be the same area on purpose — neither the lesser thing — and that was right while a green card was a line of prose.",
+          "**The prompting above, the feature list below.** What was asked is at the top in the card's own type, with a second page of it holding the same words in a field: sometimes a thing is acceptable and just wants another go, and sometimes the prompt wants a word changed first. Under the site are the parts standing on it, named, with this update's own lit — worked out from the two documents rather than parsed back out of the sentences `diffDocs` writes, because picking a name out of \"+ Top bar placed\" is a parser waiting to be wrong about a part called \"placed\"."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "10e8067",
+    "when": "2026-09-14T04:27:41+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "10e8067",
+        "says": "Three suites meet a workspace that scrolls, and one stops reading a median",
+        "when": "2026-09-14T04:27:41+00:00",
+        "detail": [
+          "The workspace scrolls again, so two suites were measuring a Builder that had moved under them.",
+          "deploy-check asked whether the shelf was on the screen at first paint. On a 900px window the shelf now starts at y 939, one wheel away, so three checks read as missing on a Builder that has all of them. On a surface that scrolls, \"on the screen\" means reachable — it scrolls to the shelf first now, the way a person gets there. 17 of 17.",
+          "space-by-hand drew a ring round the first part without looking at where the part was, and the part can sit above the top of the pane — measured at y -76 — so the gesture went nowhere and took three checks with it. It scrolls to the part before measuring it. 28 of 28.",
+          "timeline-centre is a different fault and a worse one. It compared the median gap between frames while settling against the median sitting still, and the page's gaps are bimodal now — half at 16.7ms, half at 33.3ms — so the median falls on whichever side holds the extra frame and flips between the two on the same build. Three runs: idle read 16.7, 33.3, 16.7 while settling read 33.2, 33.3, 33.3, failing twice and passing once on nothing but where the median landed. The late shares over those runs say the opposite of the failure — settling dropped 8%, 6% and 3% of its frames while sitting still dropped 47%, 3% and 43%. It counts frames delivered in the window now, which is stable under that and is what its name claims. Three runs, 15/15 each."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "fixed"
+      },
+      {
+        "id": "cd08b55",
+        "says": "Regenerate the passes for the scrolling workspace and the red card",
+        "when": "2026-09-14T03:29:19+00:00",
+        "detail": [
+          "Two passes: the workspace scrolls again with the wheel offering one element or several, and the red card carries the element it made rather than a playback of the strokes.",
+          "The one conflict was the check I mended an hour ago, mended on the other side too and the same way. Resolved once rather than deferred back — the more tolerant of the two patterns, with the explanation from the other, which names the suite that proves it. Also worth noting from the same tip: the box question now exempts a drawing described any other way, which was the judgement I raised two passes ago, and its own suite holds it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "f0e35e4",
     "when": "2026-09-14T03:28:57+00:00",
@@ -864,67 +924,6 @@ export const PASSES: Pass[] = [
         "detail": [
           "Two passes, hypatia's tip carrying euler's: the console's colour menus move onto the one system, and gpt-image-2 does do transparency, so it leads the alpha step and every field is data.",
           "The second answers the judgement I raised on the last pass from the other side of it — the question's own doc now reads \"a drawing with words beside it is never asked\", which is the exemption the box rule was missing. Its suites came with it, so nothing here had to be restated."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "3667ac4",
-    "when": "2026-09-13T18:40:18+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "d15b6d9",
-        "says": "The console's colour menus move onto the one system",
-        "when": "2026-09-13T18:29:36+00:00",
-        "detail": [
-          "Two of the six. BackgroundEditors and RingEditors now take their chip size, their corner and their empty and inherited swatches from colourMenu.ts, and nine hand-written sizes come out.",
-          "What the measurement found once the surfaces were opened:",
-          "The five \"nothing\" chips were not one thing. Two mean nothing is there — \"No aura\", \"No texture\" — and those get the chequer. Three mean this follows the site: \"From the accent\", \"Follow the site\", and the texture row's \"SITE\", which had already broken ranks and used a word instead of the glyph. A part that follows the site is not empty; it has a colour, and the menu was hiding it behind a dark box with a cross on it. Those get inheritChip, which wears the colour it inherits under a folded corner. The fifth, \"No entrance\", is not a colour chip at all — a row of motion icons with an off switch — and keeps its Ban.",
-          "There were nine hand-written sizes, not seven, in six values. Two rows chose between two sizes with a ternary (`size={sharing ? 22 : 26}`), and `sharing` was that row's own way of saying \"there is less room here\" — the question chipSize already answers from the radius. Two more rows and one grid ran on defaults of 28 and 22 that nobody had chosen. No call site writes a size now; ArcChips reads it off the slab."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "4aa3f48",
-        "says": "gpt-image-2 does do transparency: it leads the alpha step, and every field is data",
-        "when": "2026-09-13T18:21:39+00:00",
-        "detail": [
-          "The correction, taken: J has produced transparent PNGs from gpt-image-2 on Replicate with background set to transparent — real alpha, quality intact — so the row that said it could not is wrong and is gone. Its schema was read again at the source (replicate.com/api/models/…/versions), and the table now carries what the schema carries rather than what it was briefed.",
-          "**The alpha step is a render, not a cut.** gpt-image-2 serves it first and gpt-image-1.5 is the other option; the segmenter stays behind both. The step is the picture handed back to a model that renders with no ground — exact by construction, no matte, no halo, no filled hole — and a cutter guessing at an edge after the fact is what happens only when neither will serve. `wordsFor` has the words for it (\"again exactly as it is, with a transparent background, nothing moves\"), the progress word is \"Taking the ground off…\", and the card line is \"ground left out · …\".",
-          "Alpha is therefore a **pass of its own** in a plan rather than a flag on the last one: refine, recreate and alpha run in the order the plan gives them, each starting from what the one before it made. (It was `alpha: boolean` on the last pass; that is gone.)",
-          "**Every field of every model is data now** (`ModelField` on each row): name, label, kind, allowed values, min, max, default, how many images, which of them the route already fills (`managed`), and a line from the schema worth keeping. Read off the published schemas, field for field, for all seven rows — gpt-image-2 and 1.5 (aspect_ratio including auto and the explicit pixel sizes up to 3840×2160, input_images, background, quality, number_of_images, output_compression, output_format, moderation, user_id, openai_api_key), nano-banana-2, seedream-5-lite, ideogram, hunyuan3d-2mv and the remover. `optionsFor` holds what a person sets to what the model takes — an enum to its values, a number clamped and an integer rounded, images to the count the field allows, anything else dropped rather than sent — and `inputFor` applies it last, so a person's ratio or background wins over the route's own choice. The request carries `options`, the plan carries `options`, and the answer says which of them were applied."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0af2c02",
-    "when": "2026-09-13T18:09:19+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "0af2c02",
-        "says": "Regenerate the passes for the colour menu",
-        "when": "2026-09-13T18:09:19+00:00",
-        "detail": [
-          "Hypatia's pass: what a colour menu is, said once. New file and new suite, nothing else touched."
         ],
         "areas": [
           "studio"
