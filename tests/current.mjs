@@ -114,57 +114,66 @@ const boxes = page.locator("[data-box]");
 check("every iteration stands on the timeline", (await boxes.count()) === 4, String(await boxes.count()));
 
 /* ------------------------------------------------------------------ */
-/* 1. Red and green                                                    */
+/* 1. What state it is in, and no dot to say it                        */
 /* ------------------------------------------------------------------ */
 
-const stateOf = (id) => page.locator(`[data-box="${id}"] [data-state]`).first().getAttribute("data-state");
-const colourOf = (id) => page.locator(`[data-box="${id}"] [data-state]`).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+/*
+ * There was a small green or red circle on every card saying whether the
+ * process behind it had finished. It is gone: a card still working is
+ * visibly forming, one that was given up on hangs off a grey vine, and
+ * "finished" was a mark on nearly every card nearly all of the time — two
+ * green marks on a red card, neither of them about the element the card is
+ * for. The state is still said, on the card itself, because the board and
+ * this suite both ask it; there is just nothing drawn for it.
+ */
+const stateOf = (id) => page.locator(`[data-box="${id}"]`).first().getAttribute("data-state");
 
 check("a finished iteration is marked done", (await stateOf("t1")) === "done" && (await stateOf("t2")) === "done");
 check("one that was left running is marked abandoned when the store comes back", (await stateOf("t3")) === "cut", await stateOf("t3"));
 check("one that gave up stays that way", (await stateOf("t4")) === "cut", await stateOf("t4"));
-{
-  const green = await colourOf("t1");
-  const red = await colourOf("t4");
-  // Both are oklch; the third number is the hue, and green and red sit on
-  // opposite sides of it. Nothing here cares about the exact shade.
-  const hue = (c) => Number((c.match(/oklch\(([^)]+)\)/)?.[1] ?? "").trim().split(/\s+/)[2] ?? NaN);
-  check("finished reads green", hue(green) > 120 && hue(green) < 180, green);
-  check("unfinished reads red", hue(red) < 40 || hue(red) > 340, red);
-  check("and they are the only two", new Set(await Promise.all(["t1", "t2", "t3", "t4"].map(colourOf))).size === 2,
-    [...new Set(await Promise.all(["t1", "t2", "t3", "t4"].map(colourOf)))].join(" · "));
-}
-check("the mark is on the right of the box", await page.locator('[data-box="t1"] [data-state]').first().evaluate((el) => {
-  const own = el.getBoundingClientRect();
-  const box = el.closest("[data-box]").getBoundingClientRect();
-  return own.right > box.left + box.width * 0.7;
-}));
+check("and there is no dot drawn for any of it", (await page.locator("[data-box] [data-state]").count()) === 0,
+  String(await page.locator("[data-box] [data-state]").count()));
 
 /* ------------------------------------------------------------------ */
 /* 2. The flag                                                         */
 /* ------------------------------------------------------------------ */
 
-check("there is a this-iteration button on every box", (await page.locator("[data-current-for]").count()) === 4, String(await page.locator("[data-current-for]").count()));
-check("and none of them is on to begin with", (await page.locator('[data-current="1"]').count()) === 0);
-/* Where it says it, which is no longer across the box. It was a chip
-   reading "this iteration", and that was the widest thing on the box, so it
-   read as the heading and pushed the name of a part off the end — the
-   reason is written at CurrentButton. It is a mark now, and the words are
-   the tooltip a hover or a reader gets, so that is what is asked for. */
-const flagSays = await page.locator('[data-current-for="t2"]').first().getAttribute("title");
-check("it says what it is", /work in this update/i.test(flagSays ?? ""), flagSays ?? "no title");
+/*
+ * It is in the box's own menu now, not on the box.
+ *
+ * It was a green square on every card — a second green mark on a red one,
+ * about neither the element the card is for nor the update's own state. What
+ * it does has not changed: it says which update the section below, the
+ * prompt area in it and the next ask all follow, and it survives a reload,
+ * because "where was I" is the question a timeline exists to answer. It is
+ * where the rest of what can be done to an update lives.
+ */
+const flag = async (id) => {
+  await page.locator(`[data-box="${id}"]`).first().click({ button: "right", force: true });
+  await page.waitForTimeout(400);
+  return page.locator(`[data-thread-menu] [data-current-for="${id}"]`).first();
+};
 
-await page.locator('[data-current-for="t2"]').first().click({ force: true });
+check("no card carries the flag any more", (await page.locator("[data-box] [data-current-for]").count()) === 0);
+{
+  const it = await flag("t2");
+  check("the box's own menu carries it instead", (await it.count()) === 1);
+  check("and it is not on to begin with", (await it.getAttribute("data-current")) === "0");
+  check("it says what it is", /work in this one/i.test(await it.innerText()), (await it.innerText()).trim());
+  await it.click({ force: true });
+}
 await page.waitForTimeout(700);
-check("pressing it marks that one", (await page.locator('[data-current="1"]').count()) === 1 && (await page.locator('[data-current-for="t2"]').first().getAttribute("data-current")) === "1");
-check("one per timeline, never two", (await page.locator('[data-current="1"]').count()) === 1);
+check("pressing it marks that one", await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.currentThreadId) === "t2");
 check("the section below follows it", (await page.locator("[data-pinned-prompt]").first().innerText()).includes("What contradicts"),
   (await page.locator("[data-pinned-prompt]").first().innerText()).slice(0, 60).replace(/\n/g, " "));
 check("and the prompt area says the work is here", (await page.locator("[data-working-here]").count()) === 1);
 
-await page.locator('[data-current-for="t1"]').first().click({ force: true });
+(await flag("t1")).click({ force: true });
 await page.waitForTimeout(700);
-check("moving it moves it, rather than adding a second", (await page.locator('[data-current="1"]').count()) === 1 && (await page.locator('[data-current-for="t1"]').first().getAttribute("data-current")) === "1");
+check("moving it moves it, rather than adding a second", await page.evaluate(() => {
+  const st = JSON.parse(localStorage.getItem("builder.studio")).state;
+  return st.currentThreadId === "t1";
+}));
 check("the section follows it there too", (await page.locator("[data-pinned-prompt]").first().innerText()).includes("build plan"));
 
 /* It survives a reload, and so does what follows it. */
@@ -174,8 +183,10 @@ await page.waitForTimeout(1600);
 // the timeline is opened again to look at it.
 await page.locator("[data-finish]").first().click({ force: true });
 await page.waitForTimeout(1500);
-check("the flag is still on it after a reload", (await page.locator('[data-current-for="t1"]').first().getAttribute("data-current")) === "1",
-  await page.locator('[data-current-for="t1"]').first().getAttribute("data-current"));
+check("the flag is still on it after a reload", (await (await flag("t1")).getAttribute("data-current")) === "1",
+  await (await flag("t1")).getAttribute("data-current"));
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
 check("and the section is still reading it", (await page.locator("[data-pinned-prompt]").first().innerText()).includes("build plan"));
 check("it is written in the document, not in the page", await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.currentThreadId) === "t1");
 
@@ -185,10 +196,10 @@ check("a new iteration hangs off the one being worked in", await page.evaluate((
   return raw.state.currentThreadId === "t1" && raw.state.liveThreadId === "t4";
 }), "current t1, live t4");
 
-/* Pressing it again lets go. */
-await page.locator('[data-current-for="t1"]').first().click({ force: true });
+/* Choosing it again lets go. */
+(await flag("t1")).click({ force: true });
 await page.waitForTimeout(600);
-check("pressing it again puts the flag down", (await page.locator('[data-current="1"]').count()) === 0);
+check("choosing it again puts the flag down", await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.currentThreadId) === null);
 
 await browser.close();
 const failed = results.filter((r) => !r).length;

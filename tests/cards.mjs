@@ -49,9 +49,29 @@ check("which shape a board takes follows what it holds", /isElement\(t\) \? PIEC
 /* ------------------------------------------------------------------ */
 
 const pieceBlock = timeline.slice(timeline.indexOf("function ElementPiece("), timeline.indexOf("function thin("));
-check("the mark is big rather than a thumbnail", /<Drawn sketch=\{thread\.sketch\} size=\{62\}/.test(pieceBlock),
-  /size=\{(\d+)\}/.exec(pieceBlock)?.[1]);
-check("and it is centred, not tucked beside the words", /items-center justify-center/.test(pieceBlock));
+/*
+ * THE ELEMENT, NOT THE DRAWING OF IT.
+ *
+ * The card carried the strokes played back: two circles and a square drawn,
+ * two circles and a square returned, which tells a person nothing they did
+ * not just draw. What belongs on it is the thing the drawing became, as it
+ * exists on the page — the board's own renderer, the real node, the site's
+ * palette and light. The drawing stands in only while the part is still
+ * being made, because at that moment it is honestly all there is.
+ */
+check("the card shows the part it made, not the strokes it was drawn from",
+  /<Made thread=\{thread\} skin=\{\{ rim: "oklch\(0\.46 0\.157 18 \/ 0\.7\)"/.test(pieceBlock));
+check("…and the drawing only while there is no part yet", (() => {
+  const i = pieceBlock.indexOf("forming < 1 && !thread.madeId");
+  const j = pieceBlock.indexOf("<Drawn sketch=", i);
+  const k = pieceBlock.indexOf("<Made thread=", i);
+  return i > 0 && j > i && k > j;
+})());
+check("…and it is live when the card is open, and inert when it is not, so a closed box can be dragged",
+  /live=\{open\}/.test(pieceBlock));
+check("the card is a surface rather than a button, because an element inside a button cannot be used",
+  /<div\n\s+role="button"/.test(pieceBlock) && /tabIndex=\{0\}/.test(pieceBlock) && !/<button\n\s+type="button"\n\s+data-box=/.test(pieceBlock));
+check("and it is centred, not tucked beside the words", /items-stretch justify-center/.test(pieceBlock) && /grid flex-1 place-items-center/.test(pieceBlock));
 /*
  * AND IT READS AGAINST ITS OWN CARD.
  *
@@ -74,30 +94,60 @@ check("and it is centred, not tucked beside the words", /items-center justify-ce
   })(), [...timeline.matchAll(/<Drawn sketch=[^>]*tone="oklch\(([\d.]+)/g)].map((m) => m[1]).join(", "));
 }
 check("the name sits under it", (() => {
-  const mark = pieceBlock.indexOf("<Drawn sketch");
+  const mark = pieceBlock.indexOf("<Made thread=");
   const name = pieceBlock.indexOf('data-headline=""');
   return mark > 0 && name > mark;
 })());
-check("and the small line under that", (() => {
-  const name = pieceBlock.indexOf('data-headline=""');
-  return pieceBlock.indexOf("made real", name) > name;
-})());
+/* "made real" was a caption under every red card saying the one thing a red
+   card cannot help saying by existing. It is gone; what is left under the
+   name is the count, and only when there is one. */
+check("and nothing under that but the count, when there is one",
+  !/made real/.test(pieceBlock) && /and \{thread\.changes\.length - 1\} more/.test(pieceBlock));
 
 /* ------------------------------------------------------------------ */
 /* 3. What changed shows the thing                                     */
 /* ------------------------------------------------------------------ */
 
-check("the card renders the part it made", /<Made thread=\{thread\} skin=\{skin\} \/>/.test(timeline));
+check("the card renders the part it made", /<Made thread=\{thread\} skin=\{skin\} height=\{element \? 150 : 96\} live \/>/.test(timeline));
 check("with the board's own renderer, so it is the part and not a second drawing of it",
-  /<Block node=\{node\}[\s\S]{0,200}mode="board"/.test(timeline));
-check("still, and untouchable", /aria-hidden\s+inert/.test(timeline));
-check("it fits rather than crops", /Math\.min\(W \/ Math\.max\(1, node\.w\), H \/ Math\.max\(1, node\.h\), 1\)/.test(timeline));
-check("nothing is shown when the part has been deleted since", /if \(!node\) return null;/.test(timeline));
+  /<Block node=\{node\}[\s\S]{0,220}mode=\{live \? "live" : "board"\}/.test(timeline));
+check("live where there is room for it, and inert where the thing under it is dragged",
+  /\{\.\.\.\(live \? \{\} : \{ "aria-hidden": true, inert: true \}\)\}/.test(timeline));
+check("…and a live one keeps its own presses off the box it sits on",
+  /onPointerDown: \(e: React\.PointerEvent\) => e\.stopPropagation\(\)/.test(timeline));
+check("it fits rather than crops", /Math\.min\(W \/ Math\.max\(1, node\.w\), height \/ Math\.max\(1, node\.h\), 1\)/.test(timeline));
+/*
+ * TIED TO THE PART STILL BEING THERE.
+ *
+ * A part can be deleted off the board after the update that made it. The
+ * link was in the data all along — the editor underneath already said so —
+ * and it was not driving the picture; the card showed the strokes either
+ * way, which is a picture of something that is not there.
+ */
+check("and when the part has been deleted since, the card says so rather than showing anything",
+  /data-made-gone=""/.test(timeline) && /the part this made is no longer on the board/.test(timeline));
+check("…and an update that made nothing says that instead", /this one made nothing on the board/.test(timeline));
 check("the line of text is under it, not instead of it", (() => {
-  const made = timeline.indexOf("<Made thread=");
+  const made = timeline.indexOf("<Made thread={thread} skin={skin} height=");
   const list = timeline.indexOf("changed.map((l, i)", made);
   return made > 0 && list > made;
 })());
+/*
+ * AND THE OUTPUT IS THE ELEMENT.
+ *
+ * It began with a text box: four closed shapes described in prose at the top
+ * of the card, with the part itself further down under a heading about the
+ * board. A sentence about a thing is not the output of making it. What
+ * Claude said is kept, because it is the record of the call — under the
+ * thing rather than instead of it.
+ */
+check("the output side leads with the part", (() => {
+  const out = timeline.indexOf('side === "in" ? (');
+  const made = timeline.indexOf("<Made thread={thread} skin={skin} height=", out);
+  const said = timeline.indexOf("{thread.answer || \"nothing came back\"}", out);
+  return made > 0 && said > made;
+})());
+check("…and what was said is folded away under it", /<summary data-said-head=""/.test(timeline));
 
 /* ------------------------------------------------------------------ */
 /* 4. Paging the goes                                                  */
@@ -115,10 +165,29 @@ check("the pager cannot run off either end", /disabled=\{page === 0\}/.test(time
 /* ------------------------------------------------------------------ */
 
 check("the red box no longer says \"drawing\" across its top", (() => {
-  const head = pieceBlock.slice(0, pieceBlock.indexOf("<Drawn sketch"));
+  const head = pieceBlock.slice(0, pieceBlock.indexOf("<Made thread="));
   return !/>\s*drawing\s*</.test(head) && !/<Brush className="size-3" \/>\s*drawing/.test(head);
 })());
-check("but keeps the pin, the flag and the state on that row", /<CurrentButton thread=\{thread\} on=\{current\} \/>[\s\S]{0,80}<StateMark thread=\{thread\} \/>/.test(pieceBlock));
+/*
+ * AND NOTHING GREEN ON IT.
+ *
+ * There was a green flag and a green dot on every card: the flag marked the
+ * update being worked in, the dot said whether the process had finished.
+ * Two green marks on a red card, neither about the element the card is for.
+ * The flag is in the box's own menu now, where the rest of what can be done
+ * to an update lives; the dot is gone, because a card still working is
+ * visibly forming, one that was given up on hangs off a grey vine, and
+ * "finished" was a mark on nearly every card nearly all of the time.
+ */
+check("no flag and no state dot on any card, red or green",
+  !/<CurrentButton/.test(timeline) && !/<StateMark/.test(timeline)
+  && !/function StateMark\(/.test(timeline) && !/function CurrentButton\(/.test(timeline));
+check("…and the flag is in the menu instead, still the one control that means it", (() => {
+  const menu = timeline.slice(timeline.indexOf("function BoxMenu("));
+  return /Work in this one/.test(menu) && /setCurrentThread\(current \? null : thread\.id\)/.test(menu)
+    && /"data-current-for": thread\.id/.test(menu);
+})());
+check("but the pin stays on the card, because it is about the card", /\{pinned \? \(/.test(pieceBlock));
 
 const cardBlock = timeline.slice(timeline.indexOf("function Card("), timeline.indexOf("function Bill("));
 // The words a person sees, not the comments explaining why they changed.
@@ -142,7 +211,16 @@ check("and in the timeline it carries the card you clicked", /<TimelinePanel \/>
 const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
 check("that panel reads the open card, and only it", /const open = threads\.find\(\(t\) => t\.id === openId\) \?\? null;/.test(detail.slice(detail.indexOf("export function TimelinePanel"))));
 check("with its own Input and Output, distinctly",
-  /<Block head="Input" text=\{open\.ask\}/.test(detail) && /<Block head="Output" text=\{open\.answer\}/.test(detail));
+  /head="Input"\n\s+text=\{open\.ask\}/.test(detail) && /head="Output"\n\s+text=\{open\.answer\}/.test(detail));
+/*
+ * And each of them leads with the thing. The drawing sat above both blocks
+ * on its own and the output was a paragraph — "four closed shapes, two of
+ * them circles" — with the element itself two inches away on the board.
+ */
+check("…the drawing inside Input, because the drawing is what went in",
+  /show=\{open\.sketch\?\.strokes\?\.length \? \(/.test(detail));
+check("…and the part inside Output, live, because the part is what came out",
+  /show=\{open\.madeId \? <Made thread=\{open\} skin=\{skin\} width=\{186\} height=\{120\} live \/> : null\}/.test(detail));
 check("and says what to do when nothing is open", /data-timeline-panel-empty=""/.test(detail));
 
 /* ------------------------------------------------------------------ */
