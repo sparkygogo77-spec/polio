@@ -216,6 +216,40 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     ctx.publish({ key: "studio:download", title: `Saved ${filename}`, level: "success", source: "studio", toast: true });
   };
 
+  /*
+   * RE-ITERATE, FROM A CARD.
+   *
+   * A green card is the site, and running the prompt that made it again —
+   * with a word changed or without — is what a card of a site is for. There
+   * is one pipeline for asking Claude and this is it, so the card does not
+   * grow a second one: it hands over the mode the update was made in and the
+   * prompt as it stands, the book opens on the ask with both in place, and
+   * `run` fires the same call the Ask button fires.
+   *
+   * The run is fired from an effect rather than from the handler so it sees
+   * the mode and the prompt that were just set rather than the ones that
+   * were there before.
+   */
+  const [runWanted, setRunWanted] = React.useState(0);
+  const fire = React.useRef(0);
+  React.useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ mode?: string; prompt?: string; run?: boolean }>).detail ?? {};
+      if (d.mode && MODES.some((m) => m.value === d.mode)) setMode(d.mode as AskMode);
+      if (typeof d.prompt === "string") setPrompt(d.prompt);
+      setView("brief");
+      if (d.run) setRunWanted((n) => n + 1);
+    };
+    /*
+     * Only the book that lives under the timeline answers. The dialog and
+     * the panel are the same component and would otherwise each run the
+     * same call — one press, three bills.
+     */
+    if (layout !== "page") return;
+    window.addEventListener("studio:ask", on);
+    return () => window.removeEventListener("studio:ask", on);
+  }, [layout]);
+
   const generate = async () => {
     if (busy) return;
     setNote(null);
@@ -402,6 +436,15 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       if (openKeys) ctx.openPanel("keys");
     }
   };
+
+  /* And the card's Re-iterate runs it, once the mode and the prompt it sent
+     are actually in. `fire` keeps a second render from asking twice. */
+  React.useEffect(() => {
+    if (!runWanted || fire.current === runWanted) return;
+    fire.current = runWanted;
+    void generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runWanted]);
 
   const publishFiles = React.useMemo(() => [...siteFiles(markdown, json), ...files], [markdown, json, files]);
 

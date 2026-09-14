@@ -27,6 +27,12 @@ export interface ThreadDoc {
   groups?: unknown[];
   shapes?: unknown[];
   format?: Record<string, unknown>;
+  /* The two the timeline needs to *render* the snapshot rather than sketch
+     it: which page was open and how wide the site is built. They were always
+     in it — `snapshot` takes the whole document — and the type only ever
+     named what somebody read. */
+  activePageId?: string;
+  frameWidth?: number;
   brief?: { name?: string; gimmick?: string; master?: string };
   look?: unknown;
   motion?: unknown[];
