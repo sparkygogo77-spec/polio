@@ -2,9 +2,84 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T19:21:41.923Z";
+export const GENERATED_AT = "2026-09-14T20:04:16.389Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "88ca8e2",
+    "when": "2026-09-14T20:04:15+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "7746e3c",
+        "says": "One tile, two settings: the construct at the size of a key",
+        "when": "2026-09-14T19:31:49+00:00",
+        "detail": [
+          "The queued note, and an answer rather than a second texture. Hypatia owns the Finish key; the tile and the vignette that makes its dark centre are here, so what is exposed is a way to ask the existing tile for the small, bright, even variant. `moltenKeyClass(kind)` and one rule, `.molten.molten-key`.",
+          "WHAT IT RE-POINTS, and it is four values and nothing else. No second picture, no third layer, no keyframe of its own, no stop of its own — the same construct, asked for differently:",
+          "--mo-nebula        the bright cut of J's own render, not the dark one --nebula-period    56px instead of 180 --molten-vignette  a shallow falloff instead of a third of the opacity the face           an even top-to-bottom run instead of the inside-out radial whose centre is `--mo-core`",
+          "WHY EACH. A card is 620 by 208 and a key is nearer 96 by 28, and three things that are right at the first size are wrong at the second."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "4c6cb37",
+        "says": "The timeline's own idle number, and whether the cost is count or area",
+        "when": "2026-09-14T19:22:44+00:00",
+        "detail": [
+          "J's fifth, and it answers the question the Finish-button note raises as well, because the same measurement answers both.",
+          "`tests/idle-cost.mjs` is new: it seeds a timeline of N boards, sits there touching nothing, and reads frames off the page's own rAF — a frame that never arrived leaves no trace in a profiler's task list, which is why this does not use one. Every row says how many constructs were on the screen and what share of it they covered while it was measured, so an ablation whose selector missed reads as a missed selector rather than as \"removing this changed nothing\".",
+          "THE TIMELINE ALONE, idle, this container, no GPU:",
+          "12 boards, 12 constructs over 34% of the screen as it is                          32 /900ms   40% dropped without the construct's layers     54          0% without the vines                  54          0% without either                     54          0%"
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "d67adae",
+    "when": "2026-09-14T20:03:56+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "d67adae",
+        "says": "create-flow watches the surface form instead of guessing when to look",
+        "when": "2026-09-14T20:03:56+00:00",
+        "detail": [
+          "It read `data-space-form` once, 300ms after Generate, and wanted it below 1. Formation does start below 1 — QUEUED is 0.04, a hair of vine, because the thing has begun and nothing has landed — but with the models stubbed both parts land in well under 300ms, so by the time it looked the surface had finished and the one sample read 1. A single sample at a guessed delay is a race with the work it is measuring, and the work got faster.",
+          "The attribute is recorded from the moment of the press now, through a mutation observer, and the lowest value it ever showed is what is asked about. That holds however fast what is behind it finishes, and it prints the whole climb, so the line now reads \"form went 0.25 → 0.75 → 1\" rather than a single number with no story in it. 23 of 23.",
+          "pan-weather's \"the embers burned through the pan\" failed in the same sweep and is not in this commit: it passes 10/10 on its own. That is the second time that suite has gone red only under battery load — it measures motion over a fixed wall-clock window while eighty-odd other browsers are waiting their turn. Worth making it robust rather than re-running it, and worth saying now rather than after the third time."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "e191499",
+        "says": "Regenerate the passes for the six-pass sweep",
+        "when": "2026-09-14T19:22:19+00:00",
+        "detail": [
+          "Six passes, dijkstra's carried inside euler's tip: thirty things alight rather than one machine, so a construct takes its own share; the second voice reads, with the font on a box standing off its own face; a box saying which one it is rather than what o'clock it was; the light on a hole as an aura painted once, with one space open at a time; erase deleting a space; and the green card as the preview the Builds page shows, from one definition.",
+          "Three new suites came with it: not-one-machine, space-one-open and space-speed."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "27c269e",
     "when": "2026-09-14T19:21:41+00:00",
@@ -901,52 +976,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-13T20:51:30+00:00",
         "detail": [
           "Euler's pass: the face of a construct is J's own render rather than a likeness of it, with the renders themselves landing under public/construct."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "95068c4",
-    "when": "2026-09-13T20:51:09+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "475299d",
-        "says": "The face of a construct is J's own render, not a likeness of it",
-        "when": "2026-09-13T20:41:10+00:00",
-        "detail": [
-          "J rendered the lantern boxes and cut seamless 512 tiles out of their faces, bright and dark of each colour, plus the rim sprites. They are under `public/construct/` and the tile is the face now: the filaments, the flares and the dark between them are his, and nothing is painted here.",
-          "The mechanism is untouched, because it was never the problem — one tile per temperature, a layer one period wider than the box, slid exactly one period by transform, so the loop lands on itself and nothing repaints.",
-          "Two things had to move to carry a photograph rather than noise:",
-          "**The falloff.** The dark centre and the soft ease out to the edges were baked into the painted tile's alpha; a photograph has none, so they are the same curve as a mask on the same two layers — thin in the middle so the face's own `--mo-core` shows through, full at the top and bottom so the cloud holds the edges. Nothing else about the layers changed. Measured at thirty boards against the same build with the painted tile, a still mask costs nothing: idle style 168.2ms against 168.8ms, idle tasks 714.8ms against 739.0ms — inside the noise between two runs. The suite said \"no mask on an animated layer\", which was a precaution rather than a measured rule; it now says what is true and why, which is that no mask's own value animates."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e6e56b4",
-    "when": "2026-09-13T20:18:32+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "e6e56b4",
-        "says": "Regenerate the passes for the drawn-out vine and the withdrawn question",
-        "when": "2026-09-13T20:18:32+00:00",
-        "detail": [
-          "Three passes, the three sessions converged into one tip again: the other four colour menus onto the one system; the words always win, so a question that no longer fits is withdrawn and its answer dropped; and the vine as the boxes' own construct drawn out into a line rather than a cable.",
-          "No conflicts."
         ],
         "areas": [
           "studio"
