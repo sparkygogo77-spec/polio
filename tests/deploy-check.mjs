@@ -218,6 +218,18 @@ if (!chromium) {
 
     await all("the Builder's bar", "[data-studio-bar]");
     await all("and every control in it", "[data-studio-bar] button, [data-studio-bar] a, [data-studio-bar] input, [data-studio-bar] [role=radio], [data-studio-bar] [role=switch]", 6);
+    /*
+     * The shelf is scrolled to before it is asked about.
+     *
+     * The workspace scrolls again, so the shelf starts below the fold on a
+     * 900px window — measured at first paint it sits at y 939 in a 900px
+     * viewport, and these three read as missing on a Builder that has them
+     * and hands them over on one wheel. "On the screen" for a surface that
+     * scrolls means reachable, and that is what is asked now: the page is
+     * brought to the shelf first, the way a person gets there.
+     */
+    await page.evaluate(() => document.querySelector("[data-parts-search]")?.scrollIntoView({ block: "center" }));
+    await page.waitForTimeout(700);
     await all("the category shelf", "[data-drawer] [data-category]", 8);
     await all("the parts search", "[data-parts-search] input");
     await all("the command search on the bar", "[data-tool-search]");

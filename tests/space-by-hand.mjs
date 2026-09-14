@@ -182,6 +182,13 @@ check("a part is on the board to draw round", parts > 0, `${parts} parts`);
 
 let overlap = { before: 0, after: 0 };
 if (parts > 0) {
+  /* Brought into view before it is measured. The workspace scrolls again,
+     so the first part can sit above the top of the pane — measured here at
+     y -76 — and a ring drawn round a rectangle that is off the screen is a
+     gesture the board never receives. Scrolling to it is what a person does
+     before drawing round it. */
+  await page.locator("[data-node-id]").first().scrollIntoViewIfNeeded().catch(() => {});
+  await page.waitForTimeout(600);
   const box = await page.locator("[data-node-id]").first().boundingBox();
   await pickSpace();
   overlap.before = await spaces();

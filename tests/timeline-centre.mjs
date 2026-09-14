@@ -198,7 +198,26 @@ const edges = () => page.evaluate(() => {
    * on a container with no GPU four window-sized layers set the beat before
    * the settle does anything at all.
    */
-  check("settling holds whatever rate the timeline already had", s.beat <= idle.beat * 1.25, `beat ${s.beat}ms against ${idle.beat}ms sitting still`);
+  /*
+   * The rate is frames delivered, not the middle gap between them.
+   *
+   * This compared medians, and the median is the wrong statistic for what
+   * the page does now: the gaps are bimodal, half at 16.7ms and half at
+   * 33.3ms, so the median falls on whichever side holds the extra frame and
+   * flips between the two on identical builds. Measured over three runs of
+   * this sequence: idle read 16.7, 33.3 and 16.7 while settling read 33.2,
+   * 33.3 and 33.3 — the same page, the check failing twice and passing once
+   * on nothing but where the median landed. The late shares over the same
+   * three runs say the opposite of the failure: settling dropped 8%, 6% and
+   * 3% of its frames while sitting still dropped 47%, 3% and 43%.
+   *
+   * Frames delivered in a fixed window is stable under that, and it is what
+   * the name claims: the rate the timeline runs at. A settle that costs a
+   * frame delivers fewer; one that does not, does not.
+   */
+  const rate = (o) => o.frames;
+  check("settling holds whatever rate the timeline already had", rate(s) >= rate(idle) * 0.8,
+    `${rate(s)} frames settling against ${rate(idle)} sitting still · beats ${s.beat}ms and ${idle.beat}ms`);
   /*
    * A share of the frames, not a count of them.
    *
