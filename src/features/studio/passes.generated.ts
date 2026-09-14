@@ -2,14 +2,84 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T01:06:13.774Z";
+export const GENERATED_AT = "2026-09-14T01:40:01.924Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "63a7969",
-    "when": "2026-09-14T01:05:27+00:00",
+    "id": "c94990a",
+    "when": "2026-09-14T01:40:01+00:00",
     "day": "14 September",
     "changes": [
+      {
+        "id": "cd7c7e6",
+        "says": "A vine is one strand with a cut line down it, and nothing else on it",
+        "when": "2026-09-14T01:38:06+00:00",
+        "detail": [
+          "Third pass, so the idea changes rather than the numbers.",
+          "**What a vine is for.** It carries one line down its middle and cutting that line takes the iteration out — the later of the two, because a vine runs from what came before to what came out of it; whatever hangs under the cut one re-hangs from its parent, so cutting one out of the middle of a run keeps the run. The line is scored into the groove at the axis rather than laid on top of it, and it is faint at rest: a bright line down the middle with a bright rim at each edge is three rails, and a vine would be a cable again. Pressing it is an element clipped to the line's own shape, so the press lands on the line and not on the board around it, and hovering takes the line white hot — the target and the warning at once. It is lifted while a box is being dragged, because the vine under it is moving.",
+          "**The green node at the middle is gone**, along with the event it fired: it opened the pair in the section below, which pressing either box already does.",
+          "**And it is wide enough to be made of something.** At fifteen across, the whole section — groove, field, glow, rim — was seven and a half pixels a side and every band under a pixel, which is not a construct seen small, it is a tube with a line down each edge. At twenty-four there is a field to put the cloud on, and the section is re-proportioned to a card's: a narrow groove at the axis, the field taking most of the width, then the glow and the rim. The cloud covers everything but those two, exactly as on a card, where it lies on the face with the core showing through and the bezel over it. With the tile now drawing at 180 rather than 512, what crosses a vine is a field of filaments rather than one fat strand."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "fb79580",
+        "says": "The Updates board holds where you left it, and fills the floor",
+        "when": "2026-09-14T01:16:28+00:00",
+        "detail": [
+          "Two of J's five, both measured on screen before anything was touched.",
+          "**The zoom reset on every Finish.** Finish is the only door into this view and it is a toggle, so every trip to the board and back mounted the timeline again and refitted it. Measured: 1.85 back to 1 with three updates, 0.77 back to 0.41 with eight. A view a person has moved is theirs now and is put back; centre is how they ask for the fit again.",
+          "Held in a module variable rather than state, because state dies with the mount and the mount is exactly what Finish tears down — and not in the store, because it is where somebody is looking, not part of the site, and has no business in the saved document.",
+          "**The fit read far too small.** Two causes, both real."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "f7b4f2d",
+        "says": "The surface moves, reads as cloud, and the ink reads on it",
+        "when": "2026-09-14T01:12:43+00:00",
+        "detail": [
+          "Three notes off a screenshot, and two of them turn out to be one number.",
+          "**It creeps.** The glide is exactly one period per turn, so 512 pixels over 150 seconds was three and a half pixels a second. And on the red it was worse than that: the still copy of the tile sat *over* the gliding one at 0.95, which is how the red was matched to the green for brightness — but what sits under a layer at 0.95 is five per cent of what you see, so five per cent of a red card was the only part of it that moved. Measured as the mean change in a card over two and a half seconds, the red moved 2.6 and the green 3.8.",
+          "The still layer goes behind the gliding one, where a still layer is depth rather than a lid, and the brightness balance becomes the gliding layer's own opacity — less of it is more of the dark face under it. Same dial, same job, nothing hidden. Green takes all of the glide, red three quarters.",
+          "**The texture is too zoomed in.** The tile drew at one to one, so a card held a third of the picture's width and a seventh of its height: five or six fat filaments, which read as big lines. The period is 180 now, so a card holds more than a whole tile across and two fifths of its height and the same filaments are hairlines in a field of them. It is the same number as the speed, which is why the two notes are one change: half the period is half the distance and twice what a given travel does to the picture."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2561029",
+    "when": "2026-09-14T01:06:42+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "2561029",
+        "says": "Regenerate the passes for the space-to-part chain",
+        "when": "2026-09-14T01:06:42+00:00",
+        "detail": [
+          "Dijkstra's pass: the chain from a space to the part made inside it, held end to end. A new suite and its shots came with it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "63a7969",
         "says": "The chain from a space to the part made inside it, held end to end",
@@ -856,43 +926,6 @@ export const PASSES: Pass[] = [
           "pages",
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7755496",
-    "when": "2026-09-13T16:09:57+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "7755496",
-        "says": "A space is a closed line that is not yet a part",
-        "when": "2026-09-13T16:09:57+00:00",
-        "detail": [
-          "Today a line drawn on the background becomes an element. This is the model for the second thing it can become: a placeholder, one of two kinds once a person decides. A construct box, in the timeline's lantern construct language, or a black hole, which signifies space not yet decided and, chosen, consumes the area inside the boundary and leaves it as drawing space.",
-          "`space.ts` is the pure part: the record, what counts as a boundary (a closed loop at least 24px each way; a tiny loop is a dot), whether a part has landed inside (its middle is inside), the consuming as a clock from the moment the hole was picked rather than a state to transition, and the plan a part's own panel will read: what it is, what was asked, the model `route` will pick for its first drawing pass, and the steps in order, with a person's own model and order honoured the way the run will honour them. Alpha is a step only for a mark that is not already cut to a line.",
-          "The store carries `spaces` through the document, the snapshot, a thread's doc, load, clear and remove page, and a saved board from before this gets an empty list. A node gains an optional `plan`; optional so the shelf's preview nodes and old boards need nothing. `space` is a fifth tool.",
-          "`tests/space.mjs` holds what a person sees in numbers. Run with three rules broken on purpose it fails five checks; restored, 38 of 38 hold."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "a0fa5e3",
-        "says": "Regenerate the passes for the queue strip and the twisted vine",
-        "when": "2026-09-13T09:18:24+00:00",
-        "detail": [
-          "Four passes, both sessions having cross-merged so euler's tip carried hypatia's as well: every iteration forms from nothing, driven by the work; a queue strip in the header showing what is running as bars beside the bell; and the vine as a twisted pair of the boxes' own material.",
-          "The merge's one conflict was this file, which is generated, so it is regenerated rather than arbitrated. pan-cost merged clean and now carries both fixes for the same fault — centring before picking a board, and testing the board's middle rather than its whole rectangle."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
