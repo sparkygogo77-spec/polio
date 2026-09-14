@@ -35,6 +35,7 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+const detailSrc = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
 const drawn = timeline.slice(timeline.indexOf("export function Drawn("), timeline.indexOf("function Card("));
 
 /* ------------------------------------------------------------------ */
@@ -134,13 +135,16 @@ if (live) {
   await p.waitForTimeout(2400);
 
   /* Every leaf on a construct that paints a mark: a run of words, or a drawing. */
-  const marks = await p.evaluate(() => {
+  const SCAN = (roots) => {
     const out = [], seen = new Set();
-    for (const box of document.querySelectorAll("[data-box], [data-piece]")) {
+    for (const box of document.querySelectorAll(roots)) {
+      const rb = box.getBoundingClientRect();
+      if (rb.bottom < 0 || rb.top > innerHeight) continue;
       for (const el of box.querySelectorAll("*")) {
         if (seen.has(el)) continue;
         const r = el.getBoundingClientRect();
         if (r.width < 4 || r.height < 4 || r.width > 600) continue;
+        if (r.top < 0 || r.bottom > innerHeight) continue;
         // The site preview is the site's own design, not this surface's.
         if (el.closest("[data-site-shot]") || el.closest("[data-made]")) continue;
         const svg = el.tagName.toLowerCase() === "svg";
@@ -152,7 +156,7 @@ if (live) {
       }
     }
     return out;
-  });
+  };
 
   const READ = async ([b64, b64b]) => {
     const load = async (s) => { const i = new Image(); i.src = "data:image/png;base64," + s; await i.decode(); return i; };
@@ -177,37 +181,66 @@ if (live) {
     if (pairs.length < 8) return null;
     pairs.sort((a, c) => a - c);
     const at = (q) => +pairs[Math.min(pairs.length - 1, Math.floor(pairs.length * q))].toFixed(2);
-    return { n: pairs.length, worst: at(0.02), tenth: at(0.1),
+    return { n: pairs.length, worst: at(0.02), tenth: at(0.1), best: at(0.9),
       fills: +Math.max((x1 - x0 + 1) / i1.width, (y1 - y0 + 1) / i1.height).toFixed(2) };
   };
 
-  const rows = [];
-  for (const m of marks) {
-    const sel = `[data-mark="${m.i}"]`;
-    const box = await p.locator(sel).boundingBox();
-    if (!box || box.width < 4 || box.height < 4) continue;
-    const clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.max(4, Math.round(box.width)), height: Math.max(4, Math.round(box.height)) };
-    const before = (await p.screenshot({ clip })).toString("base64");
-    await p.evaluate((s) => { document.querySelector(s).style.visibility = "hidden"; }, sel);
-    await p.waitForTimeout(80);
-    const after = (await p.screenshot({ clip })).toString("base64");
-    await p.evaluate((s) => { document.querySelector(s).style.visibility = ""; }, sel);
-    const r = await p.evaluate(READ, [before, after]);
-    if (r) rows.push({ ...m, ...r });
-  }
-  await b.close();
+  const measure = async (roots) => {
+    const marks = await p.evaluate(SCAN, roots);
+    const out = [];
+    for (const m of marks) {
+      const sel = `[data-mark="${m.i}"]`;
+      const box = await p.locator(sel).boundingBox();
+      if (!box || box.width < 4 || box.height < 4) continue;
+      const clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.max(4, Math.round(box.width)), height: Math.max(4, Math.round(box.height)) };
+      const before = (await p.screenshot({ clip })).toString("base64");
+      await p.evaluate((q) => { document.querySelector(q).style.visibility = "hidden"; }, sel);
+      await p.waitForTimeout(80);
+      const after = (await p.screenshot({ clip })).toString("base64");
+      await p.evaluate((q) => { document.querySelector(q).style.visibility = ""; }, sel);
+      const r = await p.evaluate(READ, [before, after]);
+      if (r) out.push({ ...m, ...r });
+    }
+    await p.evaluate(() => { for (const el of document.querySelectorAll("[data-mark]")) el.removeAttribute("data-mark"); });
+    return out;
+  };
 
-  check("there are marks on the cards to read", rows.length >= 8, `${rows.length} read`);
-  const low = rows.filter((r) => r.tenth < 4.5).sort((a, c) => a.tenth - c.tenth);
-  check("every mark on a card clears 4.5:1 against its own face, at the tenth-worst pixel in a hundred",
-    low.length === 0,
-    low.length ? low.slice(0, 4).map((r) => `${r.label} ${r.tenth}`).join(", ")
-      : `worst of ${rows.length} is ${Math.min(...rows.map((r) => r.tenth))}:1`);
-  const floor = rows.filter((r) => r.worst < 3).sort((a, c) => a.worst - c.worst);
-  check("…and nothing at all on one falls under 3:1, edge pixels included",
-    floor.length === 0,
-    floor.length ? floor.slice(0, 4).map((r) => `${r.label} ${r.worst}`).join(", ")
-      : `worst of ${rows.length} is ${Math.min(...rows.map((r) => r.worst))}:1`);
+  const rows = await measure("[data-box], [data-piece]");
+
+
+  /*
+   * Words and graphics are read against different bars, because WCAG sets
+   * different bars and because the instrument can only see what is there:
+   *
+   *   · A run of words is judged at its tenth-worst pixel in a hundred
+   *     against 4.5:1, and at its very worst against 3:1. A glyph has a
+   *     body, so most of its pixels are the ink's real colour.
+   *   · An icon from the set is a stroke a pixel and a half wide. Nearly
+   *     every pixel of it is a blend of ink and face, so the percentiles
+   *     read the antialiasing rather than the design. It is judged at its
+   *     best-covered tenth — the stroke's actual colour — against 3:1,
+   *     which is the bar for a thing that is not text in the first place.
+   */
+  const words = (where, rows) => {
+    check(`${where}: there is something to read`, rows.length >= 8, `${rows.length} marks`);
+    const said = rows.filter((r) => !r.svg);
+    const low = said.filter((r) => r.tenth < 4.5).sort((a, c) => a.tenth - c.tenth);
+    check(`${where}: every run of words clears 4.5:1 against its own face`, said.length > 0 && low.length === 0,
+      low.length ? low.slice(0, 4).map((r) => `${r.label} ${r.tenth}`).join(", ")
+        : `worst of ${said.length} is ${Math.min(...said.map((r) => r.tenth))}:1`);
+    const floor = said.filter((r) => r.worst < 3).sort((a, c) => a.worst - c.worst);
+    check(`${where}: …and nothing falls under 3:1, edge pixels included`, floor.length === 0,
+      floor.length ? floor.slice(0, 4).map((r) => `${r.label} ${r.worst}`).join(", ")
+        : `worst of ${said.length} is ${Math.min(...said.map((r) => r.worst))}:1`);
+    const marks = rows.filter((r) => r.svg);
+    const dim = marks.filter((r) => r.best < 3).sort((a, c) => a.best - c.best);
+    check(`${where}: …and every mark that is not words clears the 3:1 it is held to`,
+      marks.length === 0 || dim.length === 0,
+      marks.length ? (dim.length ? dim.slice(0, 3).map((r) => `${r.label} ${r.best}`).join(", ")
+        : `${marks.length} marks, worst ${Math.min(...marks.map((r) => r.best))}:1`) : "none on this surface");
+  };
+
+  words("a card on the timeline", rows);
   /*
    * And the drawing is not a stamp in the middle of an empty card. It runs
    * the whole way across the room it is given in one direction — which one
@@ -220,8 +253,49 @@ if (live) {
    * this was.
    */
   const pics = rows.filter((r) => r.svg && r.n > 200);
-  check("a drawing on a card runs the whole way across the room it is given", pics.length > 0 && pics.every((r) => r.fills >= 0.7),
+  check("a drawing on a card runs the whole way across the room it is given",
+    pics.length > 0 && pics.every((r) => r.fills >= 0.7),
     pics.map((r) => `${Math.round(r.fills * 100)}% of the room`).join(", ") || "no drawing was on a card to read");
+  /* ---------------------------------------------------------------- */
+  /* 3. The same rule, on the boxes that are all words                 */
+  /* ---------------------------------------------------------------- */
+
+  /*
+   * The cards on the timeline are mostly picture with a line under them;
+   * the boxes on the Updates panel are nothing but text on the same
+   * material, so they are where a second voice that is too quiet actually
+   * costs a person something. Same instrument, same two bars.
+   *
+   * What it found: the box's own title at 4.4:1 through the middle and
+   * 3.6:1 at its worst, and the little kind plates worse still — dark words
+   * on a ground that was not light enough to carry them, 2.9:1 on "under
+   * it" and 3.7:1 on "better". The body text was always fine at 8 to 12:1,
+   * which is why this read as some lines fading rather than as a panel
+   * being dark.
+   */
+  await p.goto(`${url}/builder`, { waitUntil: "networkidle" });
+  await p.waitForTimeout(1200);
+  await p.locator("[data-updates-toggle]").first().click();
+  await p.waitForTimeout(1500);
+  const said = await measure("[data-updates-panel] section.molten");
+  await b.close();
+
+  words("a box on the Updates panel", said);
+
+  /*
+   * And the second voice is quieter by being less coloured and smaller, not
+   * by being harder to read — so the gap between the two voices stays real
+   * without either of them going under the bar.
+   */
+  check("the second voice is still the second voice, not a copy of the first", (() => {
+    const L = (c) => Number(/oklch\(([\d.]+)/.exec(c)?.[1] ?? 0);
+    const field = /export const FIELD = \{([\s\S]*?)\n\};/.exec(detailSrc)?.[1] ?? "";
+    const text = L(/text: "([^"]+)"/.exec(field)?.[1] ?? ""), dim = L(/dim: "([^"]+)"/.exec(field)?.[1] ?? "");
+    return text > dim && text - dim <= 0.12 && dim >= 0.8;
+  })(), (() => {
+    const field = /export const FIELD = \{([\s\S]*?)\n\};/.exec(detailSrc)?.[1] ?? "";
+    return `text ${/text: "([^"]+)"/.exec(field)?.[1]}, dim ${/dim: "([^"]+)"/.exec(field)?.[1]}`;
+  })());
 }
 
 const passed = results.filter(Boolean).length;

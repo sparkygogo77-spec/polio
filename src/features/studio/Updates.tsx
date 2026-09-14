@@ -29,13 +29,26 @@ import { Button } from "@/core/ui/button";
 import { FIELD, Row, type Skin } from "./TimelineDetail";
 import { KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
 
-/** The kinds, in the colours the rest of the Builder already uses for them. */
+/**
+ * The kinds, in the colours the rest of the Builder already uses for them.
+ *
+ * Each is a plate with near-black words on it, so the plate's own lightness
+ * is the whole of whether the word can be read: dark ink at 0.13 needs a
+ * ground above about 0.78 to clear 4.5:1, and three of these four sat under
+ * that — "under it" worst at 2.9:1 and "better" at 3.7. They are all above
+ * it now. `under` stays the quiet one by having almost no colour in it
+ * rather than by being the dark one, which is the same move the second voice
+ * of the text makes.
+ */
 const KIND_LIT: Record<ChangeKind, string> = {
-  new: "oklch(0.76 0.17 300)",
-  better: "oklch(0.66 0.16 158)",
-  fixed: "oklch(0.78 0.15 85)",
-  under: "oklch(0.6 0.03 158)",
+  new: "oklch(0.81 0.16 300)",
+  better: "oklch(0.82 0.15 158)",
+  fixed: "oklch(0.85 0.14 85)",
+  under: "oklch(0.8 0.03 158)",
 };
+
+/** The words on a plate, dark enough that the plate's own lightness carries them. */
+const KIND_INK = "oklch(0.13 0.02 150)";
 
 /**
  * A press outside or Escape closes it, and it stands over nearly everything.
@@ -166,7 +179,7 @@ function ChangeLine({ change, skin, lead }: { change: Change; skin: Skin; lead?:
       >
         <span
           className="mt-[3px] shrink-0 rounded-sm px-1 text-[8.5px] uppercase tracking-[0.1em]"
-          style={{ background: KIND_LIT[change.kind], color: skin.face }}
+          style={{ background: KIND_LIT[change.kind], color: KIND_INK }}
         >
           {KIND_MEANS[change.kind]}
         </span>
