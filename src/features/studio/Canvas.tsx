@@ -54,7 +54,19 @@ const HANDS_ON = new Set(["cube-3d", "mesh-3d"]);
 /** Parts that wear a drawn icon when one is dropped on them. */
 const WEARS_AN_ICON = new Set(["cta-primary", "quick-action", "follow"]);
 /** Breathing room either side of the page. Small: the page is the point. */
-const FRAME_GUTTER = 48;
+/**
+ * The ground left showing round the page, both ways.
+ *
+ * 48 — 24 a side — was enough while the fit was held by the pane's height
+ * and the width had hundreds of pixels spare. Giving the pane a whole screen
+ * so the column can scroll past it makes the fit width-held instead, and the
+ * frame grew from 979 to 1201 of 1272: 35px of ground a side, which is not
+ * something a hand can take hold of, and dragging bare ground is how the
+ * board is panned. One decision, not two — the scroll takes the ground away
+ * and the gutter is what gives it back. 128 leaves 64 a side, a thumb rather
+ * than a hairline.
+ */
+const FRAME_GUTTER = 128;
 /** How far below the top of the viewport the page rests. */
 const TOP_MARGIN = 36;
 
