@@ -27,7 +27,7 @@ import { ChevronRight, History, Sparkles, Wrench, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { FIELD, Row, type Skin } from "./TimelineDetail";
-import { KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
+import { KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, versionOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
 
 /**
  * The kinds, in the colours the rest of the Builder already uses for them.
@@ -141,14 +141,14 @@ function PassCard({ pass, skin, at }: { pass: Pass; skin: Skin; at: number }) {
 
   if (!rest.length) {
     return (
-      <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${pass.day} · one thing`}>
+      <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${versionOf(pass)} · one thing`}>
         <ChangeLine change={lead} skin={skin} lead />
       </Row>
     );
   }
 
   return (
-    <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${pass.day} · ${sizeOf(pass)}`}>
+    <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${versionOf(pass)} · ${sizeOf(pass)}`}>
       <div className="flex flex-col gap-1">
         {/* The lead is the pass's headline and its first line at once: a
             heading that repeats the line under it is the shape of a

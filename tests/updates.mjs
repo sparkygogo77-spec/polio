@@ -13,7 +13,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { GENERATED_AT, KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf } from "../src/features/studio/passes.ts";
+import { GENERATED_AT, KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, versionOf } from "../src/features/studio/passes.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -71,7 +71,33 @@ check("there is no changelog file to keep", !hasChangelog);
 const times = PASSES.map((p) => Date.parse(p.when));
 check("passes run newest first", times.every((t, i) => i === 0 || t <= times[i - 1]));
 check("every pass carries at least one change", PASSES.every((p) => p.changes.length > 0));
-check("a pass says the day it landed", PASSES.every((p) => /^\d{1,2} [A-Z][a-z]+$/.test(p.day)), PASSES[0].day);
+check("a pass still knows the day it landed", PASSES.every((p) => /^\d{1,2} [A-Z][a-z]+$/.test(p.day)), PASSES[0].day);
+/*
+ * …but a box does not lead with it. A date is the wrong axis for a timeline:
+ * a person reading one wants to know which iteration this is, not what
+ * o'clock it was. The boxes are numbered from the oldest instead, ten to the
+ * point, so the first pass is v0.1 and v0.9 is followed by v1.0. It is a
+ * position in the history rather than a release — nothing here is published
+ * or tagged — and the day is still on the pass and the sha still on every
+ * folded line for anyone who wants to trace one.
+ */
+check("every pass has a version, and they run from v0.1 upward",
+  PASSES.every((p) => /^v\d+\.\d$/.test(versionOf(p)))
+  && versionOf(PASSES[PASSES.length - 1]) === "v0.1",
+  `oldest ${versionOf(PASSES[PASSES.length - 1])}, newest ${versionOf(PASSES[0])}`);
+check("…they count up with the history, never two the same", (() => {
+  const all = PASSES.map(versionOf);
+  return new Set(all).size === all.length
+    && all.every((v, i) => i === 0 || Number(all[i - 1].slice(1)) > Number(v.slice(1)));
+})());
+check("…and ten of them makes the point move, so v0.9 is followed by v1.0", (() => {
+  const at = (n) => `v${Math.floor(n / 10)}.${n % 10}`;
+  return at(9) === "v0.9" && at(10) === "v1.0" && at(11) === "v1.1" && at(1) === "v0.1";
+})());
+check("a box leads with the version and not with the date", (() => {
+  const src = readFileSync("src/features/studio/Updates.tsx", "utf8");
+  return /title=\{`\$\{versionOf\(pass\)\}/.test(src) && !/\$\{pass\.day\}/.test(src);
+})());
 check("no pass is a wall: twelve lines at most, the rest counted",
   PASSES.every((p) => p.changes.length <= 12 && p.more >= 0));
 
