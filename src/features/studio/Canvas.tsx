@@ -27,11 +27,11 @@ import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
-import { isBoundary } from "./space";
+import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
 import {
-  activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, shapeBounds,
+  activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
 } from "./store";
 import { cn } from "@/core/lib/cn";
@@ -459,6 +459,7 @@ export function Canvas() {
       if (shapeEl?.dataset.shapeId && shapeEl.dataset.shapeId !== "live") store.removeShapes([shapeEl.dataset.shapeId]);
       else if (near) store.removeShapes([near.id]);
       else if (nodeEl?.dataset.nodeId) store.removeNodes([nodeEl.dataset.nodeId]);
+      else if (spaceAtLine(pageSpaces(store), p.x, p.y, 10 / zoom)) store.removeSpaces([spaceAtLine(pageSpaces(store), p.x, p.y, 10 / zoom)!.id]);
       else took = false;
       if (took) play("deny");
       capture();
