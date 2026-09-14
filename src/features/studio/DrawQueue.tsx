@@ -93,6 +93,44 @@ export function DrawQueue() {
          */
         if (!r.pending && job.threadId) useStudio.getState().markThread(job.threadId, "done");
       })
+      /*
+       * THE ROAD THE RUN DOES NOT KNOW ABOUT.
+       *
+       * `runDrawJob` reports every failure it can see, and a reported
+       * failure marks the job `failed` above and the queue goes on. What
+       * there was no road for at all was a *throw* — anything outside the
+       * run's own try, or anything in the handler above — because then this
+       * promise rejects, nothing writes a status, and the job sits at
+       * `running` for ever. `nextJob` will not start anything while a job is
+       * running, so one unexpected error does not lose one drawing: it stops
+       * the queue, and every drawing queued behind it waits for ever with no
+       * sign of why. That is the shape of the bug two Make reals in a row
+       * showed, and letting go of the runner does not fix it on its own —
+       * the job has to be closed as well as released.
+       *
+       * So the job is failed here, the box it was making stops forming where
+       * the work stopped rather than sitting half-formed for ever, and it is
+       * said out loud, because a drawing that quietly did not happen is
+       * worse than one that says it could not.
+       */
+      .catch((err: unknown) => {
+        running.current = null;
+        const note = err instanceof Error ? err.message : "The drawing could not be worked.";
+        const st = useStudio.getState();
+        st.updateJob(job.id, { status: "failed", note, step: undefined, ended: Date.now() });
+        if (job.threadId) {
+          st.noteThread([note], job.threadId);
+          st.markThread(job.threadId, "done");
+        }
+        ctx.publish({
+          key: `studio:queue:${job.id}`,
+          title: "The drawing could not be worked",
+          body: note,
+          level: "error",
+          source: "studio",
+          toast: true,
+        });
+      })
       .finally(() => {
         running.current = null;
       });
