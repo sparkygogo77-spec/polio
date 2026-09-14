@@ -172,20 +172,23 @@ check("how much cloud is a dial per temperature, not a number in the rule", (() 
   && /opacity: var\(--mo-cloud, 0\.92\);/.test(css)
   && /opacity: var\(--mo-cloud-still, 0\.38\);/.test(css)
 ))());
-check("the green takes all of the gliding picture and the red three quarters of it", (() => {
+check("each temperature sets how much of the cloud it takes, and the green's back layer is the heavier", (() => {
   const v = /\.molten-verdant \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
   const e = /\.molten-ember \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /--mo-cloud: 1;/.test(v) && /--mo-cloud-still: 0\.3;/.test(v)
-    && /--mo-cloud: 0\.75;/.test(e) && /--mo-cloud-still: 0\.75;/.test(e);
+  return /--mo-cloud: 0\.5;/.test(v) && /--mo-cloud-still: 0\.7;/.test(v)
+    && /--mo-cloud: 0\.52;/.test(e) && /--mo-cloud-still: 0\.58;/.test(e);
 })());
-check("red is still the hotter of the two: neither dial makes the green the brighter card", (() => {
+check("red is still the hotter of the two: it shows a little less of its own tile, which is the brighter one", (() => {
   const dial = (sel, name) => {
     const b = new RegExp(`\\.molten-${sel} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "";
     return Number(new RegExp(`--mo-${name}: ([\\d.]+);`).exec(b)?.[1]);
   };
-  // The still layer darkens; more of it is a cooler card. Green must have
-  // less of it than red, and never the other way round.
-  return dial("verdant", "cloud-still") < dial("ember", "cloud-still");
+  // Less cloud is more of the dark face under it, so the red — the hot tile
+  // — carries the lighter pair. Measured, oklab L of a card's lower third:
+  // green 0.234, red 0.249, a ratio of 1.066 with red the hotter.
+  const g = dial("verdant", "cloud") + dial("verdant", "cloud-still");
+  const r = dial("ember", "cloud") + dial("ember", "cloud-still");
+  return r < g;
 })());
 check("forming scales the same dials rather than the numbers they replaced",
   /opacity: calc\(var\(--form-surface, 1\) \* var\(--mo-cloud, 0\.92\)\);/.test(css)
@@ -226,11 +229,20 @@ check("…and goes past fast enough to be seen moving at a glance", (() => {
  * as static. A still sheet behind a moving one is depth; in front of one it
  * is a lid.
  */
-check("the gliding copy is in front of the still one, or nothing on the card moves", (() => {
+check("the layer that slides across is in front of the one that slides back", (() => {
   const before = /\.molten::before \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
   const after = /\.molten::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
   const z = (rule) => Number(/z-index: (-?\d+);/.exec(rule)?.[1]);
-  return /animation: molten-drift/.test(before) && /animation: none/.test(after) && z(before) > z(after);
+  return z(before) > z(after);
+})());
+check("…and each slides exactly one of its own background periods, or the loop shows", (() => {
+  const drift = /@keyframes molten-drift \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const ebb = /@keyframes molten-ebb \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const after = /\.molten::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /translate3d\(var\(--nebula-period, 180px\), 0, 0\)/.test(drift)
+    && /translate3d\(calc\(-1\.7 \* var\(--nebula-period, 180px\)\), 0, 0\)/.test(ebb)
+    && /background-size: calc\(var\(--nebula-period, 180px\) \* 1\.7\) auto;/.test(after)
+    && /width: calc\(100% \+ 1\.7 \* var\(--nebula-period, 180px\)\);/.test(after);
 })());
 check("the still copy is a different size rather than the same one mirrored, which put an axis down every card", (() => {
   // The churn keyframe still mirrors, and nothing uses it; what matters is
@@ -243,7 +255,7 @@ check("the still copy is a different size rather than the same one mirrored, whi
 /* 4. Always moving, never demanding                                   */
 /* ------------------------------------------------------------------ */
 
-check("there are exactly five keyframes named", MOLTEN_KEYFRAMES.length === 5);
+check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 7, MOLTEN_KEYFRAMES.join(", "));
 for (const k of MOLTEN_KEYFRAMES) {
   check(`${k} is declared`, new RegExp(`@keyframes ${k}\\b`).test(css));
   check(`${k} says what it is for`, (MOLTEN_MOTION[k] ?? "").length > 20);
@@ -252,13 +264,17 @@ const runs = [...css.matchAll(/animation:\s*(molten-[a-z]+)\s+([\d.]+)s/g)].map(
 const durations = runs.map((r) => r.s);
 check("every animation is slow: nothing under nine seconds", durations.length > 0 && durations.every((d) => d >= 9),
   durations.join("s, ") + "s");
-/* One motion may run on more than one thing — the glide is on a box's face
-   and on a vine's strands, at the same rate, because they are one weather.
-   Two *different* motions at one length would be a beat; that is the rule. */
-const byMotion = new Map();
-for (const r of runs) byMotion.set(r.name, r.s);
-check("nothing is a timer: no two motions are the same length", new Set(byMotion.values()).size === byMotion.size);
-check("and one motion runs at one rate wherever it is", runs.every((r) => byMotion.get(r.name) === r.s));
+/* Nothing lands on a beat: every length on the card is its own, so the
+   picture never comes back round to where it was. The glide is the one that
+   runs twice at one rate, on a box's face and on a vine, because they are
+   one weather; every other pair of lengths differs. */
+check("nothing is a timer: no two motions on a construct are the same length",
+  new Set(durations).size === new Set(runs.map((r) => `${r.name}:${r.s}`)).size,
+  runs.map((r) => `${r.name} ${r.s}s`).join(", "));
+check("…and the glide is the only one that runs at one rate in two places, because it is one weather", (() => {
+  const twice = runs.filter((r, i) => runs.findIndex((o) => o.name === r.name && o.s === r.s) !== i);
+  return twice.every((r) => r.name === "molten-drift");
+})());
 check("only transform and opacity are animated, never a colour or a size", (() => {
   const frames = [...css.matchAll(/@keyframes molten-[a-z]+ \{([\s\S]*?)\n\}/g)].map((m) => m[1]);
   const props = new Set(frames.flatMap((f) => [...f.matchAll(/\n\s*([a-z-]+):/g)].map((m) => m[1])));
@@ -300,8 +316,67 @@ check("no mask is animated: the ones there are still, and cost nothing", (() => 
   const framed = [...css.matchAll(/@keyframes molten-[a-z]+ \{([\s\S]*?)\n\}/g)].map((m) => m[1]).join("\n");
   return !/mask/.test(framed) && !/transition:[^;]*mask/.test(css);
 })());
-check("one nebula layer glides and one stands still, for the same picture at half the cost",
-  /\.molten::after \{[\s\S]*?animation: none/.test(css) && /\.molten::before \{[\s\S]*?animation: molten-drift/.test(css));
+/*
+ * NO TWO FEATURES SHARE A DIRECTION.
+ *
+ * One tile sliding is one vector, and every filament on the card shares it:
+ * measured as the spread of headings across a card's patches — 0 being every
+ * moving part of it going the same way, 1 being no agreement at all — a card
+ * with one layer gliding over a still one came out at 0.000 on both
+ * temperatures. That is a photograph being dragged behind a window rather
+ * than a surface that is alive, and it was the note.
+ *
+ * Three layers of the same material now, and no two of them move alike: one
+ * slides across, one slides back over a bigger tile at a different rate, and
+ * one turns. The same measure: 0.46 green and 0.58 red.
+ *
+ * There was a fourth, a second turning layer the other way, and it was
+ * measured out again: a mask is the expensive part of a layer, the second
+ * one put pan at thirty boards from 2.8 seconds of task time to 3.6, and the
+ * spread was no better with it than without.
+ */
+check("three layers of the same material, and no two of them move the same way", (() => {
+  const rule = (sel) => new RegExp(`${sel} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "";
+  const front = rule("\\.molten::before"), back = rule("\\.molten::after"), turn = rule("\\[data-molten\\]::before");
+  const of = (r) => /animation: (molten-[a-z]+) ([\d.]+)s[^;]*/.exec(r)?.slice(1).join(" ");
+  const moves = [of(front), of(back), of(turn)];
+  return moves.every(Boolean) && new Set(moves).size === 3
+    && /animation: molten-drift/.test(front) && /animation: molten-ebb/.test(back)
+    && /animation: molten-turn/.test(turn);
+})());
+check("…and the two sliding ones are near enough in weight that neither is the only thing on the card", (() => {
+  const w = (sel) => {
+    const b = new RegExp(`\\.molten-${sel} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "";
+    return [Number(/--mo-cloud: ([\d.]+);/.exec(b)?.[1]), Number(/--mo-cloud-still: ([\d.]+);/.exec(b)?.[1])];
+  };
+  // An opaque front layer hides everything behind it, and a card with one
+  // layer on it slides as one picture. The green sat at 1 and measured 0.002.
+  return ["verdant", "ember"].every((k) => {
+    const [front, back] = w(k);
+    return front > 0 && back > 0 && front <= 0.8 && Math.max(front, back) / Math.min(front, back) <= 1.6;
+  });
+})(), ["verdant", "ember"].map((k) => `${k} ${/--mo-cloud: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}/${/--mo-cloud-still: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}`).join(", "));
+/*
+ * A turning layer cannot be a period wider than the box the way a sliding
+ * one can: its corners sweep through the frame, and covering a card at every
+ * angle needs a square the size of its diagonal — two and a half times the
+ * area, thirty times over. So the margin is alpha rather than pixels: a
+ * circle, because a circle is the one shape a rotation leaves alone, already
+ * transparent before it reaches a corner. What it costs is stated rather
+ * than hidden: the turning reads in the middle of a card and fades before
+ * its edges, and the edges are carried by the two sliding layers.
+ */
+check("the turning layer is masked to a circle, so no corner of it ever enters the frame", (() => {
+  const swirl = /--molten-swirl: radial-gradient\(([\s\S]*?)\);/.exec(css)?.[1] ?? "";
+  const ends = /rgb\(0 0 0 \/ 0\) (\d+)%/.exec(swirl);
+  return /circle closest-side/.test(swirl) && !!ends && Number(ends[1]) <= 95
+    && (css.match(/mask-image: var\(--molten-swirl\);/g) ?? []).length === 2;
+})());
+check("…and it says so rather than hiding it", /the turning reads\n \* in the middle of a card and fades out before its edges/.test(css));
+check("the turn is one continuous heading, never an oscillation that would land on a beat", (() => {
+  const k = /@keyframes molten-turn \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /from \{ transform: rotate\(0deg\); \}/.test(k) && /to\s+\{ transform: rotate\(360deg\); \}/.test(k);
+})());
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
   // The drawn rim is a named set now, because a temperature with one of J's
   // sprites wears that instead and the ones without still need this. Both
@@ -309,7 +384,7 @@ check("nothing is thrown past the rim: no outward shadow on the edge, and no spa
   const edge = /^\[data-molten\] \{([\s\S]*?)\n\}/m.exec(css)?.[1] ?? "";
   const lines = /--molten-rim-lines:([\s\S]*?);\n/.exec(css)?.[1] ?? "";
   const shadows = [...`${lines}\n${edge}`.matchAll(/^\s+(inset )?0 /gm)];
-  return shadows.length > 0 && shadows.every((m) => m[1] === "inset ") && /\[data-molten\]::after \{\s*content: none;/.test(css);
+  return shadows.length > 0 && shadows.every((m) => m[1] === "inset ");
 })());
 /*
  * THE RIM IS ONE OF J'S, CUT INTO NINE.
