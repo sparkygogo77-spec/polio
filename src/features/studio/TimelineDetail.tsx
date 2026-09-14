@@ -29,6 +29,7 @@ import { headlineOf, Drawn } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { useStudio } from "./store";
+import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenSeed, type MoltenKind } from "@/core/ui/molten";
 import { drawOnPart, writeOnPart } from "./RadialMenu";
@@ -422,6 +423,7 @@ function Convert({ skin, label, icon, blurb, onClick, disabled }: { skin: Skin; 
 export function TimelinePanel() {
   const openId = useStudio((s) => s.openThreadId);
   const threads = useStudio((s) => s.threads);
+  const nodes = useStudio((s) => s.nodes);
   const open = threads.find((t) => t.id === openId) ?? null;
   const ctx = useActions();
   if (!open) {
@@ -435,6 +437,8 @@ export function TimelinePanel() {
   }
   const element = open.mode === "drawing";
   const skin = element ? PURPLE : FIELD;
+  /* The part this update made, if it made one and it is still on the board. */
+  const made = open.madeId ? (nodes.find((n) => n.id === open.madeId) ?? null) : null;
   const u = open.usage;
   const bill = u ? sayBill({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer }) : "";
   const Block = ({ head, text, what }: { head: "Input" | "Output"; text: string; what: string }) => (
@@ -464,6 +468,31 @@ export function TimelinePanel() {
       ) : null}
       <Block head="Input" text={open.ask} what="the prompt" />
       <Block head="Output" text={open.answer} what="the answer" />
+      {/*
+        Where the next pass goes. This is the panel a person is looking at
+        when they want to change the model, and until now the only way to
+        reach that was to leave the timeline, find the part on the board and
+        open its Element tab — which is a long way round from the card that
+        told you the model was wrong.
+
+        It is the same `AuditPanel` the left panel carries, writing the same
+        `node.plan`, so the two say the same thing about the same part. An
+        update with no part of its own gets the readout: a chain prompt made
+        no one thing, so there is nothing to hold a setting.
+      */}
+      <section data-panel-block="route" className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
+        <span className="mb-1.5 block text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>
+          Where the next pass goes
+        </span>
+        {made ? (
+          <AuditPanel node={made} />
+        ) : (
+          <AuditReadout
+            subject={element ? "this drawing" : "an update like this"}
+            planned={{ label: threadTitle(open), prompt: open.ask, featureId: "custom-idea", w: 600, h: 320, role: null, outline: null, content: "" }}
+          />
+        )}
+      </section>
       {bill ? (
         <p className="num px-3 py-2 text-[10px]" style={{ color: skin.dim }}>{bill}</p>
       ) : null}
