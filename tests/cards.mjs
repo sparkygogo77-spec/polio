@@ -198,6 +198,32 @@ check("…which runs the book's own ask rather than a second pipeline of its own
     && /if \(layout !== "page"\) return;/.test(brief)
     && /void generate\(\);/.test(brief);
 })());
+/*
+ * AND THE BAND IT SHOWS IS THE ONE THIS UPDATE TOUCHED.
+ *
+ * A site is taller than a card, and squeezing the whole of it into two
+ * hundred pixels reads as nothing at all — so the frame shows a band, and
+ * the top of the page is the right band nearly always, because that is what
+ * a site is. But two updates that both changed something below the fold
+ * would then be the same picture twice, and the preview's job is to show
+ * what *this* update did. So the band moves to what changed when what
+ * changed is not in it, and the card says it has moved: an unlabelled band
+ * that is not the top reads as a site with no masthead.
+ */
+check("the preview frames what this update changed when that is not at the top", (() => {
+  const site = timeline.slice(timeline.indexOf("function SiteShot("), timeline.indexOf("function Features("));
+  return /const band = H \/ Math\.max\(0\.001, scale\);/.test(site)
+    && /if \(top < band \* 0\.82\) return \{ y: 0, moved: false \};/.test(site)
+    && /translateY\(\$\{-at\.y \* scale\}px\)/.test(site);
+})());
+check("…and never past the end of the page", /Math\.min\(want, Math\.max\(0, page - band\)\)/.test(timeline));
+check("…and says so when it has moved", /data-site-at="changed"/.test(timeline) && /where it changed/.test(timeline));
+check("…by the same rule the feature list lights by, so the picture and the list cannot disagree", (() => {
+  const own = timeline.indexOf("function ownParts(");
+  const site = timeline.slice(timeline.indexOf("function SiteShot("), timeline.indexOf("function Features("));
+  const feat = timeline.slice(timeline.indexOf("function Features("));
+  return own > 0 && /ownParts\(thread, parent\)/.test(site) && /ownParts\(thread, parent\)/.test(feat);
+})());
 check("the feature list sits under the site", (() => {
   const site = boxBlock.indexOf("<SiteShot thread=");
   const feat = boxBlock.indexOf("<Features thread=");
@@ -205,10 +231,10 @@ check("the feature list sits under the site", (() => {
 })());
 check("…naming the parts on it, with this update's own lit", (() => {
   const f = timeline.slice(timeline.indexOf("function Features("));
-  return /data-feature-new=\{mine\.has\(n\.id\) \? "1" : "0"\}/.test(f) && /const first = !parent\?\.doc;/.test(f);
+  return /data-feature-new=\{mine\.has\(n\.id\) \? "1" : "0"\}/.test(f) && /const first = !parent\?\.doc;/.test(timeline);
 })());
 check("…worked out from the two documents rather than parsed back out of a sentence", (() => {
-  const f = timeline.slice(timeline.indexOf("function Features("), timeline.indexOf("function Features(") + 2200);
+  const f = timeline.slice(timeline.indexOf("function ownParts("), timeline.indexOf("function ownParts(") + 1600);
   // `diffDocs` writes sentences — "+ Top bar placed", "~ Hero: 240×80 → 240×120"
   // — and picking a name back out of one is a parser waiting to be wrong
   // about a part called "placed". Nothing here calls it.
