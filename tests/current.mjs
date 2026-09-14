@@ -146,7 +146,13 @@ check("the mark is on the right of the box", await page.locator('[data-box="t1"]
 
 check("there is a this-iteration button on every box", (await page.locator("[data-current-for]").count()) === 4, String(await page.locator("[data-current-for]").count()));
 check("and none of them is on to begin with", (await page.locator('[data-current="1"]').count()) === 0);
-check("it says what it is", (await page.locator('[data-current-for="t2"]').first().innerText()).toLowerCase().includes("this iteration"));
+/* Where it says it, which is no longer across the box. It was a chip
+   reading "this iteration", and that was the widest thing on the box, so it
+   read as the heading and pushed the name of a part off the end — the
+   reason is written at CurrentButton. It is a mark now, and the words are
+   the tooltip a hover or a reader gets, so that is what is asked for. */
+const flagSays = await page.locator('[data-current-for="t2"]').first().getAttribute("title");
+check("it says what it is", /work in this update/i.test(flagSays ?? ""), flagSays ?? "no title");
 
 await page.locator('[data-current-for="t2"]').first().click({ force: true });
 await page.waitForTimeout(700);
