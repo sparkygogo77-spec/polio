@@ -44,7 +44,11 @@
   --border-strong: oklch(0.38 0.045 var(--void-h));
   --fg: oklch(0.93 0.008 var(--void-h));
   --fg-muted: oklch(0.68 0.016 var(--void-h));
-  --fg-faint: oklch(0.5 0.02 var(--void-h));
+  /* 0.5 measured 3.22:1 on the shelf and 3.29:1 on a panel — under AA for
+     text this small, and this token carries the counts under every category
+     and most of the app's small print. 0.6 is 4.9:1 and still reads as the
+     quietest of the three. */
+  --fg-faint: oklch(0.6 0.02 var(--void-h));
   --accent: oklch(0.76 0.13 var(--accent-h));
   --accent-strong: oklch(0.83 0.15 var(--accent-h));
   --accent-fg: oklch(0.14 0.03 var(--accent-h));
@@ -74,7 +78,8 @@
   --border-strong: oklch(0.8 0.012 var(--accent-h));
   --fg: oklch(0.2 0.015 var(--accent-h));
   --fg-muted: oklch(0.45 0.015 var(--accent-h));
-  --fg-faint: oklch(0.62 0.012 var(--accent-h));
+  /* 3.49:1 on the light ground at 0.62, which fails the same way. */
+  --fg-faint: oklch(0.55 0.012 var(--accent-h));
   --accent: oklch(0.55 0.14 var(--accent-h));
   --accent-strong: oklch(0.48 0.16 var(--accent-h));
   --accent-fg: oklch(0.99 0.01 var(--accent-h));
