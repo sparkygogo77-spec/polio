@@ -101,7 +101,7 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {passes.length ? (
               <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-2.5">
-                {passes.map((pass) => <PassCard key={pass.id} pass={pass} skin={FIELD} />)}
+                {passes.map((pass, i) => <PassCard key={pass.id} pass={pass} skin={FIELD} at={i} />)}
               </div>
             ) : (
               <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
@@ -121,21 +121,21 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
  * A pass that carried one change is that one change — a heading repeating the
  * only line under it is the shape of a changelog, which is what this is not.
  */
-function PassCard({ pass, skin }: { pass: Pass; skin: Skin }) {
+function PassCard({ pass, skin, at }: { pass: Pass; skin: Skin; at: number }) {
   const lead = leadOf(pass);
   if (!lead) return null;
   const rest = pass.changes.filter((c) => c.id !== lead.id);
 
   if (!rest.length) {
     return (
-      <Row skin={skin} icon={<Sparkles className="size-3" />} title={`${pass.day} · one thing`}>
+      <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${pass.day} · one thing`}>
         <ChangeLine change={lead} skin={skin} lead />
       </Row>
     );
   }
 
   return (
-    <Row skin={skin} icon={<Sparkles className="size-3" />} title={`${pass.day} · ${sizeOf(pass)}`}>
+    <Row skin={skin} seed={pass.id} at={at} icon={<Sparkles className="size-3" />} title={`${pass.day} · ${sizeOf(pass)}`}>
       <div className="flex flex-col gap-1">
         {/* The lead is the pass's headline and its first line at once: a
             heading that repeats the line under it is the shape of a

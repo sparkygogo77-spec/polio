@@ -354,14 +354,25 @@ function Iteration({ thread }: { thread: Thread }) {
 export type Skin = typeof FIELD;
 
 /** One band of the section, in the timeline's own colours. */
-export function Row({ skin, icon, title, kind = "verdant", seed = "row", children }: {
+export function Row({ skin, icon, title, kind = "verdant", seed, at, children }: {
   skin: Skin;
   icon: React.ReactNode;
   title: string;
   /** Green under an iteration, red under a drawing: the same rule as above. */
   kind?: MoltenKind;
-  /** Its own offset into the shared drift, so a column of them is not one sheet. */
-  seed?: string;
+  /*
+   * Its own share of the drift, and it is required now.
+   *
+   * It defaulted to the string "row", which meant every caller that did not
+   * think about it got the *same* share — and the panel that did that had
+   * two neighbours measuring 0.99 correlation between their motion, which is
+   * not "alike", it is the same animation on two boxes. A default that makes
+   * a column of constructs one sheet is worse than a compile error.
+   */
+  seed: string;
+  /** Where in the list it sits, so consecutive boxes are guaranteed to run
+      opposite ways rather than merely likely to. */
+  at?: number;
   children: React.ReactNode;
 }) {
   return (
@@ -377,7 +388,7 @@ export function Row({ skin, icon, title, kind = "verdant", seed = "row", childre
      */
     <section
       className={cn(moltenClass(kind), "rounded-lg p-2.5")}
-      style={{ ...moltenSeed(seed), boxShadow: `0 2px 10px oklch(0 0 0 / 0.35)` }}
+      style={{ ...moltenSeed(seed, at), boxShadow: `0 2px 10px oklch(0 0 0 / 0.35)` }}
     >
       <span data-molten="" />
       <p className="mb-1.5 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>

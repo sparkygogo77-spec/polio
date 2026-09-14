@@ -105,7 +105,7 @@ export function QueueStrip() {
           .join(", ")
       }
     >
-      {bars.map((b) => {
+      {bars.map((b, i) => {
         const w = Math.round(BAR_MIN + (BAR_W - BAR_MIN) * Math.max(0, Math.min(1, b.p)));
         return (
           <div
@@ -113,7 +113,9 @@ export function QueueStrip() {
             data-queue-bar={b.kind === "ember" ? "drawing" : "board"}
             className={cn(moltenBarClass(b.kind), "rounded-[3px]")}
             style={{
-              ...moltenSeed(b.id),
+              /* A strip is a row, so the index decides the heading: the bar
+                 next to this one runs the other way whatever its id hashes to. */
+              ...moltenSeed(b.id, i),
               height: BAR_H,
               width: w,
               /* Eased between milestones rather than jumping: the steps a job

@@ -98,17 +98,60 @@ export function moltenBarClass(kind: MoltenKind = "lantern"): string {
 }
 
 /**
- * A construct's own offset into the shared animations.
+ * A construct's own share of the shared animations: phase, pace, heading and
+ * where in the tile it starts.
  *
- * Any stable number will do — an index, or a hash of an id — because it is
- * only ever multiplied into a negative delay. What matters is that two
- * constructs beside each other do not get the same one, or they breathe and
- * flare together and the screen reads as one machine rather than as thirty
- * separate things that happen to be alight.
+ * **Phase alone was not enough, and that was the note.** Every construct ran
+ * one negative delay off this number, which is the same animation started at
+ * a different moment — and a screen of them still reads as one rhythm,
+ * because a loop offset from itself is the same loop. Worse, a caller that
+ * forgot to pass anything got the same constant as every other caller, and
+ * the panel of boxes that did that measured 0.99 correlation between two
+ * neighbours' motion: not merely alike, identical.
+ *
+ * So four dials off one number, and none of them is a new mechanism — they
+ * are the properties the stylesheet already reads:
+ *
+ *   --molten-seed  the phase, as before: every animation's negative delay
+ *   --mo-pace      the rate, 0.82 to 1.18 of the written duration
+ *   --mo-way       the heading: half of them run their layers the other way
+ *   --mo-shift     where in the tile the face starts, so two constructs are
+ *                  not showing the same part of the same picture
+ *
+ * The heading is the one that has to be *guaranteed* rather than hashed,
+ * because "no two next to each other" is a claim about neighbours and a hash
+ * knows nothing about who its neighbours are. So pass `at` — the thing's
+ * index in whatever list it is in — and consecutive items alternate heading
+ * however their ids hash. Without it the hash decides, which is fine for
+ * constructs scattered on a canvas and not for a column of them.
+ *
+ * Reversing a construct reverses *both* its layers, so the two of them stay
+ * opposed to each other: the rule inside a card is untouched, and what
+ * changes is the card's relationship to the card beside it.
  */
-export function moltenSeed(from: string | number): { "--molten-seed": number } {
-  if (typeof from === "number") return { "--molten-seed": from % 97 };
-  let n = 0;
-  for (let i = 0; i < from.length; i++) n = (n * 31 + from.charCodeAt(i)) % 97;
-  return { "--molten-seed": n };
+export function moltenSeed(from: string | number, at?: number): {
+  "--molten-seed": number;
+  "--mo-pace": number;
+  "--mo-way": string;
+  "--mo-shift": string;
+} {
+  let n: number;
+  if (typeof from === "number") n = ((from % 97) + 97) % 97;
+  else {
+    n = 0;
+    for (let i = 0; i < from.length; i++) n = (n * 31 + from.charCodeAt(i)) % 97;
+  }
+  const turn = at ?? n;
+  return {
+    "--molten-seed": n,
+    /* Seven rates rather than a continuum: two constructs an eighth apart in
+       pace drift out of step inside a minute, and a continuum only means
+       more numbers that look alike. */
+    "--mo-pace": +(0.82 + (n % 7) * 0.06).toFixed(2),
+    "--mo-way": turn % 2 ? "reverse" : "normal",
+    /* A whole tile's worth, spread across the seed: the same picture, but
+       not the same part of it, which is most of what stops two boxes reading
+       as one sheet with a line drawn between them. */
+    "--mo-shift": `${n * 2}px`,
+  };
 }

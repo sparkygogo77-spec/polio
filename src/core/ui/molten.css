@@ -39,9 +39,17 @@
      --molten-deep    the body cooling as it goes out
      --molten-char    the outer edge, almost black
 
-   THE KEYFRAMES. One set, shared by every construct on the screen; a box
-   varies only by `--molten-seed`, which staggers the delays so thirty of
-   them are not one machine.
+   THE KEYFRAMES. One set, shared by every construct on the screen. What a
+   construct varies is its share of them, and `moltenSeed` in `molten.ts`
+   hands it four dials off one number: `--molten-seed` (the phase, as a
+   negative delay), `--mo-pace` (the rate, 0.82 to 1.18 of what is written
+   here), `--mo-way` (the heading — half of them run their layers the other
+   way round) and `--mo-shift` (where in the tile the face starts).
+
+   Phase alone was not enough and it is worth saying why: a loop started at a
+   different moment is the same loop, so a screen of constructs offset from
+   each other still reads as one rhythm. Pace and heading are what make them
+   separate things that happen to be alight.
 
      molten-drift     the glide: the nebula slides exactly one period
      molten-ebb       the same slide the other way, over the second layer's
@@ -344,14 +352,27 @@
    * what a cut of a bigger render is meant to look like.
    */
   background-size: var(--nebula-period, 180px) auto;
-  background-position: 0 50%;
+  /* Not the same part of the picture as the construct next to it: the shift
+     is the seed's, and the tile repeats, so this costs nothing at all. */
+  background-position: var(--mo-shift, 0px) 50%;
   opacity: var(--mo-cloud, 0.92);
   /* The centre thin, the edges full: the falloff the painted tile carried
      in its alpha, on the layer instead. Same curve, same place. */
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
   will-change: transform;
+  /*
+   * Twenty seconds is the written rate, and each construct takes its own
+   * share of it — the longhand under the shorthand is deliberate: the
+   * shorthand is what the rate *is* and what the suite reads, the longhand
+   * is this construct's share of it. The heading is the seed's too, and
+   * both layers take the same one, so a reversed construct still has its
+   * two layers opposed to each other and only its relationship to its
+   * neighbour changes.
+   */
   animation: molten-drift 20s linear infinite;
+  animation-duration: calc(20s * var(--mo-pace, 1));
+  animation-direction: var(--mo-way, normal);
   animation-delay: calc(var(--molten-seed) * -3.1s);
 }
 
@@ -398,12 +419,14 @@
   background-image: var(--mo-nebula);
   background-repeat: repeat;
   background-size: calc(var(--nebula-period, 180px) * 1.7) auto;
-  background-position: 23% 50%;
+  background-position: calc(23% + var(--mo-shift, 0px)) 50%;
   opacity: var(--mo-cloud-still, 0.38);
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
   will-change: transform;
   animation: molten-ebb 47s linear infinite;
+  animation-duration: calc(47s * var(--mo-pace, 1));
+  animation-direction: var(--mo-way, normal);
   animation-delay: calc(var(--molten-seed) * -5.3s);
 }
 
@@ -512,6 +535,7 @@
   border-image: var(--mo-rim) var(--mo-rim-slice, 20) / var(--mo-rim-width) stretch;
   box-shadow: var(--mo-rim-shadow);
   animation: molten-breathe 42s ease-in-out infinite alternate;
+  animation-duration: calc(42s * var(--mo-pace, 1));
   animation-delay: calc(var(--molten-seed) * -1.7s);
 }
 
