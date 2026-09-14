@@ -203,32 +203,24 @@ await page.waitForTimeout(300);
   await page.waitForTimeout(300);
 }
 
-/* ------------------------------------------------------------------ */
-/* 6. Create is still under Edit as well                                */
-/* ------------------------------------------------------------------ */
-
-await page.mouse.click(frame.x + frame.width * 0.7, frame.y + frame.height * 0.8, { button: "right" });
-await page.waitForTimeout(650);
-const wheel = page.locator("[data-radial]");
-check("right-pressing the bare page opens the background's wheel", (await wheel.count()) > 0);
-if (await wheel.count()) {
-  /* The inner slabs wear an icon, not a word — the word is the label — so
-     they are reached by the slab rather than by its text. */
-  const edit = wheel.locator('[data-shard="edit"]').first();
-  check("the wheel has Edit on it", (await edit.count()) > 0, await edit.getAttribute("aria-label"));
-  if (await edit.count()) {
-    await edit.click({ force: true });
-    await page.waitForTimeout(700);
-    const create = wheel.locator('[data-shard="create"]').first();
-    check("and Create under it", (await create.count()) > 0, await create.getAttribute("aria-label"));
-    if (await create.count()) {
-      const was = await spaces();
-      await create.click({ force: true });
-      await page.waitForTimeout(800);
-      check("pressing it lands a space", (await spaces()) === was + 1, `${was} → ${await spaces()} on the page`);
-      check("and closes the wheel, so the space is not hidden behind it", (await page.locator("[data-radial]").count()) === 0);
-    }
-  }
+/*
+ * There is no "Create under Edit" any more, and that is on purpose.
+ *
+ * It lived there while the outer ring had no room for it. The ring has room
+ * now — Draw and Create are halves of the top quadrant — and Edit itself has
+ * gone, because the width it held is the third copy of a control the bar and
+ * the canvas menu both carry. One way in is the point; two was the stopgap.
+ */
+{
+  const fr2 = await page.locator("[data-frame]").first().boundingBox();
+  await page.mouse.click(fr2.x + fr2.width * 0.55, fr2.y + fr2.height * 0.45, { button: "right" });
+  await page.waitForTimeout(700);
+  const made = await page.locator('[data-radial] [data-shard="create"]').count();
+  const ed = await page.locator('[data-radial] [data-shard="edit"]').count();
+  check("Create is on the ring and not hidden under a group as well", made === 1 && ed === 0,
+    `${made} Create, ${ed} Edit`);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
 }
 
 await browser.close();

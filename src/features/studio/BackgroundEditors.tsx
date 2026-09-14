@@ -14,6 +14,7 @@ import * as React from "react";
 import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Link2, Maximize2, Monitor, Smartphone, Square, Sun, Tablet, Waves } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Textarea } from "@/core/ui/textarea";
+import { Input } from "@/core/ui/input";
 import { readImage } from "./ImageIntake";
 import { lands, newLayer, parseColor, textureCss, TEXTURE_KINDS, type TextureLayer } from "./look";
 import { useStudio, type StudioPage } from "./store";
@@ -297,6 +298,45 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
           onChange={(e) => s().updatePage(page.id, { prompt: e.target.value })}
         />
         <p className="text-[8px]" style={{ color: SCREEN.dim }}>Applies to everything on this page.</p>
+      </PlateQuad>
+    );
+  }
+
+  /* ------------------------------------------------- what it is called */
+  if (which === "page-name") {
+    const plate = slabs.find((sl) => Math.abs(((sl.from % 1) + 1) % 1 - 0.25) < 0.001) ?? a;
+    return (
+      <PlateQuad slab={plate} title="What this page is called" sub={page.path}>
+        <Input
+          value={page.name}
+          aria-label="Page name"
+          className={`w-full text-[11px] ${SCREEN_FIELD}`}
+          onChange={(e) => s().updatePage(page.id, { name: e.target.value })}
+        />
+        <p className="text-[8px]" style={{ color: SCREEN.dim }}>The name on its tab, and what the builder calls it.</p>
+      </PlateQuad>
+    );
+  }
+
+  /* ------------------------------------------------------ where it lives */
+  if (which === "page-path") {
+    const plate = slabs.find((sl) => Math.abs(((sl.from % 1) + 1) % 1 - 0.25) < 0.001) ?? a;
+    return (
+      <PlateQuad slab={plate} title="Where it lives" sub={page.name}>
+        <Input
+          value={page.path}
+          aria-label="Page address"
+          className={`w-full text-[11px] ${SCREEN_FIELD}`}
+          placeholder="/"
+          onChange={(e) => {
+            // A path is one thing or it is a broken link: leading slash, no
+            // spaces, and whatever a person types made into that rather than
+            // refused.
+            const raw = e.target.value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9/-]/g, "");
+            s().updatePage(page.id, { path: raw.startsWith("/") ? raw : `/${raw}` });
+          }}
+        />
+        <p className="text-[8px]" style={{ color: SCREEN.dim }}>The address on the live site.</p>
       </PlateQuad>
     );
   }

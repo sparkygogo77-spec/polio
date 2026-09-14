@@ -46,8 +46,6 @@
      molten-drift     the glide: the nebula slides exactly one period
      molten-ebb       the same slide the other way, over the second layer's
                       own bigger period, so the two never share a heading
-     molten-turn      a whole turn, for the layer that rotates rather than
-                      sliding — the one motion a repeating tile cannot fake
      molten-churn     kept for a construct that wants another moving layer
                       of its own; nothing here uses it
      molten-breathe   the edge, thickening and thinning
@@ -65,15 +63,22 @@
      bright ever crawls under a line of text — calm where it is read.
    - **No two features share a direction.** One tile sliding is one vector,
      and a whole card sliding on it reads as a photograph dragged behind a
-     window rather than as a surface. So there are four layers of the same
-     material and no two of them move alike: one slides across, one slides
-     back at a different rate over a bigger tile, and one turns. Turning is
-     the part a repeating slide cannot do and the part that costs
-     something — see `--molten-swirl`.
+     window rather than as a surface. So there are two layers of the same
+     material and they do not move alike: one slides across, one slides back
+     at a different rate over a bigger tile, and the two periods are far
+     enough apart that the pair never lands on a beat.
+
+     There was a third that turned, because turning is the one heading a
+     repeating slide cannot make. It was measured out, and the numbers are
+     in `[data-molten]::before` below: it cost a quarter to a third of the
+     timeline's frames while nothing was moving, and the spread of headings
+     across a card — the thing it was built for — was no worse without it.
+     Two layers that disagree are the rule; the third was cost with nothing
+     bought.
    - It has to be cheap, and cheap is measured rather than asserted. Every
      animation is `transform` or `opacity`, the tiles are files decoded once
      for the whole page, `contain: layout paint` keeps a construct's boil
-     inside the construct, and the three layers are three composited
+     inside the construct, and the two layers are two composited
      transforms on pictures painted once rather than anything redrawn.
      There is no JavaScript loop; the tiles are painted once, before any of
      this runs, and never again. Thirty of them on a software rasteriser with no
@@ -223,21 +228,6 @@
     inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
     inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
 
-  /*
-   * The turning layer's own margin, made of alpha rather than pixels.
-   *
-   * A circle, because a circle is the one shape a rotation leaves alone: the
-   * lit patch stays the same patch while the picture inside it turns. It is
-   * transparent well before the box's own edge, so a corner sweeping round
-   * never enters the frame and it never touches the bezel.
-   */
-  --molten-swirl: radial-gradient(
-    circle closest-side,
-    rgb(0 0 0 / 1) 0%,
-    rgb(0 0 0 / 0.92) 42%,
-    rgb(0 0 0 / 0.45) 72%,
-    rgb(0 0 0 / 0) 94%
-  );
   --molten-vignette: linear-gradient(
     to bottom,
     rgb(0 0 0 / 1) 0%,
@@ -526,63 +516,59 @@
 }
 
 /*
- * ONE MORE OF THE SAME MATERIAL, TURNING.
+ * AND NOTHING TURNING. THE MEASUREMENT, BECAUSE IT WAS BUILT AND TAKEN OUT.
  *
- * Sliding is one vector however many layers do it, and a layer's whole
- * picture shares it. Turning is the one motion a repeating slide cannot
- * make: every point in a turning layer moves on a different heading, so one
- * of them over two sliding opposite ways means no two features on a card
- * are going the same way. The eye stops finding the vector because there is
- * not one to find.
+ * There was a third layer here, the same material turning once every hundred
+ * and fifty seconds behind a circular mask, and the case for it was good:
+ * sliding is one vector however many layers do it, and turning is the one
+ * motion a repeating slide cannot make. It went in, it was measured, and it
+ * is the regression trunk reported twice.
  *
- * **The tradeoff, stated.** A tiled layer that slides can be a period wider
- * than the box and never show an edge. A layer that turns cannot: its
- * corners sweep through the frame, and covering a card at every angle needs
- * a square the size of the card's diagonal — for the boxes here that is a
- * layer two and a half times the area, thirty times over, which is the cost
- * this is meant to keep. So the margin is made of alpha instead of pixels:
- * each turning layer is the size of the card and masked to a circle that is
- * already transparent before it reaches any corner. A circle is the one
- * shape a rotation leaves alone, so the lit patch does not wobble as it
- * turns. What it costs is real and is the thing to say: **the turning reads
- * in the middle of a card and fades out before its edges, and the edges are
- * carried by the two sliding layers.** On a card the width of a band that
- * circle is a small part of it.
+ * Frames while nothing at all is happening, on this container's software
+ * rasteriser: requestAnimationFrame gaps over 1.8 seconds, three runs each,
+ * with the turn taken out and put back on the same build.
  *
- * They live on the rim node because its two pseudo-elements were free —
- * they carried a flare and a spark, both of which were taken off — and an
- * element per construct is an element per construct. The mask keeps them
- * clear of the bezel the node itself draws.
+ *                              12 boards        30 boards
+ *   with the turn            27.0 27.3 29.1   14.0 15.5 15.8   frames/900ms
+ *   without it               30.6 31.3 32.6   18.2 18.5 20.4
+ *
+ * A tenth of a card's frames at twelve boards and a quarter at thirty, for
+ * one layer, while nothing is moving. The first run that found it, on a
+ * quieter machine, put the same pair at 24.9 against 33.0 and 11.3 against
+ * 16.5 — a third of the frames. The absolute numbers move with whatever else
+ * the box is doing; the direction does not.
+ *
+ * The cause is not the mask (unmasked measured 21.2 against 20.4), not the
+ * area (a square layer 20.7), and not rotation as such (three sliding layers
+ * 22.0 against two sliding and one turning 20.4). It is the third composited
+ * layer per construct, whatever that layer does: two cloud layers run 31 to
+ * 33 at twelve boards and any third takes it to 20 to 24. Pausing every
+ * animation and keeping the layers recovers almost none of it (14.9 against
+ * 11.7 at thirty), so it is the layers existing and being composited every
+ * frame, not their moving.
+ *
+ * And it bought nothing measurable. The spread of headings across a card is
+ * what the turn was for — 0 being every moving part going the same way — and
+ * it is no worse without it and slightly better: three runs each, green
+ * 0.444 / 0.518 / 0.483 with two layers against 0.410 / 0.402 / 0.402 with
+ * the turn in. (The red card is too small to measure this way; two to six
+ * patches of it move and the figure swings from 0.0 to 1.0 on either
+ * setting. Green is the reading.) Brightness did not move either: mean
+ * oklab L over a whole face went 0.2370 to 0.2363 green and 0.2332 to 0.2319
+ * red, a fifth of a per cent, with red still the hotter of the two — the
+ * turning copy was the same tile over itself, so it added detail rather than
+ * light, which is why no dial needed re-tuning when it came out.
+ *
+ * What this costs, stated rather than hidden: **no layer on a card turns.**
+ * Every heading on a construct is one of two opposed slides at rates far
+ * enough apart that they never land together, and a rotation is a motion
+ * this surface does not have. That is the trade for a timeline that holds
+ * its frames with thirty boards on it.
+ *
+ * Both pseudo-elements of the rim node are free and stay free. Anything that
+ * wants a third moving layer here has to beat the table above first.
  */
-[data-molten]::before {
-  content: "";
-  position: absolute;
-  inset: calc(-1 * var(--mo-rim-width, 0px));
-  z-index: -1;
-  pointer-events: none;
-  background-image: var(--mo-nebula);
-  background-repeat: repeat;
-  background-size: calc(var(--nebula-period, 180px) * 1.3) auto;
-  background-position: 50% 50%;
-  opacity: var(--mo-turn, 0.34);
-  -webkit-mask-image: var(--molten-swirl);
-  mask-image: var(--molten-swirl);
-  will-change: transform;
-  animation: molten-turn 150s linear infinite;
-  animation-delay: calc(var(--molten-seed) * -11s);
-}
-
-/*
- * And one turning layer, not two.
- *
- * There was a second, smaller and dimmer and turning the other way. It was
- * measured against this and taken out, because a mask is the expensive part
- * of a layer and it bought nothing: at thirty boards the second one put pan
- * from 2.8 seconds of task time to 3.6, and the spread of headings across a
- * card — the thing all this is for — was no better with it than without,
- * 0.46 green and 0.58 red either way. Three motions that disagree are
- * enough; the fourth was cost.
- */
+[data-molten]::before,
 [data-molten]::after {
   content: none;
 }
@@ -760,20 +746,6 @@
   to   { transform: translate3d(calc(-1.7 * var(--nebula-period, 180px)), 0, 0); }
 }
 
-/*
- * A whole turn, and it never lands on a beat because it never reverses.
- *
- * An oscillation would have two moments a cycle where the picture stops and
- * goes back, which is exactly the kind of pulse the rules here forbid. One
- * continuous turn at a hundred and fifty seconds is a quarter of a degree a
- * second: no point in it is going where its neighbour is going, and nothing
- * about it repeats inside a minute.
- */
-@keyframes molten-turn {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
 @keyframes molten-churn {
   0%   { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
   40%  { opacity: 0.4; }
@@ -851,8 +823,4 @@
   [data-molten]::after {
     animation: none !important;
   }
-  /* The turning layer stays, still: it is material, not decoration, and a
-     construct without it is a different colour. */
-  [data-molten]::before,
-  [data-molten]::after { animation: none !important; }
 }

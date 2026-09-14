@@ -418,20 +418,31 @@ function bgChoicesFor(group: SlotId, at: { x: number; y: number } | null): Choic
       // A motion asset behind the page: the place is here, the crate is not wired to it yet.
       return [{ id: "motion-soon", label: "Motion asset (soon)", icon: Film, act: () => play("tap") }];
     case "write":
-      // The page's own words.
-      return [{ id: "page-words", label: "Words", icon: Wand2 }];
+      /*
+       * Everything written about the page, which is three things and used to
+       * be one. A slab that opens onto a single box is a slab a person
+       * learns to walk past: it costs a piece of the wheel and saves nothing
+       * over the box being there. Its name and its address are written about
+       * the page in exactly the way its words are, and neither had anywhere
+       * to be said on the wheel at all.
+       */
+      return [
+        { id: "page-words", label: "Words", icon: Wand2 },
+        { id: "page-name", label: "Name", icon: Tag },
+        { id: "page-path", label: "Address", icon: Link2 },
+      ];
+    /*
+     * There is no Edit on the page's wheel any more.
+     *
+     * It held the frame's width and a placeholder, and the width is the
+     * third copy of one control: the bar's own Desktop / Tablet / Phone keys
+     * set it, and so does Frame width on the canvas menu. Three ways to say
+     * one thing is not a slab's worth of wheel, and a slab that is mostly a
+     * "soon" is not either.
+     */
     case "edit":
       // How the page is built: its width, and (a placeholder) a background of its own per page.
       return [
-        // The one thing here that makes something rather than setting
-        // something: an area of the page set aside to become a part
-        // (`createSpace.ts`). Without a point there is no spot to put it on,
-        // so it is dim rather than a ring landing in the corner.
-        // The wheel is closed on the way out: it is centred on the spot the
-        // space lands, so leaving it up would hide the thing just made. The
-        // green pick already sounds, so this adds no sound of its own.
-        { id: "create", label: "Create", icon: CircleDashed, dim: !at,
-          act: () => { if (!at) { play("deny"); return; } createSpaceAt(at.x, at.y); closeRadial(); } },
         { id: "width", label: "Width", icon: Monitor },
         { id: "pages-soon", label: "Per page (soon)", icon: Files, act: () => play("tap") },
       ];
@@ -842,9 +853,24 @@ export function RadialMenu() {
   const t2 = topA + (2 * (topB - topA)) / 3;
   void topMid;
   const level1: { slot: Slot; d: string; at: Pt; wear?: RingPiece["wear"]; glow?: string | null }[] = [
-    { slot: slots.anim, d: piece(topA, t1, B.hole, B.mid, shape, B), at: middleOf(topA, t1, B.hole, B.mid, shape, B) },
-    { slot: slots.write, d: piece(t1, t2, B.hole, B.mid, shape, B), at: middleOf(t1, t2, B.hole, B.mid, shape, B) },
-    { slot: slots.more, d: piece(t2, topB, B.hole, B.mid, shape, B), at: middleOf(t2, topB, B.hole, B.mid, shape, B) },
+    /*
+     * The inner top: three on a part, two on the page.
+     *
+     * The page's three-dot More has gone — it was the tray's two items in a
+     * second place, and the tray is under the wheel already — so Motion and
+     * the pencil take a half of the band each instead of a third, and
+     * neither of them is a sliver.
+     */
+    ...(bg
+      ? [
+        { slot: slots.anim, d: piece(topA, topMid, B.hole, B.mid, shape, B), at: middleOf(topA, topMid, B.hole, B.mid, shape, B) },
+        { slot: slots.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
+      ]
+      : [
+        { slot: slots.anim, d: piece(topA, t1, B.hole, B.mid, shape, B), at: middleOf(topA, t1, B.hole, B.mid, shape, B) },
+        { slot: slots.write, d: piece(t1, t2, B.hole, B.mid, shape, B), at: middleOf(t1, t2, B.hole, B.mid, shape, B) },
+        { slot: slots.more, d: piece(t2, topB, B.hole, B.mid, shape, B), at: middleOf(t2, topB, B.hole, B.mid, shape, B) },
+      ]),
     /* One slab on a part, two on the page: Draw and Create, visible together
        so the choice between one element and several is a choice you can see
        rather than a mode you are in. */
@@ -854,8 +880,20 @@ export function RadialMenu() {
         { slot: slots.create, d: piece(topMid, topB, B.mid, "edge", shape, B), at: middleOf(topMid, topB, B.mid, "edge", shape, B) },
       ]
       : [{ slot: slots.draw, d: piece(topA, topB, B.mid, "edge", shape, B), at: middleOf(topA, topB, B.mid, "edge", shape, B) }]),
-    { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
-    { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
+    /*
+     * The inner bottom: two on a part, one on the page.
+     *
+     * The page's Edit has gone with the width it held — the bar and the
+     * canvas menu both set that already — so Picture takes the whole band
+     * rather than half of it, which is the room a thing that opens a file
+     * wants anyway.
+     */
+    ...(bg
+      ? [{ slot: slots.duplicate, d: piece(botA, botB, B.hole, B.mid, shape, B), at: middleOf(botA, botB, B.hole, B.mid, shape, B) }]
+      : [
+        { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
+        { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
+      ]),
     // Looks wears the whole of what it opens: the colour or texture on its
     // face, and the aura round it, which is the one part of a look that is not
     // *on* the thing but around it.

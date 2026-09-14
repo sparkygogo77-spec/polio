@@ -55,6 +55,9 @@ export async function POST(request: Request) {
   if (!found.pw) return NextResponse.json({ ok: false, reason: "no-browser", message: NO_PLAYWRIGHT, took: took() });
 
   const selector = typeof body.selector === "string" ? body.selector : null;
+  // Several at once: a page taken whole is a dozen blocks, and a dozen
+  // openings of the same page would be a dozen too many.
+  const selectors = Array.isArray(body.selectors) ? body.selectors.filter((s): s is string => typeof s === "string").slice(0, 40) : null;
   const width = Math.max(360, Math.min(1920, Number(body.width) || 1280));
 
   let browser: Awaited<ReturnType<typeof found.pw.chromium.launch>> | null = null;
@@ -74,21 +77,34 @@ export async function POST(request: Request) {
     // A moment for what loads late, never the whole budget.
     await page.waitForTimeout(900);
 
-    if (!selector) {
+    if (!selector && !selectors) {
       const shot = await page.screenshot({ fullPage: false });
       const list = (await page.evaluate(CANDIDATES, MAX_ELEMENTS)) as Candidate[];
+      const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
       await context.close();
       return NextResponse.json({
         ok: true,
         url: gate.url,
         host: gate.host,
-        page: { width, height: 900, shot: shot.toString("base64") },
+        page: { width, height, shot: shot.toString("base64") },
         candidates: list,
         took: took(),
       });
     }
 
-    const reading = (await page.evaluate(MEASURE, selector)) as { box: { x: number; y: number; w: number; h: number } } | null;
+    if (selectors) {
+      const readings = [];
+      for (const sel of selectors) {
+        const one = (await page.evaluate(MEASURE, sel)) as Record<string, unknown> | null;
+        if (one) readings.push({ ...one, from: { url: gate.url, host: gate.host, selector: sel, at: Date.now() } });
+      }
+      const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
+      await context.close();
+      if (!readings.length) return NextResponse.json({ ok: false, reason: "gone", message: "None of those are on the page any more. Read the page again.", took: took() });
+      return NextResponse.json({ ok: true, page: { width, height }, readings, took: took() });
+    }
+
+    const reading = (await page.evaluate(MEASURE, selector ?? "")) as { box: { x: number; y: number; w: number; h: number } } | null;
     if (!reading) {
       await context.close();
       return NextResponse.json({ ok: false, reason: "gone", message: "That element is not on the page any more. Read the page again.", took: took() });

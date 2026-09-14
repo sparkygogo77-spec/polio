@@ -29,7 +29,6 @@ import { progressOf } from "./formation";
 import { useStudio } from "./store";
 import { PROCESS } from "./threads";
 import { cn } from "@/core/lib/cn";
-import { moltenClass, moltenSeed } from "@/core/ui/molten";
 
 /** The runner. Mounted once; everything else only looks at the queue. */
 export function DrawQueue() {
@@ -295,24 +294,33 @@ export function ProcessCounter() {
           useStudio.getState().setMode(mode === "book" ? "design" : "book");
         }}
         /*
-         * A live green light construct, not a green slab.
+         * A plain green key, in the same green.
          *
-         * It is the key that opens the red boxes, so it is made of the same
-         * thing they are: the shared surface in `core/ui/molten.css` at its
-         * verdant temperature — the same five stops, the same veining, the
-         * same slow boil and breathing edge — rather than a green button
-         * that happens to sit near them. Quieter than the reds, because this
-         * one carries words and a count and has to stay readable while it
-         * moves. `.process-key` keeps the press: a key that did not go down
-         * under the finger would be a picture of a key.
+         * It wore the shared construct surface from `core/ui/molten.css` —
+         * the five stops, the veining, the slow boil — on the reasoning that
+         * the key which opens the red boxes should be made of what they are
+         * made of. That reasoning holds at the size of a box and does not at
+         * the size of a key: this thing is 28px tall in the corner of the
+         * bar, and a material whose whole point is a slow drift across a
+         * surface has no surface to drift across here. It read as noise on a
+         * button rather than as the same stuff.
+         *
+         * So: the same family, flat. `--verdant-body` is the stop the words
+         * already sat on and `--verdant-hot` is the edge, so nothing about
+         * the colour changed — only the moving layers went, which is also
+         * two fewer animated layers in the bar.
+         *
+         * `.process-key` keeps the press: a key that did not go down under
+         * the finger would be a picture of a key.
          */
-        className={cn(
-          moltenClass("verdant"),
-          "process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md pl-2 pr-2.5 text-[10px] font-medium outline-none",
-        )}
-        style={moltenSeed("finish") as React.CSSProperties}
+        className="process-key tactile ml-1 flex h-7 shrink-0 select-none items-center gap-2 rounded-md border pl-2 pr-2.5 text-[10px] font-medium outline-none"
+        style={{
+          background: "var(--verdant-body)",
+          borderColor: "var(--verdant-hot)",
+          color: "oklch(0.98 0.02 140)",
+          boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.18), 0 1px 0 oklch(0.2 0.05 148)",
+        }}
       >
-        <span data-molten="" />
         {busy ? <LoaderCircle className="size-4 animate-spin" /> : <FlagCheck className="size-4" />}
         {/*
           The process, on the right where the count lives, and lit.
