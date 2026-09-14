@@ -62,7 +62,7 @@ import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, ty
 import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
-import { LiveSite } from "./live/LiveSite";
+import { SitePreview, type PreviewDoc } from "./SitePreview";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadDoc, type ThreadNode } from "./threads";
 import { pictureOf } from "./reshapeRun";
 import { FORM, formOf, formVars, within } from "./formation";
@@ -1464,6 +1464,16 @@ function Asked({ thread }: { thread: Thread }) {
  * down to the card. Inert, because a card is dragged; the whole site is one
  * press away on the board.
  *
+ * **It is `SitePreview`, the same one the Builds page shows.** This had its
+ * own take for a while — the frame slid down the page when everything an
+ * update touched sat below the fold, and the card said how far — which was a
+ * real answer to a real problem (two updates that both changed something low
+ * on the page are otherwise the same picture twice) and was the wrong
+ * answer, because it made a preview that had to be read rather than looked
+ * at. A preview of a site is a preview of a site: the top of it, the whole
+ * width, scaled down, the fold said with a fade. One definition, two places
+ * that show it, and the card is the ordinary thing everywhere else is.
+ *
  * **Only the parts that existed by this update.** Each update snapshots the
  * document it landed on, so what comes later simply is not in it — which is
  * the point of a chain of them: the elements that arrive after this one
@@ -1488,65 +1498,20 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const now = React.useMemo(() => ({ pages, nodes, activePageId, frameWidth: boardWidth, format, look }), [pages, nodes, activePageId, boardWidth, format, look]);
-  const doc = thread.doc;
-  /*
-   * The snapshot is the whole document — `snapshot()` takes all of it — and
-   * `ThreadDoc` only ever named the few fields somebody had read. What is
-   * cast here is the rest of the same object, not a hope about it.
-   */
   /*
    * The newest card shows the board as it stands; every other one shows the
    * document it landed on. An update that kept no document shows nothing at
    * all rather than today's site: a card is a picture of where the site was
    * at that point, and today's site is not that, however convenient it is to
    * have to hand.
+   *
+   * The snapshot is the whole document — `snapshot()` takes all of it — and
+   * `ThreadDoc` only ever named the few fields somebody had read, so what is
+   * handed over is the rest of the same object rather than a hope about it.
    */
-  const from = React.useMemo(() => (live ? now : !doc ? null : {
-    pages: (doc.pages ?? now.pages) as typeof now.pages,
-    nodes: (doc.nodes ?? []) as unknown as typeof now.nodes,
-    activePageId: doc.activePageId ?? now.activePageId,
-    frameWidth: doc.frameWidth ?? now.frameWidth,
-    format: (doc.format ?? now.format) as typeof now.format,
-    look: (doc.look ?? now.look) as typeof now.look,
-  }), [live, doc, now]);
+  const from: PreviewDoc | null = live ? now : (thread.doc as PreviewDoc | undefined) ?? null;
   const H = BOX.h - 66;
   const W = BOX.w - 16;
-  const frameWidth = from?.frameWidth ?? 1440;
-  const scale = W / Math.max(1, frameWidth);
-  const pageId = from?.pages?.some((p) => p.id === from.activePageId) ? from.activePageId : from?.pages?.[0]?.id ?? "";
-  const empty = !from?.nodes?.length;
-  /*
-   * WHERE THE FRAME SITS, AND WHY IT IS NOT ALWAYS THE TOP.
-   *
-   * A site is taller than a card and squeezing the whole of it into two
-   * hundred pixels reads as nothing at all, so the frame shows a band of it
-   * — and the top of the page is the right band nearly always, because that
-   * is what a site is. But two updates that both changed something below the
-   * fold would then be the same picture twice, and the preview's job is to
-   * show what *this* update did.
-   *
-   * So: the top, unless everything this update touched is below the band, and
-   * then the band moves to it and the card says it has. Nothing is scaled
-   * differently and nothing is cropped sideways — the frame slides down the
-   * page, which is what a person scrolling to look at it would do.
-   */
-  const threads = useStudio((s) => s.threads);
-  const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
-  const at = React.useMemo(() => {
-    if (!from?.nodes?.length) return { y: 0, moved: false };
-    const { mine } = ownParts(thread, parent);
-    const own = (from.nodes as unknown as NonNullable<ThreadDoc["nodes"]>).filter((n) => mine.has(n.id) && typeof n.y === "number");
-    if (!own.length) return { y: 0, moved: false };
-    const top = Math.min(...own.map((n) => n.y ?? 0));
-    const band = H / Math.max(0.001, scale);
-    // A part that begins inside the band is already in the picture.
-    if (top < band * 0.82) return { y: 0, moved: false };
-    const bottom = Math.max(...own.map((n) => (n.y ?? 0) + (n.h ?? 0)));
-    const page = Math.max(bottom, ...(from.nodes as unknown as NonNullable<ThreadDoc["nodes"]>).map((n) => (n.y ?? 0) + (n.h ?? 0)));
-    // Centred on what changed where it fits, and never past the end of the page.
-    const want = top - Math.max(0, (band - (bottom - top)) / 2);
-    return { y: Math.max(0, Math.min(want, Math.max(0, page - band))), moved: true };
-  }, [from, thread, parent, scale, H]);
   return (
     <div
       data-site-shot={thread.id}
@@ -1562,36 +1527,12 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
         containIntrinsicSize: `${W}px ${H}px`,
       }}
     >
-      {empty ? (
-        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.88 0.05 152)" }}>
-          {from ? "nothing on the site yet" : "no picture of the site was kept with this one"}
-        </span>
+      {from ? (
+        <SitePreview doc={from} width={W} height={H} />
       ) : (
-        <div className="relative h-full w-full overflow-hidden">
-          <div style={{ width: frameWidth, transform: `translateY(${-at.y * scale}px) scale(${scale})`, transformOrigin: "top left" }}>
-            <LiveSite
-              pages={from!.pages}
-              nodes={from!.nodes}
-              pageId={pageId!}
-              device="desktop"
-              frameWidth={frameWidth}
-              format={from!.format}
-              look={from!.look}
-            />
-          </div>
-          {/* And it says so. A band that is not the top of the site is a
-              different claim about the picture, and an unlabelled one would
-              read as a site with no masthead. */}
-          {at.moved ? (
-            <span
-              data-site-at="changed"
-              className="absolute right-1 top-1 rounded-sm border px-1 py-px text-[8px] uppercase tracking-[0.12em]"
-              style={{ borderColor: "oklch(0.58 0.14 152)", background: "oklch(0.18 0.05 152 / 0.86)", color: "oklch(0.86 0.1 152)" }}
-            >
-              {Math.round(at.y)}px down · where it changed
-            </span>
-          ) : null}
-        </div>
+        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.88 0.05 152)" }}>
+          no picture of the site was kept with this one
+        </span>
       )}
     </div>
   );

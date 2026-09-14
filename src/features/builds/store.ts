@@ -15,9 +15,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { useStudio, type StudioNode, type StudioPage } from "@/features/studio/store";
-import type { FormatValues } from "@/features/studio/format";
-import type { Look } from "@/features/studio/look";
+import { useStudio } from "@/features/studio/store";
+import type { PreviewDoc } from "@/features/studio/SitePreview";
 
 /** Where the Builder reads and writes the document it is editing. */
 const LIVE = "builder.studio";
@@ -70,15 +69,12 @@ const write = (key: string, value: string | null) => {
  * the format and the look. It is the persisted shape, so anything the store's
  * hydration would have filled in is missing here — which is why everything
  * that reads it treats every field as optional.
+ *
+ * It is `PreviewDoc` itself rather than a second declaration of the same six
+ * fields: the thing that draws a site small names what it needs, and this is
+ * the name Builds calls it by.
  */
-export interface StudioDoc {
-  pages?: StudioPage[];
-  nodes?: StudioNode[];
-  format?: FormatValues;
-  look?: Look;
-  activePageId?: string;
-  frameWidth?: number;
-}
+export type StudioDoc = PreviewDoc;
 
 /**
  * What a project holds, without loading it into the Builder to find out.

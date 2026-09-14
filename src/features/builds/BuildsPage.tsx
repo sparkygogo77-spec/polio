@@ -42,7 +42,7 @@ import { fmtAge } from "@/core/lib/format";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { useTour } from "@/features/tour/store";
 import { docOf, useBuilds, type Project } from "./store";
-import { SitePreview } from "./SitePreview";
+import { SitePreview } from "@/features/studio/SitePreview";
 
 /** "owner/name" if it looks like one, else nothing. */
 function parseRepo(text: string): { owner: string; name: string } | null {

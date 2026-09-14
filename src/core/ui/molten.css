@@ -39,9 +39,17 @@
      --molten-deep    the body cooling as it goes out
      --molten-char    the outer edge, almost black
 
-   THE KEYFRAMES. One set, shared by every construct on the screen; a box
-   varies only by `--molten-seed`, which staggers the delays so thirty of
-   them are not one machine.
+   THE KEYFRAMES. One set, shared by every construct on the screen. What a
+   construct varies is its share of them, and `moltenSeed` in `molten.ts`
+   hands it four dials off one number: `--molten-seed` (the phase, as a
+   negative delay), `--mo-pace` (the rate, 0.82 to 1.18 of what is written
+   here), `--mo-way` (the heading — half of them run their layers the other
+   way round) and `--mo-shift` (where in the tile the face starts).
+
+   Phase alone was not enough and it is worth saying why: a loop started at a
+   different moment is the same loop, so a screen of constructs offset from
+   each other still reads as one rhythm. Pace and heading are what make them
+   separate things that happen to be alight.
 
      molten-drift     the glide: the nebula slides exactly one period
      molten-ebb       the same slide the other way, over the second layer's
@@ -344,14 +352,27 @@
    * what a cut of a bigger render is meant to look like.
    */
   background-size: var(--nebula-period, 180px) auto;
-  background-position: 0 50%;
+  /* Not the same part of the picture as the construct next to it: the shift
+     is the seed's, and the tile repeats, so this costs nothing at all. */
+  background-position: var(--mo-shift, 0px) 50%;
   opacity: var(--mo-cloud, 0.92);
   /* The centre thin, the edges full: the falloff the painted tile carried
      in its alpha, on the layer instead. Same curve, same place. */
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
   will-change: transform;
+  /*
+   * Twenty seconds is the written rate, and each construct takes its own
+   * share of it — the longhand under the shorthand is deliberate: the
+   * shorthand is what the rate *is* and what the suite reads, the longhand
+   * is this construct's share of it. The heading is the seed's too, and
+   * both layers take the same one, so a reversed construct still has its
+   * two layers opposed to each other and only its relationship to its
+   * neighbour changes.
+   */
   animation: molten-drift 20s linear infinite;
+  animation-duration: calc(20s * var(--mo-pace, 1));
+  animation-direction: var(--mo-way, normal);
   animation-delay: calc(var(--molten-seed) * -3.1s);
 }
 
@@ -398,12 +419,14 @@
   background-image: var(--mo-nebula);
   background-repeat: repeat;
   background-size: calc(var(--nebula-period, 180px) * 1.7) auto;
-  background-position: 23% 50%;
+  background-position: calc(23% + var(--mo-shift, 0px)) 50%;
   opacity: var(--mo-cloud-still, 0.38);
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
   will-change: transform;
   animation: molten-ebb 47s linear infinite;
+  animation-duration: calc(47s * var(--mo-pace, 1));
+  animation-direction: var(--mo-way, normal);
   animation-delay: calc(var(--molten-seed) * -5.3s);
 }
 
@@ -512,6 +535,7 @@
   border-image: var(--mo-rim) var(--mo-rim-slice, 20) / var(--mo-rim-width) stretch;
   box-shadow: var(--mo-rim-shadow);
   animation: molten-breathe 42s ease-in-out infinite alternate;
+  animation-duration: calc(42s * var(--mo-pace, 1));
   animation-delay: calc(var(--molten-seed) * -1.7s);
 }
 
@@ -588,6 +612,9 @@
   --mo-char: var(--verdant-char);
   --mo-core: var(--verdant-core);
   --mo-nebula: var(--nebula-verdant, none);
+  /* The bright cut of the same render, for a construct too small to carry the
+     dark one — named here so `.molten-key` does not have to know a hue. */
+  --mo-nebula-lit: var(--nebula-verdant-lit, var(--nebula-verdant, none));
   /*
    * The two sliding layers at comparable weight, with the back one ahead.
    *
@@ -618,6 +645,7 @@
   --mo-char: var(--ember-char);
   --mo-core: var(--ember-core);
   --mo-nebula: var(--nebula-ember, none);
+  --mo-nebula-lit: var(--nebula-ember-lit, var(--nebula-ember, none));
   /* Half of each, near enough, and the red's pair is the lighter of the two:
      the red tile is the hot picture, so it is the one that shows a little
      less of itself and lets a little more of the dark face through, which is
@@ -669,6 +697,90 @@
 /* Its nebula would be a smear at this height, and the flare has nowhere to
    run; the boil stays, in the grain and in the rim's breathing. */
 .molten-bar::before { display: none; }
+
+/* ---------------------------------------------------------------------------
+   A CONSTRUCT THE SIZE OF A KEY.
+
+   One definition, two settings. The card is the first and this is the second:
+   the same stops, the same two layers, the same keyframes, the same tiles,
+   the same seed. Nothing here is a second texture and nothing here is a
+   third layer — it is the tile asked for differently, which is the whole
+   point of having asked.
+
+   WHY IT IS NEEDED. A card is 620 by 208 and this is nearer 96 by 28. Three
+   things that are right at a card's size are wrong at a key's:
+
+   - **The dark centre reads as a hole.** On a card the face is darkest in
+     the middle and the light sits around it, which is the reference and is
+     what stops a bright filament crawling under a line of eleven-pixel text.
+     There is no line of text on a key and there is no room for the light to
+     sit anywhere, so what is left is a dark patch with a bright edge, which
+     reads as a gap in the button rather than as depth. The face is an even
+     wash here, the way the bar's is.
+   - **The vignette takes the middle away twice.** The same falloff that is
+     a third of the opacity in the middle of a 208px card is a third of the
+     opacity over nearly all of a 28px key. It is shallow here — enough that
+     the layer still fades before the bezel, not enough to make a void.
+   - **The picture is too big to be a picture.** A 180px period over 28px of
+     height shows a seventh of one tile: two or three fat filaments, read as
+     smears. At 56 a key holds a tile and a half across and a half of one
+     down, so the same render reads as cloud rather than as three lines.
+
+   And the bright cut of J's own render rather than the dark one, which is
+   the fourth thing and the one that does most of the work: the dark pair is
+   half the luminance of the bright pair, chosen because a card carries
+   words. A key carries one word in near-white and can afford the bright one.
+   `mountNebula` publishes both pairs, so a page can wear the dark cut on its
+   cards and the bright cut on its keys at the same time.
+
+   WHAT IT COSTS: nothing measurable. `tests/idle-cost.mjs` holds the count
+   fixed and shrinks the constructs — twelve of them at a key's size cost
+   exactly what removing them altogether costs, because the rasteriser pays
+   for pixels repainted per frame and a construct's cost is its area. A
+   construct on a key is cheap; another card-sized surface is not.
+
+   Written `.molten.molten-key` rather than `.molten-key` so it beats the
+   temperature classes on specificity rather than on source order.
+--------------------------------------------------------------------------- */
+.molten.molten-key {
+  /* The bright cut, whichever temperature this is. */
+  --mo-nebula: var(--mo-nebula-lit);
+  /* More of the picture in view, so the filaments are filaments. */
+  --nebula-period: 56px;
+  /* Nearly all of the layer, nearly all of the way across: the falloff is
+     there to keep the cloud off the bezel, not to hollow the middle. */
+  --molten-vignette: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 1) 0%,
+    rgb(0 0 0 / 0.94) 22%,
+    rgb(0 0 0 / 0.88) 50%,
+    rgb(0 0 0 / 0.94) 78%,
+    rgb(0 0 0 / 1) 100%
+  );
+  /* And more of it. A card shows half its cloud because it has words under
+     it; this has one word on top of it. */
+  --mo-cloud: 0.78;
+  --mo-cloud-still: 0.72;
+  /*
+   * An even face, and no core. The card's is a radial run inside out with
+   * `--mo-core` at the middle — the darkest thing on a card, deliberately —
+   * and at this size that is the hole. Top to bottom through the body
+   * instead, which is the bar's answer to the same problem.
+   */
+  background:
+    var(--molten-grain),
+    linear-gradient(to bottom, var(--mo-hot) 0%, var(--mo-body) 52%, var(--mo-deep) 100%);
+  background-size: 64px 64px, 100% 100%;
+  background-blend-mode: overlay, normal;
+  /*
+   * The drawn rim, not the sprite. J's bezel is nine pixels of moulding on
+   * each side; on something 28 tall the two would meet with no key left
+   * between them — the same arithmetic that put a line on the bar.
+   */
+  --mo-rim: none;
+  --mo-rim-width: 0px;
+  --mo-rim-shadow: var(--molten-rim-lines);
+}
 
 /* ---------------------------------------------------------------------------
    THE VINE'S CLOUD: the same weather, on the cable.

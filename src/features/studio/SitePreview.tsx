@@ -1,6 +1,12 @@
 "use client";
 /**
- * A site, small.
+ * A site, small. One definition, used wherever a site has to be shown small.
+ *
+ * It lives in `studio` because everything it is made of does — the blocks,
+ * the palette, the wash, the frame height — and both surfaces that want a
+ * site shown small import it from here: the Builds page, which is where it
+ * started, and the timeline's green card, which had its own take and does
+ * not any more.
  *
  * The Builds page listed documents by their counts — four pages, twenty-one
  * parts — which tells you what is in a project and nothing about which
@@ -15,18 +21,43 @@
  * drawn in `board` mode, which is the still one: a card is a thumbnail, not
  * sixteen animations running behind a list.
  *
- * The document comes from storage rather than from the studio store, because
- * every project except the open one is a slot the Builder has never loaded.
+ * Where the document comes from is the caller's business: Builds reads it out
+ * of a slot in storage, because every project except the open one is a slot
+ * the Builder has never loaded, and the timeline hands over the snapshot the
+ * update kept. Neither changes what is drawn.
  */
 import * as React from "react";
-import { Block, themeFrom } from "@/features/studio/blocks";
-import { resolvePalette } from "@/features/studio/parts/theme";
-import { washCss } from "@/features/studio/look";
-import { frameHeight } from "@/features/studio/store";
-import type { StudioDoc } from "./store";
+import { Block, themeFrom } from "./blocks";
+import { resolvePalette } from "./parts/theme";
+import { washCss } from "./look";
+import { frameHeight, type StudioNode, type StudioPage } from "./store";
+import type { FormatValues } from "./format";
+import type { Look } from "./look";
+
+/**
+ * What a preview needs, named here rather than borrowed from either caller.
+ *
+ * Builds hands it a `StudioDoc` read out of a slot and the timeline hands it
+ * the snapshot an update left behind; those are the same object under two
+ * names, and the component should not have to know which side it came from.
+ * So it names the six fields it actually reads, in the studio's own types,
+ * and both fit — `StudioDoc` is this exact shape and a thread's snapshot is
+ * the whole document the store held.
+ *
+ * Every field is optional because both sources are persisted shapes: what
+ * the store's hydration would have filled in is not there.
+ */
+export interface PreviewDoc {
+  pages?: StudioPage[];
+  nodes?: StudioNode[];
+  format?: FormatValues;
+  look?: Look;
+  activePageId?: string;
+  frameWidth?: number;
+}
 
 export interface SitePreviewProps {
-  doc: StudioDoc | null;
+  doc: PreviewDoc | null;
   /** The card's width in px; the frame is scaled to it. */
   width: number;
   /** How tall the card is. The page is cut off at the bottom, like a real fold. */

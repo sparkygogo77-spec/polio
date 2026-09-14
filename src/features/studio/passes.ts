@@ -60,6 +60,33 @@ export function leadOf(pass: Pass): Change | null {
   return sorted[0] ?? null;
 }
 
+/**
+ * WHICH ONE THIS IS, RATHER THAN WHEN IT HAPPENED.
+ *
+ * A box led with the day it landed, and a date is the wrong axis for a
+ * timeline: a person reading one wants to know which iteration they are
+ * looking at and how far along it is, not what o'clock it was. So the boxes
+ * are numbered instead, oldest first — the first pass this project ever made
+ * is v0.1 and they count up from there, ten to the point, so v0.9 is
+ * followed by v1.0.
+ *
+ * It is a position in the history, not a release: nothing here is published
+ * or tagged, and the number's whole job is to be an ordinal a person can
+ * hold in their head and refer to. The day itself is not deleted — a pass
+ * still carries `day` and a change still carries `when`, and the sha is on
+ * every folded line — it is simply not the thing a box leads with.
+ *
+ * Built once, because a lookup per box while scrolling is a lookup per box
+ * while scrolling.
+ */
+const VERSIONS = new Map(PASSES.map((p, i) => [p.id, PASSES.length - i]));
+
+export function versionOf(pass: Pass): string {
+  const n = VERSIONS.get(pass.id);
+  if (!n) return "v0.0";
+  return `v${Math.floor(n / 10)}.${n % 10}`;
+}
+
 /** "Four things" — what a pass carried, said in words rather than a count. */
 export function sizeOf(pass: Pass): string {
   const n = pass.changes.length + pass.more;
