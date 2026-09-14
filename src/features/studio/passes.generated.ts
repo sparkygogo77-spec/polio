@@ -2,9 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T02:15:26.315Z";
+export const GENERATED_AT = "2026-09-14T02:51:06.509Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "50d6741",
+    "when": "2026-09-14T02:51:05+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "2b63f4a",
+        "says": "A run that throws fails its job rather than stopping the queue",
+        "when": "2026-09-14T02:43:20+00:00",
+        "detail": [
+          "Routed from the create space, which found it through Generate. It is not that flow's bug — Generate only queues more than one drawing at a time, which is what two Make reals in a row does by hand — so this reproduces it on the board and fixes it in the queue.",
+          "Reproduced, and the half that was already fixed holds: the runner lets go of a finished job before telling the queue, so the one behind it starts. Two presses in a row are two jobs, each on its own part, each making its own, each with its own box, and both boxes complete. A first drawing that fails does not take the second with it either.",
+          "What was still open is the road the run does not know about. `runDrawJob` reports every failure it can see, and a reported failure marks the job `failed` and the queue goes on — but a *throw* rejected the promise and nothing wrote a status at all. `nextJob` will not start anything while a job is `running`, so an unexpected error did not lose one drawing: it stopped the queue, and everything queued behind it waited for ever with no sign of why. Letting go of the runner does not help on its own; the job has to be closed as well as released.",
+          "Two changes, both small:"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "better"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "8ec5ba1",
+    "when": "2026-09-14T02:15:58+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "8ec5ba1",
+        "says": "Regenerate the passes for the seven-pass sweep",
+        "when": "2026-09-14T02:15:58+00:00",
+        "detail": [
+          "All three sessions converged into one tip again, seven passes in it: the models reachable from the Updates board; the bottom row reading apart with its small print clearing AA; no scrollbar anywhere on any surface that scrolls; Create and Draw differing only by how many elements come out; generate from the space's panel, with the surface forming as its parts land; a drawing waiting behind a finished one being started; and the motion broken apart into three layers with no two going the same way.",
+          "Three new suites came with it: create-flow, quiet-scroll and shelf-apart."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "c696660",
     "when": "2026-09-14T02:15:25+00:00",
@@ -912,114 +957,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f325eae",
-    "when": "2026-09-13T16:45:43+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "f325eae",
-        "says": "Regenerate the passes for the create space and the drawn part",
-        "when": "2026-09-13T16:45:43+00:00",
-        "detail": [
-          "Five passes, all three sessions having cross-merged so one tip carried the lot: a closed line becoming a placeholder, a construct box or a black hole; create, the action behind the menu's entry for a new space; a node's plan honoured by the run; a drawn part answering the wheel, wrapping its line and landing where it was drawn; and a bad answer from a status route no longer taking the Builder with it.",
-          "Both conflicts were the two halves of the recreate step, fixed on both sides at once, and both went to the file's owner. The panel's sentence for it is his wording rather than my stopgap. The step-move check is his too, and it is the better instrument: it pins the step by name, where mine still keyed off position three and would have followed whatever landed there."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "560c793",
-    "when": "2026-09-13T16:44:58+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "6f05362",
-        "says": "A drawn part answers the wheel, wraps its line, and lands where it was drawn",
-        "when": "2026-09-13T16:37:49+00:00",
-        "detail": [
-          "Three of J's complaints about drawn parts, open since before the timeline work, each found rather than guessed at:",
-          "1. Colour on a drawn part did not respond when changed — a drawn diagonal. A traced drawing is one ink, near-black, and the body painter read near-black as \"text\" (right for a body with several colours); the wheel's \"colour\" is the accent; so turning the accent reached a variable the line never used. Measured on the live board: accent → no change, text → red. A one-ink body now follows whichever of its own colours the person set — accent first, then text, then muted, never the ground (a line that took its own background's colour would vanish into it) — and reads exactly as before when none is set, so nothing already on a board changes. Measured again: accent → rgb(255, 34, 0).",
-          "2. The selection round a drawing was a square, and the aura glowed the box. The board already marks a selection along `outline.cut` and puts the aura on the clipped shape — but a straight diagonal snapped to its ends is two points, and `outlinePath` asked for three, so the diagonal had no outline at all. An open line needs two; a closed one still needs three. With the outline there, the mark runs along the band, the handles sit on it, and the aura is a drop-shadow of the line rather than a box.",
-          "3. A made real part filled the screen. A drawing off the disc carried no size: the strokes are fractions of the disc, so the run's fallback was a share of the page width — a band across the page for an eighty-pixel mark. The disc is a known number of screen pixels across and a screen pixel is a page pixel over the zoom (`pageSpot`'s sum the other way), so `discLanding` gives the drawn size and the place the ink sat on the disc relative to where the disc was opened; the queue carries both, and the run already keeps a drawn size unless the drawing was made across the page. The page-ink road did this already; the disc is the road J was on."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e5acc42",
-        "says": "Create: the action behind the menu's entry for a new space",
-        "when": "2026-09-13T16:28:34+00:00",
-        "detail": [
-          "The right-click menu on the background gains a Create entry; the menu file is hypatia's, so this is the action it will call and nothing more. `createSpaceAt(x, y)` puts a placeholder ring the size of a part at the point the menu already hands `addNode`, kept inside the page, and it arrives with the same two keys a drawn line gets: a space from the menu and a space from the hand are the same thing, decided the same way."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0545fde",
-        "says": "A closed line becomes a placeholder, a construct box or a black hole",
-        "when": "2026-09-13T16:27:50+00:00",
-        "detail": [
-          "With the space tool in hand a closed line on the page is a placeholder: the line as drawn, dashed, with two keys at the middle of the area. Construct makes it a lantern construct cut to the line, with the construct's rim put back along the line itself, because the clip takes the box's own edge away with the corners. Black hole grows from the centroid as the drawn shape until it reaches the line, and the ground comes with it, dark matter cut to the growing edge; once it has consumed the area, the area is drawing space with the horizon on the line.",
-          "`blackHole.ts` now draws the same four things along any closed path (`paintHoleAlong`, `paintHorizonShadowAlong`): the beaming is angular about the centroid, the ring is one screen pixel on the line whatever the zoom (`hair`), and the far side is bent over and under the shape. The circle the drawing disc uses is untouched. `ground.ts` takes a `clip`, so a hole stands on the one weather every surface stands on, cut to its line; there is still no second ground.",
-          "Every element picked inside an open hole gets a panel of its own at the right edge of the board (`SpacePanel.tsx`): what it is, what was asked, the model the route will send it to as a readout between two arrows over the models that can take the job, and the steps in order with earlier, later and leave-out keys. Both write `node.plan`; Let the route decide takes it away. Mounted from the board's own layer, not the chrome.",
-          "Canvas.tsx, euler's, is edited in ten declared lines and no more: two imports, four lines in pointer-up routing a closed space stroke to `addSpace` and saying so when the line is open, one line so the live stroke draws as ink rather than a wire, one line mounting `SpaceMarks` under the ink, and two mounting `SpaceSide` at the root."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "210f681",
-        "says": "A node's plan is honoured by the run",
-        "when": "2026-09-13T16:19:01+00:00",
-        "detail": [
-          "The create space (claude/amazing-dijkstra-cznfor, 7755496) writes `plan` on a node — the model and the ordered steps, editable — and this reads it. When a job runs for a node that has a plan, the run takes the plan's steps and prefers the plan's model instead of the route's default. A step left out is a step not taken, and every step not taken is said on the card as a decision, not as a failure:",
-          "read left out    the drawing is not sent up to be read; its shape and what the shape means are still measured off the strokes first left out   nothing is traced or written; the later passes start from the drawing's own picture refine/recreate  run one after the other in the plan's order, each starting from what the one before it made; with no plan, the one refine there always was alpha            whether the ground comes off after the last of them, when the plan has said; unsaid, the route decides model            preferred at every later pass, honoured by the route when it serves the cell, said on the card when not",
-          "Read and first come before the later passes by the shape of the pipeline — there is nothing to refine before something has been drawn — whatever position the plan wrote them at; the order among the later passes is the plan's exactly. The step travels to the API by name (`recreate` is the grounded one from the last commit), the answer carries the picture back as bare base64 so the next step can start from it, and a recreate writes its own kind of line (\"recreated · …\") and its own progress word.",
-          "Two lines in their file, coordinated through J: `defaultSteps` never includes the grounded step (it is taken when a person puts it in the order, not before), and `STEP_MEANS` names it. One pin in `tests/space.mjs` indexed `STEPS` by position and moved when the list grew; it goes by name now. `tests/plan-run.mjs` holds the rest."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "466f1f5",
-        "says": "A bad answer from a status route no longer takes the Builder with it",
-        "when": "2026-09-13T16:17:49+00:00",
-        "detail": [
-          "`publishStatus()` cast the reply to `PublishStatus`, which is a promise to the compiler and nothing at all to the runtime, and the GitHub button then read `status?.github.repo` — an optional chain on the reply but not on the field inside it. Any answer that is valid JSON of the wrong shape got past both and threw during render, and React's answer to that is to unmount the tree.",
-          "Measured before the fix, and it is worse than it sounds: five shapes out of seven left the page with **two buttons, bar gone, board gone**. `{}`, `{\"error\":…}`, `{\"github\":null}`, a bare string, an array. The two that survived did so by luck — `null` keeps `status` falsy, and `{\"github\":{}}` happens to have something to read `.repo` off.",
-          "Two layers, and they do different jobs.",
-          "`readPublishStatus` checks the reply field by field and always returns the shape the type claims. A route that has lost its mind now reads as a Builder that cannot publish, which is both true and survivable. The button reads through `github` rather than into it, so it degrades to \"no repository yet\" rather than throwing."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "fixed"
       }
     ],
     "more": 0
