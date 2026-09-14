@@ -234,13 +234,25 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
    * either (`stillAsks`). When it does stand, the answer goes in as words
    * beside the drawing and everything after this reads the words.
    */
-  const answered = stillAsks(job.question, job.sketch, node?.prompt ?? "") ? job.question?.answer : undefined;
-  const drawn = withAnswer(job.sketch, answered);
-  const feature = node ? getFeature(node.featureId) : null;
-  const { frameWidth } = job;
-  const plan = planOf(node);
+  /*
+   * Everything but the node is worked out *inside* the try below.
+   *
+   * It was worked out here, above it, which meant a throw in any of it —
+   * reading the answer, folding it into the words, looking the feature up,
+   * reading the plan — left this function rejecting rather than returning a
+   * failure. A rejected run has no status to write, so the job stays
+   * `running`, and the queue will not start anything while a job is
+   * running: one unexpected error stopped every drawing behind it. The node
+   * stays out here because the catch needs it, and finding it cannot throw.
+   */
+  let drawn: Sketch = job.sketch;
 
   try {
+    const answered = stillAsks(job.question, job.sketch, node?.prompt ?? "") ? job.question?.answer : undefined;
+    drawn = withAnswer(job.sketch, answered);
+    const feature = node ? getFeature(node.featureId) : null;
+    const { frameWidth } = job;
+    const plan = planOf(node);
     /*
      * The catalogue first, and it needs no reader.
      *

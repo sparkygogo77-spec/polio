@@ -633,7 +633,7 @@ export function StudioPage() {
       __studioSetLibrary?: (v: boolean) => void;
       __studioSetLeftPanel?: (id: string) => void;
       __studioNotePass?: (line: string, on?: string) => void;
-      __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null }[];
+      __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null; nodeId: string | null; madeId: string | null; note: string | null; label: string }[];
       __studioFacePair?: (pair: "dark" | "bright") => void;
     };
     w.__studioOpenBrief = () => setBriefOpen(true);
@@ -651,7 +651,12 @@ export function StudioPage() {
      * what happened — so there is no other way to see from outside which
      * step a job is on and which iteration it is making.
      */
-    w.__studioQueue = () => useStudio.getState().queue.map((j) => ({ id: j.id, status: j.status, step: j.step ?? null, threadId: j.threadId ?? null }));
+    w.__studioQueue = () => useStudio.getState().queue.map((j) => ({
+      id: j.id, status: j.status, step: j.step ?? null, threadId: j.threadId ?? null,
+      // Which part it was drawn on and which it made: two drawings queued
+      // together have to keep their own, and that is what a test has to see.
+      nodeId: j.nodeId ?? null, madeId: j.madeId ?? null, note: j.note ?? null, label: j.label,
+    }));
     // Swap J's two cuts of the face on a live board, for comparing them.
     w.__studioFacePair = (pair) => mountNebula(pair);
     /*
