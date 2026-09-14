@@ -21,15 +21,45 @@ import { chromium } from "playwright-core";
    to :3000, which meant it only ever ran against a dev server. */
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
+/*
+ * Each update carries the document it landed on, because a green card
+ * renders it: the card is the site as that update left it, so a board of
+ * cards with no documents measures an empty timeline rather than a full one.
+ * Four parts a card, which is a small site and enough to pay for.
+ *
+ * All of it inside `seed`, because this goes into the page as a function and
+ * a function sent to a page arrives without its closure.
+ */
 const seed = (n) => {
+  const pages = [{ id: "p0", name: "Home", path: "/", prompt: "", scroll: "inherit" }];
+  const part = (id, featureId, label, x, y, w, h) => ({
+    id, pageId: "p0", featureId, label, prompt: "", content: "", data: "", x, y, w, h,
+    groupId: null, options: {}, priority: "must", custom: false, colour: null, font: null,
+    anim: null, animSpeed: 1, animDelay: 0, animEase: "smooth", shape: null, outline: null,
+    code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, link: null,
+  });
+  const nodes = [
+    part("n1", "sticky-header", "Top bar", 0, 0, 1440, 64),
+    part("n2", "hero-split", "Hero", 40, 90, 1360, 420),
+    part("n3", "feature-cards", "What it does", 40, 540, 1360, 300),
+    part("n4", "cta-primary", "Join", 560, 880, 320, 64),
+  ];
+  const brief = { name: "Orbit", gimmick: "", master: "" };
+  const doc = { pages, nodes, groups: [], shapes: [], format: {}, look: {}, motion: [], activePageId: "p0", frameWidth: 1440, brief };
   const threads = [], spots = {};
   for (let i = 0; i < n; i++) {
     threads.push({ id: `t${i}`, at: 0, mode: ["plan", "critique", "build"][i % 3], state: "done",
-      ask: `Iteration ${i}`, answer: "A plan.", changes: [`changed ${i} things`], parentId: i ? `t${i - 1}` : null });
-    spots[`t${i}`] = { x: 60 + (i % 5) * 290, y: 60 + Math.floor(i / 5) * 190 };
+      ask: `Iteration ${i}`, answer: "A plan.", changes: [`changed ${i} things`], parentId: i ? `t${i - 1}` : null, doc });
+    spots[`t${i}`] = { x: 60 + (i % 5) * 680, y: 60 + Math.floor(i / 5) * 300 };
   }
-  localStorage.setItem("builder.studio", JSON.stringify({ state: { threads, threadSpots: spots, openThreadId: null }, version: 0 }));
+  localStorage.setItem("builder.studio", JSON.stringify({ state: {
+    pages, nodes, groups: [], shapes: [], format: {}, look: {}, motion: [],
+    activePageId: "p0", frameWidth: 1440, brief,
+    threads, threadSpots: spots, openThreadId: null, trail: [], liveThreadId: `t${n - 1}`,
+    pinnedThreads: [], bookPinned: false, hiddenFeatures: [], companion: null, draftPieces: [], sentPieces: {},
+  }, version: 0 }));
 };
+
 /**
  * Main-thread cost, from the browser's own counters.
  *
@@ -81,6 +111,10 @@ for (const n of [1, 6, 30]) {
   const p = await b.newPage({ viewport: { width: 1200, height: 900 } });
   await p.addInitScript(seed, n);
   await p.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  /* `HIDE=<selector> node tests/pan-cost.mjs` takes one thing off the board
+     and measures the rest, which is how you find out what that thing costs
+     rather than guessing. Nothing is hidden unless it is asked for. */
+  if (process.env.HIDE) await p.addStyleTag({ content: `${process.env.HIDE}{display:none!important}` });
   await p.waitForTimeout(1800);
   await p.locator("[data-finish]").click();
   await p.waitForTimeout(2600);

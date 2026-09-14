@@ -902,8 +902,12 @@ export const useStudio = create<StudioState>()(
             ask: "",
             answer: parts
               ? `${parts} part${parts === 1 ? "" : "s"} on ${pages} page${pages === 1 ? "" : "s"}, before the first change`
-              : "an empty board",
-            changes: ["the board as you started it"],
+              : "an empty site",
+            /* A green card *is* the site now — the preview as that update left
+               it — so the line under it says where the site was, not what the
+               board was called. It used to read "the board as you started it"
+               beside a silhouette of grey rectangles. */
+            changes: ["the site before the first change"],
             doc: snapshot(st) as ThreadDoc,
             state: "done" as const,
             pieces: [],

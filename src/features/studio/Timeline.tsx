@@ -53,7 +53,7 @@
  * hue and nothing else.
  */
 import * as React from "react";
-import { Brush, ChevronLeft, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, ChevronLeft, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, RotateCcw, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -62,6 +62,7 @@ import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, ty
 import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
+import { LiveSite } from "./live/LiveSite";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadNode } from "./threads";
 import { pictureOf } from "./reshapeRun";
 import { FORM, formOf, formVars, within } from "./formation";
@@ -95,7 +96,12 @@ let ownView: View | null = null;
 /** Whether they have taken hold of it at all. */
 let owns = false;
 
-const BOX = { w: 248, h: 104 };
+/*
+ * A green card is the site, so it is the size of a thing you can read a site
+ * on: two and a half times the width it was and twice the height, which is
+ * the size J drew on the screenshot. The red cards are steps against it.
+ */
+const BOX = { w: 620, h: 208 };
 const PIECE = { w: 168, h: 148 };
 
 /** How far a card stands off the box it grew out of, for the connector to run. */
@@ -1249,8 +1255,12 @@ function IterationBox({
   return (
     <div className="absolute" style={{ left: at.x, top: at.y, width: BOX.w, zIndex: open ? 40 : dragging ? 30 : 10 }}>
       {open ? <Card thread={thread} side="in" /> : null}
-      <button
-        type="button"
+      {/* A surface, not a button: it carries the site, and a site inside a
+          `<button>` is both invalid and unusable. */}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label={`the update: ${headlineOf(thread)}`}
         data-box={thread.id}
         data-open={open ? "1" : "0"}
         /* No dot, and the state is still said: what a card is in the middle of
@@ -1259,6 +1269,7 @@ function IterationBox({
         data-state={processDone(thread.state) ? "done" : thread.state}
         onPointerDown={onDragStart}
         onClick={onOpen}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
         onContextMenu={onMenu}
         /*
          * A construct of molten light, not a box with a red border and a glow
@@ -1305,27 +1316,272 @@ function IterationBox({
               of the time. */}
           {pinned ? <span className="ml-auto"><Pin className="size-2.5 fill-current" /></span> : null}
         </span>
-        <div className="flex items-start gap-2">
-          {/* What it produced, at a glance: the page it left behind. */}
-          <Snippet thread={thread} />
-          <span className="min-w-0 flex-1">
-            <span data-headline="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_150)]">{headlineOf(thread)}</span>
-            {/*
-              No clock.
-              
-              The time an iteration landed answers a question nobody asks:
-              the chain says what came after what, and the first box says
-              where it began by being first. A timestamp on every box was one
-              more thing to read that said nothing.
-            */}
-            <span className="mt-1 block text-[9px] text-[oklch(0.64_0.07_152)]">
-              {thread.mode}
-              {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
-            </span>
-          </span>
-        </div>
-      </button>
+        {/*
+          THE PROMPTING THAT MADE IT, ABOVE THE SITE.
+
+          What a green card says about itself is what was asked of it, so the
+          ask is at the top in the card's own type, and the headline it used
+          to lead with — "3 findings", a receipt — is one line under the
+          site with the rest of the list. A second page of it holds the same
+          words to edit before running them again.
+        */}
+        <Asked thread={thread} />
+        {/*
+          THE SITE, AS THIS UPDATE LEFT IT.
+
+          It was a silhouette: grey rectangles where the parts stood, which
+          says how many things there are and nothing about what they are.
+          Every update carries the whole document it landed on, so what this
+          shows is the real site, rendered by the same renderer the preview
+          uses — and *only* the parts that existed by this update, because
+          the ones that come later arrive on the cards that made them. The
+          newest card is the exception: nothing has happened since it, so it
+          shows the board as it stands now rather than a snapshot that is
+          already out of date.
+        */}
+        <SiteShot thread={thread} live={live} />
+        {/*
+          …AND THE FEATURE LIST UNDER IT.
+
+          The parts standing on the site at this update, the ones it put
+          there lit. It is the site's own contents rather than a line about
+          them.
+        */}
+        <Features thread={thread} />
+      </div>
       {open ? <Card thread={thread} side="out" /> : null}
+    </div>
+  );
+}
+
+/**
+ * The prompting that made this update, above the site it made.
+ *
+ * Two pages, and the second is the point of the first. Page one is what was
+ * asked, as it was asked. Page two is the same words in a field and a
+ * button: sometimes a thing is acceptable and just wants another go at it,
+ * and sometimes the prompt wants a word changed first. **Re-iterate is on
+ * the card both times**, because it is what a card of a site is for and a
+ * thing you do that often does not belong in a menu.
+ */
+function Asked({ thread }: { thread: Thread }) {
+  const [page, setPage] = React.useState(0);
+  const [words, setWords] = React.useState(thread.ask);
+  React.useEffect(() => setWords(thread.ask), [thread.id, thread.ask]);
+  const again = () => {
+    play("confirm");
+    /*
+     * The book's own ask, with these words in it. Running an update is one
+     * pipeline (`BriefDialog`) and there is no second one here: the card
+     * hands it the mode this update was made in and the prompt as it stands,
+     * and it runs the same call the Ask button runs.
+     */
+    window.dispatchEvent(new CustomEvent("studio:book"));
+    window.dispatchEvent(new CustomEvent("studio:ask", { detail: { mode: thread.mode, prompt: words.trim(), run: true } }));
+  };
+  return (
+    <div data-asked={page} className="flex shrink-0 items-start gap-2">
+      <span className="min-w-0 flex-1">
+        {page === 0 ? (
+          <span data-asked-said="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_150)]">
+            {thread.ask || headlineOf(thread)}
+          </span>
+        ) : (
+          <textarea
+            data-asked-edit=""
+            value={words}
+            rows={2}
+            onChange={(e) => setWords(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            placeholder="Say what to do differently, and run it again"
+            className="block w-full resize-none rounded-sm border bg-transparent px-1.5 py-1 text-[12px] leading-snug outline-none focus:ring-1"
+            style={{ borderColor: "oklch(0.42 0.118 152 / 0.7)", color: "oklch(0.95 0.05 150)" }}
+          />
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          data-asked-page=""
+          title={page === 0 ? "Change the words before running it again" : "What was asked"}
+          aria-label={page === 0 ? "Change the words before running it again" : "What was asked"}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); play("tick"); setPage(page === 0 ? 1 : 0); }}
+          className="tactile grid size-5 place-items-center rounded-sm border"
+          style={{ borderColor: "oklch(0.42 0.118 152 / 0.7)", color: "oklch(0.8 0.09 152)" }}
+        >
+          {page === 0 ? <ChevronRight className="size-3" /> : <ChevronLeft className="size-3" />}
+        </button>
+        <button
+          type="button"
+          data-reiterate={thread.id}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); again(); }}
+          title="Run this prompt again"
+          className="tactile flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]"
+          style={{ borderColor: "oklch(0.58 0.14 152)", background: "oklch(0.26 0.07 152)", color: "oklch(0.92 0.06 152)" }}
+        >
+          <RotateCcw className="size-3" />
+          Re-iterate
+        </button>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The site, as this update left it.
+ *
+ * The board's own preview renderer over the document the update carries, so
+ * it is the site rather than a picture of one: the same parts, the same
+ * theme, the same layout at the frame width the site is built at, scaled
+ * down to the card. Inert, because a card is dragged; the whole site is one
+ * press away on the board.
+ *
+ * **Only the parts that existed by this update.** Each update snapshots the
+ * document it landed on, so what comes later simply is not in it — which is
+ * the point of a chain of them: the elements that arrive after this one
+ * arrive on the cards that made them.
+ *
+ * `live` is the newest card, the one the board stands on. Nothing has
+ * happened since it, so it shows the board as it stands *now* rather than a
+ * snapshot that is already behind the thing it is a picture of.
+ *
+ * Off-screen it costs nothing: `content-visibility` skips the layout and the
+ * paint of a card that is not in view, which is what makes thirty of them
+ * affordable at all.
+ */
+function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
+  /* One field at a time. A selector that builds an object returns a new one
+     every call, so the store thinks it changed on every render and the
+     component never stops rendering. */
+  const pages = useStudio((s) => s.pages);
+  const nodes = useStudio((s) => s.nodes);
+  const activePageId = useStudio((s) => s.activePageId);
+  const boardWidth = useStudio((s) => s.frameWidth);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const now = React.useMemo(() => ({ pages, nodes, activePageId, frameWidth: boardWidth, format, look }), [pages, nodes, activePageId, boardWidth, format, look]);
+  const doc = thread.doc;
+  /*
+   * The snapshot is the whole document — `snapshot()` takes all of it — and
+   * `ThreadDoc` only ever named the few fields somebody had read. What is
+   * cast here is the rest of the same object, not a hope about it.
+   */
+  /*
+   * The newest card shows the board as it stands; every other one shows the
+   * document it landed on. An update that kept no document shows nothing at
+   * all rather than today's site: a card is a picture of where the site was
+   * at that point, and today's site is not that, however convenient it is to
+   * have to hand.
+   */
+  const from = React.useMemo(() => (live ? now : !doc ? null : {
+    pages: (doc.pages ?? now.pages) as typeof now.pages,
+    nodes: (doc.nodes ?? []) as unknown as typeof now.nodes,
+    activePageId: doc.activePageId ?? now.activePageId,
+    frameWidth: doc.frameWidth ?? now.frameWidth,
+    format: (doc.format ?? now.format) as typeof now.format,
+    look: (doc.look ?? now.look) as typeof now.look,
+  }), [live, doc, now]);
+  const H = BOX.h - 66;
+  const W = BOX.w - 16;
+  const frameWidth = from?.frameWidth ?? 1440;
+  const scale = W / Math.max(1, frameWidth);
+  const pageId = from?.pages?.some((p) => p.id === from.activePageId) ? from.activePageId : from?.pages?.[0]?.id ?? "";
+  const empty = !from?.nodes?.length;
+  return (
+    <div
+      data-site-shot={thread.id}
+      data-site-live={live ? "1" : "0"}
+      aria-hidden
+      inert
+      className="grid shrink-0 place-items-start overflow-hidden rounded-md border"
+      style={{
+        height: H,
+        borderColor: "oklch(0.36 0.091 152)",
+        background: "oklch(0.12 0.02 152)",
+        contentVisibility: "auto",
+        containIntrinsicSize: `${W}px ${H}px`,
+      }}
+    >
+      {empty ? (
+        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.64 0.07 152)" }}>
+          {from ? "nothing on the site yet" : "no picture of the site was kept with this one"}
+        </span>
+      ) : (
+        <div style={{ width: frameWidth, transform: `scale(${scale})`, transformOrigin: "top left" }}>
+          <LiveSite
+            pages={from!.pages}
+            nodes={from!.nodes}
+            pageId={pageId!}
+            device="desktop"
+            frameWidth={frameWidth}
+            format={from!.format}
+            look={from!.look}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The site's own feature list, under it.
+ *
+ * What stands on the page at this update, named, with whatever this update
+ * put there or changed lit — so the card says what the site is made of and
+ * which part of that is this update's doing. The headline the box used to
+ * lead with is the first line of it: a receipt belongs under the thing it is
+ * a receipt for.
+ */
+function Features({ thread }: { thread: Thread }) {
+  const threads = useStudio((s) => s.threads);
+  const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
+  const parts = React.useMemo(() => (thread.doc?.nodes ?? []).filter((n) => n.label), [thread]);
+  /*
+   * Which of them are this update's doing, worked out from the two documents
+   * rather than from the sentences `diffDocs` writes about them. Those read
+   * "+ Top bar placed" and "~ Hero: 240×80 → 240×120", and picking the name
+   * back out of a sentence is a parser waiting to be wrong about a part
+   * called "placed". The first update has nothing before it, so all of it is
+   * its own.
+   */
+  const mine = React.useMemo(() => {
+    const before = new Map((parent?.doc?.nodes ?? []).map((n) => [n.id, n]));
+    const first = !parent?.doc;
+    return new Set(parts.filter((n) => {
+      if (first || !before.has(n.id)) return true;
+      const b = before.get(n.id)!;
+      return b.w !== n.w || b.h !== n.h || (b.prompt ?? "") !== (n.prompt ?? "") || b.featureId !== n.featureId;
+    }).map((n) => n.id));
+  }, [parent, parts]);
+  return (
+    <div className="flex min-h-0 shrink-0 flex-col gap-1">
+      <span data-headline="" className="line-clamp-1 block text-[10px] text-[oklch(0.72_0.08_152)]">
+        {headlineOf(thread)}
+        {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
+      </span>
+      {parts.length ? (
+        <ul data-features="" className="flex flex-wrap gap-1 overflow-hidden text-[9px]" style={{ maxHeight: 34 }}>
+          {parts.slice(0, 14).map((n) => (
+            <li
+              key={n.id}
+              data-feature-new={mine.has(n.id) ? "1" : "0"}
+              className="rounded-sm border px-1 py-px"
+              style={mine.has(n.id)
+                ? { borderColor: "oklch(0.7 0.17 152)", background: "oklch(0.3 0.09 152)", color: "oklch(0.95 0.07 152)" }
+                : { borderColor: "oklch(0.32 0.07 152)", color: "oklch(0.7 0.07 152)" }}
+            >
+              {n.label}
+            </li>
+          ))}
+          {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.62 0.06 152)" }}>and {parts.length - 14} more</li> : null}
+        </ul>
+      ) : (
+        <span className="text-[9px]" style={{ color: "oklch(0.62 0.06 152)" }}>nothing stands on the site yet</span>
+      )}
     </div>
   );
 }
@@ -1510,60 +1766,6 @@ export function Drawn({ sketch, size, tone, shade = "oklch(0.1 0.02 24 / 0.92)" 
       {lines.map((points, i) => (
         <polyline key={i} points={points} fill="none" stroke={tone} strokeWidth={0.04} strokeLinecap="round" strokeLinejoin="round" />
       ))}
-    </svg>
-  );
-}
-
-/**
- * The thumbnail on a chain prompt's box: the page that iteration left.
- *
- * Every part as a rectangle where it stood, the ones this iteration
- * changed lit. It is a silhouette, not a screenshot — but it is *this*
- * iteration's silhouette, and two iterations apart are two different
- * shapes, which is the whole job.
- */
-function Snippet({ thread }: { thread: Thread }) {
-  const threads = useStudio((s) => s.threads);
-  const parent = thread.parentId ? threads.find((t) => t.id === thread.parentId) ?? null : null;
-  const nodes = (thread.doc?.nodes ?? []).filter((n) => typeof n.x === "number" && typeof n.y === "number");
-  const changed = React.useMemo(() => new Set(diffDocs(parent?.doc, thread.doc).map((l) => l.replace(/^[+~-]\s*/, "").split(":")[0]!.trim())), [parent, thread]);
-  const W = 56;
-  const H = 44;
-  if (!nodes.length) {
-    return (
-      <span className="grid shrink-0 place-items-center rounded" style={{ width: W, height: H, background: "oklch(0.18 0.04 152)", border: "1px solid oklch(0.3 0.078 152)" }}>
-        <Sparkles className="size-4 opacity-50" />
-      </span>
-    );
-  }
-  const right = Math.max(...nodes.map((n) => (n.x ?? 0) + (n.w ?? 0)), 1);
-  const bottom = Math.max(...nodes.map((n) => (n.y ?? 0) + (n.h ?? 0)), 1);
-  return (
-    <svg
-      width={W}
-      height={H}
-      viewBox={`0 0 ${right} ${bottom}`}
-      preserveAspectRatio="xMidYMin slice"
-      aria-hidden
-      className="shrink-0 rounded"
-      style={{ background: "oklch(0.16 0.034 152)", border: "1px solid oklch(0.3 0.078 152)" }}
-    >
-      {nodes.slice(0, 60).map((n) => {
-        const lit = changed.has(n.label);
-        return (
-          <rect
-            key={n.id}
-            x={n.x}
-            y={n.y}
-            width={Math.max(4, n.w ?? 0)}
-            height={Math.max(4, n.h ?? 0)}
-            rx={6}
-            fill={lit ? "oklch(0.72 0.17 152 / 0.6)" : "oklch(0.62 0.131 152 / 0.3)"}
-            stroke={lit ? "oklch(0.9 0.17 152)" : "oklch(0.62 0.144 152 / 0.75)"}
-            strokeWidth={lit ? 8 : 4}
-          />
-        );
-      })}
     </svg>
   );
 }

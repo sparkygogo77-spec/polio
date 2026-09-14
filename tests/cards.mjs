@@ -35,13 +35,19 @@ const piece = /const PIECE = \{ w: (\d+), h: (\d+) \}/.exec(timeline);
 check("both shapes are declared", !!box && !!piece);
 const bw = +box[1], bh = +box[2], pw = +piece[1], ph = +piece[2];
 const ratio = (w, h) => +(w / h).toFixed(2);
-check("an iteration's board is wide, for a line of prose", ratio(bw, bh) >= 2, `${bw}×${bh} is ${ratio(bw, bh)}:1`);
+check("an update's board is wide, because it holds a site", ratio(bw, bh) >= 2, `${bw}×${bh} is ${ratio(bw, bh)}:1`);
 check("a drawing's board is close to square, for a picture", ratio(pw, ph) <= 1.3, `${pw}×${ph} is ${ratio(pw, ph)}:1`);
 check("and they are not the same shape", ratio(bw, bh) !== ratio(pw, ph));
-check("neither is the lesser thing: the areas are within a tenth", (() => {
-  const a = bw * bh, c = pw * ph;
-  return Math.abs(a - c) / Math.max(a, c) <= 0.1;
-})(), `${bw * bh} against ${pw * ph}`);
+/*
+ * They used to be the same area, on purpose: neither was the lesser thing.
+ * That was true while a green card was a line of prose beside a silhouette.
+ * A green card is the site now — the preview as that update left it — so it
+ * is the thing the red cards are steps against, and J drew the size: about
+ * two and a half times the width it was and twice the height.
+ */
+check("a green card is the site, so it is much the bigger of the two",
+  bw * bh >= pw * ph * 3, `${bw}×${bh} against ${pw}×${ph}`);
+check("…at about the size J drew on it", bw >= 560 && bw <= 680 && bh >= 180 && bh <= 240, `${bw}×${bh}`);
 check("which shape a board takes follows what it holds", /isElement\(t\) \? PIECE : BOX/.test(timeline));
 
 /* ------------------------------------------------------------------ */
@@ -148,6 +154,66 @@ check("the output side leads with the part", (() => {
   return made > 0 && said > made;
 })());
 check("…and what was said is folded away under it", /<summary data-said-head=""/.test(timeline));
+
+/* ------------------------------------------------------------------ */
+/* 3b. A green card is the site                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * It was a line of prose beside a silhouette of grey rectangles, which says
+ * how many things are on a page and nothing about what they are. Every
+ * update carries the whole document it landed on, so the card can show the
+ * real site — and only the parts that existed by that update, because the
+ * ones that come later arrive on the cards that made them.
+ */
+const boxBlock = timeline.slice(timeline.indexOf("function IterationBox("), timeline.indexOf("function ElementPiece("));
+check("the silhouette is gone", !/function Snippet\(/.test(timeline) && !/<Snippet /.test(timeline));
+check("and the card carries the site, rendered by the same renderer the preview uses",
+  /<SiteShot thread=\{thread\} live=\{live\} \/>/.test(boxBlock) && /<LiveSite\n/.test(timeline));
+check("…off the document that update landed on, so what came later is not in it",
+  /const doc = thread\.doc;/.test(timeline) && /nodes: \(doc\.nodes \?\? \[\]\)/.test(timeline));
+check("…except the newest, which shows the board as it stands, because nothing has happened since it",
+  /live \? now : !doc \? null :/.test(timeline) && /data-site-live=\{live \? "1" : "0"\}/.test(timeline));
+/* And an update that kept no document shows nothing rather than today's
+   site: a card is a picture of where the site was at that point, and today's
+   site is not that, however convenient it is to have to hand. */
+check("…and one that kept no document says so rather than showing today's site",
+  /no picture of the site was kept with this one/.test(timeline));
+check("…and a card that is not in view costs nothing to have", /contentVisibility: "auto"/.test(timeline));
+check("the prompting that made it sits above the site", (() => {
+  const asked = boxBlock.indexOf("<Asked thread=");
+  const site = boxBlock.indexOf("<SiteShot thread=");
+  return asked > 0 && site > asked;
+})());
+check("…with a second page of it, to change the words before running them again",
+  /data-asked-page=""/.test(timeline) && /data-asked-edit=""/.test(timeline));
+check("…and Re-iterate is on the card itself, not in a menu", (() => {
+  const menu = timeline.slice(timeline.indexOf("function BoxMenu("));
+  return /data-reiterate=\{thread\.id\}/.test(timeline) && !/Re-iterate/.test(menu);
+})());
+check("…which runs the book's own ask rather than a second pipeline of its own", (() => {
+  const brief = readFileSync("src/features/studio/BriefDialog.tsx", "utf8");
+  return /new CustomEvent\("studio:ask"/.test(timeline)
+    && /window\.addEventListener\("studio:ask", on\);/.test(brief)
+    && /if \(layout !== "page"\) return;/.test(brief)
+    && /void generate\(\);/.test(brief);
+})());
+check("the feature list sits under the site", (() => {
+  const site = boxBlock.indexOf("<SiteShot thread=");
+  const feat = boxBlock.indexOf("<Features thread=");
+  return site > 0 && feat > site;
+})());
+check("…naming the parts on it, with this update's own lit", (() => {
+  const f = timeline.slice(timeline.indexOf("function Features("));
+  return /data-feature-new=\{mine\.has\(n\.id\) \? "1" : "0"\}/.test(f) && /const first = !parent\?\.doc;/.test(f);
+})());
+check("…worked out from the two documents rather than parsed back out of a sentence", (() => {
+  const f = timeline.slice(timeline.indexOf("function Features("), timeline.indexOf("function Features(") + 2200);
+  // `diffDocs` writes sentences — "+ Top bar placed", "~ Hero: 240×80 → 240×120"
+  // — and picking a name back out of one is a parser waiting to be wrong
+  // about a part called "placed". Nothing here calls it.
+  return !/diffDocs\(/.test(f);
+})());
 
 /* ------------------------------------------------------------------ */
 /* 4. Paging the goes                                                  */

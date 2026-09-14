@@ -70,7 +70,7 @@ await page.waitForTimeout(1400);
 check("the first thing you do makes iteration one", (await threadCount()) === 1, String(await threadCount()));
 {
   const first = await page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.threads ?? [])[0]);
-  check("and it is the board you started from, not an invented ask", first?.mode === "start" && first?.changes?.[0] === "the board as you started it", `${first?.mode}: ${first?.changes?.[0]}`);
+  check("and it is the site you started from, not an invented ask", first?.mode === "start" && first?.changes?.[0] === "the site before the first change", `${first?.mode}: ${first?.changes?.[0]}`);
   check("it is finished, because starting is not a process", (first?.state ?? "done") === "done");
   check("and it holds the document, so there is somewhere to stand", !!first?.doc);
 }
