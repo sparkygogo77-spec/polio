@@ -44,9 +44,12 @@
    them are not one machine.
 
      molten-drift     the glide: the nebula slides exactly one period
-     molten-churn     kept for a construct that wants a second moving layer;
-                      the timeline's do not, because one cloud gliding over a
-                      still one already reads as cloud passing through cloud
+     molten-ebb       the same slide the other way, over the second layer's
+                      own bigger period, so the two never share a heading
+     molten-turn      a whole turn, for the layer that rotates rather than
+                      sliding — the one motion a repeating tile cannot fake
+     molten-churn     kept for a construct that wants another moving layer
+                      of its own; nothing here uses it
      molten-breathe   the edge, thickening and thinning
      molten-flare     an occasional run of light along the outline, and out
      molten-ember     the odd spark shed at a corner
@@ -60,12 +63,18 @@
    - The interior stays calm where the words are: the tile is thin in its
      middle and the middle of the tile is the middle of the card, so nothing
      bright ever crawls under a line of text — calm where it is read.
+   - **No two features share a direction.** One tile sliding is one vector,
+     and a whole card sliding on it reads as a photograph dragged behind a
+     window rather than as a surface. So there are four layers of the same
+     material and no two of them move alike: one slides across, one slides
+     back at a different rate over a bigger tile, and one turns. Turning is
+     the part a repeating slide cannot do and the part that costs
+     something — see `--molten-swirl`.
    - It has to be cheap, and cheap is measured rather than asserted. Every
-     animation is `transform` or `opacity`, the grain and the two nebula
-     tiles are data URIs decoded once for the whole page, `contain: layout
-     paint` keeps a construct's boil inside the construct, and one nebula
-     layer glides over a still one because the relative motion is what reads
-     as motion and two moving layers cost twice as much for the same picture.
+     animation is `transform` or `opacity`, the tiles are files decoded once
+     for the whole page, `contain: layout paint` keeps a construct's boil
+     inside the construct, and the three layers are three composited
+     transforms on pictures painted once rather than anything redrawn.
      There is no JavaScript loop; the tiles are painted once, before any of
      this runs, and never again. Thirty of them on a software rasteriser with no
      GPU at all cost four frames a second out of sixty; on anything with a GPU
@@ -214,6 +223,21 @@
     inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
     inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
 
+  /*
+   * The turning layer's own margin, made of alpha rather than pixels.
+   *
+   * A circle, because a circle is the one shape a rotation leaves alone: the
+   * lit patch stays the same patch while the picture inside it turns. It is
+   * transparent well before the box's own edge, so a corner sweeping round
+   * never enters the frame and it never touches the bezel.
+   */
+  --molten-swirl: radial-gradient(
+    circle closest-side,
+    rgb(0 0 0 / 1) 0%,
+    rgb(0 0 0 / 0.92) 42%,
+    rgb(0 0 0 / 0.45) 72%,
+    rgb(0 0 0 / 0) 94%
+  );
   --molten-vignette: linear-gradient(
     to bottom,
     rgb(0 0 0 / 1) 0%,
@@ -342,19 +366,29 @@
 }
 
 /*
- * A second copy that does not move, behind the one that does.
+ * A second copy behind the first, going the other way.
  *
- * Two gliding layers cost twice as much and look the same: what reads as
- * cloud passing through cloud is the *relative* motion of one against
- * another, so the second stands still. At a different scale, so it is a
- * different picture rather than the same one twice.
+ * It used to stand still. Two gliding layers cost twice as much and look
+ * the same, so the second did not move and what read as cloud passing
+ * through cloud was the relative motion of one against the other. That was
+ * true of noise and it is not true of a photograph: with a real render in
+ * both layers the whole card slid one way at one rate, every filament and
+ * every fracture together, which reads as a picture being dragged behind a
+ * window rather than as a surface that is alive. One vector is the tell.
+ *
+ * So it drifts the opposite way, bigger and slower — 1.7× the tile, one of
+ * *its* periods per 47 seconds, which is six and a half pixels a second
+ * against the front layer's nine the other way — and
+ * nothing on a card shares a direction with anything else on it. It still
+ * has to slide exactly one of its own background periods or the loop shows,
+ * which is why it is a period wider than the box on the other side from the
+ * layer above and has a keyframe of its own.
  *
  * **Behind, not in front.** It was in front, and on the red it was at 0.95,
- * which left five per cent of the card as the only part that moved. A still
- * sheet over a moving one is a still card whatever the moving one is doing;
- * a still sheet *behind* one is depth. The z-index above is the whole of
- * that, and it is why `--mo-cloud` can be the brightness dial and the
- * motion at the same time.
+ * which left five per cent of the card as the only part that moved. A sheet
+ * over a moving one is a lid; behind one it is depth. The z-index is the
+ * whole of that, and it is why `--mo-cloud` can be the brightness dial and
+ * the motion at the same time.
  *
  * It used to be the same scale, mirrored. Against painted noise that was
  * enough; against a real render it was not — a photograph reflected on top
@@ -365,7 +399,10 @@
 .molten::after {
   content: "";
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  right: calc(-1.7 * var(--nebula-period, 180px));
+  width: calc(100% + 1.7 * var(--nebula-period, 180px));
   pointer-events: none;
   z-index: 0;
   background-image: var(--mo-nebula);
@@ -375,7 +412,9 @@
   opacity: var(--mo-cloud-still, 0.38);
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
-  animation: none;
+  will-change: transform;
+  animation: molten-ebb 47s linear infinite;
+  animation-delay: calc(var(--molten-seed) * -5.3s);
 }
 
 /* Everything the construct's own content sits above its boil. */
@@ -487,21 +526,62 @@
 }
 
 /*
- * No flare either. It was an arc of light run round the outline as a conic
- * behind a disc punched in the body colour, and that trick only hides the
- * disc while the face is one flat colour. Over a face lit from around its
- * centre the disc shows every time the flare comes round. The reference has
- * a rim and a nebula and nothing else, so nothing else is here; the keyframe
- * stays declared for a construct that draws it another way.
+ * ONE MORE OF THE SAME MATERIAL, TURNING.
+ *
+ * Sliding is one vector however many layers do it, and a layer's whole
+ * picture shares it. Turning is the one motion a repeating slide cannot
+ * make: every point in a turning layer moves on a different heading, so one
+ * of them over two sliding opposite ways means no two features on a card
+ * are going the same way. The eye stops finding the vector because there is
+ * not one to find.
+ *
+ * **The tradeoff, stated.** A tiled layer that slides can be a period wider
+ * than the box and never show an edge. A layer that turns cannot: its
+ * corners sweep through the frame, and covering a card at every angle needs
+ * a square the size of the card's diagonal — for the boxes here that is a
+ * layer two and a half times the area, thirty times over, which is the cost
+ * this is meant to keep. So the margin is made of alpha instead of pixels:
+ * each turning layer is the size of the card and masked to a circle that is
+ * already transparent before it reaches any corner. A circle is the one
+ * shape a rotation leaves alone, so the lit patch does not wobble as it
+ * turns. What it costs is real and is the thing to say: **the turning reads
+ * in the middle of a card and fades out before its edges, and the edges are
+ * carried by the two sliding layers.** On a card the width of a band that
+ * circle is a small part of it.
+ *
+ * They live on the rim node because its two pseudo-elements were free —
+ * they carried a flare and a spark, both of which were taken off — and an
+ * element per construct is an element per construct. The mask keeps them
+ * clear of the bezel the node itself draws.
  */
 [data-molten]::before {
-  content: none;
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--mo-rim-width, 0px));
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--mo-nebula);
+  background-repeat: repeat;
+  background-size: calc(var(--nebula-period, 180px) * 1.3) auto;
+  background-position: 50% 50%;
+  opacity: var(--mo-turn, 0.34);
+  -webkit-mask-image: var(--molten-swirl);
+  mask-image: var(--molten-swirl);
+  will-change: transform;
+  animation: molten-turn 150s linear infinite;
+  animation-delay: calc(var(--molten-seed) * -11s);
 }
 
 /*
- * No ember. The spark shed at a corner was the one thing that left the rim,
- * and the reference has nothing past the rim. The keyframe stays declared
- * for a construct that wants it inside its own edge; nothing here uses it.
+ * And one turning layer, not two.
+ *
+ * There was a second, smaller and dimmer and turning the other way. It was
+ * measured against this and taken out, because a mask is the expensive part
+ * of a layer and it bought nothing: at thirty boards the second one put pan
+ * from 2.8 seconds of task time to 3.6, and the spread of headings across a
+ * card — the thing all this is for — was no better with it than without,
+ * 0.46 green and 0.58 red either way. Three motions that disagree are
+ * enough; the fourth was cost.
  */
 [data-molten]::after {
   content: none;
@@ -522,10 +602,21 @@
   --mo-char: var(--verdant-char);
   --mo-core: var(--verdant-core);
   --mo-nebula: var(--nebula-verdant, none);
-  /* All of the gliding picture: the green tile is the dark of the two, and
-     it is the one that needed everything it could get. */
-  --mo-cloud: 1;
-  --mo-cloud-still: 0.3;
+  /*
+   * The two sliding layers at comparable weight, with the back one ahead.
+   *
+   * This was 1 and 0.3, which was the brightness answer and became the
+   * wrong one the moment there was something behind the front layer to see:
+   * an opaque front layer is the only thing on the card, and a card with one
+   * layer on it slides as one picture whatever is underneath. Measured as
+   * the spread of headings across a card's patches, 0 being every part of it
+   * going the same way, the green sat at 0.002 while the red — whose layers
+   * were nearer each other — was already at 0.4. The green tile is the
+   * darker of the two, so its back layer has to be the heavier of the pair
+   * before the two read as two.
+   */
+  --mo-cloud: 0.5;
+  --mo-cloud-still: 0.7;
   /* J's green box, cut to its frame. */
   --mo-rim: url("/construct/rim-green.png");
   --mo-rim-width: 9px;
@@ -541,12 +632,12 @@
   --mo-char: var(--ember-char);
   --mo-core: var(--ember-core);
   --mo-nebula: var(--nebula-ember, none);
-  /* Three quarters of the glide, and the same behind it. The red tile is the
-     hot picture of the two, so it is the one that shows a little less of
-     itself, and what comes through is the dark face — which is what brings
-     the red down to meet the green. */
-  --mo-cloud: 0.75;
-  --mo-cloud-still: 0.75;
+  /* Half of each, near enough, and the red's pair is the lighter of the two:
+     the red tile is the hot picture, so it is the one that shows a little
+     less of itself and lets a little more of the dark face through, which is
+     what brings the red down to meet the green. */
+  --mo-cloud: 0.52;
+  --mo-cloud-still: 0.58;
   /*
    * J's red box, cut to its frame. He sent two reds; this is the one with
    * the thicker moulding and the brighter corners, and `box-red-alt.png` is
@@ -663,6 +754,26 @@
   to   { transform: translate3d(var(--nebula-period, 180px), 0, 0); }
 }
 
+/* The same slide, the other way, over the second layer's own bigger period. */
+@keyframes molten-ebb {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(calc(-1.7 * var(--nebula-period, 180px)), 0, 0); }
+}
+
+/*
+ * A whole turn, and it never lands on a beat because it never reverses.
+ *
+ * An oscillation would have two moments a cycle where the picture stops and
+ * goes back, which is exactly the kind of pulse the rules here forbid. One
+ * continuous turn at a hundred and fifty seconds is a quarter of a degree a
+ * second: no point in it is going where its neighbour is going, and nothing
+ * about it repeats inside a minute.
+ */
+@keyframes molten-turn {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 @keyframes molten-churn {
   0%   { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
   40%  { opacity: 0.4; }
@@ -740,6 +851,8 @@
   [data-molten]::after {
     animation: none !important;
   }
+  /* The turning layer stays, still: it is material, not decoration, and a
+     construct without it is a different colour. */
   [data-molten]::before,
-  [data-molten]::after { opacity: 0; }
+  [data-molten]::after { animation: none !important; }
 }
