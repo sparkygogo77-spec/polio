@@ -2,14 +2,94 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T17:21:56.452Z";
+export const GENERATED_AT = "2026-09-14T18:01:32.776Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "704b375",
-    "when": "2026-09-14T17:21:07+00:00",
+    "id": "199d336",
+    "when": "2026-09-14T18:01:32+00:00",
     "day": "14 September",
     "changes": [
+      {
+        "id": "e269355",
+        "says": "The third layer on a construct is what was dropping the frames, so it goes",
+        "when": "2026-09-14T17:46:39+00:00",
+        "detail": [
+          "The idle regression trunk reported twice. It is mine: it arrived with the motion work, in the commit that broke the motion apart into three layers.",
+          "MEASURED FIRST. Frames while nothing at all is happening — requestAnimationFrame gaps over 1.8 seconds on a timeline of boards, three runs each, the turn taken out and put back on the same build:",
+          "12 boards        30 boards with the turn         27.0 27.3 29.1   14.0 15.5 15.8   frames/900ms without it            30.6 31.3 32.6   18.2 18.5 20.4",
+          "A tenth of a card's frames at twelve boards and a quarter at thirty, for one layer, with nothing moving on the screen. The run that first found it, on a quieter box, put the same pair at 24.9 against 33.0 and 11.3 against 16.5 — a third of the frames. Absolute numbers move with whatever else the machine is doing; the direction does not."
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7134b72",
+        "says": "Three slots earn their place or lose it, and the key goes plain",
+        "when": "2026-09-14T17:24:08+00:00",
+        "detail": [
+          "J's wheel list, the four that were reading rather than building.",
+          "**The three-dot More has gone** from the page's wheel. It drew the tray's own two items a second time, and the tray is under the wheel already. Motion and the pencil take half the inner band each now instead of a third, so nothing is left as a sliver where it was.",
+          "**Edit has gone with it.** It held the frame's width and a placeholder, and the width is the third copy of one control: the bar's Desktop / Tablet / Phone keys set it, and so does Frame width on the canvas menu. Three ways to say one thing is not a slab's worth of wheel. The check states that as a count rather than an opinion, so if the width ever stops being set in two other places it has earned a slab back. Picture takes the whole inner bottom, which is the room a thing that opens a file wanted anyway.",
+          "**The pencil stayed and was given more than one box.** A slab that opens onto a single textarea is a slab a person learns to walk past — it costs a piece of the wheel and saves nothing over the box being there. It holds everything written about the page now: its words, its name, and its address, the last two of which had nowhere to be said on the wheel at all."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "5a2861e",
+        "says": "Take the whole page: a zip arrives as parts in a surface, locked as it was laid out",
+        "when": "2026-09-14T17:22:39+00:00",
+        "detail": [
+          "A file well beside the address on the space's panel. The page is shown and every block of it is on offer at once: measured, made into real library parts, laid on the surface in the proportion the page had at the width the surface was drawn, and locked. The line under it says which blocks are real parts and which arrived as a band of words, which hold a picture only the grounded step can make, and whether the page brought scripts that were not run. The space stays picked after a part lands, so that line is read where it was asked for."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0a7da37",
+        "says": "A zip's page is opened and measured with every request answered from the zip",
+        "when": "2026-09-14T17:22:39+00:00",
+        "detail": [
+          "The zip is unpacked in memory by a reader of a few lines and its page opened in the browser the server already finds, with every request the page makes answered out of the zip or refused, so nothing leaves the machine. Scripts are taken out before it opens; what is measured is what the HTML and the CSS say. The bounds are the zip's own: a size packed and unpacked, a count of files, no path that climbs out, one page, opened at its index.html. The element route measures several selectors in one call, so a page taken whole is one opening rather than a dozen."
+        ],
+        "areas": [
+          "pages",
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "659a31d",
+    "when": "2026-09-14T17:22:22+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "659a31d",
+        "says": "Regenerate the passes for the framed preview",
+        "when": "2026-09-14T17:22:22+00:00",
+        "detail": [
+          "Euler's pass: the preview frames what the update changed rather than the masthead every time."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "704b375",
         "says": "The preview frames what the update changed, not the masthead every time",
@@ -855,94 +935,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "74f9f57",
-    "when": "2026-09-13T19:12:31+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "bceb9bb",
-        "says": "The space tool and Create, so a space can be made by hand",
-        "when": "2026-09-13T19:07:52+00:00",
-        "detail": [
-          "Create space's phase one had no way in. `space` was in the store's Tool type and nothing in the bar or the menus could select it; `createSpaceAt` had no caller. Four entry points, all driven by hand in tests/space-entries.mjs rather than seeded:",
-          "the bar's tool picker gains a fifth tool, \"Draw a space\", on a dashed ring — a boundary that has not closed. It takes no ink hue: a space is not a line that stays on the page, it is one that becomes a part.",
-          "the key s, free and the obvious mnemonic.",
-          "the Tool submenu on the canvas menu."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e4548e7",
-        "says": "A live element is measured, and becomes a real part of the library",
-        "when": "2026-09-13T19:04:04+00:00",
-        "detail": [
-          "Phase two's foundation, and the decision under it: measure first, model second. This app already holds that rule three times over, that the drawn line is the specification and nothing may paraphrase it, that the clip is exact by construction and no segmenter beats it. A live element is the same situation. Its box, its words, its colours, its type and its layout are readable exactly by the headless browser this app already ships, so screenshotting it and asking a model what colour it thinks the background was is the line-described-is-a-line-lost mistake in another costume.",
-          "So the reading is exact and free, and it picks a real library part out of a catalogue the way `coded.ts` picks one off a drawing: a declaration, a number off the measurements, and a patch, with nothing asked of anything. Six entries to start, most particular first: the top bar, the first screen, a card grid, the main button, the footer, and a band of words as the fall-through, so there is always an answer and it is always a real part.",
-          "That is what makes J's constraint hold. The part arrives with the real words in `content`, the real colours in `colour`, the real type in `font`, the measured columns in `options` and a prompt of its own, so it is an ordinary node made of a real component from that moment: the Inspector edits it, the wheel repaints it, the blueprint writes it, Build ships it. Not a picture with fields bolted on, which is the thing this had to not be.",
-          "Three things it deliberately does not copy. A font stack is *named* as the nearest of this app's own faces, because somebody else's list is a face the generated project has no licence to. A role nobody measured is left alone rather than guessed, so the part follows the project it lands in for the rest. And a size is relative to the site's base, not a pixel count, so it stays a shade larger when the site's type changes."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "c134bc1",
-        "says": "The light outside a hole is a crescent, not a halo",
-        "when": "2026-09-13T18:58:11+00:00",
-        "detail": [
-          "J read the first pictures as a glow round a plate, which is exactly what the drawing disc's edge stopped being. Three things made it one, and the disc's own numbers are kept in all three.",
-          "The photon ring was the worst of it: three strokes up to ten pixels wide, centred on the line and clipped back to half, which came to the disc's own widths on paper and to a five-pixel amber band on the screen, unbeamed, all the way round. They are the disc's own 2.4, 1.6 and 1.4 now, laid outside the line at 4, 2 and half a pixel out the way the disc lays them outside its rim. The ring stays bright the whole way round on purpose: it is light that went round the hole, so it is there on the going side too, and a hair is not a halo.",
-          "The crescent is now thin where it is dim, not only dim. The disc's 0.42 falloff and fourth-power beaming are unchanged, but that falloff is quoted as a share of a 320px plate, and over a shorter line the same share closes into a ring. The reach is beamed too: the coming side keeps the whole of it, the going side gets a fifth (`DIM_REACH`), and the light narrows round to nothing the way it dims round to nothing.",
-          "The bloom was a cloud over the whole shape at 1.25 of the radius; it is 0.95 and tight to the coming side, because an overexposed edge is where the edge is."
-        ],
-        "areas": [
-          "docs",
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "69865c9",
-        "says": "The model table, as data a panel can render from",
-        "when": "2026-09-13T18:56:46+00:00",
-        "detail": [
-          "For the audit panel in the left side panel: a person prompts and audits every part of the site with every model's real options in front of them. A panel that hardcodes a field name can only draw the models somebody thought of, so it draws from this instead — `modelTable()`, the same table the route picks from, as plain JSON with no functions, no classes and no types to import.",
-          "modelTable() → { makings: Making[]                     the first axis: icon, surface, picture, type, object steps:   Step[]                       the second: read, first, refine, recreate, alpha meanings: { makings }                 each kind in a sentence, so the panel need not invent one models: ModelCard[] }",
-          "ModelCard = { slug, name, returns: \"picture\" | \"mesh\", serves: { step, makings[] }[]         which cells it is offered for fields: ModelField[]                  every input it takes alpha, examplePair, grounding,        what it can do, as flags references, cuts, note                                  what the fields do not say }",
-          "ModelField = { name                                  exactly as the schema names it label                                 what to call it in a sentence kind: enum | integer | number |       which control to draw boolean | text | image | images | secret values?, min?, max?, maxItems?        what it will accept default                               what the model does unasked managed?                              the route fills this one in: prompt | images | ratio | size | format | alpha | grounding | pixels — a person may override note?                                 a line from the schema }"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "c65c345",
-        "says": "The box forms with the iteration: it begins when the job is queued and completes when the job lands",
-        "when": "2026-09-13T18:44:08+00:00",
-        "detail": [
-          "J: the box forms and animates after the iteration is complete rather than with it. True, and for two reasons, both now gone.",
-          "The iteration was landed when the **read came back** — so there was nothing on the timeline to form until most of the work was already done, and the formation played out afterwards over a box whose job was over. And every step before that landing wrote its progress to `liveThreadId`, which is whatever landed *last*: the previous iteration's box, there being nothing else to write it on.",
-          "So the iteration is landed at the press of Make real (`enqueueDraw`), at `QUEUED` — a hair of vine, because it has begun and nothing more — and the job carries its thread id. Every step climbs that box. The landing that follows fills the same thread in rather than making a second, so when it began, what it hangs off and how far it has formed all survive. It is complete when the **job** is: the later passes are not awaited, so whoever finishes last says so — the run when nothing was left going, the second pass when it was (`finish`, one place, because \"complete\" and \"what it cost\" are the same moment and had drifted apart: the bill was being said before the second pass had spent anything).",
-          "Watched against a real slow job — `tests/forming-live.mjs`, the real press, queue, run, steps, store and bands, with only the models answered at the edge and answered *slowly*, there being no token here — the milestones were:"
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
