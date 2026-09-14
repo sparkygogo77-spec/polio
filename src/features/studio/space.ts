@@ -89,6 +89,12 @@ export interface Space {
    * a second formation would be a second answer to one question.
    */
   form?: { p: number; gen: number } | null;
+  /**
+   * When it was last opened. Only one space is open at a time: the one
+   * opened most recently, drawing counting as opening (`openOf`). Absent
+   * on a space that has never been opened by hand, which is most of them.
+   */
+  opened?: number;
   /** When it was drawn. */
   at: number;
 }
@@ -292,6 +298,55 @@ export function isOpen(s: Space, now: number): boolean {
 }
 
 /** The open space the part has landed in, or null. The newest wins when two overlap. */
+/**
+ * The one open space: a black hole is open on one line at a time.
+ *
+ * Opening one closes whatever was open. The open one is the space opened
+ * most recently, and drawing a space opens it, so with nothing opened by
+ * hand it is the newest line; a surface already made is not a hole and is
+ * never the open one. Null when there is nothing to open.
+ */
+export function openOf<S extends Space>(spaces: readonly S[]): S | null {
+  let best: S | null = null;
+  let when = -Infinity;
+  for (const sp of spaces) {
+    if (isMade(sp)) continue;
+    const t = Math.max(sp.opened ?? -Infinity, sp.since ?? -Infinity, sp.at);
+    if (t > when) { when = t; best = sp; }
+  }
+  return best;
+}
+
+/** How far from the point to the nearest piece of the line. */
+export function distanceToBoundary(points: SketchPoint[], x: number, y: number): number {
+  let best = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i]!, b = points[(i + 1) % points.length]!;
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const len = dx * dx + dy * dy;
+    const t = len ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / len)) : 0;
+    best = Math.min(best, Math.hypot(x - (a[0] + t * dx), y - (a[1] + t * dy)));
+  }
+  return best;
+}
+
+/**
+ * The space the eraser is on: its line within `tol`, or, failing that, the
+ * newest space the point is inside. On the line first because a small hole
+ * inside a big one is erased by its own line, not by the big one's area.
+ */
+export function spaceAtLine<S extends Space>(spaces: readonly S[], x: number, y: number, tol: number): S | null {
+  let best: S | null = null;
+  let bestD = tol;
+  for (const sp of spaces) {
+    const d = distanceToBoundary(sp.boundary, x, y);
+    if (d < bestD) { bestD = d; best = sp; }
+  }
+  if (best) return best;
+  const inside = spaces.filter((sp) => pointInBoundary(sp.boundary, x, y));
+  return inside.length ? inside.reduce((a, b) => (b.at > a.at ? b : a)) : null;
+}
+
 export function spaceOf<S extends Space>(spaces: readonly S[], node: { x: number; y: number; w: number; h: number; pageId: string }, now: number): S | null {
   let hit: S | null = null;
   for (const s of spaces) if (isOpen(s, now) && nodeInSpace(s, node) && (!hit || s.at > hit.at)) hit = s;
