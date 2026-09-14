@@ -2,9 +2,161 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T01:40:01.924Z";
+export const GENERATED_AT = "2026-09-14T02:15:26.315Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c696660",
+    "when": "2026-09-14T02:15:25+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "9985dcd",
+        "says": "Break the motion apart: three layers, no two of them going the same way",
+        "when": "2026-09-14T02:05:32+00:00",
+        "detail": [
+          "The tell was that the whole picture panned as one image. One tile sliding is one vector and every filament on a card shares it, so the surface read as a photograph being dragged behind a window. Measured — the spread of headings across a card's patches between two frames, 0 being every moving part of it going the same way — a card came out at 0.000 on both temperatures. There was nothing else for the eye to find.",
+          "Three layers of the same material now, and no two of them move alike:",
+          "1. the tile at 180, sliding across, one period per 20s — nine pixels a second, left to right, which is the speed and the scale as they were; 2. the same tile at 1.7×, sliding *back*, one of its own periods per 47s — six and a half pixels a second, right to left. It used to stand still, which was the right answer against painted noise and the wrong one against a render; 3. the tile at 1.3×, turning, one whole turn per 150s. Continuous, never an oscillation, because a reversal is a beat.",
+          "Same measure after: 0.46 green, 0.58 red."
+        ],
+        "areas": [
+          "core",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7a6fbe3",
+        "says": "A drawing waiting behind a finished one is started",
+        "when": "2026-09-14T02:02:21+00:00",
+        "detail": [
+          "The queue runner let go of the finished job only after telling the queue it was over, and telling the queue is what runs the effect that starts the next one; it saw a busy runner and returned, and nothing changed the queue again. Any second drawing queued at once stayed waiting for ever. The runner lets go first now.",
+          "DrawQueue.tsx, one declared line, in the runner's then.",
+          "tests/create-flow.mjs is the create flow driven by a hand: the boundary first, two things drawn inside it each given its own words, Generate, both landing, the layout locked in the shares they were drawn at, and the surface resized with its contents keeping their proportion."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "dc5140e",
+        "says": "Generate from the space's panel, and the surface forms as its parts land",
+        "when": "2026-09-14T02:02:21+00:00",
+        "detail": [
+          "Everything drawn inside a black hole is queued as itself, each with its own words, through the same door a drawing on the bare page goes through; the surface forms as they land and locks the layout when the last one has. Closed shapes drawn inside a space are their own drawings, and the badge under each is the way to pick one. A made surface carries a grip and a resize handle. The panel for a part inside shows the model's own fields, picture wells among them, read off the route table.",
+          "Canvas.tsx, two declared lines: SpaceForming imported from SpaceLayer and mounted beside SpaceSide at the root."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "78eb874",
+        "says": "Create and Draw differ only by how many elements come out",
+        "when": "2026-09-14T02:02:21+00:00",
+        "detail": [
+          "A closed line drawn with the space tool is a black hole from that instant: no construct box, no key to choose after the line. The space keeps a locked layout, every element's rect as a share of the boundary, and a forming state on the timeline's own driver, so the surface can be moved and resized as one thing and its contents keep the proportions they were drawn in. The brief a space writes is a complete one, with the layout in it as shares of the surface and what a backend must provide."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "8626fcc",
+        "says": "No scrollbar anywhere, on any surface that scrolls",
+        "when": "2026-09-14T01:50:46+00:00",
+        "detail": [
+          "Half of J's fifth. Every surface in the Builder that can scroll now asks for no bar: the website page, the design background, the shelf, the Look panel and both side panels. Both spellings, because they are different engines rather than a fallback — `scrollbar-width` is the standard one and `::-webkit-scrollbar` is what Chromium and Safari read.",
+          "Worth saying how this was measured, because the obvious way does not work. This container's browser draws overlay scrollbars, so `offsetWidth - clientWidth` reads 0 on every surface whether a bar is suppressed or not — a check built on that passes with the rule deleted. What is checked instead is the computed `scrollbar-width` on every element that actually has something to scroll, which is the thing that differs on a machine set to keep bars in view. Proved by taking the rule off the middle column: \"div [data-studio-scroll] 1272x863\".",
+          "The other half is not in, and it is a decision rather than a fix.",
+          "Scrolling down past the design box and on into the categories works — the middle becomes a scroller, the pane takes a whole screen, and the side panels hold still on their own because they are siblings of it rather than children. I built it, measured it, and took it out again, because it reverses a decision that sixteen checks in tests/board-layout.mjs deliberately hold: \"the workspace itself never needs scrolling\", \"the parts shelf is on screen without going looking for it\". And because a full-screen pane makes the board's fit width-held instead of height-held, which grew the frame from 979 to 1201 of 1272 and left 35px of ground either side — not enough to take hold of, and dragging bare ground is how the board is panned. Widening the gutter to 128 fixed that, which is a second decision on top of the first."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6a84b0e",
+        "says": "The bottom row reads apart again, and its small print clears AA",
+        "when": "2026-09-14T01:30:51+00:00",
+        "detail": [
+          "Measured off the rendered page rather than eyeballed, as asked — and both halves of J's report turned out true in places I did not first look.",
+          "**Twelve of the thirty-three words along the bottom failed AA.** Every one of them was `fg-faint` at 3.22:1 — the count under each category, and the blurbs. The light theme's was 3.49:1. That token carries most of the app's small print, so it is lifted in both: 0.5 to 0.6 in the dark (4.9:1) and 0.62 to 0.55 in the light (4.65:1), still the quietest of the three.",
+          "**The category hues had drifted together.** Twelve of them picked one at a time: five pairs sat 20 degrees or less apart and the closest two were 10 — Under the hood at 20 against First screen at 30 — which at this chroma is not a difference anybody can see. They are 30 apart all the way round now, and nothing moved more than 20 degrees to get there, so Motion is still cyan and Media still magenta.",
+          "**And the discs had no colour in them.** `oklch(0.2 0.045 hue)` is black with a rumour of a hue, so thirteen planets read as thirteen identical circles whatever their hue said. The chroma is 0.1 now, so the disc carries the colour the label is naming."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6455990",
+        "says": "The models are reachable from the Updates board",
+        "when": "2026-09-14T01:19:32+00:00",
+        "detail": [
+          "Changing which model runs the next pass meant leaving the timeline, finding the part on the board and opening its Element tab — a long way round from the card that just told you the model was wrong, and J could not find it at all.",
+          "The card's own panel on the left of the timeline now carries \"Where the next pass goes\": the same `AuditPanel` the board's left panel carries, writing the same `node.plan` through the same writer, so the two say the same thing about the same part.",
+          "An update that made no part of its own — a chain prompt made no one thing — gets the readout instead. There is nothing to hold a setting there, and offering a control that writes nowhere would be worse than saying so.",
+          "22 of 22 hold on updates-view. Driven from the timeline: opening a card that made a part offers that part's models with the route's own marked, and pressing one writes the plan — checked by reading the part's own plan back out of the document afterwards."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "c85d628",
+    "when": "2026-09-14T02:15:07+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "c85d628",
+        "says": "The flag says what it is in the place it now says it",
+        "when": "2026-09-14T02:15:07+00:00",
+        "detail": [
+          "`current` asked the this-iteration button for its innerText and wanted the words \"this iteration\" in it. There is no text on it any more, and that was on purpose: the reason is written at CurrentButton — it was a chip across the top of every box, the widest thing there, so it read as the box's heading and on an element piece it pushed the name of the part off the end entirely. It is a 4px mark now and the words are its tooltip.",
+          "So the check asks the tooltip. The claim is unchanged and still true — the control says what it is to anyone who hovers it or reads it — and it prints what it found, so a real break says which words it got. 32/32.",
+          "Pushed a moment ago with this red, which was mine: I put the push in the same command as the read of the result, so it ran whatever the result was rather than on green. The sequence is worth keeping separate for exactly this reason, and it is separate again."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "5769692",
+        "says": "Regenerate the passes for the cloud surface, the Updates board and the cut vine",
+        "when": "2026-09-14T01:40:24+00:00",
+        "detail": [
+          "Three passes, hypatia's tip carried inside euler's again: the surface moves, reads as cloud, and the ink reads on it; the Updates board holds where you left it and fills the floor; and a vine is one strand with a cut line down it and nothing else on it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "c94990a",
     "when": "2026-09-14T01:40:01+00:00",
@@ -868,66 +1020,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "8634cc8",
-    "when": "2026-09-13T16:44:09+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "8634cc8",
-        "says": "The step-move check is about moving, not about four steps",
-        "when": "2026-09-13T16:44:09+00:00",
-        "detail": [
-          "Second half of the same collision. The create space's suite held moveStep(STEPS, 3, 0) against the literal \"alpha,read,first,refine\", which was true of the four steps the route had when it was written and stopped being true the moment the fifth was declared for this space to run: index 3 is `recreate` now, so the check failed on the list growing rather than on moveStep doing anything wrong.",
-          "It states the property instead — the step picked up is where it was put down, nothing is lost, and the rest keep their order — which is what the name claims and what survives the next step being added. It prints the order it got, so a real break says what it did rather than only that it did something. 38 of 38."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "34a286d",
-        "says": "The panel can say the recreate step out loud",
-        "when": "2026-09-13T16:13:23+00:00",
-        "detail": [
-          "Two branches that each build on their own do not build together: the create space names every step in STEP_MEANS, the image route grew a fifth one, and Record<Step, string> is exhaustive on purpose, so the merged tree would not compile.",
-          "The two are not in disagreement — the route's own comment says the step is declared there for the create space to run in its second phase — so this is the missing half arriving rather than a decision to make. The wording is the route's own: the real thing the drawing stands for, from the world rather than from the model's idea of it.",
-          "Also regenerates the passes for this sweep: a space is a closed line that is not yet a part, and grounding as a capability and a per-call choice, off by default."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "63cd76d",
-    "when": "2026-09-13T16:12:05+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "4b6ed7b",
-        "says": "Grounding is a capability and a per-call choice, off by default",
-        "when": "2026-09-13T16:11:05+00:00",
-        "detail": [
-          "From J's own run of nano-banana-2: two flags, `google_search` (ground the words in a web search) and `image_search` (fetch image references). The table now has a `grounding` capability — the two field names, declared on the one model that has them and null on every other row — and the route passes them on every call it makes to that model (`groundingFor`, `inputFor`). They are off by default, and sent as `false` rather than left out, so the record of a call says what was decided. On for the recreate step and on when the person explicitly asked for the real thing (`grounded` on the request); a model without the flags is never sent them, asked or not.",
-          "`recreate` is a step now — the real thing the drawing stands for, from the world rather than from the model's idea of it, in the drawing's own composition and framing (`wordsFor`). Declared here for the create space (claude/amazing-dijkstra-cznfor), whose second phase runs it; nano-banana-2 alone serves it; nothing on this branch calls it yet. The API takes `step: \"recreate\"` and `grounded` on a stage-two request, decides once, and says on the answer whether the model was told to look things up.",
-          "Also from the amendment: the log reports a token count, which is the number the price is set by, so it is read off the log (`tokensOf`, never computed) and put on the card beside the cost when it is there — \"second pass · Nano Banana 2 · 4.1s · $0.03 · 1,240 tokens · grounded\". The row's note now records what J confirmed: aspect_ratio defaults to match_input_image, resolution to 1K with 2K and 4K above and no 512, output_format to jpg so png is asked for.",
-          "One pin in `tests/imaging.mjs` learned the third answer: a model that claims a mark without alpha may be reached with the ground cut out after, where nothing alpha-capable serves the cell — which is the case for the recreate step, and is said so on the route."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
