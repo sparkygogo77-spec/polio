@@ -26,7 +26,7 @@ import { auraFilter, auraStyle, complementOf, markColour, washCss, type Light, t
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
-import { SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
+import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { isBoundary } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
@@ -1059,8 +1059,9 @@ export function Canvas() {
         </div>
       </div>
 
-      {/* The panel for the one part picked inside an open black hole (`SpaceLayer.tsx`). */}
+      {/* The panel for the one part picked inside an open black hole, and the surfaces forming (`SpaceLayer.tsx`). */}
       <SpaceSide />
+      <SpaceForming />
     </div>
   );
 }

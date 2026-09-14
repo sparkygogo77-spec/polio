@@ -32,6 +32,14 @@ import { choicesFor, readingOf, writePlan } from "./planEdit";
 import { useStudio, type StudioNode } from "./store";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { FromASite } from "./FromASite";
+import { ModelOptions, type OptionRow } from "./ModelOptions";
+import { clearOption, routeFills, valueOf, writeOption } from "./planEdit";
+import { generateSurface, lockNow, stillMaking } from "./surfaceRun";
+import { isMade, jobsInSpace, nodeInSpace, spaceOfDrawing, surfaceBrief, type Placed } from "./space";
+import { inkGroups } from "./inkGroups";
+import { pageNodes, pageShapes, type StudioShape } from "./store";
+import { useShallow } from "zustand/react/shallow";
+import { Copy, Wand2 } from "lucide-react";
 
 /**
  * The space's own panel, for a hole with nothing in it yet.
@@ -44,6 +52,20 @@ import { FromASite } from "./FromASite";
  */
 export function SpaceOwnPanel({ space }: { space: Space }) {
   const update = useStudio((s) => s.updateSpace);
+  const nodes = useStudio(useShallow(pageNodes));
+  const shapes = useStudio(useShallow(pageShapes));
+  const queue = useStudio((s) => s.queue);
+  const now = Date.now();
+  const inside = React.useMemo(() => nodes.filter((n) => nodeInSpace(space, n)), [nodes, space]);
+  const drawn = React.useMemo(
+    () => inkGroups(shapes.filter((sh) => sh.kind === "pen")).filter((g) => spaceOfDrawing([space], { pageId: space.pageId, bounds: g.bounds }, now)?.id === space.id),
+    [shapes, space, now],
+  );
+  const making = jobsInSpace(queue, space).some((j) => j.status === "waiting" || j.status === "running" || j.status === "asking");
+  const made = isMade(space);
+  const [said, setSaid] = React.useState<string | null>(null);
+  const placed: Placed[] = inside.map((n) => ({ id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, label: n.label, prompt: n.prompt }));
+  const brief = surfaceBrief(space, placed);
   /* The plan read as if the space were the thing being made, off its own
      box and its own words, so the space and the parts in it are steered by
      the same control saying the same things. */
@@ -68,7 +90,49 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
           onChange={(e) => update(space.id, { label: e.target.value })}
           className={cn("mt-1 h-7 text-[12px] font-semibold", SCREEN_FIELD)}
         />
-        <div className="mt-1 text-[10px]" style={{ color: VOID.muted }}>nothing in it yet</div>
+        <div data-space-holds="" className="mt-1 text-[10px]" style={{ color: VOID.muted }}>
+          {!inside.length && !drawn.length
+            ? "nothing in it yet"
+            : [inside.length ? `${inside.length} part${inside.length === 1 ? "" : "s"}` : "", drawn.length ? `${drawn.length} drawing${drawn.length === 1 ? "" : "s"} to make` : ""].filter(Boolean).join(", ")}
+          {made ? " · locked where they were drawn" : ""}
+        </div>
+      </div>
+
+      {/*
+        Generate. The panel used to describe a surface and could not make
+        it, which J named as the gap. This runs the thing it describes:
+        every drawing inside goes on the queue as itself, the surface forms
+        as they land, and when the last one has, the layout is locked.
+      */}
+      <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
+        <button
+          type="button"
+          data-space-generate=""
+          disabled={making || (!inside.length && !drawn.length)}
+          onClick={() => {
+            play("confirm");
+            const r = generateSurface(space.id);
+            setSaid(r.did);
+          }}
+          className="tactile flex w-full items-center justify-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] font-medium disabled:opacity-40"
+          style={{ borderColor: "oklch(0.86 0.16 72)", background: "oklch(0.2 0.05 60)", color: "oklch(0.97 0.07 85)" }}
+        >
+          <Wand2 className="size-3.5" />
+          {making ? "Making…" : made ? "Make it again" : drawn.length ? `Generate ${drawn.length + inside.length} element${drawn.length + inside.length === 1 ? "" : "s"}` : "Lock the layout"}
+        </button>
+        {said ? <div data-space-said="" className="mt-1 text-[10px]" style={{ color: VOID.muted }}>{said}</div> : null}
+        {made && !making ? (
+          <button
+            type="button"
+            data-space-relock=""
+            onClick={() => { play("tap"); lockNow(space.id); setSaid("locked again, where everything is now"); }}
+            className="tactile mt-1 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
+            title="Lock the layout again from where the parts are now"
+          >
+            Lock where they are now
+          </button>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
         <section>
@@ -84,6 +148,25 @@ export function SpaceOwnPanel({ space }: { space: Space }) {
         <section>
           <Label>Anything made here goes this way</Label>
           <Steps reading={reading} write={write} />
+        </section>
+        {/*
+          The brief. Every prompt written in a space has a backend as its
+          real destination, so what leaves here is a complete brief with
+          the layout in it, not a label. Read it, copy it, hand it on.
+        */}
+        <section>
+          <Label>As a brief</Label>
+          <pre data-space-brief="" className="max-h-[180px] overflow-auto whitespace-pre-wrap rounded-md p-2 font-mono text-[9.5px] leading-snug" style={{ ...screenFace, color: SCREEN.ink }}>{brief}</pre>
+          <button
+            type="button"
+            data-space-brief-copy=""
+            onClick={() => { play("tap"); void navigator.clipboard?.writeText(brief); }}
+            className="tactile mt-1 flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]"
+            style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.muted }}
+          >
+            <Copy className="size-2.5" />
+            Copy the brief
+          </button>
         </section>
         <FromASite space={space} />
       </div>
@@ -167,6 +250,9 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
   const choices = React.useMemo(() => choicesFor(node, reading).map((c) => c.slug), [node, reading]);
 
   const write = (patch: Partial<Plan>) => writePlan(node, reading, patch);
+  // The same derivation the audit panel uses: what the route would fill, then what the person set on top.
+  const filled = React.useMemo(() => (reading.model ? routeFills(reading.model, node, reading) : {}), [reading, node]);
+  const rows: OptionRow[] = React.useMemo(() => (reading.model ? reading.model.fields.map((f) => ({ field: f, ...valueOf(f, node, filled) })) : []), [reading, node, filled]);
   const stepModel = (dir: 1 | -1) => {
     if (!choices.length) return;
     const at = reading.model ? choices.indexOf(reading.model.slug) : -1;
@@ -232,6 +318,22 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
         </section>
 
         {/*
+          More options, and a picture in.
+
+          Everything the picked model takes, read off euler's table rather
+          than listed here (`ModelOptions`, the same control the audit panel
+          uses): an image field is a well to drop a picture into, an enum is
+          keys, a number is a slider. Nothing is invented; a model added to
+          the table appears here with its own fields.
+        */}
+        {reading.model ? (
+          <section>
+            <Label>More options, for {reading.model.name}</Label>
+            <ModelOptions rows={rows} onSet={(name, value) => writeOption(node, reading, reading.model?.slug ?? null, name, value)} onClear={(name) => clearOption(node, reading, name)} />
+          </section>
+        ) : null}
+
+        {/*
           And the other way to fill a space: point at something real.
           Below the steering rather than above it, because most elements in
           a space were put there rather than recreated, and a section that
@@ -256,6 +358,41 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
           </button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A drawing inside a space, picked: what it is for.
+ *
+ * The create flow has each thing drawn inside the boundary carry its own
+ * words — the square is "chart associated with the currently traded
+ * token", the button beside it is "buy button" — and this is where they
+ * are written, before Generate makes the drawing real. The words go on the
+ * drawing's first stroke, which is where the ink door reads them from.
+ */
+export function SpaceInkPanel({ shape, space, strokeIds }: { shape: StudioShape; space: Space; strokeIds: string[] }) {
+  const update = useStudio((s) => s.updateShape);
+  return (
+    <div className="flex h-full min-h-0 flex-col text-[11px]">
+      <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
+        <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>A drawing in this space</div>
+        <div className="mt-1 text-[12px] font-semibold">{strokeIds.length} stroke{strokeIds.length === 1 ? "" : "s"}, not made yet</div>
+        <div className="mt-0.5 truncate text-[10px]" style={{ color: VOID.muted }}>in {space.label.trim() || "a black hole"}</div>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
+        <section>
+          <Label>What it is for</Label>
+          <Textarea
+            autoGrow rows={3} aria-label="What this drawing is for" data-ink-prompt=""
+            placeholder="Say what this one should be: a chart of the token being traded, a buy button."
+            value={shape.prompt}
+            onChange={(e) => update(shape.id, { prompt: e.target.value })}
+            className={cn("text-[11px]", SCREEN_FIELD)}
+          />
+        </section>
+        <p className="text-[10px]" style={{ color: VOID.muted }}>Generate on the space makes every drawing in it real, each with its own words, and locks them where they were drawn.</p>
+      </div>
     </div>
   );
 }

@@ -34,15 +34,21 @@ import { play } from "@/core/audio/engine";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
 import { DRIFT_MS } from "./darkMatter";
+import { formVars } from "./formation";
 import { HALO, paintHoleAlong, paintHorizonShadowAlong } from "./blackHole";
 import { useGround } from "./ground";
-import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
+import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, isBoundary, isMade, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
 import type { SketchPoint as Pt } from "./sketch";
 import type { SketchPoint } from "./sketch";
 import { nodeInSpace } from "./space";
 import { pageNodes, pageShapes, pageSpaces, useStudio } from "./store";
 import { inkGroups } from "./inkGroups";
-import { SpaceOwnPanel, SpacePanel } from "./SpacePanel";
+import { SpaceInkPanel, SpaceOwnPanel, SpacePanel } from "./SpacePanel";
+import { lockNow } from "./surfaceRun";
+import { formFromJobs, isMade as made_, jobsInSpace } from "./space";
+import { groupOf as groupOfStroke } from "./inkGroups";
+import { QUEUED } from "./formation";
+import { Move } from "lucide-react";
 
 /** The placeholder's line, and the keys on it: the void's lit rim, because it is not yet anything. */
 const PLACEHOLDER = "oklch(0.62 0.08 290)";
@@ -74,6 +80,24 @@ export function SpaceInk({ zoom }: { zoom: number }) {
   const pageId = useStudio((s) => s.activePageId);
   const drawings = React.useMemo(() => inkGroups(shapes.filter((sh) => sh.kind === "pen")), [shapes]);
   const now = Date.now();
+  /*
+   * A closed shape inside a space is one element by construction.
+   *
+   * The ink grouping rule joins a stroke to a recent one nearby, which is
+   * right for a gull of four strokes and wrong for J's create flow: he
+   * draws a square and then a button beside it, and they came out as one
+   * drawing with one prompt. So a closed stroke that lands inside an open
+   * space is split off as its own drawing the moment it lands — the same
+   * Split a person presses, pressed for them, because in a surface a box
+   * means an element. Open strokes keep the usual rule: a gull drawn in a
+   * space is still a gull.
+   */
+  React.useEffect(() => {
+    if (!spaces.length) return;
+    const own = shapes.filter((sh) => sh.kind === "pen" && !sh.group && sh.points.length >= 4 && isBoundary(sh.points)
+      && spaceOfDrawing(spaces, { pageId, bounds: boundaryBox(sh.points) }, Date.now()));
+    if (own.length) useStudio.getState().splitInk(own.map((sh) => sh.id));
+  }, [shapes, spaces, pageId]);
   if (!spaces.length || !drawings.length) return null;
   return (
     <>
@@ -81,11 +105,19 @@ export function SpaceInk({ zoom }: { zoom: number }) {
         const space = spaceOfDrawing(spaces, { pageId, bounds: g.bounds }, now);
         if (!space) return null;
         return (
-          <div
+          <button
             key={`ink-space-${g.id}`}
+            type="button"
             data-ink-space={g.id}
             data-ink-in={space.id}
-            className="pointer-events-none absolute z-10 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium"
+            title="Say what this one is for"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); play("select"); useStudio.getState().setSelection([g.strokeIds[0]!]); }}
+            /* A drawn line is a pixel wide at this zoom and a hand cannot
+               land on it, so the badge is the way to pick the drawing: it
+               is on the drawing, says which space it is in, and opens the
+               drawing's own words. */
+            className="tactile pointer-events-auto absolute z-20 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium"
             style={{
               left: g.bounds.x,
               top: g.bounds.y + g.bounds.h + 4,
@@ -98,7 +130,7 @@ export function SpaceInk({ zoom }: { zoom: number }) {
           >
             in {space.label.trim() || "this space"}
             {space.plan?.steps?.length ? ", made its way" : ""}
-          </div>
+          </button>
         );
       })}
     </>
@@ -163,92 +195,31 @@ function SpaceMark({ space, zoom }: { space: Space; zoom: number }) {
   // The boundary in the host's own pixels, once.
   const local = React.useMemo<SketchPoint[]>(() => space.boundary.map(([x, y]) => [x - box.x + pad, y - box.y + pad]), [space.boundary, box.x, box.y, pad]);
   const [mx, my] = React.useMemo(() => centroid(local), [local]);
-  const counter = Math.max(1, 1 / zoom);
+  const made = isMade(space);
+  const form = space.form?.p ?? 1;
   return (
     <div
       data-space={space.id}
-      data-space-kind={space.kind}
+      data-space-made={made ? "" : undefined}
+      data-space-form={space.form ? String(Math.round(form * 100) / 100) : undefined}
       className="pointer-events-none absolute"
-      style={{ left: box.x - pad, top: box.y - pad, width: box.w + pad * 2, height: box.h + pad * 2 }}
+      style={{
+        left: box.x - pad,
+        top: box.y - pad,
+        width: box.w + pad * 2,
+        height: box.h + pad * 2,
+        /*
+         * Forming on the timeline's own driver, not a second one: the
+         * boundary and its edge arrive first and the middle fills after
+         * (`formation.ts`, `FORM`). Euler owns that sequence on the cards,
+         * so these are their numbers, read rather than reinvented.
+         */
+        ...(space.form && form < 1 ? (formVars(form) as React.CSSProperties) : {}),
+      }}
     >
-      {space.kind === "hole" ? <Hole space={space} local={local} pad={pad} box={box} zoom={zoom} /> : null}
-      {space.kind === "construct" ? (
-        <div
-          data-space-construct=""
-          className={moltenClass("lantern")}
-          style={{
-            position: "absolute",
-            left: pad,
-            top: pad,
-            width: box.w,
-            height: box.h,
-            borderRadius: 0,
-            clipPath: `path("${boundaryPath(local.map(([x, y]) => [x - pad, y - pad]))}")`,
-            color: "oklch(0.93 0.05 40)",
-            ...moltenSeed(space.id),
-          }}
-        >
-          <span data-molten="" />
-          <span
-            className="absolute left-0 top-0 flex size-full items-center justify-center text-center text-[11px] font-medium tracking-wide"
-            style={{ transform: `scale(${counter})`, textShadow: "0 1px 3px oklch(0 0 0 / 0.7)" }}
-          >
-            {space.label.trim() || "Construct"}
-          </span>
-        </div>
-      ) : null}
-      {/*
-        The construct's rim, on the drawn line. The construct draws its own
-        thin bright edge round its box, and the clip cuts that away with the
-        corners, so the edge is put back along the line itself: the same
-        colour, one screen pixel and a little of its glow.
-      */}
-      {space.kind === "construct" ? (
-        <svg className="absolute left-0 top-0 overflow-visible" width={box.w + pad * 2} height={box.h + pad * 2} aria-hidden style={{ filter: "drop-shadow(0 0 3px var(--molten-hot))" }}>
-          <path data-space-rim="" d={boundaryPath(local)} fill="none" stroke="var(--molten-hot)" strokeWidth={1.5 / zoom} strokeLinejoin="round" />
-        </svg>
-      ) : null}
-      {space.kind === "hole" ? <FillKey space={space} zoom={zoom} at={[mx, my]} /> : null}
-      {space.kind === "undecided" ? (
-        <>
-          <svg className="absolute left-0 top-0 overflow-visible" width={box.w + pad * 2} height={box.h + pad * 2} aria-hidden>
-            <path d={boundaryPath(local)} fill="oklch(0.2 0.035 288 / 0.35)" stroke={PLACEHOLDER} strokeWidth={1.5 / zoom} strokeDasharray={`${6 / zoom} ${5 / zoom}`} />
-          </svg>
-          {/*
-            The choice, at the middle of the area. Two keys and nothing else:
-            what this space is, decided by the hand that drew it.
-          */}
-          <div
-            data-space-choice={space.id}
-            className="pointer-events-auto absolute z-30 flex items-center gap-1.5 whitespace-nowrap"
-            style={{ left: mx, top: my, transform: `translate(-50%, -50%) scale(${counter})` }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              data-space-construct-key=""
-              title="A construct box: a thing to be made, in the timeline's language"
-              onClick={(e) => { e.stopPropagation(); play("confirm"); useStudio.getState().decideSpace(space.id, "construct"); }}
-              className="tactile flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm"
-              style={{ borderColor: "oklch(0.798 0.209 40)", background: "oklch(0.309 0.076 25)", color: "oklch(0.95 0.05 40)" }}
-            >
-              <BoxIcon className="size-3" />
-              Construct
-            </button>
-            <button
-              type="button"
-              data-space-hole-key=""
-              title="A black hole: space not yet decided. It consumes the area and leaves drawing space."
-              onClick={(e) => { e.stopPropagation(); play("confirm"); useStudio.getState().decideSpace(space.id, "hole"); }}
-              className="tactile flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm"
-              style={{ borderColor: "oklch(0.86 0.16 72)", background: "oklch(0.06 0.01 290)", color: "oklch(0.98 0.06 85)" }}
-            >
-              <Circle className="size-3" />
-              Black hole
-            </button>
-          </div>
-        </>
-      ) : null}
+      <Hole space={space} local={local} pad={pad} box={box} zoom={zoom} form={space.form ? form : 1} />
+      <FillKey space={space} zoom={zoom} at={[mx, my]} />
+      {made ? <SurfaceHandles space={space} zoom={zoom} pad={pad} box={box} /> : null}
     </div>
   );
 }
@@ -271,7 +242,7 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
     const t = setTimeout(() => setOpen(true), Math.max(0, CONSUME_MS - (Date.now() - (space.since ?? 0))) + 60);
     return () => clearTimeout(t);
   }, [open, space.since]);
-  if (!open || picked) return null;
+  if (!open || picked || made_(space)) return null;
   if (nodes.some((n) => nodeInSpace(space, n))) return null;
   return (
     <button
@@ -288,7 +259,7 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
       }}
     >
       <Sparkles className="size-3" />
-      Fill this space
+      This space
     </button>
   );
 }
@@ -303,7 +274,7 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
  * whole boundary and never changes, so the weather is generated once; the
  * growth is a second clip on the wrapper, written straight to the element.
  */
-function Hole({ space, local, pad, box, zoom }: { space: Space; local: SketchPoint[]; pad: number; box: { w: number; h: number }; zoom: number }) {
+function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: SketchPoint[]; pad: number; box: { w: number; h: number }; zoom: number; form: number }) {
   const host = React.useRef<HTMLDivElement>(null);
   const clouds = React.useRef<HTMLDivElement>(null);
   const embers = React.useRef<HTMLCanvasElement>(null);
@@ -341,6 +312,9 @@ function Hole({ space, local, pad, box, zoom }: { space: Space; local: SketchPoi
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, w, h);
       // The edge so far: the line grown from the middle of the area.
+      /* Consuming first, then forming. The hole eats its way out to the
+         line it was drawn as; once it is a surface being made, the edge is
+         already there and what grows is what is inside it. */
       const edge = p >= 1 ? local : grownBoundary(local, 0.04 + 0.96 * p);
       if (grow.current) grow.current.style.clipPath = p >= 1 ? "none" : `path("${boundaryPath(edge.map(([x, y]) => [x - pad, y - pad]))}")`;
       // The page layer is scaled by the zoom, so a one-pixel ring is drawn 1/zoom wide to land as one pixel.
@@ -376,6 +350,94 @@ function Hole({ space, local, pad, box, zoom }: { space: Space; local: SketchPoi
 }
 
 /**
+ * The surfaces being made, formed from the work.
+ *
+ * One watcher for all of them, on the queue: a surface is as far along as
+ * the jobs that belong to it (`formFromJobs`), which is what euler's cards
+ * do, on euler's own numbers. When the last job a surface started is over,
+ * the layout is locked from where its parts landed, and the form completes.
+ * Nothing renders; it writes the store and the marks draw from it.
+ */
+export function SpaceForming() {
+  const queue = useStudio((s) => s.queue);
+  const spaces = useStudio(useShallow(pageSpaces));
+  React.useEffect(() => {
+    for (const sp of spaces) {
+      if (!sp.form || sp.form.p >= 1) continue;
+      const jobs = jobsInSpace(queue, sp);
+      const over = jobs.length > 0 && jobs.every((j) => j.status === "done" || j.status === "failed");
+      if (over) { lockNow(sp.id); continue; }
+      useStudio.getState().formSpace(sp.id, formFromJobs(jobs, QUEUED));
+    }
+  }, [queue, spaces]);
+  return null;
+}
+
+/**
+ * A made surface can be moved and resized as one thing.
+ *
+ * The rim carries a grip and the bottom-right corner a handle, both in this
+ * layer, so the board's own drag never has to know about spaces. What they
+ * write is `resizeSpace`, which carries every locked element with the
+ * boundary: that is what locked means.
+ */
+function SurfaceHandles({ space, zoom, pad, box }: { space: Space; zoom: number; pad: number; box: { x: number; y: number; w: number; h: number } }) {
+  const start = React.useRef<{ x: number; y: number; box: { x: number; y: number; w: number; h: number }; mode: "move" | "size" } | null>(null);
+  const begin = (mode: "move" | "size") => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    start.current = { x: e.clientX, y: e.clientY, box, mode };
+  };
+  const move = (e: React.PointerEvent) => {
+    const st = start.current;
+    if (!st) return;
+    const dx = (e.clientX - st.x) / zoom;
+    const dy = (e.clientY - st.y) / zoom;
+    const next = st.mode === "move"
+      ? { ...st.box, x: st.box.x + dx, y: st.box.y + dy }
+      : { ...st.box, w: Math.max(40, st.box.w + dx), h: Math.max(40, st.box.h + dy) };
+    useStudio.getState().resizeSpace(space.id, next);
+  };
+  const end = () => { start.current = null; };
+  const counter = Math.max(1, 1 / zoom);
+  return (
+    <>
+      <button
+        type="button"
+        data-space-grip={space.id}
+        title="Move the surface, and everything in it"
+        onPointerDown={begin("move")}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerCancel={end}
+        className="tactile pointer-events-auto absolute z-30 flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-medium"
+        style={{
+          left: pad, top: pad - 8, transform: `translateY(-100%) scale(${counter})`, transformOrigin: "0 100%",
+          borderColor: "oklch(0.86 0.16 72 / 0.6)", background: "oklch(0.09 0.02 290 / 0.9)", color: "oklch(0.95 0.08 80)", cursor: "grab",
+        }}
+      >
+        <Move className="size-2.5" />
+        {space.label.trim() || "Surface"}
+      </button>
+      <span
+        data-space-size={space.id}
+        title="Resize the surface; what is in it keeps its proportions"
+        onPointerDown={begin("size")}
+        onPointerMove={move}
+        onPointerUp={end}
+        onPointerCancel={end}
+        className="pointer-events-auto absolute z-30 block rounded-sm"
+        style={{
+          left: pad + box.w - 5, top: pad + box.h - 5, width: 10 / zoom, height: 10 / zoom,
+          background: "oklch(0.86 0.16 72)", boxShadow: "0 0 0 1.5px oklch(0.06 0.01 290)", cursor: "nwse-resize",
+        }}
+      />
+    </>
+  );
+}
+
+/**
  * The right-side panel for the one part picked inside an open hole.
  *
  * Mounted at the board's edge rather than in the chrome: the panel belongs
@@ -393,17 +455,27 @@ export function SpaceSide() {
   const picked = selection.length === 1 ? nodes.find((n) => n.id === selection[0]) : undefined;
   const space = picked ? spaceOf(spaces, picked, now) : null;
   // A space picked as itself: an empty hole, steered before anything is in it.
-  const own = !picked && selection.length === 1 ? spaces.find((sp) => sp.id === selection[0] && sp.kind === "hole") : undefined;
-  if ((!picked || !space) && !own) return null;
+  const own = !picked && selection.length === 1 ? spaces.find((sp) => sp.id === selection[0]) : undefined;
+  // A drawing picked inside a space: its own words, before it is made.
+  const shapes = useStudio(useShallow(pageShapes));
+  const pageId = useStudio((s) => s.activePageId);
+  const ink = !picked && !own && selection.length === 1 ? shapes.find((sh) => sh.id === selection[0] && sh.kind === "pen") : undefined;
+  const inkGroup = ink ? groupOfStroke(inkGroups(shapes.filter((sh) => sh.kind === "pen")), ink.id) : null;
+  const inkSpace = ink && inkGroup ? spaceOfDrawing(spaces, { pageId, bounds: inkGroup.bounds }, now) : null;
+  if ((!picked || !space) && !own && !(ink && inkSpace)) return null;
   return (
     <aside
-      data-space-panel={picked?.id ?? own!.id}
+      data-space-panel={picked?.id ?? own?.id ?? ink!.id}
       className="absolute bottom-3 right-3 top-3 z-30 flex w-[248px] flex-col overflow-hidden rounded-lg"
       style={{ background: VOID.face, border: `1px solid ${VOID.rim}`, boxShadow: VOID.drop, color: VOID.text }}
       onPointerDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
-      {picked && space ? <SpacePanel node={picked} space={space} /> : <SpaceOwnPanel space={own!} />}
+      {picked && space
+        ? <SpacePanel node={picked} space={space} />
+        : own
+          ? <SpaceOwnPanel space={own} />
+          : <SpaceInkPanel shape={ink!} space={inkSpace!} strokeIds={inkGroup!.strokeIds} />}
     </aside>
   );
 }

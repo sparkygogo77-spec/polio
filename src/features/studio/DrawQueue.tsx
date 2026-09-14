@@ -65,6 +65,14 @@ export function DrawQueue() {
       },
     })
       .then((r) => {
+        /*
+         * Free the runner before the queue is told, not after. Telling the
+         * queue re-runs this effect at once, and if the runner still looked
+         * busy then, a drawing waiting behind this one was never started:
+         * nothing changes the queue again to give it a second look. So the
+         * first thing a finished job does is let go.
+         */
+        running.current = null;
         // Stopped to ask: the job is `asking` now, and the person's answer
         // puts it back on the queue. Nothing to write over.
         if (r.asked) return;
