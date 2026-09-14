@@ -53,8 +53,8 @@ import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
-import { inheritedFrom, spaceOf, tidyBoundary } from "./space";
-import type { Plan, Space, SpaceKind } from "./space";
+import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
+import type { Locked, Placed, Plan, Space } from "./space";
 
 /**
  * What is in your hand. Four, not six.
@@ -526,10 +526,18 @@ interface StudioState extends Doc {
   removeShapes: (ids: string[]) => void;
 
   /* spaces */
-  /** A closed line becomes a placeholder. Returns its id. */
-  addSpace: (space: Omit<Space, "id" | "at" | "kind" | "since"> & Partial<Pick<Space, "kind" | "since">>) => string;
-  /** Construct box or black hole. A hole starts consuming from now. */
-  decideSpace: (id: string, kind: Exclude<SpaceKind, "undecided">) => void;
+  /** A closed line becomes a space, and starts consuming its area at once. Returns its id. */
+  addSpace: (space: Omit<Space, "id" | "at" | "since"> & Partial<Pick<Space, "since">>) => string;
+  /**
+   * Make the surface: lock every element in it where it was drawn, and set
+   * it forming. The layout is the specification, so this is where it stops
+   * being a set of coordinates and becomes a proportion.
+   */
+  lockSpace: (id: string, placed: readonly Placed[]) => Locked[];
+  /** How far a surface has formed, on the timeline's own driver. */
+  formSpace: (id: string, p: number) => void;
+  /** Move or resize a surface: its boundary and everything locked in it go together. */
+  resizeSpace: (id: string, box: { x: number; y: number; w: number; h: number }) => void;
   updateSpace: (id: string, patch: Partial<Space>) => void;
   removeSpaces: (ids: string[]) => void;
   /** The model and step order for one part, or null to let the route decide. */
@@ -1279,14 +1287,52 @@ export const useStudio = create<StudioState>()(
         addSpace: (space) => {
           const id = uid("sp");
           push();
-          // Thinned here rather than at each door, so a space is the same
-          // record whether a hand drew it or the menu made it (`space.ts`).
-          set((s) => ({ spaces: [...s.spaces, { kind: "undecided", since: null, ...space, boundary: tidyBoundary(space.boundary), id, at: Date.now() }] }));
+          /*
+           * It starts consuming the moment it is drawn.
+           *
+           * There were two keys here, Construct and Black hole, and the
+           * choice is gone: create and draw differ by how many elements
+           * come out, not by what kind of object is made, so a boundary
+           * drawn is a black hole from that instant. The boundary is
+           * thinned here rather than at each door, so a space is the same
+           * record whether a hand drew it or the menu made it.
+           */
+          set((s) => ({ spaces: [...s.spaces, { since: Date.now(), ...space, boundary: tidyBoundary(space.boundary), id, at: Date.now() }] }));
           return id;
         },
-        decideSpace: (id, kind) => {
+        lockSpace: (id, placed) => {
+          const space = get().spaces.find((sp) => sp.id === id);
+          if (!space) return [];
+          const locked = lockLayout(space, placed);
           push();
-          set((s) => ({ spaces: s.spaces.map((sp) => (sp.id === id && sp.kind === "undecided" ? { ...sp, kind, since: Date.now() } : sp)) }));
+          set((s) => ({ spaces: s.spaces.map((sp) => (sp.id === id ? { ...sp, locked, form: { p: QUEUED, gen: (sp.form?.gen ?? 0) + 1 } } : sp)) }));
+          return locked;
+        },
+        formSpace: (id, p) =>
+          set((s) => ({
+            spaces: s.spaces.map((sp) => {
+              if (sp.id !== id) return sp;
+              // Only ever climbs, like a thread's: a later step that maps
+              // lower is the work taking a step, not going backwards.
+              const had = sp.form ?? { p: 0, gen: 1 };
+              const next = Math.max(had.p, Math.min(1, p));
+              return next === had.p ? sp : { ...sp, form: { ...had, p: next } };
+            }),
+          })),
+        resizeSpace: (id, box) => {
+          const space = get().spaces.find((sp) => sp.id === id);
+          if (!space) return;
+          const moved = placeLocked(space, box);
+          const at = new Map(moved.map((m) => [m.nodeId, m]));
+          push();
+          set((s) => ({
+            spaces: s.spaces.map((sp) => (sp.id === id ? { ...sp, boundary: boundaryIn(space, box) } : sp)),
+            // The contents go with it: that is what locked means.
+            nodes: s.nodes.map((n) => {
+              const to = at.get(n.id);
+              return to ? { ...n, x: to.x, y: to.y, w: to.w, h: to.h } : n;
+            }),
+          }));
         },
         updateSpace: (id, patch) => set((s) => ({ spaces: s.spaces.map((sp) => (sp.id === id ? { ...sp, ...patch } : sp)) })),
         removeSpaces: (ids) => {
@@ -1963,7 +2009,15 @@ export const useStudio = create<StudioState>()(
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),
           // A board saved before spaces existed has none; a broken entry is dropped rather than drawn.
-          spaces: Array.isArray(p.spaces) ? p.spaces.filter((sp) => sp && Array.isArray(sp.boundary) && sp.boundary.length >= 4) : [],
+          /* A board saved before spaces existed has none; a broken entry is
+             dropped rather than drawn. One saved while spaces still had a
+             kind comes across as what it always was underneath: a hole,
+             consuming from when it was drawn. */
+          spaces: Array.isArray(p.spaces)
+            ? p.spaces
+                .filter((sp) => sp && Array.isArray(sp.boundary) && sp.boundary.length >= 4)
+                .map((sp) => ({ ...sp, since: sp.since ?? sp.at ?? Date.now() }))
+            : [],
           hiddenFeatures: p.hiddenFeatures ?? [],
           trail: Array.isArray(p.trail) ? p.trail : [],
           threads: Array.isArray(p.threads) ? p.threads : [],

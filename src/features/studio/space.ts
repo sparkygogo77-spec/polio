@@ -1,22 +1,37 @@
 /**
- * A space: a closed line drawn on the page that is not yet a part.
+ * A space: a boundary drawn first, which becomes the surface inside it.
  *
- * Today a line drawn on the background becomes an element. This is the
- * second thing it can become. With the space tool in hand a closed boundary
- * is a **placeholder**, and a placeholder is one of two kinds once a person
- * decides:
+ * **Create and Draw differ by how many elements come out, and by nothing
+ * else.** Draw makes one element. Create makes a surface holding several.
+ * That is the whole distinction, so the choice a person makes is not what
+ * kind of object they are making, it is whether they are making one thing
+ * or a place holding several things — and it is made before the line is
+ * drawn, on the menu, rather than after it on a pair of keys.
  *
- *   · a **construct box**, in the timeline's lantern construct language: a
- *     box that stands for a thing not yet made, cut to the line drawn;
- *   · a **black hole**, which signifies space not yet decided. Chosen, it
- *     expands from the middle to consume the area inside the boundary, and
- *     once it has consumed it that area is drawing space: ground, with the
- *     horizon on the drawn line.
+ * The construct box is gone. It was a third kind of object offered after
+ * the fact, which is exactly the choice this stopped being: both paths
+ * open a black hole now.
  *
- * Every element that lands inside an open hole gets a panel of its own, on
- * the right: what it is, what was asked, which model the route will send it
- * to, and the order of the tasks it will go through. That is the `Plan`
- * below, and `planFor` is what the panel reads.
+ * **The create flow.** The boundary is drawn first and is understood as
+ * the outermost layer of what is coming rather than as an element. It
+ * becomes a black hole in its own right, and its area becomes the ground
+ * everything after is drawn on. Each thing drawn inside carries its own
+ * prompt — a square saying "chart associated with the currently traded
+ * token", the button beside it saying "buy button" — and Generate turns
+ * the lot into **one surface holding those elements, locked in the ratio
+ * and the size they were drawn at**, relative to each other and to the
+ * boundary.
+ *
+ * That locking is the point. The layout was drawn, so the layout is the
+ * specification: every element's rect is kept as a fraction of the
+ * boundary's box (`lockLayout`), and moving or resizing the surface
+ * carries them with it (`placeLocked`). A surface that let its contents
+ * drift would be a drawing of a layout rather than a layout.
+ *
+ * Every element that lands inside gets a panel of its own, on the right:
+ * what it is, what was asked, which model the route will send it to, and
+ * the order of the tasks it will go through. That is the `Plan`, and
+ * `planFor` is what the panel reads.
  *
  * Pure: no React, no store, no browser. The store holds `Space`s and the
  * board's layer draws them; both import from here. Every measurement is in
@@ -30,16 +45,27 @@ import { strokeClosed, type SketchPoint } from "./sketch.ts";
 /* The record                                                           */
 /* ------------------------------------------------------------------ */
 
-/** Undecided is the placeholder. The other two are what a person picked. */
-export type SpaceKind = "undecided" | "construct" | "hole";
+/**
+ * One element's place inside a surface, as fractions of the boundary's box.
+ *
+ * Kept as fractions rather than pixels because that is what "locked in the
+ * ratio and the size he drew them at" means: the surface can be moved and
+ * resized and its contents keep the layout that was drawn.
+ */
+export interface Locked {
+  nodeId: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 export interface Space {
   id: string;
   pageId: string;
   /** The boundary as drawn, in canvas pixels. Closed: the last point is near the first. */
   boundary: SketchPoint[];
-  kind: SpaceKind;
-  /** When the kind was decided, so a hole's consuming can be clocked from it. Null while undecided. */
+  /** When it was made, so the consuming can be clocked from it. */
   since: number | null;
   /** What this space is for, in the person's words. */
   prompt: string;
@@ -50,6 +76,19 @@ export interface Space {
    * A part that lands inside inherits it unless it says otherwise.
    */
   plan?: Plan | null;
+  /**
+   * The layout, locked: where each element sits inside the boundary, as
+   * fractions of it. Written by Generate and read whenever the surface is
+   * moved or resized. Null until it has been made.
+   */
+  locked?: Locked[] | null;
+  /**
+   * How far the surface has formed, on the timeline's own driver
+   * (`formation.ts`): boundary and edge first, then the middle fills.
+   * Null before Generate. The same numbers euler's cards form on, because
+   * a second formation would be a second answer to one question.
+   */
+  form?: { p: number; gen: number } | null;
   /** When it was drawn. */
   at: number;
 }
@@ -243,13 +282,13 @@ export function boundaryPath(points: SketchPoint[]): string {
  * opened has long finished and answers 1.
  */
 export function consumed(s: Space, now: number): number {
-  if (s.kind !== "hole" || s.since === null) return 0;
+  if (s.since === null) return 0;
   return Math.max(0, Math.min(1, (now - s.since) / CONSUME_MS));
 }
 
 /** Open means a hole that has finished consuming: the area is drawing space. */
 export function isOpen(s: Space, now: number): boolean {
-  return s.kind === "hole" && consumed(s, now) >= 1;
+  return consumed(s, now) >= 1;
 }
 
 /** The open space the part has landed in, or null. The newest wins when two overlap. */
@@ -398,6 +437,160 @@ export function planFor(n: Planned): Reading {
     steps,
     ordered: !!n.plan?.steps?.length,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* The surface: the layout, locked                                      */
+/* ------------------------------------------------------------------ */
+
+/** What Generate is handed about one element: enough to lock it and to brief it. */
+export interface Placed {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  prompt: string;
+}
+
+/**
+ * The layout as fractions of the boundary's box.
+ *
+ * This is the whole of "locked in the ratio and the size he drew them at,
+ * relative to each other and to the boundary": every element's rect is
+ * divided by the boundary it was drawn in, so what is kept is the layout
+ * rather than a set of coordinates that happened to be true once.
+ */
+export function lockLayout(space: Space, placed: readonly Placed[]): Locked[] {
+  const b = spaceBox(space);
+  const w = Math.max(1, b.w);
+  const h = Math.max(1, b.h);
+  const r4 = (v: number) => Math.round(v * 10000) / 10000;
+  return placed.map((p) => ({
+    nodeId: p.id,
+    x: r4((p.x - b.x) / w),
+    y: r4((p.y - b.y) / h),
+    w: r4(p.w / w),
+    h: r4(p.h / h),
+  }));
+}
+
+/**
+ * Where every locked element goes when the surface's box is `box`.
+ *
+ * The inverse of `lockLayout`, and the reason the locking is worth having:
+ * move the surface and its contents move with it, resize it and they scale
+ * with it, in the proportions they were drawn in. Rounded to whole pixels,
+ * because a part's rect is whole pixels everywhere else in this app.
+ */
+export function placeLocked(space: Space, box: Box): { nodeId: string; x: number; y: number; w: number; h: number }[] {
+  if (!space.locked?.length) return [];
+  return space.locked.map((l) => ({
+    nodeId: l.nodeId,
+    x: Math.round(box.x + l.x * box.w),
+    y: Math.round(box.y + l.y * box.h),
+    w: Math.max(8, Math.round(l.w * box.w)),
+    h: Math.max(8, Math.round(l.h * box.h)),
+  }));
+}
+
+/** The boundary itself, moved and scaled to a new box: the surface's own edge follows. */
+export function boundaryIn(space: Space, box: Box): SketchPoint[] {
+  const b = spaceBox(space);
+  const sx = box.w / Math.max(1, b.w);
+  const sy = box.h / Math.max(1, b.h);
+  return space.boundary.map(([x, y]) => [
+    Math.round((box.x + (x - b.x) * sx) * 10) / 10,
+    Math.round((box.y + (y - b.y) * sy) * 10) / 10,
+  ]);
+}
+
+/** Has this surface been made? A locked layout is what says so. */
+export const isMade = (s: Space): boolean => !!s.locked?.length;
+
+/**
+ * Which of the queue's jobs belong to this space.
+ *
+ * By where the drawing was, like everything else here, rather than by a
+ * field written on the job: a job carries the point its drawing was made
+ * at, and that point is either inside the boundary or it is not.
+ */
+export function jobsInSpace<J extends { at: { x: number; y: number } | null; status: string }>(jobs: readonly J[], space: Space): J[] {
+  return jobs.filter((j) => j.at && pointInSpace(space, j.at.x, j.at.y));
+}
+
+/**
+ * How far a surface has formed, from the work it started.
+ *
+ * The elements are what the surface is, so the surface is as far along as
+ * they are: one share for each, and a job part-way through counts for the
+ * part of it that has run. `QUEUED` is the floor because a surface that
+ * has been asked for exists, which is euler's rule for a card and the same
+ * rule here.
+ */
+export function formFromJobs(jobs: readonly { status: string }[], queued: number): number {
+  if (!jobs.length) return 1;
+  const done = jobs.filter((j) => j.status === "done" || j.status === "failed").length;
+  const running = jobs.filter((j) => j.status === "running").length;
+  return Math.max(queued, Math.min(1, (done + running * 0.5) / jobs.length));
+}
+
+/* ------------------------------------------------------------------ */
+/* The brief                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What a person wrote here, as something a model can build a backend from.
+ *
+ * Every prompt written in a space has that as its real destination, so it
+ * leaves here as a brief rather than as a label: what the surface is, how
+ * big it is, and every element in it with its own words *and its place*,
+ * given as a share of the surface rather than in pixels, because the
+ * layout is the specification and a pixel is only true at one size.
+ *
+ * The conventions are said in the text, the way the blueprint says its
+ * own, so this can be handed to an agent with nothing else attached.
+ */
+export function surfaceBrief(space: Space, placed: readonly Placed[]): string {
+  const b = spaceBox(space);
+  const name = space.label.trim() || "A surface";
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const lines: string[] = [];
+  lines.push(`# ${name}`);
+  lines.push("");
+  lines.push(`One surface holding ${placed.length} element${placed.length === 1 ? "" : "s"}, drawn at ${Math.round(b.w)} × ${Math.round(b.h)}.`);
+  if (space.prompt.trim()) {
+    lines.push("");
+    lines.push(space.prompt.trim());
+  }
+  lines.push("");
+  lines.push("## How to read this");
+  lines.push("");
+  lines.push("Every position and size below is a share of the surface, not a pixel count: the layout was drawn and the proportions are the specification. Left and top are measured from the surface's top left. An element keeps its share of the surface at any size.");
+  lines.push("");
+  lines.push("## What is in it");
+  const b0 = spaceBox(space);
+  const w = Math.max(1, b0.w);
+  const h = Math.max(1, b0.h);
+  for (const p of [...placed].sort((a, z) => a.y - z.y || a.x - z.x)) {
+    lines.push("");
+    lines.push(`### ${p.label.trim() || "An element"}`);
+    lines.push("");
+    lines.push(`- Sits ${pct((p.x - b0.x) / w)} from the left and ${pct((p.y - b0.y) / h)} from the top, ${pct(p.w / w)} of the surface wide and ${pct(p.h / h)} of it tall.`);
+    lines.push(`- What it is for: ${p.prompt.trim() || "not said yet."}`);
+  }
+  lines.push("");
+  lines.push("## What the backend must provide");
+  lines.push("");
+  const asked = placed.filter((p) => p.prompt.trim());
+  if (!asked.length) {
+    lines.push("Nothing yet: no element in this surface has been said to do anything.");
+  } else {
+    lines.push("Read off what each element was asked for, one line each. Anything naming live values, a price, a balance, a list that changes, or an action a visitor takes, needs something behind it.");
+    for (const p of asked) lines.push(`- **${p.label.trim() || "An element"}**: ${p.prompt.trim()}`);
+  }
+  return lines.join("\n");
 }
 
 /** The step's name in a sentence on the panel. */

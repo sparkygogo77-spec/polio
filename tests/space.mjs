@@ -40,7 +40,7 @@ check("a round boundary from the menu is a boundary", isBoundary(roundBoundary(4
 /* ------------------------------------------------------------------ */
 
 const ring = roundBoundary(500, 400, 120);
-const space = { id: "sp1", pageId: "p", boundary: ring, kind: "hole", since: 0, prompt: "", label: "", at: 1 };
+const space = { id: "sp1", pageId: "p", boundary: ring, since: 0, prompt: "", label: "", at: 1 };
 check("the middle of the ring is inside it", pointInBoundary(ring, 500, 400));
 check("a point past the ring is outside it", !pointInBoundary(ring, 700, 400));
 check("a part whose middle is in the ring has landed in the space", nodeInSpace(space, { pageId: "p", x: 460, y: 370, w: 80, h: 60 }));
@@ -61,18 +61,15 @@ check("the path closes", /^M[\d. ]+(?: L[\d. -]+)+ Z$/.test(boundaryPath(LOOP)),
 const now = 10_000;
 const fresh = { ...space, since: now - CONSUME_MS / 2 };
 const done = { ...space, since: now - CONSUME_MS * 3 };
-const box = { ...space, kind: "construct", since: now - CONSUME_MS * 3 };
-const undecided = { ...space, kind: "undecided", since: null };
+const justDrawn = { ...space, since: now };
 check("a hole decided half a beat ago is half consumed", Math.abs(consumed(fresh, now) - 0.5) < 0.01, consumed(fresh, now).toFixed(2));
 check("and is not open yet", !isOpen(fresh, now));
 check("a hole decided a while ago has consumed it all", consumed(done, now) === 1);
 check("and is open: the area is drawing space", isOpen(done, now));
-check("a construct box never consumes anything", consumed(box, now) === 0 && !isOpen(box, now));
-check("a placeholder is not open", !isOpen(undecided, now));
+check("a space just drawn is consuming, not open: there is no placeholder and no construct any more", consumed(justDrawn, now) === 0 && !isOpen(justDrawn, now));
 const inside = { pageId: "p", x: 460, y: 370, w: 80, h: 60 };
 check("a part inside an open hole is in that space", spaceOf([done], inside, now)?.id === "sp1");
 check("a part inside a hole still consuming is not in it yet", spaceOf([fresh], inside, now) === null);
-check("a part inside a construct box is not in a space", spaceOf([box], inside, now) === null);
 const newer = { ...done, id: "sp2", at: 2 };
 check("where two open holes overlap, the newer owns the part", spaceOf([done, newer], inside, now)?.id === "sp2");
 
