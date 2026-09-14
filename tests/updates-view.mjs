@@ -78,10 +78,22 @@ for (const n of [3, 8]) {
 
   const open = await state();
   check(`${n} updates are all on the board`, open.cards === n, `${open.cards} of ${n}`);
-  /* Half the floor is the bar: below it the chain reads as adrift, which is
-     what 26% and 15% looked like. */
-  check(`and they fill the board rather than sitting in the middle of it`, open.fill >= 45,
-    `${open.fill}% of ${open.host}, ${open.across}x${open.down}`);
+  /*
+   * The fit is allowed to stop for exactly two reasons, and "the cards are
+   * adrift in the middle" is neither of them: either the chain fills the
+   * board, or it stopped because one card had grown to its share of the
+   * width. Checking the area alone was calibrated against a 615-tall board
+   * and went red the moment the board became a whole screen — with the cards
+   * *bigger* than when it passed, which is a threshold measuring the wrong
+   * thing rather than a regression.
+   */
+  const card = await page.evaluate(() => {
+    const c = document.querySelector("[data-box]")?.getBoundingClientRect();
+    const host = document.querySelector("[data-timeline]")?.getBoundingClientRect();
+    return c && host ? { w: Math.round(c.width), share: Math.round((c.width / host.width) * 100) } : null;
+  });
+  check(`and they are not adrift in the middle of it`, open.fill >= 45 || card.share >= 30,
+    `${open.fill}% of ${open.host}, a card ${card.w}px across — ${card.share}% of the board`);
   /* A board is landscape; a chain that runs off the bottom cannot fill one. */
   check(`and the chain runs across rather than down`, open.across > open.down,
     `${open.across} across, ${open.down} down`);

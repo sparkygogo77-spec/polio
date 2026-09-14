@@ -750,7 +750,7 @@ function LightSection() {
 
 export function LookPanel() {
   return (
-    <div data-look-panel="" className="flex h-full min-h-0 flex-col overflow-y-auto">
+    <div data-look-panel="" className="no-bars flex h-full min-h-0 flex-col overflow-y-auto">
       <ColourSection />
       <LightSection />
       <TextureSection />

@@ -305,7 +305,7 @@ export function Palette() {
           wheel moves everything and the pointer never has to be anywhere in
           particular.
         */}
-        <div ref={shelfRef} data-shelf="" className="relative z-[1] h-full overflow-y-auto overflow-x-hidden">
+        <div ref={shelfRef} data-shelf="" className="no-bars relative z-[1] h-full overflow-y-auto overflow-x-hidden">
         {searching ? (
           found.length ? (
             <div className="relative z-[1] px-3 py-3">

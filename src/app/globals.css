@@ -565,3 +565,24 @@
   to { transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0); }
 }
 
+/*
+ * A surface that scrolls without ever showing a bar.
+ *
+ * J wants no bar on the website page or on the design background, while
+ * still being able to scroll past the design box and on into the categories
+ * and the prompt sections. Hiding the bar is the only part of that which is
+ * a paint decision; the scrolling itself is the layout's.
+ *
+ * Both spellings, because they are different engines rather than a fallback:
+ * `scrollbar-width` is the standard one and the `::-webkit-scrollbar`
+ * pseudo-element is what Chromium and Safari still read.
+ */
+.no-bars {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-bars::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}

@@ -53,7 +53,7 @@ export function LiveStage({
   React.useEffect(() => onScale?.(scale), [scale, onScale]);
 
   return (
-    <div ref={ref} data-live-scroller="" className="h-full w-full overflow-auto" {...ctxProps("studio-live", pageId, { pageId, device })}>
+    <div ref={ref} data-live-scroller="" className="no-bars h-full w-full overflow-auto" {...ctxProps("studio-live", pageId, { pageId, device })}>
       <div style={{ width: width * scale, height: height * scale, margin: `${padding}px auto`, position: "relative" }}>
         <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
           <LiveSite
