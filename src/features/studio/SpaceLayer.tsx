@@ -33,11 +33,10 @@ import { Box as BoxIcon, Circle, Sparkles } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
-import { DRIFT_MS } from "./darkMatter";
 import { formVars } from "./formation";
 import { HALO, paintHoleAlong, paintHorizonShadowAlong } from "./blackHole";
 import { useGround } from "./ground";
-import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, isBoundary, isMade, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
+import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, isBoundary, isMade, openOf, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
 import type { SketchPoint as Pt } from "./sketch";
 import type { SketchPoint } from "./sketch";
 import { nodeInSpace } from "./space";
@@ -56,11 +55,69 @@ const PLACEHOLDER = "oklch(0.62 0.08 290)";
 export function SpaceMarks({ zoom }: { zoom: number }) {
   const spaces = useStudio(useShallow(pageSpaces));
   if (!spaces.length) return null;
+  /*
+   * One open at a time. The open hole is the one opened most recently,
+   * drawing counting as opening (`openOf`); every other unmade space is a
+   * closed line with what it is for written on it, and costs nothing to
+   * keep on the page. A surface already made is neither: it is its parts
+   * on their ground.
+   */
+  const open = openOf(spaces);
   return (
     <>
-      {spaces.map((sp) => <SpaceMark key={sp.id} space={sp} zoom={zoom} />)}
+      {spaces.map((sp) => (sp.id === open?.id || isMade(sp) ? <SpaceMark key={sp.id} space={sp} zoom={zoom} /> : <ClosedMark key={sp.id} space={sp} zoom={zoom} />))}
     </>
   );
+}
+
+/**
+ * A space that is not the open one: its line, and what it is for.
+ *
+ * No ground, no light, no canvas: a thin line in the aura's colour and a
+ * key at the middle of the area that says what the space is for, in the
+ * words from its panel, or "This space" when nothing has been said yet.
+ * Pressing it opens it, which closes whatever was open.
+ */
+function ClosedMark({ space, zoom }: { space: Space; zoom: number }) {
+  const box = spaceBox(space);
+  const local = React.useMemo<SketchPoint[]>(() => space.boundary.map(([x, y]) => [x - box.x, y - box.y]), [space.boundary, box.x, box.y]);
+  const [mx, my] = React.useMemo(() => centroid(local), [local]);
+  const says = purposeOf(space);
+  return (
+    <div data-space={space.id} data-space-closed="" className="pointer-events-none absolute" style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
+      <svg className="absolute left-0 top-0 overflow-visible" width={Math.max(1, box.w)} height={Math.max(1, box.h)} aria-hidden>
+        <path d={boundaryPath(local)} fill="oklch(0.86 0.16 72 / 0.04)" stroke="oklch(0.86 0.16 72 / 0.55)" strokeWidth={1.2 / zoom} strokeDasharray={`${5 / zoom} ${4 / zoom}`} />
+      </svg>
+      <button
+        type="button"
+        data-space-closed-key={space.id}
+        title={says === "This space" ? "Open this space" : `Open this space: ${says}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          play("select");
+          useStudio.getState().updateSpace(space.id, { opened: Date.now() });
+          useStudio.getState().setSelection([space.id]);
+        }}
+        className="tactile pointer-events-auto absolute z-30 max-w-[240px] truncate rounded-md border px-2 py-1 text-[10px] font-medium"
+        style={{
+          left: mx, top: my,
+          transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`,
+          borderColor: "oklch(0.86 0.16 72 / 0.45)", background: "oklch(0.09 0.02 290 / 0.85)", color: "oklch(0.9 0.06 78)",
+        }}
+      >
+        {says}
+      </button>
+    </div>
+  );
+}
+
+/** What a space is for, in the person's words: its name, else the first line of what it is for, else nothing yet. */
+export function purposeOf(space: Space): string {
+  const name = space.label.trim();
+  if (name) return name;
+  const line = (space.prompt.split("\n")[0] ?? "").trim();
+  return line ? (line.length > 48 ? `${line.slice(0, 46)}…` : line) : "This space";
 }
 
 /**
@@ -268,11 +325,10 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
  * The hole: the ground cut to the growing edge, and the horizon painted
  * along it on a canvas over the ground.
  *
- * One loop per hole, on the ground's own beat (`DRIFT_MS`): every frame
- * while it is consuming, so the growth is smooth, and thirty times a second
- * after, which is all the breathing needs. The ground's own clip is the
- * whole boundary and never changes, so the weather is generated once; the
- * growth is a second clip on the wrapper, written straight to the element.
+ * One loop per hole while it is consuming, so the growth is smooth, and one
+ * paint when it is open. The ground's own clip is the whole boundary and
+ * never changes, so the weather is generated once; the growth is a second
+ * clip on the wrapper, written straight to the element.
  */
 function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: SketchPoint[]; pad: number; box: { w: number; h: number }; zoom: number; form: number }) {
   const host = React.useRef<HTMLDivElement>(null);
@@ -281,8 +337,6 @@ function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: Ske
   const grow = React.useRef<HTMLDivElement>(null);
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const [open, setOpen] = React.useState(() => consumed(space, Date.now()) >= 1);
-  const zoomRef = React.useRef(zoom);
-  zoomRef.current = zoom;
   // The boundary in the ground's own pixels: the host sits `pad` in from the mark.
   const inBox = React.useMemo<SketchPoint[]>(() => local.map(([x, y]) => [x - pad, y - pad]), [local, pad]);
   const clip = React.useMemo(() => `path("${boundaryPath(inBox)}")`, [inBox]);
@@ -291,16 +345,30 @@ function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: Ske
   const w = box.w + pad * 2;
   const h = box.h + pad * 2;
 
+  /*
+   * The zoom settled, not the zoom: the ring is a hair on the screen at
+   * any zoom, so it is repainted when the zoom stops changing, and not on
+   * every wheel tick of the way there.
+   */
+  const [zoomSettled, setZoomSettled] = React.useState(zoom);
+  React.useEffect(() => {
+    const t = setTimeout(() => setZoomSettled(zoom), 160);
+    return () => clearTimeout(t);
+  }, [zoom]);
+
   React.useEffect(() => {
     let raf = 0;
-    let last = 0;
-    const born = performance.now();
-    const paint = (now: number) => {
-      raf = requestAnimationFrame(paint);
+    /*
+     * Painted every frame while it is consuming, so the growth is smooth,
+     * and once when it is open, then left. It was repainted thirty times a
+     * second for ever for a breathing nobody could see, and five open holes
+     * put the board at six frames a second; nothing in the light moves now,
+     * so nothing is repainted until the line, the size or the zoom changes.
+     */
+    const paint = () => {
       const p = consumed(space, Date.now());
-      if (p >= 1 && now - last < DRIFT_MS) return;
-      if (document.hidden) return;
-      last = now;
+      if (p < 1) raf = requestAnimationFrame(paint);
+      if (document.hidden && p < 1) return;
       const el = canvas.current;
       const c = el?.getContext("2d");
       if (!el || !c) return;
@@ -318,14 +386,14 @@ function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: Ske
       const edge = p >= 1 ? local : grownBoundary(local, 0.04 + 0.96 * p);
       if (grow.current) grow.current.style.clipPath = p >= 1 ? "none" : `path("${boundaryPath(edge.map(([x, y]) => [x - pad, y - pad]))}")`;
       // The page layer is scaled by the zoom, so a one-pixel ring is drawn 1/zoom wide to land as one pixel.
-      const hair = Math.max(1, 1 / zoomRef.current);
+      const hair = Math.max(1, 1 / zoomSettled);
       paintHorizonShadowAlong(c, edge, hair);
-      paintHoleAlong(c, { path: edge, t: (now - born) / 1000, hair });
+      paintHoleAlong(c, { path: edge, hair });
       if (p >= 1) setOpen((o) => o || true);
     };
     raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
-  }, [space, local, pad, w, h]);
+  }, [space, local, pad, w, h, zoomSettled]);
 
   return (
     <>
