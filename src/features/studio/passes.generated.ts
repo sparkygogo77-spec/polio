@@ -2,9 +2,46 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T04:28:36.727Z";
+export const GENERATED_AT = "2026-09-14T17:21:56.452Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "704b375",
+    "when": "2026-09-14T17:21:07+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "704b375",
+        "says": "The preview frames what the update changed, not the masthead every time",
+        "when": "2026-09-14T17:21:07+00:00",
+        "detail": [
+          "The green card shows a band of the site rather than the whole of it, because a site squeezed into two hundred pixels reads as nothing at all. The top of the page is the right band nearly always — that is what a site is — but two updates that both changed something below the fold were then the same picture twice, and what the preview is for is showing what *this* update did.",
+          "So the band moves. Everything this update placed or changed is measured; if none of it begins inside the band, the frame slides down the page to it, centred on it where there is room and never past the end. Nothing is scaled differently and nothing is cropped sideways — it is the same picture at the same size, further down, which is what a person scrolling to look at it would do.",
+          "And the card says so, because an unlabelled band that is not the top of a site reads as a site with no masthead: \"861px down · where it changed\", in the corner of the frame, only when it has moved.",
+          "Which parts are the update's own doing is now one rule, `ownParts`, read by both the preview that frames them and the feature list that lights them, so the picture and the list cannot disagree about the same update. It also counts a part that only *moved* now, which the list wanted anyway."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0d3a051",
+        "says": "Regenerate the passes for the green card as the site",
+        "when": "2026-09-14T04:28:57+00:00",
+        "detail": [
+          "Euler's pass: a green card is the site — the preview it left, at the size of a site. pan-cost's seed grew documents on its threads to match, because a board of cards with no documents measures an empty timeline.",
+          "The one conflict was the comment on a check we have both now mended, the check line itself identical on both sides. Trunk keeps the merged wording, which carries both halves."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "f2dce00",
     "when": "2026-09-14T04:28:36+00:00",
@@ -906,27 +943,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "348d5aa",
-    "when": "2026-09-13T18:41:08+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "348d5aa",
-        "says": "Regenerate the passes for the one colour system and the alpha lead",
-        "when": "2026-09-13T18:41:08+00:00",
-        "detail": [
-          "Two passes, hypatia's tip carrying euler's: the console's colour menus move onto the one system, and gpt-image-2 does do transparency, so it leads the alpha step and every field is data.",
-          "The second answers the judgement I raised on the last pass from the other side of it — the question's own doc now reads \"a drawing with words beside it is never asked\", which is the exemption the box rule was missing. Its suites came with it, so nothing here had to be restated."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
