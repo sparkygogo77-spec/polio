@@ -94,9 +94,19 @@ The pieces, in the order a page passes through them:
   their paragraphs as top-level boxes. Runs of small boxes down one
   column are one band, measured member by member and merged; a heading
   spilling out of its section's box belongs to the section.
-- **Open.** A section whose own box collapses under paragraphs that are
-  themselves tall (over 120px each) still arrives as a thin band plus its
-  paragraphs: the Zen Garden's Requirements section, four parts.
+- **Fixed.** A section whose own box collapsed under floated paragraphs
+  that are themselves tall (over 120px each) arrived as a thin band plus
+  its paragraphs: the Zen Garden's Requirements section, 33px tall over
+  five paragraphs, landed as four parts. The route now measures a box
+  grown to hold the children that run out of it and touch it (placed
+  children never count), so Requirements reads 1121px tall with its six
+  children inside. A paragraph and a heading are named as such, so a
+  section of tall paragraphs is never opened as a column; and a column
+  whose box is stretched up beside the floats of the section before it
+  (Zen's main column begins 310px down, beside the intro's summary and
+  preamble) is trimmed to where its own contents begin, so it still opens
+  into its sections. The Zen page now reads as ten blocks, Requirements
+  one of them.
 
 ### The catalogue (which part it becomes)
 
@@ -111,6 +121,11 @@ The pieces, in the order a page passes through them:
 - **Open.** The Zen Garden's design list pairs each design with its
   author as two links; the list part shows them as consecutive lines.
   The page's pairing is not a shape the list part has.
+- **Open.** The band-of-words entry lands the one-line pitch part, which
+  draws its first line only, and keeps three lines under the heading. A
+  section of five paragraphs (Requirements) lands as one part showing
+  its heading; the reading holds all six runs. The part is the wrong
+  shape for a band of prose, which is the catalogue's to fix.
 - **Open.** Anything the catalogue does not claim is "a band of words":
   real words and paint, the library's shape. The panel's line counts
   these plainly. Six of fifteen on the Zen Garden zip after the link

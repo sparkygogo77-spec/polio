@@ -99,6 +99,38 @@ check("and names the Idea part left for Claude", build.includes("The lab") && bu
 check("and the data question it cannot answer", build.includes("the orb presets"));
 check("and does not claim the looks are Claude's job", !/Claude.*colou?r/i.test(build));
 
+/* 2b. Every file the export imports is a file the export wrote.
+   A codebase that fails its first `tsc` is a description of a codebase.
+   The generated layout imported `./bodyPaint.ts`, which nothing emitted,
+   so every export ever made failed to compile; the check on the layout
+   read only its title. This walks every relative import in every file. */
+{
+  const paths = new Set(files.map((f) => f.path));
+  const dirOf = (p) => p.split("/").slice(0, -1).join("/");
+  const resolve = (from, spec) => {
+    const parts = [...dirOf(from).split("/").filter(Boolean)];
+    for (const seg of spec.split("/")) {
+      if (seg === ".") continue;
+      if (seg === "..") parts.pop(); else parts.push(seg);
+    }
+    return parts.join("/");
+  };
+  const missing = [];
+  let imports = 0;
+  for (const f of files) {
+    if (!/\.(tsx?|css)$/.test(f.path)) continue;
+    for (const m of f.content.matchAll(/^import\s[^;]*?from\s+"(\.[^"]+)"|^import\s+"(\.[^"]+)"/gm)) {
+      imports++;
+      const spec = m[1] ?? m[2];
+      const target = resolve(f.path, spec);
+      const found = [target, `${target}.ts`, `${target}.tsx`, `${target}/index.ts`, `${target}/index.tsx`].some((t) => paths.has(t));
+      if (!found) missing.push(`${f.path} → ${spec}`);
+    }
+  }
+  check("every relative import in the export names a file the export wrote", imports > 0 && missing.length === 0,
+    `${imports} imports, ${missing.length} unresolved${missing.length ? `: ${missing.join(", ")}` : ""}`);
+}
+
 /* 3. Determinism: the same document, the same bytes. */
 const again = scaffold(input);
 check("the same document gives the same files, byte for byte", JSON.stringify(files) === JSON.stringify(again));

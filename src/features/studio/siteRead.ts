@@ -36,6 +36,42 @@ export interface Candidate {
  */
 export const CANDIDATES = (cap: number): Candidate[] => {
   const out: Candidate[] = [];
+  /* The box a thing takes up, which is not always its own: a section whose
+     children are floated has a box that collapses to its heading while its
+     paragraphs run on below, and read by its own box it was a thin band
+     with four paragraphs loose under it. The box is grown to hold the
+     children, and their children, that run out of it *and touch it*: a
+     child that sits under the box's foot grows it, and the next one under
+     that, so a section is measured where its words are; a child placed far
+     from it does not, so a box whose lists are placed about the page is not
+     grown to the page. Placed (absolute, fixed) children never count. */
+  const spreadOf = (el: Element, own: DOMRect): DOMRect => {
+    let x0 = own.left, y0 = own.top, x1 = own.right, y1 = own.bottom;
+    let grew = false;
+    const kids: DOMRect[] = [];
+    for (const c of Array.from(el.children)) {
+      for (const k of [c, ...Array.from(c.children)]) {
+        const r = k.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) continue;
+        const cs = getComputedStyle(k);
+        if (cs.display === "none" || cs.position === "fixed" || cs.position === "absolute") continue;
+        kids.push(r);
+      }
+    }
+    const TOUCH = 24;
+    let more = true;
+    while (more) {
+      more = false;
+      for (const r of kids) {
+        if (r.bottom <= y1 + 2 && r.top >= y0 - 2 && r.left >= x0 - 2 && r.right <= x1 + 2) continue;
+        const touches = r.top <= y1 + TOUCH && r.bottom >= y0 - TOUCH && r.left <= x1 + TOUCH && r.right >= x0 - TOUCH;
+        if (!touches) continue;
+        x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom);
+        grew = true; more = true;
+      }
+    }
+    return grew ? new DOMRect(x0, y0, x1 - x0, y1 - y0) : own;
+  };
   const seen = new Set<string>();
   /*
    * A selector the element can be found again by. Walked all the way up
@@ -69,17 +105,28 @@ export const CANDIDATES = (cap: number): Candidate[] => {
     if (tag === "footer" || role === "contentinfo") return "the foot of the page";
     if (tag === "nav" || role === "navigation") return "the links";
     if (tag === "button" || role === "button") return "a button";
+    // A paragraph is a paragraph however tall or wide, and so is a heading:
+    // a section of tall paragraphs is not a column of bands.
+    if (tag === "p" || tag === "blockquote" || tag === "pre" || tag === "li" || tag === "dt" || tag === "dd") return "a paragraph";
+    if (/^h[1-6]$/.test(tag)) return "a heading";
     if (box.top < 40 && box.width > innerWidth * 0.6) return "the top of the page";
     if (box.height > 320 && box.top < innerHeight) return "a first screen";
     if (box.width > innerWidth * 0.6) return "a band across the page";
     return "a box on the page";
   };
+  /* The box a thing takes up, which is not always its own: a section whose
+     children are floated or placed has a box that collapses to its heading
+     while its paragraphs run on below, and read by its own box it was a
+     thin band with four paragraphs loose under it. The spread is the box
+     grown to hold its children and their children where they run out of
+     it, so a section is measured where its words are. */
+  const spread = (el: Element): DOMRect => spreadOf(el, el.getBoundingClientRect());
   const all = Array.from(document.querySelectorAll("body *")).slice(0, 4000);
   for (const el of all) {
     if (out.length >= cap) break;
     const tag = el.tagName.toLowerCase();
     if (tag === "script" || tag === "style" || tag === "svg" || tag === "path" || tag === "br") continue;
-    const box = el.getBoundingClientRect();
+    const box = spread(el);
     if (box.width < 80 || box.height < 24) continue;
     if (box.width * box.height < 6_000) continue;
     const style = getComputedStyle(el);
@@ -113,7 +160,34 @@ export const CANDIDATES = (cap: number): Candidate[] => {
 export const MEASURE = (selector: string) => {
   const el = document.querySelector(selector);
   if (!el) return null;
-  const box = el.getBoundingClientRect();
+  // The box grown to hold children that run out of it and touch it, the same way `CANDIDATES` lists it.
+  const own = el.getBoundingClientRect();
+  const box = (() => {
+    let x0 = own.left, y0 = own.top, x1 = own.right, y1 = own.bottom;
+    const kids: DOMRect[] = [];
+    for (const c of Array.from(el.children)) {
+      for (const k of [c, ...Array.from(c.children)]) {
+        const r = k.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) continue;
+        const cs = getComputedStyle(k);
+        if (cs.display === "none" || cs.position === "fixed" || cs.position === "absolute") continue;
+        kids.push(r);
+      }
+    }
+    const TOUCH = 24;
+    let more = true;
+    while (more) {
+      more = false;
+      for (const r of kids) {
+        if (r.bottom <= y1 + 2 && r.top >= y0 - 2 && r.left >= x0 - 2 && r.right <= x1 + 2) continue;
+        if (!(r.top <= y1 + TOUCH && r.bottom >= y0 - TOUCH && r.left <= x1 + TOUCH && r.right >= x0 - TOUCH)) continue;
+        x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom);
+        more = true;
+      }
+    }
+    return new DOMRect(x0, y0, x1 - x0, y1 - y0);
+  })();
+  const spilled = Math.round(box.height) > Math.round(own.height) + 2 || Math.round(box.width) > Math.round(own.width) + 2;
   const style = getComputedStyle(el);
   const pageH = Math.max(document.body.scrollHeight, innerHeight);
 
@@ -271,6 +345,8 @@ export const MEASURE = (selector: string) => {
   const border = Number(parseFloat(style.borderTopWidth)) > 0 ? style.borderTopColor : null;
   return {
     box: { x: Math.round(box.x + scrollX), y: Math.round(box.y + scrollY), w: Math.round(box.width), h: Math.round(box.height) },
+    /** True when the box is wider than the element's own: its children run out of it, and the box holds them. */
+    spilled,
     down: Math.round(((box.top + scrollY) / pageH) * 100) / 100,
     tag: el.tagName.toLowerCase(),
     role: el.getAttribute("role"),

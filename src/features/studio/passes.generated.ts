@@ -2,9 +2,90 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T06:49:39.814Z";
+export const GENERATED_AT = "2026-09-15T07:11:47.270Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c12b0d9",
+    "when": "2026-09-15T07:10:50+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "c12b0d9",
+        "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
+        "when": "2026-09-15T07:10:50+00:00",
+        "detail": [
+          "A18 on the inventory, and the cheapest row at the top of it. The layout the scaffold writes for an exported site began with `import { paintRoles, roleVars } from \"./bodyPaint.ts\"`, copied into the template string from the generator's own import at the top of the file. The generator does use those two, at export time, to bake a written body's roles into each part's component; the layout it writes never did, and nothing emits `app/bodyPaint.ts`, so every export ever downloaded failed at its first `tsc` on line 3. The one check on the layout read its title.",
+          "The line is gone. tests/scaffold.mjs now walks every relative import in every exported file and asks the export for that file: 2 imports today, 1 unresolved before this, 0 after. 32 of 32, typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "ea31164",
+        "says": "The unfinished inventory: everything started here and not yet finished, ranked",
+        "when": "2026-09-15T07:09:41+00:00",
+        "detail": [
+          "One list, docs/INVENTORY.md, from a sweep of six kinds of unfinished thing across src/, tests/ and scripts/ at 7b38e86: controls that do nothing or not what they say (22), declarations left behind (160 items in 8 groups), routes answering with a stub or a constant (19), things reachable in one mode and not another or offered and not takeable (17), checks that pass while measuring something other than what they name (63 checks in 27 suites, plus 5 suites with no check at all), and inputs of one shape that quietly degrade for another (41 shapes in 26 rows).",
+          "Ranked by what a person notices first. The top of it: Re-iterate on every finished card drops the ask from the default tab; Compile the blueprint has four entry points that show nothing in book mode; the tweet console's video records an empty site; every Build export imports a file the scaffold never writes; a twelve-entry context menu nobody can open; ten settings that read nothing; every cost line three times the bill; the trace kind of the drawing pipeline wrapped as a raster; and a check on the undo history that reads a field the store never persists.",
+          "Every row names the file and lines, was confirmed by reading them, and carries a cost to close. Rows in another session's area (keys, recreate) are flagged rather than edited. Nothing else changes in this commit: the list is the deliverable, and it is closed from the top in the commits after it."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "d9858fa",
+        "says": "Regenerate the passes for a floated section read where its words are",
+        "when": "2026-09-15T07:03:48+00:00",
+        "detail": [
+          "Dijkstra's fa836ba: a section whose paragraphs float is read where its words are, rather than at the empty box a float leaves behind. No other tip is ahead, so this one goes out on its own.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4265:",
+          "zip-import       73 of 73 hold   (68 before; five new ones with the change) site-read        44 of 44 hold space-by-hand    28 of 28 hold",
+          "The panel's own sentence is where the change shows, and it now counts what it could not before:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "fa836ba",
+        "says": "A section whose paragraphs float is read where its words are",
+        "when": "2026-09-15T07:00:52+00:00",
+        "detail": [
+          "The route measures a box grown to hold children that run out of it and touch it, so a section that collapsed to its heading under floats is one band. A paragraph and a heading are named as such, so a section of tall paragraphs is not opened as a column, and a column stretched up beside the floats of the section before it is trimmed to its own contents and still opens. Zen Garden's Requirements section is one block of ten."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7b38e86",
+        "says": "Regenerate the passes for the live site read, with its suite unrunnable here",
+        "when": "2026-09-15T06:52:48+00:00",
+        "detail": [
+          "Shannon's f9d0082: a real site over the open web, read and landed by measurement. Her first tip on trunk. It adds tests/site-live.mjs and five screenshots and touches no source at all.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4264:",
+          "site-read     44 of 44 hold zip-import    68 of 68 hold site-live     could not run in this container — see below",
+          "site-live is the suite this commit exists for, and it cannot run from here. It got three checks in and stopped:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "7487daf",
     "when": "2026-09-15T06:49:36+00:00",
@@ -889,29 +970,6 @@ export const PASSES: Pass[] = [
           "THE PAGE'S HEIGHT COUNTED PARTS AND NOTHING ELSE. `frameHeight` reduced over `nodes`, and the window the page stands in is sized from it, so a pen stroke or a drawn space below the last part was rendered inside a window that did not know it was there: `scrollHeight` past `clientHeight`, with `overflow: hidden`, and no wheel, bar or drag could reach it. Measured on this branch with one stroke a hundred pixels under a stock page: 138px behind the edge. It takes `shapes` and `spaces` now, and the board passes them.",
           "THE SUITE COULD NOT HAVE SEEN IT. Its fixture was parts and nothing else, so it agreed with a `frameHeight` that counted parts and nothing else — two wrongs measuring each other, and 36 of 36 while a real page clipped. Worse, it never said what document it was looking at, which is how a green run here sat beside a red browser on a deployment that did not contain the commit. So:",
           "every run prints what it measured. `/api/version` already exists for exactly this and nothing asked it; a dev server, which has no build commit, says so rather than borrowing the local tree's SHA."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "bb07ab3",
-    "when": "2026-09-15T01:16:40+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "b131170",
-        "says": "The ring sits the same hair off the line on every side",
-        "when": "2026-09-15T00:54:26+00:00",
-        "detail": [
-          "The hairs of the photon ring were laid outside the line by scaling the whole shape from its centroid, which moves a point in proportion to its distance from the middle: on a wide box the long sides got the ring five pixels out and the short sides three. At the old zoom the aura check's sample straddled that; on the full-length page the board fits by width and the sample did not, and the check went red with lifts falling from one side to another. Every point now moves out along its own normal, so the ring is a hair off the line the same all the way round.",
-          "The check reads each side along its normal, the ring and the light beside it, rather than one patch at a fixed distance that catches the ring's peak on one side and lands a pixel past it on the mirrored one; the old crescent still fails it, aura left 245 against right 19. The create-space ground read takes a patch of the clouds rather than one pixel of them."
         ],
         "areas": [
           "docs",
