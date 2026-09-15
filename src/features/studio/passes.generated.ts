@@ -2,14 +2,45 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T16:43:51.550Z";
+export const GENERATED_AT = "2026-09-15T17:12:41.110Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "ba3e8e1",
-    "when": "2026-09-15T16:42:52+00:00",
+    "id": "e467b4e",
+    "when": "2026-09-15T17:12:11+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "e467b4e",
+        "says": "The contrast measure was reading the plate as ink, and the worst word was on the bar",
+        "when": "2026-09-15T17:12:11+00:00",
+        "detail": [
+          "`ink-on-cards` passed about three times in four. It was not a flaky machine. It had four faults, and each one of them was hiding the next.",
+          "FIRST, IT MEASURED AGAINST A MOVING FACE. It reads a mark by shooting it, hiding it, shooting again and diffing, so the second shot is the face behind the ink. On a live page the cloud drifts in the 80ms between the two shots, so pixels differ for reasons that are not ink — and `cut` thresholds on exactly that difference, so the drift was being counted as ink. Every animation on the page is stopped for the measurement now.",
+          "SECOND, IT ASKED AT ONE MOMENT AND ANSWERED FOR ALL OF THEM. The face's brightness is wherever the cloud is in its twenty-second cycle, so the check answered \"did this clear 4.5:1 at the instant we looked\" while its name promises \"every run of words clears 4.5:1\". Six phases are sampled and the worst is kept, on every figure the checks read, independently.",
+          "THIRD, AND WORST, IT READ THE PLATE AS INK. `visibility: hidden` takes the element's own background with it, so for anything wearing a plate the second shot was the card behind the plate and the diff counted the plate itself. The kind chips on an Updates box are exactly that — \"New\" is dark ink on a solid violet — so this was reading the whole chip against the construct's drifting face, which is why an opaque plate appeared to move with the cloud. Words go `color: transparent` now and only a drawing is hidden outright. \"New\" reads 6.13:1 against the violet it actually sits on."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e41ad86",
+        "says": "Regenerate the passes for an export that carries what goes round a part",
+        "when": "2026-09-15T16:44:44+00:00",
+        "detail": [
+          "Meitner's ba3e8e1: Build exports what the live page puts round a part — entrances, auras, links, the wash, the veil, the backdrop. Until now those were on the board and on the preview and absent from the thing a person downloads, which is the gap between a site you can see and a site you can take away.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4287:",
+          "export-whole   13/13 passed   (new) scaffold       32/32 passed build-mark      9/9 passed",
+          "scaffold and build-mark are the standing suites over scaffold.ts, which is where the change is, and export-whole is the one that reads the exported files rather than the source that wrote them."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "ba3e8e1",
         "says": "Build exports what the live page puts round a part: entrances, auras, links, the wash, the veil, the backdrop",

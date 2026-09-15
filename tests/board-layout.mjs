@@ -235,9 +235,26 @@ async function toTheFoot(page) {
   const shelfBefore = await page.locator("[data-drawer]").boundingBox();
   const foot = await toTheFoot(page);
   check("the surface moves down the page", foot.room > 40, `the frame's head went up ${foot.room}px`);
-  check("and the parts shelf came up with it, whole",
-    !!foot.shelf && foot.shelf.y < shelfBefore.y - 40 && foot.shelf.height > 120,
-    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}, was ${Math.round(shelfBefore.y)}` : "no shelf");
+  /*
+   * Whole and on screen at the end of the gesture — which is the rule. That
+   * it *rose* to get there is not, and demanding a 40px rise fails a board
+   * behaving correctly.
+   *
+   * Since content set the page and the pane set the zoom, a site that fits
+   * its pane leaves the shelf already fully up: 247px at y 653 in a 900
+   * window, before the gesture and after it. There is nowhere for it to come
+   * from. scroll-contract holds "the categories are on screen without
+   * scrolling" at every width it measures, and this pair was still written
+   * for the arrangement where the shelf began below the fold.
+   *
+   * So: it moved, or it was already there, and either way it is whole. The
+   * same shape full-page uses — the shelf is there, or one gesture brings it.
+   */
+  const shelfRose = !!foot.shelf && foot.shelf.y < shelfBefore.y - 40;
+  const shelfWasUp = !!foot.shelf && foot.shelf.y + foot.shelf.height <= (await page.evaluate(() => window.innerHeight)) + 4;
+  check(shelfRose ? "and the parts shelf came up with it, whole" : "and the parts shelf was already up, whole",
+    !!foot.shelf && foot.shelf.height > 120 && (shelfRose || shelfWasUp),
+    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}, was ${Math.round(shelfBefore.y)}${shelfRose ? "" : " — already up, nothing to rise from"}` : "no shelf");
   const panelsAfter = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   check("and the side panels did not move while it did",
     panelsBefore.length > 0 && panelsBefore.every((t, i) => t === panelsAfter[i]),
@@ -292,9 +309,12 @@ async function toTheFoot(page) {
      to reach. */
   const shelfNow = await page.locator("[data-drawer]").boundingBox();
   const deck = await page.evaluate(() => window.innerHeight);
+  /* Same as the pair above: on screen and whole is the rule; having moved to
+     get there is not, because a shelf that fits was never off screen. */
+  const landedWhole = shelfNow.height > 120 && shelfNow.y < deck && shelfNow.y + shelfNow.height <= deck + 4;
   check("and the categories are what you land on, whole",
-    shelfNow.height > 120 && shelfNow.y < deck && shelfNow.y < shelfBefore.y,
-    `${Math.round(shelfNow.height)}px at y ${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}`);
+    landedWhole && (shelfNow.y < shelfBefore.y || shelfNow.y + shelfNow.height <= deck + 4),
+    `${Math.round(shelfNow.height)}px at y ${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}, window ${deck}`);
 
   /* ---------------------------------------------- the shelf's own shape */
   // The screen itself, not the text cursor inside it: the field has a rim and
