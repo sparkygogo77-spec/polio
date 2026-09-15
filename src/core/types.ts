@@ -153,6 +153,8 @@ export interface SettingDef<V = unknown> {
   unit?: string;
   /** Hidden until the user reveals advanced options. Put most knobs here. */
   advanced?: boolean;
+  /** Offered only while this is true: a knob for chrome no module has asked for is a knob on nothing. */
+  when?: () => boolean;
   /** Extra search terms. */
   tags?: string[];
   order?: number;

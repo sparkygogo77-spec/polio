@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { SettingDef, SettingGroupDef } from "@/core/types";
 import site from "@site";
+import { hasNav } from "@/core/nav-gate";
 
 export const CORE_SETTING_GROUPS: SettingGroupDef[] = [
   { id: "appearance", label: "Appearance", icon: Palette, order: 10, description: "Theme, colour, density and type." },
@@ -96,6 +97,8 @@ export const CORE_SETTINGS: SettingDef[] = [
       { value: "hidden", label: "Hidden" },
     ],
     advanced: true,
+    // Offered only while a module declares a nav entry: see `nav-gate.ts`.
+    when: hasNav,
     order: 8,
   },
   {
@@ -112,7 +115,7 @@ export const CORE_SETTINGS: SettingDef[] = [
     advanced: true,
     order: 9,
   },
-  { id: "appearance.topTabs", group: "appearance", label: "Route tabs in top bar", type: "toggle", default: site.layout.topTabs, advanced: true, order: 10 },
+  { id: "appearance.topTabs", group: "appearance", label: "Route tabs in top bar", type: "toggle", default: site.layout.topTabs, advanced: true, when: hasNav, order: 10 },
 
   /* Effects -------------------------------------------------------- */
   {
@@ -137,7 +140,6 @@ export const CORE_SETTINGS: SettingDef[] = [
   { id: "effects.scanlines", group: "effects", label: "Scanlines", type: "toggle", default: site.theme.effects.scanlines, advanced: true, order: 7 },
   { id: "effects.noise", group: "effects", label: "Film grain", type: "toggle", default: site.theme.effects.noise, advanced: true, order: 8 },
   { id: "effects.glass", group: "effects", label: "Translucent panels", type: "toggle", default: true, advanced: true, order: 9 },
-  { id: "effects.rowFlash", group: "effects", label: "Flash new rows", type: "toggle", default: true, advanced: true, order: 10 },
 
   /* Audio ---------------------------------------------------------- */
   { id: "audio.enabled", group: "audio", label: "Sound", type: "toggle", default: site.audio.enabled, order: 1, tags: ["mute", "volume"] },
@@ -196,9 +198,7 @@ export const CORE_SETTINGS: SettingDef[] = [
 
   /* Behaviour ------------------------------------------------------ */
   { id: "behaviour.pauseOnHover", group: "behaviour", label: "Pause feeds on hover", description: "Rows never slide away mid-click.", type: "toggle", default: true, order: 1 },
-  { id: "behaviour.clock24h", group: "behaviour", label: "24-hour clock", type: "toggle", default: true, advanced: true, order: 2 },
   { id: "behaviour.externalNewTab", group: "behaviour", label: "Open external links in a new tab", type: "toggle", default: true, advanced: true, order: 3 },
-  { id: "behaviour.rememberPanels", group: "behaviour", label: "Remember open panels", type: "toggle", default: false, advanced: true, order: 4 },
 
   /* Keyboard ------------------------------------------------------- */
   { id: "keyboard.hints", group: "keyboard", label: "Show shortcut hints", type: "toggle", default: true, order: 1 },
@@ -212,5 +212,4 @@ export const CORE_SETTINGS: SettingDef[] = [
   /* Developer ------------------------------------------------------ */
   { id: "developer.showScopes", group: "developer", label: "Show context-menu scopes", description: "Outline right-clickable regions.", type: "toggle", default: false, advanced: true, order: 1 },
   { id: "developer.logNews", group: "developer", label: "Log news to console", type: "toggle", default: false, advanced: true, order: 2 },
-  { id: "developer.fps", group: "developer", label: "FPS meter", type: "toggle", default: false, advanced: true, order: 3 },
 ];
