@@ -54,7 +54,10 @@ export const CANDIDATES = (cap: number): Candidate[] => {
   const name = (el: Element, box: DOMRect): string => {
     const tag = el.tagName.toLowerCase();
     const role = el.getAttribute("role");
-    if (tag === "header" || role === "banner") return "the bar across the top";
+    // A `header` is the bar across the top when it is the size of one; a
+    // first screen marked up as a header, which a page builder does, is a
+    // first screen, and the name should agree with what the reading makes it.
+    if ((tag === "header" || role === "banner") && box.height <= 160) return "the bar across the top";
     if (tag === "footer" || role === "contentinfo") return "the foot of the page";
     if (tag === "nav" || role === "navigation") return "the links";
     if (tag === "button" || role === "button") return "a button";

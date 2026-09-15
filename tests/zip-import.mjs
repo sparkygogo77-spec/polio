@@ -110,7 +110,7 @@ const CSS = `
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#9fb6c8"/><rect y="240" width="640" height="120" fill="#31506b"/><circle cx="520" cy="90" r="44" fill="#f3e2c0"/></svg>';
 const HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</title><link rel="stylesheet" href="css/style.css"><script src="js/app.js"></script></head><body>
   <header><span class="name">Harbour</span><nav><a href="/product">Product</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a></nav><button onclick="alert(1)">Start free</button></header>
-  <section class="hero">
+  <section class="hero" role="banner">
     <div><h1>Everything <abbr title="gets there">arrives</abbr> somewhere</h1><p>Freight, tracked from the quay to the door, in one place.</p></div>
     <img width="640" height="360" alt="A harbour at first light" src="img/quay.svg">
   </section>
@@ -250,6 +250,10 @@ const post = (bytes, name, extra = {}) => own.evaluate(async ([url, b64, name, e
 const listing = await post(HARBOUR, "harbour.zip");
 check("the route opens the page in the zip and lists what is worth pointing at", listing.ok === true && Array.isArray(listing.candidates) && listing.candidates.length >= 4, listing.ok ? `${listing.candidates.length} candidates in ${listing.took}s` : listing.message);
 check("naming the file it opened", listing.entry === "harbour/index.html", listing.entry);
+/* A first screen marked up as a header, the way page builders do, is named
+   a first screen, so the name agrees with the part it becomes. */
+check("a tall banner is named a first screen, not the bar across the top", listing.candidates.some((c) => /^Everything arrives/.test(c.words) && c.what === "a first screen" && c.box.h > 300) && listing.candidates.some((c) => c.what === "the bar across the top" && c.box.h === 72),
+  listing.candidates.filter((c) => /^Everything arrives|^Harbour/.test(c.words)).map((c) => `${c.what} ${c.box.h}`).join(" | "));
 check("with a picture of the page as it looks", typeof listing.page?.shot === "string" && listing.page.shot.length > 1000);
 check("and it says the page brought scripts, which were not run", listing.scripts === true);
 check("the picture pointing at the network did not hold the read up", Number(listing.took) < 15, `${listing.took}s`);
