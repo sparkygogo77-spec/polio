@@ -2,14 +2,53 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T06:25:29.494Z";
+export const GENERATED_AT = "2026-09-15T06:47:18.079Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "0b64a1d",
-    "when": "2026-09-15T06:24:34+00:00",
+    "id": "5fa77d0",
+    "when": "2026-09-15T06:47:14+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "a445520",
+        "says": "A tall header is named a first screen, and the findings are written by owner",
+        "when": "2026-09-15T06:38:47+00:00",
+        "detail": [
+          "playwright.dev marks its first screen up as a header, as page builders do, and the list named it \"the bar across the top\" while the catalogue rightly made it a first screen: a header is a bar only at a bar's height.",
+          "docs/RECREATE-FINDINGS.md is every finding from walking the address and zip doors against real pages, sorted by which piece owns it (the route, the block picker, the catalogue, the landing, the part) and marked fixed or open, so a session exercising the same arc against the same pages can compare rather than repeat."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2bab116",
+    "when": "2026-09-15T06:46:56+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "2bab116",
+        "says": "Regenerate the passes for the ground's whole pixels, and retire a frame counter",
+        "when": "2026-09-15T06:46:56+00:00",
+        "detail": [
+          "Euler's three: the ground's sparks rub out where they were rather than the whole sheet, his merge of trunk, and the one sliding layer landing on whole pixels. Taken on its own; dijkstra's a445520 and shannon's f9d0082 landed while this was verifying and wait for their own passes.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4262:",
+          "ground-drift       10/10 passed ground-embers      12/12 passed not-one-machine    21/21 passed ground-clean       12/12 passed ground-paints      26/26 passed board-layout       69/69 passed  (67/69 before the fix below)",
+          "One instrument retired, which is test fallout from a deliberate change and so belongs here rather than on euler's branch."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
       {
         "id": "0b64a1d",
         "says": "The ground's one sliding layer lands on whole pixels",
@@ -880,41 +919,6 @@ export const PASSES: Pass[] = [
           "A 95 point spread falling cleanly from top left to bottom right. The four backgrounds are near uniform, so this is not the page showing through the measurement: the light really is biased to the top left rather than being an aura. It passed at d3ab200 and fails at ab9b5f1, so it arrived with the full-length page merging against the hole's \"painted once\" light."
         ],
         "areas": [],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "b9c10ff",
-    "when": "2026-09-14T21:35:52+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "b9c10ff",
-        "says": "picked finds the page to press; molten lets the key have its construct",
-        "when": "2026-09-14T21:35:52+00:00",
-        "detail": [
-          "Two suites met deliberate changes and one measurement got sharper.",
-          "picked computed where to press the page: 40px in from the frame's left and up from its foot, clamped to y 900 because the frame used to run off the bottom of the viewport. On a full-length page on a surface that moves it does not — the frame is 715 tall and ends at 820 — so that arithmetic put the press at y 780, which is the shelf's search box sitting over it, and the page was never pressed at all. It asks the document what is under a point now and presses the first spot that answers as the frame and not as a part on it. That costs nothing and cannot go stale. 16 of 16.",
-          "molten pinned the Finish key as a flat slab painted straight from --verdant-body and --verdant-hot, with the construct kept off it because a key was held to be too small to be a surface anything drifts across. One tile at two settings settled that the other way: moltenKeyClass is moltenClass plus molten-key, the same construct at a key's scale, so a key carrying a surface is the intent. Asking for flatness there asks for the change to be undone. What is worth pinning has not changed and is pinned still: the verdant family rather than a second green, and through the one definition rather than painting its own. 117 of 117.",
-          "space-one-open measured each side of the aura against one page sample taken off to the right. With a non-flat page behind it that reads the backdrop as much as the light, so each side is measured against its own background in the same direction now — how much the aura lifts its own patch."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "ab9b5f1",
-        "says": "Regenerate the passes for the full-length page",
-        "when": "2026-09-14T20:45:54+00:00",
-        "detail": [
-          "Hypatia's pass: the site is a full-length page on a surface that moves, with tests/full-page.mjs holding it."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       }
     ],
