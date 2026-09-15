@@ -39,20 +39,30 @@ export const MAX_UNPACKED_BYTES = 80_000_000;
 /** How long the read may take on the server, inside the route's own `maxDuration`. */
 export const ZIP_BUDGET_MS = 25_000;
 
-export type ZipRefusal = "not-a-zip" | "too-big" | "too-many" | "bad-path" | "no-page";
+export type ZipRefusal = "not-a-zip" | "zip64" | "too-big" | "too-many" | "bad-path" | "no-page" | "unread-method";
 
 export const ZIP_REFUSAL_SAYS: Record<ZipRefusal, string> = {
   "not-a-zip": "That is not a zip file. It wants to be a .zip with a page in it.",
+  "zip64": "That zip is written as Zip64, which this reader does not read. A page's zip is far smaller than Zip64 is for; export it again without it.",
+  "unread-method": "The page in that zip is packed a way this reader cannot unpack (bzip2, LZMA or encrypted). Only stored and deflated entries are read; export it again as an ordinary zip.",
   "too-big": `That zip is too big to be one page. Up to ${Math.round(MAX_ZIP_BYTES / 1_000_000)} MB packed and ${Math.round(MAX_UNPACKED_BYTES / 1_000_000)} MB unpacked.`,
   "too-many": `That zip has too many files in it to be one page. Up to ${MAX_FILES}.`,
   "bad-path": "A file in that zip has a path that climbs out of it, so none of it is opened.",
   "no-page": "There is no page in that zip. It wants an index.html, or one .html file.",
 };
 
-/** A file as it sits in the zip: its path and how big it unpacks to. */
+/** A file as it sits in the zip: its path, how big it unpacks to, and how it is packed. */
 export interface ZipEntry {
   name: string;
   size: number;
+  /** 0 stored, 8 deflated; anything else the reader cannot unpack. Unknown when not said. */
+  method?: number;
+  encrypted?: boolean;
+}
+
+/** Can the reader unpack this entry? Unsaid counts as yes, for a caller that only knows names. */
+export function readable(e: ZipEntry): boolean {
+  return !e.encrypted && (e.method === undefined || e.method === 0 || e.method === 8);
 }
 
 export interface ZipOk {
@@ -61,6 +71,8 @@ export interface ZipOk {
   entry: string;
   /** The folder the page lives in, with a trailing slash, or "" at the root. */
   dir: string;
+  /** Files in the zip the reader cannot unpack, which the page will ask for and not get. */
+  unread: string[];
 }
 export interface ZipNo {
   ok: false;
@@ -110,8 +122,10 @@ export function checkZip(entries: readonly ZipEntry[], packedBytes: number): Zip
   if (files.reduce((n, e) => n + e.size, 0) > MAX_UNPACKED_BYTES) return no("too-big");
   const entry = pageEntry(files.map((e) => e.name));
   if (!entry) return no("no-page");
+  // The page itself has to be readable; anything else unreadable is named, and answered as missing.
+  if (!readable(files.find((e) => e.name === entry)!)) return no("unread-method");
   const cut = entry.lastIndexOf("/");
-  return { ok: true, entry, dir: cut >= 0 ? entry.slice(0, cut + 1) : "" };
+  return { ok: true, entry, dir: cut >= 0 ? entry.slice(0, cut + 1) : "", unread: files.filter((e) => !readable(e)).map((e) => e.name) };
 }
 
 /* ------------------------------------------------------------------ */
