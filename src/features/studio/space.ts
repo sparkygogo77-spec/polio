@@ -436,6 +436,11 @@ export interface Reading {
  * part needs the ground taken off and is not already cut to a drawn line.
  * Reading is always first: a drawing has to be read before anything draws.
  */
+/** The parts that are a solid by what they are: the cube (code) and the mesh (a file). Their words are what is on them. */
+export function isSolidPart(featureId: string): boolean {
+  return featureId === "cube-3d" || featureId === "mesh-3d";
+}
+
 export function defaultSteps(making: Making, clipped: boolean): Step[] {
   // Recreate — the grounded step, the real thing from the world — is never a
   // default: it is taken when a person puts it in the order, and not before.
@@ -470,15 +475,25 @@ export function moveStep(steps: readonly Step[], from: number, to: number): Step
 export function planFor(n: Planned): Reading {
   const said = (n.prompt || n.sketch?.words || "").trim();
   const clipped = !!n.outline;
-  const making = makingOf({
-    kind: n.pictureKind ?? undefined,
-    role: n.role ?? null,
-    hasText: !!(n.content && n.content.trim()),
-    said,
-    w: n.w,
-    h: n.h,
-  });
-  const steps = n.plan?.steps?.length ? tidySteps(n.plan.steps) : defaultSteps(making, clipped);
+  /*
+   * A cube is a solid before its words are read. It is the one part that
+   * is code rather than a picture, and the road past it goes to the one
+   * cell that returns a solid, in one step: its own four faces up, a mesh
+   * back. Read off the part, not off the words, because a cube's words
+   * are what is written on its sides and say nothing about where it goes.
+   */
+  const solid = isSolidPart(n.featureId);
+  const making = solid
+    ? "object"
+    : makingOf({
+        kind: n.pictureKind ?? undefined,
+        role: n.role ?? null,
+        hasText: !!(n.content && n.content.trim()),
+        said,
+        w: n.w,
+        h: n.h,
+      });
+  const steps = n.plan?.steps?.length ? tidySteps(n.plan.steps) : solid ? ["first" as Step] : defaultSteps(making, clipped);
   // The first step that asks a model to draw: the one a person means by "the model".
   const first = steps.find((st) => st !== "read") ?? "first";
   const routed = route({ making, step: first, clipped, fromImage: first !== "first", w: n.w, h: n.h, prefer: n.plan?.model ?? undefined });
