@@ -186,7 +186,37 @@ export function Canvas() {
   const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
   /* Everything the page draws, not only its parts: ink and drawn spaces
      reach below the last part and the window is sized from this. */
-  const pageH = Math.max(stock, frameHeight(nodes, 900, { shapes, spaces }));
+  const [drag, setDrag] = React.useState<Drag | null>(null);
+  /*
+   * The page's height does not follow a hand.
+   *
+   * It is `the lowest thing on the page, plus 160`, which shrink-wraps the
+   * content with no slack in it: every pixel a part is dragged downward is
+   * a pixel the page grows. That is fine as an answer and wrong as a live
+   * one, and J caught both halves of what it does. The preview box resizes
+   * under the hand — measured at a 1267x1354 window, one part dragged 240px
+   * down took the page from 1960 to 2197 while the button was still held.
+   * And the shelf, which is under the board in the same scroller, is pushed
+   * down by exactly as much: 1456 to 1606, with the pane's travel going 349
+   * to 499. Moving a part said how big the site is and where the categories
+   * sit, and it should only ever have said where the part is.
+   *
+   * The timeline does not do it, which is the clue that narrowed it: it is
+   * in the same pane but it is `h-full`, so it never grows and the band
+   * below it never moves.
+   *
+   * So the height is held still for as long as something is being moved,
+   * and settles when the hand comes off. Held in a ref rather than state
+   * because it is derived — reading it must not cause the render that
+   * would change it.
+   */
+  const wanted = Math.max(stock, frameHeight(nodes, 900, { shapes, spaces }));
+  const settled = React.useRef(wanted);
+  /* A drag that moves or resizes something. A pan is not one: it changes
+     nothing about the document, so there is nothing to hold still. */
+  const handOn = drag?.kind === "node" || drag?.kind === "resize";
+  if (!handOn) settled.current = wanted;
+  const pageH = handOn ? settled.current : wanted;
   const frameH = pageH;
   /* Nothing scrolls inside the frame, and nothing pans down the ground:
      the pane does it. `pageScroll` was the site's offset behind the frame's
@@ -242,7 +272,6 @@ export function Canvas() {
     if (pane instanceof HTMLElement) pane.scrollTop += step;
   }, [above]);
 
-  const [drag, setDrag] = React.useState<Drag | null>(null);
 
   /* `data-board-drag` used to be set here for the length of a drag, and the
      ground held still while it was. The ground does not stop for anything
