@@ -39,7 +39,7 @@ import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio } from "./store";
 import { lockNow } from "./surfaceRun";
-import { fitToSurface, pageBlocks, saidOf, type Block } from "./zipImport";
+import { fitToSurface, mergeReadings, pageBlocks, saidOf, selectorsOf, type Block } from "./zipImport";
 
 type Source =
   | { kind: "site"; url: string; host: string }
@@ -177,15 +177,24 @@ export function FromASite({ space }: { space: Space }) {
     if (!blocks.length) { setStage({ at: "said", says: `Nothing on the page in ${nameOf(source)} could be made into a part.` }); return; }
     play("tick");
     setStage({ at: "busy", says: `Measuring ${blocks.length} block${blocks.length === 1 ? "" : "s"}…` });
-    const got = await measure(source, blocks.map((b) => b.selector));
+    const got = await measure(source, blocks.flatMap(selectorsOf));
     if (typeof got === "string") { setStage({ at: "said", says: got }); return; }
+    /* A block is one reading, or a run of small boxes read together and
+       merged into one: the page's own sections, where the page gave them
+       no box of their own. */
+    const bySelector = new Map(got.readings.map((r) => [r.from.selector, r]));
+    const readings = blocks
+      .map((b) => selectorsOf(b).map((sel) => bySelector.get(sel)).filter((r): r is ElementReading => !!r))
+      .filter((rs) => rs.length > 0)
+      .map((rs) => mergeReadings(rs));
+    if (!readings.length) { setStage({ at: "said", says: `Nothing on the page in ${nameOf(source)} could be measured.` }); return; }
 
     const store = useStudio.getState();
     const live = store.spaces.find((sp) => sp.id === space.id) ?? space;
-    const fit = fitToSurface(boundaryBox(live.boundary), got.width, got.readings.map((r) => r.box));
+    const fit = fitToSurface(boundaryBox(live.boundary), got.width, readings.map((r) => r.box));
     // The surface takes the page's proportion at the width it was drawn.
     store.resizeSpace(space.id, fit.surface);
-    const landed = got.readings.map((reading, i) => {
+    const landed = readings.map((reading, i) => {
       const made = recreateFrom(reading);
       const at = fit.places[i]!;
       useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h });

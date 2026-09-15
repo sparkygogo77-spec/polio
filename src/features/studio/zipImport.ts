@@ -193,13 +193,21 @@ export interface Block {
   what: string;
   box: Box;
   words: string;
+  /**
+   * When the block is a run of small boxes read as one band: every one of
+   * them, in order, to be measured and merged. A page whose sections have
+   * no box of their own (floated children, a height that collapsed to
+   * nothing) lists its paragraphs as top-level boxes, and a paragraph a
+   * part each is not a page.
+   */
+  members?: string[];
 }
 
 const holds = (outer: Box, inner: Box): boolean =>
   inner.x >= outer.x - 1 && inner.y >= outer.y - 1 && inner.x + inner.w <= outer.x + outer.w + 1 && inner.y + inner.h <= outer.y + outer.h + 1;
 
 /** How many blocks may make up one page. Past this a page is a document, and a document is prose. */
-export const MAX_BLOCKS = 12;
+export const MAX_BLOCKS = 16;
 
 /**
  * The blocks that make up the page: the outermost ones, top to bottom.
@@ -212,21 +220,136 @@ export const MAX_BLOCKS = 12;
  * surface is the page here.
  */
 export function pageBlocks(candidates: readonly Block[]): Block[] {
-  let pool = candidates.filter((c) => c.box.w > 0 && c.box.h > 0);
-  for (let guard = 0; guard < 6; guard++) {
+  /*
+   * One box is one block. A real page lists the same box under several
+   * selectors (a `header`, the `div` that wraps it, the `h1` that fills
+   * it), and three parts landed on top of one another from three names
+   * for one thing. The first name for a box is kept, which is the outer
+   * one, since candidates come biggest first.
+   */
+  const same = (a: Box, b: Box) => Math.abs(a.x - b.x) <= 2 && Math.abs(a.y - b.y) <= 2 && Math.abs(a.w - b.w) <= 2 && Math.abs(a.h - b.h) <= 2;
+  let pool: Block[] = [];
+  for (const c of candidates) {
+    if (c.box.w <= 0 || c.box.h <= 0) continue;
+    if (!pool.some((p) => same(p.box, c.box))) pool.push(c);
+  }
+  /*
+   * Wrappers are opened. A block whose contents are bands stacked down it,
+   * one under the next and together most of its height, is not a band of
+   * the page but the column the bands are in: a `main` holding its
+   * sections came through as one band of every word on the page. It is
+   * replaced by what it holds, until no outermost block is such a column.
+   * A first screen holding words beside a picture is not one: those sit
+   * side by side, and it stays whole.
+   */
+  for (let guard = 0; guard < 8; guard++) {
     const outer = pool.filter((c) => !pool.some((o) => o !== c && holds(o.box, c.box) && (o.box.w * o.box.h > c.box.w * c.box.h)));
-    if (outer.length !== 1) return finish(outer);
-    // One outermost block holding others is the page's wrapper: open it.
-    const wrap = outer[0]!;
-    const inside = pool.filter((c) => c !== wrap && holds(wrap.box, c.box));
-    if (inside.length < 2) return finish(outer);
-    pool = inside;
+    const wrap = outer.find((c) => stacked(c.box, pool.filter((k) => k !== c && holds(c.box, k.box))));
+    if (!wrap) return finish(outer);
+    pool = pool.filter((c) => c !== wrap);
   }
   return finish(pool);
 }
 
+/** How tall a band of a page is, at least. A paragraph is not a band; a section is. */
+export const MIN_BAND = 120;
+
+/** Do these, the outermost of them, run down the box one under the next and fill most of it? */
+function stacked(box: Box, inside: readonly Block[]): boolean {
+  // The bands of a column are as wide as it, near enough, and tall enough
+  // to be sections: a sidebar down one side is not a band and does not
+  // stop it being a column, and a section is not opened into its
+  // paragraphs, which came out as twelve parts of one page.
+  const bands = inside
+    .filter((c) => c.box.w >= box.w * 0.6 && !inside.some((o) => o !== c && holds(o.box, c.box) && o.box.w * o.box.h > c.box.w * c.box.h))
+    .sort((a, b) => a.box.y - b.box.y);
+  // A column has at least two sections in it: things a person would name,
+  // a band or a screen, not boxes of words. A section of tall paragraphs
+  // is not a column, and a bar and a footer count toward a column's height
+  // but do not make it one.
+  if (bands.filter((c) => c.box.h >= MIN_BAND && c.what !== "a box on the page").length < 2) return false;
+  let covered = 0;
+  for (let i = 0; i < bands.length; i++) {
+    const b = bands[i]!.box;
+    covered += b.h;
+    if (i === 0) continue;
+    const p = bands[i - 1]!.box;
+    // One under the next: an overlap of a margin's worth, never half a band.
+    if (b.y < p.y + p.h - Math.max(24, Math.min(p.h, b.h) * 0.5)) return false;
+  }
+  return covered >= box.h * 0.5;
+}
+
 function finish(blocks: Block[]): Block[] {
-  return [...blocks].sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x).slice(0, MAX_BLOCKS);
+  /* A small box that spills out of a bigger block it mostly sits in, a
+     heading whose section's box ends above its foot, is that block's, and
+     the block's words already hold it. */
+  const kept = blocks.filter((b) => b.box.h >= MIN_BAND || !blocks.some((o) => o !== b && o.box.h > b.box.h && overlapY(o.box, b.box) >= b.box.h * 0.4 && b.box.x >= o.box.x - 2 && b.box.x + b.box.w <= o.box.x + o.box.w + 2));
+  return runs(kept.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x)).slice(0, MAX_BLOCKS);
+}
+
+const overlapY = (a: Box, b: Box): number => Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/** How far apart two small boxes may sit and still be one band. */
+const RUN_GAP = 60;
+
+/**
+ * Runs of small boxes down one column are one band.
+ *
+ * Small is under `MIN_BAND` tall; one column is the same left edge and
+ * near the same width; a run is one under the next with no more than a
+ * margin between. The band's box is the union, and it remembers its
+ * members so each can be measured and the readings merged into one part.
+ */
+function runs(sorted: Block[]): Block[] {
+  const out: Block[] = [];
+  for (const b of sorted) {
+    // The band this continues, if any: the one in its column whose foot it
+    // sits just under. Looked for rather than taken as the last emitted,
+    // because a sidebar beside the column sorts in between its paragraphs.
+    const i = b.box.h < MIN_BAND
+      ? out.findIndex((last) => (last.members ? true : last.box.h < MIN_BAND)
+        && Math.abs(b.box.x - last.box.x) <= 8 && Math.abs(b.box.w - last.box.w) <= Math.max(16, last.box.w * 0.1)
+        && b.box.y >= last.box.y + last.box.h - 4 && b.box.y <= last.box.y + last.box.h + RUN_GAP)
+      : -1;
+    if (i >= 0) {
+      const last = out[i]!;
+      const members = last.members ?? [last.selector];
+      const x = Math.min(last.box.x, b.box.x), y = last.box.y;
+      const w = Math.max(last.box.x + last.box.w, b.box.x + b.box.w) - x;
+      const h = b.box.y + b.box.h - y;
+      out[i] = { ...last, box: { x, y, w, h }, words: `${last.words} ${b.words}`.trim(), members: [...members, b.selector] };
+      continue;
+    }
+    out.push(b);
+  }
+  return out.sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
+}
+
+/** The selectors a block is measured by: itself, or every member of a run. */
+export const selectorsOf = (b: Block): string[] => b.members ?? [b.selector];
+
+/**
+ * Several readings as one: the run's boxes united, its words in order, its
+ * links, buttons and pictures gathered, the paint and type of the first.
+ * The children are the members, so the band's layout is a column of them.
+ */
+export function mergeReadings<R extends { box: Box; text: unknown[]; links: unknown[]; buttons: unknown[]; images: unknown[]; children: Box[]; layout: { flow: string; columns: number; gap: number } }>(readings: readonly R[]): R {
+  const first = readings[0]!;
+  if (readings.length === 1) return first;
+  const x = Math.min(...readings.map((r) => r.box.x)), y = Math.min(...readings.map((r) => r.box.y));
+  const w = Math.max(...readings.map((r) => r.box.x + r.box.w)) - x;
+  const h = Math.max(...readings.map((r) => r.box.y + r.box.h)) - y;
+  return {
+    ...first,
+    box: { x, y, w, h },
+    text: readings.flatMap((r) => r.text),
+    links: readings.flatMap((r) => r.links),
+    buttons: readings.flatMap((r) => r.buttons),
+    images: readings.flatMap((r) => r.images),
+    children: readings.map((r) => ({ x: r.box.x - x, y: r.box.y - y, w: r.box.w, h: r.box.h })),
+    layout: { flow: "column", columns: 1, gap: 0 },
+  };
 }
 
 /* ------------------------------------------------------------------ */
