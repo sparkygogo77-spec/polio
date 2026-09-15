@@ -2,14 +2,53 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T05:27:19.319Z";
+export const GENERATED_AT = "2026-09-15T05:30:00.340Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "1dff380",
-    "when": "2026-09-15T05:26:59+00:00",
+    "id": "4285285",
+    "when": "2026-09-15T05:29:59+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "703a3f0",
+        "says": "Three wheel slots: two that were duplicates, one that said soon",
+        "when": "2026-09-15T05:29:10+00:00",
+        "detail": [
+          "SCISSORS. \"Cut the background\" on the canvas menu and \"Strip\" on the page's wheel called the same function — `cutBackground()`, literally the one function, which takes the background bare and holds it for a paste. Two names for one thing is two places to learn and one to be surprised by. Cut goes. ⌘X still reaches it through the board's own key handling, and \"Put the background back\" still works, because the clipboard Strip fills is the one it reads.",
+          "THE THREE-DOT. It was never a menu of its own: `choicesOf` returned `tray.map(...)` — the tray's own items, verbatim, with the same handlers — and the tray is drawn under the wheel already. The page lost it a while back; the part kept it for no reason anybody could name. Motion and the pencil take a half of the inner band each now, as the page's already did. It was also making slivers: the three-way split measured 65, 65, 65 against an 80px floor, so removing it fixed something nobody had reported.",
+          "THE ANIMATION BUTTON. It opened one dead item — \"Motion asset (soon)\", which played a tap and did nothing — so a quadrant of the page's wheel said \"not yet\". The texture stack already knew how to move: `drift` carries a tile a whole number of tiles along its own angle per cycle, which is why the loop has no seam. Nothing drove it. Motion opens Glide now: one slider over the layers that are on the page, with nought meaning still, so there is no separate off beside a control whose zero already says it. A page with nothing painted on it says so rather than offering a dead slider.",
+          "Why that is safe to turn on, since it was held back once: euler measured the idle cost and the law is \"carry less translucent area, not less motion\" — a ground alone, however much of it moved, dropped no frames at all. A drift on the page's own texture is motion over area already painted, which is the cheap half of that finding. Their paint is untouched."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "807a0a9",
+    "when": "2026-09-15T05:29:42+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "807a0a9",
+        "says": "Regenerate the passes for what the taller pane costs",
+        "when": "2026-09-15T05:29:42+00:00",
+        "detail": [
+          "Euler's pass: what the taller pane costs, measured, with nothing changed by it. One new suite and no source at all — the answer is a number, and the number is nothing.",
+          "Run here, twelve boards:",
+          "as it was   ground 811x943    cloud 1.73MP   sparks 0.76MP   27% of the pane as it is    ground 811x1191   cloud 2.19MP   sparks 0.97MP   22% of the pane",
+          "943, ground on     54.0 /900ms   dropped 0% 1191, ground on    54.0 /900ms   dropped 0% 943, ground off    54.0 /900ms   dropped 0% 1191, ground off   54.0 /900ms   dropped 0%"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "1dff380",
         "says": "What the taller pane costs, measured, with nothing changed by it",
@@ -799,41 +838,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d67adae",
-    "when": "2026-09-14T20:03:56+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "d67adae",
-        "says": "create-flow watches the surface form instead of guessing when to look",
-        "when": "2026-09-14T20:03:56+00:00",
-        "detail": [
-          "It read `data-space-form` once, 300ms after Generate, and wanted it below 1. Formation does start below 1 — QUEUED is 0.04, a hair of vine, because the thing has begun and nothing has landed — but with the models stubbed both parts land in well under 300ms, so by the time it looked the surface had finished and the one sample read 1. A single sample at a guessed delay is a race with the work it is measuring, and the work got faster.",
-          "The attribute is recorded from the moment of the press now, through a mutation observer, and the lowest value it ever showed is what is asked about. That holds however fast what is behind it finishes, and it prints the whole climb, so the line now reads \"form went 0.25 → 0.75 → 1\" rather than a single number with no story in it. 23 of 23.",
-          "pan-weather's \"the embers burned through the pan\" failed in the same sweep and is not in this commit: it passes 10/10 on its own. That is the second time that suite has gone red only under battery load — it measures motion over a fixed wall-clock window while eighty-odd other browsers are waiting their turn. Worth making it robust rather than re-running it, and worth saying now rather than after the third time."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "e191499",
-        "says": "Regenerate the passes for the six-pass sweep",
-        "when": "2026-09-14T19:22:19+00:00",
-        "detail": [
-          "Six passes, dijkstra's carried inside euler's tip: thirty things alight rather than one machine, so a construct takes its own share; the second voice reads, with the font on a box standing off its own face; a box saying which one it is rather than what o'clock it was; the light on a hole as an aura painted once, with one space open at a time; erase deleting a space; and the green card as the preview the Builds page shows, from one definition.",
-          "Three new suites came with it: not-one-machine, space-one-open and space-speed."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
