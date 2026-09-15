@@ -2,9 +2,47 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:19:13.398Z";
+export const GENERATED_AT = "2026-09-15T08:19:43.970Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "981e19b",
+    "when": "2026-09-15T08:19:43+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "68beea4",
+        "says": "The morning run of the live read, pictured: 67 of 67",
+        "when": "2026-09-15T07:42:29+00:00",
+        "detail": [
+          "The three shots the panel and the board give on the pushed tree, from the re-run that answers the morning report."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "fc4ebf7",
+        "says": "The live read holds a page written this year: any colour, any status, the whole picture",
+        "when": "2026-09-15T07:36:28+00:00",
+        "detail": [
+          "The inventory's rows for the recreate session (C20 to C25, D32) and what looking at the parts drawn showed, each held by number in tests/site-read.mjs (56 of 56) and tests/site-live.mjs (67 of 67).",
+          "Chrome reports a colour as written when it was written in a newer syntax, so oklch(0.3 0.1 250) missed the rgba?( regex and every such paint was dropped. Every colour is painted onto one canvas pixel and read back as the rgb the browser paints: the fixture's oklch band reads rgb(0, 46, 93) under rgb(238, 238, 238). A line height of normal read as nought; it is the browser's own, 24px on 20px type. An inline svg was not a picture; it counts, carried as its own markup under 40k characters, 120×80 on the fixture. The page's height was the body's scroll height, 900 for a site that scrolls an inner container; it is the document's or the lowest thing on it.",
+          "The status was never checked, so a 404's own error page was listed as things to point at; 400 and up is refused with the number: \"That page answered 404, so there is no page at that address.\" The read settled a fixed 900ms after load; it waits for the page's requests to go quiet, up to four seconds. The picture shown was the first 900px while the candidates came from all of it; it is the whole page, 1280×3077 for playwright.dev, in a box that scrolls. The element picture's cut of 2000px and the measure call's cap of 40 selectors are 4000 and 120.",
+          "A listed thing's caption was textContent, \"PlaywrightDocsMCPCLIAPI\"; its text nodes are joined with a space. A link painted as a box read as no button, so the first screen carried none; a link that paints its own background, a gradient included, and pads its words is a button, and the first screen carries \"button: Get started\". A card grid carried titles and the part drew a filler sentence under each; each title carries the run after it as \"title: sentence\", and the card draws \"Full-featured test runner with auto-waiting…\"."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "f339736",
     "when": "2026-09-15T08:19:07+00:00",
@@ -1116,30 +1154,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "ffc74eb",
-    "when": "2026-09-15T04:12:51+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "6326180",
-        "says": "Thirty boards: the vine sheet was the wrong suspect, and three ways at it lost",
-        "when": "2026-09-15T04:12:01+00:00",
-        "detail": [
-          "Taken the same way as the cards, and the answer is that the biggest painted thing on a thirty-board screen is not what anyone thought.",
-          "THE SHEET IS NOT THE PAYER. The canvas the ropes are drawn on is 95% empty — 5.3% of its pixels have ink, 18% of its 32px tiles have any — and it does pay for all of it, so it looked like the lever. It is worth four to seven frames at thirty boards. The payer is the vines' own *cloud*, the nebula laid over each rope, which is worth thirteen: taking it away is 63% of frames dropped to 42%, which is more than every card on the screen put together. Each light is the size of the whole gap between two boards plus a period for its slide, and it is clipped to a diagonal rope covering a twentieth of that.",
-          "THREE WAYS AT IT LOST, and they are worth writing down because each one looks obviously right:",
-          "Clipping the sheet to the tiles that have ink on them, as a `path()` of 127 rectangles: nothing at all, 15.5 frames against 15.8. A complex clip is rasterised as a mask, and a masked pixel is still a pixel the compositor multiplies. Only a rectangular inset culls — which is exactly why the cards' band works and this does not."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
