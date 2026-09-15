@@ -24,7 +24,7 @@ import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
-import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
+import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
 import { targetFor, writeBody, type Attempt } from "./bodyRun";
@@ -957,8 +957,11 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
     ? { w: job.drawn.w, h: job.drawn.h }
     : { w: (b?.box.w ?? 0.3) * frameWidth, h: ((b?.box.w ?? 0.3) * frameWidth) / (b?.aspect ?? 1) };
   const grow = Math.max(1, 80 / Math.max(1, raw.w), 24 / Math.max(1, raw.h));
-  const w = clamp(Math.round(raw.w * grow), 80, frameWidth);
-  const h = shape === "circle" ? w : clamp(Math.round(raw.h * grow), 24, 1600);
+  // And one taller than the ceiling is brought under it the same way, both
+  // sides by one factor, so a tall column stays the column it was drawn.
+  const tall = raw.h * grow > PART_MAX_H ? PART_MAX_H / (raw.h * grow) : 1;
+  const w = clamp(Math.round(raw.w * grow * tall), 80, frameWidth);
+  const h = shape === "circle" ? w : clamp(Math.round(raw.h * grow * tall), 24, PART_MAX_H);
   const label = nameFrom(drawn.words) || "Drawn part";
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
   const id = s.addNode("custom-idea", Math.round(clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w))), Math.round(Math.max(0, where.y - h / 2)), {

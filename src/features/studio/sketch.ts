@@ -520,6 +520,9 @@ export function describeSketch(sketch: Sketch): string {
   return parts.join("; ");
 }
 
+/** The tallest a part is let be, in board pixels. One number; `reshape.ts` and `reshapeRun.ts` read it. */
+export const PART_MAX_H = 1600;
+
 /**
  * A size in the boundary's proportion, keeping the part's area.
  *
@@ -537,7 +540,14 @@ export function fitToSketch(sketch: Sketch, w: number, h: number, frameWidth: nu
     nw = frameWidth;
     nh = nw / b.aspect;
   }
-  return { w: Math.round(Math.max(40, nw)), h: Math.round(Math.max(24, Math.min(1600, nh))) };
+  // Past the ceiling the part is scaled to it on both sides: holding the
+  // height alone kept the width and made a tall column shorter and fatter
+  // than it was drawn.
+  if (nh > PART_MAX_H) {
+    nw = nw * (PART_MAX_H / nh);
+    nh = PART_MAX_H;
+  }
+  return { w: Math.round(Math.max(40, nw)), h: Math.round(Math.max(24, nh)) };
 }
 
 /**
