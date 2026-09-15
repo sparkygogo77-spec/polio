@@ -32,7 +32,7 @@ import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
 import {
-  activePage, frameHeight, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
+  activePage, frameHeight, frameTopReach, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
 } from "./store";
 import { cn } from "@/core/lib/cn";
@@ -210,7 +210,37 @@ export function Canvas() {
    * worked: the root's height is the site's rendered height plus a gutter,
    * and the pane's scrollHeight is that plus the shelf.
    */
-  const boardH = Math.round(pageH * zoom) + FRAME_GUTTER;
+  /*
+   * Room above the page for anything drawn up there.
+   *
+   * Almost always zero. The page keeps its origin — y=0 is the site's top
+   * and moving it would renumber the document — so when somebody draws
+   * above the page the *board* grows to hold it instead. Without this a
+   * stroke at y -520 sat 265px above the board's own top: uncut, since the
+   * page stopped clipping, and still unreachable, because a scroller only
+   * ever travels down. Sideways needs none of this: the board pans across,
+   * so a thing off the left is a pan away rather than lost.
+   */
+  const above = Math.round(frameTopReach({ shapes, spaces }) * zoom);
+  const boardH = Math.round(pageH * zoom) + FRAME_GUTTER + above;
+
+  /*
+   * Growing the surface upward must not move what you are looking at.
+   *
+   * `above` changes the moment a stroke crosses the page's top edge, and
+   * everything below it shifts down by that much. Left alone, the page
+   * jumps out from under the hand mid-stroke. The pane is scrolled by the
+   * same amount in the same frame, so the ground appears where it was and
+   * only the room above it is new.
+   */
+  const grown = React.useRef(above);
+  React.useLayoutEffect(() => {
+    const step = above - grown.current;
+    grown.current = above;
+    if (!step) return;
+    const pane = ref.current?.closest("[data-studio-pane]");
+    if (pane instanceof HTMLElement) pane.scrollTop += step;
+  }, [above]);
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
 
@@ -246,9 +276,9 @@ export function Canvas() {
       if (!rect) return { x: 0, y: 0 };
       /* `rect` is the board's own box in the window, so the pane's scroll is
          already in it: there is nothing to add for how far down we are. */
-      return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - TOP_GUTTER) / zoom };
+      return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - TOP_GUTTER - above) / zoom };
     },
-    [pan.x, zoom],
+    [pan.x, zoom, above],
   );
 
   /* ---------------------------------------------------- fit the frame
@@ -854,19 +884,39 @@ export function Canvas() {
         surface is transparent over it.
       */}
 
-      {/* Across on the pan, down on the gutter: the pane owns down. */}
-      <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER}px) scale(${zoom})` }}>
+      {/* Across on the pan, down on the gutter plus whatever room the ground
+          above the page needs: the pane owns down. */}
+      <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER + above}px) scale(${zoom})` }}>
         {/*
-          The window on the site.
+          The page's box, which no longer clips to itself.
 
-          Everything inside it is clipped to one screen, and the site itself
-          slides behind that edge as the wheel is turned. The frame used to be
-          the whole page laid out flat, which grew downwards for ever and put
-          the foot of a long site somewhere below the workspace's own horizon.
+          It was a window: `overflow-hidden`, and everything outside the
+          page's own rectangle thrown away. That was right while the frame
+          was one screen of a site sliding behind its edge, and it is wrong
+          now — the page is the whole site and the space round it is scratch,
+          which the board has always said it is. Anything drawn out there
+          belongs to the person and has to be visible.
+
+          The fault it leaves is at the top and the left rather than the
+          bottom and the right, and that asymmetry is exactly why it went
+          unnoticed. `frameHeight` grows the page downward, so ink below the
+          last part pushes the box out to meet it. Nothing grows it upward,
+          because the page's origin is the site's top and moving it would
+          renumber every coordinate in the document — so a stroke at y -34
+          simply fell outside, and `scrollHeight`, which only ever measures
+          overflow below and to the right, could not see that it had. It
+          measured 900 against 900 while 28px of a drawn line sat above the
+          edge, unreachable by any gesture.
+
+          So the page keeps its origin and stops clipping. What is outside
+          it shows on the ground where it was drawn, on all four sides.
+          `tests/board-edges.mjs` reads the drawn things themselves rather
+          than a scroll height, because two of the four sides cannot be
+          measured that way at all.
         */}
         <div
           data-page-window=""
-          className="absolute left-0 top-0 overflow-hidden rounded-[3px]"
+          className="absolute left-0 top-0 rounded-[3px]"
           style={{ width: frameWidth, height: frameH }}
         >
         {/* ---------- the page frame: this is the website ---------- */}

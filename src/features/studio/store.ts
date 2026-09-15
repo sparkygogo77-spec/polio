@@ -373,6 +373,36 @@ export function frameHeight(
   return Math.max(min, bottom + 160);
 }
 
+/**
+ * How far the highest thing on the page reaches ABOVE its origin.
+ *
+ * Zero almost always, because y=0 is the site's top and that is where
+ * things are put. It is not zero when somebody draws above the page, which
+ * is an ordinary thing to do on a surface whose space outside the frame is
+ * scratch — and the page must not grow to meet it, because moving the
+ * origin would renumber every coordinate in the document. The *board*
+ * grows instead: this is how much room it needs above the page, so what is
+ * drawn up there is on the surface rather than off the top of it.
+ *
+ * Parts are not counted. A part above the origin is a part with a negative
+ * position in the site's own coordinates, which is a different problem and
+ * not one a drawing surface should paper over. Ink and drawn spaces are
+ * scratch by nature and are.
+ */
+export function frameTopReach(
+  also: { shapes?: StudioShape[]; spaces?: Space[] } = {},
+  margin = 160,
+): number {
+  let top = 0;
+  for (const sh of also.shapes ?? []) {
+    for (const [, y] of sh.points) top = Math.min(top, y);
+  }
+  for (const sp of also.spaces ?? []) {
+    for (const [, y] of sp.boundary) top = Math.min(top, y);
+  }
+  return top < 0 ? Math.round(-top) + margin : 0;
+}
+
 /** Page widths the frame can take. Positions are absolute; the frame just shows what fits. */
 export const FRAME_WIDTHS = { desktop: 1440, tablet: 834, phone: 390 } as const;
 export type FrameKind = keyof typeof FRAME_WIDTHS;

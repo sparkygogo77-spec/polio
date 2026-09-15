@@ -759,6 +759,24 @@ a kicker with a rule, and label-and-value rows that copy.
   mechanism, so one gesture runs from the head of the site, through all of
   it, and on into the categories. `Canvas` handles only ctrl-zoom and
   sideways pan.
+  **The page keeps its origin and stops clipping; the board grows to hold
+  what is outside it.** y=0 is the site's top: the page grows *downward* to
+  meet what is drawn (`frameHeight`) and never upward, because moving the
+  origin would renumber every coordinate in the document. `data-page-window`
+  therefore has no `overflow` of its own — anything drawn outside the page
+  shows on the ground where it was drawn, on all four sides. Upward the
+  *board* makes the room (`frameTopReach`, ink and spaces only, not parts),
+  and the pane's `scrollTop` is nudged by the same amount in the same frame
+  so the ground does not jump out from under the hand mid-stroke. Sideways
+  needs none of that: the board pans across, so a thing off the left is a
+  pan away rather than lost.
+  **Do not check this with `scrollHeight`.** It measures overflow below and
+  to the right only, so two of the four sides are invisible to it — a box
+  with content above reports `scrollHeight` equal to `clientHeight`, and
+  that is how 28px of a drawn line sat above the page's edge with every
+  check green. `tests/board-edges.mjs` compares the drawn thing's own
+  rectangle against each clipping ancestor instead, which sees all four.
+
   **`frameHeight` counts everything the page draws, not only its parts.**
   The window the page stands in is sized from it, so anything it does not
   count is rendered behind an edge no gesture can pass: one pen stroke a
