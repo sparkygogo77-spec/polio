@@ -466,6 +466,8 @@ export interface Landed {
   id: string;
   sure: number;
   wantsPicture: boolean;
+  /** The family the page named, and whether it drew where the page was read. */
+  face?: { name: string; drew: boolean } | null;
 }
 
 /** How sure a match had to be for the catalogue to claim it. Held to `recreate.ts` by the test. */
@@ -505,6 +507,14 @@ export function saidOf(landed: readonly Landed[], from: string, scriptsDropped =
   if (less) bits.push(`${less} arrived as a band of words: the words and the paint are real, the shape is not its own.`);
   const pictures = landed.filter((l) => l.wantsPicture).length;
   if (pictures) bits.push(`${pictures} hold${pictures === 1 ? "s" : ""} a picture that stays a placeholder: a landed part has no picture of its own to show, and the grounded step runs on drawings only.`);
+  // A web font the page loads from the network comes on neither door. The
+  // name travels with the part; what shows is the nearest face this
+  // machine has until the real one is on it.
+  const missing = landed.filter((l) => l.face && !l.face.drew);
+  if (missing.length) {
+    const names = [...new Set(missing.map((l) => l.face!.name))];
+    bits.push(`${missing.length} ${missing.length === 1 ? "is" : "are"} set in a face that did not travel with the page (${names.slice(0, 3).join(", ")}${names.length > 3 ? ", and more" : ""}): the name is on the part, and it shows in the nearest face this machine has.`);
+  }
   if (scriptsDropped) bits.push("The page brought scripts, which were not run: whatever they would have drawn is not here.");
   return bits.join(" ");
 }
