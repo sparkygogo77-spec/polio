@@ -27,7 +27,11 @@
  *   node tests/cube.mjs [url]      # default http://localhost:3000
  */
 import { createRequire } from "node:module";
-import { corners, isCube, kindOfSketch } from "../src/features/studio/shapeKind.ts";
+import { corners, isBox, isCube, kindOfSketch } from "../src/features/studio/shapeKind.ts";
+import { REST } from "../src/features/studio/parts/cubeFaces.ts";
+
+/** A pose the cube rests at: the three-quarter yaw a quarter turn at a time, and one of the three rest pitches. */
+const atRest = (x, y) => [REST.x - 54, REST.x, REST.x + 90].includes(x) && ((((y - REST.y) % 90) + 90) % 90) === 0;
 import { faceItems, faceOf, facesFrom, saysCube } from "../src/features/studio/parts/cubeFaces.ts";
 import { scaffold } from "../src/features/studio/scaffold.ts";
 
@@ -77,7 +81,9 @@ const HEX = (() => {
 
 check("three quadrilaterals meeting at a corner are a cube", isCube({ strokes: ISO, words: "" }), "");
 check("a hexagon with a Y in it is a cube", isCube({ strokes: HEX, words: "" }), "");
-check("a plain rectangle is not, on its own", !isCube({ strokes: [RECT], words: "the offer" }));
+check("a plain rectangle is not a cube by the isometric rule", !isCube({ strokes: [RECT], words: "the offer" }));
+check("but a box on its own, with nothing said, is a box, off its four corners", isBox({ strokes: [RECT], words: "" }) && kindOfSketch({ strokes: [RECT], words: "" }).kind === "cube", kindOfSketch({ strokes: [RECT], words: "" }).why);
+check("a box that stands on something, or holds something, is not", kindOfSketch({ strokes: [RECT], words: "" }, "", false).kind === "surface");
 check("a plain rectangle is, when the words say cube", isCube({ strokes: [RECT], words: "make this a cube" }));
 check("or when the element's own prompt does", isCube({ strokes: [RECT], words: "" }, "a rotating box of our three pillars"));
 check("and the kind that comes out is cube", kindOfSketch({ strokes: ISO, words: "" }).kind === "cube", kindOfSketch({ strokes: ISO, words: "" }).kind);
@@ -196,7 +202,7 @@ for (let i = 0; i < 40; i++) {
 }
 check("the drawing becomes a cube part", !!node && node.featureId === "cube-3d", node ? `${node.featureId} ${node.w}×${node.h}` : "nothing");
 check("marked as a cube on the node", node?.kind === "cube", node?.kind ?? "-");
-check("it is square, because a cube is", node && node.w === node.h, node ? `${node.w}×${node.h}` : "-");
+check("it keeps the proportion it was drawn at, the isometric box being about square", node && Math.abs(node.w / node.h - 1) < 0.35, node ? `${node.w}×${node.h}` : "-");
 check("no clip is left on it: a solid that turns cannot live in a still silhouette", !node?.outline);
 check("no body was written or traced for it", !node?.code);
 check("no model was called anywhere on this path, not even to read the drawing", asked.length === 0, asked.join(" ") || "none");
@@ -207,7 +213,7 @@ check("the pillars are on the first three, in order", ["Speed", "Proof", "Reach"
 check("the cube is on the board", (await page.locator("[data-cube]").count()) === 1);
 {
   const still = await page.locator("[data-cube]").first().getAttribute("data-cube-turn");
-  check("and the board draws it at the angle it is standing at", still === "-18,-32", still ?? "-");
+  check("and the board draws it at the angle it is standing at", still === `${REST.x},${REST.y}`, still ?? "-");
 }
 
 /*
@@ -235,7 +241,7 @@ check("dragging turns it", (await turnOf()) !== before, `${before} → ${await t
 await page.waitForTimeout(2200);
 {
   const [x, y] = (await turnOf()).split(",").map(Number);
-  check("and it settles on a face rather than at an angle", x % 90 === 0 && y % 90 === 0, `${x},${y}`);
+  check("and it comes to rest at a three-quarter view, never flat and never upside down", atRest(x, y) && Math.abs(x) <= 85, `${x},${y}`);
 }
 {
   const seen = new Set();
@@ -249,6 +255,10 @@ await page.waitForTimeout(2200);
   await page.keyboard.press("ArrowUp");
   await page.waitForTimeout(800);
   check("and up to the top", (await cube.getAttribute("data-cube-face")) === "top", await cube.getAttribute("data-cube-face"));
+  {
+    const [tx] = (await turnOf()).split(",").map(Number);
+    check("looking down on the top is a tilt within the limit, not a flip", tx === REST.x - 54 && Math.abs(tx) <= 85, String(tx));
+  }
 }
 
 /* Back to the board to edit it. */
@@ -286,7 +296,7 @@ await page.waitForTimeout(500);
 check("a face can take a colour from the palette", (await read())?.faces?.[1]?.colour === "accent", (await read())?.faces?.[1]?.colour ?? "-");
 {
   const left = (await read())?.turn;
-  check("where it was left standing is written on the node", !!left && left.x % 90 === 0 && left.y % 90 === 0, JSON.stringify(left));
+  check("where it was left standing is written on the node, at a rest pose", !!left && atRest(left.x, left.y), JSON.stringify(left));
 }
 
 /* It survives a reload. */
@@ -381,7 +391,7 @@ check("it is a part, not a cutout", !boxed?.outline && !boxed?.code);
   const now = await c.getAttribute("data-cube-turn");
   check("and it turns with the mouse, on the board, there and then", now !== was, `${was} → ${now}`);
   const [x, y] = now.split(",").map(Number);
-  check("settling on a face", x % 90 === 0 && y % 90 === 0, now);
+  check("coming to rest at a three-quarter view", atRest(x, y), now);
   check("with the words still on it", (await c.innerText()).includes("Speed"), (await c.innerText()).replace(/\s+/g, " ").slice(0, 50));
 }
 

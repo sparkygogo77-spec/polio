@@ -277,8 +277,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
      * the drawing go up to be read and, failing that, traced. The fall
      * through is still there; it is no longer the only road.
      */
-    const drawnRole = kindOfSketch(drawn, node?.prompt ?? "");
-    const ctx = { sketch: drawn, prompt: node?.prompt ?? "", node };
+    const lone = loneDrawing(node, job);
+    const drawnRole = kindOfSketch(drawn, node?.prompt ?? "", lone);
+    const ctx = { sketch: drawn, prompt: node?.prompt ?? "", node, lone };
     const picked = pickCoded(ctx);
     /*
      * What it nearly was, said out loud.
@@ -294,7 +295,9 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     if (picked) {
       deps.onStep?.(`Reading the shape: ${picked.part.id}…`);
       const made = applyProportion(drawn, node, job);
-      const { patch, did } = picked.part.configure(ctx);
+      // Configured from the part as it now stands: the size the drawing
+      // gave it, not the size it had before the drawing.
+      const { patch, did } = picked.part.configure({ ...ctx, node: useStudio.getState().nodes.find((n) => n.id === made.id) ?? node });
       useStudio.getState().updateNode(made.id, patch);
       const label = patch.featureId ? getFeature(patch.featureId)?.name ?? made.label : made.label;
       useStudio.getState().landThread({
@@ -876,6 +879,31 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
 }
 
 /** No reader: the drawing's proportion is the reshape, and the drawing is kept. */
+/**
+ * Does this drawing stand on its own?
+ *
+ * A box is a cube only when it is nothing else first: not the frame round
+ * three cards, not the new edge of a hero. So the board is asked what is
+ * inside the drawing's box, and what it was drawn on. A blank idea part
+ * (dropped to be drawn on, with nothing typed in it) counts as nothing;
+ * any real part, or any part inside the box, means the box is about them.
+ */
+function loneDrawing(node: StudioNode | null, job: DrawJob): boolean {
+  const s = useStudio.getState();
+  if (node && (node.featureId !== "custom-idea" || node.content.trim())) return false;
+  const box = node
+    ? { x: node.x, y: node.y, w: node.w, h: node.h }
+    : job.at && job.drawn
+      ? { x: job.at.x - job.drawn.w / 2, y: job.at.y - job.drawn.h / 2, w: job.drawn.w, h: job.drawn.h }
+      : null;
+  if (!box) return true;
+  const pageId = node?.pageId ?? s.activePageId;
+  const inside = s.nodes.some((n) =>
+    n.id !== node?.id && n.pageId === pageId &&
+    n.x + n.w / 2 >= box.x && n.x + n.w / 2 <= box.x + box.w && n.y + n.h / 2 >= box.y && n.y + n.h / 2 <= box.y + box.h);
+  return !inside;
+}
+
 function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
   const s = useStudio.getState();
   const { frameWidth } = job;

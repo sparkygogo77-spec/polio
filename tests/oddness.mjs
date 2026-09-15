@@ -30,8 +30,13 @@ const wiggle = [[0.1, 0.5], [0.3, 0.2], [0.5, 0.8], [0.7, 0.3], [0.9, 0.6]];
 /* 1. What is asked, and what is not                                   */
 /* ------------------------------------------------------------------ */
 
-check("a box with nothing said beside it is asked whether it is a cube", oddness({ strokes: [box], words: "" })?.why === "cube");
-check("…and the first answer offered is the cube", oddness({ strokes: [box], words: "" })?.choices[0] === "A cube");
+/*
+ * A box with nothing said beside it used to be asked whether it was a
+ * cube. It is not asked any more: the catalogue claims a box on its own
+ * off its four corners (`isBox`), so the question would be about a thing
+ * already decided.
+ */
+check("a box with nothing said beside it is not asked: it is a box, and a box is a cube", oddness({ strokes: [box], words: "" }) === null);
 check("a box already called a cube is not asked", oddness({ strokes: [box], words: "cube" }) === null);
 check("a box drawn on a part whose prompt says cube is not asked", oddness({ strokes: [box], words: "" }, "a cube of photos") === null);
 /*
@@ -66,7 +71,7 @@ check("…beside what was already said, not instead of it", withAnswer({ strokes
 check("\"Just a mark\" and \"A flat box\" say nothing new", withAnswer({ strokes: [box], words: "x" }, "A flat box").words === "x" && withAnswer({ strokes: [box], words: "x" }, "Just a mark").words === "x");
 check("a blank answer is the person waving it on", withAnswer({ strokes: [box], words: "x" }, "").words === "x");
 check("every choice offered has a meaning", (() => {
-  const all = [...oddness({ strokes: [box], words: "" }).choices, ...oddness({ strokes: [scribble, wiggle], words: "" }).choices];
+  const all = [...["A cube", "A flat box"], ...oddness({ strokes: [scribble, wiggle], words: "" }).choices];
   return all.every((c) => c in ANSWER_WORDS);
 })());
 check("once answered, the box is claimed by the catalogue and asked nothing more", oddness(withAnswer({ strokes: [box], words: "" }, "A cube")) === null);
@@ -83,17 +88,19 @@ check("once answered, the box is claimed by the catalogue and asked nothing more
  * it, so the question is asked again of what is true now.
  */
 const bareBox = { strokes: [box], words: "" };
-const cubeQ = oddness(bareBox);
-check("a question stands while nothing has been said", stillAsks(cubeQ, bareBox, ""));
-check("…and is withdrawn the moment the part is described", !stillAsks(cubeQ, bareBox, "the pricing table"));
-check("…however it is described: a word on the drawing does it too", !stillAsks(cubeQ, { ...bareBox, words: "a shelf" }, ""));
+const bareMark = { strokes: [scribble, wiggle], words: "" };
+const kindQ = oddness(bareMark);
+check("a question stands while nothing has been said", stillAsks(kindQ, bareMark, ""));
+check("…and is withdrawn the moment the part is described", !stillAsks(kindQ, bareMark, "the pricing table"));
+check("…however it is described: a word on the drawing does it too", !stillAsks(kindQ, { ...bareMark, words: "a shelf" }, ""));
+check("a cube question from before, on a bare box, no longer stands: the box is decided", !stillAsks({ why: "cube" }, bareBox, ""));
 const markQ = oddness({ strokes: [scribble, wiggle], words: "" });
 check("the same holds for the other question", stillAsks(markQ, { strokes: [scribble, wiggle], words: "" }, "")
   && !stillAsks(markQ, { strokes: [scribble, wiggle], words: "" }, "a gull, as an icon"));
 check("a question of one kind does not stand for an answer to another",
-  !stillAsks({ why: "kind" }, bareBox, "") && stillAsks({ why: "cube" }, bareBox, ""));
+  !stillAsks({ why: "cube" }, bareMark, "") && stillAsks({ why: "kind" }, bareMark, ""));
 check("one carried from before the kind was written down is judged on the drawing alone",
-  stillAsks({ ask: "Is this box a cube?", choices: [] }, bareBox, ""));
+  stillAsks({ ask: "What is this drawing meant to be?", choices: [] }, bareMark, "") && !stillAsks({ ask: "Is this box a cube?", choices: [] }, bareBox, ""));
 check("nothing asked, nothing standing", !stillAsks(null, bareBox, "") && !stillAsks(undefined, bareBox, ""));
 /*
  * And the answer goes with it. The run folds an answer in as words only
@@ -101,12 +108,12 @@ check("nothing asked, nothing standing", !stillAsks(null, bareBox, "") && !still
  * person actually typed, whatever they answered earlier.
  */
 check("an answer to a question that no longer stands is not folded in", (() => {
-  const held = stillAsks(cubeQ, bareBox, "the pricing table") ? "A cube" : undefined;
-  return withAnswer(bareBox, held).words === "";
+  const held = stillAsks(kindQ, bareMark, "the pricing table") ? "An icon" : undefined;
+  return withAnswer(bareMark, held).words === "";
 })());
 check("…and one to a question that does stand is", (() => {
-  const held = stillAsks(cubeQ, bareBox, "") ? "A cube" : undefined;
-  return withAnswer(bareBox, held).words === "cube";
+  const held = stillAsks(kindQ, bareMark, "") ? "An icon" : undefined;
+  return withAnswer(bareMark, held).words === "icon";
 })());
 
 /* ------------------------------------------------------------------ */
@@ -180,7 +187,9 @@ if (live) {
   await page.goto(`${url}/builder`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1200);
 
-  // A part, and a bare box drawn on it: the one drawing that gets asked about.
+  // A part, and a bare scribble drawn on it: the one drawing that gets
+  // asked about. A bare box is not asked about any more: it is a box, and a
+  // box on its own is the cube, decided off its four corners.
   await page.keyboard.press("Control+k");
   await page.waitForTimeout(400);
   await page.keyboard.type("drop a new idea");
@@ -194,19 +203,24 @@ if (live) {
   await page.waitForTimeout(1300);
   const on = await page.locator("[data-draw-board]").boundingBox();
   const seg = (p0, p1, n = 10) => Array.from({ length: n }, (_, i) => [p0[0] + (p1[0] - p0[0]) * (i + 1) / n, p0[1] + (p1[1] - p0[1]) * (i + 1) / n]);
-  const SQUARE = [[0.25, 0.25], ...seg([0.25, 0.25], [0.75, 0.25]), ...seg([0.75, 0.25], [0.75, 0.75]), ...seg([0.75, 0.75], [0.25, 0.75]), ...seg([0.25, 0.75], [0.25, 0.25])];
-  await page.mouse.move(on.x + SQUARE[0][0] * on.width, on.y + SQUARE[0][1] * on.height);
-  await page.mouse.down();
-  for (const [x, y] of SQUARE) { await page.mouse.move(on.x + x * on.width, on.y + y * on.height); await page.waitForTimeout(4); }
-  await page.mouse.up();
-  await page.waitForTimeout(200);
+  const SCRIBBLES = [
+    [[0.15, 0.3], ...seg([0.15, 0.3], [0.35, 0.75]), ...seg([0.35, 0.75], [0.5, 0.2]), ...seg([0.5, 0.2], [0.7, 0.8]), ...seg([0.7, 0.8], [0.85, 0.35])],
+    [[0.15, 0.55], ...seg([0.15, 0.55], [0.35, 0.25]), ...seg([0.35, 0.25], [0.55, 0.7]), ...seg([0.55, 0.7], [0.8, 0.3]), ...seg([0.8, 0.3], [0.85, 0.6])],
+  ];
+  for (const stroke of SCRIBBLES) {
+    await page.mouse.move(on.x + stroke[0][0] * on.width, on.y + stroke[0][1] * on.height);
+    await page.mouse.down();
+    for (const [x, y] of stroke) { await page.mouse.move(on.x + x * on.width, on.y + y * on.height); await page.waitForTimeout(4); }
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+  }
   // Nothing typed beside it — that is the whole point — but Make real is
   // the words field's own Enter, so the focus has to be there.
   await page.locator("[data-draw-words]").fill("");
   await page.keyboard.press("Enter");
 
   await page.locator("[data-queue-question]").first().waitFor({ timeout: 15000 }).catch(() => {});
-  check("a bare box drawn on a part is asked about", (await page.locator("[data-queue-question]").count()) === 1);
+  check("a bare scribble drawn on a part is asked about", (await page.locator("[data-queue-question]").count()) === 1);
   const asked = await page.evaluate(() => (window.__studioQueue?.() ?? []).map((j) => ({ status: j.status })));
   check("…and the job waits on the person rather than on the queue", asked.some((j) => j.status === "asking"), JSON.stringify(asked));
   /*

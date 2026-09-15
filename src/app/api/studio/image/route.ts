@@ -120,6 +120,13 @@ interface Body {
   stage?: number;
   /** What stage one produced, as a picture: PNG, base64, no data-URL head. */
   first?: string;
+  /**
+   * More views of the same thing, for a model that takes them: the back,
+   * the left and the right, in the order the model names its fields. A
+   * cube's own faces are exactly these, so a box becomes a solid from the
+   * words on its sides. PNG, base64, no data-URL head, each.
+   */
+  views?: string[];
   /** What the part is for, which is what decides whether it needs a transparent ground. */
   role?: string | null;
   /**
@@ -381,8 +388,9 @@ async function refine(body: Body, token: string) {
   const asUri = (b: string) => `data:image/png;base64,${b}`;
   // A solid is handed the drawing alone: no pair, no house style, nothing
   // describing the line. Everything else gets the ordered list.
+  const views = Array.isArray(body.views) ? body.views.map((v) => picture(v)).filter((v): v is string => !!v).slice(0, 3) : [];
   const images = pick.returns === "mesh"
-    ? [asUri(first)]
+    ? [asUri(first), ...views.map(asUri)]
     : [...(pair ? [asUri(before!), asUri(after!)] : []), asUri(first)];
   // Asked of the model when it has the field; otherwise the ground comes
   // off afterwards, which is what `cutAfter` means.

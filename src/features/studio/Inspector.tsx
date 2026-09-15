@@ -7,7 +7,7 @@
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  AlignCenter, AlignLeft, AlignRight, Brush, ClipboardPaste, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Paintbrush, Palette as PaletteIcon, Play,
+  AlignCenter, AlignLeft, AlignRight, Box, Brush, ClipboardPaste, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Paintbrush, Palette as PaletteIcon, Play,
   Scissors, SlidersHorizontal, Sparkles, SunDim, Trash2, Type, Unlock, Wand2,
 } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
@@ -18,6 +18,9 @@ import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes
 import { ColourOverride } from "./ColourOverride";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
+import { makeSolid, showCube, showSolid, solidModel } from "./solidRun";
+import { rendererReady } from "./agent";
+import { useKeys } from "@/features/keys/store";
 import { ROLE_MEANS, ROLES, simplify, weigh, type VectorRole } from "./vector";
 import { resolvePalette } from "./parts/theme";
 import { cn } from "@/core/lib/cn";
@@ -146,6 +149,7 @@ function nodeDesigns(n: StudioNode): Design[] {
   const opts = Object.keys(n.options ?? {}).length;
   if (opts) out.push({ icon: <SlidersHorizontal />, label: `${opts} option${opts === 1 ? "" : "s"}`, hue: 100 });
   if (n.sketch?.strokes.length) out.push({ icon: <Brush />, label: "drawn", hue: 245 });
+  if (n.kind === "cube") out.push({ icon: <Box />, label: "a box, made a cube", hue: 190 });
   if (n.prompt.trim()) out.push({ icon: <Wand2 />, label: "words", hue: 350 });
   return out;
 }
@@ -685,7 +689,8 @@ export function Inspector() {
 
         {node.vector ? <Role node={node} /> : null}
 
-        {node.featureId === "cube-3d" ? <Faces node={node} palette={palette} /> : null}
+        {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
+        {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
 
         {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
 
@@ -829,27 +834,67 @@ const FACE_COLOURS = [
 
 function Faces({ node, palette }: { node: StudioNode; palette: Record<string, string> | null }) {
   const set = useStudio((s) => s.setCubeFace);
+  const picked = useStudio((s) => (s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
   const faces = React.useMemo(() => CUBE_SIDES.map((_, i) => node.cube?.faces?.[i] ?? emptyFace()), [node.cube]);
   const filled = written(node.cube);
+  /*
+   * A face picked on the board is the one the panel is about: its card
+   * comes into view and its heading takes the keys, so "pick a face and
+   * give it words" is one press and then typing.
+   */
+  const cards = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const was = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!picked || picked === was.current) { was.current = picked; return; }
+    was.current = picked;
+    const card = cards.current[picked];
+    if (!card) return;
+    // Picked from the board: bring the card in and hand it the keys. Picked
+    // from inside the card, the keys are already where they belong.
+    if (card.contains(document.activeElement)) return;
+    card.scrollIntoView({ block: "nearest" });
+    const input = card.querySelector("input") as HTMLInputElement | null;
+    input?.focus({ preventScroll: true });
+  }, [picked]);
   return (
     <Field
       label="Faces"
-      hint={`${filled} of six written. A face left blank stays blank: nothing is invented for it.`}
+      hint={`${filled} of six written. A face left blank stays blank: nothing is invented for it. Press a face on the cube, or its name here, to pick it.`}
     >
       <div className="flex flex-col gap-2" data-face-list="">
         {CUBE_SIDES.map((side, i) => {
           const face = faces[i]!;
           const bare = !face.heading.trim() && !face.body.trim();
+          const on = picked === side;
           return (
-            <div key={side} data-cube-face={side} className="rounded-md border border-border bg-elevated/40 p-2">
+            <div
+              key={side}
+              ref={(el) => { cards.current[side] = el; }}
+              data-cube-face={side}
+              data-face-picked={on ? "" : undefined}
+              className={cn("rounded-md border bg-elevated/40 p-2", on ? "border-accent" : "border-border")}
+              // Typing on a face is pointing at it; a press on one of its
+              // buttons is not, so the card does not move under the press.
+              onFocusCapture={(e) => { if (!on && (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) useStudio.getState().pickFace(node.id, side); }}
+            >
               <div className="mb-1 flex items-center gap-2">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-fg-faint">{side}</span>
+                <button
+                  type="button"
+                  data-pick-face={side}
+                  aria-pressed={on}
+                  aria-label={`Pick the ${side} face`}
+                  onClick={() => { play(on ? "close" : "tap"); useStudio.getState().pickFace(node.id, on ? null : side); }}
+                  className={cn("tactile rounded-sm px-1 text-[10px] uppercase tracking-[0.14em]", on ? "text-fg" : "text-fg-faint hover:text-fg")}
+                >
+                  {side}
+                </button>
                 {bare ? <span className="text-[9px] text-fg-faint">empty</span> : null}
+                {on ? <span className="text-[9px] text-accent">picked</span> : null}
                 <span className="flex-1" />
                 <button
                   type="button"
                   aria-label={`Clear the ${side} face`}
-                  disabled={bare && !face.colour}
+                  disabled={bare && !face.colour && !(face.prompt ?? "").trim()}
                   onClick={() => set(node.id, i, null)}
                   className="tactile rounded-sm border border-border px-1.5 py-0.5 text-[9px] text-fg-muted disabled:opacity-40 hover:text-fg"
                 >
@@ -872,20 +917,32 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                 placeholder="A line or two"
                 onChange={(e) => set(node.id, i, { body: e.target.value })}
               />
+              {/* The face's own prompt, exactly as any part has one: what
+                  this side is for, for whoever builds the site. */}
+              <Textarea
+                autoGrow
+                rows={1}
+                className="mt-1"
+                aria-label={`${side} prompt`}
+                data-face-prompt={side}
+                value={face.prompt ?? ""}
+                placeholder="What this face is for"
+                onChange={(e) => set(node.id, i, { prompt: e.target.value })}
+              />
               {/* One colour, named as a role, so a face stays inside the
                   site's palette rather than becoming a colour nobody can
                   find again. */}
               <div className="mt-1 flex flex-wrap gap-1">
                 {FACE_COLOURS.map((role) => {
-                  const on = (face.colour || "") === role.id;
+                  const is = (face.colour || "") === role.id;
                   return (
                     <button
                       key={role.id || "site"}
                       type="button"
                       aria-label={`${side} face, ${role.label}`}
-                      aria-pressed={on}
+                      aria-pressed={is}
                       onClick={() => set(node.id, i, { colour: role.id })}
-                      className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", on ? "border-accent text-fg" : "border-border text-fg-faint hover:text-fg")}
+                      className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", is ? "border-accent text-fg" : "border-border text-fg-faint hover:text-fg")}
                       style={role.id && palette?.[role.id] ? { boxShadow: `inset 3px 0 0 ${palette[role.id]}` } : undefined}
                     >
                       {role.label}
@@ -896,6 +953,73 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
             </div>
           );
         })}
+      </div>
+    </Field>
+  );
+}
+
+/**
+ * Does this browser, or the server, hold a Replicate token?
+ *
+ * Asked once, and again whenever the vault changes: the control it lights
+ * is the one control on this panel that spends money.
+ */
+function useRendererReady(): boolean | null {
+  const [ready, setReady] = React.useState<boolean | null>(null);
+  const unlocked = useKeys((s) => s.unlocked);
+  const held = useKeys((s) => !!s.values.REPLICATE_API_TOKEN);
+  React.useEffect(() => {
+    let live = true;
+    void rendererReady(true).then((v) => { if (live) setReady(v); });
+    return () => { live = false; };
+  }, [unlocked, held]);
+  return ready;
+}
+
+/**
+ * The model road, behind the table.
+ *
+ * The cube needs no key and is the whole thing. This card is the road past
+ * it: the same two-axis table that routes every picture routes a box to
+ * the one model that returns a solid, and the button is lit the moment a
+ * token is present. Without one it says what would light it, and nothing
+ * on the cube is missing.
+ */
+function Solid({ node, palette }: { node: StudioNode; palette: Record<string, string> | null }) {
+  const ready = useRendererReady();
+  const model = React.useMemo(() => solidModel(), []);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [said, setSaid] = React.useState<string | null>(null);
+  const isMesh = node.featureId === "mesh-3d";
+  const go = async () => {
+    play("confirm");
+    setSaid(null);
+    const r = await makeSolid(node.id, palette ?? {}, { onStep: setBusy });
+    setBusy(null);
+    setSaid(r.message);
+    play(r.ok ? "confirm" : "deny");
+  };
+  return (
+    <Field
+      label="As a solid"
+      hint={model ? `Routed to ${model.name} the moment a Replicate token is present: the four sides go up as pictures and a mesh comes back.` : "No model in the table returns a solid yet."}
+    >
+      <div className="flex flex-col gap-1.5" data-solid-card="" data-solid-ready={ready === null ? "asking" : ready ? "yes" : "no"} data-solid-model={model?.slug ?? ""}>
+        {isMesh ? (
+          <div className="flex flex-wrap gap-1">
+            <Button size="sm" variant="outline" data-solid-back="" onClick={() => { play("tap"); showCube(node.id); }}>Back to the cube</Button>
+          </div>
+        ) : ready ? (
+          <div className="flex flex-wrap items-center gap-1">
+            <Button size="sm" data-solid-make="" disabled={!!busy || !model} onClick={() => void go()}>{busy ?? "Make it a solid"}</Button>
+            {node.mesh?.glb ? <Button size="sm" variant="outline" data-solid-show="" onClick={() => { play("tap"); showSolid(node.id); }}>Show the solid made before</Button> : null}
+          </div>
+        ) : (
+          <p className="text-[10px] leading-snug text-fg-muted" data-solid-needs="">
+            {ready === null ? "Checking for a Replicate token…" : "No Replicate token yet. Paste one under Keys (⌘⇧K) and this lights up. Until then the cube is the whole thing: it turns, it takes words on every face, and nothing is missing from it."}
+          </p>
+        )}
+        {said ? <p className="text-[10px] leading-snug text-fg-faint" data-solid-said="">{said}</p> : null}
       </div>
     </Field>
   );
