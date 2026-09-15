@@ -205,7 +205,7 @@ export function LiveShell({ behaviours: b, accent, surface, children }: Props) {
       ))}
 
       {b.described.length ? (
-        <span style={{ position: "absolute", left: 12, top: view.top + view.height - 48, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: surface, border: `1px solid ${accent}44`, color: accent, fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
+        <span data-live-described="" style={{ position: "absolute", left: 12, top: view.top + view.height - 48, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: surface, border: `1px solid ${accent}44`, color: accent, fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
           Described, not simulated here: {b.described.map((d) => d.label).join(", ")}.
         </span>
       ) : null}

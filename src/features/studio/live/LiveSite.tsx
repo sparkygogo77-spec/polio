@@ -53,7 +53,8 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
   const light = look?.light;
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
   const { width, height, placed } = React.useMemo(() => placeNodes(pageNodes, device, frameWidth), [pageNodes, device, frameWidth]);
-  const behaviours = React.useMemo(() => deriveBehaviours(pageNodes), [pageNodes]);
+  const pageScroll = pages.find((p) => p.id === pageId)?.scroll;
+  const behaviours = React.useMemo(() => deriveBehaviours(pageNodes, pageScroll), [pageNodes, pageScroll]);
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   const seq = React.useRef(0);
 
