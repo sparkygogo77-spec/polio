@@ -262,7 +262,8 @@ check("and every block keeps its place and size as a share of the page", fit.pla
 check("what reached the bar is said plainly, and so is what did not",
   /3 of 4 blocks from harbour\.zip are real parts of the library \(a top bar, a first screen, cards\)/.test(saidOf([{ id: "top-bar", sure: 1, wantsPicture: false }, { id: "hero", sure: 0.8, wantsPicture: true }, { id: "cards", sure: 1, wantsPicture: false }, { id: "prose", sure: 0.5, wantsPicture: false }], "harbour.zip", true))
   && /1 arrived as a band of words/.test(saidOf([{ id: "prose", sure: 0.5, wantsPicture: false }, { id: "button", sure: 1, wantsPicture: false }], "x.zip"))
-  && /1 holds a picture/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: true }], "x.zip"))
+  && /1 holds a picture that stays a placeholder/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: true }], "x.zip"))
+  && !/grounded step can make|put .* in the order/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: true }], "x.zip"))
   && /scripts, which were not run/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: false }], "x.zip", true)));
 check("the bar the catalogue sets is the one this reads", SURE === SURE_ENOUGH);
 
@@ -411,6 +412,17 @@ await page.waitForTimeout(400);
 const moved = (await state()).nodes.find((n) => n.id === topBar.id);
 check("and move it, like anything drawn", !!moved && (moved.x !== topBar.x || moved.y !== topBar.y), moved ? `from ${topBar.x},${topBar.y} to ${moved.x},${moved.y}` : "gone");
 await shot("prompted");
+/* The space itself is a press away again: a made space has no fill and no
+   key, so taking hold of its surface picks it, and its panel is back with
+   Make it again on it. */
+const grip = page.locator(`[data-space-grip="${space.id}"]`);
+const gripBox = await grip.boundingBox();
+if (gripBox) { await page.mouse.click(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2); await page.waitForTimeout(400); }
+check("taking hold of the made surface picks the space again, and its panel is back with Make it again on it",
+  !!gripBox && (await page.locator(`[data-space-panel="${space.id}"]`).count()) === 1 && /Make it again/.test(await page.locator("[data-space-generate]").innerText().catch(() => "")),
+  gripBox ? `panel ${await page.locator(`[data-space-panel="${space.id}"]`).count()}, button "${(await page.locator("[data-space-generate]").innerText().catch(() => "none")).trim()}"` : "no grip on the surface");
+const line2 = await page.locator("[data-space-panel] [data-site-said]").innerText().catch(() => "");
+check("and the line about pictures says they stay placeholders, promising no step", !/grounded step can make|put .* in the order/.test(line) && /stays a placeholder/.test(line), line.slice(0, 200) + (line2 ? "" : ""));
 
 /* ------------------------------------------------------------------ */
 /* 4. One element, taken alone, fits the space it lands in               */

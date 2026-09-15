@@ -459,7 +459,6 @@ a { color: inherit; }
 function layoutTsx(input: ScaffoldInput): string {
   return `import type { Metadata } from "next";
 import "./globals.css";
-import { paintRoles, roleVars } from "./bodyPaint.ts";
 
 export const metadata: Metadata = {
   title: ${JSON.stringify(input.name || "Site")},

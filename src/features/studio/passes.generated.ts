@@ -2,14 +2,87 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:01:38.678Z";
+export const GENERATED_AT = "2026-09-15T07:25:51.306Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "fa836ba",
-    "when": "2026-09-15T07:00:52+00:00",
+    "id": "fc50ba6",
+    "when": "2026-09-15T07:18:50+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "fc50ba6",
+        "says": "A picture in a landed block is said to stay a placeholder, and a made space can be picked again",
+        "when": "2026-09-15T07:18:50+00:00",
+        "detail": [
+          "The panel promised the grounded step for pictures inside landed blocks; put in the order and pressed, it ran nothing. The line now says the picture stays a placeholder and why. Taking hold of a made surface picks the space, since it has no fill and no key. The aura reference sample is held inside the board, where it had landed on the menu bar's words."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "08cfa42",
+        "says": "Regenerate the passes for the inventory, and an export that now compiles",
+        "when": "2026-09-15T07:13:07+00:00",
+        "detail": [
+          "A sixth session, bardeen, with its first two on trunk: the unfinished inventory, and a Build export that imported a file nobody wrote.",
+          "I took its current tip rather than the one I started verifying: ea31164 was docs alone, and c12b0d9 landed while the build ran, so this carries both.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4267:",
+          "scaffold        32/32 passed  (the suite the fix arrives with) updates-view    22 of 22 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "c12b0d9",
+        "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
+        "when": "2026-09-15T07:10:50+00:00",
+        "detail": [
+          "A18 on the inventory, and the cheapest row at the top of it. The layout the scaffold writes for an exported site began with `import { paintRoles, roleVars } from \"./bodyPaint.ts\"`, copied into the template string from the generator's own import at the top of the file. The generator does use those two, at export time, to bake a written body's roles into each part's component; the layout it writes never did, and nothing emits `app/bodyPaint.ts`, so every export ever downloaded failed at its first `tsc` on line 3. The one check on the layout read its title.",
+          "The line is gone. tests/scaffold.mjs now walks every relative import in every exported file and asks the export for that file: 2 imports today, 1 unresolved before this, 0 after. 32 of 32, typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "ea31164",
+        "says": "The unfinished inventory: everything started here and not yet finished, ranked",
+        "when": "2026-09-15T07:09:41+00:00",
+        "detail": [
+          "One list, docs/INVENTORY.md, from a sweep of six kinds of unfinished thing across src/, tests/ and scripts/ at 7b38e86: controls that do nothing or not what they say (22), declarations left behind (160 items in 8 groups), routes answering with a stub or a constant (19), things reachable in one mode and not another or offered and not takeable (17), checks that pass while measuring something other than what they name (63 checks in 27 suites, plus 5 suites with no check at all), and inputs of one shape that quietly degrade for another (41 shapes in 26 rows).",
+          "Ranked by what a person notices first. The top of it: Re-iterate on every finished card drops the ask from the default tab; Compile the blueprint has four entry points that show nothing in book mode; the tweet console's video records an empty site; every Build export imports a file the scaffold never writes; a twelve-entry context menu nobody can open; ten settings that read nothing; every cost line three times the bill; the trace kind of the drawing pipeline wrapped as a raster; and a check on the undo history that reads a field the store never persists.",
+          "Every row names the file and lines, was confirmed by reading them, and carries a cost to close. Rows in another session's area (keys, recreate) are flagged rather than edited. Nothing else changes in this commit: the list is the deliverable, and it is closed from the top in the commits after it."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "d9858fa",
+        "says": "Regenerate the passes for a floated section read where its words are",
+        "when": "2026-09-15T07:03:48+00:00",
+        "detail": [
+          "Dijkstra's fa836ba: a section whose paragraphs float is read where its words are, rather than at the empty box a float leaves behind. No other tip is ahead, so this one goes out on its own.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4265:",
+          "zip-import       73 of 73 hold   (68 before; five new ones with the change) site-read        44 of 44 hold space-by-hand    28 of 28 hold",
+          "The panel's own sentence is where the change shows, and it now counts what it could not before:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "fa836ba",
         "says": "A section whose paragraphs float is read where its words are",
