@@ -47,7 +47,9 @@ const doc = { state: {
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const context = await browser.newContext({ viewport: { width: 1400, height: 900 } });
-await context.addInitScript((d) => localStorage.setItem("builder.studio", d), JSON.stringify(doc));
+// Init scripts run in every frame, the sandboxed body frame included, where
+// `localStorage` throws: the try keeps the suite's own seed out of the page errors.
+await context.addInitScript((d) => { try { localStorage.setItem("builder.studio", d); } catch { /* a sandboxed frame */ } }, JSON.stringify(doc));
 const page = await context.newPage();
 page.on("pageerror", (e) => console.log("     page error:", String(e).slice(0, 160)));
 
@@ -64,7 +66,9 @@ const srcdoc = (await frame.getAttribute("srcdoc")) ?? "";
 check("the code Claude wrote is what is in the frame", srcdoc.includes(MARK));
 check("and the frame carries the content policy too", /content-security-policy/.test(srcdoc) && /default-src 'none'/.test(srcdoc));
 check("nothing in the frame can be reached into from the page", await page.evaluate(() => {
-  try { return document.querySelector("iframe[data-coded-body]").contentDocument === null; } catch { return true; }
+  // No frame at all used to throw here and count as unreachable; a frame must be there and sealed.
+  const f = document.querySelector("iframe[data-coded-body]");
+  try { return !!f && f.contentDocument === null; } catch { return !!f; }
 }));
 const cut = await page.evaluate(() => {
   const el = document.querySelector('[data-shape="outline"]');
@@ -86,11 +90,10 @@ check("the brief says the part is cut to a line", /- outline: cut to the line dr
 check("and where that line is", /outline\.cut/.test(brief) && /objectBoundingBox/.test(brief));
 
 /* 3. What publish would push: the document, with the code in it. */
-const files = await page.evaluate(() => {
-  const s = JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {};
-  // The same fields siteFiles() writes into site/document.json.
-  return JSON.stringify({ nodes: s.nodes });
-});
+// The document as Publish sends it, through the page's own seam: reading
+// storage instead measured what hydration keeps, not what publish writes.
+const files = await page.evaluate(() => (window.__studioPublishDoc ? JSON.stringify(window.__studioPublishDoc()) : ""));
+check("the page can say what publish sends", files.length > 0, files.length ? `${files.length} bytes` : "no __studioPublishDoc seam");
 check("the code goes into the document that is published", files.includes(MARK), `${files.length} bytes`);
 check("and so does the line it is cut to", files.includes('"cut"'));
 

@@ -221,6 +221,7 @@ if (!existsSync(clip)) {
     await p.waitForTimeout(700);
     return onBoard(p);
   };
+  const depthBefore = await p.evaluate(() => (window.__studioUndoDepth ? window.__studioUndoDepth() : null));
   const early = await frameAt(Math.min(0.3, len * 0.1));
   const late = await frameAt(len * 0.8);
   check("the frame under the playhead is on the background", !!early && early.len > 500,
@@ -236,12 +237,11 @@ if (!existsSync(clip)) {
    * each frame through `addTexture`, which calls `push()` — one undo entry
    * per frame, and a hundred of them for one drag.
    */
-  const undos = await p.evaluate(() => {
-    const raw = localStorage.getItem("builder.studio");
-    const d = raw ? JSON.parse(raw) : null;
-    return (d?.state?.past ?? d?.state?.history ?? []).length;
-  });
-  check("scrubbing wrote nothing to the undo history", undos === 0, `${undos} entries`);
+  // The history lives in memory and is never persisted, so it is read
+  // through the page's own seam: reading it out of storage found an empty
+  // list every time and could not see a hundred entries land.
+  const undos = await p.evaluate(() => (window.__studioUndoDepth ? window.__studioUndoDepth() : null));
+  check("scrubbing wrote nothing to the undo history", undos !== null && undos === depthBefore, undos === null ? "no __studioUndoDepth seam on the page" : `${depthBefore} → ${undos} entries`);
 
   /* Leaving takes the preview away and leaves the document as it was. */
   await p.locator('[aria-label="Cancel the import"]').click();

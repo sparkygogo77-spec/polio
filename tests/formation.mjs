@@ -221,7 +221,7 @@ check("and its cloud is all the way in", (() => (
     const r3 = await read(again);
     check("…and it finishes", r3.forming === false);
   } else {
-    check("an update to a finished card forms it again (via the store)", true, "no test hook on window; held by the source pins above");
+    check("an update to a finished card forms it again (via the store)", false, "no __studioNotePass seam on the page, so re-forming could not be driven");
   }
   await again.close();
   await b.close();

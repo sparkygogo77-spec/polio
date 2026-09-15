@@ -71,8 +71,11 @@ const w = await wheel().boundingBox();
 if (w) {
   await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2);
   await page.waitForTimeout(400);
-  check("clicking the wheel itself keeps it open", await wheelOpen());
-} else check("clicking the wheel itself keeps it open", false, "no wheel geometry found");
+  // The centre of the wheel's box is its middle button (Add on the page's
+  // wheel), which opens the add disc: the wheel is still up, as the disc is
+  // the wheel. A press on a piece proper is section 6, by its label.
+  check("pressing the middle button keeps the wheel up", await wheelOpen());
+} else check("pressing the middle button keeps the wheel up", false, "no wheel geometry found");
 
 /*
  * 6. And a press on a *piece* keeps it open, pressed where the word is.

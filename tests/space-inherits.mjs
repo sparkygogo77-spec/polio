@@ -22,6 +22,7 @@
  *
  *   node tests/space-inherits.mjs [url]
  */
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 
@@ -162,8 +163,10 @@ if (made.length === 1) {
   check("and it lands inside the space the drawing was in", inside, `the part is at ${Math.round(part.x)},${Math.round(part.y)} ${part.w}×${part.h}`);
   check("carrying the space's plan rather than the route's default",
     part.plan?.steps?.join(",") === space.plan?.steps?.join(","), `part ${JSON.stringify(part.plan?.steps)} vs space ${JSON.stringify(space.plan?.steps)}`);
+  // Two arrays parsed out of storage are always distinct, so that proved
+  // nothing; the copy is made where the part lands, and that is what is held.
   check("which is a copy, so steering the part does not steer the space",
-    part.plan?.steps !== space.plan?.steps);
+    /plan: \{ model: space\.plan\.model, steps: \[\.\.\.space\.plan\.steps\] \}/.test(readFileSync("src/features/studio/space.ts", "utf8")));
   check("and the space's words, since the drawing said nothing of its own",
     part.prompt === "everything here is quiet and dark", JSON.stringify(part.prompt));
 

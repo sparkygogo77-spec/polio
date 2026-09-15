@@ -23,6 +23,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const FAKE_VERCEL = "vercel_test_do_not_use_9876543210";
 const results = [];
+/** Lines that could not be run here, said in the total rather than counted as green. */
+const notRun = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -53,9 +55,16 @@ const rejected = await json(`${URL_BASE}/api/studio/deploy`, {
   headers: { "content-type": "application/json", "x-vercel-token": FAKE_VERCEL },
   body: JSON.stringify({ repo: "someone/something" }),
 });
-check("a bad token gets as far as Vercel and is reported as a bad token",
-  rejected.ok === false && (rejected.reason === "auth" || rejected.reason === "network"),
-  `${rejected.reason}: ${(rejected.message ?? "").slice(0, 90)}`);
+if (rejected.reason === "network") {
+  // No route to Vercel from this box. That the token travelled cannot be
+  // shown here, and it is not shown: this line is not counted either way.
+  notRun.push("a bad token gets as far as Vercel and is reported as a bad token");
+  console.log(`  --   a bad token gets as far as Vercel and is reported as a bad token — not run: ${(rejected.message ?? "").slice(0, 90)}`);
+} else {
+  check("a bad token gets as far as Vercel and is reported as a bad token",
+    rejected.ok === false && rejected.reason === "auth",
+    `${rejected.reason}: ${(rejected.message ?? "").slice(0, 90)}`);
+}
 
 /* 4. The publish target, on a server that has a token and a list. */
 const PORT = 3101;
@@ -116,5 +125,5 @@ try {
 }
 
 const failed = results.filter((r) => !r).length;
-console.log(`\n${results.length - failed}/${results.length} passed`);
+console.log(`\n${results.length - failed}/${results.length} passed${notRun.length ? `, ${notRun.length} not run here` : ""}`);
 process.exit(failed ? 1 : 0);
