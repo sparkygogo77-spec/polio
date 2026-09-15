@@ -113,6 +113,10 @@ export function Canvas() {
   const news = useActions();
   const nodes = useStudio(useShallow(pageNodes));
   const shapes = useStudio(useShallow(pageShapes));
+  /* Read here rather than off `getState()` in a handler, because the page's
+     own height depends on it: a space drawn below the last part makes the
+     page taller and the board must re-render when it does. */
+  const spaces = useStudio(useShallow(pageSpaces));
   /*
    * Which strokes are one drawing.
    *
@@ -176,7 +180,9 @@ export function Canvas() {
    * rather than a sliver.
    */
   const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
-  const pageH = Math.max(stock, frameHeight(nodes));
+  /* Everything the page draws, not only its parts: ink and drawn spaces
+     reach below the last part and the window is sized from this. */
+  const pageH = Math.max(stock, frameHeight(nodes, 900, { shapes, spaces }));
   const frameH = pageH;
   /* Nothing scrolls inside the frame, and nothing pans down the ground:
      the pane does it. `pageScroll` was the site's offset behind the frame's
