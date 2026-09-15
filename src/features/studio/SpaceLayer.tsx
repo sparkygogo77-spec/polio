@@ -31,6 +31,7 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Box as BoxIcon, Circle, Sparkles } from "lucide-react";
 import { play } from "@/core/audio/engine";
+import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
 import { formVars, progressOf, stageOf, within } from "./formation";
@@ -84,6 +85,7 @@ function ClosedMark({ space, zoom }: { space: Space; zoom: number }) {
   const local = React.useMemo<SketchPoint[]>(() => space.boundary.map(([x, y]) => [x - box.x, y - box.y]), [space.boundary, box.x, box.y]);
   const [mx, my] = React.useMemo(() => centroid(local), [local]);
   const says = purposeOf(space);
+  const erasing = useStudio((s) => s.tool === "erase");
   return (
     <div data-space={space.id} data-space-closed="" className="pointer-events-none absolute" style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
       <svg className="absolute left-0 top-0 overflow-visible" width={Math.max(1, box.w)} height={Math.max(1, box.h)} aria-hidden>
@@ -100,7 +102,7 @@ function ClosedMark({ space, zoom }: { space: Space; zoom: number }) {
           useStudio.getState().updateSpace(space.id, { opened: Date.now() });
           useStudio.getState().setSelection([space.id]);
         }}
-        className="tactile pointer-events-auto absolute z-30 max-w-[240px] truncate rounded-md border px-2 py-1 text-[10px] font-medium"
+        className={cn("tactile absolute z-30 max-w-[240px] truncate rounded-md border px-2 py-1 text-[10px] font-medium", erasing ? "pointer-events-none" : "pointer-events-auto")}
         style={{
           left: mx, top: my,
           transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`,
@@ -369,6 +371,10 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
   const nodes = useStudio(useShallow(pageNodes));
   const picked = useStudio((s) => s.selection.includes(space.id));
   const [open, setOpen] = React.useState(() => consumed(space, Date.now()) >= 1);
+  /* The eraser goes through the key to the space under it: a hand erasing
+     a box presses the middle of it as often as its line, and the middle
+     of an empty hole is where this key sits. */
+  const erasing = useStudio((s) => s.tool === "erase");
   React.useEffect(() => {
     if (open) return;
     const t = setTimeout(() => setOpen(true), Math.max(0, CONSUME_MS - (Date.now() - (space.since ?? 0))) + 60);
@@ -383,7 +389,7 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
       title="What this space is for, and how to fill it"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => { e.stopPropagation(); play("select"); useStudio.getState().setSelection([space.id]); }}
-      className="tactile pointer-events-auto absolute z-30 flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm"
+      className={cn("tactile absolute z-30 flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm", erasing ? "pointer-events-none" : "pointer-events-auto")}
       style={{
         left: at[0], top: at[1],
         transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`,
