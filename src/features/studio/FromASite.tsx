@@ -147,12 +147,23 @@ export function FromASite({ space }: { space: Space }) {
      */
     const made = recreateFrom(got.readings[0]);
     const store = useStudio.getState();
-    // Landed at the middle of the space, so it is inside it and inherits
-    // the space's plan the way anything that lands inside does.
+    /*
+     * Landed at the middle of the space, fitted to it, so it is inside it
+     * and inherits the space's plan the way anything that lands inside
+     * does. Fitted, because a list of sixteen links measured 841 tall
+     * landed at its own size in a space 380 tall: the board clamped it to
+     * the top of the page, its middle fell outside the line, and it was a
+     * part with no space, no plan and no panel. It keeps its proportion
+     * and takes at most nine tenths of the space either way.
+     */
     const [cx, cy] = centroid(space.boundary);
-    const w = Number(made.patch.w) || 320;
-    const h = Number(made.patch.h) || 120;
-    store.addNode(String(made.patch.featureId), Math.round(cx - w / 2), Math.round(cy - h / 2), made.patch);
+    const room = boundaryBox(space.boundary);
+    const w0 = Number(made.patch.w) || 320;
+    const h0 = Number(made.patch.h) || 120;
+    const fit = Math.min(1, (room.w * 0.9) / w0, (room.h * 0.9) / h0);
+    const w = Math.max(24, Math.round(w0 * fit));
+    const h = Math.max(16, Math.round(h0 * fit));
+    store.addNode(String(made.patch.featureId), Math.round(cx - w / 2), Math.round(cy - h / 2), { ...made.patch, w, h });
     // Adding picks what was added, which would swap this panel for the
     // part's. The space stays picked, so the line under this is read where
     // it was asked for; the part is on the board, a press away.

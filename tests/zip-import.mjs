@@ -360,6 +360,56 @@ const moved = (await state()).nodes.find((n) => n.id === topBar.id);
 check("and move it, like anything drawn", !!moved && (moved.x !== topBar.x || moved.y !== topBar.y), moved ? `from ${topBar.x},${topBar.y} to ${moved.x},${moved.y}` : "gone");
 await shot("prompted");
 
+/* ------------------------------------------------------------------ */
+/* 4. One element, taken alone, fits the space it lands in               */
+/* ------------------------------------------------------------------ */
+
+/* A list of sixteen links measured 841 tall landed at its own size in a
+   space 380 tall, was clamped to the top of the page, and fell outside
+   the line: no space, no plan, no panel. One element taken alone is
+   fitted to the space and lands inside it. */
+const one = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+await one.goto(`${BUILDER}/builder`, { waitUntil: "networkidle" });
+await one.waitForTimeout(1200);
+const onePane = await one.locator("[data-ctx='studio-canvas']").first().boundingBox();
+const oneDraw = async (pts, step = 12) => {
+  await one.mouse.move(pts[0][0], pts[0][1]);
+  await one.mouse.down();
+  for (const [x, y] of pts) { await one.mouse.move(x, y); await one.waitForTimeout(step); }
+  await one.mouse.up();
+  await one.waitForTimeout(450);
+};
+const S1 = { x: onePane.x + 300, y: onePane.y + 90, w: 360, h: 140 };
+await one.mouse.move(onePane.x + onePane.width / 2, onePane.y + onePane.height / 2);
+await one.keyboard.press("s");
+await one.waitForTimeout(300);
+await oneDraw(box(S1.x, S1.y, S1.w, S1.h));
+await one.keyboard.press("v");
+await one.waitForTimeout(1900);
+await one.locator("[data-space-fill]").first().click({ force: true });
+await one.waitForTimeout(400);
+const onePanel = one.locator("[data-space-panel]");
+await onePanel.locator("[data-zip-file]").setInputFiles({ name: "harbour.zip", mimeType: "application/zip", buffer: HARBOUR });
+await onePanel.locator("[data-site-take-all]").waitFor({ state: "visible", timeout: 30_000 }).catch(() => undefined);
+/* The first screen: 488 tall on the page, far taller than this space. */
+const heroTake = onePanel.locator("[data-site-take]").filter({ hasText: "a first screen" }).first();
+await heroTake.click();
+await onePanel.locator("[data-site-said]").waitFor({ state: "visible", timeout: 45_000 }).catch(() => undefined);
+const oneState = () => one.evaluate(() => JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {});
+const st1 = await oneState();
+const landed1 = st1.nodes[0];
+const sb1 = st1.spaces[0].boundary;
+const sx0 = Math.min(...sb1.map((p) => p[0])), sy0 = Math.min(...sb1.map((p) => p[1]));
+const sw = Math.max(...sb1.map((p) => p[0])) - sx0, sh = Math.max(...sb1.map((p) => p[1])) - sy0;
+check("one element taken alone lands inside the space, fitted to it, keeping its proportion",
+  !!landed1 && landed1.x + landed1.w / 2 > sx0 && landed1.x + landed1.w / 2 < sx0 + sw && landed1.y + landed1.h / 2 > sy0 && landed1.y + landed1.h / 2 < sy0 + sh && landed1.w <= sw && landed1.h <= sh && Math.abs(landed1.w / landed1.h - 1280 / 488) < 0.4,
+  landed1 ? `${landed1.w}×${landed1.h} in a space ${Math.round(sw)}×${Math.round(sh)}` : "nothing landed");
+const lb = await one.locator(`[data-node-id="${landed1?.id}"]`).boundingBox();
+await one.mouse.click(lb.x + lb.width / 2, lb.y + lb.height / 2);
+await one.waitForTimeout(400);
+check("and so it has the space's panel, with a plan on it", (await one.locator(`[data-space-panel="${landed1?.id}"] [data-space-step]`).count()) >= 3);
+await one.close();
+
 await browser.close();
 const failed = results.filter((ok) => !ok).length;
 console.log(`\n${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}`);
