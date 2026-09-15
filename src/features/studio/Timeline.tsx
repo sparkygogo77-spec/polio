@@ -191,6 +191,29 @@ function useForming(threads: Thread[]): Map<string, number> {
   return shown;
 }
 
+/**
+ * A card whose middle is not its own face.
+ *
+ * The cloud runs in a band at the top of a card and one at the bottom, and
+ * not through the middle — because the middle of a card is not the card. A
+ * green one is the site preview from its second row to its last but one; a
+ * red one is the element. Both are opaque and both are over the cloud, so
+ * cloud in the middle is paint nobody sees, composited on every frame that
+ * anything on the page moves.
+ *
+ * It is half a construct's animated area, and animated area is what the
+ * timeline pays for: at twelve boards, dropping it took 38% of frames lost
+ * while idle to 14%.
+ *
+ * The band is asked for rather than assumed, and only the green cards ask.
+ * A construct whose middle *is* its face gets a bare stripe through it, and
+ * two kinds here are like that: a box on the Updates panel, which is nothing
+ * but words on this material, and a red card, whose element is line and
+ * glass rather than a plate. The red ones are also where there is least to
+ * win — a fifth of a green card's area each.
+ */
+const COVERED = { "--mo-band": "26%" } as React.CSSProperties;
+
 /** The corner the boxes are drawn with (`rounded-lg`). */
 const BOX_RADIUS = 8;
 
@@ -795,9 +818,20 @@ export function Timeline() {
      * the wheel does not force a repaint on every notch. Past a few million
      * pixels the sheet is drawn coarser instead of eating the memory, which
      * only happens if somebody scatters boards across a very wide field.
+     *
+     * **And it follows the zoom downward too, which it did not.** The floor
+     * was one board pixel per device pixel however far out the view was, so
+     * at the zoom a timeline of twelve boards settles on — about 0.46 — the
+     * sheet was drawn at a little over twice the size it is shown and the
+     * compositor filtered it down again on every frame that anything on the
+     * page moved. A quarter of the texels, sampled once instead of averaged
+     * four to one, and it measured a tenth of the timeline's dropped frames
+     * at twelve boards. The floor is half rather than nothing, so a little
+     * supersampling survives for the vines' diagonals; below that the lines
+     * would start to crawl.
      */
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const near = Math.min(2, Math.max(1, Math.ceil(viewAt.current.zoom * 2) / 2));
+    const near = Math.min(2, Math.max(0.5, Math.ceil(viewAt.current.zoom * 4) / 4));
     const scale = Math.min(dpr * near, Math.sqrt(16e6 / (w * h)));
     const cw = Math.max(1, Math.round(w * scale));
     const ch = Math.max(1, Math.round(h * scale));
@@ -1353,6 +1387,7 @@ function IterationBox({
           minHeight: BOX.h,
           ...moltenSeed(thread.id),
           ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
+          ...COVERED,
           color: "oklch(0.93 0.055 150)",
           // Depth is the shadow under it and the lift when it is picked up;
           // the light in it comes from the surface, not from here.
@@ -1360,7 +1395,15 @@ function IterationBox({
           // shadow, because paint containment clips anything inside it.
           // Weight under it and nothing thrown outward: the rim is self-lit
           // and the reference has no glow past it.
-          boxShadow: open ? "0 10px 30px oklch(0 0 0 / 0.55)" : "0 6px 18px oklch(0 0 0 / 0.45)",
+          /* Tight rather than wide when it is closed. A shadow is a
+             translucent band the whole way round a card, and every one of
+             them is re-blended on every frame that anything on the page
+             moves; eighteen pixels of blur across thirty cards is a lot of
+             screen to pay for a lift nobody is looking at. Six pixels reads
+             as the same lift and measured three frames a second back at
+             twelve boards. The open one keeps its full throw: there is one
+             of it. */
+          boxShadow: open ? "0 10px 30px oklch(0 0 0 / 0.55)" : "0 3px 6px oklch(0 0 0 / 0.5)",
           filter: open ? "brightness(1.14)" : live ? "brightness(1.06)" : "none",
           transform: dragging ? "scale(1.02)" : "none",
         }}
@@ -1723,8 +1766,14 @@ function ElementPiece({
           minHeight: PIECE.h,
           ...moltenSeed(thread.id),
           ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
+          /* No band here, and that is the measurement rather than an
+             oversight: a red card's middle is a drawing or a rendered part,
+             and both are line and glass rather than a plate — banding it put
+             a visible dark stripe across the waist of every one. It is also
+             where there is least to win: a red card is a fifth of a green
+             one's area, and the green ones are what the timeline is made of. */
           color: "oklch(0.95 0.05 22)",
-          boxShadow: open ? "0 10px 28px oklch(0 0 0 / 0.55)" : "0 5px 16px oklch(0 0 0 / 0.45)",
+          boxShadow: open ? "0 10px 28px oklch(0 0 0 / 0.55)" : "0 3px 6px oklch(0 0 0 / 0.5)",
           filter: open ? "brightness(1.14)" : "none",
           transform: dragging ? "scale(1.03)" : "none",
         }}

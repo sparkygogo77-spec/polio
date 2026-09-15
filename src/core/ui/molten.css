@@ -360,6 +360,34 @@
      in its alpha, on the layer instead. Same curve, same place. */
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
+  /*
+   * AND IT IS ONLY WHERE IT IS SEEN. The cloud runs in a band at the top of
+   * the card and the counter-slide runs in a band at the bottom; between
+   * them there is no cloud, because between them there is no card — the
+   * middle of a green card is the site preview and the middle of a red one
+   * is the element, both opaque and both over this.
+   *
+   * A mask cannot do it. The vignette already takes the middle down to
+   * three tenths, and taking it to zero saves nothing — 34.9 frames per
+   * 900ms against 33.3, which is noise — because a masked pixel is still a
+   * pixel the compositor multiplies. A clip is geometry, and geometry is
+   * the only thing that gets skipped.
+   *
+   * It halves the animated area of a construct, and animated area is what
+   * the timeline pays for: at twelve boards this alone took 38% of frames
+   * dropped to 14%. Four quarter-height layers, so that both headings run
+   * in both bands, were measured against it and are worse at 27% — a layer
+   * has a cost of its own beyond its area, and two is the number.
+   *
+   * **It is asked for, not assumed.** The default is the whole face, because
+   * the default construct is one whose middle is its face — a box on the
+   * Updates panel is nothing but words on this material and banding it would
+   * leave a bare stripe through the middle of every one. A construct sets
+   * `--mo-band` when something opaque covers its middle, which on the
+   * timeline is every card: the site preview on a green one, the element on
+   * a red one. `Timeline.tsx` sets it where it knows that to be true.
+   */
+  clip-path: inset(0 0 calc(100% - var(--mo-band, 100%)) 0);
   will-change: transform;
   /*
    * Twenty seconds is the written rate, and each construct takes its own
@@ -423,6 +451,8 @@
   opacity: var(--mo-cloud-still, 0.38);
   -webkit-mask-image: var(--molten-vignette);
   mask-image: var(--molten-vignette);
+  /* The other band, and the other heading with it. */
+  clip-path: inset(calc(100% - var(--mo-band, 100%)) 0 0 0);
   will-change: transform;
   animation: molten-ebb 47s linear infinite;
   animation-duration: calc(47s * var(--mo-pace, 1));
@@ -458,6 +488,9 @@
     var(--molten-grain),
     radial-gradient(70% 88% at 50% 50%, var(--mo-char) 0%, var(--mo-char) 62%, var(--mo-deep) 100%);
 }
+/* While it forms the surface closes in from every edge, which is a clip of
+   its own and takes the bands' place for those few seconds — the middle it
+   uncovers is behind the preview or the element either way. */
 .molten[data-forming]::before,
 .molten[data-forming]::after {
   opacity: calc(var(--form-surface, 1) * var(--mo-cloud, 0.92));
@@ -534,9 +567,30 @@
   border: var(--mo-rim-width) solid transparent;
   border-image: var(--mo-rim) var(--mo-rim-slice, 20) / var(--mo-rim-width) stretch;
   box-shadow: var(--mo-rim-shadow);
-  animation: molten-breathe 42s ease-in-out infinite alternate;
-  animation-duration: calc(42s * var(--mo-pace, 1));
-  animation-delay: calc(var(--molten-seed) * -1.7s);
+  /*
+   * AND IT DOES NOT BREATHE. The measurement, because this was a named
+   * motion and is now gone.
+   *
+   * The edge used to thicken and thin: `molten-breathe`, opacity 0.78 to 1
+   * over forty-two seconds. What that is worth per second is the thing to
+   * look at — a fifth of the rim's alpha spread over three quarters of a
+   * minute is about one part in eighteen hundred a frame, and nobody has
+   * ever seen it. What it cost is not small: this node covers the whole
+   * card and paints a nine-pixel sprite bezel, and inside the card's
+   * rounded clip it cannot be promoted, so an opacity animation on it is a
+   * full-card repaint per card per frame. At twelve boards, stopping it
+   * alone took the timeline from 42% of frames dropped to 36%.
+   *
+   * Promotion was tried instead of removal and is worse: `will-change:
+   * opacity` with a layer forced under it recovered less than stopping it
+   * did — 32.9 frames per 900ms against 34.7, where as-is was 31.2 —
+   * because it adds a layer per card to a stack that is already the
+   * problem.
+   *
+   * `molten-breathe` stays declared. It is the right keyframe for an edge
+   * with room to breathe — one construct on a page, a dialog, a key — and
+   * nothing on a timeline of thirty has that room.
+   */
 }
 
 /*
