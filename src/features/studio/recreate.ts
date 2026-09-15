@@ -548,7 +548,7 @@ export interface Recreation {
   patch: Partial<StudioNode>;
   /** What happened, in a line, for the news and the card. */
   did: string;
-  /** True when the element holds a picture measurement cannot make: the grounded step has something to do. */
+  /** True when the element holds a picture measurement cannot make. It stays a placeholder: nothing landed can hold one yet. */
   wantsPicture: boolean;
 }
 

@@ -173,7 +173,7 @@ export function FromASite({ space }: { space: Space }) {
     play("confirm");
     setStage({
       at: "said",
-      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture is the grounded step's job, so put Make the real thing in the order." : ""}`,
+      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture stays a placeholder: this part has no picture of its own to show, and the grounded step runs on drawings only." : ""}`,
     });
   };
 

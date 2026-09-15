@@ -2,14 +2,83 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:11:47.270Z";
+export const GENERATED_AT = "2026-09-15T07:30:27.338Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "c12b0d9",
-    "when": "2026-09-15T07:10:50+00:00",
+    "id": "7aa5b01",
+    "when": "2026-09-15T07:30:26+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "82c0125",
+        "says": "The seven shortfalls of the live read, each held to the page by number",
+        "when": "2026-09-15T07:15:50+00:00",
+        "detail": [
+          "The first night named seven things the site-read arc fell short of on https://playwright.dev/, and left them failing. Each is fixed and held by tests/site-live.mjs, 62 of 62.",
+          "The selector path was cut at six steps under the body and still prefixed `body >`, so 22 of 60 candidates matched nothing and came back \"not on the page any more\", two of them among the 24 the panel offered. It walks to the body: 60 of 60 are found again at the same box.",
+          "The panel offered the 24 biggest things and the bar across the top was the 38th. The page's blocks come first on the list, top to bottom, then the rest biggest first; the bar is first of 24, and taken alone lands as the library's top bar at 589.05×27.61, ratio 21.335 against the page's 21.333. A block that is a run of small boxes is measured member by member when taken alone, as when the page is taken whole.",
+          "A link with no words was dropped, so a bar of 12 links read as 10. It is named by its label, title, picture's alt, icon's title or the last part of where it goes: 12 of 12, \"GitHub repository\", \"Discord server\". Naming them turned a band of nine company marks near the foot into a footer; an untagged footer now needs four links that are words on the page, and the only footer is block 9 of 9."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "87de105",
+    "when": "2026-09-15T07:28:13+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "87de105",
+        "says": "Regenerate the passes for placeholders named and a made space picked again",
+        "when": "2026-09-15T07:28:13+00:00",
+        "detail": [
+          "Dijkstra's fc50ba6: a picture in a landed block is said to stay a placeholder, and a made surface can be taken hold of to pick its space again. Taken on its own.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4270:",
+          "zip-import        75 of 75 hold   (73 before) recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold",
+          "The two new ones say what changed, in the words a person reads:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "fc50ba6",
+        "says": "A picture in a landed block is said to stay a placeholder, and a made space can be picked again",
+        "when": "2026-09-15T07:18:50+00:00",
+        "detail": [
+          "The panel promised the grounded step for pictures inside landed blocks; put in the order and pressed, it ran nothing. The line now says the picture stays a placeholder and why. Taking hold of a made surface picks the space, since it has no fill and no key. The aura reference sample is held inside the board, where it had landed on the menu bar's words."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "08cfa42",
+        "says": "Regenerate the passes for the inventory, and an export that now compiles",
+        "when": "2026-09-15T07:13:07+00:00",
+        "detail": [
+          "A sixth session, bardeen, with its first two on trunk: the unfinished inventory, and a Build export that imported a file nobody wrote.",
+          "I took its current tip rather than the one I started verifying: ea31164 was docs alone, and c12b0d9 landed while the build ran, so this carries both.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4267:",
+          "scaffold        32/32 passed  (the suite the fix arrives with) updates-view    22 of 22 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "c12b0d9",
         "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
@@ -945,31 +1014,6 @@ export const PASSES: Pass[] = [
         "detail": [
           "The driver's numbers were written on the space's host and nothing in the space read them, so a surface went from asked-for to made with nothing between. It forms on euler's bands now, drawn on the boundary rather than a box: while the vine arrives nothing but the hole; then the rim traced round the line in the process's red; then the green closing in from the line to the middle of the area, boundary first and the middle filling after; then thinning to the surface as the parts land. The driver steps as the jobs step, with a running job counting for the step it is on, and what is shown eases toward it at a pace a person can follow, and stays until it has caught up rather than vanishing the moment the last job lands on a fast road.",
           "The create-flow check records what was drawn while it formed. The create-space ground read takes the ground by its colour rather than a brightness that depends on how thick the cloud is under the sample."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5506bd2",
-    "when": "2026-09-15T02:07:09+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d009100",
-        "says": "The page is everything drawn on it, and the suite names what it measured",
-        "when": "2026-09-15T01:19:49+00:00",
-        "detail": [
-          "Two faults, and the second is the reason the first could be reported fixed while a browser said otherwise.",
-          "THE PAGE'S HEIGHT COUNTED PARTS AND NOTHING ELSE. `frameHeight` reduced over `nodes`, and the window the page stands in is sized from it, so a pen stroke or a drawn space below the last part was rendered inside a window that did not know it was there: `scrollHeight` past `clientHeight`, with `overflow: hidden`, and no wheel, bar or drag could reach it. Measured on this branch with one stroke a hundred pixels under a stock page: 138px behind the edge. It takes `shapes` and `spaces` now, and the board passes them.",
-          "THE SUITE COULD NOT HAVE SEEN IT. Its fixture was parts and nothing else, so it agreed with a `frameHeight` that counted parts and nothing else — two wrongs measuring each other, and 36 of 36 while a real page clipped. Worse, it never said what document it was looking at, which is how a green run here sat beside a red browser on a deployment that did not contain the commit. So:",
-          "every run prints what it measured. `/api/version` already exists for exactly this and nothing asked it; a dev server, which has no build commit, says so rather than borrowing the local tree's SHA."
         ],
         "areas": [
           "docs",

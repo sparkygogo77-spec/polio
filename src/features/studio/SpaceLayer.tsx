@@ -537,6 +537,10 @@ function SurfaceHandles({ space, zoom, pad, box }: { space: Space; zoom: number;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     start.current = { x: e.clientX, y: e.clientY, box, mode };
+    // Taking hold of the surface picks it, so its panel (Make it again, the
+    // order) is a press away after a part in it was picked: a made space
+    // has no fill and no key, and nothing else on the board picked it.
+    useStudio.getState().setSelection([space.id]);
   };
   const move = (e: React.PointerEvent) => {
     const st = start.current;

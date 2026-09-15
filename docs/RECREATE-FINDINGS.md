@@ -178,6 +178,10 @@ The pieces, in the order a page passes through them:
 - **Fixed.** Adding a part picks it, which swapped the space's panel for
   the part's and lost the line that says what happened. The space stays
   picked.
+- **Fixed.** A made space could not be picked again: it has no fill and no
+  key, and 0 of its two handles picked it, so once a part in it was picked
+  the space's panel (Make it again, the order) was gone for good. Taking
+  hold of the surface picks it.
 - **Fixed.** Parts were placed on whole pixels, so a 60px bar on a 3077px
   page landed 31px tall on a 1573px surface and 16 of 36 locked shares
   split at the third decimal against the page; the surface's proportion
@@ -223,8 +227,20 @@ The pieces, in the order a page passes through them:
   sentence, and the filler under a title on a landed card grid was the
   part's. The catalogue now hands it "title: sentence" and it draws the
   page's own.
-- **Open.** Pictures inside any block are placeholders until the grounded
-  step, which is euler's `recreate` step asked for by name.
+- **Open, said plainly.** Pictures inside any block are placeholders, and
+  the grounded step cannot be reached for them. Walked on the Zen Garden
+  zip: 3 of 10 landed blocks hold a picture; `recreate` put in the space's
+  order (5 steps) and Make it again pressed made 0 calls to any route,
+  changed 0 parts, and the panel said "10 parts locked where they were
+  drawn". Three things are missing, on three owners: a library part has
+  no field to hold a picture and draws `Placeholder` where one goes (the
+  part's); the step runs only inside a queue job on the first drawing it
+  made, and a landed part has no first picture, since the zip route hands
+  a `zip:` address and the site route the page's own, neither of which
+  the board can fetch (the route's, and a runner nobody has written); and
+  the image route wants a key none of the sessions holds (a key). The
+  panel's line used to promise "put Make the real thing in the order";
+  it now says the picture stays a placeholder and why.
 
 ## How to compare a run
 

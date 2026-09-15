@@ -187,7 +187,7 @@ const madeHero = recreateFrom({ ...hero, from: { ...from, selector: ".hero" } })
 check("the first screen becomes the first screen", madeHero.patch.featureId === "hero-split", madeHero.id);
 check("with the real headline in it", madeHero.patch.content.startsWith("Everything arrives somewhere"), madeHero.patch.content.slice(0, 40));
 check("set in the face the page used, named as one of this app's own", madeHero.patch.font?.family === "serif", JSON.stringify(madeHero.patch.font));
-check("and it knows a picture is wanted, which is the grounded step's job", madeHero.wantsPicture === true);
+check("and it knows a picture is wanted, which the reading cannot make", madeHero.wantsPicture === true);
 
 const madeCards = recreateFrom({ ...cards, from: { ...from, selector: ".cards" } });
 check("three cards become a card grid in three columns",

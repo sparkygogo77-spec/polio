@@ -488,7 +488,11 @@ const NAMES: Record<string, string> = {
  * library with the page's own words, paint and type in it, movable and
  * promptable like anything drawn. A block it did not claim is a band of
  * words: the words and the paint are real, the shape is not its own. A
- * picture inside any of them is not measured, it is the grounded step's.
+ * picture inside any of them stays a placeholder, and the line says so
+ * rather than promising a step: a landed part has no picture of its own
+ * to show, and the grounded step (`recreate`) runs on drawings only,
+ * from the first drawing a queue job made. Putting it in a landed part's
+ * order and pressing Make it again runs nothing.
  */
 export function saidOf(landed: readonly Landed[], from: string, scriptsDropped = false): string {
   const n = landed.length;
@@ -500,7 +504,7 @@ export function saidOf(landed: readonly Landed[], from: string, scriptsDropped =
   bits.push(`${real.length} of ${n} block${n === 1 ? "" : "s"} from ${from} ${real.length === 1 ? "is a real part" : "are real parts"} of the library${kinds.length ? ` (${kinds.join(", ")})` : ""}: move, resize and prompt ${real.length === 1 ? "it" : "them"} like anything drawn.`);
   if (less) bits.push(`${less} arrived as a band of words: the words and the paint are real, the shape is not its own.`);
   const pictures = landed.filter((l) => l.wantsPicture).length;
-  if (pictures) bits.push(`${pictures} hold${pictures === 1 ? "s" : ""} a picture that only the grounded step can make.`);
+  if (pictures) bits.push(`${pictures} hold${pictures === 1 ? "s" : ""} a picture that stays a placeholder: a landed part has no picture of its own to show, and the grounded step runs on drawings only.`);
   if (scriptsDropped) bits.push("The page brought scripts, which were not run: whatever they would have drawn is not here.");
   return bits.join(" ");
 }
