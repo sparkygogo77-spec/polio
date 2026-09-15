@@ -110,8 +110,12 @@ export interface ElementReading {
    * its own: what a person sees behind its words.
    */
   paint: { bg: string; text: string; border: string | null; radius: number; shadow: boolean; behind?: string | null };
-  /** How it is set. `family` is the first name off the stack, lowercased. */
-  type: { family: string; px: number; weight: number; spacing: number; leading: number };
+  /**
+   * How it is set. `family` is the whole stack as the page declared it;
+   * `face` is the first name on it, the family the page was set in, and
+   * `drew` whether that face drew where it was read or a fallback did.
+   */
+  type: { family: string; face?: string | null; drew?: boolean; px: number; weight: number; spacing: number; leading: number };
   /** How its own children run: across, down, or in a grid of so many. */
   layout: { flow: "row" | "column" | "grid"; columns: number; gap: number };
   /** The direct children's boxes, in the element's own coordinates. The structure, without the DOM. */
@@ -201,6 +205,9 @@ export function fontFrom(r: ElementReading, base = 16): NodeFont {
   const f: NodeFont = {};
   const fam = familyOf(r.type.family);
   if (fam) f.family = fam;
+  // The real name travels whether or not its file did: the part is set in
+  // it where it is on the machine, and in the class behind it where not.
+  if (r.type.face) f.face = r.type.face;
   if (r.type.px > 0) f.size = Math.round((r.type.px / base) * 100) / 100;
   if (r.type.weight) f.weight = r.type.weight;
   if (Number.isFinite(r.type.spacing) && Math.abs(r.type.spacing) > 0.005) f.spacing = Math.round(r.type.spacing * 1000) / 1000;
@@ -528,6 +535,8 @@ export interface Recreation {
   did: string;
   /** True when the element holds a picture measurement cannot make. It stays a placeholder: nothing landed can hold one yet. */
   wantsPicture: boolean;
+  /** The family the page was set in, by name, and whether it drew where it was read or a fallback did. Null when the page named only a generic. */
+  face: { name: string; drew: boolean } | null;
 }
 
 /** The pictures in it that are worth asking a model for: real ones, not spacers or icons. */
@@ -562,6 +571,7 @@ export function recreateFrom(r: ElementReading): Recreation {
     } as Partial<StudioNode>,
     did,
     wantsPicture: wants,
+    face: r.type.face ? { name: r.type.face, drew: r.type.drew !== false } : null,
   };
 }
 

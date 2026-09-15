@@ -286,6 +286,29 @@ export const MEASURE = (selector: string) => {
   const gap = children.length > 1 ? Math.max(0, Math.round(children[1]!.x - (children[0]!.x + children[0]!.w))) : 0;
 
   const border = Number(parseFloat(style.borderTopWidth)) > 0 ? style.borderTopColor : null;
+  /*
+   * The face: the first name on the stack, which is the family the page
+   * was set in whether or not its file came with it. A web font the page
+   * loads from the network comes on neither door, so the name travels on
+   * its own. Whether it drew is measured rather than asked: a line set in
+   * the face over a fallback is the same width as the fallback alone when
+   * the face is not on this machine, and `document.fonts.check` says yes
+   * to any family it has no rule for.
+   */
+  const GENERIC = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace|ui-rounded|math|emoji|fangsong|inherit|initial|unset|-apple-system|BlinkMacSystemFont)$/i;
+  const first = (style.fontFamily.split(",")[0] ?? "").trim().replace(/^["']|["']$/g, "");
+  const face = first && !GENERIC.test(first) ? first : null;
+  const drew = (name: string): boolean => {
+    const c = document.createElement("canvas").getContext("2d");
+    if (!c) return false;
+    const line = "mmmmmmmmmmlli WWW 0123 The quick fox";
+    return ["monospace", "serif", "sans-serif"].some((fb) => {
+      c.font = `32px ${fb}`;
+      const alone = c.measureText(line).width;
+      c.font = `32px "${name.replace(/"/g, "")}", ${fb}`;
+      return Math.abs(c.measureText(line).width - alone) > 0.5;
+    });
+  };
   return {
     box: { x: Math.round(box.x + scrollX), y: Math.round(box.y + scrollY), w: Math.round(box.width), h: Math.round(box.height) },
     /** True when the box is wider than the element's own: its children run out of it, and the box holds them. */
@@ -307,6 +330,8 @@ export const MEASURE = (selector: string) => {
     },
     type: {
       family: style.fontFamily,
+      face,
+      drew: face ? drew(face) : true,
       px: Math.round(parseFloat(style.fontSize) || 16),
       weight: Number(style.fontWeight) || 400,
       spacing: style.letterSpacing === "normal" ? 0 : Math.round(((parseFloat(style.letterSpacing) || 0) / (parseFloat(style.fontSize) || 16)) * 1000) / 1000,

@@ -171,7 +171,7 @@ export function FromASite({ space }: { space: Space }) {
     play("confirm");
     setStage({
       at: "said",
-      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture stays a placeholder: this part has no picture of its own to show, and the grounded step runs on drawings only." : ""}`,
+      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture stays a placeholder: this part has no picture of its own to show, and the grounded step runs on drawings only." : ""}${made.face && !made.face.drew ? ` It is set in ${made.face.name}, which did not travel with the page: the name is on the part, and it shows in the nearest face this machine has.` : ""}`,
     });
   };
 

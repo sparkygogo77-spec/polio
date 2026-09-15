@@ -139,7 +139,7 @@ function nodeDesigns(n: StudioNode): Design[] {
   const out: Design[] = [];
   if (n.anim) out.push({ icon: <Play />, label: `${n.anim.replace(/^el-/, "")} · ${speedWord(n.animSpeed)}`, hue: 205 });
   if (n.aura) out.push({ icon: <Sparkles />, label: `aura · ${n.auraStyle}`, hue: 330 });
-  if (n.font) out.push({ icon: <Type />, label: n.font.family ?? "type", hue: 62 });
+  if (n.font) out.push({ icon: <Type />, label: n.font.face ?? n.font.family ?? "type", hue: 62 });
   if (n.colour && Object.keys(n.colour).length) out.push({ icon: <PaletteIcon />, label: "colour", hue: 150 });
   if (n.texture) out.push({ icon: <Grid2x2 />, label: n.texture === "none" ? "no texture" : "texture", hue: 278 });
   if (n.link) out.push({ icon: <Link2 />, label: `links to a ${n.link.kind}`, hue: 22 });

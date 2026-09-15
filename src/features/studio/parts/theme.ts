@@ -78,6 +78,12 @@ export interface Theme {
  */
 export interface NodeFont {
   family?: string;
+  /**
+   * The family's real name, off a page it was read from, carried whether
+   * or not its file is on this machine: first on the stack, so it shows
+   * where it is installed, with the class behind it where it is not.
+   */
+  face?: string;
   /** Multiplier on the site's base size, 0.6..2. */
   size?: number;
   /** 300..800. Body text takes it; parts that set their own weights keep them. */
@@ -91,9 +97,11 @@ export interface NodeFont {
 export function applyFont(t: Theme, font: NodeFont | null | undefined): Theme {
   if (!font) return t;
   const next: Theme = { ...t };
-  if (font.family && FAMILY[font.family]) {
-    next.headingFamily = FAMILY[font.family]!;
-    next.bodyFamily = FAMILY[font.family]!;
+  const stack = font.family ? FAMILY[font.family] : undefined;
+  const face = typeof font.face === "string" ? font.face.trim().replace(/['"]/g, "") : "";
+  if (face || stack) {
+    next.headingFamily = [face ? `'${face}'` : null, stack ?? t.headingFamily].filter(Boolean).join(", ");
+    next.bodyFamily = [face ? `'${face}'` : null, stack ?? t.bodyFamily].filter(Boolean).join(", ");
   }
   if (typeof font.size === "number" && Number.isFinite(font.size)) next.fontPx = Math.round(t.fontPx * Math.max(0.6, Math.min(2, font.size)) * 10) / 10;
   if (typeof font.weight === "number" && Number.isFinite(font.weight)) next.fontWeight = Math.round(Math.max(300, Math.min(800, font.weight)) / 100) * 100;

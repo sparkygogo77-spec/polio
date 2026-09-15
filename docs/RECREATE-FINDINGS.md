@@ -50,10 +50,19 @@ The pieces, in the order a page passes through them:
   is often a `<header>`) was named "the bar across the top" in the list
   while the catalogue rightly made it a first screen. A header is named a
   bar only at a bar's height.
-- **Open.** Web fonts the page loads from the network are not fetched on
-  either door: the zip's page may not ask the network for anything, and
-  the address door reads only the one page. Type lands as the fallback
-  the browser used ("system sans" for Libre Baskerville).
+- **Fixed, as far as it goes.** Web fonts the page loads from the network
+  are not fetched on either door: the zip's page may not ask the network
+  for anything, and the address door reads only the one page. Type landed
+  as the fallback class the browser used ("system sans" for Libre
+  Baskerville) and the real name was lost. The name travels now: the
+  route reads the first family on the stack as the face and measures
+  whether it drew (a line set in the face over a fallback is the width of
+  the fallback alone when the face is not on the machine), the part
+  carries the face and asks for it first with the class behind it, the
+  inspector names it, and the panel's line says which faces did not
+  travel. On the Zen Garden zip every block reads "Libre Baskerville",
+  drew false; 10 of 10 landed parts carry the name. The file itself still
+  does not come, on either door: that is what "did not travel" means.
 - **Open.** Candidate words in the list are `textContent`, so a row of
   inline-block links reads as one word: "PlaywrightDocsMCPCLIAPI". The
   reading itself is right; only the list's caption is squashed.
