@@ -72,6 +72,16 @@ export interface Treatment {
 
 /** The baked tile is small on purpose: the document lives in localStorage. */
 const MAX_TILE = 320;
+/**
+ * A picture at the top of the weave is not a tile: `look.ts` lays it once,
+ * covering the surface, so a 320 px bake over a 1440 px frame was a 4.5×
+ * upscale and always soft. Such a picture keeps its own size, which the
+ * intake (`ImageIntake.tsx`, `MAX_EDGE`) already holds to 640 on the long
+ * edge: a 2.25× stretch at most, and a tile of a few hundred KB, not a few MB.
+ */
+const MAX_COVER = 640;
+/** Where the weave stops being tiles and becomes one covering picture; `look.ts` uses the same line. */
+export const COVERS_AT = 0.98;
 
 export function treatmentKey(t: Treatment): string {
   return [
@@ -105,7 +115,8 @@ export async function treatImage(src: string, t: Treatment): Promise<Tile> {
   const sy = c ? Math.max(0, Math.min(1, c.y)) * img.height : 0;
   const sw = Math.max(1, c ? Math.min(img.width - sx, c.w * img.width) : img.width);
   const sh = Math.max(1, c ? Math.min(img.height - sy, c.h * img.height) : img.height);
-  const scale = Math.min(1, MAX_TILE / Math.max(sw, sh));
+  const cap = clamp01(t.weave) >= COVERS_AT ? MAX_COVER : MAX_TILE;
+  const scale = Math.min(1, cap / Math.max(sw, sh));
   const w = Math.max(1, Math.round(sw * scale));
   const h = Math.max(1, Math.round(sh * scale));
 

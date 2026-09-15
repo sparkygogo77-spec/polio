@@ -614,6 +614,7 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
       // tiles bleed into each other (baked into the tile's alpha — see
       // `texture.ts`), and only at the very top does it become one picture
       // covering the whole surface.
+      // (`texture.ts` bakes such a picture at its own size for this, `COVERS_AT`.)
       if (woven >= 0.98) return { image: `url(${JSON.stringify(src)})`, size: "cover", repeat: "no-repeat" };
       // An explicit height where the tile's shape is known: the same number
       // `auto` would work out, said out loud so a drift can move by a tile.
