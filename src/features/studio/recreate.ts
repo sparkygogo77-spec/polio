@@ -46,7 +46,7 @@
  */
 import type { NodeColour, NodeFont } from "./parts/theme.ts";
 import type { StudioNode } from "./store.ts";
-import { cut } from "@/core/lib/format";
+import { cut } from "../../core/lib/format.ts";
 
 /**
  * The faces this app has, by name.

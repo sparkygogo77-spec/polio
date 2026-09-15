@@ -16,7 +16,7 @@
  * passes a small one of its own and holds this to its rules.
  */
 import type { Sketch } from "./sketch";
-import { cut } from "@/core/lib/format";
+import { cut } from "../../core/lib/format.ts";
 
 /** What a part is cut to. The same four the store keeps. */
 export type Shape = "circle" | "ellipse" | "rounded" | "box";
