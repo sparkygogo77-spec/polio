@@ -134,7 +134,10 @@ const inside = (await patch(mx, my - 70, 41)).reduce((a, b) => (luma(b) > luma(a
 const pageMax = (await patch(ox, oy, 41)).reduce((a, b) => (luma(b) > luma(a) ? b : a));
 const ring = await brightest(ex, ey);
 const outside = await pixel(ox, oy);
-check("inside the line is ground now, not the page", luma(inside) > luma(pageMax) + 12 && luma(inside) < 120, `${rgb(inside)} at its brightest, the page ${rgb(pageMax)} at its`);
+/* Ground is purple cloud on near-black: red over green where the page is
+   blue-grey with green over red. Colour is the tell, and it holds however
+   thin the cloud happens to be under the sample. */
+check("inside the line is ground now, not the page", inside[0] > inside[1] + 6 && inside[2] > inside[1] + 10 && luma(inside) > luma(pageMax) + 4 && luma(inside) < 120, `${rgb(inside)} at its brightest, the page ${rgb(pageMax)} at its`);
 check("the ring is the brightest thing on the line", luma(ring) > 140 && luma(ring) > luma(inside) + 80, rgb(ring));
 check("the page outside the halo is untouched", differs(outside, pageBefore) < 12, `${rgb(outside)} vs ${rgb(pageBefore)}`);
 await shot("hole");
