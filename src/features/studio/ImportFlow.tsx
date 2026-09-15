@@ -144,13 +144,23 @@ export function ImportFlow() {
   const [at, setAt] = React.useState(0);
   /** The frame as chosen: what both of the two keys below will commit. */
   const [frame, setFrame] = React.useState<{ src: string; w: number; h: number } | null>(null);
+  /*
+   * A file this browser cannot open.
+   *
+   * A chooser that says `video/*` will hand over a .mov full of ProRes, or
+   * an HEIC photo, and the answer is a decode that never completes: no
+   * metadata, no frame, `ready` false for ever, and two keys greyed out
+   * with nothing anywhere saying why. Silence is the worst of the three
+   * possible answers. It says so instead, and offers the way out.
+   */
+  const [refused, setRefused] = React.useState<string | null>(null);
 
   /* Every trace of the flow comes off the page when it closes, whether it
      was finished or abandoned. Nothing to undo, because nothing was done. */
   const wipe = React.useCallback(() => setPreview(null), []);
 
   React.useEffect(() => {
-    if (!d) { setReady(false); setLength(0); setAt(0); setFrame(null); wipe(); }
+    if (!d) { setReady(false); setLength(0); setAt(0); setFrame(null); setRefused(null); wipe(); }
   }, [d, wipe]);
 
   /** Put a frame on the page, live. One assignment, no document touched. */
@@ -162,11 +172,12 @@ export function ImportFlow() {
     const img = new Image();
     img.onload = () => {
       const f = pictureOf(img);
-      if (!f) return;
+      if (!f) { setRefused("That picture opened with no size to it."); return; }
       setFrame(f);
       show(f.src);
       setReady(true);
     };
+    img.onerror = () => setRefused("This browser cannot open that picture.");
     img.src = d.url;
   }, [d, show]);
 
@@ -189,9 +200,21 @@ export function ImportFlow() {
       show(f.src);
       setReady(true);
     };
+    /* Two ways a video refuses: it errors, or it never says anything at
+       all. The second is the one that used to hang, so it is on a clock. */
+    const failed = () => setRefused("This browser cannot open that video.");
+    const waited = window.setTimeout(() => {
+      if (!v.videoWidth) setRefused("That video did not open. It may be in a format this browser cannot play.");
+    }, 6000);
     v.addEventListener("loadedmetadata", meta);
     v.addEventListener("seeked", seeked);
-    return () => { v.removeEventListener("loadedmetadata", meta); v.removeEventListener("seeked", seeked); };
+    v.addEventListener("error", failed);
+    return () => {
+      window.clearTimeout(waited);
+      v.removeEventListener("loadedmetadata", meta);
+      v.removeEventListener("seeked", seeked);
+      v.removeEventListener("error", failed);
+    };
   }, [d, show]);
 
   if (!d) return null;
@@ -279,7 +302,13 @@ export function ImportFlow() {
           </button>
         </div>
 
-        {scrubbing ? (
+        {refused ? (
+          <p data-import-refused="" className="mb-3 text-[11px] leading-snug text-fg-muted">
+            {refused} Nothing has been changed — a picture, or a video in a format it plays, will go through.
+          </p>
+        ) : null}
+
+        {scrubbing && !refused ? (
           <div className="mb-3">
             {/*
               The scrubber. Dragging it moves the playhead and the background
@@ -318,7 +347,9 @@ export function ImportFlow() {
             onClick={fitToStandard}
           >
             <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg"><Check className="size-3.5" /> Fit to standard</span>
-            <span className="mt-0.5 block text-[10px] leading-snug text-fg-muted">One picture, covering the page at its standard size.</span>
+            <span className="mt-0.5 block text-[10px] leading-snug text-fg-muted">
+              {refused ? "Nothing to land." : "One picture, covering the page at its standard size."}
+            </span>
           </button>
           <button
             type="button"
@@ -328,7 +359,9 @@ export function ImportFlow() {
             onClick={shrinkIn}
           >
             <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg"><Scissors className="size-3.5" /> Shrink in</span>
-            <span className="mt-0.5 block text-[10px] leading-snug text-fg-muted">In from the edges, as a part you can drag and resize.</span>
+            <span className="mt-0.5 block text-[10px] leading-snug text-fg-muted">
+              {refused ? "Nothing to land." : "In from the edges, as a part you can drag and resize."}
+            </span>
           </button>
         </div>
       </div>

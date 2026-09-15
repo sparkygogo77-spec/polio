@@ -370,6 +370,37 @@ if (existsSync(still)) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 6. A file this browser cannot open says so                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The chooser says `video/*`, so it will hand over a .mov of ProRes or an
+ * HEIC photo, and a decode that never completes leaves `ready` false for
+ * ever: two keys greyed out and nothing anywhere saying why. Silence is
+ * the worst of the three answers a person can get.
+ */
+{
+  const bad = `${SP}/not-really-a-video.mp4`;
+  writeFileSync(bad, Buffer.from("00000018667479706d70343200000000", "hex"));
+  const p = await open();
+  await wheel(p);
+  if (!await offer(p, bad)) missing(["a file it cannot open says so"]);
+  else {
+    await p.waitForTimeout(7000);
+    const said = await p.locator("[data-import-refused]").count();
+    check("a file it cannot open says so, rather than sitting there", said === 1,
+      said ? await p.locator("[data-import-refused]").innerText() : "nothing said, both keys still grey");
+    const landed = await live(p);
+    check("and nothing was changed by the attempt",
+      landed.layers.filter((l) => l.kind === "image").length === 0 && landed.nodes.length === 0,
+      `${landed.layers.length} layers, ${landed.nodes.length} parts`);
+    check("and the way out is still there",
+      await p.locator('[aria-label="Cancel the import"]').count() === 1);
+  }
+  await p.close();
+}
+
 await browser.close();
 console.log("");
 const failed = results.filter((r) => !r).length;
