@@ -121,6 +121,8 @@ export interface ToastItem {
   diffLabel: string | null;
   createdAt: number;
   expiresAt: number;
+  /** When a pointer came to rest on it; held toasts are not swept. */
+  heldAt?: number;
   rev: number;
   count: number;
 }
