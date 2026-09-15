@@ -264,6 +264,77 @@ const row = async (label, css, note = "") => {
   return { ...r, ...on };
 };
 
+/* ------------------------------------------------------------------ */
+/* 0. IS THIS INSTRUMENT SAYING ANYTHING?                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * IT HAS A FLOOR, AND FOR MOST OF THIS FILE'S LIFE THE FLOOR WAS THE ANSWER.
+ *
+ * Everything below counts frames on a page that is animating, and subtracts
+ * one surface at a time. That only ranks surfaces if taking a surface away
+ * can move the number. On this container it cannot, past a certain amount of
+ * content, and here is the proof — thirty boards, nothing on the page moving
+ * except one bare element in the corner:
+ *
+ *   nothing moves at all                       53.7 /900ms    0% dropped
+ *   + one 1x1 TRANSPARENT div sliding          54.0           0%   free
+ *   + one 10x10 TRANSPARENT div sliding        54.0           0%   free
+ *   + one 10x10 RED div sliding                20.3          62%
+ *   + the same, promoted                       19.9          63%
+ *   + the same, fading instead of sliding      20.3          62%
+ *   + one 1x1 red div that exists, but still   54.0           0%   free
+ *   the whole application as it is             20.6          62%
+ *
+ * One hundred painted pixels in motion cost exactly what the whole
+ * application costs. The bill is not for what moves; it is for what is on
+ * the page, and it falls due on every frame in which anything anywhere
+ * moves at all:
+ *
+ *   boards   nothing moves   one 10x10 red square   the page as it is
+ *      0        53.8            53.8   ( 0%)          53.9   ( 0%)
+ *      6        54.0            29.6   (45%)          29.9   (45%)
+ *     12        54.0            37.0   (31%)          32.4   (40%)
+ *     30        54.0            21.6   (60%)          21.0   (61%)
+ *
+ * So at thirty boards this instrument reads about 20 whatever you take away,
+ * and its ceiling only opens when literally nothing moves. Ablations run
+ * there are comparing 20.3 against 20.6, which is noise against noise. That
+ * is the honest reason every lever in this file's history came back worth
+ * two or three frames.
+ *
+ * The block below measures the floor before the tables run and says in words
+ * whether the tables can be believed. Nothing here asserts; a saturated run
+ * is not a failure, it is a run whose ranking must be thrown away.
+ */
+
+const KF = "@keyframes probe { to { transform: translate3d(40px,0,0); } }";
+/*
+ * One 10x10 painted element, sliding: enough to force a full re-raster.
+ *
+ * `animation-play-state: running` is not decoration. This probe rides on
+ * `body::after` and `QUIET` pauses `*::after`, both `!important`, so without
+ * it the square is frozen by the very rule it is meant to be measured
+ * against and the row reads a perfect 54 while claiming a square is moving.
+ * `body::after` outranks `*::after` on specificity, so this wins. That row
+ * lied once before anybody noticed.
+ */
+const SQUARE = `${KF} body::after{content:"";position:fixed;left:0;top:0;width:10px;height:10px;background:red;pointer-events:none;animation:probe 3s linear infinite;animation-play-state:running!important}`;
+/*
+ * Nothing moving at all — and that is harder than it sounds.
+ *
+ * `animation-play-state` stops CSS animations and nothing else. The ground's
+ * embers are not a CSS animation: they are a rAF loop repainting a
+ * full-pane canvas thirty times a second (`SPARK_MS`), so a "nothing moves"
+ * row that only pauses animations still has the sparks going and reads
+ * 24 rather than 54. It took a wrong verdict to notice. The canvas goes too.
+ *
+ * `.molten-key` is named because the Finish button lives outside the
+ * timeline and outside the ground, and one 65x28 button is on its own
+ * enough to hold the whole page at 61% dropped.
+ */
+const QUIET = "*,*::before,*::after{animation-play-state:paused!important}[data-ground-sparks]{display:none!important}";
+
 const seen = await p.evaluate(() => ({
   constructs: document.querySelectorAll(".molten").length,
   onScreen: [...document.querySelectorAll(".molten")].filter((el) => {
@@ -272,6 +343,43 @@ const seen = await p.evaluate(() => ({
   }).length,
   holes: document.querySelectorAll("[data-space], [data-hole]").length,
 }));
+
+console.log("\ndoes this run mean anything? the floor first\n");
+const ceiling = await row("nothing on the page moves at all", QUIET);
+const floor = await row("…and one 10x10 red square slides", `${QUIET} ${SQUARE}`);
+const asIs = await row("the page as it is", null);
+{
+  /*
+   * Three verdicts, and the order matters.
+   *
+   * The ceiling first: "nothing moves" should read about 54 on an idle
+   * container. If it does not, something else on the machine is eating the
+   * frames — another suite, another browser — and NOTHING in this run can be
+   * compared to anything, including the rows below it. I got this wrong
+   * once by running the suites beside it, and the check told me there was
+   * room when the floor had simply fallen with the ceiling.
+   *
+   * Then saturation: if one bare square alone costs what the whole page
+   * costs, the page's surfaces are invisible behind it and cannot be ranked.
+   */
+  const gap = asIs.per900 - floor.per900;
+  console.log(
+    ceiling.per900 < 48
+      ? `\n  THE MACHINE IS BUSY. With nothing on the page moving this should read\n` +
+        `  about 54 and it reads ${ceiling.per900}. Something else is taking the frames —\n` +
+        `  another suite, another browser, a build. Nothing in this run can be\n` +
+        `  compared to anything. Run it on a quiet machine.\n`
+      : Math.abs(gap) < 3
+        ? `\n  SATURATED. One 10x10 square alone reads ${floor.per900} and the whole page\n` +
+          `  reads ${asIs.per900} — ${Math.abs(gap).toFixed(1)} frames apart, which is noise. Every surface on the\n` +
+          `  page together is adding nothing to what a single painted square already\n` +
+          `  costs, so the tables below CANNOT rank them. Read block 3 instead, or\n` +
+          `  run this on a machine with a GPU.\n`
+        : `\n  There is room: the ceiling is ${ceiling.per900}, one square alone reads ${floor.per900},\n` +
+          `  and the page reads ${asIs.per900} — ${Math.abs(gap).toFixed(1)} frames of range below the square. The\n` +
+          `  tables below can rank.\n`,
+  );
+}
 
 console.log(`\nthe timeline alone, idle — ${N} boards, ${seen.constructs} constructs (${seen.onScreen} of them on screen), ${seen.holes} of the create space's own\n`);
 const CONSTRUCT = ".molten::before,.molten::after{display:none!important}[data-molten]{animation:none!important}";
@@ -300,5 +408,28 @@ await row("half as many, still card-sized", 2);
 await row("a quarter of them, still card-sized", 4);
 await row("one of them, card-sized", 99);
 await KEEP_EVERY(1);
+
+/* ------------------------------------------------------------------ */
+/* 3. THE SAME QUESTION, ON AN INSTRUMENT WITH ROOM IN IT              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * If the page's own motion saturates the machine, stop the page's own motion
+ * and bring your own. One 10x10 square forces the same full re-raster every
+ * frame, and what the number then reports is the cost of the CONTENT — which
+ * is the thing worth reducing, and which the square does not hide, because
+ * the square is the same in every row.
+ *
+ * Measured range at thirty boards: 20.0 with the boards there against 31.5
+ * with them hidden, so about eleven frames to work in where the table above
+ * has one. Read this table for ranking and the tables above for history.
+ */
+console.log("\nthe same surfaces, driven by one 10x10 square instead of by themselves\n");
+for (const [label, css] of [
+  ["as it is", ""],
+  ["without the construct's own layers", CONSTRUCT],
+  ["without the vines", VINES],
+  ["the boards hidden", "[data-box],[data-piece]{visibility:hidden!important}"],
+]) await row(label, `${QUIET} ${SQUARE} ${css}`);
 
 await b.close();
