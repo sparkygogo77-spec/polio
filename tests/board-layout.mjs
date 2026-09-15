@@ -551,12 +551,29 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
     await page.evaluate(WATCH);
     await page.waitForTimeout(5000);
     const s = await page.evaluate(STATS);
-    /* It moves on the compositor, so it moves on every frame without any
-       frame of ours being spent on it. `moved` counts frames where the
-       computed transform changed; `lays` counts pattern fills, and that is
-       the number that should now be nailed to the floor — the ground is
-       painted once per size and never again. */
-    check(`${where} moves on every frame`, s.moved >= s.frames - 2 && s.frames > 40, `${s.moved} of ${s.frames} frames`);
+    /*
+     * It moves on the compositor, and since the sliding layer was made to
+     * land on whole pixels it steps through them rather than sliding within
+     * them: the computed transform changes once per pixel — six times a
+     * second — not once a frame. So counting changed frames measures the
+     * rounding and not the motion. The check here read `moved >= frames - 2`
+     * and saw 30 of 299, which is exactly the right number and read as a
+     * stalled layer.
+     *
+     * What is worth holding is the rate: six pixels a second, over however
+     * long the window happened to run. A layer that has stopped reads far
+     * under it; one being repainted per frame reads far over.
+     *
+     * That no frame of ours is spent on it is the beat and the late count
+     * printed below, and neither moved: 16.7ms, 0 late of 299. `lays` counts
+     * pattern fills, and that is the number nailed to the floor — the ground
+     * is painted once per size and never again.
+     */
+    const secs = (s.frames * s.beat) / 1000;
+    const want = secs * 6;
+    check(`${where} slides at six pixels a second`,
+      s.frames > 40 && s.moved >= want * 0.6 && s.moved <= want * 1.6,
+      `${s.moved} whole-pixel steps over ${secs.toFixed(1)}s, against the ${want.toFixed(0)} that six a second makes`);
     // One pattern fill is one lay of one layer; each carries about fourteen
     // seconds of material, so five seconds of it should need very few.
     // Counted against every layer on the page, because the timeline floats
