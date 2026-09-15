@@ -2,9 +2,133 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T20:45:28.992Z";
+export const GENERATED_AT = "2026-09-15T01:28:41.056Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "fecff41",
+    "when": "2026-09-15T01:25:52+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "b131170",
+        "says": "The ring sits the same hair off the line on every side",
+        "when": "2026-09-15T00:54:26+00:00",
+        "detail": [
+          "The hairs of the photon ring were laid outside the line by scaling the whole shape from its centroid, which moves a point in proportion to its distance from the middle: on a wide box the long sides got the ring five pixels out and the short sides three. At the old zoom the aura check's sample straddled that; on the full-length page the board fits by width and the sample did not, and the check went red with lifts falling from one side to another. Every point now moves out along its own normal, so the ring is a hair off the line the same all the way round.",
+          "The check reads each side along its normal, the ring and the light beside it, rather than one patch at a fixed distance that catches the ring's peak on one side and lands a pixel past it on the mirrored one; the old crescent still fails it, aura left 245 against right 19. The create-space ground read takes a patch of the clouds rather than one pixel of them."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2cf7d9d",
+    "when": "2026-09-15T00:47:10+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "2cf7d9d",
+        "says": "Regenerate the passes for the board as tall as the site",
+        "when": "2026-09-15T00:47:10+00:00",
+        "detail": [
+          "Hypatia's pass: the board is as tall as the site and the pane is what scrolls, which is the second half of the full-length page that went out last push."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9569375",
+    "when": "2026-09-15T00:44:56+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "c9d3b5d",
+        "says": "The board is as tall as the site, and the pane is what scrolls",
+        "when": "2026-09-14T22:40:14+00:00",
+        "detail": [
+          "J measured the preview himself rather than passing on the complaint, and both faults he named were real and both were in one place.",
+          "The board's root was `size-full`. At his 1267x1278 window with six parts on the page that is a 943px element holding 1841px of site with `overflow: hidden` — 898px of the page that no gesture could reach — and the pane it stood in had a scrollHeight equal to its clientHeight, so it did not scroll at all. What moved was the board *inside* that root, on a wheel handler of its own: a pan in a window, which is the box he keeps reporting. It was the second version of one mistake; the first slid the site behind the frame's edge.",
+          "So there is no box. The root is `pageH * zoom + FRAME_GUTTER` tall — the site as drawn plus the ground either side — with no overflow of its own, and the vertical wheel is not handled at all: the pane's own scroll is the whole mechanism. The shelf moves into that pane, under the board, so one gesture runs from the head of the site, through every part of it, and on into the categories. `mt-auto` keeps the shelf on the bottom edge, where it has always been, on any page short enough to leave room.",
+          "Measured at the same window with six parts: the board is 1811 for 1683 of site plus a 128 gutter; the pane reaches 2059, which is that plus the 248 band; nothing between the site and the document hides anything; and the search box comes from y 1900 to y 1180 on one wheel sequence."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "758bb7b",
+    "when": "2026-09-15T00:43:13+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "758bb7b",
+        "says": "Trunk goes out with space-one-open red, on purpose",
+        "when": "2026-09-15T00:43:13+00:00",
+        "detail": [
+          "This is the first push in this run that is not green, and it is a decision rather than an oversight, so here is the whole of it.",
+          "WHAT IS RED. tests/space-one-open.mjs, one check: \"and lit the same all the way round, not heavier on the left\". Measured on this tree, each side's lift over its own background 7px outside the boundary:",
+          "left    254 - 5  = 249 top     249 - 37 = 212 right   214 - 10 = 204 bottom  164 - 10 = 154",
+          "A 95 point spread falling cleanly from top left to bottom right. The four backgrounds are near uniform, so this is not the page showing through the measurement: the light really is biased to the top left rather than being an aura. It passed at d3ab200 and fails at ab9b5f1, so it arrived with the full-length page merging against the hole's \"painted once\" light."
+        ],
+        "areas": [],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "b9c10ff",
+    "when": "2026-09-14T21:35:52+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "b9c10ff",
+        "says": "picked finds the page to press; molten lets the key have its construct",
+        "when": "2026-09-14T21:35:52+00:00",
+        "detail": [
+          "Two suites met deliberate changes and one measurement got sharper.",
+          "picked computed where to press the page: 40px in from the frame's left and up from its foot, clamped to y 900 because the frame used to run off the bottom of the viewport. On a full-length page on a surface that moves it does not — the frame is 715 tall and ends at 820 — so that arithmetic put the press at y 780, which is the shelf's search box sitting over it, and the page was never pressed at all. It asks the document what is under a point now and presses the first spot that answers as the frame and not as a part on it. That costs nothing and cannot go stale. 16 of 16.",
+          "molten pinned the Finish key as a flat slab painted straight from --verdant-body and --verdant-hot, with the construct kept off it because a key was held to be too small to be a surface anything drifts across. One tile at two settings settled that the other way: moltenKeyClass is moltenClass plus molten-key, the same construct at a key's scale, so a key carrying a surface is the intent. Asking for flatness there asks for the change to be undone. What is worth pinning has not changed and is pinned still: the verdant family rather than a second green, and through the one definition rather than painting its own. 117 of 117.",
+          "space-one-open measured each side of the aura against one page sample taken off to the right. With a non-flat page behind it that reads the backdrop as much as the light, so each side is measured against its own background in the same direction now — how much the aura lifts its own patch."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "ab9b5f1",
+        "says": "Regenerate the passes for the full-length page",
+        "when": "2026-09-14T20:45:54+00:00",
+        "detail": [
+          "Hypatia's pass: the site is a full-length page on a surface that moves, with tests/full-page.mjs holding it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "e95fb12",
     "when": "2026-09-14T20:45:28+00:00",
@@ -739,180 +863,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-14T01:40:24+00:00",
         "detail": [
           "Three passes, hypatia's tip carried inside euler's again: the surface moves, reads as cloud, and the ink reads on it; the Updates board holds where you left it and fills the floor; and a vine is one strand with a cut line down it and nothing else on it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c94990a",
-    "when": "2026-09-14T01:40:01+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "cd7c7e6",
-        "says": "A vine is one strand with a cut line down it, and nothing else on it",
-        "when": "2026-09-14T01:38:06+00:00",
-        "detail": [
-          "Third pass, so the idea changes rather than the numbers.",
-          "**What a vine is for.** It carries one line down its middle and cutting that line takes the iteration out — the later of the two, because a vine runs from what came before to what came out of it; whatever hangs under the cut one re-hangs from its parent, so cutting one out of the middle of a run keeps the run. The line is scored into the groove at the axis rather than laid on top of it, and it is faint at rest: a bright line down the middle with a bright rim at each edge is three rails, and a vine would be a cable again. Pressing it is an element clipped to the line's own shape, so the press lands on the line and not on the board around it, and hovering takes the line white hot — the target and the warning at once. It is lifted while a box is being dragged, because the vine under it is moving.",
-          "**The green node at the middle is gone**, along with the event it fired: it opened the pair in the section below, which pressing either box already does.",
-          "**And it is wide enough to be made of something.** At fifteen across, the whole section — groove, field, glow, rim — was seven and a half pixels a side and every band under a pixel, which is not a construct seen small, it is a tube with a line down each edge. At twenty-four there is a field to put the cloud on, and the section is re-proportioned to a card's: a narrow groove at the axis, the field taking most of the width, then the glow and the rim. The cloud covers everything but those two, exactly as on a card, where it lies on the face with the core showing through and the bezel over it. With the tile now drawing at 180 rather than 512, what crosses a vine is a field of filaments rather than one fat strand."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "fb79580",
-        "says": "The Updates board holds where you left it, and fills the floor",
-        "when": "2026-09-14T01:16:28+00:00",
-        "detail": [
-          "Two of J's five, both measured on screen before anything was touched.",
-          "**The zoom reset on every Finish.** Finish is the only door into this view and it is a toggle, so every trip to the board and back mounted the timeline again and refitted it. Measured: 1.85 back to 1 with three updates, 0.77 back to 0.41 with eight. A view a person has moved is theirs now and is put back; centre is how they ask for the fit again.",
-          "Held in a module variable rather than state, because state dies with the mount and the mount is exactly what Finish tears down — and not in the store, because it is where somebody is looking, not part of the site, and has no business in the saved document.",
-          "**The fit read far too small.** Two causes, both real."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "f7b4f2d",
-        "says": "The surface moves, reads as cloud, and the ink reads on it",
-        "when": "2026-09-14T01:12:43+00:00",
-        "detail": [
-          "Three notes off a screenshot, and two of them turn out to be one number.",
-          "**It creeps.** The glide is exactly one period per turn, so 512 pixels over 150 seconds was three and a half pixels a second. And on the red it was worse than that: the still copy of the tile sat *over* the gliding one at 0.95, which is how the red was matched to the green for brightness — but what sits under a layer at 0.95 is five per cent of what you see, so five per cent of a red card was the only part of it that moved. Measured as the mean change in a card over two and a half seconds, the red moved 2.6 and the green 3.8.",
-          "The still layer goes behind the gliding one, where a still layer is depth rather than a lid, and the brightness balance becomes the gliding layer's own opacity — less of it is more of the dark face under it. Same dial, same job, nothing hidden. Green takes all of the glide, red three quarters.",
-          "**The texture is too zoomed in.** The tile drew at one to one, so a card held a third of the picture's width and a seventh of its height: five or six fat filaments, which read as big lines. The period is 180 now, so a card holds more than a whole tile across and two fifths of its height and the same filaments are hairlines in a field of them. It is the same number as the speed, which is why the two notes are one change: half the period is half the distance and twice what a given travel does to the picture."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2561029",
-    "when": "2026-09-14T01:06:42+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "2561029",
-        "says": "Regenerate the passes for the space-to-part chain",
-        "when": "2026-09-14T01:06:42+00:00",
-        "detail": [
-          "Dijkstra's pass: the chain from a space to the part made inside it, held end to end. A new suite and its shots came with it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "63a7969",
-        "says": "The chain from a space to the part made inside it, held end to end",
-        "when": "2026-09-14T01:05:27+00:00",
-        "detail": [
-          "Both things asked for landed in 48e3917, which is on trunk. What was missing is the proof that the chain works all the way through rather than link by link, and `tests/space-inherits.mjs` is that: draw a loop by hand, choose black hole, steer the space before anything is in it, draw inside it, press Make real, and the part that lands is inside the space and carries the space's plan and its words. A copy of the plan, so steering the part does not steer the space, and a drawing made real outside every space inherits nothing. 15 of 15.",
-          "The first run of that read as Make real being broken: nothing landed, ever, with no key. It was euler's new question waiting to be answered, \"is this box a cube?\", before anything is spent. A hand answers it, so the check does, and the file says so at the top rather than leaving the next person to rediscover it. The queue is not persisted either, so what says a run is over is a part on the board, not a row in storage.",
-          "One duplication of my own, closed. Adding the space's own panel gave this file a second step list, and hypatia's move to `planEdit` unified the helpers but not the control. There is one `Steps` now and two subjects use it, a part and the space it is in, so they cannot drift apart.",
-          "space-inherits 15/15, space-by-hand 29/29, space 49/49, create-space 28/28, site-read 44/44, recreate 41/41, space-entries 13/13, and hypatia's audit-panel 25/25. Typecheck and build clean."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d2160e6",
-    "when": "2026-09-13T22:56:24+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "d2160e6",
-        "says": "Regenerate the passes for the vine lit from within",
-        "when": "2026-09-13T22:56:24+00:00",
-        "detail": [
-          "Euler's pass: the vine is one strand of the construct, lit from within. strand.ts rewritten and its suite with it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9ed27d3",
-    "when": "2026-09-13T22:55:57+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "bf2cc2b",
-        "says": "The vine is one strand of the construct, lit from within",
-        "when": "2026-09-13T22:37:26+00:00",
-        "detail": [
-          "J has said three times that a vine reads as rope. The last go made it the boxes' section rather than a cable, and it still was: green down one side, red down the other, a seam sliding between them — and two colours lying side by side down a curve is two strands however it is drawn. Now that there is a real render to match against rather than noise, three things were wrong and each is answered here.",
-          "**One strand.** The section is symmetric about the axis: the core is the middle of the ribbon, the light gathers at both edges, no seam anywhere. The colour runs along its length instead — green where it leaves a board, red where it arrives at a drawing, and the material's own dark between. Not a blend: blending the ends put yellow and then brown through the middle of every vine, so one end's colour holds to 0.42, the dark holds the middle and the other comes up out of it. The dark is a clamp rather than a colour — the two bands are mixed and then pulled to `char`'s lightness and chroma, where a hue cannot be read. One gradient per band, so it is still one fill per band whatever the colours are.",
-          "**It had no rim at all, and that is why it read as a tube.** A band is drawn in the colour at its middle, so with eight bands the highest `t` ever asked for was 0.9375 — and the last two breakpoints sat at 0.93 and 0.98, which made `mix(hot, white)` a stop no band could reach. Every threshold falls between two band centres now, and there are ten bands so each stop gets two of them: a rim one band wide is three quarters of a pixel and antialiasing against the shadow ate a third of the light on whichever edge it fell — measured, one edge peaked at 76 of green and the other at 49, which is a vine lit from one side. Two bands is a pixel and a half: 78 and 85 across the same section now.",
-          "**The cloud reads, and it lies where a box's lies.** Turned up from 0.4, which showed nothing at all over a real render, and clipped to the body of the section rather than the whole width: over the whole width at two thirds it lifted the core from 7 of green to 28 and pulled the rims down from 82 and 92 to 65 and 60 — the section flattened and the light taken out of the edges, which is the note again. On a box the cloud lies on the face, the core shows through the middle of it and the rim sits over it; a vine is arranged the same way. Two elements per vine still, now one per half of its length at that end's temperature, so the green cloud is over the green half and the red over the red and they meet where the vine is darkest."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7d7bb81",
-    "when": "2026-09-13T22:55:45+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "7d7bb81",
-        "says": "site-read serves the page it reads",
-        "when": "2026-09-13T22:55:45+00:00",
-        "detail": [
-          "The suite pointed a browser at http://localhost:8899/ and expected somebody to have put a server there, so in a sweep it died on ERR_CONNECTION_REFUSED before measuring anything. Nothing in the repository serves that port and there is no fixture file: it could only ever pass on the machine it was written on, and it went red the first time it ran anywhere else.",
-          "The page is served from inside the suite now, on an ephemeral port, closed when it finishes. It is not invented — every number in the file says what the page has to contain, so it is written to those numbers: a bar 1280x72 painted rgb(17,19,31) with Harbour at one end and Product, Pricing, Docs and a Start free button at the other; a hero set in Georgia whose largest line is \"Everything arrives somewhere\", with a 640px picture beside it; and three cards in a three-column grid titled Quiet, Fast and Yours. Plain http on this machine on purpose, because one of the suite's own checks is that the bounds refuse exactly that kind of address.",
-          "Passing a URL as the third argument still reads something else instead, so the route can be pointed at a real page when there is one. 44 of 44."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "dcff75d",
-        "says": "Regenerate the passes for site-read, the cloud match and J's rims",
-        "when": "2026-09-13T22:21:02+00:00",
-        "detail": [
-          "Three passes, all three sessions converged into one tip again: point at one element on a real page and it lands as a part of the library; the red matched to the green on the cloud's opacity per temperature; and J's rims wired, the bezel a nine-slice of his own sprite."
         ],
         "areas": [
           "studio"
