@@ -255,7 +255,7 @@ check("the still copy is a different size rather than the same one mirrored, whi
 /* 4. Always moving, never demanding                                   */
 /* ------------------------------------------------------------------ */
 
-check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 6, MOLTEN_KEYFRAMES.join(", "));
+check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 7, MOLTEN_KEYFRAMES.join(", "));
 for (const k of MOLTEN_KEYFRAMES) {
   check(`${k} is declared`, new RegExp(`@keyframes ${k}\\b`).test(css));
   check(`${k} says what it is for`, (MOLTEN_MOTION[k] ?? "").length > 20);
@@ -353,10 +353,43 @@ check("two layers of the same material, and they do not move the same way", (() 
   return moves.every(Boolean) && new Set(moves).size === 2
     && /animation: molten-drift/.test(front) && /animation: molten-ebb/.test(back);
 })());
-check("…and nothing else on a construct moves: the rim node's two are empty", (() => {
+/*
+ * The rim node's two carry the edge's swell and nothing that slides.
+ *
+ * They were empty, and before that they carried the turning layer that cost
+ * a third of the timeline's frames. What is on them now is the opposite kind
+ * of thing: an eight-pixel band at the top and one at the bottom, fading
+ * their own light in and out. No tile, no transform, no period — so the
+ * check is that they hold a swell and that nothing which slides has crept
+ * back onto them.
+ */
+check("…and what moves on the rim node is a swell, not anything that slides", (() => {
   const both = /\[data-molten\]::before,\n\[data-molten\]::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
-  return /content: none;/.test(both) && !/--molten-swirl/.test(css) && !/@keyframes molten-turn\b/.test(css);
+  return /animation: molten-swell /.test(both)
+    && /height: var\(--mo-breath, 8px\);/.test(both)
+    && !/background-image/.test(both) && !/nebula-period/.test(both)
+    && !/--molten-swirl/.test(css) && !/@keyframes molten-turn\b/.test(css);
 })());
+/*
+ * And it swells from nothing rather than dimming from full, so a card at the
+ * trough of the cycle is exactly the card as it would be without any of
+ * this. The old one faded the whole rim between 0.78 and 1 — a permanent
+ * change to every card for a wobble nobody could see.
+ */
+check("…the edge gathers light and lets it go, so the resting card is untouched", (() => {
+  const k = /@keyframes molten-swell \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const both = /\[data-molten\]::before,\n\[data-molten\]::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return /from \{ opacity: 0; \}/.test(k) && /to\s+\{ opacity: 1; \}/.test(k) && /\n  opacity: 0;/.test(both);
+})());
+/*
+ * On the two long edges and not on the short sides, because two
+ * pseudo-elements is what a construct has and a ring is not a rectangle.
+ * A whole-card element could carry all four and costs what it always cost:
+ * measured at twelve boards, a breath on a whole card is 31.5 frames per
+ * 900ms against 38.0 for one on a strip, with nothing added at 36.1.
+ */
+check("…and it is on a strip rather than a whole card, which is the whole reason it can exist",
+  /a whole-card breath, not promoted      31\.5/.test(css) && /a 14px strip breath, not promoted      38\.0/.test(css));
 check("…and the cost of having had a third is written down rather than forgotten", (() => {
   const note = /\* {3}with the turn\s+([\d.]+)\s+([\d.]+)/.exec(css);
   return /AND NOTHING TURNING\. THE MEASUREMENT/.test(css) && !!note

@@ -60,6 +60,7 @@ export const MOLTEN_KEYFRAMES = [
   "molten-drift",
   "molten-ebb",
   "molten-churn",
+  "molten-swell",
   "molten-breathe",
   "molten-flare",
   "molten-ember",
@@ -70,7 +71,8 @@ export const MOLTEN_MOTION: Record<(typeof MOLTEN_KEYFRAMES)[number], string> = 
   "molten-drift": "the face sliding across, one tile's width every 20s",
   "molten-ebb": "a bigger copy sliding back the other way, its own width every 47s",
   "molten-churn": "kept for a construct that wants a moving layer of its own; nothing uses it",
-  "molten-breathe": "the edge thickening and thinning, 42s",
+  "molten-swell": "light gathering inside the top and bottom edges and going out again, 42s each way",
+  "molten-breathe": "the whole edge fading in and out; kept for a construct with room for it, nothing uses it",
   "molten-flare": "an occasional run of light along the outline that dies, 74s, visible for a sliver of it",
   "molten-ember": "the odd spark shed at a corner, 54s, nothing for most of it",
 };

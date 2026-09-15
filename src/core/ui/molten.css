@@ -234,7 +234,7 @@
   --molten-rim-lines:
     inset 0 0 0 1px color-mix(in oklab, var(--mo-hot) 82%, transparent),
     inset 0 0 0 2px color-mix(in oklab, var(--mo-white) 22%, transparent),
-    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 34%, transparent);
+    inset 0 0 10px -4px color-mix(in oklab, var(--mo-hot) 46%, transparent);
 
   --molten-vignette: linear-gradient(
     to bottom,
@@ -568,28 +568,30 @@
   border-image: var(--mo-rim) var(--mo-rim-slice, 20) / var(--mo-rim-width) stretch;
   box-shadow: var(--mo-rim-shadow);
   /*
-   * AND IT DOES NOT BREATHE. The measurement, because this was a named
-   * motion and is now gone.
+   * THIS NODE DOES NOT BREATHE, AND THE EDGE DOES. The two pseudo-elements
+   * below carry it.
    *
-   * The edge used to thicken and thin: `molten-breathe`, opacity 0.78 to 1
-   * over forty-two seconds. What that is worth per second is the thing to
-   * look at — a fifth of the rim's alpha spread over three quarters of a
-   * minute is about one part in eighteen hundred a frame, and nobody has
-   * ever seen it. What it cost is not small: this node covers the whole
-   * card and paints a nine-pixel sprite bezel, and inside the card's
-   * rounded clip it cannot be promoted, so an opacity animation on it is a
-   * full-card repaint per card per frame. At twelve boards, stopping it
-   * alone took the timeline from 42% of frames dropped to 36%.
+   * It used to be here: `molten-breathe`, the whole rim between 0.78 and 1
+   * over forty-two seconds. It cost a full-card repaint per card per frame,
+   * because this node covers the whole card, paints a nine-pixel sprite
+   * bezel, and cannot be promoted inside the card's rounded clip — at twelve
+   * boards, stopping it alone took the timeline from 42% of frames dropped
+   * to 36%. Promotion was tried and is worse (32.9 frames per 900ms against
+   * 34.7 for stopping it, where as-is was 31.2), because it adds a card-sized
+   * layer to a stack that is already the problem.
    *
-   * Promotion was tried instead of removal and is worse: `will-change:
-   * opacity` with a layer forced under it recovered less than stopping it
-   * did — 32.9 frames per 900ms against 34.7, where as-is was 31.2 —
-   * because it adds a layer per card to a stack that is already the
-   * problem.
+   * Then the shape was measured rather than guessed at, an opacity animation
+   * added to every card as a bare element and nothing else changed:
    *
-   * `molten-breathe` stays declared. It is the right keyframe for an edge
-   * with room to breathe — one construct on a page, a dialog, a key — and
-   * nothing on a timeline of thirty has that room.
+   *   nothing added                          36.1 /900ms
+   *   a whole-card breath, not promoted      31.5
+   *   a whole-card breath, promoted          32.4
+   *   a 14px strip breath, not promoted      38.0
+   *   a 14px strip breath, promoted          36.2
+   *
+   * Area, again, and promotion beside the point. A breath on a strip is
+   * free — and a rim is a strip: the middle of this node was never carrying
+   * any of it.
    */
 }
 
@@ -646,9 +648,62 @@
  * Both pseudo-elements of the rim node are free and stay free. Anything that
  * wants a third moving layer here has to beat the table above first.
  */
+/*
+ * THE EDGE, THICKENING AND THINNING — on the two strips where an edge is.
+ *
+ * A band of the construct's own hot stop pooled inside the top edge and
+ * another inside the bottom, swelling and going out again over forty-two
+ * seconds each way. It is what the rim's own breath was for and it is on a
+ * thirtieth of the area, so it costs nothing measurable.
+ *
+ * **What it gives up, said rather than hidden: the short sides do not
+ * breathe.** Two pseudo-elements is what a construct has and a ring is not a
+ * rectangle, so it is the two long edges and the corners the light gathers
+ * in. On a card three times wider than it is tall that is nearly all of the
+ * rim; on a square one it would be half, and that is the trade.
+ *
+ * **And it swells from nothing rather than dimming from full**, which is the
+ * other correction. The old one moved the whole rim by a fifth over
+ * three quarters of a minute — about one part in eighteen hundred a frame,
+ * which is a motion nobody has ever seen, and re-adding an invisible thing
+ * for nothing is not worth doing even at no cost. This runs its own light
+ * from nothing to all of it, so the swing is the whole of what is there and
+ * the edge visibly gathers light and lets it go. At rest — the trough of the
+ * cycle — a card is exactly what it was before this existed.
+ */
 [data-molten]::before,
 [data-molten]::after {
-  content: none;
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--mo-rim-width, 0px));
+  right: calc(-1 * var(--mo-rim-width, 0px));
+  /*
+   * Eight pixels, which is the rim sprite's own nine near enough: what
+   * swells is the thickness of the edge, so the band is the edge. It is also
+   * where the cost stops being linear and starts being nothing — measured at
+   * twelve boards against no swell at all (38.9 frames per 900ms):
+   *
+   *   18px   30.6      12px   33.5      8px   37.3
+   *
+   * Two strips across thirteen cards is a lot of screen at eighteen pixels
+   * and very little at eight.
+   */
+  height: var(--mo-breath, 8px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  will-change: opacity;
+  animation: molten-swell 42s ease-in-out infinite alternate;
+  animation-duration: calc(42s * var(--mo-pace, 1));
+  animation-delay: calc(var(--molten-seed) * -1.7s);
+}
+[data-molten]::before {
+  top: calc(-1 * var(--mo-rim-width, 0px));
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--mo-hot) 46%, transparent), transparent);
+}
+[data-molten]::after {
+  bottom: calc(-1 * var(--mo-rim-width, 0px));
+  background: linear-gradient(to top, color-mix(in oklab, var(--mo-hot) 46%, transparent), transparent);
 }
 
 /*
@@ -746,6 +801,9 @@
   --mo-rim: none;
   --mo-rim-width: 0px;
   --mo-rim-shadow: var(--molten-rim-lines);
+  /* Ten pixels tall: two bands would be the whole of it and the edge would
+     not be an edge, it would be the bar. It does not breathe. */
+  --mo-breath: 0px;
 }
 
 /* Its nebula would be a smear at this height, and the flare has nowhere to
@@ -799,6 +857,10 @@
 .molten.molten-key {
   /* The bright cut, whichever temperature this is. */
   --mo-nebula: var(--mo-nebula-lit);
+  /* Twenty-eight pixels tall: at the card's eight the two bands would be
+     more than half of it and the swell would read as the whole key pulsing
+     rather than as its edge. */
+  --mo-breath: 5px;
   /* More of the picture in view, so the filaments are filaments. */
   --nebula-period: 56px;
   /* Nearly all of the layer, nearly all of the way across: the falloff is
@@ -920,6 +982,27 @@
   100% { transform: scaleX(-1) translate3d(3%, -2%, 0) rotate(0deg) scale(1.06); opacity: 0.3; }
 }
 
+/*
+ * THE SWELL: nothing to all of it, and back.
+ *
+ * The range is the whole of nought to one, which reads as a lot and is not:
+ * what it scales is a band of the construct's own hot stop at a third of its
+ * strength, so the light at the top of the swell is a soft gathering at the
+ * edge rather than a flash. The rule this surface holds to is about how fast
+ * a thing changes and by how much of the *screen*, not about how much of a
+ * property's range an animation uses — and a forty-two second half-cycle is
+ * a hundredth of the swing a second.
+ *
+ * It swells rather than dimming because the trough has to be the card as it
+ * is without it: adding light and taking it away again leaves the resting
+ * card untouched, where fading an always-present glow would make every card
+ * permanently brighter for the sake of a wobble.
+ */
+@keyframes molten-swell {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes molten-breathe {
   0%   { opacity: 0.78; }
   100% { opacity: 1; }
@@ -988,5 +1071,9 @@
   [data-molten]::before,
   [data-molten]::after {
     animation: none !important;
+    /* Lit and still rather than gone: the swell starts from nothing, so
+       stopping it where it starts would take the light off the edge
+       altogether. Held at the middle of its own cycle instead. */
+    opacity: 0.5;
   }
 }
