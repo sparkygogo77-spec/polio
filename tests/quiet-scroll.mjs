@@ -96,11 +96,23 @@ check("wheeling over the site moves the surface down it", before.head - after.he
   `the frame's head went ${before.head} → ${after.head}`);
 
 /* ------------------------------------------------------------------ */
-/* 3. And nothing beside it moves at all                               */
+/* 3. The categories come with it; nothing beside it moves at all      */
 /* ------------------------------------------------------------------ */
 
-check("the categories stay exactly where they are", Math.abs(after.shelf - before.shelf) < 2,
-  `${before.shelf} → ${after.shelf}`);
+/*
+ * This check used to read "the categories stay exactly where they are",
+ * and it was pinning an arrangement rather than a rule. J's sentence is
+ * "scroll all the way into the categories and the prompt sections below
+ * the timeline, and doing that must not move or affect the side panels":
+ * the thing that must hold still is the *panels*, and the categories are
+ * what the gesture goes into. They were a band beside the pane, so they
+ * could not be gone into; they are under the board in the same scroller
+ * now, so they rise with it.
+ */
+check("the categories come up with the gesture, in the same scroller",
+  before.shelf - after.shelf > 40, `${before.shelf} → ${after.shelf}`);
+check("and they are in the pane, which is why", await page.evaluate(() =>
+  !!document.querySelector("[data-studio-pane]")?.contains(document.querySelector("[data-drawer]"))));
 check("and the side panels do not move either",
   before.panels.length > 0 && before.panels.every((t, i) => t === after.panels[i]),
   before.panels.length ? `${before.panels.join(",")} → ${after.panels.join(",")}` : "no side panel was open");

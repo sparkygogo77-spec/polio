@@ -224,12 +224,19 @@ async function toTheFoot(page) {
     win.x > pane.x + 4 && win.x + win.width < pane.x + pane.width - 4 && win.y > pane.y + 4,
     `frame ${Math.round(win.x)}–${Math.round(win.x + win.width)} in pane ${Math.round(pane.x)}–${Math.round(pane.x + pane.width)}, head at ${Math.round(win.y)}`);
 
-  /* The surface moves down the page, and the shelf does not move at all. */
+  /* The surface moves down the page, and the shelf comes up to meet it.
+     This pair used to read "the shelf never left", which was a fact about
+     the arrangement rather than the rule: a band beside the pane cannot
+     move, so the check could not fail while it was one. The shelf is under
+     the board in the same scroller now, because J asked for one gesture
+     that runs "on into the categories" — so what has to hold is that it
+     arrives whole, and that the panels either side never budge. */
   const panelsBefore = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   const shelfBefore = await page.locator("[data-drawer]").boundingBox();
   const foot = await toTheFoot(page);
   check("the surface moves down the page", foot.room > 40, `the frame's head went up ${foot.room}px`);
-  check("and the parts shelf never left", !!foot.shelf && Math.abs(foot.shelf.y - shelfBefore.y) < 2 && foot.shelf.height > 120,
+  check("and the parts shelf came up with it, whole",
+    !!foot.shelf && foot.shelf.y < shelfBefore.y - 40 && foot.shelf.height > 120,
     foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}, was ${Math.round(shelfBefore.y)}` : "no shelf");
   const panelsAfter = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   check("and the side panels did not move while it did",
@@ -280,11 +287,14 @@ async function toTheFoot(page) {
   await page.mouse.wheel(0, 99999);
   await page.waitForTimeout(300);
   check("and stops at the foot of the page", Math.abs((await head()) - h2) < 4, `${Math.round(h2)}`);
-  /* And the shelf is exactly where it was the whole time — which is the
-     thing the window was protecting when it clipped the page to a screen. */
+  /* And the categories are where the gesture ends, whole and on screen —
+     not clipped, not half a band, not somewhere a second scroll is needed
+     to reach. */
   const shelfNow = await page.locator("[data-drawer]").boundingBox();
-  check("the categories never moved while all that happened", Math.abs(shelfNow.y - shelfBefore.y) < 2,
-    `${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}`);
+  const deck = await page.evaluate(() => window.innerHeight);
+  check("and the categories are what you land on, whole",
+    shelfNow.height > 120 && shelfNow.y < deck && shelfNow.y < shelfBefore.y,
+    `${Math.round(shelfNow.height)}px at y ${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}`);
 
   /* ---------------------------------------------- the shelf's own shape */
   // The screen itself, not the text cursor inside it: the field has a rim and

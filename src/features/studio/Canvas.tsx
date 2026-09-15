@@ -67,8 +67,16 @@ const WEARS_AN_ICON = new Set(["cta-primary", "quick-action", "follow"]);
  * than a hairline.
  */
 const FRAME_GUTTER = 128;
-/** How far below the top of the viewport the page rests. */
-const TOP_MARGIN = 36;
+/**
+ * Ground above the page, and the same again below it.
+ *
+ * `FRAME_GUTTER` is the pair; this is one of them. It is a constant rather
+ * than something the pan moves, because the board is laid out in the pane's
+ * flow now: the page sits this far down its own surface and the surface is
+ * what scrolls. Vertical pan would be a second way of moving the same thing
+ * in the same direction, and two of those disagree.
+ */
+const TOP_GUTTER = FRAME_GUTTER / 2;
 
 /** The screen each device actually has, so the frame is a real viewport. */
 const SCREEN_H: Record<number, number> = { 1440: 900, 834: 1112, 390: 844 };
@@ -89,6 +97,8 @@ interface Drag {
   nodeId?: string;
   handle?: Handle;
   startPan?: { x: number; y: number };
+  /** Where the pane was scrolled to when the hand went down. */
+  startTop?: number;
   moved?: boolean;
   snapped?: boolean;
 }
@@ -140,18 +150,6 @@ export function Canvas() {
   const pageMark = React.useMemo(() => complementOf(theme.backdrop), [theme.backdrop]);
   const pageScroll = useStudio((s) => s.pageScroll);
   /*
-   * Two heights, where there used to be one.
-   *
-   * `pageH` is the site: however far down the last part reaches. `frameH` is
-   * one screen of it — the frame is a window on the page now, not the whole
-   * of it laid out flat. The board used to grow downwards as a site got
-   * deeper, until seeing the foot of it meant scrolling the workspace and the
-   * parts shelf had gone somewhere below the horizon. A window the shape of
-   * the viewer's own viewport, with the site scrolling inside it, is what the
-   * live preview shows and what a visitor will see.
-   */
-  const [viewport, setViewport] = React.useState({ w: 1440, h: 900 });
-  /*
    * One height, where there were two.
    *
    * It had been two: `pageH` for the site and `frameH` for one screen of it,
@@ -168,9 +166,11 @@ export function Canvas() {
    *
    * The window existed for a reason worth recording, because it is the thing
    * that has to stay solved: a site that grows downwards used to push the
-   * parts shelf below the workspace's horizon. It does not now, because the
-   * shelf is a band beside the pane rather than something below the page —
-   * the pane scrolls and the band does not.
+   * parts shelf below the workspace's horizon. It still goes below on a long
+   * page — J asked for exactly that, one gesture "on into the categories" —
+   * but it is in the same scroller as the board rather than below a second
+   * one, so it is where carrying on takes you, and on a page that fits it
+   * has not moved at all.
    *
    * A stock viewport height is still the floor, so an empty page is a page
    * rather than a sliver.
@@ -178,10 +178,29 @@ export function Canvas() {
   const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
   const pageH = Math.max(stock, frameHeight(nodes));
   const frameH = pageH;
-  /* Nothing scrolls inside the frame any more; the surface moves instead. */
-  const scrollMax = 0;
-  const scrolled = 0;
+  /* Nothing scrolls inside the frame, and nothing pans down the ground:
+     the pane does it. `pageScroll` was the site's offset behind the frame's
+     edge and there is no edge left to be behind. */
   void pageScroll;
+  /*
+   * The board is as tall as the site it is showing.
+   *
+   * This is the measurement the last two attempts missed, and it is worth
+   * stating as a number because it is checkable. The board's root was
+   * `size-full`: it took the pane's height, whatever the site's height was,
+   * and clipped. Measured at a 1267×1278 window with six parts on the page:
+   * the root was 943 tall with 1841 of site in it — 898px of the page that
+   * no gesture could reach — and the pane it stood in had a scrollHeight
+   * equal to its clientHeight, so the pane did not scroll at all. What moved
+   * was the board *inside* the root: a pan in a window, which is the box J
+   * keeps reporting.
+   *
+   * So the root is the site's own drawn height plus the ground above and
+   * below it, and the pane is what scrolls. The two numbers that say it
+   * worked: the root's height is the site's rendered height plus a gutter,
+   * and the pane's scrollHeight is that plus the shelf.
+   */
+  const boardH = Math.round(pageH * zoom) + FRAME_GUTTER;
 
   const [drag, setDrag] = React.useState<Drag | null>(null);
 
@@ -203,14 +222,23 @@ export function Canvas() {
   }, [fresh]);
   const [guides, setGuides] = React.useState<Guides>({ x: [], y: [] });
 
+  /** The scroller the board stands in — the one thing that moves down. */
+  const paneOf = React.useCallback(() => {
+    const pane = ref.current?.closest("[data-studio-pane]");
+    return pane instanceof HTMLElement ? pane : null;
+  }, []);
+  const paneTop = React.useCallback(() => paneOf()?.scrollTop ?? 0, [paneOf]);
+
   /** Screen → canvas coordinates. */
   const toCanvas = React.useCallback(
     (clientX: number, clientY: number) => {
       const rect = ref.current?.getBoundingClientRect();
       if (!rect) return { x: 0, y: 0 };
-      return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - pan.y) / zoom + scrolled };
+      /* `rect` is the board's own box in the window, so the pane's scroll is
+         already in it: there is nothing to add for how far down we are. */
+      return { x: (clientX - rect.left - pan.x) / zoom, y: (clientY - rect.top - TOP_GUTTER) / zoom };
     },
-    [pan.x, pan.y, zoom, scrolled],
+    [pan.x, zoom],
   );
 
   /* ---------------------------------------------------- fit the frame
@@ -221,7 +249,7 @@ export function Canvas() {
    * fine: that is what scrolling is for.
    */
   const fitZoom = React.useCallback(
-    (vw: number, vh: number, fh: number) => {
+    (vw: number) => {
       /*
        * By the width, and only the width.
        *
@@ -235,8 +263,6 @@ export function Canvas() {
        * In nominal terms, because that is what the store holds: the width is
        * divided by the base so the *drawn* frame is what is being fitted.
        */
-      void fh;
-      void vh;
       return Math.max(0.2, Math.min(1, (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM)));
     },
     [frameWidth],
@@ -245,50 +271,61 @@ export function Canvas() {
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setViewport({ w: Math.max(1, el.clientWidth), h: Math.max(1, el.clientHeight) });
+    /*
+     * Watch the pane, not the board.
+     *
+     * The board's own height is a function of the zoom now, so a board that
+     * watched itself would fit, grow, notice it had grown, and fit again —
+     * and a person zooming in would be zoomed back out by their own gesture.
+     * The pane is the thing whose shape is an instruction.
+     */
+    const pane = el.closest("[data-studio-pane]") ?? el.parentElement ?? el;
     const apply = () => {
-      const vw = el.clientWidth;
-      const vh = el.clientHeight;
-      const stock = SCREEN_H[frameWidth] ?? Math.round(frameWidth * 0.625);
-      const lean = Math.max(0.9, Math.min(1.1, (vh / Math.max(1, vw)) / (stock / frameWidth)));
-      const fh = Math.round(stock * lean);
-      const z = fitZoom(vw, vh, fh);
+      const vw = pane.clientWidth;
+      const z = fitZoom(vw);
       useStudio.getState().setZoom(z);
       /* Centred on the frame as *drawn*, which is `z` times the base and not
          `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
          hung it off the right of the pane — `board-layout` caught it: "frame
          324,149 677×437 in 752×733". */
       const drawn = z * BASE_ZOOM;
-      useStudio.getState().setPan({
-        x: Math.round((vw - frameWidth * drawn) / 2),
-        // Centred, not pinned to the top: there is no page below the fold to
-        // leave room for any more.
-        y: Math.max(TOP_MARGIN / 2, Math.round((vh - fh * drawn) / 2)),
-      });
+      /* Only across. Down is the gutter, and the gutter is a constant. */
+      useStudio.getState().setPan({ x: Math.round((vw - frameWidth * drawn) / 2), y: 0 });
+      if (pane instanceof HTMLElement) pane.scrollTop = 0;
     };
-    measure();
     apply();
-    // The frame is the pane's own shape, so a pane that changes shape is a
-    // frame that changes shape: re-measure and re-seat every time.
-    const ro = new ResizeObserver(() => { measure(); apply(); });
-    ro.observe(el);
+    // The frame's width is the pane's width less a gutter, so a pane that
+    // changes width is a frame that changes width. Its *height* changing is
+    // the shelf or the window growing, which the fit has no opinion about.
+    let was = pane.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (pane.clientWidth === was) return;
+      was = pane.clientWidth;
+      apply();
+    });
+    ro.observe(pane);
     return () => ro.disconnect();
   }, [fitNonce, frameWidth, fitZoom]);
 
   /* ------------------------------------------------------------- wheel */
   /*
-   * The wheel scrolls the site, inside its frame.
+   * The wheel is not handled here at all, down the page.
    *
-   * It used to pan the board down until the page ran out and then hand the
-   * gesture to the column, which is how a deep site pushed the parts shelf
-   * off the bottom of the world. The frame is one screen now, so the wheel
-   * does what it does in a browser: moves the page behind the frame's edge,
-   * and stops at the foot of it. The board's own pan is still there on the
-   * middle button and the pan tool, for moving the frame about the ground.
+   * Three goes at this, and the first two both ended in the same place: a
+   * gesture that moved something *inside* a fixed box. First the site slid
+   * behind the frame's edge; then the board panned under a `size-full` root.
+   * Both are a scrollbox with the bar turned off, and both stop somewhere
+   * that is not the end of the page.
+   *
+   * The board is as tall as the site now and stands in a pane that scrolls,
+   * so the browser's own scroll is the whole mechanism: one gesture runs
+   * from the head of the site, down every part of it, and on into the
+   * categories below, because they are all in the same scroller. Nothing to
+   * clamp, nothing to hand over, no floor to compute.
+   *
+   * What is left here is the two gestures that are not a scroll: zoom, and
+   * moving the board *across* the ground, which has no scroller to fall to.
    */
-  const reach = React.useRef({ max: 0, pageH: 0 });
-  reach.current.max = scrollMax;
-  reach.current.pageH = pageH;
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -305,32 +342,8 @@ export function Canvas() {
         store.setPan({ x: store.pan.x - e.deltaX, y: store.pan.y });
         return;
       }
-      /*
-       * The surface moves, and it is the surface that stops.
-       *
-       * This used to slide the site behind the frame's edge and stop at the
-       * foot of it — a scrollbox in all but name, which is the thing J said
-       * he does not want. What moves now is the board itself: the wheel pans
-       * it, so the whole length of a rendered page goes by under the pointer
-       * and nothing is ever clipped to a window.
-       *
-       * It still stops, because a surface you can throw into empty space is
-       * worse than one that ends. The floor is the foot of the page a screen
-       * short of leaving, and the ceiling is its head, both in drawn pixels
-       * — the frame is drawn at `zoom * BASE_ZOOM` and the pan is in the same
-       * units.
-       */
-      const drawn = store.zoom * BASE_ZOOM;
-      const view = el.clientHeight;
-      const tall = reach.current.pageH * drawn;
-      // Head of the page a little below the top edge, foot a little above the
-      // bottom one: a margin of ground either end, never a void.
-      const top = FRAME_GUTTER / 2;
-      const floor = Math.min(top, view - tall - top);
-      const next = Math.max(floor, Math.min(top, store.pan.y - e.deltaY));
-      if (Math.abs(next - store.pan.y) < 0.5) return;
-      e.preventDefault();
-      store.setPan({ x: store.pan.x, y: next });
+      /* Down the page is the pane's, untouched: no preventDefault, no
+         clamp, no handover. Falling through to the browser is the fix. */
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -436,7 +449,7 @@ export function Canvas() {
       // from anywhere, including over a part you mean to keep selected.
       if (onBareGround && !e.shiftKey) store.clearSelection();
       capture();
-      setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan });
+      setDrag({ kind: "pan", startX: e.clientX, startY: e.clientY, startPan: pan, startTop: paneTop() });
       return;
     }
 
@@ -523,7 +536,18 @@ export function Canvas() {
     const store = useStudio.getState();
 
     if (drag.kind === "pan") {
-      store.setPan({ x: (drag.startPan?.x ?? 0) + (e.clientX - drag.startX), y: (drag.startPan?.y ?? 0) + (e.clientY - drag.startY) });
+      /*
+       * Across moves the board; down scrolls the pane.
+       *
+       * Dragging the ground upward and wheeling upward have to arrive at the
+       * same place, and only one of them can own the vertical — so the drag
+       * hands it to the same scroller the wheel falls through to. `startTop`
+       * is where that scroller was when the hand went down, so a drag that
+       * turns round returns to where it started rather than drifting.
+       */
+      store.setPan({ x: (drag.startPan?.x ?? 0) + (e.clientX - drag.startX), y: 0 });
+      const pane = paneOf();
+      if (pane) pane.scrollTop = (drag.startTop ?? 0) - (e.clientY - drag.startY);
       return;
     }
 
@@ -776,8 +800,21 @@ export function Canvas() {
          has no background of its own, kept its ground. Anything that needs
          an opaque surface here should paint it on the frame, not on the
          window the frame floats in. */
-      className="relative size-full touch-none overflow-hidden select-none"
-      style={{ cursor }}
+      /*
+       * As tall as the site, and it does not clip.
+       *
+       * `size-full` was here, and it is the single fault behind every
+       * report of "a box that fills the screen and scrolls inside itself":
+       * `h-full` takes the pane's height whatever the site's height is, and
+       * `overflow-hidden` throws the rest away. At a 1267×1278 window with
+       * six parts, that was a 943px root holding 1841px of page.
+       *
+       * The height is the site as drawn plus the ground either side of it,
+       * so the pane has the whole page to scroll and nothing here hides any
+       * of it.
+       */
+      className="relative w-full shrink-0 touch-none select-none"
+      style={{ cursor, height: boardH }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={onDrop}
       onPointerDown={onPointerDown}
@@ -807,10 +844,11 @@ export function Canvas() {
         surface is transparent over it.
       */}
 
-      <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+      {/* Across on the pan, down on the gutter: the pane owns down. */}
+      <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${TOP_GUTTER}px) scale(${zoom})` }}>
         {/*
           The window on the site.
-          
+
           Everything inside it is clipped to one screen, and the site itself
           slides behind that edge as the wheel is turned. The frame used to be
           the whole page laid out flat, which grew downwards for ever and put
@@ -857,14 +895,14 @@ export function Canvas() {
           data-page-scroll=""
           /*
             Transparent to the hand.
-            
+
             The layer covers the whole page, so with pointer events on it the
             bare page was never bare: a right press meant for the background's
             own wheel landed on this instead. The parts and the drawn shapes
             in it take their own presses back.
           */
           className="pointer-events-none absolute left-0 top-0"
-          style={{ width: frameWidth, height: pageH, transform: `translateY(${-scrolled}px)` }}
+          style={{ width: frameWidth, height: pageH }}
         >
         <TextureDrift layers={look.texture} palette={palette} />
         <SpaceMarks zoom={zoom} />
@@ -894,15 +932,10 @@ export function Canvas() {
           <span className="font-medium text-fg">{page.name}</span>
           <span>{page.path}</span>
           <span className="num">{frameWidth} × {Math.round(frameH)}</span>
-          {scrollMax > 0 ? (
-            <span className="text-fg-faint">
-              · <span className="num">{Math.round(pageH)}</span> deep{scrolled > 0 ? <> · <span className="num">{Math.round(scrolled)}</span> down</> : null}
-            </span>
-          ) : null}
         </div>
         {/*
           The fold is the window's own bottom edge now.
-          
+
           A dashed line at 900px was how you were told where the first screen
           ended on a page drawn flat. The frame *is* the first screen, so the
           line would sit exactly on its edge and say nothing; what is worth
@@ -995,14 +1028,14 @@ export function Canvas() {
 
         {/*
           The door.
-          
+
           Make real used to live in exactly one place: right-press a part,
           pick Draw in the wheel, and press it in the tray under the disc.
           Someone who picked up the pencil and drew on the page — which is
           the obvious thing to do — got ink and no way to turn it into
           anything, and a person who spent an hour looking never found the
           door at all. Ink is not an annotation unless someone says it is.
-          
+
           So the ink carries the control. One button, on the drawing, saying
           what it does, from the moment the stroke is finished.
         */}
