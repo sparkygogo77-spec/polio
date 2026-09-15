@@ -37,10 +37,21 @@ type Grip =
   | { kind: "move"; dx: number; dy: number; from: Crop }
   | { kind: "corner"; ax: number; ay: number };
 
+/** A picture taller than this many times its width is shown squashed into a box this tall, rather than at its own height. */
+const SQUASH_PAST = 2;
+
 export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; onChange: (next: Crop | undefined) => void }) {
   const box = React.useRef<HTMLDivElement>(null);
   const grip = React.useRef<Grip | null>(null);
   const [aspect, setAspect] = React.useState(3 / 2);
+  // A picture the browser cannot decode is said, not left as an empty 3:2 box.
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => { setFailed(false); setAspect(3 / 2); }, [src]);
+  // The box is held to a height. A picture far taller than the column is
+  // shown squashed into it rather than running ten times the panel: the
+  // patch is picked in fractions of the box, which are fractions of the
+  // picture either way, and the squash is said.
+  const squashed = aspect < 1 / SQUASH_PAST;
   const c = crop ?? WHOLE;
   const whole = !crop || (c.x <= 0.001 && c.y <= 0.001 && c.w >= 0.999 && c.h >= 0.999);
 
@@ -89,6 +100,14 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
     { key: "se", left: c.x + c.w, top: c.y + c.h, ax: c.x, ay: c.y, cursor: "nwse-resize" },
   ];
 
+  if (failed) {
+    return (
+      <p data-crop-refused="" className="rounded-md border border-dashed border-border p-2 text-[10px] leading-snug text-fg-muted">
+        This picture could not be shown, so there is no patch to pick. Replace it with one the browser can open.
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-1.5">
       <div
@@ -97,7 +116,7 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
         role="application"
         aria-label="Which part of the picture the texture comes from"
         className="relative w-full cursor-crosshair overflow-hidden rounded-md border border-border bg-bg select-none"
-        style={{ aspectRatio: String(aspect), touchAction: "none" }}
+        style={{ aspectRatio: String(Math.max(aspect, 1 / SQUASH_PAST)), touchAction: "none" }}
         onPointerDown={(e) => { const p = at(e); start(e, { kind: "draw", ax: p.x, ay: p.y }); onChange({ x: p.x, y: p.y, w: MIN, h: MIN }); }}
         onPointerMove={move}
         onPointerUp={end}
@@ -112,8 +131,15 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
           onLoad={(e) => {
             const el = e.currentTarget;
             if (el.naturalWidth && el.naturalHeight) setAspect(el.naturalWidth / el.naturalHeight);
+            else setFailed(true);
           }}
+          onError={() => setFailed(true)}
         />
+        {squashed ? (
+          <span data-crop-squashed="" className="pointer-events-none absolute inset-x-0 top-0 bg-[oklch(0.05_0.01_280/0.6)] px-1 py-0.5 text-center text-[9px] text-fg-muted">
+            Shown squashed to fit; the patch is picked in the picture's own proportions
+          </span>
+        ) : null}
 
         {/*
           Nothing is drawn while there is no selection, and that matters: an
