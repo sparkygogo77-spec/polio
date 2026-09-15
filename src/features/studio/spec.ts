@@ -354,8 +354,9 @@ export function compileSpec(input: CompileInput): Spec {
             ? `six, in order front, right, back, left, top, bottom: ${CUBE_SIDES.map((side, i) => {
                 const f = n.cube!.faces[i];
                 const said = [f?.heading?.trim(), f?.body?.trim()].filter(Boolean).join(" — ");
-                return `${side} ${said ? `"${said}"${f?.colour ? ` (${f.colour})` : ""}` : "blank"}`;
-              }).join("; ")}. A blank face is blank on purpose; do not fill it in.`
+                const why = (f?.prompt ?? "").trim();
+                return `${side} ${said ? `"${said}"${f?.colour ? ` (${f.colour})` : ""}` : "blank"}${why ? `, for: ${why}` : ""}`;
+              }).join("; ")}. A blank face is blank on purpose; do not fill it in. The object is ${n.w} × ${n.h} and as deep as its shorter side: a square box is a cube, a wider one is a wider box.`
             : null,
           outline: n.outline
             ? `${n.outline.closed ? "cut to the line drawn round it" : "a band along the line drawn through it"}, ${n.outline.points} points, the path is in the document at this element's \`outline.cut\`, in a 0..1 box (SVG clip-path, objectBoundingBox units)`

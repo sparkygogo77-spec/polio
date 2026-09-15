@@ -291,7 +291,8 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
  * dependencies beyond React, so the site that ships carries it whole.
  */
 function cubeTsx(part: ScaffoldPart, name: string): string {
-  const faces = JSON.stringify(part.cube!.faces, null, 2).split("\n").join("\n");
+  // The words only: a face's prompt is for whoever builds the site, not for the face.
+  const faces = JSON.stringify(part.cube!.faces.map((f) => ({ heading: f.heading, body: f.body, colour: f.colour })), null, 2).split("\n").join("\n");
   const turn = part.cube!.turn ?? { x: -18, y: -32 };
   return `import * as React from "react";
 
@@ -304,32 +305,46 @@ const PLACE: Record<string, { rx: number; ry: number }> = {
 /** What is written on each side. Edit the words here; the shape looks after itself. */
 const FACES: { heading: string; body: string; colour: string }[] = ${faces};
 
-const SIDE = ${Math.round(Math.min(part.w, part.h) * 0.74)};
-const quarter = (d: number) => Math.round(d / 90) * 90;
+/** The box's own proportion: a square box is a cube, a wide one is a slab as deep as its short side. */
+const W = ${Math.max(24, Math.round(part.w * 0.74))};
+const H = ${Math.max(24, Math.round(part.h * 0.74))};
+const D = Math.min(W, H);
+/** The resting pose: a three-quarter view from a little above. It rests a quarter turn at a time round it. */
+const REST = { x: -18, y: -32 };
+/** Looking down on the top, the ordinary view, looking up at the bottom. */
+const PITCHES = [REST.x - 54, REST.x, REST.x + 90];
+/** Never upside down. */
+const LIMIT = 85;
+const clampPitch = (x: number) => Math.max(-LIMIT, Math.min(LIMIT, x));
+const restYaw = (y: number) => Math.round((y - REST.y) / 90) * 90 + REST.y;
+const restPitch = (x: number) => PITCHES.reduce((a, b) => (Math.abs(b - x) < Math.abs(a - x) ? b : a));
 
 export function ${name}() {
   const [turn, setTurn] = React.useState({ x: ${turn.x}, y: ${turn.y} });
   const spin = React.useRef({ x: 0, y: 0 });
   const held = React.useRef(false);
+  const touched = React.useRef(false);
+  const goal = React.useRef<{ x: number; y: number } | null>(null);
   const last = React.useRef<{ x: number; y: number } | null>(null);
 
   React.useEffect(() => {
     let id = 0;
     const tick = () => {
       id = requestAnimationFrame(tick);
-      if (held.current) return;
+      if (held.current || !touched.current) return;
       const s = spin.current;
       if (Math.abs(s.x) > 0.35 || Math.abs(s.y) > 0.35) {
-        setTurn((v) => ({ x: v.x + s.x, y: v.y + s.y }));
+        setTurn((v) => ({ x: clampPitch(v.x + s.x), y: v.y + s.y }));
         s.x *= 0.94;
         s.y *= 0.94;
         return;
       }
       s.x = 0; s.y = 0;
       setTurn((v) => {
-        const dx = quarter(v.x) - v.x;
-        const dy = quarter(v.y) - v.y;
-        if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) return { x: quarter(v.x), y: quarter(v.y) };
+        const want = goal.current ?? { x: restPitch(v.x), y: restYaw(v.y) };
+        const dx = want.x - v.x;
+        const dy = want.y - v.y;
+        if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) { goal.current = null; return { x: want.x, y: ((want.y + 180) % 360 + 360) % 360 - 180 }; }
         return { x: v.x + dx * 0.16, y: v.y + dy * 0.16 };
       });
     };
@@ -344,47 +359,60 @@ export function ${name}() {
       role="img"
       tabIndex={0}
       aria-label=${JSON.stringify(`${part.label}, a cube. Drag to turn it, or use the arrow keys.`)}
-      onPointerDown={(e) => { held.current = true; last.current = { x: e.clientX, y: e.clientY }; spin.current = { x: 0, y: 0 }; e.currentTarget.setPointerCapture(e.pointerId); }}
+      onPointerDown={(e) => { held.current = true; touched.current = true; goal.current = null; last.current = { x: e.clientX, y: e.clientY }; spin.current = { x: 0, y: 0 }; e.currentTarget.setPointerCapture(e.pointerId); }}
       onPointerMove={(e) => {
         if (!held.current || !last.current) return;
         const dx = e.clientX - last.current.x;
         const dy = e.clientY - last.current.y;
         last.current = { x: e.clientX, y: e.clientY };
         spin.current = { x: -dy * 0.42, y: dx * 0.42 };
-        setTurn((v) => ({ x: v.x - dy * 0.42, y: v.y + dx * 0.42 }));
+        setTurn((v) => ({ x: clampPitch(v.x - dy * 0.42), y: v.y + dx * 0.42 }));
       }}
       onPointerUp={() => { held.current = false; last.current = null; }}
       onKeyDown={(e) => {
-        const step: Record<string, [number, number]> = { ArrowLeft: [0, -90], ArrowRight: [0, 90], ArrowUp: [90, 0], ArrowDown: [-90, 0] };
+        const step: Record<string, [number, number]> = { ArrowLeft: [0, -90], ArrowRight: [0, 90], ArrowUp: [-1, 0], ArrowDown: [1, 0] };
         const s = step[e.key];
         if (!s) return;
         e.preventDefault();
+        touched.current = true;
         spin.current = { x: 0, y: 0 };
-        setTurn((v) => ({ x: quarter(v.x) + s[0], y: quarter(v.y) + s[1] }));
+        setTurn((v) => {
+          const at = goal.current ?? { x: restPitch(v.x), y: restYaw(v.y) };
+          if (s[1]) goal.current = { x: at.x, y: at.y + s[1] };
+          else {
+            const i = PITCHES.indexOf(at.x);
+            goal.current = { x: PITCHES[Math.max(0, Math.min(PITCHES.length - 1, (i < 0 ? 1 : i) + s[0]))], y: at.y };
+          }
+          return v;
+        });
       }}
-      style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", perspective: SIDE * 3.4, touchAction: "none", cursor: "grab", outline: "none" }}
+      style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", perspective: Math.max(W, H) * 3.4, touchAction: "none", cursor: "grab", outline: "none" }}
     >
-      <div style={{ width: SIDE, height: SIDE, position: "relative", transformStyle: "preserve-3d", transform: \`translateZ(\${-SIDE / 2}px) rotateX(\${turn.x}deg) rotateY(\${turn.y}deg)\` }}>
+      <div style={{ width: W, height: H, position: "relative", transformStyle: "preserve-3d", transform: \`translateZ(\${-D / 2}px) rotateX(\${turn.x}deg) rotateY(\${turn.y}deg)\` }}>
         {SIDES.map((side, i) => {
           const face = FACES[i] ?? { heading: "", body: "", colour: "" };
           const place = PLACE[side];
+          const fw = side === "left" || side === "right" ? D : W;
+          const fh = side === "top" || side === "bottom" ? D : H;
+          const out = side === "left" || side === "right" ? W / 2 : side === "top" || side === "bottom" ? H / 2 : D / 2;
+          const s = Math.min(fw, fh);
           return (
             <div
               key={side}
               data-face={side}
               style={{
-                position: "absolute", inset: 0, boxSizing: "border-box",
-                transform: \`rotateX(\${place.rx}deg) rotateY(\${place.ry}deg) translateZ(\${SIDE / 2}px)\`,
+                position: "absolute", left: "50%", top: "50%", width: fw, height: fh, boxSizing: "border-box",
+                transform: \`translate(-50%, -50%) rotateX(\${place.rx}deg) rotateY(\${place.ry}deg) translateZ(\${out}px)\`,
                 background: face.colour ? \`var(--\${face.colour})\` : "var(--surface)",
                 border: "1px solid var(--line)",
                 borderRadius: "var(--radius)",
-                padding: Math.round(SIDE * 0.1),
-                display: "flex", flexDirection: "column", justifyContent: "center", gap: Math.round(SIDE * 0.03),
+                padding: Math.round(s * 0.1),
+                display: "flex", flexDirection: "column", justifyContent: "center", gap: Math.round(s * 0.03),
                 backfaceVisibility: "hidden", overflow: "hidden",
               }}
             >
-              {face.heading ? <span style={{ fontWeight: 650, fontSize: Math.max(11, Math.round(SIDE * 0.11)), lineHeight: 1.15, color: "var(--text)" }}>{face.heading}</span> : null}
-              {face.body ? <span style={{ fontSize: Math.max(9, Math.round(SIDE * 0.062)), lineHeight: 1.35, opacity: 0.72, color: "var(--text)" }}>{face.body}</span> : null}
+              {face.heading ? <span style={{ fontWeight: 650, fontSize: Math.max(11, Math.round(s * 0.11)), lineHeight: 1.15, color: "var(--text)" }}>{face.heading}</span> : null}
+              {face.body ? <span style={{ fontSize: Math.max(9, Math.round(s * 0.062)), lineHeight: 1.35, opacity: 0.72, color: "var(--text)" }}>{face.body}</span> : null}
             </div>
           );
         })}
@@ -469,9 +497,10 @@ function partTsx(part: ScaffoldPart, palette: Record<string, string>): string {
  *
  * A cube, written as a component rather than copied as markup: six faces
  * and the behaviour that turns them. A snapshot of it would be a
- * photograph of one angle. Drag it, or use the arrow keys; it settles on
- * the nearest face. The words are the data at the top of the file, and the
- * colours are the site's own tokens.
+ * photograph of one angle. Drag it, or use the arrow keys; it comes to
+ * rest at the nearest three-quarter view, never upside down. The words are
+ * the data at the top of the file, and the colours are the site's own
+ * tokens.
  */
 ${cubeTsx(part, name)}`;
   }

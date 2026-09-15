@@ -382,32 +382,86 @@ a kicker with a rule, and label-and-value rows that copy.
   so or when the bars are inside a box, which is not how anyone draws a
   plain list.
 - **A cube is where the coded path earns its keep** (`parts/Cube.tsx`,
-  `parts/cube.ts`, `shapeKind.isCube`, `tests/cube.mjs`). A traced drawing
-  is a picture and a picture of a cube does not turn, so this one part is
-  not drawn at all: the drawing supplies the kind and the proportions, the
-  prompt supplies what goes on the faces, and the element is code.
-  **Recognition is geometric and free**: three quadrilaterals meeting at a
-  vertex, or a hexagon with a Y in it, or a plain rectangle when the words
-  say cube or box. A cube skips the reshape route entirely, so the whole
-  path — kind, size, faces, the part itself — happens with no model call of
-  any sort.
+  `parts/cubePose.ts`, `parts/cubeFaces.ts`, `shapeKind.isBox`,
+  `shapeKind.isCube`, `tests/cube.mjs`, `tests/box-to-cube.mjs`). A traced
+  drawing is a picture and a picture of a cube does not turn, so this one
+  part is not drawn at all: the drawing supplies the kind and the
+  proportions, the prompt supplies what goes on the faces, and the element
+  is code.
+  **Recognition is geometric and free, and a box on its own is a box.**
+  Three quadrilaterals meeting at a vertex, a hexagon with a Y in it, or
+  **one closed line with four corners that fills its frame, drawn alone**
+  (`isBox`): nothing said beside it, nothing of the page inside it, and
+  nothing real drawn on (a blank idea part counts as nothing). That last
+  case used to be a question ("Is this box a cube?") and, waved on, a flat
+  cutout; it is now decided off the four corners, because a box is the
+  drawing this whole arc is judged on. The gate is `lone`, worked out by
+  the run (`reshapeRun.loneDrawing`) and handed to `kindOfSketch` and the
+  catalogue: a captioned box keeps its words' meaning, a box round three
+  cards is their frame, a box over the hero is the hero's new edge. The
+  disc says "a box: it will be a cube" while it is being drawn, the part's
+  chip says `box · cube` after, and the panel wears "a box, made a cube".
+  A cube skips the reshape route entirely, so the whole path — kind, size,
+  faces, the part itself — happens with no model call of any sort.
+  **It is the proportion it was drawn at.** The catalogue keeps the part's
+  fitted width and height (grown in proportion only under `CUBE_MIN`), and
+  the object inside is as deep as its shorter side: a square box is a cube,
+  a wide box is a wide box (`cubeDims`). Resizing by the handle
+  reproportions the object exactly as it reproportions a flat part, which
+  is what the drawn ratio surviving means for a solid.
   **The part** is six faces in a `preserve-3d` box with no library: drag to
-  turn, the last samples become spin that decays, and under a threshold it
-  eases onto the nearest right angle so it is never left where nothing
-  reads. Arrow keys step a quarter turn. Each face is shaded by how much it
-  faces the page's lamp, which is what stops six rectangles reading as a
-  folded net. Nothing snaps until it has been turned, so the three-quarter
-  view it is left at survives arriving.
+  turn, the last samples become spin that decays. **It cannot be tumbled
+  into nonsense**: yaw is free, pitch is held within `PITCH_LIMIT` (85°) of
+  level, and spin into the limit is spent rather than left pinned. **It has
+  a resting pose it returns to**: when the spin dies it eases to the
+  nearest rest (`nearestRest`), the three-quarter view from a little above
+  (`REST`, −18 / −32) turned a quarter at a time round the yaw, or tipped
+  to look down on the top or up at the bottom (`REST_PITCHES`). Never a
+  flat square, never an edge. Arrow keys step between rests: left and
+  right round the sides, up to the top, down to the bottom. `facing` reads
+  the face in front off the rest pose, and a positive quarter turn brings
+  the *left* face round, because yaw turns the cube, not the camera. Each
+  face is shaded by how much it faces the page's lamp, which is what stops
+  six rectangles reading as a folded net. Nothing snaps until it has been
+  turned, so the pose it is left at survives arriving. A right press is
+  not the cube's: it falls through to the board and opens the wheel.
+  **A face is picked like a part.** A press on a face that does not become
+  a drag says which face (`cube-face` `PartEvent`); the board keeps it as
+  `store.pickedFace` (transient, let go with the selection) and hands it
+  back as `pick`, so the face wears the board's own mark. The panel marks
+  the same card, scrolls it in and gives its heading the keys, so "pick a
+  face and give it words" is one press and typing; naming a face in the
+  panel turns the cube to show it (`restFor`, the short way round). The
+  wheel's pencil is about the picked face when there is one: heading, line
+  and the face's own prompt. Every face has a `prompt` of its own, exactly
+  as a part has, and the blueprint writes it (`for: …`) beside its words.
+  Face edits go through `setCubeFace`, which pushes undo like any edit.
   **The faces live on the node** (`node.cube`), not in the part, because
   they are the author's words: `facesFrom` splits the content field, or the
   prompt after a "a cube with…:" lead-in, one item a face, and **leaves the
   rest blank** — inventing filler for an unwritten face is the thing that
-  makes a page read as generated. The inspector lists all six with a
-  heading, a line, a palette role and clear. Turning it in Preview writes
+  makes a page read as generated. Turning it in Preview writes
   the angle back through a `cube` `PartEvent` tagged with its node, so
   where it was left is what the board draws. Build writes it as a component
   with its own state rather than a snapshot of one angle, which is the only
-  part in `scaffold.ts` that is written rather than copied.
+  part in `scaffold.ts` that is written rather than copied; the written
+  component carries the same proportion, limit and rest poses.
+  **The model road is behind the routing table, and the no-key road is the
+  whole thing** (`solidRoute.ts`, `solidRun.ts`). The cube needs no key.
+  Past it, the same two-axis table that routes every picture routes a box
+  to the one cell that returns a solid — `object` at the first step,
+  `tencent/hunyuan3d-2mv`, which takes front, back, left and right views —
+  and a cube's own faces are those four views, drawn flat off the node
+  (`faceView`) and sent up the image route at stage two (`views`, a field
+  the route now takes for a mesh model). The card in the panel and the
+  piece on the wheel light up the moment a Replicate token is present
+  (`rendererReady`: this browser's vault or the server's environment,
+  never a value, only a yes) and otherwise say what would light them; no
+  call is made to find that out. The answer lands as `mesh-3d` with
+  `node.cube` kept, so the faces stay editable and "Back to the cube" is
+  one press with nothing lost. The vendor is never reached from a test:
+  `tests/box-to-cube.mjs` mocks the route and measures what goes up and
+  what lands.
 - **A drawn shape says what the part does, not only what it looks like**
   (`shapeKind.ts`, `store.applyDrawnKind`). The clip is untouched: a
   triangle still cuts out as a triangle. The geometry is read a second time

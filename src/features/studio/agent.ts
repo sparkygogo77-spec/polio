@@ -145,6 +145,30 @@ export async function claudeReady(force = false): Promise<boolean> {
   return serverKey.value;
 }
 
+/**
+ * Is there a Replicate token anywhere a call could use — the server's or
+ * this browser's?
+ *
+ * The same question as `claudeReady`, for the renderer, and asked for the
+ * same reason: a control that spends money is lit only when the call can
+ * be made, and says what it needs when it cannot. The server never says
+ * what its token is, only whether it has one.
+ */
+let serverToken: { at: number; value: boolean } | null = null;
+
+export async function rendererReady(force = false): Promise<boolean> {
+  if (keyState("REPLICATE_API_TOKEN") === "held") return true;
+  if (!force && serverToken && Date.now() - serverToken.at < 60_000) return serverToken.value;
+  try {
+    const res = await fetch("/api/keys/status", { cache: "no-store" });
+    const data = (await res.json()) as { set?: Record<string, boolean> };
+    serverToken = { at: Date.now(), value: !!data.set?.REPLICATE_API_TOKEN };
+  } catch {
+    return false;
+  }
+  return serverToken.value;
+}
+
 /** The document as the Builder saves it: what a headless browser needs to show the same site. */
 export function studioDoc(): Record<string, unknown> {
   const s = useStudio.getState();

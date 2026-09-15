@@ -34,9 +34,11 @@ export interface BlockProps {
   page?: { w: number; h: number };
   /** The site's texture stack, so a part can wear one layer of it on its own. */
   layers?: TextureLayer[];
+  /** Which piece of the part the board is pointing at, and the mark to draw it in. */
+  pick?: { id: string; colour: string } | null;
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick }: BlockProps) {
   const def = resolvePart(node.featureId);
   // A part can repaint any of the six roles for itself, and set its own type;
   // everything else follows the site.
@@ -88,6 +90,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       theme={t}
       mode={mode}
       cube={node.cube}
+      pick={pick ?? null}
       mesh={node.mesh}
       vector={node.vector}
       onNavigate={onNavigate}
