@@ -144,8 +144,10 @@ async function serveZip(page: PWPage, names: ReadonlySet<string>, dir: string, b
     if (!url.startsWith(`${HOME}/`)) { void r.abort(); return; }
     const path = url.slice(HOME.length + 1);
     const hit = fileFor(path, names, dir);
-    const type = hit ? contentType(hit) : null;
-    if (!hit || !type) { void r.abort(); return; }
-    void r.fulfill({ status: 200, contentType: type, body: Buffer.from(bytesOf(hit)) });
+    // A file with no extension is served as what its bytes say.
+    const body = hit ? bytesOf(hit) : null;
+    const type = hit && body ? contentType(hit, body) : null;
+    if (!hit || !body || !type) { void r.abort(); return; }
+    void r.fulfill({ status: 200, contentType: type, body: Buffer.from(body) });
   });
 }

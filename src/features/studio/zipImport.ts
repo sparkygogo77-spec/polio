@@ -23,6 +23,7 @@
  * it.
  */
 import type { Box } from "./space.ts";
+import { mimeOf } from "./renderAnswer.ts";
 
 /* ------------------------------------------------------------------ */
 /* Bounds                                                               */
@@ -132,13 +133,27 @@ export function checkZip(entries: readonly ZipEntry[], packedBytes: number): Zip
 /* Answering the page                                                   */
 /* ------------------------------------------------------------------ */
 
-/** What a file in the zip is served as. Anything not here is refused to the page. */
-export function contentType(name: string): string | null {
-  const ext = (name.split(".").pop() ?? "").toLowerCase();
+/**
+ * What a file in the zip is served as.
+ *
+ * By its extension when it has one the page's assets use. A file with no
+ * extension is served as what its bytes say when the bytes are given (a
+ * picture by its first bytes, otherwise plain bytes the browser can decide
+ * on), and refused when they are not. Anything else is refused to the page.
+ * The list used to stop at the commonest twenty, so a .bmp, a .tif, an .eot
+ * font or an .mp3 was a broken picture or a missing font with nothing said.
+ */
+export function contentType(name: string, bytes?: Uint8Array): string | null {
+  const last = name.split("/").pop() ?? "";
+  const dot = last.lastIndexOf(".");
+  const ext = dot > 0 ? last.slice(dot + 1).toLowerCase() : "";
   const known: Record<string, string> = {
     html: "text/html; charset=utf-8",
     htm: "text/html; charset=utf-8",
     css: "text/css; charset=utf-8",
+    js: "text/javascript; charset=utf-8",
+    mjs: "text/javascript; charset=utf-8",
+    map: "application/json",
     svg: "image/svg+xml",
     png: "image/png",
     jpg: "image/jpeg",
@@ -146,17 +161,31 @@ export function contentType(name: string): string | null {
     gif: "image/gif",
     webp: "image/webp",
     avif: "image/avif",
+    bmp: "image/bmp",
+    tif: "image/tiff",
+    tiff: "image/tiff",
+    heic: "image/heic",
+    heif: "image/heif",
     ico: "image/x-icon",
     woff: "font/woff",
     woff2: "font/woff2",
     ttf: "font/ttf",
     otf: "font/otf",
+    eot: "application/vnd.ms-fontobject",
     json: "application/json",
+    xml: "application/xml; charset=utf-8",
     txt: "text/plain; charset=utf-8",
+    wasm: "application/wasm",
+    mp3: "audio/mpeg",
+    ogg: "audio/ogg",
+    oga: "audio/ogg",
+    ogv: "video/ogg",
     mp4: "video/mp4",
     webm: "video/webm",
   };
-  return known[ext] ?? null;
+  if (ext) return known[ext] ?? null;
+  if (!bytes) return null;
+  return mimeOf(bytes, "");
 }
 
 /**
@@ -168,7 +197,10 @@ export function contentType(name: string): string | null {
  * too. A folder means the index in it. Nothing else is answered.
  */
 export function fileFor(path: string, names: ReadonlySet<string>, dir: string): string | null {
-  const clean = decodeURIComponent(path.replace(/^\/+/, "").split(/[?#]/)[0] ?? "");
+  const raw = path.replace(/^\/+/, "").split(/[?#]/)[0] ?? "";
+  // A % that is not an escape is an address nothing has, not a throw.
+  let clean: string;
+  try { clean = decodeURIComponent(raw); } catch { return null; }
   if (!clean || !insideZip(clean)) return null;
   for (const c of [clean, `${dir}${clean}`, `${clean.replace(/\/?$/, "/")}index.html`, `${dir}${clean.replace(/\/?$/, "/")}index.html`]) {
     if (names.has(c)) return c;
@@ -187,14 +219,27 @@ export function fileFor(path: string, names: ReadonlySet<string>, dir: string): 
  */
 export function sansScripts(html: string): string {
   return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<script\b[^>]*\/>/gi, "")
+    .replace(/<script\b([^>]*)>[\s\S]*?<\/script\s*>/gi, (whole, attrs: string) => (scriptRuns(attrs) ? "" : whole))
+    .replace(/<script\b([^>]*)\/>/gi, (whole, attrs: string) => (scriptRuns(attrs) ? "" : whole))
     .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 }
 
-/** Did the page bring scripts? Said on the panel, because what they would have drawn is not here. */
+/**
+ * Script types the browser runs. A `<script>` with no type, a JavaScript
+ * type or `module` runs; JSON-LD, JSON, a template or an import map is data
+ * the page carries, and saying the page "brought scripts" for it was wrong.
+ */
+function scriptRuns(attrs: string): boolean {
+  const m = /\btype\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
+  const type = (m?.[2] ?? m?.[3] ?? m?.[4] ?? "").trim().toLowerCase().split(";")[0]!.trim();
+  if (!type) return true;
+  return type === "module" || /^(text|application)\/(x-)?(javascript|ecmascript|jscript)$/.test(type) || type === "application/x-javascript";
+}
+
+/** Did the page bring scripts that would run, or handlers? Said on the panel, because what they would have drawn is not here. */
 export function hadScripts(html: string): boolean {
-  return /<script\b/i.test(html);
+  for (const m of html.matchAll(/<script\b([^>]*)>/gi)) if (scriptRuns(m[1] ?? "")) return true;
+  return /\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i.test(html);
 }
 
 /* ------------------------------------------------------------------ */
