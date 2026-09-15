@@ -521,7 +521,7 @@ export function Onboarding({ id, content, theme: t, mode, emit }: PartProps) {
 }
 
 /** A button that leans toward the pointer. */
-export function MagneticButton({ id, content, theme: t, mode, emit }: PartProps) {
+export function MagneticButton({ id, content, theme: t, mode, emit, link, onNavigate }: PartProps) {
   const label = items(content, ["Get started"])[0]!;
   const [offset, setOffset] = React.useState({ x: 0, y: 0 });
   const ref = React.useRef<HTMLDivElement>(null);
@@ -541,7 +541,8 @@ export function MagneticButton({ id, content, theme: t, mode, emit }: PartProps)
       style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
     >
       <span style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: "transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)" }}>
-        <Btn t={t} label={label} onClick={() => emit?.({ type: "toast", text: label })} />
+        {/* Where it links, when it links; its own name as a toast when it does not. */}
+        <Btn t={t} label={label} onClick={() => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: label }))} />
       </span>
     </Fill>
   );
