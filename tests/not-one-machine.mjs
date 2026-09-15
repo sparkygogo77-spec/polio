@@ -140,13 +140,13 @@ if (live) {
     for (let i = 0; i < n; i++) { const q = u[i] - mu, r = v[i] - mv; a += q * r; c += q * q; d += r * r; }
     return c && d ? a / Math.sqrt(c * d) : 0;
   };
-  const run = async () => {
+  const run = async (on = boxes) => {
     const shot = async (bx) => (await p.screenshot({ clip: bx.w ? { x: bx.x, y: bx.y, width: bx.w, height: bx.h } : bx })).toString("base64");
     const A = [];
-    for (const bx of boxes) A.push(await shot(bx));
+    for (const bx of on) A.push(await shot(bx));
     await p.waitForTimeout(500);
     const B = [];
-    for (const bx of boxes) B.push(await shot(bx));
+    for (const bx of on) B.push(await shot(bx));
     const fields = await p.evaluate(FIELDS, [A, B]);
     const pairs = [];
     for (let i = 1; i < fields.length; i++) pairs.push(corr(fields[i - 1], fields[i]));
@@ -161,16 +161,53 @@ if (live) {
     `the closest pair is ${now.worst.toFixed(3)}`);
 
   /*
-   * And the instrument is not blind. Forced back to one share — one phase,
-   * one pace, one heading, one place in the tile — the old reading has to
-   * come back, or this measures nothing and passing it means nothing.
+   * AND THE INSTRUMENT IS NOT BLIND — on boxes of its own rather than on the
+   * panel's.
+   *
+   * It used to force the panel's own boxes to one share and check that the
+   * correlation came back. That worked while the panel happened to hold
+   * boxes of a similar size and stopped working the moment it did not: the
+   * passes are regenerated out of the repo's history on every merge, and as
+   * this is written they are 127, 67, 246, 67, 186 and 67 pixels tall. Two
+   * boxes of 67 and 246 given the identical share still do not show the
+   * identical picture, because each one's cloud is placed against its own
+   * geometry — so the self-check was reading the shape of the commit log.
+   *
+   * A row of boxes built here, all the same size, is what the claim is
+   * actually about: given one share they move as one, given their own they
+   * do not. It holds whatever has landed this week.
    */
-  await p.addStyleTag({ content: "[data-updates-panel] section.molten{--molten-seed:42!important;--mo-pace:1!important;--mo-way:normal!important;--mo-shift:0px!important}" });
-  await p.waitForTimeout(700);
-  const one = await run();
-  check("the measure can see one machine when there is one: forced to a single share, it comes back",
-    one.mean > now.mean + 0.25 && one.worst > 0.8,
-    `forced: mean ${one.mean.toFixed(3)}, closest pair ${one.worst.toFixed(3)} — against ${now.mean.toFixed(3)} and ${now.worst.toFixed(3)}`);
+  await p.evaluate(() => {
+    const host = document.createElement("div");
+    host.id = "same";
+    host.style.cssText = "position:fixed;left:24px;top:24px;z-index:99999;display:flex;flex-direction:column;gap:10px";
+    for (let i = 0; i < 6; i++) {
+      const d = document.createElement("div");
+      d.className = "molten molten-verdant";
+      d.setAttribute("data-same", "");
+      d.style.cssText = `position:relative;width:560px;height:96px;border-radius:10px;overflow:hidden;--molten-seed:${(i * 31 + 7) % 97};--mo-pace:${(0.82 + (i % 7) * 0.06).toFixed(2)};--mo-way:${i % 2 ? "reverse" : "normal"};--mo-shift:${i * 62}px`;
+      const s = document.createElement("span");
+      s.setAttribute("data-molten", "");
+      d.appendChild(s);
+      host.appendChild(d);
+    }
+    document.body.appendChild(host);
+  });
+  await p.waitForTimeout(900);
+  const same = await p.evaluate(() => [...document.querySelectorAll("[data-same]")].map((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+  }));
+  const mine = await run(same);
+  check("six boxes of one size, each with its own share, move apart", mine.mean < 0.3,
+    `mean ${mine.mean.toFixed(3)} across ${mine.n} pairs`);
+  await p.addStyleTag({ content: "[data-same]{--molten-seed:42!important;--mo-pace:1!important;--mo-way:normal!important;--mo-shift:0px!important}" });
+  await p.waitForTimeout(800);
+  const one = await run(same);
+  check("…and the same six forced to a single share come back as one machine, which is how we know the measure works",
+    one.mean > mine.mean + 0.4 && one.worst > 0.8,
+    `forced: mean ${one.mean.toFixed(3)}, closest pair ${one.worst.toFixed(3)} — against ${mine.mean.toFixed(3)} and ${mine.worst.toFixed(3)}`);
+  await p.evaluate(() => document.getElementById("same")?.remove());
   /* ---------------------------------------------------------------- */
   /* 3. …and nothing on a card moves like the rest of the card         */
   /* ---------------------------------------------------------------- */
