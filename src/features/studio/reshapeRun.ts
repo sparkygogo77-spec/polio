@@ -879,7 +879,8 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
     return { id: node.id, label, w, h, kind, kindChanged, reproportioned, keptSize, shape: made.shape };
   }
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
-  const id = s.addNode(featureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
+  // On whole pixels, as every other part lands: a drawing's middle is wherever the hand was.
+  const id = s.addNode(featureId, Math.round(clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w))), Math.round(Math.max(0, where.y - h / 2)), shared);
   return { id, label, w, h, kind, kindChanged, reproportioned, keptSize, shape: made.shape };
 }
 
@@ -945,17 +946,22 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
    * page is made across the page.
    */
   const drewWide = !job.drawn || job.drawn.w >= frameWidth * FULL_BLEED;
-  const w = job.drawn && !drewWide
-    ? clamp(Math.round(job.drawn.w), 80, frameWidth)
-    : clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
-  const h = shape === "circle"
-    ? w
-    : job.drawn && !drewWide
-      ? clamp(Math.round(job.drawn.h), 24, 1600)
-      : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
+  /*
+   * A drawing too small to be a part is grown to the floors *in
+   * proportion*. The floors are different on each axis (80 wide, 24 tall),
+   * so clamping each on its own turned a 44 × 36 mark into an 80 × 36 one:
+   * the proportion, the one thing a bare drawing says, was lost to a
+   * minimum. Both sides are scaled by the same factor instead.
+   */
+  const raw = job.drawn && !drewWide
+    ? { w: job.drawn.w, h: job.drawn.h }
+    : { w: (b?.box.w ?? 0.3) * frameWidth, h: ((b?.box.w ?? 0.3) * frameWidth) / (b?.aspect ?? 1) };
+  const grow = Math.max(1, 80 / Math.max(1, raw.w), 24 / Math.max(1, raw.h));
+  const w = clamp(Math.round(raw.w * grow), 80, frameWidth);
+  const h = shape === "circle" ? w : clamp(Math.round(raw.h * grow), 24, 1600);
   const label = nameFrom(drawn.words) || "Drawn part";
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
-  const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
+  const id = s.addNode("custom-idea", Math.round(clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w))), Math.round(Math.max(0, where.y - h / 2)), {
     w, h, label, prompt: drawn.words, sketch: drawn, ...shaped,
   });
   return { id, label, w, h };
