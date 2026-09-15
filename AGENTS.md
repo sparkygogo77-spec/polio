@@ -269,7 +269,10 @@ a kicker with a rule, and label-and-value rows that copy.
   same document. Anything that loads or renders a document carries the whole
   of it.
 - Every plain format value reaches the blueprint, resolved; advanced ones only
-  when changed; `*` marks what the author set. A default left out was read as
+  when changed; `*` marks what the author set. A field a renderer reads is
+  marked `live` in `format.ts`; the rest are marked "brief" in the panel,
+  because the preview does not draw them, and `tests/format-live.mjs` holds
+  the flags to the renderers' own source. A default left out was read as
   "not decided" and the whole visual system got inferred from six colours.
 - The blueprint explains its own conventions in "How to read this" and the
   Claude routes repeat them in their system prompt. Change one, change both:
