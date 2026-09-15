@@ -223,6 +223,21 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
     );
   }
 
+  if (which === "priority") {
+    /* The same three the Inspector offers, so the wheel does what the
+       panel does: how much this part matters when the site is built. */
+    const levels: [StudioNode["priority"], string][] = [["must", "Must have"], ["nice", "Nice"], ["idea", "Idea"]];
+    return (
+      <PlateQuad {...common} title="Priority">
+        <div className="flex flex-wrap gap-1">
+          {levels.map(([v, label]) => (
+            <Tick key={v} on={node.priority === v} onClick={() => update({ priority: v })}>{label}</Tick>
+          ))}
+        </div>
+      </PlateQuad>
+    );
+  }
+
   if (which === "words") {
     return (
       <PlateQuad {...common} title="This part's prompt">
