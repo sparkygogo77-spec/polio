@@ -3,13 +3,13 @@ import { defineFeature } from "@/core/types";
 import { KeysButton } from "./KeysPanel";
 
 /**
- * The key vault.
+ * The keys panel.
  *
  * Not a page: a button in the top bar and a panel behind it. It exists
  * because someone may not have access to the server where the real keys
  * belong. There is no PIN on the way in — the key is held in this browser
  * and the panel says plainly what that means and how to be rid of it — and
- * the old sealed-under-a-PIN vault is a setting away for anyone who wants
+ * the old sealed-under-a-PIN keys panel is a setting away for anyone who wants
  * it back.
  *
  * The module owns the button; the shell knows nothing about it and gets it
@@ -42,7 +42,7 @@ export const keys = defineFeature({
       label: "Keys",
       group: "Keys",
       icon: KeyRound,
-      keywords: ["api", "key", "token", "secret", "pin", "vault", "anthropic", "claude", "github", "x", "twitter", "vercel"],
+      keywords: ["api", "key", "token", "secret", "pin", "keys panel", "anthropic", "claude", "github", "x", "twitter", "vercel"],
       shortcut: "mod+shift+k",
       run: (ctx) => ctx.togglePanel("keys"),
     },
@@ -51,7 +51,7 @@ export const keys = defineFeature({
       label: "Forget the key held here",
       group: "Keys",
       icon: KeyRound,
-      keywords: ["lock", "close", "vault", "forget", "clear"],
+      keywords: ["lock", "close", "keys panel", "forget", "clear"],
       // With no PIN there is nothing to lock: the only thing this can mean
       // is dropping the key, and with a PIN it still means locking.
       run: async () => {
@@ -62,7 +62,7 @@ export const keys = defineFeature({
   ],
   shortcuts: [{ keys: "mod+shift+k", label: "Keys", group: "Keys", run: (ctx) => ctx.togglePanel("keys") }],
   onMount: () => {
-    // A vault open when the tab goes away is a vault open on a shared machine.
+    // A keys panel open when the tab goes away is a keys panel open on a shared machine.
     // A key held for the tab — or a sealed one kept for it — is the tab's own:
     // sessionStorage ends with it, and pagehide also fires on a plain reload,
     // which both should survive. With no PIN there is nothing to shut: the

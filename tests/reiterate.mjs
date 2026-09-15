@@ -41,7 +41,7 @@ await page.route("**/api/studio/generate", async (r) => {
   asks.push(JSON.parse(r.request().postData() ?? "{}"));
   await r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, text: "Ran again." }) });
 });
-// The server says it has a key, so the no-key path (which opens the vault
+// The server says it has a key, so the no-key path (which opens the keys panel
 // over the board once a run is over) stays out of the way of the second press.
 await page.route("**/api/keys/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, set: { ANTHROPIC_API_KEY: true } }) }));
 // The camera is not the subject; answer it at once so the ask is not held up.

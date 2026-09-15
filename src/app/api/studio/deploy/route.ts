@@ -11,7 +11,7 @@ import { findVercelProject, type VercelProject } from "@/features/studio/vercelP
  * the address people will actually type.
  *
  * The token can come from either side, like the Claude key: the server's
- * `VERCEL_TOKEN` if it has one, or the browser's vault as `x-vercel-token`.
+ * `VERCEL_TOKEN` if it has one, or the browser's keys panel as `x-vercel-token`.
  * The server's wins. It is used for these calls and nothing else, is never
  * written down, and never comes back in an answer.
  *
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false,
       reason: "no-token",
-      message: "No Vercel token. Put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server, and this can put the site live.",
+      message: "No Vercel token. Put one in the keys panel (⌘⇧K) or set VERCEL_TOKEN on the server, and this can put the site live.",
     });
   }
 

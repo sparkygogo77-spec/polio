@@ -19,7 +19,7 @@
  *   is lit only then. Without one the card says what would light it, in a
  *   sentence, and the cube is not one face short of anything.
  * - **The token is the person's.** It rides with the call as a header from
- *   their own vault (`rendererHeader`); nothing here writes one down.
+ *   their own keys panel (`rendererHeader`); nothing here writes one down.
  * - **The cube is kept.** The node becomes `mesh-3d` with the GLB on it and
  *   `node.cube` still there, so the faces stay editable and "back to the
  *   cube" is one press with nothing lost.

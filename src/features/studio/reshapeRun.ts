@@ -75,7 +75,7 @@ export function nameFrom(words: string, max = 56): string {
 
 export interface RunDeps {
   publish: (input: NewsInput) => void;
-  /** The vault is locked or empty and the reader could not run. */
+  /** The keys panel is locked or empty and the reader could not run. */
   onNoKey: () => void;
   /** What the counter says this job is doing. */
   onStep?: (step: string) => void;
@@ -501,7 +501,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
 
     // No key, a refusal, a bad reply: the drawing still shapes the part, and
     // what the shape means is read here rather than asked for, so behaviour
-    // survives a locked vault exactly as the crop does.
+    // survives a locked keys panel exactly as the crop does.
     const made = applyProportion(drawn, node, job);
     const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
     // A drawing that made a part is an iteration whether or not a reader
@@ -531,7 +531,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       toast: true,
     });
     // The body does not need a reader either. Tracing the drawing is
-    // Claude-free from end to end, so a locked vault costs the description
+    // Claude-free from end to end, so a locked keys panel costs the description
     // and nothing else.
     const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
     // The reader was missing, not the work: the shape, the behaviour and

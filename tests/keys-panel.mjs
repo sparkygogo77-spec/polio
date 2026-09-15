@@ -1,13 +1,13 @@
 /**
- * The key vault: the PIN holds, and nothing is written down in the clear.
+ * The keys panel: the PIN holds, and nothing is written down in the clear.
  *
- * The last check is the one that matters. A vault that unlocks nicely but
- * leaves the key readable in storage is worse than no vault, because it looks
+ * The last check is the one that matters. A keys panel that unlocks nicely but
+ * leaves the key readable in storage is worse than no keys panel, because it looks
  * like protection. This walks the whole round trip — set a PIN, save a key,
  * lock, refuse a wrong PIN, accept the right one, find the key again — and
  * then reads the browser's own storage to confirm the key is not in it.
  *
- *   node tests/keys-vault.mjs [url]      # default http://localhost:3000
+ *   node tests/keys-keys panel.mjs [url]      # default http://localhost:3000
  */
 import { createRequire } from "node:module";
 
@@ -29,7 +29,7 @@ const check = (name, ok, detail = "") => {
 
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
-// The PIN is off by default now: this test is about the vault that is still
+// The PIN is off by default now: this test is about the keys panel that is still
 // there behind the setting, so it turns it on before the app loads.
 const PIN_ON = { state: { values: { "keys.pin": true }, advanced: true }, version: 0 };
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "domcontentloaded" });
@@ -60,7 +60,7 @@ check("it asks for a new PIN first", await panel.getByText("Choose a four-digit 
 await typePin("1234");
 check("it asks for the PIN a second time", await panel.getByText("Type it once more").isVisible().catch(() => false));
 await typePin("1234");
-check("the vault opens once the two agree", await panel.getByText("Save to this browser").isVisible());
+check("the keys panel opens once the two agree", await panel.getByText("Save to this browser").isVisible());
 
 // 4. Save a key.
 const field = panel.locator('input[type="password"]').first();

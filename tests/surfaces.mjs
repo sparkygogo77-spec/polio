@@ -12,7 +12,7 @@
  *  · **A surface painted out of another family.** The trail's canvas was
  *    `oklch(0.13 0.012 150)` — the shell's own ground with its hue typed as
  *    green — which nothing else in the app is anywhere near.
- *  · **A copy of the material that drifted.** The key vault kept its own
+ *  · **A copy of the material that drifted.** The key keys panel kept its own
  *    five-value screen, every number a little away from the shared one.
  *
  * And one of layout: a row of buttons sliced in half by the edge of the
@@ -35,11 +35,11 @@ const check = (name, ok, detail = "") => {
 /* ------------------------------------------------------------------ */
 
 {
-  const vault = readFileSync(new URL("../src/features/keys/KeysPanel.tsx", import.meta.url), "utf8");
+  const keysPanel = readFileSync(new URL("../src/features/keys/KeysPanel.tsx", import.meta.url), "utf8");
   check(
-    "the key vault wears the shared screen rather than its own copy",
-    /from "@\/core\/ui\/void"/.test(vault) && !/glass:\s*"radial-gradient/.test(vault),
-    /glass:\s*"radial-gradient/.test(vault) ? "still defines its own glass" : "imports it",
+    "the key keys panel wears the shared screen rather than its own copy",
+    /from "@\/core\/ui\/void"/.test(keysPanel) && !/glass:\s*"radial-gradient/.test(keysPanel),
+    /glass:\s*"radial-gradient/.test(keysPanel) ? "still defines its own glass" : "imports it",
   );
 }
 
@@ -154,7 +154,7 @@ check(
   canvas,
 );
 
-/* The screen the vault paints with is the screen everything else paints with. */
+/* The screen the keys panel paints with is the screen everything else paints with. */
 await page.evaluate(() => document.querySelector("[data-keys-panel]")?.setAttribute("data-open", "1"));
 check("and core still owns the screen's glass", /radial-gradient/.test(SCREEN.glass) && /195/.test(SCREEN.glass), SCREEN.glass.slice(0, 46));
 

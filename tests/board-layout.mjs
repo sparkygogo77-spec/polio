@@ -84,7 +84,7 @@ async function open(w, h) {
  *
  * **`offsetParent` is not the gate.** It is null for every `position: fixed`
  * element — a dialog, a slide-over, a pinned bar — whether or not anybody can
- * see it, so gating on it fails the key vault for the crime of being a
+ * see it, so gating on it fails the key keys panel for the crime of being a
  * dialog. It is one signal among the others: a statically positioned node
  * with no offset parent really is detached, and a fixed or sticky one is
  * exempt because being fixed is the reason it has none.

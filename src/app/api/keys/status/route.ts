@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 /**
  * Which keys the server has — never what they are.
  *
- * The vault panel needs to tell someone whether to bother pasting a key at
+ * The keys panel needs to tell someone whether to bother pasting a key at
  * all, and that is the whole of what this answers: a name and a yes or no.
  * No value, no prefix, no length, nothing that narrows a guess. Anything
  * added here in future must pass the same test.

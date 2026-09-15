@@ -45,7 +45,7 @@ const noToken = await json(`${URL_BASE}/api/studio/deploy`, {
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ repo: "someone/something" }),
 });
-check("with no token it says where to put one", noToken.ok === false && noToken.reason === "no-token" && /vault|VERCEL_TOKEN/.test(noToken.message ?? ""), noToken.message);
+check("with no token it says where to put one", noToken.ok === false && noToken.reason === "no-token" && /keys panel|VERCEL_TOKEN/.test(noToken.message ?? ""), noToken.message);
 
 /* 3. The token travels: Vercel is the one that turns it down, not us. */
 const rejected = await json(`${URL_BASE}/api/studio/deploy`, {

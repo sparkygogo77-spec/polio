@@ -130,7 +130,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       onOpenChange={onOpenChange}
       size="xl"
       // The Builder's own surfaces are the void — the wheel, the console, the
-      // command palette, the key vault — and this was the one that stayed a
+      // command palette, the keys panel — and this was the one that stayed a
       // plain shell panel, which made the thing you press Finish to see look
       // like it belonged to a different program. The pinned panel is not this:
       // docked beside the Inspector, it is one of the shell's panels and wears
@@ -287,7 +287,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
      * The banner, in the order a reader needs it. A missing or locked key is
      * why nothing was asked at all, so it goes first and stays there: the
      * pictures failing is a detail underneath it, not the headline, and the
-     * old order left a locked vault reading as a broken camera.
+     * old order left a locked keys panel reading as a broken camera.
      */
     const said: { key?: string; run?: string; shots?: string } = {};
     const say = () => setNote([said.key, said.run, said.shots].filter(Boolean).join(" ") || null);
@@ -764,7 +764,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           <Tooltip content={
             live?.configured
               ? "Push the files, build the site on Vercel, and hand back the address."
-              : "Needs a Vercel token: put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server."
+              : "Needs a Vercel token: put one in the keys panel (⌘⇧K) or set VERCEL_TOKEN on the server."
           }>
             <span>
               <Button variant="primary" size="sm" disabled={!!busy || !github?.configured || !live?.configured} onClick={() => void goLive()}>

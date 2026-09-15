@@ -296,7 +296,7 @@ export interface NavEntry {
  * A control a module puts in the top bar, beside search, news and settings.
  *
  * The bar is core and knows nothing about any feature, so anything that has
- * to live up there — a link out to the repository, the key vault — arrives
+ * to live up there — a link out to the repository, the keys panel — arrives
  * this way rather than by importing a feature into the shell.
  */
 export interface TopBarItemDef {

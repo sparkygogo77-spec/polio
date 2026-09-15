@@ -8,7 +8,7 @@
  * takes a beat rather than no time at all, and the whole space takes hours of
  * a machine's attention rather than a blink. That turns a glance over your
  * shoulder, or a minute alone with an unlocked laptop, into a real obstacle.
- * It does not turn it into a vault, and the panel says so in as many words.
+ * It does not turn it into a keys panel, and the panel says so in as many words.
  *
  * There is no separate check for "is the PIN right". The entries are sealed
  * with AES-GCM, which authenticates what it encrypts, so a wrong PIN fails to

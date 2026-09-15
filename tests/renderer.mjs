@@ -7,7 +7,7 @@
  * something that is not this app. So what is held shut here is mostly not
  * "does it draw":
  *
- *   · the token rides on the request, out of the same vault the Claude key
+ *   · the token rides on the request, out of the same keys panel the Claude key
  *     lives in, and beats the server's, because the person who typed it is
  *     the one being billed; no answer this route gives ever contains it;
  *   · with no token anywhere the answer is HTTP 200, ok:false, reason
@@ -19,7 +19,7 @@
  *     the part renders;
  *   · the price is 0.04 raster, 0.08 vector, in one place, and it reaches
  *     the usage line;
- *   · the vault holds it beside the Claude key, offers the same field, the
+ *   · the keys panel holds it beside the Claude key, offers the same field, the
  *     same Try it, and the same Forget;
  *   · and the drawing path asks the tracer and nothing else: the picture
  *     goes up, no description of it does, no model that writes is called,

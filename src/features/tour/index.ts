@@ -5,7 +5,7 @@ import { defineFeature } from "@/core/types";
  * The tour.
  *
  * Not a page and not a panel: a layer over whatever is open, which the shell
- * renders once (`AppShell`) the way it renders the vault and the console. The
+ * renders once (`AppShell`) the way it renders the keys panel and the console. The
  * module exists to give it a command and a shortcut; the Builds page offers
  * it directly, because arriving is exactly when it is worth taking.
  */

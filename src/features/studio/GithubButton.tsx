@@ -14,7 +14,7 @@
  * So the tooltip's advice is the Keys panel now, not the server's
  * environment, and `GITHUB_TOKEN` on the server is the fallback.
  *
- * It reads the same status route the vault reads, which reports whether a
+ * It reads the same status route the keys panel reads, which reports whether a
  * token would be found and never what it is.
  */
 import * as React from "react";
@@ -84,7 +84,7 @@ export function GithubButton() {
         size="icon"
         /* "GitHub" stays in the name whatever state this is in: it is the
            GitHub button, and something looking for it by name — a screen
-           reader, or the vault suite — should find it before a repository
+           reader, or the keys suite — should find it before a repository
            exists as readily as after. */
         aria-label={name ? `Open ${name} on GitHub` : "GitHub: this site has no repository yet"}
         data-github-button=""

@@ -244,7 +244,7 @@ if (!chromium) {
       await keyButton.click({ force: true }).catch(() => undefined);
       await page.waitForTimeout(1200);
     }
-    const vault = await page.evaluate(() => {
+    const keysPanel = await page.evaluate(() => {
       const box = document.querySelector("[data-keys-panel]") ?? document.querySelector("[role=dialog]");
       if (!box) return { there: false, says: "" };
       const r = box.getBoundingClientRect();
@@ -253,9 +253,9 @@ if (!chromium) {
         && r.bottom > 0 && r.right > 0 && r.top < window.innerHeight && r.left < window.innerWidth;
       return { there: on, says: (box.textContent || "").replace(/\s+/g, " ").trim() };
     });
-    check("the Keys panel opens", vault.there, vault.there ? "on the screen" : "it did not come up");
-    check("and it lists Claude", vault.there && /claude/i.test(vault.says), /claude/i.test(vault.says) ? "named" : "not named");
-    check("and it lists Replicate", vault.there && /replicate/i.test(vault.says), /replicate/i.test(vault.says) ? "named" : "not named");
+    check("the Keys panel opens", keysPanel.there, keysPanel.there ? "on the screen" : "it did not come up");
+    check("and it lists Claude", keysPanel.there && /claude/i.test(keysPanel.says), /claude/i.test(keysPanel.says) ? "named" : "not named");
+    check("and it lists Replicate", keysPanel.there && /replicate/i.test(keysPanel.says), /replicate/i.test(keysPanel.says) ? "named" : "not named");
     await page.keyboard.press("Escape").catch(() => undefined);
     await page.waitForTimeout(600);
 

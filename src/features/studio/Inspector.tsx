@@ -961,7 +961,7 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
 /**
  * Does this browser, or the server, hold a Replicate token?
  *
- * Asked once, and again whenever the vault changes: the control it lights
+ * Asked once, and again whenever the keys panel changes: the control it lights
  * is the one control on this panel that spends money.
  */
 function useRendererReady(): boolean | null {

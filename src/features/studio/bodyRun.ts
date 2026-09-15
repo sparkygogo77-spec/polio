@@ -417,7 +417,7 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
 /**
  * Ask the renderer to draw it.
  *
- * The token rides on the request, out of the same vault the Claude key
+ * The token rides on the request, out of the same keys panel the Claude key
  * comes from, and no Claude key rides with it: this route has no use for
  * one. Without a token the answer is `unavailable` at HTTP 200, so this is
  * never a failure, only a fork.
@@ -499,7 +499,7 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
       // written attempt is given to beat, with the drawing beside it.
       if (judged.overlap >= 0 && judged.overlap < GOOD_ENOUGH) prev = { html, says: judged.says, shot: judged.shot };
     } else {
-      // A vault holding a token but locked is the usual reason, and "no
+      // A keys panel holding a token but locked is the usual reason, and "no
       // token" would be untrue; say what to press instead.
       rendererSays = (drew.reason === "unavailable" ? noRendererKeyMessage("") : drew.message ?? "The renderer drew nothing.").trim();
     }

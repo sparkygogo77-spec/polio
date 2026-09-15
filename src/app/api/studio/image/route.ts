@@ -30,7 +30,7 @@ import { fromMetrics } from "@/features/studio/spend";
  * The renderer service: a part's body, drawn rather than written.
  *
  * The token belongs to the person, not to the deployment. It is typed into
- * the vault under the key button, held in this browser exactly as the
+ * the keys panel under the key button, held in this browser exactly as the
  * Claude key is, unlocked the same way, and rides with each call as
  * `x-replicate-key`. This route holds it for the length of the call and no
  * longer: it is never written to disk, never logged, never echoed back —
@@ -56,7 +56,7 @@ import { fromMetrics } from "@/features/studio/spend";
  * With no token anywhere it answers HTTP 200 with `ok: false` and `reason:
  * "unavailable"`, the same shape and the same path as a missing Claude
  * key, so the dialog shows the reason and the body loop falls back to
- * writing one. A vault that holds a token but is locked is the common case,
+ * writing one. A keys panel that holds a token but is locked is the common case,
  * and the caller says so rather than "no token".
  *
  * The price of the call rides back with the answer (`cost`), because this
@@ -191,7 +191,7 @@ interface Body {
  * The token for this call: the browser's, or the server's if it has one.
  *
  * The browser's wins, unlike every other route here, because this is the
- * one key the person is expected to bring: they typed it into the vault and
+ * one key the person is expected to bring: they typed it into the keys panel and
  * they are the one being billed for the call. It is returned, used, and
  * dropped when the request ends; nothing holds it.
  */
