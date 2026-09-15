@@ -216,7 +216,15 @@ export const studio = defineFeature({
         const setDevice = (d: string) => (window as unknown as { __studioLiveDevice?: (d: string) => void }).__studioLiveDevice?.(d);
         return [
           { type: "label", label: `Live · ${page?.name ?? "page"}` },
-          { id: "studio.live.board", label: "Back to the board", icon: LayoutTemplate, shortcut: "b", onSelect: () => ctx.navigate("/builder") },
+          {
+            id: "studio.live.board",
+            label: "Back to the board",
+            icon: LayoutTemplate,
+            shortcut: "b",
+            // On the board itself this is a mode, not an address: navigating
+            // to /builder from /builder went nowhere and left Preview on.
+            onSelect: () => { if (onPreview()) ctx.navigate("/builder"); else useStudio.getState().setMode("design"); },
+          },
           {
             id: "studio.live.device",
             label: "Device",
