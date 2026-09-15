@@ -56,7 +56,8 @@
                       own bigger period, so the two never share a heading
      molten-churn     kept for a construct that wants another moving layer
                       of its own; nothing here uses it
-     molten-breathe   the edge, thickening and thinning
+     molten-swell     light gathering inside the top and bottom edges and
+                      going out again, on two strips that composite
      molten-flare     an occasional run of light along the outline, and out
      molten-ember     the odd spark shed at a corner
 
@@ -571,8 +572,9 @@
    * THIS NODE DOES NOT BREATHE, AND THE EDGE DOES. The two pseudo-elements
    * below carry it.
    *
-   * It used to be here: `molten-breathe`, the whole rim between 0.78 and 1
-   * over forty-two seconds. It cost a full-card repaint per card per frame,
+   * It used to be here: a keyframe named `molten-breathe`, the whole rim
+   * between 0.78 and 1 over forty-two seconds. That keyframe is gone, not
+   * merely unused: it cost a full-card repaint per card per frame,
    * because this node covers the whole card, paints a nine-pixel sprite
    * bezel, and cannot be promoted inside the card's rounded clip — at twelve
    * boards, stopping it alone took the timeline from 42% of frames dropped
@@ -1001,11 +1003,6 @@
 @keyframes molten-swell {
   from { opacity: 0; }
   to   { opacity: 1; }
-}
-
-@keyframes molten-breathe {
-  0%   { opacity: 0.78; }
-  100% { opacity: 1; }
 }
 
 /*
