@@ -42,6 +42,16 @@ function trimZeros(s: string): string {
   return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
 }
 
+/**
+ * The first `max` characters, whole ones: `slice` counts UTF-16 units and
+ * cuts an emoji or a CJK extension in half, leaving a lone surrogate that
+ * renders as � in a label. Counted in code points instead.
+ */
+export function cut(s: string, max: number): string {
+  const chars = Array.from(s);
+  return chars.length <= max ? s : chars.slice(0, max).join("");
+}
+
 /** Turn any value into a short human label for diffs and news lines. */
 export function labelValue(v: unknown): string {
   if (v === null || v === undefined) return "—";

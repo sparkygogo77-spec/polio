@@ -46,6 +46,7 @@
  */
 import type { NodeColour, NodeFont } from "./parts/theme.ts";
 import type { StudioNode } from "./store.ts";
+import { cut } from "@/core/lib/format";
 
 /**
  * The faces this app has, by name.
@@ -332,7 +333,7 @@ const HERO: Recreatable = {
         content: lines([head.words, ...rest, ...r.buttons.slice(0, 1).map((b) => `button: ${b}`)]),
         ...common(r),
       },
-      did: `a first screen headed "${head.words.slice(0, 40)}"`,
+      did: `a first screen headed "${cut(head.words, 40)}"`,
     };
   },
 };
@@ -388,7 +389,7 @@ const CARDS: Recreatable = {
       // not its code sample and its link as well, which came out as
       // "…and WebKit. npm init playwright@latest Testing documentation".
       const after = r.text[at + 1];
-      const said = after && !titleRuns.includes(after) ? after.words.trim().replace(/\s+/g, " ").slice(0, 160) : "";
+      const said = after && !titleRuns.includes(after) ? cut(after.words.trim().replace(/\s+/g, " "), 160) : "";
       const title = t.words.replace(/:/g, " ").trim();
       return said ? `${title}: ${said}` : title;
     });
@@ -529,7 +530,7 @@ const PROSE: Recreatable = {
         content: lines([head?.words ?? "", ...body(r).slice(0, 3).map((t) => t.words)]),
         ...common(r),
       },
-      did: head ? `a band of words: "${head.words.slice(0, 40)}"` : "a band of words",
+      did: head ? `a band of words: "${cut(head.words, 40)}"` : "a band of words",
     };
   },
 };
