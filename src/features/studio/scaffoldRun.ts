@@ -80,6 +80,8 @@ export function buildScaffold(): ScaffoldResult {
         // behaviour, so the scaffold writes a component rather than a
         // snapshot of one angle of it.
         cube: n.cube ? { faces: n.cube.faces, turn: n.cube.turn } : null,
+        // A solid is not markup either: the GLB, the still and the angle it was left at.
+        mesh: n.mesh?.glb ? { glb: n.mesh.glb, still: n.mesh.still, turn: n.mesh.turn, from: n.mesh.from } : null,
         // An Idea part with nothing written for it is the one thing the
         // document does not hold: that is what the model is for.
         empty: n.featureId === "custom-idea" && !n.code,
