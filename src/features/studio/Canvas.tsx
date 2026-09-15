@@ -69,15 +69,22 @@ const WEARS_AN_ICON = new Set(["cta-primary", "quick-action", "follow"]);
  */
 const FRAME_GUTTER = 128;
 /**
- * Ground above the page, and the same again below it.
+ * Ground above the page. There is none below it.
  *
- * `FRAME_GUTTER` is the pair; this is one of them. It is a constant rather
- * than something the pan moves, because the board is laid out in the pane's
- * flow now: the page sits this far down its own surface and the surface is
- * what scrolls. Vertical pan would be a second way of moving the same thing
- * in the same direction, and two of those disagree.
+ * It was half of `FRAME_GUTTER` — 64, the same as each side — and J
+ * measured the result on the deploy: "too much headroom above the website",
+ * and the gap above should be "much slimmer than the sides". The sides are
+ * the part he likes and they are not touched; this is.
+ *
+ * Below the page there is nothing at all, because he said so plainly: the
+ * website has no underside gap. The page's foot is the board's foot.
+ *
+ * A constant rather than something the pan moves: the board is laid out in
+ * the pane's flow, so the page sits this far down its own surface and the
+ * surface is what scrolls. Vertical pan would be a second way of moving the
+ * same thing in the same direction, and two of those disagree.
  */
-const TOP_GUTTER = FRAME_GUTTER / 2;
+const TOP_GUTTER = 20;
 
 /** The screen each device actually has, so the frame is a real viewport. */
 const SCREEN_H: Record<number, number> = { 1440: 900, 834: 1112, 390: 844 };
@@ -252,7 +259,7 @@ export function Canvas() {
    * so a thing off the left is a pan away rather than lost.
    */
   const above = Math.round(frameTopReach({ shapes, spaces }) * zoom);
-  const boardH = Math.round(pageH * zoom) + FRAME_GUTTER + above;
+  const boardH = Math.round(pageH * zoom) + TOP_GUTTER + above;
 
   /*
    * Growing the surface upward must not move what you are looking at.
@@ -267,7 +274,19 @@ export function Canvas() {
   React.useLayoutEffect(() => {
     const step = above - grown.current;
     grown.current = above;
-    if (!step) return;
+    /*
+     * Only while a hand is on the board.
+     *
+     * This exists for one moment: a stroke crossing the page's top edge
+     * mid-draw, where the ground must not jump out from under the hand. It
+     * was firing on load as well — the document hydrates after the first
+     * paint, so `above` goes from nothing to its real size in a step or two
+     * and the pane was nudged for each — and a Builder that opens 355px
+     * down its own scroll is in the one place it must never be. A guard
+     * that skipped the first step only halved it; the honest condition is
+     * whether anybody is actually drawing.
+     */
+    if (!step || !drag) return;
     const pane = ref.current?.closest("[data-studio-pane]");
     if (pane instanceof HTMLElement) pane.scrollTop += step;
   }, [above]);

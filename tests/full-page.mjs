@@ -45,8 +45,16 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-/** Ground above the page and the same again below it: `FRAME_GUTTER`. */
-const GUTTER = 128;
+/**
+ * Ground above the page. There is none below it.
+ *
+ * It was 128 — 64 above and 64 below, the same as each side. J measured the
+ * result and called it too much headroom: the gap above should be much
+ * slimmer than the sides, and the website should have no underside gap at
+ * all. So it is 20 above and nothing below, and the sides keep their 64,
+ * which is the part he likes.
+ */
+const GUTTER = 20;
 /** The shelf band: `BAND_H` is clamp(132px, 32vh, 248px). */
 const bandOf = (h) => Math.min(248, Math.max(132, Math.round(h * 0.32)));
 

@@ -391,7 +391,7 @@ export function frameHeight(
  */
 export function frameTopReach(
   also: { shapes?: StudioShape[]; spaces?: Space[] } = {},
-  margin = 160,
+  margin = 24,
 ): number {
   let top = 0;
   for (const sh of also.shapes ?? []) {
