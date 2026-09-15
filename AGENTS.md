@@ -792,6 +792,26 @@ a kicker with a rule, and label-and-value rows that copy.
   that overruns pushes it under the fold. Note that anything calling
   `scrollIntoView` inside the board scrolls the pane (Playwright does this
   before a click) — put it back at the top first.
+- **Import takes a picture or a video, and the frame lands two ways.** The
+  background's wheel piece (`SLOTS_BG.duplicate`) was Picture: an
+  `image/*` chooser whose only destination was `addTexture({ pattern: true,
+  scale: 60, opacity: 0.5 })` — the picture reduced to a monochrome mask,
+  repainted in a palette colour, half transparent, tiled across the page.
+  Right for a background texture, and the only answer, so there was no way
+  to bring a picture in as a picture and no way to bring in a video at all.
+  `ImportFlow.tsx` owns it now: a video is scrubbed to a frame, and the
+  frame lands as **Fit to standard** (one covering picture on the page —
+  still a texture layer, because a background is one, but `pattern: false`
+  and `weave: 1`) or **Shrink in** (a `picture` part at the picture's own
+  aspect, inset from the frame, wearing the frame through `node.texture`).
+  Two rules hold it up. **A preview is not an edit**: the frame under the
+  playhead is painted by `Canvas` from a module-level value, never through
+  `addTexture`, which calls `push()` — a scrubber dragged across three
+  seconds would otherwise write one undo entry per frame and leave an
+  abandoned import in the saved document. And **a part that wears a picture
+  needs a renderer**: without one it falls through to the dashed `Unknown`
+  card, which paints the flat surface colour and drops `surfacePaint` on
+  the floor, so the picture is on the part and invisible.
 - **The shelf is laid out like a page, in page order.** `groupIntoBands` puts
   the parts in the bands they would occupy going down a page, and `spanOf`
   decides how much of the shelf's width each takes: full-width parts get the

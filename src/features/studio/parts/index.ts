@@ -22,7 +22,7 @@ import { Header } from "./Header";
 import { Hero, ProofStrip, ValueProp } from "./Hero";
 import { Breadcrumbs, Footer, Grid, Note, Outline, Overlay, Pagination, Sections, Split } from "./Layout";
 import { ArticleList, Callout, CodeBlock, Eyebrow, Marquee, Prose } from "./Text";
-import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Player, Viewer } from "./Media";
+import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Picture, Player, Viewer } from "./Media";
 import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./Forms";
 import { SearchBox } from "./SearchBox";
 import { Cube } from "./Cube";
@@ -67,6 +67,8 @@ export const DEFS: PartDef[] = [
 
   /* -------------------------------------------------------------- media */
   { component: Gallery, ids: ["gallery", "lightbox", "image-blur-up", "photo-credit"], tier: "A" },
+  /* One picture at its own size: what an import lands as when it shrinks in. */
+  { component: Picture, ids: ["picture"], tier: "A" },
   { component: Carousel, ids: ["carousel"], tier: "A" },
   { component: BeforeAfter, ids: ["before-after"], tier: "A" },
   { component: Player, ids: ["video-player", "audio-player", "podcast"], tier: "A" },

@@ -27,6 +27,7 @@ import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
+import { useImportPreview } from "./ImportFlow";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
@@ -152,6 +153,9 @@ export function Canvas() {
   const wash = React.useMemo(() => washCss(look.light), [look.light]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const pageMark = React.useMemo(() => complementOf(theme.backdrop), [theme.backdrop]);
+  /* The frame being chosen in Import, if one is. Not in the document and
+     not in the undo history — a preview is not an edit. */
+  const importing = useImportPreview();
   const pageScroll = useStudio((s) => s.pageScroll);
   /*
    * One height, where there were two.
@@ -923,6 +927,22 @@ export function Canvas() {
             data-frame-light=""
             className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
             style={{ width: frameWidth, height: pageH, backgroundImage: wash }}
+          />
+        ) : null}
+        {/*
+          The frame Import is showing, live.
+
+          Over the page's own background and under everything standing on
+          it, which is where a background picture goes — so what is on the
+          board while the scrubber moves is what "Fit to standard" will
+          actually commit, rather than a thumbnail of it somewhere else.
+        */}
+        {importing ? (
+          <div
+            aria-hidden
+            data-import-preview=""
+            className="pointer-events-none absolute left-0 top-0 rounded-[3px]"
+            style={{ width: frameWidth, height: pageH, backgroundImage: `url(${importing})`, backgroundSize: "cover", backgroundPosition: "center" }}
           />
         ) : null}
         {selection.includes(BACKGROUND_ID) ? (

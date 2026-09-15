@@ -227,6 +227,19 @@ const RAW: FeatureDef[] = [
   /* ------------------------------------------------------------------ media */
   f("gallery", "Image gallery", "media", Images, "Grid of images that open larger.", { options: [columns] }),
   f("lightbox", "Full-screen viewer", "media", ImageIcon, "Full-screen viewer with keyboard nav.", {}),
+  /*
+   * What an import lands as, when it shrinks in rather than covering.
+   *
+   * A picture brought in from a file used to have one destination: a tiled
+   * pattern layer across the whole page, half-transparent and repainted in
+   * a palette colour. That is a *texture*, and it is the right answer when
+   * somebody wants a background. It is the wrong answer, and the only
+   * answer, when somebody wants a picture — so this is the part the picture
+   * becomes: its own size, its own aspect, dragged and resized like any
+   * other. It wears the picture through `node.texture`, which is the
+   * mechanism parts already have for carrying one.
+   */
+  f("picture", "Picture", "media", ImageIcon, "One picture at its own size, dragged and resized like any part.", { tags: ["photo", "image", "import", "still", "frame"] }),
   f("carousel", "Slideshow", "media", Film, "Swipeable horizontal set of slides.", { options: [{ id: "autoplay", label: "Autoplay", values: ["off", "on"] }] }),
   f("before-after", "Before / after slider", "media", Contrast, "Draggable comparison slider.", {}),
   f("video-player", "Video player", "media", Video, "Custom player with chapters and captions.", {}),

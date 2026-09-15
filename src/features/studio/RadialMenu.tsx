@@ -48,7 +48,7 @@ import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } f
 import { createSpaceAt } from "./createSpace";
 import { PREVIEW } from "./colourMenu";
 import { BackgroundEditor } from "./BackgroundEditors";
-import { readImage } from "./ImageIntake";
+import { openImport } from "./ImportFlow";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
 import {
   BLUE_RINGS, BOARD_R, EDGE, GREEN_RINGS, joinFor, middleOf, piece, Q_BOTTOM, Q_DELETE, Q_EMPTY, Q_TOP, QUADS, ROUND, SWELL,
@@ -383,12 +383,17 @@ const SLOTS_BG: Record<SlotId, Slot> = {
   draw: { id: "draw", label: "Draw", icon: Brush, hue: 205, kind: "board" },
   create: { id: "create", label: "Create", icon: CircleDashed, hue: 205, kind: "action" },
   /*
-   * Picture takes the slot Cut leaves. Cut and Strip were the same thing
-   * twice — both take the background bare and hold it for a paste — and one
-   * of them had to go, which frees the room the split above needed. This is
-   * where Import will grow.
+   * Import took the slot Cut left. Cut and Strip were the same thing twice —
+   * both take the background bare and hold it for a paste — and one of them
+   * had to go, which freed the room the split above needed.
+   *
+   * It was called Picture, and the name was the honest description of what
+   * it did: an `image/*` chooser whose only destination was a half-opaque
+   * recoloured tile across the whole page. It takes a video too now, and
+   * the frame you pick can land as a background or as a part, so Picture
+   * has stopped being the whole of it.
    */
-  duplicate: { id: "duplicate", label: "Picture", icon: ImagePlus, hue: 205, kind: "action" },
+  duplicate: { id: "duplicate", label: "Import", icon: ImagePlus, hue: 205, kind: "action" },
   edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
   look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
   delete: { id: "delete", label: "Strip", icon: Eraser, hue: 18, kind: "action" },
@@ -523,7 +528,7 @@ export function RadialMenu() {
   const activePageId = useStudio((s) => s.activePageId);
   const pages = useStudio((s) => s.pages);
   const page = pages.find((p) => p.id === activePageId) ?? pages[0]!;
-  // The background's Picture piece: a file, taken as a texture layer on the page.
+  // The background's Import piece: a picture or a video, handed to `ImportFlow`.
   const picture = React.useRef<HTMLInputElement>(null);
 
   const seq = open?.seq ?? 0;
@@ -810,7 +815,7 @@ export function RadialMenu() {
         closeRadial();
         return;
       }
-      // Picture moved here when Cut went; Cut and Strip were one thing twice.
+      // Import moved here when Cut went; Cut and Strip were one thing twice.
       if (id === "duplicate") { picture.current?.click(); return; }
       if (id === "delete") {
         const took = s().cutBackground();
@@ -1176,22 +1181,30 @@ export function RadialMenu() {
           it live, its place among the others, carrying its looks. It hangs
           under whichever level is up, and steps aside for the board.
         */}
-        {/* The background's Picture piece: the file it takes becomes a texture layer on the page. */}
+        {/*
+          The background's Import piece.
+
+          It opened an `image/*` chooser and turned whatever it got into a
+          tiled texture layer on the spot — one destination, no choice, and
+          no video. It hands the file to `ImportFlow` now, which scrubs a
+          video to a frame and then asks where the frame should land. The
+          wheel shuts as it goes, because the flow is the next thing to look
+          at and two of them open at once is one too many.
+        */}
         {bg ? (
           <input
             ref={picture}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             className="hidden"
-            aria-label="Add a picture to the page"
+            aria-label="Import a picture or a video"
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) {
-                void readImage(f).then((src) => {
-                  s().addTexture({ ...newLayer("image"), src, target: "page" });
-                  play("confirm");
-                  ctx.publish({ key: "studio:background", title: "Picture on the page", body: "It is a layer of the site's stack now; Looks › Texture tunes it.", level: "success", source: "studio", toast: true });
-                });
+                const video = f.type.startsWith("video/");
+                play("confirm");
+                closeRadial();
+                openImport({ url: URL.createObjectURL(f), from: video ? "video" : "picture", name: f.name });
               }
               e.target.value = "";
             }}

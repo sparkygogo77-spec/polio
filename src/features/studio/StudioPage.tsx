@@ -15,6 +15,7 @@ import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
 import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "./parts/theme";
+import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
 import { Palette } from "./Palette";
@@ -881,6 +882,9 @@ export function StudioPage() {
       </div>
 
       <DrawQueue />
+      {/* Import's own surface: the scrubber, and where the frame lands. It
+          floats over everything because the board behind it is the preview. */}
+      <ImportFlow />
       <RadialMenu />
       <LightPlacer />
       <BriefDialog open={briefOpen && !book} onOpenChange={setBriefOpen} />
