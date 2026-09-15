@@ -20,7 +20,10 @@
  *   node tests/cube-part.mjs [url]      # default http://localhost:3000
  */
 import { createRequire } from "node:module";
-import { facesFrom } from "../src/features/studio/parts/cubeFaces.ts";
+import { REST, facesFrom } from "../src/features/studio/parts/cubeFaces.ts";
+
+/** A pose the cube rests at: the three-quarter yaw a quarter turn at a time, and one of the three rest pitches. */
+const atRest = (x, y) => [REST.x - 54, REST.x, REST.x + 90].includes(x) && ((((y - REST.y) % 90) + 90) % 90) === 0;
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -140,7 +143,7 @@ check("and the element did not move instead", (await read()).w === node.w);
 await page.waitForTimeout(2600);
 {
   const [x, y] = (await turnOf()).split(",").map(Number);
-  check("letting go settles it on a face", x % 90 === 0 && y % 90 === 0, `${x},${y}`);
+  check("letting go brings it to rest at a three-quarter view", atRest(x, y), `${x},${y}`);
   check("where it was left is written on the node", !!(await read()).cube?.turn, JSON.stringify((await read()).cube?.turn));
 }
 {

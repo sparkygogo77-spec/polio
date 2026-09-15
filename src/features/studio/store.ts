@@ -47,7 +47,7 @@ import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawnVector, VectorRole } from "./vector";
-import { emptyCube, type CubeData, type CubeFace } from "./parts/cubeFaces";
+import { emptyCube, type CubeData, type CubeFace, type CubeSide } from "./parts/cubeFaces";
 import type { MeshData } from "./parts/types";
 import type { PartCode } from "./snippet";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
@@ -567,6 +567,16 @@ interface StudioState extends Doc {
   setCubeFace: (nodeId: string, index: number, patch: Partial<CubeFace> | null) => void;
   /** Where a cube is left standing, so the board draws the angle it was turned to. */
   setCubeTurn: (nodeId: string, turn: { x: number; y: number }) => void;
+  /**
+   * The face of a cube the person is pointing at, or none.
+   *
+   * A face is picked the way a part is: pressed on the board, or named in
+   * the panel, and then the panel and the wheel edit that face's words.
+   * It is transient, exactly as the selection is, and lets go when the
+   * selection moves off the cube.
+   */
+  pickedFace: { nodeId: string; side: CubeSide } | null;
+  pickFace: (nodeId: string, side: CubeSide | null) => void;
   /** …and the same for a solid, which is turned the same way. */
   setMeshTurn: (nodeId: string, turn: { x: number; y: number }) => void;
 
@@ -993,6 +1003,7 @@ export const useStudio = create<StudioState>()(
         fitNonce: 0,
         activePageId: "page_home",
         selection: [],
+        pickedFace: null,
         tool: "select",
         inkHue: 265,
         inkWidth: 3,
@@ -1162,7 +1173,10 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        setCubeFace: (nodeId, index, patch) =>
+        setCubeFace: (nodeId, index, patch) => {
+          // Words on a face are the document, so they are undone like words
+          // anywhere else on it.
+          push();
           set((s) => ({
             nodes: s.nodes.map((n) => {
               if (n.id !== nodeId || index < 0 || index > 5) return n;
@@ -1172,7 +1186,10 @@ export const useStudio = create<StudioState>()(
               );
               return { ...n, cube: { ...cube, faces } };
             }),
-          })),
+          }));
+        },
+
+        pickFace: (nodeId, side) => set({ pickedFace: side ? { nodeId, side } : null }),
 
         setCubeTurn: (nodeId, turn) =>
           set((s) => ({
@@ -1459,7 +1476,8 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        setSelection: (ids) => set({ selection: ids }),
+        setSelection: (ids) =>
+          set((s) => ({ selection: ids, pickedFace: s.pickedFace && ids.length === 1 && ids[0] === s.pickedFace.nodeId ? s.pickedFace : null })),
         toggleSelection: (id) =>
           set((s) => ({ selection: s.selection.includes(id) ? s.selection.filter((x) => x !== id) : [...s.selection, id] })),
         selectAll: () =>

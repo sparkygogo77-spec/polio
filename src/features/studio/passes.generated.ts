@@ -2,14 +2,226 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:11:47.270Z";
+export const GENERATED_AT = "2026-09-15T07:40:45.461Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "c12b0d9",
-    "when": "2026-09-15T07:10:50+00:00",
+    "id": "6cfcdec",
+    "when": "2026-09-15T07:40:42+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "ce115bb",
+        "says": "A drawn box is a box, and a box is a real cube: turned, written on, moved",
+        "when": "2026-09-15T07:33:35+00:00",
+        "detail": [
+          "The owner's arc, in the owner's order: draw a box and get back a real rotatable 3D cube with editable faces. Before this a plain box drawn with nothing beside it asked \"Is this box a cube?\" and, waved on, landed as a flat custom-idea surface (reproduced with Playwright: 220 × 160 px drawn, 277 × 201 flat part, reader and tracer both called).",
+          "1. Recognised off its own geometry. `isBox`: one closed line, four corners, filling its frame, drawn alone; `kindOfSketch` and the catalogue take `lone` (nothing of the page inside it, nothing real drawn on) from the run, so a captioned box, a box round parts, or a box over the hero keep their old meaning. The disc says \"a box: it will be a cube\" while it is drawn, the chip says `box · cube` after. No model is called anywhere on the road. 2. A real object. The cube keeps the drawn proportion (depth = the short side, `cubeDims`), pitch is held within 85°, spin into the limit is spent, and on release it eases to the nearest rest pose: a three-quarter view a quarter turn at a time, or tipped to the top or bottom. `facing` was calling pitch +90 the top; it shows the bottom, and reads off the rest poses now. Right press falls through to the wheel. The scaffold's written component mirrors all of it. 3. Faces picked like parts. A press that is not a drag picks the face under it (`cube-face`), the board keeps it as `pickedFace`, the face wears the mark, the panel scrolls its card in and hands it the keys, naming a face in the panel turns the cube to it, the wheel's pencil edits the picked face, every face has its own prompt and the blueprint writes it. Face edits push undo. 4. Survives what a flat part survives: move, resize by the handle (the object follows), the drawn ratio, undo, save and reopen. 5. The model road behind the table. `solidRoute.ts` / `solidRun.ts`: the object cell routes to tencent/hunyuan3d-2mv, the cube's own four faces go up as its four views (`views`, new on the image route for a mesh model), the card and the wheel piece light up the moment a Replicate token is present (vault or server, yes-or-no only) and say what would light them otherwise, with no call made; the answer lands as mesh-3d with the cube kept, and Back to the cube is one press.",
+          "Measured by `tests/box-to-cube.mjs` (new, 74 of 74), every route mocked, screenshots into docs/shots/box-to-cube-*.png, numbers in docs/BOX-TO-CUBE.md. Against the build here, port 4300:",
+          "box-to-cube   74/74   (new) cube          62/62   (was 59/59: square → proportion, settle → rest, the top is the top) cube-part     29/29 oddness       53/53   (a bare box is no longer asked about; the browser half asks about a scribble) coded         39/39 scaffold      31/31 shapes        21/21   (15 of 15 traced, $1.92 at the bench's $0.08, 153s) typecheck clean, build rc=0"
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e27e5d0",
+    "when": "2026-09-15T07:39:11+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e27e5d0",
+        "says": "Regenerate the passes for four controls that now do what they say",
+        "when": "2026-09-15T07:39:11+00:00",
+        "detail": [
+          "Bardeen's four, taken together because they are one job: Re-iterate runs from the tab a person is on rather than only from the book; Compile the blueprint opens the book's tab when the book is where you are; Picture and Solid are on the shelf you browse and the library counts itself; and the tweet console records the site that was built rather than an empty one.",
+          "Those are rows A1, A2 and A3 of the inventory it shipped an hour ago, closed by the session that wrote the list.",
+          "Merge clean. One thing to note for anyone who builds this tree: the tweet console's duplicate route is deleted, and a .next left over from before the delete still carries a generated validator that imports it, so typecheck fails on a stale build directory and passes on a clean one. Removed .next, then typecheck clean and build rc=0 from cold.",
+          "Run here on the build, port 4272:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e0bbc35",
+    "when": "2026-09-15T07:35:44+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a1783b1",
+        "says": "The tweet console records the site that was built, not an empty one",
+        "when": "2026-09-15T07:28:03+00:00",
+        "detail": [
+          "A3 on the inventory. The console's Render sent the document with its request and the route it sent it to never read it: `/api/tweets/preview- video` opened the live preview in a fresh headless browser, whose storage holds nothing, and recorded whatever an empty site scrolls like. The studio's own `/api/studio/preview-video` was the same 220 lines with the one difference that mattered, `takeDoc(body.doc)` handed to the page before it loads.",
+          "The console renders through the studio route now and the copy is deleted, which also retires its `findFfmpeg(): string | null` that never returned null (B19). The build-trace check in serverless-browser.mjs follows the route that is left; AGENTS.md says which route renders the tour and why there is one.",
+          "tests/tweet-video.mjs: 6 of 6, 2 red against the tree before this. It reads the route the console names, holds that file to reading the document, and posts a seeded document to it: 200, video/webm, 49,391 bytes in 4.2 s on this box, from the Playwright at /opt/node22. serverless-browser 10/10. Typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "tests",
+          "tweets"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "3fdd402",
+        "says": "Picture and Solid are on the shelf you browse, and the library counts itself",
+        "when": "2026-09-15T07:25:01+00:00",
+        "detail": [
+          "A13 on the inventory. The shelf browses category, sub-group, part, and the drawer lists only the ids the sub-groups name; `picture` and `mesh-3d` were in no sub-group, so two of 229 parts were reachable only by someone who typed their names into the search. Picture is first under Pictures now and Solid sits beside the cube under Solids.",
+          "Three places said how many parts there are, none of them the count: the hero said 218, the catalog's own comment 226, AGENTS.md 226 in three sentences. All say 229, and the count is held rather than written: tests/shelf-reach.mjs reads `FEATURES.length` and holds every number in site.config.ts, catalog.ts and PartPreview.tsx to it, every id to exactly one sub-group, and every sub-group id to a real part. 7 of 7, 4 red against the tree before this."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "935af3b",
+        "says": "Compile the blueprint opens the book's tab when the book is where you are",
+        "when": "2026-09-15T07:25:01+00:00",
+        "detail": [
+          "A2 on the inventory. Four doors open the blueprint: ⌘⏎, the command, the canvas menu and the brief menu, all through `__studioOpenBrief`, which set `briefOpen`. In the book mode the blueprint is a tab under the timeline and the dialog is drawn only outside that mode (`open={briefOpen && !book}`), so in the book every one of the four did nothing on screen, and the dialog then opened by itself the moment the person left the book, over whatever they had turned to.",
+          "The door reads the mode now: in the book it makes sure the band is shown and opens the book's tab, the same event the card's Re-iterate uses; anywhere else it opens the dialog as before.",
+          "tests/compile-in-book.mjs: 8 of 8, 2 red against the tree before this. It presses ⌘⏎ on the board and in the book, counts the open dialog by its own state rather than by role (the tweet console and the vault are dialogs too, closed), and leaves the book to see nothing pop up. Green alongside: reiterate 8/8, shelf-pass 20/20. Typecheck clean."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "2c4453e",
+        "says": "Re-iterate runs from the tab a person is on, not only from the book",
+        "when": "2026-09-15T07:19:51+00:00",
+        "detail": [
+          "A1 on the inventory. Every finished card carries Re-iterate: turn the page, change the words, press it, and the book runs the card's ask again. The card fired `studio:book` and then, in the same handler, `studio:ask` with the words; only the book under the timeline listens, and the detail band opens on \"This update\", so from the default tab the tab switch was a render away when the ask went out. Nobody heard it. The tab switched, the words were dropped, and the press did nothing the first time, every time. It worked only with the book already open. The one check on it read the source for the event's name and could not see any of this.",
+          "One door now: `askTheBook` in BriefDialog parks the ask, opens the tab and fires the event; a mounted book hears the event as before, and a book that mounts a render later takes the parked ask as it arrives. The card goes through the door. Measured with the model call intercepted, from the default tab: 0 asks left before, 1 after, with the edited words and the card's mode in it; a second press with the book open makes 2, not 3.",
+          "tests/reiterate.mjs: 8 of 8, 5 red against the tree before this. tests/cards.mjs's source pin follows the door. Green alongside: timeline-card 19/19, current 29/29, updates-view 22/22, backend-surface 25/25, change-made 19/19, cards 67/67. Typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9dd20f9",
+    "when": "2026-09-15T07:34:22+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "9dd20f9",
+        "says": "Regenerate the passes for the seven shortfalls of the live read",
+        "when": "2026-09-15T07:34:22+00:00",
+        "detail": [
+          "Shannon's 82c0125 and her two merges of trunk: the seven shortfalls of the live read, each held to the page by number. Taken on its own.",
+          "One conflict, in docs/RECREATE-FINDINGS.md: she and dijkstra each added bullets to the same \"Fixed\" list, one about a made space being pickable again and two about the fit and the offer. No disagreement, so both sides are kept, hers after his, in list order.",
+          "Merge clean otherwise, typecheck clean, build rc=0. Run here on the build, port 4271:",
+          "zip-import        75 of 75 hold recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold board-edges       11 of 11 hold full-page         42 of 42 hold picked            16/16 passed create-flow       26 of 26 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "7aa5b01",
+    "when": "2026-09-15T07:30:26+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "82c0125",
+        "says": "The seven shortfalls of the live read, each held to the page by number",
+        "when": "2026-09-15T07:15:50+00:00",
+        "detail": [
+          "The first night named seven things the site-read arc fell short of on https://playwright.dev/, and left them failing. Each is fixed and held by tests/site-live.mjs, 62 of 62.",
+          "The selector path was cut at six steps under the body and still prefixed `body >`, so 22 of 60 candidates matched nothing and came back \"not on the page any more\", two of them among the 24 the panel offered. It walks to the body: 60 of 60 are found again at the same box.",
+          "The panel offered the 24 biggest things and the bar across the top was the 38th. The page's blocks come first on the list, top to bottom, then the rest biggest first; the bar is first of 24, and taken alone lands as the library's top bar at 589.05×27.61, ratio 21.335 against the page's 21.333. A block that is a run of small boxes is measured member by member when taken alone, as when the page is taken whole.",
+          "A link with no words was dropped, so a bar of 12 links read as 10. It is named by its label, title, picture's alt, icon's title or the last part of where it goes: 12 of 12, \"GitHub repository\", \"Discord server\". Naming them turned a band of nine company marks near the foot into a footer; an untagged footer now needs four links that are words on the page, and the only footer is block 9 of 9."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "87de105",
+    "when": "2026-09-15T07:28:13+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "87de105",
+        "says": "Regenerate the passes for placeholders named and a made space picked again",
+        "when": "2026-09-15T07:28:13+00:00",
+        "detail": [
+          "Dijkstra's fc50ba6: a picture in a landed block is said to stay a placeholder, and a made surface can be taken hold of to pick its space again. Taken on its own.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4270:",
+          "zip-import        75 of 75 hold   (73 before) recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold",
+          "The two new ones say what changed, in the words a person reads:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "fc50ba6",
+        "says": "A picture in a landed block is said to stay a placeholder, and a made space can be picked again",
+        "when": "2026-09-15T07:18:50+00:00",
+        "detail": [
+          "The panel promised the grounded step for pictures inside landed blocks; put in the order and pressed, it ran nothing. The line now says the picture stays a placeholder and why. Taking hold of a made surface picks the space, since it has no fill and no key. The aura reference sample is held inside the board, where it had landed on the menu bar's words."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "08cfa42",
+        "says": "Regenerate the passes for the inventory, and an export that now compiles",
+        "when": "2026-09-15T07:13:07+00:00",
+        "detail": [
+          "A sixth session, bardeen, with its first two on trunk: the unfinished inventory, and a Build export that imported a file nobody wrote.",
+          "I took its current tip rather than the one I started verifying: ea31164 was docs alone, and c12b0d9 landed while the build ran, so this carries both.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4267:",
+          "scaffold        32/32 passed  (the suite the fix arrives with) updates-view    22 of 22 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "c12b0d9",
         "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
@@ -801,175 +1013,6 @@ export const PASSES: Pass[] = [
           "WHAT IT DOES NOW. The piece is Import and takes `image/*,video/*`. A video opens a scrubber, and the frame under the playhead is on the page behind the panel at full size as you drag — the same frame the landing commits, not a thumbnail of it. Then two landings, which are different intentions rather than two sizes of one:",
           "FIT TO STANDARD — one covering picture at the page's standard size. It stays a texture layer, because a background is one, but `pattern: false` and `weave: 1` make it one coherent picture instead of a recoloured tile.",
           "SHRINK IN — a `picture` part at the picture's own aspect (893×502 for a 16:9 frame, measured), inset from the frame, dragged and resized like anything else, wearing the frame through `node.texture`."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "19b831e",
-    "when": "2026-09-15T02:54:17+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "19b831e",
-        "says": "Regenerate the passes for the page being everything drawn on it",
-        "when": "2026-09-15T02:54:17+00:00",
-        "detail": [
-          "Five passes, all three sessions converged into one tip: the page is everything drawn on it, with the suite naming what it measured; a surface forms where it can be watched, on the timeline's own bands; the aura check reading with both instruments; the eraser going through a space's key to the box under it; and the timeline paying for area over a moving ground, so it carries less of it.",
-          "The first is the one J measured on 8e12d2a and found still broken: a page window 900 tall with overflow hidden over 1085 of content, and a real shape with its bottom 224px past the window's edge, invisible on the deploy. Measured again here on a page with a shape drawn at the same depth: the window is 1017 rather than pinned at 900, and the shape's bottom sits 138px INSIDE it. The fault he named is closed.",
-          "Run on this build rather than the full sweep, which was killed at 44 minutes last pass for being slower than the thing it was holding up:",
-          "full-page       42/42   the page's height, at four window sizes quiet-scroll      8/8   one scroller over the site picked          16/16   pressing the page space-one-open  19/19   the aura, green since the ring was evened create-space    19/19   passed here; see the knife-edge note last push cards           67/67   the previews"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "57d0c95",
-        "says": "The timeline pays for area over a moving ground, so it carries less of it",
-        "when": "2026-09-15T02:42:26+00:00",
-        "detail": [
-          "The idle drop, fixed. Measured first and at length, because almost everything that looked like the cause was not.",
-          "WHAT IT IS NOT. The ground is not the culprit: the same page with no boards on it drops nothing at all — 54 frames per 900ms, flat — however much of it is moving. And the construct's own drifting layers are not the culprit either: with the canvases quiet and the rim still, twelve cards with both layers gliding also measured 54 and nothing dropped.",
-          "It is the two together, and that is the whole shape of it. The ground is a full-screen surface that never stops, so the viewport is damaged on every frame; every translucent layer stacked over a damaged viewport is re-blended on every frame, whether or not it moved. A timeline is a lot of translucent layers. Neither half is over budget and the two of them are:",
-          "the ground alone, no boards      54 /900ms    0% dropped the timeline alone, ground gone  43          20% the two of them                  31          43%"
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0eaa2fc",
-    "when": "2026-09-15T02:39:04+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "0282fe0",
-        "says": "The eraser goes through a space's key to the box under it",
-        "when": "2026-09-15T02:30:28+00:00",
-        "detail": [
-          "A hand erasing a box presses the middle of it as often as its line, and the middle of an empty hole is where its key sits, so the key took the press and the box stayed. While the tool is the eraser the keys on a space, open or closed, let the press through, and the box goes from the board and the store as one step, which undo brings back. The merge commit before carried this message and not this change."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "bcc02f9",
-        "says": "The aura check reads with both instruments, the conflict markers gone",
-        "when": "2026-09-15T02:30:02+00:00",
-        "detail": [
-          "The merge before this was committed with the conflict in it; the check keeps each side read along its normal and against its own background."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "727cb9a",
-    "when": "2026-09-15T02:38:59+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "8e12d2a",
-        "says": "Pushed on the aura check and the preview set, not the full sweep",
-        "when": "2026-09-15T02:26:05+00:00",
-        "detail": [
-          "The sweep was killed at 44 minutes and 30 of 93 — progressing, not wedged, just slow — because the aura fix is wanted now and waiting on the other 63 buys nothing it can measure. What was run instead, on this exact build:",
-          "space-one-open  17/17   the aura itself, the check left red last push full-page       36/36   the full-length page quiet-scroll      8/8   the pane that scrolls picked          16/16   pressing the page cards           67/67   the previews on the boards create-space    19/19 then 18/19 on the same build — see below",
-          "Not run: the other 63, among them the ground, ink, imaging, zip and body suites. None of them touches the ring on a hole or the page's height, which is the whole of what is in this pass.",
-          "ON create-space, because it should not be waved past. One check, \"inside the line is ground now, not the page\", wants the inside more than 12 luma above the page. It measures rgb(31,13,51) inside against rgb(7,10,16) on the page, which clears that bar by about one point — so it passes and fails on the same build, and did both here, once each. That is a threshold on a knife edge rather than a regression: the inside is still ground, still brighter than the page, still far under the 120 ceiling. Flagged for the create space session as its own item rather than mended from here, because the number that wants choosing is theirs."
-        ],
-        "areas": [],
-        "kind": "new"
-      },
-      {
-        "id": "94ac1c0",
-        "says": "Regenerate the passes for the ring sitting even, and the red check goes green",
-        "when": "2026-09-15T01:28:41+00:00",
-        "detail": [
-          "Dijkstra's pass: the ring sits the same hair off the line on every side. That is the fix for the regression the last push went out red with, and the check left red is now green on its own — which is what it was left red for.",
-          "The numbers, because the whole point was that nobody has to take anyone's word for it. Before, each side's light measured against its own background:",
-          "left 249, top 212, right 204, bottom 154 — a 95 point spread",
-          "After, measured by his own rewrite, which separates the ring on the line from the aura beside it:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "2cf7d9d",
-        "says": "Regenerate the passes for the board as tall as the site",
-        "when": "2026-09-15T00:47:10+00:00",
-        "detail": [
-          "Hypatia's pass: the board is as tall as the site and the pane is what scrolls, which is the second half of the full-length page that went out last push."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4a99dce",
-    "when": "2026-09-15T02:07:26+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "2164c70",
-        "says": "A surface forms where it can be watched, on the timeline's own bands",
-        "when": "2026-09-15T02:00:06+00:00",
-        "detail": [
-          "The driver's numbers were written on the space's host and nothing in the space read them, so a surface went from asked-for to made with nothing between. It forms on euler's bands now, drawn on the boundary rather than a box: while the vine arrives nothing but the hole; then the rim traced round the line in the process's red; then the green closing in from the line to the middle of the area, boundary first and the middle filling after; then thinning to the surface as the parts land. The driver steps as the jobs step, with a running job counting for the step it is on, and what is shown eases toward it at a pace a person can follow, and stays until it has caught up rather than vanishing the moment the last job lands on a fast road.",
-          "The create-flow check records what was drawn while it formed. The create-space ground read takes the ground by its colour rather than a brightness that depends on how thick the cloud is under the sample."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5506bd2",
-    "when": "2026-09-15T02:07:09+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d009100",
-        "says": "The page is everything drawn on it, and the suite names what it measured",
-        "when": "2026-09-15T01:19:49+00:00",
-        "detail": [
-          "Two faults, and the second is the reason the first could be reported fixed while a browser said otherwise.",
-          "THE PAGE'S HEIGHT COUNTED PARTS AND NOTHING ELSE. `frameHeight` reduced over `nodes`, and the window the page stands in is sized from it, so a pen stroke or a drawn space below the last part was rendered inside a window that did not know it was there: `scrollHeight` past `clientHeight`, with `overflow: hidden`, and no wheel, bar or drag could reach it. Measured on this branch with one stroke a hundred pixels under a stock page: 138px behind the edge. It takes `shapes` and `spaces` now, and the board passes them.",
-          "THE SUITE COULD NOT HAVE SEEN IT. Its fixture was parts and nothing else, so it agreed with a `frameHeight` that counted parts and nothing else — two wrongs measuring each other, and 36 of 36 while a real page clipped. Worse, it never said what document it was looking at, which is how a green run here sat beside a red browser on a deployment that did not contain the commit. So:",
-          "every run prints what it measured. `/api/version` already exists for exactly this and nothing asked it; a dev server, which has no build commit, says so rather than borrowing the local tree's SHA."
         ],
         "areas": [
           "docs",
