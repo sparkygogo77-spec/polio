@@ -38,7 +38,7 @@ export const coreModule = defineFeature({
     { id: "core.home", label: "Go home", group: "Navigate", icon: Home, shortcut: "g h", run: (c) => c.navigate("/") },
     { id: "core.settings", label: "Open settings", group: "Panels", icon: Settings, shortcut: "mod+,", run: (c) => c.togglePanel("settings") },
     { id: "core.news", label: "Open news feed", group: "Panels", icon: Bell, shortcut: "mod+i", run: (c) => c.togglePanel("news") },
-    { id: "core.shortcuts", label: "Keyboard shortcuts", group: "Panels", icon: Keyboard, shortcut: "shift+/", run: (c) => c.togglePanel("shortcuts") },
+    { id: "core.shortcuts", label: "Keyboard shortcuts", group: "Panels", icon: Keyboard, shortcut: "/", run: (c) => c.togglePanel("shortcuts") },
     {
       id: "core.theme",
       label: "Toggle dark / light",
@@ -99,7 +99,7 @@ export const coreModule = defineFeature({
     { keys: "mod+k", label: "Command palette", group: "General", run: (c) => c.togglePanel("commands"), allowInInput: true },
     { keys: "mod+,", label: "Settings", group: "General", run: (c) => c.togglePanel("settings"), allowInInput: true },
     { keys: "mod+i", label: "News feed", group: "General", run: (c) => c.togglePanel("news") },
-    { keys: "shift+/", label: "Shortcut cheat sheet", group: "General", run: (c) => c.togglePanel("shortcuts") },
+    { keys: "/", label: "Shortcut cheat sheet", group: "General", run: (c) => c.togglePanel("shortcuts") },
     { keys: "escape", label: "Close panels", group: "General", run: (c) => c.closePanel(), passive: true, allowInInput: true },
     { keys: "mod+shift+l", label: "Toggle theme", group: "Appearance", run: toggleTheme },
     { keys: "mod+shift+d", label: "Toggle density", group: "Appearance", run: (c) => c.setSetting("appearance.density", c.getSetting("appearance.density") === "compact" ? "comfortable" : "compact") },
@@ -133,7 +133,7 @@ export const coreModule = defineFeature({
             ],
           },
           { id: "core.settings", label: "Settings", icon: Settings, shortcut: "mod+,", onSelect: () => ctx.openPanel("settings") },
-          { id: "core.shortcuts", label: "Keyboard shortcuts", icon: Keyboard, shortcut: "shift+/", onSelect: () => ctx.openPanel("shortcuts") },
+          { id: "core.shortcuts", label: "Keyboard shortcuts", icon: Keyboard, shortcut: "/", onSelect: () => ctx.openPanel("shortcuts") },
         );
         return items;
       },
