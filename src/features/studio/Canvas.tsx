@@ -86,19 +86,6 @@ const FRAME_GUTTER = 128;
  */
 const TOP_GUTTER = 20;
 
-/**
- * How much of the pane the shelf is standing in.
- *
- * The board does not own the band and must not guess at its height: it is a
- * clamp against the viewport on one tab and a worked surface on another, and
- * both numbers change the room the site has. Measured off the element rather
- * than shared as a constant, so there is one definition of it and it is the
- * one on the screen.
- */
-const bandHeight = (pane: Element): number => {
-  const band = pane.querySelector(":scope > [data-studio-band]");
-  return band ? band.getBoundingClientRect().height : 0;
-};
 
 /** The screen each device actually has, so the frame is a real viewport. */
 const SCREEN_H: Record<number, number> = { 1440: 900, 834: 1112, 390: 844 };
@@ -352,50 +339,38 @@ export function Canvas() {
    * above — a rule that took three goes to land and is not traded for
    * anything. Nothing here touches it.
    *
-   * The ZOOM is set by the pane. It scales whatever the page has grown to so
-   * that the whole of it, plus the headroom above it and the shelf below,
-   * sits inside the pane in both directions. Whichever of width or height
-   * binds first is the one that sets it.
+   * The ZOOM is set by the pane's WIDTH, and by nothing else. The page picks
+   * a zoom so its width plus the gutter fits across, and if the page is then
+   * taller than the pane the pane scrolls down over it at a size a person
+   * can read.
    *
-   * So the order is: the content decides the page, then the page is fitted
-   * into the pane. This reads the page's grown size as its input; it never
-   * asks the page to be a size. Fitting harder is the answer to a page that
-   * grew.
+   * THE HEIGHT MUST NEVER BIND, and this is the third time round on it, so
+   * the reasoning is written down rather than the answer. Fitting the height
+   * too is superficially the same rule said twice, and it is not: the page's
+   * height is its content's, so a height fit makes the zoom a function of
+   * how much is on the page. Measured on the deploy with a 1440×2224 page in
+   * a 1509×1191 pane — page window 567×899, a third of its size, every part
+   * on screen at once and none of them readable, `scrollHeight` 2285 against
+   * a `clientHeight` of 2285 and nothing to scroll. Adding one element low
+   * on the page shrank everything already on it. A site is not a diagram and
+   * is not meant to be seen all at once.
    *
-   * What was here before fitted the width alone, and the comment said why:
-   * "a long page fitted by its height shrinks to a ribbon". That is still
-   * true and it is why there is a floor — see below — but it was the wrong
-   * conclusion. J's screen is a 1440p 27 inch at 125% browser zoom, which is
-   * 2048×1152, and there the width fit alone put the categories 332px under
-   * the fold on every load. He must never load in unable to see them.
+   * What the height fit was reaching for was a real rule — he must never
+   * load in unable to see the categories — and that rule has its own
+   * mechanism now and does not need this one: the shelf's band is stuck to
+   * the pane's bottom (`sticky bottom-0` in `StudioPage`), so the categories
+   * are on screen from the first frame at any page length, and the site runs
+   * up behind them as you scroll.
    */
   const fitZoom = React.useCallback(
-    (vw: number, vh: number, bandH: number) => {
-      /* Across: the frame's two side edges on screen with a gutter either
-         side. In nominal terms, because that is what the store holds — the
-         width is divided by the base so the *drawn* frame is what is fitted. */
-      const byWidth = (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM);
-      /*
-       * Down: the headroom, then everything the page has grown to in both
-       * directions, then the shelf. There is no gap below — the underside of
-       * the website sits on the shelf, which is its own rule — so the three
-       * terms are the whole of the pane's height.
-       */
-      const room = vh - TOP_GUTTER - bandH;
-      const tall = pageH + frameTopReach({ shapes, spaces });
-      const byHeight = room > 0 && tall > 0 ? room / (tall * BASE_ZOOM) : byWidth;
-      /*
-       * The floor is the store's own, so that what is asked for and what is
-       * held are the same number and the fit does not re-ask for something
-       * it cannot have. A site long enough to hit it — five screens at his
-       * width is a page 3720 of its own, wanting 0.177 and getting 0.25 —
-       * cannot have its whole length and its categories on one screen at a
-       * size anyone could read. That is what the shelf being stuck to the
-       * pane's bottom is for: the last resort, not the first.
-       */
-      return Math.max(ZOOM_MIN, Math.min(1, Math.min(byWidth, byHeight)));
+    (vw: number) => {
+      /* Across, and only across: the frame's two side edges on screen with a
+         gutter either side. In nominal terms, because that is what the store
+         holds — the width is divided by the base so the *drawn* frame is
+         what is being fitted. */
+      return Math.max(ZOOM_MIN, Math.min(1, (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM)));
     },
-    [frameWidth, pageH, shapes, spaces],
+    [frameWidth],
   );
 
   /*
@@ -407,13 +382,15 @@ export function Canvas() {
    * the fit is stale, whoever failed to say so.
    */
   const fittedFor = React.useRef<string | null>(null);
-  const fitKey = (pane: Element) =>
-    `${pane.clientWidth}×${pane.clientHeight}×${pageH}×${Math.round(frameTopReach({ shapes, spaces }))}×${bandHeight(pane)}`;
+  /* The fit's one input, so the whole of what has to be remembered. It was
+     a composite while the height bound too; a page that grows no longer
+     changes the zoom, so a page that grows must not re-fit. */
+  const fitKey = (pane: Element) => String(pane.clientWidth);
 
   const fitTo = React.useCallback((pane: Element) => {
     const vw = pane.clientWidth;
     if (!vw) return;
-    const z = fitZoom(vw, pane.clientHeight, bandHeight(pane));
+    const z = fitZoom(vw);
     /* Centred on the frame as *drawn*, which is `z` times the base and not
        `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
        hung it off the right of the pane — `board-layout` caught it: "frame
@@ -440,8 +417,7 @@ export function Canvas() {
      * by the next render rather than remembered as done.
      */
     fittedFor.current = fitKey(pane);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitZoom, frameWidth, pageH, shapes, spaces]);
+  }, [fitZoom, frameWidth]);
 
   React.useEffect(() => {
     const el = ref.current;

@@ -352,6 +352,70 @@ console.log(`       headroom above, for comparison with his 78: ${gaps.map((g) =
 }
 
 /* ------------------------------------------------------------------ */
+/* The width binds, and the height never does                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * J, off the deploy: "pane 1509×1191, page window 567×899, scrollHeight
+ * 2285, clientHeight 2285, canScroll FALSE. The whole 1440×2224 page is
+ * being squeezed to 33% so every part is visible at once. Adding an element
+ * low on the page makes everything on the page smaller on the next
+ * refresh."
+ *
+ * That is a height fit, and it is wrong for the reason that is easy to
+ * miss when the rule is written as "fit the pane in both directions": the
+ * page's height is its content's, so a zoom that answers to the height is a
+ * zoom that answers to how much is on the page. Measured on that deploy
+ * myself, planting one stroke 2400 below the page's bottom: the drawn page
+ * went 1275×797 → 436×1083. One stroke took two-thirds off everything
+ * already there.
+ *
+ * So: the width sets the zoom and nothing else, and a page taller than the
+ * pane is something to scroll rather than something to shrink. The rule the
+ * height fit was reaching for — never load in unable to see the categories
+ * — is the shelf's band being stuck to the pane's bottom, which is checked
+ * above and holds at every page length.
+ */
+{
+  const tall = (n) => ({ state: {
+    pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
+    activePageId: "page_home", groups: [], selection: [], threads: [], spaces: [], shapes: [],
+    nodes: Array.from({ length: n }, (_, i) => part(`t${i}`, 80 + i * 420)),
+  }, version: 0 });
+  const read = () => {
+    const pane = document.querySelector("[data-studio-pane]");
+    const win = document.querySelector("[data-page-window]");
+    const w = win.getBoundingClientRect();
+    return { paneW: Math.round(pane.clientWidth), pageW: Math.round(w.width), pageH: Math.round(w.height),
+      own: win.style.height, scrollHeight: pane.scrollHeight, clientHeight: pane.clientHeight,
+      canScroll: pane.scrollHeight > pane.clientHeight };
+  };
+  const at = async (n) => {
+    const ctx = await browser.newContext({ viewport: { width: 1737, height: 1278 } });
+    await ctx.addInitScript((d) => { try { localStorage.setItem("builder.studio", JSON.stringify(d)); } catch { /* private mode */ } }, tall(n));
+    const page = await ctx.newPage();
+    await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1800);
+    const m = await page.evaluate(read);
+    await ctx.close();
+    return m;
+  };
+  const one = await at(1);
+  const many = await at(12);
+  check("the page is fitted across, to the pane's width less the gutter",
+    one.pageW === one.paneW - 128 && many.pageW === many.paneW - 128,
+    `${one.pageW} and ${many.pageW} in a ${one.paneW} pane, less 128`);
+  check("and a page with twelve parts on it is drawn no smaller than one with one",
+    many.pageW === one.pageW,
+    `one part: ${one.pageW} wide with a ${one.own} page · twelve: ${many.pageW} wide with a ${many.own} page`);
+  check("a page taller than the pane is scrolled, not shrunk",
+    many.canScroll && many.scrollHeight > many.clientHeight,
+    `scrollHeight ${many.scrollHeight}, clientHeight ${many.clientHeight}, canScroll ${many.canScroll}`);
+  check("and a page that fits has nothing to scroll",
+    !one.canScroll, `scrollHeight ${one.scrollHeight}, clientHeight ${one.clientHeight}, canScroll ${one.canScroll}`);
+}
+
+/* ------------------------------------------------------------------ */
 /* The freeze                                                           */
 /* ------------------------------------------------------------------ */
 
