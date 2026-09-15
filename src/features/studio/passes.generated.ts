@@ -2,14 +2,52 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T04:28:53.169Z";
+export const GENERATED_AT = "2026-09-15T04:30:30.586Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "651d0a9",
-    "when": "2026-09-15T04:28:10+00:00",
+    "id": "17afa2e",
+    "when": "2026-09-15T04:30:30+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "9df1570",
+        "says": "Moving a part says where the part is, and nothing else",
+        "when": "2026-09-15T04:28:29+00:00",
+        "detail": [
+          "J's report, and his clue is what narrowed it: dragging the preview around forces the categories to move, dragging must never resize the preview box, and it does not happen on the timeline.",
+          "One cause, both symptoms. The page's height is the lowest thing on it plus 160 — it shrink-wraps the content with no slack, so every pixel of downward drag is a pixel of page. The board is as tall as the page and the shelf sits under the board in the same scroller, so the page grew, the board grew and the categories were pushed down, live, under the hand. The timeline is in that same pane and never did it because it is `h-full`: it cannot grow, so the band below it cannot be pushed.",
+          "Measured at a 1267x1354 window, one part dragged 240px down, everything read while the button was still held:",
+          "the page       1960 → 2197 the preview    1240 → 1390 on screen the board      1368 → 1518 the shelf      top 1456 → 1606 the pane       349 → 499 of travel"
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "4016b9d",
+    "when": "2026-09-15T04:30:14+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "4016b9d",
+        "says": "Regenerate the passes for a line being one run",
+        "when": "2026-09-15T04:30:14+00:00",
+        "detail": [
+          "Dijkstra's pass: a line of the page is one run, whatever is marked up inside it.",
+          "Run on this build: zip-import 62/62, site-read 44/44. Not run: the rest, none of which touches how a page's text is read."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "651d0a9",
         "says": "A line of the page is one run, whatever is marked up inside it",
@@ -802,26 +840,6 @@ export const PASSES: Pass[] = [
           "core",
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f6ef427",
-    "when": "2026-09-14T18:42:25+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "f6ef427",
-        "says": "Regenerate the passes for the ink standing off the face",
-        "when": "2026-09-14T18:42:25+00:00",
-        "detail": [
-          "Euler's pass: the ink stands off the face, and a drawing is the size of the card, with tests/ink-on-cards.mjs holding it."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
