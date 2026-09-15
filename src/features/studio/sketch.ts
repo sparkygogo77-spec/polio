@@ -28,10 +28,6 @@ export interface SketchBox {
   h: number;
 }
 
-export function emptySketch(): Sketch {
-  return { strokes: [], words: "" };
-}
-
 /** A sketch with nothing drawn on it — words alone are not a shape. */
 export function isBlankSketch(s: Sketch | null | undefined): boolean {
   return !s || !s.strokes.some((st) => st.length >= 2);

@@ -177,7 +177,6 @@ export function Canvas() {
   /* The frame being chosen in Import, if one is. Not in the document and
      not in the undo history — a preview is not an edit. */
   const importing = useImportPreview();
-  const pageScroll = useStudio((s) => s.pageScroll);
   /*
    * One height, where there were two.
    *
@@ -240,9 +239,7 @@ export function Canvas() {
   const pageH = handOn ? settled.current : wanted;
   const frameH = pageH;
   /* Nothing scrolls inside the frame, and nothing pans down the ground:
-     the pane does it. `pageScroll` was the site's offset behind the frame's
-     edge and there is no edge left to be behind. */
-  void pageScroll;
+     the pane does it. */
   /*
    * The board is as tall as the site it is showing.
    *

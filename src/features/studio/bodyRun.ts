@@ -234,11 +234,6 @@ export function targetFor(outline: OutlineClip | null, strokes: SketchPoint[][] 
   return { mask: new Array<boolean>(GRID * GRID).fill(true), mode: { closed: true, tolerance: 0 } };
 }
 
-/** The old shape of the question, kept for the written-body loop. */
-export function targetMask(outline: OutlineClip | null): boolean[] {
-  return targetFor(outline).mask;
-}
-
 /** A grid of what an image actually painted. */
 async function shotMask(dataUrl: string): Promise<boolean[]> {
   const mask = new Array<boolean>(GRID * GRID).fill(false);

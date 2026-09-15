@@ -28,7 +28,3 @@ export function ctxProps<T>(scope: string, id: string, data?: T): { "data-ctx": 
 export function getCtxData<T = unknown>(scope: string, id: string): T | undefined {
   return store.get(key(scope, id)) as T | undefined;
 }
-
-export function clearCtxData(scope: string, id: string) {
-  store.delete(key(scope, id));
-}
