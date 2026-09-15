@@ -2,9 +2,103 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:30:27.338Z";
+export const GENERATED_AT = "2026-09-15T07:35:48.445Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "e0bbc35",
+    "when": "2026-09-15T07:35:44+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a1783b1",
+        "says": "The tweet console records the site that was built, not an empty one",
+        "when": "2026-09-15T07:28:03+00:00",
+        "detail": [
+          "A3 on the inventory. The console's Render sent the document with its request and the route it sent it to never read it: `/api/tweets/preview- video` opened the live preview in a fresh headless browser, whose storage holds nothing, and recorded whatever an empty site scrolls like. The studio's own `/api/studio/preview-video` was the same 220 lines with the one difference that mattered, `takeDoc(body.doc)` handed to the page before it loads.",
+          "The console renders through the studio route now and the copy is deleted, which also retires its `findFfmpeg(): string | null` that never returned null (B19). The build-trace check in serverless-browser.mjs follows the route that is left; AGENTS.md says which route renders the tour and why there is one.",
+          "tests/tweet-video.mjs: 6 of 6, 2 red against the tree before this. It reads the route the console names, holds that file to reading the document, and posts a seeded document to it: 200, video/webm, 49,391 bytes in 4.2 s on this box, from the Playwright at /opt/node22. serverless-browser 10/10. Typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "tests",
+          "tweets"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "3fdd402",
+        "says": "Picture and Solid are on the shelf you browse, and the library counts itself",
+        "when": "2026-09-15T07:25:01+00:00",
+        "detail": [
+          "A13 on the inventory. The shelf browses category, sub-group, part, and the drawer lists only the ids the sub-groups name; `picture` and `mesh-3d` were in no sub-group, so two of 229 parts were reachable only by someone who typed their names into the search. Picture is first under Pictures now and Solid sits beside the cube under Solids.",
+          "Three places said how many parts there are, none of them the count: the hero said 218, the catalog's own comment 226, AGENTS.md 226 in three sentences. All say 229, and the count is held rather than written: tests/shelf-reach.mjs reads `FEATURES.length` and holds every number in site.config.ts, catalog.ts and PartPreview.tsx to it, every id to exactly one sub-group, and every sub-group id to a real part. 7 of 7, 4 red against the tree before this."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "935af3b",
+        "says": "Compile the blueprint opens the book's tab when the book is where you are",
+        "when": "2026-09-15T07:25:01+00:00",
+        "detail": [
+          "A2 on the inventory. Four doors open the blueprint: ⌘⏎, the command, the canvas menu and the brief menu, all through `__studioOpenBrief`, which set `briefOpen`. In the book mode the blueprint is a tab under the timeline and the dialog is drawn only outside that mode (`open={briefOpen && !book}`), so in the book every one of the four did nothing on screen, and the dialog then opened by itself the moment the person left the book, over whatever they had turned to.",
+          "The door reads the mode now: in the book it makes sure the band is shown and opens the book's tab, the same event the card's Re-iterate uses; anywhere else it opens the dialog as before.",
+          "tests/compile-in-book.mjs: 8 of 8, 2 red against the tree before this. It presses ⌘⏎ on the board and in the book, counts the open dialog by its own state rather than by role (the tweet console and the vault are dialogs too, closed), and leaves the book to see nothing pop up. Green alongside: reiterate 8/8, shelf-pass 20/20. Typecheck clean."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "2c4453e",
+        "says": "Re-iterate runs from the tab a person is on, not only from the book",
+        "when": "2026-09-15T07:19:51+00:00",
+        "detail": [
+          "A1 on the inventory. Every finished card carries Re-iterate: turn the page, change the words, press it, and the book runs the card's ask again. The card fired `studio:book` and then, in the same handler, `studio:ask` with the words; only the book under the timeline listens, and the detail band opens on \"This update\", so from the default tab the tab switch was a render away when the ask went out. Nobody heard it. The tab switched, the words were dropped, and the press did nothing the first time, every time. It worked only with the book already open. The one check on it read the source for the event's name and could not see any of this.",
+          "One door now: `askTheBook` in BriefDialog parks the ask, opens the tab and fires the event; a mounted book hears the event as before, and a book that mounts a render later takes the parked ask as it arrives. The card goes through the door. Measured with the model call intercepted, from the default tab: 0 asks left before, 1 after, with the edited words and the card's mode in it; a second press with the book open makes 2, not 3.",
+          "tests/reiterate.mjs: 8 of 8, 5 red against the tree before this. tests/cards.mjs's source pin follows the door. Green alongside: timeline-card 19/19, current 29/29, updates-view 22/22, backend-surface 25/25, change-made 19/19, cards 67/67. Typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9dd20f9",
+    "when": "2026-09-15T07:34:22+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "9dd20f9",
+        "says": "Regenerate the passes for the seven shortfalls of the live read",
+        "when": "2026-09-15T07:34:22+00:00",
+        "detail": [
+          "Shannon's 82c0125 and her two merges of trunk: the seven shortfalls of the live read, each held to the page by number. Taken on its own.",
+          "One conflict, in docs/RECREATE-FINDINGS.md: she and dijkstra each added bullets to the same \"Fixed\" list, one about a made space being pickable again and two about the fit and the offer. No disagreement, so both sides are kept, hers after his, in list order.",
+          "Merge clean otherwise, typecheck clean, build rc=0. Run here on the build, port 4271:",
+          "zip-import        75 of 75 hold recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold board-edges       11 of 11 hold full-page         42 of 42 hold picked            16/16 passed create-flow       26 of 26 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "7aa5b01",
     "when": "2026-09-15T07:30:26+00:00",
@@ -950,77 +1044,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "727cb9a",
-    "when": "2026-09-15T02:38:59+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "8e12d2a",
-        "says": "Pushed on the aura check and the preview set, not the full sweep",
-        "when": "2026-09-15T02:26:05+00:00",
-        "detail": [
-          "The sweep was killed at 44 minutes and 30 of 93 — progressing, not wedged, just slow — because the aura fix is wanted now and waiting on the other 63 buys nothing it can measure. What was run instead, on this exact build:",
-          "space-one-open  17/17   the aura itself, the check left red last push full-page       36/36   the full-length page quiet-scroll      8/8   the pane that scrolls picked          16/16   pressing the page cards           67/67   the previews on the boards create-space    19/19 then 18/19 on the same build — see below",
-          "Not run: the other 63, among them the ground, ink, imaging, zip and body suites. None of them touches the ring on a hole or the page's height, which is the whole of what is in this pass.",
-          "ON create-space, because it should not be waved past. One check, \"inside the line is ground now, not the page\", wants the inside more than 12 luma above the page. It measures rgb(31,13,51) inside against rgb(7,10,16) on the page, which clears that bar by about one point — so it passes and fails on the same build, and did both here, once each. That is a threshold on a knife edge rather than a regression: the inside is still ground, still brighter than the page, still far under the 120 ceiling. Flagged for the create space session as its own item rather than mended from here, because the number that wants choosing is theirs."
-        ],
-        "areas": [],
-        "kind": "new"
-      },
-      {
-        "id": "94ac1c0",
-        "says": "Regenerate the passes for the ring sitting even, and the red check goes green",
-        "when": "2026-09-15T01:28:41+00:00",
-        "detail": [
-          "Dijkstra's pass: the ring sits the same hair off the line on every side. That is the fix for the regression the last push went out red with, and the check left red is now green on its own — which is what it was left red for.",
-          "The numbers, because the whole point was that nobody has to take anyone's word for it. Before, each side's light measured against its own background:",
-          "left 249, top 212, right 204, bottom 154 — a 95 point spread",
-          "After, measured by his own rewrite, which separates the ring on the line from the aura beside it:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "2cf7d9d",
-        "says": "Regenerate the passes for the board as tall as the site",
-        "when": "2026-09-15T00:47:10+00:00",
-        "detail": [
-          "Hypatia's pass: the board is as tall as the site and the pane is what scrolls, which is the second half of the full-length page that went out last push."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4a99dce",
-    "when": "2026-09-15T02:07:26+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "2164c70",
-        "says": "A surface forms where it can be watched, on the timeline's own bands",
-        "when": "2026-09-15T02:00:06+00:00",
-        "detail": [
-          "The driver's numbers were written on the space's host and nothing in the space read them, so a surface went from asked-for to made with nothing between. It forms on euler's bands now, drawn on the boundary rather than a box: while the vine arrives nothing but the hole; then the rim traced round the line in the process's red; then the green closing in from the line to the middle of the area, boundary first and the middle filling after; then thinning to the surface as the parts land. The driver steps as the jobs step, with a running job counting for the step it is on, and what is shown eases toward it at a pace a person can follow, and stays until it has caught up rather than vanishing the moment the last job lands on a fast road.",
-          "The create-flow check records what was drawn while it formed. The create-space ground read takes the ground by its colour rather than a brightness that depends on how thick the cloud is under the sample."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
