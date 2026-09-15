@@ -13,6 +13,36 @@ const swatch = (t: { accent: string; muted: string }, i: number) =>
   `linear-gradient(${140 + i * 24}deg, ${t.accent}${i % 2 ? "33" : "22"}, ${t.muted}1f)`;
 
 /** Grids of images; clicking one opens it full size inside the part. */
+/**
+ * One picture, at its own size.
+ *
+ * What Import's "shrink in" lands as. The picture rides on `node.texture`,
+ * which `blocks.tsx` has already turned into `theme.surfacePaint` — so
+ * there is nothing to fetch here and no second copy of the bytes: this
+ * paints what the part is already wearing, edge to edge, and gets out of
+ * the way. Without a renderer of its own the part fell through to the
+ * dashed `Unknown` card, which paints the flat surface colour and drops
+ * `surfacePaint` on the floor: a part carrying a picture, showing none.
+ */
+export function Picture({ id, label, theme: t }: PartProps) {
+  const painted = !!t.surfacePaint;
+  return (
+    <Fill
+      t={t}
+      data-part={id}
+      data-part-picture={painted ? "" : undefined}
+      style={{
+        padding: 0, overflow: "hidden", borderRadius: t.radius,
+        ...(painted ? t.surfacePaint : { border: `1px dashed ${t.line}`, display: "grid", placeItems: "center" }),
+      }}
+    >
+      {painted ? null : (
+        <span style={{ color: t.muted, fontSize: t.fontPx * 0.9, fontFamily: t.bodyFamily }}>{label || "Picture"}</span>
+      )}
+    </Fill>
+  );
+}
+
 export function Gallery({ id, content, options, theme: t, mode, w }: PartProps) {
   const n = Math.max(1, Math.min(6, Number(opt(options, "columns", "3")) || 3));
   const captions = items(content, []);

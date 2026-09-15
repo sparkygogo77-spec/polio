@@ -75,7 +75,11 @@ const has = (id) => slabs.some((s) => s.id === id);
 check("the three-dot More has gone", !has("more"), slabs.map((s) => s.label).join(" · "));
 check("and Edit with it", !has("edit"));
 check("Draw and Create are both there", has("draw") && has("create"));
-check("Picture is there, where Cut was", has("duplicate") && slabs.find((s) => s.id === "duplicate")?.label === "Picture",
+/* The slot Cut vacated is still used, and still by the piece that opens a
+   file — that is the rule this was written for, and it survives. The label
+   does not: it took a video and two landings, so Picture stopped being the
+   whole of what it does. */
+check("Import is there, where Cut was", has("duplicate") && slabs.find((s) => s.id === "duplicate")?.label === "Import",
   slabs.find((s) => s.id === "duplicate")?.label ?? "not there");
 check("and Strip is still the one red thing", has("delete"));
 
