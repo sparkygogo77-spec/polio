@@ -24,6 +24,7 @@
  * Pure, and tested by `tests/scaffold.mjs`.
  */
 import { paintRoles, roleVars } from "./bodyPaint.ts";
+import { auraStyle, entranceCss, type AnimDelay, type AnimEase, type AnimSpeed, type AuraStyle, type Palette } from "./look.ts";
 
 export interface ScaffoldFile {
   path: string;
@@ -67,6 +68,17 @@ export interface ScaffoldPart {
   empty?: boolean;
   /** What it reads, when the board says it reads something. */
   data?: string;
+  /** Its entrance on the live page, as the wheel's Animation shard set it. */
+  anim?: string | null;
+  animSpeed?: number | AnimSpeed;
+  animDelay?: number | AnimDelay;
+  animEase?: AnimEase;
+  /** The colour round its edge, when it wears one. */
+  aura?: string | null;
+  auraSize?: number;
+  auraStyle?: AuraStyle;
+  /** Where a click on it goes: a page by id, path or name; a part on the page by id; a URL. */
+  link?: { kind: "page" | "node" | "url"; target: string } | null;
 }
 
 export interface ScaffoldInput {
@@ -82,6 +94,61 @@ export interface ScaffoldInput {
   tokens: Record<string, string | number>;
   /** The page's own background, texture included, as CSS. */
   pageCss?: Record<string, string>;
+  /** The keyframes the page's own paint names (`driftKeyframes`), written into the stylesheet. */
+  keyframes?: string[];
+  /** The wash over the page, when a texture lands over everything. */
+  overlayCss?: Record<string, string>;
+  /** The veil over the page, as a colour, when the look has one. */
+  veil?: string;
+  /** The backdrop chosen with no texture: a gradient, a grid, or the page colour. */
+  backdrop?: string;
+}
+
+/**
+ * The keyframes the live page's stylesheet carries and an exported site
+ * has to carry too: the entrances a part can make, and the aura's pulse.
+ * Copied from `app/globals.css`, where the Builder's own live page reads
+ * them; the export used to name them and define none.
+ */
+export const EXPORT_KEYFRAMES = `/* Entrances, as the Builder's live page plays them. */
+@keyframes el-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes el-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes el-drop { from { opacity: 0; transform: translateY(-18px); } to { opacity: 1; transform: none; } }
+@keyframes el-left { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes el-right { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes el-grow { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes el-blur { from { opacity: 0; filter: blur(10px); } to { opacity: 1; filter: blur(0); } }
+@keyframes el-flip { from { opacity: 0; transform: perspective(700px) rotateX(-24deg); } to { opacity: 1; transform: none; } }
+/* An aura that pulses. */
+@keyframes aura-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px var(--aura), 0 0 calc(12px * var(--aura-k)) calc(1px * var(--aura-k)) var(--aura); }
+  50% { box-shadow: 0 0 0 1px var(--aura), 0 0 calc(30px * var(--aura-k)) calc(7px * var(--aura-k)) var(--aura); }
+}
+@keyframes aura-pulse-shape {
+  0%, 100% { filter: drop-shadow(0 0 1px var(--aura)) drop-shadow(0 0 calc(6px * var(--aura-k)) var(--aura)); }
+  50% { filter: drop-shadow(0 0 1px var(--aura)) drop-shadow(0 0 calc(15px * var(--aura-k)) var(--aura)); }
+}
+`;
+
+/** A style object as JSX writes it: plain keys bare, a CSS variable quoted. */
+function styleJsx(style: Record<string, string | number>): string {
+  return `{ ${Object.entries(style).map(([k, v]) => `${/^[a-zA-Z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(v)}`).join(", ")} }`;
+}
+
+const slugOf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** Where a link goes in the exported site, as an href, the way the live page resolves it. */
+export function hrefOf(link: ScaffoldPart["link"], pages: ScaffoldPage[]): { href: string; newTab: boolean } | null {
+  if (!link || !link.target.trim()) return null;
+  const t = link.target.trim();
+  if (link.kind === "url") return { href: t, newTab: true };
+  if (link.kind === "node") return { href: `#${t}`, newTab: false };
+  const page =
+    pages.find((p) => p.id === t) ??
+    pages.find((p) => p.path === t || p.path === "/" + slugOf(t)) ??
+    pages.find((p) => p.name.toLowerCase() === t.toLowerCase()) ??
+    (t.toLowerCase() === "home" || t === "/" ? pages[0] ?? null : null);
+  return page ? { href: page.path, newTab: false } : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -431,9 +498,13 @@ function tokensCss(input: ScaffoldInput): string {
     .filter(([k]) => !(k in input.palette))
     .map(([k, v]) => `  --${k}: ${typeof v === "number" ? `${v}px` : v};`)
     .join("\n");
-  const page = Object.entries(input.pageCss ?? {})
+  // The page's own paint when a texture is on it; else the backdrop chosen
+  // without one (a gradient, a grid), which the export used to leave out.
+  const pageCss = input.pageCss && Object.keys(input.pageCss).length ? input.pageCss : input.backdrop ? { background: input.backdrop } : {};
+  const page = Object.entries(pageCss)
     .map(([k, v]) => `  ${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`)
     .join("\n");
+  const keyframes = [EXPORT_KEYFRAMES, ...(input.keyframes ?? [])].join("\n");
   return `/*
  * The site's tokens, taken from the document — not described, copied.
  * Every colour here is the one the board is painted in; change one and
@@ -453,7 +524,8 @@ body {
   font-size: var(--fontPx);${page ? `\n${page}` : ""}
 }
 a { color: inherit; }
-`;
+
+${keyframes}`;
 }
 
 function layoutTsx(input: ScaffoldInput): string {
@@ -561,16 +633,40 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
     .map((p) => `import { ${componentName(p)} } from "${page.path === "/" ? "@/components" : "@/components"}/parts/${componentName(p)}";`)
     .join("\n");
   const height = parts.reduce((m, p) => Math.max(m, p.y + p.h), 0) + 160;
+  const palette = input.palette as unknown as Palette;
   const placed = parts
-    .map(
-      (p) => `      <div
+    .map((p) => {
+      // The wrapper carries what the live page puts round a part: its place,
+      // its aura, its entrance. The component inside is the markup alone.
+      const style: Record<string, string | number> = {
+        position: "absolute", left: Math.round(p.x), top: Math.round(p.y), width: Math.round(p.w), height: Math.round(p.h),
+        ...(auraStyle(p.aura, palette, p.auraSize ?? 1, p.auraStyle ?? "glow") ?? {}),
+      };
+      const entrance = entranceCss(p.anim, p.animSpeed ?? 1, p.animDelay ?? 0, p.animEase ?? "smooth");
+      if (entrance) style.animation = entrance;
+      // A link is an anchor round the part: the markup's own click was lost with the snapshot.
+      const link = hrefOf(p.link, input.pages);
+      const inner = link
+        ? `<a href=${JSON.stringify(link.href)}${link.newTab ? ' target="_blank" rel="noopener noreferrer"' : ""} style={{ display: "block", height: "100%", color: "inherit", textDecoration: "none" }}>
+          <${componentName(p)} />
+        </a>`
+        : `<${componentName(p)} />`;
+      return `      <div
+        id=${JSON.stringify(p.id)}
         data-part=${JSON.stringify(p.id)}
-        style={{ position: "absolute", left: ${Math.round(p.x)}, top: ${Math.round(p.y)}, width: ${Math.round(p.w)}, height: ${Math.round(p.h)} }}
+        style={${styleJsx(style)}}
       >
-        <${componentName(p)} />
-      </div>`,
-    )
+        ${inner}
+      </div>`;
+    })
     .join("\n");
+  // The wash and the veil the live page lays over everything, when the look has them.
+  const over = [
+    input.overlayCss && Object.keys(input.overlayCss).length
+      ? `      <div aria-hidden data-wash="" style={${styleJsx({ position: "absolute", inset: 0, pointerEvents: "none", ...input.overlayCss })}} />`
+      : "",
+    input.veil ? `      <div aria-hidden data-veil="" style={${styleJsx({ position: "absolute", inset: 0, pointerEvents: "none", background: input.veil })}} />` : "",
+  ].filter(Boolean).join("\n");
   return `${imports}
 import { Frame } from "@/components/Frame";
 
@@ -585,7 +681,7 @@ import { Frame } from "@/components/Frame";
 export default function Page() {
   return (
     <Frame width={${input.frameWidth}} height={${Math.round(height)}}>
-${placed}
+${placed}${over ? `\n${over}` : ""}
     </Frame>
   );
 }

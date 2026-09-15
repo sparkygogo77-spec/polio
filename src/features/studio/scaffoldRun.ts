@@ -16,6 +16,7 @@
  * cannot hold.
  */
 import * as React from "react";
+import { driftKeyframes, lands } from "./look";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { Block } from "./blocks";
@@ -82,6 +83,10 @@ export function buildScaffold(): ScaffoldResult {
         // document does not hold: that is what the model is for.
         empty: n.featureId === "custom-idea" && !n.code,
         data: n.data,
+        // What the live page puts round it, so the export shows it as Preview does.
+        anim: n.anim, animSpeed: n.animSpeed, animDelay: n.animDelay, animEase: n.animEase,
+        aura: n.aura, auraSize: n.auraSize, auraStyle: n.auraStyle,
+        link: n.link,
       });
     }
   }
@@ -108,6 +113,14 @@ export function buildScaffold(): ScaffoldResult {
     pageCss: theme.surfaceStyle
       ? Object.fromEntries(Object.entries(theme.surfaceStyle).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
       : undefined,
+    // The keyframes that paint names, the wash and the veil over the page,
+    // and the backdrop chosen with no texture: all of it used to stop here.
+    keyframes: [driftKeyframes((s.look?.texture ?? []).filter((l) => l.on && lands(l, "page")), palette)?.css].filter((k): k is string => !!k),
+    overlayCss: theme.overlayStyle
+      ? Object.fromEntries(Object.entries(theme.overlayStyle).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))
+      : undefined,
+    veil: theme.veil,
+    backdrop: theme.backdrop || undefined,
   });
 
   return {
