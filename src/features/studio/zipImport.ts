@@ -260,22 +260,46 @@ function stacked(box: Box, inside: readonly Block[]): boolean {
   // to be sections: a sidebar down one side is not a band and does not
   // stop it being a column, and a section is not opened into its
   // paragraphs, which came out as twelve parts of one page.
-  const bands = inside
-    .filter((c) => c.box.w >= box.w * 0.6 && !inside.some((o) => o !== c && holds(o.box, c.box) && o.box.w * o.box.h > c.box.w * c.box.h))
-    .sort((a, b) => a.box.y - b.box.y);
+  const wide = (c: Block) => c.box.w >= box.w * 0.6;
+  const outer = inside.filter((c) => wide(c) && !inside.some((o) => o !== c && holds(o.box, c.box) && o.box.w * o.box.h > c.box.w * c.box.h));
+  /*
+   * Two bands over one another are a band and the one under it whose box
+   * was stretched up over the first band's floats: a section whose
+   * children float has a box that ends above them, and the column after it
+   * begins beside them. Where the larger holds nothing wide of its own in
+   * the overlap, everything there being the smaller's, the larger begins
+   * where the smaller ends (or ends where it begins). Where it does hold
+   * something of its own there, the two are laid over one another and are
+   * not one under the next.
+   */
+  const spans = outer.map((c) => ({ c, y: c.box.y, end: c.box.y + c.box.h }));
+  for (const a of spans) {
+    for (const b of spans) {
+      if (b === a || b.c.box.h >= a.c.box.h) continue;
+      const top = Math.max(a.y, b.y), bottom = Math.min(a.end, b.end);
+      if (bottom - top <= 2) continue;
+      const lap: Box = { x: box.x, y: top, w: box.w, h: bottom - top };
+      const own = inside.some((k) => k !== a.c && k !== b.c && wide(k) && overlapY(k.box, lap) > 2 && !holds(b.c.box, k.box));
+      if (own) continue;
+      if (b.y <= a.y) a.y = Math.max(a.y, b.end);
+      else a.end = Math.min(a.end, b.y);
+    }
+  }
+  const bands = spans.filter((s) => s.end - s.y > 2).sort((p, q) => p.y - q.y);
   // A column has at least two sections in it: things a person would name,
   // a band or a screen, not boxes of words. A section of tall paragraphs
   // is not a column, and a bar and a footer count toward a column's height
   // but do not make it one.
-  if (bands.filter((c) => c.box.h >= MIN_BAND && c.what !== "a box on the page").length < 2) return false;
+  const section = (c: Block) => c.what !== "a box on the page" && c.what !== "a paragraph" && c.what !== "a heading";
+  if (bands.filter((s) => s.end - s.y >= MIN_BAND && section(s.c)).length < 2) return false;
   let covered = 0;
   for (let i = 0; i < bands.length; i++) {
-    const b = bands[i]!.box;
-    covered += b.h;
+    const b = bands[i]!;
+    covered += b.end - b.y;
     if (i === 0) continue;
-    const p = bands[i - 1]!.box;
+    const p = bands[i - 1]!;
     // One under the next: an overlap of a margin's worth, never half a band.
-    if (b.y < p.y + p.h - Math.max(24, Math.min(p.h, b.h) * 0.5)) return false;
+    if (b.y < p.end - Math.max(24, Math.min(p.end - p.y, b.end - b.y) * 0.5)) return false;
   }
   return covered >= box.h * 0.5;
 }
