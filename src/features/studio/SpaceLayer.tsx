@@ -33,7 +33,8 @@ import { Box as BoxIcon, Circle, Sparkles } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
-import { formVars } from "./formation";
+import { formVars, progressOf, stageOf, within } from "./formation";
+import { PROCESS } from "./threads";
 import { HALO, paintHoleAlong, paintHorizonShadowAlong } from "./blackHole";
 import { useGround } from "./ground";
 import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, isBoundary, isMade, openOf, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
@@ -254,6 +255,15 @@ function SpaceMark({ space, zoom }: { space: Space; zoom: number }) {
   const [mx, my] = React.useMemo(() => centroid(local), [local]);
   const made = isMade(space);
   const form = space.form?.p ?? 1;
+  /*
+   * The forming is shown until what is shown has caught up with the work,
+   * not until the work is over: the last jobs land in a moment on a fast
+   * road, and the driver goes to one, and the sheen closing in from the
+   * line would never be seen. So the mark stays forming until the drawn
+   * value has eased all the way, and only then is the surface simply there.
+   */
+  const [settled, setSettled] = React.useState(!space.form || form >= 1);
+  React.useEffect(() => { if (space.form && form < 1) setSettled(false); }, [space.form, form]);
   return (
     <div
       data-space={space.id}
@@ -275,9 +285,74 @@ function SpaceMark({ space, zoom }: { space: Space; zoom: number }) {
       }}
     >
       <Hole space={space} local={local} pad={pad} box={box} zoom={zoom} form={space.form ? form : 1} />
+      {space.form && !settled ? <Forming local={local} at={form} zoom={zoom} onDone={() => setSettled(true)} /> : null}
       <FillKey space={space} zoom={zoom} at={[mx, my]} />
       {made ? <SurfaceHandles space={space} zoom={zoom} pad={pad} box={box} /> : null}
     </div>
+  );
+}
+
+/**
+ * The surface forming, on the timeline's own driver, so it can be watched.
+ *
+ * The same bands a card forms in (`FORM`), read with the same `within`,
+ * drawn on a boundary rather than a box: while the vine arrives nothing
+ * shows but the hole; then the rim is traced round the line; then a sheen
+ * closes in from the line to the middle of the area, which is the
+ * boundary first and the middle filling after; then the sheen becomes the
+ * surface and fades as the parts land. The driver's value steps as the
+ * jobs step, so what is shown eases toward it rather than jumping, and a
+ * person sees it move.
+ */
+/** How fast the shown forming may move, in whole surfaces a second: about three seconds from nothing to made. */
+const FORM_PACE = 0.34;
+
+function Forming({ local, at, zoom, onDone }: { local: SketchPoint[]; at: number; zoom: number; onDone: () => void }) {
+  const [shown, setShown] = React.useState(Math.min(at, QUEUED));
+  const done = React.useRef(onDone);
+  done.current = onDone;
+  React.useEffect(() => {
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      // A frame's stamp can precede the clock read when the loop began: never a step backwards.
+      const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
+      last = now;
+      setShown((v) => {
+        if (v >= at) return v;
+        // No faster than a pace a person can follow: the whole way in three seconds.
+        const next = Math.min(at, v + dt * FORM_PACE);
+        return next;
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [at]);
+  React.useEffect(() => { if (at >= 1 && shown >= 1) done.current(); }, [at, shown]);
+  const p = shown;
+  const rim = within(p, "rim");
+  const close = within(p, "close");
+  const surface = within(p, "surface");
+  const core = within(p, "core");
+  const outline = React.useMemo(() => boundaryPath(local), [local]);
+  // The sheen: the area between the line and the line shrunk toward the middle.
+  const inner = close > 0 ? boundaryPath(grownBoundary(local, 1 - close)) : null;
+  const stage = stageOf(p);
+  return (
+    <svg data-space-forming={stage} data-space-form-shown={String(Math.round(p * 100) / 100)} className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1} aria-hidden>
+      {/* The rim, traced round the line as the work reaches it: in the
+          process's own red, because the ring under it is already lit and a
+          trace in the ring's colour is a trace nobody sees. */}
+      {rim > 0 && close < 1 ? (
+        <path d={outline} fill="none" pathLength={1} strokeDasharray="1" strokeDashoffset={1 - rim} stroke={PROCESS.open} strokeWidth={3 / zoom} strokeLinecap="round" opacity={1 - close} />
+      ) : null}
+      {/* The green closing in from the line to the middle, the cards' own
+          word for the work arriving, then thinning to the surface. */}
+      {inner ? (
+        <path d={`${outline} ${inner}`} fillRule="evenodd" fill={PROCESS.done} opacity={0.28 * (1 - surface) + 0.08 * surface * (1 - core)} />
+      ) : null}
+    </svg>
   );
 }
 
@@ -435,7 +510,7 @@ export function SpaceForming() {
       const jobs = jobsInSpace(queue, sp);
       const over = jobs.length > 0 && jobs.every((j) => j.status === "done" || j.status === "failed");
       if (over) { lockNow(sp.id); continue; }
-      useStudio.getState().formSpace(sp.id, formFromJobs(jobs, QUEUED));
+      useStudio.getState().formSpace(sp.id, formFromJobs(jobs, QUEUED, progressOf));
     }
   }, [queue, spaces]);
   return null;

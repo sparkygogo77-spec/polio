@@ -584,11 +584,21 @@ export function jobsInSpace<J extends { at: { x: number; y: number } | null; sta
  * has been asked for exists, which is euler's rule for a card and the same
  * rule here.
  */
-export function formFromJobs(jobs: readonly { status: string }[], queued: number): number {
+export function formFromJobs(
+  jobs: readonly { status: string; step?: string }[],
+  queued: number,
+  progress: (step: string | undefined) => number | null = () => null,
+): number {
   if (!jobs.length) return 1;
-  const done = jobs.filter((j) => j.status === "done" || j.status === "failed").length;
-  const running = jobs.filter((j) => j.status === "running").length;
-  return Math.max(queued, Math.min(1, (done + running * 0.5) / jobs.length));
+  let sum = 0;
+  for (const j of jobs) {
+    if (j.status === "done" || j.status === "failed") sum += 1;
+    // A job part-way through counts for the step it is on, read the way a
+    // card reads it (`progressOf`); half, when the step says nothing.
+    else if (j.status === "running") sum += Math.max(queued, Math.min(0.95, progress(j.step) ?? 0.5));
+    else sum += queued;
+  }
+  return Math.max(queued, Math.min(1, sum / jobs.length));
 }
 
 /* ------------------------------------------------------------------ */

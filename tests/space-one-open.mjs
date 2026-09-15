@@ -143,15 +143,34 @@ const sides = {
   top: [...await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - 2, bigBox), 0, -1],
   bottom: [...await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + 2, bigBox), 0, 1],
 };
-const lit = {};
-for (const [side, [x, y, , dx, dy]] of Object.entries(sides)) lit[side] = await along(x, y, dx, dy);
-const [px, py] = await toScreen("sp_big", BIG.x + BIG.w + 180, BIG.y + BIG.h / 2, bigBox);
-const pageLuma = await glow(px, py);
-const lifts = ["left", "right", "top", "bottom"].map((k) => lit[k].lift);
-const auras = ["left", "right", "top", "bottom"].map((k) => lit[k].aura);
-const said = `lift left ${lit.left.lift}, right ${lit.right.lift}, top ${lit.top.lift}, bottom ${lit.bottom.lift} · aura left ${lit.left.aura}, right ${lit.right.aura}, top ${lit.top.aura}, bottom ${lit.bottom.aura} · page ${pageLuma}`;
-check("every side of the open hole is lit: the ring on it, and light beside it", lifts.every((v) => v > pageLuma + 100) && auras.every((v) => v > pageLuma + 14), said);
-check("and lit the same all the way round, not heavier on the left", Math.max(...lifts) - Math.min(...lifts) < 45 && Math.max(...auras) < Math.min(...auras) * 1.5 && lit.left.aura < lit.right.aura * 1.5, said);
+/*
+ * Each side along its own normal, and against its own background.
+ *
+ * Two instruments met here and both are kept. Trunk's: the page behind a
+ * hole is a full-length surface now and not one flat colour, so a side is
+ * read against the same direction further out, and what is compared is
+ * how much the light lifts its own patch of background. Mine: a line of
+ * pixels along the normal rather than one patch at a fixed distance,
+ * because a patch caught the ring's peak on one side and landed a pixel
+ * past it on the mirrored side, a spread of sixty from rounding alone.
+ * The lift is the ring over the background; the aura is the light beside
+ * the ring over the background.
+ */
+const FAR_REF = 180;
+const lit = {}, base = {}, lift = {}, aura = {};
+for (const [side, [x, y, scale, dx, dy]] of Object.entries(sides)) {
+  lit[side] = await along(x, y, dx, dy);
+  base[side] = await glow(x + dx * FAR_REF * scale, y + dy * FAR_REF * scale);
+  lift[side] = lit[side].lift - base[side];
+  aura[side] = lit[side].aura - base[side];
+}
+const said = `lift ${["left", "right", "top", "bottom"].map((k) => `${k} ${lift[k]}`).join(", ")} · aura ${["left", "right", "top", "bottom"].map((k) => `${k} ${aura[k]}`).join(", ")} · background ${["left", "right", "top", "bottom"].map((k) => `${k} ${base[k]}`).join(", ")}`;
+/* Unlit page, for the reach checks below: the right-hand reference. */
+const pageLuma = base.right;
+const lifts = Object.values(lift), auras = Object.values(aura);
+check("every side of the open hole is lit: the ring on it, and light beside it", lifts.every((v) => v > 100) && auras.every((v) => v > 14), said);
+check("and lit the same all the way round, not heavier on the left",
+  Math.max(...lifts) - Math.min(...lifts) < 45 && Math.max(...auras) < Math.min(...auras) * 1.5 && aura.left < aura.right * 1.5, said);
 /* Size follows the shape: the big hole's aura reaches further than the
    small one's will. Sampled where the big one is still lit and the small
    one, at the same distance, is not. */
