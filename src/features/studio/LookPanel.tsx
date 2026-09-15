@@ -20,7 +20,7 @@ import { CropPicker } from "./CropPicker";
 import { Spectrum } from "./MenuConsole";
 import { CHIP, emptyFill } from "./colourMenu";
 import { resolvePalette } from "./parts/theme";
-import { ImageWell, imageFrom, readImage, usePasteImage } from "./ImageIntake";
+import { ImageWell, imageFrom, readImage, refusal, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -319,7 +319,9 @@ function TextureSection() {
    * it replaces the open image layer if there is one, and otherwise arrives
    * as a new layer, so there is nothing to set up before dropping.
    */
+  const [refused, setRefused] = React.useState<string | null>(null);
   const takeImage = (src: string, id?: string) => {
+    setRefused(null);
     const layers = useStudio.getState().look.texture;
     const target = id ?? (openId && layers.find((l) => l.id === openId && l.kind === "image") ? openId : null);
     if (target) {
@@ -331,7 +333,7 @@ function TextureSection() {
     setOpenId(layer.id);
   };
   const [dropping, setDropping] = React.useState(false);
-  usePasteImage(true, (src) => takeImage(src));
+  usePasteImage(true, (src) => takeImage(src), setRefused);
 
   /**
    * Bake a layer and the one under it into one picture, in that order. It is
@@ -367,10 +369,15 @@ function TextureSection() {
         setDropping(false);
         if (!file) return;
         e.preventDefault();
-        void readImage(file).then((src) => takeImage(src));
+        void readImage(file).then((src) => takeImage(src)).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
       }}
     >
       <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
+      {refused ? (
+        <p data-picture-refused="" className="text-[10px] leading-snug text-danger">
+          {refused} Nothing has been changed.
+        </p>
+      ) : null}
 
       <StackPreview layers={look.texture} palette={palette} />
 

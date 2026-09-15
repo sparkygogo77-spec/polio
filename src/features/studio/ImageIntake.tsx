@@ -10,12 +10,25 @@
  * localStorage, which holds a few megabytes in total, so a phone photo pasted
  * at full size would fill it on its own. 640px on the long edge is more than a
  * texture tile or a reference ever needs.
+ *
+ * A file the browser cannot decode (HEIC off a phone, TIFF, PSD, a file that
+ * is not a picture) is refused with the same sentence the Import flow uses,
+ * and nothing is kept: the full-size bytes would paint as nothing and sit in
+ * the document, and localStorage has no room for them.
  */
 import * as React from "react";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 
 export const MAX_EDGE = 640;
+
+/** What every door says of a file the browser could not decode. */
+export const REFUSED = "This browser cannot open that picture.";
+
+/** The sentence for an intake that failed, whatever threw. */
+export function refusal(e: unknown): string {
+  return e instanceof Error && e.message ? e.message : REFUSED;
+}
 
 /** A file or a pasted blob, shrunk and turned into a data URL. */
 export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
@@ -25,7 +38,7 @@ export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
     reader.onload = () => {
       const src = String(reader.result);
       const img = new Image();
-      img.onerror = () => resolve(src); // an SVG or something exotic, keep it as it came
+      img.onerror = () => reject(new Error(REFUSED));
       img.onload = () => {
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
         if (scale === 1 && src.length < 400_000) return resolve(src);
@@ -63,9 +76,11 @@ export function imageFrom(source: DataTransfer | null | undefined): File | null 
  * Listens for a pasted image while `active`. Paste has no drop target, so it
  * is caught at the window and handed to whoever is listening.
  */
-export function usePasteImage(active: boolean, onImage: (dataUrl: string) => void) {
+export function usePasteImage(active: boolean, onImage: (dataUrl: string) => void, onRefuse?: (why: string) => void) {
   const ref = React.useRef(onImage);
   ref.current = onImage;
+  const refuse = React.useRef(onRefuse);
+  refuse.current = onRefuse;
   React.useEffect(() => {
     if (!active) return;
     const onPaste = (e: ClipboardEvent) => {
@@ -75,7 +90,9 @@ export function usePasteImage(active: boolean, onImage: (dataUrl: string) => voi
       const file = imageFrom(e.clipboardData);
       if (!file) return;
       e.preventDefault();
-      void readImage(file).then((src) => { play("confirm"); ref.current(src); });
+      void readImage(file)
+        .then((src) => { play("confirm"); ref.current(src); })
+        .catch((e: unknown) => { play("deny"); refuse.current?.(refusal(e)); });
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
@@ -106,15 +123,16 @@ export function ImageWell({
     try {
       onImage(await readImage(file));
       play("confirm");
-    } catch {
-      setError("That file could not be read.");
+    } catch (e) {
+      play("deny");
+      setError(refusal(e));
     } finally {
       setBusy(false);
     }
   }, [onImage]);
 
   // While the pointer is over the well, a paste lands here.
-  usePasteImage(hover, onImage);
+  usePasteImage(hover, (src) => { setError(null); onImage(src); }, setError);
 
   return (
     <div
@@ -152,7 +170,7 @@ export function ImageWell({
           onChange={(e) => void take(e.target.files?.[0] ?? null)}
         />
       </label>
-      {error ? <p className="text-[10px] text-danger">{error}</p> : null}
+      {error ? <p data-picture-refused="" className="text-[10px] text-danger">{error}</p> : null}
       {src && onClear ? (
         <button type="button" onClick={onClear} className="text-[10px] text-fg-muted hover:text-fg">
           Remove
