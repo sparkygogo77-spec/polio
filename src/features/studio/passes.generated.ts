@@ -2,12 +2,166 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T01:28:41.056Z";
+export const GENERATED_AT = "2026-09-15T02:49:36.355Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "fecff41",
-    "when": "2026-09-15T01:25:52+00:00",
+    "id": "57d0c95",
+    "when": "2026-09-15T02:42:26+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "57d0c95",
+        "says": "The timeline pays for area over a moving ground, so it carries less of it",
+        "when": "2026-09-15T02:42:26+00:00",
+        "detail": [
+          "The idle drop, fixed. Measured first and at length, because almost everything that looked like the cause was not.",
+          "WHAT IT IS NOT. The ground is not the culprit: the same page with no boards on it drops nothing at all — 54 frames per 900ms, flat — however much of it is moving. And the construct's own drifting layers are not the culprit either: with the canvases quiet and the rim still, twelve cards with both layers gliding also measured 54 and nothing dropped.",
+          "It is the two together, and that is the whole shape of it. The ground is a full-screen surface that never stops, so the viewport is damaged on every frame; every translucent layer stacked over a damaged viewport is re-blended on every frame, whether or not it moved. A timeline is a lot of translucent layers. Neither half is over budget and the two of them are:",
+          "the ground alone, no boards      54 /900ms    0% dropped the timeline alone, ground gone  43          20% the two of them                  31          43%"
+        ],
+        "areas": [
+          "core",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0eaa2fc",
+    "when": "2026-09-15T02:39:04+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "0282fe0",
+        "says": "The eraser goes through a space's key to the box under it",
+        "when": "2026-09-15T02:30:28+00:00",
+        "detail": [
+          "A hand erasing a box presses the middle of it as often as its line, and the middle of an empty hole is where its key sits, so the key took the press and the box stayed. While the tool is the eraser the keys on a space, open or closed, let the press through, and the box goes from the board and the store as one step, which undo brings back. The merge commit before carried this message and not this change."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "bcc02f9",
+        "says": "The aura check reads with both instruments, the conflict markers gone",
+        "when": "2026-09-15T02:30:02+00:00",
+        "detail": [
+          "The merge before this was committed with the conflict in it; the check keeps each side read along its normal and against its own background."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "727cb9a",
+    "when": "2026-09-15T02:38:59+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "8e12d2a",
+        "says": "Pushed on the aura check and the preview set, not the full sweep",
+        "when": "2026-09-15T02:26:05+00:00",
+        "detail": [
+          "The sweep was killed at 44 minutes and 30 of 93 — progressing, not wedged, just slow — because the aura fix is wanted now and waiting on the other 63 buys nothing it can measure. What was run instead, on this exact build:",
+          "space-one-open  17/17   the aura itself, the check left red last push full-page       36/36   the full-length page quiet-scroll      8/8   the pane that scrolls picked          16/16   pressing the page cards           67/67   the previews on the boards create-space    19/19 then 18/19 on the same build — see below",
+          "Not run: the other 63, among them the ground, ink, imaging, zip and body suites. None of them touches the ring on a hole or the page's height, which is the whole of what is in this pass.",
+          "ON create-space, because it should not be waved past. One check, \"inside the line is ground now, not the page\", wants the inside more than 12 luma above the page. It measures rgb(31,13,51) inside against rgb(7,10,16) on the page, which clears that bar by about one point — so it passes and fails on the same build, and did both here, once each. That is a threshold on a knife edge rather than a regression: the inside is still ground, still brighter than the page, still far under the 120 ceiling. Flagged for the create space session as its own item rather than mended from here, because the number that wants choosing is theirs."
+        ],
+        "areas": [],
+        "kind": "new"
+      },
+      {
+        "id": "94ac1c0",
+        "says": "Regenerate the passes for the ring sitting even, and the red check goes green",
+        "when": "2026-09-15T01:28:41+00:00",
+        "detail": [
+          "Dijkstra's pass: the ring sits the same hair off the line on every side. That is the fix for the regression the last push went out red with, and the check left red is now green on its own — which is what it was left red for.",
+          "The numbers, because the whole point was that nobody has to take anyone's word for it. Before, each side's light measured against its own background:",
+          "left 249, top 212, right 204, bottom 154 — a 95 point spread",
+          "After, measured by his own rewrite, which separates the ring on the line from the aura beside it:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "2cf7d9d",
+        "says": "Regenerate the passes for the board as tall as the site",
+        "when": "2026-09-15T00:47:10+00:00",
+        "detail": [
+          "Hypatia's pass: the board is as tall as the site and the pane is what scrolls, which is the second half of the full-length page that went out last push."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "4a99dce",
+    "when": "2026-09-15T02:07:26+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "2164c70",
+        "says": "A surface forms where it can be watched, on the timeline's own bands",
+        "when": "2026-09-15T02:00:06+00:00",
+        "detail": [
+          "The driver's numbers were written on the space's host and nothing in the space read them, so a surface went from asked-for to made with nothing between. It forms on euler's bands now, drawn on the boundary rather than a box: while the vine arrives nothing but the hole; then the rim traced round the line in the process's red; then the green closing in from the line to the middle of the area, boundary first and the middle filling after; then thinning to the surface as the parts land. The driver steps as the jobs step, with a running job counting for the step it is on, and what is shown eases toward it at a pace a person can follow, and stays until it has caught up rather than vanishing the moment the last job lands on a fast road.",
+          "The create-flow check records what was drawn while it formed. The create-space ground read takes the ground by its colour rather than a brightness that depends on how thick the cloud is under the sample."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "5506bd2",
+    "when": "2026-09-15T02:07:09+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "d009100",
+        "says": "The page is everything drawn on it, and the suite names what it measured",
+        "when": "2026-09-15T01:19:49+00:00",
+        "detail": [
+          "Two faults, and the second is the reason the first could be reported fixed while a browser said otherwise.",
+          "THE PAGE'S HEIGHT COUNTED PARTS AND NOTHING ELSE. `frameHeight` reduced over `nodes`, and the window the page stands in is sized from it, so a pen stroke or a drawn space below the last part was rendered inside a window that did not know it was there: `scrollHeight` past `clientHeight`, with `overflow: hidden`, and no wheel, bar or drag could reach it. Measured on this branch with one stroke a hundred pixels under a stock page: 138px behind the edge. It takes `shapes` and `spaces` now, and the board passes them.",
+          "THE SUITE COULD NOT HAVE SEEN IT. Its fixture was parts and nothing else, so it agreed with a `frameHeight` that counted parts and nothing else — two wrongs measuring each other, and 36 of 36 while a real page clipped. Worse, it never said what document it was looking at, which is how a green run here sat beside a red browser on a deployment that did not contain the commit. So:",
+          "every run prints what it measured. `/api/version` already exists for exactly this and nothing asked it; a dev server, which has no build commit, says so rather than borrowing the local tree's SHA."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "bb07ab3",
+    "when": "2026-09-15T01:16:40+00:00",
     "day": "15 September",
     "changes": [
       {
@@ -29,28 +183,8 @@ export const PASSES: Pass[] = [
     "more": 0
   },
   {
-    "id": "2cf7d9d",
-    "when": "2026-09-15T00:47:10+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "2cf7d9d",
-        "says": "Regenerate the passes for the board as tall as the site",
-        "when": "2026-09-15T00:47:10+00:00",
-        "detail": [
-          "Hypatia's pass: the board is as tall as the site and the pane is what scrolls, which is the second half of the full-length page that went out last push."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9569375",
-    "when": "2026-09-15T00:44:56+00:00",
+    "id": "4a4aca1",
+    "when": "2026-09-15T01:16:13+00:00",
     "day": "15 September",
     "changes": [
       {
@@ -666,203 +800,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-14T02:51:32+00:00",
         "detail": [
           "Euler's pass: a run that throws fails its job rather than stopping the queue, with tests/two-in-a-row.mjs holding it shut."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "50d6741",
-    "when": "2026-09-14T02:51:05+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "2b63f4a",
-        "says": "A run that throws fails its job rather than stopping the queue",
-        "when": "2026-09-14T02:43:20+00:00",
-        "detail": [
-          "Routed from the create space, which found it through Generate. It is not that flow's bug — Generate only queues more than one drawing at a time, which is what two Make reals in a row does by hand — so this reproduces it on the board and fixes it in the queue.",
-          "Reproduced, and the half that was already fixed holds: the runner lets go of a finished job before telling the queue, so the one behind it starts. Two presses in a row are two jobs, each on its own part, each making its own, each with its own box, and both boxes complete. A first drawing that fails does not take the second with it either.",
-          "What was still open is the road the run does not know about. `runDrawJob` reports every failure it can see, and a reported failure marks the job `failed` and the queue goes on — but a *throw* rejected the promise and nothing wrote a status at all. `nextJob` will not start anything while a job is `running`, so an unexpected error did not lose one drawing: it stopped the queue, and everything queued behind it waited for ever with no sign of why. Letting go of the runner does not help on its own; the job has to be closed as well as released.",
-          "Two changes, both small:"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "8ec5ba1",
-    "when": "2026-09-14T02:15:58+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "8ec5ba1",
-        "says": "Regenerate the passes for the seven-pass sweep",
-        "when": "2026-09-14T02:15:58+00:00",
-        "detail": [
-          "All three sessions converged into one tip again, seven passes in it: the models reachable from the Updates board; the bottom row reading apart with its small print clearing AA; no scrollbar anywhere on any surface that scrolls; Create and Draw differing only by how many elements come out; generate from the space's panel, with the surface forming as its parts land; a drawing waiting behind a finished one being started; and the motion broken apart into three layers with no two going the same way.",
-          "Three new suites came with it: create-flow, quiet-scroll and shelf-apart."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c696660",
-    "when": "2026-09-14T02:15:25+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "9985dcd",
-        "says": "Break the motion apart: three layers, no two of them going the same way",
-        "when": "2026-09-14T02:05:32+00:00",
-        "detail": [
-          "The tell was that the whole picture panned as one image. One tile sliding is one vector and every filament on a card shares it, so the surface read as a photograph being dragged behind a window. Measured — the spread of headings across a card's patches between two frames, 0 being every moving part of it going the same way — a card came out at 0.000 on both temperatures. There was nothing else for the eye to find.",
-          "Three layers of the same material now, and no two of them move alike:",
-          "1. the tile at 180, sliding across, one period per 20s — nine pixels a second, left to right, which is the speed and the scale as they were; 2. the same tile at 1.7×, sliding *back*, one of its own periods per 47s — six and a half pixels a second, right to left. It used to stand still, which was the right answer against painted noise and the wrong one against a render; 3. the tile at 1.3×, turning, one whole turn per 150s. Continuous, never an oscillation, because a reversal is a beat.",
-          "Same measure after: 0.46 green, 0.58 red."
-        ],
-        "areas": [
-          "core",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "7a6fbe3",
-        "says": "A drawing waiting behind a finished one is started",
-        "when": "2026-09-14T02:02:21+00:00",
-        "detail": [
-          "The queue runner let go of the finished job only after telling the queue it was over, and telling the queue is what runs the effect that starts the next one; it saw a busy runner and returned, and nothing changed the queue again. Any second drawing queued at once stayed waiting for ever. The runner lets go first now.",
-          "DrawQueue.tsx, one declared line, in the runner's then.",
-          "tests/create-flow.mjs is the create flow driven by a hand: the boundary first, two things drawn inside it each given its own words, Generate, both landing, the layout locked in the shares they were drawn at, and the surface resized with its contents keeping their proportion."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "dc5140e",
-        "says": "Generate from the space's panel, and the surface forms as its parts land",
-        "when": "2026-09-14T02:02:21+00:00",
-        "detail": [
-          "Everything drawn inside a black hole is queued as itself, each with its own words, through the same door a drawing on the bare page goes through; the surface forms as they land and locks the layout when the last one has. Closed shapes drawn inside a space are their own drawings, and the badge under each is the way to pick one. A made surface carries a grip and a resize handle. The panel for a part inside shows the model's own fields, picture wells among them, read off the route table.",
-          "Canvas.tsx, two declared lines: SpaceForming imported from SpaceLayer and mounted beside SpaceSide at the root."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "78eb874",
-        "says": "Create and Draw differ only by how many elements come out",
-        "when": "2026-09-14T02:02:21+00:00",
-        "detail": [
-          "A closed line drawn with the space tool is a black hole from that instant: no construct box, no key to choose after the line. The space keeps a locked layout, every element's rect as a share of the boundary, and a forming state on the timeline's own driver, so the surface can be moved and resized as one thing and its contents keep the proportions they were drawn in. The brief a space writes is a complete one, with the layout in it as shares of the surface and what a backend must provide."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "8626fcc",
-        "says": "No scrollbar anywhere, on any surface that scrolls",
-        "when": "2026-09-14T01:50:46+00:00",
-        "detail": [
-          "Half of J's fifth. Every surface in the Builder that can scroll now asks for no bar: the website page, the design background, the shelf, the Look panel and both side panels. Both spellings, because they are different engines rather than a fallback — `scrollbar-width` is the standard one and `::-webkit-scrollbar` is what Chromium and Safari read.",
-          "Worth saying how this was measured, because the obvious way does not work. This container's browser draws overlay scrollbars, so `offsetWidth - clientWidth` reads 0 on every surface whether a bar is suppressed or not — a check built on that passes with the rule deleted. What is checked instead is the computed `scrollbar-width` on every element that actually has something to scroll, which is the thing that differs on a machine set to keep bars in view. Proved by taking the rule off the middle column: \"div [data-studio-scroll] 1272x863\".",
-          "The other half is not in, and it is a decision rather than a fix.",
-          "Scrolling down past the design box and on into the categories works — the middle becomes a scroller, the pane takes a whole screen, and the side panels hold still on their own because they are siblings of it rather than children. I built it, measured it, and took it out again, because it reverses a decision that sixteen checks in tests/board-layout.mjs deliberately hold: \"the workspace itself never needs scrolling\", \"the parts shelf is on screen without going looking for it\". And because a full-screen pane makes the board's fit width-held instead of height-held, which grew the frame from 979 to 1201 of 1272 and left 35px of ground either side — not enough to take hold of, and dragging bare ground is how the board is panned. Widening the gutter to 128 fixed that, which is a second decision on top of the first."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "6a84b0e",
-        "says": "The bottom row reads apart again, and its small print clears AA",
-        "when": "2026-09-14T01:30:51+00:00",
-        "detail": [
-          "Measured off the rendered page rather than eyeballed, as asked — and both halves of J's report turned out true in places I did not first look.",
-          "**Twelve of the thirty-three words along the bottom failed AA.** Every one of them was `fg-faint` at 3.22:1 — the count under each category, and the blurbs. The light theme's was 3.49:1. That token carries most of the app's small print, so it is lifted in both: 0.5 to 0.6 in the dark (4.9:1) and 0.62 to 0.55 in the light (4.65:1), still the quietest of the three.",
-          "**The category hues had drifted together.** Twelve of them picked one at a time: five pairs sat 20 degrees or less apart and the closest two were 10 — Under the hood at 20 against First screen at 30 — which at this chroma is not a difference anybody can see. They are 30 apart all the way round now, and nothing moved more than 20 degrees to get there, so Motion is still cyan and Media still magenta.",
-          "**And the discs had no colour in them.** `oklch(0.2 0.045 hue)` is black with a rumour of a hue, so thirteen planets read as thirteen identical circles whatever their hue said. The chroma is 0.1 now, so the disc carries the colour the label is naming."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "6455990",
-        "says": "The models are reachable from the Updates board",
-        "when": "2026-09-14T01:19:32+00:00",
-        "detail": [
-          "Changing which model runs the next pass meant leaving the timeline, finding the part on the board and opening its Element tab — a long way round from the card that just told you the model was wrong, and J could not find it at all.",
-          "The card's own panel on the left of the timeline now carries \"Where the next pass goes\": the same `AuditPanel` the board's left panel carries, writing the same `node.plan` through the same writer, so the two say the same thing about the same part.",
-          "An update that made no part of its own — a chain prompt made no one thing — gets the readout instead. There is nothing to hold a setting there, and offering a control that writes nowhere would be worse than saying so.",
-          "22 of 22 hold on updates-view. Driven from the timeline: opening a card that made a part offers that part's models with the route's own marked, and pressing one writes the plan — checked by reading the part's own plan back out of the document afterwards."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c85d628",
-    "when": "2026-09-14T02:15:07+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "c85d628",
-        "says": "The flag says what it is in the place it now says it",
-        "when": "2026-09-14T02:15:07+00:00",
-        "detail": [
-          "`current` asked the this-iteration button for its innerText and wanted the words \"this iteration\" in it. There is no text on it any more, and that was on purpose: the reason is written at CurrentButton — it was a chip across the top of every box, the widest thing there, so it read as the box's heading and on an element piece it pushed the name of the part off the end entirely. It is a 4px mark now and the words are its tooltip.",
-          "So the check asks the tooltip. The claim is unchanged and still true — the control says what it is to anyone who hovers it or reads it — and it prints what it found, so a real break says which words it got. 32/32.",
-          "Pushed a moment ago with this red, which was mine: I put the push in the same command as the read of the result, so it ran whatever the result was rather than on green. The sequence is worth keeping separate for exactly this reason, and it is separate again."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "5769692",
-        "says": "Regenerate the passes for the cloud surface, the Updates board and the cut vine",
-        "when": "2026-09-14T01:40:24+00:00",
-        "detail": [
-          "Three passes, hypatia's tip carried inside euler's again: the surface moves, reads as cloud, and the ink reads on it; the Updates board holds where you left it and fills the floor; and a vine is one strand with a cut line down it and nothing else on it."
         ],
         "areas": [
           "studio"
