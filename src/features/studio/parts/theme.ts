@@ -187,7 +187,16 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
 
 /** "a, b, c" → ["a","b","c"], with a fallback list when nothing is typed. */
 export function items(content: string, fallback: string[]): string[] {
-  const list = content.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+  /*
+   * One item per line when there are lines, else one per comma. A content
+   * typed on one line, "Home, About, Contact", is a list by its commas; a
+   * content with lines in it is a list by its lines, and a comma inside a
+   * line is the line's own. A first screen recreated from a real page had
+   * its headline "…for testing, scripting, and AI agents." cut at its
+   * commas into three items, and the part drew the first as the line and
+   * the second as the sentence under it.
+   */
+  const list = (content.includes("\n") ? content.split("\n") : content.split(",")).map((s) => s.trim()).filter(Boolean);
   return list.length ? list : fallback;
 }
 
