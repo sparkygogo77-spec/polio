@@ -126,18 +126,28 @@ const horizon = page.locator('[data-space="sp_hole"] [data-space-horizon]');
 const early = await horizon.getAttribute("data-space-open");
 await page.waitForTimeout(CONSUME_MS + 1900);
 check("a beat later it has consumed the area", (await horizon.getAttribute("data-space-open")) !== null, early === null ? "was still consuming at first" : "was already open at first");
-/* The ground is clouds, and one pixel of a cloud can be as dark as the
-   page; a patch of it has the cloud in it. So the inside is read as the
-   brightest of a wide patch against the brightest of the same patch on
-   the page, and it must still be dark: ground, not light. */
-const inside = (await patch(mx, my - 70, 41)).reduce((a, b) => (luma(b) > luma(a) ? b : a));
-const pageMax = (await patch(ox, oy, 41)).reduce((a, b) => (luma(b) > luma(a) ? b : a));
+/*
+ * Ground, not page, read by colour with margin in it.
+ *
+ * The ground is purple cloud on near-black; the page is a flat blue-grey,
+ * rgb(7,10,16). Brightness was the first read and it was a knife edge: the
+ * inside wanted to be more than twelve above the page and cleared it by
+ * about one, because a cloud is as thin as it happens to be under the
+ * sample, and the same build passed and failed it in turn. Colour is the
+ * tell. The most purple pixel of a patch inside, blue over green, measures
+ * about 35 on a cloud (rgb(33,12,47)) and 6 on the page; the bar is 21,
+ * the middle of the two, fourteen either way. The most purple pixel rather
+ * than the brightest, because the brightest is often an ember, which is
+ * amber and is also ground. And it must still be dark: ground, not light.
+ */
+const PURPLE_BAR = 21;
+const purpleness = ([r, g, b]) => b - g;
+const inside = (await patch(mx, my - 70, 41)).reduce((a, b) => (purpleness(b) > purpleness(a) ? b : a));
+const pageMost = (await patch(ox, oy, 41)).reduce((a, b) => (purpleness(b) > purpleness(a) ? b : a));
 const ring = await brightest(ex, ey);
 const outside = await pixel(ox, oy);
-/* Ground is purple cloud on near-black: red over green where the page is
-   blue-grey with green over red. Colour is the tell, and it holds however
-   thin the cloud happens to be under the sample. */
-check("inside the line is ground now, not the page", inside[0] > inside[1] + 6 && inside[2] > inside[1] + 10 && luma(inside) > luma(pageMax) + 4 && luma(inside) < 120, `${rgb(inside)} at its brightest, the page ${rgb(pageMax)} at its`);
+check("inside the line is ground now, not the page", purpleness(inside) >= PURPLE_BAR && purpleness(pageMost) < PURPLE_BAR && inside[0] > inside[1] && luma(inside) < 120,
+  `${rgb(inside)} at its most purple, ${purpleness(inside)} over the bar of ${PURPLE_BAR}; the page ${rgb(pageMost)} at its, ${purpleness(pageMost)}`);
 check("the ring is the brightest thing on the line", luma(ring) > 140 && luma(ring) > luma(inside) + 80, rgb(ring));
 check("the page outside the halo is untouched", differs(outside, pageBefore) < 12, `${rgb(outside)} vs ${rgb(pageBefore)}`);
 await shot("hole");
