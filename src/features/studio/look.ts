@@ -77,6 +77,13 @@ export function parseColor(v: string): Oklch | null {
   const s = v.trim();
   if (!s) return null;
   if (s.startsWith("#")) return fromHex(s);
+  /* The browser's own form. A colour measured off a live page arrives as
+     `rgb(48, 56, 70)`, which is what getComputedStyle reports, and a
+     parser that knew hex and oklch alone dropped every one of them: a
+     part recreated from a page carried the page's colours on the node and
+     drew the site's own, and a white bar drew dark. */
+  const rgb = /^rgba?\(\s*([\d.]+)\s*[,\s]\s*([\d.]+)\s*[,\s]\s*([\d.]+)/i.exec(s);
+  if (rgb) return rgbToOklch(Number(rgb[1]) / 255, Number(rgb[2]) / 255, Number(rgb[3]) / 255);
   const m = /^oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)/i.exec(s);
   if (m) {
     const l = Number(m[1]);

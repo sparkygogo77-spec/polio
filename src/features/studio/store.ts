@@ -784,9 +784,12 @@ export const HUES = [265, 200, 160, 30, 340, 90, 240, 15];
  * once.
  */
 export function placeInFrame(x: number, y: number, w: number, frameWidth: number): { x: number; y: number } {
+  // To a hundredth of a pixel: a part laid at a share of a page keeps the
+  // share it was laid at, and a hundredth is nothing the board can show.
+  const fine = (v: number) => Math.round(v * 100) / 100;
   return {
-    x: Math.round(w >= frameWidth ? 0 : Math.min(Math.max(0, x), frameWidth - w)),
-    y: Math.round(Math.max(0, y)),
+    x: fine(w >= frameWidth ? 0 : Math.min(Math.max(0, x), frameWidth - w)),
+    y: fine(Math.max(0, y)),
   };
 }
 
