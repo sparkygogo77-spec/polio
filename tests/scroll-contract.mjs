@@ -58,6 +58,16 @@ const DOCS = {
   "a bare page": { nodes: [], shapes: [] },
   "a page with a stroke above it": { nodes: [], shapes: [line("up", [[300, -137], [520, -117], [740, -142]])] },
   "a page with parts on it": { nodes: [part("a", 120), part("b", 520)], shapes: [] },
+  /*
+   * And a site that is actually a site, which is the case that decides
+   * between the two ways of keeping the categories on screen. Five screens
+   * of parts make the page 3720 of its own and 4371 as drawn at his width.
+   * Fitting the pane in both directions would have to divide that into the
+   * 797 left under the shelf — a scale of 0.214, a page 309 wide in an 1820
+   * pane with 756 of ground either side. The band is pinned instead, and
+   * the site keeps the width J asked for at every length.
+   */
+  "a site five screens long": { nodes: [120, 900, 1700, 2500, 3300].map((y, i) => part(`s${i}`, y)), shapes: [] },
 };
 const doc = (d) => ({
   state: {
@@ -134,6 +144,64 @@ for (const [w, h, what] of [[2048, 1152, "1440p at 125% browser"], [1267, 1278, 
     check(`${tag}: and the website has no underside gap`, m.under <= 2, `${m.under}px under it`);
     await page.close();
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Bottoming out at the categories                                      */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The other end of the same gesture, at the screen J actually uses.
+ *
+ * "Scrolling down on the actual home page moves the website up as you go,
+ * until it bottoms out at the categories." At the top the band is stuck to
+ * the pane's bottom and the site runs behind it; at the end of the travel
+ * the band is where it naturally falls and the site's bottom edge is
+ * exactly on its top. Both of those are the same arithmetic — the travel is
+ * `board + band - pane`, so at the end the board's bottom lands at
+ * `pane - band`, which is the band's top — and the thing worth checking is
+ * that nothing of the site is left behind the band when you get there.
+ */
+for (const [w, h, what] of [[2048, 1152, "his screen"], [1267, 1278, "the window he measured in"]]) {
+  const page = await browser.newPage({ viewport: { width: w, height: h } });
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.evaluate((x) => localStorage.setItem("builder.studio", JSON.stringify(x)), doc(DOCS["a page with parts on it"]));
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1700);
+  const end = await page.evaluate(() => {
+    const pane = document.querySelector("[data-studio-pane]");
+    pane.scrollTop = pane.scrollHeight;
+    return new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => {
+      const f = document.querySelector("[data-frame]").getBoundingClientRect();
+      const board = pane.firstElementChild.getBoundingClientRect();
+      const shelf = document.querySelector("[data-drawer]")?.getBoundingClientRect() ?? null;
+      ok({
+        scrolled: Math.round(pane.scrollTop),
+        travel: pane.scrollHeight - pane.clientHeight,
+        gap: shelf ? Math.round(shelf.top - board.bottom) : null,
+        pageGap: shelf ? Math.round(shelf.top - f.bottom) : null,
+        shelfBottom: shelf ? Math.round(shelf.bottom) : null,
+        paneBottom: Math.round(pane.getBoundingClientRect().bottom),
+      });
+    })));
+  });
+  const tag = `${w}×${h} (${what})`;
+  /* Only where there is travel. A site shorter than the room it is in has
+     nothing to bottom out against: `mt-auto` leaves its ground between the
+     board and the categories, which is the arrangement asked for and not a
+     gap under the website. */
+  if (end.travel > 0) {
+    check(`${tag}: scrolled to the end, the site's underside is on the categories`,
+      end.gap !== null && Math.abs(end.gap) <= 2,
+      `${end.gap}px between the board's bottom and the shelf's top, after ${end.scrolled} of ${end.travel}`);
+  } else {
+    check(`${tag}: the whole site is on screen, so there is nothing to scroll`,
+      end.travel === 0, `${end.gap}px of ground between the site and the categories`);
+  }
+  check(`${tag}: and the categories are still whole at the end of it`,
+    end.shelfBottom !== null && Math.abs(end.shelfBottom - end.paneBottom) <= 2,
+    `shelf ends at ${end.shelfBottom}, pane at ${end.paneBottom}`);
+  await page.close();
 }
 
 /* ------------------------------------------------------------------ */

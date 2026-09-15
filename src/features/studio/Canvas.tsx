@@ -30,7 +30,7 @@ import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./S
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
-import { BASE_ZOOM, BACKGROUND_ID } from "./store";
+import { BASE_ZOOM, BACKGROUND_ID, ZOOM_MIN } from "./store";
 import {
   activePage, frameHeight, frameTopReach, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -85,6 +85,20 @@ const FRAME_GUTTER = 128;
  * same thing in the same direction, and two of those disagree.
  */
 const TOP_GUTTER = 20;
+
+/**
+ * How much of the pane the shelf is standing in.
+ *
+ * The board does not own the band and must not guess at its height: it is a
+ * clamp against the viewport on one tab and a worked surface on another, and
+ * both numbers change the room the site has. Measured off the element rather
+ * than shared as a constant, so there is one definition of it and it is the
+ * one on the screen.
+ */
+const bandHeight = (pane: Element): number => {
+  const band = pane.querySelector(":scope > [data-studio-band]");
+  return band ? band.getBoundingClientRect().height : 0;
+};
 
 /** The screen each device actually has, so the frame is a real viewport. */
 const SCREEN_H: Record<number, number> = { 1440: 900, 834: 1112, 390: 844 };
@@ -331,42 +345,75 @@ export function Canvas() {
 
   /* ---------------------------------------------------- fit the frame
    *
-   * The page is the point, so both of its side edges are always on screen with
-   * only a small gutter, and the board never zooms out past that — shrinking
-   * the window narrows the gutter and then stops. Taller than the viewport is
-   * fine: that is what scrolling is for.
+   * TWO QUANTITIES, AND THEY ARE NOT THE SAME ONE.
+   *
+   * The page's SIZE is set by its content. It grows downward and outward to
+   * hold everything drawn on it, and that is `pageH` and `frameTopReach`
+   * above — a rule that took three goes to land and is not traded for
+   * anything. Nothing here touches it.
+   *
+   * The ZOOM is set by the pane. It scales whatever the page has grown to so
+   * that the whole of it, plus the headroom above it and the shelf below,
+   * sits inside the pane in both directions. Whichever of width or height
+   * binds first is the one that sets it.
+   *
+   * So the order is: the content decides the page, then the page is fitted
+   * into the pane. This reads the page's grown size as its input; it never
+   * asks the page to be a size. Fitting harder is the answer to a page that
+   * grew.
+   *
+   * What was here before fitted the width alone, and the comment said why:
+   * "a long page fitted by its height shrinks to a ribbon". That is still
+   * true and it is why there is a floor — see below — but it was the wrong
+   * conclusion. J's screen is a 1440p 27 inch at 125% browser zoom, which is
+   * 2048×1152, and there the width fit alone put the categories 332px under
+   * the fold on every load. He must never load in unable to see them.
    */
   const fitZoom = React.useCallback(
-    (vw: number) => {
+    (vw: number, vh: number, bandH: number) => {
+      /* Across: the frame's two side edges on screen with a gutter either
+         side. In nominal terms, because that is what the store holds — the
+         width is divided by the base so the *drawn* frame is what is fitted. */
+      const byWidth = (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM);
       /*
-       * By the width, and only the width.
-       *
-       * It fitted both ways, which was right while the frame was one screen
-       * of the site and wrong now that it is the whole of it: a long page
-       * fitted by its height shrinks to a ribbon, and a short one blows up to
-       * fill the pane edge to edge — which is what J saw on opening, a frame
-       * with nothing else to look at. The width is the dimension that has a
-       * right answer, and the height is however far the site goes.
-       *
-       * In nominal terms, because that is what the store holds: the width is
-       * divided by the base so the *drawn* frame is what is being fitted.
+       * Down: the headroom, then everything the page has grown to in both
+       * directions, then the shelf. There is no gap below — the underside of
+       * the website sits on the shelf, which is its own rule — so the three
+       * terms are the whole of the pane's height.
        */
-      return Math.max(0.2, Math.min(1, (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM)));
+      const room = vh - TOP_GUTTER - bandH;
+      const tall = pageH + frameTopReach({ shapes, spaces });
+      const byHeight = room > 0 && tall > 0 ? room / (tall * BASE_ZOOM) : byWidth;
+      /*
+       * The floor is the store's own, so that what is asked for and what is
+       * held are the same number and the fit does not re-ask for something
+       * it cannot have. A site long enough to hit it — five screens at his
+       * width is a page 3720 of its own, wanting 0.177 and getting 0.25 —
+       * cannot have its whole length and its categories on one screen at a
+       * size anyone could read. That is what the shelf being stuck to the
+       * pane's bottom is for: the last resort, not the first.
+       */
+      return Math.max(ZOOM_MIN, Math.min(1, Math.min(byWidth, byHeight)));
     },
-    [frameWidth],
+    [frameWidth, pageH, shapes, spaces],
   );
 
   /*
-   * The pane width the frame was last fitted for. It is the whole of the
-   * memory this needs: if the pane is that wide, the fit is current; if it
-   * is not, the fit is stale, whoever failed to say so.
+   * What the frame was last fitted for: every input to the fit, not only the
+   * pane's width. The height matters now, and so does the page's own grown
+   * size — a part dropped at the foot of the page makes the page taller and
+   * the fit has to answer that the same way it answers a narrower window.
+   * If all of them are as they were, the fit is current; if any has moved,
+   * the fit is stale, whoever failed to say so.
    */
-  const fittedFor = React.useRef<number | null>(null);
+  const fittedFor = React.useRef<string | null>(null);
+  const fitKey = (pane: Element) =>
+    `${pane.clientWidth}×${pane.clientHeight}×${pageH}×${Math.round(frameTopReach({ shapes, spaces }))}×${bandHeight(pane)}`;
 
   const fitTo = React.useCallback((pane: Element) => {
     const vw = pane.clientWidth;
     if (!vw) return;
-    const z = fitZoom(vw);
+    const z = fitZoom(vw, pane.clientHeight, bandHeight(pane));
     /* Centred on the frame as *drawn*, which is `z` times the base and not
        `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
        hung it off the right of the pane — `board-layout` caught it: "frame
@@ -392,8 +439,9 @@ export function Canvas() {
      * ever of a fit that actually happened, so a fit that fails is retried
      * by the next render rather than remembered as done.
      */
-    fittedFor.current = vw;
-  }, [fitZoom, frameWidth]);
+    fittedFor.current = fitKey(pane);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitZoom, frameWidth, pageH, shapes, spaces]);
 
   React.useEffect(() => {
     const el = ref.current;
@@ -439,7 +487,7 @@ export function Canvas() {
      * "the one notifier did not fire" is answered by not having one
      * notifier.
      */
-    const again = () => { if (pane.clientWidth !== fittedFor.current) apply(); };
+    const again = () => { if (fitKey(pane) !== fittedFor.current) apply(); };
     const ro = new ResizeObserver(again);
     ro.observe(pane);
     window.addEventListener("resize", again);
@@ -468,6 +516,7 @@ export function Canvas() {
       window.removeEventListener("resize", again);
       window.clearInterval(tick);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitNonce, frameWidth, fitZoom, fitTo]);
 
   /*
@@ -491,7 +540,7 @@ export function Canvas() {
   React.useLayoutEffect(() => {
     const pane = ref.current?.closest("[data-studio-pane]");
     if (!(pane instanceof HTMLElement)) return;
-    if (!pane.clientWidth || pane.clientWidth === fittedFor.current) return;
+    if (!pane.clientWidth || fitKey(pane) === fittedFor.current) return;
     fitTo(pane);
   });
 
