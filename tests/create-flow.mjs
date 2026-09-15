@@ -190,6 +190,11 @@ check("it could be watched forming: the rim first, then the middle filling, on t
   stages.includes("rim") && (stages.includes("close") || stages.includes("surface")) && values.length >= 8,
   `${stages.join(" → ")}, ${values.length} values shown`);
 check("each part carries its own words", parts.some((n) => n.prompt === "buy button") && parts.some((n) => /currently traded token/.test(n.prompt)), parts.map((n) => n.prompt).join(" | "));
+/* And is named by them, whole: not "chart associated with currently traded t". */
+check("and is named by its words, whole, not cut mid-word", parts.some((n) => n.label === "chart associated with currently traded token"), parts.map((n) => n.label).join(" | "));
+/* Background work says what happened in the news and on the counter; it
+   does not stack toasts over the panel. */
+check("and nothing toasted over the panel while they landed", (await page.locator("[data-toaster] .animate-toast-in, .animate-toast-in").count()) === 0, `${await page.locator(".animate-toast-in").count()} toasts`);
 await shot("made");
 
 /*
