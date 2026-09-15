@@ -1,11 +1,11 @@
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
+import { meterFirst } from "@/features/studio/renderMeter";
 import { answerFrom, mimeOf, RASTER_LIMIT } from "@/features/studio/renderAnswer";
 import {
   fluxRatio,
   fromPicture,
   isRenderKind,
-  RENDER_COST,
   RENDER_MODELS,
   RENDER_UNAVAILABLE,
   rasterFragment,
@@ -535,16 +535,22 @@ export async function POST(request: Request) {
   // when the request does.
   const replicate = new Replicate({ auth: token });
   const model = RENDER_MODELS[kind];
-  let out: unknown;
+  /*
+   * A prediction, created and waited on, rather than `run`: `run` hands
+   * back the output alone and throws the prediction away with its metrics,
+   * and the metrics are the only measured thing about the call.
+   */
+  const began = Date.now();
+  let done: Prediction;
   try {
     try {
-      out = await replicate.run(model, { input: input(kind, words, picture, w, h) });
+      done = await predict(replicate, model, input(kind, words, picture, w, h));
     } catch (first) {
       // A field this version of the model does not have is the one failure
       // worth a second go: the prompt alone is a shape every model takes.
       const status = (first as { response?: { status?: number } }).response?.status;
       if (status !== 422 && status !== 400) throw first;
-      out = await replicate.run(model, { input: fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words } });
+      done = await predict(replicate, model, fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words });
     }
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status;
@@ -558,18 +564,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "render", message: `The renderer could not draw it (${message}).` });
   }
 
-  let file: { bytes: Uint8Array; type: string } | null;
-  try {
-    file = await bytesOf(out);
-  } catch (error) {
-    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).` });
-  }
-  if (!file || !file.bytes.length) {
-    return NextResponse.json({ ok: false, reason: "empty-answer", message: "The renderer answered with nothing." });
+  // What was measured: the seconds off the prediction, the cost as the
+  // prediction reported it or, failing that, the model's published rate.
+  const meter = meterFirst(kind, done.metrics, Date.now() - began);
+  if (done.status !== "succeeded") {
+    const said = typeof done.error === "string" ? safe(done.error, token) : String(done.status ?? "no answer");
+    return NextResponse.json({ ok: false, reason: "render", message: `The renderer could not draw it (${said}).`, ms: meter.ms, cost: meter.cost, priced: meter.priced });
   }
 
-  const cost = RENDER_COST[kind];
+  let file: { bytes: Uint8Array; type: string } | null;
+  try {
+    file = await bytesOf(done.output);
+  } catch (error) {
+    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).`, ms: meter.ms, cost: meter.cost, priced: meter.priced });
+  }
+  if (!file || !file.bytes.length) {
+    return NextResponse.json({ ok: false, reason: "empty-answer", message: "The renderer answered with nothing.", ms: meter.ms, cost: meter.cost, priced: meter.priced });
+  }
+
   const answer = answerFrom(kind, file.bytes, file.type);
-  if (!answer.ok) return NextResponse.json({ ...answer, cost });
-  return NextResponse.json({ ...answer, cost, model });
+  if (!answer.ok) return NextResponse.json({ ...answer, cost: meter.cost, priced: meter.priced, ms: meter.ms });
+  return NextResponse.json({ ...answer, cost: meter.cost, priced: meter.priced, ms: meter.ms, model });
 }
