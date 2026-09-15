@@ -2,9 +2,66 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:11:50.865Z";
+export const GENERATED_AT = "2026-09-15T08:16:36.072Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "daa9020",
+    "when": "2026-09-15T08:16:35+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f2afcf6",
+        "says": "The morning report for the box-to-cube arc, one list, with what was watched and what was not",
+        "when": "2026-09-15T07:46:42+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "21ca0c1",
+        "says": "Where it goes reads the part first: a cube is a solid, in one step",
+        "when": "2026-09-15T07:45:51+00:00",
+        "detail": [
+          "The \"Where it goes\" card called a cube \"a mark or small icon\" routed to GPT Image 2 through read › first › refine › alpha, because `planFor` read the part's words and a cube's words are what is written on its sides. It reads the part first now (`isSolidPart`: cube-3d, mesh-3d): making is `object`, the steps are one first pass, and the model is the table's own tencent/hunyuan3d-2mv, which is the same answer the solid card under it gives. A flat part reads exactly as before.",
+          "Held by two new checks in tests/box-to-cube.mjs, read off the card's own text. Against the build here, port 4302, after merging trunk (13 commits, clean; a stale .next/dev type file from the old dev server referenced a route trunk removed and was cleared):",
+          "box-to-cube   76/76 audit-panel   25 of 25 hold cube          62/62 typecheck clean, build rc=0"
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "a1ec677",
+    "when": "2026-09-15T08:15:14+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a1ec677",
+        "says": "Regenerate the passes for thirteen controls that now do what they say",
+        "when": "2026-09-15T08:15:14+00:00",
+        "detail": [
+          "Bardeen's thirteen, taken as one because they are one job and it is the job its own inventory set: the part's right-click list that no press could open is gone, the board's Preview answers its menu, the side-panel key says so in all four places it is named, the cheat sheet opens on the key its hint prints and lists the shortcuts that fire where you are, the page's wheel keeps nothing behind the Edit slab it stopped drawing, the toolbar's search says what it searches, the settings drawer offers what something reads, a toast under the pointer stays, streamer mode hides an identifier, hover ticks and feed events gate a sound that plays, the showcase's controls do what their labels say, and priority is set from the wheel.",
+          "That is most of section A of docs/INVENTORY.md, closed by the session that wrote the list, eleven new suites arriving with it.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4276:",
+          "priority-wheel      6/6     page-wheel-edit     4/4 showcase-live       8/8     part-menu           5/5 toast-hold          4/4     shortcut-keys       3/3 settings-read       9/9     shortcut-sheet      7/7 search-label        5/5     side-panel-label   10/10 live-device         7/7"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "7355866",
     "when": "2026-09-15T08:11:47+00:00",
@@ -1102,49 +1159,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "better"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "11971f0",
-    "when": "2026-09-15T04:06:03+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "de5a8ee",
-        "says": "Regenerate the passes for whole-word names and quiet background work",
-        "when": "2026-09-15T04:01:40+00:00",
-        "detail": [
-          "Dijkstra's pass: a landed part is named by whole words, and background work does not toast.",
-          "Run on this build: create-flow 26/26, create-space 19/19, space-one-open 19/19. Not run: the rest, none of which touches the queue's naming or its toasts."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "07821c4",
-    "when": "2026-09-15T04:06:02+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d78a570",
-        "says": "A landed part is named by whole words, and background work does not toast",
-        "when": "2026-09-15T03:59:39+00:00",
-        "detail": [
-          "Two things a hand found walking the create flow. The chart landed as \"chart associated with currently traded t\", forty characters and a fragment of the last word; a name is whole words now, cut at a space past the limit and saying so. And four toasts stacked over the space's panel after one Generate: a queued job is background work, which says what happened in the news and on the counter and, now, never as a toast.",
-          "Declared lines in euler's files: reshapeRun.ts, `nameFrom` beside `text` and one use of it where a drawn part is named; DrawQueue.tsx, the runner's publish strips `toast`, under euler's own note that queued work throws no panel over the board."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
