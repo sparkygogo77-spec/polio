@@ -944,7 +944,7 @@ export function categoryOf(id: CategoryId): CategoryDef {
   return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[0]!;
 }
 
-/** Sub-groups inside a category, so 226 parts are reachable in three clicks. */
+/** Sub-groups inside a category, so 229 parts are reachable in three clicks. `tests/shelf-reach.mjs` holds every id to one. */
 export interface SubGroup { id: string; emoji: string; label: string; ids: string[] }
 
 export const SUBGROUPS: Record<string, SubGroup[]> = {
@@ -977,13 +977,13 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
     { id: "your-notes", emoji: "\ud83d\udcdd", label: "Your notes", ids: ["custom-idea", "gimmick", "wildcard", "note", "mood", "constraint"] },
   ],
   "media": [
-    { id: "pictures", emoji: "\ud83d\uddbc\ufe0f", label: "Pictures", ids: ["gallery", "lightbox", "image-blur-up", "photo-credit"] },
+    { id: "pictures", emoji: "\ud83d\uddbc\ufe0f", label: "Pictures", ids: ["picture", "gallery", "lightbox", "image-blur-up", "photo-credit"] },
     { id: "moving-through", emoji: "\ud83c\udfa0", label: "Moving through", ids: ["carousel", "before-after"] },
     { id: "sound-and-video", emoji: "\u25b6\ufe0f", label: "Sound & video", ids: ["video-player", "audio-player", "podcast"] },
     { id: "embeds", emoji: "\ud83c\udf0d", label: "Embeds", ids: ["map-embed", "3d-viewer"] },
     { id: "generated", emoji: "\ud83c\udfa8", label: "Generated", ids: ["generative-art", "avatar-stack", "corner-glow"] },
     { id: "orbs", emoji: "\ud83d\udd2e", label: "Orbs", ids: ["orb-css", "orb-webgl", "orb-image"] },
-    { id: "solids", emoji: "\ud83e\uddca", label: "Solids", ids: ["cube-3d"] },
+    { id: "solids", emoji: "\ud83e\uddca", label: "Solids", ids: ["cube-3d", "mesh-3d"] },
     { id: "drawn", emoji: "\u270f\ufe0f", label: "Your drawings", ids: ["drawn-icon"] },
   ],
   "motion": [

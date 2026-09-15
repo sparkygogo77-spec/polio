@@ -49,7 +49,7 @@ export default defineSite({
       eyebrow: "Builder",
       title: "Lay out the site. Then tell it what to be.",
       subtitle:
-        "218 common web features you can drop onto a canvas, draw around, group and connect — each with its own prompt. Position carries meaning, so where you put something is part of the spec. Compile it and hand the brief to any agent.",
+        "229 common web features you can drop onto a canvas, draw around, group and connect — each with its own prompt. Position carries meaning, so where you put something is part of the spec. Compile it and hand the brief to any agent.",
       primaryCta: { label: "Open the Builder", href: "/builder" },
       secondaryCta: { label: "See how it fits together", href: "/showcase" },
     },
