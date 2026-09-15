@@ -2,9 +2,43 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T03:20:41.373Z";
+export const GENERATED_AT = "2026-09-15T03:36:44.881Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "cfc90aa",
+    "when": "2026-09-15T03:36:30+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "cfc90aa",
+        "says": "The ground read has margin in it: colour, not a brightness on a knife edge",
+        "when": "2026-09-15T03:36:30+00:00",
+        "detail": [
+          "The inside of a hole wanted to be more than twelve above the page in brightness and cleared it by about one, because a cloud is as thin as it happens to be under the sample, so the same build passed and failed the check in turn. The most purple pixel of a patch inside is read instead, blue over green: about 35 on a cloud and 6 on the page, with the bar at 21, the middle of the two and fourteen either way. The most purple rather than the brightest, because the brightest is often an ember."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "60bfb63",
+        "says": "Regenerate the passes for import shrinking in from the edges",
+        "when": "2026-09-15T03:22:44+00:00",
+        "detail": [
+          "Hypatia's pass: import shrinks in from the edges, and the arrival is not replayed.",
+          "Her two new checks run on the clip the suite records for itself, which went in last push — she merged trunk first and built on it rather than round it, so the video path is exercised here as well as in her container. 29 of 29, up from the 27 it held yesterday and the 4 it held the day before.",
+          "Run on this build: import 29/29, full-page 42/42, picked 16/16, cards 67/67. Not run: the rest, none of which touches the importer or the page's height."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "ce2fd53",
     "when": "2026-09-15T03:20:40+00:00",
@@ -773,42 +807,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "10e8067",
-    "when": "2026-09-14T04:27:41+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "10e8067",
-        "says": "Three suites meet a workspace that scrolls, and one stops reading a median",
-        "when": "2026-09-14T04:27:41+00:00",
-        "detail": [
-          "The workspace scrolls again, so two suites were measuring a Builder that had moved under them.",
-          "deploy-check asked whether the shelf was on the screen at first paint. On a 900px window the shelf now starts at y 939, one wheel away, so three checks read as missing on a Builder that has all of them. On a surface that scrolls, \"on the screen\" means reachable — it scrolls to the shelf first now, the way a person gets there. 17 of 17.",
-          "space-by-hand drew a ring round the first part without looking at where the part was, and the part can sit above the top of the pane — measured at y -76 — so the gesture went nowhere and took three checks with it. It scrolls to the part before measuring it. 28 of 28.",
-          "timeline-centre is a different fault and a worse one. It compared the median gap between frames while settling against the median sitting still, and the page's gaps are bimodal now — half at 16.7ms, half at 33.3ms — so the median falls on whichever side holds the extra frame and flips between the two on the same build. Three runs: idle read 16.7, 33.3, 16.7 while settling read 33.2, 33.3, 33.3, failing twice and passing once on nothing but where the median landed. The late shares over those runs say the opposite of the failure — settling dropped 8%, 6% and 3% of its frames while sitting still dropped 47%, 3% and 43%. It counts frames delivered in the window now, which is stable under that and is what its name claims. Three runs, 15/15 each."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "fixed"
-      },
-      {
-        "id": "cd08b55",
-        "says": "Regenerate the passes for the scrolling workspace and the red card",
-        "when": "2026-09-14T03:29:19+00:00",
-        "detail": [
-          "Two passes: the workspace scrolls again with the wheel offering one element or several, and the red card carries the element it made rather than a playback of the strokes.",
-          "The one conflict was the check I mended an hour ago, mended on the other side too and the same way. Resolved once rather than deferred back — the more tolerant of the two patterns, with the explanation from the other, which names the suite that proves it. Also worth noting from the same tip: the box question now exempts a drawing described any other way, which was the judgement I raised two passes ago, and its own suite holds it."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
