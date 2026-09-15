@@ -23,13 +23,19 @@ const MODEL = "claude-opus-5";
 
 type Answer = { ok: boolean; reason?: string; source?: string; message: string; model?: string; who?: string };
 
+/**
+ * A key was offered and is too short to be one. Every route drops a key of
+ * eight characters or fewer rather than send it anywhere, and this used to
+ * be answered as "nothing offered by this browser", which is untrue to the
+ * person who just pasted one. Nothing of what was pasted comes back.
+ */
+const tooShort = (what: string) => `The ${what} held in this browser is too short to be one. Paste it whole, from its first character to its last, and try again.`;
+
 async function tryClaude(request: Request): Promise<Answer> {
   const own = process.env.ANTHROPIC_API_KEY?.trim();
   const supplied = request.headers.get("x-anthropic-key")?.trim();
   const apiKey = own || (supplied && supplied.length > 8 ? supplied : null);
-  if (!apiKey) {
-    return { ok: false, reason: "no-key", message: "No key to try: nothing on the server and nothing offered by this browser." };
-  }
+  if (!apiKey) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("key") : "No key to try: nothing on the server and nothing offered by this browser." };
   const source = own ? "server" : "browser";
   const client = new Anthropic({ apiKey, maxRetries: 0 });
   try {
@@ -54,9 +60,7 @@ async function tryVercel(request: Request): Promise<Answer> {
   const own = process.env.VERCEL_TOKEN?.trim();
   const supplied = request.headers.get("x-vercel-token")?.trim();
   const token = own || (supplied && supplied.length > 8 ? supplied : null);
-  if (!token) {
-    return { ok: false, reason: "no-key", message: "No token to try: nothing on the server and nothing offered by this browser." };
-  }
+  if (!token) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing on the server and nothing offered by this browser." };
   const source = own ? "server" : "browser";
   try {
     const res = await fetch("https://api.vercel.com/v2/user", { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
@@ -84,9 +88,7 @@ async function tryReplicate(request: Request): Promise<Answer> {
   const supplied = request.headers.get("x-replicate-key")?.trim();
   const own = process.env.REPLICATE_API_TOKEN?.trim();
   const token = (supplied && supplied.length > 8 ? supplied : null) || own || null;
-  if (!token) {
-    return { ok: false, reason: "no-key", message: "No token to try: nothing held in this browser and nothing on the server." };
-  }
+  if (!token) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
   const source = supplied && supplied.length > 8 ? "browser" : "server";
   try {
     const res = await fetch("https://api.replicate.com/v1/account", { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
@@ -117,9 +119,7 @@ async function tryGithub(request: Request): Promise<Answer> {
   const supplied = request.headers.get("x-github-token")?.trim();
   const own = process.env.GITHUB_TOKEN?.trim();
   const token = (supplied && supplied.length > 8 ? supplied : null) || own || null;
-  if (!token) {
-    return { ok: false, reason: "no-key", message: "No token to try: nothing held in this browser and nothing on the server." };
-  }
+  if (!token) return { ok: false, reason: supplied ? "malformed" : "no-key", message: supplied ? tooShort("token") : "No token to try: nothing held in this browser and nothing on the server." };
   const source = supplied && supplied.length > 8 ? "browser" : "server";
   try {
     const res = await fetch("https://api.github.com/user", {
