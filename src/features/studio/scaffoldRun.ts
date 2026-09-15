@@ -17,6 +17,7 @@
  */
 import * as React from "react";
 import { driftKeyframes, lands } from "./look";
+import { deriveBehaviours } from "./live/behaviours";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { Block } from "./blocks";
@@ -96,7 +97,8 @@ export function buildScaffold(): ScaffoldResult {
     gimmick: s.brief.gimmick,
     master: s.brief.master,
     frameWidth: s.frameWidth,
-    pages: s.pages.map((p) => ({ id: p.id, name: p.name, path: p.path, prompt: p.prompt })),
+    // Each page's behaviours, derived exactly as the live page derives them, so the built site runs what Preview runs.
+    pages: s.pages.map((p) => ({ id: p.id, name: p.name, path: p.path, prompt: p.prompt, behaviours: deriveBehaviours(s.nodes.filter((n) => n.pageId === p.id), p.scroll) })),
     parts,
     palette: palette as unknown as Record<string, string>,
     tokens: {

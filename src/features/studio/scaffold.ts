@@ -36,6 +36,24 @@ export interface ScaffoldPage {
   name: string;
   path: string;
   prompt?: string;
+  /** The page's behaviours, derived the way the live page derives them (`deriveBehaviours`). */
+  behaviours?: ExportBehaviours;
+}
+
+/** The switches a page's tier-B parts set. The same shape as the live page's `Behaviours`, kept here so the scaffold stays pure. */
+export interface ExportBehaviours {
+  progress: boolean;
+  backToTop: boolean;
+  reveal: boolean;
+  parallax: number;
+  smooth: boolean;
+  snap: "vertical" | "horizontal" | null;
+  intro: boolean;
+  cursor: string | null;
+  tilt: boolean;
+  confetti: boolean;
+  described: { id: string; label: string }[];
+  any: boolean;
 }
 
 export interface ScaffoldPart {
@@ -130,9 +148,15 @@ export const EXPORT_KEYFRAMES = `/* Entrances, as the Builder's live page plays 
 }
 `;
 
-/** A style object as JSX writes it: plain keys bare, a CSS variable quoted. */
+/**
+ * A style object as JSX writes it: plain keys bare, a CSS variable quoted,
+ * and the whole cast to `CSSProperties` when a variable is in it, since
+ * React's style type does not know custom properties and the export has
+ * to typecheck.
+ */
 function styleJsx(style: Record<string, string | number>): string {
-  return `{ ${Object.entries(style).map(([k, v]) => `${/^[a-zA-Z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(v)}`).join(", ")} }`;
+  const body = `{ ${Object.entries(style).map(([k, v]) => `${/^[a-zA-Z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(v)}`).join(", ")} }`;
+  return Object.keys(style).some((k) => k.startsWith("--")) ? `${body} as CSSProperties` : body;
 }
 
 const slugOf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -335,6 +359,8 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
   files.push({ path: "app/globals.css", content: tokensCss(input) });
   files.push({ path: "app/layout.tsx", content: layoutTsx(input) });
   files.push({ path: "components/Frame.tsx", content: FRAME_TSX });
+  // The shell, when any page has a behaviour for it to run.
+  if (input.pages.some((p) => p.behaviours?.any)) files.push({ path: "components/Shell.tsx", content: SHELL_TSX });
 
   for (const part of input.parts) files.push({ path: `components/parts/${componentName(part)}.tsx`, content: partTsx(part, input.palette) });
 
@@ -504,7 +530,7 @@ function tokensCss(input: ScaffoldInput): string {
   const page = Object.entries(pageCss)
     .map(([k, v]) => `  ${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`)
     .join("\n");
-  const keyframes = [EXPORT_KEYFRAMES, ...(input.keyframes ?? [])].join("\n");
+  const keyframes = [EXPORT_KEYFRAMES, SHELL_CSS, ...(input.keyframes ?? [])].join("\n");
   return `/*
  * The site's tokens, taken from the document — not described, copied.
  * Every colour here is the one the board is painted in; change one and
@@ -667,8 +693,12 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
       : "",
     input.veil ? `      <div aria-hidden data-veil="" style={${styleJsx({ position: "absolute", inset: 0, pointerEvents: "none", background: input.veil })}} />` : "",
   ].filter(Boolean).join("\n");
-  return `${imports}
-import { Frame } from "@/components/Frame";
+  const b = page.behaviours?.any ? page.behaviours : null;
+  const open = b ? `<Shell behaviours={${JSON.stringify(b)}}>\n` : "";
+  const close = b ? `\n      </Shell>` : "";
+  const vars = parts.some((p) => p.aura && (p.auraStyle ?? "glow") === "pulse");
+  return `${imports}${vars ? `\nimport type { CSSProperties } from "react";` : ""}
+import { Frame } from "@/components/Frame";${b ? `\nimport { Shell } from "@/components/Shell";` : ""}
 
 /**
  * ${page.name} (${page.path})${page.prompt ? `\n *\n * ${page.prompt.split("\n")[0]!.slice(0, 160)}` : ""}
@@ -681,7 +711,7 @@ import { Frame } from "@/components/Frame";
 export default function Page() {
   return (
     <Frame width={${input.frameWidth}} height={${Math.round(height)}}>
-${placed}${over ? `\n${over}` : ""}
+      ${open}${placed}${close}${over ? `\n${over}` : ""}
     </Frame>
   );
 }
@@ -710,6 +740,175 @@ export function Frame({ width, height, children }: { width: number; height: numb
       <div style={{ width, height, position: "relative", transform: \`scale(\${scale})\`, transformOrigin: "top left", marginBottom: (scale - 1) * height }}>
         {children}
       </div>
+    </div>
+  );
+}
+`;
+
+/** The stylesheet the shell's behaviours read: the reveal, the snap, the wipe, the burst, the button's rise. */
+const SHELL_CSS = `/* Behaviours: what the shell in components/Shell.tsx switches on. */
+[data-reveal="on"] [data-part] { opacity: 0; transform: translateY(14px); transition: opacity 520ms ease-out, transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+[data-reveal="on"] [data-part].is-in { opacity: 1; transform: none; }
+[data-snap] [data-part] { scroll-snap-align: start; }
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal="on"] [data-part] { opacity: 1; transform: none; transition: none; }
+}
+@keyframes slide-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mo-wipe { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes mo-burst { to { transform: translate(var(--mo-x), var(--mo-y)) rotate(200deg); opacity: 0; } }
+`;
+
+/**
+ * The shell a built site runs its behaviours through: the live page's
+ * shell (`live/LiveShell.tsx`) written against the window rather than a
+ * pinned scroller, with no dependency beyond React. A page mounts it with
+ * the switches its tier-B parts set.
+ */
+const SHELL_TSX = `"use client";
+import * as React from "react";
+
+export interface Behaviours {
+  progress: boolean;
+  backToTop: boolean;
+  reveal: boolean;
+  parallax: number;
+  smooth: boolean;
+  snap: "vertical" | "horizontal" | null;
+  intro: boolean;
+  cursor: string | null;
+  tilt: boolean;
+  confetti: boolean;
+  described: { id: string; label: string }[];
+  any: boolean;
+}
+
+/**
+ * Runs the behaviours the page was given in the Builder: the reading
+ * progress bar, back to top, reveal on scroll, parallax, smooth scrolling,
+ * snapping, the opening wipe, a cursor of the site's own, hover tilt and a
+ * burst on success (dispatch a "site:success" event on the window). The few
+ * that cannot be run honestly are named in the corner rather than faked.
+ */
+export function Shell({ behaviours: b, children }: { behaviours: Behaviours; children: React.ReactNode }) {
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = React.useState(0);
+  const [past, setPast] = React.useState(false);
+  const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
+  const [intro, setIntro] = React.useState(b.intro);
+  const [bursts, setBursts] = React.useState<number[]>([]);
+
+  React.useEffect(() => {
+    if (!(b.progress || b.backToTop || b.parallax)) return;
+    const read = () => {
+      const top = window.scrollY;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(1, top / max) : 0);
+      setPast(top > 220);
+      if (b.parallax) document.body.style.backgroundPositionY = \`\${-top * b.parallax}px\`;
+    };
+    read();
+    window.addEventListener("scroll", read, { passive: true });
+    return () => window.removeEventListener("scroll", read);
+  }, [b.progress, b.backToTop, b.parallax]);
+
+  React.useEffect(() => {
+    const el = document.documentElement;
+    const before = { behavior: el.style.scrollBehavior, snap: el.style.scrollSnapType };
+    if (b.smooth) el.style.scrollBehavior = "smooth";
+    if (b.snap) el.style.scrollSnapType = \`\${b.snap === "horizontal" ? "x" : "y"} proximity\`;
+    return () => { el.style.scrollBehavior = before.behavior; el.style.scrollSnapType = before.snap; };
+  }, [b.smooth, b.snap]);
+
+  React.useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !b.reveal || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("is-in"); }), { threshold: 0.12 });
+    root.querySelectorAll("[data-part]").forEach((n) => io.observe(n));
+    return () => io.disconnect();
+  }, [b.reveal, children]);
+
+  React.useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !b.tilt) return;
+    const onMove = (e: PointerEvent) => {
+      const node = (e.target as HTMLElement | null)?.closest("[data-part]") as HTMLElement | null;
+      if (!node) return;
+      const r = node.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const dx = (e.clientX - r.left) / r.width - 0.5;
+      const dy = (e.clientY - r.top) / r.height - 0.5;
+      node.style.transform = \`perspective(900px) rotateX(\${(-dy * 7).toFixed(2)}deg) rotateY(\${(dx * 9).toFixed(2)}deg)\`;
+      node.style.transition = "transform 120ms ease-out";
+    };
+    const onLeave = (e: PointerEvent) => {
+      const node = (e.target as HTMLElement | null)?.closest("[data-part]") as HTMLElement | null;
+      if (node) node.style.transform = "";
+    };
+    root.addEventListener("pointermove", onMove);
+    root.addEventListener("pointerleave", onLeave, true);
+    return () => { root.removeEventListener("pointermove", onMove); root.removeEventListener("pointerleave", onLeave, true); };
+  }, [b.tilt]);
+
+  React.useEffect(() => {
+    if (!b.cursor) return;
+    const before = document.body.style.cursor;
+    document.body.style.cursor = "none";
+    const onMove = (e: PointerEvent) => setCursor({ x: e.clientX, y: e.clientY });
+    const onOut = () => setCursor(null);
+    window.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerleave", onOut);
+    return () => { window.removeEventListener("pointermove", onMove); document.removeEventListener("pointerleave", onOut); document.body.style.cursor = before; };
+  }, [b.cursor]);
+
+  React.useEffect(() => {
+    if (!b.intro) return;
+    setIntro(true);
+    const id = window.setTimeout(() => setIntro(false), 900);
+    return () => window.clearTimeout(id);
+  }, [b.intro]);
+
+  React.useEffect(() => {
+    if (!b.confetti) return;
+    const onWin = () => {
+      const id = Date.now();
+      setBursts((xs) => [...xs, id]);
+      window.setTimeout(() => setBursts((xs) => xs.filter((x) => x !== id)), 1400);
+    };
+    window.addEventListener("site:success", onWin);
+    return () => window.removeEventListener("site:success", onWin);
+  }, [b.confetti]);
+
+  const spotlight = b.cursor === "spotlight";
+  return (
+    <div ref={rootRef} data-shell="" data-reveal={b.reveal ? "on" : undefined} data-snap={b.snap ?? undefined} style={{ display: "contents" }}>
+      {children}
+      {b.progress ? (
+        <div role="progressbar" aria-label="Reading progress" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 40, pointerEvents: "none" }}>
+          <div style={{ width: \`\${progress * 100}%\`, height: "100%", background: "var(--accent)", transition: "width 90ms linear" }} />
+        </div>
+      ) : null}
+      {b.backToTop && past ? (
+        <button type="button" aria-label="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} style={{ position: "fixed", right: 18, bottom: 18, zIndex: 45, width: 38, height: 38, borderRadius: 999, border: "none", cursor: "pointer", background: "var(--accent)", color: "var(--surface)", fontSize: 16, boxShadow: "0 8px 22px oklch(0 0 0 / .35)", animation: "slide-up 200ms ease-out both" }}>
+          ↑
+        </button>
+      ) : null}
+      {b.cursor && cursor ? (
+        <span aria-hidden style={{ position: "fixed", left: cursor.x, top: cursor.y, zIndex: 50, pointerEvents: "none", width: spotlight ? 220 : 16, height: spotlight ? 220 : 16, marginLeft: spotlight ? -110 : -8, marginTop: spotlight ? -110 : -8, borderRadius: 999, mixBlendMode: spotlight ? "screen" : "difference", background: spotlight ? "radial-gradient(circle, color-mix(in oklab, var(--accent) 27%, transparent), transparent 70%)" : "var(--accent)", transition: b.cursor === "trail" ? "left 140ms ease-out, top 140ms ease-out" : undefined }} />
+      ) : null}
+      {intro ? <span aria-hidden style={{ position: "fixed", inset: 0, zIndex: 60, background: "var(--surface)", animation: "mo-wipe 900ms cubic-bezier(0.7, 0, 0.2, 1) both", pointerEvents: "none" }} /> : null}
+      {bursts.map((id) => (
+        <span key={id} aria-hidden style={{ position: "fixed", left: "50%", top: "40%", zIndex: 55, pointerEvents: "none" }}>
+          {Array.from({ length: 18 }, (_, i) => {
+            const angle = (i / 18) * Math.PI * 2;
+            return <span key={i} style={{ position: "absolute", width: 7, height: 7, borderRadius: 1, background: i % 2 ? "var(--accent)" : "oklch(0.8 0.16 90)", "--mo-x": \`\${Math.cos(angle) * (90 + (i % 5) * 22)}px\`, "--mo-y": \`\${Math.sin(angle) * (70 + (i % 4) * 20)}px\`, animation: "mo-burst 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) both" } as React.CSSProperties} />;
+          })}
+        </span>
+      ))}
+      {b.described.length ? (
+        <span data-described="" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: "var(--surface)", border: "1px solid color-mix(in oklab, var(--accent) 27%, transparent)", color: "var(--accent)", fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
+          Described, not simulated here: {b.described.map((d) => d.label).join(", ")}.
+        </span>
+      ) : null}
     </div>
   );
 }

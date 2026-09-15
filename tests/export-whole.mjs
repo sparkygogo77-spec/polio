@@ -16,11 +16,16 @@
  *   · the page carries the wash and the veil;
  *   · a link is an anchor: to a page's path, to a part on the page by id,
  *     to a URL in a new tab;
- *   · the backdrop is the body's background.
+ *   · the backdrop is the body's background;
+ *   · and the site it writes typechecks, run through tsc in a scratch
+ *     folder, shell and cube included.
  *
  *   node tests/export-whole.mjs
  */
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { scaffold } from "../src/features/studio/scaffold.ts";
 
 const results = [];
@@ -83,7 +88,25 @@ const bare = scaffold({ name: "Bare", frameWidth: 1440, pages: [{ id: "p", name:
 const bareCss = bare.find((f) => f.path === "app/globals.css")?.content ?? "";
 check("a gradient backdrop chosen with no texture is the body's background", /body \{[^}]*radial-gradient\(120% 80% at 20% 0%/.test(bareCss));
 
-/* 6. The run feeds all of it. */
+/* 6. The site it wrote typechecks, shell and cube included: a link, an aura, an entrance are code someone will build. */
+const site = join(tmpdir(), `export-whole-${process.pid}`);
+rmSync(site, { recursive: true, force: true });
+const withShell = scaffold({
+  name: "Whole", frameWidth: 1440,
+  pages: [{ id: "p", name: "Home", path: "/", behaviours: { progress: true, backToTop: true, reveal: true, parallax: 0.18, smooth: true, snap: "vertical", intro: true, cursor: "spotlight", tilt: true, confetti: true, described: [{ id: "sticky-story", label: "Sticky story" }], any: true } }, { id: "p2", name: "About", path: "/about" }],
+  palette: { bg: "#000", text: "#fff", accent: "#0f0", muted: "#888", surface: "#111", highlight: "#f0f" }, tokens: {},
+  keyframes: ["@keyframes tex-drift-abc{to{background-position:0 0}}"], overlayCss: { backgroundImage: "radial-gradient(#fff, transparent)" }, veil: "oklch(0 0 0 / 0.3)", backdrop: "#000",
+  parts: [part("n_rise", { anim: "el-rise" }), part("n_aura", { aura: "accent", auraStyle: "pulse" }), part("n_page", { link: { kind: "page", target: "/about" } }), part("n_url", { link: { kind: "url", target: "https://example.com/" } }), { ...part("n_cube"), featureId: "cube-3d", cube: { faces: Array.from({ length: 6 }, () => ({ heading: "", body: "", colour: "" })) } }],
+});
+for (const f of withShell) { mkdirSync(join(site, dirname(f.path)), { recursive: true }); writeFileSync(join(site, f.path), f.content); }
+writeFileSync(join(site, "tsconfig.json"), JSON.stringify({ compilerOptions: { target: "ES2020", lib: ["dom", "dom.iterable", "esnext"], jsx: "preserve", module: "esnext", moduleResolution: "bundler", strict: true, skipLibCheck: true, noEmit: true, esModuleInterop: true, baseUrl: ".", paths: { "@/*": ["./*"] }, types: ["react", "react-dom"], typeRoots: [resolve("node_modules/@types")] }, include: ["**/*.ts", "**/*.tsx"] }));
+mkdirSync(join(site, "node_modules"), { recursive: true });
+for (const m of ["react", "next", "@types"]) symlinkSync(resolve("node_modules", m), join(site, "node_modules", m), "dir");
+const tsc = spawnSync(resolve("node_modules/.bin/tsc"), ["-p", "tsconfig.json"], { cwd: site, encoding: "utf8" });
+check(`the exported site typechecks, ${withShell.length} files, shell and cube included`, tsc.status === 0, tsc.status === 0 ? "tsc clean" : (tsc.stdout + tsc.stderr).trim().split("\n").slice(0, 3).join(" | "));
+rmSync(site, { recursive: true, force: true });
+
+/* 7. The run feeds all of it. */
 const run = readFileSync("src/features/studio/scaffoldRun.ts", "utf8");
 const passed = ["anim", "aura", "link", "veil", "overlayCss", "keyframes", "backdrop"].filter((k) => new RegExp(`\\b${k}\\b`).test(run));
 check(`the build passes the fields (source read): ${passed.length} of 7`, passed.length === 7, passed.join(", "));
