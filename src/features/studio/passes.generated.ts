@@ -2,14 +2,43 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T03:36:44.881Z";
+export const GENERATED_AT = "2026-09-15T04:00:24.276Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "cfc90aa",
-    "when": "2026-09-15T03:36:30+00:00",
+    "id": "d78a570",
+    "when": "2026-09-15T03:59:39+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "d78a570",
+        "says": "A landed part is named by whole words, and background work does not toast",
+        "when": "2026-09-15T03:59:39+00:00",
+        "detail": [
+          "Two things a hand found walking the create flow. The chart landed as \"chart associated with currently traded t\", forty characters and a fragment of the last word; a name is whole words now, cut at a space past the limit and saying so. And four toasts stacked over the space's panel after one Generate: a queued job is background work, which says what happened in the news and on the counter and, now, never as a toast.",
+          "Declared lines in euler's files: reshapeRun.ts, `nameFrom` beside `text` and one use of it where a drawn part is named; DrawQueue.tsx, the runner's publish strips `toast`, under euler's own note that queued work throws no panel over the board."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e226c4a",
+        "says": "Regenerate the passes for the ground read with margin in it",
+        "when": "2026-09-15T03:41:47+00:00",
+        "detail": [
+          "Dijkstra's pass: the ground read has margin in it — colour, not a brightness on a knife edge. That is the check I flagged two pushes ago as passing and failing on the same build, picked up and answered properly.",
+          "Verified here rather than taken on trust, four runs on one build:",
+          "rgb(31,12,49)  purpleness 37   bar 21   page 6 rgb(31,12,49)  purpleness 37 rgb(31,13,51)  purpleness 38 rgb(31,12,48)  purpleness 36",
+          "Fifteen clear of the bar above, fifteen clear below, where the brightness read it replaces cleared by about one. Four of four rather than one in two. Reading blue over green rather than luma is also the better tell for what the check is named after: the ground is purple cloud and the page is flat blue-grey, and the brightest pixel in a patch is often an ember, which is amber and is also ground."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "cfc90aa",
         "says": "The ground read has margin in it: colour, not a brightness on a knife edge",
