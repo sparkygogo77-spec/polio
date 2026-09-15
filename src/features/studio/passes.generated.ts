@@ -2,9 +2,46 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T16:25:23.980Z";
+export const GENERATED_AT = "2026-09-15T16:43:51.550Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "ba3e8e1",
+    "when": "2026-09-15T16:42:52+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "ba3e8e1",
+        "says": "Build exports what the live page puts round a part: entrances, auras, links, the wash, the veil, the backdrop",
+        "when": "2026-09-15T16:42:52+00:00",
+        "detail": [
+          "The export wrote each part's markup and dropped what Preview adds round it: an entrance named with no keyframes behind it, the page's drift the same, no aura, no wash or veil, a link with its click lost, no gradient or grid backdrop. The stylesheet now carries the entrance and aura keyframes and the page's drift; each wrapper carries its entrance and aura and an id; a link is an anchor round the part; the wash, the veil and the backdrop are written. tests/export-whole.mjs (13/13, 12 red before). Inventory B22, first piece; behaviours, the mesh and reflow stay named."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "876a3f1",
+        "says": "Regenerate the passes for meitner's twenty-five",
+        "when": "2026-09-15T16:36:08+00:00",
+        "detail": [
+          "The only branch that had moved: meitner's twenty-five, three hours of work in one merge. Ninety-nine files, fifty of them source, and twenty-three new suites.",
+          "The pictures and what they promise — a picture read off its bytes rather than its name, one base64 reader shared, a fetch that is clocked, a picture refused with a reason, the doors saying what they did with an animation, a link, a cut-out, and a crop picker that says when its picture never shows. The zip reader — names as they were written, what it cannot unpack said aloud, no inflating further than declared, assets under their own names, a data script that is not scripts. The shapes — several open lines or one straight bar are a shape said rather than an edge to cut to, a text box is not a cube, a stroke dragged off the disc stays on it, a column drawn taller than the ceiling keeps its proportion, a narrowed part grows to hold its words. And the recorded tour fitting the time the route has.",
+          "Merge clean, no conflicts, typecheck clean, build rc=0. Run here on the build, port 4286.",
+          "The twenty-three new ones, all green:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "47179f0",
     "when": "2026-09-15T16:25:19+00:00",
@@ -1152,191 +1189,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 0
-  },
-  {
-    "id": "7355866",
-    "when": "2026-09-15T08:11:47+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "772c71d",
-        "says": "Priority is set from the wheel",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A9 on the inventory. The wheel is the whole editor and the panel is the convenience: anything the Inspector does to a part, the wheel does too. Priority was the exception, a slab on the pencil's level saying \"Priority (soon)\" that played a tap while the Inspector set it. The slab opens a plate now with the panel's three keys on it, Must have, Nice and Idea, the part's own lit.",
-          "tests/priority-wheel.mjs: 6 of 6, 4 red against the tree before this. It right-presses a seeded part, opens the pencil's level, finds Priority without a soon on it, and presses Idea: the part's priority is \"idea\"."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "3003aee",
-        "says": "The showcase's controls do what their labels say",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A20 on the inventory. The showcase is on by default and a keystroke away. Its right-click cards offered Liked and Remove card and both only toasted: the heart never changed, the card stayed. Its Presets menu had five entries with nothing behind them, its empty state's Open feed opened nothing, and an input wore a \"/\" key hint no key honoured. A small store holds which cards are liked and which were removed, the menu writes it and the page reads it; every preset entry answers; Open feed opens the feed; the hint is gone.",
-          "tests/showcase-live.mjs: 8 of 8, 3 red against the tree before this."
-        ],
-        "areas": [
-          "docs",
-          "showcase",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "8acc138",
-        "says": "Hover ticks and feed events gate a sound that plays",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A18 on the inventory. \"Hover ticks\" gated a cue nothing played outside the showcase's sound board, which forces past the gate; \"Feed events\" gated three cues nothing played at all. The button primitive plays the hover tick on pointer enter, which the engine mutes unless the setting is on (it is off by default), and the showcase's live price, the one feed the template ships, ticks up or down as it moves."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "showcase"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "5fb1bc9",
-        "says": "Streamer mode hides an identifier",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A17 on the inventory. \"Streamer mode: also hides addresses and identifiers\" set an attribute on the root that one utility class read, and no element wore the class, so the toggle changed nothing anyone could see. The two places the tweet console shows a handle wear it now, in the preview and on the ready badge. settings-read.mjs counts the wearers."
-        ],
-        "areas": [
-          "docs",
-          "tweets"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "96d40a6",
-        "says": "A toast under the pointer stays",
-        "when": "2026-09-15T08:00:36+00:00",
-        "detail": [
-          "A19 on the inventory. \"Pause feeds on hover: rows never slide away mid-click.\" Hovering a toast froze its drain bar and nothing else: the sweep that runs every half second still removed it at its expiry, bar frozen at half. The store holds a hovered toast now and lets it go when the pointer leaves, with what was left of its time and never less than a beat, and the Toaster reads the setting that promised this.",
-          "tests/toast-hold.mjs: 4 of 4, 1 red against the tree before this. It raises a toast on the showcase, rests the pointer on it for 6.5 s, and finds it still there; moves away, and finds it gone."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "f309913",
-        "says": "The settings drawer offers what something reads",
-        "when": "2026-09-15T08:00:36+00:00",
-        "detail": [
-          "A14, A15 and A16 on the inventory. Four toggles had no reader at all: Flash new rows, 24-hour clock, Remember open panels, FPS meter. Deleted. Two more, Sidebar (Rail, Fixed, Hidden) and Route tabs in top bar, with the Toggle sidebar command and ⌘B, drew `registry.nav`, and every module declares `nav: []`, so the sidebar never rendered and four controls changed nothing on screen. They are offered only while a module declares a nav entry: a setting can carry `when`, the drawer and the palette honour it, and the gate lives in `nav-gate.ts`, which imports nothing. The first cut imported the registry from the definitions the registry is built from, and the build said so: a cycle, caught at prerender.",
-          "tests/settings-read.mjs walks every core setting for a reader outside its own definition (0 unread now, 5 before) and holds the ones that had a reader and still did nothing to the thing they now do. 9 of 9, 8 red against the tree before this batch; its later lines land with A17 to A19."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "408c02d",
-        "says": "The toolbar's search says what it searches",
-        "when": "2026-09-15T08:00:36+00:00",
-        "detail": [
-          "A8 on the inventory. The search key's tooltip said \"Search the tools, the parts and every command\" and its short label \"Search tools…\". It opens the command palette, which lists commands and settings and none of the 229 parts; the parts search is the shelf's own box. The tooltip says \"Search every command and setting\" now and the label \"Search commands…\"; menu-pass.mjs finds the label by its new words.",
-          "tests/search-label.mjs: 5 of 5, 3 red against the tree before this. It reads what the palette lists and holds the tooltip to it: a promise about parts is allowed only on a box that finds parts."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "813fd4f",
-        "says": "The page's wheel keeps nothing behind the Edit slab it stopped drawing",
-        "when": "2026-09-15T07:38:25+00:00",
-        "detail": [
-          "A22 on the inventory. The page's wheel stopped drawing Edit a while ago: the width it held was the third copy of one control, and its other item was \"Per page (soon)\", a tap and nothing. The slot, the two choices and the width editor they opened were all still in the code, unreachable. Gone: the slot from the page's table (typed without it, so the compiler holds the line), the choices, the editor, and the icons only they used, plus three in the wheel that nothing had used since the scissors and the three-dot went.",
-          "tests/page-wheel-edit.mjs: 4 of 4, 4 red against the tree before this, with comments stripped before matching so the sentence explaining the removal is not what it finds. Green alongside: wheel-pass 12/12, wheel-trim 14/14, menu-pass 101/101, light-placer 16/16, current 29/29."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "489ed94",
-        "says": "The cheat sheet lists the shortcuts that fire where you are",
-        "when": "2026-09-15T07:38:25+00:00",
-        "detail": [
-          "A12 on the inventory. The sheet listed every registered shortcut, and 18 of the Builder's 20 carry a condition the key handler asks before firing: on the board the sheet advertised \"b Back to the board\", and in the full preview it advertised the select tool, the draw tool, the frame widths and the rest, none of which fire there. The sheet asks the same condition now, so a row on it is a key that works here.",
-          "tests/shortcut-sheet.mjs: 7 of 7, 3 red against the tree before this. It opens the sheet on /builder and on /builder/preview and reads the rows: Design / Preview on the board and not Back to the board; Back to the board in the preview and not Select tool."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1990786",
-        "says": "The cheat sheet opens on the key its hint prints",
-        "when": "2026-09-15T07:38:25+00:00",
-        "detail": [
-          "A11 on the inventory. The shortcut sheet was bound to \"shift+/\" and shown as ⇧/ in the palette, the sheet and the right-click menu. The matcher compares the browser's own key name and, for punctuation, does not check shift on its own, because the browser has already folded it in: shift and the slash key report \"?\". So the sheet opened on a bare \"/\" and never on \"?\", and \"?\" is the tour's. The binding is \"/\" now, printed as \"/\", which is what it always did.",
-          "tests/shortcut-keys.mjs: 3 of 3, 2 red against the tree before this. For every single-key binding in the app (32) it makes the event a person makes by pressing what the hint shows, with the browser's key codes (Slash, not \"/\"), and asks the matcher; and it holds every chord to one owner, shift counted for letters and folded for punctuation. keys.ts names its import with its extension so the check can import the matcher."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "809ff50",
-        "says": "The key that hides the side panel says so, in all four places it is named",
-        "when": "2026-09-15T07:37:57+00:00",
-        "detail": [
-          "A7 on the inventory. One toolbar key toggles the whole five-tab side panel: Element, Format, Pages, Look, Motion. Its tooltip said \"Show / Hide colour & texture\", its name to a screen reader was \"Toggle look\", its command was \"Builder: show or hide the library\" and its shortcut line \"Show / hide the library\". Four names and none of them the thing: the parts library is never hidden by it, and colour is one tab of five. All four say the side panel now; menu-pass.mjs presses it by its new name.",
-          "tests/side-panel-label.mjs: 10 of 10, 6 red against the tree before this. It reads the four strings and presses the key: the panel goes, the shelf stays, the panel comes back."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "aa05478",
-        "says": "The board's own Preview answers its menu: Device changes it, Back goes back",
-        "when": "2026-09-15T07:37:57+00:00",
-        "detail": [
-          "A6 on the inventory. Flip the board to Preview and right-press the site: the menu offers Device (Desktop, Tablet, Phone) and Back to the board. Device called one window hook that only the /builder/preview page installed, so on the board it was undefined and the three entries did nothing. Back navigated to /builder, the address you were already at, so the mode stayed Preview.",
-          "The live stage owns its device once it is up and installs the hook wherever it is mounted (the page's own copy is the same hook and the two are never on screen together). Back reads where it is: an address in the full preview, a mode on the board.",
-          "tests/live-device.mjs: 7 of 7, 3 red against the tree before this. Phone takes the site from 1440px to 390px; Back takes the board to Design, one frame and no scroller."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 1
   }
 ];
