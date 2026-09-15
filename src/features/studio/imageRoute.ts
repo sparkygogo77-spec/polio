@@ -896,7 +896,7 @@ export function inputFor(
     input.aspect_ratio = ratioFor(m, ask.w ?? 1, ask.h ?? 1, images.length > 0);
     if (m.size) input[m.size.field] = m.size.value;
   }
-  input[m.format.field] = m.format.value;
+  input[m.format.field] = formatFor(m, ask);
   if (ask.transparent && m.alpha) input[m.alpha.field] = m.alpha.value;
   Object.assign(input, groundingFor(m, ask));
   // What the person set, last, so it wins over the route's own choices.
@@ -914,6 +914,23 @@ export function inputFor(
  * is the brief and the words are the footnote, which is the other way round
  * from a first pass, where there is no picture yet.
  */
+/**
+ * The file type to ask for: PNG when the ground has to be left out, JPEG
+ * when it does not and the model offers one.
+ *
+ * Every row declares PNG, and a 2K photographic PNG is 4 to 8 MB against a
+ * document ceiling of about 1.75 MB (`RASTER_LIMIT`): the second pass was
+ * paid for and then refused as too big, for exactly the surface and picture
+ * cells that have no ground to lose. A JPEG of the same picture is under a
+ * megabyte. The spelling is the model's own, read off its format field.
+ */
+export function formatFor(m: ImageModel, ask: { transparent?: boolean; step?: Step }): string {
+  if (ask.transparent || ask.step === "alpha") return m.format.value;
+  const field = m.fields.find((f) => f.managed === "format" && f.name === m.format.field);
+  const jpeg = field?.values?.find((v) => /^jpe?g$/i.test(v));
+  return jpeg ?? m.format.value;
+}
+
 export function wordsFor(ask: {
   step: Step;
   making: Making;
