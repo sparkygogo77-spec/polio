@@ -450,7 +450,7 @@ async function ladder() {
       const byLabel = (l) => vis(bar.querySelector(`[aria-label='${l}']`));
       const btns = [...bar.querySelectorAll("button")];
       return {
-        words: vis([...bar.querySelectorAll("span")].find((x) => /Search tools/.test(x.textContent || ""))),
+        words: vis([...bar.querySelectorAll("span")].find((x) => /Search commands/.test(x.textContent || ""))),
         hues: vis(bar.querySelector("[data-ink-hues]")),
         zoom: btns.some((e) => /^\d+%$/.test((e.textContent || "").trim()) && vis(e)),
         fit: byLabel("Fit frame"),
@@ -467,7 +467,7 @@ async function ladder() {
         zoomIn: byLabel("Zoom in"),
         preview: vis(bar.querySelector("[data-preview-toggle]")),
         finish: vis(bar.querySelector("[data-finish]")),
-        panel: byLabel("Toggle look"),
+        panel: byLabel("Toggle the side panel"),
         pages: vis(bar.querySelector("[data-page-strip]")),
         over: Math.max(0, bar.scrollWidth - bar.clientWidth),
       };

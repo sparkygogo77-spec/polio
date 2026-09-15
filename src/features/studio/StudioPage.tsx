@@ -267,8 +267,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <span className="mx-1 h-4 w-px bg-border" />
       <PageChips />
       <span className="mx-1 h-4 w-px bg-border" />
-      <Tooltip content={libraryOpen ? "Hide colour & texture" : "Show colour & texture"} shortcut="l">
-        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle look" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
+      <Tooltip content={libraryOpen ? "Hide the side panel" : "Show the side panel"} shortcut="l">
+        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle the side panel" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
           <PanelLeft />
         </Button>
       </Tooltip>
@@ -502,7 +502,7 @@ function DeviceSwitch({ width }: { width: number }) {
 function SearchTools() {
   const ctx = useActions();
   return (
-    <Tooltip content="Search the tools, the parts and every command" shortcut="mod+k">
+    <Tooltip content="Search every command and setting" shortcut="mod+k">
       <button
         type="button"
         data-tool-search=""
@@ -517,7 +517,7 @@ function SearchTools() {
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />
-        <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search tools…</span>
+        <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search commands…</span>
       </button>
     </Tooltip>
   );

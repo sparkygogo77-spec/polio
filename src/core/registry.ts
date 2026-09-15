@@ -5,6 +5,7 @@
 import type { CommandDef, ContextMenuContribution, FeatureModule, NavEntry, RouteDef, ShortcutDef, TopBarItemDef } from "./types";
 import { registerSettingDefs, registerSettingGroups } from "./settings/store";
 import { coreModule } from "./core-module";
+import { bindNavCount } from "./nav-gate";
 import { modules as featureModules } from "@/features";
 import site from "@site";
 
@@ -74,6 +75,7 @@ export function buildRegistry(mods: FeatureModule[]): Registry {
     registerSettingDefs(m.settings);
   }
   reg.nav.sort(byOrder);
+  bindNavCount(() => reg.nav.length);
   reg.topBarItems.sort(byOrder);
   for (const list of reg.contextMenus.values()) list.sort(byOrder);
   // Static routes before parameterised ones so "/pulse" beats "/:slug".

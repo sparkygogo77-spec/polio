@@ -83,7 +83,7 @@ export function SettingsDrawer() {
   const query = q.trim().toLowerCase();
   const matches = (d: SettingDef) =>
     !query || [d.label, d.description ?? "", d.id, ...(d.tags ?? [])].some((s) => s.toLowerCase().includes(query));
-  const visible = defs.filter((d) => (advanced || !d.advanced || query) && matches(d) && (group === "all" || d.group === group));
+  const visible = defs.filter((d) => (!d.when || d.when()) && (advanced || !d.advanced || query) && matches(d) && (group === "all" || d.group === group));
   const byGroup = new Map<string, SettingDef[]>();
   for (const d of visible) byGroup.set(d.group, [...(byGroup.get(d.group) ?? []), d]);
   const modified = Object.keys(values).length;

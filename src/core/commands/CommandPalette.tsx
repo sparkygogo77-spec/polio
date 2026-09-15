@@ -70,7 +70,7 @@ export function CommandPalette() {
     const g = c.group ?? c.module.name;
     groups.set(g, [...(groups.get(g) ?? []), c]);
   }
-  const toggles = allSettingDefs().filter((d) => d.type === "toggle");
+  const toggles = allSettingDefs().filter((d) => d.type === "toggle" && (!d.when || d.when()));
   const settingGroups = allSettingGroups();
   const groupList = [...groups.entries()];
 
