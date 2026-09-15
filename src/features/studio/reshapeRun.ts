@@ -56,6 +56,21 @@ const kindInfo = (id: string): KindInfo | null => {
 
 /** A trimmed string of at most `max` characters, or nothing. */
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+/**
+ * A name from the words: whole words, never cut mid-word.
+ *
+ * "chart associated with currently traded token" was landing as "chart
+ * associated with currently traded t", forty characters and a fragment of
+ * the last one, and a name that ends in a fragment reads as broken. The
+ * words fit as they are up to the limit; past it the cut is at a space and
+ * says it was cut.
+ */
+export function nameFrom(words: string, max = 56): string {
+  const w = words.trim().replace(/\s+/g, " ");
+  if (w.length <= max) return w;
+  const cut = w.lastIndexOf(" ", max - 1);
+  return `${w.slice(0, cut > max / 2 ? cut : max - 1).trim()}…`;
+}
 
 export interface RunDeps {
   publish: (input: NewsInput) => void;
@@ -905,7 +920,7 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
     : job.drawn && !drewWide
       ? clamp(Math.round(job.drawn.h), 24, 1600)
       : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
-  const label = text(drawn.words, 40) || "Drawn part";
+  const label = nameFrom(drawn.words) || "Drawn part";
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
   const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
     w, h, label, prompt: drawn.words, sketch: drawn, ...shaped,

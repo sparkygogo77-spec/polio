@@ -25,7 +25,7 @@
  * time, exactly as before; this only decides what goes on it.
  */
 import { describeSketch } from "./sketch";
-import { pictureOf } from "./reshapeRun";
+import { nameFrom, pictureOf } from "./reshapeRun";
 import { inkGroups } from "./inkGroups";
 import { QUEUED } from "./formation";
 import { jobsInSpace, nodeInSpace, spaceOfDrawing, type Placed, type Space } from "./space";
@@ -78,7 +78,7 @@ export function generateSurface(spaceId: string): Generated {
       sketch: drawn,
       picture: pictureOf(strokes),
       drawn: { w: b.w, h: b.h },
-      label: `Making ${words.slice(0, 40) || describeSketch({ strokes, words: "" })}`,
+      label: `Making ${nameFrom(words) || describeSketch({ strokes, words: "" })}`,
     });
     useStudio.getState().removeShapes(g.strokeIds);
   }

@@ -44,11 +44,12 @@ export function DrawQueue() {
     const store = useStudio.getState();
     store.updateJob(job.id, { status: "running", started: Date.now(), step: "Reading the drawing…" });
     void runDrawJob(job, {
-      publish: (n) => ctx.publish(n),
       // A queued job is background work: it says what happened in the news
       // and on the counter, and does not throw a panel over whatever is
-      // being drawn now. Pressing the counter, or the key button, is the
-      // person's move to make.
+      // being drawn now, nor a toast: four of them stacked over the space's
+      // panel after one Generate. Pressing the counter, or the key button,
+      // is the person's move to make.
+      publish: (n) => ctx.publish({ ...n, toast: false }),
       onNoKey: () => {},
       onStep: (step) => {
         const st = useStudio.getState();
