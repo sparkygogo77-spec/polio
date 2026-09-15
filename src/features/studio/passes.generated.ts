@@ -2,14 +2,43 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T05:03:18.752Z";
+export const GENERATED_AT = "2026-09-15T05:17:10.909Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "ef927ef",
-    "when": "2026-09-15T05:02:41+00:00",
+    "id": "cdda2b1",
+    "when": "2026-09-15T05:16:47+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "cdda2b1",
+        "says": "The edge breathes again, on the eight pixels where an edge is",
+        "when": "2026-09-15T05:16:47+00:00",
+        "detail": [
+          "J's rim breath, back, and not where it was.",
+          "WHY IT WENT: `molten-breathe` faded the whole rim node between 0.78 and 1 over forty-two seconds. That node covers the whole card, paints a nine-pixel sprite bezel, and cannot be promoted inside the card's rounded clip, so an opacity animation on it is a full-card repaint per card per frame — 42% of frames dropped against 36% with it stopped, at twelve boards.",
+          "THE SHAPE WAS MEASURED BEFORE ANYTHING WAS DESIGNED. An opacity animation added to every card as a bare element, nothing else changed:",
+          "nothing added                          36.1 /900ms a whole-card breath, not promoted      31.5 a whole-card breath, promoted          32.4 a 14px strip breath, not promoted      38.0 a 14px strip breath, promoted          36.2"
+        ],
+        "areas": [
+          "core",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "abf1534",
+        "says": "Regenerate the passes for link lists and painted blocks",
+        "when": "2026-09-15T05:04:42+00:00",
+        "detail": [
+          "Dijkstra's pass: a list of links is a part, and a block is painted on what is behind it.",
+          "Run on this build: recreate 46/46, zip-import 65/65, site-read 44/44. Not run: the rest, none of which touches what a read page becomes."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "ef927ef",
         "says": "A list of links is a part, and a block is painted on what is behind it",
