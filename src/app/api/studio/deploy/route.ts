@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { findVercelProject, type VercelProject } from "@/features/studio/vercelProjects";
 
 /**
  * Live, and the address back.
@@ -40,12 +41,6 @@ function token(request: Request): { token: string | null; source: "server" | "br
   return supplied && supplied.length > 8 ? { token: supplied, source: "browser" } : { token: null, source: null };
 }
 
-interface VercelProject {
-  id: string;
-  name: string;
-  link?: { type?: string; org?: string; repo?: string; repoId?: number };
-  targets?: { production?: { alias?: string[] } };
-}
 
 async function vercel<T>(tok: string, path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: { message?: string } } }> {
   const res = await fetch(`${API}${path}`, {
@@ -71,18 +66,31 @@ type Lookup =
 
 async function findProject(tok: string, team: string | null, repo: string, named: string | null): Promise<Lookup> {
   const [owner, name] = repo.split("/");
-  const { ok, status, data } = await vercel<{ projects?: VercelProject[] }>(tok, `/v9/projects${query(team, { limit: "100" })}`);
-  if (status === 401 || status === 403) {
-    return { found: null, refused: { reason: "auth", message: `Vercel would not accept the token${team ? ` for ${team}` : ""}. Check it is copied whole, has not expired, and can see that team.` } };
-  }
-  if (!ok || !Array.isArray(data.projects)) {
-    return { found: null, refused: { reason: "vercel", message: data.error?.message ?? `Vercel answered ${status} when asked for your projects.` } };
-  }
-  const hit = named
-    ? data.projects.find((p) => p.name === named || p.id === named)
-    : data.projects.find(
-        (p) => p.link?.type === "github" && p.link.org?.toLowerCase() === owner?.toLowerCase() && p.link.repo?.toLowerCase() === name?.toLowerCase(),
-      );
+  // A page at a time, following `pagination.next` as `until`: one page of a
+  // hundred was all this read, and an account past that was told to go and
+  // import a project it already had.
+  let refused: { reason: string; message: string } | undefined;
+  const page = async (until: string | null) => {
+    const { ok, status, data } = await vercel<{ projects?: VercelProject[]; pagination?: { next?: number | string | null } }>(
+      tok,
+      `/v9/projects${query(team, { limit: "100", ...(until ? { until } : {}) })}`,
+    );
+    if (status === 401 || status === 403) {
+      refused = { reason: "auth", message: `Vercel would not accept the token${team ? ` for ${team}` : ""}. Check it is copied whole, has not expired, and can see that team.` };
+      return { projects: [], next: null };
+    }
+    if (!ok || !Array.isArray(data.projects)) {
+      refused = { reason: "vercel", message: data.error?.message ?? `Vercel answered ${status} when asked for your projects.` };
+      return { projects: [], next: null };
+    }
+    return { projects: data.projects, next: data.pagination?.next ?? null };
+  };
+  const hit = await findVercelProject(page, (p) =>
+    named
+      ? p.name === named || p.id === named
+      : p.link?.type === "github" && p.link.org?.toLowerCase() === owner?.toLowerCase() && p.link.repo?.toLowerCase() === name?.toLowerCase(),
+  );
+  if (refused) return { found: null, refused };
   return hit ? { found: hit } : { found: null };
 }
 

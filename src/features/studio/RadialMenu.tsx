@@ -57,7 +57,7 @@ import {
 import { AnimQuads, AuraQuads, BehaviourQuads, FontQuads, HueQuads, QuadrantConsole, TextureQuads, type ConsoleSpan } from "./RingEditors";
 import { PlateEditor } from "./PlateEditors";
 import { DrawBoard } from "./DrawBoard";
-import { CONSOLE, type Slab, type TrayItem } from "./RingConsole";
+import { CONSOLE, HoverTray, type Slab, type TrayItem } from "./RingConsole";
 import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { auraColour, auraStyle, lands, newLayer, parseColor, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
@@ -942,7 +942,8 @@ export function RadialMenu() {
   const nodeIndex = node ? nodes.indexOf(node) : -1;
   const tray: TrayItem[] = bg
     ? [
-        { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); ctx.navigate(livePath(page.id)); } },
+        // "Here" means here: the board's own Preview, the same as `p`, not the full address the part's tray goes to.
+        { id: "preview", label: "Preview here", icon: <Eye className="size-3" />, primary: true, onClick: () => { closeRadial(); s().setMode("preview"); } },
         { id: "paste", label: "Put the background back", icon: <ClipboardPaste className="size-3" />, disabled: !heldBackground(), onClick: () => { s().pasteBackground(); } },
       ]
     : [
@@ -1212,8 +1213,21 @@ export function RadialMenu() {
           The tray, under the wheel: a tab that opens on hover into the few
           actions that are about the part but not about editing it, seeing
           it live, its place among the others, carrying its looks. It hangs
-          under whichever level is up, and steps aside for the board.
+          under whichever level is up, and steps aside for the board and the
+          add disc. It was built and never drawn for a while: this comment
+          stood over nothing, and the seven actions on it (Preview here,
+          Forward, Backward, Copy looks, Paste looks, Put the background back)
+          could not be reached from the wheel at all.
         */}
+        {!onBoard && !adding ? (
+          <HoverTray
+            testId={bg ? "page" : "part"}
+            at={[0, (picked ? GREEN_RINGS.reach : BLUE_RINGS.reach) * (shape === "square" ? Math.SQRT2 : 1) + TRAY_DROP]}
+            icon={<Ellipsis className="size-3.5" />}
+            label="More"
+            items={tray}
+          />
+        ) : null}
         {/*
           The background's Import piece.
 

@@ -274,10 +274,16 @@ export async function screenshotPage(pageId: string, opts: { device?: Device; wi
   if (!(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
   const blob = await res.blob();
   const dataUrl = await blobToDataUrl(blob);
+  // A page past the route's cap comes back cut, and the route says so; the
+  // label says what the picture is rather than calling it top to bottom.
+  const cut = res.headers.get("x-shot-cut") === "1";
+  const shown = res.headers.get("x-shot-max");
+  const whole = res.headers.get("x-shot-height");
+  const extent = cut ? `the top ${shown}px of a page ${whole}px tall` : "top to bottom";
   return {
     data: dataUrl.slice(dataUrl.indexOf(",") + 1),
     mediaType: "image/png",
-    label: `Page “${page.name}” (${page.path}), ${opts.device ?? "desktop"} width, top to bottom:`,
+    label: `Page “${page.name}” (${page.path}), ${opts.device ?? "desktop"} width, ${extent}:`,
     preview: await thumb(dataUrl),
     pageId: page.id,
   };

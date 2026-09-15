@@ -2,9 +2,33 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:30:17.113Z";
+export const GENERATED_AT = "2026-09-15T08:40:50.176Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "6163dc4",
+    "when": "2026-09-15T08:39:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "6163dc4",
+        "says": "Content sets the page, the pane sets the zoom: the held work goes in",
+        "when": "2026-09-15T08:39:28+00:00",
+        "detail": [
+          "Hypatia's 8c9160e closes what 972ce24 and 2d237de opened, and it closes it by separating the two things rather than by widening a check. Her own title says it: content sets the page, the pane sets the zoom, and the two stopped being one.",
+          "Her branch had merged euler, so euler's thirty ride in with it and are on trunk for the first time since 0b64a1d.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4281.",
+          "The three that were red on the held commit, and are the reason it was held:"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "5955bc8",
     "when": "2026-09-15T08:30:12+00:00",
@@ -978,46 +1002,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2bab116",
-    "when": "2026-09-15T06:46:56+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "2bab116",
-        "says": "Regenerate the passes for the ground's whole pixels, and retire a frame counter",
-        "when": "2026-09-15T06:46:56+00:00",
-        "detail": [
-          "Euler's three: the ground's sparks rub out where they were rather than the whole sheet, his merge of trunk, and the one sliding layer landing on whole pixels. Taken on its own; dijkstra's a445520 and shannon's f9d0082 landed while this was verifying and wait for their own passes.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4262:",
-          "ground-drift       10/10 passed ground-embers      12/12 passed not-one-machine    21/21 passed ground-clean       12/12 passed ground-paints      26/26 passed board-layout       69/69 passed  (67/69 before the fix below)",
-          "One instrument retired, which is test fallout from a deliberate change and so belongs here rather than on euler's branch."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0b64a1d",
-        "says": "The ground's one sliding layer lands on whole pixels",
-        "when": "2026-09-15T06:24:34+00:00",
-        "detail": [
-          "Second of the two. A one-line change, and the reason it works is the thing worth keeping.",
-          "WHAT IT COSTS, isolated first. At twelve boards the cloud layer is worth 8.6 frames per 900ms and the sky behind it 2.0 — but only 1.5 of the cloud's is its *sliding*; the rest is being a full-pane translucent layer that has to be re-blended whenever anything damages the viewport. Opacity, promotion and width made no difference to any of it: 30.6 as it is, 31.2 opaque, 31.0 unpromoted, 31.6 cropped to the on-screen width.",
-          "WHAT THE SLIDING WAS DOING. The layer is the pane and a bit — 1835 by 1191 — and it lands between pixels on nearly every frame. A composited layer that lands between pixels has to be resampled across its whole surface; one that lands on a pixel can be copied. Two and a quarter million pixels, filtered thirty times a second, to move the clouds six.",
-          "`steps(period)` over a slide of exactly `period` pixels is a step of exactly one pixel. Same speed, same distance, same loop — six pixels a second is now a step every sixth of a second — and every frame lands on the grid."
-        ],
-        "areas": [
           "studio",
           "tests"
         ],

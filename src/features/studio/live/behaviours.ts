@@ -30,13 +30,32 @@ export interface Behaviours {
 const STRENGTH: Record<string, number> = { subtle: 0.08, medium: 0.18, strong: 0.32, light: 0.08, heavy: 0.32, off: 0 };
 
 /** Motions the preview names rather than fakes. */
-const DESCRIBE_ONLY = new Set(["sticky-story", "scroll-video", "morph-transition", "physics", "horizontal-scroll", "infinite-scroll"]);
+const DESCRIBE_ONLY = new Set(["sticky-story", "scroll-video", "morph-transition", "physics", "horizontal-scroll", "infinite-scroll", "page-transitions"]);
 
 export function isBehaviour(featureId: string): boolean {
   return resolvePart(featureId)?.tier === "B";
 }
 
-export function deriveBehaviours(nodes: StudioNode[]): Behaviours {
+/**
+ * What a page's own scroll setting does to the live page: the three the
+ * preview can do, done; the two it cannot, named in the corner note beside
+ * the other behaviours it describes rather than fakes. It reached only the
+ * blueprint before, so the setting changed nothing anyone could scroll.
+ */
+function pageScroll(b: Behaviours, scroll: string | undefined) {
+  switch (scroll) {
+    case "snap to sections": b.snap = b.snap ?? "vertical"; break;
+    case "horizontal": b.snap = "horizontal"; break;
+    case "smooth / inertial": b.smooth = true; break;
+    case "scroll-driven story":
+    case "paged":
+      b.described.push({ id: `scroll:${scroll}`, label: `Scroll: ${scroll}` });
+      break;
+    default: break;
+  }
+}
+
+export function deriveBehaviours(nodes: StudioNode[], scroll?: string): Behaviours {
   const b: Behaviours = {
     progress: false, backToTop: false, reveal: false, parallax: 0, smooth: false,
     snap: null, intro: false, cursor: null, tilt: false, confetti: false, described: [], any: false,
@@ -60,5 +79,7 @@ export function deriveBehaviours(nodes: StudioNode[]): Behaviours {
     }
     if (DESCRIBE_ONLY.has(n.featureId)) b.described.push({ id: n.featureId, label: getFeature(n.featureId)?.name ?? n.label });
   }
+  pageScroll(b, scroll);
+  if (b.described.length || b.snap || b.smooth) b.any = true;
   return b;
 }
