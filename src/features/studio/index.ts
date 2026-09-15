@@ -1,4 +1,4 @@
-import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Scissors, Send, Sparkles, Star, Trash2, Undo2, Ungroup, Wand2, ZoomIn } from "lucide-react";
+import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, Group, Hand, Layers, LayoutTemplate, Lightbulb, Link, Link2, Link2Off, Lock, MousePointer2, Palette as PaletteIcon, Pencil, Plus, Redo2, RotateCcw, Send, Sparkles, Star, Trash2, Undo2, Ungroup, Wand2, ZoomIn } from "lucide-react";
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
@@ -462,7 +462,14 @@ export const studio = defineFeature({
             icon: Layers,
             children: [
               { id: "bg.select", label: "Select the background", checked: s.selection.includes(BACKGROUND_ID), onSelect: () => s.selectBackground() },
-              { id: "bg.cut", label: "Cut the background", icon: Scissors, shortcut: "mod+x", onSelect: () => { if (!s.cutBackground()) ctx.publish({ key: "studio:background", title: "The background is already bare", level: "info", source: "studio", toast: true }); } },
+              /* Cut has gone. It and the wheel's Strip were the same thing
+                 twice — literally: both called `cutBackground()`, which takes
+                 the background bare and holds it for a paste. Two names for
+                 one function is two places to learn and one of them to be
+                 surprised by. Strip keeps the job, on the wheel, where the
+                 background's own controls are; ⌘X still reaches it through
+                 the board's own key handling, and Put it back is still here
+                 because the clipboard Strip fills is the one it reads. */
               { id: "bg.paste", label: "Put the background back", icon: ClipboardPaste, shortcut: "mod+v", disabled: !bgHeld, onSelect: () => s.pasteBackground() },
             ],
           },
