@@ -34,6 +34,8 @@ export interface TweetMedia {
   alt: string;
   /** A small data URL to draw in the strip. The bytes are in IndexedDB. */
   thumb: string;
+  /** Said when the intake could not do all it does: no preview, for a video this browser cannot play. */
+  note?: string;
 }
 
 export interface TweetPoll {

@@ -11,6 +11,7 @@
  * nowhere before the first pass.
  */
 import { buildPalette, GifWriter, samplePixels } from "./gif";
+import { gifRate } from "./gifRate";
 
 export interface VideoToGifOptions {
   fps: number;
@@ -89,9 +90,10 @@ export async function videoToGif(blob: Blob, opts: VideoToGifOptions): Promise<B
     if (!samples.length) samplePixels({ data: grab(), stride: 4 }, 4000, samples);
     const palette = buildPalette(samples);
 
-    // Pass two, real speed: every frame, straight into the file.
-    const maxFrames = opts.maxFrames ?? 360;
-    const fps = duration ? Math.max(4, Math.min(opts.fps, maxFrames / duration)) : opts.fps;
+    // Pass two, real speed: every frame, straight into the file. The rate
+    // goes as low as the length needs (`gifRate`), so the GIF is as long as
+    // the recording.
+    const { fps, frames: maxFrames } = gifRate(duration, opts.fps, opts.maxFrames ?? 360);
     const step = 1 / fps;
     const writer = new GifWriter(w, h, palette, { delayMs: 1000 / fps });
     let nextAt = 0;

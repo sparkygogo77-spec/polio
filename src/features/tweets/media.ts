@@ -103,8 +103,14 @@ async function cookImage(file: Blob, maxEdge: number, quality: number): Promise<
   }
 }
 
-/** A small data URL to draw in the strip: the picture, or a frame of the video. */
-async function thumbOf(blob: Blob, kind: TweetMedia["kind"]): Promise<{ thumb: string; width: number; height: number }> {
+/**
+ * A small data URL to draw in the strip: the picture, or a frame of the video.
+ *
+ * A video this browser cannot decode (ProRes or HEVC in a .mov, which X
+ * takes) used to throw here and fail the whole intake, when only the
+ * preview needed decoding. It goes in with no preview and a note instead.
+ */
+async function thumbOf(blob: Blob, kind: TweetMedia["kind"]): Promise<{ thumb: string; width: number; height: number; note?: string }> {
   const url = URL.createObjectURL(blob);
   try {
     const canvas = document.createElement("canvas");
@@ -121,10 +127,13 @@ async function thumbOf(blob: Blob, kind: TweetMedia["kind"]): Promise<{ thumb: s
       v.muted = true;
       v.playsInline = true;
       v.src = url;
-      await new Promise<void>((resolve, reject) => {
-        v.onloadeddata = () => resolve();
-        v.onerror = () => reject(new Error("That video could not be read"));
+      const readable = await new Promise<boolean>((resolve) => {
+        v.onloadeddata = () => resolve(true);
+        v.onerror = () => resolve(false);
       });
+      if (!readable) {
+        return { thumb: "", width: 0, height: 0, note: "This browser cannot play it, so there is no preview and no size; X may still take it." };
+      }
       v.currentTime = Math.min(0.5, (v.duration || 1) / 2);
       await new Promise<void>((resolve) => { v.onseeked = () => resolve(); setTimeout(resolve, 800); });
       return draw(v.videoWidth || 640, v.videoHeight || 360, (c) => c.drawImage(v, 0, 0, canvas.width, canvas.height));
@@ -166,5 +175,6 @@ export async function intake(file: File | Blob, opts: { maxEdge: number; quality
     id, kind, name, type: blob.type || type, size: blob.size,
     width: size.width || t.width, height: size.height || t.height,
     alt: "", thumb: t.thumb,
+    ...(t.note ? { note: t.note } : {}),
   };
 }

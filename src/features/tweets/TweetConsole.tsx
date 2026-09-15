@@ -293,6 +293,7 @@ function Editor({ draft, api }: { draft: Draft; api: ApiStatus | null }) {
         try {
           const m = await intake(f, { maxEdge, quality, name: f.name });
           st.getState().addMedia(draft.id, index, m);
+          if (m.note) st.getState().note({ draftId: draft.id, level: "warn", title: `Added “${f.name}” without a preview`, body: m.note });
         } catch (err) {
           st.getState().note({ draftId: draft.id, level: "error", title: `Could not add “${f.name}”`, body: err instanceof Error ? err.message : String(err) });
         } finally {
