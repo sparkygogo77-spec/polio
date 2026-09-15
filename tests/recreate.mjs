@@ -73,6 +73,15 @@ check("contents split on lines, because the real words hold commas",
 
 const type = fontFrom(reading({ type: { family: "Georgia, serif", px: 19, weight: 600, spacing: 0.02, leading: 28 } }));
 check("the type is measured and kept relative to the site's", type.family === "serif" && type.size === 1.19 && type.weight === 600, JSON.stringify(type));
+/* A web font the page loads from the network comes on neither door. Its
+   name travels anyway: the Zen Garden is set in Libre Baskerville over a
+   sans fallback, which named as a class is "system sans" and nothing else. */
+const webFont = reading({ type: { family: "\"Libre Baskerville\", sans-serif", face: "Libre Baskerville", drew: false, px: 16, weight: 400, spacing: 0, leading: 24 }, text: [run("Requirements", 29), run("Where possible", 16)] });
+const webType = fontFrom(webFont);
+check("the family the page was really set in travels by name, with the class behind it", webType.face === "Libre Baskerville" && webType.family === "system sans", JSON.stringify(webType));
+const madeWeb = recreateFrom(webFont);
+check("and the part says which face it is set in and that it did not draw here", madeWeb.face?.name === "Libre Baskerville" && madeWeb.face?.drew === false && madeWeb.patch.font?.face === "Libre Baskerville", JSON.stringify(madeWeb.face));
+check("a page set in a generic alone names no face", recreateFrom(reading({ type: { family: "sans-serif", face: null, drew: true, px: 16, weight: 400, spacing: 0, leading: 24 } })).face === null);
 check("a size is never copied as a pixel count", typeof type.size === "number" && type.size < 3);
 
 const paint = colourFrom(reading({ paint: { bg: "rgb(12, 14, 22)", text: "rgb(240, 240, 245)", border: "rgb(220, 40, 90)", radius: 0, shadow: false } }));

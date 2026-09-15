@@ -98,7 +98,8 @@ const CSS = `
   header nav{display:flex;gap:20px;margin-left:auto}
   header nav a{color:#fff;text-decoration:none;font-size:14px}
   header button{font-size:14px;padding:8px 14px;border:0;border-radius:4px;background:#fff;color:#111}
-  .hero{font-family:Georgia,serif;display:flex;align-items:center;gap:40px;padding:64px 32px}
+  @font-face{font-family:"Harbour Serif";src:url(fonts/harbour-serif.woff2) format("woff2")}
+  .hero{font-family:"Harbour Serif",Georgia,serif;display:flex;align-items:center;gap:40px;padding:64px 32px}
   .hero h1{font-size:48px;line-height:1.1;margin:0 0 16px}
   .hero p{font-size:18px;margin:0;color:#444}
   .hero img{width:640px;height:360px;display:block}
@@ -265,6 +266,10 @@ check("what reached the bar is said plainly, and so is what did not",
   && /1 holds a picture that stays a placeholder/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: true }], "x.zip"))
   && !/grounded step can make|put .* in the order/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: true }], "x.zip"))
   && /scripts, which were not run/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: false }], "x.zip", true)));
+check("a face that did not travel with the page is named, once, however many parts are set in it",
+  /2 are set in a face that did not travel with the page \(Libre Baskerville\): the name is on the part/.test(saidOf([{ id: "hero", sure: 0.8, wantsPicture: false, face: { name: "Libre Baskerville", drew: false } }, { id: "prose", sure: 0.5, wantsPicture: false, face: { name: "Libre Baskerville", drew: false } }, { id: "cards", sure: 1, wantsPicture: false, face: { name: "Georgia", drew: true } }], "zen.zip"))
+  && !/did not travel/.test(saidOf([{ id: "cards", sure: 1, wantsPicture: false, face: { name: "Georgia", drew: true } }], "zen.zip")),
+  saidOf([{ id: "hero", sure: 0.8, wantsPicture: false, face: { name: "Libre Baskerville", drew: false } }], "zen.zip"));
 check("the bar the catalogue sets is the one this reads", SURE === SURE_ENOUGH);
 
 /* ------------------------------------------------------------------ */
@@ -378,6 +383,14 @@ const parts = after.nodes.filter((n) => !before.nodes.some((b) => b.id === n.id)
 check("every block is a part on the board", parts.length >= 5, `${parts.length} parts`);
 check("each a real part of the library, not a picture with fields on it", parts.every((n) => !n.custom && !n.code && typeof n.content === "string" && n.content.length > 0), parts.map((n) => n.featureId).join(", "));
 check("named for what it is and whose it was", parts.some((n) => n.label === "Top bar from harbour.zip") && parts.some((n) => n.label === "First screen from harbour.zip"), parts.map((n) => n.label).join(" | "));
+const heroPart = parts.find((n) => n.label === "First screen from harbour.zip");
+/* The page names a face whose file is not in the zip. The name travels
+   with the part, and the part's words ask for it first, so it shows the
+   day the face is on the machine; until then the class behind it does. */
+check("set in the face the page named, by name, with the class behind it", heroPart?.font?.face === "Harbour Serif" && heroPart?.font?.family === "serif", JSON.stringify(heroPart?.font));
+const heroFace = heroPart ? await page.locator(`[data-node-id="${heroPart.id}"] h1, [data-node-id="${heroPart.id}"] h2, [data-node-id="${heroPart.id}"] p`).first().evaluate((el) => getComputedStyle(el).fontFamily).catch(() => "") : "";
+check("and its words on the board ask for that face first, the class behind it", /^['"]Harbour Serif['"], Georgia/.test(heroFace), heroFace);
+check("and the panel says the face did not travel, by name", /set in a face that did not travel with the page \([^)]*Harbour Serif/.test(line), line.slice(line.indexOf("set in a face") - 6, line.indexOf("set in a face") + 120) || line.slice(-200));
 check("with the page's own words in it, a line whole whatever is marked up inside it", parts.some((n) => /Product\nPricing\nDocs/.test(n.content)) && parts.some((n) => /^Everything arrives somewhere\n/.test(n.content)), parts.map((n) => n.content.split("\n")[0]).join(" | "));
 check("and a prompt of its own, ready to steer", parts.every((n) => /Recreated from harbour\.zip/.test(n.prompt)));
 const bb = space.boundary;

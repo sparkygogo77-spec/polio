@@ -27,7 +27,12 @@ The pieces, in the order a page passes through them:
 
 - `https://www.csszengarden.com/` (design 214), as a live address on the
   deployed site and as a zip exported from it (index.html, two
-  stylesheets, eleven pictures and fonts).
+  stylesheets, eleven pictures and fonts). The zip reads as 10 blocks in
+  1.4 s locally and 6.4 s on the deployed site; 7 land as catalogue parts
+  (4 first screens, 2 lists of links, 1 card grid) and 3 as bands of
+  words; 10 of 10 carry the page's text colour, 5 of 10 a background of
+  their own, 10 of 10 the face "Libre Baskerville" by name, 3 hold a
+  picture that stays a placeholder.
 - `https://playwright.dev/`, as a live address on the deployed site. The
   reader lists 60 candidates in 2.3 s and the whole-page take makes nine
   blocks of it: the links bar, the first screen, the three-card band,
@@ -69,10 +74,19 @@ The pieces, in the order a page passes through them:
   dark stops read as painted on nothing and its white words landed on no
   ground. The mean of a gradient's stops is its colour, for the block's
   own paint and for what is behind it: rgb(33, 40, 40), lightness 0.15.
-- **Open.** Web fonts the page loads from the network are not fetched on
-  either door: the zip's page may not ask the network for anything, and
-  the address door reads only the one page. Type lands as the fallback
-  the browser used ("system sans" for Libre Baskerville).
+- **Fixed, as far as it goes.** Web fonts the page loads from the network
+  are not fetched on either door: the zip's page may not ask the network
+  for anything, and the address door reads only the one page. Type landed
+  as the fallback class the browser used ("system sans" for Libre
+  Baskerville) and the real name was lost. The name travels now: the
+  route reads the first family on the stack as the face and measures
+  whether it drew (a line set in the face over a fallback is the width of
+  the fallback alone when the face is not on the machine), the part
+  carries the face and asks for it first with the class behind it, the
+  inspector names it, and the panel's line says which faces did not
+  travel. On the Zen Garden zip every block reads "Libre Baskerville",
+  drew false; 10 of 10 landed parts carry the name. The file itself still
+  does not come, on either door: that is what "did not travel" means.
 - **Open.** Candidate words in the list are `textContent`, so a row of
   inline-block links reads as one word: "PlaywrightDocsMCPCLIAPI". The
   reading itself is right; only the list's caption is squashed.
@@ -128,8 +142,19 @@ The pieces, in the order a page passes through them:
   shape for a band of prose, which is the catalogue's to fix.
 - **Open.** Anything the catalogue does not claim is "a band of words":
   real words and paint, the library's shape. The panel's line counts
-  these plainly. Six of fifteen on the Zen Garden zip after the link
-  list; none of the nine on playwright.dev were checked as parts yet.
+  these plainly. Three of ten on the Zen Garden zip now (six of fifteen
+  before the collapsed sections were read whole); none of the nine on
+  playwright.dev were checked as parts yet.
+- **Open.** The headline is the biggest run, whatever it was tagged, so a
+  section whose closing line is set larger than its heading is headed by
+  the closing line: Requirements lands headed "By Dave Shea. Bandwidth
+  graciously donated by mediatemple" (32px) over "Requirements" (29px).
+- **Open.** A footer of five same-sized links (HTML, CSS, CC, A11y, GH)
+  is claimed by the card grid before the footer, and lands as five cards.
+- **Open.** Three inner sections of the Zen Garden (preamble, explanation,
+  participation) land as first screens: each is tall, in the top half of
+  the page, and headed by a run over 28px, which is the first screen's
+  shape. One page has one first screen; the rest are bands.
 
 ### The landing (into the space)
 
