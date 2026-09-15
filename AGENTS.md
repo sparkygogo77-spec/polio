@@ -746,15 +746,32 @@ a kicker with a rule, and label-and-value rows that copy.
   them — Chromium hands `oklch(...)` straight back from `getComputedStyle`, so
   a regex looking for `rgb(` finds nothing and every pattern comes out white.
   Convert with `parseColor` + `oklchToRgb` (which returns 0..1, not bytes).
-- **The middle column is one scroller**: the board at full size, the shelf
-  under it (`[data-studio-scroll]` in `StudioPage.tsx`). The board pane is the
-  window's height less a strip, so a piece of the shelf always shows and the
-  page is always whole. Nothing scales the board — scrolling carries you past
-  it and back. The canvas's wheel handler pans until the page runs out and
-  then stops calling `preventDefault`, which hands the gesture to the column;
-  that is why `overscroll-contain` is gone from the canvas root. Note that
-  anything calling `scrollIntoView` inside the board now scrolls the column
-  (Playwright does this before a click) — put it back at the top first.
+- **The middle column is one scroller, and the board is as tall as the site.**
+  `[data-studio-pane]` in `StudioPage.tsx` is the only thing that scrolls; in
+  it sit the board and, under the board, the shelf. `Canvas`'s root is
+  **never** `size-full` or `h-full`: its height is `pageH * zoom +
+  FRAME_GUTTER` — the site as drawn plus the ground either side — and it has
+  no `overflow` of its own. That is the rule, and it is the one this layout
+  has broken twice: a root the pane's height with `overflow-hidden` is a
+  scrollbox with the bar turned off, whatever the wheel handler does inside
+  it (measured once at 943px of root holding 1841px of page). The wheel is
+  not handled for vertical movement at all — the pane's own scroll is the
+  mechanism, so one gesture runs from the head of the site, through all of
+  it, and on into the categories. `Canvas` handles only ctrl-zoom and
+  sideways pan.
+  Four numbers hold it, and `tests/full-page.mjs` asserts them: the board's
+  height is the site's rendered height plus the gutter; the pane's
+  `scrollHeight` is that plus the shelf band; no ancestor of `[data-frame]`
+  has `overflow: hidden` with `scrollHeight > clientHeight`; and one wheel
+  sequence from the top reaches `[data-parts-search]`.
+  Two consequences worth knowing. The ground (`Workspace`) is mounted
+  **outside** the pane, in `[data-studio-scroll]` — inside a scroller it is
+  only the pane's own size, anchored at the top, so a long page runs off the
+  end of the sky. And the shelf band carries `mt-auto`, so on a page shorter
+  than the pane it sits on the bottom edge as it always has, and only a page
+  that overruns pushes it under the fold. Note that anything calling
+  `scrollIntoView` inside the board scrolls the pane (Playwright does this
+  before a click) — put it back at the top first.
 - **The shelf is laid out like a page, in page order.** `groupIntoBands` puts
   the parts in the bands they would occupy going down a page, and `spanOf`
   decides how much of the shelf's width each takes: full-width parts get the

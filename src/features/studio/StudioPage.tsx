@@ -292,7 +292,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
 
       {/*
         The search for a tool, in the row of tools.
-        
+
         It was in the window's chrome a floor above, which is where an app
         puts a search for its own pages — and this one searches the things on
         this bar. It sits where the hand already is, between the devices and
@@ -701,7 +701,7 @@ export function StudioPage() {
             board now, so the board keeps the width. */}
         {/*
           One side carries everything.
-          
+
           There were two: Look and Motion on the left, Element / Format /
           Pages on the right — and the right one was hidden below 1280px, so
           at half a monitor the panel you need when you pick something simply
@@ -766,59 +766,77 @@ export function StudioPage() {
         {/*
           One scroller down the middle: the board, then the shelf.
 
-          The board pane is the window's own height less a strip, so a piece of
-          the shelf is always showing and the page is always whole, scrolling
-          down carries you past the page into the parts, and scrolling back up
-          brings the page back at exactly the size it was. Nothing here shrinks
-          the board; that is the whole reason it is a scroll and not a split.
+          Nothing here shrinks the board and nothing here is a window on it.
+          Scrolling down carries you through the whole page and on into the
+          parts; scrolling back up brings the page back at exactly the size
+          it was, because the zoom is a fit of the *width* and the width has
+          not changed.
         */}
         <div
           data-studio-scroll=""
           /*
-           * A pane that scrolls, and a band that does not.
+           * The column: a ground that holds still, and one pane that moves.
            *
-           * Three of J's reports were one thing: the preview filled the board
-           * edge to edge, the categories and the search had gone, and the
-           * site scrolled inside a box in the frame. All three come of
-           * treating the frame as a fixed viewport — a window the site slides
-           * behind — and of the whole column scrolling rather than the pane.
+           * Three arrangements have now been tried for the same complaint,
+           * and two of them were the same mistake wearing different clothes.
+           * First the frame was a fixed viewport with the site sliding
+           * behind its edge. Then the frame was the whole site, but the
+           * board it stood on was `size-full` and the wheel panned it — a
+           * scrollbox with the bar turned off, measured at 943px of root
+           * holding 1841px of page, which is 898px no gesture could reach.
            *
-           * So the site is laid out at its full height (`Canvas`), this pane
-           * scrolls it, and the shelf below is a band the pane never eats:
-           * hovering the site and scrolling moves down the whole length of
-           * it, the surface moving rather than the site sliding behind an
-           * edge, and the categories stay where they were the whole time.
+           * Both were a thing moving *inside* a box. The arrangement now is
+           * that there is no box: the board is as tall as the site (see
+           * `Canvas`), the pane below is what scrolls, and the shelf is in
+           * that same pane under the board, so one gesture runs the length
+           * of the page and on into the categories.
            *
+           * The ground is out here rather than in the pane, so a long page
+           * passes in front of the sky instead of running off the end of it.
            * The panels either side are siblings of this, so they hold still
            * on their own.
            */
-          className="no-bars flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          className="no-bars relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           {/*
-            The timeline is the board's twin: it fills the window less a
-            strip, and what is under it, the iteration you clicked, and the
-            book, is reached by carrying on scrolling, exactly as the parts
-            shelf is under the board.
+            One ground, for the whole app, and it holds still.
+
+            The board mounted its own and the timeline mounted another, so
+            pressing the green button swapped the weather as well as the
+            contents — a different nebula every time, which made a button
+            that means "show me the site" look like a button that means "go
+            somewhere else". It is mounted once, here, behind all three
+            views; each of them is transparent over it.
+
+            It sits *outside* the scrolling pane rather than inside it. A
+            ground inside a scroller is a picture of a ground: it is the
+            pane's own size, anchored at the top of the scroll, so scrolling
+            down a long site runs off the end of the sky. Out here it is the
+            column's size, which does not move, and the whole length of the
+            page passes in front of it.
+          */}
+          <Workspace />
+          {/* The little live window floats over the column, not inside the
+              scroll: a companion that slid away as the page went by would be
+              a poor companion. `offsetParent` is this element. */}
+          <PreviewWindow />
+          {/*
+            The one scroller: the site, then the categories under it.
+
+            The board inside is as tall as the site it is showing, so this
+            pane's travel is the whole page and the band below it — one
+            gesture from the head of the site to the search box, and the
+            panels either side, being siblings of this, never move while it
+            happens. The timeline is the board's twin here: what is under it,
+            the update you clicked and the book, is reached the same way.
           */}
           <div
             data-studio-pane=""
             /* The pane the site stands in, and the only thing that scrolls.
                `no-bars` because a bar down the design background is the
                thing J does not want to see. */
-            className="no-bars relative min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden"
+            className="no-bars relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
           >
-            {/*
-              One ground, for the whole app.
-
-              The board mounted its own and the timeline mounted another, so
-              pressing the green button swapped the weather as well as the
-              contents — a different nebula every time, which made a button
-              that means "show me the site" look like a button that means
-              "go somewhere else". It is mounted once, here, behind all three
-              views; each of them is transparent over it, and switching
-              between them changes only what stands on it.
-            */}
-            <Workspace />
             {design ? (
               <Canvas />
             ) : book ? (
@@ -826,26 +844,38 @@ export function StudioPage() {
             ) : (
               <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
-            <PreviewWindow />
+            {/*
+              The categories, in the same scroller as the site.
+
+              This is the half of J's measurement that the board's height
+              alone does not give: "one continuous wheel gesture runs from
+              the top of the site, through all of it, and on into the
+              categories." A band beside the pane can be reached by a second
+              gesture on a second surface; a band below the board in the same
+              pane is reached by carrying on.
+
+              `mt-auto` so a page shorter than the pane leaves its ground
+              between the board and the categories rather than below them:
+              the shelf stays on the bottom edge where it has always been,
+              and only a page that overruns the pane pushes it under the
+              fold. When it does, the free space is negative and the auto
+              margin is nothing, which is the behaviour wanted.
+
+              `bg-bg` because the ground is behind the whole column now, and
+              the shelf is a `bg-panel/50` — without a backing of the app's
+              own surface it would read as a wash over the nebula instead of
+              the panel it has always been.
+            */}
+            {design ? (
+              <div className="mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: BAND_H }}>
+                <Palette />
+              </div>
+            ) : book ? (
+              <div className="mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: BAND_H }}>
+                <TimelineDetail />
+              </div>
+            ) : null}
           </div>
-          {design ? (
-            /*
-              The shelf is a band, not a floor below the horizon.
-              
-              It used to sit under the board in one long scroll: to reach the
-              parts you scrolled the workspace down past the page, and on a
-              deep site that was a long way past. The frame is one screen now
-              and the board never scrolls, so the shelf can simply be here —
-              always in view, and always in the same place.
-            */
-            <div className="w-full shrink-0 border-t border-border" style={{ height: BAND_H }}>
-              <Palette />
-            </div>
-          ) : book ? (
-            <div className="w-full shrink-0 border-t border-border" style={{ height: BAND_H }}>
-              <TimelineDetail />
-            </div>
-          ) : null}
         </div>
 
       </div>

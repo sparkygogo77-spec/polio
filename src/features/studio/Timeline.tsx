@@ -963,10 +963,55 @@ export function Timeline() {
     window.addEventListener("pointerup", up);
   };
 
-  const onWheel = (e: React.WheelEvent) => {
+  /*
+   * How far the updates go, in the window, right now.
+   *
+   * The plot is a 1×1 anchor with everything absolutely placed in it, so its
+   * own box says nothing. The boxes say it, and reading them off the screen
+   * is the same measurement at any zoom and any pan.
+   */
+  const spread = () => {
+    const h = host.current?.getBoundingClientRect();
+    if (!h) return null;
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (const el of host.current!.querySelectorAll("[data-box]")) {
+      const r = el.getBoundingClientRect();
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+    }
+    return Number.isFinite(top) ? { top, bottom, view: h } : null;
+  };
+
+  const onWheel = (e: WheelEvent) => {
     stopSettle();
     claim();
     if (!e.ctrlKey && !e.metaKey) {
+      /*
+       * The updates pan until they run out, then the pane takes over.
+       *
+       * Both of them wanted the same gesture: the field panned *and* the
+       * pane scrolled, so eight notches ran the updates 1848px off the top
+       * while the detail band came up underneath — two surfaces moving at
+       * once under one hand. The rule is the board's rule: this consumes
+       * the wheel while it still has updates to bring into view, and lets
+       * go when it has not, so carrying on scrolling reaches the prompt
+       * section under the timeline and scrolling back up brings the
+       * updates back before the field moves again.
+       */
+      const s = spread();
+      const pane = host.current?.closest("[data-studio-pane]");
+      const down = e.deltaY > 0;
+      /* No updates at all is nothing to pan for: the gesture is the pane's
+         from the first notch, so the prompt section under an empty timeline
+         is still one scroll away. */
+      const spent = s ? (down ? s.bottom <= s.view.bottom + 1 : s.top >= s.view.top - 1) : true;
+      const paneHasRoom = pane instanceof HTMLElement
+        && (down ? pane.scrollTop < pane.scrollHeight - pane.clientHeight - 1 : pane.scrollTop > 0);
+      /* Coming back up, the pane unwinds first: it is what moved last. */
+      if (!down && paneHasRoom) return;
+      if (spent && paneHasRoom) return;
+      e.preventDefault();
       setPan((p) => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
       return;
     }
@@ -976,15 +1021,36 @@ export function Timeline() {
     setZoom(useStudio.getState().zoom * (e.deltaY < 0 ? 1.08 : 0.93));
   };
 
+  /*
+   * The wheel is bound by hand, because React's is passive.
+   *
+   * React attaches `wheel` to the root as a passive listener, so
+   * `preventDefault` inside an `onWheel` prop is quietly a no-op. That was
+   * harmless while nothing round the timeline could scroll — the pane had
+   * no travel, so the browser's own scroll had nowhere to go and the pan
+   * looked like it had the gesture to itself. With the detail band in the
+   * pane it has somewhere to go, and eight notches moved both surfaces at
+   * once. A listener of our own, not passive, is what actually lets this
+   * decide. (`Canvas` binds its wheel the same way, for the same reason.)
+   */
+  const wheelRef = React.useRef(onWheel);
+  wheelRef.current = onWheel;
+  React.useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const fn = (e: WheelEvent) => wheelRef.current(e);
+    el.addEventListener("wheel", fn, { passive: false });
+    return () => el.removeEventListener("wheel", fn);
+  }, []);
+
   const nothing = !threads.length;
 
   return (
     <div
       ref={host}
       data-timeline=""
-      className="relative h-full w-full overflow-hidden"
+      className="relative h-full w-full shrink-0 overflow-hidden"
       onPointerDown={startPan}
-      onWheel={onWheel}
       onContextMenu={(e) => e.preventDefault()}
     >
       <div
