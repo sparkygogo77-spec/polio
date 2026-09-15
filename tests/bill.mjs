@@ -32,6 +32,15 @@ const check = (name, ok, detail = "") => {
 
 check("the renderer's prices are the ones already in use",
   RENDER_PRICE.vector === 0.08 && RENDER_PRICE.raster === 0.04 && RENDER_PRICE.vectorize === 0.08);
+/* The rate card of the model the routes actually call. A table that says
+   the Opus tier while every route calls claude-opus-5 at a third of the
+   price put every "$0.12 · 8.4s" line on a card at three times the bill. */
+const RATE_CARD = { "claude-opus-5": { input: 5, output: 25 } };
+const models = new Set(["body", "generate", "reshape"].map((r) => /model: "(claude-[a-z0-9-]+)"/.exec(readFileSync(`src/app/api/studio/${r}/route.ts`, "utf8"))?.[1] ?? "none"));
+check("every Claude route calls one model", models.size === 1 && !models.has("none"), [...models].join(", "));
+const card = RATE_CARD[[...models][0]];
+check("and the price table is that model's rate card", !!card && TOKEN_PRICE.input === card.input && TOKEN_PRICE.output === card.output,
+  `table $${TOKEN_PRICE.input} / $${TOKEN_PRICE.output} per million, ${[...models][0]} lists $${card?.input ?? "?"} / $${card?.output ?? "?"}`);
 check("a cache read is a tenth of an input token", TOKEN_PRICE.cached === TOKEN_PRICE.input / 10);
 check("a cache write is a quarter more than one", TOKEN_PRICE.written === TOKEN_PRICE.input * 1.25);
 check("output costs more than input", TOKEN_PRICE.output > TOKEN_PRICE.input);

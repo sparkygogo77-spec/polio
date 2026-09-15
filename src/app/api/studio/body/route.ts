@@ -35,6 +35,8 @@ export const maxDuration = 180;
 interface Body {
   /** What the part should be, in the author's words. */
   prompt?: string;
+  /** The backend's effort setting: low, medium or high. Anything else falls back to medium. */
+  effort?: string;
   /** The label on the part. */
   label?: string;
   /** The outline the body has to fill, as a path in a 0..1 box. */
@@ -164,6 +166,11 @@ export async function POST(request: Request) {
   }
   content.push({ type: "text", text: lines.join("\n") });
 
+  // The effort the backend surface is set to rides with the call; only the
+  // three the API takes are accepted, and this route's old constant is the
+  // fallback for anything else.
+  const EFFORTS = ["low", "medium", "high"] as const;
+  const effort: (typeof EFFORTS)[number] = EFFORTS.includes(body.effort as never) ? (body.effort as (typeof EFFORTS)[number]) : "medium";
   const client = new Anthropic({ apiKey });
   try {
     const stream = client.beta.messages.stream({
@@ -172,7 +179,7 @@ export async function POST(request: Request) {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       thinking: { type: "adaptive" },
-      output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
+      output_config: { effort, format: { type: "json_schema", schema: SCHEMA } },
       system: SYSTEM,
       messages: [{ role: "user", content }],
     });

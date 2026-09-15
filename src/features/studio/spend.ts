@@ -23,17 +23,21 @@ import { RENDER_COST, type RenderKind } from "./renderer.ts";
 export const RENDER_PRICE = RENDER_COST;
 
 /**
- * Anthropic's list price for the Opus tier, in dollars per million tokens.
+ * Anthropic's list price for `claude-opus-5`, the model every route calls,
+ * in dollars per million tokens.
  *
- * Change these here when the rate card changes. Nothing else prices a token.
+ * Change these here when the rate card or the model changes. Nothing else
+ * prices a token, and `tests/bill.mjs` holds this table to the model the
+ * routes name: it sat at the old Opus tier's 15 / 75 while the routes called
+ * a model listed at 5 / 25, so every cost line was three times the bill.
  */
 export const TOKEN_PRICE = {
-  input: 15,
-  output: 75,
+  input: 5,
+  output: 25,
   /** A cache read is a tenth of an input token. */
-  cached: 1.5,
+  cached: 0.5,
   /** A cache write is a quarter more than an input token. */
-  written: 18.75,
+  written: 6.25,
 } as const;
 
 /** What one Claude call reports back about itself. */
