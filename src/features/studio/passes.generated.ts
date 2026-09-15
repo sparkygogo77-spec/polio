@@ -2,9 +2,89 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:19:43.970Z";
+export const GENERATED_AT = "2026-09-15T08:23:18.172Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "755dda6",
+    "when": "2026-09-15T08:23:17+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e8f1d71",
+        "says": "The backend's effort rides with every ask, not one of three",
+        "when": "2026-09-15T08:14:40+00:00",
+        "detail": [
+          "B6 on the inventory. The backend surface's effort setting reached the route that asks about the whole site. The two routes behind a drawing, the reader that says what a drawing is and the writer that gives a part a body, each kept `effort: \"medium\"` as a constant and never read what was asked. One setting was three, two of them invisible.",
+          "The held value lives in `effort.ts` and every call reads it: the backend surface holds it under that key, the body and reshape calls send it, and both routes accept it through the same three-word allow-list the first route has, falling back to their old constant for anything else.",
+          "tests/effort-rides.mjs: 15 of 15, 2 red against the build before this. It pins the three routes and the two callers in the source, then sets the backend to low, draws a circle with the tracer refused so the writer is asked too, and reads both requests as they left: effort \"low\" on each."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "026bbc7",
+        "says": "A traced drawing comes back as a drawing, not a picture of one",
+        "when": "2026-09-15T08:14:40+00:00",
+        "detail": [
+          "B4 on the inventory. The renderer route took the SVG road for the `vector` kind only. The tracer, `vectorize`, which is the kind the whole drawing pipeline is built on, fell to the raster road: its SVG was base64-wrapped as `<img src=\"data:image/png;base64,…\">` (labelled PNG by the byte sniff, since the transport rarely says). The judge compares pixels, so the overlap could still pass, and everything after it quietly had nothing to work with: the vector reader found 0 paths so no icon, surface or motion role was ever offered, the palette could not repaint an image, the tracer's white plate was never taken away, and cover cropped what should have stretched. Every suite stubbed the route with markup.",
+          "The answer step is lifted into `renderAnswer.ts`, pure, with the ground rule and the byte sniff beside it, and the tracer takes the SVG road. The route calls it and answers as before.",
+          "tests/render-answer.mjs: 13 of 13, 6 red against the lifted step before the one-line change: a traced SVG under three content types comes back as markup with its path and without its plate, the two other roads unchanged, the ground rule on its own. Green alongside: renderer 70/70, shapes 21/21, bird 33/33, drawn-part 22/22, imaging 187/187."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "d70cf59",
+        "says": "Every cost line is the bill, not three times it",
+        "when": "2026-09-15T08:14:40+00:00",
+        "detail": [
+          "B1 on the inventory. `TOKEN_PRICE` said 15 / 75 per million, the old Opus tier, while every route that asks Claude names `claude-opus-5`, listed at 5 / 25 (cache reads a tenth of input, writes a quarter more). So every \"$0.12 · 8.4s\" on a card, every total on a thread and every figure the book adds up was three times what was spent. docs/PRODUCTION-LOOP.md had priced its example at 25 per million all along; the code disagreed.",
+          "The four numbers are the rate card now, and tests/bill.mjs holds them to it: it reads the model each Claude route names, requires them to agree on one, and checks the table against that model's card. 55 of 55, 1 red against the tree before this."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f32fbbb",
+    "when": "2026-09-15T08:22:21+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f32fbbb",
+        "says": "Regenerate the passes for a live read that holds a page written this year",
+        "when": "2026-09-15T08:22:21+00:00",
+        "detail": [
+          "Shannon's two: the live read holds a page written this year — any colour, any status, the whole picture — and the morning run of it pictured at 67 of 67.",
+          "Two conflicts, both from her and dijkstra working the same file within the hour, both resolved by keeping what each was actually adding:",
+          "siteRead.ts — they both declared `border` on the same line of the same function. Hers normalises the colour, his does not, and his commit adds the font face block that the same return statement reads. So: her border line, his face block, one declaration of each. The return below names `border`, `face` and `drew`, and all three now exist once.",
+          "docs/RECREATE-FINDINGS.md — bullets appended to the same list by both. Both kept, in list order."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "981e19b",
     "when": "2026-09-15T08:19:43+00:00",
@@ -1051,106 +1131,6 @@ export const PASSES: Pass[] = [
           "Hypatia's pass: moving a part says where the part is, and nothing else. The page's height shrink-wraps its content with no slack, the board is as tall as the page and the shelf sits under it in the same scroller — so every pixel a part was dragged downward grew the page, resized the preview and pushed the categories down while the button was still held. Measured in her own commit: page 1960 → 2197, shelf top 1456 → 1606, for one part dragged 240px. The height is held in a ref for the length of a node or resize drag and settles when the hand comes off; a pan is not held, because it changes nothing about the document.",
           "She has written the note into AGENTS.md as well, including the part worth having there most: her suite's own fixture will lie if the page is short, because a page with `mt-auto` slack pins the shelf to the bottom edge where it cannot move, and the fault reads as fixed while it is broken. A fixture that reports a pass for the wrong reason is worse than no fixture, and it is now written down where the next session will find it.",
           "Run on this build: hand-steady 11/11, full-page 42/42, board-edges 11/11, picked 16/16."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "17afa2e",
-    "when": "2026-09-15T04:30:30+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "9df1570",
-        "says": "Moving a part says where the part is, and nothing else",
-        "when": "2026-09-15T04:28:29+00:00",
-        "detail": [
-          "J's report, and his clue is what narrowed it: dragging the preview around forces the categories to move, dragging must never resize the preview box, and it does not happen on the timeline.",
-          "One cause, both symptoms. The page's height is the lowest thing on it plus 160 — it shrink-wraps the content with no slack, so every pixel of downward drag is a pixel of page. The board is as tall as the page and the shelf sits under the board in the same scroller, so the page grew, the board grew and the categories were pushed down, live, under the hand. The timeline is in that same pane and never did it because it is `h-full`: it cannot grow, so the band below it cannot be pushed.",
-          "Measured at a 1267x1354 window, one part dragged 240px down, everything read while the button was still held:",
-          "the page       1960 → 2197 the preview    1240 → 1390 on screen the board      1368 → 1518 the shelf      top 1456 → 1606 the pane       349 → 499 of travel"
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4016b9d",
-    "when": "2026-09-15T04:30:14+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "4016b9d",
-        "says": "Regenerate the passes for a line being one run",
-        "when": "2026-09-15T04:30:14+00:00",
-        "detail": [
-          "Dijkstra's pass: a line of the page is one run, whatever is marked up inside it.",
-          "Run on this build: zip-import 62/62, site-read 44/44. Not run: the rest, none of which touches how a page's text is read."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "651d0a9",
-        "says": "A line of the page is one run, whatever is marked up inside it",
-        "when": "2026-09-15T04:28:10+00:00",
-        "detail": [
-          "A heading with an abbreviation in it was three text nodes and came out as three lines, \"The Beauty of\" / \"CSS\" / \"Design\", and a real page is full of them. Runs are joined while they share the block they sit in, with the whitespace between the nodes kept, so a line reads whole; an inline-block item, a link in a row of icons, is its own block and stays its own run."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "d98c5f9",
-        "says": "Regenerate the passes for a page arriving as its sections",
-        "when": "2026-09-15T04:24:48+00:00",
-        "detail": [
-          "Dijkstra's pass: a real page arrives as its sections, rather than as one column or as every paragraph.",
-          "Run on this build: zip-import 62/62, site-read 44/44. Not run: the rest, none of which touches the importer's sectioning."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "2285bee",
-        "says": "A real page arrives as its sections, not as one column or every paragraph",
-        "when": "2026-09-15T04:22:45+00:00",
-        "detail": [
-          "Importing CSS Zen Garden, a real export, found what the fixture did not. The same box came under three names and landed three parts on top of one another: one box is one block now. The main column came as one band of every word on the page: a block whose contents are named bands stacked down it, two or more sections tall, is opened into them, and a section of paragraphs is not. Sections whose boxes collapse under their floated children list their paragraphs as top-level boxes: runs of small boxes down one column are one band, measured member by member and merged into one part, and a heading spilling out of its section's box belongs to the section. Sixteen blocks may make a page."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "9ea26cc",
-        "says": "Regenerate the passes for the frames coming back",
-        "when": "2026-09-15T04:15:29+00:00",
-        "detail": [
-          "Euler's pass: thirty boards — the vine sheet was the wrong suspect, and three ways at it lost.",
-          "This is the one J will feel, and it is a full recovery rather than a dent in it. Measured here on the merged tree, three runs, against the numbers I have been carrying since the regression appeared:",
-          "two days ago    after the third layer went    now frames per 900ms         ~53                 28-29               53-54 beat                  16.7ms uniform       33.3ms uniform      16.7ms uniform dropped while idle      0-2%                  7-11%               0%",
-          "Sixty a second, and nothing late at all. The intermediate state — a steady thirty, which was already much better than the juddering 43-47% drop it replaced — is gone too."
         ],
         "areas": [
           "studio"
