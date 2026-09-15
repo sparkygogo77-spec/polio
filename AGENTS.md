@@ -91,7 +91,7 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     226 parts in 12 categories, plain names, one f(...) line each;
+  catalog.ts     229 parts in 12 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
   blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
@@ -194,7 +194,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   section, so a final prompt that builds the server is written against a list
   the board produced rather than from memory. None of it is domain-specific:
   it is free text plus wires.
-- **All 226 ids are real components.** There is no legacy path: `blocks.tsx`
+- **All 229 ids are real components.** There is no legacy path: `blocks.tsx`
   falls back to a labelled box (`data-part-fallback`) only if an id loses its
   `DEFS` line, and `all.mjs` fails if that ever happens. Every part's root
   carries `data-part={id}`, tier-B roots also carry `data-behaviour`, and the
@@ -1777,7 +1777,7 @@ a kicker with a rule, and label-and-value rows that copy.
   from `docs/MOTION.md` on the identical timing, and `spec.ts` puts it in the
   blueprint, so the Builder's own pass is the floor and a generator's is the
   ceiling.
-- The parts drawer drills down rather than listing 226 tiles: categories carry
+- The parts drawer drills down rather than listing 229 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
   one).
@@ -2024,10 +2024,13 @@ live site to go with them, queues them, and sends them.
 - **Routes.** `/api/tweets/send` posts one post (multipart: `payload` JSON plus
   `media_k` files) through OAuth 1.0a with `X_API_KEY`, `X_API_SECRET`,
   `X_ACCESS_TOKEN`, `X_ACCESS_SECRET`; `/api/tweets/status` says whether they
-  are there (never what they are); `/api/tweets/preview-video` renders the
-  tour with a *full* Playwright (`PLAYWRIGHT_MODULE` to name one) and returns
-  a GIF, or the WebM with an `x-tour-note` when it could not — it shares the
-  studio's lookup, and refuses with `no-video` on the serverless browser.
+  are there (never what they are); the tour is rendered by the studio's own
+  `/api/studio/preview-video`, which takes the document with the request so
+  the recording is of the site as built, runs a *full* Playwright
+  (`PLAYWRIGHT_MODULE` to name one) and returns a GIF, or the WebM with an
+  `x-tour-note` when it could not, and refuses with `no-video` on the
+  serverless browser. (A copy of that route under `/api/tweets` never read
+  the document and recorded an empty site; it is gone.)
   Without keys every route answers `ok: false` with a reason and the console
   falls back — Send opens X with the words. Keys are never load-bearing.
 - **The queue is honest.** It runs only while the app is open (a tick every

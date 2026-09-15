@@ -150,6 +150,24 @@ export function IterationBook() {
   return <Book layout="page" />;
 }
 
+/** What a card asks the book to do: the mode it was made in, the words, and whether to run. */
+export interface AskDetail { mode?: string; prompt?: string; run?: boolean }
+
+/** An ask that was made while the book under the timeline was not on screen. */
+let parked: AskDetail | null = null;
+
+/**
+ * Hand the book an ask from anywhere. Opens the book's tab, then either the
+ * mounted book hears the event, or, when the tab was elsewhere and the book
+ * is a render away, it finds the ask parked here as it mounts. One door for
+ * the card's Re-iterate, so the press works from wherever it was pressed.
+ */
+export function askTheBook(detail: AskDetail): void {
+  parked = detail;
+  window.dispatchEvent(new CustomEvent("studio:book"));
+  window.dispatchEvent(new CustomEvent("studio:ask", { detail }));
+}
+
 function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const spec = useCompiledBrief();
   const master = useStudio((s) => s.brief.master);
@@ -233,19 +251,28 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const [runWanted, setRunWanted] = React.useState(0);
   const fire = React.useRef(0);
   React.useEffect(() => {
-    const on = (e: Event) => {
-      const d = (e as CustomEvent<{ mode?: string; prompt?: string; run?: boolean }>).detail ?? {};
+    const take = (d: AskDetail) => {
+      parked = null;
       if (d.mode && MODES.some((m) => m.value === d.mode)) setMode(d.mode as AskMode);
       if (typeof d.prompt === "string") setPrompt(d.prompt);
       setView("brief");
       if (d.run) setRunWanted((n) => n + 1);
     };
+    const on = (e: Event) => take((e as CustomEvent<AskDetail>).detail ?? {});
     /*
      * Only the book that lives under the timeline answers. The dialog and
      * the panel are the same component and would otherwise each run the
      * same call — one press, three bills.
      */
     if (layout !== "page") return;
+    /*
+     * An ask that arrived before this book was on screen. The card's
+     * Re-iterate fires `studio:book` and then the ask in the same handler;
+     * the tab switch is a render away, so from any tab but the book the
+     * event had nobody to hear it and the press did nothing. `askTheBook`
+     * parks the ask first; the book takes it the moment it mounts.
+     */
+    if (parked) take(parked);
     window.addEventListener("studio:ask", on);
     return () => window.removeEventListener("studio:ask", on);
   }, [layout]);
