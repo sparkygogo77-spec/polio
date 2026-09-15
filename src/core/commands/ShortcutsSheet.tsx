@@ -9,7 +9,10 @@ export function ShortcutsSheet() {
   const open = useUi((s) => s.panels.shortcuts);
   const closePanel = useUi((s) => s.closePanel);
   const groups = new Map<string, typeof registry.shortcuts>();
+  // The same gate the key handler asks (`useShortcuts`): a shortcut that
+  // would not fire here is not a shortcut here, so it is not listed here.
   for (const s of registry.shortcuts) {
+    if (s.when && !s.when()) continue;
     const g = s.group ?? s.module.name;
     groups.set(g, [...(groups.get(g) ?? []), s]);
   }

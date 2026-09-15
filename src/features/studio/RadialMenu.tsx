@@ -41,7 +41,7 @@
  * menu itself), which is the draft option to compare against.
  */
 import * as React from "react";
-import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Monitor, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
+import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -379,7 +379,8 @@ function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice
  * on the outer, and Strip where Delete is — the one red thing, and it takes
  * the background bare the way ⌘X does, holding it so ⌘V puts it back.
  */
-const SLOTS_BG: Record<SlotId, Slot> = {
+/* No Edit here: the page's wheel stopped drawing one, so it keeps none. */
+const SLOTS_BG: Record<Exclude<SlotId, "edit">, Slot> = {
   anim: { id: "anim", label: "Motion", icon: Play, hue: 205, kind: "group" },
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
   /*
@@ -403,7 +404,6 @@ const SLOTS_BG: Record<SlotId, Slot> = {
    * has stopped being the whole of it.
    */
   duplicate: { id: "duplicate", label: "Import", icon: ImagePlus, hue: 205, kind: "action" },
-  edit: { id: "edit", label: "Edit", icon: ListTree, hue: 205, kind: "group" },
   look: { id: "look", label: "Looks", icon: PaletteIcon, hue: 205, kind: "group" },
   delete: { id: "delete", label: "Strip", icon: Eraser, hue: 18, kind: "action" },
 };
@@ -454,21 +454,6 @@ function bgChoicesFor(group: SlotId, at: { x: number; y: number } | null): Choic
         { id: "page-words", label: "Words", icon: Wand2 },
         { id: "page-name", label: "Name", icon: Tag },
         { id: "page-path", label: "Address", icon: Link2 },
-      ];
-    /*
-     * There is no Edit on the page's wheel any more.
-     *
-     * It held the frame's width and a placeholder, and the width is the
-     * third copy of one control: the bar's own Desktop / Tablet / Phone keys
-     * set it, and so does Frame width on the canvas menu. Three ways to say
-     * one thing is not a slab's worth of wheel, and a slab that is mostly a
-     * "soon" is not either.
-     */
-    case "edit":
-      // How the page is built: its width, and (a placeholder) a background of its own per page.
-      return [
-        { id: "width", label: "Width", icon: Monitor },
-        { id: "pages-soon", label: "Per page (soon)", icon: Files, act: () => play("tap") },
       ];
     default:
       return [];
@@ -920,7 +905,7 @@ export function RadialMenu() {
       ? [{ slot: slots.duplicate, d: piece(botA, botB, B.hole, B.mid, shape, B), at: middleOf(botA, botB, B.hole, B.mid, shape, B) }]
       : [
         { slot: slots.duplicate, d: piece(botA, botMid, B.hole, B.mid, shape, B), at: middleOf(botA, botMid, B.hole, B.mid, shape, B) },
-        { slot: slots.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
+        { slot: SLOTS.edit, d: piece(botMid, botB, B.hole, B.mid, shape, B), at: middleOf(botMid, botB, B.hole, B.mid, shape, B) },
       ]),
     // Looks wears the whole of what it opens: the colour or texture on its
     // face, and the aura round it, which is the one part of a look that is not
@@ -977,7 +962,7 @@ export function RadialMenu() {
     bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!, { solid: solidFromWheel });
 
   /* ---------------------------------------------------------- level 2 */
-  const group = picked && !onBoard ? slots[picked] : null;
+  const group = picked && !onBoard ? (slots as Partial<Record<SlotId, Slot>>)[picked] ?? null : null;
   const choices = picked ? choicesOf(picked) : [];
   // Green fills the quadrant that was empty, cut the same way the blue ones
   // are. More than four choices will not fit there without becoming slivers,
@@ -1026,7 +1011,7 @@ export function RadialMenu() {
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "bg-light", "bg-glide", "width"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "bg-light", "bg-glide"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,

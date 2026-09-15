@@ -1,4 +1,4 @@
-import { isMac } from "./env";
+import { isMac } from "./env.ts";
 
 /**
  * Shortcut grammar:

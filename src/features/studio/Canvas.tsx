@@ -1733,7 +1733,6 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
     <div
       ref={body}
       data-node-id={node.id}
-      {...ctxProps("studio-node", node.id, node)}
       onPointerDown={(e) => {
         // The wheel opens on the press, not on the release — so the same hold
         // that opened it can carry straight on into pulling the line out. On

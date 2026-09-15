@@ -13,7 +13,7 @@ import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 
 export function LiveStage({
-  device,
+  device: startDevice,
   pageId,
   onNavigatePage,
   onScale,
@@ -33,6 +33,21 @@ export function LiveStage({
 
   const ref = React.useRef<HTMLDivElement>(null);
   const [avail, setAvail] = React.useState({ w: 1440, h: 900 });
+
+  /*
+   * The device is the stage's own once it is up. The right-click menu's
+   * Device entries call one window hook, and only the /builder/preview page
+   * installed it, so on the board's own Preview they called nothing. The
+   * stage installs it now, wherever it is mounted; the page's own copy is
+   * the same hook and is never mounted at the same time.
+   */
+  const [device, setDevice] = React.useState<Device>(startDevice);
+  React.useEffect(() => setDevice(startDevice), [startDevice]);
+  React.useEffect(() => {
+    const w = window as unknown as { __studioLiveDevice?: (d: string) => void };
+    w.__studioLiveDevice = (d) => { if (d === "desktop" || d in DEVICE_WIDTH) setDevice(d as Device); };
+    return () => { delete w.__studioLiveDevice; };
+  }, []);
 
   React.useEffect(() => {
     const el = ref.current;
