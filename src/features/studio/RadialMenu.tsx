@@ -42,9 +42,9 @@
  */
 import * as React from "react";
 /* Alphabetical by imported name, so a merge from any branch resolves the
-   same way: this line conflicted three times in one night otherwise. The
-   short list is the right one — bardeen took the Edit slot out again and a
-   merge kept bringing it back — with whatever the cube work still needs. */
+   same way: this line conflicted three times in one night otherwise.
+   Sorted is not the same as union — an icon dropped on purpose stays
+   dropped, and the wheel's Edit slot is why. */
 import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
