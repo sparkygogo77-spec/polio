@@ -216,8 +216,18 @@ await page.waitForTimeout(250);
 const [ex, ey] = await toScreen("sp_big", BIG.x, BIG.y + BIG.h / 2, bigBox);
 await page.mouse.click(ex, ey);
 await page.waitForTimeout(400);
-check("a press of the eraser on a space's line deletes the space", (await page.locator('[data-space="sp_big"]').count()) === 0 && (await state()).spaces.length === 1, `${(await state()).spaces.length} left`);
+check("a press of the eraser on a space's line deletes the space, from the board and the store", (await page.locator('[data-space="sp_big"]').count()) === 0 && (await state()).spaces.length === 1, `${(await state()).spaces.length} left`);
 check("and the one left is open, since it is the only one", (await page.locator('[data-space="sp_small"] [data-space-horizon]').count()) === 1);
+/* And a press in the middle of an empty open hole, where its key sits: the
+   eraser goes through the key to the box. Then undo, because it was a step. */
+const smallBox2 = { x: SMALL.cx - SMALL.r * 1.06, y: SMALL.cy - SMALL.r * 1.06, w: SMALL.r * 2.12, h: SMALL.r * 2.12 };
+const [mx2, my2] = await toScreen("sp_small", SMALL.cx, SMALL.cy, smallBox2);
+await page.mouse.click(mx2, my2);
+await page.waitForTimeout(400);
+check("a press in the middle of an empty hole, on its own key, deletes it too", (await page.locator("[data-space]").count()) === 0 && (await state()).spaces.length === 0, `${(await state()).spaces.length} left, ${await page.locator("[data-space]").count()} on the board`);
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(400);
+check("and undo brings it back, because erasing it was a step", (await page.locator('[data-space="sp_small"]').count()) === 1 && (await state()).spaces.length === 1);
 
 /* ------------------------------------------------------------------ */
 /* 5. Drawing a new one opens it and closes the last                    */

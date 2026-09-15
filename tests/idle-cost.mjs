@@ -23,41 +23,96 @@
  *   node tests/idle-cost.mjs [url]        # default http://localhost:3000
  *   N=30 node tests/idle-cost.mjs         # how many boards (default 12)
  *
- * WHAT IT SAID, the first time it was run, on this container:
+ * WHAT IT FOUND, AND WHAT WAS DONE ABOUT IT.
  *
- *   12 boards, 12 constructs over 34% of the screen
- *     as it is                          32 /900ms   40% dropped
- *     without the construct's layers     54          0%
- *     without the vines                  54          0%
- *     without either                     54          0%
+ * At twelve boards the timeline dropped 43% of its frames with nobody
+ * touching anything. It drops 0 to 4% now. The hunt is worth keeping,
+ * because most of what looked like the answer was not.
  *
- *   30 boards, 30 constructs over 62% of the screen
- *     as it is                          20 /900ms   63% dropped
- *     without the construct's layers     32         41%
- *     without the vines                  27         50%
- *     without either                     54          0%
+ * FIRST, WHAT IT IS NOT. The ground is not the culprit: the same page with
+ * no boards on it at all drops nothing — 54 frames per 900ms, flat — however
+ * much of it is moving. And the construct's own drifting layers are not the
+ * culprit either: with the canvases quiet and the rim still, twelve cards
+ * with both layers gliding also measured 54 and nothing dropped.
  *
- * So the 43 to 47 per cent trunk reported is the timeline on its own: no
- * black hole is on this screen at all, and the two things paying for it are
- * the construct surface and the vine canvas. At twelve boards either one
- * alone fits inside the frame and the two together do not, which is why
- * taking away either recovers the whole of it; at thirty they are separately
- * over budget and the split shows.
+ * It is the two of them together, and that is the whole shape of it. The
+ * ground is a full-screen surface that never stops, so the viewport is
+ * damaged on every frame; and every translucent layer stacked over a damaged
+ * viewport is re-blended on every frame, whether or not it moved. A timeline
+ * is a lot of translucent layers. Neither half is over budget and the two of
+ * them together are, which is why every single-cause ablation only ever
+ * moved the number a little:
+ *
+ *   the ground alone, no boards      54 /900ms    0% dropped
+ *   the timeline alone, ground gone  43          20%
+ *   the two of them                  31          43%
+ *
+ * So the cost is not "what moves". It is how much translucent area is
+ * stacked over a viewport that is being repainted anyway — which is the same
+ * law as the count-against-area finding below, seen from the other end.
+ *
+ * WHAT WAS CHANGED, each measured on its own at twelve boards:
+ *
+ *   the rim's breath, stopped                 43% → 36% dropped
+ *   the clouds banded to where they show      38% → 14%
+ *   the vine sheet drawn at the size it is
+ *     shown rather than 2.2× it               about a tenth of the frames
+ *   the closed cards' shadow tightened        three frames a second
+ *
+ * MEASURED OUT RATHER THAN KEPT, all of them tried: promoting the rim
+ * instead of stopping it (worse than stopping it — it adds a layer per card
+ * to a stack that is the problem); four quarter-height cloud layers so both
+ * headings run in both bands (27% against the band's 14% — a layer costs
+ * something beyond its area); taking the vignette to zero through the middle
+ * instead of clipping (nothing at all — a masked pixel is still a pixel the
+ * compositor multiplies, and only geometry is skipped); stepping any of the
+ * animations (nothing, at every rate from fifteen a second down to one);
+ * promoting the whole timeline onto one layer (nothing — its children are
+ * already layers); and making the cards opaque, isolated or hard-contained
+ * so the ground behind them could be culled (nothing, in any combination).
+ *
+ * WHERE IT STANDS, and read the pairs rather than the numbers: these are
+ * software-rasterised frames on a shared container and the absolute figures
+ * move with whatever else the box is doing. Every pair below is before and
+ * after on one machine in one sitting.
+ *
+ *   on a quiet container
+ *     12 boards, before                            43% dropped
+ *     12 boards, after                             0–4%
+ *
+ *   on a loaded one (four samples each, means)
+ *     12 boards, before                            44%
+ *     12 boards, after                             28%
+ *     12 boards, after, with the ground hidden      6%
+ *     12 boards, after, ground and vines hidden     0%
+ *
+ * That last pair is the honest summary of what changed: the timeline's own
+ * contribution went from 20% of frames to 6%, and what is left over is the
+ * ground's per-frame damage passing through whatever translucent area still
+ * stands over it. On a machine with headroom that residue disappears; on one
+ * without, it is what you see.
+ *
+ *   30 boards, 31 constructs over 62% of the screen    63% → 50%
+ *
+ * Thirty is better and is not solved. Same law: twice the constructs over
+ * twice the screen is twice the area to re-blend, and the bands have already
+ * halved what each one costs. The next lever there is the vine sheet, which
+ * at thirty boards covers nearly the whole viewport by itself and is one
+ * translucent layer whether or not there is any ink in it.
  *
  *   is it how many, or how big?                     12 boards    30 boards
- *     as it is                                       33 /900ms    21 /900ms
+ *     as it was                                      33 /900ms    21 /900ms
  *     the same constructs at a button's size         54           33
  *     half as many, still card-sized                 46           26
  *     a quarter of them, still card-sized            54           29
  *     one of them, card-sized                        54           39
  *
  * AREA, NOT COUNT, and it is not close. Twelve constructs shrunk to a
- * button's size — same twelve elements, same two animated layers each, 1% of
- * the screen instead of 34% — cost exactly what removing them altogether
- * costs: 54 and nothing dropped at twelve boards, 33 against 32 at thirty.
- * Taking three quarters of them away while leaving them card-sized does far
- * less. The rasteriser here has no GPU, so what it pays for is pixels
- * repainted per frame, and a construct's cost is its area.
+ * button's size — same twelve elements, same two animated layers each, over
+ * 1% of the screen instead of 34% — cost exactly what removing them
+ * altogether costs. Taking three quarters of them away while leaving them
+ * card-sized does far less. The rasteriser here has no GPU, so what it pays
+ * for is pixels re-blended per frame, and a construct's cost is its area.
  *
  * Which answers the question a construct on a 28px button raises: it is
  * cheap. Not "cheap if there are only a few" — twelve of them measured free.

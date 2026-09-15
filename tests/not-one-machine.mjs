@@ -171,6 +171,92 @@ if (live) {
   check("the measure can see one machine when there is one: forced to a single share, it comes back",
     one.mean > now.mean + 0.25 && one.worst > 0.8,
     `forced: mean ${one.mean.toFixed(3)}, closest pair ${one.worst.toFixed(3)} — against ${now.mean.toFixed(3)} and ${now.worst.toFixed(3)}`);
+  /* ---------------------------------------------------------------- */
+  /* 3. …and nothing on a card moves like the rest of the card         */
+  /* ---------------------------------------------------------------- */
+
+  /*
+   * The other half of the same rule, and the one the banding put at risk.
+   *
+   * The cloud runs in a band at the top of a card and the counter-slide in a
+   * band at the bottom, so that the middle — which is under the site preview
+   * or under the element — costs nothing. Two layers went from overlapping
+   * everywhere to sitting one above the other, and the thing to check is
+   * that the card still has two headings on it rather than one.
+   *
+   * Measured on a bare construct rather than on a card, because a card is
+   * mostly static content and a line of text pins a correlation at zero
+   * however the cloud behind it moves. One-dimensional: shift the later shot
+   * against the earlier one along a strip and take the offset that matches
+   * best. It is far steadier on a picture this subtle than chasing patch
+   * flow, and it answers what is asked — which way is this part going.
+   */
+  await p.evaluate(() => {
+    const d = document.createElement("div");
+    d.className = "molten molten-verdant";
+    d.id = "bare";
+    d.style.cssText = "position:fixed;left:30px;top:30px;z-index:99999;width:620px;height:208px;border-radius:14px;overflow:hidden;--molten-seed:0;--mo-band:26%";
+    const s = document.createElement("span");
+    s.setAttribute("data-molten", "");
+    d.appendChild(s);
+    document.body.appendChild(d);
+  });
+  await p.waitForTimeout(900);
+
+  const SHIFT = async ([b64, b64b, y0, y1]) => {
+    const load = async (t) => { const i = new Image(); i.src = "data:image/png;base64," + t; await i.decode(); return i; };
+    const [i1, i2] = [await load(b64), await load(b64b)];
+    const W = i1.width, H = i1.height;
+    const strip = (img) => {
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const x = c.getContext("2d"); x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, W, H).data;
+      const lo = Math.round(H * y0), hi = Math.round(H * y1);
+      const line = new Float64Array(W);
+      for (let xx = 0; xx < W; xx++) {
+        let t = 0;
+        for (let yy = lo; yy < hi; yy++) { const i = (yy * W + xx) * 4; t += d[i] * 0.3 + d[i + 1] * 0.6 + d[i + 2] * 0.1; }
+        line[xx] = t / Math.max(1, hi - lo);
+      }
+      const m = line.reduce((t, v) => t + v, 0) / W;
+      for (let xx = 0; xx < W; xx++) line[xx] -= m;
+      return line;
+    };
+    const [A, B] = [strip(i1), strip(i2)];
+    let best = -Infinity, at = 0;
+    for (let d = -40; d <= 40; d++) {
+      let t = 0, n = 0;
+      for (let xx = 45; xx < W - 45; xx++) { const j = xx + d; if (j < 0 || j >= W) continue; t += A[xx] * B[j]; n++; }
+      if (n && t / n > best) { best = t / n; at = d; }
+    }
+    return at;
+  };
+
+  const bands = async (css) => {
+    const tag = css ? await p.addStyleTag({ content: css }) : null;
+    await p.waitForTimeout(700);
+    const shot = async () => (await p.locator("#bare").screenshot()).toString("base64");
+    const a = await shot();
+    await p.waitForTimeout(3000);
+    const c = await shot();
+    const top = await p.evaluate(SHIFT, [a, c, 0.03, 0.22]);
+    const bottom = await p.evaluate(SHIFT, [a, c, 0.78, 0.97]);
+    if (tag) await tag.evaluate((el) => el.remove()).catch(() => {});
+    return { top, bottom };
+  };
+
+  const two = await bands(null);
+  check("a card's top and its bottom go opposite ways, banded as they are",
+    two.top !== 0 && two.bottom !== 0 && Math.sign(two.top) !== Math.sign(two.bottom),
+    `top ${two.top}px, bottom ${two.bottom}px over three seconds`);
+  /* And the measure can see the failure it is there to catch: one layer, and
+     the whole card goes the same way, which is what the second layer exists
+     to prevent. */
+  const flat = await bands(".molten::after{display:none!important}.molten::before{clip-path:none!important}");
+  check("…and with one layer the whole card goes one way, which the measure sees",
+    flat.top !== 0 && Math.sign(flat.top) === Math.sign(flat.bottom),
+    `top ${flat.top}px, bottom ${flat.bottom}px — both the same way`);
+
   await b.close();
 }
 
