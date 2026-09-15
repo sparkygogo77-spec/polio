@@ -2,14 +2,40 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T04:23:25.031Z";
+export const GENERATED_AT = "2026-09-15T04:28:53.169Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "2285bee",
-    "when": "2026-09-15T04:22:45+00:00",
+    "id": "651d0a9",
+    "when": "2026-09-15T04:28:10+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "651d0a9",
+        "says": "A line of the page is one run, whatever is marked up inside it",
+        "when": "2026-09-15T04:28:10+00:00",
+        "detail": [
+          "A heading with an abbreviation in it was three text nodes and came out as three lines, \"The Beauty of\" / \"CSS\" / \"Design\", and a real page is full of them. Runs are joined while they share the block they sit in, with the whitespace between the nodes kept, so a line reads whole; an inline-block item, a link in a row of icons, is its own block and stays its own run."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "d98c5f9",
+        "says": "Regenerate the passes for a page arriving as its sections",
+        "when": "2026-09-15T04:24:48+00:00",
+        "detail": [
+          "Dijkstra's pass: a real page arrives as its sections, rather than as one column or as every paragraph.",
+          "Run on this build: zip-import 62/62, site-read 44/44. Not run: the rest, none of which touches the importer's sectioning."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "2285bee",
         "says": "A real page arrives as its sections, not as one column or every paragraph",
