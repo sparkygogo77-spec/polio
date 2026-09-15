@@ -2,9 +2,45 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T04:12:51.541Z";
+export const GENERATED_AT = "2026-09-15T04:23:25.031Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "2285bee",
+    "when": "2026-09-15T04:22:45+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "2285bee",
+        "says": "A real page arrives as its sections, not as one column or every paragraph",
+        "when": "2026-09-15T04:22:45+00:00",
+        "detail": [
+          "Importing CSS Zen Garden, a real export, found what the fixture did not. The same box came under three names and landed three parts on top of one another: one box is one block now. The main column came as one band of every word on the page: a block whose contents are named bands stacked down it, two or more sections tall, is opened into them, and a section of paragraphs is not. Sections whose boxes collapse under their floated children list their paragraphs as top-level boxes: runs of small boxes down one column are one band, measured member by member and merged into one part, and a heading spilling out of its section's box belongs to the section. Sixteen blocks may make a page."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "9ea26cc",
+        "says": "Regenerate the passes for the frames coming back",
+        "when": "2026-09-15T04:15:29+00:00",
+        "detail": [
+          "Euler's pass: thirty boards — the vine sheet was the wrong suspect, and three ways at it lost.",
+          "This is the one J will feel, and it is a full recovery rather than a dent in it. Measured here on the merged tree, three runs, against the numbers I have been carrying since the regression appeared:",
+          "two days ago    after the third layer went    now frames per 900ms         ~53                 28-29               53-54 beat                  16.7ms uniform       33.3ms uniform      16.7ms uniform dropped while idle      0-2%                  7-11%               0%",
+          "Sixty a second, and nothing late at all. The intermediate state — a steady thirty, which was already much better than the juddering 43-47% drop it replaced — is gone too."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "ffc74eb",
     "when": "2026-09-15T04:12:51+00:00",
@@ -760,30 +796,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2e43475",
-    "when": "2026-09-14T18:41:55+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "4e8239b",
-        "says": "The ink stands off the face, and a drawing is the size of the card",
-        "when": "2026-09-14T18:11:36+00:00",
-        "detail": [
-          "J's two outstanding card items from the same brief. Both are measured before and after rather than eyeballed, by a new suite that reads the real thing: every mark on a card is shot twice, once as it is and once with that one node hidden, so the pixels that changed are the mark and the same pixels in the second shot are the face directly behind it. The number is the mark against its own face, pixel for pixel, never against an average.",
-          "THE INK MATCHING ITS OWN FACE. The cause is worth writing down because it will happen again to anyone picking a colour for this surface: a construct's face is one of J's renders, and a render is not one value. It is near-black between the filaments and bright along them, so a green picked against \"the green\" is picked against an average that exists nowhere on the card. Small print at 0.62 lightness measured 2.81:1 mean and 2.38:1 at its worst pixel, with every one of its core pixels under 4.5:1; the headlines were already fine at 8 to 10:1, which is why this read as some lines blending rather than as the card being dark.",
-          "WCAG contrast against the face right behind the mark, worst pixel first:",
-          "before          after nothing stands on the site   2.38  100% under   5.68   none under 4.5 chain prompt                 2.93   93%       5.27 the feature headline         3.28   76%       5.84 \"and 1 more\", red card       2.86   97%       4.72 unlit feature chip           3.82    3%       5.05"
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
