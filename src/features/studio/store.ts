@@ -765,6 +765,10 @@ interface StudioState extends Doc {
 }
 
 const HISTORY_LIMIT = 60;
+/** Writes to the same field closer together than this are one edit, and one undo. */
+export const EDIT_RUN_MS = 1500;
+/** The fields a person types into on a part. A write to only these is an edit; anything else is a step of its own. */
+const TYPED_FIELDS = new Set(["prompt", "content", "data", "label"]);
 
 /**
  * An updated thread forms again.
@@ -989,7 +993,26 @@ export const useStudio = create<StudioState>()(
 
       const push = () => {
         seed();
+        run = null;
         set((s) => ({ past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT), future: [] }));
+      };
+      /*
+       * One undo takes back an edit, not a letter.
+       *
+       * Typing writes the document a keystroke at a time, and each write
+       * used to push its own undo entry, so taking back a word was eleven
+       * presses. A run of writes to the same field within `EDIT_RUN_MS` of
+       * each other is one edit: the first write pushes, the rest ride on
+       * it, and anything else that pushes (a move, a different field, an
+       * undo) ends the run. The snapshot kept is the one from before the
+       * first letter, which is what "before this edit" means.
+       */
+      let run: { key: string; at: number } | null = null;
+      const pushEdit = (key: string) => {
+        const now = Date.now();
+        if (run && run.key === key && now - run.at < EDIT_RUN_MS) { run.at = now; return; }
+        push();
+        run = { key, at: now };
       };
 
       return {
@@ -1103,7 +1126,11 @@ export const useStudio = create<StudioState>()(
         },
 
         updateNode: (id, patch) => {
-          push();
+          // Words typed into a part's own fields are one edit per run of
+          // typing; anything else is its own step, as it always was.
+          const keys = Object.keys(patch);
+          if (keys.length && keys.every((k) => TYPED_FIELDS.has(k))) pushEdit(`node:${id}:${keys.join(",")}`);
+          else push();
           set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...patch } : n)) }));
         },
 
@@ -1176,8 +1203,9 @@ export const useStudio = create<StudioState>()(
 
         setCubeFace: (nodeId, index, patch) => {
           // Words on a face are the document, so they are undone like words
-          // anywhere else on it.
-          push();
+          // anywhere else on it: one edit per run of typing on one field.
+          if (patch === null) push();
+          else pushEdit(`face:${nodeId}:${index}:${Object.keys(patch).join(",")}`);
           set((s) => ({
             nodes: s.nodes.map((n) => {
               if (n.id !== nodeId || index < 0 || index > 5) return n;
@@ -2026,6 +2054,8 @@ export const useStudio = create<StudioState>()(
           set((s) => {
             const prev = s.past[s.past.length - 1];
             if (!prev) return {};
+            // Whatever was being typed is over: the next letter is a new edit.
+            run = null;
             return {
               ...prev,
               past: s.past.slice(0, -1),
@@ -2039,6 +2069,7 @@ export const useStudio = create<StudioState>()(
           set((s) => {
             const next = s.future[0];
             if (!next) return {};
+            run = null;
             return {
               ...next,
               past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),

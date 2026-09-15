@@ -61,7 +61,7 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</t
 </style></head><body>
   <header><span class="name">Harbour</span><nav><a href="/product">Product</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a></nav><button>Start free</button></header>
   <section class="hero">
-    <div><h1>Everything arrives somewhere</h1><p>Freight, tracked from the quay to the door, in one place.</p></div>
+    <div><h1>Everything arrives somewhere</h1><p>Freight, tracked from the quay to the door, in one place.</p><a class="cta" href="/pricing" style="display:inline-block;margin-top:16px;padding:10px 16px;background:#31506b;color:#fff;border-radius:4px;text-decoration:none">See pricing</a></div>
     <img width="640" height="360" alt="A harbour at first light" src="data:image/svg+xml;utf8,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#9fb6c8"/><rect y="240" width="640" height="120" fill="#31506b"/><circle cx="520" cy="90" r="44" fill="#f3e2c0"/></svg>')}">
   </section>
   <section class="cards">
@@ -69,6 +69,7 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</t
     <article><h2>Fast</h2><p>Every hop measured, nothing guessed.</p></article>
     <article><h2>Yours</h2><p>Your keys, your data, your account.</p></article>
   </section>
+  <section class="modern" style="background:oklch(0.3 0.1 250);color:oklch(0.95 0 0);padding:40px 32px;line-height:normal;font-size:20px"><h3 style="margin:0;font-size:24px">Set in the newer colour syntax</h3><p style="margin:8px 0 0">A band painted in oklch, the way a site built this year is.</p><svg width="120" height="80" viewBox="0 0 120 80"><rect width="120" height="80" fill="#31506b"/></svg></section>
   <footer>Harbour Freight Ltd. Built on the quay.</footer>
 </body></html>`;
 
@@ -122,10 +123,17 @@ await page.waitForTimeout(300);
 
 const candidates = await page.evaluate(CANDIDATES, 400);
 check("the page offers things to point at", candidates.length >= 4, `${candidates.length} candidates`);
+/* The caption under a listed thing is its words with spaces between
+   them, not its text nodes run together: a row of links read
+   "ProductPricingDocs". */
+check("a listed thing's caption keeps a space between one run of words and the next", candidates.some((c) => /^Harbour Product Pricing Docs Start free/.test(c.words)), candidates.slice(0, 2).map((c) => JSON.stringify(c.words.slice(0, 40))).join(" · "));
 check("and it names the bar across the top in words a person would use",
   candidates.some((c) => /bar across the top/.test(c.what)), candidates.slice(0, 3).map((c) => c.what).join(" · "));
-check("the biggest thing comes first, because that is what a person sees",
-  candidates[0].box.w * candidates[0].box.h >= candidates[candidates.length - 1].box.w * candidates[candidates.length - 1].box.h);
+/* The whole order, not its two ends: a check on the first and the last
+   passed with any disorder in between. */
+const areas = candidates.map((c) => c.box.w * c.box.h);
+check("the biggest thing comes first and every next one is no bigger, because that is what a person sees",
+  areas.every((a, i) => i === 0 || a <= areas[i - 1]), `${areas.slice(0, 4).join(" ≥ ")} … ${areas.length} in all`);
 check("every candidate can be found again by the selector it gave",
   (await page.evaluate((sels) => sels.every((s) => !!document.querySelector(s)), candidates.slice(0, 12).map((c) => c.selector))));
 
@@ -149,7 +157,22 @@ check("the face the page named is read by name, though its file never came", her
 check("and it is known to have not drawn, measured on the page itself", hero.type.drew === false, String(hero.type.drew));
 check("a face is read for every block, and whether it drew is always answered", typeof bar.type.face === "string" && typeof bar.type.drew === "boolean", JSON.stringify([bar.type.face, bar.type.drew]));
 check("the picture inside it is seen", hero.images.length >= 1 && hero.images[0].w === 640, JSON.stringify(hero.images.map((i) => [i.w, i.h])));
+/* A link painted as a box is a button, whatever it is tagged: the page's
+   own "Get started" is an `a` with a green fill, and it read as no
+   button at all. */
+check("a link painted as a box reads as a button, and is still a link", hero.buttons.includes("See pricing") && hero.links.some((l) => l.words === "See pricing"), `buttons ${JSON.stringify(hero.buttons)}`);
+check("while a plain link in the bar does not", !bar.buttons.includes("Product"), JSON.stringify(bar.buttons));
 
+const modern = await read(".modern");
+/* Chrome reports a colour as it was written when it was written in a
+   newer syntax: `oklch(0.3 0.1 250)` came back as that string, the
+   `rgba?(` regex missed it, and background, text and accent were dropped
+   silently. Every colour is normalised to the browser's rgb() form. */
+check("a colour set in oklch is read as the rgb the browser paints", /^rgb\(\d+, \d+, \d+\)$/.test(modern.paint.bg) && /^rgb\(\d+, \d+, \d+\)$/.test(modern.paint.text), `${modern.paint.bg} / ${modern.paint.text}`);
+check("and it is dark, as painted, with light words", (() => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(modern.paint.bg); const t = /rgb\((\d+), (\d+), (\d+)\)/.exec(modern.paint.text); return !!m && !!t && (Number(m[1]) + Number(m[2]) + Number(m[3])) / 3 < 100 && (Number(t[1]) + Number(t[2]) + Number(t[3])) / 3 > 220; })(), `${modern.paint.bg} under ${modern.paint.text}`);
+check("a line height of normal is read as the browser's own, not as nought", modern.type.leading > 0 && modern.type.leading >= 20 && modern.type.leading <= 30, `${modern.type.leading}px on ${modern.type.px}px type`);
+check("an inline svg counts as a picture in it", modern.images.some((im) => im.w === 120 && im.h === 80), JSON.stringify(modern.images.map((i) => [i.w, i.h])));
+check("and a block holding only an inline svg and words is still worth pointing at", candidates.some((c) => c.selector === ".modern" || /modern|newer colour/.test(c.words)), candidates.filter((c) => /newer colour/.test(c.words)).map((c) => c.what).join(" · "));
 const cards = await read(".cards");
 check("a grid of three is measured as three children", cards.children.length === 3, `${cards.children.length}`);
 check("and as a grid rather than a row", cards.layout.flow === "grid" || cards.layout.columns === 3, `${cards.layout.flow}, ${cards.layout.columns} columns`);

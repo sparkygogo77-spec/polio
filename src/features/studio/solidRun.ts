@@ -33,7 +33,7 @@
 import { noRendererKeyMessage, rendererHeader, rendererReady } from "./agent";
 import { saysSolid } from "./imageRoute";
 import { cubeDims } from "./parts/cubePose";
-import { CUBE_SIDES, type CubeFace } from "./parts/cubeFaces";
+import { CUBE_SIDES, REST, type CubeFace } from "./parts/cubeFaces";
 import { SOLID_WORDS, solidModel, VIEWS, type View } from "./solidRoute";
 import { useStudio, type StudioNode } from "./store";
 
@@ -108,6 +108,99 @@ export function faceView(node: StudioNode, view: View, palette: Record<string, s
     y += l.size * 1.3;
   }
   c.globalAlpha = 1;
+  return canvas.toDataURL("image/png").split(",")[1] ?? null;
+}
+
+/**
+ * The object, drawn flat: the box at its resting pose, the faces that show
+ * at that angle shaded by the page's lamp, the words on them. This is the
+ * still a solid falls back to when it cannot be mounted, and what the
+ * board draws for it, so a person who has written on no face yet still
+ * sees the thing they drew rather than a blank plate. Orthographic, so
+ * every face is an affine map of its own flat picture, which is what a
+ * canvas can draw text through.
+ */
+export function cubeStill(node: StudioNode, palette: Record<string, string>, px = VIEW_PX): string | null {
+  if (typeof document === "undefined") return null;
+  const { W, H, D } = cubeDims(node.w, node.h, 0.74);
+  const turn = node.cube?.turn ?? REST;
+  const rx = (turn.x * Math.PI) / 180;
+  const ry = (turn.y * Math.PI) / 180;
+  // The same order the CSS applies: rotateY first, then rotateX.
+  const spin = (p: number[]): [number, number, number] => {
+    const [x, y, z] = [p[0] ?? 0, p[1] ?? 0, p[2] ?? 0];
+    const x1 = x * Math.cos(ry) + z * Math.sin(ry);
+    const z1 = -x * Math.sin(ry) + z * Math.cos(ry);
+    const y2 = y * Math.cos(rx) - z1 * Math.sin(rx);
+    const z2 = y * Math.sin(rx) + z1 * Math.cos(rx);
+    return [x1, y2, z2];
+  };
+  // Each face: its centre, its right and down axes, its size, in the box's own frame.
+  const faces: { side: View | "top" | "bottom"; c: number[]; u: number[]; v: number[]; fw: number; fh: number; n: number[] }[] = [
+    { side: "front", c: [0, 0, D / 2], u: [1, 0, 0], v: [0, 1, 0], fw: W, fh: H, n: [0, 0, 1] },
+    { side: "back", c: [0, 0, -D / 2], u: [-1, 0, 0], v: [0, 1, 0], fw: W, fh: H, n: [0, 0, -1] },
+    { side: "right", c: [W / 2, 0, 0], u: [0, 0, -1], v: [0, 1, 0], fw: D, fh: H, n: [1, 0, 0] },
+    { side: "left", c: [-W / 2, 0, 0], u: [0, 0, 1], v: [0, 1, 0], fw: D, fh: H, n: [-1, 0, 0] },
+    { side: "top", c: [0, -H / 2, 0], u: [1, 0, 0], v: [0, 0, -1], fw: W, fh: D, n: [0, -1, 0] },
+    { side: "bottom", c: [0, H / 2, 0], u: [1, 0, 0], v: [0, 0, 1], fw: W, fh: D, n: [0, 1, 0] },
+  ];
+  const scale = px / Math.max(1, Math.hypot(W, H, D));
+  const canvas = document.createElement("canvas");
+  canvas.width = px;
+  canvas.height = Math.round(px * Math.max(0.5, Math.min(2, node.h / Math.max(1, node.w))));
+  const c = canvas.getContext("2d");
+  if (!c) return null;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const lamp = { x: 0.3, y: 0.2 };
+  const lx = (lamp.x - 0.5) * 2, ly = (lamp.y - 0.5) * 2, ll = Math.hypot(lx, ly, 1) || 1;
+  const text = palette.text ?? "#f4f4f5";
+  const dark = (palette.bg ?? "#000").toLowerCase() !== "#ffffff";
+  const shown = faces
+    .map((f) => ({ f, n: spin(f.n) }))
+    .filter(({ n }) => n[2] > 0.02)
+    .sort((a, b) => a.n[2] - b.n[2]);
+  for (const { f, n } of shown) {
+    const o = spin([f.c[0]! - f.u[0]! * f.fw / 2 - f.v[0]! * f.fh / 2, f.c[1]! - f.u[1]! * f.fw / 2 - f.v[1]! * f.fh / 2, f.c[2]! - f.u[2]! * f.fw / 2 - f.v[2]! * f.fh / 2]);
+    const ux = spin(f.u), vx = spin(f.v);
+    // Screen = origin + local.x * u + local.y * v, orthographically: an affine map.
+    c.setTransform(ux[0] * scale, ux[1] * scale, vx[0] * scale, vx[1] * scale, cx + o[0] * scale, cy + o[1] * scale);
+    const i = CUBE_SIDES.indexOf(f.side);
+    const face = node.cube?.faces?.[i];
+    c.fillStyle = ground(face, palette);
+    c.fillRect(0, 0, f.fw, f.fh);
+    // The lamp: a wash that darkens what is turned away, as the part does.
+    const lit = Math.max(0, Math.min(1, 0.5 + ((n[0] * lx + n[1] * ly + n[2]) / ll) * 0.5));
+    c.fillStyle = dark ? `rgba(255,255,255,${((1 - lit) * 0.14).toFixed(3)})` : `rgba(0,0,0,${((1 - lit) * 0.22).toFixed(3)})`;
+    c.fillRect(0, 0, f.fw, f.fh);
+    c.strokeStyle = dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)";
+    c.lineWidth = 1 / scale;
+    c.strokeRect(0, 0, f.fw, f.fh);
+    const side = Math.min(f.fw, f.fh);
+    const pad = Math.round(side * 0.1);
+    const heading = (face?.heading ?? "").trim();
+    const body = (face?.body ?? "").trim();
+    const lines: { text: string; size: number; weight: number; alpha: number }[] = [];
+    if (heading) {
+      c.font = `650 ${Math.max(11, Math.round(side * 0.11))}px system-ui, sans-serif`;
+      for (const l of wrap(c, heading, f.fw - pad * 2)) lines.push({ text: l, size: Math.max(11, Math.round(side * 0.11)), weight: 650, alpha: 1 });
+    }
+    if (body) {
+      c.font = `400 ${Math.max(9, Math.round(side * 0.062))}px system-ui, sans-serif`;
+      for (const l of wrap(c, body, f.fw - pad * 2)) lines.push({ text: l, size: Math.max(9, Math.round(side * 0.062)), weight: 400, alpha: 0.72 });
+    }
+    let y = f.fh / 2 - lines.reduce((a, l) => a + l.size * 1.3, 0) / 2;
+    for (const l of lines) {
+      c.font = `${l.weight} ${l.size}px system-ui, sans-serif`;
+      c.fillStyle = text;
+      c.globalAlpha = l.alpha;
+      c.textBaseline = "top";
+      c.fillText(l.text, pad, y);
+      y += l.size * 1.3;
+    }
+    c.globalAlpha = 1;
+  }
+  c.setTransform(1, 0, 0, 1, 0, 0);
   return canvas.toDataURL("image/png").split(",")[1] ?? null;
 }
 
@@ -197,7 +290,9 @@ export async function makeSolid(nodeId: string, palette: Record<string, string>,
     outline: null,
     mesh: {
       glb: answer.mesh.glb,
-      still: `data:image/png;base64,${front}`,
+      // The still is the object as it stood, not one flat face: a person
+      // who has written on nothing yet still sees the box they drew.
+      still: `data:image/png;base64,${cubeStill(node, palette) ?? front}`,
       turn: { x: -12, y: -28 },
       from: answer.mesh.from ?? answer.model,
       bytes: answer.mesh.bytes,

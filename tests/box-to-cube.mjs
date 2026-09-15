@@ -225,11 +225,14 @@ const settle = async (max = 6000) => {
   await page.mouse.down();
   let maxPitch = 0;
   for (let i = 1; i <= 40; i++) { await page.mouse.move(cx, cy - i * 12); await page.waitForTimeout(8); maxPitch = Math.max(maxPitch, Math.abs((await turnOf())[0])); }
+  // Photographed with the hand still down, pinned at the limit.
+  await shot("3b-pitch-limit-held", await around(part, 80));
   await page.mouse.up();
   check("it cannot be tumbled upside down: 480 px of upward drag pitches it no further than the limit", maxPitch <= PITCH_LIMIT && maxPitch >= 60, `${maxPitch}° of a possible ${Math.round(480 * 0.42)}°, limit ${PITCH_LIMIT}°`);
   await settle();
   const [rx, ry] = await turnOf();
   check("and it returns to a resting pose from there", atRest(rx, ry), `${rx},${ry}`);
+  await shot("3c-pitch-limit-rested", await around(part, 80));
 }
 
 /* 3. A face is picked and given words; it keeps them through a turn. */
@@ -262,6 +265,19 @@ let side = null;
   const idx = ["front", "right", "back", "left", "top", "bottom"].indexOf(side);
   check("typing puts the words on that face of the node", (await read())?.faces?.[idx]?.heading === "Hello there", (await read())?.faces?.[idx]?.heading ?? "-");
   check("and on the cube itself", (await cube.locator(`[data-face="${side}"]`).innerText()).includes("Hello there"));
+  // One undo takes back the edit, not a letter: eleven keystrokes, one press.
+  await page.mouse.click(330, 150);
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(400);
+  check("one undo takes the whole word off the face, not one letter", (await read())?.faces?.[idx]?.heading === "", JSON.stringify((await read())?.faces?.[idx]?.heading));
+  await page.keyboard.press("Control+Shift+z");
+  await page.waitForTimeout(400);
+  check("and one redo puts it back", (await read())?.faces?.[idx]?.heading === "Hello there", (await read())?.faces?.[idx]?.heading ?? "-");
+  await shot("4b-face-undo-redo", await around(part, 80));
+  await part.click({ force: true });
+  await page.waitForTimeout(500);
+  await openElement();
   await page.locator(`[data-face-list] [data-cube-face="${side}"] [data-face-prompt]`).fill("the greeting");
   await page.waitForTimeout(300);
   check("a face takes its own prompt, like any part", (await read())?.faces?.[idx]?.prompt === "the greeting");
@@ -351,9 +367,29 @@ let side = null;
   await page.waitForTimeout(400);
   const undone2 = await read();
   check("and again takes the move back", undone2.x === was.x && undone2.y === was.y, `${undone2.x},${undone2.y}`);
+  await page.locator(`[data-node-id="${node.id}"]`).scrollIntoViewIfNeeded().catch(() => {});
+  await shot("7b-undone", await around(page.locator(`[data-node-id="${node.id}"]`), 80));
   await page.keyboard.press("Control+Shift+z");
   await page.keyboard.press("Control+Shift+z");
   await page.waitForTimeout(400);
+
+  // The same rule serves the part's own prompt: typed letter by letter, one undo.
+  await page.locator(`[data-node-id="${node.id}"]`).click({ force: true });
+  await page.waitForTimeout(400);
+  await openElement();
+  const promptBox = page.locator('[data-side-panel] textarea[aria-label="Element prompt"]').first();
+  await promptBox.click();
+  await page.keyboard.type("three pillars, spinning");
+  await page.waitForTimeout(300);
+  check("typing a prompt writes it on the part", (await read()) && (await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((n) => n.cube).prompt)) === "three pillars, spinning");
+  await page.mouse.click(330, 150);
+  await page.waitForTimeout(400);
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(400);
+  const promptAfter = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((n) => n.cube).prompt);
+  check("one undo takes the whole prompt back, twenty-three keystrokes in one", promptAfter === "", JSON.stringify(promptAfter));
+  const sizeAfter = await read();
+  check("and nothing else with it: the size stays", sizeAfter.w === grown.w && sizeAfter.h === grown.h, `${sizeAfter.w}×${sizeAfter.h}`);
 
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(1400);
@@ -383,6 +419,11 @@ let side = null;
   for (let i = 0; i < 20 && (await card.getAttribute("data-solid-ready")) === "asking"; i++) await page.waitForTimeout(150);
   check("with no token, the card is not lit and says what would light it", (await card.getAttribute("data-solid-ready")) === "no" && (await card.locator("[data-solid-needs]").count()) === 1, (await card.locator("[data-solid-needs]").innerText().catch(() => "-")).slice(0, 60));
   check("it names the routed model, read off the same table", (await card.getAttribute("data-solid-model")) === "tencent/hunyuan3d-2mv", await card.getAttribute("data-solid-model"));
+  // The "Where it goes" card reads the part, not its words: a cube is a solid, in one step, to the same model.
+  const what = (await page.locator("[data-audit-what]").first().innerText().catch(() => "")).trim();
+  const steps = (await page.locator("[data-audit-steps]").first().innerText().catch(() => "")).replace(/\s+/g, " ").trim();
+  check("and Where it goes says a solid for a cube, not a mark", what.includes("an object you can turn"), what || "-");
+  check("in one step, with no reading of words it does not have", !/read/i.test(steps) && /first|one/i.test(steps), steps || "-");
   check("and nothing was sent anywhere to find that out", solidCalls.length === 0 && asked.length === 0, asked.join(" ") || "none");
   await card.scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
@@ -412,6 +453,22 @@ let side = null;
   const solid = await read();
   check("the answer lands as a solid part", solid?.featureId === "mesh-3d" && solid.mesh?.from === "tencent/hunyuan3d-2mv", solid?.featureId);
   check("with the cube kept underneath, faces and all", solid?.faces?.[["front", "right", "back", "left", "top", "bottom"].indexOf(side)]?.heading === "Hello there" && solid.kind === "cube");
+  // The still under it is the object, not one blank face: measured as how
+  // many distinct colours the picture holds and whether its two halves differ.
+  const still = await page.evaluate(async () => {
+    const n = JSON.parse(localStorage.getItem("builder.studio")).state.nodes.find((x) => x.cube);
+    const src = n?.mesh?.still;
+    if (!src) return null;
+    const img = new Image();
+    await new Promise((ok, no) => { img.onload = ok; img.onerror = no; img.src = src; });
+    const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+    const c = cv.getContext("2d"); c.drawImage(img, 0, 0);
+    const d = c.getImageData(0, 0, cv.width, cv.height).data;
+    const colours = new Set();
+    for (let i = 0; i < d.length; i += 16) colours.add(`${d[i] >> 3},${d[i + 1] >> 3},${d[i + 2] >> 3}`);
+    return { w: img.width, h: img.height, colours: colours.size, bytes: src.length };
+  });
+  check("the still under the solid is a picture of the object, not a blank plate", !!still && still.colours >= 6, still ? `${still.w}×${still.h}, ${still.colours} distinct colours (at 5 bits), ${still.bytes} chars` : "no still");
   await page.waitForTimeout(600);
   await shot("10-solid-landed", await around(page.locator(`[data-node-id="${node.id}"]`), 80));
   const backBtn = page.locator("[data-solid-back]");

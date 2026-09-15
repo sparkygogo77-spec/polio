@@ -435,7 +435,15 @@ a kicker with a rule, and label-and-value rows that copy.
   wheel's pencil is about the picked face when there is one: heading, line
   and the face's own prompt. Every face has a `prompt` of its own, exactly
   as a part has, and the blueprint writes it (`for: …`) beside its words.
-  Face edits go through `setCubeFace`, which pushes undo like any edit.
+  **One undo takes back an edit, not a letter.** Typing writes the document
+  a keystroke at a time, and each write used to push its own undo entry.
+  `pushEdit` in the store keys a run of writes to the same field: the
+  first pushes, the rest within `EDIT_RUN_MS` (1.5 s) ride on it, and any
+  other push, an undo or a redo ends the run. `setCubeFace` uses it per
+  face and field, and `updateNode` uses it whenever a patch touches only
+  the typed fields (`prompt`, `content`, `data`, `label`), so the part's
+  own prompt is one undo per edit too. Clearing a face is a step of its
+  own. `tests/box-to-cube.mjs` presses eleven keys and then one undo.
   **The faces live on the node** (`node.cube`), not in the part, because
   they are the author's words: `facesFrom` splits the content field, or the
   prompt after a "a cube with…:" lead-in, one item a face, and **leaves the
@@ -459,7 +467,11 @@ a kicker with a rule, and label-and-value rows that copy.
   never a value, only a yes) and otherwise say what would light them; no
   call is made to find that out. The answer lands as `mesh-3d` with
   `node.cube` kept, so the faces stay editable and "Back to the cube" is
-  one press with nothing lost. The vendor is never reached from a test:
+  one press with nothing lost. The still under a solid is the object
+  drawn flat at its resting pose (`cubeStill`: orthographic, every face an
+  affine map of its own picture, shaded by the lamp, the words on it), not
+  one front face, so a box nobody has written on is still a box on the
+  board and in the fallback. The vendor is never reached from a test:
   `tests/box-to-cube.mjs` mocks the route and measures what goes up and
   what lands.
 - **A drawn shape says what the part does, not only what it looks like**

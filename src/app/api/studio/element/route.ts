@@ -33,6 +33,9 @@ import { CANDIDATES, MEASURE, type Candidate } from "@/features/studio/siteRead"
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+/** How tall a picture of the page, or of one element, may be. A first screen 3000px tall was cut at 2000. */
+const MAX_SHOT_HEIGHT = 4000;
+
 export async function GET() {
   const found = await findPlaywright();
   return NextResponse.json({ ok: !!found.pw, ...(found.pw ? { from: found.from } : { reason: "no-browser", message: NO_PLAYWRIGHT }) });
@@ -57,7 +60,8 @@ export async function POST(request: Request) {
   const selector = typeof body.selector === "string" ? body.selector : null;
   // Several at once: a page taken whole is a dozen blocks, and a dozen
   // openings of the same page would be a dozen too many.
-  const selectors = Array.isArray(body.selectors) ? body.selectors.filter((s): s is string => typeof s === "string").slice(0, 40) : null;
+  // Up to 120: sixteen blocks may make a page and each may be a run of members, and a cap of 40 lost the readings past it.
+  const selectors = Array.isArray(body.selectors) ? body.selectors.filter((s): s is string => typeof s === "string").slice(0, 120) : null;
   const width = Math.max(360, Math.min(1920, Number(body.width) || 1280));
 
   let browser: Awaited<ReturnType<typeof found.pw.chromium.launch>> | null = null;
@@ -73,14 +77,31 @@ export async function POST(request: Request) {
      * server drives is a hand-written surface with only what its routes
      * use on it, and widening it is somebody else's file.
      */
-    await page.goto(gate.url, { waitUntil: "domcontentloaded", timeout: READ_BUDGET_MS });
-    // A moment for what loads late, never the whole budget.
-    await page.waitForTimeout(900);
+    const answer = await page.goto(gate.url, { waitUntil: "domcontentloaded", timeout: READ_BUDGET_MS });
+    /* A page that answers with an error is not a page to point at. A bot
+       wall's 403 and a 404's own error page loaded "successfully" and were
+       listed as things to point at. */
+    const status = answer && typeof (answer as { status?: () => number }).status === "function" ? (answer as { status: () => number }).status() : 200;
+    if (status >= 400) {
+      await context.close();
+      return NextResponse.json({ ok: false, reason: "status", message: `That page answered ${status}${status === 403 ? ", which is a wall against being read by a machine" : status === 404 ? ", so there is no page at that address" : ""}. Check the address, or try another page of the site.`, took: took() });
+    }
+    /* A moment for what loads late: a page that draws itself by script
+       is given until its requests go quiet, up to four seconds, and never
+       the whole budget. A fixed 900ms read a slow page as empty. */
+    await Promise.race([
+      (page as unknown as { waitForLoadState: (s: string, o?: Record<string, unknown>) => Promise<void> }).waitForLoadState("networkidle", { timeout: 4000 }).catch(() => undefined),
+      page.waitForTimeout(4000),
+    ]);
+    await page.waitForTimeout(300);
 
     if (!selector && !selectors) {
-      const shot = await page.screenshot({ fullPage: false });
       const list = (await page.evaluate(CANDIDATES, MAX_ELEMENTS)) as Candidate[];
       const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
+      /* The whole page, so that what is listed can be pointed at by eye:
+         the first 900px were shown while the candidates came from all of
+         it. Cut at 4000px tall, past which it is a document, not a page. */
+      const shot = await page.screenshot({ fullPage: true, clip: { x: 0, y: 0, width, height: Math.min(height, MAX_SHOT_HEIGHT) } });
       await context.close();
       return NextResponse.json({
         ok: true,
@@ -114,7 +135,7 @@ export async function POST(request: Request) {
        the measurement rather than a second opinion about where it is. */
     const b = reading.box;
     const shot = b.w > 0 && b.h > 0
-      ? await page.screenshot({ fullPage: true, clip: { x: b.x, y: b.y, width: Math.min(b.w, 2000), height: Math.min(b.h, 2000) } }).catch(() => null)
+      ? await page.screenshot({ fullPage: true, clip: { x: b.x, y: b.y, width: Math.min(b.w, MAX_SHOT_HEIGHT), height: Math.min(b.h, MAX_SHOT_HEIGHT) } }).catch(() => null)
       : null;
     await context.close();
     return NextResponse.json({
