@@ -640,7 +640,21 @@ export function StudioPage() {
       __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null; nodeId: string | null; madeId: string | null; note: string | null; label: string }[];
       __studioFacePair?: (pair: "dark" | "bright") => void;
     };
-    w.__studioOpenBrief = () => setBriefOpen(true);
+    /*
+     * Compile the blueprint has four doors (⌘⏎, the command, the canvas
+     * menu, the brief menu) and all of them come through here. In the book
+     * mode the dialog is not drawn — the book is a tab under the timeline —
+     * so setting it open showed nothing until the mode changed, when it
+     * popped up on its own. In that mode the door opens the tab instead.
+     */
+    w.__studioOpenBrief = () => {
+      if (useStudio.getState().mode === "book") {
+        setLibraryOpen(true);
+        window.dispatchEvent(new CustomEvent("studio:book"));
+        return;
+      }
+      setBriefOpen(true);
+    };
     w.__studioToggleLibrary = () => setLibraryOpen((v) => !v);
     w.__studioSetBrief = (v) => setBriefOpen(v);
     w.__studioSetLibrary = (v) => setLibraryOpen(v);

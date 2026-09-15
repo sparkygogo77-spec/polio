@@ -17,7 +17,7 @@
  * colour before the part is drawn.
  *
  * Off-screen tiles skip their layout and paint entirely (`content-visibility`),
- * so a library of 218 live previews costs about what a list of icons did.
+ * so a library of 229 live previews costs about what a list of icons did.
  */
 import * as React from "react";
 import { Block, themeFrom } from "./blocks";

@@ -67,6 +67,7 @@ import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type
 import { pictureOf } from "./reshapeRun";
 import { FORM, formOf, formVars, within } from "./formation";
 import { useStudio } from "./store";
+import { askTheBook } from "./BriefDialog";
 import { Block, themeFrom } from "./blocks";
 import { resolvePalette } from "./parts/theme";
 
@@ -1538,8 +1539,7 @@ function Asked({ thread }: { thread: Thread }) {
      * hands it the mode this update was made in and the prompt as it stands,
      * and it runs the same call the Ask button runs.
      */
-    window.dispatchEvent(new CustomEvent("studio:book"));
-    window.dispatchEvent(new CustomEvent("studio:ask", { detail: { mode: thread.mode, prompt: words.trim(), run: true } }));
+    askTheBook({ mode: thread.mode, prompt: words.trim(), run: true });
   };
   return (
     <div data-asked={page} className="flex shrink-0 items-start gap-2">

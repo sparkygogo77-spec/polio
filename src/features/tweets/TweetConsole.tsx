@@ -764,7 +764,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
     setProgress(0);
     const ticker = window.setInterval(() => setProgress((p) => Math.min(0.9, p + 0.02)), 800);
     try {
-      const res = await fetch("/api/tweets/preview-video", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doc: studioDoc(), path: src, device: localDevice, speed: localSpeed, interact, loops, width: Number(renderWidth), format: renderFormat }), signal: ac.signal });
+      const res = await fetch("/api/studio/preview-video", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doc: studioDoc(), path: src, device: localDevice, speed: localSpeed, interact, loops, width: Number(renderWidth), format: renderFormat }), signal: ac.signal });
       const ct = res.headers.get("content-type") ?? "";
       if (ct.includes("application/json")) {
         const data = (await res.json()) as { ok: boolean; message?: string; reason?: string };
