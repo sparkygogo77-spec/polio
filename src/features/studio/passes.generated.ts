@@ -2,9 +2,258 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:30:17.113Z";
+export const GENERATED_AT = "2026-09-15T09:05:29.899Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c69a63e",
+    "when": "2026-09-15T09:05:06+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "99b8ade",
+        "says": "The merge brought the page wheel's Edit slot back; it is out again",
+        "when": "2026-09-15T08:49:24+00:00",
+        "detail": [
+          "A22 on the inventory, held. The merge of trunk's latest wheel work carried the older copy of the page's slot table, the two dead choices under Edit (Width, and \"Per page (soon)\", a tap and nothing) and the plate-list entry for the width editor, all of which A22 had removed. The page-wheel-edit and priority-wheel suites went red on the merged tree, which is what they are for. Taken out again, with the two icons only that code used; the width editor itself had stayed gone.",
+          "Green: page-wheel-edit 4/4, priority-wheel 6/6, wheel-pass 12/12, wheel-trim 14/14, menu-pass 101/101, preview-here 5/5."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "fc67aca",
+    "when": "2026-09-15T08:50:15+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "fc67aca",
+        "says": "Regenerate the passes for a drifting texture and a turn that stays turned",
+        "when": "2026-09-15T08:50:15+00:00",
+        "detail": [
+          "Bardeen's three: a part wearing a drifting texture drifts, a cube or a solid turned on the full preview page stays turned, and the route deadlines.",
+          "Merge clean apart from RadialMenu.tsx's lucide import, which conflicted for the second time tonight on the same line. Resolved as the union again, and this time the line is sorted alphabetically by imported name with a sentence above it saying why: sorted, a merge from any branch resolves to the same line, and it stops being a conflict every time two sessions each add an icon. Nothing was dropped either time — trunk's set already held bardeen's whole list.",
+          "typecheck clean, build rc=0. Run here on the build, port 4283:",
+          "part-drift          3/3 passed    (new) live-turn-saved     4/4 passed    (new) route-deadlines    21/21 passed   (new) texture-patch      28/28 passed cube               62/62 passed"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9600474",
+    "when": "2026-09-15T08:48:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "362b300",
+        "says": "A part wearing a drifting texture drifts",
+        "when": "2026-09-15T08:45:29+00:00",
+        "detail": [
+          "B29 on the inventory. A part can wear one of the page's texture layers. Its paint named an animation, tex-drift-<hash of that one layer>, and the only keyframes on the page were the site stack's, hashed over every layer that is on; the two agreed only when the stack was exactly that layer. With two layers on the page the part's animation was a name with nothing behind it, and the part stood still while the page moved. The block writes the worn layer's own keyframes beside the part now, so the name it wears is defined wherever it is drawn.",
+          "tests/part-drift.mjs: 3 of 3, 2 red against the tree before this. Two layers on the page, one drifting, a card grid wearing the moving one: the part's computed animation name, and a keyframes rule of that name on the page. Before, the page carried the stack's rule alone; it carries both now."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1283f1a",
+        "says": "A cube or a solid turned on the full preview page stays turned",
+        "when": "2026-09-15T08:45:29+00:00",
+        "detail": [
+          "B28 on the inventory, the turns half. The board is a still frame by the parts' own rule, so the live page is where a cube or a solid is turned and where it is left belongs on the node. The board's own Preview kept a cube's turn; the full /builder/preview page passed no handler at all, so a turn made there died with the page, and a solid's turn was kept nowhere. One `keepTurn` now, on both surfaces, for both kinds.",
+          "tests/live-turn-saved.mjs: 4 of 4, 1 red against the tree before this. A seeded cube on /builder/preview, a quarter turn with the arrow key, and the node read back from storage with the new pose on it."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "99728da",
+        "says": "The routes behind a drawing have a deadline at both ends",
+        "when": "2026-09-15T08:45:29+00:00",
+        "detail": [
+          "B7 on the inventory, and rule 8b of docs/DESIGN.md. A call that can hang must have a deadline at both ends and the spinner must always stop with a sentence. The generate route had it all: a budget of its own five seconds inside its maxDuration, one SDK try with a timeout inside that, an answer with a reason and the seconds it took whatever went wrong, the request id when the API said something, and a longer deadline in the browser for when nothing arrives. The body and reshape routes, the two behind every drawing, had none of it: the SDK's own retries and ten minute timeout, no budget, no signal, and callers that waited forever when the platform killed the function with no reply.",
+          "Both routes carry the same arrangement now, and the two callers cut their wait at 210s, past any route's 180s, so the browser's deadline fires only when nothing at all came back.",
+          "tests/route-deadlines.mjs: 21 of 21, 15 red against the tree before this. Source pins, because a real cut needs a key and a slow model."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e741538",
+    "when": "2026-09-15T08:46:00+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e741538",
+        "says": "Regenerate the passes for Preview here, the tray, and a page's scroll",
+        "when": "2026-09-15T08:46:00+00:00",
+        "detail": [
+          "Bardeen's seven: the wheel's tray is drawn again and Preview here previews here, a page's scroll setting reaches the preview, the published width, the screenshot cut, the Vercel pages and the named behaviours.",
+          "One conflict, in RadialMenu.tsx, and it was an import list: trunk's is bardeen's plus Files, Film, Monitor and Scissors, which arrived with the cube work. Resolved as the union, which is trunk's set, and typecheck agrees nothing is missing or spare.",
+          "Merge otherwise clean, typecheck clean, build rc=0. Run here on the build, port 4282:",
+          "preview-here        5/5 passed page-scroll-live    5/5 passed behaviours-named    5/5 passed published-width     8/8 passed shot-cut            6/6 passed vercel-pages        6/6 passed wheel-pass         12 of 12 hold board-edges        11 of 11 hold full-page          45 of 45 hold"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "1f6d66d",
+    "when": "2026-09-15T08:41:20+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "47bcea8",
+        "says": "The wheel's tray is drawn again, and Preview here previews here",
+        "when": "2026-09-15T08:33:13+00:00",
+        "detail": [
+          "B31 and A23 on the inventory. Closing the small one found the large one. The page's wheel has a tray item, Preview here, that left for the full /builder/preview address while the key `p` flips the board in place, so \"here\" was the one that went away. Going to make it flip the board, the tray turned out not to exist: the `tray` list was built and referenced nowhere, the comment above it described a tray that hung under nothing, and the More piece that once held these actions had been removed on the grounds that the tray was drawn already. Seven actions (Preview here, Forward, Backward, Copy looks, Paste looks, Put the background back) could not be reached from the wheel, and raise, lower and the looks clipboard have no other caller, so six of them could not be reached at all. The tray hangs under whichever level is up now, the same HoverTray the draw board uses, stepping aside for the board and the add disc, and the page's Preview here flips the board's own Preview.",
+          "Also gone: the site config's `home` block (a hero with two calls to action, a module grid, an agent guide) and its type. Builds owns \"/\", and nothing read any of it.",
+          "tests/preview-here.mjs: 5 of 5, 3 red against the tree before this. It opens the page's wheel, hovers the tray, presses Preview here, and finds the address unchanged and the board in Preview. Green alongside: wheel-pass 12/12, wheel-dismiss 11/11, wheel-trim 14/14, menu-pass 101/101, light-placer 16/16."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "dc69790",
+        "says": "A page's scroll setting reaches the preview",
+        "when": "2026-09-15T08:33:13+00:00",
+        "detail": [
+          "B26 on the inventory. The Pages panel and the page menu offer a scroll behaviour per page: normal, snap to sections, smooth / inertial, horizontal, scroll-driven story, paged. It reached the blueprint and nothing else; the live page scrolled the same whatever was chosen. The three the preview can do it does now, through the same behaviours a scroll-snap or smooth-scroll part sets, and the two it cannot are named in the corner note beside the other behaviours it describes rather than fakes. The note carries an attribute so a check can read it.",
+          "tests/page-scroll-live.mjs: 5 of 5, 4 red against the tree before this. Each setting seeded and the live scroller's own style read: y proximity for snap, x for horizontal, smooth for smooth, and the note for paged."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "bafb144",
+        "says": "Every behaviour on the board is run or named in the preview, never dropped",
+        "when": "2026-09-15T08:33:13+00:00",
+        "detail": [
+          "B23 on the inventory, the saying half. Seventeen parts are behaviours: placed on the board they are things the page does, not boxes on it. The preview runs ten and names six in a corner note as described only. The seventeenth, page transitions, was dropped: removed from the layout with the rest of the tier and in neither the switch nor the note. It is named now. Running the seven is the other half and stays on the list.",
+          "tests/behaviours-named.mjs: 5 of 5, 1 red against the tree before this. It reads the tier-B ids from the library and holds every one to the switch or the note, none to both, and the note to ids the library has."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "5318245",
+        "says": "A published site is seen at the width it was designed at",
+        "when": "2026-09-15T08:33:13+00:00",
+        "detail": [
+          "B20 on the inventory. Publish writes `frameWidth` into the site's document and the published page loads that document into a fresh visitor's store with `loadDoc`, which set the pages, the parts, the look and the behaviours and never the width. A site designed at phone width arrived at 1440 for everyone who did not build it. What a loaded document brings is one pure rule now, `takeDoc` in docTake.ts, and the width is in it: taken when it is a positive number of pixels, kept otherwise.",
+          "tests/published-width.mjs: 8 of 8. The rule run without the store, at 390, 834, none, zero and a word; and the store's loadDoc pinned to it."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7eeb34c",
+        "says": "Go live finds the project past the first hundred",
+        "when": "2026-09-15T08:33:12+00:00",
+        "detail": [
+          "B11 on the inventory. The deploy route asked Vercel for projects with limit=100 and looked in that one page; an account or team with more was told there was no project and to import one at vercel.com/new, for a project that was there on page two. The lookup walks `pagination.next` as `until` now, page by page, and stops the moment it has the one it wants or the cursor repeats. The walk is a pure function in vercelProjects.ts so it can be held to that without a token.",
+          "tests/vercel-pages.mjs: 6 of 6. Two hundred and fifty fake projects in pages of a hundred: the one on page three is found after three pages, one on page one after one, none after all three, and a cursor that never ends is given up on."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "3fc46a2",
+        "says": "A screenshot that was cut says so, and the label says what it is",
+        "when": "2026-09-15T08:33:12+00:00",
+        "detail": [
+          "B8 on the inventory, the saying half. The page screenshot that goes up beside an ask is capped at 6000px tall; a page past that lost the rest and went up labelled \"top to bottom\". The route answers three headers when it cut, the cap, the page's real height and the fact, and the label the picture goes up with reads them: \"the top 6000px of a page 6755px tall\" rather than a claim the picture cannot keep. Tiling a tall page into legible strips is the other half and stays on the list.",
+          "tests/shot-cut.mjs: 6 of 6, 3 red against the tree before this. It photographs a short page and one with a part at 7400px on this box's own Playwright, and reads the headers back."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "6163dc4",
+    "when": "2026-09-15T08:39:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "6163dc4",
+        "says": "Content sets the page, the pane sets the zoom: the held work goes in",
+        "when": "2026-09-15T08:39:28+00:00",
+        "detail": [
+          "Hypatia's 8c9160e closes what 972ce24 and 2d237de opened, and it closes it by separating the two things rather than by widening a check. Her own title says it: content sets the page, the pane sets the zoom, and the two stopped being one.",
+          "Her branch had merged euler, so euler's thirty ride in with it and are on trunk for the first time since 0b64a1d.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4281.",
+          "The three that were red on the held commit, and are the reason it was held:"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "5955bc8",
     "when": "2026-09-15T08:30:12+00:00",
@@ -762,264 +1011,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7aa5b01",
-    "when": "2026-09-15T07:30:26+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "82c0125",
-        "says": "The seven shortfalls of the live read, each held to the page by number",
-        "when": "2026-09-15T07:15:50+00:00",
-        "detail": [
-          "The first night named seven things the site-read arc fell short of on https://playwright.dev/, and left them failing. Each is fixed and held by tests/site-live.mjs, 62 of 62.",
-          "The selector path was cut at six steps under the body and still prefixed `body >`, so 22 of 60 candidates matched nothing and came back \"not on the page any more\", two of them among the 24 the panel offered. It walks to the body: 60 of 60 are found again at the same box.",
-          "The panel offered the 24 biggest things and the bar across the top was the 38th. The page's blocks come first on the list, top to bottom, then the rest biggest first; the bar is first of 24, and taken alone lands as the library's top bar at 589.05×27.61, ratio 21.335 against the page's 21.333. A block that is a run of small boxes is measured member by member when taken alone, as when the page is taken whole.",
-          "A link with no words was dropped, so a bar of 12 links read as 10. It is named by its label, title, picture's alt, icon's title or the last part of where it goes: 12 of 12, \"GitHub repository\", \"Discord server\". Naming them turned a band of nine company marks near the foot into a footer; an untagged footer now needs four links that are words on the page, and the only footer is block 9 of 9."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "87de105",
-    "when": "2026-09-15T07:28:13+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "87de105",
-        "says": "Regenerate the passes for placeholders named and a made space picked again",
-        "when": "2026-09-15T07:28:13+00:00",
-        "detail": [
-          "Dijkstra's fc50ba6: a picture in a landed block is said to stay a placeholder, and a made surface can be taken hold of to pick its space again. Taken on its own.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4270:",
-          "zip-import        75 of 75 hold   (73 before) recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold",
-          "The two new ones say what changed, in the words a person reads:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "fc50ba6",
-        "says": "A picture in a landed block is said to stay a placeholder, and a made space can be picked again",
-        "when": "2026-09-15T07:18:50+00:00",
-        "detail": [
-          "The panel promised the grounded step for pictures inside landed blocks; put in the order and pressed, it ran nothing. The line now says the picture stays a placeholder and why. Taking hold of a made surface picks the space, since it has no fill and no key. The aura reference sample is held inside the board, where it had landed on the menu bar's words."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "08cfa42",
-        "says": "Regenerate the passes for the inventory, and an export that now compiles",
-        "when": "2026-09-15T07:13:07+00:00",
-        "detail": [
-          "A sixth session, bardeen, with its first two on trunk: the unfinished inventory, and a Build export that imported a file nobody wrote.",
-          "I took its current tip rather than the one I started verifying: ea31164 was docs alone, and c12b0d9 landed while the build ran, so this carries both.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4267:",
-          "scaffold        32/32 passed  (the suite the fix arrives with) updates-view    22 of 22 hold"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "c12b0d9",
-        "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
-        "when": "2026-09-15T07:10:50+00:00",
-        "detail": [
-          "A18 on the inventory, and the cheapest row at the top of it. The layout the scaffold writes for an exported site began with `import { paintRoles, roleVars } from \"./bodyPaint.ts\"`, copied into the template string from the generator's own import at the top of the file. The generator does use those two, at export time, to bake a written body's roles into each part's component; the layout it writes never did, and nothing emits `app/bodyPaint.ts`, so every export ever downloaded failed at its first `tsc` on line 3. The one check on the layout read its title.",
-          "The line is gone. tests/scaffold.mjs now walks every relative import in every exported file and asks the export for that file: 2 imports today, 1 unresolved before this, 0 after. 32 of 32, typecheck clean."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "ea31164",
-        "says": "The unfinished inventory: everything started here and not yet finished, ranked",
-        "when": "2026-09-15T07:09:41+00:00",
-        "detail": [
-          "One list, docs/INVENTORY.md, from a sweep of six kinds of unfinished thing across src/, tests/ and scripts/ at 7b38e86: controls that do nothing or not what they say (22), declarations left behind (160 items in 8 groups), routes answering with a stub or a constant (19), things reachable in one mode and not another or offered and not takeable (17), checks that pass while measuring something other than what they name (63 checks in 27 suites, plus 5 suites with no check at all), and inputs of one shape that quietly degrade for another (41 shapes in 26 rows).",
-          "Ranked by what a person notices first. The top of it: Re-iterate on every finished card drops the ask from the default tab; Compile the blueprint has four entry points that show nothing in book mode; the tweet console's video records an empty site; every Build export imports a file the scaffold never writes; a twelve-entry context menu nobody can open; ten settings that read nothing; every cost line three times the bill; the trace kind of the drawing pipeline wrapped as a raster; and a check on the undo history that reads a field the store never persists.",
-          "Every row names the file and lines, was confirmed by reading them, and carries a cost to close. Rows in another session's area (keys, recreate) are flagged rather than edited. Nothing else changes in this commit: the list is the deliverable, and it is closed from the top in the commits after it."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "d9858fa",
-        "says": "Regenerate the passes for a floated section read where its words are",
-        "when": "2026-09-15T07:03:48+00:00",
-        "detail": [
-          "Dijkstra's fa836ba: a section whose paragraphs float is read where its words are, rather than at the empty box a float leaves behind. No other tip is ahead, so this one goes out on its own.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4265:",
-          "zip-import       73 of 73 hold   (68 before; five new ones with the change) site-read        44 of 44 hold space-by-hand    28 of 28 hold",
-          "The panel's own sentence is where the change shows, and it now counts what it could not before:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "fa836ba",
-        "says": "A section whose paragraphs float is read where its words are",
-        "when": "2026-09-15T07:00:52+00:00",
-        "detail": [
-          "The route measures a box grown to hold children that run out of it and touch it, so a section that collapsed to its heading under floats is one band. A paragraph and a heading are named as such, so a section of tall paragraphs is not opened as a column, and a column stretched up beside the floats of the section before it is trimmed to its own contents and still opens. Zen Garden's Requirements section is one block of ten."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "7b38e86",
-        "says": "Regenerate the passes for the live site read, with its suite unrunnable here",
-        "when": "2026-09-15T06:52:48+00:00",
-        "detail": [
-          "Shannon's f9d0082: a real site over the open web, read and landed by measurement. Her first tip on trunk. It adds tests/site-live.mjs and five screenshots and touches no source at all.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4264:",
-          "site-read     44 of 44 hold zip-import    68 of 68 hold site-live     could not run in this container — see below",
-          "site-live is the suite this commit exists for, and it cannot run from here. It got three checks in and stopped:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7487daf",
-    "when": "2026-09-15T06:49:36+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f9d0082",
-        "says": "A real site over the open web, read and landed by measurement",
-        "when": "2026-09-15T06:35:03+00:00",
-        "detail": [
-          "The site-read arc was built where no live page could be reached, so its route had only ever seen a fixture and a zip. This holds it to a page nobody here wrote, https://playwright.dev/, from a container with egress: 20699 bytes come back with the page's own title; the reader lists 60 things and 9 blocks, and every block is one of the page's 9 landmarks to the pixel, read by a query that is not the reader's; the foot of the page taken alone lands in a drawn space as the library's footer with the page's ten worded links and its own paint, carries the space's plan, and is prompted, moved and resized by hand; the whole page lands as 9 parts on a surface locked at the page's proportion.",
-          "What falls short is left failing, by name. The surface's proportion is 2.4034 against the page's 2.4039, a third of a pixel, so the third decimal splits; 16 of 36 locked shares differ at the third decimal because parts sit on whole board pixels, the largest drift 0.0008 of the page. 22 of the 60 candidates cannot be found again by the selector they gave, because the reader's path is cut at six steps under body, and two of those are among the 24 the panel offers. The bar across the top is the 38th biggest thing on the page, so it is not on the panel's list of 24 and cannot be taken alone from there. The page draws its words by script, so they are not in the bytes that come back, which the route survives and the zip path would not."
-        ],
-        "areas": [
-          "docs",
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d6dee78",
-    "when": "2026-09-15T06:49:22+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d6dee78",
-        "says": "Regenerate the passes for the first screen and the findings",
-        "when": "2026-09-15T06:49:22+00:00",
-        "detail": [
-          "Dijkstra's a445520: a tall header is named a first screen, and the findings from the recreate work are written down by owner rather than left in a session. Taken on its own; shannon's f9d0082, the live site read, waits for its own pass.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4263:",
-          "site-read        44 of 44 hold zip-import       68 of 68 hold space-by-hand    28 of 28 hold",
-          "Those are the three suites that read siteRead.ts, and zip-import is where the naming shows:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5fa77d0",
-    "when": "2026-09-15T06:47:14+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a445520",
-        "says": "A tall header is named a first screen, and the findings are written by owner",
-        "when": "2026-09-15T06:38:47+00:00",
-        "detail": [
-          "playwright.dev marks its first screen up as a header, as page builders do, and the list named it \"the bar across the top\" while the catalogue rightly made it a first screen: a header is a bar only at a bar's height.",
-          "docs/RECREATE-FINDINGS.md is every finding from walking the address and zip doors against real pages, sorted by which piece owns it (the route, the block picker, the catalogue, the landing, the part) and marked fixed or open, so a session exercising the same arc against the same pages can compare rather than repeat."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2bab116",
-    "when": "2026-09-15T06:46:56+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "2bab116",
-        "says": "Regenerate the passes for the ground's whole pixels, and retire a frame counter",
-        "when": "2026-09-15T06:46:56+00:00",
-        "detail": [
-          "Euler's three: the ground's sparks rub out where they were rather than the whole sheet, his merge of trunk, and the one sliding layer landing on whole pixels. Taken on its own; dijkstra's a445520 and shannon's f9d0082 landed while this was verifying and wait for their own passes.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4262:",
-          "ground-drift       10/10 passed ground-embers      12/12 passed not-one-machine    21/21 passed ground-clean       12/12 passed ground-paints      26/26 passed board-layout       69/69 passed  (67/69 before the fix below)",
-          "One instrument retired, which is test fallout from a deliberate change and so belongs here rather than on euler's branch."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0b64a1d",
-        "says": "The ground's one sliding layer lands on whole pixels",
-        "when": "2026-09-15T06:24:34+00:00",
-        "detail": [
-          "Second of the two. A one-line change, and the reason it works is the thing worth keeping.",
-          "WHAT IT COSTS, isolated first. At twelve boards the cloud layer is worth 8.6 frames per 900ms and the sky behind it 2.0 — but only 1.5 of the cloud's is its *sliding*; the rest is being a full-pane translucent layer that has to be re-blended whenever anything damages the viewport. Opacity, promotion and width made no difference to any of it: 30.6 as it is, 31.2 opaque, 31.0 unpromoted, 31.6 cropped to the on-screen width.",
-          "WHAT THE SLIDING WAS DOING. The layer is the pane and a bit — 1835 by 1191 — and it lands between pixels on nearly every frame. A composited layer that lands between pixels has to be resampled across its whole surface; one that lands on a pixel can be copied. Two and a quarter million pixels, filtered thirty times a second, to move the clouds six.",
-          "`steps(period)` over a slide of exactly `period` pixels is a step of exactly one pixel. Same speed, same distance, same loop — six pixels a second is now a step every sixth of a second — and every frame lands on the grid."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }

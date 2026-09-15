@@ -36,11 +36,35 @@ await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 
 const seed = async (scroll) => {
   await page.evaluate((scroll) => {
+    /*
+     * The page is made here rather than found, because on a cold profile
+     * there is nothing to find.
+     *
+     * This read the store, mapped over `st.pages ?? []` and wrote the result
+     * back. That worked only while something wrote the store on load — and
+     * the fit used to, on every mount, which is the very thing that was
+     * overwriting people's saved boards and has since been stopped. With
+     * nothing written, `pages` mapped over an empty list, the store was
+     * replaced by `{state:{pages:[]}}`, and the preview answered "This page
+     * couldn't load" with no [data-live-scroller] on it at all — so this
+     * suite hung on a locator rather than failing a check.
+     *
+     * A page that does not exist is made, with the same shape `firstPage()`
+     * gives it in store.ts.
+     */
     const doc = JSON.parse(localStorage.getItem("builder.studio") || "{}");
     const st = doc.state ?? {};
-    const pageId = st.activePageId ?? st.pages?.[0]?.id ?? "page_home";
-    st.pages = (st.pages ?? []).map((p) => (p.id === pageId ? { ...p, scroll } : p));
+    if (!st.pages?.length) {
+      st.pages = [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }];
+      st.activePageId = "page_home";
+    }
+    const pageId = st.activePageId ?? st.pages[0].id;
+    st.pages = st.pages.map((p) => (p.id === pageId ? { ...p, scroll } : p));
+    st.nodes ??= []; st.groups ??= []; st.shapes ??= []; st.spaces ??= [];
+    st.format ??= {}; st.look ??= {}; st.motion ??= [];
+    st.frameWidth ??= 1440;
     doc.state = st;
+    doc.version ??= 0;
     localStorage.setItem("builder.studio", JSON.stringify(doc));
   }, scroll);
   await page.goto(`${URL_}/builder/preview`, { waitUntil: "networkidle" });
