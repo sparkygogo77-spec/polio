@@ -11,7 +11,7 @@
  * wheels are one object with two subjects.
  */
 import * as React from "react";
-import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Link2, Maximize2, Monitor, Smartphone, Square, Sun, Tablet, Waves } from "lucide-react";
+import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Square, Sun, Waves } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
@@ -176,29 +176,6 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
           onChange={(f) => s().setLook({ veil: Math.round(f * VEIL_MAX * 100) / 100 })}
         />
         <Caption slab={c}>{`Veil · ${v > 0.005 ? `${Math.round(v * 100)}%` : "none"}`}</Caption>
-      </>
-    );
-  }
-
-  /* ------------------------------------------------------- the width */
-  // How the page is built: the frame's width as three keys, and beside it
-  // the two things the board does to the frame — fit it in view, and show
-  // or hide the wires — so no slab is bare.
-  if (which === "width") {
-    const fw = useStudio.getState().frameWidth;
-    const widths: ArcItem[] = [
-      { id: "1440", label: "Desktop · 1440", style: keyOf(0), glyph: <Monitor className="size-3" /> },
-      { id: "834", label: "Tablet · 834", style: keyOf(1), glyph: <Tablet className="size-3" /> },
-      { id: "390", label: "Phone · 390", style: keyOf(2), glyph: <Smartphone className="size-3" /> },
-    ];
-    const wires = useStudio.getState().showWires;
-    return (
-      <>
-        <ScreenFace slab={a} />
-        <ArcChips slab={a} tone="screen" items={widths} radius={chipsAt(a)} value={String(fw)} onPick={(id) => s().setFrameWidth(Number(id))} />
-        <Caption slab={a}>{`Width · ${fw}`}</Caption>
-        <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} shape={b.shape} label="Fit in view" icon={<Maximize2 className="size-3.5" />} onClick={() => s().requestFit()} />
-        <SectorButton d={wholeOf(c)} at={centreOf(c, hole, "edge")} spin={c.spin} shape={c.shape} label={wires ? "Hide the wires" : "Show the wires"} icon={<Link2 className="size-3.5" />} on={wires} onClick={() => s().setShowWires(!wires)} />
       </>
     );
   }
