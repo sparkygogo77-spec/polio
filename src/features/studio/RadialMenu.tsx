@@ -347,8 +347,8 @@ function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice
         { id: "contents", label: "Contents", icon: ListTree },
         { id: "links", label: "Links", icon: Link2 },
         { id: "data", label: "Data", icon: Database },
-        // A placeholder: the flag is here, what it does is not, yet.
-        { id: "priority", label: "Priority (soon)", icon: Flag, act: () => play("tap") },
+        // Must have, nice, idea: the panel's three, on a plate.
+        { id: "priority", label: "Priority", icon: Flag },
       ];
     case "draw":
       // The board is not a list of choices; it has nothing on the green level.

@@ -383,6 +383,11 @@ let side = null;
   for (let i = 0; i < 20 && (await card.getAttribute("data-solid-ready")) === "asking"; i++) await page.waitForTimeout(150);
   check("with no token, the card is not lit and says what would light it", (await card.getAttribute("data-solid-ready")) === "no" && (await card.locator("[data-solid-needs]").count()) === 1, (await card.locator("[data-solid-needs]").innerText().catch(() => "-")).slice(0, 60));
   check("it names the routed model, read off the same table", (await card.getAttribute("data-solid-model")) === "tencent/hunyuan3d-2mv", await card.getAttribute("data-solid-model"));
+  // The "Where it goes" card reads the part, not its words: a cube is a solid, in one step, to the same model.
+  const what = (await page.locator("[data-audit-what]").first().innerText().catch(() => "")).trim();
+  const steps = (await page.locator("[data-audit-steps]").first().innerText().catch(() => "")).replace(/\s+/g, " ").trim();
+  check("and Where it goes says a solid for a cube, not a mark", what.includes("an object you can turn"), what || "-");
+  check("in one step, with no reading of words it does not have", !/read/i.test(steps) && /first|one/i.test(steps), steps || "-");
   check("and nothing was sent anywhere to find that out", solidCalls.length === 0 && asked.length === 0, asked.join(" ") || "none");
   await card.scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);

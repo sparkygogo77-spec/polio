@@ -2,9 +2,440 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:35:48.445Z";
+export const GENERATED_AT = "2026-09-15T08:19:43.970Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "981e19b",
+    "when": "2026-09-15T08:19:43+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "68beea4",
+        "says": "The morning run of the live read, pictured: 67 of 67",
+        "when": "2026-09-15T07:42:29+00:00",
+        "detail": [
+          "The three shots the panel and the board give on the pushed tree, from the re-run that answers the morning report."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "fc4ebf7",
+        "says": "The live read holds a page written this year: any colour, any status, the whole picture",
+        "when": "2026-09-15T07:36:28+00:00",
+        "detail": [
+          "The inventory's rows for the recreate session (C20 to C25, D32) and what looking at the parts drawn showed, each held by number in tests/site-read.mjs (56 of 56) and tests/site-live.mjs (67 of 67).",
+          "Chrome reports a colour as written when it was written in a newer syntax, so oklch(0.3 0.1 250) missed the rgba?( regex and every such paint was dropped. Every colour is painted onto one canvas pixel and read back as the rgb the browser paints: the fixture's oklch band reads rgb(0, 46, 93) under rgb(238, 238, 238). A line height of normal read as nought; it is the browser's own, 24px on 20px type. An inline svg was not a picture; it counts, carried as its own markup under 40k characters, 120×80 on the fixture. The page's height was the body's scroll height, 900 for a site that scrolls an inner container; it is the document's or the lowest thing on it.",
+          "The status was never checked, so a 404's own error page was listed as things to point at; 400 and up is refused with the number: \"That page answered 404, so there is no page at that address.\" The read settled a fixed 900ms after load; it waits for the page's requests to go quiet, up to four seconds. The picture shown was the first 900px while the candidates came from all of it; it is the whole page, 1280×3077 for playwright.dev, in a box that scrolls. The element picture's cut of 2000px and the measure call's cap of 40 selectors are 4000 and 120.",
+          "A listed thing's caption was textContent, \"PlaywrightDocsMCPCLIAPI\"; its text nodes are joined with a space. A link painted as a box read as no button, so the first screen carried none; a link that paints its own background, a gradient included, and pads its words is a button, and the first screen carries \"button: Get started\". A card grid carried titles and the part drew a filler sentence under each; each title carries the run after it as \"title: sentence\", and the card draws \"Full-featured test runner with auto-waiting…\"."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f339736",
+    "when": "2026-09-15T08:19:07+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f339736",
+        "says": "Regenerate the passes for a cube that is a solid in one step",
+        "when": "2026-09-15T08:19:07+00:00",
+        "detail": [
+          "Meitner's two: where it goes reads the part first, so a cube is a solid in one step rather than two, and the morning report for the box-to-cube arc with what was watched and what was not.",
+          "One source file, space.ts, and the suites that stand on it are the ones run.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4277:",
+          "box-to-cube      76/76 passed   (74 before) space            54 of 54 hold cube             62/62 passed space-one-open   19 of 19 hold create-flow      26 of 26 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "daa9020",
+    "when": "2026-09-15T08:16:35+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f2afcf6",
+        "says": "The morning report for the box-to-cube arc, one list, with what was watched and what was not",
+        "when": "2026-09-15T07:46:42+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "21ca0c1",
+        "says": "Where it goes reads the part first: a cube is a solid, in one step",
+        "when": "2026-09-15T07:45:51+00:00",
+        "detail": [
+          "The \"Where it goes\" card called a cube \"a mark or small icon\" routed to GPT Image 2 through read › first › refine › alpha, because `planFor` read the part's words and a cube's words are what is written on its sides. It reads the part first now (`isSolidPart`: cube-3d, mesh-3d): making is `object`, the steps are one first pass, and the model is the table's own tencent/hunyuan3d-2mv, which is the same answer the solid card under it gives. A flat part reads exactly as before.",
+          "Held by two new checks in tests/box-to-cube.mjs, read off the card's own text. Against the build here, port 4302, after merging trunk (13 commits, clean; a stale .next/dev type file from the old dev server referenced a route trunk removed and was cleared):",
+          "box-to-cube   76/76 audit-panel   25 of 25 hold cube          62/62 typecheck clean, build rc=0"
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "a1ec677",
+    "when": "2026-09-15T08:15:14+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a1ec677",
+        "says": "Regenerate the passes for thirteen controls that now do what they say",
+        "when": "2026-09-15T08:15:14+00:00",
+        "detail": [
+          "Bardeen's thirteen, taken as one because they are one job and it is the job its own inventory set: the part's right-click list that no press could open is gone, the board's Preview answers its menu, the side-panel key says so in all four places it is named, the cheat sheet opens on the key its hint prints and lists the shortcuts that fire where you are, the page's wheel keeps nothing behind the Edit slab it stopped drawing, the toolbar's search says what it searches, the settings drawer offers what something reads, a toast under the pointer stays, streamer mode hides an identifier, hover ticks and feed events gate a sound that plays, the showcase's controls do what their labels say, and priority is set from the wheel.",
+          "That is most of section A of docs/INVENTORY.md, closed by the session that wrote the list, eleven new suites arriving with it.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4276:",
+          "priority-wheel      6/6     page-wheel-edit     4/4 showcase-live       8/8     part-menu           5/5 toast-hold          4/4     shortcut-keys       3/3 settings-read       9/9     shortcut-sheet      7/7 search-label        5/5     side-panel-label   10/10 live-device         7/7"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "7355866",
+    "when": "2026-09-15T08:11:47+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "772c71d",
+        "says": "Priority is set from the wheel",
+        "when": "2026-09-15T08:00:37+00:00",
+        "detail": [
+          "A9 on the inventory. The wheel is the whole editor and the panel is the convenience: anything the Inspector does to a part, the wheel does too. Priority was the exception, a slab on the pencil's level saying \"Priority (soon)\" that played a tap while the Inspector set it. The slab opens a plate now with the panel's three keys on it, Must have, Nice and Idea, the part's own lit.",
+          "tests/priority-wheel.mjs: 6 of 6, 4 red against the tree before this. It right-presses a seeded part, opens the pencil's level, finds Priority without a soon on it, and presses Idea: the part's priority is \"idea\"."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "3003aee",
+        "says": "The showcase's controls do what their labels say",
+        "when": "2026-09-15T08:00:37+00:00",
+        "detail": [
+          "A20 on the inventory. The showcase is on by default and a keystroke away. Its right-click cards offered Liked and Remove card and both only toasted: the heart never changed, the card stayed. Its Presets menu had five entries with nothing behind them, its empty state's Open feed opened nothing, and an input wore a \"/\" key hint no key honoured. A small store holds which cards are liked and which were removed, the menu writes it and the page reads it; every preset entry answers; Open feed opens the feed; the hint is gone.",
+          "tests/showcase-live.mjs: 8 of 8, 3 red against the tree before this."
+        ],
+        "areas": [
+          "docs",
+          "showcase",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "8acc138",
+        "says": "Hover ticks and feed events gate a sound that plays",
+        "when": "2026-09-15T08:00:37+00:00",
+        "detail": [
+          "A18 on the inventory. \"Hover ticks\" gated a cue nothing played outside the showcase's sound board, which forces past the gate; \"Feed events\" gated three cues nothing played at all. The button primitive plays the hover tick on pointer enter, which the engine mutes unless the setting is on (it is off by default), and the showcase's live price, the one feed the template ships, ticks up or down as it moves."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "showcase"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "5fb1bc9",
+        "says": "Streamer mode hides an identifier",
+        "when": "2026-09-15T08:00:37+00:00",
+        "detail": [
+          "A17 on the inventory. \"Streamer mode: also hides addresses and identifiers\" set an attribute on the root that one utility class read, and no element wore the class, so the toggle changed nothing anyone could see. The two places the tweet console shows a handle wear it now, in the preview and on the ready badge. settings-read.mjs counts the wearers."
+        ],
+        "areas": [
+          "docs",
+          "tweets"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "96d40a6",
+        "says": "A toast under the pointer stays",
+        "when": "2026-09-15T08:00:36+00:00",
+        "detail": [
+          "A19 on the inventory. \"Pause feeds on hover: rows never slide away mid-click.\" Hovering a toast froze its drain bar and nothing else: the sweep that runs every half second still removed it at its expiry, bar frozen at half. The store holds a hovered toast now and lets it go when the pointer leaves, with what was left of its time and never less than a beat, and the Toaster reads the setting that promised this.",
+          "tests/toast-hold.mjs: 4 of 4, 1 red against the tree before this. It raises a toast on the showcase, rests the pointer on it for 6.5 s, and finds it still there; moves away, and finds it gone."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "f309913",
+        "says": "The settings drawer offers what something reads",
+        "when": "2026-09-15T08:00:36+00:00",
+        "detail": [
+          "A14, A15 and A16 on the inventory. Four toggles had no reader at all: Flash new rows, 24-hour clock, Remember open panels, FPS meter. Deleted. Two more, Sidebar (Rail, Fixed, Hidden) and Route tabs in top bar, with the Toggle sidebar command and ⌘B, drew `registry.nav`, and every module declares `nav: []`, so the sidebar never rendered and four controls changed nothing on screen. They are offered only while a module declares a nav entry: a setting can carry `when`, the drawer and the palette honour it, and the gate lives in `nav-gate.ts`, which imports nothing. The first cut imported the registry from the definitions the registry is built from, and the build said so: a cycle, caught at prerender.",
+          "tests/settings-read.mjs walks every core setting for a reader outside its own definition (0 unread now, 5 before) and holds the ones that had a reader and still did nothing to the thing they now do. 9 of 9, 8 red against the tree before this batch; its later lines land with A17 to A19."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "408c02d",
+        "says": "The toolbar's search says what it searches",
+        "when": "2026-09-15T08:00:36+00:00",
+        "detail": [
+          "A8 on the inventory. The search key's tooltip said \"Search the tools, the parts and every command\" and its short label \"Search tools…\". It opens the command palette, which lists commands and settings and none of the 229 parts; the parts search is the shelf's own box. The tooltip says \"Search every command and setting\" now and the label \"Search commands…\"; menu-pass.mjs finds the label by its new words.",
+          "tests/search-label.mjs: 5 of 5, 3 red against the tree before this. It reads what the palette lists and holds the tooltip to it: a promise about parts is allowed only on a box that finds parts."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "813fd4f",
+        "says": "The page's wheel keeps nothing behind the Edit slab it stopped drawing",
+        "when": "2026-09-15T07:38:25+00:00",
+        "detail": [
+          "A22 on the inventory. The page's wheel stopped drawing Edit a while ago: the width it held was the third copy of one control, and its other item was \"Per page (soon)\", a tap and nothing. The slot, the two choices and the width editor they opened were all still in the code, unreachable. Gone: the slot from the page's table (typed without it, so the compiler holds the line), the choices, the editor, and the icons only they used, plus three in the wheel that nothing had used since the scissors and the three-dot went.",
+          "tests/page-wheel-edit.mjs: 4 of 4, 4 red against the tree before this, with comments stripped before matching so the sentence explaining the removal is not what it finds. Green alongside: wheel-pass 12/12, wheel-trim 14/14, menu-pass 101/101, light-placer 16/16, current 29/29."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "489ed94",
+        "says": "The cheat sheet lists the shortcuts that fire where you are",
+        "when": "2026-09-15T07:38:25+00:00",
+        "detail": [
+          "A12 on the inventory. The sheet listed every registered shortcut, and 18 of the Builder's 20 carry a condition the key handler asks before firing: on the board the sheet advertised \"b Back to the board\", and in the full preview it advertised the select tool, the draw tool, the frame widths and the rest, none of which fire there. The sheet asks the same condition now, so a row on it is a key that works here.",
+          "tests/shortcut-sheet.mjs: 7 of 7, 3 red against the tree before this. It opens the sheet on /builder and on /builder/preview and reads the rows: Design / Preview on the board and not Back to the board; Back to the board in the preview and not Select tool."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1990786",
+        "says": "The cheat sheet opens on the key its hint prints",
+        "when": "2026-09-15T07:38:25+00:00",
+        "detail": [
+          "A11 on the inventory. The shortcut sheet was bound to \"shift+/\" and shown as ⇧/ in the palette, the sheet and the right-click menu. The matcher compares the browser's own key name and, for punctuation, does not check shift on its own, because the browser has already folded it in: shift and the slash key report \"?\". So the sheet opened on a bare \"/\" and never on \"?\", and \"?\" is the tour's. The binding is \"/\" now, printed as \"/\", which is what it always did.",
+          "tests/shortcut-keys.mjs: 3 of 3, 2 red against the tree before this. For every single-key binding in the app (32) it makes the event a person makes by pressing what the hint shows, with the browser's key codes (Slash, not \"/\"), and asks the matcher; and it holds every chord to one owner, shift counted for letters and folded for punctuation. keys.ts names its import with its extension so the check can import the matcher."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "809ff50",
+        "says": "The key that hides the side panel says so, in all four places it is named",
+        "when": "2026-09-15T07:37:57+00:00",
+        "detail": [
+          "A7 on the inventory. One toolbar key toggles the whole five-tab side panel: Element, Format, Pages, Look, Motion. Its tooltip said \"Show / Hide colour & texture\", its name to a screen reader was \"Toggle look\", its command was \"Builder: show or hide the library\" and its shortcut line \"Show / hide the library\". Four names and none of them the thing: the parts library is never hidden by it, and colour is one tab of five. All four say the side panel now; menu-pass.mjs presses it by its new name.",
+          "tests/side-panel-label.mjs: 10 of 10, 6 red against the tree before this. It reads the four strings and presses the key: the panel goes, the shelf stays, the panel comes back."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "aa05478",
+        "says": "The board's own Preview answers its menu: Device changes it, Back goes back",
+        "when": "2026-09-15T07:37:57+00:00",
+        "detail": [
+          "A6 on the inventory. Flip the board to Preview and right-press the site: the menu offers Device (Desktop, Tablet, Phone) and Back to the board. Device called one window hook that only the /builder/preview page installed, so on the board it was undefined and the three entries did nothing. Back navigated to /builder, the address you were already at, so the mode stayed Preview.",
+          "The live stage owns its device once it is up and installs the hook wherever it is mounted (the page's own copy is the same hook and the two are never on screen together). Back reads where it is: an address in the full preview, a mode on the board.",
+          "tests/live-device.mjs: 7 of 7, 3 red against the tree before this. Phone takes the site from 1440px to 390px; Back takes the board to Design, one frame and no scroller."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
+  {
+    "id": "3d1199a",
+    "when": "2026-09-15T08:10:32+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "3d1199a",
+        "says": "Regenerate the passes for the family that travels, and the Zen Garden count",
+        "when": "2026-09-15T08:10:32+00:00",
+        "detail": [
+          "Dijkstra's two: the family a page was set in travels by name whether or not its file did, and the Zen Garden counted after the night with three catalogue findings.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4275:",
+          "zip-import    79 of 79 hold   (75 before) site-read     48 of 48 hold   (44 before) recreate      49 of 49 hold   (46 before) board-edges   11 of 11 hold",
+          "Eleven new checks arrive across the three, and board-edges is there because of what is recorded below, not because dijkstra went near it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "21d1f9a",
+    "when": "2026-09-15T08:07:41+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a7b58af",
+        "says": "The Zen Garden counts after the night, and three catalogue findings",
+        "when": "2026-09-15T07:36:28+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "7f53246",
+        "says": "The family a page was set in travels by name, whether or not its file did",
+        "when": "2026-09-15T07:32:03+00:00",
+        "detail": [
+          "The route reads the first family on the stack as the face and measures whether it drew. The part carries the face and asks for it first, with the class behind it; the inspector names it; the panel's line says which faces did not travel. Declared: parts/theme.ts gains an optional face on NodeFont and applyFont puts it first on the stack."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "aeeee41",
+    "when": "2026-09-15T07:44:45+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "aeeee41",
+        "says": "Regenerate the passes for a drawn box that is a real cube",
+        "when": "2026-09-15T07:44:45+00:00",
+        "detail": [
+          "A seventh session, meitner, with its first on trunk: ce115bb, a drawn box is a box and a box is a real cube — turned, written on, moved. New files for the pose, the solid route and its run, and a new suite that drives the whole arc.",
+          "This is the broadest merge of the night by reach: twenty source files, Canvas.tsx, store.ts, RadialMenu.tsx, blocks.tsx, spec.ts and scaffold.ts among them. So the board's own geometry is measured beside the cube work rather than assumed, because a Canvas.tsx change is exactly what is being held out of trunk on hypatia's branch tonight.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4273:",
+          "box-to-cube   74/74 passed   (new) cube          62/62 passed cube-part     29/29 passed board-edges   11 of 11 hold full-page     42 of 42 hold picked        16/16 passed wheel-pass    12 of 12 hold drawn-part    22/22 passed scaffold      32/32 passed"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "6cfcdec",
+    "when": "2026-09-15T07:40:42+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "ce115bb",
+        "says": "A drawn box is a box, and a box is a real cube: turned, written on, moved",
+        "when": "2026-09-15T07:33:35+00:00",
+        "detail": [
+          "The owner's arc, in the owner's order: draw a box and get back a real rotatable 3D cube with editable faces. Before this a plain box drawn with nothing beside it asked \"Is this box a cube?\" and, waved on, landed as a flat custom-idea surface (reproduced with Playwright: 220 × 160 px drawn, 277 × 201 flat part, reader and tracer both called).",
+          "1. Recognised off its own geometry. `isBox`: one closed line, four corners, filling its frame, drawn alone; `kindOfSketch` and the catalogue take `lone` (nothing of the page inside it, nothing real drawn on) from the run, so a captioned box, a box round parts, or a box over the hero keep their old meaning. The disc says \"a box: it will be a cube\" while it is drawn, the chip says `box · cube` after. No model is called anywhere on the road. 2. A real object. The cube keeps the drawn proportion (depth = the short side, `cubeDims`), pitch is held within 85°, spin into the limit is spent, and on release it eases to the nearest rest pose: a three-quarter view a quarter turn at a time, or tipped to the top or bottom. `facing` was calling pitch +90 the top; it shows the bottom, and reads off the rest poses now. Right press falls through to the wheel. The scaffold's written component mirrors all of it. 3. Faces picked like parts. A press that is not a drag picks the face under it (`cube-face`), the board keeps it as `pickedFace`, the face wears the mark, the panel scrolls its card in and hands it the keys, naming a face in the panel turns the cube to it, the wheel's pencil edits the picked face, every face has its own prompt and the blueprint writes it. Face edits push undo. 4. Survives what a flat part survives: move, resize by the handle (the object follows), the drawn ratio, undo, save and reopen. 5. The model road behind the table. `solidRoute.ts` / `solidRun.ts`: the object cell routes to tencent/hunyuan3d-2mv, the cube's own four faces go up as its four views (`views`, new on the image route for a mesh model), the card and the wheel piece light up the moment a Replicate token is present (vault or server, yes-or-no only) and say what would light them otherwise, with no call made; the answer lands as mesh-3d with the cube kept, and Back to the cube is one press.",
+          "Measured by `tests/box-to-cube.mjs` (new, 74 of 74), every route mocked, screenshots into docs/shots/box-to-cube-*.png, numbers in docs/BOX-TO-CUBE.md. Against the build here, port 4300:",
+          "box-to-cube   74/74   (new) cube          62/62   (was 59/59: square → proportion, settle → rest, the top is the top) cube-part     29/29 oddness       53/53   (a bare box is no longer asked about; the browser half asks about a scribble) coded         39/39 scaffold      31/31 shapes        21/21   (15 of 15 traced, $1.92 at the bench's $0.08, 153s) typecheck clean, build rc=0"
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e27e5d0",
+    "when": "2026-09-15T07:39:11+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e27e5d0",
+        "says": "Regenerate the passes for four controls that now do what they say",
+        "when": "2026-09-15T07:39:11+00:00",
+        "detail": [
+          "Bardeen's four, taken together because they are one job: Re-iterate runs from the tab a person is on rather than only from the book; Compile the blueprint opens the book's tab when the book is where you are; Picture and Solid are on the shelf you browse and the library counts itself; and the tweet console records the site that was built rather than an empty one.",
+          "Those are rows A1, A2 and A3 of the inventory it shipped an hour ago, closed by the session that wrote the list.",
+          "Merge clean. One thing to note for anyone who builds this tree: the tweet console's duplicate route is deleted, and a .next left over from before the delete still carries a generated validator that imports it, so typecheck fails on a stale build directory and passes on a clean one. Removed .next, then typecheck clean and build rc=0 from cold.",
+          "Run here on the build, port 4272:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "e0bbc35",
     "when": "2026-09-15T07:35:44+00:00",
@@ -725,325 +1156,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "ffc74eb",
-    "when": "2026-09-15T04:12:51+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "6326180",
-        "says": "Thirty boards: the vine sheet was the wrong suspect, and three ways at it lost",
-        "when": "2026-09-15T04:12:01+00:00",
-        "detail": [
-          "Taken the same way as the cards, and the answer is that the biggest painted thing on a thirty-board screen is not what anyone thought.",
-          "THE SHEET IS NOT THE PAYER. The canvas the ropes are drawn on is 95% empty — 5.3% of its pixels have ink, 18% of its 32px tiles have any — and it does pay for all of it, so it looked like the lever. It is worth four to seven frames at thirty boards. The payer is the vines' own *cloud*, the nebula laid over each rope, which is worth thirteen: taking it away is 63% of frames dropped to 42%, which is more than every card on the screen put together. Each light is the size of the whole gap between two boards plus a period for its slide, and it is clipped to a diagonal rope covering a twentieth of that.",
-          "THREE WAYS AT IT LOST, and they are worth writing down because each one looks obviously right:",
-          "Clipping the sheet to the tiles that have ink on them, as a `path()` of 127 rectangles: nothing at all, 15.5 frames against 15.8. A complex clip is rasterised as a mask, and a masked pixel is still a pixel the compositor multiplies. Only a rectangular inset culls — which is exactly why the cards' band works and this does not."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "fc68a80",
-    "when": "2026-09-15T04:11:47+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "fc68a80",
-        "says": "Import's suite owns the directory it writes fixtures into",
-        "when": "2026-09-15T04:11:47+00:00",
-        "detail": [
-          "Hypatia's pass: import says so when it cannot open a file, instead of sitting there. Her check writes a deliberately broken mp4 and offers it, and it is a good check — it holds the words a person actually gets, and that nothing was changed by the attempt.",
-          "It wrote that file into ${SP}, which is one session's own scratchpad. Off that machine the directory does not exist, so writeFileSync threw ENOENT and took the whole run down before reaching the check it was for — not a red line in a list, a stack trace instead of the suite.",
-          "There is one owned fixtures directory now, made by the suite when SP is not really there, and both the recorded clip and the broken file go in it. IMPORT_FIXTURES still points at a prepared set for anyone who has one. 32 of 32, including her three new ones.",
-          "That is the third fixture in this suite's short life that lived in its author's sandbox: the clip, the generator script, and now the broken file. The pattern is worth a line in AGENTS.md — a suite carries its own fixtures — and it is the feature sessions' document to write."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "ae494a9",
-        "says": "Import says so when it cannot open a file, instead of sitting there",
-        "when": "2026-09-15T04:07:18+00:00",
-        "detail": [
-          "The chooser says `video/*`, so it will be handed a .mov of ProRes or an HEIC photo, and a decode that never completes left `ready` false for ever: both keys greyed out and nothing anywhere saying why. Of the three answers a person can get to a file that will not open — it works, it says no, or nothing happens — the last is the worst, and it was the one on offer.",
-          "Two ways a video refuses and both are handled: it errors, or it says nothing at all. The second is the one that hung, so it is on a six-second clock. A picture that will not decode says the same. The message names what happened, says nothing has been changed, and the way out stays where it was; the two landings say \"Nothing to land\" rather than staying mute.",
-          "tests/import.mjs 34 of 34, and the new check is red against the tree before this: \"nothing said, both keys still grey\".",
-          "Merged dijkstra and trunk before committing."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "11971f0",
-    "when": "2026-09-15T04:06:03+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "de5a8ee",
-        "says": "Regenerate the passes for whole-word names and quiet background work",
-        "when": "2026-09-15T04:01:40+00:00",
-        "detail": [
-          "Dijkstra's pass: a landed part is named by whole words, and background work does not toast.",
-          "Run on this build: create-flow 26/26, create-space 19/19, space-one-open 19/19. Not run: the rest, none of which touches the queue's naming or its toasts."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "07821c4",
-    "when": "2026-09-15T04:06:02+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d78a570",
-        "says": "A landed part is named by whole words, and background work does not toast",
-        "when": "2026-09-15T03:59:39+00:00",
-        "detail": [
-          "Two things a hand found walking the create flow. The chart landed as \"chart associated with currently traded t\", forty characters and a fragment of the last word; a name is whole words now, cut at a space past the limit and saying so. And four toasts stacked over the space's panel after one Generate: a queued job is background work, which says what happened in the news and on the counter and, now, never as a toast.",
-          "Declared lines in euler's files: reshapeRun.ts, `nameFrom` beside `text` and one use of it where a drawn part is named; DrawQueue.tsx, the runner's publish strips `toast`, under euler's own note that queued work throws no panel over the board."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5c79f3f",
-    "when": "2026-09-15T04:03:06+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "5c79f3f",
-        "says": "What is drawn outside the page shows on the ground, on all four sides",
-        "when": "2026-09-15T04:03:06+00:00",
-        "detail": [
-          "The page's box clipped to itself, and the asymmetry in that is why it went unnoticed for so long. `frameHeight` grows the page downward to meet whatever is drawn, so ink below the last part pushed the box out and stayed visible. Nothing grows it upward — and nothing should, because y=0 is the site's top and moving it would renumber every coordinate in the document — so a stroke above the page simply fell outside and was thrown away.",
-          "The check that should have caught it could not. `scrollHeight > clientHeight` measures overflow below and to the right only: a box with content above it reports `scrollHeight` equal to `clientHeight`, in every browser. Measured with J's own case, one stroke at y -34 on a stock page: 900 against 900, while 28px of a drawn line sat above the edge, unreachable by any gesture. Two of the four sides were invisible to the instrument.",
-          "So the page keeps its origin and stops clipping. Measured against the tree before this, the same document: 28px taken off the top, 57 off the left, 74 off the right, nothing off the bottom — which is the asymmetry, stated as numbers.",
-          "Uncut is not the whole of it. A stroke at y -520 was then whole and still unreachable, 265px above the board's own top, because a scroller only ever travels down. The board grows upward to hold it (`frameTopReach`) while the page does not, and the pane's scrollTop moves by the same amount in the same frame, so the ground does not jump out from under the hand mid-stroke. Sideways is left alone deliberately: the board pans across, so a thing off the left is a pan away rather than lost."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e226c4a",
-        "says": "Regenerate the passes for the ground read with margin in it",
-        "when": "2026-09-15T03:41:47+00:00",
-        "detail": [
-          "Dijkstra's pass: the ground read has margin in it — colour, not a brightness on a knife edge. That is the check I flagged two pushes ago as passing and failing on the same build, picked up and answered properly.",
-          "Verified here rather than taken on trust, four runs on one build:",
-          "rgb(31,12,49)  purpleness 37   bar 21   page 6 rgb(31,12,49)  purpleness 37 rgb(31,13,51)  purpleness 38 rgb(31,12,48)  purpleness 36",
-          "Fifteen clear of the bar above, fifteen clear below, where the brightness read it replaces cleared by about one. Four of four rather than one in two. Reading blue over green rather than luma is also the better tell for what the check is named after: the ground is purple cloud and the page is flat blue-grey, and the brightest pixel in a patch is often an ember, which is amber and is also ground."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "cfc90aa",
-        "says": "The ground read has margin in it: colour, not a brightness on a knife edge",
-        "when": "2026-09-15T03:36:30+00:00",
-        "detail": [
-          "The inside of a hole wanted to be more than twelve above the page in brightness and cleared it by about one, because a cloud is as thin as it happens to be under the sample, so the same build passed and failed the check in turn. The most purple pixel of a patch inside is read instead, blue over green: about 35 on a cloud and 6 on the page, with the bar at 21, the middle of the two and fourteen either way. The most purple rather than the brightest, because the brightest is often an ember."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "60bfb63",
-        "says": "Regenerate the passes for import shrinking in from the edges",
-        "when": "2026-09-15T03:22:44+00:00",
-        "detail": [
-          "Hypatia's pass: import shrinks in from the edges, and the arrival is not replayed.",
-          "Her two new checks run on the clip the suite records for itself, which went in last push — she merged trunk first and built on it rather than round it, so the video path is exercised here as well as in her container. 29 of 29, up from the 27 it held yesterday and the 4 it held the day before.",
-          "Run on this build: import 29/29, full-page 42/42, picked 16/16, cards 67/67. Not run: the rest, none of which touches the importer or the page's height."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "ce2fd53",
-    "when": "2026-09-15T03:20:40+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f064618",
-        "says": "Import shrinks in from the edges, and the arrival is not replayed",
-        "when": "2026-09-15T03:19:45+00:00",
-        "detail": [
-          "\"Shrink in from the edges\" was the label and not yet the behaviour: the part appeared at its final box. It starts covering the page now and closes to the box it keeps — one transform run by the part itself, backwards. Written by the part rather than by a class, because where it starts depends on where it landed and how tall the page is, and a stylesheet knows neither; it leaves nothing on the element when it settles.",
-          "The bug that took the time is worth recording, because it was silent. The mark naming the arriving part was a plain variable, read once in the part's mount effect — and it is set *after* `addNode`, which flushes React synchronously, so the part had already mounted and read nothing. The animation simply never ran, and nothing said so. The mark notifies now, the way the preview does, so it is taken whether it lands before the part mounts or after. Measured in flight: 904px wide against 647 at rest.",
-          "Two instrument faults of my own on the way, both the same shape as the ones this project keeps finding. The first check compared an in-flight width in screen pixels against `node.w` in page pixels — the board draws at about 0.72, so a real shrink read as a failure. The second sampled at 90ms of a 420ms front-loaded ease, by which point it is most of the way home and the difference is arguable; 40ms is plainly in flight. Both widths now come off the screen, and the check names that they do.",
-          "Merged trunk, which carried euler's and dijkstra's work — both were already up to date behind it. Euler's idle-frame finding matters to a change of mine: the cause is a full-screen ground that never stops, damaging the viewport every frame, with translucent layers re-blended over it, and their law is \"carry less translucent area, not less motion\". Moving the shelf into the pane took the ground from 1039x943 to 1039x1191, which is 26% more damaged area every frame. Their four fixes are all in the timeline's own layers, so this is not addressed by them and I have not touched it."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d517c45",
-    "when": "2026-09-15T03:14:08+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d517c45",
-        "says": "import records the clip it needs, and the video half of it runs at last",
-        "when": "2026-09-15T03:14:08+00:00",
-        "detail": [
-          "Hypatia's pass: import takes a video, and the frame lands two ways.",
-          "Her suite wanted ${SP}/clip.webm with SP defaulting to one session's own scratchpad, and the generator for it — scratchpad/mkvideo.mjs — lives there rather than in the repository. So everywhere except the machine it was written on, the whole second half of the suite was skipped behind \"a test video exists to scrub — missing\", and it went red the first time it ran here. Four checks ran of the twenty-seven that exist.",
-          "It records one now: a canvas painted a frame at a time through MediaRecorder, which is the browser this suite already drives writing a real webm with real duration and real frames. Two and a half seconds of colour with the frame number burnt in — enough for a scrubber to have somewhere to go and for two frames to differ. IMPORT_FIXTURES still points it at a clip somebody has already made. 27 of 27, and the scrub, the two landings, the aspect and the resize are all actually exercised rather than skipped.",
-          "That is the second suite this week that could only pass in its author's own container, after site-read's fixture server on :8899. Both were green where they were written and red everywhere else. Worth a line in AGENTS.md that a suite carries its own fixtures, if one of the sessions wants to write it."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "57ca707",
-    "when": "2026-09-15T03:10:33+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f532bf7",
-        "says": "Import takes a video, and the frame lands two ways",
-        "when": "2026-09-15T02:49:22+00:00",
-        "detail": [
-          "WHAT IT DID BEFORE, measured rather than recalled. The background's wheel had a piece called Picture. Its chooser was `accept=\"image/*\"`, so a video could not be offered, and whatever it was given it did exactly one thing: `addTexture({ kind: \"image\", pattern: true, scale: 60, opacity: 0.5, contrast: 0.45, target: \"page\" })`. That is a tile — the picture reduced to a monochrome mask, repainted in a palette colour, half transparent, repeated across the whole page. It is the right answer for a background texture and it was the only answer, so there was no way to bring a picture in as a picture. The canvas right-click menu had no entry for it at all.",
-          "WHAT IT DOES NOW. The piece is Import and takes `image/*,video/*`. A video opens a scrubber, and the frame under the playhead is on the page behind the panel at full size as you drag — the same frame the landing commits, not a thumbnail of it. Then two landings, which are different intentions rather than two sizes of one:",
-          "FIT TO STANDARD — one covering picture at the page's standard size. It stays a texture layer, because a background is one, but `pattern: false` and `weave: 1` make it one coherent picture instead of a recoloured tile.",
-          "SHRINK IN — a `picture` part at the picture's own aspect (893×502 for a 16:9 frame, measured), inset from the frame, dragged and resized like anything else, wearing the frame through `node.texture`."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "19b831e",
-    "when": "2026-09-15T02:54:17+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "19b831e",
-        "says": "Regenerate the passes for the page being everything drawn on it",
-        "when": "2026-09-15T02:54:17+00:00",
-        "detail": [
-          "Five passes, all three sessions converged into one tip: the page is everything drawn on it, with the suite naming what it measured; a surface forms where it can be watched, on the timeline's own bands; the aura check reading with both instruments; the eraser going through a space's key to the box under it; and the timeline paying for area over a moving ground, so it carries less of it.",
-          "The first is the one J measured on 8e12d2a and found still broken: a page window 900 tall with overflow hidden over 1085 of content, and a real shape with its bottom 224px past the window's edge, invisible on the deploy. Measured again here on a page with a shape drawn at the same depth: the window is 1017 rather than pinned at 900, and the shape's bottom sits 138px INSIDE it. The fault he named is closed.",
-          "Run on this build rather than the full sweep, which was killed at 44 minutes last pass for being slower than the thing it was holding up:",
-          "full-page       42/42   the page's height, at four window sizes quiet-scroll      8/8   one scroller over the site picked          16/16   pressing the page space-one-open  19/19   the aura, green since the ring was evened create-space    19/19   passed here; see the knife-edge note last push cards           67/67   the previews"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "57d0c95",
-        "says": "The timeline pays for area over a moving ground, so it carries less of it",
-        "when": "2026-09-15T02:42:26+00:00",
-        "detail": [
-          "The idle drop, fixed. Measured first and at length, because almost everything that looked like the cause was not.",
-          "WHAT IT IS NOT. The ground is not the culprit: the same page with no boards on it drops nothing at all — 54 frames per 900ms, flat — however much of it is moving. And the construct's own drifting layers are not the culprit either: with the canvases quiet and the rim still, twelve cards with both layers gliding also measured 54 and nothing dropped.",
-          "It is the two together, and that is the whole shape of it. The ground is a full-screen surface that never stops, so the viewport is damaged on every frame; every translucent layer stacked over a damaged viewport is re-blended on every frame, whether or not it moved. A timeline is a lot of translucent layers. Neither half is over budget and the two of them are:",
-          "the ground alone, no boards      54 /900ms    0% dropped the timeline alone, ground gone  43          20% the two of them                  31          43%"
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0eaa2fc",
-    "when": "2026-09-15T02:39:04+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "0282fe0",
-        "says": "The eraser goes through a space's key to the box under it",
-        "when": "2026-09-15T02:30:28+00:00",
-        "detail": [
-          "A hand erasing a box presses the middle of it as often as its line, and the middle of an empty hole is where its key sits, so the key took the press and the box stayed. While the tool is the eraser the keys on a space, open or closed, let the press through, and the box goes from the board and the store as one step, which undo brings back. The merge commit before carried this message and not this change."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "bcc02f9",
-        "says": "The aura check reads with both instruments, the conflict markers gone",
-        "when": "2026-09-15T02:30:02+00:00",
-        "detail": [
-          "The merge before this was committed with the conflict in it; the check keeps each side read along its normal and against its own background."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
       }
     ],
     "more": 0

@@ -2,6 +2,7 @@
 import * as React from "react";
 import { AlertTriangle, Bell, Check, Download, Heart, Inbox, Play, Plus, Rocket, Search, Star, Trash2, Volume2, Zap } from "lucide-react";
 import { useActions } from "@/core/actions";
+import { useShowcase } from "./store";
 import { CUE_NAMES, cueCategory, play } from "@/core/audio/engine";
 import { useSetting, useSettingValue } from "@/core/settings/useSetting";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -89,6 +90,8 @@ function useRandomWalk(start: number, step: number, enabled: boolean, ms: number
 
 export function ShowcasePage() {
   const ctx = useActions();
+  const liked = useShowcase((s) => s.liked);
+  const removed = useShowcase((s) => s.removed);
   const live = useSettingValue<boolean>("showcase.liveNumbers");
   const tickMs = useSettingValue<number>("showcase.tickMs");
   const [seg, setSeg] = React.useState("1h");
@@ -104,6 +107,13 @@ export function ShowcasePage() {
   const [hue, setHue] = useSetting<number>("appearance.accentHue");
   const mc = useRandomWalk(1_240_000, 60_000, live, tickMs);
   const price = useRandomWalk(0.0042, 0.0003, live, tickMs);
+  // The feed cues, on the one feed the template ships: a tick up or down
+  // with the price, gated by "Feed events" in the engine.
+  const lastPrice = React.useRef(price);
+  React.useEffect(() => {
+    if (live && price !== lastPrice.current) play(price > lastPrice.current ? "priceUp" : "priceDown");
+    lastPrice.current = price;
+  }, [price, live]);
   const [hist, setHist] = React.useState<number[]>(() => Array.from({ length: 30 }, (_, i) => 50 + Math.sin(i / 3) * 10));
   React.useEffect(() => {
     setHist((h) => [...h.slice(-29), mc / 20_000]);
@@ -223,7 +233,7 @@ export function ShowcasePage() {
             />
           </Row>
           <Row label="Input">
-            <Input placeholder="Search tokens…" left={<Search />} className="w-56" right={<Kbd>/</Kbd>} />
+            <Input placeholder="Search tokens…" left={<Search />} className="w-56" />
             <Input placeholder="0x…" mono className="w-56" />
             <Input placeholder="Disabled" disabled className="w-32" />
           </Row>
@@ -296,11 +306,14 @@ export function ShowcasePage() {
               entries={(c) => [
                 { type: "label", label: "Preset" },
                 { id: "p1", label: "P1 · 0.1 ETH", shortcut: "1", onSelect: () => c.publish({ key: "preset", title: "Preset", diff: { from: "P2", to: "P1" }, toast: true, source: "showcase" }) },
-                { id: "p2", label: "P2 · 0.5 ETH", shortcut: "2", checked: true },
-                { id: "p3", label: "P3 · 1 ETH", shortcut: "3" },
+                { id: "p2", label: "P2 · 0.5 ETH", shortcut: "2", checked: true, onSelect: () => c.publish({ key: "preset", title: "Preset", diff: { from: "P2", to: "P2" }, toast: true, source: "showcase" }) },
+                { id: "p3", label: "P3 · 1 ETH", shortcut: "3", onSelect: () => c.publish({ key: "preset", title: "Preset", diff: { from: "P2", to: "P3" }, toast: true, source: "showcase" }) },
                 { type: "separator" },
-                { id: "more", label: "More", children: [{ id: "a", label: "Nested item" }, { id: "b", label: "Another", hint: "beta" }] },
-                { id: "del", label: "Delete preset", danger: true, icon: Trash2 },
+                { id: "more", label: "More", children: [
+                  { id: "a", label: "Nested item", onSelect: () => c.publish({ key: "preset:nested", title: "Nested item", body: "From a submenu.", toast: true, source: "showcase" }) },
+                  { id: "b", label: "Another", hint: "beta", onSelect: () => c.publish({ key: "preset:nested", title: "Another", body: "From a submenu.", toast: true, source: "showcase" }) },
+                ] },
+                { id: "del", label: "Delete preset", danger: true, icon: Trash2, onSelect: () => void c.confirm({ title: "Delete preset P2?", danger: true, confirmLabel: "Delete" }).then((ok) => ok && c.publish({ key: "preset", title: "Preset P2 deleted", level: "warn", toast: true, source: "showcase" })) },
               ]}
             >
               <Button size="sm">
@@ -342,9 +355,9 @@ export function ShowcasePage() {
 
         <Section id="context" title="Right-click" body="These cards declare a scope with ctxProps(). The module adds items for it; the core adds page items below.">
           <div className="grid gap-2 sm:grid-cols-3">
-            {["Alpha", "Beta", "Gamma"].map((name, i) => (
-              <div key={name} {...ctxProps("demo-card", name.toLowerCase(), { name, liked: i === 1 })} className="tactile flex h-20 items-center justify-center rounded-md border border-dashed border-border-strong text-xs text-fg-muted hover:bg-hover">
-                <Heart className={cn("mr-1.5 size-3.5", i === 1 && "fill-down text-down")} />
+            {["Alpha", "Beta", "Gamma"].filter((name) => !removed[name.toLowerCase()]).map((name) => (
+              <div key={name} {...ctxProps("demo-card", name.toLowerCase(), { name, liked: !!liked[name.toLowerCase()] })} data-liked={!!liked[name.toLowerCase()]} className="tactile flex h-20 items-center justify-center rounded-md border border-dashed border-border-strong text-xs text-fg-muted hover:bg-hover">
+                <Heart className={cn("mr-1.5 size-3.5", liked[name.toLowerCase()] && "fill-down text-down")} />
                 Right-click {name}
               </div>
             ))}
@@ -415,7 +428,7 @@ export function ShowcasePage() {
             <Skeleton className="h-4 w-24" />
           </Row>
           <Row label="Empty">
-            <EmptyState icon={Inbox} title="No positions" body="Buys from the feed show up here." action={<Button size="sm">Open feed</Button>} className="p-2" />
+            <EmptyState icon={Inbox} title="No positions" body="Buys from the feed show up here." action={<Button size="sm" onClick={() => ctx.openPanel("news")}>Open feed</Button>} className="p-2" />
           </Row>
           <Separator />
           <Row label="Format">

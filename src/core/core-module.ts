@@ -3,6 +3,7 @@
  * right-click menu every page gets. Feature modules add to these, never
  * replace them.
  */
+import { hasNav } from "./nav-gate";
 import {
   Bell,
   Command,
@@ -78,6 +79,9 @@ export const coreModule = defineFeature({
     {
       id: "core.sidebar",
       label: "Toggle sidebar",
+      // A sidebar is drawn only when a module declares a nav entry; until
+      // then this toggled a setting that changed nothing on screen.
+      when: hasNav,
       group: "Appearance",
       icon: PanelLeft,
       shortcut: "mod+b",
@@ -105,7 +109,7 @@ export const coreModule = defineFeature({
     { keys: "mod+shift+d", label: "Toggle density", group: "Appearance", run: (c) => c.setSetting("appearance.density", c.getSetting("appearance.density") === "compact" ? "comfortable" : "compact") },
     { keys: "mod+.", label: "Toggle sound", group: "Appearance", run: (c) => c.setSetting("audio.enabled", !c.getSetting<boolean>("audio.enabled")) },
     { keys: "mod+shift+b", label: "Toggle blur", group: "Appearance", run: (c) => c.setSetting("privacy.blur", !c.getSetting<boolean>("privacy.blur")) },
-    { keys: "mod+b", label: "Toggle sidebar", group: "Appearance", run: (c) => c.setSetting("appearance.sidebar", c.getSetting<string>("appearance.sidebar") === "hidden" ? "collapsible" : "hidden") },
+    { keys: "mod+b", label: "Toggle sidebar", group: "Appearance", when: hasNav, run: (c) => c.setSetting("appearance.sidebar", c.getSetting<string>("appearance.sidebar") === "hidden" ? "collapsible" : "hidden") },
     { keys: "g h", label: "Go home", group: "Navigate", run: (c) => c.navigate("/") },
   ],
   contextMenus: [

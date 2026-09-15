@@ -450,7 +450,7 @@ async function ladder() {
       const byLabel = (l) => vis(bar.querySelector(`[aria-label='${l}']`));
       const btns = [...bar.querySelectorAll("button")];
       return {
-        words: vis([...bar.querySelectorAll("span")].find((x) => /Search tools/.test(x.textContent || ""))),
+        words: vis([...bar.querySelectorAll("span")].find((x) => /Search commands/.test(x.textContent || ""))),
         hues: vis(bar.querySelector("[data-ink-hues]")),
         zoom: btns.some((e) => /^\d+%$/.test((e.textContent || "").trim()) && vis(e)),
         fit: byLabel("Fit frame"),
