@@ -759,6 +759,22 @@ a kicker with a rule, and label-and-value rows that copy.
   mechanism, so one gesture runs from the head of the site, through all of
   it, and on into the categories. `Canvas` handles only ctrl-zoom and
   sideways pan.
+  **The page's height does not follow a hand.** It is the lowest thing on
+  the page plus 160, which shrink-wraps the content with no slack in it, so
+  every pixel a part is dragged downward used to be a pixel the page grew —
+  and the board is as tall as the page and the shelf sits under the board in
+  the same scroller, so the preview resized and the categories were pushed
+  down live, while the button was still held (measured: page 1960 → 2197,
+  shelf top 1456 → 1606, for one part dragged 240px). `Canvas` holds the
+  height in a ref for as long as `drag.kind` is `node` or `resize`, and
+  settles it when the hand comes off. A pan is not held: it changes nothing
+  about the document. The timeline never showed this despite being in the
+  same pane, because it is `h-full` and cannot grow — that clue is what
+  narrowed it. `tests/hand-steady.mjs` holds it, and note what that file
+  says about its fixture: a page short enough to leave `mt-auto` some slack
+  reports the fault fixed while it is broken, because the shelf is pinned to
+  the bottom edge and cannot move. It needs a page with travel in it.
+
   **The page keeps its origin and stops clipping; the board grows to hold
   what is outside it.** y=0 is the site's top: the page grows *downward* to
   meet what is drawn (`frameHeight`) and never upward, because moving the
