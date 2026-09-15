@@ -281,6 +281,14 @@ if (existsSync(clip)) {
   if (!await offer(p, clip)) { missing(["Shrink in lands a part on the page"]); await p.close(); }
   else {
   await p.locator("[data-import-shrink]").click();
+  /* One sample early inside the 420ms. The ease is front-loaded, so by 90ms
+     it is already most of the way home and the difference is small enough to
+     argue about; 40ms is still plainly in flight. */
+  await p.waitForTimeout(40);
+  const inflight = await p.evaluate(() => {
+    const el = [...document.querySelectorAll("[data-node-id]")].pop();
+    return el ? { w: Math.round(el.getBoundingClientRect().width) } : null;
+  });
   await p.waitForTimeout(900);
   const s = await live(p);
   const node = s.nodes[s.nodes.length - 1];
@@ -307,6 +315,27 @@ if (existsSync(clip)) {
   check("and the part actually shows the picture, not a card about it",
     !!painted && painted.has && painted.len > 500,
     painted ? `${painted.len} bytes of background, ${painted.size}` : "no picture painted on the part");
+
+  /*
+   * "Shrink in from the edges" has to be the behaviour and not just the
+   * label: the part starts covering the page and closes to its box. Caught
+   * in flight — one frame after the press it must be wider than it ends up,
+   * and it must settle exactly on the box, leaving no transform behind.
+   */
+  const settled = await p.evaluate((id) => {
+    const el = document.querySelector(`[data-node-id="${id}"]`);
+    return el ? { transform: getComputedStyle(el).transform, w: Math.round(el.getBoundingClientRect().width) } : null;
+  }, node.id);
+  /* Both widths off the screen, not one off the screen and one off the
+     document: the board is drawn at about 0.63, so `node.w` and a client
+     rect are two different units and comparing them called a shrink a
+     failure once already. */
+  check("it came in from the edges rather than appearing",
+    inflight !== null && settled !== null && inflight.w > settled.w * 1.25,
+    inflight && settled ? `${inflight.w}px wide in flight, ${settled.w}px at rest, both on screen` : "never caught in flight");
+  check("and settled on its box with nothing left on it",
+    !!settled && (settled.transform === "none" || settled.transform === "matrix(1, 0, 0, 1, 0, 0)"),
+    settled ? settled.transform : "-");
 
   check("and nothing was left tiled across the background",
     !s.layers.some((l) => l.kind === "image" && l.target === "page"),

@@ -36,7 +36,7 @@
  */
 import * as React from "react";
 import { Check, Image as ImageIcon, Scissors, X } from "lucide-react";
-import { useStudio, BASE_ZOOM } from "./store";
+import { useStudio, frameHeight, BASE_ZOOM } from "./store";
 import { newLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
@@ -230,8 +230,24 @@ export function ImportFlow() {
     const frameW = s.frameWidth;
     const w = Math.round(frameW * 0.62);
     const h = Math.max(40, Math.round((w * frame.h) / Math.max(1, frame.w)));
-    const id = s.addNode("picture", Math.round((frameW - w) / 2), 120);
-    if (id) s.updateNode(id, { w, h, texture: layer.id, label: d.name.replace(/\.[^.]+$/, "") || "Picture" });
+    const x = Math.round((frameW - w) / 2);
+    const y = 120;
+    const id = s.addNode("picture", x, y);
+    if (id) {
+      s.updateNode(id, { w, h, texture: layer.id, label: d.name.replace(/\.[^.]+$/, "") || "Picture" });
+      /*
+       * Where it comes in from: covering the page. Written in the part's own
+       * coordinates with the origin at its top-left, so `translate` puts the
+       * part's corner on the page's corner and `scale` stretches its box out
+       * to the page's. Running that backwards is the shrink.
+       */
+      const pageH = Math.max(900, frameHeight(
+        s.nodes.filter((n) => n.pageId === s.activePageId),
+        900,
+        { shapes: s.shapes.filter((sh) => sh.pageId === s.activePageId), spaces: s.spaces.filter((sp) => sp.pageId === s.activePageId) },
+      ));
+      markArriving(id, `translate(${-x}px, ${-y}px) scale(${(frameW / w).toFixed(4)}, ${(pageH / h).toFixed(4)})`);
+    }
     play("confirm");
     haptic(18);
     closeImport();
@@ -320,6 +336,59 @@ export function ImportFlow() {
   );
 }
 
-/** So the board can draw the arriving part shrinking in. Unused for now. */
-export const IMPORT_SETTLE_MS = 260;
+/** How long the shrink takes. Long enough to read as a movement, short
+    enough that nobody waits for it. */
+export const IMPORT_SETTLE_MS = 420;
+
+/**
+ * The part that has just arrived, and the box it starts from.
+ *
+ * "Shrink in from the edges" is the whole of the name, so it has to be the
+ * whole of the behaviour: the picture begins covering the page, edge to
+ * edge, and closes to the box it will keep. That is one transform, run once
+ * by the part itself — not a class, because the start depends on where the
+ * part landed and how big the page is, and a stylesheet cannot know either.
+ *
+ * It is cleared as soon as it is claimed. An arrival is a moment, and a
+ * board that re-renders for any other reason must not replay it.
+ */
+let arriving: { id: string; from: string } | null = null;
+const arrivers = new Set<() => void>();
+
+/**
+ * Say which part has just arrived, and the box it comes in from.
+ *
+ * This notifies rather than just setting a value, and that is the whole of
+ * why it works. The first version was a plain variable read once in the
+ * part's mount effect — and the mark is set *after* `addNode`, which
+ * flushes React synchronously, so the part had already mounted and read
+ * nothing by the time the mark existed. It measured 647px in flight and
+ * 647px at rest: no animation at all, silently.
+ */
+export function markArriving(id: string, from: string) {
+  arriving = { id, from };
+  arrivers.forEach((f) => f());
+}
+
+/**
+ * The box this part comes in from, once, whenever the mark arrives —
+ * before this mounted or after. Reading it spends it, so a board that
+ * re-renders for any other reason never replays the arrival.
+ */
+export function useArrival(id: string): string | null {
+  const [from, setFrom] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const take = () => {
+      if (!arriving || arriving.id !== id) return;
+      const box = arriving.from;
+      arriving = null;
+      setFrom(box);
+    };
+    arrivers.add(take);
+    take();
+    return () => { arrivers.delete(take); };
+  }, [id]);
+  return from;
+}
+
 void BASE_ZOOM;
