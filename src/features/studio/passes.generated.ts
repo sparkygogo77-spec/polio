@@ -2,9 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T06:47:18.079Z";
+export const GENERATED_AT = "2026-09-15T06:49:39.814Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "7487daf",
+    "when": "2026-09-15T06:49:36+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f9d0082",
+        "says": "A real site over the open web, read and landed by measurement",
+        "when": "2026-09-15T06:35:03+00:00",
+        "detail": [
+          "The site-read arc was built where no live page could be reached, so its route had only ever seen a fixture and a zip. This holds it to a page nobody here wrote, https://playwright.dev/, from a container with egress: 20699 bytes come back with the page's own title; the reader lists 60 things and 9 blocks, and every block is one of the page's 9 landmarks to the pixel, read by a query that is not the reader's; the foot of the page taken alone lands in a drawn space as the library's footer with the page's ten worded links and its own paint, carries the space's plan, and is prompted, moved and resized by hand; the whole page lands as 9 parts on a surface locked at the page's proportion.",
+          "What falls short is left failing, by name. The surface's proportion is 2.4034 against the page's 2.4039, a third of a pixel, so the third decimal splits; 16 of 36 locked shares differ at the third decimal because parts sit on whole board pixels, the largest drift 0.0008 of the page. 22 of the 60 candidates cannot be found again by the selector they gave, because the reader's path is cut at six steps under body, and two of those are among the 24 the panel offers. The bar across the top is the 38th biggest thing on the page, so it is not on the panel's list of 24 and cannot be taken alone from there. The page draws its words by script, so they are not in the bytes that come back, which the route survives and the zip path would not."
+        ],
+        "areas": [
+          "docs",
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "d6dee78",
+    "when": "2026-09-15T06:49:22+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "d6dee78",
+        "says": "Regenerate the passes for the first screen and the findings",
+        "when": "2026-09-15T06:49:22+00:00",
+        "detail": [
+          "Dijkstra's a445520: a tall header is named a first screen, and the findings from the recreate work are written down by owner rather than left in a session. Taken on its own; shannon's f9d0082, the live site read, waits for its own pass.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4263:",
+          "site-read        44 of 44 hold zip-import       68 of 68 hold space-by-hand    28 of 28 hold",
+          "Those are the three suites that read siteRead.ts, and zip-import is where the naming shows:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "5fa77d0",
     "when": "2026-09-15T06:47:14+00:00",
@@ -873,52 +918,6 @@ export const PASSES: Pass[] = [
           "studio",
           "tests"
         ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4a4aca1",
-    "when": "2026-09-15T01:16:13+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "c9d3b5d",
-        "says": "The board is as tall as the site, and the pane is what scrolls",
-        "when": "2026-09-14T22:40:14+00:00",
-        "detail": [
-          "J measured the preview himself rather than passing on the complaint, and both faults he named were real and both were in one place.",
-          "The board's root was `size-full`. At his 1267x1278 window with six parts on the page that is a 943px element holding 1841px of site with `overflow: hidden` — 898px of the page that no gesture could reach — and the pane it stood in had a scrollHeight equal to its clientHeight, so it did not scroll at all. What moved was the board *inside* that root, on a wheel handler of its own: a pan in a window, which is the box he keeps reporting. It was the second version of one mistake; the first slid the site behind the frame's edge.",
-          "So there is no box. The root is `pageH * zoom + FRAME_GUTTER` tall — the site as drawn plus the ground either side — with no overflow of its own, and the vertical wheel is not handled at all: the pane's own scroll is the whole mechanism. The shelf moves into that pane, under the board, so one gesture runs from the head of the site, through every part of it, and on into the categories. `mt-auto` keeps the shelf on the bottom edge, where it has always been, on any page short enough to leave room.",
-          "Measured at the same window with six parts: the board is 1811 for 1683 of site plus a 128 gutter; the pane reaches 2059, which is that plus the 248 band; nothing between the site and the document hides anything; and the search box comes from y 1900 to y 1180 on one wheel sequence."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "758bb7b",
-    "when": "2026-09-15T00:43:13+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "758bb7b",
-        "says": "Trunk goes out with space-one-open red, on purpose",
-        "when": "2026-09-15T00:43:13+00:00",
-        "detail": [
-          "This is the first push in this run that is not green, and it is a decision rather than an oversight, so here is the whole of it.",
-          "WHAT IS RED. tests/space-one-open.mjs, one check: \"and lit the same all the way round, not heavier on the left\". Measured on this tree, each side's lift over its own background 7px outside the boundary:",
-          "left    254 - 5  = 249 top     249 - 37 = 212 right   214 - 10 = 204 bottom  164 - 10 = 154",
-          "A 95 point spread falling cleanly from top left to bottom right. The four backgrounds are near uniform, so this is not the page showing through the measurement: the light really is biased to the top left rather than being an aura. It passed at d3ab200 and fails at ab9b5f1, so it arrived with the full-length page merging against the hole's \"painted once\" light."
-        ],
-        "areas": [],
         "kind": "new"
       }
     ],
