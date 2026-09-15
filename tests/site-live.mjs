@@ -111,6 +111,21 @@ const footSeen = await mine.evaluate(() => {
     text: getComputedStyle(f).color,
   };
 });
+/* And three more things by my own look, each for one of the shortfalls
+   named the first night: what the bar's icon links are called, what the
+   first screen is painted with, and what the card row's titles are. */
+const seen = await mine.evaluate(() => {
+  const text = (e) => (e.textContent ?? "").replace(/\s+/g, " ").trim();
+  const nav = document.querySelector("nav");
+  const navNames = nav ? Array.from(nav.querySelectorAll("a[href]")).map((a) => text(a) || a.getAttribute("aria-label") || a.getAttribute("title") || "") : [];
+  const hero = document.querySelector("header");
+  const image = hero ? getComputedStyle(hero).backgroundImage : "none";
+  const stops = Array.from(image.matchAll(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/g)).map((m) => [Number(m[1]), Number(m[2]), Number(m[3])]);
+  const mean = stops.length ? `rgb(${[0, 1, 2].map((i) => Math.round(stops.reduce((n, c) => n + c[i], 0) / stops.length)).join(", ")})` : null;
+  const cards = document.querySelector("main > section");
+  const cardTitles = cards ? Array.from(cards.querySelectorAll("h2, h3")).map(text) : [];
+  return { navNames, heroImage: image.slice(0, 120), heroStops: stops.length, heroMean: mean, heroText: hero ? getComputedStyle(hero).color : null, cardTitles };
+});
 const pageBottom = Math.max(...landmarks.map((b) => b.y + b.h));
 const pageHeight = await mine.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
 const headlineOnIt = await mine.evaluate(() => (document.querySelector("h1")?.textContent ?? "").replace(/\s+/g, " ").trim());
@@ -178,13 +193,12 @@ check("the last block is the foot of the page, ending where the page ends", bloc
 
 /* Where the bar sits on the panel's list, which shows the biggest 24. */
 const barAt = listed.candidates.findIndex((c) => nav && sameBox(c.box, nav));
-note(`the bar across the top is the ${barAt + 1}th biggest thing listed; the panel shows the first 24, so it ${barAt >= 0 && barAt < 24 ? "can" : "cannot"} be pressed there`);
+note(`the bar across the top is the ${barAt + 1}th biggest thing listed, past the 24 the panel shows; the panel lists the page's blocks first, so it is pressed there below`);
 
 /* One reading, the bar's, off the live page. */
 const barRead = await post({ url: SITE, selector: barBlock.selector, width: WIDTH });
 check("the bar is measured in full off the live page", barRead.ok === true && barRead.reading.box.h === barBlock.box.h && barRead.reading.links.length >= 2, barRead.ok ? `${barRead.reading.box.w}×${barRead.reading.box.h}, ${barRead.reading.text.length} runs, ${barRead.reading.links.length} links, ${barRead.reading.buttons.length} buttons, painted ${barRead.reading.paint.bg} in ${barRead.reading.type.family.split(",")[0]}` : barRead.message);
-check("with its links being the worded ones I can see on it", barRead.ok && nav && barRead.reading.links.length === Math.min(30, nav.worded), barRead.ok ? `${barRead.reading.links.length} read, ${nav?.worded} with words of ${nav?.links} there: ${barRead.reading.links.map((l) => l.words).join(" · ")}` : "");
-if (nav && nav.links > nav.worded) note(`${nav.links - nav.worded} of the bar's ${nav.links} links are icons with no words, and the reader drops a link with no words`);
+check("with every link I can see on it, the icon ones named by their labels", barRead.ok && nav && barRead.reading.links.length === Math.min(30, nav.links) && barRead.reading.links.every((l, i) => l.words === seen.navNames[i]), barRead.ok ? `${barRead.reading.links.length} read of ${nav?.links} there, ${nav ? nav.links - nav.worded : 0} of them icons: ${barRead.reading.links.map((l) => l.words).join(" · ")}` : "");
 await own.close();
 
 /* ------------------------------------------------------------------ */
@@ -229,8 +243,9 @@ check("the live page is opened from the panel and shown, with the whole page on 
 const count = await panel1.locator("[data-site-take]").count();
 check("it says how many things there are to point at, and shows the first 24", new RegExp(`${listed.candidates.length} things to point at on ${HOST.replace(/\./g, "\\.")}`).test(await panel1.innerText()) && count === Math.min(24, listed.candidates.length), `${count} shown of ${listed.candidates.length}`);
 check("and how many blocks the page is", new RegExp(`Take the whole page, ${blocks.length} blocks`).test(await panel1.locator("[data-site-take-all]").innerText()), await panel1.locator("[data-site-take-all]").innerText());
-const barShown = (await panel1.locator(`[data-site-take="${barBlock.selector}"]`).count()) === 1;
-note(`the bar across the top ${barShown ? "is" : "is not"} on the panel's list of 24, so J ${barShown ? "can" : "cannot"} take it alone from there`);
+const firstOffered = await panel1.locator("[data-site-take]").first().getAttribute("data-site-take");
+check("the first thing on the list is the bar across the top, the page's blocks coming before what is inside them", firstOffered === barBlock.selector, `first offered: ${firstOffered}`);
+check("and every one of the page's blocks is on the list", (await Promise.all(blocks.map((b) => panel1.locator(`[data-site-take="${b.selector}"]`).count()))).every((n) => n === 1), `${blocks.length} blocks`);
 await shot(one, "offered");
 
 /* The foot of the page: a real footer part, taken alone. */
@@ -299,7 +314,64 @@ if (gb) {
 const sized = (await state(one)).nodes.find((n) => n.id === part.id);
 check("and resize it, like anything drawn", !!sized && !!moved && sized.w > moved.w && sized.h > moved.h, sized && moved ? `from ${moved.w}×${moved.h} to ${sized.w}×${sized.h}` : "gone");
 await shot(one, "resized");
+
 await one.close();
+
+/* The bar itself, taken alone into a fresh space, because a person wants the nav. */
+const two = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+await two.goto(`${BUILDER}/builder`, { waitUntil: "networkidle" });
+await two.waitForTimeout(1200);
+const panel2b = await drawSpace(two, { x: 300, y: 90, w: 520, h: 200 });
+await readSite(panel2b);
+const barTakeNow = panel2b.locator(`[data-site-take="${barBlock.selector}"]`);
+check("the bar across the top is on the list to press", (await barTakeNow.count()) === 1, `${await panel2b.locator("[data-site-take]").count()} on the list`);
+const beforeBar = await state(two);
+await barTakeNow.click();
+await panel2b.locator("[data-site-said]").waitFor({ state: "visible", timeout: 60_000 }).catch(() => undefined);
+const saidBar = await panel2b.locator("[data-site-said]").innerText().catch(() => "");
+const stBar = await state(two);
+const barPart = stBar.nodes.find((n) => !beforeBar.nodes?.some((b) => b.id === n.id));
+const sb2 = stBar.spaces[0].boundary;
+const bx2 = Math.min(...sb2.map((p) => p[0])), by2 = Math.min(...sb2.map((p) => p[1]));
+const bw2 = Math.max(...sb2.map((p) => p[0])) - bx2, bh2 = Math.max(...sb2.map((p) => p[1])) - by2;
+check("the bar taken alone lands as the library's top bar, with the page's name and links on it", !!barPart && barPart.featureId === "sticky-header" && barPart.content.startsWith("logo: Playwright\nDocs\nMCP"), barPart ? `${barPart.featureId}: ${JSON.stringify(barPart.content.split("\n").join(" · "))}` : saidBar.slice(0, 100));
+check("inside the space, fitted, at the bar's own proportion to two decimals", !!barPart && barPart.x + barPart.w / 2 > bx2 && barPart.x + barPart.w / 2 < bx2 + bw2 && barPart.y + barPart.h / 2 > by2 && barPart.y + barPart.h / 2 < by2 + bh2 && Math.abs(barPart.w / barPart.h - barBlock.box.w / barBlock.box.h) < 0.05, barPart ? `${barPart.w}×${barPart.h}, ${(barPart.w / barPart.h).toFixed(3)} vs ${(barBlock.box.w / barBlock.box.h).toFixed(3)} on the page` : "");
+/* And what the part draws of it, measured on the board: the page's white
+   bar with its links written on it, or the part's own idea of a bar. */
+/* Measured on the part inside the node, not the node: the node carries a
+   caption and a frame of its own, and reading those said the bar was
+   dark and captioned "Sticky top bar". */
+/* White as the browser reports it: the part writes its paint in oklch, so a white box computes as oklch(1 0 0). */
+/* Lightness of what was drawn, whichever form the browser reports it in. */
+const lightOf = (c) => {
+  const ok = /oklch\(([\d.]+)/.exec(c ?? "");
+  if (ok) return Number(ok[1]);
+  const rgb = /rgb\((\d+), (\d+), (\d+)\)/.exec(c ?? "");
+  return rgb ? (0.2126 * rgb[1] + 0.7152 * rgb[2] + 0.0722 * rgb[3]) / 255 : 1;
+};
+const isWhite = (c) => /^oklch\(1 0 0\)|^rgb\(255, 255, 255\)/.test(c ?? "");
+const drawnPart = (page, id) => page.evaluate((id) => {
+  const parts = Array.from(document.querySelectorAll(`[data-node-id="${id}"] [data-part]`));
+  const el = parts[0];
+  if (!el) return null;
+  /* The paint on the part's own box. A point probe through
+     `elementsFromPoint` was tried and read the board's own hit layer over
+     every part as oklch(0.145 0.014 265), the same for a white bar and a
+     dark first screen, so it measured the board and not the part. The
+     part paints its box and its children paint theirs on top; the box's
+     colour is what a person sees between the words. */
+  return { parts: parts.map((p) => `${p.getAttribute("data-part")}@${Math.round(p.getBoundingClientRect().width)}px bg ${getComputedStyle(p).backgroundColor}`), words: (el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), bg: getComputedStyle(el).backgroundColor, links: el.querySelectorAll("a, button").length };
+}, id);
+const barDrawn = barPart ? await drawnPart(two, barPart.id) : null;
+note(`the bar alone on the board: ${JSON.stringify(barDrawn?.parts)}`);
+check("the bar carries the page's white as its paint", barPart?.colour?.bg === "rgb(255, 255, 255)", JSON.stringify(barPart?.colour));
+check("and the part draws it white, at the width it landed", !!barDrawn && isWhite(barDrawn.bg), barDrawn ? `drawn ${barDrawn.bg}, ${barPart.w}px wide` : "not on the board");
+/* What the part does with the links at that width is the part's own rule:
+   the library's header folds its links under a menu below 640px, so a
+   bar fitted into a space narrower than that shows its name and a menu. */
+note(`at ${barPart?.w}px the part shows ${JSON.stringify(barDrawn?.words)} with ${barDrawn?.links} links or buttons: ${/Docs/.test(barDrawn?.words ?? "") ? "its links written on it" : "its links folded under a menu, which the header part does below 640px"}`);
+await shot(two, "bar");
+await two.close();
 
 /* ------------------------------------------------------------------ */
 /* 3. The whole page, and the drawn ratio against the page's own geometry */
@@ -330,8 +402,12 @@ const bb = space.boundary;
 const bx = Math.min(...bb.map((p) => p[0])), by = Math.min(...bb.map((p) => p[1]));
 const bw = Math.max(...bb.map((p) => p[0])) - bx, bh = Math.max(...bb.map((p) => p[1])) - by;
 check("the surface kept the width it was drawn", Math.abs(bw - drawnW) < 3, `${Math.round(bw)} vs ${Math.round(drawnW)} drawn`);
-const drawnRatio = r3(bh / bw), pageRatio = r3(pageBottom / WIDTH);
-check("and took the page's proportion, to three decimals", Math.abs(drawnRatio - pageRatio) < 0.0005, `${bw.toFixed(1)}×${bh.toFixed(1)} is ${(bh / bw).toFixed(4)}; the page's ${WIDTH}×${pageBottom} is ${(pageBottom / WIDTH).toFixed(4)}; ${Math.abs(bh / bw - pageBottom / WIDTH).toFixed(4)} apart, which is ${(Math.abs(bh / bw - pageBottom / WIDTH) * bw).toFixed(2)}px of height`);
+/* To three decimals means within half a thousandth of each other, measured
+   on the numbers themselves and not on their roundings: two values a
+   hair either side of a rounding boundary agree to three decimals and
+   still round apart. */
+const ratioApart = Math.abs(bh / bw - pageBottom / WIDTH);
+check("and took the page's proportion, to three decimals", ratioApart < 0.0005, `${bw.toFixed(2)}×${bh.toFixed(2)} is ${(bh / bw).toFixed(5)}; the page's ${WIDTH}×${pageBottom} is ${(pageBottom / WIDTH).toFixed(5)}; ${ratioApart.toFixed(5)} apart, which is ${(ratioApart * bw).toFixed(2)}px of height`);
 check("and the layout is locked, as the page had it", Array.isArray(space.locked) && space.locked.length === parts.length && space.form?.p === 1, `${space.locked?.length ?? 0} locked, form ${space.form?.p}`);
 check("every part is inside the surface, so the space's plan reaches it", parts.every((n) => n.x + n.w / 2 > bx && n.x + n.w / 2 < bx + bw && n.y + n.h / 2 > by && n.y + n.h / 2 < by + bh));
 
@@ -344,15 +420,63 @@ byY.forEach((l, i) => {
   if (!lm) { drift.push(`${i}: no landmark`); return; }
   const page = { x: lm.x / WIDTH, y: lm.y / pageBottom, w: lm.w / WIDTH, h: lm.h / pageBottom };
   for (const k of ["x", "y", "w", "h"]) {
-    const d = Math.abs(r3(l[k]) - r3(page[k]));
-    if (d >= 0.0005) drift.push(`${lm.tag} ${k}: ${r3(l[k])} drawn vs ${r3(page[k])} on the page`);
+    const d = Math.abs(l[k] - page[k]);
+    if (d >= 0.0005) drift.push(`${lm.tag} ${k}: ${l[k].toFixed(4)} drawn vs ${page[k].toFixed(4)} on the page`);
   }
 });
 const worst = Math.max(...byY.flatMap((l, i) => { const lm = landmarks[i]; if (!lm) return [1]; const page = { x: lm.x / WIDTH, y: lm.y / pageBottom, w: lm.w / WIDTH, h: lm.h / pageBottom }; return ["x", "y", "w", "h"].map((k) => Math.abs(l[k] - page[k])); }));
 check("every block's place and size hold as a share of the page, to three decimals", drift.length === 0, drift.length ? `${drift.length} of ${byY.length * 4} shares off: ${drift.slice(0, 4).join("; ")}${drift.length > 4 ? "; …" : ""}` : `the largest drift is ${worst.toFixed(5)} over ${byY.length * 4} shares`);
-note(`the largest drift over ${byY.length * 4} shares is ${worst.toFixed(5)} of the page (${(worst * pageBottom).toFixed(1)}px of ${pageBottom} tall)`);
+note(`the largest drift over ${byY.length * 4} shares is ${worst.toFixed(5)} of the page (${(worst * pageBottom).toFixed(2)}px of ${pageBottom} tall); the lock holds shares to four decimals`);
+
+/* The three shortfalls of the first night that live in the reading: the
+   card row, the first screen's paint, and its headline whole. */
+const byTop = [...parts].sort((a, b) => a.y - b.y);
+const cardsPart = byTop[2];
+check("the three-card row is cards, three in three columns, with the page's own titles", !!cardsPart && cardsPart.featureId === "card-grid" && cardsPart.options?.columns === "3" && cardsPart.content === seen.cardTitles.slice(0, 3).join("\n"), cardsPart ? `${cardsPart.featureId} ${JSON.stringify(cardsPart.options)}: ${cardsPart.content.split("\n").join(" · ")} (on the page: ${seen.cardTitles.join(" · ")})` : "no third part");
+/* The card band paints nothing and sits on a body that paints nothing,
+   which is the browser's white canvas; read as painted on nothing, it
+   took the site's dark surface and drew its dark titles on it. */
+check("a band on the page's unpainted white ground carries white, so its dark titles can be read", cardsPart?.colour?.bg === "rgb(255, 255, 255)" && lightOf(cardsPart?.colour?.text) < 0.3, `${JSON.stringify(cardsPart?.colour)}`);
+const heroPart = byTop[1];
+const heroLight = (() => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(heroPart?.colour?.bg ?? ""); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : 1; })();
+check("the first screen is painted the mean of its gradient's stops, which is dark, so its white words have a ground", !!heroPart && heroPart.featureId === "hero-split" && !!seen.heroMean && heroPart.colour?.bg === seen.heroMean && heroLight < 0.35 && heroPart.colour?.text === seen.heroText, heroPart ? `${heroPart.colour?.bg ?? "no bg"} on the part, ${seen.heroMean} as the mean of ${seen.heroStops} stops in ${JSON.stringify(seen.heroImage.slice(0, 60))}; lightness ${heroLight.toFixed(2)}` : "no second part");
+check("and its headline is one line, commas and all", !!heroPart && heroPart.content.split("\n")[0] === headlineOnIt, heroPart ? JSON.stringify(heroPart.content.split("\n")[0]) : "");
+/* The ground as drawn, not as carried: the node held the page's colours
+   on the first night and the part drew the site's own, because the
+   colour parser knew hex and oklch and not the browser's rgb(). */
+const heroDrawnPaint = heroPart ? await drawnPart(all, heroPart.id) : null;
+const heroDrawnLight = lightOf(heroDrawnPaint?.bg);
+check("and the part draws that dark ground, so the words really land on it", !!heroDrawnPaint && heroDrawnLight < 0.35, heroDrawnPaint ? `visible ground ${heroDrawnPaint.bg}, lightness ${heroDrawnLight.toFixed(2)}` : "no hero on the board");
+const heroDrawn = heroPart ? await all.locator(`[data-node-id="${heroPart.id}"]`).innerText().catch(() => "") : "";
+check("and the part draws it whole on the board", heroDrawn.replace(/\s+/g, " ").includes(headlineOnIt), JSON.stringify(heroDrawn.replace(/\s+/g, " ").slice(0, 100)));
+/* The first screen's words at the size the part draws them, against the
+   box the page's proportion gave it: the page's 60px headline in a 600px
+   band, scaled by half to the surface, or 60px in a 300px band. */
+/* Measured as where the words actually are: the node clips its part, so
+   its scroll height equals its client height whatever is cut off, and a
+   check on those two passed while the screenshot showed the headline
+   cut at the top. The topmost and bottommost edge of anything drawn
+   inside, against the node's own edges. */
+const heroFit = heroPart ? await all.evaluate((id) => {
+  const node = document.querySelector(`[data-node-id="${id}"]`);
+  const el = node?.querySelector("[data-part]");
+  if (!node || !el) return null;
+  const box = node.getBoundingClientRect();
+  const h1 = el.querySelector("h1");
+  const inner = Array.from(el.querySelectorAll("h1, p, button, a")).map((e) => e.getBoundingClientRect()).filter((r) => r.height > 0);
+  const top = Math.min(...inner.map((r) => r.top)), bottom = Math.max(...inner.map((r) => r.bottom));
+  return { px: h1 ? parseFloat(getComputedStyle(h1).fontSize) : 0, over: Math.max(0, box.top - top) + Math.max(0, bottom - box.bottom), boxH: box.height, contentH: bottom - top };
+}, heroPart.id) : null;
+check("the first screen's words are drawn at the page's size scaled as its box was, so they fit the box", !!heroFit && heroFit.over < 1, heroFit ? `headline drawn at ${heroFit.px}px; ${heroFit.contentH.toFixed(0)}px of words and buttons in a box ${heroFit.boxH.toFixed(0)}px tall, ${heroFit.over.toFixed(0)}px cut off; the page's headline was 60px in ${landmarks[1]?.h}px, and the surface is ${(bw / WIDTH).toFixed(3)} of the page` : "no hero on the board");
+/* Naming icon links must not turn a band of company marks into a footer:
+   the only footer on the board is the last block, the page's own. */
+const footers = byTop.map((n, i) => (n.featureId === "footer" ? i : -1)).filter((i) => i >= 0);
+check("the only footer is the foot of the page; a band of company marks is not one", footers.length === 1 && footers[0] === byTop.length - 1, `footer at ${footers.map((i) => i + 1).join(", ")} of ${byTop.length}`);
 const topBar = parts.find((n) => n.label === `Top bar from ${HOST}`);
 check("the top bar is at the top of the surface, the full width, as it was on the page", !!topBar && topBar.y - by < 6 && Math.abs(topBar.w - bw) < 6, topBar ? `at ${Math.round(topBar.y - by)} down, ${topBar.w} of ${Math.round(bw)} wide: ${JSON.stringify(topBar.content.split("\n").join(" · ").slice(0, 80))}` : "no top bar");
+const topBarDrawn = topBar ? await drawnPart(all, topBar.id) : null;
+note(`the top bar on the whole page's surface: ${JSON.stringify(topBarDrawn?.parts)} with ${JSON.stringify(topBarDrawn?.words)}; its colour ${JSON.stringify(topBar?.colour)}, its font ${JSON.stringify(topBar?.font)}`);
+check("laid at the page's proportion, the top bar draws white with its links written on it", !!topBarDrawn && isWhite(topBarDrawn.bg) && /Docs/.test(topBarDrawn.words), topBarDrawn ? `drawn ${topBarDrawn.bg}, ${topBarDrawn.links} links or buttons, ${topBar.w}px wide` : "no top bar");
 await shot(all, "landed");
 await all.close();
 

@@ -73,11 +73,19 @@ export const CANDIDATES = (cap: number): Candidate[] => {
     return grew ? new DOMRect(x0, y0, x1 - x0, y1 - y0) : own;
   };
   const seen = new Set<string>();
+  /*
+   * A selector the element can be found again by. Walked all the way up
+   * to the body, every step a child combinator: it was cut at six steps
+   * and still prefixed `body >`, so anything seven deep, which is most of
+   * a real page, gave a path that matched nothing and came back "not on
+   * the page any more" when pressed. A page nested past forty is left as a
+   * descendant of the body, which is still one element on any page seen.
+   */
   const path = (el: Element): string => {
     if (el.id && /^[A-Za-z][\w-]*$/.test(el.id)) return `#${el.id}`;
     const bits: string[] = [];
     let node: Element | null = el;
-    while (node && node !== document.body && bits.length < 6) {
+    while (node && node !== document.body && bits.length < 40) {
       const parent: Element | null = node.parentElement;
       const tag = node.tagName.toLowerCase();
       if (!parent) { bits.unshift(tag); break; }
@@ -85,7 +93,7 @@ export const CANDIDATES = (cap: number): Candidate[] => {
       bits.unshift(same.length > 1 ? `${tag}:nth-of-type(${same.indexOf(node) + 1})` : tag);
       node = parent;
     }
-    return `body > ${bits.join(" > ")}`;
+    return `body ${node === document.body ? ">" : ""} ${bits.join(" > ")}`.replace(/\s+/g, " ");
   };
   const name = (el: Element, box: DOMRect): string => {
     const tag = el.tagName.toLowerCase();
@@ -234,8 +242,22 @@ export const MEASURE = (selector: string) => {
     if (text.length >= 40) break;
   }
 
+  /* A link's words: what is written on it, else what it is called. A link
+     that is only an icon (a GitHub mark, a Discord mark) has no text and
+     was dropped, so a bar of twelve links read as ten; it is named by its
+     label, its title, its picture's alt, its icon's title, or the last
+     part of where it goes, in that order. */
+  const nameOfLink = (a: Element): string => {
+    const said = (a.textContent ?? "").replace(/\s+/g, " ").trim();
+    if (said) return said;
+    const label = a.getAttribute("aria-label") || a.getAttribute("title") || a.querySelector("img")?.getAttribute("alt") || a.querySelector("svg title")?.textContent || "";
+    if (label.trim()) return label.replace(/\s+/g, " ").trim();
+    const href = (a as HTMLAnchorElement).href || "";
+    const tail = href.replace(/[/#?]+$/, "").split(/[/#?]/).filter(Boolean).pop() ?? "";
+    return /^[\w.-]{1,40}$/.test(tail) ? tail : "";
+  };
   const links = Array.from(el.querySelectorAll("a[href]")).slice(0, 30).map((a) => ({
-    words: (a.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 60),
+    words: nameOfLink(a).slice(0, 60),
     href: (a as HTMLAnchorElement).href,
   })).filter((l) => l.words);
 
@@ -258,21 +280,56 @@ export const MEASURE = (selector: string) => {
      body, and every block read as painted on nothing. The nearest painted
      colour and the nearest picture behind, each found separately. */
   const seeThrough = (c: string) => { const m = /rgba?\(\s*[\d.]+[,\s]+[\d.]+[,\s]+[\d.]+(?:[,/\s]+([\d.]+))?/i.exec(c); return !m || (m[1] !== undefined && Number(m[1]) < 0.05); };
+  /* A gradient is paint. A first screen painted with a linear gradient
+     of three dark stops read as painted on nothing, and its white words
+     landed on no ground. The colour of a gradient, for a part that takes
+     one colour, is the mean of its stops: dark for a dark gradient, which
+     is what a person sees behind the words. */
+  const gradientColour = (image: string): string | null => {
+    if (!/gradient\(/i.test(image)) return null;
+    const stops = Array.from(image.matchAll(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/gi))
+      .map((m) => [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])])
+      .filter((c) => c[3]! >= 0.05);
+    if (!stops.length) return null;
+    const mean = (i: number) => Math.round(stops.reduce((n, c) => n + c[i]!, 0) / stops.length);
+    return `rgb(${mean(0)}, ${mean(1)}, ${mean(2)})`;
+  };
+  const painted = (s: CSSStyleDeclaration): string | null => (!seeThrough(s.backgroundColor) ? s.backgroundColor : gradientColour(s.backgroundImage));
   let behind: string | null = null;
   let behindPicture: string | undefined;
   for (let up = el.parentElement; up; up = up.parentElement) {
     const us = getComputedStyle(up);
-    if (behind === null && !seeThrough(us.backgroundColor)) behind = us.backgroundColor;
+    if (behind === null) behind = painted(us);
     if (!behindPicture) behindPicture = pictureOf(us.backgroundImage);
     if (behind !== null && behindPicture) break;
   }
+  /* Nothing painted all the way up is the browser's own canvas, which is
+     white, or black for a page that asks for a dark scheme and nothing
+     else. A band of cards on a page whose body paints nothing read as
+     painted on nothing, took the site's dark surface, and drew its dark
+     titles on it. */
+  if (behind === null) {
+    const scheme = getComputedStyle(document.documentElement).colorScheme || "";
+    behind = /\bdark\b/.test(scheme) && !/\blight\b/.test(scheme) ? "rgb(0, 0, 0)" : "rgb(255, 255, 255)";
+  }
   if (!ground && behindPicture) images.push({ src: new URL(behindPicture, location.href).toString(), w: Math.round(box.width), h: Math.round(box.height), alt: "", ground: true, behind: true } as never);
 
-  const kids = Array.from(el.children).filter((c) => {
+  /* The children that are the structure. A page builder wraps a band's
+     contents in a container inside a section, and a row inside that, so
+     the section's one child was one box and a row of three cards read as
+     a band of words. A wrapper is opened while it is the only thing
+     inside: the children are the first level with more than one. */
+  const visibleKids = (e: Element): Element[] => Array.from(e.children).filter((c) => {
     const r = c.getBoundingClientRect();
     const cs = getComputedStyle(c);
     return r.width > 8 && r.height > 8 && cs.display !== "none";
   });
+  let kids = visibleKids(el);
+  for (let opened = 0; kids.length === 1 && opened < 4; opened++) {
+    const inner = visibleKids(kids[0]!);
+    if (!inner.length) break;
+    kids = inner;
+  }
   const children = kids.slice(0, 24).map((c) => {
     const r = c.getBoundingClientRect();
     return { x: Math.round(r.left - box.left), y: Math.round(r.top - box.top), w: Math.round(r.width), h: Math.round(r.height) };
@@ -298,7 +355,7 @@ export const MEASURE = (selector: string) => {
     buttons,
     images,
     paint: {
-      bg: style.backgroundColor,
+      bg: painted(style) ?? style.backgroundColor,
       text: style.color,
       behind,
       border,
