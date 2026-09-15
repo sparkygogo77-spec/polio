@@ -1040,18 +1040,3 @@ export const SUBGROUPS: Record<string, SubGroup[]> = {
   ],
 };
 
-/** An emoji for each top-level category, so the list reads at a glance. */
-export const CATEGORY_EMOJI: Record<string, string> = {
-  "structure": "🧱",
-  "nav": "🧭",
-  "hero": "🌅",
-  "content": "📖",
-  "media": "🖼️",
-  "motion": "🌀",
-  "interact": "✋",
-  "forms": "✉️",
-  "data": "📈",
-  "social": "💬",
-  "ai": "🤖",
-  "platform": "⚙️"
-};

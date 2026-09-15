@@ -313,7 +313,7 @@ export const STEPS: Step[] = [
       {
         name: "Go live",
         line: "Pushes the files, builds them on Vercel and hands back the address the site is at.",
-        where: "The book's publish row. The Vercel token goes in the vault, ⌘⇧K.",
+        where: "The book's publish row. The Vercel token goes in the keys panel, ⌘⇧K.",
       },
     ],
   },

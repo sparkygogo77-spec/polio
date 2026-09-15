@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 /**
  * Does the key work? One cheap call each, no tokens spent.
  *
- * The vault panel has a "Try it" button so that "it is not working" has a
+ * The keys panel has a "Try it" button so that "it is not working" has a
  * first answer that is not a guess: the key the next request would use is
  * asked the smallest question its service answers — Claude, the model the
  * Builder calls; Replicate, who the token belongs to; Vercel, the same. A

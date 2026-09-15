@@ -7,7 +7,7 @@
  * lettering in a monospaced face. `docs/DESIGN.md` §1 is the long version.
  *
  * These lived in three places: the console defined them, the command palette
- * copied them (core cannot import a feature), and the key vault imported the
+ * copied them (core cannot import a feature), and the keys panel imported the
  * console's. The copies had drifted — two "voids" three hundredths of a
  * lightness apart, which is not a colour anybody chose. They live in core
  * now, which everything may import, and the console's own numbers are the
@@ -16,7 +16,7 @@
  * A surface that is neither of these — a page, a panel, a card — uses the
  * shell's tokens (`--panel`, `--elevated`, `--border`). The void is for the
  * things that belong to the Builder's console: the wheel, the palette, the
- * vault, the blueprint.
+ * keys panel, the blueprint.
  */
 
 export const VOID = {

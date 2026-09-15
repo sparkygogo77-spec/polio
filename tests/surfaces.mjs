@@ -12,7 +12,7 @@
  *  · **A surface painted out of another family.** The trail's canvas was
  *    `oklch(0.13 0.012 150)` — the shell's own ground with its hue typed as
  *    green — which nothing else in the app is anywhere near.
- *  · **A copy of the material that drifted.** The key vault kept its own
+ *  · **A copy of the material that drifted.** The keys panel kept its own
  *    five-value screen, every number a little away from the shared one.
  *
  * And one of layout: a row of buttons sliced in half by the edge of the
@@ -35,11 +35,11 @@ const check = (name, ok, detail = "") => {
 /* ------------------------------------------------------------------ */
 
 {
-  const vault = readFileSync(new URL("../src/features/keys/KeysPanel.tsx", import.meta.url), "utf8");
+  const keysPanel = readFileSync(new URL("../src/features/keys/KeysPanel.tsx", import.meta.url), "utf8");
   check(
-    "the key vault wears the shared screen rather than its own copy",
-    /from "@\/core\/ui\/void"/.test(vault) && !/glass:\s*"radial-gradient/.test(vault),
-    /glass:\s*"radial-gradient/.test(vault) ? "still defines its own glass" : "imports it",
+    "the keys panel wears the shared screen rather than its own copy",
+    /from "@\/core\/ui\/void"/.test(keysPanel) && !/glass:\s*"radial-gradient/.test(keysPanel),
+    /glass:\s*"radial-gradient/.test(keysPanel) ? "still defines its own glass" : "imports it",
   );
 }
 
@@ -154,9 +154,23 @@ check(
   canvas,
 );
 
-/* The screen the vault paints with is the screen everything else paints with. */
-await page.evaluate(() => document.querySelector("[data-keys-panel]")?.setAttribute("data-open", "1"));
-check("and core still owns the screen's glass", /radial-gradient/.test(SCREEN.glass) && /195/.test(SCREEN.glass), SCREEN.glass.slice(0, 46));
+/* The screen the keys panel paints with is the screen everything else paints
+   with. The panel paints its glass on the PIN gate, and the PIN is off by
+   default, so it is turned on before the load the way `keys-panel.mjs` does,
+   the panel is opened by its shortcut, and the gate's own computed gradient
+   is read back and held to core's stops, number for number. */
+await page.evaluate(() => localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "keys.pin": true }, advanced: true }, version: 0 })));
+await page.reload({ waitUntil: "networkidle" });
+await page.keyboard.press("Control+Shift+K");
+const gate = page.locator("[data-keys-panel]").getByText("Choose a four-digit PIN");
+const gateUp = await gate.waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
+const keysGlass = gateUp ? await gate.evaluate((el) => {
+  for (let box = el.parentElement; box; box = box.parentElement) { const bg = getComputedStyle(box).backgroundImage; if (/radial-gradient/.test(bg)) return bg; }
+  return null;
+}) : null;
+const stops = (v) => (v ?? "").match(/[\d.]+/g)?.join(",") ?? "";
+check("and core still owns the screen's glass: the keys panel paints with it", !!keysGlass && stops(keysGlass) === stops(SCREEN.glass),
+  keysGlass ? keysGlass.slice(0, 60) : gateUp ? "the PIN gate paints no gradient" : "the PIN gate did not come up");
 
 await browser.close();
 const failed = results.filter((r) => !r.ok);

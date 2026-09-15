@@ -132,16 +132,6 @@ const bare = (dataUrl: string | null | undefined): string | null => {
  */
 let house: { before: string; after: string } | null = null;
 
-/** What the session has to teach the next drawing, if anything. */
-export function houseExample(): { before: string; after: string } | null {
-  return house;
-}
-
-/** Forget it — for a test, and for a person who wants the next one to start clean. */
-export function forgetExample(): void {
-  house = null;
-}
-
 interface Answer {
   ok?: boolean;
   html?: string;

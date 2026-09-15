@@ -244,12 +244,12 @@ same boxes as everywhere else, in the screen's colours.
   the geometry, not because anyone said so.
 - **A key the person is billed for is the person's to hold.** The renderer's
   Replicate token sits beside the Claude key under the same button, in the
-  same vault, unlocked the same way, and rides with the call. It is the one
+  same keys panel, unlocked the same way, and rides with the call. It is the one
   key whose browser value beats the server's, because a drawn body costs
   eight cents and the person who typed the token is the one paying for it.
   The card says the price where the others say what the key is for.
 - **The browser holds only what a browser request can carry.** The Claude
-  key rides as a header on the studio routes, so the vault holds it: in this
+  key rides as a header on the studio routes, so the keys panel holds it: in this
   browser, in the clear, with no PIN in the way and a plain Forget to end it.
   (A PIN — sealed, or held for the tab — is a setting away for anyone who
   wants one, and needs https or localhost for Web Crypto.) GitHub, X and Vercel are read by the server alone; a field for

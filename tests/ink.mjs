@@ -263,7 +263,6 @@ if (live) {
   const ring = page.locator("[data-ink-group]").first();
   check("and the ring round it says so", (await ring.getAttribute("data-ink-strokes")) === "15",
     await ring.getAttribute("data-ink-strokes"));
-  check("…even though the hand stopped twice to look at it", true, "2.2s before the head and before the legs");
 
   // A second drawing across the board stays its own.
   await drawStrokes([line([1250, 300], [1400, 300]), line([1400, 300], [1400, 420]), line([1400, 420], [1250, 420]), line([1250, 420], [1250, 300])]);

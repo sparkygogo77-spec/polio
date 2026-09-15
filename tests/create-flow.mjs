@@ -12,7 +12,7 @@
  * specification.
  *
  * Every claim in that paragraph is a check here, on what is on the board.
- * The reshape and image routes are stubbed to a locked vault, because the
+ * The reshape and image routes are stubbed to a locked keys panel, because the
  * layout has to lock the same way with no key at all.
  *
  *   node tests/create-flow.mjs [url]

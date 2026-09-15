@@ -149,19 +149,12 @@ export const FORMAT_FIELDS: FormatField[] = [
   bool("build.tests", "build", "Tests", false, { advanced: true }),
 ];
 
-export const FORMAT_BY_ID = new Map(FORMAT_FIELDS.map((x) => [x.id, x]));
-
 export type FormatValues = Record<string, string | number | boolean>;
 
 export function formatDefaults(): FormatValues {
   const out: FormatValues = {};
   for (const x of FORMAT_FIELDS) out[x.id] = x.default;
   return out;
-}
-
-/** Only the values the user actually changed — what the brief should mention. */
-export function changedFormat(values: FormatValues): FormatField[] {
-  return FORMAT_FIELDS.filter((x) => x.id in values && values[x.id] !== x.default);
 }
 
 export function formatLabel(field: FormatField, value: string | number | boolean): string {

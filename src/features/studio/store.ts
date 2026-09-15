@@ -406,7 +406,6 @@ export function frameTopReach(
 
 /** Page widths the frame can take. Positions are absolute; the frame just shows what fits. */
 export const FRAME_WIDTHS = { desktop: 1440, tablet: 834, phone: 390 } as const;
-export type FrameKind = keyof typeof FRAME_WIDTHS;
 
 interface StudioState extends Doc {
   /** Width of the page frame drawn on the board. */
@@ -430,7 +429,6 @@ interface StudioState extends Doc {
    * frame's edge. Never persisted — where you had scrolled to is not part of
    * the site.
    */
-  pageScroll: number;
   showAllFormat: boolean;
   /** Wires between parts can be hidden so the board reads as the page. */
   showWires: boolean;
@@ -544,7 +542,6 @@ interface StudioState extends Doc {
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
-  moveNodes: (ids: string[], dx: number, dy: number) => void;
   removeNodes: (ids: string[]) => void;
   duplicateNodes: (ids: string[]) => void;
 
@@ -636,8 +633,6 @@ interface StudioState extends Doc {
   setInk: (patch: { hue?: number; width?: number }) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
-  setPageScroll: (y: number) => void;
-  resetView: () => void;
   setFrameWidth: (w: number) => void;
   requestFit: () => void;
   /** Absolute positions during a drag; no history entry (commit() first). */
@@ -726,7 +721,6 @@ interface StudioState extends Doc {
    * Token counts are an estimate of a bill; a renderer call is the bill. It
    * accumulates, because one drawing can reach the renderer more than once.
    */
-  noteCost: (dollars: number) => void;
   /**
    * Add what a call cost, how long it took and who was paid.
    *
@@ -756,7 +750,6 @@ interface StudioState extends Doc {
   resetThreadSpots: () => void;
   /** Take a critique's proposed prompt as the prompt, and note that it was taken. */
   applyRevision: (entryId: string) => void;
-  clearTrail: () => void;
   resetAll: () => void;
   loadDoc: (doc: Partial<Doc> & { frameWidth?: number }) => void;
   undo: () => void;
@@ -1040,7 +1033,6 @@ export const useStudio = create<StudioState>()(
         inkWidth: 3,
         zoom: 1,
         pan: { x: 0, y: 0 },
-        pageScroll: 0,
         showAllFormat: false,
         showWires: true,
         hiddenFeatures: [],
@@ -1168,14 +1160,6 @@ export const useStudio = create<StudioState>()(
             nodes.splice(toBottom ? 0 : i - 1, 0, n!);
             return { nodes };
           });
-        },
-
-        // No history push: drags call commit() once at pointer-up instead.
-        moveNodes: (ids, dx, dy) => {
-          const set_ = new Set(ids);
-          set((s) => ({
-            nodes: s.nodes.map((n) => (set_.has(n.id) && !n.locked ? { ...n, x: n.x + dx, y: n.y + dy } : n)),
-          }));
         },
 
         removeNodes: (ids) => {
@@ -1587,8 +1571,6 @@ export const useStudio = create<StudioState>()(
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setZoom: (z) => set({ zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) }),
         setPan: (p) => set({ pan: p }),
-        setPageScroll: (y) => set({ pageScroll: Math.max(0, y) }),
-        resetView: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
         setFrameWidth: (w) => set((s) => ({ frameWidth: w, fitNonce: s.fitNonce + 1 })),
         requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
         setPositions: (positions) =>
@@ -1732,8 +1714,6 @@ export const useStudio = create<StudioState>()(
             return { trail: entries.slice(-TRAIL_LIMIT) };
           });
         },
-
-        noteCost: (dollars) => get().noteSpend({ dollars, ms: 0, calls: dollars > 0 ? 1 : 0, ...(dollars > 0 ? { renderer: dollars } : {}) }),
 
         noteSpend: (spend, on) =>
           set((s) => {
@@ -2033,7 +2013,6 @@ export const useStudio = create<StudioState>()(
           });
         },
 
-        clearTrail: () => set({ trail: [] }),
 
         clearPage: (pageId) => {
           push();

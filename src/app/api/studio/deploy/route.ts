@@ -11,7 +11,7 @@ import { findVercelProject, type VercelProject } from "@/features/studio/vercelP
  * the address people will actually type.
  *
  * The token can come from either side, like the Claude key: the server's
- * `VERCEL_TOKEN` if it has one, or the browser's vault as `x-vercel-token`.
+ * `VERCEL_TOKEN` if it has one, or the browser's keys panel as `x-vercel-token`.
  * The server's wins. It is used for these calls and nothing else, is never
  * written down, and never comes back in an answer.
  *
@@ -127,7 +127,9 @@ export async function GET(request: Request) {
   if (!ok) {
     return NextResponse.json({ ok: false, reason: "vercel", message: data.error?.message ?? `Vercel answered ${status}.` });
   }
-  const state = data.readyState ?? "QUEUED";
+  // A deployment Vercel has not put a state on is reported as none, not
+  // as "QUEUED": the two are told apart in the dialog.
+  const state = data.readyState ?? null;
   return NextResponse.json({
     ok: true,
     state,
@@ -144,7 +146,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false,
       reason: "no-token",
-      message: "No Vercel token. Put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server, and this can put the site live.",
+      message: "No Vercel token. Put one in the keys panel (⌘⇧K) or set VERCEL_TOKEN on the server, and this can put the site live.",
     });
   }
 
@@ -158,7 +160,9 @@ export async function POST(request: Request) {
   if (!REPO.test(repo)) {
     return NextResponse.json({ ok: false, reason: "no-repo", message: "Nowhere to deploy from: name the repository on the Builds page, or set GITHUB_REPO on the server." });
   }
-  const branch = (typeof body.branch === "string" && body.branch.trim()) || process.env.GITHUB_BRANCH?.trim() || "main";
+  const askedBranch = (typeof body.branch === "string" && body.branch.trim()) || process.env.GITHUB_BRANCH?.trim() || null;
+  // Nobody named a branch: main is assumed, and the answer says so.
+  const branch = askedBranch ?? "main";
   const team = (typeof body.team === "string" && body.team.trim()) || process.env.VERCEL_TEAM?.trim() || null;
   const named = (typeof body.project === "string" && body.project.trim()) || process.env.VERCEL_PROJECT?.trim() || null;
 
@@ -210,8 +214,9 @@ export async function POST(request: Request) {
     project: project.name,
     repo,
     branch,
+    ...(askedBranch ? {} : { assumed: true }),
     team,
-    state: data.readyState ?? "QUEUED",
+    state: data.readyState ?? null,
     // The build's own address, live the moment it is ready; the production
     // alias replaces it in the poll once Vercel has assigned one.
     url: liveUrl(data),

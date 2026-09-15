@@ -57,7 +57,7 @@ Measured by driving the Builder with Playwright against `next dev` on port
    `tencent/hunyuan3d-2mv`; the cube's own four faces go up as the four
    views (`views`, a field the image route now takes for a mesh model);
    the card in the panel and the piece on the wheel light up the moment a
-   Replicate token is present (browser vault or server, a yes-or-no only)
+   Replicate token is present (browser keys panel or server, a yes-or-no only)
    and otherwise say what would light them, with no call made; the answer
    lands as `mesh-3d` with the cube kept, and "Back to the cube" is one
    press.
