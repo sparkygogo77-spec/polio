@@ -70,6 +70,19 @@ export function sketchBox(strokes: SketchPoint[][]): SketchBox | null {
   return { x: x0, y: y0, w: Math.max(0.002, x1 - x0), h: Math.max(0.002, y1 - y0) };
 }
 
+/**
+ * A tap, or a scribble no wider than a dot: nothing to trace.
+ *
+ * Under this the tracer used to be paid three times to draw a point and
+ * scored against the whole box, about 1% each go. The bar is 1% of the
+ * board a side, which is a dot on any screen; a drawn line clears it.
+ */
+export const TAP_SIZE = 0.01;
+export function isTap(strokes: SketchPoint[][], min = TAP_SIZE): boolean {
+  const box = sketchBox(strokes.filter((s) => s.length >= 1));
+  return !box || (box.w < min && box.h < min);
+}
+
 /** Width over height, with a floor so a straight line never divides by nothing. */
 export function boxAspect(box: SketchBox): number {
   return Math.max(0.05, Math.min(20, box.w / Math.max(0.002, box.h)));

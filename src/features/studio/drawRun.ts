@@ -39,7 +39,7 @@ import { money, RENDER_COST, RENDER_MODELS } from "./renderer";
 import { readVector } from "./vector";
 import { noRendererKeyMessage, rendererHeader } from "./agent";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
-import type { OutlineClip, SketchPoint } from "./sketch";
+import { isTap, TAP_SIZE, type OutlineClip, type SketchPoint } from "./sketch";
 
 /** How many goes at it. One per rung of the ladder. */
 export const MAX_TRACES = 3;
@@ -83,13 +83,19 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
   // Like against like: a closed drawing is an area and is scored as one, an
   // open one is a line and is scored against the line with a tolerance the
   // width of the stroke that was drawn.
-  const { mask: target, mode } = targetFor(input.outline, input.strokes);
   const attempts: Attempt[] = [];
   let spent = 0;
   let says: string | undefined;
   // The wait, measured. Every rung of the ladder is part of it, because
   // every rung is time the person spent looking at a spinner.
   const from = Date.now();
+  // A tap is not a drawing. Before this it was traced three times, paid
+  // for, and scored against the whole box at about 1% a go.
+  if (isTap(input.strokes)) {
+    says = `A tap is not a shape: nothing wider than ${TAP_SIZE * 100}% of the board was drawn, so there is nothing to trace.`;
+    return { ok: false, code: null, attempts, cost: 0, ms: Date.now() - from, calls: 0, renderer: 0, rendererSays: says, message: says, reason: "no-drawing" };
+  }
+  const { mask: target, mode } = targetFor(input.outline, input.strokes);
 
   for (let n = 1; n <= MAX_TRACES; n++) {
     const rung = LADDER[n - 1]!;
