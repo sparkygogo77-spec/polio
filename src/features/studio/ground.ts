@@ -235,7 +235,39 @@ export function useGround(
       layer.style.setProperty("--gx", `${period}px`);
       layer.style.setProperty("--gy", "0px");
       const secs = Math.round(period / DRIFT_PX_S);
-      layer.style.animation = still ? "none" : `ground-drift ${secs}s linear infinite`;
+      /*
+       * IT SLIDES A WHOLE PIXEL AT A TIME, AND THAT IS THE WHOLE OF IT.
+       *
+       * A composited layer that lands between pixels has to be resampled
+       * across its whole surface on every frame it moves; one that lands on
+       * a pixel can be copied. This layer is the pane and a bit — 1835 by
+       * 1191 at the pane the shelf left behind — so that is two and a
+       * quarter million pixels filtered thirty times a second to move the
+       * clouds six pixels.
+       *
+       * `steps(period)` over a slide of exactly `period` pixels is a step of
+       * exactly one pixel, and at six pixels a second that is a step every
+       * sixth of a second. It is the same speed, the same distance and the
+       * same loop: what changes is that every frame now lands on the grid.
+       *
+       * Measured at twelve boards, frames per 900ms:
+       *
+       *   a continuous slide              31.0     (43% dropped)
+       *   steps of exactly one pixel      34.0     (37%)
+       *   steps of two thirds of a pixel  31.4     (42%)
+       *   steps of one and a half pixels  31.3     (42%)
+       *   steps of exactly two pixels     35.2     (35%)
+       *   not sliding at all              34.3     (37%)
+       *
+       * Read the fractional rows: more steps than one-pixel and fewer steps
+       * than one-pixel both give back nothing, so it is not the stepping. It
+       * is the alignment — and aligned, a sliding layer costs what a still
+       * one costs. `fieldPeriod` already returns a whole number of pixels;
+       * the round is here so that stays a requirement rather than a
+       * coincidence, because a period of 1024.5 would put every other step
+       * back between the pixels and quietly give all of this away.
+       */
+      layer.style.animation = still ? "none" : `ground-drift ${secs}s steps(${Math.round(period)}, end) infinite`;
     };
 
     const fit = () => {
