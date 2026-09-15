@@ -157,10 +157,16 @@ const sides = {
  * the ring over the background.
  */
 const FAR_REF = 180;
+/* The reference is read on the board and nowhere else: the top side's,
+   180 board pixels above a hole near the top, landed on the menu bar's
+   own words ("tools…", luma 37 against the page's 10) and the top read
+   as lit less than the rest. It is held inside the board's pane. */
+const BOARD = await page.locator("[data-ctx='studio-canvas']").first().boundingBox();
+const onBoard = (x, y) => [Math.min(BOARD.x + BOARD.width - 8, Math.max(BOARD.x + 8, x)), Math.min(BOARD.y + BOARD.height - 8, Math.max(BOARD.y + 8, y))];
 const lit = {}, base = {}, lift = {}, aura = {};
 for (const [side, [x, y, scale, dx, dy]] of Object.entries(sides)) {
   lit[side] = await along(x, y, dx, dy);
-  base[side] = await glow(x + dx * FAR_REF * scale, y + dy * FAR_REF * scale);
+  base[side] = await glow(...onBoard(x + dx * FAR_REF * scale, y + dy * FAR_REF * scale));
   lift[side] = lit[side].lift - base[side];
   aura[side] = lit[side].aura - base[side];
 }

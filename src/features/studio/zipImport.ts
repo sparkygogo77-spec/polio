@@ -401,14 +401,60 @@ export function fitToSurface(surface: Box, pageW: number, blocks: readonly Box[]
   const w = Math.max(1, pageW);
   const scale = surface.w / w;
   const bottom = blocks.reduce((m, b) => Math.max(m, b.y + b.h), 0);
-  const h = Math.max(surface.h, Math.round(bottom * scale));
+  /*
+   * To a hundredth of a pixel, not a whole one. Placed on whole pixels, a
+   * 60px bar on a 3077px page landed 31px tall on a 1573px surface: a
+   * share of 0.0197 against the page's 0.0195, and 16 of 36 locked shares
+   * split at the third decimal that way. A hundredth is a thousandth of
+   * a share on the smallest surface anyone draws, and nothing on the board
+   * can see it.
+   */
+  const h = Math.max(surface.h, fine(bottom * scale));
   const places = blocks.map((b) => ({
-    x: Math.round(surface.x + b.x * scale),
-    y: Math.round(surface.y + b.y * scale),
-    w: Math.max(24, Math.round(b.w * scale)),
-    h: Math.max(16, Math.round(b.h * scale)),
+    x: fine(surface.x + b.x * scale),
+    y: fine(surface.y + b.y * scale),
+    w: Math.max(24, fine(b.w * scale)),
+    h: Math.max(16, fine(b.h * scale)),
   }));
   return { surface: { x: surface.x, y: surface.y, w: surface.w, h }, places, scale };
+}
+
+/** A board length to the hundredth of a pixel: as fine as the layout needs, as plain as a number can stay. */
+export const fine = (v: number): number => Math.round(v * 100) / 100;
+
+/**
+ * The type, scaled as the box was.
+ *
+ * A part's `size` is a multiple of the site's base, and the reading sets
+ * it from the page's own pixels. Laid on a surface half the page's width,
+ * a first screen kept its 48px headline in a box half as tall and the
+ * words were cut off at the top. The words are scaled by the same number
+ * as the box, so a 60px line in a 600px band lands near 30px in a 300px
+ * one. The theme floors `size` at 0.6, so a surface drawn narrower than
+ * six tenths of the page still lands its words a shade larger than the
+ * page had them; that is the theme's floor, named here rather than moved.
+ */
+export function scaledType<F extends { size?: number }>(font: F | null | undefined, scale: number): F {
+  const had = (font ?? {}) as F;
+  const size = (typeof had.size === "number" && Number.isFinite(had.size) ? had.size : 1) * scale;
+  return { ...had, size: Math.round(size * 100) / 100 };
+}
+
+/**
+ * What the panel offers to press, in order: the page's own blocks first,
+ * top to bottom, then everything else biggest first.
+ *
+ * The list was the biggest 24 of 60, and the bar across the top of a real
+ * page is short, so it was the 38th thing and not on the list at all: the
+ * one thing a person points at first could only be had by taking the
+ * whole page. The blocks are what a person means by the page; the rest is
+ * what is inside them.
+ */
+export function offered(candidates: readonly Block[], cap = 24): Block[] {
+  const blocks = pageBlocks(candidates);
+  const same = (a: Box, b: Box) => Math.abs(a.x - b.x) <= 2 && Math.abs(a.y - b.y) <= 2 && Math.abs(a.w - b.w) <= 2 && Math.abs(a.h - b.h) <= 2;
+  const rest = candidates.filter((c) => !blocks.some((b) => same(b.box, c.box) || (b.members ?? []).includes(c.selector)));
+  return [...blocks, ...rest].slice(0, cap);
 }
 
 /* ------------------------------------------------------------------ */
@@ -442,7 +488,11 @@ const NAMES: Record<string, string> = {
  * library with the page's own words, paint and type in it, movable and
  * promptable like anything drawn. A block it did not claim is a band of
  * words: the words and the paint are real, the shape is not its own. A
- * picture inside any of them is not measured, it is the grounded step's.
+ * picture inside any of them stays a placeholder, and the line says so
+ * rather than promising a step: a landed part has no picture of its own
+ * to show, and the grounded step (`recreate`) runs on drawings only,
+ * from the first drawing a queue job made. Putting it in a landed part's
+ * order and pressing Make it again runs nothing.
  */
 export function saidOf(landed: readonly Landed[], from: string, scriptsDropped = false): string {
   const n = landed.length;
@@ -454,7 +504,7 @@ export function saidOf(landed: readonly Landed[], from: string, scriptsDropped =
   bits.push(`${real.length} of ${n} block${n === 1 ? "" : "s"} from ${from} ${real.length === 1 ? "is a real part" : "are real parts"} of the library${kinds.length ? ` (${kinds.join(", ")})` : ""}: move, resize and prompt ${real.length === 1 ? "it" : "them"} like anything drawn.`);
   if (less) bits.push(`${less} arrived as a band of words: the words and the paint are real, the shape is not its own.`);
   const pictures = landed.filter((l) => l.wantsPicture).length;
-  if (pictures) bits.push(`${pictures} hold${pictures === 1 ? "s" : ""} a picture that only the grounded step can make.`);
+  if (pictures) bits.push(`${pictures} hold${pictures === 1 ? "s" : ""} a picture that stays a placeholder: a landed part has no picture of its own to show, and the grounded step runs on drawings only.`);
   if (scriptsDropped) bits.push("The page brought scripts, which were not run: whatever they would have drawn is not here.");
   return bits.join(" ");
 }

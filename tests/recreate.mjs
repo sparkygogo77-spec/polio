@@ -183,7 +183,7 @@ check("nothing is marked custom: these are catalogue parts, not new ideas", [bar
 /* 4. What measurement cannot give                                     */
 /* ------------------------------------------------------------------ */
 
-check("a band with a real photograph in it wants the grounded step", hero.wantsPicture === true);
+check("a band with a real photograph in it knows the reading cannot make it", hero.wantsPicture === true);
 check("a bar with no pictures does not", bar.wantsPicture === false);
 check("an icon-sized image is not a photograph and does not want one",
   picturesIn(reading({ images: [{ src: "i.svg", w: 24, h: 24, alt: "" }] })).length === 0);
