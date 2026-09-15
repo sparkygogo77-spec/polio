@@ -19,6 +19,7 @@
  * without being read — and the drawing is kept on the part so the blueprint
  * writes it out in words. A drawing is never lost to a missing key.
  */
+import { heldEffort } from "./effort";
 import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
@@ -391,6 +392,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         sketch: drawn,
         picture: job.picture,
         frameWidth,
+        effort: heldEffort(),
         node: node
           ? {
               featureId: node.featureId,

@@ -38,6 +38,7 @@
  * renderer went first and fell short, its render is what the first written
  * attempt is asked to beat, with the drawn picture beside it.
  */
+import { heldEffort } from "./effort";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { money, RENDER_COST, type RenderKind } from "./renderer";
 import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
@@ -402,6 +403,7 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
       h: input.h,
       picture: input.picture,
       palette: input.palette,
+      effort: heldEffort(),
       ...(prev ? { previous: prev.html, critique: prev.says, shot: prev.shot?.split(",")[1] ?? null } : {}),
     }),
   });

@@ -66,6 +66,8 @@ interface Candidate {
 }
 
 interface Body {
+  /** The backend's effort setting: low, medium or high. Anything else falls back to medium. */
+  effort?: string;
   sketch?: unknown;
   picture?: string | null;
   frameWidth?: number;
@@ -234,6 +236,11 @@ export async function POST(request: Request) {
   }
   content.push({ type: "text", text: lines.join("\n") });
 
+  // The effort the backend surface is set to rides with the call; only the
+  // three the API takes are accepted, and this route's old constant is the
+  // fallback for anything else.
+  const EFFORTS = ["low", "medium", "high"] as const;
+  const effort: (typeof EFFORTS)[number] = EFFORTS.includes(body.effort as never) ? (body.effort as (typeof EFFORTS)[number]) : "medium";
   const client = new Anthropic({ apiKey });
   try {
     // Streamed and assembled here: the answer is short, but the reading
@@ -245,7 +252,7 @@ export async function POST(request: Request) {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       thinking: { type: "adaptive" },
-      output_config: { effort: "medium", format: { type: "json_schema", schema: ANSWER_SCHEMA } },
+      output_config: { effort, format: { type: "json_schema", schema: ANSWER_SCHEMA } },
       system: SYSTEM,
       messages: [{ role: "user", content }],
     });
