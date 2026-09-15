@@ -35,6 +35,7 @@ import { Eraser, Send, SlidersHorizontal, Square } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { askClaude } from "./agent";
+import { EFFORT_KEY } from "./effort";
 import { useCompiledBrief } from "./BriefDialog";
 import { specToMarkdown } from "./spec";
 import { FIELD } from "./TimelineDetail";
@@ -57,7 +58,6 @@ type Effort = (typeof EFFORTS)[number]["id"];
 
 /** Kept across a close: the system and the effort are settings, not state. */
 const SYSTEM_KEY = "builder.backend.system";
-const EFFORT_KEY = "builder.backend.effort";
 const held = (k: string, fallback = "") => {
   try { return localStorage.getItem(k) ?? fallback; } catch { return fallback; }
 };
