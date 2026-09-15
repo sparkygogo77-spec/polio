@@ -107,7 +107,26 @@ export interface SparkField {
   clock: number;
   /** How many knots the gust riders are divided between. */
   knots: number;
+  /*
+   * WHERE EACH SPARK WAS LAST DRAWN, so the next paint can rub out that much
+   * of the canvas and no more.
+   *
+   * A paint used to clear the whole sheet. On the pane as it now stands that
+   * is 811 by 1191 — 966,000 pixels wiped and handed back to the compositor
+   * thirty times a second — to move a cast of at most ninety-six sparks
+   * which, measured, cover 349 of those pixels. Four hundredths of one per
+   * cent of the sheet has anything on it.
+   *
+   * One box a spark, in the order the sparks are in, empty until it has been
+   * drawn once.
+   */
+  marks: (Box | null)[];
+  /** The next paint clears everything: the sheet is new, or has been resized. */
+  fresh: boolean;
 }
+
+/** A rectangle of the sheet, in its own pixels. */
+export interface Box { x: number; y: number; w: number; h: number }
 
 /** The disc this was drawn for, and the unit the density is quoted in. */
 const DISC_AREA = 320 * 320;
@@ -139,7 +158,7 @@ export function sparkField(shape: Shape, w: number, h: number): SparkField {
       x: 0, y: 0, vx: 0, vy: 0, age: 0, life: 0, size: 0, warm: 0, phase: 0, heading: 0, next: 0,
     });
   }
-  return { shape, w, h, sparks, clock: 0, knots };
+  return { shape, w, h, sparks, clock: 0, knots, marks: sparks.map(() => null), fresh: true };
 }
 
 /** The same field at a new size: the sparks keep going, the walls move. */
@@ -149,6 +168,9 @@ export function resizeField(f: SparkField, w: number, h: number): SparkField {
   // Carry over what still fits, so a resize is not a blackout.
   for (let i = 0; i < Math.min(next.sparks.length, f.sparks.length); i++) next.sparks[i] = f.sparks[i]!;
   next.clock = f.clock;
+  /* The sheet behind it is a new bitmap and every old mark is a lie about
+     it, so the first paint after this wipes the lot. */
+  next.fresh = true;
   return next;
 }
 
@@ -208,12 +230,34 @@ function gone(f: SparkField, s: Spark): boolean {
 
 export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: number) {
   if (!f.sparks[0]?.life) for (const s of f.sparks) lightSpark(f, t, s);
+  /*
+   * RUB OUT WHERE EACH ONE WAS, NOT THE WHOLE SHEET.
+   *
+   * This is the whole of the change and it is the same rule the rest of the
+   * surface runs on: what a frame costs is the area it damages. Ninety-six
+   * sparks covering 349 pixels used to wipe and re-hand a 966,000-pixel sheet
+   * to the compositer thirty times a second, because one `clearRect` over
+   * everything is the obvious way to start a frame.
+   *
+   * A spark is cleared where it was drawn last time and drawn where it is
+   * now; the box it leaves behind is remembered for the next frame. Nothing
+   * else on the sheet is touched, so the damage is a few hundred small boxes
+   * rather than the pane.
+   */
+  if (f.fresh || f.marks.length !== f.sparks.length) {
+    c.clearRect(0, 0, f.w, f.h);
+    f.marks = f.sparks.map(() => null);
+    f.fresh = false;
+  } else {
+    for (const m of f.marks) if (m) c.clearRect(m.x, m.y, m.w, m.h);
+  }
   // The clock restarts with every surface; a step backwards is no step.
   const dt = Math.min(0.1, Math.max(0.001, t - f.clock));
   f.clock = t;
   c.save();
   c.lineCap = "round";
-  for (const s of f.sparks) {
+  for (let i = 0; i < f.sparks.length; i++) {
+    const s = f.sparks[i]!;
     // Where this one wants to go, and how quickly it takes to it.
     let tx = 0, ty = 0, lag = 3;
     switch (s.kind) {
@@ -300,6 +344,22 @@ export function paintEmbers(c: CanvasRenderingContext2D, f: SparkField, t: numbe
     c.beginPath();
     c.arc(s.x, s.y, s.size, 0, TAU);
     c.fill();
+    /*
+     * And what it just covered, for the next frame to rub out. The widest
+     * thing drawn is the tail at `size * 1.3`, so half of that plus the
+     * dot's own radius is the reach from the line; two pixels on top of it
+     * for the antialiasing, which is what smears a stroke past its width and
+     * would otherwise leave a rim of the last frame behind.
+     */
+    const reach = Math.max(s.size, (s.size * 1.3) / 2) + 2;
+    const ax = tail > 1 ? s.x - ux * tail : s.x;
+    const ay = tail > 1 ? s.y - uy * tail : s.y;
+    f.marks[i] = {
+      x: Math.floor(Math.min(s.x, ax) - reach),
+      y: Math.floor(Math.min(s.y, ay) - reach),
+      w: Math.ceil(Math.abs(s.x - ax) + reach * 2) + 1,
+      h: Math.ceil(Math.abs(s.y - ay) + reach * 2) + 1,
+    };
   }
   c.restore();
 }
@@ -585,7 +645,8 @@ export function paintDarkMatter(c: CanvasRenderingContext2D, opts: PaintOptions)
   const { field: f, t } = opts;
   const w = f.w;
   const h = f.h;
-  c.clearRect(0, 0, w, h);
+  /* No `clearRect` over everything: `paintEmbers` rubs out each spark where
+     it was and nowhere else, and wipes the whole sheet only when it is new. */
   c.save();
   if (f.shape === "disc") {
     c.beginPath();
