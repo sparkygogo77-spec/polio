@@ -49,7 +49,7 @@ check("package.json lists @sparticuz/chromium", listed("@sparticuz/chromium"),
 // 0b. The trace. What a serverless host will actually have in the function.
 const TRACES = [
   "src/app/api/studio/screenshot → .next/server/app/api/studio/screenshot/route.js.nft.json",
-  "src/app/api/tweets/preview-video → .next/server/app/api/tweets/preview-video/route.js.nft.json",
+  "src/app/api/studio/preview-video → .next/server/app/api/studio/preview-video/route.js.nft.json",
 ];
 for (const entry of TRACES) {
   const [label, file] = entry.split(" → ");

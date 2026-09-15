@@ -2024,10 +2024,13 @@ live site to go with them, queues them, and sends them.
 - **Routes.** `/api/tweets/send` posts one post (multipart: `payload` JSON plus
   `media_k` files) through OAuth 1.0a with `X_API_KEY`, `X_API_SECRET`,
   `X_ACCESS_TOKEN`, `X_ACCESS_SECRET`; `/api/tweets/status` says whether they
-  are there (never what they are); `/api/tweets/preview-video` renders the
-  tour with a *full* Playwright (`PLAYWRIGHT_MODULE` to name one) and returns
-  a GIF, or the WebM with an `x-tour-note` when it could not — it shares the
-  studio's lookup, and refuses with `no-video` on the serverless browser.
+  are there (never what they are); the tour is rendered by the studio's own
+  `/api/studio/preview-video`, which takes the document with the request so
+  the recording is of the site as built, runs a *full* Playwright
+  (`PLAYWRIGHT_MODULE` to name one) and returns a GIF, or the WebM with an
+  `x-tour-note` when it could not, and refuses with `no-video` on the
+  serverless browser. (A copy of that route under `/api/tweets` never read
+  the document and recorded an empty site; it is gone.)
   Without keys every route answers `ok: false` with a reason and the console
   falls back — Send opens X with the words. Keys are never load-bearing.
 - **The queue is honest.** It runs only while the app is open (a tick every
