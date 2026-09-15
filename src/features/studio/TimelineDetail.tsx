@@ -20,7 +20,7 @@
  *   iteration.
  */
 import * as React from "react";
-import { ArrowRight, BookOpen, Brush, Check, Copy, Flag, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Wand2 } from "lucide-react";
+import { ArrowRight, BookOpen, Brush, Check, Copy, Flag, ListChecks, MapPin, MessageSquare, Pin, PinOff, Repeat, Sparkles, Terminal, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { useActions } from "@/core/actions";
@@ -30,6 +30,7 @@ import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
 import { useStudio } from "./store";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
+import { Backend } from "./Backend";
 import { cn } from "@/core/lib/cn";
 import { moltenClass, moltenSeed, type MoltenKind } from "@/core/ui/molten";
 import { drawOnPart, writeOnPart } from "./RadialMenu";
@@ -72,8 +73,35 @@ const PURPLE = {
   dim: "oklch(0.88 0.08 18)",
 };
 
+/**
+ * Which of the band's tabs is up, for the one thing outside it that needs
+ * to know: how tall the band should be.
+ *
+ * Two of the three are a page of text and fit the strip. The backend is a
+ * surface you work at — a transcript, a system box, an effort row and a
+ * prompt — and in a 248px strip the transcript came out 80px tall with the
+ * prompt box and the Send key below the fold entirely, at y 1087 and 1106
+ * in a 1000px window. A working surface you have to scroll to type into is
+ * not one, so the band grows for it and shrinks back after.
+ */
+let onTab: Tabs = "iteration";
+const tabWatchers = new Set<() => void>();
+type Tabs = "iteration" | "book" | "backend";
+function setOnTab(t: Tabs) {
+  onTab = t;
+  tabWatchers.forEach((w) => w());
+}
+export function useDetailTab(): Tabs {
+  return React.useSyncExternalStore(
+    (w) => { tabWatchers.add(w); return () => { tabWatchers.delete(w); }; },
+    () => onTab,
+    () => "iteration" as Tabs,
+  );
+}
+
 export function TimelineDetail() {
-  const [tab, setTab] = React.useState<"iteration" | "book">("iteration");
+  const [tab, setTabState] = React.useState<Tabs>(onTab);
+  const setTab = React.useCallback((t: Tabs) => { setTabState(t); setOnTab(t); }, []);
   const openId = useStudio((s) => s.openThreadId);
   const currentId = useStudio((s) => s.currentThreadId);
   const threads = useStudio((s) => s.threads);
@@ -111,6 +139,12 @@ export function TimelineDetail() {
         <Tab on={tab === "book"} onClick={() => { play("select"); setTab("book"); }} icon={<BookOpen className="size-3.5" />}>
           The iteration book
         </Tab>
+        {/* The third: the backend as somewhere you work, rather than seven
+            fixed modes behind a button in a dialog that closes over the
+            board. See `Backend.tsx` for what was missing and what is not. */}
+        <Tab on={tab === "backend"} onClick={() => { play("select"); setTab("backend"); }} icon={<Terminal className="size-3.5" />}>
+          The backend
+        </Tab>
         <span className="flex-1" />
         {open ? (
           <span className="truncate pr-1 text-[10px]" style={{ color: FIELD.dim }}>
@@ -119,6 +153,13 @@ export function TimelineDetail() {
         ) : null}
       </div>
 
+      {/* The backend surface scrolls its own thread and holds its boxes
+          still, so it is not put inside the scroller the other two share. */}
+      {tab === "backend" ? (
+        <div className="min-h-0 flex-1">
+          <Backend />
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "book" ? (
           // Unchanged, and in its own tab: same fields, same screen face,
@@ -132,6 +173,7 @@ export function TimelineDetail() {
           </p>
         )}
       </div>
+      )}
     </section>
   );
 }

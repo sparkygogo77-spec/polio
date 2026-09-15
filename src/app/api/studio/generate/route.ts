@@ -202,6 +202,11 @@ export async function POST(request: Request) {
     markdown?: string; mode?: Mode; prompt?: string; pictures?: PictureIn[]; brief?: string; pieces?: PieceIn[]; skipped?: number;
     /** What Build already wrote from the document, and what it could not. */
     scaffold?: { files?: { path?: string; bytes?: number }[]; gaps?: string[]; stats?: Record<string, number> };
+    /** The working surface's three: added to the house system, the effort,
+        and what has already been said in this thread. */
+    system?: string;
+    effort?: string;
+    turns?: { role?: string; text?: string }[];
   };
   try {
     body = (await request.json()) as typeof body;
@@ -212,6 +217,37 @@ export async function POST(request: Request) {
   const markdown = (body.markdown ?? "").slice(0, 200_000);
   const mode: Mode = body.mode && body.mode in MODE_INSTRUCTIONS ? body.mode : "plan";
   const prompt = (body.prompt ?? "").trim().slice(0, 20_000);
+  /*
+   * Three things the working surface sets that nothing could set before.
+   *
+   * `system` was a constant in this file, so the instructions the model
+   * works under were the one thing about the call nobody using the Builder
+   * could see or change. It is offered now, and what arrives is *added to*
+   * the house system rather than replacing it — the rules about reading a
+   * blueprint are what make the answers usable, and a surface for talking
+   * to the backend is not a door for turning them off.
+   *
+   * `effort` was `ideas ? medium : high`, decided here and never asked.
+   * Only the three the API takes are accepted; anything else falls back to
+   * what this route always did.
+   *
+   * `turns` is the conversation. Every ask was one-shot, which is why
+   * "no, the other one" had nowhere to go. They are capped hard: sixteen
+   * turns and 60k of text, because a browser can send anything and this
+   * runs on someone's bill.
+   */
+  const extra = (body.system ?? "").trim().slice(0, 20_000);
+  const EFFORTS = ["low", "medium", "high"] as const;
+  const effort: (typeof EFFORTS)[number] = EFFORTS.includes(body.effort as never)
+    ? (body.effort as (typeof EFFORTS)[number])
+    : mode === "ideas" ? "medium" : "high";
+  let spent = 0;
+  const turns = (Array.isArray(body.turns) ? body.turns : [])
+    .filter((t): t is { role: "user" | "assistant"; text: string } =>
+      !!t && (t.role === "user" || t.role === "assistant") && typeof t.text === "string" && t.text.trim().length > 0)
+    .slice(-16)
+    .map((t) => ({ role: t.role, text: t.text.slice(0, 20_000) }))
+    .filter((t) => (spent += t.text.length) <= 60_000);
   if (!markdown.trim() && !(body.brief ?? "").trim()) {
     return NextResponse.json({ ok: false, reason: "empty", message: "The blueprint is empty, add something to the canvas first." }, { status: 400 });
   }
@@ -304,9 +340,14 @@ export async function POST(request: Request) {
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
       thinking: { type: "adaptive" },
-      output_config: { effort: mode === "ideas" ? "medium" : "high" },
-      system: SYSTEM,
-      messages: [{ role: "user", content }],
+      output_config: { effort },
+      system: extra ? `${SYSTEM}\n\n${extra}` : SYSTEM,
+      /* What was said before, then this ask. The blueprint rides on the last
+         message, so the facts are the current ones however long the thread. */
+      messages: [
+        ...turns.map((t) => ({ role: t.role, content: t.text })),
+        { role: "user" as const, content },
+      ],
     }, { signal: deadline.signal });
 
     const message = await stream.finalMessage();

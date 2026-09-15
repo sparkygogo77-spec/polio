@@ -31,7 +31,7 @@ import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
 import { aimLight, endLightRig, rigPasses, startLightRig } from "./lightRig";
 import { Timeline } from "./Timeline";
-import { TimelineDetail, TimelinePanel } from "./TimelineDetail";
+import { TimelineDetail, TimelinePanel, useDetailTab } from "./TimelineDetail";
 import { mountNebula } from "./nebulaTile";
 import { LightPlacer } from "./LightPlacer";
 import { cn } from "@/core/lib/cn";
@@ -58,6 +58,8 @@ import { PROCESS } from "./threads";
  * there is.
  */
 const BAND_H = "clamp(132px, 32vh, 248px)";
+/** The band when the backend is up: room for a transcript worth reading. */
+const WORK_H = "clamp(320px, 54vh, 640px)";
 
 /**
  * Four tools, in one control.
@@ -587,6 +589,7 @@ export function StudioPage() {
   const [leftPanel, setLeftPanel] = React.useState("look");
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
+  const detailTab = useDetailTab();
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
@@ -872,7 +875,10 @@ export function StudioPage() {
                 <Palette />
               </div>
             ) : book ? (
-              <div className="mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: BAND_H }}>
+              /* Taller for the backend, which is a surface you work at
+                 rather than a page of text: at the strip's height its
+                 transcript was 80px and the prompt box was below the fold. */
+              <div className="mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: detailTab === "backend" ? WORK_H : BAND_H }}>
                 <TimelineDetail />
               </div>
             ) : null}

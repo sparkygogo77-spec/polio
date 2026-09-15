@@ -355,6 +355,12 @@ export async function askClaude(
     skipped?: number;
     /** For Build: what the document already wrote, and what it could not. */
     scaffold?: { files: { path: string; bytes: number }[]; gaps: string[]; stats?: Record<string, number> };
+    /** Added to the house system prompt, not in place of it. */
+    system?: string;
+    /** How hard to think: the route decides when this is left out. */
+    effort?: "low" | "medium" | "high";
+    /** What has already been said, so an answer can be argued with. */
+    turns?: { role: "user" | "assistant"; text: string }[];
   },
   opts: { signal?: AbortSignal } = {},
 ): Promise<AskResult> {
@@ -377,6 +383,9 @@ export async function askClaude(
         pieces: (input.pieces ?? []).map((x) => ({ id: x.id, label: x.label, where: x.where, prompt: x.prompt, size: x.size, neighbours: x.neighbours })),
         skipped: input.skipped ?? 0,
         ...(input.scaffold ? { scaffold: input.scaffold } : {}),
+        ...(input.system ? { system: input.system } : {}),
+        ...(input.effort ? { effort: input.effort } : {}),
+        ...(input.turns?.length ? { turns: input.turns } : {}),
         pictures: (input.pictures ?? []).map((p) => ({ data: p.data, mediaType: p.mediaType, label: p.label })),
       }),
     });
