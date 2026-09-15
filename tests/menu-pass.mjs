@@ -467,7 +467,7 @@ async function ladder() {
         zoomIn: byLabel("Zoom in"),
         preview: vis(bar.querySelector("[data-preview-toggle]")),
         finish: vis(bar.querySelector("[data-finish]")),
-        panel: byLabel("Toggle look"),
+        panel: byLabel("Toggle the side panel"),
         pages: vis(bar.querySelector("[data-page-strip]")),
         over: Math.max(0, bar.scrollWidth - bar.clientWidth),
       };
