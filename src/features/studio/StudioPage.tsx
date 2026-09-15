@@ -246,6 +246,9 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   // The More key exists only while the bar is folding controls away: on a
   // wide bar it is not drawn at all, because a hidden control is a control.
   const folding = useMedia(FOLDING);
+  // The Updates panel is the bar's own, opened from its key or from More:
+  // one panel, one state, whichever key was pressed.
+  const [updatesOpen, setUpdatesOpen] = React.useState(false);
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
   const zoom = useStudio((s) => s.zoom);
@@ -432,8 +435,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       {/* The two ways out of Design, at the end of the bar and in that order:
           look at it, then finish it. */}
       <span className="mx-1 h-4 w-px bg-border" />
-      {folding ? <MoreTools shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} /> : null}
-      <UpdatesToggle />
+      {folding ? <MoreTools shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} onUpdates={() => setUpdatesOpen(true)} /> : null}
+      <UpdatesToggle open={updatesOpen} onOpenChange={setUpdatesOpen} />
       <PreviewToggle />
       <ProcessCounter />
     </div>
@@ -449,7 +452,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
  * More key now, drawn only while the bar is folding them; on a wide bar
  * the key is not there, because they are.
  */
-function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number }) {
+function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
   const [open, setOpen] = React.useState(false);
   const row = "flex items-center gap-1.5 text-[11px] text-fg";
   return (
@@ -488,7 +491,11 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue }: { shape: 
           ) : null}
           <div className={row}>
             <SearchTools always />
-            <UpdatesToggle always />
+            <Tooltip content="What has landed, and what is new to use">
+              <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" onClick={() => { setOpen(false); onUpdates(); }}>
+                <History />
+              </Button>
+            </Tooltip>
           </div>
         </div>
       }
@@ -650,12 +657,11 @@ function SearchTools({ always = false }: { always?: boolean } = {}) {
  * NOTE: this bar belongs to the sibling branch. This is the single addition
  * the panel requires — the button and its state — so the merge stays clean.
  */
-function UpdatesToggle({ always = false }: { always?: boolean } = {}) {
-  const [open, setOpen] = React.useState(false);
+function UpdatesToggle({ open, onOpenChange: setOpen }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   return (
     <>
       <Tooltip content="What has landed, and what is new to use">
-        <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className={always ? undefined : "hidden lg:inline-flex"} onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
           <History />
         </Button>
       </Tooltip>

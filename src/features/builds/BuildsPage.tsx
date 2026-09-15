@@ -32,6 +32,7 @@ import {
   Trash2,
 } from "lucide-react";
 import site from "@site";
+import { BuildMark } from "./BuildMark";
 import { Button } from "@/core/ui/button";
 import { Input } from "@/core/ui/input";
 import { Segmented } from "@/core/ui/segmented";
@@ -346,6 +347,8 @@ export function BuildsPage() {
             Every site {site.name} is holding, and where each one publishes. Switching is instant: the Builder
             re-reads the document you press and nothing is lost on the way out.
           </p>
+          {/* Which build of the Builder this is: a site three days behind trunk used to look exactly like a current one. */}
+          <BuildMark className="mt-2 inline-block text-[11px] text-fg-faint" />
         </div>
         <div className="flex items-center gap-2">
           {/* The tour is offered where arriving happens, not buried in a menu. */}
