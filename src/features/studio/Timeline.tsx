@@ -1865,7 +1865,15 @@ function ElementPiece({
         <span className="block text-center">
           <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
           {thread.changes.length > 1 ? (
-            <span className="mt-0.5 block text-[9px] text-[oklch(0.9_0.06_18)]">and {thread.changes.length - 1} more</span>
+            /* 0.93, up from 0.9. At nine pixels on the ember face this was the
+               worst run of words anywhere on the timeline and it sat exactly on
+               its bar: 4.48, 4.53, 4.55, 4.57 on four runs of one build, so the
+               suite failed about one time in four and passed the other three on
+               nothing but where the drift happened to be sampled. A hairline is
+               not a contrast. Still under the name above it at 0.95, so the two
+               keep their order. Measured by `ink-on-cards`, which reports the
+               worst mark by name now rather than only its number. */
+            <span className="mt-0.5 block text-[9px] text-[oklch(0.93_0.06_18)]">and {thread.changes.length - 1} more</span>
           ) : null}
         </span>
       </div>
