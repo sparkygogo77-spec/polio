@@ -6,6 +6,7 @@ import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
 import { items, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
+import { splitTurn } from "./turn";
 
 export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }: PartProps) {
   const typing = id === "hero-typewriter";
@@ -17,7 +18,8 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }:
   const visualLabel = id === "hero-3d" ? "3D object" : id === "hero-video" ? "video" : "visual";
   const split = (id === "hero-split" || id === "hero-3d") && w >= 720;
   const headline = typing ? lines[phrase % lines.length]! : lines[0]!;
-  const subline = typing ? null : lines[1];
+  // Every line after the first: a third line typed used to be dropped.
+  const subline = typing || lines.length < 2 ? null : lines.slice(1).join(" ");
 
   const background =
     id === "hero-gradient"
@@ -39,11 +41,11 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }:
       }}
     >
       <div style={{ flex: split ? 1 : undefined, maxWidth: split ? undefined : t.measurePx * 1.2, marginInline: split ? 0 : "auto", display: "flex", flexDirection: "column", gap: t.fontPx, alignItems: split ? "flex-start" : t.textAlign === "center" ? "center" : "flex-start", minWidth: 0 }}>
-        <h1 style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * (w < 560 ? 2 : 3), lineHeight: 1.05, letterSpacing: -1 }}>
+        <h1 dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * (w < 560 ? 2 : 3), lineHeight: 1.05, letterSpacing: -1 }}>
           {headline}
           {typing ? <Caret t={t} mode={mode} /> : null}
         </h1>
-        {subline ? <p style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 1.15, maxWidth: t.measurePx }}>{subline}</p> : null}
+        {subline ? <p dir="auto" style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 1.15, maxWidth: t.measurePx }}>{subline}</p> : null}
         <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
           <Btn t={t} label="Get started" onClick={() => (link ? onNavigate?.(link) : emit?.({ type: "toast", text: "Get started" }))} />
           <Btn t={t} label="Learn more" primary={false} onClick={() => emit?.({ type: "toast", text: "Learn more" })} />
@@ -79,7 +81,7 @@ export function ValueProp({ id, content, options, theme: t }: PartProps) {
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
   return (
     <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.fontPx * 0.5 }}>
-      <p style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: 1.2, maxWidth: t.measurePx, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
+      <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: 1.2, maxWidth: t.measurePx, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
         {parts.head}
         {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}
       </p>
@@ -87,17 +89,8 @@ export function ValueProp({ id, content, options, theme: t }: PartProps) {
   );
 }
 
-/** Where the line turns: nowhere, at the last word, or at the last sentence. */
-export function splitTurn(line: string, turn: string): { head: string; tail: string | null } {
-  if (turn === "none" || !line.trim()) return { head: line, tail: null };
-  if (turn.startsWith("last word")) {
-    const at = line.trimEnd().lastIndexOf(" ");
-    return at < 0 ? { head: "", tail: line } : { head: line.slice(0, at + 1), tail: line.slice(at + 1) };
-  }
-  // The last sentence: everything after the full stop before it.
-  const at = line.trimEnd().replace(/[.!?]\s*$/, "").lastIndexOf(".");
-  return at < 0 ? { head: "", tail: line } : { head: line.slice(0, at + 1), tail: line.slice(at + 1) };
-}
+/** Where the line turns: one rule, in `turn.ts`, that the call to action shares. */
+export { splitTurn };
 
 /** Logos, numbers, badges — the strip under the fold. */
 export function ProofStrip({ id, content, theme: t }: PartProps) {

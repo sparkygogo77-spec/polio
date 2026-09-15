@@ -3,12 +3,20 @@
  *
  * At the width the board was designed for, positions are the board's — the
  * frame is the truth. Narrower than that, rows reflow: each row's parts stack
- * in reading order at the device width, heights kept.
+ * in reading order at the device width. A picture keeps its aspect; anything
+ * else narrowed by some factor grows in height by that factor, bounded, since
+ * its words need the lines. Heights used to be kept as they were, and a text
+ * part narrowed to a third of its width was cut off by its own fill at the
+ * height it had on the desktop.
  */
 import { getFeature } from "../catalog";
 import { resolvePart } from "../parts";
+import { FULL_BLEED } from "../reshape";
 import type { StudioNode } from "../store";
 import { toRows } from "../spec";
+
+/** The most a narrowed part grows in height: a part four times narrower is four times taller, and no more. */
+const GROW_MAX = 4;
 
 export type Device = "desktop" | "tablet" | "phone";
 export const DEVICE_WIDTH: Record<Device, number> = { desktop: 1440, tablet: 834, phone: 390 };
@@ -43,12 +51,14 @@ export function placeNodes(all: StudioNode[], device: Device, frameWidth: number
   let y = gap;
   for (const row of toRows(nodes)) {
     for (const n of row) {
-      const full = n.w >= frameWidth - 1;
+      // Full width is the reshape rule's nine tenths, not the frame less a pixel.
+      const full = n.w >= frameWidth * FULL_BLEED;
       const w = full ? target : Math.min(n.w, target - gap * 2);
-      // Pictures keep their aspect; everything else keeps its height and lets text wrap.
+      // Pictures keep their aspect; everything else grows by how much narrower it got, so its text has the lines it needs.
       const cat = getFeature(n.featureId)?.category;
       const aspectBound = cat === "media" || cat === "hero";
-      const h = aspectBound && n.w > target ? Math.round(n.h * Math.min(1, target / n.w) * 1.15) : n.h;
+      const narrower = Math.min(GROW_MAX, Math.max(1, n.w / Math.max(1, w)));
+      const h = aspectBound ? (n.w > target ? Math.round(n.h * Math.min(1, target / n.w) * 1.15) : n.h) : Math.round(n.h * narrower);
       placed.push({ node: n, x: full ? 0 : Math.round((target - w) / 2), y: full && placed.length === 0 ? 0 : y, w, h });
       y = (full && placed.length === 1 ? 0 : y) + h + gap;
     }

@@ -62,7 +62,7 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
       {id === "home-anchor" ? (
         <button type="button" onClick={() => go("Home")} style={linkStyle}>Home</button>
       ) : (
-        <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.4 }}>
+        <nav aria-label="Main" style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.4, flexWrap: "wrap", justifyContent: "flex-end", rowGap: 0 }}>
           {links.map((l, i) => (
             <span key={l + i} style={{ position: "relative" }}>
               <button
