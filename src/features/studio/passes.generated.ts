@@ -2,9 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-14T20:04:16.389Z";
+export const GENERATED_AT = "2026-09-14T20:45:28.992Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "e95fb12",
+    "when": "2026-09-14T20:45:28+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "616b9e5",
+        "says": "The site is a full-length page on a surface that moves",
+        "when": "2026-09-14T20:10:02+00:00",
+        "detail": [
+          "Three of J's reports were one thing, and the one thing is the model: the frame was a fixed viewport — a window the site slid behind — and the whole column scrolled rather than the pane. So the preview took the board edge to edge, the categories and the search went below the fold on both screens, and the site scrolled in a box inside the frame.",
+          "His words on the last, which is the distinction that decides the rest: not within a boundary, all of it should be rendered, not scrolling within the same web frame.",
+          "The frame is the whole site again, as tall as the last part reaches. There is no scrollbox in it and no bar on it.",
+          "The pane it stands in is what moves. A wheel over the page pans the surface down the whole length of it and stops a margin past the foot, because a surface you can throw into empty space is worse than one that ends."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "d3ab200",
+    "when": "2026-09-14T20:04:40+00:00",
+    "day": "14 September",
+    "changes": [
+      {
+        "id": "d3ab200",
+        "says": "Regenerate the passes for the idle number and the key-sized construct",
+        "when": "2026-09-14T20:04:40+00:00",
+        "detail": [
+          "Euler's two: the timeline's own idle number, with whether the cost is count or area, and one tile with two settings so the construct works at the size of a key. tests/idle-cost.mjs and tests/key-construct.mjs came with them.",
+          "The first is the question I have been reporting from the outside all day — the timeline's resting frame rate — now measured by the session that owns it, with its own suite. Measured again on the merged tree below."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "88ca8e2",
     "when": "2026-09-14T20:04:15+00:00",
@@ -868,114 +913,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-13T22:21:02+00:00",
         "detail": [
           "Three passes, all three sessions converged into one tip again: point at one element on a real page and it lands as a part of the library; the red matched to the green on the cloud's opacity per temperature; and J's rims wired, the bezel a nine-slice of his own sprite."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "50b1be8",
-    "when": "2026-09-13T22:20:21+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "2e5f31f",
-        "says": "Wire J's rims: the bezel is a nine-slice of his own sprite",
-        "when": "2026-09-13T22:11:10+00:00",
-        "detail": [
-          "The rim is the most particular part of one of J's boxes — a moulded bezel with its own glass, its own highlight along the top and its own light caught in the corners — and the inset shadows that stood in for it were never going to be that. It is also the part a stretched photograph ruins fastest, because a card is a band on one row and a square on another.",
-          "So the sprite is cut into nine: the four corners are drawn at their own size into the corners of the border box and keep their moulding and their radius at every card size, and only the four sides stretch. `border-image` on the rim node, with `border-box` sizing and `inset: 0`, so the border box is the card and nothing about the card's own layout moves.",
-          "Three things had to be done to a sprite before it could be one, and `scripts/cut-rims.mjs` does them:",
-          "**The tabs come off.** Every one of J's boxes has a small decorative tab sticking out at the middle of a left or right edge — exactly where a nine-slice's side strip is, and a side strip stretches, so one tab would become a bar down the whole side of the card. Cropping to the rounded box's own bounding rectangle leaves them outside it."
-        ],
-        "areas": [
-          "core",
-          "scripts",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "8a2627b",
-        "says": "Match the red to the green, on the cloud's opacity per temperature",
-        "when": "2026-09-13T21:54:02+00:00",
-        "detail": [
-          "J's two face tiles are cuts of two different renders and are not the same brightness. Under one pair of cloud opacities the red card read 21% lighter than the green in oklab L and half again as bright at its peaks — two systems rather than two temperatures, with the green as the afterthought.",
-          "The tiles are his and are not touched. How much cloud there is becomes a dial per temperature, `--mo-cloud` and `--mo-cloud-still`, and the two layers turn out to pull opposite ways: the gliding copy is more of J's picture and stays high for both, while the still copy at 1.7× samples a darker part of the same tile — over the green it stacks dark on dark and swallows the filaments, over the red it is depth the hot picture wants. So the green takes almost none of the still layer and the red nearly all, and neither loses any of the render.",
-          "Measured on a board, mean of a card's lower third, red against green: oklab L 1.211 → 1.115, and at the 99th percentile — the brightest filaments, which is what actually reads as heat — 1.487 → 1.328. Red is still the hotter of the two, which is the point.",
-          "Turning the gliding layer down as well buys another 0.01 of ratio for a quarter of the moving texture; it was measured and refused. Cost at 30 boards is unchanged, as two numbers becoming two variables should be: idle tasks 1163 → 1148ms, drag script 730 → 810ms, drag tasks 4126 → 3995ms."
-        ],
-        "areas": [
-          "core",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "48e3917",
-        "says": "Point at one element on a real page, and it lands as a part of the library",
-        "when": "2026-09-13T21:48:11+00:00",
-        "detail": [
-          "Phase two's other half: the route that measures, and the way in.",
-          "`api/studio/element` opens an address in the browser this server already finds and either lists what is worth pointing at, with a picture of the page to point at them on, or measures the one that was picked. Every value is the browser's own answer, `getComputedStyle`'s string for a colour and its number for a size, so no model is asked what colour it thinks a background was. The measuring lives in `siteRead.ts` rather than in the route, so it can be run against any page by anything holding a browser; the route is plumbing.",
-          "The bounds are `siteFetch.ts`, checked before anything opens and not loosened for the tests: https only, no private addresses (loopback, the private ranges, link-local and the cloud metadata address with it, `.local` and any bare hostname), one page, one element a person points at, and a budget at both ends with a sentence at every ending. The local fixture this repository's own check serves is refused by those rules, so the check reads it the other way rather than making a hole for itself.",
-          "`FromASite` is the way in, on the space's panel, because a black hole is space not yet decided and something real is one way of deciding it. Read the page, press one of the things it found, and the measurements become a real library part that lands in the space and inherits its plan."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "8246e41",
-    "when": "2026-09-13T21:47:48+00:00",
-    "day": "13 September",
-    "changes": [
-      {
-        "id": "8246e41",
-        "says": "Regenerate the passes for the audit panel",
-        "when": "2026-09-13T21:47:48+00:00",
-        "detail": [
-          "Hypatia's pass: the audit panel — choose a model, and see everything it takes. Two new panels, a new plan editor and its own suite."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "d6cabd1",
-        "says": "The audit panel: choose a model, and see everything it takes",
-        "when": "2026-09-13T21:46:14+00:00",
-        "detail": [
-          "What the left panel already had, measured first: four prompt boxes — for the page, a drawing, a group and an element — and nothing at all about what happens to the words after they are typed. Which model the route would take, what it would send it, and what else that model can be told were facts the table knew and no screen said. So there is no fifth prompt box here. The audit sits under the one that is already there.",
-          "Everything is drawn from euler's table. `modelsFor` gives the models that serve this part in the route's own order, the first marked as what would be taken unasked; `ModelOptions` draws one control per field from the field's own `kind`. No model and no field is named in the renderer, and the check for that is not a promise: it takes all 43 field names the table declares and looks for each in the file. It fails on any of them, proved by putting one back. Two words are excused and named in the output — `kind` and the `managed` vocabulary are what the renderer switches on, and one field is called `image`, which no amount of reading text can tell from the `image` kind.",
-          "Against a model the table does not have: an invented row using all eight kinds, with bounds, defaults, an enum and a managed field, goes through the same code and comes out renderable. A panel written around today's seven rows passes every test that only uses today's seven rows.",
-          "Managed fields are shown rather than hidden, wearing what the route chose, and give way. Driven in the browser: 11 controls for GPT Image 2, three of them routed, picking a value on one turns it to \"yours\", the reset hands it back, and choosing the other model redraws 12 — which is the table's own count for GPT Image 1.5."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "bfb00d1",
-        "says": "Regenerate the passes for the construct's face",
-        "when": "2026-09-13T20:51:30+00:00",
-        "detail": [
-          "Euler's pass: the face of a construct is J's own render rather than a likeness of it, with the renders themselves landing under public/construct."
         ],
         "areas": [
           "studio"

@@ -496,13 +496,26 @@ const key = readFileSync("src/features/studio/DrawQueue.tsx", "utf8");
  * file exists to prevent — and on the absence of the surface, so nobody puts
  * three animated layers back into the bar by accident.
  */
-check("Finish is the same green as the boards it opens", (() => {
-  const style = /className="process-key[\s\S]*?style=\{\{([\s\S]*?)\}\}/.exec(key)?.[1] ?? "";
-  return /background: "var\(--verdant-body\)"/.test(style) && /borderColor: "var\(--verdant-hot\)"/.test(style);
-})());
-check("…and flat, because a key is too small to be a surface anything drifts across",
-  !/moltenClass\("verdant"\)/.test(key) && !/<span data-molten="" \/>/.test(key)
-  && /has no surface to drift across/.test(key));
+/*
+ * The key wears the construct now, at the size of a key.
+ *
+ * These two pinned the opposite: a flat slab painted straight from
+ * --verdant-body and --verdant-hot, with the construct kept off it because
+ * a key was held to be too small to be a surface anything drifts across.
+ * One tile at two settings settled that the other way — `moltenKeyClass` is
+ * `moltenClass` plus `molten-key`, the same construct at a key's scale —
+ * so a key carrying a surface is the intent rather than an accident, and
+ * asking for flatness here asks for the change to be undone.
+ *
+ * What is still worth pinning is the part that has not changed: it is the
+ * verdant family and not a second green, and it goes through the one
+ * definition rather than painting its own. That is what this file exists
+ * to prevent, and it survives the key growing a surface.
+ */
+check("Finish is the same green as the boards it opens",
+  /moltenKeyClass\("verdant"\)/.test(key) && !/--ember-|--molten-body/.test(key.slice(key.indexOf("process-key") - 400, key.indexOf("process-key") + 400)));
+check("…and wears the construct at the size of a key, through the one definition",
+  /<span data-molten="" \/>/.test(key) && /moltenSeed\("finish"\)/.test(key) && !/moltenClass\("verdant"\)[\s\S]{0,40}process-key/.test(key));
 check("the key still presses, because a construct that did not would be a picture of one",
   /process-key/.test(key) && /\.process-key:active/.test(readFileSync("src/app/globals.css", "utf8")));
 check("nothing is painted on top of the light to make it look lit",
