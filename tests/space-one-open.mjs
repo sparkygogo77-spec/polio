@@ -143,6 +143,7 @@ const sides = {
   top: [...await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - 2, bigBox), 0, -1],
   bottom: [...await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + 2, bigBox), 0, 1],
 };
+<<<<<<< HEAD
 /*
  * Each side along its own normal, and against its own background.
  *
@@ -171,6 +172,17 @@ const lifts = Object.values(lift), auras = Object.values(aura);
 check("every side of the open hole is lit: the ring on it, and light beside it", lifts.every((v) => v > 100) && auras.every((v) => v > 14), said);
 check("and lit the same all the way round, not heavier on the left",
   Math.max(...lifts) - Math.min(...lifts) < 45 && Math.max(...auras) < Math.min(...auras) * 1.5 && aura.left < aura.right * 1.5, said);
+=======
+const lit = {};
+for (const [side, [x, y, , dx, dy]] of Object.entries(sides)) lit[side] = await along(x, y, dx, dy);
+const [px, py] = await toScreen("sp_big", BIG.x + BIG.w + 180, BIG.y + BIG.h / 2, bigBox);
+const pageLuma = await glow(px, py);
+const lifts = ["left", "right", "top", "bottom"].map((k) => lit[k].lift);
+const auras = ["left", "right", "top", "bottom"].map((k) => lit[k].aura);
+const said = `lift left ${lit.left.lift}, right ${lit.right.lift}, top ${lit.top.lift}, bottom ${lit.bottom.lift} · aura left ${lit.left.aura}, right ${lit.right.aura}, top ${lit.top.aura}, bottom ${lit.bottom.aura} · page ${pageLuma}`;
+check("every side of the open hole is lit: the ring on it, and light beside it", lifts.every((v) => v > pageLuma + 100) && auras.every((v) => v > pageLuma + 14), said);
+check("and lit the same all the way round, not heavier on the left", Math.max(...lifts) - Math.min(...lifts) < 45 && Math.max(...auras) < Math.min(...auras) * 1.5 && lit.left.aura < lit.right.aura * 1.5, said);
+>>>>>>> origin/claude/template-ui-website-builder-11bfgl
 /* Size follows the shape: the big hole's aura reaches further than the
    small one's will. Sampled where the big one is still lit and the small
    one, at the same distance, is not. */
