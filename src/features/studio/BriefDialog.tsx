@@ -192,7 +192,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const [mode, setMode] = React.useState<AskMode>("plan");
   const [prompt, setPrompt] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [result, setResult] = React.useState<{ text: string; mode: AskMode; model?: string; pictures: number; truncated: boolean } | null>(null);
+  const [result, setResult] = React.useState<{ text: string; mode: AskMode; model?: string; pictures: number; dropped: number; droppedWhy: string; truncated: boolean } | null>(null);
   const [files, setFiles] = React.useState<GeneratedFile[]>([]);
   const [openFile, setOpenFile] = React.useState<string | null>(null);
   const [note, setNote] = React.useState<string | null>(null);
@@ -381,7 +381,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         // was wrong — the server had one after all.
         said.key = undefined;
         say();
-        setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
+        setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, dropped: r.dropped, droppedWhy: r.droppedWhy, truncated: r.truncated });
         // The call landed, so it is a thread: what was asked, what came back,
         // and the board as it stood. Everything the answer goes on to do —
         // a finding taken, a file written — is recorded against it.
@@ -394,6 +394,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
             r.revisions.length ? `${r.revisions.length} finding${r.revisions.length === 1 ? "" : "s"}` : "",
             r.files.length ? `${r.files.length} file${r.files.length === 1 ? "" : "s"} written` : "",
             r.pictures ? `${r.pictures} page${r.pictures === 1 ? "" : "s"} seen` : "",
+            r.dropped ? `${r.dropped} left out (${r.droppedWhy})` : "",
             vined ? `${send.length} piece${send.length === 1 ? "" : "s"} sent${skipped.length ? `, ${skipped.length} unchanged` : ""}` : "",
           ].filter(Boolean),
         });
@@ -442,7 +443,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           } else if (!r.files.length) setNote("Claude answered, but no files could be read out of it. The response is shown as it came.");
         } else setView(r.revisions.length ? "trail" : "result");
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
-        ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
+        ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only", r.dropped ? `${r.dropped} left out: ${r.droppedWhy}` : ""].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
       } else if (r.reason !== "stopped") {
         const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent, it is written to stand alone.") : r.message;
         if (r.reason === "no-key") {
@@ -922,7 +923,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       )}
       {result && view === "result" ? (
         <p className="text-[10px] text-fg-faint">
-          {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}
+          {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}{result.dropped ? ` · ${result.dropped} left out: ${result.droppedWhy}` : ""}
         </p>
       ) : null}
 

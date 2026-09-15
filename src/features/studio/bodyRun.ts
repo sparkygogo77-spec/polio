@@ -385,7 +385,7 @@ export function compare(target: boolean[], got: boolean[], mode: Compare = { clo
 /* The loop                                                            */
 /* ------------------------------------------------------------------ */
 
-async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse }> {
+async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse; unseen?: string[] }> {
   // The browser's own deadline, longer than the route's budget: for the
   // case where nothing arrives at all, so the spinner still stops with a
   // sentence rather than running until a reload.
@@ -406,7 +406,7 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
       ...(prev ? { previous: prev.html, critique: prev.says, shot: prev.shot?.split(",")[1] ?? null } : {}),
     }),
   });
-  return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse };
+  return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse; unseen?: string[] };
 }
 
 /**
@@ -518,7 +518,9 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
     const { html } = cleanSnippet(answer.html);
     deps.onStep?.(`Looking at attempt ${n}…`);
     const { overlap, says, shot } = await judge(html, input, target, mode);
-    attempts.push({ n, source: "written", overlap, says, html, note: answer.note ?? "", shot });
+    // A revision asked without its render says so on the card, not only in the log.
+    const blind = answer.unseen?.length ? `asked without ${answer.unseen.join(" or ")}` : "";
+    attempts.push({ n, source: "written", overlap, says, html, note: [answer.note ?? "", blind].filter(Boolean).join(" · "), shot });
     if (overlap < 0 || overlap >= GOOD_ENOUGH) break;
     prev = { html, says, shot };
   }

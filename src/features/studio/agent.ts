@@ -331,6 +331,9 @@ export type AskResult =
       text: string;
       model?: string;
       pictures: number;
+      /** Pictures the browser sent that the route could not, and why. */
+      dropped: number;
+      droppedWhy: string;
       truncated: boolean;
       files: GeneratedFile[];
       cached: number;
@@ -426,7 +429,7 @@ export async function askClaude(
      * the reader nothing. The status is what happened; say it.
      */
     const raw = await res.text();
-    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number }; revisions?: Revision[] };
+    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; dropped?: number; droppedWhy?: string; truncated?: boolean; usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number }; revisions?: Revision[] };
     try {
       data = JSON.parse(raw) as typeof data;
     } catch {
@@ -442,7 +445,7 @@ export async function askClaude(
     }
     if (data.ok && typeof data.text === "string") {
       return {
-        ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, truncated: !!data.truncated,
+        ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, dropped: data.dropped ?? 0, droppedWhy: data.droppedWhy ?? "", truncated: !!data.truncated,
         files: input.mode === "build" ? filesFromMarkdown(data.text) : [],
         revisions: Array.isArray(data.revisions) ? data.revisions : [],
         cached: data.usage?.cached ?? 0,
