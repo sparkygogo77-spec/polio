@@ -49,7 +49,8 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</t
   header nav{display:flex;gap:20px;margin-left:auto}
   header nav a{color:#fff;text-decoration:none;font-size:14px}
   header button{font-size:14px;padding:8px 14px;border:0;border-radius:4px;background:#fff;color:#111}
-  .hero{font-family:Georgia,serif;display:flex;align-items:center;gap:40px;padding:64px 32px}
+  @font-face{font-family:"Harbour Serif";src:url(fonts/harbour-serif.woff2) format("woff2")}
+  .hero{font-family:"Harbour Serif",Georgia,serif;display:flex;align-items:center;gap:40px;padding:64px 32px}
   .hero h1{font-size:48px;line-height:1.1;margin:0 0 16px}
   .hero p{font-size:18px;margin:0;color:#444}
   .hero img{width:640px;height:360px;display:block}
@@ -142,6 +143,11 @@ const hero = await read(".hero");
 check("the headline is found by its size, not by its tag",
   hero.text.find((t) => t.px === Math.max(...hero.text.map((x) => x.px))).words === "Everything arrives somewhere");
 check("the type is the family the page was really set in", /georgia/i.test(hero.type.family), hero.type.family);
+/* A web font whose file the page cannot fetch: the name is read, and that
+   it did not draw is measured, not assumed. */
+check("the face the page named is read by name, though its file never came", hero.type.face === "Harbour Serif", JSON.stringify(hero.type.face));
+check("and it is known to have not drawn, measured on the page itself", hero.type.drew === false, String(hero.type.drew));
+check("a face is read for every block, and whether it drew is always answered", typeof bar.type.face === "string" && typeof bar.type.drew === "boolean", JSON.stringify([bar.type.face, bar.type.drew]));
 check("the picture inside it is seen", hero.images.length >= 1 && hero.images[0].w === 640, JSON.stringify(hero.images.map((i) => [i.w, i.h])));
 
 const cards = await read(".cards");
@@ -164,6 +170,7 @@ const madeHero = recreateFrom({ ...hero, from: { ...from, selector: ".hero" } })
 check("the first screen becomes the first screen", madeHero.patch.featureId === "hero-split", madeHero.id);
 check("with the real headline in it", madeHero.patch.content.startsWith("Everything arrives somewhere"), madeHero.patch.content.slice(0, 40));
 check("set in the face the page used, named as one of this app's own", madeHero.patch.font?.family === "serif", JSON.stringify(madeHero.patch.font));
+check("and in the face the page named, carried by name for when it is on the machine", madeHero.patch.font?.face === "Harbour Serif" && madeHero.face?.drew === false, JSON.stringify([madeHero.patch.font?.face, madeHero.face]));
 check("and it knows a picture is wanted, which the reading cannot make", madeHero.wantsPicture === true);
 
 const madeCards = recreateFrom({ ...cards, from: { ...from, selector: ".cards" } });
