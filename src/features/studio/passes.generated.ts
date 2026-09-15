@@ -2,9 +2,57 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T03:10:35.025Z";
+export const GENERATED_AT = "2026-09-15T03:20:41.373Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "ce2fd53",
+    "when": "2026-09-15T03:20:40+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f064618",
+        "says": "Import shrinks in from the edges, and the arrival is not replayed",
+        "when": "2026-09-15T03:19:45+00:00",
+        "detail": [
+          "\"Shrink in from the edges\" was the label and not yet the behaviour: the part appeared at its final box. It starts covering the page now and closes to the box it keeps — one transform run by the part itself, backwards. Written by the part rather than by a class, because where it starts depends on where it landed and how tall the page is, and a stylesheet knows neither; it leaves nothing on the element when it settles.",
+          "The bug that took the time is worth recording, because it was silent. The mark naming the arriving part was a plain variable, read once in the part's mount effect — and it is set *after* `addNode`, which flushes React synchronously, so the part had already mounted and read nothing. The animation simply never ran, and nothing said so. The mark notifies now, the way the preview does, so it is taken whether it lands before the part mounts or after. Measured in flight: 904px wide against 647 at rest.",
+          "Two instrument faults of my own on the way, both the same shape as the ones this project keeps finding. The first check compared an in-flight width in screen pixels against `node.w` in page pixels — the board draws at about 0.72, so a real shrink read as a failure. The second sampled at 90ms of a 420ms front-loaded ease, by which point it is most of the way home and the difference is arguable; 40ms is plainly in flight. Both widths now come off the screen, and the check names that they do.",
+          "Merged trunk, which carried euler's and dijkstra's work — both were already up to date behind it. Euler's idle-frame finding matters to a change of mine: the cause is a full-screen ground that never stops, damaging the viewport every frame, with translucent layers re-blended over it, and their law is \"carry less translucent area, not less motion\". Moving the shelf into the pane took the ground from 1039x943 to 1039x1191, which is 26% more damaged area every frame. Their four fixes are all in the timeline's own layers, so this is not addressed by them and I have not touched it."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "d517c45",
+    "when": "2026-09-15T03:14:08+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "d517c45",
+        "says": "import records the clip it needs, and the video half of it runs at last",
+        "when": "2026-09-15T03:14:08+00:00",
+        "detail": [
+          "Hypatia's pass: import takes a video, and the frame lands two ways.",
+          "Her suite wanted ${SP}/clip.webm with SP defaulting to one session's own scratchpad, and the generator for it — scratchpad/mkvideo.mjs — lives there rather than in the repository. So everywhere except the machine it was written on, the whole second half of the suite was skipped behind \"a test video exists to scrub — missing\", and it went red the first time it ran here. Four checks ran of the twenty-seven that exist.",
+          "It records one now: a canvas painted a frame at a time through MediaRecorder, which is the browser this suite already drives writing a real webm with real duration and real frames. Two and a half seconds of colour with the frame number burnt in — enough for a scrubber to have somewhere to go and for two frames to differ. IMPORT_FIXTURES still points it at a clip somebody has already made. 27 of 27, and the scrub, the two landings, the aspect and the resize are all actually exercised rather than skipped.",
+          "That is the second suite this week that could only pass in its author's own container, after site-read's fixture server on :8899. Both were green where they were written and red everywhere else. Worth a line in AGENTS.md that a suite carries its own fixtures, if one of the sessions wants to write it."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "57ca707",
     "when": "2026-09-15T03:10:33+00:00",
@@ -761,54 +809,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f0e35e4",
-    "when": "2026-09-14T03:28:57+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "edd2bd4",
-        "says": "The red card carries the element it made, not a playback of the strokes",
-        "when": "2026-09-14T03:08:29+00:00",
-        "detail": [
-          "J's note off a screenshot: he drew two circles and a square and got the same two circles and a square back, which tells him nothing he did not just draw. Four changes, and the first is the one that matters.",
-          "**The element, as it exists on the page.** The board's own renderer, the real node, the site's palette and its light — the part itself rather than a picture of one. It is live where there is room: a closed box is a token you drag round the timeline and a part taking presses inside it would fight the drag, so closed it is inert and open — the card grown out of it, and the box while that card is open — it runs and takes its own presses. Closed is a thing you move, open is the thing itself. That also means the card is a surface rather than a `<button>`, because an element inside a button is both invalid and unusable; it keeps the press, the drag, the right-press and the keyboard.",
-          "While a drawing is still being made there is no element yet, so the strokes stand in until there is one. That is honestly all there is at that moment.",
-          "**Tied to the part still being there.** The link was in the data all along — the editor underneath already said \"the part this made is no longer on the board\" — and it was not driving the picture. Now the picture is what it drives: the part, or that sentence, or \"this one made nothing on the board\"."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e6a6d23",
-    "when": "2026-09-14T03:28:19+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "2ed8716",
-        "says": "The workspace scrolls again, and the wheel offers one element or several",
-        "when": "2026-09-14T03:08:32+00:00",
-        "detail": [
-          "**The scroll and the gutter, as one decision.** The middle column scrolls: down past the design box, out of its view, and on into the categories and the prompt sections. The side panels hold still because they are siblings of the scroller rather than children — not because anything holds them. And a full-screen pane makes the board's fit width-held instead of height-held, which grew the frame from 979 to 1201 of 1272 and left 35px of ground either side; dragging bare ground is how the board is panned, so the gutter goes to 128 and gives back 64 a side. The scroll takes the ground away and the gutter is what returns it.",
-          "**board-layout's sixteen checks, rewritten rather than deleted.** They said the workspace never scrolls and the shelf is always on screen, which was true of the pane-and-band and is a fair thing to have pinned. The rule is now four things and they check those: the workspace scrolls, the side panels do not move while it does, the parts shelf is still reachable without hunting — one scroll, no searching, whole when you get there — and no scrollbar shows.",
-          "Run against the old code, one of them fails: \"the workspace scrolls past the design box — 0px of scroll, went to 0\". The others pass under both layouts, which is why they were safe to keep rather than rewrite: a shelf that is reachable and a panel that holds still were true before and are true now. The bars check bites too — proved separately by taking `no-bars` off the column, which names it.",
-          "One check changed meaning rather than sides. \"The workspace did not move while the site did\" was right when the workspace could not move at all; now the question is the order, so it says the site takes the wheel first and keeps it until its foot, and what is left over goes to the column — which is how a person gets from the bottom of the page to the shelf in one gesture."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
