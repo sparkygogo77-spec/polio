@@ -22,7 +22,7 @@
 import * as React from "react";
 import { Activity, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Ban, Blend, Check, CircleDot, Expand, FlipVertical2, Focus, ImagePlus, MoveRight, Play, Shuffle, Sparkles, Spline, Zap } from "lucide-react";
 import { play } from "@/core/audio/engine";
-import { readImage, refusal } from "./ImageIntake";
+import { readPicture, refusal } from "./ImageIntake";
 import {
   ANIM_EASE, auraColour, auraStyle, AURA_STYLES, css as oklchCss, DELAY_MS, delayMs, ENTRANCE_MS, entranceCss, newLayer, parseColor, sliderFromSpeed, speedFromSlider, speedK, speedWord, textureCss,
   reiterate, TEXTURE_KINDS, ROLES, ROLE_LABEL,
@@ -340,9 +340,10 @@ export function TextureQuads({
   onChange: (next: string | null) => void;
 }) {
   const file = React.useRef<HTMLInputElement>(null);
-  const [refused, setRefused] = React.useState<string | null>(null);
-  const take = (src: string) => {
-    setRefused(null);
+  /* What the last picture door said: a refusal, or a note on what was kept. */
+  const [said, setSaid] = React.useState<string | null>(null);
+  const take = (src: string, note?: string) => {
+    setSaid(note ?? null);
     const layer = { ...newLayer("image"), src, target: "surfaces" as const };
     useStudio.getState().addTexture(layer);
     play("confirm");
@@ -415,7 +416,7 @@ export function TextureQuads({
           onChange={(f) => { if (current) useStudio.getState().updateTexture(current.id, { drift: f }); }}
         />
       )}
-      {sharing ? null : <Caption slab={again}>{refused ? refused : current ? `Drift · ${(current.drift ?? 0) < 0.02 ? "still" : `${Math.round((current.drift ?? 0) * 100)}%`}` : "Pick a layer first"}</Caption>}
+      {sharing ? null : <Caption slab={again}>{said ? said : current ? `Drift · ${(current.drift ?? 0) < 0.02 ? "still" : `${Math.round((current.drift ?? 0) * 100)}%`}` : "Pick a layer first"}</Caption>}
       <Glued at={[0, 0]} spin={0} w={1} h={1}>
         <input
           ref={file}
@@ -425,7 +426,7 @@ export function TextureQuads({
           aria-label="Add a texture"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void readImage(f).then(take).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
+            if (f) void readPicture(f).then((p) => take(p.src, p.note)).catch((err: unknown) => { play("deny"); setSaid(refusal(err)); });
             e.target.value = "";
           }}
         />

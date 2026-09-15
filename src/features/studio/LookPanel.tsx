@@ -20,7 +20,7 @@ import { CropPicker } from "./CropPicker";
 import { Spectrum } from "./MenuConsole";
 import { CHIP, emptyFill } from "./colourMenu";
 import { resolvePalette } from "./parts/theme";
-import { ImageWell, imageFrom, readImage, refusal, usePasteImage } from "./ImageIntake";
+import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
@@ -320,8 +320,10 @@ function TextureSection() {
    * as a new layer, so there is nothing to set up before dropping.
    */
   const [refused, setRefused] = React.useState<string | null>(null);
-  const takeImage = (src: string, id?: string) => {
+  const [noted, setNoted] = React.useState<string | null>(null);
+  const takeImage = (src: string, id?: string, note?: string) => {
     setRefused(null);
+    setNoted(note ?? null);
     const layers = useStudio.getState().look.texture;
     const target = id ?? (openId && layers.find((l) => l.id === openId && l.kind === "image") ? openId : null);
     if (target) {
@@ -333,7 +335,7 @@ function TextureSection() {
     setOpenId(layer.id);
   };
   const [dropping, setDropping] = React.useState(false);
-  usePasteImage(true, (src) => takeImage(src), setRefused);
+  usePasteImage(true, (src, note) => takeImage(src, undefined, note), setRefused);
 
   /**
    * Bake a layer and the one under it into one picture, in that order. It is
@@ -362,14 +364,18 @@ function TextureSection() {
     <section
       data-look-texture=""
       className={cn("space-y-2 p-3 transition-colors", dropping && "bg-accent/10")}
-      onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); setDropping(true); } }}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes("Files") || e.dataTransfer.types.includes("text/uri-list")) { e.preventDefault(); setDropping(true); } }}
       onDragLeave={() => setDropping(false)}
       onDrop={(e) => {
         const file = imageFrom(e.dataTransfer);
         setDropping(false);
-        if (!file) return;
+        if (!file) {
+          const says = dropSays(e.dataTransfer);
+          if (says) { e.preventDefault(); play("deny"); setRefused(says); }
+          return;
+        }
         e.preventDefault();
-        void readImage(file).then((src) => takeImage(src)).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
+        void readPicture(file).then((p) => takeImage(p.src, undefined, p.note)).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
       }}
     >
       <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
@@ -378,6 +384,7 @@ function TextureSection() {
           {refused} Nothing has been changed.
         </p>
       ) : null}
+      {noted ? <p data-picture-note="" className="text-[10px] leading-snug text-fg-muted">{noted}</p> : null}
 
       <StackPreview layers={look.texture} palette={palette} />
 

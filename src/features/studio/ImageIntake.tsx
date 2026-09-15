@@ -15,6 +15,12 @@
  * is not a picture) is refused with the same sentence the Import flow uses,
  * and nothing is kept: the full-size bytes would paint as nothing and sit in
  * the document, and localStorage has no room for them.
+ *
+ * The odd shapes are said, not swallowed: an animated GIF or WebP keeps its
+ * first frame and the door says so; a picture with any transparent pixel is
+ * kept lossless (PNG) so a cut-out's edges grow no halos, and one with none
+ * is WebP, which is far smaller; a drag from another web page carries a link
+ * and no file, and is told what would work.
  */
 import * as React from "react";
 import { cn } from "@/core/lib/cn";
@@ -30,9 +36,39 @@ export function refusal(e: unknown): string {
   return e instanceof Error && e.message ? e.message : REFUSED;
 }
 
-/** A file or a pasted blob, shrunk and turned into a data URL. */
-export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
-  return new Promise((resolve, reject) => {
+/** What came in: the picture as a data URL, and anything worth saying about it. */
+export interface Picture {
+  src: string;
+  /** Said beside the picture when the file was more than one frame. */
+  note?: string;
+}
+
+export const FIRST_FRAME = "That was an animation; its first frame was kept.";
+
+/**
+ * Whether a GIF or WebP holds more than one frame, off its bytes: a GIF's
+ * second graphic-control block, a WebP's ANIM chunk. A still one has neither.
+ */
+export async function isAnimated(file: Blob): Promise<boolean> {
+  if (!/^image\/(gif|webp)$/.test(file.type)) return false;
+  const bytes = new Uint8Array(await file.slice(0, 1 << 20).arrayBuffer());
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+    for (let i = 12; i < Math.min(bytes.length, 64) - 4; i++) {
+      if (bytes[i] === 0x41 && bytes[i + 1] === 0x4e && bytes[i + 2] === 0x49 && bytes[i + 3] === 0x4d) return true;
+    }
+    return false;
+  }
+  let frames = 0;
+  for (let i = 0; i < bytes.length - 2; i++) {
+    if (bytes[i] === 0x21 && bytes[i + 1] === 0xf9 && bytes[i + 2] === 0x04 && ++frames > 1) return true;
+  }
+  return false;
+}
+
+/** A file or a pasted blob, shrunk and turned into a data URL, with what was done to it. */
+export async function readPicture(file: Blob, maxEdge = MAX_EDGE): Promise<Picture> {
+  const animated = await isAnimated(file).catch(() => false);
+  const src = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Could not read that file"));
     reader.onload = () => {
@@ -41,21 +77,50 @@ export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
       img.onerror = () => reject(new Error(REFUSED));
       img.onload = () => {
         const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
-        if (scale === 1 && src.length < 400_000) return resolve(src);
+        if (scale === 1 && src.length < 400_000 && !animated) return resolve(src);
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return resolve(src);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        // Keep transparency when there is any; otherwise WebP at quality is far smaller.
-        const hasAlpha = /^data:image\/(png|webp|gif)/.test(src);
-        resolve(canvas.toDataURL(hasAlpha ? "image/webp" : "image/webp", 0.86));
+        // A picture with any see-through pixel stays lossless, so a cut-out's
+        // edge keeps its edge; one with none is WebP, which is far smaller.
+        // Only a type that can carry alpha is worth the read.
+        const clear = /^data:image\/(png|webp|gif|avif)/.test(src) && seeThrough(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        resolve(clear ? canvas.toDataURL("image/png") : canvas.toDataURL("image/webp", 0.86));
       };
       img.src = src;
     };
     reader.readAsDataURL(file);
   });
+  return animated ? { src, note: FIRST_FRAME } : { src };
+}
+
+/** Any pixel not fully opaque. */
+function seeThrough(data: ImageData): boolean {
+  const px = data.data;
+  for (let i = 3; i < px.length; i += 4) if (px[i]! < 255) return true;
+  return false;
+}
+
+/** The picture alone, for a door with nowhere to say more. */
+export function readImage(file: Blob, maxEdge = MAX_EDGE): Promise<string> {
+  return readPicture(file, maxEdge).then((p) => p.src);
+}
+
+/**
+ * What to say of a drop that carried no file: a picture dragged off another
+ * web page arrives as a link, which the page cannot fetch from here.
+ */
+export function dropSays(source: DataTransfer | null | undefined): string | null {
+  if (!source || imageFrom(source)) return null;
+  const types = Array.from(source.types ?? []);
+  if (types.includes("text/uri-list") || /^https?:\/\//.test(source.getData("text/plain") ?? "")) {
+    return "That was a link to a picture, not the picture. Save it to your computer first, then drop or paste the file.";
+  }
+  if (Array.from(source.files ?? []).length) return "That file is not a picture this browser can open.";
+  return null;
 }
 
 /** The first image in a drop or a paste, if there is one. */
@@ -76,7 +141,7 @@ export function imageFrom(source: DataTransfer | null | undefined): File | null 
  * Listens for a pasted image while `active`. Paste has no drop target, so it
  * is caught at the window and handed to whoever is listening.
  */
-export function usePasteImage(active: boolean, onImage: (dataUrl: string) => void, onRefuse?: (why: string) => void) {
+export function usePasteImage(active: boolean, onImage: (dataUrl: string, note?: string) => void, onRefuse?: (why: string) => void) {
   const ref = React.useRef(onImage);
   ref.current = onImage;
   const refuse = React.useRef(onRefuse);
@@ -90,8 +155,8 @@ export function usePasteImage(active: boolean, onImage: (dataUrl: string) => voi
       const file = imageFrom(e.clipboardData);
       if (!file) return;
       e.preventDefault();
-      void readImage(file)
-        .then((src) => { play("confirm"); ref.current(src); })
+      void readPicture(file)
+        .then((p) => { play("confirm"); ref.current(p.src, p.note); })
         .catch((e: unknown) => { play("deny"); refuse.current?.(refusal(e)); });
     };
     window.addEventListener("paste", onPaste);
@@ -114,14 +179,18 @@ export function ImageWell({
   const [over, setOver] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [note, setNote] = React.useState<string | null>(null);
   const [hover, setHover] = React.useState(false);
 
-  const take = React.useCallback(async (file: File | null) => {
-    if (!file) return;
+  const take = React.useCallback(async (file: File | null, says?: string | null) => {
+    if (!file) { if (says) { play("deny"); setError(says); } return; }
     setBusy(true);
     setError(null);
+    setNote(null);
     try {
-      onImage(await readImage(file));
+      const p = await readPicture(file);
+      onImage(p.src);
+      setNote(p.note ?? null);
       play("confirm");
     } catch (e) {
       play("deny");
@@ -132,7 +201,7 @@ export function ImageWell({
   }, [onImage]);
 
   // While the pointer is over the well, a paste lands here.
-  usePasteImage(hover, (src) => { setError(null); onImage(src); }, setError);
+  usePasteImage(hover, (src, said) => { setError(null); setNote(said ?? null); onImage(src); }, setError);
 
   return (
     <div
@@ -140,7 +209,7 @@ export function ImageWell({
       onMouseLeave={() => setHover(false)}
       onDragOver={(e) => { e.preventDefault(); setOver(true); }}
       onDragLeave={() => setOver(false)}
-      onDrop={(e) => { e.preventDefault(); setOver(false); void take(imageFrom(e.dataTransfer)); }}
+      onDrop={(e) => { e.preventDefault(); setOver(false); void take(imageFrom(e.dataTransfer), dropSays(e.dataTransfer)); }}
       className={cn("space-y-1", className)}
     >
       <label
@@ -171,6 +240,7 @@ export function ImageWell({
         />
       </label>
       {error ? <p data-picture-refused="" className="text-[10px] text-danger">{error}</p> : null}
+      {note ? <p data-picture-note="" className="text-[10px] text-fg-muted">{note}</p> : null}
       {src && onClear ? (
         <button type="button" onClick={onClear} className="text-[10px] text-fg-muted hover:text-fg">
           Remove
