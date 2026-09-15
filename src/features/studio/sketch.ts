@@ -293,6 +293,8 @@ const CLIP_MAX = 96;
 export const CLIP_STROKE = 0.16;
 /** A closed line is only worth cutting to when it is not simply the box. */
 const CLIP_WORTH = 0.985;
+/** An open line whose box is thinner than this, one side against the other, is a bar: its box is the cut. */
+const CLIP_THIN = 0.05;
 
 const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
@@ -393,13 +395,24 @@ export function discLanding(
 export function outlinePath(sketch: Sketch): OutlineClip | null {
   const b = readBoundary(sketch);
   if (!b || b.box.w < 1e-4 || b.box.h < 1e-4) return null;
-  // The closed outline if there is one; otherwise the longest line drawn,
+  // The closed outline if there is one; otherwise the one open line drawn,
   // which is the thing the drawing is about.
   const open = !b.stroke;
-  const line = b.stroke ?? sketch.strokes.filter((s) => s.length >= 2).sort((x, y) => y.length - x.length)[0] ?? null;
+  const lines = sketch.strokes.filter((s) => s.length >= 2);
+  /*
+   * Several open lines are a shape said, not an edge to cut to: three bars
+   * are a list, two strokes are an arrow. The band used to follow the
+   * longest of them alone, in that line's own box, over a part sized to
+   * all of them, and a list landed cut to noise. The part is its box.
+   */
+  if (open && lines.length !== 1) return null;
+  const line = b.stroke ?? lines[0] ?? null;
   if (!line) return null;
   const box = open ? (sketchBox([line]) ?? b.box) : b.box;
   if (box.w < 1e-4 || box.h < 1e-4) return null;
+  // A straight bar is a box a few thousandths tall: a band walked along it
+  // in that box is noise, and the bar's box is already the bar.
+  if (open && Math.min(box.w, box.h) < Math.max(box.w, box.h) * CLIP_THIN) return null;
 
   // Into the box's own frame, and thinned: a hundred points a millimetre
   // apart is a path nobody can read and a clip nothing can use.
