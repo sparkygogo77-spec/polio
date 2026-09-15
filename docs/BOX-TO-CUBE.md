@@ -112,7 +112,9 @@ not load", which is the honest state for a GLB of 24 bytes.
 - `tests/oddness.mjs` 53/53: a bare box is no longer asked about; the
   browser half asks about a scribble instead.
 - `tests/coded.mjs` 39/39, `tests/scaffold.mjs` 31/31 unchanged.
-- `tests/box-to-cube.mjs` 74/74, new.
+- `tests/box-to-cube.mjs` 82/82, new (74 at the first pass; 76 with the
+  Where it goes card; 82 with the limit and undo shots, the undo runs and
+  the still).
 - `tests/shapes.mjs` 21/21 alone against the build (15 of 15 traced); it
   read 13 of 15 under the dev server while the walk ran beside it, which
   was load, not the change.
@@ -154,7 +156,9 @@ I did not see it.
    1.6 s, and that pose is written on the node. Watched: `box-to-cube-3-turned.png`.
 5. They cannot tumble it into nonsense. Measured: 480 px of upward drag
    pitches it to 85° of a possible 202°, and it returns to a rest pose
-   (72, 58). Held by the suite; no screenshot of the limit.
+   (72, 58). Watched: `box-to-cube-3b-pitch-limit-held.png`, the hand
+   still down and the box pinned at the limit, and
+   `box-to-cube-3c-pitch-limit-rested.png`, where it came to rest.
 6. They can press a face to pick it, and the panel hands that face the
    keys, so typing puts words on it. Measured: the `left` face picked, its
    heading focused, "Hello there" on that face in the document and on the
@@ -178,7 +182,16 @@ I did not see it.
    `box-to-cube-7-moved-resized.png`.
 10. Undo takes the resize and then the move back (302 × 227, then 287,343),
     and a reload brings the cube, its size, its faces and its pose back.
-    Held by the suite.
+    Watched: `box-to-cube-7b-undone.png`, the box back at its old size
+    with both words on it. The reload is held by the suite.
+10a. One undo takes back an edit, not a letter. "Hello there" typed as
+    eleven keystrokes comes off the face with one press and back with one
+    redo; a prompt of twenty-three keystrokes comes back with one press,
+    and the size stays. Watched: `box-to-cube-4b-face-undo-redo.png`. The
+    same helper serves the part's own prompt, contents, data and name.
+10b. The still under a solid is the object: 512 × 360, 89 distinct colours
+    at five bits, with the words on two faces, where it was one blank
+    plate. Watched: `box-to-cube-10-solid-landed.png`.
 11. The blueprint says all of it: the face's words, the face's own prompt
     ("for: the greeting"), the proportion, and what a drawn box means. Held
     by the suite.
@@ -199,16 +212,16 @@ What falls short, by name:
 - **The vendor was never reached.** Items 13 and 14 are a mocked route
   answering a 24-byte GLB. The request that goes up is measured; a real
   mesh coming back is the route's contract, not something seen.
-- **The still under a solid is blank when the front face is blank.**
-  Shot 10 shows a dark rectangle and "the solid would not load" (correct
-  for 24 bytes), because the still is the front face drawn flat.
-- **The pitch limit and the undo were not screenshotted.** Items 5 and 10
-  are held by the suite only.
+- **The still is orthographic where the part is in perspective.** Shot 10
+  is the object, but its edges are parallel where the live cube's converge
+  a little; a person comparing the two side by side would see it.
 - **The tumble test's return pose is the bottom row.** After a long upward
   drag it rests looking up at the bottom (72, 58), which is what the drag
   asked for; the suite then presses Up once to get back to the middle row.
 - **The shapes bench once read 13 of 15** under the dev server while the
   walk ran beside it; alone on the build it is 15 of 15. Load, not the
   change, but it was seen.
-- **Face edits push an undo entry per keystroke**, exactly as the part's
-  prompt does. Consistent, not ideal.
+- **Undo runs are timed, not semantic.** A pause of more than 1.5 s in the
+  middle of typing one word makes two edits of it. Chosen over "until the
+  field loses focus" because a field can lose focus without the person
+  meaning the edit to end.
