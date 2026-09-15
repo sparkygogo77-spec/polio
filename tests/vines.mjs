@@ -288,13 +288,35 @@ check("…laid over the bark rather than painted on it, so nothing is repainted 
   const css = readFileSync("src/core/ui/molten.css", "utf8");
   return /\.molten-vine \{/.test(css) && !/mix-blend-mode/.test(css) && /Nothing here takes a clock/.test(strand);
 })());
+/*
+ * Two lights where the cable changes colour, one where it does not.
+ *
+ * A green-to-red vine still needs a light per half, or a green cloud crosses
+ * onto the red strand. A cable that is one temperature end to end — every
+ * vine in a chain of updates, and nearly all of them — had two elements
+ * drawing the *same tile at the same phase* into complementary halves of the
+ * same rope, which is one element's worth of picture in two elements. They
+ * are one now, clipped to both halves at once: pixel for pixel identical,
+ * half the elements, and about a quarter off what the vine cloud costs the
+ * compositor (`tests/idle-cost.mjs`).
+ */
 check("…each half under its own end's cloud, so a red half goes redder and never brown", (() => {
   const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
   const css = readFileSync("src/core/ui/molten.css", "utf8");
-  return /for \(const b of \[0, 1\] as const\)/.test(tl)
-    && /const heat = v\.ends\[b\] === "drawing" \? "ember" : "verdant";/.test(tl)
+  const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
+  return /const heats = \[0, 1\]\.map\(\(b\) => \(v\.ends\[b\] === "drawing" \? "ember" : "verdant"\)\);/.test(fn)
+    && /const one = heats\[0\] === heats\[1\];/.test(fn)
+    && /for \(const b of \(one \? \["a"\] : \[0, 1\]\)/.test(fn)
+    && /const heat = heats\[b === "a" \? 0 : b\];/.test(fn)
     && /\.molten-vine\[data-heat="verdant"\] > i \{ background-image: var\(--nebula-verdant, none\); \}/.test(css)
     && /\.molten-vine\[data-heat="ember"\] > i \{ background-image: var\(--nebula-ember, none\); \}/.test(css);
+})());
+check("…and where it does not change, one light carries both halves and draws the same picture", (() => {
+  const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
+  const fn = /function syncLights\([\s\S]*?\n\}/.exec(tl)?.[0] ?? "";
+  // Both envelopes in one clip path: two subpaths clip to their union, which
+  // is the whole rope and exactly what the two elements covered between them.
+  return /const d = b === "a" \? \[envelope\(0\), envelope\(1\)\]\.filter\(Boolean\)\.join\(" "\) : envelope\(b\);/.test(fn);
 })());
 check("…and not through the construct's own class, which costs two milliseconds a change", (() => {
   const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");

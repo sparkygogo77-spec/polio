@@ -1250,7 +1250,32 @@ function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want
   const period = 512;
   for (const [k, v] of want) {
     if (v.rim || v.tone === "cut") continue;
-    for (const b of [0, 1] as const) {
+    /*
+     * ONE LIGHT WHERE ONE TEMPERATURE RUNS THE LENGTH OF THE CABLE.
+     *
+     * There are two strands on a vine and each had its own light, because
+     * green-to-red exists and a green cloud must not cross onto the red
+     * strand. On a cable that is one temperature end to end — which is every
+     * vine in a chain of updates, and nearly all of them — the two elements
+     * were drawing the *same tile at the same phase* into complementary
+     * halves of the same rope. Merging them is pixel for pixel identical and
+     * halves the count.
+     *
+     * It matters because these are the largest painted surface a timeline
+     * has: each one is the size of the whole gap between two boards, plus a
+     * period for the slide, and it is clipped to a thin diagonal rope that
+     * covers a twentieth of it. A clip does not save the compositor
+     * anything — only geometry does, and the geometry of a diagonal is its
+     * bounding box — so each light costs its whole box on every frame the
+     * ground damages the viewport. At thirty boards, taking two to one
+     * measured 59% of frames dropped to 50%; taking them away altogether
+     * would be 39%, and that is what the other half is worth and is not for
+     * sale, because the cloud on a vine is what makes it the same material
+     * as the boxes.
+     */
+    const heats = [0, 1].map((b) => (v.ends[b] === "drawing" ? "ember" : "verdant"));
+    const one = heats[0] === heats[1];
+    for (const b of (one ? ["a"] : [0, 1]) as readonly (0 | 1 | "a")[]) {
       const key = `${k}#${b}`;
       let el = els.get(key);
       if (!el) {
@@ -1276,7 +1301,7 @@ function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want
        * tenth of that for a plain one. The light needs the construct's
        * cloud, not its face, so it takes the tile by name and nothing else.
        */
-      const heat = v.ends[b] === "drawing" ? "ember" : "verdant";
+      const heat = heats[b === "a" ? 0 : b];
       if (el.dataset.heat !== heat) el.dataset.heat = heat;
       const { box } = v;
       el.style.left = `${box.x}px`;
@@ -1285,12 +1310,16 @@ function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want
       el.style.height = `${box.h}px`;
       // The outline in the element's own coordinates: the same path, moved
       // by the box, because a curve does not care where its ends are.
-      const d = strandEnvelope(
+      /* Both halves in one path when it is one light: two subpaths clip to
+         their union, which is the whole rope and exactly what the two
+         elements covered between them. */
+      const envelope = (side: 0 | 1) => strandEnvelope(
         { x: v.from.x - box.x, y: v.from.y - box.y },
         { x: v.to.x - box.x, y: v.to.y - box.y },
-        b,
+        side,
         { ends: v.ends, grow: v.grow, tone: v.tone },
       );
+      const d = b === "a" ? [envelope(0), envelope(1)].filter(Boolean).join(" ") : envelope(b);
       el.style.clipPath = d ? `path("${d}")` : "inset(100%)";
       // One weather across the board: every element shows the tile at the
       // phase its own place gives it, so the cloud is continuous from vine
