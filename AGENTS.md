@@ -759,11 +759,31 @@ a kicker with a rule, and label-and-value rows that copy.
   mechanism, so one gesture runs from the head of the site, through all of
   it, and on into the categories. `Canvas` handles only ctrl-zoom and
   sideways pan.
+  **`frameHeight` counts everything the page draws, not only its parts.**
+  The window the page stands in is sized from it, so anything it does not
+  count is rendered behind an edge no gesture can pass: one pen stroke a
+  hundred pixels below a stock page hid 138px. Pass `shapes` and `spaces`
+  with the nodes. A new kind of thing that renders inside the page is a new
+  thing for it to count.
+
   Four numbers hold it, and `tests/full-page.mjs` asserts them: the board's
   height is the site's rendered height plus the gutter; the pane's
   `scrollHeight` is that plus the shelf band; no ancestor of `[data-frame]`
   has `overflow: hidden` with `scrollHeight > clientHeight`; and one wheel
   sequence from the top reaches `[data-parts-search]`.
+  **A suite that does not name its document proves nothing.** This one
+  reported 36 of 36 while all four numbers were false on the deployment,
+  for two reasons worth not repeating. It never said what it measured — a
+  dev server here and a browser pointed at Vercel are different documents,
+  and `/api/version` exists precisely so a deployment can name its own
+  commit, so every run prints it now. And its fixture was parts and
+  nothing else, which agreed with a `frameHeight` that counted parts and
+  nothing else: two wrongs measuring each other. Fixtures carry ink and a
+  drawn space below the last part, because a person's page does. It also
+  finds the board by walking OUT from `[data-frame]` to whichever ancestor
+  is a child of the pane — never by a class name, which stops matching
+  silently and then measures the wrong element.
+
   Two consequences worth knowing. The ground (`Workspace`) is mounted
   **outside** the pane, in `[data-studio-scroll]` — inside a scroller it is
   only the pane's own size, anchored at the top, so a long page runs off the

@@ -340,9 +340,36 @@ interface Doc {
   motion: MotionAsset[];
 }
 
-/** Height of the frame: at least a screen, and always past the lowest part. */
-export function frameHeight(nodes: StudioNode[], min = 900): number {
-  const bottom = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+/**
+ * Height of the frame: at least a screen, and always past the lowest thing
+ * on the page — whatever kind of thing that is.
+ *
+ * It counted parts and nothing else, and that is a clip with a person's
+ * name on it. The window the page stands in is sized from this, so a
+ * stroke of ink, an arrow, or a drawn space below the last part is drawn
+ * inside a window that does not know it is there: the window's
+ * `scrollHeight` runs past its `clientHeight` and the difference is
+ * unreachable by any gesture. Measured with one pen stroke a hundred
+ * pixels under a stock page: 138px of it hidden, and no bar, no wheel and
+ * no drag could bring it back.
+ *
+ * It is the first thing a person does — pick up the pencil and draw on the
+ * ground below the page — so it is the first thing that has to be counted.
+ * Anything the page renders is passed here; `reach` is what each kind
+ * reaches down to.
+ */
+export function frameHeight(
+  nodes: StudioNode[],
+  min = 900,
+  also: { shapes?: StudioShape[]; spaces?: Space[] } = {},
+): number {
+  let bottom = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+  for (const sh of also.shapes ?? []) {
+    for (const [, y] of sh.points) bottom = Math.max(bottom, y);
+  }
+  for (const sp of also.spaces ?? []) {
+    for (const [, y] of sp.boundary) bottom = Math.max(bottom, y);
+  }
   return Math.max(min, bottom + 160);
 }
 

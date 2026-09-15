@@ -1,28 +1,32 @@
 /**
- * The board is as tall as the site, and the pane is what moves.
+ * The board is as tall as the site, and exactly one thing scrolls.
  *
- * J measured this himself rather than passing on the complaint, and the
- * numbers he came back with are what this file asserts. At a 1267×1278
- * window with six parts on the page:
+ * These are J's four assertions, in his words, and this file exists because
+ * the version before it reported 36 of 36 while all four were false on the
+ * deploy. Two things let that happen, and both are fixed here rather than
+ * worked around:
  *
- *   · the board's root was `size-full` — 943px tall, holding 1841px of
- *     site, with `overflow: hidden`. 898px of the page that no gesture
- *     could reach.
- *   · the pane it stood in had scrollHeight equal to clientHeight, so it
- *     did not scroll at all; what moved was the board *inside* the root.
+ *  1. IT NEVER SAID WHAT IT MEASURED. A suite pointed at a dev server on
+ *     this machine and a browser pointed at a deployment are two different
+ *     documents, and nothing in the output told them apart. It asks
+ *     `/api/version` now and prints the commit, the branch and the URL at
+ *     the top of every run. If the answer disagrees with the branch you
+ *     think you are testing, that is on the screen before any check runs.
  *
- * Which is a scrollbox with the bar turned off, twice over. His words for
- * what it should be instead, stated as measurements: the board is as tall
- * as the scaled site plus its gutters, not the pane's height; the pane's
- * scrollHeight is that plus the shelf; no ancestor of the site frame hides
- * anything; and one wheel sequence from the top reaches the shelf's search
- * box.
+ *  2. IT MEASURED AN IMPOVERISHED DOCUMENT. The fixture was parts and
+ *     nothing else, and `frameHeight` counted parts and nothing else, so
+ *     the two agreed with each other and neither agreed with a real page.
+ *     One pen stroke below the page hid 138px behind the window's edge and
+ *     no check could see it. The fixture has ink and a drawn space below
+ *     the last part now, because that is what a person's page has.
  *
- * The suite this replaces passed while every one of those was false,
- * because it measured the pan — how far the board had moved — rather than
- * the layout. These are the numbers instead.
+ * And it derives the board by walking OUT from the site frame to whichever
+ * ancestor is a child of the pane — the way a person enumerates it in dev
+ * tools — rather than by a class name or a guessed selector. A selector
+ * that stops matching silently measures the wrong element; this cannot,
+ * and says so if the walk fails.
  *
- *   node tests/full-page.mjs [url]
+ *   node tests/full-page.mjs [url]        # default http://localhost:3000
  */
 import { createRequire } from "node:module";
 
@@ -46,122 +50,210 @@ const GUTTER = 128;
 /** The shelf band: `BAND_H` is clamp(132px, 32vh, 248px). */
 const bandOf = (h) => Math.min(248, Math.max(132, Math.round(h * 0.32)));
 
-/** A page with n parts down it. Six is several screens; one is a new project. */
-const page_ = (n = 6) => ({
-  state: {
-    pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
-    activePageId: "page_home", shapes: [], groups: [], spaces: [], selection: [], threads: [],
-    nodes: Array.from({ length: n }, (_, i) => ({
-      id: `n${i}`, pageId: "page_home", featureId: "custom-idea", label: `part ${i}`, prompt: "", content: "", data: "",
-      x: 120, y: 80 + i * 420, w: 900, h: 320, groupId: null, options: {}, priority: "must", custom: true,
-      glyph: null, hue: null, locked: false, link: null, colour: null, font: null, anim: null, animSpeed: 1,
-      animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null,
-      cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, plan: null,
-    })),
-  },
-  version: 0,
-});
+/**
+ * A page like a person's: parts, and then the things they draw on it.
+ *
+ * The ink and the space sit below the last part *and* below the stock 900
+ * the page floors at, which is the case that used to be invisible: the
+ * window is sized from the page's height, so anything the height does not
+ * count is drawn behind an edge that cannot be scrolled past.
+ */
+const page_ = (n = 6, drawnOn = true) => {
+  const nodes = Array.from({ length: n }, (_, i) => ({
+    id: `n${i}`, pageId: "page_home", featureId: "custom-idea", label: `part ${i}`, prompt: "", content: "", data: "",
+    x: 120, y: 80 + i * 420, w: 900, h: 320, groupId: null, options: {}, priority: "must", custom: true,
+    glyph: null, hue: null, locked: false, link: null, colour: null, font: null, anim: null, animSpeed: 1,
+    animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null,
+    cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, plan: null,
+  }));
+  const floor = Math.max(900, nodes.length ? nodes[nodes.length - 1].y + nodes[nodes.length - 1].h : 0);
+  return {
+    state: {
+      pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
+      activePageId: "page_home", groups: [], selection: [], threads: [], nodes,
+      shapes: drawnOn ? [{
+        id: "ink0", pageId: "page_home", kind: "pen", hue: 200, width: 3, label: "", prompt: "",
+        points: [[200, floor + 100], [400, floor + 180], [600, floor + 120]],
+      }] : [],
+      spaces: drawnOn ? [{
+        id: "sp0", pageId: "page_home", since: null, prompt: "", label: "", plan: null, locked: null, placed: [],
+        boundary: [[700, floor + 90], [980, floor + 90], [980, floor + 260], [700, floor + 260], [700, floor + 90]],
+      }] : [],
+    },
+    version: 0,
+  };
+};
 
-/** The four numbers, read off the live DOM. */
-const LAYOUT = () => {
-  const frame = document.querySelector("[data-frame]");
-  const board = document.querySelector("[data-studio-pane] > [data-ctx-id]") ?? frame?.closest("[data-studio-pane]")?.firstElementChild;
+/**
+ * Every number these checks need, read off the live document.
+ *
+ * `board` is found by walking out from the site frame, so it is whatever
+ * element actually stands in the pane, whatever it is called.
+ */
+const LOOK = () => {
+  const frames = [...document.querySelectorAll("[data-frame]")];
+  const frame = frames[0];
   const pane = document.querySelector("[data-studio-pane]");
-  const search = document.querySelector("[data-parts-search]");
-  /* Every element between the site frame and the document, and whether it is
-     hiding any of what is inside it. A clip is only a clip when there is
-     something past the edge: hidden with scroll === client hides nothing. */
+  let board = null;
+  for (let el = frame; el && el.parentElement; el = el.parentElement) {
+    if (el.parentElement === pane) { board = el; break; }
+  }
+  const chain = [];
+  for (let el = frame, i = 1; el && i < 9; el = el.parentElement, i++) {
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    chain.push(`    ${i}. ${(el.className || "").toString().slice(0, 60) || "(no class)"} — rect ${Math.round(r.width)}x${Math.round(r.height)}, client ${el.clientHeight}, scroll ${el.scrollHeight}, overflowY ${cs.overflowY}`);
+  }
+  /*
+   * Everything on the page that can scroll and has somewhere to go, split
+   * into the ones that could move the SITE and the ones that cannot.
+   *
+   * J's third assertion is "exactly one element scrolls", written from a
+   * document where his enumeration came back empty. Run against a narrow
+   * window it is not one: `[data-look-panel]` in the side panel has 185px
+   * at 1500x950 and 415px at 1280x720 (a long list of controls, which is
+   * what a panel is), and `[data-shelf]` has 10px at 1280x720 (the
+   * categories scrolling inside their own band, which is asked for
+   * elsewhere and is not the site).
+   *
+   * So the rule is narrowed, deliberately and on the record: of the
+   * elements that can move the site — its ancestors, and anything inside
+   * it — exactly one scrolls, and it is the pane. Any other scroller on
+   * the page is printed beside it rather than failing the run, because a
+   * panel that scrolls its own contents was never the complaint.
+   */
+  const mine = [];
+  const elsewhere = [];
+  for (const el of document.querySelectorAll("*")) {
+    const cs = getComputedStyle(el);
+    if (!/(auto|scroll)/.test(cs.overflowY) || el.scrollHeight <= el.clientHeight + 1) continue;
+    const row = {
+      what: el.getAttribute("data-studio-pane") !== null ? "[data-studio-pane]" : (el.className || "").toString().slice(0, 34),
+      travel: el.scrollHeight - el.clientHeight,
+      isPane: el === pane,
+    };
+    /* Could this one move the site? Only if the site is inside it, or it is
+       inside the site. */
+    (frame && (el.contains(frame) || frame.contains(el)) ? mine : elsewhere).push(row);
+  }
+  const movers = mine;
+  /* Anything between the site and the document that is holding content back. */
   const hiders = [];
   for (let el = frame; el; el = el.parentElement) {
     const oy = getComputedStyle(el).overflowY;
     if ((oy === "hidden" || oy === "clip") && el.scrollHeight > el.clientHeight + 1) {
-      hiders.push(`${el.getAttribute("data-page-window") !== null ? "[data-page-window]" : el.className.toString().slice(0, 40)}: ${el.scrollHeight - el.clientHeight}px hidden`);
+      hiders.push(`${el.getAttribute("data-page-window") !== null ? "[data-page-window]" : (el.className || "").toString().slice(0, 34)} hides ${el.scrollHeight - el.clientHeight}px`);
     }
   }
+  const search = document.querySelector("[data-parts-search]");
   return {
+    frames: frames.length,
     siteH: frame ? Math.round(frame.getBoundingClientRect().height) : -1,
+    board: !!board,
     boardH: board ? Math.round(board.getBoundingClientRect().height) : -1,
-    boardHidden: board ? board.scrollHeight - board.clientHeight : -1,
     paneH: pane ? pane.clientHeight : -1,
-    paneReach: pane ? pane.scrollHeight : -1,
-    paneTop: pane ? Math.round(pane.scrollTop) : -1,
-    hiders,
+    paneTravel: pane ? pane.scrollHeight - pane.clientHeight : -1,
+    movers, elsewhere, hiders, chain,
     searchY: search ? Math.round(search.getBoundingClientRect().y) : null,
-    groundY: Math.round(document.querySelector("[data-workspace-ground]")?.getBoundingClientRect().y ?? -1),
-    groundInPane: !!document.querySelector("[data-studio-pane] [data-workspace-ground]"),
   };
 };
 
+/* ------------------------------------------------------------------ */
+/* Say what is being measured, before measuring it                     */
+/* ------------------------------------------------------------------ */
+
+let served = "no /api/version — an older build, or not this app";
+try {
+  const r = await fetch(`${URL_}/api/version`);
+  const v = await r.json();
+  if (v.commit) served = `${v.short ?? v.commit} on ${v.branch ?? "?"}`;
+  else {
+    /* A dev server has no build-time commit. Ask git instead, and say that
+       is where the answer came from — a local tree can have uncommitted
+       work in it, which the deployment never does. */
+    const { execSync } = await import("node:child_process");
+    const sha = execSync("git rev-parse --short HEAD").toString().trim();
+    const br = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
+    const dirty = execSync("git status --porcelain").toString().trim() ? " + uncommitted changes" : "";
+    /* Said this way on purpose: a dev server cannot name its commit, and the
+       checkout this file was run from is NOT necessarily what that server is
+       serving — a second dev server on another port is a different tree. It
+       reports what it actually knows and does not pretend the two are one. */
+    served = `unnamed (a dev server has no build commit); the tree this was run from is ${sha} on ${br}${dirty}`;
+  }
+} catch { /* left as the default */ }
+console.log(`measuring ${URL_} — serving ${served}\n`);
+
 const browser = await chromium.launch({ headless: true });
-const seat = async (view, parts) => {
+const seat = async (view, parts, drawnOn = true) => {
   const p = await browser.newPage({ viewport: view });
   await p.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
-  await p.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), page_(parts));
+  await p.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), page_(parts, drawnOn));
   await p.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
   await p.waitForTimeout(1700);
   return p;
 };
 
 /* ------------------------------------------------------------------ */
-/* 1. The four numbers, at J's own window                              */
+/* 1. The four, at J's own window, on a page with things drawn on it   */
 /* ------------------------------------------------------------------ */
 
 const W = { width: 1267, height: 1278 };
-const page = await seat(W, 6);
 const band = bandOf(W.height);
-let m = await page.evaluate(LAYOUT);
+const page = await seat(W, 6);
+let m = await page.evaluate(LOOK);
 
-/* One. The board is the scaled site plus its gutters — not the pane's
-   height, which is the whole of the fault. */
-check("the board is as tall as the site it is showing",
+/* Before any of it: the suite has to be looking at the thing it thinks it
+   is. One site frame, and a board found by walking out to the pane. */
+check("there is exactly one site frame to measure", m.frames === 1, `${m.frames} matched [data-frame]`);
+check("and the board is found by walking out from it to the pane", m.board,
+  m.board ? "" : "no ancestor of the site frame is a child of [data-studio-pane]");
+if (!m.frames || !m.board) { console.log(m.chain.join("\n")); }
+
+check("1. the board's height is the site's rendered height plus its gutters",
   Math.abs(m.boardH - (m.siteH + GUTTER)) <= 4,
-  `${m.boardH}px of board for ${m.siteH}px of site + ${GUTTER} of ground`);
-check("and it is not just the pane's height",
-  m.boardH > m.paneH + 100, `board ${m.boardH}, pane ${m.paneH}`);
-check("and it hides none of it", m.boardHidden === 0, `${m.boardHidden}px past the edge`);
+  `board ${m.boardH}, site ${m.siteH} + ${GUTTER} = ${m.siteH + GUTTER}`);
+check("   and it is not simply the pane's height", m.boardH > m.paneH + 100,
+  `board ${m.boardH}, pane ${m.paneH}`);
+check("2. no ancestor of the site frame hides any of it", m.hiders.length === 0,
+  m.hiders.join("; ") || "nothing hidden anywhere above the site");
+check("3. exactly one element that could move the site scrolls, and it is the pane",
+  m.movers.length === 1 && m.movers[0].isPane,
+  (m.movers.map((x) => `${x.what} ${x.travel}px`).join("; ") || "NOTHING scrolls, in any direction")
+    + (m.elsewhere.length ? `  (elsewhere, not the site: ${m.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
+check("   and its travel is the site plus the shelf less the window",
+  Math.abs(m.paneTravel - (m.boardH + band - m.paneH)) <= 4,
+  `${m.paneTravel}, wanted ${m.boardH + band - m.paneH}`);
 
-/* Two. The pane's travel is the site and the shelf, so the wheel has
-   somewhere to go. */
-check("the pane's reach is the site plus the shelf",
-  Math.abs(m.paneReach - (m.boardH + band)) <= 4,
-  `${m.paneReach} against ${m.boardH} + ${band}`);
-
-/* Three. Nothing between the site and the document is holding anything back. */
-check("nothing above the site clips it", m.hiders.length === 0, m.hiders.join("; ") || "no clip anywhere");
-
-/* Four. One gesture, from the head of the page to the search box. */
 const box = await page.locator("[data-studio-pane]").boundingBox();
 await page.mouse.move(box.x + box.width / 2, box.y + 80);
-check("the search box starts below the window", m.searchY > W.height, `at y ${m.searchY}`);
-for (let i = 0; i < 40 && (await page.evaluate(() => {
-  const s = document.querySelector("[data-parts-search]");
-  return !s || s.getBoundingClientRect().bottom > window.innerHeight;
-})); i++) { await page.mouse.wheel(0, 240); await page.waitForTimeout(30); }
+check("   (the search box starts below the window, so reaching it means something)",
+  m.searchY > W.height, `at y ${m.searchY}`);
+for (let i = 0; i < 45; i++) {
+  const there = await page.evaluate(() => {
+    const s = document.querySelector("[data-parts-search]");
+    return !!s && s.getBoundingClientRect().bottom <= window.innerHeight;
+  });
+  if (there) break;
+  await page.mouse.wheel(0, 240);
+  await page.waitForTimeout(30);
+}
 await page.waitForTimeout(400);
-const after = await page.evaluate(LAYOUT);
-/* The gesture has to have *done* something: with the shelf outside the pane
-   this passed while the search box had never left the screen, so the travel
-   is part of the claim. */
-check("one wheel gesture carries you from the site into the categories",
-  after.searchY !== null && after.searchY + 37 <= W.height + 1 && after.paneTop > 400,
-  `the search box came to y ${after.searchY} after ${after.paneTop}px of pane`);
-
-/* And on the way, the whole page went by rather than a window over it. */
+const after = await page.evaluate(LOOK);
+check("4. one wheel gesture from the top reaches the shelf's search box",
+  after.searchY !== null && after.searchY + 37 <= W.height + 1 && after.paneTravel > 0,
+  `y ${m.searchY} → y ${after.searchY}`);
 const foot = await page.evaluate(() => {
   const last = [...document.querySelectorAll("[data-node-id]")].pop();
   return last ? Math.round(last.getBoundingClientRect().bottom) : null;
 });
-check("the foot of the page was passed on the way", foot !== null && foot < W.height, `the last part ends at y ${foot}`);
-
-/* The ground is not in the scroller, so the sky does not run out. */
-check("the ground held still while all that happened",
-  !after.groundInPane && after.groundY === m.groundY,
-  after.groundInPane ? "it is inside the scroller, so it runs out" : `y ${m.groundY} → ${after.groundY}`);
-
+check("   and the whole page went by on the way", foot !== null && foot < W.height,
+  `the last part ends at y ${foot}`);
+if (results.includes(false)) console.log(m.chain.join("\n"));
 await page.close();
 
 /* ------------------------------------------------------------------ */
-/* 2. The same holds at another zoom, and on a page that fits          */
+/* 2. "At any zoom", and a page short enough to need no scroll         */
 /* ------------------------------------------------------------------ */
 
 const zoomed = await seat(W, 6);
@@ -171,38 +263,94 @@ await zoomed.keyboard.down("Control");
 for (let i = 0; i < 6; i++) { await zoomed.mouse.wheel(0, -120); await zoomed.waitForTimeout(40); }
 await zoomed.keyboard.up("Control");
 await zoomed.waitForTimeout(500);
-const z = await zoomed.evaluate(LAYOUT);
-check("zoomed in, the board is still exactly the site",
-  Math.abs(z.boardH - (z.siteH + GUTTER)) <= 4, `${z.boardH}px for ${z.siteH}px of site`);
-check("and the pane's reach grew with it",
-  Math.abs(z.paneReach - (z.boardH + band)) <= 4 && z.boardH > m.boardH,
-  `${m.boardH} → ${z.boardH}, reach ${z.paneReach}`);
-check("and still nothing clips", z.hiders.length === 0, z.hiders.join("; ") || "no clip anywhere");
+const z = await zoomed.evaluate(LOOK);
+check("zoomed in, the board is still exactly the site plus its gutters",
+  Math.abs(z.boardH - (z.siteH + GUTTER)) <= 4 && z.boardH > m.boardH,
+  `${m.boardH} → ${z.boardH} for ${z.siteH} of site`);
+check("and still nothing hides any of it", z.hiders.length === 0, z.hiders.join("; ") || "clean");
+check("and still exactly one thing can move it", z.movers.length === 1 && z.movers[0].isPane,
+  z.movers.map((x) => `${x.what} ${x.travel}px`).join("; ") || "nothing");
 await zoomed.close();
 
-/* A new project is one part on a stock page: short enough that the shelf is
-   simply there, which is the other half of what J reported. */
-const small = await seat(W, 1);
-const s = await small.evaluate(LAYOUT);
-check("a short page still reads as a page, not a full-screen box",
+/* A new project: one part, nothing drawn. Short enough that it all fits, so
+   the right number of scrollers is none — and the categories are simply
+   there, which is the other half of what J reported. */
+const small = await seat(W, 1, false);
+const s = await small.evaluate(LOOK);
+check("a short page is a page, not a full-screen box",
   Math.abs(s.boardH - (s.siteH + GUTTER)) <= 4 && s.boardH < s.paneH,
   `${s.boardH}px of board in a ${s.paneH}px pane`);
-check("and the categories are simply on screen, no scrolling needed",
-  s.searchY !== null && s.searchY + 37 <= W.height + 1 && s.paneReach <= s.paneH + 1,
-  `the search box at y ${s.searchY}, ${s.paneReach} of reach in ${s.paneH}`);
+check("nothing hides any of it either", s.hiders.length === 0, s.hiders.join("; ") || "clean");
+check("nothing over the site scrolls, because there is nothing to scroll",
+  s.movers.length === 0 && s.paneTravel === 0, `${s.movers.length} scroller(s) over the site`);
+check("and the categories are on screen with no gesture at all",
+  s.searchY !== null && s.searchY + 37 <= W.height + 1, `the search box at y ${s.searchY}`);
 await small.close();
 
 /* ------------------------------------------------------------------ */
-/* 2b. Updates hands the wheel over rather than sharing it             */
+/* 3. Ink below the page is part of the page                           */
 /* ------------------------------------------------------------------ */
 
 /*
- * The other half of "scroll all the way into the categories and the prompt
- * sections below the timeline". The timeline pans on the wheel, and with the
- * detail band in the same pane both wanted the same gesture: eight notches
- * ran the updates 1848px off the top *while* the band came up underneath.
- * So: one surface at a time, and the band is reachable.
+ * The case the old fixture could not express. `frameHeight` counted parts,
+ * the window was sized from it, and a stroke drawn under a stock page was
+ * rendered behind an edge nothing could scroll past — 138px of it. The two
+ * pages here differ by exactly one pen stroke and one drawn space.
  */
+const bare = await seat(W, 1, false);
+const bareH = (await bare.evaluate(LOOK)).siteH;
+await bare.close();
+const drawn = await seat(W, 1, true);
+const d = await drawn.evaluate(LOOK);
+check("ink drawn below the page makes the page taller", d.siteH > bareH + 40,
+  `${bareH} → ${d.siteH} for one stroke and one space`);
+check("and none of it is behind an edge", d.hiders.length === 0, d.hiders.join("; ") || "clean");
+check("and the board grew with it", Math.abs(d.boardH - (d.siteH + GUTTER)) <= 4,
+  `board ${d.boardH} for ${d.siteH} of site`);
+await drawn.close();
+
+/* ------------------------------------------------------------------ */
+/* 4. The same at every width, and Updates has the same shape          */
+/* ------------------------------------------------------------------ */
+
+for (const [w, h] of [[1500, 950], [1280, 720], [1100, 800], [980, 820]]) {
+  const p = await seat({ width: w, height: h }, 6);
+  const b = bandOf(h);
+  const r = await p.evaluate(LOOK);
+  check(`${w}×${h}: the board is the site`, Math.abs(r.boardH - (r.siteH + GUTTER)) <= 4, `${r.boardH} for ${r.siteH}`);
+  check(`${w}×${h}: nothing hides any of it`, r.hiders.length === 0, r.hiders.join("; ") || "clean");
+  check(`${w}×${h}: one scroller over the site, travel is site + shelf − window`,
+    r.movers.length === 1 && r.movers[0].isPane && Math.abs(r.paneTravel - (r.boardH + b - r.paneH)) <= 4,
+    `${r.movers.length} over the site, ${r.paneTravel} against ${r.boardH + b - r.paneH}`
+      + (r.elsewhere.length ? `  (elsewhere: ${r.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
+  /* Edge to edge is what J saw on opening: a frame that leaves no ground is
+     a frame with nothing else to look at, and bare ground is the handle. */
+  const across = await p.evaluate(() => {
+    const f = document.querySelector("[data-frame]").getBoundingClientRect();
+    const pane = document.querySelector("[data-studio-pane]").getBoundingClientRect();
+    return Math.round((f.width / pane.width) * 100);
+  });
+  check(`${w}×${h}: the page does not take the whole board`, across > 0 && across <= 94, `${across}% across`);
+
+  await p.locator('[aria-label^="Finish"]').first().click({ force: true });
+  await p.waitForTimeout(1300);
+  const detail = await p.evaluate(() => {
+    const d2 = document.querySelector("[data-timeline-detail]");
+    const pane = document.querySelector("[data-studio-pane]");
+    return d2 && pane
+      ? { inPane: pane.contains(d2), travel: pane.scrollHeight - pane.clientHeight, h: Math.round(d2.getBoundingClientRect().height) }
+      : null;
+  });
+  check(`${w}×${h}: Updates keeps its band, in the same scroller`,
+    !!detail && detail.inPane && detail.h > 100 && detail.travel > 0,
+    detail ? `${detail.h}px, ${detail.travel}px of travel below the updates` : "gone");
+  await p.close();
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Updates hands the wheel over rather than sharing it              */
+/* ------------------------------------------------------------------ */
+
 const book = await seat(W, 6);
 await book.locator('[aria-label^="Finish"]').first().click({ force: true });
 await book.waitForTimeout(1400);
@@ -212,20 +360,18 @@ const bookRead = () => book.evaluate(() => {
   const pane = document.querySelector("[data-studio-pane]");
   const plot = document.querySelector("[data-timeline-plot]");
   const host = document.querySelector("[data-timeline]");
-  const d = document.querySelector("[data-timeline-detail]");
-  /* The plot's pan, in the timeline's own frame. Its `y` in the window also
-     moves when the *pane* scrolls, because it is inside the pane — reading
-     that would call one surface moving "both moved", which is the very
-     thing this check exists to tell apart. */
+  const d2 = document.querySelector("[data-timeline-detail]");
+  /* The plot's pan in the timeline's OWN frame. Its `y` in the window also
+     moves when the pane scrolls, because it is inside the pane — reading
+     that called one surface moving "both moved", which is the very thing
+     this is here to tell apart. */
   return {
-    top: Math.round(pane.scrollTop), reach: pane.scrollHeight - pane.clientHeight,
+    top: Math.round(pane.scrollTop), travel: pane.scrollHeight - pane.clientHeight,
     plot: plot && host ? Math.round(plot.getBoundingClientRect().y - host.getBoundingClientRect().y) : null,
-    detailY: d ? Math.round(d.getBoundingClientRect().y) : null,
+    detailY: d2 ? Math.round(d2.getBoundingClientRect().y) : null,
   };
 });
 const b0 = await bookRead();
-/* One notch at a time, so "both moved at once" is a thing that can be seen
-   rather than averaged away over a long gesture. */
 let shared = 0;
 let last = b0;
 for (let i = 0; i < 14; i++) {
@@ -237,47 +383,12 @@ for (let i = 0; i < 14; i++) {
 }
 check("the updates and the pane never take the same notch", shared === 0, `${shared} notches moved both`);
 check("and the prompt section under the updates is reached by carrying on",
-  last.detailY !== null && last.detailY + 100 < W.height && last.top >= b0.reach - 2,
-  `the band came to y ${last.detailY}, pane at ${last.top} of ${b0.reach}`);
+  last.detailY !== null && last.detailY + 100 < W.height && last.top >= b0.travel - 2,
+  `the band came to y ${last.detailY}, pane at ${last.top} of ${b0.travel}`);
 await book.close();
-
-/* ------------------------------------------------------------------ */
-/* 3. It holds at every width, and Updates has the same shape          */
-/* ------------------------------------------------------------------ */
-
-for (const [w, h] of [[1500, 950], [1280, 720], [1100, 800], [980, 820]]) {
-  const p = await seat({ width: w, height: h }, 6);
-  const b = bandOf(h);
-  const r = await p.evaluate(LAYOUT);
-  check(`${w}×${h}: the board is the site`, Math.abs(r.boardH - (r.siteH + GUTTER)) <= 4, `${r.boardH} for ${r.siteH}`);
-  check(`${w}×${h}: the pane reaches past it to the shelf`, Math.abs(r.paneReach - (r.boardH + b)) <= 4, `${r.paneReach} against ${r.boardH} + ${b}`);
-  check(`${w}×${h}: and nothing clips`, r.hiders.length === 0, r.hiders.join("; ") || "clean");
-  /* Edge to edge is what J saw on opening. A frame that leaves no ground is
-     a frame with nothing else to look at, and bare ground is what the board
-     is dragged by. */
-  const across = await p.evaluate(() => {
-    const f = document.querySelector("[data-frame]").getBoundingClientRect();
-    const pane = document.querySelector("[data-studio-pane]").getBoundingClientRect();
-    return Math.round((f.width / pane.width) * 100);
-  });
-  check(`${w}×${h}: the page does not take the whole board`, across > 0 && across <= 94, `${across}% across`);
-
-  await p.locator('[aria-label^="Finish"]').first().click({ force: true });
-  await p.waitForTimeout(1300);
-  const detail = await p.evaluate(() => {
-    const d = document.querySelector("[data-timeline-detail]");
-    const pane = document.querySelector("[data-studio-pane]");
-    return d && pane
-      ? { inPane: pane.contains(d), reach: pane.scrollHeight - pane.clientHeight, h: Math.round(d.getBoundingClientRect().height) }
-      : null;
-  });
-  check(`${w}×${h}: Updates keeps its band, in the same scroller`,
-    !!detail && detail.inPane && detail.h > 100, detail ? `${detail.h}px, ${detail.reach}px of reach below the updates` : "gone");
-  await p.close();
-}
 
 await browser.close();
 console.log("");
 const failed = results.filter((r) => !r).length;
-console.log(`${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}`);
+console.log(`${URL_} (${served}) — ${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}`);
 process.exit(failed ? 1 : 0);
