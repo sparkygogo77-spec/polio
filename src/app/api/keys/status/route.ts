@@ -33,6 +33,8 @@ export async function GET() {
   const set: Record<string, boolean> = {};
   for (const n of NAMES) set[n] = !!process.env[n]?.trim();
   // The repository name is not a secret and the panel shows it, so it is the
-  // one value that comes back. A token never does.
-  return NextResponse.json({ set, repo: process.env.GITHUB_REPO?.trim() ?? null, branch: process.env.GITHUB_BRANCH?.trim() || "main" });
+  // one value that comes back. A token never does. A branch nobody set is
+  // null, not "main": the push assumes main, and says so, but this route
+  // reports what is set.
+  return NextResponse.json({ set, repo: process.env.GITHUB_REPO?.trim() ?? null, branch: process.env.GITHUB_BRANCH?.trim() || null });
 }

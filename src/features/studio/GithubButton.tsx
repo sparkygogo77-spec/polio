@@ -70,7 +70,7 @@ export function GithubButton() {
       ? `${name} — no GitHub token, so Publish cannot push. Put one in the Keys panel, or set GITHUB_TOKEN on the server.`
       : "No GitHub token yet. Put one in the Keys panel and the first Publish makes this site a repository of its own."
     : name
-      ? `${name} · ${project?.repo?.branch ?? status?.github?.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
+      ? `${name} · ${project?.repo?.branch ?? status?.github?.branch ?? "main, assumed"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
       : `The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
 
   /* Nothing to open and nothing yet to describe: before a site is published

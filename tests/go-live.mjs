@@ -41,6 +41,23 @@ check("with no token there is nothing to deploy with", bare.configured === false
 const offered = await json(`${URL_BASE}/api/studio/deploy`, { headers: { "x-vercel-token": FAKE_VERCEL } });
 check("a token from the browser is enough to offer it", offered.configured === true && offered.source === "browser", JSON.stringify(offered));
 
+/* 1b. What is reported is what is set: a branch nobody named is null, not
+   "main" (rows B15 and B18). The server and this suite share a box, so the
+   suite's own environment says which answer to expect. */
+const branchSet = process.env.GITHUB_BRANCH?.trim() || null;
+const keysStatus = await json(`${URL_BASE}/api/keys/status`, { cache: "no-store" });
+check("the keys status reports a branch only when one is set", keysStatus.branch === branchSet, `branch ${JSON.stringify(keysStatus.branch)}, GITHUB_BRANCH ${branchSet ? "set" : "unset"} on this box`);
+const pubStatus = await json(`${URL_BASE}/api/studio/publish`, { cache: "no-store" });
+check("and so does the publish status", pubStatus.github?.branch === branchSet, `branch ${JSON.stringify(pubStatus.github?.branch)}`);
+{
+  const { readFileSync } = await import("node:fs");
+  const deploy = readFileSync("src/app/api/studio/deploy/route.ts", "utf8");
+  const publish = readFileSync("src/app/api/studio/publish/route.ts", "utf8");
+  check("a deployment with no state is reported as none, not as QUEUED", !/readyState \?\? "QUEUED"/.test(deploy), `${(deploy.match(/\?\? "QUEUED"/g) ?? []).length} invented states`);
+  check("a push that assumed main says so", /assumed/.test(publish) && /assumed/.test(deploy));
+  check("a site named on a server that only pushes to a list is told the list", /only publishes to \$\{c\.allow\.join/.test(publish) && /pick one of them/.test(publish));
+}
+
 /* 2. Asked to deploy with nothing, it says where a token goes. */
 const noToken = await json(`${URL_BASE}/api/studio/deploy`, {
   method: "POST",

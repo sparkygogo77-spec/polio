@@ -205,7 +205,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const [pubDeploy, setPubDeploy] = React.useState(true);
   const [pubResult, setPubResult] = React.useState<{ url: string; files: number; deployed: boolean; hook: boolean; note?: string } | null>(null);
   const [live, setLive] = React.useState<DeployStatus | null>(null);
-  const [liveRun, setLiveRun] = React.useState<{ state: string; url: string | null; inspectorUrl: string | null; done: boolean; message?: string } | null>(null);
+  const [liveRun, setLiveRun] = React.useState<{ state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string } | null>(null);
   const abort = React.useRef<AbortController | null>(null);
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
@@ -557,7 +557,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         team: started.team,
         onState: (st) => {
           setLiveRun({ state: st.state, url: st.url, inspectorUrl: st.inspectorUrl ?? started.inspectorUrl, done: st.done, message: st.message });
-          setBusy(st.state === "BUILDING" ? "Building…" : st.state === "QUEUED" ? "Queued…" : "Finishing…");
+          setBusy(st.state === "BUILDING" ? "Building…" : st.state === "QUEUED" ? "Queued…" : st.state === null ? "Waiting for Vercel to say…" : "Finishing…");
         },
       });
       if (end.state === "READY" && end.url) {
@@ -566,8 +566,9 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
         ctx.publish({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
       } else {
-        useStudio.getState().noteThread([`The Vercel build ${end.state.toLowerCase()}`]);
-        ctx.publish({ key: "studio:live", title: `The build ${end.state.toLowerCase()}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
+        const ended = end.state ? end.state.toLowerCase() : "ended without a state";
+        useStudio.getState().noteThread([`The Vercel build ${ended}`]);
+        ctx.publish({ key: "studio:live", title: `The build ${ended}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
       }
     } finally {
       setBusy(null);
@@ -776,7 +777,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         {liveRun ? (
           <p className={cn("flex flex-wrap items-center gap-1.5 text-[11px]", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
             {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
-            {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : `${liveRun.state.toLowerCase()}…`}
+            {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : liveRun.state ? `${liveRun.state.toLowerCase()}…` : "waiting for Vercel to say…"}
             {liveRun.state === "READY" && liveRun.url ? (
               <a className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
                 {liveRun.url.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />

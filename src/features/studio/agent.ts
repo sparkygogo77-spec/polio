@@ -602,7 +602,7 @@ export async function deployStatus(): Promise<DeployStatus> {
 }
 
 export type DeployStart =
-  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string; url: string | null; inspectorUrl: string | null }
+  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null }
   | { ok: false; message: string; reason?: string };
 
 /** Ask Vercel to build the repository's branch. Returns as soon as it is queued. */
@@ -622,7 +622,7 @@ export async function deploy(input: { repo?: string; branch?: string; project?: 
 
 export interface DeployState {
   ok: boolean;
-  state: string;
+  state: string | null;
   done: boolean;
   url: string | null;
   inspectorUrl: string | null;
