@@ -131,8 +131,17 @@ export const CANDIDATES = (cap: number): Candidate[] => {
     if (box.width * box.height < 6_000) continue;
     const style = getComputedStyle(el);
     if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) < 0.05) continue;
-    const words = (el.textContent ?? "").replace(/\s+/g, " ").trim();
-    const pictures = el.querySelectorAll("img, picture, video, canvas").length;
+    /* The caption is the words with a space between one run and the
+       next, not the text nodes run together: a row of links read
+       "PlaywrightDocsMCPCLIAPI". The nodes are walked and joined. */
+    const bits: string[] = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n && bits.join(" ").length < 200; n = walker.nextNode()) {
+      const w = (n.textContent ?? "").replace(/\s+/g, " ").trim();
+      if (w) bits.push(w);
+    }
+    const words = bits.join(" ").replace(/\s+/g, " ").trim();
+    const pictures = el.querySelectorAll("img, picture, video, canvas, svg").length;
     if (!words && !pictures) continue;
     /* One box inside another saying exactly the same thing is one thing to
        point at, not two. The outer one is kept: it is what a person means. */
@@ -189,7 +198,16 @@ export const MEASURE = (selector: string) => {
   })();
   const spilled = Math.round(box.height) > Math.round(own.height) + 2 || Math.round(box.width) > Math.round(own.width) + 2;
   const style = getComputedStyle(el);
-  const pageH = Math.max(document.body.scrollHeight, innerHeight);
+  /* How tall the page is: the document's own height, or the bottom of the
+     lowest thing on it when the page scrolls an inner container and the
+     body stays 900 tall, which put everything below the fold past the
+     page's end. */
+  let lowest = 0;
+  for (const e of Array.from(document.querySelectorAll("body *")).slice(0, 4000)) {
+    const r = e.getBoundingClientRect();
+    if (r.width > 8 && r.height > 8) lowest = Math.max(lowest, r.bottom + scrollY);
+  }
+  const pageH = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, innerHeight, lowest);
 
   /* Every run of words, with the size it was really set at.
      Walked as text nodes rather than read off tags, because the biggest
@@ -242,6 +260,35 @@ export const MEASURE = (selector: string) => {
     if (text.length >= 40) break;
   }
 
+  /* Every colour in the browser's rgb() form, whatever syntax the page
+     wrote it in. Chrome reports `oklch(0.3 0.1 250)`, `lab(…)` and
+     `color(display-p3 …)` as written, and a reader that knew `rgb(` alone
+     dropped the paint of any site built this year. A canvas normalises
+     any colour it can paint: set as its fill, read back as #rrggbb or
+     rgba(). Transparent stays as it was, so see-through is still seen. */
+  const normal = (() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    return (c: string): string => {
+      if (!ctx || !c || /^rgba?\(/i.test(c) || c === "transparent") return c;
+      try {
+        /* Painted onto one pixel and read back, because the canvas keeps
+           a newer syntax as written when its fill style is read as a
+           string; the pixel is always sRGB bytes. */
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = "#010203";
+        ctx.fillStyle = c;
+        if (String(ctx.fillStyle) === "#010203") return c;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = Array.from(ctx.getImageData(0, 0, 1, 1).data) as [number, number, number, number];
+        if (a === 0) return "rgba(0, 0, 0, 0)";
+        return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${Math.round((a / 255) * 100) / 100})`;
+      } catch { return c; }
+    };
+  })();
+  const seeThrough = (c: string) => { const m = /rgba?\(\s*[\d.]+[,\s]+[\d.]+[,\s]+[\d.]+(?:[,/\s]+([\d.]+))?/i.exec(normal(c)); return !m || (m[1] !== undefined && Number(m[1]) < 0.05); };
   /* A link's words: what is written on it, else what it is called. A link
      that is only an icon (a GitHub mark, a Discord mark) has no text and
      was dropped, so a bar of twelve links read as ten; it is named by its
@@ -261,7 +308,19 @@ export const MEASURE = (selector: string) => {
     href: (a as HTMLAnchorElement).href,
   })).filter((l) => l.words);
 
-  const buttons = Array.from(el.querySelectorAll("button, [role='button'], input[type='submit']"))
+  /* A button is a button, and so is a link painted as a box: the page's
+     own "Get started" is an `a` with a green fill and padding, and it read
+     as no button at all. A link is a box when it paints its own
+     background and has padding on both sides of its words. */
+  const paintedLink = (a: Element): boolean => {
+    const s = getComputedStyle(a);
+    if (s.display === "inline" || (seeThrough(s.backgroundColor) && !/gradient\(/i.test(s.backgroundImage))) return false;
+    return (parseFloat(s.paddingLeft) || 0) >= 6 && (parseFloat(s.paddingTop) || 0) >= 4;
+  };
+  const buttons = [
+    ...Array.from(el.querySelectorAll("button, [role='button'], input[type='submit']")),
+    ...Array.from(el.querySelectorAll("a[href]")).filter(paintedLink),
+  ]
     .slice(0, 10)
     .map((b) => ((b as HTMLInputElement).value || b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40))
     .filter(Boolean);
@@ -270,6 +329,16 @@ export const MEASURE = (selector: string) => {
     const r = im.getBoundingClientRect();
     return { src: (im as HTMLImageElement).currentSrc || (im as HTMLImageElement).src, w: Math.round(r.width), h: Math.round(r.height), alt: (im as HTMLImageElement).alt || "" };
   }).filter((im) => im.src);
+  /* An inline svg is a picture too, a logo or a hero drawing as often as
+     not, and it was invisible: no `img`, no `src`. It is carried as the
+     markup it is, when that is small enough to carry. */
+  for (const sv of Array.from(el.querySelectorAll("svg")).slice(0, 8 - images.length)) {
+    const r = sv.getBoundingClientRect();
+    if (r.width < 16 || r.height < 16) continue;
+    const markup = sv.outerHTML;
+    if (markup.length > 40_000) continue;
+    images.push({ src: `data:image/svg+xml;utf8,${encodeURIComponent(markup)}`, w: Math.round(r.width), h: Math.round(r.height), alt: sv.querySelector("title")?.textContent?.trim() || sv.getAttribute("aria-label") || "" });
+  }
   // The element's own background picture counts as one of its pictures.
   const pictureOf = (bg: string) => (/url\(/.test(bg) ? (bg.match(/url\(["']?([^"')]+)/) ?? [])[1] : undefined);
   const ground = pictureOf(style.backgroundImage);
@@ -279,7 +348,6 @@ export const MEASURE = (selector: string) => {
      is most of what a page looks like: the koi and the bamboo were on the
      body, and every block read as painted on nothing. The nearest painted
      colour and the nearest picture behind, each found separately. */
-  const seeThrough = (c: string) => { const m = /rgba?\(\s*[\d.]+[,\s]+[\d.]+[,\s]+[\d.]+(?:[,/\s]+([\d.]+))?/i.exec(c); return !m || (m[1] !== undefined && Number(m[1]) < 0.05); };
   /* A gradient is paint. A first screen painted with a linear gradient
      of three dark stops read as painted on nothing, and its white words
      landed on no ground. The colour of a gradient, for a part that takes
@@ -287,14 +355,16 @@ export const MEASURE = (selector: string) => {
      is what a person sees behind the words. */
   const gradientColour = (image: string): string | null => {
     if (!/gradient\(/i.test(image)) return null;
-    const stops = Array.from(image.matchAll(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/gi))
+    const stops = Array.from(image.matchAll(/(?:rgba?|oklch|oklab|lab|lch|hsla?|color)\([^()]*(?:\([^()]*\)[^()]*)*\)|#[0-9a-f]{3,8}\b/gi))
+      .map((m) => /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?/i.exec(normal(m[0])))
+      .filter((m): m is RegExpExecArray => !!m)
       .map((m) => [Number(m[1]), Number(m[2]), Number(m[3]), m[4] === undefined ? 1 : Number(m[4])])
       .filter((c) => c[3]! >= 0.05);
     if (!stops.length) return null;
     const mean = (i: number) => Math.round(stops.reduce((n, c) => n + c[i]!, 0) / stops.length);
     return `rgb(${mean(0)}, ${mean(1)}, ${mean(2)})`;
   };
-  const painted = (s: CSSStyleDeclaration): string | null => (!seeThrough(s.backgroundColor) ? s.backgroundColor : gradientColour(s.backgroundImage));
+  const painted = (s: CSSStyleDeclaration): string | null => (!seeThrough(s.backgroundColor) ? normal(s.backgroundColor) : gradientColour(s.backgroundImage));
   let behind: string | null = null;
   let behindPicture: string | undefined;
   for (let up = el.parentElement; up; up = up.parentElement) {
@@ -342,7 +412,7 @@ export const MEASURE = (selector: string) => {
   const flow: "row" | "column" | "grid" = rows > 1 && columns > 1 ? "grid" : rows > 1 ? "column" : "row";
   const gap = children.length > 1 ? Math.max(0, Math.round(children[1]!.x - (children[0]!.x + children[0]!.w))) : 0;
 
-  const border = Number(parseFloat(style.borderTopWidth)) > 0 ? style.borderTopColor : null;
+  const border = Number(parseFloat(style.borderTopWidth)) > 0 ? normal(style.borderTopColor) : null;
   return {
     box: { x: Math.round(box.x + scrollX), y: Math.round(box.y + scrollY), w: Math.round(box.width), h: Math.round(box.height) },
     /** True when the box is wider than the element's own: its children run out of it, and the box holds them. */
@@ -355,8 +425,8 @@ export const MEASURE = (selector: string) => {
     buttons,
     images,
     paint: {
-      bg: painted(style) ?? style.backgroundColor,
-      text: style.color,
+      bg: painted(style) ?? normal(style.backgroundColor),
+      text: normal(style.color),
       behind,
       border,
       radius: Math.round(parseFloat(style.borderTopLeftRadius) || 0),
@@ -367,7 +437,8 @@ export const MEASURE = (selector: string) => {
       px: Math.round(parseFloat(style.fontSize) || 16),
       weight: Number(style.fontWeight) || 400,
       spacing: style.letterSpacing === "normal" ? 0 : Math.round(((parseFloat(style.letterSpacing) || 0) / (parseFloat(style.fontSize) || 16)) * 1000) / 1000,
-      leading: Math.round(parseFloat(style.lineHeight) || 0),
+      // `normal` is a line the browser sets itself, about 1.2 of the size; it was read as nought and dropped.
+      leading: Math.round(parseFloat(style.lineHeight) || (parseFloat(style.fontSize) || 16) * 1.2),
     },
     layout: { flow, columns, gap },
     children,
