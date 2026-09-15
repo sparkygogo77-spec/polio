@@ -16,7 +16,9 @@
  *   node tests/import.mjs [url]
  */
 import { createRequire } from "node:module";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -117,9 +119,65 @@ const onBoard = (p) => p.evaluate(() => {
 /* 2. A video is scrubbed, and the frame is live on the background     */
 /* ------------------------------------------------------------------ */
 
-const clip = `${SP}/clip.webm`;
+/*
+ * The clip is made here when there is not one to borrow.
+ *
+ * This wanted `${SP}/clip.webm`, and SP defaulted to one session's own
+ * scratchpad with the generator for it living there too — so everywhere
+ * else the suite reported "a test video exists to scrub — missing, run
+ * scratchpad/mkvideo.mjs", which is a script that is not in the
+ * repository. A suite that can only pass on the machine it was written on
+ * passes nowhere else, and this one went red the first time it ran here.
+ *
+ * So it records one: a canvas painted a frame at a time through
+ * MediaRecorder, which is the browser this suite already drives writing a
+ * real webm with real duration and real frames to scrub. Two and a half
+ * seconds of colour with the frame number burnt into it, which is enough
+ * for a scrubber to have somewhere to go and for two frames to differ.
+ * IMPORT_FIXTURES still points it at a clip somebody has already made.
+ */
+const recordClip = async (to) => {
+  const p = await browser.newPage();
+  await p.goto("about:blank");
+  const b64 = await p.evaluate(async () => {
+    const c = document.createElement("canvas");
+    c.width = 320; c.height = 180;
+    const g = c.getContext("2d");
+    const rec = new MediaRecorder(c.captureStream(25), { mimeType: "video/webm" });
+    const chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const stopped = new Promise((r) => { rec.onstop = r; });
+    rec.start();
+    for (let i = 0; i < 60; i++) {
+      g.fillStyle = `hsl(${i * 6} 70% 45%)`;
+      g.fillRect(0, 0, 320, 180);
+      g.fillStyle = "#fff";
+      g.font = "64px sans-serif";
+      g.fillText(String(i), 24, 120);
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    rec.stop();
+    await stopped;
+    const buf = await new Blob(chunks, { type: "video/webm" }).arrayBuffer();
+    const u = new Uint8Array(buf);
+    let out = "";
+    for (let i = 0; i < u.length; i += 1) out += String.fromCharCode(u[i]);
+    return btoa(out);
+  });
+  await p.close();
+  writeFileSync(to, Buffer.from(b64, "base64"));
+  return existsSync(to);
+};
+
+let clip = `${SP}/clip.webm`;
 if (!existsSync(clip)) {
-  check("a test video exists to scrub", false, `${clip} is missing — run scratchpad/mkvideo.mjs`);
+  const made = join(mkdtempSync(join(tmpdir(), "polio-import-")), "clip.webm");
+  const ok = await recordClip(made).catch(() => false);
+  if (ok) clip = made;
+  check("a test video exists to scrub", ok, ok ? `recorded one at ${made}` : "could not record one");
+}
+if (!existsSync(clip)) {
+  check("the recorded video can be opened", false, "no clip to scrub");
 } else {
   const p = await open();
   await wheel(p);

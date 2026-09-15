@@ -2,14 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T02:49:36.355Z";
+export const GENERATED_AT = "2026-09-15T03:10:35.025Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "57d0c95",
-    "when": "2026-09-15T02:42:26+00:00",
+    "id": "57ca707",
+    "when": "2026-09-15T03:10:33+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "f532bf7",
+        "says": "Import takes a video, and the frame lands two ways",
+        "when": "2026-09-15T02:49:22+00:00",
+        "detail": [
+          "WHAT IT DID BEFORE, measured rather than recalled. The background's wheel had a piece called Picture. Its chooser was `accept=\"image/*\"`, so a video could not be offered, and whatever it was given it did exactly one thing: `addTexture({ kind: \"image\", pattern: true, scale: 60, opacity: 0.5, contrast: 0.45, target: \"page\" })`. That is a tile — the picture reduced to a monochrome mask, repainted in a palette colour, half transparent, repeated across the whole page. It is the right answer for a background texture and it was the only answer, so there was no way to bring a picture in as a picture. The canvas right-click menu had no entry for it at all.",
+          "WHAT IT DOES NOW. The piece is Import and takes `image/*,video/*`. A video opens a scrubber, and the frame under the playhead is on the page behind the panel at full size as you drag — the same frame the landing commits, not a thumbnail of it. Then two landings, which are different intentions rather than two sizes of one:",
+          "FIT TO STANDARD — one covering picture at the page's standard size. It stays a texture layer, because a background is one, but `pattern: false` and `weave: 1` make it one coherent picture instead of a recoloured tile.",
+          "SHRINK IN — a `picture` part at the picture's own aspect (893×502 for a 16:9 frame, measured), inset from the frame, dragged and resized like anything else, wearing the frame through `node.texture`."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "19b831e",
+    "when": "2026-09-15T02:54:17+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "19b831e",
+        "says": "Regenerate the passes for the page being everything drawn on it",
+        "when": "2026-09-15T02:54:17+00:00",
+        "detail": [
+          "Five passes, all three sessions converged into one tip: the page is everything drawn on it, with the suite naming what it measured; a surface forms where it can be watched, on the timeline's own bands; the aura check reading with both instruments; the eraser going through a space's key to the box under it; and the timeline paying for area over a moving ground, so it carries less of it.",
+          "The first is the one J measured on 8e12d2a and found still broken: a page window 900 tall with overflow hidden over 1085 of content, and a real shape with its bottom 224px past the window's edge, invisible on the deploy. Measured again here on a page with a shape drawn at the same depth: the window is 1017 rather than pinned at 900, and the shape's bottom sits 138px INSIDE it. The fault he named is closed.",
+          "Run on this build rather than the full sweep, which was killed at 44 minutes last pass for being slower than the thing it was holding up:",
+          "full-page       42/42   the page's height, at four window sizes quiet-scroll      8/8   one scroller over the site picked          16/16   pressing the page space-one-open  19/19   the aura, green since the ring was evened create-space    19/19   passed here; see the knife-edge note last push cards           67/67   the previews"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "57d0c95",
         "says": "The timeline pays for area over a moving ground, so it carries less of it",
@@ -769,40 +809,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0f1d905",
-    "when": "2026-09-14T03:27:55+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "0f1d905",
-        "says": "The answer check is about the assignment, not the declaration",
-        "when": "2026-09-14T03:27:55+00:00",
-        "detail": [
-          "`oddness` wanted the exact text `const drawn = withAnswer(job.sketch, answered);` in the run. The const moved out to the top of the function so the failure path can see `drawn` as well, which is precisely what a thrown run failing its own job rather than stopping the queue needs — and the line the check is named after still does what it says.",
-          "It asks for the assignment now and lets the declaration sit wherever it has to. 53/53.",
-          "That is the fourth grep this week pinned to a spelling rather than a claim, after noteSpend(readCost), landThread's parameter list, and the flag's innerText. They fail on the code around them changing shape while what they assert stays true, and each one costs a sweep. Worth a look at the family of source-text checks as a whole rather than mending them one at a time as they break."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "86abd9b",
-        "says": "Regenerate the passes for the queue surviving a thrown run",
-        "when": "2026-09-14T02:51:32+00:00",
-        "detail": [
-          "Euler's pass: a run that throws fails its job rather than stopping the queue, with tests/two-in-a-row.mjs holding it shut."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
