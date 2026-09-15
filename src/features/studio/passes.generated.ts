@@ -2,14 +2,62 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T05:45:46.284Z";
+export const GENERATED_AT = "2026-09-15T06:03:41.709Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "c0e7336",
-    "when": "2026-09-15T05:45:09+00:00",
+    "id": "de7414a",
+    "when": "2026-09-15T06:03:22+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "de7414a",
+        "says": "The gap above the page is a small constant, and there is none below it",
+        "when": "2026-09-15T06:03:22+00:00",
+        "detail": [
+          "J measured this himself at three widths and read it correctly: the sides are a constant 64 at every width, the gap above is not, and it is a share of something that scales. On the deploy, 1278 tall: width 1000 gave 152 above a 403 page, 1300 gave 192 above 590, 1737 gave 252 above 863 — a ratio climbing 0.29, 0.33, 0.38 as the pane narrowed.",
+          "THE SCALING THING IS MINE. Three commits ago the board started making room above the page for anything drawn up there, so a stroke at y -520 stopped being unreachable. That room is `frameTopReach`, it had a 160px margin on it, and it is drawn at the board's zoom — so it grows as the pane widens, which is exactly the curve he plotted. Reproduced on a default document: one stroke at y -137 takes the gap from 64 to 255, against his 252. His board has ink above the page and the Builder's default document does not, which is why a measurement here and one there disagreed by 188 pixels.",
+          "THREE FIXES. The gap above is a constant 20, not half of `FRAME_GUTTER`. There is nothing below the page at all — \"the website has no underside gap\", in his words, so the page's foot is the board's foot. And the ink margin is 24 rather than 160: room enough to see what is up there and not a pixel of ceremony.",
+          "A fourth fault the check found that nobody had reported: the Builder was opening 355px down its own scroll. The compensation that keeps the ground still while a stroke crosses the page's top edge was also firing on load, because the document hydrates after the first paint and `above` goes from nothing to its real size in a step or two. A guard against the first step only halved it; it is gated on a hand actually being on the board now."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "be365c9",
+        "says": "The backend is a place you work: a system box, an effort, a conversation",
+        "when": "2026-09-15T05:51:23+00:00",
+        "detail": [
+          "Measured against J's five before changing anything: a prompt box and an output existed, in a dialog. The other three did not.",
+          "the system box — `SYSTEM` was a constant in the route, so the instructions the model works under were the one part of the call nobody using the Builder could see, let alone change.",
+          "the effort — `effort: mode === \"ideas\" ? \"medium\" : \"high\"`, decided in the route and never asked.",
+          "the conversation — every ask was one-shot, which is why \"no, the other one\" had nowhere to go."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "57db749",
+        "says": "Regenerate the passes for one element fitted to its space",
+        "when": "2026-09-15T05:47:36+00:00",
+        "detail": [
+          "Dijkstra's pass: one element taken from a site is fitted to the space it lands in. FromASite.tsx, and five new checks in tests/zip-import.mjs that measure the fitting rather than describe it.",
+          "Fast-forward onto trunk, nothing to resolve. Ran here on the build, port 4260:",
+          "zip-import   67 of 67 hold",
+          "including the new one, which reads the numbers off the board:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "c0e7336",
         "says": "One element taken from a site is fitted to the space it lands in",
