@@ -127,3 +127,88 @@ not load", which is the honest state for a GLB of 24 bytes.
   by the walk suite.
 - The still a solid falls back to is the front face drawn flat, which is
   blank when the front face is blank.
+
+## Morning report
+
+One list. Every number is from `tests/box-to-cube.mjs` run against the
+production build (ports 4300 and 4302), or from the build itself. "Watched"
+means I looked at the committed screenshot in `docs/shots/` myself;
+"held by the suite" means a check read it off the DOM or the document and
+I did not see it.
+
+1. A person can draw a plain box with the pen, type nothing, press Make
+   real, and get a real cube back. Before, they got a question and then a
+   flat part. Measured: a 240 × 180 px box lands as `cube-3d`, 302 × 227
+   board px, ratio 1.33 against 1.33 drawn, 240 screen px wide against 240
+   drawn, zero model calls. Watched: `box-to-cube-1-drawn.png`,
+   `box-to-cube-2-landed.png`.
+2. The box says it is a box. The disc says "a box: it will be a cube"
+   while it is drawn (held by the suite), and the part's chip says
+   `box · cube` (watched in every shot from 2 on).
+3. The cube is the shape they drew: a square box is a cube, a wide box is
+   a wide box as deep as its short side. Measured: object 223 × 168 × 168
+   inside the 302 × 227 part. Watched: shot 2, where the front is wider
+   than it is tall.
+4. They can turn it by dragging, on the board, the moment it lands. Measured:
+   −18,−32 to −11,15 over 112 px of drag; it comes to rest at −18,58 after
+   1.6 s, and that pose is written on the node. Watched: `box-to-cube-3-turned.png`.
+5. They cannot tumble it into nonsense. Measured: 480 px of upward drag
+   pitches it to 85° of a possible 202°, and it returns to a rest pose
+   (72, 58). Held by the suite; no screenshot of the limit.
+6. They can press a face to pick it, and the panel hands that face the
+   keys, so typing puts words on it. Measured: the `left` face picked, its
+   heading focused, "Hello there" on that face in the document and on the
+   cube. Watched: `box-to-cube-4-face-written.png`, with the picked face
+   outlined in the board's mark.
+7. Turn it again and the words are still on that face. Measured: two
+   quarter turns show `right`, "Hello there" is still on `left` and not on
+   `right`; two back shows `left` with the words; four quarter turns come
+   back to `left`. Watched: `box-to-cube-5-turned-away.png` (no words
+   visible, the written face is behind) and `box-to-cube-6-turned-back.png`
+   (the words back in front).
+8. Naming a face in the panel turns the cube to show it, and the wheel's
+   pencil edits the picked face. Measured: `back` named, cube shows
+   `back`; "From the wheel" written from the wheel's plate. Watched: shot 7
+   shows "From the wheel" on the front face. The wheel plate itself: held
+   by the suite, not screenshotted.
+9. They can move and resize the whole thing like any part. Measured: 120,60
+   screen px of drag moves it 122,58 board px; the corner handle grows it
+   from 302 × 227 to 432 × 304 and the object from 223×168×168 to
+   320×225×225, with the words still on it. Watched:
+   `box-to-cube-7-moved-resized.png`.
+10. Undo takes the resize and then the move back (302 × 227, then 287,343),
+    and a reload brings the cube, its size, its faces and its pose back.
+    Held by the suite.
+11. The blueprint says all of it: the face's words, the face's own prompt
+    ("for: the greeting"), the proportion, and what a drawn box means. Held
+    by the suite.
+12. With no key anywhere, nothing errors. The solid card is unlit, says
+    "No Replicate token yet…", names `tencent/hunyuan3d-2mv`, and makes
+    zero calls; the "Where it goes" card says "an object you can turn", one
+    first pass. Watched: `box-to-cube-8-solid-unlit.png`.
+13. The moment a token is present the road lights up and one call goes up
+    the routing table. Measured: front view 6740 base64 chars plus three
+    views of 14592, 16772 and 9500, words that route to `object`, the model
+    slug `tencent/hunyuan3d-2mv`, no key in the body. Watched:
+    `box-to-cube-9-solid-lit.png`.
+14. The answer lands as a solid with the cube kept, and Back to the cube is
+    one press. Watched: `box-to-cube-10-solid-landed.png`.
+
+What falls short, by name:
+
+- **The vendor was never reached.** Items 13 and 14 are a mocked route
+  answering a 24-byte GLB. The request that goes up is measured; a real
+  mesh coming back is the route's contract, not something seen.
+- **The still under a solid is blank when the front face is blank.**
+  Shot 10 shows a dark rectangle and "the solid would not load" (correct
+  for 24 bytes), because the still is the front face drawn flat.
+- **The pitch limit and the undo were not screenshotted.** Items 5 and 10
+  are held by the suite only.
+- **The tumble test's return pose is the bottom row.** After a long upward
+  drag it rests looking up at the bottom (72, 58), which is what the drag
+  asked for; the suite then presses Up once to get back to the middle row.
+- **The shapes bench once read 13 of 15** under the dev server while the
+  walk ran beside it; alone on the build it is 15 of 15. Load, not the
+  change, but it was seen.
+- **Face edits push an undo entry per keystroke**, exactly as the part's
+  prompt does. Consistent, not ideal.
