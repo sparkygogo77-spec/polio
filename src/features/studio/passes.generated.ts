@@ -2,14 +2,43 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:11:47.270Z";
+export const GENERATED_AT = "2026-09-15T07:25:51.306Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "c12b0d9",
-    "when": "2026-09-15T07:10:50+00:00",
+    "id": "fc50ba6",
+    "when": "2026-09-15T07:18:50+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "fc50ba6",
+        "says": "A picture in a landed block is said to stay a placeholder, and a made space can be picked again",
+        "when": "2026-09-15T07:18:50+00:00",
+        "detail": [
+          "The panel promised the grounded step for pictures inside landed blocks; put in the order and pressed, it ran nothing. The line now says the picture stays a placeholder and why. Taking hold of a made surface picks the space, since it has no fill and no key. The aura reference sample is held inside the board, where it had landed on the menu bar's words."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "08cfa42",
+        "says": "Regenerate the passes for the inventory, and an export that now compiles",
+        "when": "2026-09-15T07:13:07+00:00",
+        "detail": [
+          "A sixth session, bardeen, with its first two on trunk: the unfinished inventory, and a Build export that imported a file nobody wrote.",
+          "I took its current tip rather than the one I started verifying: ea31164 was docs alone, and c12b0d9 landed while the build ran, so this carries both.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4267:",
+          "scaffold        32/32 passed  (the suite the fix arrives with) updates-view    22 of 22 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "c12b0d9",
         "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
