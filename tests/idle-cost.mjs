@@ -217,6 +217,9 @@ const STOP = `cancelAnimationFrame(window.__r); (() => {
     /* Against the sixty a second the machine would like to give: the share
        of frames that never arrived, which is the number trunk reported. */
     dropped: span ? +((1 - d.length / (span / 16.67)) * 100).toFixed(0) : 0,
+    /* Carried back with every reading, and checked, because a hidden tab is
+       the one failure that looks like a pass. */
+    seen: document.visibilityState,
   };
 })()`;
 
@@ -251,7 +254,17 @@ const KEEP_EVERY = (every) => p.evaluate((k) => {
 }, every);
 
 let tag = null;
+/*
+ * A HIDDEN TAB THROTTLES rAF, AND THROTTLED IS INDISTINGUISHABLE FROM CHEAP.
+ *
+ * A backgrounded page is given a frame or two a second, so every surface on
+ * it measures as costing nothing and the whole table reads as a triumph.
+ * Nothing in the numbers says which it was. So each row brings the page to
+ * the front before it starts, and every reading carries the visibility it
+ * was taken under and dies rather than being printed if it was not visible.
+ */
 const row = async (label, css, note = "") => {
+  await p.bringToFront();
   if (tag) { await tag.evaluate((el) => el.remove()).catch(() => {}); tag = null; }
   if (typeof css === "number") await KEEP_EVERY(css);
   else if (css) tag = await p.addStyleTag({ content: css });
@@ -260,6 +273,7 @@ const row = async (label, css, note = "") => {
   await p.evaluate(START);
   await p.waitForTimeout(MS);
   const r = await p.evaluate(STOP);
+  if (r.seen !== "visible") throw new Error(`the tab went ${r.seen} during "${label}" — that reading would be a throttled one wearing a surface's name`);
   console.log(`  ${label.padEnd(38)}${String(r.per900).padStart(6)} /900ms   dropped ${String(r.dropped).padStart(3)}%   ${String(on.n).padStart(2)} constructs over ${String(on.share).padStart(3)}% of the screen${note ? `   ${note}` : ""}`);
   return { ...r, ...on };
 };
