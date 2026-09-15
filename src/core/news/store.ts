@@ -39,6 +39,9 @@ interface NewsState {
   dismiss: (id: string) => void;
   clear: () => void;
   dismissToast: (id: string) => void;
+  /** "Pause feeds on hover": a toast under the pointer stays, and leaves with what was left of its time. */
+  holdToast: (id: string) => void;
+  releaseToast: (id: string) => void;
   sweep: () => void;
 }
 
@@ -228,10 +231,21 @@ export const useNews = create<NewsState>()((set, get) => ({
   dismiss: (id) => set((s) => ({ items: s.items.filter((i) => i.id !== id), toasts: s.toasts.filter((t) => t.newsId !== id) })),
   clear: () => set((s) => ({ items: s.items.filter((i) => i.pinned), toasts: [] })),
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  holdToast: (id) => set((s) => ({ toasts: s.toasts.map((t) => (t.id === id && !t.heldAt ? { ...t, heldAt: Date.now() } : t)) })),
+  releaseToast: (id) =>
+    set((s) => ({
+      toasts: s.toasts.map((t) => {
+        if (t.id !== id || !t.heldAt) return t;
+        const now = Date.now();
+        // What was left when the pointer arrived, and never less than a beat.
+        const left = Math.max(800, t.expiresAt - t.heldAt);
+        return { ...t, heldAt: undefined, expiresAt: now + left };
+      }),
+    })),
   sweep: () => {
     const now = Date.now();
     const s = get();
-    const toasts = s.toasts.filter((t) => t.expiresAt > now);
+    const toasts = s.toasts.filter((t) => t.heldAt || t.expiresAt > now);
     const items = s.items.filter((i) => i.expiresAt === null || i.expiresAt > now || i.pinned);
     if (toasts.length !== s.toasts.length || items.length !== s.items.length) set({ toasts, items });
   },

@@ -14,6 +14,9 @@ const LEVEL_STRIPE: Record<Level, string> = { info: "bg-info", success: "bg-up",
 
 function Toast({ t }: { t: ToastItem }) {
   const dismiss = useNews((s) => s.dismissToast);
+  const hold = useNews((s) => s.holdToast);
+  const release = useNews((s) => s.releaseToast);
+  const pauseOnHover = useSettingValue<boolean>("behaviour.pauseOnHover");
   const Icon = t.icon ?? LEVEL_ICON[t.level];
   const ref = useFlashOnChange(t.rev);
   const [hover, setHover] = React.useState(false);
@@ -22,8 +25,8 @@ function Toast({ t }: { t: ToastItem }) {
     <div
       ref={ref}
       role="status"
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      onMouseEnter={() => { setHover(true); if (pauseOnHover) hold(t.id); }}
+      onMouseLeave={() => { setHover(false); release(t.id); }}
       className="pointer-events-auto relative w-80 overflow-hidden rounded-md border border-border glass shadow-pop animate-toast-in"
     >
       <div className={cn("absolute inset-y-0 left-0 w-0.5", LEVEL_STRIPE[t.level])} />
@@ -47,7 +50,7 @@ function Toast({ t }: { t: ToastItem }) {
       </div>
       <div
         key={t.rev}
-        className={cn("h-px bg-accent/60 origin-left", hover && "[animation-play-state:paused]")}
+        className={cn("h-px bg-accent/60 origin-left", hover && pauseOnHover && "[animation-play-state:paused]")}
         style={{ animation: `toast-drain ${total}ms linear forwards` }}
       />
       <style>{`@keyframes toast-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}`}</style>
