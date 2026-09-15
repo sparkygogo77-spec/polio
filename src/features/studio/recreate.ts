@@ -431,7 +431,15 @@ const FOOTER: Recreatable = {
   match: (r) => {
     if (r.down < 0.6 || aspect(r) < 2) return 0;
     if (r.tag === "footer" || r.role === "contentinfo") return 1;
-    return r.links.length >= 4 ? 0.7 : 0;
+    /*
+     * Untagged, a footer is a band of written links low on the page. Only
+     * links that are words on the page count: once icon links were named
+     * by their labels, a band of nine company marks near the foot read as
+     * a footer with nine links, and it is a band of pictures.
+     */
+    const said = r.text.map((t) => t.words.trim()).filter(Boolean);
+    const written = r.links.filter((l) => said.some((w) => w === l.words || w.includes(l.words)));
+    return written.length >= 4 ? 0.7 : 0;
   },
   configure: (r) => {
     const name = r.from.host.replace(/^www\./, "");
