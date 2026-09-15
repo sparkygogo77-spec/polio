@@ -16,7 +16,18 @@ export type RenderAnswer =
   | { ok: true; kind: RenderKind; html: string; image?: string; stripped: string[]; bytes: number }
   | { ok: false; reason: "too-big" | "empty-body"; message: string };
 
-/** What an image's bytes say they are, when the transport did not say. */
+/** The type that says the bytes were not recognised, rather than a guess dressed as a fact. */
+export const UNKNOWN_PICTURE = "application/octet-stream";
+
+/**
+ * What an image's bytes say they are, when the transport did not say.
+ *
+ * PNG, JPEG, WebP and GIF by their first bytes; AVIF by the `ftyp` box
+ * naming an AV1 brand; SVG by its markup, with or without an XML head; BMP
+ * by its two letters. Bytes none of these fit are said to be unknown, not
+ * called a PNG: a wrong name on a data URI is a broken picture with no
+ * message, and an honest one is at least a message.
+ */
 export function mimeOf(bytes: Uint8Array, said: string): string {
   const clean = said.split(";")[0]!.trim();
   if (clean.startsWith("image/")) return clean;
@@ -25,7 +36,26 @@ export function mimeOf(bytes: Uint8Array, said: string): string {
   if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
   if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57) return "image/webp";
   if (b[0] === 0x47 && b[1] === 0x49) return "image/gif";
-  return "image/png";
+  if (b[0] === 0x42 && b[1] === 0x4d) return "image/bmp";
+  const head = Buffer.from(b.subarray(0, 512)).toString("latin1");
+  if (head.slice(4, 8) === "ftyp" && /^(avif|avis)/.test(head.slice(8, 12))) return "image/avif";
+  if (/^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE[^>]*>\s*)?<svg[\s>]/i.test(head.replace(/^\uFEFF/, ""))) return "image/svg+xml";
+  return UNKNOWN_PICTURE;
+}
+
+/**
+ * A picture that arrived as base64, made standard, or nothing.
+ *
+ * Some encoders write the URL-safe alphabet (`-` and `_` for `+` and `/`)
+ * and drop the padding; the vendor's data URI wants the standard one,
+ * padded. Never a data URL, never a URL, never past the limit.
+ */
+export function base64Picture(v: unknown, limit = 4_000_000): string | null {
+  if (typeof v !== "string" || !v || v.length >= limit) return null;
+  if (!/^[A-Za-z0-9+/\-_]+={0,2}$/.test(v)) return null;
+  const std = v.replace(/-/g, "+").replace(/_/g, "/").replace(/=+$/, "");
+  if (std.length % 4 === 1) return null;
+  return std + "=".repeat((4 - (std.length % 4)) % 4);
 }
 
 /**
@@ -87,6 +117,9 @@ export function answerFrom(kind: RenderKind, bytes: Uint8Array, type: string): R
   }
 
   const mime = mimeOf(bytes, type);
+  if (mime === UNKNOWN_PICTURE) {
+    return { ok: false, reason: "empty-body", message: `The picture came back as ${Math.round(bytes.length / 1024)}KB of bytes that are not a picture this browser can show.` };
+  }
   const dataUri = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
   if (dataUri.length > RASTER_LIMIT) {
     return { ok: false, reason: "too-big", message: `That picture is ${Math.round(dataUri.length / 1024)}KB as a data URI, more than a document should carry.` };

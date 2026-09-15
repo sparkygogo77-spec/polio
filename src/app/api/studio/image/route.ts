@@ -1,7 +1,7 @@
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
 import { meterFirst } from "@/features/studio/renderMeter";
-import { answerFrom, mimeOf, RASTER_LIMIT } from "@/features/studio/renderAnswer";
+import { answerFrom, base64Picture, mimeOf, RASTER_LIMIT, UNKNOWN_PICTURE } from "@/features/studio/renderAnswer";
 import {
   fluxRatio,
   fromPicture,
@@ -230,6 +230,9 @@ function input(kind: RenderKind, words: string, picture: string | null, w: numbe
   return { prompt: words, ...shapeFor(kind, w, h) };
 }
 
+/** How long the bytes behind an answer may take to arrive. */
+const FETCH_MS = 30_000;
+
 /** The bytes behind whatever `run` gave back: a file, a URL, a data URI, or the first of a list. */
 async function bytesOf(out: unknown): Promise<{ bytes: Uint8Array; type: string } | null> {
   if (out == null) return null;
@@ -240,7 +243,9 @@ async function bytesOf(out: unknown): Promise<{ bytes: Uint8Array; type: string 
   }
   const url = typeof out === "string" ? out : String((out as { url?: () => URL }).url?.() ?? "");
   if (!/^https?:\/\/|^data:/.test(url)) return null;
-  const res = await fetch(url);
+  // Under a clock: a vendor that stalls on the bytes used to hold the route
+  // until the platform killed it, with nothing said.
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_MS) });
   if (!res.ok) return null;
   return { bytes: new Uint8Array(await res.arrayBuffer()), type: res.headers.get("content-type") ?? "" };
 }
@@ -279,10 +284,8 @@ export function tokensOf(logs: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** A picture that arrived as base64, or nothing. Never a data URL, never a URL. */
-function picture(v: unknown, limit = 4_000_000): string | null {
-  return typeof v === "string" && /^[A-Za-z0-9+/=]+$/.test(v) && v.length < limit ? v : null;
-}
+/** A picture that arrived as base64, made standard, or nothing. Never a data URL, never a URL. */
+const picture = (v: unknown, limit = 4_000_000): string | null => base64Picture(v, limit);
 
 /**
  * The second pass.
@@ -440,6 +443,9 @@ async function refine(body: Body, token: string) {
     }
   }
 
+  if (mime === UNKNOWN_PICTURE) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "failed", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `It came back as ${Math.round(bytes.length / 1024)}KB of bytes that are not a picture.`), ms: meter.ms, cost: meter.dollars });
+  }
   const dataUri = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
   if (dataUri.length > RASTER_LIMIT) {
     return NextResponse.json({ ok: false, stage: 2, reason: "too-big", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `It came back as ${Math.round(dataUri.length / 1024)}KB, more than a document should carry.`), ms: meter.ms, cost: meter.dollars });
@@ -526,7 +532,7 @@ export async function POST(request: Request) {
   const words = renderPrompt({ kind, prompt, label, closed: body.closed, w, h, palette: body.palette });
   // Tracing needs the drawing, and only the drawing. No words go with it,
   // because the whole point of this path is that nothing describes the line.
-  const picture = typeof body.picture === "string" && /^[A-Za-z0-9+/=]+$/.test(body.picture) && body.picture.length < 4_000_000 ? body.picture : null;
+  const picture = base64Picture(body.picture);
   if (fromPicture(kind) && !picture) {
     return NextResponse.json({ ok: false, reason: "no-picture", message: "Nothing to trace: the drawing did not arrive as a picture." }, { status: 400 });
   }
