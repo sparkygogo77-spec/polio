@@ -39,6 +39,8 @@ export type PartEvent =
   | { type: "theme"; light?: boolean; hue?: number }
   /** A cube has been turned and has settled: this is where it was left. */
   | { type: "cube"; turn: { x: number; y: number } }
+  /** One face of a cube was pressed without being dragged: the person is pointing at it. */
+  | { type: "cube-face"; side: CubeSide }
   /** …and the same for a solid, which is turned the same way. */
   | { type: "mesh"; turn: { x: number; y: number } };
 
@@ -57,6 +59,8 @@ export interface CubeFace {
   body: string;
   /** A palette role, or a colour of its own, or empty to follow the site. */
   colour: string;
+  /** What this face is for, in the author's words: its own prompt, exactly as any part has one. */
+  prompt?: string;
   /** Another part shown on this face instead of words. */
   nodeId?: string | null;
 }
@@ -95,8 +99,15 @@ export interface MeshData {
   bytes?: number;
 }
 
+/**
+ * The resting pose, in degrees: a three-quarter view from a little above,
+ * which is the angle that shows a cube is a cube. Every pose the part
+ * comes to rest at is this one turned a quarter at a time.
+ */
+export const REST = { x: -18, y: -32 } as const;
+
 export const emptyFace = (): CubeFace => ({ heading: "", body: "", colour: "" });
-export const emptyCube = (): CubeData => ({ faces: CUBE_SIDES.map(emptyFace), turn: { x: -18, y: -32 } });
+export const emptyCube = (): CubeData => ({ faces: CUBE_SIDES.map(emptyFace), turn: { ...REST } });
 
 export interface PartProps {
   /** The catalog id, e.g. "tabs-panel". */
@@ -113,6 +124,13 @@ export interface PartProps {
   mode: PartMode;
   /** The six faces, for the one part that has them. */
   cube?: CubeData | null;
+  /**
+   * Which piece of the part is picked, when the board is pointing at one
+   * piece rather than the whole: a cube's face. `colour` is the board's
+   * mark for this part, the far side of its own colour, so the part draws
+   * the pick the way the board draws a selection.
+   */
+  pick?: { id: string; colour: string } | null;
   /** The solid, for the one part that mounts one. */
   mesh?: MeshData | null;
   /**

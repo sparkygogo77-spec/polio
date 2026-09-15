@@ -43,6 +43,7 @@ import { DRIFT_MS as GROUND_MS } from "./darkMatter";
 import { useGround } from "./ground";
 import { HALO, paintBlackHole, paintHorizonShadow } from "./blackHole";
 import { describeSketch, discLanding, isBlankSketch, refineStroke, tidyStroke, type DrawMode, type Sketch, type SketchPoint } from "./sketch";
+import { isBox } from "./shapeKind";
 import { pictureOf } from "./reshapeRun";
 import { useStudio, type StudioNode } from "./store";
 
@@ -198,6 +199,9 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   /* ---------------------------------------------------------- make real */
   const sketch = (): Sketch => ({ strokes, words: words.trim() });
   const blank = isBlankSketch({ strokes, words });
+  // A box drawn on its own, with nothing typed: the catalogue will claim it
+  // as a cube, and the disc says so before the press rather than after.
+  const boxAlone = !words.trim() && isBox({ strokes, words: "" }) && (!node || (node.featureId === "custom-idea" && !node.content.trim()));
 
   /*
    * Make real: the drawing goes on the queue and the board closes.
@@ -366,7 +370,14 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
             if (e.key === "Escape") { e.stopPropagation(); (e.target as HTMLInputElement).blur(); }
           }}
         />
-        {note ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p> : read ? <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.muted }}>snapped to {/^[aeiou]/.test(read) ? "an" : "a"} {read}</p> : null}
+        {note ? (
+          <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p>
+        ) : boxAlone ? (
+          /* What the geometry read, said where it was drawn: a box on its own is a cube before Make real is pressed. */
+          <p data-draw-read="box" className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>a box: it will be a cube, six faces you can turn and write on</p>
+        ) : read ? (
+          <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.muted }}>snapped to {/^[aeiou]/.test(read) ? "an" : "a"} {read}</p>
+        ) : null}
       </div>
 
       {/*

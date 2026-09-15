@@ -210,6 +210,19 @@ same boxes as everywhere else, in the screen's colours.
   Blueprint dialog draws them as a map: written, found, now, joined by lines,
   with Take it on any finding that carries a prompt. A critique you can only
   copy is a critique nobody applies.
+- **A box drawn on its own is a box, and a box is the cube.** Nobody who
+  draws a rectangle with nothing beside it wants to be asked what it is;
+  they want it back as a thing. So a lone closed line with four corners,
+  nothing typed and nothing of the page inside it, is read as a box off its
+  own geometry (`isBox`) and becomes the cube with no model called, at the
+  proportion it was drawn. Words beside it win over the shape, and a box
+  round parts or over a real part is their frame or its edge, as before.
+  The cube it becomes has limits and a rest: pitch never past 85°, and on
+  release it eases to the nearest three-quarter view, never a flat square.
+  A face is picked by pressing it and edited in the panel or on the wheel's
+  pencil; the model road past the cube is lit only by a token in the Keys
+  panel and is never an error without one. `tests/box-to-cube.mjs` walks
+  the whole thing and photographs each step.
 - **A picture is the wrong answer for a thing that moves.** The renderer
   traces a drawing and a trace is a still; a cube has to turn, and what is
   written on its sides has to still be text afterwards. So the drawing says

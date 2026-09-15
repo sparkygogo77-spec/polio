@@ -2,9 +2,58 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:35:48.445Z";
+export const GENERATED_AT = "2026-09-15T07:40:45.461Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "6cfcdec",
+    "when": "2026-09-15T07:40:42+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "ce115bb",
+        "says": "A drawn box is a box, and a box is a real cube: turned, written on, moved",
+        "when": "2026-09-15T07:33:35+00:00",
+        "detail": [
+          "The owner's arc, in the owner's order: draw a box and get back a real rotatable 3D cube with editable faces. Before this a plain box drawn with nothing beside it asked \"Is this box a cube?\" and, waved on, landed as a flat custom-idea surface (reproduced with Playwright: 220 × 160 px drawn, 277 × 201 flat part, reader and tracer both called).",
+          "1. Recognised off its own geometry. `isBox`: one closed line, four corners, filling its frame, drawn alone; `kindOfSketch` and the catalogue take `lone` (nothing of the page inside it, nothing real drawn on) from the run, so a captioned box, a box round parts, or a box over the hero keep their old meaning. The disc says \"a box: it will be a cube\" while it is drawn, the chip says `box · cube` after. No model is called anywhere on the road. 2. A real object. The cube keeps the drawn proportion (depth = the short side, `cubeDims`), pitch is held within 85°, spin into the limit is spent, and on release it eases to the nearest rest pose: a three-quarter view a quarter turn at a time, or tipped to the top or bottom. `facing` was calling pitch +90 the top; it shows the bottom, and reads off the rest poses now. Right press falls through to the wheel. The scaffold's written component mirrors all of it. 3. Faces picked like parts. A press that is not a drag picks the face under it (`cube-face`), the board keeps it as `pickedFace`, the face wears the mark, the panel scrolls its card in and hands it the keys, naming a face in the panel turns the cube to it, the wheel's pencil edits the picked face, every face has its own prompt and the blueprint writes it. Face edits push undo. 4. Survives what a flat part survives: move, resize by the handle (the object follows), the drawn ratio, undo, save and reopen. 5. The model road behind the table. `solidRoute.ts` / `solidRun.ts`: the object cell routes to tencent/hunyuan3d-2mv, the cube's own four faces go up as its four views (`views`, new on the image route for a mesh model), the card and the wheel piece light up the moment a Replicate token is present (vault or server, yes-or-no only) and say what would light them otherwise, with no call made; the answer lands as mesh-3d with the cube kept, and Back to the cube is one press.",
+          "Measured by `tests/box-to-cube.mjs` (new, 74 of 74), every route mocked, screenshots into docs/shots/box-to-cube-*.png, numbers in docs/BOX-TO-CUBE.md. Against the build here, port 4300:",
+          "box-to-cube   74/74   (new) cube          62/62   (was 59/59: square → proportion, settle → rest, the top is the top) cube-part     29/29 oddness       53/53   (a bare box is no longer asked about; the browser half asks about a scribble) coded         39/39 scaffold      31/31 shapes        21/21   (15 of 15 traced, $1.92 at the bench's $0.08, 153s) typecheck clean, build rc=0"
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e27e5d0",
+    "when": "2026-09-15T07:39:11+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e27e5d0",
+        "says": "Regenerate the passes for four controls that now do what they say",
+        "when": "2026-09-15T07:39:11+00:00",
+        "detail": [
+          "Bardeen's four, taken together because they are one job: Re-iterate runs from the tab a person is on rather than only from the book; Compile the blueprint opens the book's tab when the book is where you are; Picture and Solid are on the shelf you browse and the library counts itself; and the tweet console records the site that was built rather than an empty one.",
+          "Those are rows A1, A2 and A3 of the inventory it shipped an hour ago, closed by the session that wrote the list.",
+          "Merge clean. One thing to note for anyone who builds this tree: the tweet console's duplicate route is deleted, and a .next left over from before the delete still carries a generated validator that imports it, so typecheck fails on a stale build directory and passes on a clean one. Removed .next, then typecheck clean and build rc=0 from cold.",
+          "Run here on the build, port 4272:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "e0bbc35",
     "when": "2026-09-15T07:35:44+00:00",
@@ -971,79 +1020,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "19b831e",
-    "when": "2026-09-15T02:54:17+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "19b831e",
-        "says": "Regenerate the passes for the page being everything drawn on it",
-        "when": "2026-09-15T02:54:17+00:00",
-        "detail": [
-          "Five passes, all three sessions converged into one tip: the page is everything drawn on it, with the suite naming what it measured; a surface forms where it can be watched, on the timeline's own bands; the aura check reading with both instruments; the eraser going through a space's key to the box under it; and the timeline paying for area over a moving ground, so it carries less of it.",
-          "The first is the one J measured on 8e12d2a and found still broken: a page window 900 tall with overflow hidden over 1085 of content, and a real shape with its bottom 224px past the window's edge, invisible on the deploy. Measured again here on a page with a shape drawn at the same depth: the window is 1017 rather than pinned at 900, and the shape's bottom sits 138px INSIDE it. The fault he named is closed.",
-          "Run on this build rather than the full sweep, which was killed at 44 minutes last pass for being slower than the thing it was holding up:",
-          "full-page       42/42   the page's height, at four window sizes quiet-scroll      8/8   one scroller over the site picked          16/16   pressing the page space-one-open  19/19   the aura, green since the ring was evened create-space    19/19   passed here; see the knife-edge note last push cards           67/67   the previews"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "57d0c95",
-        "says": "The timeline pays for area over a moving ground, so it carries less of it",
-        "when": "2026-09-15T02:42:26+00:00",
-        "detail": [
-          "The idle drop, fixed. Measured first and at length, because almost everything that looked like the cause was not.",
-          "WHAT IT IS NOT. The ground is not the culprit: the same page with no boards on it drops nothing at all — 54 frames per 900ms, flat — however much of it is moving. And the construct's own drifting layers are not the culprit either: with the canvases quiet and the rim still, twelve cards with both layers gliding also measured 54 and nothing dropped.",
-          "It is the two together, and that is the whole shape of it. The ground is a full-screen surface that never stops, so the viewport is damaged on every frame; every translucent layer stacked over a damaged viewport is re-blended on every frame, whether or not it moved. A timeline is a lot of translucent layers. Neither half is over budget and the two of them are:",
-          "the ground alone, no boards      54 /900ms    0% dropped the timeline alone, ground gone  43          20% the two of them                  31          43%"
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0eaa2fc",
-    "when": "2026-09-15T02:39:04+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "0282fe0",
-        "says": "The eraser goes through a space's key to the box under it",
-        "when": "2026-09-15T02:30:28+00:00",
-        "detail": [
-          "A hand erasing a box presses the middle of it as often as its line, and the middle of an empty hole is where its key sits, so the key took the press and the box stayed. While the tool is the eraser the keys on a space, open or closed, let the press through, and the box goes from the board and the store as one step, which undo brings back. The merge commit before carried this message and not this change."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "bcc02f9",
-        "says": "The aura check reads with both instruments, the conflict markers gone",
-        "when": "2026-09-15T02:30:02+00:00",
-        "detail": [
-          "The merge before this was committed with the conflict in it; the check keeps each side read along its normal and against its own background."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
       }
     ],
     "more": 0

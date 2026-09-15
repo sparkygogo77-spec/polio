@@ -1615,6 +1615,8 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
    * you everything.
    */
   const handsOn = selected && HANDS_ON.has(node.featureId);
+  // The face being pointed at, when this is the cube it belongs to.
+  const pickedSide = useStudio((s) => (handsOn && s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
   const cat = feature ? categoryOf(feature.category) : null;
   const hue = node.hue ?? cat?.hue ?? 265;
   const Icon = feature?.icon;
@@ -1753,11 +1755,17 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
            * touch the document, so it says where it settled and the board
            * writes it down.
            */
+          pick={pickedSide ? { id: pickedSide, colour: mark } : null}
           emit={(e) => {
             // Where a thing you can turn was left is worth keeping, so the
             // board draws that angle and publish ships it.
             if (e.type === "cube") useStudio.getState().setCubeTurn(node.id, e.turn);
             if (e.type === "mesh") useStudio.getState().setMeshTurn(node.id, e.turn);
+            // A face pressed is a face picked; pressed again it is let go.
+            if (e.type === "cube-face") {
+              const now = useStudio.getState().pickedFace;
+              useStudio.getState().pickFace(node.id, now?.nodeId === node.id && now.side === e.side ? null : e.side);
+            }
           }}
         />
       </div>
@@ -1810,6 +1818,8 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         {node.glyph ? <span>{node.glyph}</span> : Icon ? <Icon className="size-3" style={{ color: `oklch(0.8 0.15 ${hue})` }} /> : null}
         <span className="font-medium">{node.label}</span>
         <span className="num text-fg-faint">{node.w}×{node.h}</span>
+        {/* What the drawing was read as, on the part it made: a box says it is a box. */}
+        {node.kind === "cube" ? <span data-kind-chip="cube" className="rounded-xs border border-border px-1 text-[9px] text-fg-faint">box · cube</span> : null}
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
         {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">{node.priority}</span> : null}
         {node.locked ? <span className="text-[9px] text-fg-faint">locked</span> : null}

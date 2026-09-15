@@ -34,7 +34,8 @@
  * Pure, and tested by `tests/coded.mjs`.
  */
 import { CUBE_SIDES, facesFrom, listItems, saysCube, written } from "./parts/cubeFaces.ts";
-import { corners, kindOfSketch } from "./shapeKind.ts";
+import { corners, isBox, kindOfSketch } from "./shapeKind.ts";
+import { CUBE_MIN, REST } from "./parts/cubeFaces.ts";
 import { sketchBox, strokeClosed, type Sketch } from "./sketch.ts";
 import type { StudioNode } from "./store.ts";
 
@@ -45,6 +46,14 @@ export interface CodedContext {
   prompt: string;
   /** The part being reshaped, when a drawing was made on one. */
   node: Pick<StudioNode, "w" | "h" | "content" | "prompt"> | null;
+  /**
+   * Does the drawing stand on its own: nothing of the page inside it, and
+   * nothing drawn on that already is something? A lone box is a cube; a
+   * box round three cards is their frame. Read by the caller off the
+   * board, because a matcher sees only the strokes. Taken as true when
+   * left out.
+   */
+  lone?: boolean;
 }
 
 export interface CodedPart {
@@ -75,20 +84,38 @@ const CUBE: CodedPart = {
   featureId: "cube-3d",
   what: "Six faces in real 3D, turned with the pointer or the arrow keys, one piece of content a face.",
   needs: "One item a face, in the words: three pillars become three faces and the other three stay blank.",
-  looksLike: "Three quadrilaterals meeting at a corner, a hexagon with a Y in it, or any closed shape when the words say cube or box.",
-  match: ({ sketch, prompt }) => {
+  looksLike: "A box on its own, three quadrilaterals meeting at a corner, a hexagon with a Y in it, or any closed shape when the words say cube or box.",
+  match: ({ sketch, prompt, lone }) => {
     const said = saysCube(`${sketch.words ?? ""} ${prompt}`);
-    // The geometry alone is enough when it is unmistakable; a plain shape
-    // needs the word, because a rectangle is every part in the library.
-    const drawn = kindOfSketch(sketch, prompt).kind === "cube";
+    /*
+     * The geometry decides. An isometric box is unmistakable; a plain box
+     * is a box when it stands alone with nothing said beside it, because
+     * that is the drawing this whole arc is judged on. A box with words
+     * that name something else, a box round parts, and a box drawn over
+     * a part that already is something are all left to the words.
+     */
+    const drawn = kindOfSketch(sketch, prompt, lone ?? true).kind === "cube";
     if (!drawn) return 0;
-    return said ? 1 : 0.8;
+    return said ? 1 : isBox(sketch) ? 0.9 : 0.8;
   },
-  configure: ({ sketch, node }) => {
+  configure: ({ sketch, node, lone }) => {
     const words = (node?.prompt ?? "").trim() || sketch.words.trim();
     const faces = facesFrom(node?.content ?? "", words);
     const n = written({ faces });
-    const side = Math.max(160, Math.round(Math.min(node?.w ?? 360, node?.h ?? 360) || 360));
+    const asBox = !saysCube(`${sketch.words ?? ""} ${node?.prompt ?? ""}`) && kindOfSketch(sketch, node?.prompt ?? "", lone ?? true).why.includes("four corners");
+    /*
+     * The proportion it was drawn at is kept: a square box is a cube and a
+     * wide one is a wide box, which is what "the drawn ratio locking" means
+     * for a solid. Only a part too small to read is grown, and grown in
+     * proportion.
+     */
+    const size = node
+      ? (() => {
+          const short = Math.max(1, Math.min(node.w, node.h));
+          const grow = Math.max(1, CUBE_MIN / short);
+          return { w: Math.round(node.w * grow), h: Math.round(node.h * grow) };
+        })()
+      : null;
     return {
       patch: {
         featureId: "cube-3d",
@@ -98,12 +125,11 @@ const CUBE: CodedPart = {
         // clip goes. This is the only kind that gives it up.
         shape: null,
         outline: null,
-        w: side,
-        h: side,
+        ...(size ?? {}),
         prompt: words,
-        cube: { faces, turn: { x: -18, y: -32 } },
+        cube: { faces, turn: { ...REST } },
       },
-      did: n ? `a cube with ${n} of ${CUBE_SIDES.length} faces written` : "a cube with six empty faces",
+      did: `${asBox ? "a box, read off its own four corners: " : ""}${n ? `a cube with ${n} of ${CUBE_SIDES.length} faces written` : "a cube with six empty faces"}`,
     };
   },
 };
@@ -227,21 +253,18 @@ export const boxOf = (sketch: Sketch) => sketchBox(sketch.strokes.filter((s) => 
  * done it.
  *
  * A closed box is the most-drawn shape there is, and the library's cube is
- * the part it nearly always means — but a rectangle is also every other
- * part in the library, so the geometry alone is deliberately not enough
- * (`isCube`). The cost of that decision used to be silence: a person drew a
- * box, got a flat cutout, and nothing anywhere said a real cube with
- * editable faces was one word away. That is the oldest complaint on this
- * project and the guess was never wrong — it was never offered.
- *
- * So it is offered. Not taken: taking it would turn every drawn rectangle
- * into a spinning cube, which is far worse. This is the house rule about a
- * guess being visible and changeable rather than hidden, applied to the
- * guess that was too risky to make.
+ * the part it nearly always means. A box on its own with nothing said
+ * beside it is now taken as one (`isBox`, `kindOfSketch` with `lone`);
+ * this is for the box that was *not* taken, because words beside it said
+ * something else, or it was drawn round parts or over one. The guess is
+ * still offered there rather than made, because a rectangle captioned
+ * "the pricing table" is a pricing table.
  */
 export function nearlyCoded(c: CodedContext): string {
   const said = `${c.sketch.words ?? ""} ${c.prompt}`;
   if (saysCube(said)) return "";
+  // A lone, bare box is claimed outright now, so there is nothing to offer.
+  if ((c.lone ?? true) && !said.trim() && isBox(c.sketch)) return "";
   const closed = c.sketch.strokes.filter((s) => s.length >= 2).filter(strokeClosed);
   if (closed.length !== 1) return "";
   const n = corners(closed[0]!);

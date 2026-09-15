@@ -17,7 +17,7 @@
  * Pure, and tested by `tests/shapes.mjs`.
  */
 import { saysCube } from "./parts/cubeFaces.ts";
-import { sketchBox, strokeClosed, type Sketch, type SketchPoint } from "./sketch.ts";
+import { outlineShape, sketchBox, strokeClosed, type Sketch, type SketchPoint } from "./sketch.ts";
 
 export type DrawnKind = "cube" | "surface" | "connector" | "container" | "list" | "mark";
 
@@ -31,7 +31,7 @@ export interface DrawnRole {
 
 /** What each kind means, for the blueprint and for anyone reading the document. */
 export const KIND_MEANS: Record<DrawnKind, string> = {
-  cube: "a cube: six faces in real 3D, turned with the pointer or the arrow keys, one piece of content a face",
+  cube: "a cube: six faces in real 3D, turned with the pointer or the arrow keys, one piece of content a face, kept at the proportion it was drawn",
   surface: "a surface: it holds what is placed on it",
   connector: "a connector: it joins the two parts at its ends",
   container: "a container: what falls inside it belongs to it",
@@ -135,6 +135,29 @@ export function corners(stroke: SketchPoint[], sharp = Math.PI / 5): number {
   return turns;
 }
 
+/**
+ * Is this drawing a box: one closed line with four corners that fills its
+ * own frame, and nothing else drawn?
+ *
+ * Read off the geometry alone. It is the cheapest thing anyone draws and
+ * the one drawing this project was judged on: a person draws a box and
+ * expects a box back, not a question about it. `outlineShape` already
+ * measures how much of its frame a closed line fills, so a box here is the
+ * same box the boundary reader names; the corners are counted so a blob
+ * that happens to fill its frame is not one.
+ */
+export function isBox(sketch: Sketch): boolean {
+  const strokes = sketch.strokes.filter((s) => s.length >= 2);
+  if (strokes.length !== 1) return false;
+  const line = strokes[0]!;
+  if (!strokeClosed(line)) return false;
+  const box = sketchBox([line])!;
+  if (box.w < 0.03 || box.h < 0.03) return false;
+  if (outlineShape(line, box) !== "box") return false;
+  const n = corners(line);
+  return n >= 3 && n <= 6;
+}
+
 export function isCube(sketch: Sketch, said = ""): boolean {
   const strokes = sketch.strokes.filter((s) => s.length >= 2);
   if (!strokes.length) return false;
@@ -166,15 +189,21 @@ const PARALLEL = 0.22;
 /**
  * Read a drawing for what it does.
  *
- * The order matters and is the order of certainty. A ring is two closed
- * lines, one inside the other, and nothing else is; a list is three or more
- * strokes running the same way at roughly the same length; a connector is a
- * single straight open line, with or without the two short strokes that
- * make it an arrow; a surface is one closed line with things inside it or
- * nothing inside it at all. What fits none of them is a mark, which is what
- * every drawing was until now.
+ * The order matters and is the order of certainty. A cube comes first; then
+ * a ring is two closed lines, one inside the other, and nothing else is; a
+ * list is three or more strokes running the same way at roughly the same
+ * length; a connector is a single straight open line, with or without the
+ * two short strokes that make it an arrow; a surface is one closed line
+ * with things inside it or nothing inside it at all. What fits none of them
+ * is a mark, which is what every drawing was until now.
+ *
+ * `lone` is whether the drawing stands on its own: nothing was drawn on
+ * (or the part drawn on has nothing of its own yet), and no part of the
+ * page falls inside it. A box on its own is a cube; a box round three
+ * cards is the frame that holds them, and a box drawn over the hero is the
+ * hero's new edge. The caller knows which; this does not.
  */
-export function kindOfSketch(sketch: Sketch, said = ""): DrawnRole {
+export function kindOfSketch(sketch: Sketch, said = "", lone = true): DrawnRole {
   const strokes = sketch.strokes.filter((s) => s.length >= 2);
   if (!strokes.length) return { kind: "mark", why: KIND_MEANS.mark };
 
@@ -185,6 +214,16 @@ export function kindOfSketch(sketch: Sketch, said = ""): DrawnRole {
      dressing it, and a cube drawn as three faces would otherwise read as a
      container or a list. */
   if (isCube(sketch, said)) return { kind: "cube", why: KIND_MEANS.cube };
+  /*
+   * A box drawn on its own, with nothing said beside it, is a box: read off
+   * its own four corners, and it becomes the cube. Words beside it are a
+   * better account of what was meant than the shape is, so a captioned box
+   * keeps its old reading, and so does a box that holds or reshapes
+   * something.
+   */
+  if (lone && !`${sketch.words ?? ""} ${said}`.trim() && isBox(sketch)) {
+    return { kind: "cube", why: `${KIND_MEANS.cube}; read as a box off its own four corners` };
+  }
 
   /* A ring: a closed line with another closed line inside it. */
   if (closed.length >= 2) {
