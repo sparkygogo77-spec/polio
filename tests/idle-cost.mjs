@@ -217,6 +217,9 @@ const STOP = `cancelAnimationFrame(window.__r); (() => {
     /* Against the sixty a second the machine would like to give: the share
        of frames that never arrived, which is the number trunk reported. */
     dropped: span ? +((1 - d.length / (span / 16.67)) * 100).toFixed(0) : 0,
+    /* Carried back with every reading, and checked, because a hidden tab is
+       the one failure that looks like a pass. */
+    seen: document.visibilityState,
   };
 })()`;
 
@@ -251,7 +254,17 @@ const KEEP_EVERY = (every) => p.evaluate((k) => {
 }, every);
 
 let tag = null;
+/*
+ * A HIDDEN TAB THROTTLES rAF, AND THROTTLED IS INDISTINGUISHABLE FROM CHEAP.
+ *
+ * A backgrounded page is given a frame or two a second, so every surface on
+ * it measures as costing nothing and the whole table reads as a triumph.
+ * Nothing in the numbers says which it was. So each row brings the page to
+ * the front before it starts, and every reading carries the visibility it
+ * was taken under and dies rather than being printed if it was not visible.
+ */
 const row = async (label, css, note = "") => {
+  await p.bringToFront();
   if (tag) { await tag.evaluate((el) => el.remove()).catch(() => {}); tag = null; }
   if (typeof css === "number") await KEEP_EVERY(css);
   else if (css) tag = await p.addStyleTag({ content: css });
@@ -260,6 +273,7 @@ const row = async (label, css, note = "") => {
   await p.evaluate(START);
   await p.waitForTimeout(MS);
   const r = await p.evaluate(STOP);
+  if (r.seen !== "visible") throw new Error(`the tab went ${r.seen} during "${label}" — that reading would be a throttled one wearing a surface's name`);
   console.log(`  ${label.padEnd(38)}${String(r.per900).padStart(6)} /900ms   dropped ${String(r.dropped).padStart(3)}%   ${String(on.n).padStart(2)} constructs over ${String(on.share).padStart(3)}% of the screen${note ? `   ${note}` : ""}`);
   return { ...r, ...on };
 };
@@ -297,15 +311,53 @@ const row = async (label, css, note = "") => {
  *     12        54.0            37.0   (31%)          32.4   (40%)
  *     30        54.0            21.6   (60%)          21.0   (61%)
  *
- * So at thirty boards this instrument reads about 20 whatever you take away,
- * and its ceiling only opens when literally nothing moves. Ablations run
- * there are comparing 20.3 against 20.6, which is noise against noise. That
- * is the honest reason every lever in this file's history came back worth
- * two or three frames.
+ * WHAT THAT DOES AND DOES NOT INVALIDATE. The first reading of it here was
+ * "this instrument reads about 20 whatever you take away, so every ablation
+ * is noise against noise". That was too broad, and correcting it matters
+ * more than the finding did, because it was written down and passed on.
+ *
+ * The floor is the cost of re-rastering the content that is on the page. So
+ * it is a ceiling on what STOPPING MOTION can win, and not a ceiling on what
+ * REMOVING CONTENT can win — content ablations move the floor itself. Four
+ * passes at each size, same machine, same sitting:
+ *
+ *                                    12 boards        30 boards
+ *   ceiling, nothing moves at all     54.0  ( 0%)      54.0  ( 0%)
+ *   floor, one square, page quiet     45.7  (15%)      23.3  (57%)
+ *   the page as it is                 41.5  (23%)      19.4  (64%)
+ *
+ *   CONTENT the vines' cloud gone     47.1  (13%)      29.3  (46%)   +9.9
+ *   CONTENT the cards' cloud gone     50.9  ( 6%)      26.9  (50%)   +7.5
+ *   CONTENT the vine sheet gone       46.0  (15%)      26.3  (51%)   +6.9
+ *   CONTENT the ground gone           53.6  ( 1%)      25.3  (53%)   +5.9
+ *   CONTENT the rim's swell gone      41.1  (24%)      24.0  (56%)   +4.6
+ *   CONTENT the cards' shadows off    40.9  (24%)      17.6  (67%)   -1.8
+ *   MOTION  the vines' cloud stopped  40.4  (25%)      23.1  (57%)   +3.7
+ *   MOTION  the cards' cloud stopped  39.1  (28%)      24.1  (55%)   +4.7
+ *   MOTION  the rim's swell stopped   41.6  (23%)      22.4  (59%)   +3.0
+ *
+ * Every MOTION row lands on the floor and none passes it, at either size:
+ * the whole window between the page as it is and the floor is 3.9 frames at
+ * thirty, against a run-to-run spread of 2 to 7, so a motion lever cannot be
+ * measured here and a "worth nothing" verdict on one means nothing either.
+ * The CONTENT rows pass the floor and separate cleanly. Compare a content
+ * ablation against the page as it is; do not compare a motion one at all.
+ *
+ * The clearest case, and the one that had been reported elsewhere as real:
+ * two lights per vine against one, four passes, cloning each light back to
+ * the state before that change —
+ *
+ *                                  12 boards          30 boards
+ *   one light per vine, as it ships  33.6 (38%)        22.9 (57%)
+ *   two lights per vine, before      34.4 (36%)        16.5 (69%)
+ *
+ * Nothing at twelve, twelve points at thirty, with the four readings on each
+ * side not overlapping. That lever is real and the size is the whole reason
+ * it looked like nothing when it was first tried.
  *
  * The block below measures the floor before the tables run and says in words
  * whether the tables can be believed. Nothing here asserts; a saturated run
- * is not a failure, it is a run whose ranking must be thrown away.
+ * is not a failure, it is a run whose MOTION rankings must be thrown away.
  */
 
 const KF = "@keyframes probe { to { transform: translate3d(40px,0,0); } }";
@@ -370,11 +422,12 @@ const asIs = await row("the page as it is", null);
         `  another suite, another browser, a build. Nothing in this run can be\n` +
         `  compared to anything. Run it on a quiet machine.\n`
       : Math.abs(gap) < 3
-        ? `\n  SATURATED. One 10x10 square alone reads ${floor.per900} and the whole page\n` +
-          `  reads ${asIs.per900} — ${Math.abs(gap).toFixed(1)} frames apart, which is noise. Every surface on the\n` +
-          `  page together is adding nothing to what a single painted square already\n` +
-          `  costs, so the tables below CANNOT rank them. Read block 3 instead, or\n` +
-          `  run this on a machine with a GPU.\n`
+        ? `\n  SATURATED FOR MOTION. One 10x10 square alone reads ${floor.per900} and the whole\n` +
+          `  page reads ${asIs.per900} — ${Math.abs(gap).toFixed(1)} frames apart, which is noise. Everything that\n` +
+          `  moves on this page together is adding nothing to what one painted square\n` +
+          `  already costs, so NO ROW THAT ONLY STOPS MOTION can be ranked here.\n` +
+          `  Rows that REMOVE CONTENT still can: they move the floor itself, so read\n` +
+          `  them against "the page as it is" and read block 3.\n`
         : `\n  There is room: the ceiling is ${ceiling.per900}, one square alone reads ${floor.per900},\n` +
           `  and the page reads ${asIs.per900} — ${Math.abs(gap).toFixed(1)} frames of range below the square. The\n` +
           `  tables below can rank.\n`,
