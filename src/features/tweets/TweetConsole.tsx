@@ -609,7 +609,7 @@ function PreviewCard({ draft }: { draft: Draft }) {
               <div className="flex items-center gap-1 text-[14px]">
                 <span className="truncate font-bold">{name}</span>
                 <svg viewBox="0 0 22 22" className="size-4 shrink-0 fill-[#1d9bf0]" aria-hidden><path d="M20.4 11c0-1.2-.7-2.3-1.7-2.8.2-1.1-.1-2.3-1-3.1-.8-.8-2-1.1-3.1-.9C14 3.2 12.9 2.5 11.7 2.5S9.4 3.2 8.8 4.2c-1.1-.2-2.3.1-3.1.9-.8.8-1.1 2-.9 3.1C3.8 8.8 3.1 9.9 3.1 11.1s.7 2.3 1.7 2.8c-.2 1.1.1 2.3.9 3.1.8.8 2 1.1 3.1.9.6 1 1.7 1.7 2.9 1.7s2.3-.7 2.9-1.7c1.1.2 2.3-.1 3.1-.9.8-.8 1.1-2 .9-3.1 1.1-.6 1.8-1.7 1.8-2.9zm-10.6 3.7-3.1-3.1 1.2-1.2 1.9 1.9 4.4-4.4 1.2 1.2-5.6 5.6z" /></svg>
-                <span className={cn("truncate", dark ? "text-[#71767b]" : "text-[#536471]")}>@{handle || "yourhandle"} · now</span>
+                <span className={cn("truncate", dark ? "text-[#71767b]" : "text-[#536471]")}><span className="streamer-hidden">@{handle || "yourhandle"}</span> · now</span>
               </div>
               <p className="mt-0.5 whitespace-pre-wrap break-words">{text.trim() ? <RichText text={text} /> : <span className={dark ? "text-[#71767b]" : "text-[#536471]"}>What is happening?</span>}</p>
               <MediaGrid media={p.media} />
@@ -959,7 +959,7 @@ export function TweetConsole() {
     <Badge variant="default"><Loader2 className="size-3 animate-spin" /> checking keys</Badge>
   ) : api.configured ? (
     <Tooltip content={`Keys on the server; media goes through the ${api.mediaApi} upload API.${api.handle ? ` Posting as @${api.handle}.` : ""}`}>
-      <Badge variant="up"><KeyRound className="size-3" /> API ready{api.handle ? ` · @${api.handle}` : ""}</Badge>
+      <Badge variant="up"><KeyRound className="size-3" /> API ready{api.handle ? <span className="streamer-hidden"> · @{api.handle}</span> : null}</Badge>
     </Tooltip>
   ) : (
     <Tooltip content={`Set ${api.missing.join(", ")} on the server to post from here. Until then Send opens X with the words.`}>
