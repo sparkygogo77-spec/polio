@@ -2,14 +2,43 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T05:36:03.539Z";
+export const GENERATED_AT = "2026-09-15T05:45:46.284Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "9e5a77a",
-    "when": "2026-09-15T05:34:26+00:00",
+    "id": "c0e7336",
+    "when": "2026-09-15T05:45:09+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "c0e7336",
+        "says": "One element taken from a site is fitted to the space it lands in",
+        "when": "2026-09-15T05:45:09+00:00",
+        "detail": [
+          "Read off a real site, a list of sixteen links measured 841 tall and landed at its own size in a space 380 tall: the board clamped it to the top of the page, its middle fell outside the line, and it was a part with no space, no plan and no panel. One element taken alone keeps its proportion and takes at most nine tenths of the space either way, so it lands inside and the space's plan reaches it."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "36b6bba",
+        "says": "The colour menus were never actually opened",
+        "when": "2026-09-15T05:36:20+00:00",
+        "detail": [
+          "The sixth instrument in this project that reported green while measuring nothing, and the worst of them, because it skipped through two doors in a row rather than one.",
+          "tests/colour-menu.mjs has a logic half read off the source and a live half that opens the menus in a browser. The live half was guarded twice:",
+          "the Builder URL was pinned to localhost:3000 rather than taken as an argument, so against a build on any other port it printed \"no Builder at localhost:3000\" and moved on",
+          "the module list it looked for Playwright in held \"playwright\" and a path into /opt/node22, but this container has playwright-core, so even with a Builder on :3000 it would have printed \"no Playwright\" instead"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
       {
         "id": "9e5a77a",
         "says": "Regenerate the passes for the three wheel slots",
