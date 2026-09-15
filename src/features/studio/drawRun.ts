@@ -122,7 +122,8 @@ export async function drawBody(input: DrawInput, deps: { onStep?: (s: string) =>
     const vector = readVector(html, RENDER_MODELS.vectorize);
     deps.onStep?.(`Looking at trace ${n}…`);
     const scored = await judge(html, { w: input.w, h: input.h, clip: input.outline?.cut ?? "" }, target, mode);
-    attempts.push({ n, source: "renderer", overlap: scored.overlap, says: scored.says, html, note: `traced, ${RUNGS[n - 1]}`, shot: scored.shot, vector });
+    // The seconds the model took go on the note, because they were measured.
+    attempts.push({ n, source: "renderer", overlap: scored.overlap, says: scored.says, html, note: `traced, ${RUNGS[n - 1]}${drew.ms ? ` · ${(drew.ms / 1000).toFixed(1)}s` : ""}`, shot: scored.shot, vector });
     if (scored.overlap < 0 || scored.overlap >= GOOD_ENOUGH) break;
   }
 
@@ -166,6 +167,10 @@ interface Traced {
   ok: boolean;
   html?: string;
   cost?: number;
+  /** Where the cost came from: the prediction, or the model's published rate. */
+  priced?: "reported" | "card";
+  /** The seconds the model took, measured off the prediction. */
+  ms?: number;
   message?: string;
   reason?: string;
 }

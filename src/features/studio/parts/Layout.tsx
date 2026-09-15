@@ -196,7 +196,7 @@ export function Overlay({ id, content, options, theme: t, emit }: PartProps) {
  * to and take from, and the legal line is a choice — so the preview in the
  * shelf is a picture of what this footer will actually say.
  */
-export function Footer({ id, content, options, theme: t, onNavigate, w }: PartProps) {
+export function Footer({ id, content, options, theme: t, onNavigate, link: own, w }: PartProps) {
   /*
    * The foot of the page carries the same wordmark the top of it does, and
    * for the same reason: "Logo" is not the name of anybody's site. An item
@@ -223,6 +223,21 @@ export function Footer({ id, content, options, theme: t, onNavigate, w }: PartPr
       style={{ background: "transparent", border: "none", cursor: "pointer", textAlign: "left", padding: 0, color: t.muted, font: "inherit", fontSize: t.fontPx * 0.84 }}
     >
       {label}
+    </button>
+  );
+  /*
+   * The wordmark is the footer's own link, as the top bar's button is the
+   * top bar's: where the part links, when it links, and home when it does
+   * not. The links beside it are the content's own and go by their names.
+   */
+  const mark = (style: React.CSSProperties) => (
+    <button
+      type="button"
+      data-footer-mark=""
+      onClick={() => onNavigate?.(own ?? { kind: "page", target: "home" })}
+      style={{ ...style, background: "transparent", border: "none", padding: 0, color: "inherit", cursor: "pointer", font: "inherit" }}
+    >
+      {wordmark}
     </button>
   );
   const line = legal === "None" ? null : (
@@ -265,7 +280,7 @@ export function Footer({ id, content, options, theme: t, onNavigate, w }: PartPr
     return (
       <Fill t={t} data-part={id} style={{ ...shell, flexDirection: "column", justifyContent: "center", gap: t.fontPx * 0.6, padding: `${t.fontPx}px ${t.fontPx * 1.4}px` }}>
         <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.9, flexWrap: "wrap" }}>
-          <span style={{ fontWeight: 800, fontFamily: t.headingFamily }}>{wordmark}</span>
+          {mark({ fontWeight: 800, fontFamily: t.headingFamily })}
           {links.map(link)}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.8, borderTop: `1px solid ${t.line}`, paddingTop: t.fontPx * 0.55 }}>
@@ -280,7 +295,7 @@ export function Footer({ id, content, options, theme: t, onNavigate, w }: PartPr
   // The thin bar: one line, everything on it.
   return (
     <Fill t={t} data-part={id} style={{ ...shell, alignItems: "center", gap: t.fontPx * 0.9, padding: `0 ${t.fontPx * 1.4}px`, flexWrap: "nowrap", overflow: "hidden" }}>
-      <span style={{ fontWeight: 800, fontFamily: t.headingFamily, whiteSpace: "nowrap" }}>{wordmark}</span>
+      {mark({ fontWeight: 800, fontFamily: t.headingFamily, whiteSpace: "nowrap" })}
       {line}
       <span style={{ flex: 1 }} />
       <div style={{ display: "flex", alignItems: "center", gap: t.fontPx * 0.8, minWidth: 0, overflow: "hidden" }}>

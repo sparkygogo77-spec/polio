@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { answerCeiling } from "../budget";
 import { droppedCount, droppedWords, takePictures, type PictureIn } from "@/features/studio/pictureIn";
 
 /**
@@ -37,11 +38,11 @@ export const maxDuration = 300;
  * seconds whatever this file asks for, and a budget above the real ceiling
  * never gets to fire.
  */
-const ANSWER_BUDGET_MS = (() => {
-  const asked = Number(process.env.STUDIO_ANSWER_BUDGET_MS);
-  const budget = Number.isFinite(asked) && asked > 5_000 ? asked : maxDuration * 1000;
-  return Math.max(5_000, budget - 5_000);
-})();
+// The ceiling is one rule for every route (`budget.ts`): what was asked,
+// or the hobby minute on Vercel, or `maxDuration`; the five seconds short
+// of it are this route's own, so it answers before the platform kills it.
+const budget = answerCeiling(process.env, maxDuration);
+const ANSWER_BUDGET_MS = Math.max(5_000, budget - 5_000);
 
 /** Long enough for a slow answer, short enough that the retry still fits the budget. */
 const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);

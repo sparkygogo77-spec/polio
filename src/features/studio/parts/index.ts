@@ -42,7 +42,7 @@ export const DEFS: PartDef[] = [
 
   /* ------------------------------------------------------------- layout */
   { component: Sections, ids: ["section-stack", "holy-grail", "scan-region", "container-width", "multi-page", "waypoint"], tier: "A" },
-  { component: Grid, ids: ["card-grid", "bento-grid", "masonry"], tier: "A", linkable: true },
+  { component: Grid, ids: ["card-grid", "bento-grid", "masonry"], tier: "A", linkable: true, linkWhole: true },
   { component: Split, ids: ["split-screen", "sidebar-layout", "docs"], tier: "A" },
   { component: Tabs, ids: ["tabs-panel"], tier: "A" },
   { component: Accordion, ids: ["accordion", "faq"], tier: "A" },
@@ -63,7 +63,7 @@ export const DEFS: PartDef[] = [
   { component: Eyebrow, ids: ["eyebrow-rule"], tier: "A" },
   { component: CodeBlock, ids: ["code-block", "diff-view"], tier: "A" },
   { component: Callout, ids: ["callout", "empty-states"], tier: "A" },
-  { component: ArticleList, ids: ["blog-index", "changelog", "tagging", "archive-mode"], tier: "A", linkable: true },
+  { component: ArticleList, ids: ["blog-index", "changelog", "tagging", "archive-mode"], tier: "A", linkable: true, linkWhole: true },
 
   /* -------------------------------------------------------------- media */
   { component: Gallery, ids: ["gallery", "lightbox", "image-blur-up", "photo-credit"], tier: "A" },
@@ -90,7 +90,7 @@ export const DEFS: PartDef[] = [
   { component: Rating, ids: ["rating"], tier: "A" },
 
   /* --------------------------------------------------------------- shop */
-  { component: ProductGrid, ids: ["product-grid", "wishlist"], tier: "A", linkable: true },
+  { component: ProductGrid, ids: ["product-grid", "wishlist"], tier: "A", linkable: true, linkWhole: true },
   { component: ProductDetail, ids: ["product-detail"], tier: "A" },
   { component: Cart, ids: ["cart-drawer"], tier: "A", linkable: true },
   { component: Checkout, ids: ["checkout"], tier: "C" },
@@ -127,14 +127,14 @@ export const DEFS: PartDef[] = [
   { component: Mentions, ids: ["mentions"], tier: "A" },
   { component: Moderation, ids: ["moderation"], tier: "C" },
   { component: Badges, ids: ["community-badges"], tier: "A" },
-  { component: Forum, ids: ["forum"], tier: "A", linkable: true },
+  { component: Forum, ids: ["forum"], tier: "A", linkable: true, linkWhole: true },
   { component: CollabCursors, ids: ["collab-cursors"], tier: "A" },
 
   /* ----------------------------------------------------------------- ai */
   { component: AiChat, ids: ["ai-chat"], tier: "C" },
   { component: PromptBox, ids: ["ai-prompt-box", "ai-generate-content"], tier: "C" },
   { component: AiAction, ids: ["ai-summarize", "ai-translate"], tier: "C" },
-  { component: AiRecommend, ids: ["ai-recommend"], tier: "C", linkable: true },
+  { component: AiRecommend, ids: ["ai-recommend"], tier: "C", linkable: true, linkWhole: true },
   { component: AiModeration, ids: ["ai-moderation"], tier: "C" },
   { component: AiVoice, ids: ["ai-voice"], tier: "C" },
 

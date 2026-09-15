@@ -84,7 +84,7 @@ await page.waitForTimeout(1400);
 const read = () => page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {};
   const n = (s.nodes ?? []).find((x) => x.featureId === "cube-3d");
-  return n ? { id: n.id, w: n.w, h: n.h, outline: n.outline, code: n.code, content: n.content, cube: n.cube } : null;
+  return n ? { id: n.id, x: n.x, y: n.y, w: n.w, h: n.h, outline: n.outline, code: n.code, content: n.content, cube: n.cube } : null;
 });
 let node = await read();
 check("dropping it puts a cube on the board", !!node, node ? `${node.w}×${node.h}` : "nothing");
@@ -139,7 +139,11 @@ for (let i = 1; i <= 14; i++) { await page.mouse.move(box.x + box.width / 2 + i 
 const mid = await turnOf();
 await page.mouse.up();
 check("dragging turns it", mid !== before, `${before} → ${mid}`);
-check("and the element did not move instead", (await read()).w === node.w);
+{
+  // Position as well as size: a drag that slid the part across the board used to pass here (inventory D17).
+  const now = await read();
+  check("and the element did not move instead", now.x === node.x && now.y === node.y && now.w === node.w && now.h === node.h, `${now.x},${now.y} ${now.w}×${now.h} (was ${node.x},${node.y} ${node.w}×${node.h})`);
+}
 await page.waitForTimeout(2600);
 {
   const [x, y] = (await turnOf()).split(",").map(Number);
@@ -207,8 +211,9 @@ await page.waitForTimeout(1500);
     (after?.cube?.faces ?? []).map((f) => f.heading || "-").join(" · "));
   check("so does the angle it was left at", !!after?.cube?.turn, JSON.stringify(after?.cube?.turn));
   check("and it is still a cube on the board", (await page.locator("[data-cube]").count()) >= 1);
-  const doc = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("builder.studio")).state.nodes));
-  check("the faces are in the document publish sends", doc.includes('"Speed"') && doc.includes('"cube-3d"'));
+  // Through the page's own seam, what Publish sends; storage measured what hydration keeps (inventory D27).
+  const doc = await page.evaluate(() => (window.__studioPublishDoc ? JSON.stringify(window.__studioPublishDoc()) : ""));
+  check("the faces are in the document publish sends", doc.length > 0 && doc.includes('"Speed"') && doc.includes('"cube-3d"'), doc.length ? `${doc.length} bytes` : "no __studioPublishDoc seam");
 }
 
 /* And it turns on the live page the same way. */

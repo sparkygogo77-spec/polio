@@ -22,6 +22,7 @@
  * inventing a second way to show a list of things that happened.
  */
 import * as React from "react";
+import { BuildMark } from "@/features/builds/BuildMark";
 import { Dialog as D } from "radix-ui";
 import { ChevronRight, History, Sparkles, Wrench, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
@@ -86,6 +87,8 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
               <D.Description className="mt-0.5 text-[11px]" style={{ color: FIELD.dim }}>
                 {passes.length} passes, {changes} changes, about {read} minute{read === 1 ? "" : "s"} to read. Newest first, read straight out of the history.
               </D.Description>
+              {/* Which build is answering: the same mark the Builds page wears. */}
+              <BuildMark className="mt-1 block text-[10px]" style={{ color: FIELD.dim }} />
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               <button

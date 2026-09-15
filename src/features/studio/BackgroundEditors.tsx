@@ -15,7 +15,7 @@ import { Blend, Eraser, Grid2x2, ImagePlus, Lightbulb, Square, Sun, Waves } from
 import { play } from "@/core/audio/engine";
 import { Textarea } from "@/core/ui/textarea";
 import { Input } from "@/core/ui/input";
-import { readImage } from "./ImageIntake";
+import { readPicture, refusal } from "./ImageIntake";
 import { lands, newLayer, parseColor, textureCss, TEXTURE_KINDS, type TextureLayer } from "./look";
 import { useStudio, type StudioPage } from "./store";
 import { resolvePalette } from "./parts/theme";
@@ -126,6 +126,8 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
   const [a, b, c] = [slabs[0]!, slabs[1] ?? slabs[0]!, slabs[2] ?? slabs[1] ?? slabs[0]!];
   const { hole, mid } = a.rings;
   const file = React.useRef<HTMLInputElement>(null);
+  /* What the last picture door said on the caption: a refusal, or a note on what was kept. */
+  const [said, setSaid] = React.useState<string | null>(null);
 
   /* ------------------------------------------------------- the color */
   // One editor, three slabs, none empty: the page's colour off the
@@ -284,14 +286,15 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
           l.id !== id ? l : l.on && lands(l, "page") ? { ...l, on: false } : { ...l, on: true, target: lands(l, "page") ? l.target : "both" },
         ),
       });
-    const take = (src: string) => {
+    const take = (src: string, note?: string) => {
+      setSaid(note ?? null);
       s().addTexture({ ...newLayer("image"), src, target: "page" });
       play("confirm");
     };
     return (
       <>
         {items.length ? <GridChips slab={a} items={items} value={null} values={onPage} onPick={toggle} /> : null}
-        <Caption slab={a}>{items.length ? `${onPage.size} of ${items.length} on the page` : "No layers yet"}</Caption>
+        <Caption slab={a}>{said ? said : items.length ? `${onPage.size} of ${items.length} on the page` : "No layers yet"}</Caption>
         <SectorButton d={wholeOf(b)} at={centreOf(b, hole, "edge")} spin={b.spin} shape={b.shape} label="Add a picture" icon={<ImagePlus className="size-3.5" />} onClick={() => file.current?.click()} />
         <SectorButton
           d={wholeOf(c)}
@@ -311,7 +314,7 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
             aria-label="Add a picture to the page"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void readImage(f).then(take);
+              if (f) void readPicture(f).then((p) => take(p.src, p.note)).catch((err: unknown) => { play("deny"); setSaid(refusal(err)); });
               e.target.value = "";
             }}
           />

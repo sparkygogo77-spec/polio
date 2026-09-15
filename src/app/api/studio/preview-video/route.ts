@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { encodeGif } from "@/features/tweets/gif";
 import { decodePng } from "../../tweets/png";
 import { asDevice, findPlaywright, NO_PLAYWRIGHT, NO_VIDEO, takeDoc, withPreview } from "../headless";
+import { tourPlan } from "./plan";
 
 /**
  * A recording of the live site being scrolled and worked, made on the server.
@@ -48,11 +49,18 @@ function findFfmpeg(): string {
   return "ffmpeg";
 }
 
-/** The tour, self-contained so it can run inside the page. Mirrors `tour.ts`. */
-async function tourInPage(arg: { pxPerSec: number; interact: boolean; loops: number }) {
+/**
+ * The tour, self-contained so it can run inside the page. Mirrors `tour.ts`.
+ *
+ * `stopAt` is a deadline on the wall clock: the tour stops there whatever
+ * is left of it, and says how many loops it finished and whether it was cut,
+ * so the route answers inside its time instead of being killed past it.
+ */
+async function tourInPage(arg: { pxPerSec: number; interact: boolean; loops: number; stopAt: number }): Promise<{ loops: number; cut: boolean }> {
   const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
   const scroller = document.querySelector("[data-live-scroller]") as HTMLElement | null;
-  if (!scroller) return;
+  if (!scroller) return { loops: 0, cut: false };
+  const late = () => Date.now() >= arg.stopAt;
   const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
   const glide = (from: number, to: number, pxPerSec: number) =>
     new Promise<void>((resolve) => {
@@ -76,7 +84,10 @@ async function tourInPage(arg: { pxPerSec: number; interact: boolean; loops: num
     if (rows[1]) { rows[1].click(); await sleep(420); }
   };
   await sleep(600);
+  let finished = 0;
+  let cut = false;
   for (let loop = 0; loop < Math.max(1, arg.loops); loop++) {
+    if (late()) { cut = true; break; }
     scroller.scrollTop = 0;
     await sleep(500);
     const travel = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
@@ -91,27 +102,31 @@ async function tourInPage(arg: { pxPerSec: number; interact: boolean; loops: num
             .filter((x) => x.at > y + 4)
             .sort((a, b) => a.at - b.at)[0]
         : undefined;
+      if (late()) { cut = true; break; }
       const target = next ? Math.min(travel, Math.max(0, next.at)) : travel;
       await glide(y, target, arg.pxPerSec);
       y = target;
       if (next) { done.add(next.n); await work(next.n); }
       if (!next || y >= Math.max(0, scroller.scrollHeight - scroller.clientHeight)) break;
     }
+    if (cut) break;
+    finished++;
     await sleep(700);
     await glide(scroller.scrollTop, 0, arg.pxPerSec * 2.2);
     await sleep(400);
   }
+  return { loops: finished, cut };
 }
 
 const GIF_FPS = 12;
 const GIF_MAX_FRAMES = 360;
 
 /** Frames out of the WebM with ffmpeg, then a GIF written here. */
-async function webmToGif(videoPath: string, dir: string, gifWidth: number): Promise<Uint8Array> {
+async function webmToGif(videoPath: string, dir: string, gifWidth: number, budget: { ffmpegMs: number }): Promise<Uint8Array> {
   const ffmpeg = findFfmpeg();
   const framesDir = join(dir, "frames");
   mkdirSync(framesDir, { recursive: true });
-  await run(ffmpeg, ["-y", "-hide_banner", "-loglevel", "error", "-i", videoPath, "-r", String(GIF_FPS), "-vf", `scale=${gifWidth}:-2`, "-f", "image2", "-pix_fmt", "rgb24", join(framesDir, "%05d.png")], { timeout: 120_000, maxBuffer: 1 << 24 });
+  await run(ffmpeg, ["-y", "-hide_banner", "-loglevel", "error", "-i", videoPath, "-r", String(GIF_FPS), "-vf", `scale=${gifWidth}:-2`, "-f", "image2", "-pix_fmt", "rgb24", join(framesDir, "%05d.png")], { timeout: budget.ffmpegMs, maxBuffer: 1 << 24 });
   const files = readdirSync(framesDir).filter((f) => f.endsWith(".png")).sort();
   if (!files.length) throw new Error("ffmpeg wrote no frames.");
   // A long tour keeps its length but not every frame, so the file stays under what X takes.
@@ -143,15 +158,20 @@ export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
   const path = typeof body.path === "string" && body.path.startsWith("/") ? body.path : "/builder/preview";
   const device = asDevice(body.device);
-  const pxPerSec = body.speed === "slow" ? 160 : body.speed === "fast" ? 540 : 300;
-  const width = [640, 960, 1280].includes(body.width ?? 0) ? body.width! : 960;
+  // What the tour will do with the time the route has, and with the width.
+  const started = Date.now();
+  const plan = tourPlan(body, maxDuration);
+  const { pxPerSec, width } = plan;
   const height = Math.round(width * 0.625);
   const wantGif = body.format !== "webm";
+  const notes: string[] = plan.note ? [plan.note] : [];
+  const said = (): Record<string, string> => (notes.length ? { "x-tour-note": notes.join("; ") } : {});
 
   const dir = mkdtempSync(join(tmpdir(), "tour-"));
   try {
     const videoPath = await withPreview(found, { origin, path, doc: takeDoc(body.doc), device, width, height, record: { dir } }, async (page) => {
-      await page.evaluate(tourInPage, { pxPerSec, interact: body.interact !== false, loops: Math.max(1, Math.min(4, body.loops ?? 1)) });
+      const toured = await page.evaluate(tourInPage, { pxPerSec, interact: body.interact !== false, loops: plan.loops, stopAt: started + plan.launchMs + plan.tourMs });
+      if (toured.cut) notes.push(`cut after ${toured.loops} of ${plan.loops} loops to fit the ${maxDuration} s the route has`);
       await page.waitForTimeout(300);
       return page.video()?.path() ?? null;
     });
@@ -159,16 +179,19 @@ export async function POST(request: Request) {
 
     if (wantGif) {
       try {
-        const gif = await webmToGif(videoPath, dir, Math.min(640, width));
-        return new NextResponse(Buffer.from(gif), { headers: { "content-type": "image/gif", "x-tour-format": "gif", "x-tour-from": found.from, "content-disposition": 'inline; filename="tour.gif"' } });
+        // ffmpeg gets its allowance, or what is left of the route's time, whichever is less.
+        const left = started + maxDuration * 1000 - Date.now() - 5_000;
+        const gif = await webmToGif(videoPath, dir, Math.min(640, width), { ffmpegMs: Math.max(5_000, Math.min(plan.ffmpegMs, left)) });
+        return new NextResponse(Buffer.from(gif), { headers: { "content-type": "image/gif", "x-tour-format": "gif", "x-tour-from": found.from, "x-tour-width": String(width), ...said(), "content-disposition": 'inline; filename="tour.gif"' } });
       } catch (err) {
         // No ffmpeg, or one that could not: the WebM still goes back, marked as such.
         const bytes = readFileSync(videoPath);
-        return new NextResponse(bytes, { headers: { "content-type": "video/webm", "x-tour-format": "webm", "x-tour-from": found.from, "x-tour-note": `GIF not made: ${err instanceof Error ? err.message.slice(0, 160) : "ffmpeg failed"}` } });
+        notes.push(`GIF not made: ${err instanceof Error ? err.message.slice(0, 160) : "ffmpeg failed"}`);
+        return new NextResponse(bytes, { headers: { "content-type": "video/webm", "x-tour-format": "webm", "x-tour-from": found.from, "x-tour-width": String(width), ...said() } });
       }
     }
     const bytes = readFileSync(videoPath);
-    return new NextResponse(bytes, { headers: { "content-type": "video/webm", "x-tour-format": "webm", "x-tour-from": found.from } });
+    return new NextResponse(bytes, { headers: { "content-type": "video/webm", "x-tour-format": "webm", "x-tour-from": found.from, "x-tour-width": String(width), ...said() } });
   } catch (error) {
     return NextResponse.json({ ok: false, reason: "render", message: error instanceof Error ? error.message : "The render failed." });
   } finally {

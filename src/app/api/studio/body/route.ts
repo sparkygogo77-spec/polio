@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { answerCeiling } from "../budget";
 import { cleanSnippet, SNIPPET_LIMIT } from "@/features/studio/snippet";
 import { takePng } from "@/features/studio/pictureIn";
 
@@ -43,11 +44,11 @@ export const maxDuration = 180;
  * its own for the case where nothing arrives at all. This is the same
  * arrangement the generate route has had; this route had none of it.
  */
-const ANSWER_BUDGET_MS = (() => {
-  const asked = Number(process.env.STUDIO_ANSWER_BUDGET_MS);
-  const budget = Number.isFinite(asked) && asked > 5_000 ? asked : maxDuration * 1000;
-  return Math.max(5_000, budget - 5_000);
-})();
+// The ceiling is one rule for every route (`budget.ts`): what was asked,
+// or the hobby minute on Vercel, or `maxDuration`; the five seconds short
+// of it are this route's own, so it answers before the platform kills it.
+const budget = answerCeiling(process.env, maxDuration);
+const ANSWER_BUDGET_MS = Math.max(5_000, budget - 5_000);
 const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);
 
 interface Body {

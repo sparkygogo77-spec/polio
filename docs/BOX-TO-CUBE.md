@@ -318,3 +318,51 @@ face, at its drawn proportion (248 × 186 × 186); a visitor can turn it
 face turned away at that pose, so the shot shows the object and not the
 words. The document written for this was restored afterwards; the
 repo's `site/document.json` is unchanged.
+
+## The inventory, continued from the top (second pass)
+
+Picked up where the inventory session stopped, one row at a time, each
+check written first and run red against the code of the day before the
+fix. Every suite below is new unless named otherwise; the numbers are the
+suite's own count, and "red before" is what the same check said before
+the change.
+
+| Row | What changed | Check | Count |
+|---|---|---|---|
+| B27 | The Motion panel says a crate plays there and goes into the blueprint as a brief, and no part of the page plays it yet (`data-motion-reach`). Playing a crate on a live part stays open, named. | `tests/motion-reach.mjs`; "no renderer reads a crate" is derived from 39 renderer files' source | 7/7, 2 red before |
+| C1 | A file the browser cannot decode is refused with the Import flow's sentence at every door (well, Texture drop, wheel captions, paste) and nothing is kept. | `tests/picture-refused.mjs`, 3 MB HEIC-labelled junk by the chooser, 1 MB TIFF-labelled by a drop | 9/9, 4 red before |
+| C2 | A covering picture bakes at its own size (640 on the long edge), not the 320 px tile; one shared number `COVERS_AT`. | `tests/cover-tile.mjs`, decodes both baked tiles: 320 × 240 and 640 × 480, 26 KB and 408 KB | 5/5, 1 red before |
+| C3 | An animation keeps its first frame and says so; a link drop is told to save the picture first; a see-through picture is kept lossless. Cost written down: a noisy 640 px cut-out is 1.2 MB as PNG against 274 KB as WebP, worst case. | `tests/picture-doors.mjs` | 9/9, 4 red before |
+| C4 | The disc holds every recorded point to 0..1. | `tests/ink-on-disc.mjs`, a box dragged a fifth past the edge: x to 1.000, was 1.200 | 5/5, 2 red before |
+| C6 | Several open lines, or one straight bar, cut nothing; a diagonal and a spiral still band. Measured, not as the row said: the old cut on three bars was a 12-point zigzag spanning 0.97 of the part's height, noise, not a sliver. | `tests/open-lines.mjs`; `outline-clip.mjs` 20/20 and `drawn-part.mjs` 22/22 hold | 6/6, 2 red before |
+| C7 | A box qualified as a flat thing (text, search, check, info, … box) is no claim of shape. | `tests/box-words.mjs`, 7 solid and 13 flat phrasings; `cube-part.mjs` 29/29, `box-to-cube.mjs` 82/82, `cube.mjs` 63/63 hold | 7/7, 4 red before |
+| C8 | One ceiling, `PART_MAX_H`, held on both sides in the outline fit, the checker and the landing. | `tests/tall-column.mjs`: 267 × 1600 → 178 × 1600, 200 × 1600 → 100 × 1600 | 10/10, 4 red before |
+| C10 | `mimeOf` knows AVIF, SVG and BMP and says unknown rather than PNG; one shared `base64Picture` takes URL-safe base64; the byte fetch runs under 30 s; unknown bytes are refused with a sentence on both passes. | `tests/picture-bytes.mjs`; `render-answer.mjs` 13/13, `render-cost.mjs` 11/11, `imaging.mjs` 193/193 hold | 18/18, 7 red before |
+| C11 | A narrowed part grows by its narrowing, bounded at 4×; full width is nine tenths. The row's 1439 example was off by one (already full); the check uses 1400. | `tests/phone-heights.mjs`: 1200 × 80 → 366 × 262, content 262 in 262 | 5/5, 2 red before |
+| C12 | `splitTurn` is one pure rule using the language's own breaks; `!`, `?`, `。` end a sentence; the subline is every line after the first; `dir="auto"`; the header's links wrap. Left open, named: a comma in a one-line label. | `tests/turn-of-phrase.mjs` | 14/14, 4 red before |
+| C14 | One pure plan splits the route's 180 s (20 launch, 106 tour, 54 ffmpeg); the tour stops at its deadline; the response names the width and any cut. | `tests/tour-budget.mjs`; the stall itself is a source read | 12/12, 5 red before |
+| C15, C16 | A video the browser cannot play goes in with no preview and a warning; the GIF rate has no floor, so a 5-minute recording keeps 5 minutes at 1.2 fps. | `tests/tweet-intake.mjs` | 12/12, 6 red before |
+| C17, C18 | Names decode by the entry's flag (CP437 table); the method is on the entry and an unreadable page is refused; Zip64 is refused by name; an entry inflates no further than it declared. | `tests/zip-honest.mjs`, zips written by hand; `zip-import.mjs` 79/79 holds | 11/11, 7 red before |
+| C19 | More served types; a bare name served as what its bytes say; a bad `%` is a miss; only a script that would run counts. | `tests/zip-assets.mjs` | 12/12, 8 red before |
+| C26 | The crop picker says a picture that never shows; a tall picture is squashed into twice the width and the squash said. | `tests/crop-picker.mjs`: 167 × 334 where it was 167 × 1670 | 6/6, 2 red before |
+| D16, D17, D18, D24, D27 | The cube session's own loose checks now measure what they name (one question about the cube; x, y, w, h held; the token expression itself; done or failed only for the missing key; the publish seam). | `oddness.mjs` 53/53, `cube-part.mjs` 29/29, `cube.mjs` 63/63 | no reds: the code was right, the checks were hollow |
+
+Left where it was, and whose:
+
+- B30 (keys session), D2, D3, D8, D12–D14, D22, D25, D26, D30, D37,
+  D39–D42 (flagged by the inventory session to their owners); D10 and
+  D36 are the euler session's, whose suites came in with its merge
+  (`199d336`), and are now named as such in the table.
+- E6 (97 `data-*` attributes queried by nothing): the owner's call which
+  are seams for suites still to be written; nothing deleted.
+- The narrow-face 11px heading: open, as asked; the font was not shrunk.
+
+Observed, not chased: `tests/shapes.mjs` (the euler session's bench)
+reports 11 of 15 drawings coming back with a body on this dev server,
+with and without the C4 clamp stashed (so not the clamp's), where the
+first pass of this session saw 13/15 under load and 15/15 alone. It is
+the one red in the suites run today, and it is not one of this
+session's.
+
+Build: `npm run build` passes at `390703e`. Trunk was already merged in;
+no import line moved.

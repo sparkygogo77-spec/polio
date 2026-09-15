@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { findPlaywright, NO_PLAYWRIGHT, type PWPage } from "../headless";
-import { readZip } from "@/features/studio/zipFile";
+import { readZipInfo } from "@/features/studio/zipFile";
 import { checkZip, contentType, fileFor, hadScripts, MAX_ZIP_BYTES, sansScripts, ZIP_BUDGET_MS, ZIP_REFUSAL_SAYS } from "@/features/studio/zipImport";
 import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
 import { CANDIDATES, MEASURE, type Candidate } from "@/features/studio/siteRead";
@@ -50,8 +50,8 @@ export async function POST(request: Request) {
   const name = (file.name || "page.zip").replace(/[^\w.\- ]+/g, "").slice(0, 80) || "page.zip";
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const files = readZip(bytes);
-  if (!files) return no("not-a-zip", ZIP_REFUSAL_SAYS["not-a-zip"]);
+  const { files, why } = readZipInfo(bytes);
+  if (!files) return no(why ?? "not-a-zip", ZIP_REFUSAL_SAYS[why ?? "not-a-zip"]);
   const gate = checkZip(files, bytes.length);
   if (!gate.ok) return no(gate.why, gate.says);
 
@@ -72,15 +72,23 @@ export async function POST(request: Request) {
 
   const byName = new Map(files.map((f) => [f.name, f]));
   const names = new Set(byName.keys());
-  const entryHtml = new TextDecoder().decode(byName.get(gate.entry)!.bytes());
+  let entryHtml: string;
+  try {
+    entryHtml = new TextDecoder().decode(byName.get(gate.entry)!.bytes());
+  } catch (e) {
+    // A page that will not unpack (past what it declared, or a method the gate could not see) is a refusal, not a 500.
+    return no("unread-method", e instanceof Error ? e.message : ZIP_REFUSAL_SAYS["unread-method"]);
+  }
   const scripts = hadScripts(entryHtml);
+  // An asset that will not unpack is answered as missing, the way a file not in the zip is.
+  const unpacked = (n: string): Uint8Array => { try { return byName.get(n)!.bytes(); } catch { return new Uint8Array(0); } };
 
   let browser: Awaited<ReturnType<typeof found.pw.chromium.launch>> | null = null;
   try {
     browser = await found.pw.chromium.launch(await found.launchOptions());
     const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
-    await serveZip(page, names, gate.dir, (n) => (n === gate.entry ? new TextEncoder().encode(sansScripts(entryHtml)) : byName.get(n)!.bytes()));
+    await serveZip(page, names, gate.dir, (n) => (n === gate.entry ? new TextEncoder().encode(sansScripts(entryHtml)) : unpacked(n)));
     await page.goto(`${HOME}/${gate.entry}`, { waitUntil: "load", timeout: ZIP_BUDGET_MS });
     await page.waitForTimeout(300);
     const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
@@ -95,6 +103,7 @@ export async function POST(request: Request) {
         entry: gate.entry,
         files: files.length,
         scripts,
+        unread: gate.unread,
         page: { width, height, shot: shot.toString("base64") },
         candidates: list,
         took: took(),
@@ -135,8 +144,10 @@ async function serveZip(page: PWPage, names: ReadonlySet<string>, dir: string, b
     if (!url.startsWith(`${HOME}/`)) { void r.abort(); return; }
     const path = url.slice(HOME.length + 1);
     const hit = fileFor(path, names, dir);
-    const type = hit ? contentType(hit) : null;
-    if (!hit || !type) { void r.abort(); return; }
-    void r.fulfill({ status: 200, contentType: type, body: Buffer.from(bytesOf(hit)) });
+    // A file with no extension is served as what its bytes say.
+    const body = hit ? bytesOf(hit) : null;
+    const type = hit && body ? contentType(hit, body) : null;
+    if (!hit || !body || !type) { void r.abort(); return; }
+    void r.fulfill({ status: 200, contentType: type, body: Buffer.from(body) });
   });
 }

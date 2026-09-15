@@ -23,6 +23,7 @@
  * it.
  */
 import type { Box } from "./space.ts";
+import { mimeOf } from "./renderAnswer.ts";
 
 /* ------------------------------------------------------------------ */
 /* Bounds                                                               */
@@ -39,20 +40,30 @@ export const MAX_UNPACKED_BYTES = 80_000_000;
 /** How long the read may take on the server, inside the route's own `maxDuration`. */
 export const ZIP_BUDGET_MS = 25_000;
 
-export type ZipRefusal = "not-a-zip" | "too-big" | "too-many" | "bad-path" | "no-page";
+export type ZipRefusal = "not-a-zip" | "zip64" | "too-big" | "too-many" | "bad-path" | "no-page" | "unread-method";
 
 export const ZIP_REFUSAL_SAYS: Record<ZipRefusal, string> = {
   "not-a-zip": "That is not a zip file. It wants to be a .zip with a page in it.",
+  "zip64": "That zip is written as Zip64, which this reader does not read. A page's zip is far smaller than Zip64 is for; export it again without it.",
+  "unread-method": "The page in that zip is packed a way this reader cannot unpack (bzip2, LZMA or encrypted). Only stored and deflated entries are read; export it again as an ordinary zip.",
   "too-big": `That zip is too big to be one page. Up to ${Math.round(MAX_ZIP_BYTES / 1_000_000)} MB packed and ${Math.round(MAX_UNPACKED_BYTES / 1_000_000)} MB unpacked.`,
   "too-many": `That zip has too many files in it to be one page. Up to ${MAX_FILES}.`,
   "bad-path": "A file in that zip has a path that climbs out of it, so none of it is opened.",
   "no-page": "There is no page in that zip. It wants an index.html, or one .html file.",
 };
 
-/** A file as it sits in the zip: its path and how big it unpacks to. */
+/** A file as it sits in the zip: its path, how big it unpacks to, and how it is packed. */
 export interface ZipEntry {
   name: string;
   size: number;
+  /** 0 stored, 8 deflated; anything else the reader cannot unpack. Unknown when not said. */
+  method?: number;
+  encrypted?: boolean;
+}
+
+/** Can the reader unpack this entry? Unsaid counts as yes, for a caller that only knows names. */
+export function readable(e: ZipEntry): boolean {
+  return !e.encrypted && (e.method === undefined || e.method === 0 || e.method === 8);
 }
 
 export interface ZipOk {
@@ -61,6 +72,8 @@ export interface ZipOk {
   entry: string;
   /** The folder the page lives in, with a trailing slash, or "" at the root. */
   dir: string;
+  /** Files in the zip the reader cannot unpack, which the page will ask for and not get. */
+  unread: string[];
 }
 export interface ZipNo {
   ok: false;
@@ -110,21 +123,37 @@ export function checkZip(entries: readonly ZipEntry[], packedBytes: number): Zip
   if (files.reduce((n, e) => n + e.size, 0) > MAX_UNPACKED_BYTES) return no("too-big");
   const entry = pageEntry(files.map((e) => e.name));
   if (!entry) return no("no-page");
+  // The page itself has to be readable; anything else unreadable is named, and answered as missing.
+  if (!readable(files.find((e) => e.name === entry)!)) return no("unread-method");
   const cut = entry.lastIndexOf("/");
-  return { ok: true, entry, dir: cut >= 0 ? entry.slice(0, cut + 1) : "" };
+  return { ok: true, entry, dir: cut >= 0 ? entry.slice(0, cut + 1) : "", unread: files.filter((e) => !readable(e)).map((e) => e.name) };
 }
 
 /* ------------------------------------------------------------------ */
 /* Answering the page                                                   */
 /* ------------------------------------------------------------------ */
 
-/** What a file in the zip is served as. Anything not here is refused to the page. */
-export function contentType(name: string): string | null {
-  const ext = (name.split(".").pop() ?? "").toLowerCase();
+/**
+ * What a file in the zip is served as.
+ *
+ * By its extension when it has one the page's assets use. A file with no
+ * extension is served as what its bytes say when the bytes are given (a
+ * picture by its first bytes, otherwise plain bytes the browser can decide
+ * on), and refused when they are not. Anything else is refused to the page.
+ * The list used to stop at the commonest twenty, so a .bmp, a .tif, an .eot
+ * font or an .mp3 was a broken picture or a missing font with nothing said.
+ */
+export function contentType(name: string, bytes?: Uint8Array): string | null {
+  const last = name.split("/").pop() ?? "";
+  const dot = last.lastIndexOf(".");
+  const ext = dot > 0 ? last.slice(dot + 1).toLowerCase() : "";
   const known: Record<string, string> = {
     html: "text/html; charset=utf-8",
     htm: "text/html; charset=utf-8",
     css: "text/css; charset=utf-8",
+    js: "text/javascript; charset=utf-8",
+    mjs: "text/javascript; charset=utf-8",
+    map: "application/json",
     svg: "image/svg+xml",
     png: "image/png",
     jpg: "image/jpeg",
@@ -132,17 +161,31 @@ export function contentType(name: string): string | null {
     gif: "image/gif",
     webp: "image/webp",
     avif: "image/avif",
+    bmp: "image/bmp",
+    tif: "image/tiff",
+    tiff: "image/tiff",
+    heic: "image/heic",
+    heif: "image/heif",
     ico: "image/x-icon",
     woff: "font/woff",
     woff2: "font/woff2",
     ttf: "font/ttf",
     otf: "font/otf",
+    eot: "application/vnd.ms-fontobject",
     json: "application/json",
+    xml: "application/xml; charset=utf-8",
     txt: "text/plain; charset=utf-8",
+    wasm: "application/wasm",
+    mp3: "audio/mpeg",
+    ogg: "audio/ogg",
+    oga: "audio/ogg",
+    ogv: "video/ogg",
     mp4: "video/mp4",
     webm: "video/webm",
   };
-  return known[ext] ?? null;
+  if (ext) return known[ext] ?? null;
+  if (!bytes) return null;
+  return mimeOf(bytes, "");
 }
 
 /**
@@ -154,7 +197,10 @@ export function contentType(name: string): string | null {
  * too. A folder means the index in it. Nothing else is answered.
  */
 export function fileFor(path: string, names: ReadonlySet<string>, dir: string): string | null {
-  const clean = decodeURIComponent(path.replace(/^\/+/, "").split(/[?#]/)[0] ?? "");
+  const raw = path.replace(/^\/+/, "").split(/[?#]/)[0] ?? "";
+  // A % that is not an escape is an address nothing has, not a throw.
+  let clean: string;
+  try { clean = decodeURIComponent(raw); } catch { return null; }
   if (!clean || !insideZip(clean)) return null;
   for (const c of [clean, `${dir}${clean}`, `${clean.replace(/\/?$/, "/")}index.html`, `${dir}${clean.replace(/\/?$/, "/")}index.html`]) {
     if (names.has(c)) return c;
@@ -173,14 +219,27 @@ export function fileFor(path: string, names: ReadonlySet<string>, dir: string): 
  */
 export function sansScripts(html: string): string {
   return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<script\b[^>]*\/>/gi, "")
+    .replace(/<script\b([^>]*)>[\s\S]*?<\/script\s*>/gi, (whole, attrs: string) => (scriptRuns(attrs) ? "" : whole))
+    .replace(/<script\b([^>]*)\/>/gi, (whole, attrs: string) => (scriptRuns(attrs) ? "" : whole))
     .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 }
 
-/** Did the page bring scripts? Said on the panel, because what they would have drawn is not here. */
+/**
+ * Script types the browser runs. A `<script>` with no type, a JavaScript
+ * type or `module` runs; JSON-LD, JSON, a template or an import map is data
+ * the page carries, and saying the page "brought scripts" for it was wrong.
+ */
+function scriptRuns(attrs: string): boolean {
+  const m = /\btype\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs);
+  const type = (m?.[2] ?? m?.[3] ?? m?.[4] ?? "").trim().toLowerCase().split(";")[0]!.trim();
+  if (!type) return true;
+  return type === "module" || /^(text|application)\/(x-)?(javascript|ecmascript|jscript)$/.test(type) || type === "application/x-javascript";
+}
+
+/** Did the page bring scripts that would run, or handlers? Said on the panel, because what they would have drawn is not here. */
 export function hadScripts(html: string): boolean {
-  return /<script\b/i.test(html);
+  for (const m of html.matchAll(/<script\b([^>]*)>/gi)) if (scriptRuns(m[1] ?? "")) return true;
+  return /\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i.test(html);
 }
 
 /* ------------------------------------------------------------------ */

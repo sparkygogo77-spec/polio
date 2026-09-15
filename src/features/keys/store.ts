@@ -48,6 +48,7 @@
 import { create } from "zustand";
 import { getSetting } from "@/core/settings/store";
 import { isPin, open, seal, type SealedBox } from "./crypto";
+import { rateCardSays } from "@/features/studio/renderMeter";
 
 export type ServiceId = "anthropic" | "replicate" | "github" | "vercel";
 
@@ -80,7 +81,7 @@ export const SERVICES: ServiceDef[] = [
     id: "replicate",
     label: "Replicate",
     blurb:
-      "The renderer: a drawn part's body, drawn rather than written. Vector through recraft-ai/recraft-v3-svg, raster through black-forest-labs/flux-2-pro. $0.08 and $0.04 a call, shown in the iteration's usage line.",
+      `The renderer: a drawn part's body, drawn rather than written. Vector through recraft-ai/recraft-v3-svg, raster through black-forest-labs/flux-2-pro. ${rateCardSays()}, shown in the iteration's usage line.`,
     where: "https://replicate.com/account/api-tokens",
     fields: [{ id: "REPLICATE_API_TOKEN", label: "API token", hint: "r8_…", secret: true }],
   },

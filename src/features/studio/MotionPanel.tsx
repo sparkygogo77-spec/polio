@@ -13,7 +13,8 @@
  * along its shortest path looks like. So the same panel writes the brief
  * (`motionBrief`) that tells a generator what the in-betweens ought to be, on
  * the identical timing — the Builder's own pass is the floor, the brief is the
- * ceiling, and both go into the blueprint.
+ * ceiling, and both go into the blueprint. That is where a crate stops: no
+ * live part plays one yet, and the panel says so (`data-motion-reach`).
  *
  * Everything is drawn to one canvas so nothing is stored twice: the frames are
  * computed, never kept.
@@ -94,6 +95,10 @@ export function MotionPanel() {
           Crate
         </Button>
       </div>
+      <p data-motion-reach="" className="text-[9px] leading-snug text-fg-faint">
+        A crate plays here and goes into the blueprint as a brief. No part of the page plays it yet, so
+        the preview does not show it.
+      </p>
 
       {assets.length > 1 ? (
         <div className="flex flex-wrap gap-1">

@@ -116,13 +116,19 @@ export function FormatPanel() {
                 {fields.map((field) => {
                   const isChanged = format[field.id] !== undefined && format[field.id] !== field.default;
                   return (
-                    <li key={field.id} className="flex items-center justify-between gap-3 px-3 py-1.5 hover:bg-hover/40">
+                    <li key={field.id} data-format-field={field.id} className="flex items-center justify-between gap-3 px-3 py-1.5 hover:bg-hover/40">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           {isChanged ? <span className="size-1.5 shrink-0 rounded-full bg-accent" /> : null}
                           <span className="truncate text-[11px] text-fg">{field.label}</span>
                           {field.advanced ? (
                             <span className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">adv</span>
+                          ) : null}
+                          {/* A field the preview does not draw says so, rather than
+                              letting a person watch the site not change. It still
+                              reaches the blueprint, which is where it matters. */}
+                          {!field.live ? (
+                            <span data-brief-only="" title="Reaches the blueprint; the preview does not draw it." className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">brief</span>
                           ) : null}
                         </div>
                         {field.hint ? <div className="text-[10px] text-fg-muted">{field.hint}</div> : null}

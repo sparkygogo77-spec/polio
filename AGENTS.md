@@ -81,7 +81,7 @@ should be *before* writing the prompt that says what it is.
 | **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
 | **Companion** | floating, draggable | The same page as a phone or tablet — never desktop, since the board is the desktop view. Tap a part in it to select that part on the board. |
-| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. |
+| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. Below 768 px the whole side panel is a sheet over the foot of the board, opened by the same toggle, and the bar's folded controls sit behind one More key (`tests/phone-builder.mjs`). |
 | **Blueprint** | Compile button | Everything as a self-describing brief, markdown or JSON; optionally handed to Claude. |
 
 The old addresses `/studio` and `/studio/design` still open the Builder.
@@ -269,7 +269,10 @@ a kicker with a rule, and label-and-value rows that copy.
   same document. Anything that loads or renders a document carries the whole
   of it.
 - Every plain format value reaches the blueprint, resolved; advanced ones only
-  when changed; `*` marks what the author set. A default left out was read as
+  when changed; `*` marks what the author set. A field a renderer reads is
+  marked `live` in `format.ts`; the rest are marked "brief" in the panel,
+  because the preview does not draw them, and `tests/format-live.mjs` holds
+  the flags to the renderers' own source. A default left out was read as
   "not decided" and the whole visual system got inferred from six colours.
 - The blueprint explains its own conventions in "How to read this" and the
   Claude routes repeat them in their system prompt. Change one, change both:
