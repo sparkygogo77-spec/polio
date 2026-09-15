@@ -377,7 +377,21 @@ const CARDS: Recreatable = {
     }
     const bySize = [...sizes.entries()].sort((a, b) => b[0] - a[0]);
     const titleRuns = bySize.find(([, runs]) => runs.length >= kids)?.[1] ?? bySize[0]?.[1] ?? [];
-    const titles = titleRuns.slice(0, kids).map((t) => t.words);
+    /*
+     * Each title with its own sentence: the runs after a title and before
+     * the next, joined, as "title: sentence", which is what the grid part
+     * reads. Without it the part drew a filler sentence under a real title.
+     */
+    const titles = titleRuns.slice(0, kids).map((t) => {
+      const at = r.text.indexOf(t);
+      // The sentence is the run right after the title: the card's own line,
+      // not its code sample and its link as well, which came out as
+      // "…and WebKit. npm init playwright@latest Testing documentation".
+      const after = r.text[at + 1];
+      const said = after && !titleRuns.includes(after) ? after.words.trim().replace(/\s+/g, " ").slice(0, 160) : "";
+      const title = t.words.replace(/:/g, " ").trim();
+      return said ? `${title}: ${said}` : title;
+    });
     return {
       patch: {
         featureId: "card-grid",

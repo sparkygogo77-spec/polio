@@ -2,9 +2,32 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:16:36.072Z";
+export const GENERATED_AT = "2026-09-15T08:19:13.398Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "f339736",
+    "when": "2026-09-15T08:19:07+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f339736",
+        "says": "Regenerate the passes for a cube that is a solid in one step",
+        "when": "2026-09-15T08:19:07+00:00",
+        "detail": [
+          "Meitner's two: where it goes reads the part first, so a cube is a solid in one step rather than two, and the morning report for the box-to-cube arc with what was watched and what was not.",
+          "One source file, space.ts, and the suites that stand on it are the ones run.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4277:",
+          "box-to-cube      76/76 passed   (74 before) space            54 of 54 hold cube             62/62 passed space-one-open   19 of 19 hold create-flow      26 of 26 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "daa9020",
     "when": "2026-09-15T08:16:35+00:00",
@@ -1119,46 +1142,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "fc68a80",
-    "when": "2026-09-15T04:11:47+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "fc68a80",
-        "says": "Import's suite owns the directory it writes fixtures into",
-        "when": "2026-09-15T04:11:47+00:00",
-        "detail": [
-          "Hypatia's pass: import says so when it cannot open a file, instead of sitting there. Her check writes a deliberately broken mp4 and offers it, and it is a good check — it holds the words a person actually gets, and that nothing was changed by the attempt.",
-          "It wrote that file into ${SP}, which is one session's own scratchpad. Off that machine the directory does not exist, so writeFileSync threw ENOENT and took the whole run down before reaching the check it was for — not a red line in a list, a stack trace instead of the suite.",
-          "There is one owned fixtures directory now, made by the suite when SP is not really there, and both the recorded clip and the broken file go in it. IMPORT_FIXTURES still points at a prepared set for anyone who has one. 32 of 32, including her three new ones.",
-          "That is the third fixture in this suite's short life that lived in its author's sandbox: the clip, the generator script, and now the broken file. The pattern is worth a line in AGENTS.md — a suite carries its own fixtures — and it is the feature sessions' document to write."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "ae494a9",
-        "says": "Import says so when it cannot open a file, instead of sitting there",
-        "when": "2026-09-15T04:07:18+00:00",
-        "detail": [
-          "The chooser says `video/*`, so it will be handed a .mov of ProRes or an HEIC photo, and a decode that never completes left `ready` false for ever: both keys greyed out and nothing anywhere saying why. Of the three answers a person can get to a file that will not open — it works, it says no, or nothing happens — the last is the worst, and it was the one on offer.",
-          "Two ways a video refuses and both are handled: it errors, or it says nothing at all. The second is the one that hung, so it is on a six-second clock. A picture that will not decode says the same. The message names what happened, says nothing has been changed, and the way out stays where it was; the two landings say \"Nothing to land\" rather than staying mute.",
-          "tests/import.mjs 34 of 34, and the new check is red against the tree before this: \"nothing said, both keys still grey\".",
-          "Merged dijkstra and trunk before committing."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "better"
       }
     ],
     "more": 0

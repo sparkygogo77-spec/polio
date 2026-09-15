@@ -93,7 +93,12 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
    same width and the same settle as the route, so the two see one page. */
 const mine = await browser.newPage({ viewport: { width: WIDTH, height: 900 } });
 await mine.goto(SITE, { waitUntil: "domcontentloaded", timeout: 30_000 });
-await mine.waitForTimeout(900);
+/* Settled the way the route settles: until the page's requests go quiet,
+   up to four seconds, then 300ms. Read 900ms after load while the route
+   read after the quiet, three boxes on the page differed between the two,
+   which is the page still laying out, not the reader. */
+await mine.waitForLoadState("networkidle", { timeout: 4000 }).catch(() => undefined);
+await mine.waitForTimeout(300);
 const landmarks = await mine.evaluate(() => {
   const pick = Array.from(document.querySelectorAll("nav, header, main > section, footer"));
   return pick
@@ -152,15 +157,41 @@ if (!listed.ok) { await browser.close(); process.exit(1); }
 check("the page it measured is as tall as the page I looked at", listed.page.height === pageHeight, `${listed.page.height} vs ${pageHeight}`);
 const png = Buffer.from(listed.page.shot, "base64");
 const shotW = png.readUInt32BE(16), shotH = png.readUInt32BE(20);
-check("with a picture of it that is a real picture of the first screen, not a placeholder", png.subarray(1, 4).toString() === "PNG" && shotW === WIDTH && shotH === 900 && png.length > 50_000, `${shotW}×${shotH}, ${png.length} bytes`);
+/* The whole page, not the first 900px of it: candidates come from the
+   whole page, and nothing below the fold could be pointed at by eye. */
+check("with a picture of it that is a real picture of the whole page, not a placeholder", png.subarray(1, 4).toString() === "PNG" && shotW === WIDTH && shotH === Math.min(pageHeight, 4000) && png.length > 50_000, `${shotW}×${shotH} for a page ${pageHeight} tall, ${png.length} bytes`);
+/* A page that answers with an error is not a page to point at: a 404's
+   own error page was listed as "N things to point at". */
+const missing = await post({ url: new URL("/no-such-page-" + Date.now(), SITE).toString(), width: WIDTH });
+check("a page that answers 404 is refused, and the status is said", missing.ok === false && missing.reason === "status" && /404/.test(missing.message), missing.ok ? `listed ${missing.candidates.length} things` : `${missing.reason}: ${missing.message}`);
 /* Every candidate, found again on the page by the selector it gave: the
    same box, or another element's, or nothing at all. */
+/* The box as the reader lists it: grown to hold children, and their
+   children, that run out of it and touch it (a row with negative margins
+   inside a padded wrapper, a floated section's paragraphs), never placed
+   ones. Read raw, three rows on this page were 32px narrower than the
+   reader listed them, which was the growing and not a wrong selector. */
 const foundAgain = await mine.evaluate((cands) => cands.map((c) => {
   const e = document.querySelector(c.selector);
   if (!e) return "nothing";
-  const r = e.getBoundingClientRect();
+  const own = e.getBoundingClientRect();
+  let x0 = own.left, y0 = own.top, x1 = own.right, y1 = own.bottom;
+  const kids = [];
+  for (const ch of Array.from(e.children)) for (const k of [ch, ...Array.from(ch.children)]) {
+    const kr = k.getBoundingClientRect(); const cs = getComputedStyle(k);
+    if (kr.width >= 8 && kr.height >= 8 && cs.display !== "none" && cs.position !== "fixed" && cs.position !== "absolute") kids.push(kr);
+  }
+  for (let more = true; more;) {
+    more = false;
+    for (const kr of kids) {
+      if (kr.bottom <= y1 + 2 && kr.top >= y0 - 2 && kr.left >= x0 - 2 && kr.right <= x1 + 2) continue;
+      if (!(kr.top <= y1 + 24 && kr.bottom >= y0 - 24 && kr.left <= x1 + 24 && kr.right >= x0 - 24)) continue;
+      x0 = Math.min(x0, kr.left); y0 = Math.min(y0, kr.top); x1 = Math.max(x1, kr.right); y1 = Math.max(y1, kr.bottom); more = true;
+    }
+  }
+  const r = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
   const same = Math.abs(Math.round(r.x + scrollX) - c.box.x) <= 2 && Math.abs(Math.round(r.y + scrollY) - c.box.y) <= 2 && Math.abs(Math.round(r.width) - c.box.w) <= 2 && Math.abs(Math.round(r.height) - c.box.h) <= 2;
-  return same ? "same" : "another";
+  return same ? "same" : `another: ${Math.round(r.width)}×${Math.round(r.height)} at ${Math.round(r.x + scrollX)},${Math.round(r.y + scrollY)} here, ${c.box.w}×${c.box.h} at ${c.box.x},${c.box.y} read`;
 }), listed.candidates);
 const notSame = foundAgain.map((v, i) => (v === "same" ? null : `${i + 1}: ${v} for ${listed.candidates[i].selector}`)).filter(Boolean);
 check("every candidate can be found again by the selector it gave, and it is the same box", notSame.length === 0, notSame.length ? `${notSame.length} of ${listed.candidates.length} not: ${notSame.slice(0, 3).join("; ")}${notSame.length > 3 ? "; …" : ""}` : `${listed.candidates.length} of ${listed.candidates.length}`);
@@ -188,6 +219,7 @@ const off = blocks.map((b, i) => (landmarks[i] && sameBox(b.box, landmarks[i]) ?
 check("and every block is a landmark's own box, top to bottom, within two pixels", off.length === 0, off.join("; ") || `${blocks.length} of ${blocks.length} match`);
 const nav = landmarks.find((b) => b.tag === "nav");
 const barBlock = blocks[0];
+check("the bar's caption on the list keeps its links apart", /^Playwright Docs MCP CLI API/.test(barBlock?.words ?? ""), JSON.stringify(barBlock?.words.slice(0, 50)));
 check("the first block is the bar across the top: as wide as the page, short, at nought", !!barBlock && barBlock.box.y === 0 && barBlock.box.w === WIDTH && barBlock.box.h < 160, barBlock ? `${barBlock.box.w}×${barBlock.box.h} at ${barBlock.box.y}` : "no block");
 check("the last block is the foot of the page, ending where the page ends", blocks.at(-1)?.what === "the foot of the page" && blocks.at(-1).box.y + blocks.at(-1).box.h === pageBottom, blocks.at(-1) ? `${blocks.at(-1).what}, ends at ${blocks.at(-1).box.y + blocks.at(-1).box.h}` : "no block");
 
@@ -432,7 +464,7 @@ note(`the largest drift over ${byY.length * 4} shares is ${worst.toFixed(5)} of 
    card row, the first screen's paint, and its headline whole. */
 const byTop = [...parts].sort((a, b) => a.y - b.y);
 const cardsPart = byTop[2];
-check("the three-card row is cards, three in three columns, with the page's own titles", !!cardsPart && cardsPart.featureId === "card-grid" && cardsPart.options?.columns === "3" && cardsPart.content === seen.cardTitles.slice(0, 3).join("\n"), cardsPart ? `${cardsPart.featureId} ${JSON.stringify(cardsPart.options)}: ${cardsPart.content.split("\n").join(" · ")} (on the page: ${seen.cardTitles.join(" · ")})` : "no third part");
+check("the three-card row is cards, three in three columns, with the page's own titles", !!cardsPart && cardsPart.featureId === "card-grid" && cardsPart.options?.columns === "3" && cardsPart.content.split("\n").map((l) => l.split(": ")[0]).join("\n") === seen.cardTitles.slice(0, 3).join("\n"), cardsPart ? `${cardsPart.featureId} ${JSON.stringify(cardsPart.options)}: ${cardsPart.content.split("\n").join(" · ")} (on the page: ${seen.cardTitles.join(" · ")})` : "no third part");
 /* The card band paints nothing and sits on a body that paints nothing,
    which is the browser's white canvas; read as painted on nothing, it
    took the site's dark surface and drew its dark titles on it. */
@@ -440,6 +472,13 @@ check("a band on the page's unpainted white ground carries white, so its dark ti
 const heroPart = byTop[1];
 const heroLight = (() => { const m = /rgb\((\d+), (\d+), (\d+)\)/.exec(heroPart?.colour?.bg ?? ""); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 : 1; })();
 check("the first screen is painted the mean of its gradient's stops, which is dark, so its white words have a ground", !!heroPart && heroPart.featureId === "hero-split" && !!seen.heroMean && heroPart.colour?.bg === seen.heroMean && heroLight < 0.35 && heroPart.colour?.text === seen.heroText, heroPart ? `${heroPart.colour?.bg ?? "no bg"} on the part, ${seen.heroMean} as the mean of ${seen.heroStops} stops in ${JSON.stringify(seen.heroImage.slice(0, 60))}; lightness ${heroLight.toFixed(2)}` : "no second part");
+check("the first screen's painted link reads as its button, so the part carries the real label", !!heroPart && /\nbutton: Get started$/.test(heroPart.content), heroPart ? JSON.stringify(heroPart.content.split("\n").slice(-1)[0]) : "");
+/* Each card's own sentence, as "title: sentence", so the part draws the
+   page's words under the title and not its filler. */
+const cardLines = cardsPart ? cardsPart.content.split("\n") : [];
+check("each card carries its own sentence under its title, in the page's words", cardLines.length === 3 && cardLines.every((l, i) => l.startsWith(`${seen.cardTitles[i]}: `) && l.length > seen.cardTitles[i].length + 20), cardLines.map((l) => l.slice(0, 50)).join(" | "));
+const cardsDrawn = cardsPart ? await all.locator(`[data-node-id="${cardsPart.id}"] [data-part]`).innerText().catch(() => "") : "";
+check("and the part draws that sentence, not a filler", /Full-featured test runner/.test(cardsDrawn.replace(/\s+/g, " ")), JSON.stringify(cardsDrawn.replace(/\s+/g, " ").slice(0, 90)));
 check("and its headline is one line, commas and all", !!heroPart && heroPart.content.split("\n")[0] === headlineOnIt, heroPart ? JSON.stringify(heroPart.content.split("\n")[0]) : "");
 /* The ground as drawn, not as carried: the node held the page's colours
    on the first night and the part drew the site's own, because the
