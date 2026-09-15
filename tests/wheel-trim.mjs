@@ -200,6 +200,70 @@ else {
     `${JSON.stringify(before)} → ${JSON.stringify(after)}`);
 }
 
+/* ------------------------------------------------------------------ */
+/* And the whole wheel, after the three of them                         */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The three items above are each a slot; this is the rule they were three
+ * instances of. J's standard for the page's wheel is that a slab is a slab:
+ * it does something, and nothing on it says "not yet". Two of the three
+ * went for failing exactly that — the three-dot opened the tray a second
+ * time, and the animation button opened "Motion asset (soon)".
+ *
+ * So the outcome is held rather than remembered. Every slab on the page's
+ * wheel is opened in turn and what it gives back is read. Audited at
+ * 1600×1000 the level reads: Motion · Write · Draw · Create · Import ·
+ * Looks · Strip, and under them Glide; Words, Name, Address; Color,
+ * Texture, Light — with Draw and Create opening a surface of their own
+ * rather than a second level, and Import opening the file the picture
+ * comes from.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1800);
+  const bare = await page.evaluate(() => {
+    const f = document.querySelector("[data-frame]").getBoundingClientRect();
+    return { x: Math.round(f.x + f.width / 2), y: Math.round(f.y + f.height / 2) };
+  });
+  const open = async () => {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(250);
+    await page.mouse.click(bare.x, bare.y, { button: "right" });
+    await page.waitForTimeout(550);
+  };
+  const slabs = () => page.locator("[data-radial] [data-shard]").evaluateAll((els) =>
+    els.map((e) => ({ id: e.getAttribute("data-shard"), label: e.getAttribute("aria-label") })));
+
+  await open();
+  const top = await slabs();
+  check("the page's wheel has its slabs", top.length >= 6,
+    top.map((s) => s.label).join(" · "));
+  check("and not one of them says soon",
+    !top.some((s) => /soon/i.test(s.label ?? "")),
+    top.filter((s) => /soon/i.test(s.label ?? "")).map((s) => s.label).join(", ") || "none of them");
+
+  const dead = [];
+  const said = [];
+  for (const s of top) {
+    if (!s.id || s.id === "delete" || s.id === "duplicate") continue;   /* Strip is destructive; Import opens a file picker. */
+    await open();
+    const el = page.locator(`[data-radial] [data-shard="${s.id}"]`).first();
+    if (!(await el.count())) { dead.push(`${s.label} is not there`); continue; }
+    await el.click();
+    await page.waitForTimeout(550);
+    const inner = await slabs();
+    const soon = inner.filter((x) => /soon/i.test(x.label ?? ""));
+    if (soon.length) dead.push(`${s.label} → ${soon.map((x) => x.label).join(", ")}`);
+    said.push(`${s.label}: ${inner.map((x) => x.label).filter(Boolean).join(", ") || "a surface of its own"}`);
+  }
+  check("and nothing under them does either", dead.length === 0, dead.join("; ") || said.join(" · "));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  await page.close();
+}
+
 await browser.close();
 console.log("");
 const failed = results.filter((r) => !r).length;

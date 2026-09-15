@@ -65,17 +65,22 @@ await page.keyboard.press("Escape");
 await page.waitForTimeout(400);
 check("Escape closes the background wheel", !(await wheelOpen()));
 
-// 5. Clicking the wheel itself does not close it.
-await openOnFrame();
-const w = await wheel().boundingBox();
-if (w) {
-  await page.mouse.click(w.x + w.width / 2, w.y + w.height / 2);
-  await page.waitForTimeout(400);
-  // The centre of the wheel's box is its middle button (Add on the page's
-  // wheel), which opens the add disc: the wheel is still up, as the disc is
-  // the wheel. A press on a piece proper is section 6, by its label.
-  check("pressing the middle button keeps the wheel up", await wheelOpen());
-} else check("pressing the middle button keeps the wheel up", false, "no wheel geometry found");
+/*
+ * 5. GONE, and this is the note that replaces it.
+ *
+ * It read "clicking the wheel itself keeps it open" and it clicked the
+ * middle of the wheel's bounding box. On a square menu the middle of that
+ * box is the hole, and in the hole is the Add button — so it pressed a
+ * control, the control opened the add disc, the disc is inside
+ * `[data-radial]`, and `wheelOpen()` came back true. Green every time, for
+ * none of the reasons in its name.
+ *
+ * Both halves of what it was reaching for are already held, properly and
+ * once each: a press on a piece is check 6 below, pressed where the word
+ * is rather than at a centre that is not on the piece at all; and what the
+ * middle does is "the middle of the page's wheel opens the add disc",
+ * further down, which presses it on purpose and says so.
+ */
 
 /*
  * 6. And a press on a *piece* keeps it open, pressed where the word is.

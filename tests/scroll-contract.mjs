@@ -488,6 +488,116 @@ console.log(`       headroom above, for comparison with his 78: ${gaps.map((g) =
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* The last three clauses, in J's own order                             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * "Further scrolling down bottoms out against the search tab, or goes
+ * further if the categories are selected and there is more. Scrolling
+ * anywhere other than the actual home page allows downward movement only."
+ *
+ * Three rules, and the shape of the answer is that two of them are now
+ * structural rather than enforced by hand. The search tab is a `shrink-0`
+ * row above the shelf's own scroller, and the band it sits in is stuck to
+ * the pane's bottom, so it is a floor that cannot move: measured through a
+ * whole gesture down and back up, it stays at one y. And the pane is an
+ * ordinary scroller, so it clamps at nought — "downward only" is the
+ * browser's, and what has to be checked is that nothing else pushes it
+ * negative and that a page change lands at the top rather than keeping the
+ * last page's scroll.
+ *
+ * The third is real machinery: opening a category gives the shelf its own
+ * travel, which is the "there is more" he is describing.
+ */
+{
+  const part2 = (id, pageId, y) => ({
+    id, pageId, featureId: "custom-idea", label: id, prompt: "", content: "", data: "",
+    x: 120, y, w: 900, h: 320, groupId: null, options: {}, priority: "must", custom: true,
+    glyph: null, hue: null, locked: false, link: null, colour: null, font: null, anim: null, animSpeed: 1,
+    animDelay: 0, animEase: "smooth", shape: null, outline: null, kind: null, vector: null, role: null,
+    cube: null, mesh: null, code: null, aura: null, auraSize: 1, auraStyle: "glow", texture: null, sketch: null, plan: null,
+  });
+  const two = { state: {
+    pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" },
+            { id: "page_about", name: "About", path: "/about", prompt: "", scroll: "inherit" }],
+    activePageId: "page_home", groups: [], selection: [], threads: [], spaces: [], shapes: [],
+    nodes: [...[80, 900, 1800, 2700, 3600].map((y, i) => part2(`h${i}`, "page_home", y)),
+            ...[80, 900, 1800, 2700, 3600].map((y, i) => part2(`a${i}`, "page_about", y))],
+  }, version: 0 };
+
+  const ctx = await browser.newContext({ viewport: { width: 2048, height: 1152 } });
+  await ctx.addInitScript((d) => { try { localStorage.setItem("builder.studio", JSON.stringify(d)); } catch { /* private mode */ } }, two);
+  const page = await ctx.newPage();
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(2200);
+
+  const state = () => page.evaluate(() => {
+    const pane = document.querySelector("[data-studio-pane]");
+    const shelf = document.querySelector("[data-shelf]");
+    const q = document.querySelector("[data-parts-search]");
+    return { pane: Math.round(pane.scrollTop), paneMax: pane.scrollHeight - pane.clientHeight,
+      shelfMax: shelf ? shelf.scrollHeight - shelf.clientHeight : null,
+      searchY: q ? Math.round(q.getBoundingClientRect().top) : null,
+      active: (() => { try { return JSON.parse(localStorage["builder.studio"]).state.activePageId; } catch { return null; } })() };
+  });
+  const wheel = async (sel, dy, n) => {
+    const box = await page.locator(sel).first().boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(200, box.height / 2));
+    for (let i = 0; i < n; i++) { await page.mouse.wheel(0, dy); await page.waitForTimeout(35); }
+    await page.waitForTimeout(350);
+  };
+
+  const rest = await state();
+  check("2048×1152, five screens: the site has somewhere to go",
+    rest.paneMax > 100 && rest.pane === 0, `${rest.paneMax}px of travel, sitting at ${rest.pane}`);
+
+  await wheel("[data-studio-pane]", 400, 20);
+  const down = await state();
+  check("scrolling down bottoms out at the categories and no further",
+    down.pane === down.paneMax, `${down.pane} of ${down.paneMax}`);
+  check("and the search tab did not move on the way — it is the floor",
+    down.searchY === rest.searchY, `y ${rest.searchY} → ${down.searchY}`);
+
+  await wheel("[data-studio-pane]", -400, 30);
+  const up = await state();
+  await wheel("[data-studio-pane]", -400, 10);
+  const further = await state();
+  check("scrolling back up stops at the top, and pushing further does nothing",
+    up.pane === 0 && further.pane === 0, `${down.pane} → ${up.pane} → ${further.pane}`);
+  check("and the search tab held its line through the whole gesture",
+    further.searchY === rest.searchY, `y ${rest.searchY} throughout`);
+
+  /* Away from the home page: the same rules, and it arrives at the top
+     rather than keeping where the last page was left. */
+  await wheel("[data-studio-pane]", 400, 20);
+  const other = page.locator('button:has-text("About"), [data-page-id="page_about"]').first();
+  if (await other.count()) {
+    await other.click();
+    await page.waitForTimeout(1300);
+    const away = await state();
+    check("a page that is not the home page arrives at the top",
+      away.active === "page_about" && away.pane === 0, `${away.active} at ${away.pane}`);
+    await wheel("[data-studio-pane]", -400, 12);
+    const awayUp = await state();
+    check("and allows downward movement only from there",
+      awayUp.pane === 0, `pushed up to ${awayUp.pane}`);
+  } else check("there is a way to the other page", false, "no About control on the bar or the panel");
+
+  /* "or goes further if the categories are selected and there is more" */
+  const before = await state();
+  const cat = page.locator("[data-category]").first();
+  if (await cat.count()) {
+    await cat.click();
+    await page.waitForTimeout(800);
+    const open = await state();
+    check("opening a category gives the shelf more to go through",
+      (before.shelfMax ?? 0) === 0 && (open.shelfMax ?? 0) > 100,
+      `the shelf's own travel ${before.shelfMax} → ${open.shelfMax}`);
+  } else check("there is a category to open", false, "no [data-category]");
+  await ctx.close();
+}
+
 await browser.close();
 console.log("");
 const failed = results.filter((r) => !r).length;

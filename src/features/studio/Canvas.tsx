@@ -517,6 +517,29 @@ export function Canvas() {
   }, [fitNonce, frameWidth, fitZoom, fitTo]);
 
   /*
+   * A page you have not seen starts at its top.
+   *
+   * The pane is one scroller for whichever page is on the board, so going
+   * from one to another left the new one at the old one's scrollTop: with
+   * five screens on each, switching from the home page 437px down landed
+   * 437px down a page nobody had looked at yet. J's rule for anywhere that
+   * is not the home page is downward movement only, and arriving part-way
+   * down is not the top of that movement.
+   *
+   * Only on a change of page, so it cannot fight a person's own scrolling,
+   * and in a layout effect so the new page is never painted at the old
+   * offset first.
+   */
+  const pageId = page?.id ?? null;
+  const cameFrom = React.useRef(pageId);
+  React.useLayoutEffect(() => {
+    if (cameFrom.current === pageId) return;
+    cameFrom.current = pageId;
+    const pane = ref.current?.closest("[data-studio-pane]");
+    if (pane instanceof HTMLElement) pane.scrollTop = 0;
+  }, [pageId]);
+
+  /*
    * And the same comparison at render time, which is free and catches the
    * case a moment sooner than the clock would: the pane's width against the
    * width the frame was fitted for. A render happens for a hundred reasons
