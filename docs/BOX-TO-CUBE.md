@@ -225,3 +225,96 @@ What falls short, by name:
   middle of typing one word makes two edits of it. Chosen over "until the
   field loses focus" because a field can lose focus without the person
   meaning the edit to end.
+
+## Finished items, for the morning
+
+One line each: what closed, the number that proves it, and how it was
+seen. "Watched" is a committed screenshot I looked at; "held by the suite"
+is a check that read it and I did not.
+
+- A plain drawn box becomes a real cube with no words and no key: 240 × 180 drawn → `cube-3d` at 302 × 227, ratio 1.33 kept, 0 model calls. Watched.
+- The box says it is a box: `box · cube` on the part chip, "a box: it will be a cube" on the disc. Chip watched; disc held by the suite.
+- The object keeps the drawn proportion: 223 × 168 × 168 inside 302 × 227, depth the short side. Watched.
+- It turns by dragging where it lands: −18,−32 → −11,15 over 112 px; rests at −18,58 in 1.6 s. Watched.
+- It cannot be tumbled: 480 px of upward drag reaches 85° of a possible 202°, then returns to rest. Watched, held and rested.
+- A face is picked by pressing it and typing lands on it: `left` picked, heading focused, "Hello there" on that face. Watched.
+- The words stay on their face through turns: two quarters away, two back, four round, still on `left`. Watched, away and back.
+- Naming a face in the panel turns the cube to it; the wheel's pencil writes on the picked face: "From the wheel" on `back`. Watched on the cube; the plate held by the suite.
+- Move and resize like any part: 120,60 px → 122,58 moved; 302 × 227 → 432 × 304, object 320 × 225 × 225. Watched.
+- Undo takes the resize and the move back: 302 × 227, then 287,343. Watched.
+- One undo takes back an edit, not a letter: 11 keystrokes off a face in one press, 23 off the part's prompt in one press, size untouched. Watched (face); prompt held by the suite.
+- Reload brings the cube, its size, faces and pose back. Held by the suite.
+- The blueprint carries the faces, a face's own prompt, the proportion and what a drawn box means. Held by the suite.
+- No key, no error: the solid card unlit, names `tencent/hunyuan3d-2mv`, 0 calls; "Where it goes" says "an object you can turn", one first pass. Watched.
+- A token lights the road and one call goes up with four views (6740 + 14592 + 16772 + 9500 base64 chars), no key in the body. Watched.
+- The answer lands as a solid with the cube kept; Back to the cube is one press. Watched.
+- The still under a solid is the object: 512 × 360, 89 distinct colours where a blank plate had 1. Watched.
+- Suites on the build: box-to-cube 82/82, cube 62/62, cube-part 29/29, oddness 53/53, coded 39/39, scaffold 32/32, shapes 21/21, audit-panel 25/25, import 32/32, ink 46/46, molten 121/121, menu-pass 101/101; typecheck clean, build rc 0.
+
+Still open, by name:
+
+- **The vendor**: a mocked route answering a 24-byte GLB, left alone on purpose until a key is on the site.
+- **The still is orthographic** where the live cube is in perspective.
+- **Undo runs are timed** (1.5 s), not semantic.
+- **The reload, the disc caption, the wheel plate and the prompt undo** are held by the suite only.
+
+## What a person does second
+
+Four questions past the judged walk, measured by `tests/cube-second.mjs`
+against the production build (31 of 31 on the board, port 4305; 7 of 7
+in the fresh browser), each with what falls short named. Watched means
+the committed shot in `docs/shots/cube-second-*.png`.
+
+**More than one cube on a board.** Two boxes drawn become two cubes, each
+at its own proportion (307 × 237 and 279 × 279), with no model called.
+Picking one makes only that one hands-on; turning it leaves the other at
+−18,−32; a face picked on one takes the words ("Alpha") and the other's
+six stay blank; picking the other lets the first face go; the arrow keys
+turn only the picked one; both come back after a reload with their own
+words and poses. Watched: `cube-second-1-two-cubes.png`. Falls short:
+nothing found. Note for anyone drawing several: boxes put down in one
+sitting within reach of each other are one drawing by the board's own
+ink rule, so draw one, make it real, then the next.
+
+**A cube in a space beside a flat part.** A space drawn round a flat part
+opens; a box drawn inside it becomes a cube (311 × 186); the cube has a
+panel of its own in the space; the space counts "2 parts"; the cube turns
+in there (to −18,58); Lock the layout locks both; dragging the space's
+size handle carries the cube with it (311 × 186 at 191,491 → 374 × 220 at
+256,567, object 230 × 138 × 138 → 277 × 163 × 163) and the flat part too
+(480 × 200 → 578 × 237). Watched: `cube-second-2-in-a-space.png`,
+`cube-second-2b-space-resized.png`. Fell short and fixed: the space's
+own key on the board goes the moment a part is inside it, so a space
+holding placed parts and no drawings had no panel to lock the layout
+from; the picked part's panel now carries "This space" (`data-space-own`)
+as the way back. Also fell short and fixed: the cube landed at a
+fractional position (191.03, 491.38) where every other part lands on
+whole pixels; a drawn part's landing is rounded now, and the suite holds
+it to integers.
+
+**A drawn box that is not square.** Pure: 480 × 160 stays 480 × 160,
+140 × 420 stays 140 × 420, 50 × 40 grows to 150 × 120, 600 × 60 grows to
+1200 × 120, depth is always the short side, and a 6:1 box is still a box.
+On the board: a 360 × 90 box is a slab (502 × 126 part, object
+371 × 93 × 93), a 90 × 300 box is a pillar (126 × 419, object
+93 × 310 × 93), a 44 × 36 box grows to 148 × 120 in proportion (object
+110 × 89 × 89). Watched: `cube-second-3-not-square.png`. Fell short and
+fixed: a tiny box lost its proportion before the cube could keep it,
+because the part floors (80 wide, 24 tall) were clamped one axis at a
+time (44 × 36 → 80 × 36 → 192 × 120); both axes grow by one factor now.
+Still short: on a slab or a pillar the narrow faces are as wide as the
+object is deep, so a heading on them is the short side's 11%, 11 px at
+these sizes, and reads as a label at best. The front heading is at the
+11 px floor on all three.
+
+**Saved and reopened in a new browser.** The document as Publish sends it
+(`site/document.json`, 3395 bytes, one node) carries the cube, its faces
+and its pose; the site was built with it; a fresh browser context with
+nothing in it opened `/site`: the cube is on it, standing where it was
+left (document −18,148, site −18,148), with "Second browser" on the left
+face, at its drawn proportion (248 × 186 × 186); a visitor can turn it
+(−18,148 → −18,188) and it comes to rest for them (−18,−122 after
+1.5 s). Watched: `cube-second-4-fresh-browser.png`; the words are on the
+face turned away at that pose, so the shot shows the object and not the
+words. The document written for this was restored afterwards; the
+repo's `site/document.json` is unchanged.

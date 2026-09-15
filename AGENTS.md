@@ -401,6 +401,14 @@ a kicker with a rule, and label-and-value rows that copy.
   cards is their frame, a box over the hero is the hero's new edge. The
   disc says "a box: it will be a cube" while it is being drawn, the part's
   chip says `box · cube` after, and the panel wears "a box, made a cube".
+  A drawing too small to be a part is grown to the floors in proportion
+  (`applyProportion`), because the floors differ by axis and a 44 × 36
+  mark was landing 80 × 36 with its one fact lost. What a person does
+  second — two cubes, a cube in a space beside a flat part, a box that is
+  not square, a fresh browser opening `/site` — is measured by
+  `tests/cube-second.mjs`; the space's picked-part panel carries "This
+  space" as the way back to the space's own panel, because its key on the
+  board goes once a part is inside it.
   A cube skips the reshape route entirely, so the whole path — kind, size,
   faces, the part itself — happens with no model call of any sort.
   **It is the proportion it was drawn at.** The catalogue keeps the part's
