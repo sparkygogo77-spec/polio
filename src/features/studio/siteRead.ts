@@ -110,21 +110,50 @@ export const MEASURE = (selector: string) => {
      Walked as text nodes rather than read off tags, because the biggest
      run is the headline whatever it was marked up as. */
   const text: { words: string; px: number; weight: number; y: number }[] = [];
+  /* One line of the page is one run, whatever is marked up inside it: a
+     heading with an `abbr` in it is three text nodes and one line, and it
+     came out as "The Beauty of" / "CSS" / "Design". Runs are joined while
+     they share the block they sit in and the size they are set at. */
+  const blockOf = (e: Element): Element => {
+    let node: Element | null = e;
+    while (node && node !== el) {
+      const d = getComputedStyle(node).display;
+      if (d !== "inline" && d !== "contents") return node;
+      node = node.parentElement;
+    }
+    return el;
+  };
+  let lastBlock: Element | null = null;
+  let lastEndedInSpace = false;
   const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-    const words = (n.textContent ?? "").replace(/\s+/g, " ").trim();
-    if (!words) continue;
+    const raw = n.textContent ?? "";
+    const words = raw.replace(/\s+/g, " ").trim();
+    if (!words) { if (/\s/.test(raw)) lastEndedInSpace = true; continue; }
     const parent = n.parentElement;
     if (!parent) continue;
     const ps = getComputedStyle(parent);
     if (ps.display === "none" || ps.visibility === "hidden") continue;
+    const px = Math.round(parseFloat(ps.fontSize) || 16);
+    const weight = Number(ps.fontWeight) || 400;
+    const block = blockOf(parent);
+    const last = text[text.length - 1];
+    if (last && block === lastBlock && last.words.length < 300) {
+      // The size stays the line's own: an `abbr` set a shade smaller is still on the line.
+      const glue = lastEndedInSpace || /^\s/.test(raw) ? " " : "";
+      last.words = `${last.words}${glue}${words}`.replace(/\s+/g, " ").slice(0, 300);
+      lastEndedInSpace = /\s$/.test(raw);
+      continue;
+    }
+    lastEndedInSpace = /\s$/.test(raw);
     const pb = parent.getBoundingClientRect();
     text.push({
       words: words.slice(0, 300),
-      px: Math.round(parseFloat(ps.fontSize) || 16),
-      weight: Number(ps.fontWeight) || 400,
+      px,
+      weight,
       y: box.height ? Math.round(((pb.top - box.top) / box.height) * 100) / 100 : 0,
     });
+    lastBlock = block;
     if (text.length >= 40) break;
   }
 

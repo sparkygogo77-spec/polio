@@ -109,7 +109,7 @@ const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><r
 const HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</title><link rel="stylesheet" href="css/style.css"><script src="js/app.js"></script></head><body>
   <header><span class="name">Harbour</span><nav><a href="/product">Product</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a></nav><button onclick="alert(1)">Start free</button></header>
   <section class="hero">
-    <div><h1>Everything arrives somewhere</h1><p>Freight, tracked from the quay to the door, in one place.</p></div>
+    <div><h1>Everything <abbr title="gets there">arrives</abbr> somewhere</h1><p>Freight, tracked from the quay to the door, in one place.</p></div>
     <img width="640" height="360" alt="A harbour at first light" src="img/quay.svg">
   </section>
   <section class="cards">
@@ -157,7 +157,7 @@ check("and a request with a query still finds the file", fileFor("css/style.css?
 check("what is served is served as what it is, and the unknown is not served", contentType("a/b.css")?.startsWith("text/css") && contentType("x.svg") === "image/svg+xml" && contentType("run.exe") === null);
 const quiet = sansScripts(HTML);
 check("the page is opened with its scripts taken out, every one", !/<script/i.test(quiet) && !/onclick/i.test(quiet) && hadScripts(HTML) && !hadScripts(quiet));
-check("and everything else left as it was", /<h1>Everything arrives somewhere<\/h1>/.test(quiet) && /Start free/.test(quiet));
+check("and everything else left as it was", /<h1>Everything <abbr title="gets there">arrives<\/abbr> somewhere<\/h1>/.test(quiet) && /Start free/.test(quiet));
 
 /* The whole page as blocks: the outermost bands, top to bottom, the
    wrapper that holds them all set aside. */
@@ -316,7 +316,7 @@ const parts = after.nodes.filter((n) => !before.nodes.some((b) => b.id === n.id)
 check("every block is a part on the board", parts.length >= 4, `${parts.length} parts`);
 check("each a real part of the library, not a picture with fields on it", parts.every((n) => !n.custom && !n.code && typeof n.content === "string" && n.content.length > 0), parts.map((n) => n.featureId).join(", "));
 check("named for what it is and whose it was", parts.some((n) => n.label === "Top bar from harbour.zip") && parts.some((n) => n.label === "First screen from harbour.zip"), parts.map((n) => n.label).join(" | "));
-check("with the page's own words in it", parts.some((n) => /Product\nPricing\nDocs/.test(n.content)) && parts.some((n) => /Everything arrives somewhere/.test(n.content)));
+check("with the page's own words in it, a line whole whatever is marked up inside it", parts.some((n) => /Product\nPricing\nDocs/.test(n.content)) && parts.some((n) => /^Everything arrives somewhere\n/.test(n.content)), parts.map((n) => n.content.split("\n")[0]).join(" | "));
 check("and a prompt of its own, ready to steer", parts.every((n) => /Recreated from harbour\.zip/.test(n.prompt)));
 const bb = space.boundary;
 const bx = Math.min(...bb.map((p) => p[0])), by = Math.min(...bb.map((p) => p[1]));
