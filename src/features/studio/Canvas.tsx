@@ -27,7 +27,7 @@ import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
-import { useImportPreview } from "./ImportFlow";
+import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID } from "./store";
@@ -1532,8 +1532,32 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
    */
   const hugs = React.useMemo(() => (node.outline?.cut ? handlePoints(node.outline.cut) : null), [node.outline?.cut]);
 
+  /*
+   * An import shrinking in from the edges.
+   *
+   * Run by the part, once, on the frame after it mounts, and only if it is
+   * the part that just arrived — `claimArrival` spends the mark, so a board
+   * that re-renders for any other reason does not replay it. The Web
+   * Animations API rather than a class: the box it starts from depends on
+   * where this part landed and how tall the page is, and a stylesheet knows
+   * neither. Nothing is left behind on the element when it finishes.
+   */
+  const body = React.useRef<HTMLDivElement>(null);
+  const arrive = useArrival(node.id);
+  React.useEffect(() => {
+    const from = arrive;
+    const el = body.current;
+    if (!from || !el) return;
+    const run = el.animate(
+      [{ transform: from, opacity: 0.55 }, { transform: "none", opacity: 1 }],
+      { duration: IMPORT_SETTLE_MS, easing: "cubic-bezier(0.2, 0.9, 0.2, 1)", fill: "none" },
+    );
+    return () => run.cancel();
+  }, [arrive]);
+
   return (
     <div
+      ref={body}
       data-node-id={node.id}
       {...ctxProps("studio-node", node.id, node)}
       onPointerDown={(e) => {
