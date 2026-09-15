@@ -119,9 +119,11 @@ not load", which is the honest state for a GLB of 24 bytes.
 
 ## Left open
 
-- The panel's "Where it goes / Model" cards (another session's) still
-  describe a cube as "a mark or small icon" routed to GPT Image 2, because
-  they read the part's words, and a cube has none. They are not wrong
-  about the words; they are wrong about the part. Not touched here.
+- The panel's "Where it goes" card read a cube as "a mark or small icon"
+  routed to GPT Image 2, because it read the part's words and a cube has
+  none. Fixed after the first pass: `planFor` reads the part first
+  (`isSolidPart`), so a cube is "an object you can turn", one step, to
+  `tencent/hunyuan3d-2mv`, the same answer the solid card gives. Checked
+  by the walk suite.
 - The still a solid falls back to is the front face drawn flat, which is
   blank when the front face is blank.
