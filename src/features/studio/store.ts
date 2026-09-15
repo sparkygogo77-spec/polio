@@ -18,6 +18,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature } from "./catalog";
+import { takeDoc } from "./docTake";
 import { formatDefaults, type FormatValues } from "./format";
 import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
 
@@ -757,7 +758,7 @@ interface StudioState extends Doc {
   applyRevision: (entryId: string) => void;
   clearTrail: () => void;
   resetAll: () => void;
-  loadDoc: (doc: Partial<Doc>) => void;
+  loadDoc: (doc: Partial<Doc> & { frameWidth?: number }) => void;
   undo: () => void;
   redo: () => void;
   commit: () => void;
@@ -2017,27 +2018,8 @@ export const useStudio = create<StudioState>()(
 
         loadDoc: (doc) => {
           push();
-          set((s) => {
-            const pages = doc.pages?.length ? doc.pages : s.pages;
-            return {
-              pages,
-              nodes: doc.nodes ?? s.nodes,
-              groups: doc.groups ?? s.groups,
-              shapes: doc.shapes ?? s.shapes,
-              spaces: doc.spaces ?? s.spaces,
-              format: { ...formatDefaults(), ...(doc.format ?? {}) },
-              brief: { ...s.brief, ...(doc.brief ?? {}) },
-              // The look and the behaviours are the document too. Leaving
-              // them out meant a published site came back in the template's
-              // colours: the palette, the texture stack, the lamp and every
-              // tier-B behaviour were dropped on the way in, and the page
-              // that had been designed dark green arrived default purple.
-              look: doc.look ? { ...emptyLook(), ...doc.look } : s.look,
-              motion: doc.motion ?? s.motion,
-              activePageId: pages[0]!.id,
-              selection: [],
-            };
-          });
+          // What the document brings, the width included: see `docTake.ts`.
+          set((s) => takeDoc(s, doc, { format: formatDefaults, look: emptyLook }) as unknown as Partial<StudioState>);
         },
 
         undo: () =>
