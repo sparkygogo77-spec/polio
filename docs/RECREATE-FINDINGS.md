@@ -50,6 +50,25 @@ The pieces, in the order a page passes through them:
   is often a `<header>`) was named "the bar across the top" in the list
   while the catalogue rightly made it a first screen. A header is named a
   bar only at a bar's height.
+- **Fixed.** A candidate's selector was cut at six steps under the body
+  and still prefixed `body >`, so anything seven deep, 22 of the 60
+  things listed on playwright.dev, matched nothing and came back "not on
+  the page any more" when pressed; two of those were among the 24 the
+  panel offered. The path walks all the way to the body: 60 of 60 are
+  found again at the same box.
+- **Fixed.** A link with no words (a GitHub mark, a Discord mark) was
+  dropped, so a bar of 12 links read as 10. It is named by its label,
+  its title, its picture's alt, its icon's title or the last part of
+  where it goes: 12 of 12, "GitHub repository", "Discord server".
+- **Fixed.** A block's children were its direct children, and a page
+  builder wraps a band's contents in a container and a row, so a row of
+  three cards read as one child and landed as a band of words. A wrapper
+  that is the only thing inside is opened, up to four deep: the card row
+  is three cards, three columns, the page's own titles.
+- **Fixed.** A gradient was not paint: a first screen painted with three
+  dark stops read as painted on nothing and its white words landed on no
+  ground. The mean of a gradient's stops is its colour, for the block's
+  own paint and for what is behind it: rgb(33, 40, 40), lightness 0.15.
 - **Open.** Web fonts the page loads from the network are not fetched on
   either door: the zip's page may not ask the network for anything, and
   the address door reads only the one page. Type lands as the fallback
@@ -94,6 +113,11 @@ The pieces, in the order a page passes through them:
 - **Fixed.** There was no list-of-links part, so a sidebar of pages or a
   list of resources landed as a band of words. Three or more links that
   are most of a block's words are a list of links, every link a line.
+- **Fixed.** Untagged, a footer was any band low on the page with four
+  links. Once icon links were named, a band of nine company marks near
+  the foot read as a footer with nine links. Only links that are words on
+  the page count toward an untagged footer; the marks are a band of
+  pictures for the grounded step.
 - **Open.** The Zen Garden's design list pairs each design with its
   author as two links; the list part shows them as consecutive lines.
   The page's pairing is not a shape the list part has.
@@ -121,6 +145,18 @@ The pieces, in the order a page passes through them:
   key, and 0 of its two handles picked it, so once a part in it was picked
   the space's panel (Make it again, the order) was gone for good. Taking
   hold of the surface picks it.
+- **Fixed.** Parts were placed on whole pixels, so a 60px bar on a 3077px
+  page landed 31px tall on a 1573px surface and 16 of 36 locked shares
+  split at the third decimal against the page; the surface's proportion
+  was 2.4034 against the page's 2.4039. The fit, the frame placement and
+  the single take are to a hundredth of a pixel: 2.40397 against 2.40391,
+  the largest share drift 0.00006 of the page.
+- **Fixed.** The panel offered the 24 biggest things, and the bar across
+  the top of playwright.dev was the 38th, so the one thing a person points
+  at first could only be had by taking the whole page. The page's blocks
+  come first on the list, top to bottom, then the rest biggest first; a
+  block that is a run of small boxes is measured member by member when
+  taken alone, as when the page is taken whole.
 
 ### The part (how it draws)
 
@@ -128,6 +164,28 @@ The pieces, in the order a page passes through them:
   started" and "Learn more" buttons when it was given none. The reading
   is right (the page had no buttons there); the part fills the gap with
   its defaults. Left alone: the part's behaviour, not the reading's.
+- **Fixed.** The colour parser knew hex and oklch and not the browser's
+  own `rgb()`, so every colour measured off a page was carried on the
+  node and dropped by the part: a white bar drew the site's dark surface,
+  and the footer's dark paint on the first night was the site's own,
+  not the page's. `rgb()` and `rgba()` parse; the bar draws oklch(1 0 0),
+  the first screen rgb(33, 40, 40).
+- **Fixed.** A part landed at half the page's width kept the page's type
+  at full size: a 48px headline in a box half as tall, cut off at the
+  top. The type is scaled by the same number as the box, so the first
+  screen draws its headline at 28.8px with nothing cut off. The theme
+  floors `size` at 0.6, so a surface drawn narrower than six tenths of
+  the page still lands its words a shade larger than the page had them.
+- **Open, by instruction.** The header part folds its links under a menu
+  below 640px, so the bar taken alone into a 655px space lands 589px
+  wide and shows its name and a menu; laid on the whole page's surface
+  at 654.5px it shows its links. The part's own rule, not the reading's.
+- **Fixed.** Every part split its contents at commas as well as at
+  lines, so a headline with commas in it, "…for testing, scripting, and
+  AI agents.", was three items: the first drawn as the line, the second as
+  the sentence under it, the third lost. Contents with lines in them are
+  split at lines only; a content on one line is still a list by its
+  commas. The first screen draws its 82-character headline whole.
 - **Open.** The card-grid part keeps each card's title and not its
   sentence; the filler under a title on a landed card grid is the
   part's, not the page's.
