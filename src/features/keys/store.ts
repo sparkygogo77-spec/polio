@@ -1,6 +1,6 @@
 "use client";
 /**
- * The key vault: what this browser holds, and whether it is open.
+ * The keys panel: what this browser holds, and whether it is open.
  *
  * Two quite different things live near each other here and must not be
  * confused. **The server's keys** are the real ones: they sit in the
@@ -30,7 +30,7 @@
  *   the clear, so it survives a reload of this tab and dies with it. The
  *   honest option where there is no Web Crypto (an embedded browser on a
  *   plain http address), and the simple one anywhere.
- * - **Kept for this tab**, which is the sealed vault after the PIN has been
+ * - **Kept for this tab**, which is the sealed keys after the PIN has been
  *   entered once, asked to stay open until the tab closes: the open values
  *   go to sessionStorage as well, so a reload does not relock it and neither
  *   does the idle timer. A new tab has an empty sessionStorage and asks for
@@ -118,7 +118,7 @@ const SESSION_KEY = "builder.keys.session";
 const PLAIN_KEY = "builder.keys.plain";
 /** The setting that brings the PIN back. Off, and there is no pad anywhere. */
 export const PIN_SETTING = "keys.pin";
-/** The sealed vault relocks itself after this long without a keystroke. */
+/** The sealed keys relocks itself after this long without a keystroke. */
 export const IDLE_MS = 5 * 60_000;
 /** Wrong PINs before the pad stops taking them for a while. */
 const MAX_TRIES = 5;
@@ -152,16 +152,16 @@ function writePlain(values: Values | null) {
 }
 
 interface KeysState {
-  /** Is there a sealed vault on this browser at all? */
+  /** Is there a sealed keys on this browser at all? */
   exists: boolean;
   unlocked: boolean;
   /** Open with no PIN: held for this tab only. */
   held: boolean;
-  /** The sealed vault, asked to stay open for this tab across reloads. */
+  /** The sealed keys, asked to stay open for this tab across reloads. */
   kept: boolean;
   /** No PIN: the key is simply held in this browser. The resting state. */
   plain: boolean;
-  /** A sealed vault from before the PIN was put away, waiting to be brought across. */
+  /** A sealed keys from before the PIN was put away, waiting to be brought across. */
   sealedWaiting: boolean;
   /** Open values. In memory; mirrored to sessionStorage only when held. */
   values: Values;
@@ -178,11 +178,11 @@ interface KeysState {
   unlock: (pin: string) => Promise<boolean>;
   /** Open with no PIN, for this tab. */
   hold: () => void;
-  /** Keep the open vault for this tab, across reloads, until the tab closes. */
+  /** Keep the open keys panel for this tab, across reloads, until the tab closes. */
   keep: (on: boolean) => void;
-  /** Drop the key this browser holds. The plain vault's only door. */
+  /** Drop the key this browser holds. The plain keys's only door. */
   forget: () => void;
-  /** Open a vault sealed before the PIN was put away, and hold what was in it plainly. */
+  /** Open a keys panel sealed before the PIN was put away, and hold what was in it plainly. */
   bringAcross: (pin: string) => Promise<boolean>;
   lock: () => void;
   touch: () => void;
@@ -224,7 +224,7 @@ function write(box: SealedBox) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(box));
   } catch {
-    /* private mode, or a full quota: the vault simply does not persist */
+    /* private mode, or a full quota: the keys panel simply does not persist */
   }
 }
 
@@ -232,7 +232,7 @@ function write(box: SealedBox) {
  * What this tab has open, written down so a reload does not lose it.
  *
  * Held and kept both land here, and the record says which: a held tab has no
- * PIN to remember, a kept one keeps its PIN so a save can reseal the vault
+ * PIN to remember, a kept one keeps its PIN so a save can reseal the keys panel
  * without asking for it again. Either way it is sessionStorage, so it is this
  * tab's alone and goes when the tab does.
  */
@@ -290,7 +290,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
 
   refresh: () => {
     /*
-     * No PIN is the ordinary case: the key is in this browser, the vault is
+     * No PIN is the ordinary case: the key is in this browser, the keys panel is
      * open, and there is nothing to unlock. A key held under the old PIN
      * comes across on the way past — from this tab's own record without
      * asking, and from a sealed box only when someone types the PIN once
@@ -335,14 +335,14 @@ export const useKeys = create<KeysState>()((set, get) => ({
     if (!isPin(pin)) return set({ error: "Four digits." }), false;
     set({ busy: true, error: null });
     try {
-      // Whatever was held for the tab moves into the vault rather than being lost.
+      // Whatever was held for the tab moves into the keys panel rather than being lost.
       const values = get().held ? get().values : {};
       write(await seal(values, pin));
       writeSession(null);
       set({ exists: true, unlocked: true, held: false, kept: false, values, pin, tries: 0, lastTouch: Date.now() });
       return true;
     } catch (err) {
-      set({ error: err instanceof Error ? err.message : "Could not make the vault." });
+      set({ error: err instanceof Error ? err.message : "Could not seal the keys." });
       return false;
     } finally {
       set({ busy: false });
@@ -354,7 +354,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
     if (get().busy) return false;
     if (now < get().lockedOutUntil) return set({ error: "Too many tries. Wait a moment." }), false;
     const box = read();
-    if (!box) return set({ error: "There is no vault on this browser." }), false;
+    if (!box) return set({ error: "There are no sealed keys on this browser." }), false;
     set({ busy: true, error: null });
     try {
       const values = await open<Values>(box, pin);
@@ -365,7 +365,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
       return true;
     } catch (err) {
       if (!canSeal()) {
-        set({ error: err instanceof Error ? err.message : "This browser cannot open a vault." });
+        set({ error: err instanceof Error ? err.message : "This browser cannot open sealed keys." });
         return false;
       }
       const tries = get().tries + 1;
@@ -414,7 +414,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
   keep: (on) => {
     const { unlocked, held, values, pin } = get();
     // Held is already this tab's for as long as the tab lives; there is
-    // nothing to keep, and a locked vault has nothing to keep either.
+    // nothing to keep, and a locked keys panel has nothing to keep either.
     if (!unlocked || held) return;
     writeSession(on ? { values, pin, held: false } : null);
     set({ kept: on, lastTouch: Date.now() });
@@ -486,8 +486,8 @@ export const useKeys = create<KeysState>()((set, get) => ({
   },
 }));
 
-/** Is there anything on this browser — a plain key or a sealed vault — whether or not it is open? */
-export function vaultExists(): boolean {
+/** Is there anything on this browser — a plain key or a sealed keys — whether or not it is open? */
+export function keysExist(): boolean {
   if (typeof localStorage === "undefined") return false;
   return !!readPlain() || !!read();
 }
@@ -495,8 +495,8 @@ export function vaultExists(): boolean {
 /**
  * What this browser holds for a request, when it holds anything.
  *
- * Returns only what the caller asks for, and only while the vault is open.
- * A locked vault hands back nothing, which is the point of locking it.
+ * Returns only what the caller asks for, and only while the keys panel is open.
+ * A locked keys panel hands back nothing, which is the point of locking it.
  */
 export function heldKeys(ids: string[]): Record<string, string> {
   const { unlocked, values } = useKeys.getState();

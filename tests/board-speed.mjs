@@ -195,18 +195,23 @@ const STOP = `cancelAnimationFrame(window.__r); (() => {
  * under test here is the pan.
  */
 const noGround = await page.addStyleTag({ content: "[data-ground-clouds],[data-ground-sparks]{display:none !important}" });
-await page.keyboard.press("h");
-await page.waitForTimeout(300);
+/* There is no hand tool and no "h" key (`Canvas.tsx:679-689`): a pan is a
+   middle-button drag from anywhere, or a drag on bare ground. The middle
+   button, so the press cannot land on the frame and start a select instead. */
+const frameBefore = await page.locator("[data-frame]").first().boundingBox();
 await page.mouse.move(760, 520);
-await page.mouse.down();
+await page.mouse.down({ button: "middle" });
 await page.evaluate(START);
 for (let i = 0; i < 60; i++) {
   await page.mouse.move(760 - i * 3, 520 + Math.sin(i / 6) * 90);
   await new Promise((r) => setTimeout(r, 12));
 }
 const pan = await page.evaluate(STOP);
-await page.mouse.up();
-await page.keyboard.press("v");
+await page.mouse.up({ button: "middle" });
+const frameAfter = await page.locator("[data-frame]").first().boundingBox();
+// An inert hand would measure an idle page; the frame has to have moved under the drag.
+const panned = frameBefore && frameAfter ? Math.hypot(frameAfter.x - frameBefore.x, frameAfter.y - frameBefore.y) : 0;
+check("panning: the view moved under the hand", panned > 60, `${Math.round(panned)}px`);
 check("panning: the middle frame is well inside the budget", pan.p50 < 16.7, `p50 ${pan.p50}ms of ${pan.frames} frames`);
 check("panning: nothing stalls", pan.p95 < 33 && pan.max < 120, `p95 ${pan.p95}ms · max ${pan.max}ms, ground put away`);
 await noGround.evaluate((el) => el.remove());

@@ -4,10 +4,6 @@ export function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
-export function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
 /** 1234 -> "1.23K", 1_500_000 -> "1.5M". Tight, no trailing zeros. */
 export function fmtCompact(n: number, digits = 2): string {
   const abs = Math.abs(n);
@@ -30,15 +26,6 @@ export function fmtUsd(n: number, digits = 2): string {
   return "$" + fmtCompact(n, digits);
 }
 
-export function fmtPct(n: number, digits = 1): string {
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(digits)}%`;
-}
-
-export function fmtNumber(n: number, digits = 0): string {
-  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
-}
-
 /** Milliseconds since -> "2s", "14m", "7h", "3d". */
 export function fmtAge(sinceMs: number, now = Date.now()): string {
   const s = Math.max(0, Math.floor((now - sinceMs) / 1000));
@@ -51,17 +38,18 @@ export function fmtAge(sinceMs: number, now = Date.now()): string {
   return `${d}d`;
 }
 
-export function fmtTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString(undefined, { hour12: false });
-}
-
-export function fmtShortAddress(addr: string, head = 4, tail = 4): string {
-  if (addr.length <= head + tail + 1) return addr;
-  return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
-}
-
 function trimZeros(s: string): string {
   return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
+}
+
+/**
+ * The first `max` characters, whole ones: `slice` counts UTF-16 units and
+ * cuts an emoji or a CJK extension in half, leaving a lone surrogate that
+ * renders as � in a label. Counted in code points instead.
+ */
+export function cut(s: string, max: number): string {
+  const chars = Array.from(s);
+  return chars.length <= max ? s : chars.slice(0, max).join("");
 }
 
 /** Turn any value into a short human label for diffs and news lines. */

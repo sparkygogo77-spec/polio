@@ -5,7 +5,7 @@
  * to GitHub. Each one asks first whether the server can, and says so in
  * words when it cannot, so nothing here is load-bearing.
  */
-import { heldKeys, useKeys, vaultExists } from "@/features/keys/store";
+import { heldKeys, useKeys, keysExist } from "@/features/keys/store";
 import type { Piece } from "./threads";
 import { useStudio, type Revision } from "./store";
 
@@ -39,7 +39,7 @@ export interface GeneratedFile {
 
 /**
  * A header carrying a key this browser holds, when it holds one and the
- * vault is open. Empty otherwise, and the server's own key wins regardless.
+ * keys panel is open. Empty otherwise, and the server's own key wins regardless.
  */
 export function keyHeader(): Record<string, string> {
   const held = heldKeys(["ANTHROPIC_API_KEY"]).ANTHROPIC_API_KEY;
@@ -49,7 +49,7 @@ export function keyHeader(): Record<string, string> {
 /**
  * The same, for the renderer.
  *
- * A Replicate token is held in the same vault, unlocked the same way, and
+ * A Replicate token is held in the same keys panel, unlocked the same way, and
  * rides with the call the same way. It is a separate function rather than a
  * second entry in the one above because the two are sent to different
  * routes: the image route has no use for a Claude key and should never be
@@ -64,7 +64,7 @@ export function rendererHeader(): Record<string, string> {
  * The same again, for GitHub.
  *
  * A publish writes to somebody's own account, so the token that does it is
- * theirs: typed into the vault, held in this browser, sent only to the
+ * theirs: typed into the keys panel, held in this browser, sent only to the
  * publish route. Separate from the other two for the same reason they are
  * separate from each other — a route that has no use for a key should never
  * be handed one.
@@ -86,16 +86,16 @@ export function keyState(field = "ANTHROPIC_API_KEY"): KeyState {
   if (heldKeys([field])[field]) return "held";
   const { unlocked, values } = useKeys.getState();
   if (unlocked) return values[field] ? "held" : "none";
-  return vaultExists() ? "locked" : "none";
+  return keysExist() ? "locked" : "none";
 }
 
 /**
- * What to say when a route had no key. A key that is in the vault but behind
+ * What to say when a route had no key. A key that is in the keys panel but behind
  * the PIN is the common case after five quiet minutes, and "Claude isn't set
  * up" would be untrue and unhelpful; say what to press instead.
  */
 /**
- * The same sentence for the renderer's token, which lives in the same vault
+ * The same sentence for the renderer's token, which lives in the same keys panel
  * and is missed the same way: behind the PIN far more often than absent.
  */
 export function noRendererKeyMessage(then: string): string {
@@ -124,7 +124,7 @@ export function noKeyMessage(then: string): string {
  * Is there a Claude key anywhere a call could use — the server's or this
  * browser's?
  *
- * Asked before a run rather than after it, so a locked vault is named as the
+ * Asked before a run rather than after it, so a locked keys panel is named as the
  * reason at the top of the banner instead of being guessed at from whatever
  * failed next. The server never says what its key is, only whether it has
  * one. When the question cannot be reached, the answer is yes: better to make
@@ -331,6 +331,9 @@ export type AskResult =
       text: string;
       model?: string;
       pictures: number;
+      /** Pictures the browser sent that the route could not, and why. */
+      dropped: number;
+      droppedWhy: string;
       truncated: boolean;
       files: GeneratedFile[];
       cached: number;
@@ -426,7 +429,7 @@ export async function askClaude(
      * the reader nothing. The status is what happened; say it.
      */
     const raw = await res.text();
-    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; truncated?: boolean; usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number }; revisions?: Revision[] };
+    let data: { ok?: boolean; text?: string; message?: string; reason?: string; pictures?: number; dropped?: number; droppedWhy?: string; truncated?: boolean; usage?: { model?: string; input?: number; output?: number; cached?: number; written?: number }; revisions?: Revision[] };
     try {
       data = JSON.parse(raw) as typeof data;
     } catch {
@@ -442,7 +445,7 @@ export async function askClaude(
     }
     if (data.ok && typeof data.text === "string") {
       return {
-        ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, truncated: !!data.truncated,
+        ok: true, text: data.text, model: data.usage?.model, pictures: data.pictures ?? 0, dropped: data.dropped ?? 0, droppedWhy: data.droppedWhy ?? "", truncated: !!data.truncated,
         files: input.mode === "build" ? filesFromMarkdown(data.text) : [],
         revisions: Array.isArray(data.revisions) ? data.revisions : [],
         cached: data.usage?.cached ?? 0,
@@ -573,13 +576,13 @@ export type PublishResult =
 /* Going live                                                          */
 /* ------------------------------------------------------------------ */
 
-/** The Vercel token this browser holds, when the vault is open and holds one. */
+/** The Vercel token this browser holds, when the keys panel is open and holds one. */
 function vercelHeader(): Record<string, string> {
   const held = heldKeys(["VERCEL_TOKEN"]).VERCEL_TOKEN;
   return held ? { "x-vercel-token": held } : {};
 }
 
-/** The team the vault names, when it names one. Not a secret; it is part of the address. */
+/** The team the keys panel names, when it names one. Not a secret; it is part of the address. */
 function heldTeam(): string | undefined {
   return heldKeys(["VERCEL_TEAM"]).VERCEL_TEAM || undefined;
 }
@@ -602,7 +605,7 @@ export async function deployStatus(): Promise<DeployStatus> {
 }
 
 export type DeployStart =
-  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string; url: string | null; inspectorUrl: string | null }
+  | { ok: true; id: string; project: string; repo: string; branch: string; team: string | null; state: string | null; url: string | null; inspectorUrl: string | null }
   | { ok: false; message: string; reason?: string };
 
 /** Ask Vercel to build the repository's branch. Returns as soon as it is queued. */
@@ -622,7 +625,7 @@ export async function deploy(input: { repo?: string; branch?: string; project?: 
 
 export interface DeployState {
   ok: boolean;
-  state: string;
+  state: string | null;
   done: boolean;
   url: string | null;
   inspectorUrl: string | null;

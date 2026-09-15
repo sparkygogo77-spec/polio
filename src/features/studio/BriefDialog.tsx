@@ -130,7 +130,7 @@ export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       onOpenChange={onOpenChange}
       size="xl"
       // The Builder's own surfaces are the void — the wheel, the console, the
-      // command palette, the key vault — and this was the one that stayed a
+      // command palette, the keys panel — and this was the one that stayed a
       // plain shell panel, which made the thing you press Finish to see look
       // like it belonged to a different program. The pinned panel is not this:
       // docked beside the Inspector, it is one of the shell's panels and wears
@@ -192,7 +192,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const [mode, setMode] = React.useState<AskMode>("plan");
   const [prompt, setPrompt] = React.useState("");
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [result, setResult] = React.useState<{ text: string; mode: AskMode; model?: string; pictures: number; truncated: boolean } | null>(null);
+  const [result, setResult] = React.useState<{ text: string; mode: AskMode; model?: string; pictures: number; dropped: number; droppedWhy: string; truncated: boolean } | null>(null);
   const [files, setFiles] = React.useState<GeneratedFile[]>([]);
   const [openFile, setOpenFile] = React.useState<string | null>(null);
   const [note, setNote] = React.useState<string | null>(null);
@@ -205,7 +205,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const [pubDeploy, setPubDeploy] = React.useState(true);
   const [pubResult, setPubResult] = React.useState<{ url: string; files: number; deployed: boolean; hook: boolean; note?: string } | null>(null);
   const [live, setLive] = React.useState<DeployStatus | null>(null);
-  const [liveRun, setLiveRun] = React.useState<{ state: string; url: string | null; inspectorUrl: string | null; done: boolean; message?: string } | null>(null);
+  const [liveRun, setLiveRun] = React.useState<{ state: string | null; url: string | null; inspectorUrl: string | null; done: boolean; message?: string } | null>(null);
   const abort = React.useRef<AbortController | null>(null);
 
   const markdown = React.useMemo(() => specToMarkdown(spec), [spec]);
@@ -287,7 +287,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
      * The banner, in the order a reader needs it. A missing or locked key is
      * why nothing was asked at all, so it goes first and stays there: the
      * pictures failing is a detail underneath it, not the headline, and the
-     * old order left a locked vault reading as a broken camera.
+     * old order left a locked keys panel reading as a broken camera.
      */
     const said: { key?: string; run?: string; shots?: string } = {};
     const say = () => setNote([said.key, said.run, said.shots].filter(Boolean).join(" ") || null);
@@ -381,7 +381,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         // was wrong — the server had one after all.
         said.key = undefined;
         say();
-        setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, truncated: r.truncated });
+        setResult({ text: r.text, mode, model: r.model, pictures: r.pictures, dropped: r.dropped, droppedWhy: r.droppedWhy, truncated: r.truncated });
         // The call landed, so it is a thread: what was asked, what came back,
         // and the board as it stood. Everything the answer goes on to do —
         // a finding taken, a file written — is recorded against it.
@@ -394,6 +394,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
             r.revisions.length ? `${r.revisions.length} finding${r.revisions.length === 1 ? "" : "s"}` : "",
             r.files.length ? `${r.files.length} file${r.files.length === 1 ? "" : "s"} written` : "",
             r.pictures ? `${r.pictures} page${r.pictures === 1 ? "" : "s"} seen` : "",
+            r.dropped ? `${r.dropped} left out (${r.droppedWhy})` : "",
             vined ? `${send.length} piece${send.length === 1 ? "" : "s"} sent${skipped.length ? `, ${skipped.length} unchanged` : ""}` : "",
           ].filter(Boolean),
         });
@@ -442,7 +443,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           } else if (!r.files.length) setNote("Claude answered, but no files could be read out of it. The response is shown as it came.");
         } else setView(r.revisions.length ? "trail" : "result");
         if (r.truncated) setNote("Claude ran out of room before the end. Ask for less at once, or split the site into pages.");
-        ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only"].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
+        ctx.publish({ key: "studio:generate", title: "Claude responded", body: [r.model, r.pictures ? `${r.pictures} picture${r.pictures === 1 ? "" : "s"} seen` : "words only", r.dropped ? `${r.dropped} left out: ${r.droppedWhy}` : ""].filter(Boolean).join(" · "), level: "success", source: "studio", toast: true });
       } else if (r.reason !== "stopped") {
         const why = r.reason === "no-key" ? noKeyMessage("Or copy the blueprint into any agent, it is written to stand alone.") : r.message;
         if (r.reason === "no-key") {
@@ -557,7 +558,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         team: started.team,
         onState: (st) => {
           setLiveRun({ state: st.state, url: st.url, inspectorUrl: st.inspectorUrl ?? started.inspectorUrl, done: st.done, message: st.message });
-          setBusy(st.state === "BUILDING" ? "Building…" : st.state === "QUEUED" ? "Queued…" : "Finishing…");
+          setBusy(st.state === "BUILDING" ? "Building…" : st.state === "QUEUED" ? "Queued…" : st.state === null ? "Waiting for Vercel to say…" : "Finishing…");
         },
       });
       if (end.state === "READY" && end.url) {
@@ -566,8 +567,9 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         useStudio.getState().noteThread([`Live on Vercel at ${end.url.replace(/^https:\/\//, "")}`]);
         ctx.publish({ key: "studio:live", title: "The site is live", body: end.url, level: "success", source: "studio", toast: true, href: end.url });
       } else {
-        useStudio.getState().noteThread([`The Vercel build ${end.state.toLowerCase()}`]);
-        ctx.publish({ key: "studio:live", title: `The build ${end.state.toLowerCase()}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
+        const ended = end.state ? end.state.toLowerCase() : "ended without a state";
+        useStudio.getState().noteThread([`The Vercel build ${ended}`]);
+        ctx.publish({ key: "studio:live", title: `The build ${ended}`, body: end.message ?? "The Vercel log says why.", level: "error", source: "studio", toast: true, href: end.inspectorUrl ?? undefined });
       }
     } finally {
       setBusy(null);
@@ -764,7 +766,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           <Tooltip content={
             live?.configured
               ? "Push the files, build the site on Vercel, and hand back the address."
-              : "Needs a Vercel token: put one in the vault (⌘⇧K) or set VERCEL_TOKEN on the server."
+              : "Needs a Vercel token: put one in the keys panel (⌘⇧K) or set VERCEL_TOKEN on the server."
           }>
             <span>
               <Button variant="primary" size="sm" disabled={!!busy || !github?.configured || !live?.configured} onClick={() => void goLive()}>
@@ -776,7 +778,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         {liveRun ? (
           <p className={cn("flex flex-wrap items-center gap-1.5 text-[11px]", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
             {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
-            {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : `${liveRun.state.toLowerCase()}…`}
+            {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : liveRun.state ? `${liveRun.state.toLowerCase()}…` : "waiting for Vercel to say…"}
             {liveRun.state === "READY" && liveRun.url ? (
               <a className="underline underline-offset-2" href={liveRun.url} target="_blank" rel="noopener noreferrer">
                 {liveRun.url.replace(/^https:\/\//, "")} <ExternalLink className="inline size-3" />
@@ -921,7 +923,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       )}
       {result && view === "result" ? (
         <p className="text-[10px] text-fg-faint">
-          {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}
+          {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}{result.dropped ? ` · ${result.dropped} left out: ${result.droppedWhy}` : ""}
         </p>
       ) : null}
 

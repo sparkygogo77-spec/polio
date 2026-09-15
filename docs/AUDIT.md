@@ -38,7 +38,7 @@ configured** — confirmed by calling `/api/keys/status` on the live site
 directly: `ANTHROPIC_API_KEY`, `REPLICATE_API_TOKEN`, `GITHUB_TOKEN` and
 `VERCEL_TOKEN` all answer `false`. So today, in production, every
 AI-dependent path runs in its no-key fallback. I did not paste a personal
-key into the vault to force the real paths, and I did not attempt a real
+key into the keys panel to force the real paths, and I did not attempt a real
 Publish or Go Live even though a `GITHUB_TOKEN` happens to be present in
 *this* sandbox's own environment (scoped to this repository by the harness
 that runs me) — exercising Publish for real would write a commit as a side

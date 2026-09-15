@@ -40,6 +40,19 @@ check("rgb() is read the same as hex", (() => {
   return Math.abs(a.light - b.light) < 0.01;
 })());
 check("something that is not a colour is not read", readInk("#zz") === null);
+/* C9. Colours as bodies actually write them: hsl(), oklch(), the CSS names. */
+{
+  const h = readInk("hsl(90, 60%, 50%)"), x = readInk("#8fcc33");
+  check("hsl() is read, and reads as its hex twin", !!h && !!x && Math.abs(h.light - x.light) < 0.03 && Math.abs(h.colour - x.colour) < 0.03, h ? `light ${h.light.toFixed(2)} vs ${x.light.toFixed(2)}` : "not read");
+  const o = readInk("oklch(0.7 0.2 140)");
+  check("oklch() is read, and a chroma of 0.2 is a lot of colour", !!o && o.colour > 0.4 && o.light > 0.4 && o.light < 0.7, o ? `light ${o.light.toFixed(2)}, colour ${o.colour.toFixed(2)}` : "not read");
+  const t = readInk("tomato"), th = readInk("#ff6347");
+  check("a named colour is read as its own value", !!t && !!th && t.light === th.light && t.colour === th.colour, t ? `light ${t.light.toFixed(2)}` : "not read");
+  check("a word that is not a colour is not one", readInk("blackish") === null && readInk("currentColor") === null);
+  const found = inksOf('<div style="color: tomato; background: hsl(200 50% 40%); fill: currentColor; border-color: oklch(60% 0.15 30); outline: 1px solid rebeccapurple">x</div>').map((i) => i.raw);
+  check("a body's named, hsl and oklch colours all answer the palette; currentColor does not", found.length === 4 && found.includes("tomato") && found.includes("rebeccapurple") && !found.some((r) => /current/i.test(r)), found.join(", "));
+  check("a name inside a longer word is not a colour", inksOf('<p class="tangerine redline">x</p>').length === 0);
+}
 
 /* ------------------------------------------------------------------ */
 /* 2. Which role a baked colour stands in for                          */
@@ -109,7 +122,7 @@ check("judging a body still looks at what came back, not at a repaint", !/paintR
 const url = process.argv[2] || "http://localhost:3000";
 let live = false;
 try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) })).ok; } catch { live = false; }
-check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
+check("the Builder answers (a liveness probe: this suite has no live half, the wiring above is held by source pins)", live, live ? url : `${url} did not answer`);
 
 const passed = results.filter(Boolean).length;
 console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);

@@ -16,6 +16,7 @@
  * passes a small one of its own and holds this to its rules.
  */
 import type { Sketch } from "./sketch";
+import { cut } from "../../core/lib/format.ts";
 
 /** What a part is cut to. The same four the store keeps. */
 export type Shape = "circle" | "ellipse" | "rounded" | "box";
@@ -130,7 +131,7 @@ const MAX_H = 1600;
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
-const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+const text = (v: unknown, max: number) => (typeof v === "string" ? cut(v.trim(), max) : "");
 
 /** Claude's answer, held to the catalog, the frame and the drawing. */
 export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, kind, drawnSize }: CheckInput): Checked {

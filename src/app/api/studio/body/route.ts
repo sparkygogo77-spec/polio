@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { cleanSnippet, SNIPPET_LIMIT } from "@/features/studio/snippet";
+import { takePng } from "@/features/studio/pictureIn";
 
 /**
  * Writes the body of a part that no part in the library is.
@@ -120,9 +121,6 @@ function keyFor(request: Request): string | null {
   return supplied && supplied.length > 8 ? supplied : null;
 }
 
-const png = (v: unknown): string | null =>
-  typeof v === "string" && /^[A-Za-z0-9+/=]+$/.test(v) && v.length < 700_000 ? v : null;
-
 export async function POST(request: Request) {
   const apiKey = keyFor(request);
   if (!apiKey) {
@@ -171,8 +169,14 @@ export async function POST(request: Request) {
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
   // The rules are the same on every call and every retry: cached prefix.
   content.push({ type: "text", text: "You are writing one part's body. The rules are in the system prompt and they do not change between attempts.", cache_control: { type: "ephemeral" } });
-  const picture = png(body.picture);
-  const shot = png(body.shot);
+  // A picture sent and left out is said, to the model and in the answer,
+  // rather than the revision being asked blind.
+  const drawn = takePng(body.picture);
+  const rendered = takePng(body.shot);
+  const picture = drawn.data;
+  const shot = rendered.data;
+  const unseen = [drawn.unseen ? `the drawing: ${drawn.unseen}` : "", rendered.unseen ? `the last render: ${rendered.unseen}` : ""].filter(Boolean);
+  if (unseen.length) content.push({ type: "text", text: `Not shown, though it exists — ${unseen.join("; ")}. Work from the words and the critique alone.` });
   if (picture) {
     content.push({ type: "text", text: "The drawing, as it was drawn:" });
     content.push({ type: "image", source: { type: "base64", media_type: "image/png", data: picture } });
@@ -232,6 +236,7 @@ export async function POST(request: Request) {
       html,
       stripped,
       note: typeof answer?.note === "string" ? answer.note.slice(0, 400) : "",
+      unseen,
       usage: {
         input: message.usage.input_tokens,
         output: message.usage.output_tokens,

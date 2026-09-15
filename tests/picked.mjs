@@ -112,10 +112,34 @@ const after = await outlineOf(skin);
 check("a picked part is ringed", after.style === "solid" && parseFloat(after.width) > 0, JSON.stringify(after));
 check("thin: one line, not a band", parseFloat(after.width) <= 3, after.width);
 check("and inside its own edge, so the aura stays visible", parseFloat(after.offset) < 0, after.offset);
+/* The app's accent as the page renders it, and the ring's hue against it:
+   the old form excluded one literal rgb that occurs nowhere in the app,
+   which left "anything but black" as the rule. */
+const rgbHue = (c) => {
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c);
+  if (!m) return null;
+  const [r, g, b] = [m[1], m[2], m[3]].map((v) => Number(v) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d < 0.02) return null;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return ((h * 60) + 360) % 360;
+};
+const accentRgb = await page.evaluate(() => {
+  const e = document.createElement("i");
+  e.style.color = "oklch(0.76 0.13 var(--accent-h))";
+  document.body.append(e);
+  const v = getComputedStyle(e).color;
+  e.remove();
+  return v;
+});
+/* Chrome hands back oklch as it was written and rgb otherwise; either way a hue. */
+const hue = (c) => hueOf(c)?.h ?? rgbHue(c);
+const around = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+const apart = hue(after.colour) !== null && hue(accentRgb) !== null ? around(hue(after.colour), hue(accentRgb)) : null;
 check(
   "in the far side of the part's own colour, not the app's accent",
-  !/^rgb\(127, 173, 255\)/.test(after.colour) && after.colour !== "rgb(0, 0, 0)",
-  after.colour,
+  after.colour !== "rgb(0, 0, 0)" && apart !== null && apart >= 60,
+  `ring ${after.colour} (hue ${hue(after.colour)?.toFixed(0)}), accent ${accentRgb} (hue ${hue(accentRgb)?.toFixed(0)}): ${apart === null ? "no hue" : `${apart.toFixed(0)}° apart`}`,
 );
 const fill = await skin.evaluate((el) => getComputedStyle(el).backgroundColor);
 check("and it is a line, not a wash over the part", fill === "rgba(0, 0, 0, 0)" || fill === "transparent", fill);

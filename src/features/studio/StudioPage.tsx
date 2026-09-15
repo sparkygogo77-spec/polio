@@ -45,6 +45,7 @@ import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
 import { Dropdown } from "@/core/ui/dropdown-menu";
 import { PROCESS } from "./threads";
+import { studioDoc } from "./agent";
 
 /**
  * How much of the window the bottom band keeps — the parts shelf under the
@@ -637,6 +638,8 @@ export function StudioPage() {
       __studioSetLibrary?: (v: boolean) => void;
       __studioSetLeftPanel?: (id: string) => void;
       __studioNotePass?: (line: string, on?: string) => void;
+      __studioUndoDepth?: () => number;
+      __studioPublishDoc?: () => Record<string, unknown>;
       __studioQueue?: () => { id: string; status: string; step: string | null; threadId: string | null; nodeId: string | null; madeId: string | null; note: string | null; label: string }[];
       __studioFacePair?: (pair: "dark" | "bright") => void;
     };
@@ -662,6 +665,12 @@ export function StudioPage() {
     // For the formation test: an update to a finished iteration, the way the
     // second pass makes one.
     w.__studioNotePass = (line: string, on?: string) => useStudio.getState().notePass(line, on);
+    // How deep the undo history is. It is never persisted, so a check that
+    // read it out of storage read an empty list and could not see a scrub
+    // writing a hundred entries. This is the only honest way to ask.
+    w.__studioUndoDepth = () => useStudio.getState().past.length;
+    // The document exactly as Publish sends it, for checks that say "what publish sends" and used to read storage instead.
+    w.__studioPublishDoc = () => studioDoc();
     /*
      * The queue, for a test that watches one job go through.
      *
@@ -692,6 +701,8 @@ export function StudioPage() {
     w.__studioLightPasses = () => rigPasses();
     return () => {
       delete w.__studioOpenBrief;
+      delete w.__studioUndoDepth;
+      delete w.__studioPublishDoc;
       delete w.__studioToggleLibrary;
       delete w.__studioSetBrief;
       delete w.__studioSetLibrary;

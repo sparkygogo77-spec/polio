@@ -437,20 +437,6 @@ export function shiftHue(colour: string, degrees: number): string {
   return css({ ...c, h: (((c.h + degrees) % 360) + 360) % 360 });
 }
 
-/**
- * Every kind takes every control now.
- *
- * This used to say which sliders a kind could use, and the panel hid the rest.
- * Hiding them made the panel different every time you opened a layer, which is
- * worse than a slider that does little: you could never learn where anything
- * was. So the kinds that could not be turned or hardened were given a way to
- * be — the ones that are gradients get rotated as whole tiles, the flat colour
- * fades along its angle as contrast comes up — and this now answers true for
- * all of them. It is kept as a function so a future kind can still opt out.
- */
-export function affects(_kind: TextureKind): { angle: boolean; contrast: boolean } {
-  return { angle: true, contrast: true };
-}
 
 /** Grain-like layers cover every pixel, so they start faint and blended; shapes start bolder. */
 const GRAINY = new Set<TextureKind>(["noise", "grain", "paper"]);

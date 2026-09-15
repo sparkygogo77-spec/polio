@@ -13,7 +13,7 @@
  * Every link in that chain has been checked on its own; this is the chain.
  * The reshape and image routes are stubbed, because what is being held
  * here is the belonging, not the model: the part has to land the same way
- * with a locked vault, which is this app's rule for the whole drawing path.
+ * with a locked keys panel, which is this app's rule for the whole drawing path.
  *
  * The queue may stop and ask before it spends — euler's question, "is this
  * box a cube?" — and a hand answers it, so this does too. A run that seems
@@ -22,6 +22,7 @@
  *
  *   node tests/space-inherits.mjs [url]
  */
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 
@@ -44,7 +45,7 @@ const note = (l) => console.log(`  note  ${l}`);
 
 const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
-// A locked vault: the part still has to land, and land in the space.
+// A locked keys panel: the part still has to land, and land in the space.
 await page.route("**/api/studio/reshape", (r) =>
   r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: false, reason: "no-key", message: "no key" }) }));
 await page.route("**/api/studio/image", (r) =>
@@ -162,8 +163,10 @@ if (made.length === 1) {
   check("and it lands inside the space the drawing was in", inside, `the part is at ${Math.round(part.x)},${Math.round(part.y)} ${part.w}×${part.h}`);
   check("carrying the space's plan rather than the route's default",
     part.plan?.steps?.join(",") === space.plan?.steps?.join(","), `part ${JSON.stringify(part.plan?.steps)} vs space ${JSON.stringify(space.plan?.steps)}`);
+  // Two arrays parsed out of storage are always distinct, so that proved
+  // nothing; the copy is made where the part lands, and that is what is held.
   check("which is a copy, so steering the part does not steer the space",
-    part.plan?.steps !== space.plan?.steps);
+    /plan: \{ model: space\.plan\.model, steps: \[\.\.\.space\.plan\.steps\] \}/.test(readFileSync("src/features/studio/space.ts", "utf8")));
   check("and the space's words, since the drawing said nothing of its own",
     part.prompt === "everything here is quiet and dark", JSON.stringify(part.prompt));
 

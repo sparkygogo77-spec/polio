@@ -118,7 +118,7 @@ Reference for Solcano (Solana) and the Pons / Robinhood Chain dual-trader projec
 |---|---|---|---|---|---|---|---|
 | M01 | Match Setup | Match Lobby | Open challenges / matchmaking | List of open matches with stake, mode, and token. Where a match is created or joined. | High |  |  |
 | M02 | Match Setup | Dual Approval Handshake | Both-sign initiation | Match starts only once both parties have deposited and signed. Neither can be committed unilaterally. | High |  |  |
-| M03 | Match Setup | Matched Stake Escrow | Vault deposit | Equal stakes held by a per-match vault contract for the duration. | High |  |  |
+| M03 | Match Setup | Matched Stake Escrow | Keys panel deposit | Equal stakes held by a per-match keys panel contract for the duration. | High |  |  |
 | M04 | Match Setup | Token Selection Post-Audit | Curated pool | Match token drawn from a vetted list that passed audit and liquidity screening. | High |  |  |
 | M05 | Match Setup | Liquidity-Derived Trade Cap | Position limit | Max trade size computed from pool depth, not market cap. Slippage is roughly trade size / paired WETH — size limits off that. | High |  |  |
 | M06 | Match Setup | Mode: Synchronised Entry | Same-block buy | Contract buys for both players in one transaction at an identical fill. Removes entry skill and ordering luck; contest is purely exit timing. Cleanest fair version. | High |  |  |

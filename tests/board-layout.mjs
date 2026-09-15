@@ -84,7 +84,7 @@ async function open(w, h) {
  *
  * **`offsetParent` is not the gate.** It is null for every `position: fixed`
  * element — a dialog, a slide-over, a pinned bar — whether or not anybody can
- * see it, so gating on it fails the key vault for the crime of being a
+ * see it, so gating on it fails the keys panel for the crime of being a
  * dialog. It is one signal among the others: a statically positioned node
  * with no offset parent really is detached, and a fixed or sticky one is
  * exempt because being fixed is the reason it has none.
@@ -339,7 +339,14 @@ async function toTheFoot(page) {
   await page.waitForTimeout(600);
   const after = await tabs();
   check("picking something does not move them", after.join(",") === FIVE, after.join(" · "));
-  check("and the panel is showing it", /Join|Element/.test((await page.locator("[data-side-panel]").innerText()).slice(0, 200)));
+  // The strip's first tab is always "Element", so its text proved nothing.
+  // Picking does not move the tab (`StudioPage.tsx`: the tab you are on is
+  // the tab you stay on), so Element is pressed, and then the panel's name
+  // field has to hold the picked part's own name.
+  await page.locator("[data-side-panel] [role=radio]").first().click();
+  await page.waitForTimeout(400);
+  const named = await page.locator("[data-side-panel] input").evaluateAll((els) => els.map((e) => e.value));
+  check("and Element, pressed, is showing it", named.includes("Join"), `fields: ${named.map((v) => JSON.stringify(v)).join(", ")}`);
 
   const win = await page.locator("[data-page-window]").boundingBox();
   check("the frame is still a whole screen here", win.width > 300 && win.height > 200, `${Math.round(win.width)}×${Math.round(win.height)}`);
@@ -445,6 +452,7 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   check("nothing covers the ground at rest", (await litness()) === false);
   await page.locator("[data-place-light]").click();
   await page.waitForTimeout(700);
+  check("placing the lamp draws its dim, one of them", (await page.locator("[data-light-dim]").count()) === 1, `${await page.locator("[data-light-dim]").count()} dims`);
   check("and nothing covers it while the lamp is being placed", (await litness()) === false);
   const dim = await page.locator("[data-light-dim] > div").evaluate((el) => getComputedStyle(el).boxShadow).catch(() => "none");
   check("the page is ringed rather than the ground blacked out", !/9999px/.test(dim) && !/ 0px 0px 0px 9999/.test(dim), dim.slice(0, 46));

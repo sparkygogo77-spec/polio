@@ -154,6 +154,7 @@ async function look(w, h, tag) {
   const withNothing = await tabNames();
   if (withNothing) {
     const first = page.locator("[data-node-id]").first();
+    check(`${tag}: there is a part to pick`, (await first.count()) >= 1, `${await first.count()} parts on the board`);
     if (await first.count()) { await first.click(); await page.waitForTimeout(300); }
     const withPart = await tabNames();
     check(
@@ -460,7 +461,7 @@ async function ladder() {
         edge: vis(bar.querySelector("[data-menu-shape]")),
         name: vis(bar.querySelector("[data-site-build]")),
         tool: vis(bar.querySelector("[data-tool-picker]")),
-        devices: bar.querySelectorAll("[data-device]").length === 3,
+        devices: [...bar.querySelectorAll("[data-device]")].filter(vis).length === 3,
         undo: byLabel("Undo"),
         redo: byLabel("Redo"),
         zoomOut: byLabel("Zoom out"),

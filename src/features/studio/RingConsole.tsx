@@ -119,9 +119,6 @@ export function keyForHue(hue: number): React.CSSProperties {
   const yellow = hue >= 40 && hue <= 115;
   return { background: `oklch(${yellow ? 0.78 : 0.66} 0.17 ${hue})`, color: yellow ? "oklch(0.22 0.06 60)" : "oklch(0.99 0 0)" };
 }
-/** A slider's phosphor: dim at one end, lit at the other. */
-export const phosphorAt = (f: number) => `oklch(${(0.3 + f * 0.44).toFixed(3)} ${(0.05 + f * 0.06).toFixed(3)} 180)`;
-
 /**
  * A shade either way, never a bevel — the amount the reader asked for. Which
  * way it leans depends on the family, because the same pair of white and black

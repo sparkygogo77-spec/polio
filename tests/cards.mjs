@@ -191,8 +191,9 @@ check("the prompting that made it sits above the site", (() => {
 check("…with a second page of it, to change the words before running them again",
   /data-asked-page=""/.test(timeline) && /data-asked-edit=""/.test(timeline));
 check("…and Re-iterate is on the card itself, not in a menu", (() => {
-  const menu = timeline.slice(timeline.indexOf("function BoxMenu("));
-  return /data-reiterate=\{thread\.id\}/.test(timeline) && !/Re-iterate/.test(menu);
+  const at = timeline.indexOf("function BoxMenu(");
+  const menu = at > 0 ? timeline.slice(at) : "";
+  return at > 0 && /data-reiterate=\{thread\.id\}/.test(timeline) && !/Re-iterate/.test(menu);
 })());
 check("…which runs the book's own ask rather than a second pipeline of its own", (() => {
   const brief = readFileSync("src/features/studio/BriefDialog.tsx", "utf8");
@@ -254,7 +255,9 @@ check("…naming the parts on it, with this update's own lit", (() => {
   return /data-feature-new=\{mine\.has\(n\.id\) \? "1" : "0"\}/.test(f) && /const first = !parent\?\.doc;/.test(timeline);
 })());
 check("…worked out from the two documents rather than parsed back out of a sentence", (() => {
-  const f = timeline.slice(timeline.indexOf("function ownParts("), timeline.indexOf("function ownParts(") + 1600);
+  const at = timeline.indexOf("function ownParts(");
+  if (at < 0) return false;
+  const f = timeline.slice(at, at + 1600);
   // `diffDocs` writes sentences — "+ Top bar placed", "~ Hero: 240×80 → 240×120"
   // — and picking a name back out of one is a parser waiting to be wrong
   // about a part called "placed". Nothing here calls it.
@@ -350,7 +353,7 @@ check("still no clock anywhere", !/toLocaleTimeString/.test(timeline));
 const url = process.argv[2] || "http://localhost:3000";
 let live = false;
 try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) })).ok; } catch { live = false; }
-check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
+check("the Builder answers (a liveness probe: this suite has no live half, the wiring above is held by source pins)", live, live ? url : `${url} did not answer`);
 
 const passed = results.filter(Boolean).length;
 console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);

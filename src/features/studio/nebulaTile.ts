@@ -91,15 +91,9 @@ export const FACES: Record<FacePair, Record<NebulaKind, string>> = {
  * Nothing here hands them over. Unlike the faces, which come in two pairs
  * and swap, there is one rim per temperature and it never changes, so
  * `molten.css` names the file itself and a card is framed before any of
- * this has run. These are here so the paths are written down once, beside
- * the rest of the material.
+ * this has run. The other red J sent, `box-red-alt.png`, has no sheet and
+ * nothing wears it today.
  */
-export const RIMS = {
-  verdant: { from: "/construct/box-green.png", sheet: "/construct/rim-green.png" },
-  ember: { from: "/construct/box-red.png", sheet: "/construct/rim-red.png" },
-  /* The other red J sent. Cut it if it is wanted; nothing wears it today. */
-  emberAlt: { from: "/construct/box-red-alt.png", sheet: null },
-} as const;
 
 /** Which pair is on, once something has asked. Read by `tests/molten.mjs`. */
 let wearing: FacePair | null = null;

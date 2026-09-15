@@ -77,7 +77,7 @@ check("and says so rather than saying it is making one", /Reshaping \$\{label\}/
 const url = process.argv[2] || "http://localhost:3000";
 let live = false;
 try { live = (await fetch(`${url}/builder`, { signal: AbortSignal.timeout(8000) })).ok; } catch { live = false; }
-check("the Builder answers", live, live ? url : `${url} — skipped the live half`);
+check("the Builder answers (a liveness probe: this suite has no live half, the wiring above is held by source pins)", live, live ? url : `${url} did not answer`);
 
 const passed = results.filter(Boolean).length;
 /* Says what happened. It read "all good" whatever the count was, so a run
