@@ -94,11 +94,47 @@
  *
  *   30 boards, 31 constructs over 62% of the screen    63% → 50%
  *
- * Thirty is better and is not solved. Same law: twice the constructs over
- * twice the screen is twice the area to re-blend, and the bands have already
- * halved what each one costs. The next lever there is the vine sheet, which
- * at thirty boards covers nearly the whole viewport by itself and is one
- * translucent layer whether or not there is any ink in it.
+ * THIRTY BOARDS, GONE AFTER PROPERLY, and the answer is that the biggest
+ * thing on that screen is not what anyone thought. The vine *sheet* — the
+ * canvas the ropes are painted on — is 95% empty and pays for all of it, so
+ * it looked like the lever. It is not: at thirty boards it is worth four to
+ * seven frames. The payer is the vines' own *cloud*, the nebula laid over
+ * each rope, which costs thirteen: each light is the size of the whole gap
+ * between two boards plus a period for its slide, and it is clipped to a
+ * diagonal rope covering a twentieth of that. Taking the vine cloud away
+ * entirely is 63% dropped to 42%, which is more than every card on the
+ * screen is worth.
+ *
+ * Four ways at it were measured and three lost:
+ *
+ *   · **Clip the sheet to the tiles that have ink on them** (a `path()` of
+ *     127 rectangles): nothing at all, 15.5 frames against 15.8. A complex
+ *     clip is rasterised as a mask and a masked pixel is still a pixel. Only
+ *     a rectangular inset culls — which is why the cards' band works.
+ *   · **Tile the sheet into small canvases where the ink is**: worse. 162
+ *     painted tiles covering a quarter of the field measured 22.0 against
+ *     23.5 for one painted sheet covering all of it. An *empty* element is
+ *     free — 166 of them measured identical to none — but a painted one has
+ *     a cost beyond its area, and at that count it swamps the saving.
+ *   · **Narrow the cards' band further at a far zoom** (26% → 18% → 12%):
+ *     nothing, 17.6 against 16.4, inside the noise.
+ *   · **One light a vine instead of two**, which is the one that stands: on
+ *     a cable that is one temperature end to end — every vine in a chain of
+ *     updates — the two lights were drawing the same tile at the same phase
+ *     into complementary halves of the same rope. Merging them is pixel for
+ *     pixel identical and takes about a quarter off what the vine cloud
+ *     costs: the gap between "as it is" and "no vine cloud" goes from 13.0
+ *     frames to 9.5. It does not move the headline number by more than this
+ *     container's own drift, and it is kept because it is half the elements
+ *     for the same picture, not because it is a win anyone can see.
+ *
+ * And one rejected on looks rather than on cost: dropping the vine cloud
+ * below a zoom threshold, the way the cards drop theirs where the preview
+ * covers it. At thirty boards a rope is 9.6px wide on screen and two crops
+ * with and without are indistinguishable — but at twelve it is 10.9px and
+ * the filaments crossing the ropes are plainly there. There is no threshold
+ * that catches thirty without also catching twelve, and twelve is the case
+ * that matters.
  *
  *   is it how many, or how big?                     12 boards    30 boards
  *     as it was                                      33 /900ms    21 /900ms
