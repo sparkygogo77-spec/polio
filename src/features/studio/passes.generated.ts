@@ -2,9 +2,32 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T11:18:48.103Z";
+export const GENERATED_AT = "2026-09-15T16:24:04.472Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "64d80f8",
+    "when": "2026-09-15T11:25:38+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "64d80f8",
+        "says": "Regenerate the passes for all five branches at once",
+        "when": "2026-09-15T11:25:38+00:00",
+        "detail": [
+          "Everything that was waiting, taken in one pass: dijkstra's catalogue handover, meitner's second-time cube walk, euler's eight (the tab in front, the floor's cap), bardeen's thirteen (D29 closed, the cut imported by a path the suites can follow, a picture with no ground asked for as a JPEG), and hypatia's eleven (the page's wheel audited slab by slab).",
+          "One conflict, in tests/wheel-dismiss.mjs, and it is the same shape as the one that bit last night. Trunk held the older copy of a check; hypatia's side deletes it and leaves a note saying it clicked the middle of the wheel's bounding box, which on a square menu is the hole, which holds the Add button — so it pressed a control, the disc opened inside [data-radial], and it came back green for none of the reasons in its name. Both halves of what it meant are held elsewhere, once each. Taken out, per her note: a deliberate removal is not undone by an older copy.",
+          "typecheck clean, build rc=0. Run here on the build, port 4285.",
+          "The six new suites:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "49718fb",
     "when": "2026-09-15T11:18:40+00:00",
@@ -1143,38 +1166,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "21d1f9a",
-    "when": "2026-09-15T08:07:41+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a7b58af",
-        "says": "The Zen Garden counts after the night, and three catalogue findings",
-        "when": "2026-09-15T07:36:28+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "7f53246",
-        "says": "The family a page was set in travels by name, whether or not its file did",
-        "when": "2026-09-15T07:32:03+00:00",
-        "detail": [
-          "The route reads the first family on the stack as the face and measures whether it drew. The part carries the face and asks for it first, with the class behind it; the inspector names it; the panel's line says which faces did not travel. Declared: parts/theme.ts gains an optional face on NodeFont and applyFont puts it first on the stack."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
