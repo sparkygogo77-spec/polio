@@ -114,18 +114,33 @@ check(travel > 0 ? "wheeling over the site moves the surface down it" : "with no
 /* ------------------------------------------------------------------ */
 
 /*
- * This check used to read "the categories stay exactly where they are",
- * and it was pinning an arrangement rather than a rule. J's sentence is
- * "scroll all the way into the categories and the prompt sections below
- * the timeline, and doing that must not move or affect the side panels":
- * the thing that must hold still is the *panels*, and the categories are
- * what the gesture goes into. They were a band beside the pane, so they
- * could not be gone into; they are under the board in the same scroller
- * now, so they rise with it.
+ * This has been rewritten twice, and both rewrites were the same mistake in
+ * opposite directions, so the reasoning is kept rather than the answer.
+ *
+ * It first read "the categories stay exactly where they are" — an
+ * arrangement, when they sat in a band beside the pane. Then, when they
+ * moved under the board into the same scroller, it read "they come up with
+ * the gesture", which was the new arrangement pinned just as tightly: it
+ * went red the moment the band was stuck to the pane's bottom, because
+ * something that is always on screen cannot come up. 703 → 703.
+ *
+ * J's sentence is "scroll all the way into the categories and the prompt
+ * sections below the timeline, and doing that must not move or affect the
+ * side panels". What that asks is that the categories are REACHED by
+ * carrying on with the same gesture on the same surface — never a second
+ * gesture on a second surface — and that the panels are untouched while it
+ * happens. Being there before the gesture starts satisfies the first more
+ * completely than rising into view does, so what is checked is the outcome:
+ * the categories are on screen at the end of it, and they are in the pane,
+ * which is why no second surface is involved.
  */
-check(travel > 0 ? "the categories come up with the gesture, in the same scroller" : "the categories are already up, because nothing is hidden",
-  travel > 0 ? before.shelf - after.shelf > 40 : before.shelf > 0 && before.shelf === after.shelf,
-  `${before.shelf} → ${after.shelf}, ${travel}px of travel`);
+check("the categories are there at the end of the gesture, on the same surface",
+  after.shelf !== null && after.shelf + 1 >= 0 && await page.evaluate(() => {
+    const d = document.querySelector("[data-drawer]");
+    return !!d && d.getBoundingClientRect().bottom <= window.innerHeight + 1 && d.getBoundingClientRect().top < window.innerHeight;
+  }),
+  `the shelf's top ${before.shelf} → ${after.shelf} over ${travel}px of travel` +
+    (before.shelf === after.shelf ? " — held, because it is stuck to the pane's bottom and was never away" : ""));
 check("and they are in the pane, which is why", await page.evaluate(() =>
   !!document.querySelector("[data-studio-pane]")?.contains(document.querySelector("[data-drawer]"))));
 check("and the side panels do not move either",

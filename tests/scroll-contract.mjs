@@ -662,6 +662,89 @@ console.log(`       headroom above, for comparison with his 78: ${gaps.map((g) =
   await ctx.close();
 }
 
+/* ------------------------------------------------------------------ */
+/* Two scroll regions, and neither pushes the other                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * J: "the parts shelf is a small scroll box. When a category is opened the
+ * tiles run the full width, so only one tile is visible at a time inside a
+ * short box. Opening a category should give that section a much larger
+ * scroll area, scrolling on its own, clear of the preview box. The preview
+ * box must not resize or move when the shelf area grows or scrolls."
+ *
+ * Measured at 2048×1152 before: the band 248 tall whatever was in it, the
+ * shelf's own box 209, and one open category putting 1745px of cards in it
+ * — 1536 of travel inside 209 of box. A twelve-span element is given the
+ * whole shelf width by `sizeFor` (1820 across, 208 down), so one card fills
+ * the strip exactly, which is his "one tile at a time".
+ *
+ * The band answers to what is open now. The tile widths are NOT changed
+ * here: that is the catalogue's own look and a separate decision, and the
+ * width is printed below rather than asserted so the number is on the
+ * record either way.
+ */
+{
+  const ctx = await browser.newContext({ viewport: { width: 2048, height: 1152 } });
+  const page = await ctx.newPage();
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(2000);
+  const look = () => page.evaluate(() => {
+    const box = (sel) => { const e = document.querySelector(sel); if (!e) return null;
+      const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; };
+    const shelf = document.querySelector("[data-shelf]");
+    const pane = document.querySelector("[data-studio-pane]");
+    const card = document.querySelector("[data-category-open] [draggable], [data-category-open] button");
+    return { band: box("[data-studio-band]"), shelf: box("[data-shelf]"), preview: box("[data-preview-window]"),
+      frame: box("[data-frame]"),
+      shelfTravel: shelf ? shelf.scrollHeight - shelf.clientHeight : null,
+      shelfAt: shelf ? Math.round(shelf.scrollTop) : null,
+      paneAt: pane ? Math.round(pane.scrollTop) : null,
+      drawerBottom: box("[data-drawer]") ? box("[data-drawer]").y + box("[data-drawer]").h : null,
+      cardW: card ? Math.round(card.getBoundingClientRect().width) : null,
+      fold: window.innerHeight };
+  });
+  const same = (a, b) => a && b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+  const shut = await look();
+  const cat = page.locator("[data-category]").first();
+  if (!(await cat.count())) check("there is a category to open", false, "no [data-category]");
+  else {
+    await cat.click();
+    await page.waitForTimeout(900);
+    const open = await look();
+    check("opening a category gives the shelf a much larger box to scroll in",
+      open.shelf.h >= shut.shelf.h * 2,
+      `the band ${shut.band.h} → ${open.band.h}, the shelf's own box ${shut.shelf.h} → ${open.shelf.h}`);
+    check("and it scrolls on its own, without the pane moving",
+      open.shelfTravel > 0 && open.paneAt === shut.paneAt,
+      `${open.shelfTravel}px inside the shelf, the pane still at ${open.paneAt}`);
+    check("the preview box does not move or resize when the shelf grows",
+      same(shut.preview, open.preview),
+      shut.preview ? `${shut.preview.x},${shut.preview.y} ${shut.preview.w}×${shut.preview.h} → ${open.preview.x},${open.preview.y} ${open.preview.w}×${open.preview.h}` : "no preview window on the page");
+    check("and the categories are still on the fold with the band grown",
+      Math.abs(open.drawerBottom - open.fold) <= 1, `the shelf ends at ${open.drawerBottom} in a ${open.fold} window`);
+
+    /* And scrolling inside it moves nothing else. */
+    const sh = await page.locator("[data-shelf]").boundingBox();
+    await page.mouse.move(sh.x + sh.width / 2, sh.y + sh.height / 2);
+    for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(40); }
+    await page.waitForTimeout(350);
+    const after = await look();
+    check("scrolling the shelf moves the shelf and nothing else",
+      after.shelfAt > 0 && after.paneAt === open.paneAt && same(after.preview, open.preview) && same(after.frame, open.frame),
+      `the shelf at ${after.shelfAt}, the pane at ${after.paneAt}, the preview ${same(after.preview, open.preview) ? "still" : "MOVED"}, the site ${same(after.frame, open.frame) ? "still" : "MOVED"}`);
+    console.log(`       a card in the open category is ${open.cardW}px across in an ${open.shelf.w}px shelf — the catalogue's own sizing, printed rather than checked`);
+
+    /* Shut it again and the band gives the room back. */
+    await cat.click();
+    await page.waitForTimeout(900);
+    const again = await look();
+    check("closing it gives the room back",
+      again.band.h === shut.band.h, `${open.band.h} → ${again.band.h}, against ${shut.band.h} before it was opened`);
+  }
+  await ctx.close();
+}
+
 await browser.close();
 console.log("");
 const failed = results.filter((r) => !r).length;

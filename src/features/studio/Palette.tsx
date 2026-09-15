@@ -164,6 +164,36 @@ const OPEN_AT_MOST = 2;
 
 /* ------------------------------------------------------------------ */
 
+/*
+ * Whether any category is open, for the band the shelf stands in.
+ *
+ * The shelf is a 209px strip inside a 248px band, and it was that whether
+ * or not there was anything in it. Opening one category puts 1745px of
+ * cards in it — a twelve-span element is given the whole shelf width by
+ * `sizeFor`, so a card is 1820 across and 208 down, and one of them fills
+ * the strip end to end. 1536 of travel inside 209 of box, and a person
+ * looking at one tile at a time.
+ *
+ * The band cannot ask the shelf how tall it would like to be — it is the
+ * parent — so the shelf says when it has something open, on the same
+ * pattern as the timeline's tab, and the band answers with a height.
+ */
+let shelfOpen = false;
+const shelfWatchers = new Set<() => void>();
+function setShelfOpen(v: boolean) {
+  if (shelfOpen === v) return;
+  shelfOpen = v;
+  shelfWatchers.forEach((w) => w());
+}
+/** True while at least one category is open on the parts shelf. */
+export function useShelfOpen(): boolean {
+  return React.useSyncExternalStore(
+    (w) => { shelfWatchers.add(w); return () => { shelfWatchers.delete(w); }; },
+    () => shelfOpen,
+    () => false,
+  );
+}
+
 export function Palette() {
   const [query, setQuery] = React.useState("");
   /*
@@ -178,6 +208,10 @@ export function Palette() {
    * 248px band is a list you scroll rather than a shelf you read.
    */
   const [open, setOpen] = React.useState<CategoryId[]>([]);
+  /* The band outside needs to know, and a state set during render is not a
+     thing to notify from — so it is told after the paint that follows. */
+  React.useEffect(() => { setShelfOpen(open.length > 0); }, [open]);
+  React.useEffect(() => () => setShelfOpen(false), []);
   const [showRemoved, setShowRemoved] = React.useState(false);
   const toggleCat = React.useCallback((id: CategoryId) => {
     play("select");
@@ -305,7 +339,14 @@ export function Palette() {
           wheel moves everything and the pointer never has to be anywhere in
           particular.
         */}
-        <div ref={shelfRef} data-shelf="" className="no-bars relative z-[1] h-full overflow-y-auto overflow-x-hidden">
+        <div ref={shelfRef} data-shelf=""
+          /* `overscroll-y-contain` so the wheel stops here. Without it the
+             gesture chained: eight notches over an open category took the
+             shelf to its end and then carried the site up behind it, the
+             pane going 261 to 635 under a pointer that never left the
+             shelf. Two scroll regions that never push each other is the
+             rule; this is the half of it the shelf owns. */
+          className="no-bars relative z-[1] h-full overflow-y-auto overflow-x-hidden overscroll-y-contain">
         {searching ? (
           found.length ? (
             <div className="relative z-[1] px-3 py-3">
@@ -451,14 +492,25 @@ function CategorySection({
 }) {
   const [sub, setSub] = React.useState<string | null>(null);
   /* Opening one brings it into view.
-     The planets fill the shelf's 209px on their own, so a section that opens
-     underneath them opens off the bottom of it, and pressing a planet looked
-     like pressing a dead button. It mounts when it opens, so mounting is
-     exactly the moment to scroll — and only the new one moves, because the
-     one already open never remounts. */
+     The planets fill the shelf's own box on their own, so a section that
+     opens underneath them opens off the bottom of it, and pressing a planet
+     looked like pressing a dead button. It mounts when it opens, so mounting
+     is exactly the moment to scroll — and only the new one moves, because
+     the one already open never remounts.
+
+     The SHELF is scrolled, by hand, and not `scrollIntoView`. That scrolls
+     every scrollable ancestor, so opening a category took the pane with it:
+     measured at 2048×1152, the pane went from 0 to 261 and the site jumped
+     upward on its own the moment a planet was pressed. Two scroll regions
+     that never push each other is the rule, and this was the shelf pushing
+     the site. */
   const box = React.useRef<HTMLElement>(null);
   React.useEffect(() => {
-    box.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    const el = box.current;
+    const shelf = el?.closest("[data-shelf]");
+    if (!el || !(shelf instanceof HTMLElement)) return;
+    const to = el.getBoundingClientRect().top - shelf.getBoundingClientRect().top + shelf.scrollTop;
+    shelf.scrollTo({ top: Math.max(0, Math.round(to)), behavior: "smooth" });
   }, []);
   const subs = React.useMemo(
     () => (SUBGROUPS[category.id] ?? []).filter((g) => g.ids.some((id) => live.some((f) => f.id === id))),
