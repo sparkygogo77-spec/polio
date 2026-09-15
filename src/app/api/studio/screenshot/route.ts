@@ -39,6 +39,8 @@ export async function POST(request: Request) {
   const height = Math.round(width * 0.625);
   const fullPage = body.fullPage !== false;
 
+  // How tall the page really was, so a picture cut at the cap can say so.
+  let pageHeight = 0;
   try {
     const png = await withPreview(found, { origin, path, doc: takeDoc(body.doc), device, width, height }, async (page) => {
       if (fullPage) {
@@ -56,12 +58,23 @@ export async function POST(request: Request) {
           if (box) box.style.height = `${h}px`;
           return h;
         });
+        pageHeight = tall;
         await page.setViewportSize({ width, height: Math.max(200, Math.min(MAX_HEIGHT, tall || height)) });
         await page.waitForTimeout(250);
       }
       return page.screenshot({ type: "png", fullPage: false });
     });
-    return new NextResponse(Buffer.from(png), { headers: { "content-type": "image/png", "x-shot-device": device, "x-shot-width": String(width) } });
+    const cut = pageHeight > MAX_HEIGHT;
+    return new NextResponse(Buffer.from(png), {
+      headers: {
+        "content-type": "image/png",
+        "x-shot-device": device,
+        "x-shot-width": String(width),
+        // A page taller than the cap loses the rest; the label the picture
+        // goes up with reads these rather than calling it top to bottom.
+        ...(cut ? { "x-shot-cut": "1", "x-shot-height": String(pageHeight), "x-shot-max": String(MAX_HEIGHT) } : {}),
+      },
+    });
   } catch (error) {
     return NextResponse.json({ ok: false, reason: "render", message: error instanceof Error ? error.message : "The screenshot failed." });
   }
