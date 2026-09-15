@@ -2,9 +2,64 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:48:02.323Z";
+export const GENERATED_AT = "2026-09-15T08:48:28.850Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "9600474",
+    "when": "2026-09-15T08:48:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "362b300",
+        "says": "A part wearing a drifting texture drifts",
+        "when": "2026-09-15T08:45:29+00:00",
+        "detail": [
+          "B29 on the inventory. A part can wear one of the page's texture layers. Its paint named an animation, tex-drift-<hash of that one layer>, and the only keyframes on the page were the site stack's, hashed over every layer that is on; the two agreed only when the stack was exactly that layer. With two layers on the page the part's animation was a name with nothing behind it, and the part stood still while the page moved. The block writes the worn layer's own keyframes beside the part now, so the name it wears is defined wherever it is drawn.",
+          "tests/part-drift.mjs: 3 of 3, 2 red against the tree before this. Two layers on the page, one drifting, a card grid wearing the moving one: the part's computed animation name, and a keyframes rule of that name on the page. Before, the page carried the stack's rule alone; it carries both now."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1283f1a",
+        "says": "A cube or a solid turned on the full preview page stays turned",
+        "when": "2026-09-15T08:45:29+00:00",
+        "detail": [
+          "B28 on the inventory, the turns half. The board is a still frame by the parts' own rule, so the live page is where a cube or a solid is turned and where it is left belongs on the node. The board's own Preview kept a cube's turn; the full /builder/preview page passed no handler at all, so a turn made there died with the page, and a solid's turn was kept nowhere. One `keepTurn` now, on both surfaces, for both kinds.",
+          "tests/live-turn-saved.mjs: 4 of 4, 1 red against the tree before this. A seeded cube on /builder/preview, a quarter turn with the arrow key, and the node read back from storage with the new pose on it."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "99728da",
+        "says": "The routes behind a drawing have a deadline at both ends",
+        "when": "2026-09-15T08:45:29+00:00",
+        "detail": [
+          "B7 on the inventory, and rule 8b of docs/DESIGN.md. A call that can hang must have a deadline at both ends and the spinner must always stop with a sentence. The generate route had it all: a budget of its own five seconds inside its maxDuration, one SDK try with a timeout inside that, an answer with a reason and the seconds it took whatever went wrong, the request id when the API said something, and a longer deadline in the browser for when nothing arrives. The body and reshape routes, the two behind every drawing, had none of it: the SDK's own retries and ten minute timeout, no budget, no signal, and callers that waited forever when the platform killed the function with no reply.",
+          "Both routes carry the same arrangement now, and the two callers cut their wait at 210s, past any route's 180s, so the browser's deadline fires only when nothing at all came back.",
+          "tests/route-deadlines.mjs: 21 of 21, 15 red against the tree before this. Source pins, because a real cut needs a key and a slow model."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "e741538",
     "when": "2026-09-15T08:46:00+00:00",
@@ -1064,28 +1119,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7487daf",
-    "when": "2026-09-15T06:49:36+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f9d0082",
-        "says": "A real site over the open web, read and landed by measurement",
-        "when": "2026-09-15T06:35:03+00:00",
-        "detail": [
-          "The site-read arc was built where no live page could be reached, so its route had only ever seen a fixture and a zip. This holds it to a page nobody here wrote, https://playwright.dev/, from a container with egress: 20699 bytes come back with the page's own title; the reader lists 60 things and 9 blocks, and every block is one of the page's 9 landmarks to the pixel, read by a query that is not the reader's; the foot of the page taken alone lands in a drawn space as the library's footer with the page's ten worded links and its own paint, carries the space's plan, and is prompted, moved and resized by hand; the whole page lands as 9 parts on a surface locked at the page's proportion.",
-          "What falls short is left failing, by name. The surface's proportion is 2.4034 against the page's 2.4039, a third of a pixel, so the third decimal splits; 16 of 36 locked shares differ at the third decimal because parts sit on whole board pixels, the largest drift 0.0008 of the page. 22 of the 60 candidates cannot be found again by the selector they gave, because the reader's path is cut at six steps under body, and two of those are among the 24 the panel offers. The bar across the top is the 38th biggest thing on the page, so it is not on the panel's list of 24 and cannot be taken alone from there. The page draws its words by script, so they are not in the bytes that come back, which the route survives and the zip path would not."
-        ],
-        "areas": [
-          "docs",
-          "tests"
-        ],
-        "kind": "under"
       }
     ],
     "more": 0
