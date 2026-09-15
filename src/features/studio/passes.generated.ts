@@ -2,9 +2,52 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T00:45:05.299Z";
+export const GENERATED_AT = "2026-09-15T01:28:41.056Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "fecff41",
+    "when": "2026-09-15T01:25:52+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "b131170",
+        "says": "The ring sits the same hair off the line on every side",
+        "when": "2026-09-15T00:54:26+00:00",
+        "detail": [
+          "The hairs of the photon ring were laid outside the line by scaling the whole shape from its centroid, which moves a point in proportion to its distance from the middle: on a wide box the long sides got the ring five pixels out and the short sides three. At the old zoom the aura check's sample straddled that; on the full-length page the board fits by width and the sample did not, and the check went red with lifts falling from one side to another. Every point now moves out along its own normal, so the ring is a hair off the line the same all the way round.",
+          "The check reads each side along its normal, the ring and the light beside it, rather than one patch at a fixed distance that catches the ring's peak on one side and lands a pixel past it on the mirrored one; the old crescent still fails it, aura left 245 against right 19. The create-space ground read takes a patch of the clouds rather than one pixel of them."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2cf7d9d",
+    "when": "2026-09-15T00:47:10+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "2cf7d9d",
+        "says": "Regenerate the passes for the board as tall as the site",
+        "when": "2026-09-15T00:47:10+00:00",
+        "detail": [
+          "Hypatia's pass: the board is as tall as the site and the pane is what scrolls, which is the second half of the full-length page that went out last push."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "9569375",
     "when": "2026-09-15T00:44:56+00:00",
@@ -823,101 +866,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c94990a",
-    "when": "2026-09-14T01:40:01+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "cd7c7e6",
-        "says": "A vine is one strand with a cut line down it, and nothing else on it",
-        "when": "2026-09-14T01:38:06+00:00",
-        "detail": [
-          "Third pass, so the idea changes rather than the numbers.",
-          "**What a vine is for.** It carries one line down its middle and cutting that line takes the iteration out — the later of the two, because a vine runs from what came before to what came out of it; whatever hangs under the cut one re-hangs from its parent, so cutting one out of the middle of a run keeps the run. The line is scored into the groove at the axis rather than laid on top of it, and it is faint at rest: a bright line down the middle with a bright rim at each edge is three rails, and a vine would be a cable again. Pressing it is an element clipped to the line's own shape, so the press lands on the line and not on the board around it, and hovering takes the line white hot — the target and the warning at once. It is lifted while a box is being dragged, because the vine under it is moving.",
-          "**The green node at the middle is gone**, along with the event it fired: it opened the pair in the section below, which pressing either box already does.",
-          "**And it is wide enough to be made of something.** At fifteen across, the whole section — groove, field, glow, rim — was seven and a half pixels a side and every band under a pixel, which is not a construct seen small, it is a tube with a line down each edge. At twenty-four there is a field to put the cloud on, and the section is re-proportioned to a card's: a narrow groove at the axis, the field taking most of the width, then the glow and the rim. The cloud covers everything but those two, exactly as on a card, where it lies on the face with the core showing through and the bezel over it. With the tile now drawing at 180 rather than 512, what crosses a vine is a field of filaments rather than one fat strand."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "fb79580",
-        "says": "The Updates board holds where you left it, and fills the floor",
-        "when": "2026-09-14T01:16:28+00:00",
-        "detail": [
-          "Two of J's five, both measured on screen before anything was touched.",
-          "**The zoom reset on every Finish.** Finish is the only door into this view and it is a toggle, so every trip to the board and back mounted the timeline again and refitted it. Measured: 1.85 back to 1 with three updates, 0.77 back to 0.41 with eight. A view a person has moved is theirs now and is put back; centre is how they ask for the fit again.",
-          "Held in a module variable rather than state, because state dies with the mount and the mount is exactly what Finish tears down — and not in the store, because it is where somebody is looking, not part of the site, and has no business in the saved document.",
-          "**The fit read far too small.** Two causes, both real."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "f7b4f2d",
-        "says": "The surface moves, reads as cloud, and the ink reads on it",
-        "when": "2026-09-14T01:12:43+00:00",
-        "detail": [
-          "Three notes off a screenshot, and two of them turn out to be one number.",
-          "**It creeps.** The glide is exactly one period per turn, so 512 pixels over 150 seconds was three and a half pixels a second. And on the red it was worse than that: the still copy of the tile sat *over* the gliding one at 0.95, which is how the red was matched to the green for brightness — but what sits under a layer at 0.95 is five per cent of what you see, so five per cent of a red card was the only part of it that moved. Measured as the mean change in a card over two and a half seconds, the red moved 2.6 and the green 3.8.",
-          "The still layer goes behind the gliding one, where a still layer is depth rather than a lid, and the brightness balance becomes the gliding layer's own opacity — less of it is more of the dark face under it. Same dial, same job, nothing hidden. Green takes all of the glide, red three quarters.",
-          "**The texture is too zoomed in.** The tile drew at one to one, so a card held a third of the picture's width and a seventh of its height: five or six fat filaments, which read as big lines. The period is 180 now, so a card holds more than a whole tile across and two fifths of its height and the same filaments are hairlines in a field of them. It is the same number as the speed, which is why the two notes are one change: half the period is half the distance and twice what a given travel does to the picture."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "2561029",
-    "when": "2026-09-14T01:06:42+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "2561029",
-        "says": "Regenerate the passes for the space-to-part chain",
-        "when": "2026-09-14T01:06:42+00:00",
-        "detail": [
-          "Dijkstra's pass: the chain from a space to the part made inside it, held end to end. A new suite and its shots came with it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "63a7969",
-        "says": "The chain from a space to the part made inside it, held end to end",
-        "when": "2026-09-14T01:05:27+00:00",
-        "detail": [
-          "Both things asked for landed in 48e3917, which is on trunk. What was missing is the proof that the chain works all the way through rather than link by link, and `tests/space-inherits.mjs` is that: draw a loop by hand, choose black hole, steer the space before anything is in it, draw inside it, press Make real, and the part that lands is inside the space and carries the space's plan and its words. A copy of the plan, so steering the part does not steer the space, and a drawing made real outside every space inherits nothing. 15 of 15.",
-          "The first run of that read as Make real being broken: nothing landed, ever, with no key. It was euler's new question waiting to be answered, \"is this box a cube?\", before anything is spent. A hand answers it, so the check does, and the file says so at the top rather than leaving the next person to rediscover it. The queue is not persisted either, so what says a run is over is a part on the board, not a row in storage.",
-          "One duplication of my own, closed. Adding the space's own panel gave this file a second step list, and hypatia's move to `planEdit` unified the helpers but not the control. There is one `Steps` now and two subjects use it, a part and the space it is in, so they cannot drift apart.",
-          "space-inherits 15/15, space-by-hand 29/29, space 49/49, create-space 28/28, site-read 44/44, recreate 41/41, space-entries 13/13, and hypatia's audit-panel 25/25. Typecheck and build clean."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
