@@ -185,7 +185,75 @@ if (live) {
       fills: +Math.max((x1 - x0 + 1) / i1.width, (y1 - y0 + 1) / i1.height).toFixed(2) };
   };
 
+  /*
+   * THE FACE HAS TO HOLD STILL, AND AT MORE THAN ONE MOMENT.
+   *
+   * This reads a mark by shooting it, hiding it, shooting again and diffing,
+   * so the second shot is the face that was behind the ink. Two things were
+   * wrong with doing that on a live page, and the second is the worse:
+   *
+   *   · The cloud drifts in the 80ms between the two shots, so pixels differ
+   *     for reasons that are not ink, and `cut` thresholds on exactly that
+   *     difference — the polluted pixels were being counted as ink.
+   *
+   *   · The face's brightness is wherever the cloud happens to be in its
+   *     twenty-second cycle. So the check answered "did this clear 4.5:1 at
+   *     the instant we looked", while its name promises "every run of words
+   *     clears 4.5:1". It read 4.36, 4.42, 4.49 and 4.51 on four runs of the
+   *     same build: a pass one time in four, on ink that is not legible.
+   *
+   * So: every animation on the page is stopped for the measurement, which
+   * makes the pair differ by the ink alone and makes a run repeatable; and
+   * the cycle is sampled at three phases with the worst kept, because the
+   * bar is about the worst moment a person can meet, not a lucky one.
+   */
+  /*
+   * Six, not three. The drift is a twenty-second loop and three samples of it
+   * left gaps wide enough that a run of words sitting on the bar — "and 1
+   * more" on a green card, which measures about 4.48 — was found on some runs
+   * and missed on others, so the suite passed seven times in eight. A check
+   * that finds a real fault most of the time is worse than one that never
+   * does, because the times it passes are the ones that get believed.
+   */
+  const PHASES = [0, -3.3, -6.7, -10, -13.4, -16.7];
+  const freeze = (secs) => `*,*::before,*::after{animation-play-state:paused!important}
+    .molten::before{animation-delay:${secs}s!important}
+    .molten::after{animation-delay:${secs * 2.35}s!important}`;
+
+  const measureAt = async (roots, secs) => {
+    const st = await p.addStyleTag({ content: freeze(secs) });
+    await p.waitForTimeout(250);
+    const r = await measureOnce(roots);
+    await st.evaluate((el) => el.remove()).catch(() => {});
+    return r;
+  };
+
+  /** The worst reading of each mark across the cloud's cycle. */
   const measure = async (roots) => {
+    const passes = [];
+    for (const secs of PHASES) passes.push(await measureAt(roots, secs));
+    /*
+     * Keyed on the mark's own index, not its label: `label` is the first 26
+     * characters of the text, every drawing is called "a drawing", and two
+     * boxes in a list say the same word. Keying on it merged distinct marks
+     * into one and took the Updates panel from eleven marks to three — which
+     * then failed "there is something to read" for the right reason on the
+     * wrong grounds. SCAN walks the same DOM in the same order each pass and
+     * nothing re-renders while the page is frozen, so the index lines up.
+     */
+    const byMark = new Map();
+    for (const pass of passes) for (const r of pass) {
+      const was = byMark.get(r.i);
+      /* Worst wins on every figure the checks read, independently: a phase
+         that is kindest to the tenth percentile is not always the one that
+         is kindest to the floor. */
+      byMark.set(r.i, was ? { ...r, worst: Math.min(was.worst, r.worst), tenth: Math.min(was.tenth, r.tenth),
+        best: Math.min(was.best, r.best), fills: Math.max(was.fills, r.fills) } : r);
+    }
+    return [...byMark.values()];
+  };
+
+  const measureOnce = async (roots) => {
     const marks = await p.evaluate(SCAN, roots);
     const out = [];
     for (const m of marks) {
@@ -194,10 +262,43 @@ if (live) {
       if (!box || box.width < 4 || box.height < 4) continue;
       const clip = { x: Math.round(box.x), y: Math.round(box.y), width: Math.max(4, Math.round(box.width)), height: Math.max(4, Math.round(box.height)) };
       const before = (await p.screenshot({ clip })).toString("base64");
-      await p.evaluate((q) => { document.querySelector(q).style.visibility = "hidden"; }, sel);
+      /*
+       * WORDS GO TRANSPARENT; ONLY A DRAWING IS HIDDEN OUTRIGHT.
+       *
+       * `visibility: hidden` takes the element's own background with it, so
+       * for anything wearing a plate the second shot was the card behind the
+       * plate and the diff counted the plate itself as ink. The kind chips on
+       * an Updates box are exactly that: "New" is dark ink on a solid violet
+       * `KIND_LIT` plate, and this was reading the whole chip against the
+       * construct's drifting face — which is why it moved with the cloud when
+       * an opaque plate cannot. It reported "New 3.93" against a 4.5 bar for
+       * a word whose real face is the violet, not the card.
+       *
+       * `color: transparent` removes the glyphs and leaves the plate, so the
+       * pair differs by the ink alone and the face is whatever the ink is
+       * actually sitting on. A drawing has no plate of its own — its face is
+       * the card — so it is still hidden outright.
+       */
+      await p.evaluate(([q, isSvg]) => { const el = document.querySelector(q);
+        if (isSvg) { el.dataset.was = el.style.visibility; el.style.visibility = "hidden"; return; }
+        /* Put back exactly what was there, not the empty string. These
+           colours arrive as React inline styles — the kind chip is
+           `style={{ background: KIND_LIT, color: KIND_INK }}` — so clearing
+           the property does not restore the ink, it deletes it, and every
+           chip measured after the first one read its contrast against a
+           colour the design never set. That is how "Under it" came back at
+           1.34:1 on a plate it actually clears about tenfold. */
+        el.dataset.was = JSON.stringify([el.style.color, el.style.textShadow]);
+        el.style.color = "transparent";
+        el.style.textShadow = "none";
+      }, [sel, m.svg]);
       await p.waitForTimeout(80);
       const after = (await p.screenshot({ clip })).toString("base64");
-      await p.evaluate((q) => { document.querySelector(q).style.visibility = ""; }, sel);
+      await p.evaluate(([q, isSvg]) => { const el = document.querySelector(q);
+        if (isSvg) { el.style.visibility = el.dataset.was ?? ""; delete el.dataset.was; return; }
+        const [c, t] = JSON.parse(el.dataset.was ?? '["",""]');
+        el.style.color = c; el.style.textShadow = t; delete el.dataset.was;
+      }, [sel, m.svg]);
       const r = await p.evaluate(READ, [before, after]);
       if (r) out.push({ ...m, ...r });
     }
@@ -225,9 +326,16 @@ if (live) {
     check(`${where}: there is something to read`, rows.length >= 8, `${rows.length} marks`);
     const said = rows.filter((r) => !r.svg);
     const low = said.filter((r) => r.tenth < 4.5).sort((a, c) => a.tenth - c.tenth);
+    /* The worst one is NAMED even when it passes. It used to report only the
+       number, and a bare "worst of 13 is 4.55:1" cannot be acted on: I read
+       it as the label that had failed on an earlier run, raised that colour,
+       and the number did not move, because the worst mark was a different
+       element entirely. A margin report that does not say what is at the
+       margin invites exactly that mistake. */
+    const worstSaid = said.length ? said.reduce((a, c) => (c.tenth < a.tenth ? c : a)) : null;
     check(`${where}: every run of words clears 4.5:1 against its own face`, said.length > 0 && low.length === 0,
-      low.length ? low.slice(0, 4).map((r) => `${r.label} ${r.tenth}`).join(", ")
-        : `worst of ${said.length} is ${Math.min(...said.map((r) => r.tenth))}:1`);
+      low.length ? low.slice(0, 4).map((r) => `"${r.label}" at ${r.tenth}:1 (floor ${r.worst}, best ${r.best}, ${r.n}px)`).join(", ")
+        : `worst of ${said.length} is "${worstSaid.label}" at ${worstSaid.tenth}:1 (floor ${worstSaid.worst}, best ${worstSaid.best}, ${worstSaid.n}px)`);
     const floor = said.filter((r) => r.worst < 3).sort((a, c) => a.worst - c.worst);
     check(`${where}: …and nothing falls under 3:1, edge pixels included`, floor.length === 0,
       floor.length ? floor.slice(0, 4).map((r) => `${r.label} ${r.worst}`).join(", ")

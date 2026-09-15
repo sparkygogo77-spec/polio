@@ -115,7 +115,7 @@ export function TopBar() {
           </Button>
         </Tooltip>
 
-        {/* What the modules put here: the repository, the key vault. The bar
+        {/* What the modules put here: the repository, the keys panel. The bar
             knows none of them by name. */}
         {registry.topBarItems.filter((i) => i.slot !== "status").map((i) => (
           <Guarded key={i.id} id={i.id}><i.component /></Guarded>

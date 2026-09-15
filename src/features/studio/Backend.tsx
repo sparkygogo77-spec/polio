@@ -27,7 +27,7 @@
  * enforces that, not this file — a browser can send anything.
  *
  * The key is untouched by any of it: it rides in the header `keyHeader()`
- * has always set, from the server or the person's own vault, and nothing
+ * has always set, from the server or the person's own keys panel, and nothing
  * here reads it, shows it or stores it.
  */
 import * as React from "react";

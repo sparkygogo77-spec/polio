@@ -20,6 +20,7 @@
  */
 import { readFileSync } from "node:fs";
 import {
+  formatFor,
   ALPHA_FIRST,
   MAKINGS,
   MODELS,
@@ -402,7 +403,8 @@ check("a very wide band gets a very wide ratio rather than being cropped out of 
   ratioFor(nano, 1600, 200, false) === "8:1", ratioFor(nano, 1600, 200, false));
 check("a model that takes real pixels gets the part's own box, rounded to what it accepts", (() => {
   const got = inputFor(ideo, { prompt: "x", w: 1001, h: 250 });
-  return got.aspect_ratio === "custom" && got.width === 1008 && got.height === 256 && got.output_format === "png";
+  // No ground to lose was asked for here, so the format is the JPEG the row spells (B5).
+  return got.aspect_ratio === "custom" && got.width === 1008 && got.height === 256 && got.output_format === "jpg";
 })(), JSON.stringify(inputFor(ideo, { prompt: "x", w: 1001, h: 250 })));
 check("…and is never given a pixel size past what it accepts",
   inputFor(ideo, { prompt: "x", w: 9000, h: 9000 }).width === 2560);
@@ -554,6 +556,20 @@ check("…and wins over what the route would have chosen", (() => {
   const got = inputFor(m, { prompt: "x", w: 1600, h: 900, options: { aspect_ratio: "2048x2048", quality: "high" } });
   return got.aspect_ratio === "2048x2048" && got.quality === "high";
 })());
+
+/* B5. A picture with no ground to lose is asked for as a JPEG, so a 2K
+   photograph fits the document instead of being paid for and refused. */
+{
+  const nano = model("google/nano-banana-2"), seed = model("bytedance/seedream-5-lite");
+  const opaque = inputFor(nano, { prompt: "a gull", w: 1, h: 1, step: "first", transparent: false });
+  check("an opaque picture is asked for as a JPEG, in the model's spelling", opaque.output_format === "jpg", `output_format ${opaque.output_format}`);
+  check("and a model that spells it jpeg gets jpeg", inputFor(seed, { prompt: "a gull", w: 1, h: 1, step: "first" }).output_format === "jpeg");
+  check("a transparent ground still asks for PNG", inputFor(nano, { prompt: "a gull", w: 1, h: 1, step: "first", transparent: true }).output_format === "png");
+  check("and so does the alpha step, whatever was said", inputFor(nano, { prompt: "a gull", w: 1, h: 1, step: "alpha", transparent: false }).output_format === "png");
+  check("the spelling comes from the row's own field, not a guess", formatFor(nano, {}) === "jpg" && formatFor(seed, {}) === "jpeg" && formatFor(model("851-labs/background-remover"), { step: "alpha" }) === "png");
+  const declared = MODELS.filter((m) => m.returns === "picture" && m.format.value === "png");
+  check(`every picture row that declares PNG offers a JPEG spelling for the opaque case (${declared.length} rows)`, declared.every((m) => formatFor(m, {}) !== "png"), declared.filter((m) => formatFor(m, {}) === "png").map((m) => m.slug).join(", ") || "all of them");
+}
 
 const passed = results.filter(Boolean).length;
 console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);

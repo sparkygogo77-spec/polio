@@ -154,6 +154,13 @@ export interface PartDef {
   tier: "A" | "B" | "C";
   /** Show "Links to" in the inspector and honour `link`. */
   linkable?: boolean;
+  /**
+   * The part does not read its own link, so the block makes the whole
+   * part the link: a press anywhere on it, live, goes where it points. For
+   * a grid or a list whose rows navigate by their own titles, the part's
+   * link is where the whole thing points, and it wins.
+   */
+  linkWhole?: boolean;
 }
 
 /** Read an option with its default. */

@@ -84,7 +84,7 @@ async function open(w, h) {
  *
  * **`offsetParent` is not the gate.** It is null for every `position: fixed`
  * element — a dialog, a slide-over, a pinned bar — whether or not anybody can
- * see it, so gating on it fails the key vault for the crime of being a
+ * see it, so gating on it fails the keys panel for the crime of being a
  * dialog. It is one signal among the others: a statically positioned node
  * with no offset parent really is detached, and a fixed or sticky one is
  * exempt because being fixed is the reason it has none.
@@ -235,9 +235,26 @@ async function toTheFoot(page) {
   const shelfBefore = await page.locator("[data-drawer]").boundingBox();
   const foot = await toTheFoot(page);
   check("the surface moves down the page", foot.room > 40, `the frame's head went up ${foot.room}px`);
-  check("and the parts shelf came up with it, whole",
-    !!foot.shelf && foot.shelf.y < shelfBefore.y - 40 && foot.shelf.height > 120,
-    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}, was ${Math.round(shelfBefore.y)}` : "no shelf");
+  /*
+   * Whole and on screen at the end of the gesture — which is the rule. That
+   * it *rose* to get there is not, and demanding a 40px rise fails a board
+   * behaving correctly.
+   *
+   * Since content set the page and the pane set the zoom, a site that fits
+   * its pane leaves the shelf already fully up: 247px at y 653 in a 900
+   * window, before the gesture and after it. There is nowhere for it to come
+   * from. scroll-contract holds "the categories are on screen without
+   * scrolling" at every width it measures, and this pair was still written
+   * for the arrangement where the shelf began below the fold.
+   *
+   * So: it moved, or it was already there, and either way it is whole. The
+   * same shape full-page uses — the shelf is there, or one gesture brings it.
+   */
+  const shelfRose = !!foot.shelf && foot.shelf.y < shelfBefore.y - 40;
+  const shelfWasUp = !!foot.shelf && foot.shelf.y + foot.shelf.height <= (await page.evaluate(() => window.innerHeight)) + 4;
+  check(shelfRose ? "and the parts shelf came up with it, whole" : "and the parts shelf was already up, whole",
+    !!foot.shelf && foot.shelf.height > 120 && (shelfRose || shelfWasUp),
+    foot.shelf ? `${Math.round(foot.shelf.height)}px at y ${Math.round(foot.shelf.y)}, was ${Math.round(shelfBefore.y)}${shelfRose ? "" : " — already up, nothing to rise from"}` : "no shelf");
   const panelsAfter = await page.locator("[data-side-panel]").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
   check("and the side panels did not move while it did",
     panelsBefore.length > 0 && panelsBefore.every((t, i) => t === panelsAfter[i]),
@@ -292,9 +309,12 @@ async function toTheFoot(page) {
      to reach. */
   const shelfNow = await page.locator("[data-drawer]").boundingBox();
   const deck = await page.evaluate(() => window.innerHeight);
+  /* Same as the pair above: on screen and whole is the rule; having moved to
+     get there is not, because a shelf that fits was never off screen. */
+  const landedWhole = shelfNow.height > 120 && shelfNow.y < deck && shelfNow.y + shelfNow.height <= deck + 4;
   check("and the categories are what you land on, whole",
-    shelfNow.height > 120 && shelfNow.y < deck && shelfNow.y < shelfBefore.y,
-    `${Math.round(shelfNow.height)}px at y ${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}`);
+    landedWhole && (shelfNow.y < shelfBefore.y || shelfNow.y + shelfNow.height <= deck + 4),
+    `${Math.round(shelfNow.height)}px at y ${Math.round(shelfNow.y)}, was ${Math.round(shelfBefore.y)}, window ${deck}`);
 
   /* ---------------------------------------------- the shelf's own shape */
   // The screen itself, not the text cursor inside it: the field has a rim and
@@ -339,7 +359,14 @@ async function toTheFoot(page) {
   await page.waitForTimeout(600);
   const after = await tabs();
   check("picking something does not move them", after.join(",") === FIVE, after.join(" · "));
-  check("and the panel is showing it", /Join|Element/.test((await page.locator("[data-side-panel]").innerText()).slice(0, 200)));
+  // The strip's first tab is always "Element", so its text proved nothing.
+  // Picking does not move the tab (`StudioPage.tsx`: the tab you are on is
+  // the tab you stay on), so Element is pressed, and then the panel's name
+  // field has to hold the picked part's own name.
+  await page.locator("[data-side-panel] [role=radio]").first().click();
+  await page.waitForTimeout(400);
+  const named = await page.locator("[data-side-panel] input").evaluateAll((els) => els.map((e) => e.value));
+  check("and Element, pressed, is showing it", named.includes("Join"), `fields: ${named.map((v) => JSON.stringify(v)).join(", ")}`);
 
   const win = await page.locator("[data-page-window]").boundingBox();
   check("the frame is still a whole screen here", win.width > 300 && win.height > 200, `${Math.round(win.width)}×${Math.round(win.height)}`);
@@ -445,6 +472,7 @@ for (const [w, h] of [[1440, 900], [1280, 720], [900, 600], [760, 420], [1440, 3
   check("nothing covers the ground at rest", (await litness()) === false);
   await page.locator("[data-place-light]").click();
   await page.waitForTimeout(700);
+  check("placing the lamp draws its dim, one of them", (await page.locator("[data-light-dim]").count()) === 1, `${await page.locator("[data-light-dim]").count()} dims`);
   check("and nothing covers it while the lamp is being placed", (await litness()) === false);
   const dim = await page.locator("[data-light-dim] > div").evaluate((el) => getComputedStyle(el).boxShadow).catch(() => "none");
   check("the page is ringed rather than the ground blacked out", !/9999px/.test(dim) && !/ 0px 0px 0px 9999/.test(dim), dim.slice(0, 46));

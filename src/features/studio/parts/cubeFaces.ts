@@ -19,10 +19,18 @@ export type { CubeData, CubeFace, CubeSide };
 export const CUBE_MIN = 120;
 
 /** Words that mean "this is a cube" rather than being something to write on one. */
-const CUBE_WORDS = /\b(cube|cuboid|box|3d box|hexahedron)\b/i;
+const CUBE_WORDS = /\b(cube|cuboid|3d box|hexahedron)\b/i;
+/**
+ * A box on a page is a flat thing far more often than a solid: the text
+ * box, the search box, the checkbox. Qualified by one of those it is not a
+ * claim of shape, and is taken out of the words before "box" is looked for.
+ */
+const FLAT_BOX = /\b(text|search|check|tick|input|dialog|info|message|chat|comment|combo|select|list|drop|light|mail|sand|tool|form|edit|bounding|alert|modal)[ -]?box(es)?\b|\bbox[ -]?(shadow|sizing|model)s?\b/gi;
+const A_BOX = /\bbox(es)?\b/i;
 
 export function saysCube(words: string): boolean {
-  return CUBE_WORDS.test(words ?? "");
+  const said = words ?? "";
+  return CUBE_WORDS.test(said) || A_BOX.test(said.replace(FLAT_BOX, " "));
 }
 
 /**

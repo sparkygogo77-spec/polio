@@ -136,7 +136,8 @@ check("a hexagon's corners are counted, not guessed", corners(HEX[0]) >= 5 && co
   check("the six sides are in it, in order", /"front", "right", "back", "left", "top", "bottom"/.test(src));
   check("the words are data at the top of the file", /"heading": "Speed"/.test(src) && /"body": "under a second"/.test(src));
   check("it turns with the pointer and the keys", /onPointerMove/.test(src) && /ArrowLeft/.test(src));
-  check("a face's colour is a site token, not a hex", /var\(--\$\{face\.colour\}\)/.test(src) || /var\(--/.test(src));
+  // The scaffold writes the face's colour as `var(--${face.colour})`; an `|| /var\(--/` here was always true (inventory D18).
+  check("a face's colour is a site token, not a hex", /var\(--\$\{face\.colour\}\)/.test(src) && !/#[0-9a-f]{6}/i.test(src.split("\n").filter((l) => /colour/.test(l)).join("\n")), (src.match(/var\(--[^)]*\)/g) ?? []).slice(0, 3).join(" "));
   check("nothing is fetched and no library is imported", !/from "(?!react)/.test(src.replace(/from "react"/g, "")), (src.match(/^import .*$/gm) ?? []).join(" | "));
 }
 
@@ -312,10 +313,9 @@ await page.waitForTimeout(1400);
 
 /* It goes out with a publish: the document is what publish sends. */
 {
-  const doc = await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {};
-    return JSON.stringify({ nodes: s.nodes });
-  });
+  // Through the page's own seam, what Publish sends; storage measured what hydration keeps (inventory D27).
+  const doc = await page.evaluate(() => (window.__studioPublishDoc ? JSON.stringify(window.__studioPublishDoc()) : ""));
+  check("the page can say what publish sends", doc.length > 0, doc.length ? `${doc.length} bytes` : "no __studioPublishDoc seam");
   check("the faces are in the document publish sends", doc.includes('"Trust"') && doc.includes('"under a second, every time"'));
   check("and the cube is a part id, not an image", doc.includes('"cube-3d"') && !/"code":\{/.test(doc));
 }

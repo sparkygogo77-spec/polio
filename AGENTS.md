@@ -81,7 +81,7 @@ should be *before* writing the prompt that says what it is.
 | **Design / Preview** | top left | One switch (`p`). Design shows the board; Preview puts the live site in exactly the same place, with the library and panels gone. Nothing moves under you. |
 | **Board** | centre | A page frame (1440 / 834 / 390 wide) is the site's viewport. Parts land inside it at real size and draw what they'll be. Snap, resize, draw regions, connect with arrows, group, and prompt each one. |
 | **Companion** | floating, draggable | The same page as a phone or tablet — never desktop, since the board is the desktop view. Tap a part in it to select that part on the board. |
-| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. |
+| **Element / Format / Pages** | right | The selected part's contents, size and position in the frame, options and prompt; ~70 site-wide format options; the page manager. Below 768 px the whole side panel is a sheet over the foot of the board, opened by the same toggle, and the bar's folded controls sit behind one More key (`tests/phone-builder.mjs`). |
 | **Blueprint** | Compile button | Everything as a self-describing brief, markdown or JSON; optionally handed to Claude. |
 
 The old addresses `/studio` and `/studio/design` still open the Builder.
@@ -269,7 +269,10 @@ a kicker with a rule, and label-and-value rows that copy.
   same document. Anything that loads or renders a document carries the whole
   of it.
 - Every plain format value reaches the blueprint, resolved; advanced ones only
-  when changed; `*` marks what the author set. A default left out was read as
+  when changed; `*` marks what the author set. A field a renderer reads is
+  marked `live` in `format.ts`; the rest are marked "brief" in the panel,
+  because the preview does not draw them, and `tests/format-live.mjs` holds
+  the flags to the renderers' own source. A default left out was read as
   "not decided" and the whole visual system got inferred from six colours.
 - The blueprint explains its own conventions in "How to read this" and the
   Claude routes repeat them in their system prompt. Change one, change both:
@@ -340,7 +343,7 @@ a kicker with a rule, and label-and-value rows that copy.
   kept, every score stored on the part. The traced ground is stripped from
   every answer (`dropGround`), because a white plate the tracer found under
   the drawing is not the drawing. No Claude call happens anywhere in it, and
-  the whole path runs with a locked vault: the part, the crop, the
+  the whole path runs with a locked keys panel: the part, the crop, the
   behaviour, the body and the iteration on the timeline all land without a
   reader. `writeBody` is still there for a part that genuinely wants words
   and is reached only when nothing was traced at all.
@@ -401,6 +404,14 @@ a kicker with a rule, and label-and-value rows that copy.
   cards is their frame, a box over the hero is the hero's new edge. The
   disc says "a box: it will be a cube" while it is being drawn, the part's
   chip says `box · cube` after, and the panel wears "a box, made a cube".
+  A drawing too small to be a part is grown to the floors in proportion
+  (`applyProportion`), because the floors differ by axis and a 44 × 36
+  mark was landing 80 × 36 with its one fact lost. What a person does
+  second — two cubes, a cube in a space beside a flat part, a box that is
+  not square, a fresh browser opening `/site` — is measured by
+  `tests/cube-second.mjs`; the space's picked-part panel carries "This
+  space" as the way back to the space's own panel, because its key on the
+  board goes once a part is inside it.
   A cube skips the reshape route entirely, so the whole path — kind, size,
   faces, the part itself — happens with no model call of any sort.
   **It is the proportion it was drawn at.** The catalogue keeps the part's
@@ -463,7 +474,7 @@ a kicker with a rule, and label-and-value rows that copy.
   (`faceView`) and sent up the image route at stage two (`views`, a field
   the route now takes for a mesh model). The card in the panel and the
   piece on the wheel light up the moment a Replicate token is present
-  (`rendererReady`: this browser's vault or the server's environment,
+  (`rendererReady`: this browser's keys panel or the server's environment,
   never a value, only a yes) and otherwise say what would light them; no
   call is made to find that out. The answer lands as `mesh-3d` with
   `node.cube` kept, so the faces stay editable and "Back to the cube" is
@@ -485,7 +496,7 @@ a kicker with a rule, and label-and-value rows that copy.
   **connector** and becomes a chain between the two parts nearest its ends,
   ceasing to be a part itself; one closed line is a **surface** that holds
   what is placed on it; anything else is a **mark**, which is what every
-  drawing was. It is read off the geometry, so it survives a locked vault,
+  drawing was. It is read off the geometry, so it survives a locked keys panel,
   it is stored as `node.kind`, and it reaches the blueprint as "the shape
   means".
 - **The bench is how the drawing path is judged** (`tests/shapes.mjs`).
@@ -512,7 +523,7 @@ a kicker with a rule, and label-and-value rows that copy.
 
   The token is the person's, not the deployment's, and lives where the
   Claude key lives: a service card under Keys beside Claude, held in the same
-  vault in this browser, unlocked the same way, sent as `x-replicate-key` by
+  keys panel in this browser, unlocked the same way, sent as `x-replicate-key` by
   `rendererHeader()` with each call. The route holds it for the length of the
   call — never written down, never logged, never returned, and the one place
   a library's error message could carry it is scrubbed. A
@@ -524,7 +535,7 @@ a kicker with a rule, and label-and-value rows that copy.
   name. With no token anywhere the route answers HTTP 200, `ok: false`,
   `reason: "unavailable"`, the same shape and the same path a locked Claude
   key answers with, and the loop says `noRendererKeyMessage` rather than "no
-  token", because a vault holding one behind a PIN is the usual case. A
+  token", because a keys panel holding one behind a PIN is the usual case. A
   renderer call is the first thing here that
   spends money per press rather than per token, so `RENDER_COST` (0.04
   raster, 0.08 vector) rides back with the answer, is kept on the part
@@ -701,7 +712,7 @@ a kicker with a rule, and label-and-value rows that copy.
   feature, and the copies had drifted — two voids three hundredths of a
   lightness apart. Everything imports them now; the console's numbers are the
   ones kept. A surface that belongs to the Builder's console wears the void
-  (the wheel, the palette, the vault, the Blueprint); a page, a panel or a
+  (the wheel, the palette, the keys panel, the Blueprint); a page, a panel or a
   card uses the shell's tokens.
 - **The wheel is the whole editor, and the right panel is the convenience.**
   Anything the Inspector can do to one part, the wheel can do too: the per-part
@@ -1717,12 +1728,12 @@ a kicker with a rule, and label-and-value rows that copy.
 - **Two materials, defined once** (`core/ui/void.ts`; `tests/surfaces.mjs`).
   Every surface of the Builder's console is the void or the screen, and both
   live in core so nothing can drift: a feature that wants either imports it.
-  A private copy is the bug — the key vault kept its own five-value screen
+  A private copy is the bug — the keys panel kept its own five-value screen
   with every number a little away from the shared one — and so is a surface
   painted out of a third family: the trail's canvas was the shell's ground
   with its hue typed as 150, a green nothing else in the app is near. The
   suite measures the hue of every painted surface in the book and holds the
-  vault to importing rather than redefining.
+  keys panel to importing rather than redefining.
 - **Nothing is sliced by a fold.** A panel that scrolls scrolls its *reading
   matter*: the rows you act on — Publish, Download, Copy — sit below the
   scroller, not at the end of it, or the panel's own edge cuts one in half on
@@ -1980,7 +1991,7 @@ a kicker with a rule, and label-and-value rows that copy.
   ?id=` says how that build is getting on and, when it is `READY`, what
   address it is at — the shortest alias, which is the production domain,
   else the deployment's own host. `GET` with no id says only whether there
-  is a token at all. The token is the server's `VERCEL_TOKEN` or the vault's
+  is a token at all. The token is the server's `VERCEL_TOKEN` or the keys panel's
   `x-vercel-token`, server first, like the Claude key. A build outlives a
   serverless request, so the client polls (`watchDeploy` in `agent.ts`)
   rather than the route waiting. The deploy hook stays what it always was:
@@ -2074,7 +2085,7 @@ is actually there.
 ## 2c. The tweet console (`src/features/tweets`)
 
 A dashboard, not a page: `T` (or the palette, or the status-bar count) brings
-it down over whatever is open, the way the key vault does, and Escape
+it down over whatever is open, the way the keys panel does, and Escape
 takes it away. It drafts posts to X, previews them, records a tour of the
 live site to go with them, queues them, and sends them.
 
@@ -2285,14 +2296,14 @@ remove it from `src/features/index.ts` when you're sure.
   service to `SERVICES` means adding a header a route reads and an arm to
   `/api/keys/test`, which asks each service the smallest question it answers
   — one answer per service, never one standing in for another.
-- **The vault is the fallback, not the pattern.** `src/features/keys` holds
+- **The keys panel is the fallback, not the pattern.** `src/features/keys` holds
   the key in this browser, in localStorage, in the clear, open on arrival and
   across reloads and tabs, with one way out: **Forget the key**. There is no
   PIN on the way in. Four digits was a speed bump in front of something
   anything on the machine could read the moment it was unlocked, and it cost
   an unattended run every five minutes and every reload. The panel says
   plainly what holding a key here means and that the server is where a key
-  belongs — do not restyle that warning away. The sealed vault is still
+  belongs — do not restyle that warning away. The sealed keys is still
   there behind **Seal the key under a PIN** (`keys.pin`, off, advanced):
   PBKDF2 at 310,000 rounds into an AES-GCM box, only the box stored, never
   the PIN or a hash of it, with the tab-held and kept-for-this-tab modes

@@ -23,6 +23,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
 const FAKE_VERCEL = "vercel_test_do_not_use_9876543210";
 const results = [];
+/** Lines that could not be run here, said in the total rather than counted as green. */
+const notRun = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -39,13 +41,30 @@ check("with no token there is nothing to deploy with", bare.configured === false
 const offered = await json(`${URL_BASE}/api/studio/deploy`, { headers: { "x-vercel-token": FAKE_VERCEL } });
 check("a token from the browser is enough to offer it", offered.configured === true && offered.source === "browser", JSON.stringify(offered));
 
+/* 1b. What is reported is what is set: a branch nobody named is null, not
+   "main" (rows B15 and B18). The server and this suite share a box, so the
+   suite's own environment says which answer to expect. */
+const branchSet = process.env.GITHUB_BRANCH?.trim() || null;
+const keysStatus = await json(`${URL_BASE}/api/keys/status`, { cache: "no-store" });
+check("the keys status reports a branch only when one is set", keysStatus.branch === branchSet, `branch ${JSON.stringify(keysStatus.branch)}, GITHUB_BRANCH ${branchSet ? "set" : "unset"} on this box`);
+const pubStatus = await json(`${URL_BASE}/api/studio/publish`, { cache: "no-store" });
+check("and so does the publish status", pubStatus.github?.branch === branchSet, `branch ${JSON.stringify(pubStatus.github?.branch)}`);
+{
+  const { readFileSync } = await import("node:fs");
+  const deploy = readFileSync("src/app/api/studio/deploy/route.ts", "utf8");
+  const publish = readFileSync("src/app/api/studio/publish/route.ts", "utf8");
+  check("a deployment with no state is reported as none, not as QUEUED", !/readyState \?\? "QUEUED"/.test(deploy), `${(deploy.match(/\?\? "QUEUED"/g) ?? []).length} invented states`);
+  check("a push that assumed main says so", /assumed/.test(publish) && /assumed/.test(deploy));
+  check("a site named on a server that only pushes to a list is told the list", /only publishes to \$\{c\.allow\.join/.test(publish) && /pick one of them/.test(publish));
+}
+
 /* 2. Asked to deploy with nothing, it says where a token goes. */
 const noToken = await json(`${URL_BASE}/api/studio/deploy`, {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({ repo: "someone/something" }),
 });
-check("with no token it says where to put one", noToken.ok === false && noToken.reason === "no-token" && /vault|VERCEL_TOKEN/.test(noToken.message ?? ""), noToken.message);
+check("with no token it says where to put one", noToken.ok === false && noToken.reason === "no-token" && /keys panel|VERCEL_TOKEN/.test(noToken.message ?? ""), noToken.message);
 
 /* 3. The token travels: Vercel is the one that turns it down, not us. */
 const rejected = await json(`${URL_BASE}/api/studio/deploy`, {
@@ -53,9 +72,16 @@ const rejected = await json(`${URL_BASE}/api/studio/deploy`, {
   headers: { "content-type": "application/json", "x-vercel-token": FAKE_VERCEL },
   body: JSON.stringify({ repo: "someone/something" }),
 });
-check("a bad token gets as far as Vercel and is reported as a bad token",
-  rejected.ok === false && (rejected.reason === "auth" || rejected.reason === "network"),
-  `${rejected.reason}: ${(rejected.message ?? "").slice(0, 90)}`);
+if (rejected.reason === "network") {
+  // No route to Vercel from this box. That the token travelled cannot be
+  // shown here, and it is not shown: this line is not counted either way.
+  notRun.push("a bad token gets as far as Vercel and is reported as a bad token");
+  console.log(`  --   a bad token gets as far as Vercel and is reported as a bad token — not run: ${(rejected.message ?? "").slice(0, 90)}`);
+} else {
+  check("a bad token gets as far as Vercel and is reported as a bad token",
+    rejected.ok === false && rejected.reason === "auth",
+    `${rejected.reason}: ${(rejected.message ?? "").slice(0, 90)}`);
+}
 
 /* 4. The publish target, on a server that has a token and a list. */
 const PORT = 3101;
@@ -116,5 +142,5 @@ try {
 }
 
 const failed = results.filter((r) => !r).length;
-console.log(`\n${results.length - failed}/${results.length} passed`);
+console.log(`\n${results.length - failed}/${results.length} passed${notRun.length ? `, ${notRun.length} not run here` : ""}`);
 process.exit(failed ? 1 : 0);

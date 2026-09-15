@@ -14,20 +14,16 @@ interface Tour {
   open: boolean;
   /** Index into STEPS. */
   step: number;
-  /** Bumped when a step has finished setting the screen up, so the overlay re-measures. */
-  staged: number;
   start: (at?: number) => void;
   go: (to: number) => void;
   next: () => void;
   back: () => void;
   stop: () => void;
-  staging: () => void;
 }
 
 export const useTour = create<Tour>()((set, get) => ({
   open: false,
   step: 0,
-  staged: 0,
 
   start: (at = 0) => set({ open: true, step: Math.max(0, Math.min(STEPS.length - 1, at)) }),
 
@@ -42,9 +38,4 @@ export const useTour = create<Tour>()((set, get) => ({
   back: () => get().go(get().step - 1),
 
   stop: () => set({ open: false, step: 0 }),
-
-  staging: () => set((s) => ({ staged: s.staged + 1 })),
 }));
-
-/** Is a tour running? Read by the things that would otherwise close under it. */
-export const tourRunning = (): boolean => useTour.getState().open;

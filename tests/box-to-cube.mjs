@@ -448,7 +448,7 @@ let side = null;
   check("one call went up the image route at stage two", !!call && solidCalls.length === 1);
   check("carrying the front and three more views, drawn off the cube's own faces", call && call.first > 1000 && call.views.length === 3 && call.views.every((v) => v > 1000), call ? `front ${call.first} b64 chars, views ${call.views.join(", ")}` : "-");
   check("with words that route to the object cell", call && makingOf({ said: call.said }) === "object" && call.model === "tencent/hunyuan3d-2mv", call?.said);
-  check("no key in any field: the token rides as a header from the vault or sits on the server", call && !call.key && !JSON.stringify(call).includes("REPLICATE"), call?.key ?? "no header (server token)");
+  check("no key in any field: the token rides as a header from the keys panel or sits on the server", call && !call.key && !JSON.stringify(call).includes("REPLICATE"), call?.key ?? "no header (server token)");
   for (let i = 0; i < 40 && (await read())?.featureId !== "mesh-3d"; i++) await page.waitForTimeout(150);
   const solid = await read();
   check("the answer lands as a solid part", solid?.featureId === "mesh-3d" && solid.mesh?.from === "tencent/hunyuan3d-2mv", solid?.featureId);

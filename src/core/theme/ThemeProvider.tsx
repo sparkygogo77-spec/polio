@@ -60,7 +60,6 @@ export function ThemeProvider() {
     el.style.setProperty("--radius", `${snap["appearance.radius"]}px`);
     el.style.setProperty("--font-scale", String(snap["appearance.fontScale"]));
     el.style.setProperty("--press-scale", String(snap["effects.pressScale"]));
-    el.style.setProperty("--flash-ms", `${snap["effects.flashDurationMs"]}ms`);
     el.dataset.density = String(snap["appearance.density"]);
     el.dataset.font = String(snap["appearance.font"]);
     el.dataset.contrast = snap["appearance.contrast"] ? "high" : "normal";

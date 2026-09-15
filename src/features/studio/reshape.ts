@@ -15,7 +15,8 @@
  * carries icons). The board passes a lookup; `tests/reshape-answer.mjs`
  * passes a small one of its own and holds this to its rules.
  */
-import type { Sketch } from "./sketch";
+import { PART_MAX_H, type Sketch } from "./sketch.ts";
+import { cut } from "../../core/lib/format.ts";
 
 /** What a part is cut to. The same four the store keeps. */
 export type Shape = "circle" | "ellipse" | "rounded" | "box";
@@ -126,11 +127,23 @@ export const FULL_BLEED = 0.9;
 
 const MIN_W = 40;
 const MIN_H = 24;
-const MAX_H = 1600;
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+/**
+ * A size held under the ceiling on both sides. Holding the height alone
+ * kept the width, so a column answered or drawn taller than the ceiling
+ * landed shorter and fatter than it was meant; scaled together it keeps
+ * its proportion, which is the one thing a drawing always says.
+ */
+const underCeiling = (w: number, h: number, frameWidth: number): { w: number; h: number } => {
+  const tall = h > PART_MAX_H ? PART_MAX_H / h : 1;
+  return {
+    w: clamp(Math.round(w * tall), MIN_W, Math.max(MIN_W, frameWidth)),
+    h: clamp(Math.round(h * tall), MIN_H, PART_MAX_H),
+  };
+};
 const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
-const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+const text = (v: unknown, max: number) => (typeof v === "string" ? cut(v.trim(), max) : "");
 
 /** Claude's answer, held to the catalog, the frame and the drawing. */
 export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, kind, drawnSize }: CheckInput): Checked {
@@ -161,8 +174,7 @@ export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, k
   const shape = said ?? drawnShape;
 
   // The size: what was answered, else what the part has, else the kind's own.
-  let w = clamp(Math.round(num(patch.w, node?.w ?? info?.w ?? 132)), MIN_W, Math.max(MIN_W, frameWidth));
-  let h = clamp(Math.round(num(patch.h, node?.h ?? info?.h ?? 76)), MIN_H, MAX_H);
+  let { w, h } = underCeiling(num(patch.w, node?.w ?? info?.w ?? 132), num(patch.h, node?.h ?? info?.h ?? 76), frameWidth);
 
   /*
    * The proportion: the one thing a drawing always says.
@@ -192,15 +204,14 @@ export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, k
       nw = frameWidth;
       nh = nw / trueAspect;
     }
-    w = clamp(Math.round(nw), MIN_W, Math.max(MIN_W, frameWidth));
-    h = clamp(Math.round(nh), MIN_H, MAX_H);
+    ({ w, h } = underCeiling(nw, nh, frameWidth));
     reproportioned = true;
   }
 
   // A circle is as tall as it is wide. Answering 380×351 for one is the
   // shape being dropped a second time, in the numbers.
   if (shape === "circle") {
-    const side = clamp(Math.round(Math.sqrt(Math.max(MIN_W * MIN_H, w * h))), MIN_W, Math.max(MIN_W, Math.min(frameWidth, MAX_H)));
+    const side = clamp(Math.round(Math.sqrt(Math.max(MIN_W * MIN_H, w * h))), MIN_W, Math.max(MIN_W, Math.min(frameWidth, PART_MAX_H)));
     if (Math.abs(w - h) > 1) reproportioned = true;
     w = side;
     h = side;
@@ -225,8 +236,9 @@ export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, k
     const drewWide = drawnSize!.w >= frameWidth * FULL_BLEED;
     const kindIsWide = (info?.w ?? 0) >= frameWidth * FULL_BLEED;
     if (!drewWide && !kindIsWide) {
-      const nw = clamp(Math.round(drawnSize!.w), MIN_W, Math.max(MIN_W, frameWidth));
-      const nh = shape === "circle" ? nw : clamp(Math.round(drawnSize!.h), MIN_H, MAX_H);
+      const held = underCeiling(drawnSize!.w, drawnSize!.h, frameWidth);
+      const nw = shape === "circle" ? clamp(Math.round(drawnSize!.w), MIN_W, Math.max(MIN_W, frameWidth)) : held.w;
+      const nh = shape === "circle" ? nw : held.h;
       keptSize = nw !== w || nh !== h;
       w = nw;
       h = nh;

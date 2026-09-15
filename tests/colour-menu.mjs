@@ -31,6 +31,8 @@ const URL_ = process.argv[2] ?? "http://localhost:3000";
 import { BAND, CHIP, EMPTY, NEAR_OF_HOLE, chipSize, emptyChip, emptyFill, swatchChip } from "../src/features/studio/colourMenu.ts";
 
 const results = [];
+/** Halves that could not run here, said in the total rather than counted as green. */
+const notRun = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -161,7 +163,7 @@ check("a strip is thicker than the thumb that rides it", BAND.strip > 12, `${BAN
  */
 const up = await fetch(`${URL_}/builder`).then((r) => r.ok).catch(() => false);
 if (!up) {
-  console.log(`  --   no Builder at ${URL_} — the menus themselves were not opened`);
+  notRun.push("the live half"); console.log(`  --   no Builder at ${URL_} — the menus themselves were not opened`);
 } else {
   const { createRequire } = await import("node:module");
   const req = createRequire(import.meta.url);
@@ -173,7 +175,7 @@ if (!up) {
   for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright-core", "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {
     try { ({ chromium } = req(c)); break; } catch { /* next */ }
   }
-  if (!chromium) console.log("  --   no Playwright — the menus themselves were not opened");
+  if (!chromium) { notRun.push("the live half"); console.log("  --   no Playwright — the menus themselves were not opened"); }
   else {
     /* playwright-core ships no browser of its own; this container's is here,
        and every other suite launches it the same way. */
@@ -283,5 +285,5 @@ if (!up) {
 
 console.log("");
 const failed = results.filter((r) => !r).length;
-console.log(`${results.length - failed} of ${results.length} hold`);
+console.log(`${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}${notRun.length ? `, ${notRun.length} half not run here` : ""}`);
 process.exit(failed ? 1 : 0);

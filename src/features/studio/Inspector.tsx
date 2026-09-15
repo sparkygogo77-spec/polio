@@ -961,7 +961,7 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
 /**
  * Does this browser, or the server, hold a Replicate token?
  *
- * Asked once, and again whenever the vault changes: the control it lights
+ * Asked once, and again whenever the keys panel changes: the control it lights
  * is the one control on this panel that spends money.
  */
 function useRendererReady(): boolean | null {
@@ -1027,17 +1027,32 @@ function Solid({ node, palette }: { node: StudioNode; palette: Record<string, st
 
 function LinkField({ node }: { node: StudioNode }) {
   const pages = useStudio((s) => s.pages);
+  // A link drawn as an arrow points at another part; it is named here by
+  // that part's name, where before no UI showed it at all.
+  const other = useStudio((s) => (node.link?.kind === "node" ? s.nodes.find((n) => n.id === node.link!.target) ?? null : null));
   const link = node.link;
-  const value = !link ? "none" : link.kind === "page" ? `page:${link.target}` : link.kind === "url" ? "url" : "none";
+  const value = !link ? "none" : link.kind === "page" ? `page:${link.target}` : link.kind === "url" ? "url" : "node";
   const set = (l: StudioNode["link"]) => useStudio.getState().updateNode(node.id, { link: l });
   return (
     <Field label="Links to" hint="Where this sends people in the live preview and the finished site.">
+      <div data-link-field="">
       <Select
         value={value}
-        onChange={(v) => (v === "none" ? set(null) : v === "url" ? set({ kind: "url", target: link?.kind === "url" ? link.target : "https://" }) : set({ kind: "page", target: v.slice(5) }))}
-        options={[{ value: "none", label: "Nowhere" }, ...pages.map((p) => ({ value: `page:${p.id}`, label: `${p.name}  ${p.path}` })), { value: "url", label: "Web address…" }]}
+        onChange={(v) => (v === "none" ? set(null) : v === "url" ? set({ kind: "url", target: link?.kind === "url" ? link.target : "https://" }) : v === "node" ? undefined : set({ kind: "page", target: v.slice(5) }))}
+        options={[
+          { value: "none", label: "Nowhere" },
+          ...pages.map((p) => ({ value: `page:${p.id}`, label: `${p.name}  ${p.path}` })),
+          { value: "url", label: "Web address…" },
+          ...(link?.kind === "node" ? [{ value: "node", label: `The part ${other?.label ?? link.target}, on this page` }] : []),
+        ]}
         aria-label="Links to"
       />
+      {link?.kind === "node" ? (
+        <p className="mt-1 text-[10px] leading-snug text-fg-faint" data-link-node="">
+          Drawn as an arrow to the part {other?.label ?? link.target}: pressing this scrolls to it. Pick a page or an address above to send people elsewhere.
+        </p>
+      ) : null}
+      </div>
       {link?.kind === "url" ? (
         <Input className="mt-1.5" value={link.target} placeholder="https://" aria-label="Web address" onChange={(e) => set({ kind: "url", target: e.target.value })} />
       ) : null}

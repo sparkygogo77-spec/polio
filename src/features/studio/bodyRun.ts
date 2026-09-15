@@ -234,11 +234,6 @@ export function targetFor(outline: OutlineClip | null, strokes: SketchPoint[][] 
   return { mask: new Array<boolean>(GRID * GRID).fill(true), mode: { closed: true, tolerance: 0 } };
 }
 
-/** The old shape of the question, kept for the written-body loop. */
-export function targetMask(outline: OutlineClip | null): boolean[] {
-  return targetFor(outline).mask;
-}
-
 /** A grid of what an image actually painted. */
 async function shotMask(dataUrl: string): Promise<boolean[]> {
   const mask = new Array<boolean>(GRID * GRID).fill(false);
@@ -390,7 +385,7 @@ export function compare(target: boolean[], got: boolean[], mode: Compare = { clo
 /* The loop                                                            */
 /* ------------------------------------------------------------------ */
 
-async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse }> {
+async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse; unseen?: string[] }> {
   // The browser's own deadline, longer than the route's budget: for the
   // case where nothing arrives at all, so the spinner still stops with a
   // sentence rather than running until a reload.
@@ -411,13 +406,13 @@ async function askForBody(input: BodyInput, prev?: { html: string; says: string;
       ...(prev ? { previous: prev.html, critique: prev.says, shot: prev.shot?.split(",")[1] ?? null } : {}),
     }),
   });
-  return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse };
+  return (await res.json()) as { ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse; unseen?: string[] };
 }
 
 /**
  * Ask the renderer to draw it.
  *
- * The token rides on the request, out of the same vault the Claude key
+ * The token rides on the request, out of the same keys panel the Claude key
  * comes from, and no Claude key rides with it: this route has no use for
  * one. Without a token the answer is `unavailable` at HTTP 200, so this is
  * never a failure, only a fork.
@@ -499,7 +494,7 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
       // written attempt is given to beat, with the drawing beside it.
       if (judged.overlap >= 0 && judged.overlap < GOOD_ENOUGH) prev = { html, says: judged.says, shot: judged.shot };
     } else {
-      // A vault holding a token but locked is the usual reason, and "no
+      // A keys panel holding a token but locked is the usual reason, and "no
       // token" would be untrue; say what to press instead.
       rendererSays = (drew.reason === "unavailable" ? noRendererKeyMessage("") : drew.message ?? "The renderer drew nothing.").trim();
     }
@@ -523,7 +518,9 @@ export async function writeBody(input: BodyInput, deps: { onStep?: (s: string) =
     const { html } = cleanSnippet(answer.html);
     deps.onStep?.(`Looking at attempt ${n}…`);
     const { overlap, says, shot } = await judge(html, input, target, mode);
-    attempts.push({ n, source: "written", overlap, says, html, note: answer.note ?? "", shot });
+    // A revision asked without its render says so on the card, not only in the log.
+    const blind = answer.unseen?.length ? `asked without ${answer.unseen.join(" or ")}` : "";
+    attempts.push({ n, source: "written", overlap, says, html, note: [answer.note ?? "", blind].filter(Boolean).join(" · "), shot });
     if (overlap < 0 || overlap >= GOOD_ENOUGH) break;
     prev = { html, says, shot };
   }

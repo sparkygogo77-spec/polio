@@ -40,7 +40,7 @@ const check = (name, ok, detail = "") => {
  *
  * **`offsetParent` is not the gate.** It is null for every `position: fixed`
  * element — a dialog, a slide-over, a pinned bar — whether or not anybody can
- * see it, so gating on it fails the key vault for the crime of being a
+ * see it, so gating on it fails the keys panel for the crime of being a
  * dialog. It is one signal among the others: a statically positioned node
  * with no offset parent really is detached, and a fixed or sticky one is
  * exempt because being fixed is the reason it has none.
@@ -174,15 +174,15 @@ await page.waitForTimeout(1100);
   check("and every one of them can be pressed", bar.dark.length === 0, bar.dark.slice(0, 4).map((d) => `${d.name} ${d.box} ${d.display}`).join(" · "));
 
   /*
-   * And the case that found the hole: the key vault is a fixed panel, so it
+   * And the case that found the hole: the keys panel is a fixed panel, so it
    * has no offset parent whether it is open or shut. Shut it is off the side
    * of the window and see-through; open it is plainly there.
    */
-  const vault = async () => (await seen(page.locator("[data-keys-panel]")))[0];
-  check("a shut vault is not on the screen", (await vault())?.on === false, JSON.stringify(await vault()));
+  const keysPanel = async () => (await seen(page.locator("[data-keys-panel]")))[0];
+  check("a shut keys panel is not on the screen", (await keysPanel())?.on === false, JSON.stringify(await keysPanel()));
   await page.getByRole("button", { name: /key/i }).first().click();
   await page.waitForTimeout(700);
-  const open = await vault();
+  const open = await keysPanel();
   check("an open one is, fixed and all", !!open?.on, open ? `${open.box} · ${open.position}` : "missing");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);

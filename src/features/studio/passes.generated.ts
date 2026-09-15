@@ -2,9 +2,620 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T09:05:29.899Z";
+export const GENERATED_AT = "2026-09-15T17:12:41.110Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "e467b4e",
+    "when": "2026-09-15T17:12:11+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e467b4e",
+        "says": "The contrast measure was reading the plate as ink, and the worst word was on the bar",
+        "when": "2026-09-15T17:12:11+00:00",
+        "detail": [
+          "`ink-on-cards` passed about three times in four. It was not a flaky machine. It had four faults, and each one of them was hiding the next.",
+          "FIRST, IT MEASURED AGAINST A MOVING FACE. It reads a mark by shooting it, hiding it, shooting again and diffing, so the second shot is the face behind the ink. On a live page the cloud drifts in the 80ms between the two shots, so pixels differ for reasons that are not ink — and `cut` thresholds on exactly that difference, so the drift was being counted as ink. Every animation on the page is stopped for the measurement now.",
+          "SECOND, IT ASKED AT ONE MOMENT AND ANSWERED FOR ALL OF THEM. The face's brightness is wherever the cloud is in its twenty-second cycle, so the check answered \"did this clear 4.5:1 at the instant we looked\" while its name promises \"every run of words clears 4.5:1\". Six phases are sampled and the worst is kept, on every figure the checks read, independently.",
+          "THIRD, AND WORST, IT READ THE PLATE AS INK. `visibility: hidden` takes the element's own background with it, so for anything wearing a plate the second shot was the card behind the plate and the diff counted the plate itself. The kind chips on an Updates box are exactly that — \"New\" is dark ink on a solid violet — so this was reading the whole chip against the construct's drifting face, which is why an opaque plate appeared to move with the cloud. Words go `color: transparent` now and only a drawing is hidden outright. \"New\" reads 6.13:1 against the violet it actually sits on."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e41ad86",
+        "says": "Regenerate the passes for an export that carries what goes round a part",
+        "when": "2026-09-15T16:44:44+00:00",
+        "detail": [
+          "Meitner's ba3e8e1: Build exports what the live page puts round a part — entrances, auras, links, the wash, the veil, the backdrop. Until now those were on the board and on the preview and absent from the thing a person downloads, which is the gap between a site you can see and a site you can take away.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4287:",
+          "export-whole   13/13 passed   (new) scaffold       32/32 passed build-mark      9/9 passed",
+          "scaffold and build-mark are the standing suites over scaffold.ts, which is where the change is, and export-whole is the one that reads the exported files rather than the source that wrote them."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "ba3e8e1",
+        "says": "Build exports what the live page puts round a part: entrances, auras, links, the wash, the veil, the backdrop",
+        "when": "2026-09-15T16:42:52+00:00",
+        "detail": [
+          "The export wrote each part's markup and dropped what Preview adds round it: an entrance named with no keyframes behind it, the page's drift the same, no aura, no wash or veil, a link with its click lost, no gradient or grid backdrop. The stylesheet now carries the entrance and aura keyframes and the page's drift; each wrapper carries its entrance and aura and an id; a link is an anchor round the part; the wash, the veil and the backdrop are written. tests/export-whole.mjs (13/13, 12 red before). Inventory B22, first piece; behaviours, the mesh and reflow stay named."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "876a3f1",
+        "says": "Regenerate the passes for meitner's twenty-five",
+        "when": "2026-09-15T16:36:08+00:00",
+        "detail": [
+          "The only branch that had moved: meitner's twenty-five, three hours of work in one merge. Ninety-nine files, fifty of them source, and twenty-three new suites.",
+          "The pictures and what they promise — a picture read off its bytes rather than its name, one base64 reader shared, a fetch that is clocked, a picture refused with a reason, the doors saying what they did with an animation, a link, a cut-out, and a crop picker that says when its picture never shows. The zip reader — names as they were written, what it cannot unpack said aloud, no inflating further than declared, assets under their own names, a data script that is not scripts. The shapes — several open lines or one straight bar are a shape said rather than an edge to cut to, a text box is not a cube, a stroke dragged off the disc stays on it, a column drawn taller than the ceiling keeps its proportion, a narrowed part grows to hold its words. And the recorded tour fitting the time the route has.",
+          "Merge clean, no conflicts, typecheck clean, build rc=0. Run here on the build, port 4286.",
+          "The twenty-three new ones, all green:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "47179f0",
+    "when": "2026-09-15T16:25:19+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "db26826",
+        "says": "The running note carries the second inventory pass",
+        "when": "2026-09-15T13:48:36+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "390703e",
+        "says": "The cube session's five loose checks say what they measure",
+        "when": "2026-09-15T13:47:07+00:00",
+        "detail": [
+          "A box with a scribble is asked one question about the cube; a drag must leave x, y, w and h where they were; a face's colour must be the scaffold's own token expression with no hex beside it; every queued job must end done or failed only for the lack of a key; and both cube suites read the document through the page's own publish seam. Inventory D16, D17, D18, D24 and the cube halves of D27 closed; D10 and D36 named as the euler session's."
+        ],
+        "areas": [
+          "docs",
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "754b59f",
+        "says": "The crop picker says when its picture never shows, and a tall picture does not run away",
+        "when": "2026-09-15T13:44:46+00:00",
+        "detail": [
+          "A picture the browser could not decode left an empty 3:2 picker with nothing said; a picture ten times taller than wide made the picker ten times the column. The picker says it, and is held to twice its width with a taller picture squashed into it and the squash said, since the patch is picked in fractions of the box either way. tests/crop-picker.mjs (6/6, 2 red before). Inventory C26 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "8a67c3b",
+        "says": "A zip's page gets its assets under their own names, and a data script is not scripts",
+        "when": "2026-09-15T13:41:19+00:00",
+        "detail": [
+          "The list of served types stopped at the commonest twenty, so a .bmp, a .tif, an .eot font or an .mp3 was a broken picture or a missing font with nothing said; a file with no extension was refused; a percent sign that was not an escape threw inside the answer; and a JSON-LD block made the panel say the page brought scripts. The common types are known, a bare name is served as what its bytes say, a bad escape is a miss, and only a script that would run counts as one. tests/zip-assets.mjs (12/12, 8 red before). Inventory C19 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "4dd3e55",
+        "says": "The zip reader reads names as they were written, says what it cannot unpack, and inflates no further than declared",
+        "when": "2026-09-15T13:38:36+00:00",
+        "detail": [
+          "Every name was decoded as UTF-8 whatever the entry's flag said, so a CP437 name matched nothing and the page came up unstyled with nothing said; a method other than stored or deflated unpacked to nothing, or threw the page read to a 500; Zip64 was called not a zip; and an entry inflated whole, so the unpacked cap held nothing against a bomb. Names decode by the flag, the method is on the entry and the gate refuses an unreadable page with a sentence, Zip64 is refused by name, and an entry inflates no further than the size it declared. tests/zip-honest.mjs (11/11, 7 red before). Inventory C17 and C18 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "d3232cb",
+        "says": "A video the browser cannot play still goes in; a long recording keeps its length",
+        "when": "2026-09-15T13:31:54+00:00",
+        "detail": [
+          "The tweet console failed the whole intake of a video this browser could not decode, when only the preview needed decoding; it goes in with no preview and a warning now. The GIF recorder held its rate to four frames a second under a frame cap, so a five-minute recording became ninety seconds while the comment said the length was kept; the rate is one pure rule with no floor. tests/tweet-intake.mjs (12/12, 6 red before). Inventory C15 and C16 closed."
+        ],
+        "areas": [
+          "docs",
+          "tests",
+          "tweets"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "30d644c",
+        "says": "The recorded tour fits the time the route has, and says what it did with the width",
+        "when": "2026-09-15T13:29:05+00:00",
+        "detail": [
+          "The preview-video route had 180 seconds and spent them blind: a slow tour looped four times over a long page ran past them, then ffmpeg had a flat two minutes of its own, and the platform killed the function with no response. One pure plan splits the time into launch, tour and ffmpeg; the tour in the page stops at its deadline and says how far it got; ffmpeg runs under what is left; the response names the width used and any cut. tests/tour-budget.mjs (12/12, 5 red before). Inventory C14 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "26c7fdf",
+        "says": "A narrowed part grows to hold its words; the turn of a line is found in the line's own language",
+        "when": "2026-09-15T13:23:52+00:00",
+        "detail": [
+          "At phone width every part kept its desktop height, so a text block narrowed to a third of its width was cut off by its own fill; a part that is not a picture now grows by how much narrower it got, bounded at four times, and full width is the reshape rule's nine tenths. The hero's turn found the last word at the last space and the last sentence at the last full stop, which no Chinese, Thai or Japanese line has; it is one pure rule now using the language's own breaks, the subline carries every line after the first, the hero's lines carry dir auto, and the header's links wrap. tests/phone-heights.mjs (5/5, 2 red before) and tests/turn-of-phrase.mjs (14/14, 4 red before). Inventory C11 closed and C12 closed but for the comma in a one-line label, named."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "f0119f9",
+        "says": "The image route reads a picture off its bytes, shares one base64 reader, and clocks its fetch",
+        "when": "2026-09-15T13:18:32+00:00",
+        "detail": [
+          "The byte reader knew four picture shapes and called everything else a PNG, so an AVIF, an SVG or a BMP with no content type went to the page under the wrong name; it knows the three now and says unknown for the rest, which both passes refuse with a sentence. A drawing sent up in URL-safe base64 was refused as no picture; one shared reader makes it standard. The fetch behind a model's answer runs under thirty seconds. tests/picture-bytes.mjs (18/18, 7 red before). Inventory C10 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e7abbd1",
+        "says": "A column drawn taller than the ceiling keeps its proportion",
+        "when": "2026-09-15T13:15:56+00:00",
+        "detail": [
+          "The 1600 px ceiling was written three times, and each held the height alone and kept the width, so a tall thin column drawn or answered past it landed shorter and fatter than drawn. It is one number now, read by the outline fit, the answer checker and the landing, and a part past it is scaled to it on both sides. tests/tall-column.mjs (10/10, 4 red before). Inventory C8 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "d02075a",
+        "says": "A text box is not a cube",
+        "when": "2026-09-15T13:12:44+00:00",
+        "detail": [
+          "Any closed stroke plus the word box anywhere in the words became a turning cube, so a text box, a search box and an info box all drew a solid. A box qualified as one of the flat things a page has is taken out of the words before box is looked for; cube, cuboid, 3D box and a box on its own still claim the shape. tests/box-words.mjs (7/7, 4 red before). Inventory C7 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6cbd4bf",
+        "says": "Several open lines, or one straight bar, are a shape said, not an edge to cut to",
+        "when": "2026-09-15T13:10:43+00:00",
+        "detail": [
+          "An open stroke became a band along itself, which is right for a spiral or a diagonal and was applied to every open drawing: three bars for a list took a band along the longest bar alone, in that bar's own box a few thousandths tall, over a part sized to all three, so the part was cut to noise. More than one open line now cuts nothing, and neither does a bar thinner than 1:20; a diagonal and a spiral still band. tests/open-lines.mjs (6/6, 2 red before). Inventory C6 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 11
+  },
+  {
+    "id": "e466245",
+    "when": "2026-09-15T16:25:10+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e466245",
+        "says": "The merge log moves into docs, where it survives the container",
+        "when": "2026-09-15T16:25:10+00:00",
+        "detail": [
+          "It was in a scratchpad, which is session-local and goes when the container does, so a night's worth of what landed and what was green when it landed was one reclaim away from being gone. docs/MERGE-LOG.md now.",
+          "Twenty-four rows, in the order they were deployed, each saying what it carried and whether it went out green. The two that did not are in the list rather than left out, because a log that records only the good days is not a log: 2337f93 went out with scroll-contract 24 of 27 and the failing check named, and 7b38e86 went out with site-live skipped because Chromium in this container does not trust the session's egress CA.",
+          "The two rules at the end are the ones that cost something:",
+          "when a merge brings an older copy of a file another session has just changed, run that session's suites for that file, not the general one. wheel-pass stayed green right through the Edit slot coming back; page-wheel-edit and priority-wheel were the two that owned it."
+        ],
+        "areas": [
+          "docs",
+          "studio"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "64d80f8",
+        "says": "Regenerate the passes for all five branches at once",
+        "when": "2026-09-15T11:25:38+00:00",
+        "detail": [
+          "Everything that was waiting, taken in one pass: dijkstra's catalogue handover, meitner's second-time cube walk, euler's eight (the tab in front, the floor's cap), bardeen's thirteen (D29 closed, the cut imported by a path the suites can follow, a picture with no ground asked for as a JPEG), and hypatia's eleven (the page's wheel audited slab by slab).",
+          "One conflict, in tests/wheel-dismiss.mjs, and it is the same shape as the one that bit last night. Trunk held the older copy of a check; hypatia's side deletes it and leaves a note saying it clicked the middle of the wheel's bounding box, which on a square menu is the hole, which holds the Add button — so it pressed a control, the disc opened inside [data-radial], and it came back green for none of the reasons in its name. Both halves of what it meant are held elsewhere, once each. Taken out, per her note: a deliberate removal is not undone by an older copy.",
+          "typecheck clean, build rc=0. Run here on the build, port 4285.",
+          "The six new suites:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "49718fb",
+    "when": "2026-09-15T11:18:40+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "afad8a0",
+        "says": "The page's wheel is audited slab by slab, and a check that read its own name wrong goes",
+        "when": "2026-09-15T10:42:22+00:00",
+        "detail": [
+          "J's three wheel items were each a slot; this is the rule they were three instances of, held rather than remembered. Every slab on the page's wheel is opened in turn and what it gives back is read. Audited at 1600×1000:",
+          "Motion · Write · Draw · Create · Import · Looks · Strip",
+          "Motion → Glide          Write  → Words, Name, Address Looks  → Color, Texture, Light Draw, Create → a surface of their own rather than a second level Import → the file the picture comes from",
+          "Not one of them says \"soon\", at either level. Two of the three that went had failed exactly that — the three-dot opened the tray a second time and the animation button opened \"Motion asset (soon)\" — so the standard is now a check instead of a memory. Strip is skipped because it is destructive and Import because it opens a file picker."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "6890226",
+    "when": "2026-09-15T11:18:25+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "508c371",
+        "says": "Row D29 reads closed, as its commit did",
+        "when": "2026-09-15T11:14:07+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "8634217",
+        "says": "The two readers import the cut by a path the suites can follow",
+        "when": "2026-09-15T11:13:50+00:00",
+        "detail": [
+          "drawn-size, drawn-part, recreate, reshape-answer, site-read and zip-import load reshape.ts and recreate.ts straight into node, which knows no @/ alias: the cut is imported relatively, with its extension, as the files beside it are. 22/22, 22/22, 49/49, all good, 56/56 and green again."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6a922ae",
+        "says": "A picture with no ground to lose is asked for as a JPEG",
+        "when": "2026-09-15T11:09:42+00:00",
+        "detail": [
+          "Row B5. Every picture row declared PNG, and the second pass asked for 2K: a 2K photographic PNG is 4 to 8 MB against a document ceiling of about 1.75 MB, so the pass was paid for and then refused as too big, for exactly the surface and picture cells that have no ground to lose. formatFor reads the JPEG spelling off the row's own format field (jpg, jpeg) for an opaque ask; PNG stays for a transparent ground and for the alpha step. A 2K JPEG of the same picture is under a megabyte.",
+          "tests/imaging.mjs holds every PNG-declaring picture row to it: 193/193, 3 red before."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7c3fb1f",
+        "says": "Element, pressed, shows the picked part; three rows are the design's, the cube's and the pane's",
+        "when": "2026-09-15T11:09:42+00:00",
+        "detail": [
+          "Row D4: the check \"and the panel is showing it\" matched Element in the strip's first tab, which is always there, so it proved nothing. Picking does not move the tab, by design (StudioPage.tsx: the tab you are on is the tab you stay on), so the check presses Element and then wants the picked part's own name in the panel's name field. 68/70 on this branch, 67/69 at trunk; the two red are the shelf checks, row D41, written by the session that made the pane the scroller and failing on every branch today (247px at y 653, was 653).",
+          "Row A10 is left as the design asks: docs/DESIGN.md keeps placeholders cut, wired and captioned Soon, which Make it a prompt is. Rows C4 and C7 are the cube session's files and are flagged to them."
+        ],
+        "areas": [
+          "docs",
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "edd5e5c",
+        "says": "A tap is not traced, and not paid for",
+        "when": "2026-09-15T10:55:44+00:00",
+        "detail": [
+          "Row C5. A one-point stroke is kept as two identical points so it still draws; it has no outline, the ink mask saw a zero-width box and gave up, the target fell to the whole box, and the tracer was paid three times, about $0.08 a go, to draw a dot and be scored at about 1%.",
+          "The tracer asks isTap first: a tap, or a scribble under 1% of the board a side, is answered \"nothing to trace\" at a cost of 0, and the words, if there are any, still get a body written.",
+          "tests/tap-not-traced.mjs: 9/9, 3 red before."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "65f66e9",
+        "says": "A label is cut between characters, never through one",
+        "when": "2026-09-15T10:55:43+00:00",
+        "detail": [
+          "Row C13. slice(0, n) counts UTF-16 units: an emoji or a rarer CJK character is two, and a cut through one leaves a lone surrogate that renders as a replacement mark in a label. cut() in core/lib/format.ts counts code points; the answer reader's text() and the page reader's three shortenings use it.",
+          "tests/names-cut.mjs cuts fifty faces and shows slice splitting one: 7/7, 3 red before."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6c3108c",
+        "says": "hsl(), oklch() and the named colours answer the palette",
+        "when": "2026-09-15T10:55:43+00:00",
+        "detail": [
+          "Row C9. A body coloured with #hex, rgb() or rgba() answered the palette reader; one coloured with hsl(), oklch(), a CSS name or currentColor never did, silently, so its accent was whatever else it happened to use. hsl and oklch are converted to sRGB (the standard matrices, clipped to the gamut), the 148 names come from a table, and currentColor is left alone: it is whatever the part inherits.",
+          "tests/part-colour.mjs reads each and a body with all three: 32/32, 6 red before (readInk(\"tomato\") was null)."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "c60d26a",
+        "says": "A picture that was sent and could not go is said, not lost",
+        "when": "2026-09-15T10:55:43+00:00",
+        "detail": [
+          "Rows B9 and B10. The generate route dropped any page picture over 6,000,000 base64 characters (about 4.5 MB) or not PNG, JPEG or WebP after the browser had counted it, so \"3 pictures\" rode with an ask that carried 2. The body route dropped a drawing or a render of the last attempt over 700,000 characters and asked the revision blind.",
+          "The taking is one pure module now, pictureIn.ts. The generate route answers dropped and droppedWhy (\"1 over 4.5 MB, 1 not PNG, JPEG or WebP\"), tells the model what it did not see, and the ask's dialog, toast and footer say it. The body route tells the model \"Not shown, though it exists\" and answers unseen, and the attempt's card reads \"asked without the last render: 513 KB, over the 513 KB a body call carries\".",
+          "tests/pictures-honest.mjs feeds the limits exactly: 18/18, 6 red before."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "4fd5732",
+        "says": "A branch nobody set is null, and a deployment with no state is none",
+        "when": "2026-09-15T10:55:43+00:00",
+        "detail": [
+          "Rows B15 and B18. The keys status and the publish status reported an unset GITHUB_BRANCH as \"main\", the same word a set one gives; a push or a deployment that fell back to main said nothing about it; a Vercel deployment with no readyState yet was reported \"QUEUED\", in 2 places, and the dialog said \"Queued…\" for it.",
+          "Now: both statuses answer null when nothing is set; the publish and the deploy answer assumed: true when they took main for want of a name; the button's label says \"main, assumed\"; the poll answers state: null and the dialog says \"waiting for Vercel to say\". The publish route's unused missing list is gone, and a site that names itself on a server that only pushes to GITHUB_REPOS is told the list and to pick from it, rather than \"nothing to name it after\".",
+          "tests/go-live.mjs reads both statuses on a box without GITHUB_BRANCH and pins the rest: 13/13, 2 red before."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "36554e2",
+        "says": "Declarations left behind are gone, and none is left behind again",
+        "when": "2026-09-15T10:55:43+00:00",
+        "detail": [
+          "Tier E of the inventory, rows E1 to E5, E7 and E8, each measured today before it went:",
+          "E1  two keyframes with 0 class uses (row-in, slide-in-left) and three --animate-* tokens (slide-up's keyframe stays: 5 files name it) E2  five custom properties read 0 times (--flash-ms, --row-h and --cell-x twice each, --color-glass), the --flash-ms write in ThemeProvider.tsx and the comfortable-density block that only set two of them E3  three modules with 0 importers, 44 lines (core/lib/storage.ts, core/audio/index.ts, core/context-menu/index.ts), and clearCtxData, which only the deleted barrel re-exported E4  17 exports mentioned once in src + tests + scripts, their own line (lerp, fmtPct, fmtNumber, fmtTime, fmtShortAddress, phosphorAt, targetMask, CATEGORY_EMOJI, FORMAT_BY_ID, changedFormat, affects, RIMS, houseExample, forgetExample, emptySketch, FrameKind, tourRunning); CubeSide has 14 mentions today and stays E5  six store actions with 0 callers (moveNodes, setPageScroll, resetView, noteCost, clearTrail, the tour's staging), pageScroll and its void read in Canvas.tsx E7  @types/three under devDependencies, the lockfile marks it dev E8  36 screenshots nothing links to, 19.2 MB, the template's own; the 13 that other sessions made for their reports are named and left",
+          "tests/dead-declarations.mjs holds each gone by name and, last, the general rule: no export in src may be mentioned only where it is declared. 35/35, 34 red before. E6 (97 data-* attributes) stays open: which are seams for suites still to be written is the owner's call."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "pages",
+          "studio",
+          "tests",
+          "tour"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "00923d6",
+        "says": "Twenty-two checks that could not fail now can",
+        "when": "2026-09-15T09:36:54+00:00",
+        "detail": [
+          "Tier D of the inventory: checks that passed while measuring something other than what they named. Each one now reads today's code and fails if it changes. What each measures now, with the row it closes:",
+          "D1  import: the store's undo depth, through `__studioUndoDepth`, before and after the scrub (32/32) D6, D7  space-by-hand: the outside part against the count before it was drawn; 0 refusals after the 3.6 s one lives D9  formation: a page without the `__studioNotePass` seam fails D11 ink: the literal true is gone D15 space-inherits: the copy against the plan pinned in `space.ts` D19 audit-panel: a stranger model with every kind, whole per the interface, through `inputFor` and `optionsFor`; the controls drawn must equal the routed model's field count (27/27) D20 picked: the drawn hue 60° or more from the accent's D21 go-live: a network answer is \"not run here\", never green (8/8, 1 not run) D23 wheel-dismiss: named for the middle button it presses (11/11) D27, D28 body-publish: the files from `__studioPublishDoc()`, what Publish sends; no frame fails; the suite's own seed no longer throws in the sandboxed frame (15/15, 0 page errors) D29 board-speed: a middle-button drag, since there is no hand tool and no \"h\" key, and the frame must move 60 px or more before the frame times count (was 0 px under the old drag; 21/24, the 3 red are the sun's shadow, red at trunk too, row D39) D31 surfaces: the PIN gate's computed gradient against core's stops, number for number (7/7) D33 menu-pass: the strip with a part picked, and there must be one (103/103) D34 shelf-apart: `WAS` is today's 12 hues; a category not in it sits at 360° (6/6) D35 cards: an indexOf of -1 fails rather than slicing to nothing (67/67) D37 seven suites say \"not run here\" and count it (bill, cards, change-made, connected, drawn-size, part-colour, part-select) D38 audit-panel and colour-menu count the half not run",
+          "Two seams on the window for the suites: `__studioUndoDepth` and `__studioPublishDoc`. Rows D2, D3, D8, D12–D14, D16–D18, D22, D24–D26, D30 and the cube halves of D27 are flagged to the sessions whose suites they are and left alone. D39 and D40 are new: three board-speed checks and two colour-menu checks red on trunk today, the euler session's."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "08dcae1",
+        "says": "The keys panel is called the keys panel, nowhere the other word",
+        "when": "2026-09-15T09:36:08+00:00",
+        "detail": [
+          "The owner does not use the word for it, and 43 files did: 34 lines under src/features/keys, 23 under src/features/studio, 8 in the routes, 32 in the suites (one named for it), 8 in the docs, 12 in AGENTS.md. Every one now says \"the keys panel\": the copy a person reads (\"Put one in the keys panel (⌘⇧K)\", \"Forget every key?\", \"The keys panel locks itself after…\"), the identifiers (`keysExist`, `HeldKeys`), the comments, and the suite, which is `tests/keys-panel.mjs` now.",
+          "`tests/keys-wording.mjs` reads 410 files under src, tests, docs and the root and fails on the word wherever it turns up, spelling it in halves so it does not fail on itself. 2/2, 1 red before the rename. Inventory row A24."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "keys",
+          "pages",
+          "studio",
+          "tests",
+          "tour",
+          "tweets"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "c6731cc",
+    "when": "2026-09-15T11:18:22+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "607c61e",
+        "says": "The floor caps what stopping motion can win, not what removing content can",
+        "when": "2026-09-15T09:34:57+00:00",
+        "detail": [
+          "The previous commit's reading of its own finding was too broad, and the correction matters more than the finding did, because it was written down and passed on as true.",
+          "What it said: \"at thirty boards this instrument reads about 20 whatever you take away, so every ablation is noise against noise.\" What is actually the case: the floor is the cost of re-rastering the content that is on the page, so it caps what STOPPING MOTION can win and does not cap what REMOVING CONTENT can win, because a content ablation moves the floor itself.",
+          "Four passes at each size, one machine, one sitting:",
+          "12 boards        30 boards ceiling, nothing moves at all     54.0  ( 0%)      54.0  ( 0%) floor, one square, page quiet     45.7  (15%)      23.3  (57%) the page as it is                 41.5  (23%)      19.4  (64%)"
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "a4a4ae8",
+        "says": "A page you have not seen starts at its top, and the rest of the contract is held",
+        "when": "2026-09-15T09:19:59+00:00",
+        "detail": [
+          "The three clauses of J's scroll contract that were still open, measured at 2048×1152 on a two-page document of five screens each.",
+          "Two of them turn out to be structural rather than machinery, and that is worth saying plainly rather than claiming work:",
+          "\"Further scrolling down bottoms out against the search tab.\" The search tab is a shrink-0 row above the shelf's own scroller, inside a band that is stuck to the pane's bottom, so it is a floor that cannot move. Held at y 906 through a twenty-notch gesture down, a thirty-notch gesture back up, and ten more pushing past the top.",
+          "\"Scrolling anywhere other than the actual home page allows downward movement only.\" The pane is an ordinary scroller and clamps at nought: 437 → 0 → 0 with nothing pushing it negative."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "eceebca",
+        "says": "Every reading is taken on a tab that is in front, and says so",
+        "when": "2026-09-15T09:06:32+00:00",
+        "detail": [
+          "A backgrounded page is given a frame or two a second, so every surface on it measures as costing nothing and the whole table reads as a triumph. Nothing in the numbers afterwards says which it was: throttled and cheap are the same shape. It is the one failure mode here that looks exactly like a pass.",
+          "So each row brings the page to the front before it starts, and `STOP` carries `document.visibilityState` back with every reading. A reading taken while the tab was not visible throws with the row's own name in it rather than being printed, because a number nobody can stand behind is worse than no number.",
+          "This was the discipline the scratch harness for the night's ladders was built around; it belongs in the instrument that is kept rather than in the ones that were thrown away, so the ladders are gone and this is what they leave.",
+          "Checked at twelve boards, whole run, and the tables are unchanged in shape:"
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "df0c893",
+    "when": "2026-09-15T11:18:21+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a439938",
+        "says": "What a person does second: two cubes, a cube in a space, a fresh browser, a box that is not square",
+        "when": "2026-09-15T10:51:29+00:00",
+        "detail": [
+          "The judged walk holds, so these are the next four questions, each measured by tests/cube-second.mjs and each with what fell short named in docs/BOX-TO-CUBE.md (with the finished-items note for the morning).",
+          "Two cubes: each turns, is written on and is picked on its own, both come back after a reload with their own words and poses (307 × 237 and 279 × 279, A \"Alpha\", B blank, A −18,58 while B stays at −18,−32).",
+          "A cube in a space beside a flat part: the space counts \"2 parts\", the cube turns in there, Lock the layout holds both, and the size handle carries the cube with the space (311 × 186 → 374 × 220, object 230×138×138 → 277×163×163). Two things fell short and are fixed: the space's own key on the board goes once a part is inside it, so a space holding placed parts and no drawings had no panel to lock from — the picked part's panel carries \"This space\" as the way back (SpacePanel, data-space-own); and a drawn part landed on fractional pixels (191.03, 491.38) — a drawing's landing is rounded now.",
+          "A box that is not square: wide stays wide, tall stays tall, depth is the short side (slab 371×93×93, pillar 93×310×93). Fell short and fixed: a tiny box lost its proportion before the cube could keep it, because the part floors (80 wide, 24 tall) clamped one axis at a time (44 × 36 → 80 × 36 → 192 × 120); applyProportion grows both axes by one factor now (44 × 36 → 148 × 120). Still short, named: on a slab or a pillar the narrow faces carry an 11 px heading at these sizes."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "140e483",
+    "when": "2026-09-15T09:27:23+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "140e483",
+        "says": "A handover for the catalogue's owner: three faults, measured, with the checks to add",
+        "when": "2026-09-15T09:27:23+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "ef5bdec",
+        "says": "Take back the page wheel's Edit slot, which my merge put back",
+        "when": "2026-09-15T09:07:26+00:00",
+        "detail": [
+          "Bardeen's 99b8ade, and it is a fix for something this seat broke. Saying so plainly, because the record is the point.",
+          "A22 on the inventory took two dead choices out of the page's wheel — Width, and \"Per page (soon)\", a tap and nothing — along with the plate-list entry for the width editor. My merge of hypatia's and meitner's work carried an older copy of that slot table, because both branches had been cut before A22 landed and both touched the file, so git took the side that still had the slot. It went out on e741538 and fc67aca. The width editor itself stayed gone; what came back was the dead menu in front of it.",
+          "I also kept it alive by hand. The lucide import conflicted three times tonight, and the first two times I resolved it as the union of both sides, which is right when two sessions each add an icon and wrong when one of them has deliberately taken icons away. Files and Monitor are the two the dead code used, and the union kept them.",
+          "What would have caught it: page-wheel-edit and priority-wheel, which are bardeen's own suites for exactly this, and which I ran on a1ec677 and then did not run again after the merge that carried the older table. wheel-pass passed throughout, which is why nothing looked wrong. The rule this leaves: when a merge brings an older copy of a file another session has just changed, that session's suites for that file are the ones to run, not the general one."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "c69a63e",
     "when": "2026-09-15T09:05:06+00:00",
@@ -601,413 +1212,6 @@ export const PASSES: Pass[] = [
           "That is most of section A of docs/INVENTORY.md, closed by the session that wrote the list, eleven new suites arriving with it.",
           "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4276:",
           "priority-wheel      6/6     page-wheel-edit     4/4 showcase-live       8/8     part-menu           5/5 toast-hold          4/4     shortcut-keys       3/3 settings-read       9/9     shortcut-sheet      7/7 search-label        5/5     side-panel-label   10/10 live-device         7/7"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7355866",
-    "when": "2026-09-15T08:11:47+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "772c71d",
-        "says": "Priority is set from the wheel",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A9 on the inventory. The wheel is the whole editor and the panel is the convenience: anything the Inspector does to a part, the wheel does too. Priority was the exception, a slab on the pencil's level saying \"Priority (soon)\" that played a tap while the Inspector set it. The slab opens a plate now with the panel's three keys on it, Must have, Nice and Idea, the part's own lit.",
-          "tests/priority-wheel.mjs: 6 of 6, 4 red against the tree before this. It right-presses a seeded part, opens the pencil's level, finds Priority without a soon on it, and presses Idea: the part's priority is \"idea\"."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "3003aee",
-        "says": "The showcase's controls do what their labels say",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A20 on the inventory. The showcase is on by default and a keystroke away. Its right-click cards offered Liked and Remove card and both only toasted: the heart never changed, the card stayed. Its Presets menu had five entries with nothing behind them, its empty state's Open feed opened nothing, and an input wore a \"/\" key hint no key honoured. A small store holds which cards are liked and which were removed, the menu writes it and the page reads it; every preset entry answers; Open feed opens the feed; the hint is gone.",
-          "tests/showcase-live.mjs: 8 of 8, 3 red against the tree before this."
-        ],
-        "areas": [
-          "docs",
-          "showcase",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "8acc138",
-        "says": "Hover ticks and feed events gate a sound that plays",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A18 on the inventory. \"Hover ticks\" gated a cue nothing played outside the showcase's sound board, which forces past the gate; \"Feed events\" gated three cues nothing played at all. The button primitive plays the hover tick on pointer enter, which the engine mutes unless the setting is on (it is off by default), and the showcase's live price, the one feed the template ships, ticks up or down as it moves."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "showcase"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "5fb1bc9",
-        "says": "Streamer mode hides an identifier",
-        "when": "2026-09-15T08:00:37+00:00",
-        "detail": [
-          "A17 on the inventory. \"Streamer mode: also hides addresses and identifiers\" set an attribute on the root that one utility class read, and no element wore the class, so the toggle changed nothing anyone could see. The two places the tweet console shows a handle wear it now, in the preview and on the ready badge. settings-read.mjs counts the wearers."
-        ],
-        "areas": [
-          "docs",
-          "tweets"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "96d40a6",
-        "says": "A toast under the pointer stays",
-        "when": "2026-09-15T08:00:36+00:00",
-        "detail": [
-          "A19 on the inventory. \"Pause feeds on hover: rows never slide away mid-click.\" Hovering a toast froze its drain bar and nothing else: the sweep that runs every half second still removed it at its expiry, bar frozen at half. The store holds a hovered toast now and lets it go when the pointer leaves, with what was left of its time and never less than a beat, and the Toaster reads the setting that promised this.",
-          "tests/toast-hold.mjs: 4 of 4, 1 red against the tree before this. It raises a toast on the showcase, rests the pointer on it for 6.5 s, and finds it still there; moves away, and finds it gone."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "f309913",
-        "says": "The settings drawer offers what something reads",
-        "when": "2026-09-15T08:00:36+00:00",
-        "detail": [
-          "A14, A15 and A16 on the inventory. Four toggles had no reader at all: Flash new rows, 24-hour clock, Remember open panels, FPS meter. Deleted. Two more, Sidebar (Rail, Fixed, Hidden) and Route tabs in top bar, with the Toggle sidebar command and ⌘B, drew `registry.nav`, and every module declares `nav: []`, so the sidebar never rendered and four controls changed nothing on screen. They are offered only while a module declares a nav entry: a setting can carry `when`, the drawer and the palette honour it, and the gate lives in `nav-gate.ts`, which imports nothing. The first cut imported the registry from the definitions the registry is built from, and the build said so: a cycle, caught at prerender.",
-          "tests/settings-read.mjs walks every core setting for a reader outside its own definition (0 unread now, 5 before) and holds the ones that had a reader and still did nothing to the thing they now do. 9 of 9, 8 red against the tree before this batch; its later lines land with A17 to A19."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "408c02d",
-        "says": "The toolbar's search says what it searches",
-        "when": "2026-09-15T08:00:36+00:00",
-        "detail": [
-          "A8 on the inventory. The search key's tooltip said \"Search the tools, the parts and every command\" and its short label \"Search tools…\". It opens the command palette, which lists commands and settings and none of the 229 parts; the parts search is the shelf's own box. The tooltip says \"Search every command and setting\" now and the label \"Search commands…\"; menu-pass.mjs finds the label by its new words.",
-          "tests/search-label.mjs: 5 of 5, 3 red against the tree before this. It reads what the palette lists and holds the tooltip to it: a promise about parts is allowed only on a box that finds parts."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "813fd4f",
-        "says": "The page's wheel keeps nothing behind the Edit slab it stopped drawing",
-        "when": "2026-09-15T07:38:25+00:00",
-        "detail": [
-          "A22 on the inventory. The page's wheel stopped drawing Edit a while ago: the width it held was the third copy of one control, and its other item was \"Per page (soon)\", a tap and nothing. The slot, the two choices and the width editor they opened were all still in the code, unreachable. Gone: the slot from the page's table (typed without it, so the compiler holds the line), the choices, the editor, and the icons only they used, plus three in the wheel that nothing had used since the scissors and the three-dot went.",
-          "tests/page-wheel-edit.mjs: 4 of 4, 4 red against the tree before this, with comments stripped before matching so the sentence explaining the removal is not what it finds. Green alongside: wheel-pass 12/12, wheel-trim 14/14, menu-pass 101/101, light-placer 16/16, current 29/29."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "489ed94",
-        "says": "The cheat sheet lists the shortcuts that fire where you are",
-        "when": "2026-09-15T07:38:25+00:00",
-        "detail": [
-          "A12 on the inventory. The sheet listed every registered shortcut, and 18 of the Builder's 20 carry a condition the key handler asks before firing: on the board the sheet advertised \"b Back to the board\", and in the full preview it advertised the select tool, the draw tool, the frame widths and the rest, none of which fire there. The sheet asks the same condition now, so a row on it is a key that works here.",
-          "tests/shortcut-sheet.mjs: 7 of 7, 3 red against the tree before this. It opens the sheet on /builder and on /builder/preview and reads the rows: Design / Preview on the board and not Back to the board; Back to the board in the preview and not Select tool."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1990786",
-        "says": "The cheat sheet opens on the key its hint prints",
-        "when": "2026-09-15T07:38:25+00:00",
-        "detail": [
-          "A11 on the inventory. The shortcut sheet was bound to \"shift+/\" and shown as ⇧/ in the palette, the sheet and the right-click menu. The matcher compares the browser's own key name and, for punctuation, does not check shift on its own, because the browser has already folded it in: shift and the slash key report \"?\". So the sheet opened on a bare \"/\" and never on \"?\", and \"?\" is the tour's. The binding is \"/\" now, printed as \"/\", which is what it always did.",
-          "tests/shortcut-keys.mjs: 3 of 3, 2 red against the tree before this. For every single-key binding in the app (32) it makes the event a person makes by pressing what the hint shows, with the browser's key codes (Slash, not \"/\"), and asks the matcher; and it holds every chord to one owner, shift counted for letters and folded for punctuation. keys.ts names its import with its extension so the check can import the matcher."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "809ff50",
-        "says": "The key that hides the side panel says so, in all four places it is named",
-        "when": "2026-09-15T07:37:57+00:00",
-        "detail": [
-          "A7 on the inventory. One toolbar key toggles the whole five-tab side panel: Element, Format, Pages, Look, Motion. Its tooltip said \"Show / Hide colour & texture\", its name to a screen reader was \"Toggle look\", its command was \"Builder: show or hide the library\" and its shortcut line \"Show / hide the library\". Four names and none of them the thing: the parts library is never hidden by it, and colour is one tab of five. All four say the side panel now; menu-pass.mjs presses it by its new name.",
-          "tests/side-panel-label.mjs: 10 of 10, 6 red against the tree before this. It reads the four strings and presses the key: the panel goes, the shelf stays, the panel comes back."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "aa05478",
-        "says": "The board's own Preview answers its menu: Device changes it, Back goes back",
-        "when": "2026-09-15T07:37:57+00:00",
-        "detail": [
-          "A6 on the inventory. Flip the board to Preview and right-press the site: the menu offers Device (Desktop, Tablet, Phone) and Back to the board. Device called one window hook that only the /builder/preview page installed, so on the board it was undefined and the three entries did nothing. Back navigated to /builder, the address you were already at, so the mode stayed Preview.",
-          "The live stage owns its device once it is up and installs the hook wherever it is mounted (the page's own copy is the same hook and the two are never on screen together). Back reads where it is: an address in the full preview, a mode on the board.",
-          "tests/live-device.mjs: 7 of 7, 3 red against the tree before this. Phone takes the site from 1440px to 390px; Back takes the board to Design, one frame and no scroller."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 1
-  },
-  {
-    "id": "3d1199a",
-    "when": "2026-09-15T08:10:32+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "3d1199a",
-        "says": "Regenerate the passes for the family that travels, and the Zen Garden count",
-        "when": "2026-09-15T08:10:32+00:00",
-        "detail": [
-          "Dijkstra's two: the family a page was set in travels by name whether or not its file did, and the Zen Garden counted after the night with three catalogue findings.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4275:",
-          "zip-import    79 of 79 hold   (75 before) site-read     48 of 48 hold   (44 before) recreate      49 of 49 hold   (46 before) board-edges   11 of 11 hold",
-          "Eleven new checks arrive across the three, and board-edges is there because of what is recorded below, not because dijkstra went near it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "21d1f9a",
-    "when": "2026-09-15T08:07:41+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a7b58af",
-        "says": "The Zen Garden counts after the night, and three catalogue findings",
-        "when": "2026-09-15T07:36:28+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "7f53246",
-        "says": "The family a page was set in travels by name, whether or not its file did",
-        "when": "2026-09-15T07:32:03+00:00",
-        "detail": [
-          "The route reads the first family on the stack as the face and measures whether it drew. The part carries the face and asks for it first, with the class behind it; the inspector names it; the panel's line says which faces did not travel. Declared: parts/theme.ts gains an optional face on NodeFont and applyFont puts it first on the stack."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "aeeee41",
-    "when": "2026-09-15T07:44:45+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "aeeee41",
-        "says": "Regenerate the passes for a drawn box that is a real cube",
-        "when": "2026-09-15T07:44:45+00:00",
-        "detail": [
-          "A seventh session, meitner, with its first on trunk: ce115bb, a drawn box is a box and a box is a real cube — turned, written on, moved. New files for the pose, the solid route and its run, and a new suite that drives the whole arc.",
-          "This is the broadest merge of the night by reach: twenty source files, Canvas.tsx, store.ts, RadialMenu.tsx, blocks.tsx, spec.ts and scaffold.ts among them. So the board's own geometry is measured beside the cube work rather than assumed, because a Canvas.tsx change is exactly what is being held out of trunk on hypatia's branch tonight.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4273:",
-          "box-to-cube   74/74 passed   (new) cube          62/62 passed cube-part     29/29 passed board-edges   11 of 11 hold full-page     42 of 42 hold picked        16/16 passed wheel-pass    12 of 12 hold drawn-part    22/22 passed scaffold      32/32 passed"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "6cfcdec",
-    "when": "2026-09-15T07:40:42+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "ce115bb",
-        "says": "A drawn box is a box, and a box is a real cube: turned, written on, moved",
-        "when": "2026-09-15T07:33:35+00:00",
-        "detail": [
-          "The owner's arc, in the owner's order: draw a box and get back a real rotatable 3D cube with editable faces. Before this a plain box drawn with nothing beside it asked \"Is this box a cube?\" and, waved on, landed as a flat custom-idea surface (reproduced with Playwright: 220 × 160 px drawn, 277 × 201 flat part, reader and tracer both called).",
-          "1. Recognised off its own geometry. `isBox`: one closed line, four corners, filling its frame, drawn alone; `kindOfSketch` and the catalogue take `lone` (nothing of the page inside it, nothing real drawn on) from the run, so a captioned box, a box round parts, or a box over the hero keep their old meaning. The disc says \"a box: it will be a cube\" while it is drawn, the chip says `box · cube` after. No model is called anywhere on the road. 2. A real object. The cube keeps the drawn proportion (depth = the short side, `cubeDims`), pitch is held within 85°, spin into the limit is spent, and on release it eases to the nearest rest pose: a three-quarter view a quarter turn at a time, or tipped to the top or bottom. `facing` was calling pitch +90 the top; it shows the bottom, and reads off the rest poses now. Right press falls through to the wheel. The scaffold's written component mirrors all of it. 3. Faces picked like parts. A press that is not a drag picks the face under it (`cube-face`), the board keeps it as `pickedFace`, the face wears the mark, the panel scrolls its card in and hands it the keys, naming a face in the panel turns the cube to it, the wheel's pencil edits the picked face, every face has its own prompt and the blueprint writes it. Face edits push undo. 4. Survives what a flat part survives: move, resize by the handle (the object follows), the drawn ratio, undo, save and reopen. 5. The model road behind the table. `solidRoute.ts` / `solidRun.ts`: the object cell routes to tencent/hunyuan3d-2mv, the cube's own four faces go up as its four views (`views`, new on the image route for a mesh model), the card and the wheel piece light up the moment a Replicate token is present (vault or server, yes-or-no only) and say what would light them otherwise, with no call made; the answer lands as mesh-3d with the cube kept, and Back to the cube is one press.",
-          "Measured by `tests/box-to-cube.mjs` (new, 74 of 74), every route mocked, screenshots into docs/shots/box-to-cube-*.png, numbers in docs/BOX-TO-CUBE.md. Against the build here, port 4300:",
-          "box-to-cube   74/74   (new) cube          62/62   (was 59/59: square → proportion, settle → rest, the top is the top) cube-part     29/29 oddness       53/53   (a bare box is no longer asked about; the browser half asks about a scribble) coded         39/39 scaffold      31/31 shapes        21/21   (15 of 15 traced, $1.92 at the bench's $0.08, 153s) typecheck clean, build rc=0"
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e27e5d0",
-    "when": "2026-09-15T07:39:11+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "e27e5d0",
-        "says": "Regenerate the passes for four controls that now do what they say",
-        "when": "2026-09-15T07:39:11+00:00",
-        "detail": [
-          "Bardeen's four, taken together because they are one job: Re-iterate runs from the tab a person is on rather than only from the book; Compile the blueprint opens the book's tab when the book is where you are; Picture and Solid are on the shelf you browse and the library counts itself; and the tweet console records the site that was built rather than an empty one.",
-          "Those are rows A1, A2 and A3 of the inventory it shipped an hour ago, closed by the session that wrote the list.",
-          "Merge clean. One thing to note for anyone who builds this tree: the tweet console's duplicate route is deleted, and a .next left over from before the delete still carries a generated validator that imports it, so typecheck fails on a stale build directory and passes on a clean one. Removed .next, then typecheck clean and build rc=0 from cold.",
-          "Run here on the build, port 4272:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e0bbc35",
-    "when": "2026-09-15T07:35:44+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a1783b1",
-        "says": "The tweet console records the site that was built, not an empty one",
-        "when": "2026-09-15T07:28:03+00:00",
-        "detail": [
-          "A3 on the inventory. The console's Render sent the document with its request and the route it sent it to never read it: `/api/tweets/preview- video` opened the live preview in a fresh headless browser, whose storage holds nothing, and recorded whatever an empty site scrolls like. The studio's own `/api/studio/preview-video` was the same 220 lines with the one difference that mattered, `takeDoc(body.doc)` handed to the page before it loads.",
-          "The console renders through the studio route now and the copy is deleted, which also retires its `findFfmpeg(): string | null` that never returned null (B19). The build-trace check in serverless-browser.mjs follows the route that is left; AGENTS.md says which route renders the tour and why there is one.",
-          "tests/tweet-video.mjs: 6 of 6, 2 red against the tree before this. It reads the route the console names, holds that file to reading the document, and posts a seeded document to it: 200, video/webm, 49,391 bytes in 4.2 s on this box, from the Playwright at /opt/node22. serverless-browser 10/10. Typecheck clean."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "tests",
-          "tweets"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "3fdd402",
-        "says": "Picture and Solid are on the shelf you browse, and the library counts itself",
-        "when": "2026-09-15T07:25:01+00:00",
-        "detail": [
-          "A13 on the inventory. The shelf browses category, sub-group, part, and the drawer lists only the ids the sub-groups name; `picture` and `mesh-3d` were in no sub-group, so two of 229 parts were reachable only by someone who typed their names into the search. Picture is first under Pictures now and Solid sits beside the cube under Solids.",
-          "Three places said how many parts there are, none of them the count: the hero said 218, the catalog's own comment 226, AGENTS.md 226 in three sentences. All say 229, and the count is held rather than written: tests/shelf-reach.mjs reads `FEATURES.length` and holds every number in site.config.ts, catalog.ts and PartPreview.tsx to it, every id to exactly one sub-group, and every sub-group id to a real part. 7 of 7, 4 red against the tree before this."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "935af3b",
-        "says": "Compile the blueprint opens the book's tab when the book is where you are",
-        "when": "2026-09-15T07:25:01+00:00",
-        "detail": [
-          "A2 on the inventory. Four doors open the blueprint: ⌘⏎, the command, the canvas menu and the brief menu, all through `__studioOpenBrief`, which set `briefOpen`. In the book mode the blueprint is a tab under the timeline and the dialog is drawn only outside that mode (`open={briefOpen && !book}`), so in the book every one of the four did nothing on screen, and the dialog then opened by itself the moment the person left the book, over whatever they had turned to.",
-          "The door reads the mode now: in the book it makes sure the band is shown and opens the book's tab, the same event the card's Re-iterate uses; anywhere else it opens the dialog as before.",
-          "tests/compile-in-book.mjs: 8 of 8, 2 red against the tree before this. It presses ⌘⏎ on the board and in the book, counts the open dialog by its own state rather than by role (the tweet console and the vault are dialogs too, closed), and leaves the book to see nothing pop up. Green alongside: reiterate 8/8, shelf-pass 20/20. Typecheck clean."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "2c4453e",
-        "says": "Re-iterate runs from the tab a person is on, not only from the book",
-        "when": "2026-09-15T07:19:51+00:00",
-        "detail": [
-          "A1 on the inventory. Every finished card carries Re-iterate: turn the page, change the words, press it, and the book runs the card's ask again. The card fired `studio:book` and then, in the same handler, `studio:ask` with the words; only the book under the timeline listens, and the detail band opens on \"This update\", so from the default tab the tab switch was a render away when the ask went out. Nobody heard it. The tab switched, the words were dropped, and the press did nothing the first time, every time. It worked only with the book already open. The one check on it read the source for the event's name and could not see any of this.",
-          "One door now: `askTheBook` in BriefDialog parks the ask, opens the tab and fires the event; a mounted book hears the event as before, and a book that mounts a render later takes the parked ask as it arrives. The card goes through the door. Measured with the model call intercepted, from the default tab: 0 asks left before, 1 after, with the edited words and the card's mode in it; a second press with the book open makes 2, not 3.",
-          "tests/reiterate.mjs: 8 of 8, 5 red against the tree before this. tests/cards.mjs's source pin follows the door. Green alongside: timeline-card 19/19, current 29/29, updates-view 22/22, backend-surface 25/25, change-made 19/19, cards 67/67. Typecheck clean."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9dd20f9",
-    "when": "2026-09-15T07:34:22+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "9dd20f9",
-        "says": "Regenerate the passes for the seven shortfalls of the live read",
-        "when": "2026-09-15T07:34:22+00:00",
-        "detail": [
-          "Shannon's 82c0125 and her two merges of trunk: the seven shortfalls of the live read, each held to the page by number. Taken on its own.",
-          "One conflict, in docs/RECREATE-FINDINGS.md: she and dijkstra each added bullets to the same \"Fixed\" list, one about a made space being pickable again and two about the fit and the offer. No disagreement, so both sides are kept, hers after his, in list order.",
-          "Merge clean otherwise, typecheck clean, build rc=0. Run here on the build, port 4271:",
-          "zip-import        75 of 75 hold recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold board-edges       11 of 11 hold full-page         42 of 42 hold picked            16/16 passed create-flow       26 of 26 hold"
         ],
         "areas": [
           "studio"

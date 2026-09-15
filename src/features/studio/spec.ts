@@ -257,10 +257,13 @@ const ENTRANCE_WORD: Record<string, string> = {
   "el-flip": "tips up into place",
 };
 
-function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[]): string | null {
+function describeLink(link: StudioNode["link"] | undefined, pages: StudioPage[], nodes: StudioNode[] = []): string | null {
   if (!link) return null;
   if (link.kind === "url") return link.target;
-  if (link.kind === "node") return `element ${link.target}`;
+  if (link.kind === "node") {
+    const other = nodes.find((n) => n.id === link.target);
+    return other ? `the part "${other.label}" on the same page (scrolls to it)` : `element ${link.target}`;
+  }
   const p = pages.find((x) => x.id === link.target);
   return p ? `page "${p.name}" (${p.path})` : `page "${link.target}"`;
 }
@@ -331,7 +334,7 @@ export function compileSpec(input: CompileInput): Spec {
           options: n.options,
           // A part that sends people somewhere and has nowhere to send them yet
           // says so, so the agent builds a placeholder rather than a guess.
-          link: describeLink(n.link, pages) ?? (isLinkable(n.featureId) ? "nowhere yet, a visible placeholder that says so, never an invented target" : null),
+          link: describeLink(n.link, pages, input.nodes) ?? (isLinkable(n.featureId) ? "nowhere yet, a visible placeholder that says so, never an invented target" : null),
           colour: describeColour(n.colour),
           font: describeFont(n.font),
           anim: n.anim

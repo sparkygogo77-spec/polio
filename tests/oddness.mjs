@@ -56,10 +56,11 @@ check("a scribble with words beside it is not: it has been described", oddness({
 check("a single straight line is a line, not a question", oddness({ strokes: [diagonal], words: "" }) === null);
 check("a ring is a surface the pen already named", oddness({ strokes: [ring], words: "" }) === null, JSON.stringify(oddness({ strokes: [ring], words: "" })));
 check("nothing drawn is nothing asked", oddness({ strokes: [], words: "" }) === null);
-check("no drawing is ever asked more than one question", (() => {
+check("a box with a scribble in it is asked one question, about the cube, with two answers", (() => {
+  // The old form here accepted null or any string, which every path yields (inventory D16).
   const q = oddness({ strokes: [box, scribble], words: "" });
-  return q === null || typeof q.ask === "string";
-})());
+  return !!q && q.why === "cube" && q.ask === "Is this box a cube?" && q.choices.length === 2;
+})(), JSON.stringify(oddness({ strokes: [box, scribble], words: "" })));
 
 /* ------------------------------------------------------------------ */
 /* 2. The answer goes in as words                                       */
@@ -258,7 +259,10 @@ if (live) {
     if (ended.every((st) => st === "done" || st === "failed")) break;
     await page.waitForTimeout(1000);
   }
-  check("…and lands, with no cube made of a pricing table", ended.every((st) => st === "done" || st === "failed"), ended.join(","));
+  // A failure used to count as landing (inventory D24). With no key the reshape road cannot run, so a job may
+  // fail for that one reason and no other; anything else is a failure this suite has to see.
+  const jobs = await page.evaluate(() => (window.__studioQueue?.() ?? []).map((j) => ({ status: j.status, note: j.note ?? "" })));
+  check("…and every job ends: done, or failed only for the lack of a key", jobs.length > 0 && jobs.every((j) => j.status === "done" || (j.status === "failed" && /key|unavailable|not run/i.test(j.note))), JSON.stringify(jobs));
   const made = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.map((n) => n.featureId).join(","));
   check("the part is what the words said, not what the question offered", !/cube-3d/.test(made), made);
   await b.close();

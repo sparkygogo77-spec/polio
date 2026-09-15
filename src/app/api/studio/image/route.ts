@@ -1,11 +1,11 @@
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
-import { answerFrom, mimeOf, RASTER_LIMIT } from "@/features/studio/renderAnswer";
+import { meterFirst } from "@/features/studio/renderMeter";
+import { answerFrom, base64Picture, mimeOf, RASTER_LIMIT, UNKNOWN_PICTURE } from "@/features/studio/renderAnswer";
 import {
   fluxRatio,
   fromPicture,
   isRenderKind,
-  RENDER_COST,
   RENDER_MODELS,
   RENDER_UNAVAILABLE,
   rasterFragment,
@@ -30,7 +30,7 @@ import { fromMetrics } from "@/features/studio/spend";
  * The renderer service: a part's body, drawn rather than written.
  *
  * The token belongs to the person, not to the deployment. It is typed into
- * the vault under the key button, held in this browser exactly as the
+ * the keys panel under the key button, held in this browser exactly as the
  * Claude key is, unlocked the same way, and rides with each call as
  * `x-replicate-key`. This route holds it for the length of the call and no
  * longer: it is never written to disk, never logged, never echoed back —
@@ -56,7 +56,7 @@ import { fromMetrics } from "@/features/studio/spend";
  * With no token anywhere it answers HTTP 200 with `ok: false` and `reason:
  * "unavailable"`, the same shape and the same path as a missing Claude
  * key, so the dialog shows the reason and the body loop falls back to
- * writing one. A vault that holds a token but is locked is the common case,
+ * writing one. A keys panel that holds a token but is locked is the common case,
  * and the caller says so rather than "no token".
  *
  * The price of the call rides back with the answer (`cost`), because this
@@ -191,7 +191,7 @@ interface Body {
  * The token for this call: the browser's, or the server's if it has one.
  *
  * The browser's wins, unlike every other route here, because this is the
- * one key the person is expected to bring: they typed it into the vault and
+ * one key the person is expected to bring: they typed it into the keys panel and
  * they are the one being billed for the call. It is returned, used, and
  * dropped when the request ends; nothing holds it.
  */
@@ -230,6 +230,9 @@ function input(kind: RenderKind, words: string, picture: string | null, w: numbe
   return { prompt: words, ...shapeFor(kind, w, h) };
 }
 
+/** How long the bytes behind an answer may take to arrive. */
+const FETCH_MS = 30_000;
+
 /** The bytes behind whatever `run` gave back: a file, a URL, a data URI, or the first of a list. */
 async function bytesOf(out: unknown): Promise<{ bytes: Uint8Array; type: string } | null> {
   if (out == null) return null;
@@ -240,7 +243,9 @@ async function bytesOf(out: unknown): Promise<{ bytes: Uint8Array; type: string 
   }
   const url = typeof out === "string" ? out : String((out as { url?: () => URL }).url?.() ?? "");
   if (!/^https?:\/\/|^data:/.test(url)) return null;
-  const res = await fetch(url);
+  // Under a clock: a vendor that stalls on the bytes used to hold the route
+  // until the platform killed it, with nothing said.
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_MS) });
   if (!res.ok) return null;
   return { bytes: new Uint8Array(await res.arrayBuffer()), type: res.headers.get("content-type") ?? "" };
 }
@@ -279,10 +284,8 @@ export function tokensOf(logs: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** A picture that arrived as base64, or nothing. Never a data URL, never a URL. */
-function picture(v: unknown, limit = 4_000_000): string | null {
-  return typeof v === "string" && /^[A-Za-z0-9+/=]+$/.test(v) && v.length < limit ? v : null;
-}
+/** A picture that arrived as base64, made standard, or nothing. Never a data URL, never a URL. */
+const picture = (v: unknown, limit = 4_000_000): string | null => base64Picture(v, limit);
 
 /**
  * The second pass.
@@ -440,6 +443,9 @@ async function refine(body: Body, token: string) {
     }
   }
 
+  if (mime === UNKNOWN_PICTURE) {
+    return NextResponse.json({ ok: false, stage: 2, reason: "failed", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `It came back as ${Math.round(bytes.length / 1024)}KB of bytes that are not a picture.`), ms: meter.ms, cost: meter.dollars });
+  }
   const dataUri = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
   if (dataUri.length > RASTER_LIMIT) {
     return NextResponse.json({ ok: false, stage: 2, reason: "too-big", model: pick.slug, name: pick.name, making, message: noModelSays("failed", making, `It came back as ${Math.round(dataUri.length / 1024)}KB, more than a document should carry.`), ms: meter.ms, cost: meter.dollars });
@@ -526,7 +532,7 @@ export async function POST(request: Request) {
   const words = renderPrompt({ kind, prompt, label, closed: body.closed, w, h, palette: body.palette });
   // Tracing needs the drawing, and only the drawing. No words go with it,
   // because the whole point of this path is that nothing describes the line.
-  const picture = typeof body.picture === "string" && /^[A-Za-z0-9+/=]+$/.test(body.picture) && body.picture.length < 4_000_000 ? body.picture : null;
+  const picture = base64Picture(body.picture);
   if (fromPicture(kind) && !picture) {
     return NextResponse.json({ ok: false, reason: "no-picture", message: "Nothing to trace: the drawing did not arrive as a picture." }, { status: 400 });
   }
@@ -535,16 +541,22 @@ export async function POST(request: Request) {
   // when the request does.
   const replicate = new Replicate({ auth: token });
   const model = RENDER_MODELS[kind];
-  let out: unknown;
+  /*
+   * A prediction, created and waited on, rather than `run`: `run` hands
+   * back the output alone and throws the prediction away with its metrics,
+   * and the metrics are the only measured thing about the call.
+   */
+  const began = Date.now();
+  let done: Prediction;
   try {
     try {
-      out = await replicate.run(model, { input: input(kind, words, picture, w, h) });
+      done = await predict(replicate, model, input(kind, words, picture, w, h));
     } catch (first) {
       // A field this version of the model does not have is the one failure
       // worth a second go: the prompt alone is a shape every model takes.
       const status = (first as { response?: { status?: number } }).response?.status;
       if (status !== 422 && status !== 400) throw first;
-      out = await replicate.run(model, { input: fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words } });
+      done = await predict(replicate, model, fromPicture(kind) ? { image: `data:image/png;base64,${picture}` } : { prompt: words });
     }
   } catch (error) {
     const status = (error as { response?: { status?: number } }).response?.status;
@@ -558,18 +570,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "render", message: `The renderer could not draw it (${message}).` });
   }
 
-  let file: { bytes: Uint8Array; type: string } | null;
-  try {
-    file = await bytesOf(out);
-  } catch (error) {
-    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).` });
-  }
-  if (!file || !file.bytes.length) {
-    return NextResponse.json({ ok: false, reason: "empty-answer", message: "The renderer answered with nothing." });
+  // What was measured: the seconds off the prediction, the cost as the
+  // prediction reported it or, failing that, the model's published rate.
+  const meter = meterFirst(kind, done.metrics, Date.now() - began);
+  if (done.status !== "succeeded") {
+    const said = typeof done.error === "string" ? safe(done.error, token) : String(done.status ?? "no answer");
+    return NextResponse.json({ ok: false, reason: "render", message: `The renderer could not draw it (${said}).`, ms: meter.ms, cost: meter.cost, priced: meter.priced });
   }
 
-  const cost = RENDER_COST[kind];
+  let file: { bytes: Uint8Array; type: string } | null;
+  try {
+    file = await bytesOf(done.output);
+  } catch (error) {
+    return NextResponse.json({ ok: false, reason: "fetch", message: `The drawing could not be collected (${error instanceof Error ? safe(error.message, token) : "unknown"}).`, ms: meter.ms, cost: meter.cost, priced: meter.priced });
+  }
+  if (!file || !file.bytes.length) {
+    return NextResponse.json({ ok: false, reason: "empty-answer", message: "The renderer answered with nothing.", ms: meter.ms, cost: meter.cost, priced: meter.priced });
+  }
+
   const answer = answerFrom(kind, file.bytes, file.type);
-  if (!answer.ok) return NextResponse.json({ ...answer, cost });
-  return NextResponse.json({ ...answer, cost, model });
+  if (!answer.ok) return NextResponse.json({ ...answer, cost: meter.cost, priced: meter.priced, ms: meter.ms });
+  return NextResponse.json({ ...answer, cost: meter.cost, priced: meter.priced, ms: meter.ms, model });
 }

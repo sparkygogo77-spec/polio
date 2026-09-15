@@ -109,6 +109,30 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
     </>
   );
   /*
+   * A part that does not read its own link is the link, whole.
+   *
+   * "Links to" was offered on thirty parts and read by sixteen; on the
+   * rest the link was set, written into the brief, and went nowhere live
+   * (inventory B24). A grid's cards navigate by their own titles, and its
+   * own link is where the whole grid points, so the press is taken here,
+   * before the card sees it, and goes there. Live only: the board is a
+   * layout surface.
+   */
+  const whole = mode === "live" && def.linkWhole && node.link && onNavigate ? node.link : null;
+  const linked = whole ? (
+    <div
+      data-link-whole={whole.kind}
+      role="link"
+      tabIndex={0}
+      aria-label={`Go to ${whole.target}`}
+      style={{ width: "100%", height: "100%", cursor: "pointer" }}
+      onClickCapture={(e) => { e.stopPropagation(); onNavigate?.(whole); }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onNavigate?.(whole); } }}
+    >
+      {part}
+    </div>
+  ) : part;
+  /*
    * A part is a box unless the author said otherwise — drew a line round
    * it, or picked a shape. Then it is cut to that shape here rather than in
    * the part, because every one of the two hundred and twenty-six would
@@ -119,8 +143,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * the part to a helix or a star; `shape` is the five shapes worth naming,
    * and is what a part gets when someone picks one from a menu.
    */
-  if (node.outline) return <Cut node={node}>{part}</Cut>;
-  if (!node.shape || node.shape === "box") return part;
+  if (node.outline) return <Cut node={node}>{linked}</Cut>;
+  if (!node.shape || node.shape === "box") return linked;
   return (
     <div
       data-shape={node.shape}
@@ -129,7 +153,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
         borderRadius: node.shape === "rounded" ? Math.min(28, Math.min(size?.w ?? node.w, size?.h ?? node.h) / 6) : "50%",
       }}
     >
-      {part}
+      {linked}
     </div>
   );
 }

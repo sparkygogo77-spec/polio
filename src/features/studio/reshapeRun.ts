@@ -24,7 +24,7 @@ import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
-import { describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
+import { PART_MAX_H, describeSketch, fitToSketch, outlinePath, readBoundary, type Sketch, type SketchPoint } from "./sketch";
 import { useStudio, type NodeShape, type StudioNode } from "./store";
 import type { DrawJob } from "./queue";
 import { targetFor, writeBody, type Attempt } from "./bodyRun";
@@ -75,7 +75,7 @@ export function nameFrom(words: string, max = 56): string {
 
 export interface RunDeps {
   publish: (input: NewsInput) => void;
-  /** The vault is locked or empty and the reader could not run. */
+  /** The keys panel is locked or empty and the reader could not run. */
   onNoKey: () => void;
   /** What the counter says this job is doing. */
   onStep?: (step: string) => void;
@@ -501,7 +501,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
 
     // No key, a refusal, a bad reply: the drawing still shapes the part, and
     // what the shape means is read here rather than asked for, so behaviour
-    // survives a locked vault exactly as the crop does.
+    // survives a locked keys panel exactly as the crop does.
     const made = applyProportion(drawn, node, job);
     const role = useStudio.getState().applyDrawnKind(made.id, drawnRole, drawn.words);
     // A drawing that made a part is an iteration whether or not a reader
@@ -531,7 +531,7 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
       toast: true,
     });
     // The body does not need a reader either. Tracing the drawing is
-    // Claude-free from end to end, so a locked vault costs the description
+    // Claude-free from end to end, so a locked keys panel costs the description
     // and nothing else.
     const bodied = useStudio.getState().nodes.some((n) => n.id === made.id) ? await bodyFor(made.id, drawn, deps, plan, landed) : NOTHING_MADE;
     // The reader was missing, not the work: the shape, the behaviour and
@@ -879,7 +879,8 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
     return { id: node.id, label, w, h, kind, kindChanged, reproportioned, keptSize, shape: made.shape };
   }
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
-  const id = s.addNode(featureId, clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), shared);
+  // On whole pixels, as every other part lands: a drawing's middle is wherever the hand was.
+  const id = s.addNode(featureId, Math.round(clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w))), Math.round(Math.max(0, where.y - h / 2)), shared);
   return { id, label, w, h, kind, kindChanged, reproportioned, keptSize, shape: made.shape };
 }
 
@@ -945,17 +946,25 @@ function applyProportion(drawn: Sketch, node: StudioNode | null, job: DrawJob) {
    * page is made across the page.
    */
   const drewWide = !job.drawn || job.drawn.w >= frameWidth * FULL_BLEED;
-  const w = job.drawn && !drewWide
-    ? clamp(Math.round(job.drawn.w), 80, frameWidth)
-    : clamp(Math.round((b?.box.w ?? 0.3) * frameWidth), 80, frameWidth);
-  const h = shape === "circle"
-    ? w
-    : job.drawn && !drewWide
-      ? clamp(Math.round(job.drawn.h), 24, 1600)
-      : clamp(Math.round(w / (b?.aspect ?? 1)), 24, 1600);
+  /*
+   * A drawing too small to be a part is grown to the floors *in
+   * proportion*. The floors are different on each axis (80 wide, 24 tall),
+   * so clamping each on its own turned a 44 × 36 mark into an 80 × 36 one:
+   * the proportion, the one thing a bare drawing says, was lost to a
+   * minimum. Both sides are scaled by the same factor instead.
+   */
+  const raw = job.drawn && !drewWide
+    ? { w: job.drawn.w, h: job.drawn.h }
+    : { w: (b?.box.w ?? 0.3) * frameWidth, h: ((b?.box.w ?? 0.3) * frameWidth) / (b?.aspect ?? 1) };
+  const grow = Math.max(1, 80 / Math.max(1, raw.w), 24 / Math.max(1, raw.h));
+  // And one taller than the ceiling is brought under it the same way, both
+  // sides by one factor, so a tall column stays the column it was drawn.
+  const tall = raw.h * grow > PART_MAX_H ? PART_MAX_H / (raw.h * grow) : 1;
+  const w = clamp(Math.round(raw.w * grow * tall), 80, frameWidth);
+  const h = shape === "circle" ? w : clamp(Math.round(raw.h * grow * tall), 24, PART_MAX_H);
   const label = nameFrom(drawn.words) || "Drawn part";
   const where = job.at ?? { x: frameWidth / 2, y: 200 };
-  const id = s.addNode("custom-idea", clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w)), Math.max(0, where.y - h / 2), {
+  const id = s.addNode("custom-idea", Math.round(clamp(where.x - w / 2, 0, Math.max(0, frameWidth - w))), Math.round(Math.max(0, where.y - h / 2)), {
     w, h, label, prompt: drawn.words, sketch: drawn, ...shaped,
   });
   return { id, label, w, h };

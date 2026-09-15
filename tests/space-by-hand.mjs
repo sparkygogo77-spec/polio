@@ -279,10 +279,13 @@ if (await at.count()) {
   check("and it is not cut off", (await at.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)), `${rb.width}px wide`);
   await shot("refused");
 }
-check("it goes on its own once the next line begins", await (async () => {
-  await draw([[460, 560], [560, 600]], { step: 20 });
-  return (await page.locator("[data-space-refused]").count()) <= 1;
-})());
+/* It goes on its own: the message is timed, and the next open line raises
+   a fresh one. The old form drew the next line at once and asked for "at
+   most one", which is what the component can draw at most anyway. */
+await page.waitForTimeout(3600);
+check("it goes on its own", (await page.locator("[data-space-refused]").count()) === 0, `${await page.locator("[data-space-refused]").count()} still up after 3.6s`);
+await draw([[460, 560], [560, 600]], { step: 20 });
+check("and the next open line raises a fresh one", (await page.locator("[data-space-refused]").count()) === 1);
 
 /* ------------------------------------------------------------------ */
 /* 6. A drawing knows the space it was drawn in                        */
@@ -301,10 +304,12 @@ if (await hole.count()) {
     const marked = page.locator("[data-ink-space]");
     check("a drawing made inside a hole says which space it is in", (await marked.count()) > 0,
       (await marked.first().innerText().catch(() => "")).replace(/\n/g, " "));
-    // And one drawn outside does not claim a space it is not in.
+    // And one drawn outside does not claim a space it is not in: the count
+    // is taken before the outside drawing, not re-read beside itself.
+    const markedBefore = await marked.count();
     await draw([[PANE.x + 60, PANE.y + 60], [PANE.x + 110, PANE.y + 90], [PANE.x + 160, PANE.y + 60]], { step: 18 });
     check("and one drawn outside every space claims none",
-      (await page.locator("[data-ink-space]").count()) === (await marked.count()), `${await page.locator("[data-ink-space]").count()} marked`);
+      (await marked.count()) === markedBefore, `${markedBefore} marked before, ${await marked.count()} after`);
     await shot("ink-in-a-space");
   }
 }

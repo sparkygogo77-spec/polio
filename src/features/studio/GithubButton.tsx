@@ -14,7 +14,7 @@
  * So the tooltip's advice is the Keys panel now, not the server's
  * environment, and `GITHUB_TOKEN` on the server is the fallback.
  *
- * It reads the same status route the vault reads, which reports whether a
+ * It reads the same status route the keys panel reads, which reports whether a
  * token would be found and never what it is.
  */
 import * as React from "react";
@@ -70,7 +70,7 @@ export function GithubButton() {
       ? `${name} — no GitHub token, so Publish cannot push. Put one in the Keys panel, or set GITHUB_TOKEN on the server.`
       : "No GitHub token yet. Put one in the Keys panel and the first Publish makes this site a repository of its own."
     : name
-      ? `${name} · ${project?.repo?.branch ?? status?.github?.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
+      ? `${name} · ${project?.repo?.branch ?? status?.github?.branch ?? "main, assumed"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
       : `The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
 
   /* Nothing to open and nothing yet to describe: before a site is published
@@ -84,7 +84,7 @@ export function GithubButton() {
         size="icon"
         /* "GitHub" stays in the name whatever state this is in: it is the
            GitHub button, and something looking for it by name — a screen
-           reader, or the vault suite — should find it before a repository
+           reader, or the keys suite — should find it before a repository
            exists as readily as after. */
         aria-label={name ? `Open ${name} on GitHub` : "GitHub: this site has no repository yet"}
         data-github-button=""

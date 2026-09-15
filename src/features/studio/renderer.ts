@@ -23,7 +23,7 @@
  *   is stored as a `data:` URI inside an `<img>`. Nothing is fetched at
  *   render time, because nothing may be.
  *
- * The token is held where the Claude key is: typed into the vault under the
+ * The token is held where the Claude key is: typed into the keys panel under the
  * key button, kept in this browser, unlocked the same way, and sent as
  * `x-replicate-key` with each call. The route holds it for the length of
  * the call and never writes it down, logs it or returns it; a

@@ -25,6 +25,8 @@ import { MODELS, modelsFor, optionsFor, inputFor, model } from "../src/features/
 import { planFor } from "../src/features/studio/space.ts";
 
 const results = [];
+/** Halves that could not run here, said in the total rather than counted as green. */
+const notRun = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
@@ -92,6 +94,8 @@ check("every kind the table uses has a control", unhandled.length === 0,
 const stranger = {
   slug: "nobody/brand-new",
   name: "Brand New",
+  returns: "picture", serves: {}, references: 0, refField: null, examplePair: false, keepFrame: null,
+  ratios: ["1:1", "4:3", "16:9"], alpha: false, pixels: null, size: null, format: { field: "output_format", value: "png" }, grounding: null,
   fields: [
     { name: "zz_prompt", label: "Words", kind: "text", default: null, managed: "prompt" },
     { name: "zz_mode", label: "Mode", kind: "enum", values: ["quick", "careful", "wild"], default: "careful" },
@@ -106,6 +110,15 @@ const stranger = {
 check("the invented model uses every kind the renderer draws",
   stranger.fields.every((f) => kinds.includes(f.kind) || new RegExp(`case "${f.kind}":`).test(renderer)),
   stranger.fields.map((f) => f.kind).join(", "));
+/* And it is put through the same code the panel and the route use, rather
+   than only compared with the table: a row the code cannot take would throw here. */
+check("and it goes through the route's own input builder", (() => {
+  try { const input = inputFor(stranger, { prompt: "a mark", w: 320, h: 320 }); return !!input && typeof input === "object"; } catch (e) { return false; }
+})());
+check("and through the option reader, which keeps every field it names", (() => {
+  const raw = Object.fromEntries(stranger.fields.filter((f) => f.kind !== "secret" && f.kind !== "image" && f.kind !== "images").map((f) => [f.name, f.kind === "boolean" ? true : f.kind === "integer" || f.kind === "number" ? (f.min ?? 1) : f.kind === "enum" ? f.values[0] : "x"]));
+  try { const kept = optionsFor(stranger, raw); return Object.keys(raw).every((k) => k in kept); } catch { return false; }
+})());
 /* The panel draws one row a field and positions nothing by index, so a set
    of eight lays out exactly as a set of five or thirteen does. */
 const counts = MODELS.map((m) => m.fields.length).sort((a, b) => a - b);
@@ -200,7 +213,7 @@ check("a secret field offers no control that would store it",
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const up = await fetch(`${URL_}/builder`).then((r) => r.ok).catch(() => false);
 if (!up) {
-  console.log("  --   no Builder at localhost:3000 — the panel itself was not opened");
+  notRun.push("the live half"); console.log("  --   no Builder at localhost:3000 — the panel itself was not opened");
 } else {
   const { createRequire } = await import("node:module");
   const req = createRequire(import.meta.url);
@@ -208,7 +221,7 @@ if (!up) {
   for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {
     try { ({ chromium } = req(c)); break; } catch { /* next */ }
   }
-  if (!chromium) console.log("  --   no Playwright — the panel itself was not opened");
+  if (!chromium) { notRun.push("the live half"); console.log("  --   no Playwright — the panel itself was not opened"); }
   else {
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
@@ -239,7 +252,10 @@ if (!up) {
          screen is the count in the table for whichever model is picked. */
       const drawn = await page.locator("[data-model-field]").count();
       const kindsSeen = await page.locator("[data-model-field]").evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute("data-field-kind")))]);
-      check("and a control for every field that model takes", drawn > 0, `${drawn} fields, kinds ${kindsSeen.sort().join(", ")}`);
+      /* The count on screen is the count in the table for the model the route picked. */
+      const picked = await page.locator("[data-model-key]:has([data-model-default])").first().getAttribute("data-model-key");
+      const expected = MODELS.find((m) => m.slug === picked)?.fields.length ?? -1;
+      check("and a control for every field that model takes", drawn > 0 && drawn === expected, `${drawn} fields drawn for ${picked}, ${expected} in the table; kinds ${kindsSeen.sort().join(", ")}`);
 
       /* A managed field wears what the route chose, and says so. */
       const routed = await page.locator('[data-model-field][data-field-from="routed"]').count();
@@ -270,11 +286,13 @@ if (!up) {
       /* Picking a different model redraws from that model's row, not this one's. */
       if (offered > 1) {
         const was = await page.locator("[data-model-field]").count();
+        const other = await keys.nth(1).getAttribute("data-model-key");
         await keys.nth(1).click({ force: true });
         await page.waitForTimeout(600);
         const now = await page.locator("[data-model-field]").count();
-        check("picking another model redraws its own fields", now > 0,
-          `${was} → ${now} fields`);
+        const wantNow = MODELS.find((m) => m.slug === other)?.fields.length ?? -1;
+        check("picking another model redraws its own fields", now > 0 && now === wantNow && (await keys.nth(1).getAttribute("aria-pressed")) === "true",
+          `${was} → ${now} fields, ${other} takes ${wantNow}`);
         check("and the panel says the choice is the person's", (await page.locator("[data-model-mine]").count()) === 1);
       }
     }
@@ -288,5 +306,5 @@ if (!up) {
 
 console.log("");
 const failed = results.filter((r) => !r).length;
-console.log(`${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}`);
+console.log(`${results.length - failed} of ${results.length} hold${failed ? `, ${failed} FAILED` : ""}${notRun.length ? `, ${notRun.length} half not run here` : ""}`);
 process.exit(failed ? 1 : 0);

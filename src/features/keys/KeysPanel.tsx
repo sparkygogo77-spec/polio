@@ -1,6 +1,6 @@
 "use client";
 /**
- * The vault: a key button in the top bar, a four-digit pad, and the key.
+ * The keys panel: a key button in the top bar, a four-digit pad, and the key.
  *
  * The pad is the console's own screen — dark teal glass, phosphor lettering,
  * four dots that fill as you type — because a PIN is the one moment in this
@@ -213,7 +213,7 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
 
       {exists && mode === "unlock" && sealable ? (
         <Button variant="ghost" size="xs" onClick={() => { if (confirm !== null) setConfirm(null); useKeys.getState().destroy(); }}>
-          Forgot it, empty the vault and start again
+          Forgot it, forget every key and start again
         </Button>
       ) : null}
     </div>
@@ -230,7 +230,7 @@ type Tried = { ok: boolean; message: string; source?: string } | { busy: true } 
 /** One answer per service: trying Claude says nothing about Vercel. */
 type TriedBy = Partial<Record<ServiceId, Tried>>;
 
-function Vault({ server }: { server: ServerStatus | null }) {
+function HeldKeys({ server }: { server: ServerStatus | null }) {
   const { values, save, busy, lock, changePin, destroy, touch, held, kept, keep, create, plain, forget, sealedWaiting, bringAcross } = useKeys();
   const ctx = useActions();
   const [draft, setDraft] = React.useState<Record<string, string>>(values);
@@ -434,9 +434,9 @@ function Vault({ server }: { server: ServerStatus | null }) {
               <Button
                 variant="danger"
                 size="sm"
-                onClick={() => void ctx.confirm({ title: "Empty the vault?", body: "Everything held in this browser goes, and the PIN with it. Keys on the server are untouched.", danger: true, confirmLabel: "Empty it" }).then((ok) => ok && destroy())}
+                onClick={() => void ctx.confirm({ title: "Forget every key?", body: "Everything held in this browser goes, and the PIN with it. Keys on the server are untouched.", danger: true, confirmLabel: "Empty it" }).then((ok) => ok && destroy())}
               >
-                <Trash2 /> Empty the vault
+                <Trash2 /> Forget every key
               </Button>
             </div>
             <label className="mt-3 flex items-start gap-2 border-t border-border pt-3">
@@ -449,7 +449,7 @@ function Vault({ server }: { server: ServerStatus | null }) {
             <p className="mt-2 text-[10px] text-fg-faint">
               {kept
                 ? "Kept for this tab: it stays open until you lock it or the tab closes."
-                : `The vault locks itself after ${Math.round(IDLE_MS / 60_000)} minutes without a keystroke, on reload, and whenever this tab closes.`}
+                : `The keys panel locks itself after ${Math.round(IDLE_MS / 60_000)} minutes without a keystroke, on reload, and whenever this tab closes.`}
             </p>
           </section>
         )}
@@ -524,7 +524,7 @@ export function KeysPanel() {
           <Button variant="ghost" size="icon" aria-label="Close keys" onClick={() => closePanel("keys")}><X /></Button>
         </header>
 
-        {open ? (unlocked ? <Vault server={server} /> : <PinGate mode={exists ? "unlock" : "create"} />) : null}
+        {open ? (unlocked ? <HeldKeys server={server} /> : <PinGate mode={exists ? "unlock" : "create"} />) : null}
       </aside>
     </>
   );

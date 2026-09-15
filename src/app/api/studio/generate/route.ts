@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { answerCeiling } from "../budget";
+import { droppedCount, droppedWords, takePictures, type PictureIn } from "@/features/studio/pictureIn";
 
 /**
  * Claude, on the site: every kind of prompt the Builder can make.
@@ -36,11 +38,11 @@ export const maxDuration = 300;
  * seconds whatever this file asks for, and a budget above the real ceiling
  * never gets to fire.
  */
-const ANSWER_BUDGET_MS = (() => {
-  const asked = Number(process.env.STUDIO_ANSWER_BUDGET_MS);
-  const budget = Number.isFinite(asked) && asked > 5_000 ? asked : maxDuration * 1000;
-  return Math.max(5_000, budget - 5_000);
-})();
+// The ceiling is one rule for every route (`budget.ts`): what was asked,
+// or the hobby minute on Vercel, or `maxDuration`; the five seconds short
+// of it are this route's own, so it answers before the platform kills it.
+const budget = answerCeiling(process.env, maxDuration);
+const ANSWER_BUDGET_MS = Math.max(5_000, budget - 5_000);
 
 /** Long enough for a slow answer, short enough that the retry still fits the budget. */
 const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);
@@ -172,7 +174,6 @@ function splitRevisions(text: string): { text: string; revisions: Revision[] } {
   }
 }
 
-interface PictureIn { data?: string; mediaType?: string; label?: string }
 interface PieceIn { id?: string; label?: string; where?: string; prompt?: string; size?: { w?: number; h?: number }; neighbours?: string[]; links?: string[] }
 
 /**
@@ -255,10 +256,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: "empty", message: "Ask something first." }, { status: 400 });
   }
 
-  const pictures = (Array.isArray(body.pictures) ? body.pictures : [])
-    .filter((p): p is Required<PictureIn> => !!p && typeof p.data === "string" && p.data.length > 0 && p.data.length < 6_000_000 && /^[A-Za-z0-9+/=]+$/.test(p.data) && ["image/png", "image/jpeg", "image/webp"].includes(p.mediaType ?? ""))
-    .slice(0, 12)
-    .map((p) => ({ data: p.data, mediaType: p.mediaType as "image/png" | "image/jpeg" | "image/webp", label: typeof p.label === "string" ? p.label.slice(0, 200) : "" }));
+  // What the browser counted is not always what goes: a picture over the
+  // limit or not a type Claude reads is left out, and said, not lost.
+  const { pictures, dropped } = takePictures(body.pictures);
+  const droppedN = droppedCount(dropped);
 
   /*
    * The brief first, marked for the cache, then only the pieces this thread
@@ -302,6 +303,7 @@ export async function POST(request: Request) {
       content.push({ type: "image", source: { type: "base64", media_type: p.mediaType, data: p.data } });
     }
   }
+  if (droppedN) content.push({ type: "text", text: `${droppedN} picture${droppedN === 1 ? "" : "s"} the author meant to send could not be (${droppedWords(dropped)}): what they showed has not been seen.` });
   if (!pictures.length) content.push({ type: "text", text: WORDS_ONLY });
   const wantsRevisions = mode === "critique" || mode === "expand" || mode === "finish";
   const ask = mode === "ask" ? prompt : prompt ? `${MODE_INSTRUCTIONS[mode]}\n\nThe author adds: ${prompt}` : MODE_INSTRUCTIONS[mode];
@@ -369,6 +371,8 @@ export async function POST(request: Request) {
       text,
       revisions,
       pictures: pictures.length,
+      dropped: droppedN,
+      droppedWhy: droppedN ? droppedWords(dropped) : "",
       truncated: message.stop_reason === "max_tokens",
       usage: {
         input: message.usage.input_tokens,

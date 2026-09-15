@@ -266,7 +266,24 @@ export function SpacePanel({ node, space }: { node: StudioNode; space: Space }) 
     <div className="flex h-full min-h-0 flex-col text-[11px]">
       {/* What it is */}
       <div className="shrink-0 border-b px-3 py-2" style={{ borderColor: VOID.rim }}>
-        <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>In this space</div>
+        <div className="flex items-center justify-between">
+          <div className="text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>In this space</div>
+          {/*
+            The way back to the space itself. Its own key on the board goes
+            the moment a part is inside it, so a space holding placed parts
+            and no drawings had no panel to lock the layout from: the cube
+            drawn beside a flat part could never be held to it.
+          */}
+          <button
+            type="button"
+            data-space-own={space.id}
+            onClick={() => { play("select"); useStudio.getState().setSelection([space.id]); }}
+            className="tactile rounded-sm border px-1.5 py-0.5 text-[9px]"
+            style={{ borderColor: VOID.rim, color: VOID.muted }}
+          >
+            This space
+          </button>
+        </div>
         <Input
           aria-label="What it is"
           data-space-what=""

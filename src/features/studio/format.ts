@@ -26,6 +26,12 @@ export interface FormatField {
   /** Hidden until "all options" is switched on. */
   advanced?: boolean;
   placeholder?: string;
+  /**
+   * A renderer reads this: the preview and the published site draw it.
+   * Left off, the field reaches the blueprint only, and the panel says so.
+   * `tests/format-live.mjs` holds the flag to the renderers' own source.
+   */
+  live?: boolean;
 }
 
 export interface FormatGroup {
@@ -67,7 +73,7 @@ export const FORMAT_FIELDS: FormatField[] = [
   /* pages */
   sel("pages.routing", "pages", "Routing", ["multi-page", "single page, scrolled", "hybrid"], { hint: "Pages you add on the canvas become routes." }),
   sel("pages.nav", "pages", "Navigation style", ["top bar", "sidebar", "top + sidebar", "floating dock", "hidden / minimal", "full-screen menu"]),
-  sel("pages.transition", "pages", "Page transition", ["fade", "none", "slide", "shared element", "curtain wipe"], { advanced: true }),
+  sel("pages.transition", "pages", "Page transition", ["fade", "none", "slide", "shared element", "curtain wipe"], { advanced: true, live: true }),
   sel("pages.footer", "pages", "Footer", ["standard", "minimal", "rich sitemap", "none"], { advanced: true }),
   bool("pages.breadcrumbs", "pages", "Breadcrumbs", false, { advanced: true }),
   bool("pages.search", "pages", "Site search", false),
@@ -85,15 +91,15 @@ export const FORMAT_FIELDS: FormatField[] = [
   sel("scroll.header", "scroll", "Header on scroll", ["stays", "shrinks", "hides then shows", "blurs", "none"], { advanced: true }),
 
   /* type & text boxes */
-  sel("type.headingFamily", "type", "Heading font", ["geometric sans", "grotesque sans", "serif", "display", "condensed", "monospace", "handwritten"]),
-  sel("type.bodyFamily", "type", "Body font", ["system sans", "humanist sans", "serif", "monospace"]),
+  sel("type.headingFamily", "type", "Heading font", ["geometric sans", "grotesque sans", "serif", "display", "condensed", "monospace", "handwritten"], { live: true }),
+  sel("type.bodyFamily", "type", "Body font", ["system sans", "humanist sans", "serif", "monospace"], { live: true }),
   sel("type.scale", "type", "Type scale", ["1.25 major third", "1.2 minor third", "1.333 perfect fourth", "1.5 perfect fifth", "1.618 golden"]),
-  num("type.baseSize", "type", "Base size", 16, 13, 22, 1, { unit: "px" }),
-  num("type.lineHeight", "type", "Line height", 1.55, 1.1, 2, 0.05),
-  num("type.measure", "type", "Line length", 66, 40, 100, 1, { unit: "ch", hint: "Characters per line before wrapping." }),
-  sel("type.align", "type", "Text alignment", ["left", "center", "justified"]),
-  sel("type.textBox", "type", "Text box style", ["plain", "bordered", "filled", "card", "underlined", "quoted", "inset shadow"], { hint: "How blocks of text are framed." }),
-  num("type.boxPadding", "type", "Text box padding", 16, 0, 48, 2, { unit: "px", advanced: true }),
+  num("type.baseSize", "type", "Base size", 16, 13, 22, 1, { unit: "px", live: true }),
+  num("type.lineHeight", "type", "Line height", 1.55, 1.1, 2, 0.05, { live: true }),
+  num("type.measure", "type", "Line length", 66, 40, 100, 1, { unit: "ch", hint: "Characters per line before wrapping.", live: true }),
+  sel("type.align", "type", "Text alignment", ["left", "center", "justified"], { live: true }),
+  sel("type.textBox", "type", "Text box style", ["plain", "bordered", "filled", "card", "underlined", "quoted", "inset shadow"], { hint: "How blocks of text are framed.", live: true }),
+  num("type.boxPadding", "type", "Text box padding", 16, 0, 48, 2, { unit: "px", advanced: true, live: true }),
   num("type.paragraphSpacing", "type", "Paragraph spacing", 16, 4, 48, 2, { unit: "px", advanced: true }),
   sel("type.headingCase", "type", "Heading case", ["sentence case", "title case", "UPPERCASE", "lowercase"], { advanced: true }),
   sel("type.letterSpacing", "type", "Letter spacing", ["normal", "tight", "wide", "very wide"], { advanced: true }),
@@ -106,7 +112,7 @@ export const FORMAT_FIELDS: FormatField[] = [
   /* layout */
   sel("layout.width", "layout", "Content width", ["readable", "wide", "full bleed", "narrow"]),
   sel("layout.density", "layout", "Density", ["balanced", "airy", "dense"]),
-  num("layout.radius", "layout", "Corner radius", 10, 0, 32, 1, { unit: "px" }),
+  num("layout.radius", "layout", "Corner radius", 10, 0, 32, 1, { unit: "px", live: true }),
   sel("layout.grid", "layout", "Grid", ["12 column", "8 column", "bento", "freeform", "single column"]),
   num("layout.gap", "layout", "Spacing", 24, 4, 80, 2, { unit: "px", advanced: true }),
   sel("layout.borders", "layout", "Borders", ["hairline", "none", "heavy", "dashed"], { advanced: true }),
@@ -114,14 +120,14 @@ export const FORMAT_FIELDS: FormatField[] = [
   sel("layout.imagery", "layout", "Imagery", ["photography", "illustration", "3D render", "abstract shapes", "none"], { advanced: true }),
 
   /* palette */
-  sel("palette.mode", "palette", "Theme", ["dark", "light", "both", "follows system"]),
-  num("palette.accentHue", "palette", "Accent hue", 265, 0, 360, 1, { unit: "°" }),
+  sel("palette.mode", "palette", "Theme", ["dark", "light", "both", "follows system"], { live: true }),
+  num("palette.accentHue", "palette", "Accent hue", 265, 0, 360, 1, { unit: "°", live: true }),
   sel("palette.scheme", "palette", "Colour scheme", ["duotone", "monochrome", "vibrant", "pastel", "high contrast", "earthy", "neon", "muted"]),
-  sel("palette.background", "palette", "Background", ["flat", "subtle gradient", "grid", "noise / grain", "mesh gradient", "image", "animated"]),
+  sel("palette.background", "palette", "Background", ["flat", "subtle gradient", "grid", "noise / grain", "mesh gradient", "image", "animated"], { live: true }),
   sel("palette.contrast", "palette", "Contrast", ["standard", "high", "soft"], { advanced: true }),
 
   /* motion */
-  sel("motion.level", "motion", "Motion", ["moderate", "rich", "minimal", "none"]),
+  sel("motion.level", "motion", "Motion", ["moderate", "rich", "minimal", "none"], { live: true }),
   sel("motion.easing", "motion", "Easing", ["natural", "snappy", "gentle", "springy", "linear"], { advanced: true }),
   num("motion.duration", "motion", "Base duration", 240, 60, 800, 20, { unit: "ms", advanced: true }),
   sel("motion.hover", "motion", "Hover response", ["lift", "none", "glow", "tilt", "magnetic", "colour shift"], { advanced: true }),
@@ -149,19 +155,12 @@ export const FORMAT_FIELDS: FormatField[] = [
   bool("build.tests", "build", "Tests", false, { advanced: true }),
 ];
 
-export const FORMAT_BY_ID = new Map(FORMAT_FIELDS.map((x) => [x.id, x]));
-
 export type FormatValues = Record<string, string | number | boolean>;
 
 export function formatDefaults(): FormatValues {
   const out: FormatValues = {};
   for (const x of FORMAT_FIELDS) out[x.id] = x.default;
   return out;
-}
-
-/** Only the values the user actually changed — what the brief should mention. */
-export function changedFormat(values: FormatValues): FormatField[] {
-  return FORMAT_FIELDS.filter((x) => x.id in values && values[x.id] !== x.default);
 }
 
 export function formatLabel(field: FormatField, value: string | number | boolean): string {
