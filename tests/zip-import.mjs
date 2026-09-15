@@ -23,7 +23,7 @@ import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
 import { crc32, deflateRawSync } from "node:zlib";
 import {
-  checkZip, contentType, fileFor, fitToSurface, hadScripts, insideZip, MAX_FILES, pageBlocks, pageEntry, saidOf, sansScripts, SURE, ZIP_REFUSAL_SAYS,
+  checkZip, contentType, fileFor, fitToSurface, hadScripts, insideZip, MAX_FILES, mergeReadings, pageBlocks, pageEntry, saidOf, sansScripts, SURE, ZIP_REFUSAL_SAYS,
 } from "../src/features/studio/zipImport.ts";
 import { readZip } from "../src/features/studio/zipFile.ts";
 import { SURE_ENOUGH } from "../src/features/studio/recreate.ts";
@@ -172,6 +172,50 @@ const listed = [
 const blocks = pageBlocks(listed);
 check("a page taken whole is its bands top to bottom, not its wrapper and not what is inside a band",
   blocks.map((b) => b.selector).join(",") === "header,.hero,.cards,footer", blocks.map((b) => b.selector).join(","));
+/* A real page, as CSS Zen Garden listed: the same box under three names,
+   and the main column holding its sections beside the header. */
+const zen = [
+  { selector: "#container", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 3000 }, words: "all" },
+  { selector: "main", what: "a first screen", box: { x: 0, y: 320, w: 1280, h: 2600 }, words: "So what" },
+  { selector: "header", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 310 }, words: "CSS Zen Garden" },
+  { selector: "header > div", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 310 }, words: "CSS Zen Garden" },
+  { selector: "h1", what: "the top of the page", box: { x: 0, y: 1, w: 1279, h: 309 }, words: "CSS Zen Garden" },
+  { selector: "#zen-preamble", what: "a first screen", box: { x: 0, y: 320, w: 1280, h: 700 }, words: "So what" },
+  { selector: "#zen-supporting", what: "a band across the page", box: { x: 0, y: 1040, w: 1280, h: 1800 }, words: "Participation" },
+  { selector: "footer", what: "the foot of the page", box: { x: 0, y: 2860, w: 1280, h: 140 }, words: "By Dave Shea" },
+];
+/* And a section is not opened into its paragraphs. */
+zen.push(
+  { selector: "#zen-preamble h3", what: "a box on the page", box: { x: 0, y: 330, w: 1280, h: 24 }, words: "So what" },
+  { selector: "#zen-preamble p:nth-of-type(1)", what: "a box on the page", box: { x: 0, y: 360, w: 1280, h: 90 }, words: "There is" },
+  { selector: "#zen-preamble p:nth-of-type(2)", what: "a box on the page", box: { x: 0, y: 460, w: 1280, h: 90 }, words: "The Zen" },
+  { selector: "#zen-preamble p:nth-of-type(3)", what: "a box on the page", box: { x: 0, y: 560, w: 1280, h: 90 }, words: "Littering" },
+);
+/* And where a page's sections have no box of their own, so its paragraphs
+   are top-level boxes, a run of them down one column is one band. */
+const loose = [
+  { selector: "header", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 310 }, words: "CSS Zen Garden" },
+  { selector: "h3.a", what: "a box on the page", box: { x: 100, y: 330, w: 360, h: 18 }, words: "So What" },
+  { selector: "p.a1", what: "a box on the page", box: { x: 100, y: 360, w: 360, h: 70 }, words: "There is" },
+  { selector: "p.a2", what: "a box on the page", box: { x: 100, y: 440, w: 360, h: 88 }, words: "allows" },
+  { selector: "aside", what: "a first screen", box: { x: 600, y: 330, w: 235, h: 423 }, words: "Mid Century" },
+  { selector: "h3.b", what: "a box on the page", box: { x: 100, y: 700, w: 360, h: 18 }, words: "The Road" },
+  { selector: "p.b1", what: "a box on the page", box: { x: 100, y: 730, w: 360, h: 88 }, words: "Littering" },
+  { selector: "footer", what: "the foot of the page", box: { x: 0, y: 900, w: 1280, h: 44 }, words: "By Dave" },
+];
+const looseBlocks = pageBlocks(loose);
+check("paragraphs with no section box of their own are one band per run, each member remembered",
+  looseBlocks.map((b) => (b.members ? `[${b.members.join("+")}]` : b.selector)).join(",") === "header,[h3.a+p.a1+p.a2],aside,[h3.b+p.b1],footer",
+  looseBlocks.map((b) => (b.members ? `[${b.members.join("+")}]` : b.selector)).join(","));
+const merged = mergeReadings([
+  { box: { x: 100, y: 330, w: 360, h: 18 }, text: [{ words: "So What", px: 29, weight: 400, y: 0 }], links: [], buttons: [], images: [], children: [], layout: { flow: "row", columns: 1, gap: 0 }, paint: { bg: "rgba(0, 0, 0, 0)" } },
+  { box: { x: 100, y: 360, w: 360, h: 70 }, text: [{ words: "There is", px: 16, weight: 400, y: 0 }], links: [{ words: "CSS", href: "https://x" }], buttons: [], images: [], children: [], layout: { flow: "row", columns: 1, gap: 0 }, paint: { bg: "rgb(1, 2, 3)" } },
+]);
+check("and a run's readings merge into one: the boxes united, the words in order, the first's paint",
+  merged.box.y === 330 && merged.box.h === 100 && merged.text.map((t) => t.words).join("|") === "So What|There is" && merged.links.length === 1 && merged.paint.bg === "rgba(0, 0, 0, 0)" && merged.children.length === 2, JSON.stringify(merged.box));
+const zenBlocks = pageBlocks(zen).map((b) => b.selector).join(",");
+check("one box under three names is one block, and a column holding its sections is opened into them",
+  zenBlocks === "header,#zen-preamble,#zen-supporting,footer", zenBlocks);
 const fit = fitToSurface({ x: 100, y: 200, w: 640, h: 300 }, 1280, blocks.map((b) => b.box));
 check("laid on the surface at the width it was drawn, the surface grows to the page's proportion", fit.surface.w === 640 && fit.surface.h === 425 && fit.scale === 0.5, JSON.stringify(fit.surface));
 check("and every block keeps its place and size as a share of the page", fit.places[0].h === 36 && fit.places[1].y === 236 && fit.places[3].y === 580 && fit.places[3].h === 45, JSON.stringify(fit.places));
