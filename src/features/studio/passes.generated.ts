@@ -2,9 +2,64 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:40:45.461Z";
+export const GENERATED_AT = "2026-09-15T08:07:43.324Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "21d1f9a",
+    "when": "2026-09-15T08:07:41+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a7b58af",
+        "says": "The Zen Garden counts after the night, and three catalogue findings",
+        "when": "2026-09-15T07:36:28+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "7f53246",
+        "says": "The family a page was set in travels by name, whether or not its file did",
+        "when": "2026-09-15T07:32:03+00:00",
+        "detail": [
+          "The route reads the first family on the stack as the face and measures whether it drew. The part carries the face and asks for it first, with the class behind it; the inspector names it; the panel's line says which faces did not travel. Declared: parts/theme.ts gains an optional face on NodeFont and applyFont puts it first on the stack."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "aeeee41",
+    "when": "2026-09-15T07:44:45+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "aeeee41",
+        "says": "Regenerate the passes for a drawn box that is a real cube",
+        "when": "2026-09-15T07:44:45+00:00",
+        "detail": [
+          "A seventh session, meitner, with its first on trunk: ce115bb, a drawn box is a box and a box is a real cube — turned, written on, moved. New files for the pose, the solid route and its run, and a new suite that drives the whole arc.",
+          "This is the broadest merge of the night by reach: twenty source files, Canvas.tsx, store.ts, RadialMenu.tsx, blocks.tsx, spec.ts and scaffold.ts among them. So the board's own geometry is measured beside the cube work rather than assumed, because a Canvas.tsx change is exactly what is being held out of trunk on hypatia's branch tonight.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4273:",
+          "box-to-cube   74/74 passed   (new) cube          62/62 passed cube-part     29/29 passed board-edges   11 of 11 hold full-page     42 of 42 hold picked        16/16 passed wheel-pass    12 of 12 hold drawn-part    22/22 passed scaffold      32/32 passed"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "6cfcdec",
     "when": "2026-09-15T07:40:42+00:00",
@@ -967,55 +1022,6 @@ export const PASSES: Pass[] = [
           "Merged trunk, which carried euler's and dijkstra's work — both were already up to date behind it. Euler's idle-frame finding matters to a change of mine: the cause is a full-screen ground that never stops, damaging the viewport every frame, with translucent layers re-blended over it, and their law is \"carry less translucent area, not less motion\". Moving the shelf into the pane took the ground from 1039x943 to 1039x1191, which is 26% more damaged area every frame. Their four fixes are all in the timeline's own layers, so this is not addressed by them and I have not touched it."
         ],
         "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d517c45",
-    "when": "2026-09-15T03:14:08+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d517c45",
-        "says": "import records the clip it needs, and the video half of it runs at last",
-        "when": "2026-09-15T03:14:08+00:00",
-        "detail": [
-          "Hypatia's pass: import takes a video, and the frame lands two ways.",
-          "Her suite wanted ${SP}/clip.webm with SP defaulting to one session's own scratchpad, and the generator for it — scratchpad/mkvideo.mjs — lives there rather than in the repository. So everywhere except the machine it was written on, the whole second half of the suite was skipped behind \"a test video exists to scrub — missing\", and it went red the first time it ran here. Four checks ran of the twenty-seven that exist.",
-          "It records one now: a canvas painted a frame at a time through MediaRecorder, which is the browser this suite already drives writing a real webm with real duration and real frames. Two and a half seconds of colour with the frame number burnt in — enough for a scrubber to have somewhere to go and for two frames to differ. IMPORT_FIXTURES still points it at a clip somebody has already made. 27 of 27, and the scrub, the two landings, the aspect and the resize are all actually exercised rather than skipped.",
-          "That is the second suite this week that could only pass in its author's own container, after site-read's fixture server on :8899. Both were green where they were written and red everywhere else. Worth a line in AGENTS.md that a suite carries its own fixtures, if one of the sessions wants to write it."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "57ca707",
-    "when": "2026-09-15T03:10:33+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f532bf7",
-        "says": "Import takes a video, and the frame lands two ways",
-        "when": "2026-09-15T02:49:22+00:00",
-        "detail": [
-          "WHAT IT DID BEFORE, measured rather than recalled. The background's wheel had a piece called Picture. Its chooser was `accept=\"image/*\"`, so a video could not be offered, and whatever it was given it did exactly one thing: `addTexture({ kind: \"image\", pattern: true, scale: 60, opacity: 0.5, contrast: 0.45, target: \"page\" })`. That is a tile — the picture reduced to a monochrome mask, repainted in a palette colour, half transparent, repeated across the whole page. It is the right answer for a background texture and it was the only answer, so there was no way to bring a picture in as a picture. The canvas right-click menu had no entry for it at all.",
-          "WHAT IT DOES NOW. The piece is Import and takes `image/*,video/*`. A video opens a scrubber, and the frame under the playhead is on the page behind the panel at full size as you drag — the same frame the landing commits, not a thumbnail of it. Then two landings, which are different intentions rather than two sizes of one:",
-          "FIT TO STANDARD — one covering picture at the page's standard size. It stays a texture layer, because a background is one, but `pattern: false` and `weave: 1` make it one coherent picture instead of a recoloured tile.",
-          "SHRINK IN — a `picture` part at the picture's own aspect (893×502 for a 16:9 frame, measured), inset from the frame, dragged and resized like anything else, wearing the frame through `node.texture`."
-        ],
-        "areas": [
-          "docs",
           "studio",
           "tests"
         ],
