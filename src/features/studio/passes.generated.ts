@@ -2,14 +2,54 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T04:08:03.356Z";
+export const GENERATED_AT = "2026-09-15T04:12:51.541Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "ae494a9",
-    "when": "2026-09-15T04:07:18+00:00",
+    "id": "ffc74eb",
+    "when": "2026-09-15T04:12:51+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "6326180",
+        "says": "Thirty boards: the vine sheet was the wrong suspect, and three ways at it lost",
+        "when": "2026-09-15T04:12:01+00:00",
+        "detail": [
+          "Taken the same way as the cards, and the answer is that the biggest painted thing on a thirty-board screen is not what anyone thought.",
+          "THE SHEET IS NOT THE PAYER. The canvas the ropes are drawn on is 95% empty — 5.3% of its pixels have ink, 18% of its 32px tiles have any — and it does pay for all of it, so it looked like the lever. It is worth four to seven frames at thirty boards. The payer is the vines' own *cloud*, the nebula laid over each rope, which is worth thirteen: taking it away is 63% of frames dropped to 42%, which is more than every card on the screen put together. Each light is the size of the whole gap between two boards plus a period for its slide, and it is clipped to a diagonal rope covering a twentieth of that.",
+          "THREE WAYS AT IT LOST, and they are worth writing down because each one looks obviously right:",
+          "Clipping the sheet to the tiles that have ink on them, as a `path()` of 127 rectangles: nothing at all, 15.5 frames against 15.8. A complex clip is rasterised as a mask, and a masked pixel is still a pixel the compositor multiplies. Only a rectangular inset culls — which is exactly why the cards' band works and this does not."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "fc68a80",
+    "when": "2026-09-15T04:11:47+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "fc68a80",
+        "says": "Import's suite owns the directory it writes fixtures into",
+        "when": "2026-09-15T04:11:47+00:00",
+        "detail": [
+          "Hypatia's pass: import says so when it cannot open a file, instead of sitting there. Her check writes a deliberately broken mp4 and offers it, and it is a good check — it holds the words a person actually gets, and that nothing was changed by the attempt.",
+          "It wrote that file into ${SP}, which is one session's own scratchpad. Off that machine the directory does not exist, so writeFileSync threw ENOENT and took the whole run down before reaching the check it was for — not a red line in a list, a stack trace instead of the suite.",
+          "There is one owned fixtures directory now, made by the suite when SP is not really there, and both the recorded clip and the broken file go in it. IMPORT_FIXTURES still points at a prepared set for anyone who has one. 32 of 32, including her three new ones.",
+          "That is the third fixture in this suite's short life that lived in its author's sandbox: the clip, the generator script, and now the broken file. The pattern is worth a line in AGENTS.md — a suite carries its own fixtures — and it is the feature sessions' document to write."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
       {
         "id": "ae494a9",
         "says": "Import says so when it cannot open a file, instead of sitting there",
@@ -744,27 +784,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e0f5f6e",
-    "when": "2026-09-14T18:02:13+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "e0f5f6e",
-        "says": "Regenerate the passes for the zip import, the three slots and the dropped layer",
-        "when": "2026-09-14T18:02:13+00:00",
-        "detail": [
-          "Four passes, all three sessions converged into one tip: a zip's page opened and measured with every request answered from the zip; taking the whole page, so a zip arrives as parts in a surface, locked as it was laid out; three slots earning their place or losing it, with the key going plain; and the third layer on a construct, which is what was dropping the frames, gone.",
-          "That last one is the answer to what I reported this morning — the timeline delivering 33-37 frames per 900ms against ~53, gaps bimodal, 43-47% of them dropped while nothing was happening. Root-caused to the three-layer motion by the session that wrote it, which is how it should go. Measured again on the merged tree below."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
