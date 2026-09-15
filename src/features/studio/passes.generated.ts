@@ -2,14 +2,44 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T05:17:10.909Z";
+export const GENERATED_AT = "2026-09-15T05:27:19.319Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "cdda2b1",
-    "when": "2026-09-15T05:16:47+00:00",
+    "id": "1dff380",
+    "when": "2026-09-15T05:26:59+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "1dff380",
+        "says": "What the taller pane costs, measured, with nothing changed by it",
+        "when": "2026-09-15T05:26:59+00:00",
+        "detail": [
+          "The shelf moved in and the ground went from 1039x943 to 1039x1191 — a quarter more generated, drawn and damaged every frame. This says what that costs and edits no paint; `tests/ground-cost.mjs` is new and can be re-run for the next pane size rather than argued about.",
+          "Twelve boards, three passes a cell, cells interleaved so the container's own drift falls on all four equally:",
+          "ground on        ground off pane  943      40.0  (26%)      54.0  (0%) pane 1191      31.9  (41%)      49.6  (8%)",
+          "The pane change costs eight frames per 900ms: 26% of frames dropped to 41%."
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "8188996",
+        "says": "Regenerate the passes for the edge breathing again",
+        "when": "2026-09-15T05:19:21+00:00",
+        "detail": [
+          "Euler's pass: the edge breathes again, on the eight pixels where an edge is.",
+          "Animation going back into molten.css one push after layers came out of it to recover the frames is worth measuring rather than assuming, so: the recovery holds. Sitting still is 53-54 frames per 900ms at 16.7ms with 0-2% dropped, which is where it was before this and where it was two days ago.",
+          "Settling, five runs: 23%, 15%, 20%, 13%, 12% of its frames late. His frame recovery commit measured 13%, 17%, 8% on three. Those ranges overlap and five samples against three is not a case for a regression — the top of the new spread is higher than the top of the old one, which is what small samples of a noisy number do. Recorded rather than claimed either way; if it is real it will show as the ranges separate, and the check that would catch it is the one already there.",
+          "molten 121/121, vines 81/81, not-one-machine 20/20."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "cdda2b1",
         "says": "The edge breathes again, on the eight pixels where an edge is",
