@@ -2,14 +2,204 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T16:24:04.472Z";
+export const GENERATED_AT = "2026-09-15T16:25:23.980Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "64d80f8",
-    "when": "2026-09-15T11:25:38+00:00",
+    "id": "47179f0",
+    "when": "2026-09-15T16:25:19+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "db26826",
+        "says": "The running note carries the second inventory pass",
+        "when": "2026-09-15T13:48:36+00:00",
+        "detail": [],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "390703e",
+        "says": "The cube session's five loose checks say what they measure",
+        "when": "2026-09-15T13:47:07+00:00",
+        "detail": [
+          "A box with a scribble is asked one question about the cube; a drag must leave x, y, w and h where they were; a face's colour must be the scaffold's own token expression with no hex beside it; every queued job must end done or failed only for the lack of a key; and both cube suites read the document through the page's own publish seam. Inventory D16, D17, D18, D24 and the cube halves of D27 closed; D10 and D36 named as the euler session's."
+        ],
+        "areas": [
+          "docs",
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "754b59f",
+        "says": "The crop picker says when its picture never shows, and a tall picture does not run away",
+        "when": "2026-09-15T13:44:46+00:00",
+        "detail": [
+          "A picture the browser could not decode left an empty 3:2 picker with nothing said; a picture ten times taller than wide made the picker ten times the column. The picker says it, and is held to twice its width with a taller picture squashed into it and the squash said, since the patch is picked in fractions of the box either way. tests/crop-picker.mjs (6/6, 2 red before). Inventory C26 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "8a67c3b",
+        "says": "A zip's page gets its assets under their own names, and a data script is not scripts",
+        "when": "2026-09-15T13:41:19+00:00",
+        "detail": [
+          "The list of served types stopped at the commonest twenty, so a .bmp, a .tif, an .eot font or an .mp3 was a broken picture or a missing font with nothing said; a file with no extension was refused; a percent sign that was not an escape threw inside the answer; and a JSON-LD block made the panel say the page brought scripts. The common types are known, a bare name is served as what its bytes say, a bad escape is a miss, and only a script that would run counts as one. tests/zip-assets.mjs (12/12, 8 red before). Inventory C19 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "4dd3e55",
+        "says": "The zip reader reads names as they were written, says what it cannot unpack, and inflates no further than declared",
+        "when": "2026-09-15T13:38:36+00:00",
+        "detail": [
+          "Every name was decoded as UTF-8 whatever the entry's flag said, so a CP437 name matched nothing and the page came up unstyled with nothing said; a method other than stored or deflated unpacked to nothing, or threw the page read to a 500; Zip64 was called not a zip; and an entry inflated whole, so the unpacked cap held nothing against a bomb. Names decode by the flag, the method is on the entry and the gate refuses an unreadable page with a sentence, Zip64 is refused by name, and an entry inflates no further than the size it declared. tests/zip-honest.mjs (11/11, 7 red before). Inventory C17 and C18 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "d3232cb",
+        "says": "A video the browser cannot play still goes in; a long recording keeps its length",
+        "when": "2026-09-15T13:31:54+00:00",
+        "detail": [
+          "The tweet console failed the whole intake of a video this browser could not decode, when only the preview needed decoding; it goes in with no preview and a warning now. The GIF recorder held its rate to four frames a second under a frame cap, so a five-minute recording became ninety seconds while the comment said the length was kept; the rate is one pure rule with no floor. tests/tweet-intake.mjs (12/12, 6 red before). Inventory C15 and C16 closed."
+        ],
+        "areas": [
+          "docs",
+          "tests",
+          "tweets"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "30d644c",
+        "says": "The recorded tour fits the time the route has, and says what it did with the width",
+        "when": "2026-09-15T13:29:05+00:00",
+        "detail": [
+          "The preview-video route had 180 seconds and spent them blind: a slow tour looped four times over a long page ran past them, then ffmpeg had a flat two minutes of its own, and the platform killed the function with no response. One pure plan splits the time into launch, tour and ffmpeg; the tour in the page stops at its deadline and says how far it got; ffmpeg runs under what is left; the response names the width used and any cut. tests/tour-budget.mjs (12/12, 5 red before). Inventory C14 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "26c7fdf",
+        "says": "A narrowed part grows to hold its words; the turn of a line is found in the line's own language",
+        "when": "2026-09-15T13:23:52+00:00",
+        "detail": [
+          "At phone width every part kept its desktop height, so a text block narrowed to a third of its width was cut off by its own fill; a part that is not a picture now grows by how much narrower it got, bounded at four times, and full width is the reshape rule's nine tenths. The hero's turn found the last word at the last space and the last sentence at the last full stop, which no Chinese, Thai or Japanese line has; it is one pure rule now using the language's own breaks, the subline carries every line after the first, the hero's lines carry dir auto, and the header's links wrap. tests/phone-heights.mjs (5/5, 2 red before) and tests/turn-of-phrase.mjs (14/14, 4 red before). Inventory C11 closed and C12 closed but for the comma in a one-line label, named."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "f0119f9",
+        "says": "The image route reads a picture off its bytes, shares one base64 reader, and clocks its fetch",
+        "when": "2026-09-15T13:18:32+00:00",
+        "detail": [
+          "The byte reader knew four picture shapes and called everything else a PNG, so an AVIF, an SVG or a BMP with no content type went to the page under the wrong name; it knows the three now and says unknown for the rest, which both passes refuse with a sentence. A drawing sent up in URL-safe base64 was refused as no picture; one shared reader makes it standard. The fetch behind a model's answer runs under thirty seconds. tests/picture-bytes.mjs (18/18, 7 red before). Inventory C10 closed."
+        ],
+        "areas": [
+          "docs",
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "e7abbd1",
+        "says": "A column drawn taller than the ceiling keeps its proportion",
+        "when": "2026-09-15T13:15:56+00:00",
+        "detail": [
+          "The 1600 px ceiling was written three times, and each held the height alone and kept the width, so a tall thin column drawn or answered past it landed shorter and fatter than drawn. It is one number now, read by the outline fit, the answer checker and the landing, and a part past it is scaled to it on both sides. tests/tall-column.mjs (10/10, 4 red before). Inventory C8 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "d02075a",
+        "says": "A text box is not a cube",
+        "when": "2026-09-15T13:12:44+00:00",
+        "detail": [
+          "Any closed stroke plus the word box anywhere in the words became a turning cube, so a text box, a search box and an info box all drew a solid. A box qualified as one of the flat things a page has is taken out of the words before box is looked for; cube, cuboid, 3D box and a box on its own still claim the shape. tests/box-words.mjs (7/7, 4 red before). Inventory C7 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6cbd4bf",
+        "says": "Several open lines, or one straight bar, are a shape said, not an edge to cut to",
+        "when": "2026-09-15T13:10:43+00:00",
+        "detail": [
+          "An open stroke became a band along itself, which is right for a spiral or a diagonal and was applied to every open drawing: three bars for a list took a band along the longest bar alone, in that bar's own box a few thousandths tall, over a part sized to all three, so the part was cut to noise. More than one open line now cuts nothing, and neither does a bar thinner than 1:20; a diagonal and a spiral still band. tests/open-lines.mjs (6/6, 2 red before). Inventory C6 closed."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 11
+  },
+  {
+    "id": "e466245",
+    "when": "2026-09-15T16:25:10+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e466245",
+        "says": "The merge log moves into docs, where it survives the container",
+        "when": "2026-09-15T16:25:10+00:00",
+        "detail": [
+          "It was in a scratchpad, which is session-local and goes when the container does, so a night's worth of what landed and what was green when it landed was one reclaim away from being gone. docs/MERGE-LOG.md now.",
+          "Twenty-four rows, in the order they were deployed, each saying what it carried and whether it went out green. The two that did not are in the list rather than left out, because a log that records only the good days is not a log: 2337f93 went out with scroll-contract 24 of 27 and the failing check named, and 7b38e86 went out with site-live skipped because Chromium in this container does not trust the session's egress CA.",
+          "The two rules at the end are the ones that cost something:",
+          "when a merge brings an older copy of a file another session has just changed, run that session's suites for that file, not the general one. wheel-pass stayed green right through the Edit slot coming back; page-wheel-edit and priority-wheel were the two that owned it."
+        ],
+        "areas": [
+          "docs",
+          "studio"
+        ],
+        "kind": "under"
+      },
       {
         "id": "64d80f8",
         "says": "Regenerate the passes for all five branches at once",
@@ -1148,28 +1338,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 1
-  },
-  {
-    "id": "3d1199a",
-    "when": "2026-09-15T08:10:32+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "3d1199a",
-        "says": "Regenerate the passes for the family that travels, and the Zen Garden count",
-        "when": "2026-09-15T08:10:32+00:00",
-        "detail": [
-          "Dijkstra's two: the family a page was set in travels by name whether or not its file did, and the Zen Garden counted after the night with three catalogue findings.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4275:",
-          "zip-import    79 of 79 hold   (75 before) site-read     48 of 48 hold   (44 before) recreate      49 of 49 hold   (46 before) board-edges   11 of 11 hold",
-          "Eleven new checks arrive across the three, and board-edges is there because of what is recorded below, not because dijkstra went near it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
   }
 ];
