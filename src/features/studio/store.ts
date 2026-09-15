@@ -939,6 +939,13 @@ function migrateKey(from: string, to: string) {
   }
 }
 
+/*
+ * Whether the saved document has been read yet. Until it has, the store is
+ * holding nothing but its defaults and must not write them out — see the
+ * note on `storage` below.
+ */
+let studioRead = false;
+
 export const useStudio = create<StudioState>()(
   persist(
     (set, get) => {
@@ -2103,7 +2110,40 @@ export const useStudio = create<StudioState>()(
     },
     {
       name: "builder.studio",
-      storage: createJSONStorage(() => localStorage),
+      /*
+       * Nothing is written until something has been read.
+       *
+       * `skipHydration` below means the saved document is only fetched when a
+       * Builder surface asks for it. What it does not stop is the writing:
+       * the middleware subscribes at once, so the FIRST change of state after
+       * the store is built — any change, because the whole partialized shape
+       * goes out on every one — saves the empty default over whatever was
+       * there. And something does change state that early.
+       *
+       * Measured rather than reasoned about, because it sounds too big to be
+       * true: a trace of every `builder.studio` read and write on a load of
+       * the Builder, with the stored document seeded to five parts, came back
+       *
+       *   +343ms  SET nodes=0
+       *   +343ms  SET nodes=0
+       *   +343ms  get  nodes=0
+       *
+       * — written twice before it was read once. And the same thing with no
+       * test rig at all: set the frame to Tablet on the bar, which is
+       * persisted, and reload. 834 before, 1440 after. Nothing a person did
+       * in the Builder survived a reload, on any surface, and had not for as
+       * long as `skipHydration` has been here.
+       *
+       * So the store holds the pen until it has read. Every write before
+       * hydration is a write of the defaults by definition — there is nothing
+       * else in the store yet — so refusing them loses nothing and saves the
+       * document.
+       */
+      storage: createJSONStorage(() => ({
+        getItem: (k) => localStorage.getItem(k),
+        setItem: (k, v) => { if (studioRead) localStorage.setItem(k, v); },
+        removeItem: (k) => localStorage.removeItem(k),
+      })),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<StudioState>;
         return {
@@ -2201,6 +2241,9 @@ export const useStudio = create<StudioState>()(
        * which is what makes one mark enough for two states.
        */
       onRehydrateStorage: () => (state) => {
+        /* Read at last, whether or not there was anything there: a first-ever
+           visit has nothing saved and must still be allowed to save. */
+        studioRead = true;
         if (!state) return;
         const stuck = state.threads.some((t) => t.state === "running");
         if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));

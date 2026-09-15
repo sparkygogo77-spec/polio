@@ -74,22 +74,6 @@ The pieces, in the order a page passes through them:
   dark stops read as painted on nothing and its white words landed on no
   ground. The mean of a gradient's stops is its colour, for the block's
   own paint and for what is behind it: rgb(33, 40, 40), lightness 0.15.
-- **Fixed, as far as it goes.** Web fonts the page loads from the network
-  are not fetched on either door: the zip's page may not ask the network
-  for anything, and the address door reads only the one page. Type landed
-  as the fallback class the browser used ("system sans" for Libre
-  Baskerville) and the real name was lost. The name travels now: the
-  route reads the first family on the stack as the face and measures
-  whether it drew (a line set in the face over a fallback is the width of
-  the fallback alone when the face is not on the machine), the part
-  carries the face and asks for it first with the class behind it, the
-  inspector names it, and the panel's line says which faces did not
-  travel. On the Zen Garden zip every block reads "Libre Baskerville",
-  drew false; 10 of 10 landed parts carry the name. The file itself still
-  does not come, on either door: that is what "did not travel" means.
-- **Open.** Candidate words in the list are `textContent`, so a row of
-  inline-block links reads as one word: "PlaywrightDocsMCPCLIAPI". The
-  reading itself is right; only the list's caption is squashed.
 - **Fixed.** Chrome reports a colour as it was written when it was
   written in a newer syntax, so `oklch(0.3 0.1 250)` came back as that
   string, missed the `rgba?(` regex, and background, text and accent were
@@ -118,10 +102,19 @@ The pieces, in the order a page passes through them:
   the whole page, up to 4000px tall, in a box that scrolls. The element
   picture was cut at 2000px and the measure call at 40 selectors while a
   page of sixteen runs could send more (inventory C23): 4000 and 120.
-- **Open.** Web fonts the page loads from the network are not fetched on
-  either door: the zip's page may not ask the network for anything, and
-  the address door reads only the one page. Type lands as the fallback
-  the browser used ("system sans" for Libre Baskerville).
+- **Fixed, as far as it goes.** Web fonts the page loads from the network
+  are not fetched on either door: the zip's page may not ask the network
+  for anything, and the address door reads only the one page. Type landed
+  as the fallback class the browser used ("system sans" for Libre
+  Baskerville) and the real name was lost. The name travels now: the
+  route reads the first family on the stack as the face and measures
+  whether it drew (a line set in the face over a fallback is the width of
+  the fallback alone when the face is not on the machine), the part
+  carries the face and asks for it first with the class behind it, the
+  inspector names it, and the panel's line says which faces did not
+  travel. On the Zen Garden zip every block reads "Libre Baskerville",
+  drew false; 10 of 10 landed parts carry the name. The file itself still
+  does not come, on either door: that is what "did not travel" means.
 - **Fixed.** Candidate words in the list were `textContent`, so a row of
   inline-block links read as one word: "PlaywrightDocsMCPCLIAPI". The
   caption is the text nodes joined with a space: "Playwright Docs MCP

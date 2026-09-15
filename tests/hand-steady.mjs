@@ -57,6 +57,24 @@ const doc = (y) => ({
   state: {
     pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
     activePageId: "page_home", groups: [], selection: [], threads: [], spaces: [], shapes: [],
+    /*
+     * The one being pulled, and a second far below it that is only there to
+     * make the page long.
+     *
+     * The board fits the pane in both directions now, so a page of 1800 no
+     * longer overruns anything and "the shelf did not move" would be a claim
+     * about a shelf that had nowhere to move to. Past the zoom floor it does
+     * again, so the part is put at 3600 rather than 1600: 3800 of page
+     * against 999 of room wants 0.229 and is given the floor's 0.25, so the
+     * board is 1170 in a 1267 pane and the shelf has 151px of travel behind
+     * it. That is the state this was written to hold still.
+     *
+     * And the pane is scrolled to the end before the part is taken hold of,
+     * because at the top of a page that long the foot of it is behind the
+     * shelf — which is stuck to the pane's bottom so the categories are
+     * never off screen. Scrolling to the end is how a person would reach it
+     * too.
+     */
     nodes: [{
       id: "n0", pageId: "page_home", featureId: "custom-idea", label: "part", prompt: "", content: "", data: "",
       x: 200, y, w: 600, h: 200, groupId: null, options: {}, priority: "must", custom: true,
@@ -81,7 +99,7 @@ const LOOK = () => {
     board: Math.round(board.getBoundingClientRect().height),
     shelf: shelf ? Math.round(shelf.getBoundingClientRect().top) : null,
     travel: pane.scrollHeight - pane.clientHeight,
-    y: d?.state?.nodes?.[0]?.y ?? null,
+    y: d?.state?.nodes?.find((n) => n.id === "n0")?.y ?? null,
   };
 };
 
@@ -94,7 +112,7 @@ const W = { width: 1267, height: 1354 };
 
 const page = await browser.newPage({ viewport: W });
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
-await page.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), doc(1600));
+await page.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), doc(3600));
 await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1800);
 
@@ -102,7 +120,9 @@ const rest = await page.evaluate(LOOK);
 check("the page is long enough for the shelf to be pushable", rest.travel > 100,
   `${rest.travel}px of travel, shelf at ${rest.shelf}`);
 
-const nb = await page.locator("[data-node-id]").boundingBox();
+await page.evaluate(() => { const p = document.querySelector("[data-studio-pane]"); p.scrollTop = p.scrollHeight; });
+await page.waitForTimeout(400);
+const nb = await page.locator('[data-node-id="n0"]').boundingBox();
 await page.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2);
 await page.mouse.down();
 /* Sampled at several points through the drag, not only at the end of it:
@@ -142,10 +162,12 @@ await page.close();
 
 const two = await browser.newPage({ viewport: W });
 await two.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
-await two.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), doc(1600));
+await two.evaluate((d) => localStorage.setItem("builder.studio", JSON.stringify(d)), doc(3600));
 await two.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
 await two.waitForTimeout(1800);
-await two.locator("[data-node-id]").click({ force: true });
+await two.evaluate(() => { const p = document.querySelector("[data-studio-pane]"); p.scrollTop = p.scrollHeight; });
+await two.waitForTimeout(400);
+await two.locator('[data-node-id="n0"]').click();
 await two.waitForTimeout(400);
 const before2 = await two.evaluate(LOOK);
 const handles = two.locator("[data-resize]");

@@ -221,12 +221,24 @@ if (!m.frames || !m.board) { console.log(m.chain.join("\n")); }
 check("1. the board's height is the site's rendered height plus its gutters",
   Math.abs(m.boardH - (m.siteH + GUTTER)) <= 4,
   `board ${m.boardH}, site ${m.siteH} + ${GUTTER} = ${m.siteH + GUTTER}`);
-check("   and it is not simply the pane's height", m.boardH > m.paneH + 100,
-  `board ${m.boardH}, pane ${m.paneH}`);
+/* Its purpose, said as itself: the board is sized from the SITE and not
+   clamped to the room it stands in. It used to be written as "taller than
+   the pane by 100", which was the same thing while the page always overran
+   — and stopped being the same thing when the fit started bringing the
+   whole page inside the pane on purpose. A board that happened to equal the
+   pane would be the fault; a board that is the site's height is not. */
+check("   and it is the site's height, not the pane's", m.boardH !== m.paneH,
+  `board ${m.boardH}, site ${m.siteH} + ${GUTTER}, pane ${m.paneH}`);
 check("2. no ancestor of the site frame hides any of it", m.hiders.length === 0,
   m.hiders.join("; ") || "nothing hidden anywhere above the site");
-check("3. exactly one element that could move the site scrolls, and it is the pane",
-  m.movers.length === 1 && m.movers[0].isPane,
+/* At most one, because a page fitted into the pane in both directions has
+   nothing to scroll and that is the point of it. What this has always been
+   for is that the site is not inside a nested scrollbox; zero scrollers
+   satisfies that better than one. The strict form — exactly one, and a
+   gesture that has somewhere to go — is run below on a site long enough to
+   overrun even at the zoom floor, which is where it still bites. */
+check("3. at most one element that could move the site scrolls, and it is the pane",
+  m.movers.length <= 1 && (m.movers.length === 0 || m.movers[0].isPane),
   (m.movers.map((x) => `${x.what} ${x.travel}px`).join("; ") || "NOTHING scrolls, in any direction")
     + (m.elsewhere.length ? `  (elsewhere, not the site: ${m.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
 check("   and its travel is the site plus the shelf less the window",
@@ -235,8 +247,12 @@ check("   and its travel is the site plus the shelf less the window",
 
 const box = await page.locator("[data-studio-pane]").boundingBox();
 await page.mouse.move(box.x + box.width / 2, box.y + 80);
-check("   (the search box starts below the window, so reaching it means something)",
-  m.searchY > W.height, `at y ${m.searchY}`);
+/* Printed, not checked. It was a check while the page always overran, and
+   J's rule that he must never load in unable to see the categories means
+   the search box being on screen from the start is the good outcome, not a
+   missing precondition. */
+console.log(`       the search box starts at y ${m.searchY} in a ${W.height} window` +
+  (m.searchY > W.height ? " — below it, so reaching it means something" : " — already on screen"));
 for (let i = 0; i < 45; i++) {
   const there = await page.evaluate(() => {
     const s = document.querySelector("[data-parts-search]");
@@ -248,17 +264,77 @@ for (let i = 0; i < 45; i++) {
 }
 await page.waitForTimeout(400);
 const after = await page.evaluate(LOOK);
-check("4. one wheel gesture from the top reaches the shelf's search box",
-  after.searchY !== null && after.searchY + 37 <= W.height + 1 && after.paneTravel > 0,
-  `y ${m.searchY} → y ${after.searchY}`);
+check("4. the shelf's search box is there, or one wheel gesture from the top brings it",
+  after.searchY !== null && after.searchY + 37 <= W.height + 1,
+  `y ${m.searchY} → y ${after.searchY}` + (m.searchY + 37 <= W.height + 1 ? " (it was already there)" : ` after ${after.paneTravel}px of travel`));
 const foot = await page.evaluate(() => {
   const last = [...document.querySelectorAll("[data-node-id]")].pop();
   return last ? Math.round(last.getBoundingClientRect().bottom) : null;
 });
-check("   and the whole page went by on the way", foot !== null && foot < W.height,
+check("   and the whole page is behind you when it is", foot !== null && foot < W.height,
   `the last part ends at y ${foot}`);
 if (results.includes(false)) console.log(m.chain.join("\n"));
 await page.close();
+
+/* ------------------------------------------------------------------ */
+/* 1b. The strict form, on a site that overruns whatever the fit does  */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The fit brings the page inside the pane in both directions now, so at six
+ * parts there is nothing to scroll and assertions 3 and 4 have no teeth
+ * there. They still have teeth: the zoom has a floor, and past it a site is
+ * longer than any amount of shrinking will fix. Ten parts is 4180 of page
+ * against 923 of room, which wants 0.221 and is given 0.25, so the board is
+ * 1285 in a 1191 pane and the gesture has 342px to go. That is where the
+ * original wording belongs, and it is run there unchanged.
+ */
+{
+  const long = await seat(W, 10);
+  const lm = await long.evaluate(LOOK);
+  check("3. (a site past the zoom floor) exactly one thing scrolls, and it is the pane",
+    lm.movers.length === 1 && lm.movers[0].isPane,
+    (lm.movers.map((x) => `${x.what} ${x.travel}px`).join("; ") || "NOTHING scrolls, in any direction")
+      + (lm.elsewhere.length ? `  (elsewhere, not the site: ${lm.elsewhere.map((x) => `${x.what} ${x.travel}px`).join(", ")})` : ""));
+  check("   its travel is the site plus the shelf less the window",
+    Math.abs(lm.paneTravel - (lm.boardH + band - lm.paneH)) <= 4,
+    `${lm.paneTravel}, wanted ${lm.boardH + band - lm.paneH}`);
+  /*
+   * And here is the half of J's fourth assertion that does not survive his
+   * own rule, said out loud rather than quietly dropped. It read "the search
+   * box starts below the window, so reaching it means something", and past
+   * the zoom floor the shelf is stuck to the pane's bottom precisely so that
+   * it never starts below the window. The two cannot both be true. His rule
+   * wins — he must never load in unable to see the categories — so what is
+   * checked is the thing the gesture was really for: the end of the site is
+   * reachable by scrolling, and the categories are there the whole time.
+   */
+  check("4. the categories are on screen from the first frame, with no gesture",
+    lm.searchY + 37 <= W.height + 1, `the search box at y ${lm.searchY} in a ${W.height} window`);
+  const lbox = await long.locator("[data-studio-pane]").boundingBox();
+  await long.mouse.move(lbox.x + lbox.width / 2, lbox.y + 80);
+  for (let i = 0; i < 45; i++) {
+    const done = await long.evaluate(() => {
+      const pn = document.querySelector("[data-studio-pane]");
+      return pn.scrollTop >= pn.scrollHeight - pn.clientHeight - 1;
+    });
+    if (done) break;
+    await long.mouse.wheel(0, 240);
+    await long.waitForTimeout(30);
+  }
+  await long.waitForTimeout(400);
+  const lafter = await long.evaluate(LOOK);
+  const lend = await long.evaluate(() => {
+    const last = [...document.querySelectorAll("[data-node-id]")].pop();
+    const shelf = document.querySelector("[data-drawer]");
+    return { foot: last ? Math.round(last.getBoundingClientRect().bottom) : null,
+      shelfTop: shelf ? Math.round(shelf.getBoundingClientRect().top) : null };
+  });
+  check("   and one wheel gesture from the top carries the whole site past",
+    lend.foot !== null && lend.shelfTop !== null && lend.foot <= lend.shelfTop + 2,
+    `the last part ends at y ${lend.foot}, the shelf starts at ${lend.shelfTop}, over ${lafter.paneTravel}px of travel`);
+  await long.close();
+}
 
 /* ------------------------------------------------------------------ */
 /* 2. "At any zoom", and a page short enough to need no scroll         */

@@ -874,10 +874,31 @@ export function StudioPage() {
 
               `mt-auto` so a page shorter than the pane leaves its ground
               between the board and the categories rather than below them:
-              the shelf stays on the bottom edge where it has always been,
-              and only a page that overruns the pane pushes it under the
-              fold. When it does, the free space is negative and the auto
-              margin is nothing, which is the behaviour wanted.
+              the shelf stays on the bottom edge where it has always been.
+
+              And `sticky bottom-0`, which is the answer to the one rule of
+              J's that the rest of this could not keep: he must never load in
+              unable to see the categories. His screen is a 1440p 27 inch at
+              125% browser zoom — 2048×1152 — and there the arithmetic has no
+              room in it. The bar takes 87, leaving a 1065 pane; the site
+              fitted to the pane's width is 1692 across and 1058 down, so the
+              board is 1078 before the band is counted at all. It is 13px
+              taller than the pane on its own. No band height fixes that, and
+              shrinking the site to fit the fold is the height-fit that was
+              taken out for good reason: a long page fitted by its height is
+              a ribbon.
+
+              So the band stops scrolling away instead. Stuck to the pane's
+              bottom it is on screen from the first frame at every size, and
+              the site still runs up behind it: the travel is unchanged at
+              261 there, and at the end of it the board's bottom lands at 817
+              from the pane's top, which is exactly the band's top. The site
+              bottoms out at the categories, which is his own wording for it,
+              and the shelf's bottom is on the fold at every width rather
+              than only at the widths where the sums happened to work.
+
+              When the page is shorter than the pane there is nothing to
+              stick to and `mt-auto` alone puts it where it always was.
 
               `bg-bg` because the ground is behind the whole column now, and
               the shelf is a `bg-panel/50` — without a backing of the app's
@@ -885,14 +906,14 @@ export function StudioPage() {
               the panel it has always been.
             */}
             {design ? (
-              <div className="mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: BAND_H }}>
+              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: BAND_H }}>
                 <Palette />
               </div>
             ) : book ? (
               /* Taller for the backend, which is a surface you work at
                  rather than a page of text: at the strip's height its
                  transcript was 80px and the prompt box was below the fold. */
-              <div className="mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: detailTab === "backend" ? WORK_H : BAND_H }}>
+              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: detailTab === "backend" ? WORK_H : BAND_H }}>
                 <TimelineDetail />
               </div>
             ) : null}

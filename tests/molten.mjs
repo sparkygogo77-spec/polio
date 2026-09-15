@@ -255,7 +255,7 @@ check("the still copy is a different size rather than the same one mirrored, whi
 /* 4. Always moving, never demanding                                   */
 /* ------------------------------------------------------------------ */
 
-check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 7, MOLTEN_KEYFRAMES.join(", "));
+check("every keyframe is named and accounted for", MOLTEN_KEYFRAMES.length === 6, MOLTEN_KEYFRAMES.join(", "));
 for (const k of MOLTEN_KEYFRAMES) {
   check(`${k} is declared`, new RegExp(`@keyframes ${k}\\b`).test(css));
   check(`${k} says what it is for`, (MOLTEN_MOTION[k] ?? "").length > 20);
@@ -280,11 +280,27 @@ check("only transform and opacity are animated, never a colour or a size", (() =
   const props = new Set(frames.flatMap((f) => [...f.matchAll(/\n\s*([a-z-]+):/g)].map((m) => m[1])));
   return [...props].every((p) => p === "opacity" || p === "transform");
 })());
-check("the edge breathes rather than blinking: under a quarter of its range", (() => {
-  const b = /@keyframes molten-breathe \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+/*
+ * The edge's breath, as it is actually built.
+ *
+ * It was `molten-breathe`, 0.78 to 1 on the rim node itself, and that is a
+ * full-card repaint per card per frame. It is now `molten-swell` on two
+ * strips that composite, and a strip goes the whole way from nothing to
+ * itself — the trough has to be the card without it, or every card is
+ * permanently brighter for the sake of a wobble. So the rule that keeps the
+ * edge from blinking is not a small range on a big surface; it is that the
+ * surface is small and the range is the whole of it.
+ */
+check("the edge swells on a strip rather than dimming the whole card", (() => {
+  const b = /@keyframes molten-swell \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
   const o = [...b.matchAll(/opacity: ([\d.]+)/g)].map((m) => Number(m[1]));
-  return o.length >= 2 && Math.max(...o) - Math.min(...o) <= 0.25;
+  const strip = /\[data-molten\]::before,\n\[data-molten\]::after \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  return o.includes(0) && o.includes(1)
+    && /height: var\(--mo-breath, 8px\)/.test(strip)
+    && /animation: molten-swell/.test(strip);
 })());
+check("and `molten-breathe` is gone rather than declared and unused",
+  !/molten-breathe/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) && !MOLTEN_KEYFRAMES.includes("molten-breathe"));
 check("the flare is occasional: dark for most of its turn", (() => {
   const f = /@keyframes molten-flare \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
   return /62%\s*\{ opacity: 0/.test(f);
