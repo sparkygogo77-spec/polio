@@ -154,6 +154,11 @@ await page.evaluate(() => {
   const take = () => { const v = el.getAttribute("data-space-form"); if (v !== null) window.__form.push(Number(v)); };
   take();
   new MutationObserver(take).observe(el, { attributes: true, attributeFilter: ["data-space-form"] });
+  /* And what is drawn while it forms: the stage on the timeline's bands and
+     the eased value shown, every time either changes. */
+  window.__shown = [];
+  const drawn = () => { const f = el.querySelector("[data-space-forming]"); if (f) window.__shown.push([f.getAttribute("data-space-forming"), Number(f.getAttribute("data-space-form-shown"))]); };
+  new MutationObserver(drawn).observe(el, { attributes: true, subtree: true, childList: true, attributeFilter: ["data-space-form-shown", "data-space-forming"] });
 });
 await panel.locator("[data-space-generate]").click();
 await page.waitForTimeout(300);
@@ -162,6 +167,7 @@ const formingEarly = await page.locator("[data-space]").getAttribute("data-space
 check("it starts forming the moment it is asked for", seen.some((v) => v < 1),
   seen.length ? `form went ${seen.join(" → ")}` : `nothing recorded, form=${formingEarly}`);
 check("both drawings are on the queue and off the board", (await page.locator("[data-make-real]").count()) === 0);
+await shot("forming");
 
 check("both land as parts", await settle(2));
 const done = await state();
@@ -174,6 +180,15 @@ if (!Array.isArray(space.locked) || space.locked.length < 2) {
 }
 check("the surface is locked once the last one lands", Array.isArray(space.locked) && space.locked.length === 2, `${space.locked?.length ?? 0} locked`);
 check("and has finished forming", space.form?.p === 1, `form=${space.form?.p}`);
+/* He watched it form: the rim traced round the line, then the middle
+   filling, on the timeline's own bands, and what was shown eased through
+   many values rather than jumping. */
+const shown = await page.evaluate(() => window.__shown ?? []);
+const stages = [...new Set(shown.map(([st]) => st))];
+const values = [...new Set(shown.map(([, v]) => v))];
+check("it could be watched forming: the rim first, then the middle filling, on the timeline's own bands",
+  stages.includes("rim") && (stages.includes("close") || stages.includes("surface")) && values.length >= 8,
+  `${stages.join(" → ")}, ${values.length} values shown`);
 check("each part carries its own words", parts.some((n) => n.prompt === "buy button") && parts.some((n) => /currently traded token/.test(n.prompt)), parts.map((n) => n.prompt).join(" | "));
 await shot("made");
 
