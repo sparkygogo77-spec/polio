@@ -2,9 +2,57 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:23:18.172Z";
+export const GENERATED_AT = "2026-09-15T08:24:36.974Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "016b1f5",
+    "when": "2026-09-15T08:24:36+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "ee8f32f",
+        "says": "One undo takes back an edit, the still under a solid is the object, and the limit and the undo are photographed",
+        "when": "2026-09-15T08:20:29+00:00",
+        "detail": [
+          "Three things the judged walk still rested on a suite for, or fell short on.",
+          "The pitch limit and the undo are now in docs/shots: the box pinned at 85° with the hand still down, where it came to rest after, the word back after one undo and one redo, and the part back at 302 × 227 after undo.",
+          "One undo takes back an edit, not a letter. Typing writes the document a keystroke at a time and each write pushed its own undo entry, so taking a word off a face was eleven presses. `pushEdit` in the store keys a run of writes to one field: the first pushes, the rest within 1.5 s ride on it, and any other push, an undo or a redo ends the run. `setCubeFace` uses it per face and field; `updateNode` uses it for any patch that touches only the typed fields (prompt, content, data, label), so the same change serves the part's own prompt, and that is measured too: twenty-three keystrokes, one press, the size untouched. Clearing a face stays a step of its own.",
+          "The still under a solid is the object, not one front face: `cubeStill` draws the box at its resting pose, orthographic, every visible face an affine map of its own picture, shaded by the lamp, the words on it. A box nobody has written on is still a box in the fallback. Measured as 512 × 360 with 89 distinct colours at five bits where the front face alone gave one."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "b6a5d65",
+    "when": "2026-09-15T08:24:30+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "b6a5d65",
+        "says": "Regenerate the passes for the effort that rides, and a traced drawing",
+        "when": "2026-09-15T08:24:30+00:00",
+        "detail": [
+          "Bardeen's two: the backend's effort rides with every ask rather than being one of three, and a traced drawing comes back as a drawing rather than a picture of one. Two new files, effort.ts and renderAnswer.ts, and the three studio routes that call them.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4279:",
+          "effort-rides       15/15 passed   (new) render-answer      13/13 passed   (new) backend-surface    25 of 25 hold drawn-part         22/22 passed",
+          "backend-surface and drawn-part are the standing suites over the two surfaces this reaches: the backend panel that sends the effort, and the drawn part that comes back traced."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "755dda6",
     "when": "2026-09-15T08:23:17+00:00",
@@ -998,139 +1046,6 @@ export const PASSES: Pass[] = [
           "Ran here against the merged tree, on the build, port 4259:",
           "wheel-trim     14 of 14 hold wheel-pass     12 of 12 hold wheel-dismiss  11/11 passed colour-menu    18 of 18 hold menu-pass      101/101 passed",
           "Those are the five that touch RadialMenu.tsx, BackgroundEditors.tsx and the studio index between them. typecheck clean, build rc=0."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4285285",
-    "when": "2026-09-15T05:29:59+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "703a3f0",
-        "says": "Three wheel slots: two that were duplicates, one that said soon",
-        "when": "2026-09-15T05:29:10+00:00",
-        "detail": [
-          "SCISSORS. \"Cut the background\" on the canvas menu and \"Strip\" on the page's wheel called the same function — `cutBackground()`, literally the one function, which takes the background bare and holds it for a paste. Two names for one thing is two places to learn and one to be surprised by. Cut goes. ⌘X still reaches it through the board's own key handling, and \"Put the background back\" still works, because the clipboard Strip fills is the one it reads.",
-          "THE THREE-DOT. It was never a menu of its own: `choicesOf` returned `tray.map(...)` — the tray's own items, verbatim, with the same handlers — and the tray is drawn under the wheel already. The page lost it a while back; the part kept it for no reason anybody could name. Motion and the pencil take a half of the inner band each now, as the page's already did. It was also making slivers: the three-way split measured 65, 65, 65 against an 80px floor, so removing it fixed something nobody had reported.",
-          "THE ANIMATION BUTTON. It opened one dead item — \"Motion asset (soon)\", which played a tap and did nothing — so a quadrant of the page's wheel said \"not yet\". The texture stack already knew how to move: `drift` carries a tile a whole number of tiles along its own angle per cycle, which is why the loop has no seam. Nothing drove it. Motion opens Glide now: one slider over the layers that are on the page, with nought meaning still, so there is no separate off beside a control whose zero already says it. A page with nothing painted on it says so rather than offering a dead slider.",
-          "Why that is safe to turn on, since it was held back once: euler measured the idle cost and the law is \"carry less translucent area, not less motion\" — a ground alone, however much of it moved, dropped no frames at all. A drift on the page's own texture is motion over area already painted, which is the cheap half of that finding. Their paint is untouched."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "807a0a9",
-    "when": "2026-09-15T05:29:42+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "807a0a9",
-        "says": "Regenerate the passes for what the taller pane costs",
-        "when": "2026-09-15T05:29:42+00:00",
-        "detail": [
-          "Euler's pass: what the taller pane costs, measured, with nothing changed by it. One new suite and no source at all — the answer is a number, and the number is nothing.",
-          "Run here, twelve boards:",
-          "as it was   ground 811x943    cloud 1.73MP   sparks 0.76MP   27% of the pane as it is    ground 811x1191   cloud 2.19MP   sparks 0.97MP   22% of the pane",
-          "943, ground on     54.0 /900ms   dropped 0% 1191, ground on    54.0 /900ms   dropped 0% 943, ground off    54.0 /900ms   dropped 0% 1191, ground off   54.0 /900ms   dropped 0%"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1dff380",
-        "says": "What the taller pane costs, measured, with nothing changed by it",
-        "when": "2026-09-15T05:26:59+00:00",
-        "detail": [
-          "The shelf moved in and the ground went from 1039x943 to 1039x1191 — a quarter more generated, drawn and damaged every frame. This says what that costs and edits no paint; `tests/ground-cost.mjs` is new and can be re-run for the next pane size rather than argued about.",
-          "Twelve boards, three passes a cell, cells interleaved so the container's own drift falls on all four equally:",
-          "ground on        ground off pane  943      40.0  (26%)      54.0  (0%) pane 1191      31.9  (41%)      49.6  (8%)",
-          "The pane change costs eight frames per 900ms: 26% of frames dropped to 41%."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "8188996",
-        "says": "Regenerate the passes for the edge breathing again",
-        "when": "2026-09-15T05:19:21+00:00",
-        "detail": [
-          "Euler's pass: the edge breathes again, on the eight pixels where an edge is.",
-          "Animation going back into molten.css one push after layers came out of it to recover the frames is worth measuring rather than assuming, so: the recovery holds. Sitting still is 53-54 frames per 900ms at 16.7ms with 0-2% dropped, which is where it was before this and where it was two days ago.",
-          "Settling, five runs: 23%, 15%, 20%, 13%, 12% of its frames late. His frame recovery commit measured 13%, 17%, 8% on three. Those ranges overlap and five samples against three is not a case for a regression — the top of the new spread is higher than the top of the old one, which is what small samples of a noisy number do. Recorded rather than claimed either way; if it is real it will show as the ranges separate, and the check that would catch it is the one already there.",
-          "molten 121/121, vines 81/81, not-one-machine 20/20."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "cdda2b1",
-        "says": "The edge breathes again, on the eight pixels where an edge is",
-        "when": "2026-09-15T05:16:47+00:00",
-        "detail": [
-          "J's rim breath, back, and not where it was.",
-          "WHY IT WENT: `molten-breathe` faded the whole rim node between 0.78 and 1 over forty-two seconds. That node covers the whole card, paints a nine-pixel sprite bezel, and cannot be promoted inside the card's rounded clip, so an opacity animation on it is a full-card repaint per card per frame — 42% of frames dropped against 36% with it stopped, at twelve boards.",
-          "THE SHAPE WAS MEASURED BEFORE ANYTHING WAS DESIGNED. An opacity animation added to every card as a bare element, nothing else changed:",
-          "nothing added                          36.1 /900ms a whole-card breath, not promoted      31.5 a whole-card breath, promoted          32.4 a 14px strip breath, not promoted      38.0 a 14px strip breath, promoted          36.2"
-        ],
-        "areas": [
-          "core",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "abf1534",
-        "says": "Regenerate the passes for link lists and painted blocks",
-        "when": "2026-09-15T05:04:42+00:00",
-        "detail": [
-          "Dijkstra's pass: a list of links is a part, and a block is painted on what is behind it.",
-          "Run on this build: recreate 46/46, zip-import 65/65, site-read 44/44. Not run: the rest, none of which touches what a read page becomes."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "ef927ef",
-        "says": "A list of links is a part, and a block is painted on what is behind it",
-        "when": "2026-09-15T05:02:41+00:00",
-        "detail": [
-          "The two biggest gaps the real zip named. There was no list-of-links part in the catalogue, so a sidebar of pages and a list of resources, among the commonest things on any page, landed as bands of words that had lost the fact that every word went somewhere: three or more links that are most of the words in a block are a list of links now, every link a line, on the library's side nav. And only a block's own background was read, while the page's look sat on the body and its wrapper, so every block read as painted on nothing: the nearest painted colour and the nearest picture behind a block are read too, up to the body, and a block that paints nothing of its own takes the page's ground as its own."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "80d7347",
-        "says": "Regenerate the passes for a hand that moves only what it holds",
-        "when": "2026-09-15T04:32:26+00:00",
-        "detail": [
-          "Hypatia's pass: moving a part says where the part is, and nothing else. The page's height shrink-wraps its content with no slack, the board is as tall as the page and the shelf sits under it in the same scroller — so every pixel a part was dragged downward grew the page, resized the preview and pushed the categories down while the button was still held. Measured in her own commit: page 1960 → 2197, shelf top 1456 → 1606, for one part dragged 240px. The height is held in a ref for the length of a node or resize drag and settles when the hand comes off; a pan is not held, because it changes nothing about the document.",
-          "She has written the note into AGENTS.md as well, including the part worth having there most: her suite's own fixture will lie if the page is short, because a page with `mt-auto` slack pins the shelf to the bottom edge where it cannot move, and the fault reads as fixed while it is broken. A fixture that reports a pass for the wrong reason is worse than no fixture, and it is now written down where the next session will find it.",
-          "Run on this build: hand-steady 11/11, full-page 42/42, board-edges 11/11, picked 16/16."
         ],
         "areas": [
           "studio"
