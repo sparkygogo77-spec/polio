@@ -2,14 +2,127 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T07:01:38.678Z";
+export const GENERATED_AT = "2026-09-15T07:30:27.338Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "fa836ba",
-    "when": "2026-09-15T07:00:52+00:00",
+    "id": "7aa5b01",
+    "when": "2026-09-15T07:30:26+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "82c0125",
+        "says": "The seven shortfalls of the live read, each held to the page by number",
+        "when": "2026-09-15T07:15:50+00:00",
+        "detail": [
+          "The first night named seven things the site-read arc fell short of on https://playwright.dev/, and left them failing. Each is fixed and held by tests/site-live.mjs, 62 of 62.",
+          "The selector path was cut at six steps under the body and still prefixed `body >`, so 22 of 60 candidates matched nothing and came back \"not on the page any more\", two of them among the 24 the panel offered. It walks to the body: 60 of 60 are found again at the same box.",
+          "The panel offered the 24 biggest things and the bar across the top was the 38th. The page's blocks come first on the list, top to bottom, then the rest biggest first; the bar is first of 24, and taken alone lands as the library's top bar at 589.05×27.61, ratio 21.335 against the page's 21.333. A block that is a run of small boxes is measured member by member when taken alone, as when the page is taken whole.",
+          "A link with no words was dropped, so a bar of 12 links read as 10. It is named by its label, title, picture's alt, icon's title or the last part of where it goes: 12 of 12, \"GitHub repository\", \"Discord server\". Naming them turned a band of nine company marks near the foot into a footer; an untagged footer now needs four links that are words on the page, and the only footer is block 9 of 9."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "87de105",
+    "when": "2026-09-15T07:28:13+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "87de105",
+        "says": "Regenerate the passes for placeholders named and a made space picked again",
+        "when": "2026-09-15T07:28:13+00:00",
+        "detail": [
+          "Dijkstra's fc50ba6: a picture in a landed block is said to stay a placeholder, and a made surface can be taken hold of to pick its space again. Taken on its own.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4270:",
+          "zip-import        75 of 75 hold   (73 before) recreate          46 of 46 hold site-read         44 of 44 hold space-one-open    19 of 19 hold",
+          "The two new ones say what changed, in the words a person reads:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "fc50ba6",
+        "says": "A picture in a landed block is said to stay a placeholder, and a made space can be picked again",
+        "when": "2026-09-15T07:18:50+00:00",
+        "detail": [
+          "The panel promised the grounded step for pictures inside landed blocks; put in the order and pressed, it ran nothing. The line now says the picture stays a placeholder and why. Taking hold of a made surface picks the space, since it has no fill and no key. The aura reference sample is held inside the board, where it had landed on the menu bar's words."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "08cfa42",
+        "says": "Regenerate the passes for the inventory, and an export that now compiles",
+        "when": "2026-09-15T07:13:07+00:00",
+        "detail": [
+          "A sixth session, bardeen, with its first two on trunk: the unfinished inventory, and a Build export that imported a file nobody wrote.",
+          "I took its current tip rather than the one I started verifying: ea31164 was docs alone, and c12b0d9 landed while the build ran, so this carries both.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4267:",
+          "scaffold        32/32 passed  (the suite the fix arrives with) updates-view    22 of 22 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "c12b0d9",
+        "says": "Every Build export compiles: the generated layout imported a file nobody wrote",
+        "when": "2026-09-15T07:10:50+00:00",
+        "detail": [
+          "A18 on the inventory, and the cheapest row at the top of it. The layout the scaffold writes for an exported site began with `import { paintRoles, roleVars } from \"./bodyPaint.ts\"`, copied into the template string from the generator's own import at the top of the file. The generator does use those two, at export time, to bake a written body's roles into each part's component; the layout it writes never did, and nothing emits `app/bodyPaint.ts`, so every export ever downloaded failed at its first `tsc` on line 3. The one check on the layout read its title.",
+          "The line is gone. tests/scaffold.mjs now walks every relative import in every exported file and asks the export for that file: 2 imports today, 1 unresolved before this, 0 after. 32 of 32, typecheck clean."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "ea31164",
+        "says": "The unfinished inventory: everything started here and not yet finished, ranked",
+        "when": "2026-09-15T07:09:41+00:00",
+        "detail": [
+          "One list, docs/INVENTORY.md, from a sweep of six kinds of unfinished thing across src/, tests/ and scripts/ at 7b38e86: controls that do nothing or not what they say (22), declarations left behind (160 items in 8 groups), routes answering with a stub or a constant (19), things reachable in one mode and not another or offered and not takeable (17), checks that pass while measuring something other than what they name (63 checks in 27 suites, plus 5 suites with no check at all), and inputs of one shape that quietly degrade for another (41 shapes in 26 rows).",
+          "Ranked by what a person notices first. The top of it: Re-iterate on every finished card drops the ask from the default tab; Compile the blueprint has four entry points that show nothing in book mode; the tweet console's video records an empty site; every Build export imports a file the scaffold never writes; a twelve-entry context menu nobody can open; ten settings that read nothing; every cost line three times the bill; the trace kind of the drawing pipeline wrapped as a raster; and a check on the undo history that reads a field the store never persists.",
+          "Every row names the file and lines, was confirmed by reading them, and carries a cost to close. Rows in another session's area (keys, recreate) are flagged rather than edited. Nothing else changes in this commit: the list is the deliverable, and it is closed from the top in the commits after it."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "d9858fa",
+        "says": "Regenerate the passes for a floated section read where its words are",
+        "when": "2026-09-15T07:03:48+00:00",
+        "detail": [
+          "Dijkstra's fa836ba: a section whose paragraphs float is read where its words are, rather than at the empty box a float leaves behind. No other tip is ahead, so this one goes out on its own.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4265:",
+          "zip-import       73 of 73 hold   (68 before; five new ones with the change) site-read        44 of 44 hold space-by-hand    28 of 28 hold",
+          "The panel's own sentence is where the change shows, and it now counts what it could not before:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "fa836ba",
         "says": "A section whose paragraphs float is read where its words are",
@@ -901,31 +1014,6 @@ export const PASSES: Pass[] = [
         "detail": [
           "The driver's numbers were written on the space's host and nothing in the space read them, so a surface went from asked-for to made with nothing between. It forms on euler's bands now, drawn on the boundary rather than a box: while the vine arrives nothing but the hole; then the rim traced round the line in the process's red; then the green closing in from the line to the middle of the area, boundary first and the middle filling after; then thinning to the surface as the parts land. The driver steps as the jobs step, with a running job counting for the step it is on, and what is shown eases toward it at a pace a person can follow, and stays until it has caught up rather than vanishing the moment the last job lands on a fast road.",
           "The create-flow check records what was drawn while it formed. The create-space ground read takes the ground by its colour rather than a brightness that depends on how thick the cloud is under the sample."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5506bd2",
-    "when": "2026-09-15T02:07:09+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d009100",
-        "says": "The page is everything drawn on it, and the suite names what it measured",
-        "when": "2026-09-15T01:19:49+00:00",
-        "detail": [
-          "Two faults, and the second is the reason the first could be reported fixed while a browser said otherwise.",
-          "THE PAGE'S HEIGHT COUNTED PARTS AND NOTHING ELSE. `frameHeight` reduced over `nodes`, and the window the page stands in is sized from it, so a pen stroke or a drawn space below the last part was rendered inside a window that did not know it was there: `scrollHeight` past `clientHeight`, with `overflow: hidden`, and no wheel, bar or drag could reach it. Measured on this branch with one stroke a hundred pixels under a stock page: 138px behind the edge. It takes `shapes` and `spaces` now, and the board passes them.",
-          "THE SUITE COULD NOT HAVE SEEN IT. Its fixture was parts and nothing else, so it agreed with a `frameHeight` that counted parts and nothing else — two wrongs measuring each other, and 36 of 36 while a real page clipped. Worse, it never said what document it was looking at, which is how a green run here sat beside a red browser on a deployment that did not contain the commit. So:",
-          "every run prints what it measured. `/api/version` already exists for exactly this and nothing asked it; a dev server, which has no build commit, says so rather than borrowing the local tree's SHA."
         ],
         "areas": [
           "docs",

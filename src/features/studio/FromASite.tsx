@@ -39,7 +39,7 @@ import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio } from "./store";
 import { lockNow } from "./surfaceRun";
-import { fitToSurface, mergeReadings, pageBlocks, saidOf, selectorsOf, type Block } from "./zipImport";
+import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
 
 type Source =
   | { kind: "site"; url: string; host: string }
@@ -136,7 +136,9 @@ export function FromASite({ space }: { space: Space }) {
     play("tick");
     const { source } = stage;
     setStage({ at: "busy", says: "Measuring it…" });
-    const got = await measure(source, [c.selector]);
+    // A block that is a run of small boxes is measured member by member
+    // and read as one, the same as when the whole page is taken.
+    const got = await measure(source, selectorsOf(c));
     if (typeof got === "string" || !got.readings[0]) { setStage({ at: "said", says: typeof got === "string" ? got : "That element is not on the page any more." }); return; }
 
     /*
@@ -145,7 +147,7 @@ export function FromASite({ space }: { space: Space }) {
      * (`recreate.ts`), and the words, the colours and the type are the
      * page's own.
      */
-    const made = recreateFrom(got.readings[0]);
+    const made = recreateFrom(mergeReadings(got.readings));
     const store = useStudio.getState();
     /*
      * Landed at the middle of the space, fitted to it, so it is inside it
@@ -161,9 +163,9 @@ export function FromASite({ space }: { space: Space }) {
     const w0 = Number(made.patch.w) || 320;
     const h0 = Number(made.patch.h) || 120;
     const fit = Math.min(1, (room.w * 0.9) / w0, (room.h * 0.9) / h0);
-    const w = Math.max(24, Math.round(w0 * fit));
-    const h = Math.max(16, Math.round(h0 * fit));
-    store.addNode(String(made.patch.featureId), Math.round(cx - w / 2), Math.round(cy - h / 2), { ...made.patch, w, h });
+    const w = Math.max(24, fine(w0 * fit));
+    const h = Math.max(16, fine(h0 * fit));
+    store.addNode(String(made.patch.featureId), fine(cx - w / 2), fine(cy - h / 2), { ...made.patch, w, h, font: scaledType(made.patch.font, fit) });
     // Adding picks what was added, which would swap this panel for the
     // part's. The space stays picked, so the line under this is read where
     // it was asked for; the part is on the board, a press away.
@@ -171,7 +173,7 @@ export function FromASite({ space }: { space: Space }) {
     play("confirm");
     setStage({
       at: "said",
-      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture is the grounded step's job, so put Make the real thing in the order." : ""}`,
+      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture stays a placeholder: this part has no picture of its own to show, and the grounded step runs on drawings only." : ""}`,
     });
   };
 
@@ -208,7 +210,7 @@ export function FromASite({ space }: { space: Space }) {
     const landed = readings.map((reading, i) => {
       const made = recreateFrom(reading);
       const at = fit.places[i]!;
-      useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h });
+      useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h, font: scaledType(made.patch.font, fit.scale) });
       return made;
     });
     // Locked as the page had it: the layout is the specification.
@@ -301,8 +303,9 @@ export function FromASite({ space }: { space: Space }) {
             <LayoutTemplate className="size-3" />
             Take the whole page, {pageBlocks(stage.candidates).length} block{pageBlocks(stage.candidates).length === 1 ? "" : "s"}
           </button>
+          {/* The page's own blocks first, top to bottom, then the rest biggest first: the bar across the top is on the list. */}
           <ul data-site-candidates="" className="max-h-[220px] space-y-1 overflow-y-auto">
-            {stage.candidates.slice(0, 24).map((c) => (
+            {offered(stage.candidates).map((c) => (
               <li key={c.selector}>
                 <button
                   type="button"
