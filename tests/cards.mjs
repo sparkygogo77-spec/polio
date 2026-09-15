@@ -196,7 +196,12 @@ check("…and Re-iterate is on the card itself, not in a menu", (() => {
 })());
 check("…which runs the book's own ask rather than a second pipeline of its own", (() => {
   const brief = readFileSync("src/features/studio/BriefDialog.tsx", "utf8");
-  return /new CustomEvent\("studio:ask"/.test(timeline)
+  // The card goes through the book's one door, `askTheBook`, which parks
+  // the ask until the book under the timeline is mounted: from the default
+  // tab the event alone fired before anyone could hear it.
+  return /askTheBook\(\{ mode: thread\.mode, prompt: words\.trim\(\), run: true \}\)/.test(timeline)
+    && /new CustomEvent\("studio:ask"/.test(brief)
+    && /if \(parked\) take\(parked\);/.test(brief)
     && /window\.addEventListener\("studio:ask", on\);/.test(brief)
     && /if \(layout !== "page"\) return;/.test(brief)
     && /void generate\(\);/.test(brief);
