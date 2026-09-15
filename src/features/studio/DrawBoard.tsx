@@ -162,9 +162,14 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
   }, []);
 
   /* ---------------------------------------------------------- drawing */
+  // Held to the disc: the pointer is captured, so a stroke dragged off the
+  // edge keeps recording, and a point past 1 is ink the person never saw
+  // (the disc is clipped round) and the reader's picture never draws, while
+  // the words would still print it. What is kept is what was shown.
   const toBoard = (e: React.PointerEvent<HTMLCanvasElement>): SketchPoint => {
     const r = e.currentTarget.getBoundingClientRect();
-    return [(e.clientX - r.left) / Math.max(1, r.width), (e.clientY - r.top) / Math.max(1, r.height)];
+    const on = (v: number) => Math.max(0, Math.min(1, v));
+    return [on((e.clientX - r.left) / Math.max(1, r.width)), on((e.clientY - r.top) / Math.max(1, r.height))];
   };
   const begin = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
