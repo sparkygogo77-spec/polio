@@ -30,7 +30,7 @@ export interface Behaviours {
 const STRENGTH: Record<string, number> = { subtle: 0.08, medium: 0.18, strong: 0.32, light: 0.08, heavy: 0.32, off: 0 };
 
 /** Motions the preview names rather than fakes. */
-const DESCRIBE_ONLY = new Set(["sticky-story", "scroll-video", "morph-transition", "physics", "horizontal-scroll", "infinite-scroll"]);
+const DESCRIBE_ONLY = new Set(["sticky-story", "scroll-video", "morph-transition", "physics", "horizontal-scroll", "infinite-scroll", "page-transitions"]);
 
 export function isBehaviour(featureId: string): boolean {
   return resolvePart(featureId)?.tier === "B";
