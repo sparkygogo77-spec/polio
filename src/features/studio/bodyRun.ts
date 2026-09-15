@@ -38,7 +38,7 @@
  * renderer went first and fell short, its render is what the first written
  * attempt is asked to beat, with the drawn picture beside it.
  */
-import { heldEffort } from "./effort";
+import { CALL_DEADLINE_MS, heldEffort } from "./effort";
 import { cleanSnippet, RENDER_LIMIT, type PartCode } from "./snippet";
 import { money, RENDER_COST, type RenderKind } from "./renderer";
 import { keyHeader, noRendererKeyMessage, rendererHeader } from "./agent";
@@ -391,8 +391,12 @@ export function compare(target: boolean[], got: boolean[], mode: Compare = { clo
 /* ------------------------------------------------------------------ */
 
 async function askForBody(input: BodyInput, prev?: { html: string; says: string; shot: string | null }): Promise<{ ok: boolean; html?: string; note?: string; message?: string; reason?: string; usage?: TokenUse }> {
+  // The browser's own deadline, longer than the route's budget: for the
+  // case where nothing arrives at all, so the spinner still stops with a
+  // sentence rather than running until a reload.
   const res = await fetch("/api/studio/body", {
     method: "POST",
+    signal: AbortSignal.timeout(CALL_DEADLINE_MS),
     headers: { "content-type": "application/json", ...keyHeader() },
     body: JSON.stringify({
       label: input.label,

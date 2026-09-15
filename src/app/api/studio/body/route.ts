@@ -32,6 +32,23 @@ import { cleanSnippet, SNIPPET_LIMIT } from "@/features/studio/snippet";
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
+/*
+ * A deadline at both ends (docs/DESIGN.md, rule 8b). `maxDuration` is what
+ * the platform grants; at the wall clock it kills the function where it
+ * stands, no response, no status, and the browser's spinner runs until a
+ * reload. So the route keeps a budget of its own a few seconds short of
+ * that and answers itself when it runs out, the SDK gets one try with a
+ * timeout inside the budget, and the browser keeps a longer deadline of
+ * its own for the case where nothing arrives at all. This is the same
+ * arrangement the generate route has had; this route had none of it.
+ */
+const ANSWER_BUDGET_MS = (() => {
+  const asked = Number(process.env.STUDIO_ANSWER_BUDGET_MS);
+  const budget = Number.isFinite(asked) && asked > 5_000 ? asked : maxDuration * 1000;
+  return Math.max(5_000, budget - 5_000);
+})();
+const UPSTREAM_TIMEOUT_MS = Math.max(5_000, ANSWER_BUDGET_MS - 3_000);
+
 interface Body {
   /** What the part should be, in the author's words. */
   prompt?: string;
@@ -171,7 +188,10 @@ export async function POST(request: Request) {
   // fallback for anything else.
   const EFFORTS = ["low", "medium", "high"] as const;
   const effort: (typeof EFFORTS)[number] = EFFORTS.includes(body.effort as never) ? (body.effort as (typeof EFFORTS)[number]) : "medium";
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, timeout: UPSTREAM_TIMEOUT_MS, maxRetries: 0 });
+  const started = Date.now();
+  const deadline = new AbortController();
+  const ran = setTimeout(() => deadline.abort(), ANSWER_BUDGET_MS);
   try {
     const stream = client.beta.messages.stream({
       model: "claude-opus-5",
@@ -182,7 +202,7 @@ export async function POST(request: Request) {
       output_config: { effort, format: { type: "json_schema", schema: SCHEMA } },
       system: SYSTEM,
       messages: [{ role: "user", content }],
-    });
+    }, { signal: deadline.signal });
     const message = await stream.finalMessage();
     if (message.stop_reason === "refusal") {
       return NextResponse.json({ ok: false, reason: "refusal", message: "Claude declined to write this body." });
@@ -220,16 +240,28 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    // Every branch answers HTTP 200 with a reason and the seconds it took:
+    // the one outcome this route must never have is no outcome.
+    const seconds = Math.round((Date.now() - started) / 1000);
+    if (deadline.signal.aborted) {
+      return NextResponse.json({ ok: false, reason: "timeout", message: `Claude did not write the body within ${Math.round(ANSWER_BUDGET_MS / 1000)}s, so the server stopped waiting.`, seconds });
+    }
+    if (error instanceof Anthropic.APIConnectionTimeoutError) {
+      return NextResponse.json({ ok: false, reason: "timeout", message: `The Claude call timed out after ${seconds}s.`, seconds });
+    }
     if (error instanceof Anthropic.AuthenticationError) {
-      return NextResponse.json({ ok: false, reason: "auth", message: "The API key was rejected." });
+      return NextResponse.json({ ok: false, reason: "auth", message: "The API key was rejected.", seconds });
     }
     if (error instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited, try again in a moment." });
+      return NextResponse.json({ ok: false, reason: "rate-limit", message: "Rate limited, try again in a moment.", seconds });
     }
     if (error instanceof Anthropic.APIError) {
-      return NextResponse.json({ ok: false, reason: "api", message: `Couldn't write the body (${error.status}: ${error.message}).` });
+      const id = error.requestID ? ` (request ${error.requestID})` : "";
+      return NextResponse.json({ ok: false, reason: "api", message: `Couldn't write the body (${error.status}: ${error.message}${id}).`, status: error.status, requestId: error.requestID ?? null, seconds });
     }
-    return NextResponse.json({ ok: false, reason: "error", message: `Couldn't write the body (${error instanceof Error ? error.message : "unknown error"}).` });
+    return NextResponse.json({ ok: false, reason: "error", message: `Couldn't write the body (${error instanceof Error ? error.message : "unknown error"}).`, seconds });
+  } finally {
+    clearTimeout(ran);
   }
 }
 

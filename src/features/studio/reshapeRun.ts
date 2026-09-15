@@ -19,7 +19,7 @@
  * without being read — and the drawing is kept on the part so the blueprint
  * writes it out in words. A drawing is never lost to a missing key.
  */
-import { heldEffort } from "./effort";
+import { CALL_DEADLINE_MS, heldEffort } from "./effort";
 import type { NewsInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
@@ -385,8 +385,11 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
     deps.onStep?.("Claude is reading the drawing…");
     // What the person waits for is measured, not estimated.
     const readFrom = Date.now();
+    // The browser's own deadline, longer than the route's budget: for the
+    // case where nothing arrives at all.
     const res = await fetch("/api/studio/reshape", {
       method: "POST",
+      signal: AbortSignal.timeout(CALL_DEADLINE_MS),
       headers: { "content-type": "application/json", ...keyHeader() },
       body: JSON.stringify({
         sketch: drawn,
