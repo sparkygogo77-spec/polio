@@ -2,9 +2,30 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T09:04:35.937Z";
+export const GENERATED_AT = "2026-09-15T09:05:06.722Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c69a63e",
+    "when": "2026-09-15T09:05:06+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "99b8ade",
+        "says": "The merge brought the page wheel's Edit slot back; it is out again",
+        "when": "2026-09-15T08:49:24+00:00",
+        "detail": [
+          "A22 on the inventory, held. The merge of trunk's latest wheel work carried the older copy of the page's slot table, the two dead choices under Edit (Width, and \"Per page (soon)\", a tap and nothing) and the plate-list entry for the width editor, all of which A22 had removed. The page-wheel-edit and priority-wheel suites went red on the merged tree, which is what they are for. Taken out again, with the two icons only that code used; the width editor itself had stayed gone.",
+          "Green: page-wheel-edit 4/4, priority-wheel 6/6, wheel-pass 12/12, wheel-trim 14/14, menu-pass 101/101, preview-here 5/5."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "fc67aca",
     "when": "2026-09-15T08:50:15+00:00",
@@ -990,31 +1011,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "7aa5b01",
-    "when": "2026-09-15T07:30:26+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "82c0125",
-        "says": "The seven shortfalls of the live read, each held to the page by number",
-        "when": "2026-09-15T07:15:50+00:00",
-        "detail": [
-          "The first night named seven things the site-read arc fell short of on https://playwright.dev/, and left them failing. Each is fixed and held by tests/site-live.mjs, 62 of 62.",
-          "The selector path was cut at six steps under the body and still prefixed `body >`, so 22 of 60 candidates matched nothing and came back \"not on the page any more\", two of them among the 24 the panel offered. It walks to the body: 60 of 60 are found again at the same box.",
-          "The panel offered the 24 biggest things and the bar across the top was the 38th. The page's blocks come first on the list, top to bottom, then the rest biggest first; the bar is first of 24, and taken alone lands as the library's top bar at 589.05×27.61, ratio 21.335 against the page's 21.333. A block that is a run of small boxes is measured member by member when taken alone, as when the page is taken whole.",
-          "A link with no words was dropped, so a bar of 12 links read as 10. It is named by its label, title, picture's alt, icon's title or the last part of where it goes: 12 of 12, \"GitHub repository\", \"Discord server\". Naming them turned a band of nine company marks near the foot into a footer; an untagged footer now needs four links that are words on the page, and the only footer is block 9 of 9."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
