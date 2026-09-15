@@ -41,7 +41,7 @@
  * menu itself), which is the draft option to compare against.
  */
 import * as React from "react";
-import { Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Monitor, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, X } from "lucide-react";
+import { Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Monitor, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -244,7 +244,7 @@ interface Pull {
 /* What is on it                                                       */
 /* ------------------------------------------------------------------ */
 
-type SlotId = "anim" | "write" | "more" | "draw" | "create" | "duplicate" | "edit" | "look" | "delete";
+type SlotId = "anim" | "write" | "draw" | "create" | "duplicate" | "edit" | "look" | "delete";
 
 interface Slot {
   id: SlotId;
@@ -264,11 +264,6 @@ const SLOTS: Record<SlotId, Slot> = {
   // in it, where it sends people, and (a placeholder for now) its priority.
   // It was "Prompt" with the word on it; the word said less than the pencil.
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
-  // More: the few things that are about the part but not about editing it —
-  // seeing it live, its place among the others, carrying its looks. They
-  // hung under the wheel on a tab once; a tab outside the wheel was a
-  // bar sticking out of an object, so they are a piece of it now.
-  more: { id: "more", label: "More", icon: Ellipsis, hue: 205, kind: "group" },
   // The outer top-right slab. It does not open a level: the whole wheel
   // becomes the drawing board, and what is drawn there reshapes the part.
   draw: { id: "draw", label: "Draw", icon: Brush, hue: 205, kind: "board" },
@@ -372,7 +367,6 @@ function choicesFor(group: SlotId, node: StudioNode): Choice[] {
 const SLOTS_BG: Record<SlotId, Slot> = {
   anim: { id: "anim", label: "Motion", icon: Play, hue: 205, kind: "group" },
   write: { id: "write", label: "Write", icon: Pencil, hue: 258, kind: "group" },
-  more: { id: "more", label: "More", icon: Ellipsis, hue: 205, kind: "group" },
   /*
    * The outer top is two now: Draw and Create, side by side and neither
    * replacing the other, because that is the whole distinction — Draw makes
@@ -420,8 +414,18 @@ function bgChoicesFor(group: SlotId, at: { x: number; y: number } | null): Choic
         { id: "bg-light", label: "Light", icon: Sun },
       ];
     case "anim":
-      // A motion asset behind the page: the place is here, the crate is not wired to it yet.
-      return [{ id: "motion-soon", label: "Motion asset (soon)", icon: Film, act: () => play("tap") }];
+      /*
+       * Glide: how the page's own texture moves.
+       *
+       * This slab opened one dead item — "Motion asset (soon)", which played
+       * a tap and did nothing — so a whole quadrant of the page's wheel said
+       * "not yet". The texture stack already knows how to move: `drift` on a
+       * layer carries its tile a whole number of tiles along its own angle
+       * per cycle, which is why the loop has no seam in it. Nothing was
+       * driving it from the wheel, and the button that should was the one
+       * saying "soon".
+       */
+      return [{ id: "bg-glide", label: "Glide", icon: Wind }];
     case "write":
       /*
        * Everything written about the page, which is three things and used to
@@ -859,12 +863,17 @@ export function RadialMenu() {
   void topMid;
   const level1: { slot: Slot; d: string; at: Pt; wear?: RingPiece["wear"]; glow?: string | null }[] = [
     /*
-     * The inner top: three on a part, two on the page.
+     * The inner top: two, on a part and on the page alike.
      *
-     * The page's three-dot More has gone — it was the tray's two items in a
-     * second place, and the tray is under the wheel already — so Motion and
-     * the pencil take a half of the band each instead of a third, and
-     * neither of them is a sliver.
+     * The three-dot More has gone from both. It was never a menu of its own:
+     * `choicesOf` returned `tray.map(...)` — the tray's own items, verbatim,
+     * with the same handlers — and the tray is drawn under the wheel already.
+     * A slab that opens a second copy of what is already on screen costs a
+     * third of a band and saves nothing. The page lost it first; the part
+     * kept it a while longer for no reason anybody could name.
+     *
+     * So Motion and the pencil take a half of the band each, and neither of
+     * them is a sliver.
      */
     ...(bg
       ? [
@@ -872,9 +881,8 @@ export function RadialMenu() {
         { slot: slots.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
       ]
       : [
-        { slot: slots.anim, d: piece(topA, t1, B.hole, B.mid, shape, B), at: middleOf(topA, t1, B.hole, B.mid, shape, B) },
-        { slot: slots.write, d: piece(t1, t2, B.hole, B.mid, shape, B), at: middleOf(t1, t2, B.hole, B.mid, shape, B) },
-        { slot: slots.more, d: piece(t2, topB, B.hole, B.mid, shape, B), at: middleOf(t2, topB, B.hole, B.mid, shape, B) },
+        { slot: slots.anim, d: piece(topA, topMid, B.hole, B.mid, shape, B), at: middleOf(topA, topMid, B.hole, B.mid, shape, B) },
+        { slot: slots.write, d: piece(topMid, topB, B.hole, B.mid, shape, B), at: middleOf(topMid, topB, B.hole, B.mid, shape, B) },
       ]),
     /* One slab on a part, two on the page: Draw and Create, visible together
        so the choice between one element and several is a choice you can see
@@ -937,11 +945,8 @@ export function RadialMenu() {
         { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node!.id, { ...carriedLooks }); } },
       ];
 
-  // More is the tray's items as green pieces, each firing on the spot.
-  const choicesOf = (g: SlotId): Choice[] => {
-    if (g === "more") return tray.map((it) => ({ id: it.id, label: it.label, icon: TRAY_ICON[it.id] ?? Ellipsis, dim: it.disabled, act: () => { if (!it.disabled) it.onClick(); else play("deny"); } }));
-    return bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!);
-  };
+  const choicesOf = (g: SlotId): Choice[] =>
+    bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!);
 
   /* ---------------------------------------------------------- level 2 */
   const group = picked && !onBoard ? slots[picked] : null;
@@ -993,7 +998,7 @@ export function RadialMenu() {
   // The plate editors want a square to sit in: the slab opposite the green
   // is cut square for them whatever the wheel's shape is. The animation
   // editor lights the slab its green choice is about.
-  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "bg-light", "width"].includes(editing) && !(editing in ANIM_SLAB);
+  const onPlate = !!editing && !["hue", "texture", "aura", "font", "behaviour", "bg-color", "bg-texture", "bg-light", "bg-glide", "width"].includes(editing) && !(editing in ANIM_SLAB);
   const consoleSpan: ConsoleSpan = {
     quads: freeQuads,
     rings: GREEN_RINGS,

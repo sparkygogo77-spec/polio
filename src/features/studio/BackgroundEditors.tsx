@@ -226,6 +226,65 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
     return <LightEditor a={a} b={b} c={c} />;
   }
 
+  /* ------------------------------------------------------- the glide */
+  /*
+   * How the page's texture moves, which is one number per layer.
+   *
+   * `drift` carries a tile a whole number of tiles along its own angle each
+   * cycle, so the loop has no seam in it however long you watch. The stack
+   * has always been able to do it; nothing on the wheel drove it, and the
+   * button that should have was showing "Motion asset (soon)".
+   *
+   * One slider for the speed, and a still end on it rather than a separate
+   * switch: nought IS still, and a control whose zero means the thing it
+   * says does not need an off beside it. Layers that only dress the cards
+   * are left alone — this is the page's own weather.
+   *
+   * Why this is safe to turn on now, recorded because it was held back once:
+   * euler measured the idle cost and the law is "carry less translucent area,
+   * not less motion" — a ground alone, however much of it moves, dropped no
+   * frames at all; it is translucent layers stacked over a moving surface
+   * that cost. A drift on the page's own texture is motion over area that is
+   * already painted, which is the cheap half of that finding.
+   */
+  if (which === "bg-glide") {
+    const layers = look.texture ?? [];
+    const onPage = layers.filter((l) => l.on && lands(l, "page"));
+    const speed = onPage.length
+      ? onPage.reduce((m, l) => m + (l.drift ?? 0), 0) / onPage.length
+      : 0;
+    const setDrift = (v: number) =>
+      s().setLook({
+        texture: layers.map((l) => (l.on && lands(l, "page") ? { ...l, drift: Number(v.toFixed(2)) } : l)),
+      });
+    if (!onPage.length) {
+      return (
+        <>
+          <Caption slab={a}>Nothing is painted on the page yet — Looks › Texture puts something there to move.</Caption>
+        </>
+      );
+    }
+    return (
+      <>
+        <ArcSlider
+          slab={a}
+          {...runOf(a)}
+          rIn={hole}
+          rOut={mid}
+          name="Glide"
+          label="How fast the texture drifts"
+          value={Math.max(0, Math.min(1, speed))}
+          onChange={setDrift}
+        />
+        <Caption slab={a}>
+          {speed < 0.01
+            ? `Still · ${onPage.length} layer${onPage.length === 1 ? "" : "s"} on the page`
+            : `${Math.round(speed * 100)}% · ${onPage.length} layer${onPage.length === 1 ? "" : "s"} on the page`}
+        </Caption>
+      </>
+    );
+  }
+
   /* ----------------------------------------------------- the texture */
   if (which === "bg-texture") {
     const layers = look.texture ?? [];
