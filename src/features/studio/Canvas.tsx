@@ -443,14 +443,40 @@ export function Canvas() {
     const ro = new ResizeObserver(again);
     ro.observe(pane);
     window.addEventListener("resize", again);
-    return () => { ro.disconnect(); window.removeEventListener("resize", again); };
+    /*
+     * And one that is not told anything at all.
+     *
+     * The render-time check below was written as this third witness and it
+     * is not one on its own: a render happens because something changed, and
+     * a notification that goes missing changes nothing, so nothing renders
+     * and nothing looks. Measured — with the observer's notification dropped
+     * and the window's resize event taken away, the page sat 609px too wide
+     * for two and a half seconds and would have sat there for ever.
+     *
+     * So the last witness is a clock. Four hundred milliseconds, one integer
+     * read, and a comparison: well inside the second J asks the fit to come
+     * right in, and nothing at all when the width has not moved, which is
+     * almost always. `clientWidth` on an idle page whose layout is clean is
+     * a read, not a reflow, and the cost was measured against a build that
+     * does not have it — the deployment, put behind a local mirror — rather
+     * than asserted: the Builder idle for three seconds, 60.2 fps there and
+     * 60.3 here, no long tasks on either side.
+     */
+    const tick = window.setInterval(again, 400);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", again);
+      window.clearInterval(tick);
+    };
   }, [fitNonce, frameWidth, fitZoom, fitTo]);
 
   /*
-   * The third witness, which cannot be missed because it is not told: on
-   * every render, the pane's width against the width the frame was fitted
-   * for. A render happens for a hundred reasons and the comparison is two
-   * numbers; if they agree, which is almost always, it does nothing.
+   * And the same comparison at render time, which is free and catches the
+   * case a moment sooner than the clock would: the pane's width against the
+   * width the frame was fitted for. A render happens for a hundred reasons
+   * and the comparison is two numbers; if they agree, which is almost
+   * always, it does nothing. On its own it is not a witness — see the clock
+   * above for why — but beside one it costs nothing to keep.
    *
    * The condition is the *pane's width*, deliberately, and not whether the
    * frame overruns the pane. Those are different rules and only one of them

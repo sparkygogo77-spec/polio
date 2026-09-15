@@ -283,6 +283,143 @@ console.log(`       headroom above, for comparison with his 78: ${gaps.map((g) =
   await page.close();
 }
 
+/* ------------------------------------------------------------------ */
+/* The freeze                                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * J's repro, in his words: "a fresh load wide, then narrow, then assert
+ * within one second that the page's width is at most the pane's width."
+ *
+ * Measured on the deploy at 08cfa42: fresh at a 1509 pane the page is 1381,
+ * and narrowed to a 772 pane it is still 1381 — polled every 100ms for 3.2
+ * seconds and it never refits. Not a missing fit: one fit, kept. And it
+ * depends on the tab's history rather than on the width, because a tab that
+ * had been at 772 earlier in its life and was returned to it did refit, to
+ * 644 at a scale of 0.447222.
+ *
+ * THE FIRST OF THE TWO BELOW DOES NOT BITE HERE, and that has now been
+ * checked against the deployed artefact itself rather than a rebuild of it:
+ * the deploy was put behind a plain-HTTP mirror so a browser here could load
+ * the very bundle J is looking at, and it refit in 180ms — and again under a
+ * 1.25 device scale, narrowed in four steps, on a document with ink above
+ * the page, after a six-second settle, and with reduced motion. So the
+ * bundle is not the variable and the environment is, and the literal repro
+ * is written down for its numbers rather than for its teeth.
+ *
+ * The second one has the teeth, and it is the property underneath his
+ * repro rather than a guess at his browser: ONE NOTIFICATION OF THE PANE'S
+ * RESIZE GOES MISSING. A callback that throws is the way that happens in
+ * the wild — the browser swallows a throw inside a ResizeObserver callback,
+ * with nothing in the console — but the check does not care why, only that
+ * the fit must not be lost with it. Against a build whose only witness is
+ * that observer, this is fatal and the page stays wide for ever.
+ */
+{
+  const openWide = async (opts = {}) => {
+    const page = await browser.newPage({ viewport: { width: 1737, height: 1278 }, ...opts });
+    await page.addInitScript(() => {
+      const Real = window.ResizeObserver;
+      window.__lost = 0;
+      window.ResizeObserver = class extends Real {
+        constructor(cb) {
+          const state = { pane: false };
+          super((entries, obs) => {
+            if (state.pane && window.__losePaneResize) {
+              window.__losePaneResize = false;
+              window.__lost += 1;
+              throw new Error("the pane's resize went missing");
+            }
+            return cb(entries, obs);
+          });
+          this.__state = state;
+        }
+        observe(el, opts) {
+          if (el && el.nodeType === 1 && typeof el.matches === "function" && el.matches("[data-studio-pane]")) this.__state.pane = true;
+          return super.observe(el, opts);
+        }
+      };
+    });
+    await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1800);
+    return page;
+  };
+  const room = (page) => page.evaluate(() => {
+    const p = document.querySelector("[data-studio-pane]"), w = document.querySelector("[data-page-window]");
+    const pr = p.getBoundingClientRect(), wr = w.getBoundingClientRect();
+    return { pane: Math.round(pr.width), page: Math.round(wr.width), lost: window.__lost ?? 0 };
+  });
+  /* Poll at 100ms, as he did, and stop at the first frame that fits. */
+  const narrowAndWatch = async (page, forMs) => {
+    await page.setViewportSize({ width: 1000, height: 1278 });
+    const t0 = Date.now();
+    for (;;) {
+      await page.waitForTimeout(100);
+      const m = await room(page);
+      if (m.page <= m.pane) return { ...m, ms: Date.now() - t0, fitted: true };
+      if (Date.now() - t0 >= forMs) return { ...m, ms: Date.now() - t0, fitted: false };
+    }
+  };
+
+  {
+    const page = await openWide();
+    const wide = await room(page);
+    const m = await narrowAndWatch(page, 1000);
+    check("wide, then narrow: the page's width is at most the pane's within a second",
+      m.fitted, `${wide.pane}/${wide.page} wide, then page ${m.page} in a ${m.pane} pane` +
+        (m.fitted ? ` after ${m.ms}ms` : ` — still ${m.page - m.pane}px too wide after ${m.ms}ms`));
+    await page.close();
+  }
+
+  {
+    const page = await openWide();
+    await page.evaluate(() => { window.__losePaneResize = true; });
+    const m = await narrowAndWatch(page, 2500);
+    check("and it still comes right when one resize notification goes missing",
+      m.fitted, `${m.lost} lost; page ${m.page} in a ${m.pane} pane` +
+        (m.fitted ? ` after ${m.ms}ms` : ` — still ${m.page - m.pane}px too wide after ${m.ms}ms`));
+    await page.close();
+  }
+
+  /*
+   * And with the window's own resize event taken away as well, so that the
+   * only thing left to notice is the clock in the fit effect. This one drops
+   * every `resize` listener on the page, which is heavy-handed and said out
+   * loud: it is the only way to leave that witness standing alone.
+   */
+  {
+    const page = await browser.newPage({ viewport: { width: 1737, height: 1278 } });
+    await page.addInitScript(() => {
+      const add = window.addEventListener.bind(window);
+      window.addEventListener = (type, ...rest) => { if (type === "resize") return; return add(type, ...rest); };
+      const Real = window.ResizeObserver;
+      window.__lost = 0;
+      window.ResizeObserver = class extends Real {
+        constructor(cb) {
+          const state = { pane: false };
+          super((e, o) => {
+            if (state.pane && window.__losePaneResize) { window.__losePaneResize = false; window.__lost += 1; throw new Error("gone"); }
+            return cb(e, o);
+          });
+          this.__state = state;
+        }
+        observe(el, opts) {
+          if (el && el.nodeType === 1 && typeof el.matches === "function" && el.matches("[data-studio-pane]")) this.__state.pane = true;
+          return super.observe(el, opts);
+        }
+      };
+    });
+    await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1800);
+    await page.evaluate(() => { window.__losePaneResize = true; });
+    const m = await narrowAndWatch(page, 2500);
+    check("and with the window's resize event gone too, the clock catches it",
+      m.fitted, `${m.lost} lost, no resize listeners; page ${m.page} in a ${m.pane} pane` +
+        (m.fitted ? ` after ${m.ms}ms` : ` — still ${m.page - m.pane}px too wide after ${m.ms}ms`));
+    await page.close();
+  }
+}
+
 await browser.close();
 console.log("");
 const failed = results.filter((r) => !r).length;
