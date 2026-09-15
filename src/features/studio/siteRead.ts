@@ -172,8 +172,24 @@ export const MEASURE = (selector: string) => {
     return { src: (im as HTMLImageElement).currentSrc || (im as HTMLImageElement).src, w: Math.round(r.width), h: Math.round(r.height), alt: (im as HTMLImageElement).alt || "" };
   }).filter((im) => im.src);
   // The element's own background picture counts as one of its pictures.
-  const ground = /url\(/.test(style.backgroundImage) ? (style.backgroundImage.match(/url\(["']?([^"')]+)/) ?? [])[1] : undefined;
+  const pictureOf = (bg: string) => (/url\(/.test(bg) ? (bg.match(/url\(["']?([^"')]+)/) ?? [])[1] : undefined);
+  const ground = pictureOf(style.backgroundImage);
   if (ground) images.unshift({ src: new URL(ground, location.href).toString(), w: Math.round(box.width), h: Math.round(box.height), alt: "", ground: true } as never);
+  /* What is behind it. A block that paints nothing of its own sits on
+     whatever is painted up the page from it, the body included, and that
+     is most of what a page looks like: the koi and the bamboo were on the
+     body, and every block read as painted on nothing. The nearest painted
+     colour and the nearest picture behind, each found separately. */
+  const seeThrough = (c: string) => { const m = /rgba?\(\s*[\d.]+[,\s]+[\d.]+[,\s]+[\d.]+(?:[,/\s]+([\d.]+))?/i.exec(c); return !m || (m[1] !== undefined && Number(m[1]) < 0.05); };
+  let behind: string | null = null;
+  let behindPicture: string | undefined;
+  for (let up = el.parentElement; up; up = up.parentElement) {
+    const us = getComputedStyle(up);
+    if (behind === null && !seeThrough(us.backgroundColor)) behind = us.backgroundColor;
+    if (!behindPicture) behindPicture = pictureOf(us.backgroundImage);
+    if (behind !== null && behindPicture) break;
+  }
+  if (!ground && behindPicture) images.push({ src: new URL(behindPicture, location.href).toString(), w: Math.round(box.width), h: Math.round(box.height), alt: "", ground: true, behind: true } as never);
 
   const kids = Array.from(el.children).filter((c) => {
     const r = c.getBoundingClientRect();
@@ -205,6 +221,7 @@ export const MEASURE = (selector: string) => {
     paint: {
       bg: style.backgroundColor,
       text: style.color,
+      behind,
       border,
       radius: Math.round(parseFloat(style.borderTopLeftRadius) || 0),
       shadow: style.boxShadow !== "none",

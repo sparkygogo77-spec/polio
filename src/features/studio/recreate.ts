@@ -83,6 +83,8 @@ export interface ReadImage {
   alt: string;
   /** True when it is the element's own background rather than an `img`. */
   ground?: boolean;
+  /** True when it is the background of something behind it, the body's included: the page's look, not the block's. */
+  behind?: boolean;
 }
 
 export interface ElementReading {
@@ -101,8 +103,13 @@ export interface ElementReading {
   /** The words on anything that reads as a button. */
   buttons: string[];
   images: ReadImage[];
-  /** What it is painted with. Every colour is `rgb()` or `rgba()`, as the browser reports it. */
-  paint: { bg: string; text: string; border: string | null; radius: number; shadow: boolean };
+  /**
+   * What it is painted with. Every colour is `rgb()` or `rgba()`, as the
+   * browser reports it. `behind` is the nearest painted background up the
+   * page from it, the body's included, for a block that paints nothing of
+   * its own: what a person sees behind its words.
+   */
+  paint: { bg: string; text: string; border: string | null; radius: number; shadow: boolean; behind?: string | null };
   /** How it is set. `family` is the first name off the stack, lowercased. */
   type: { family: string; px: number; weight: number; spacing: number; leading: number };
   /** How its own children run: across, down, or in a grid of so many. */
@@ -214,7 +221,9 @@ export function fontFrom(r: ElementReading, base = 16): NodeFont {
  */
 export function colourFrom(r: ElementReading): NodeColour {
   const c: NodeColour = {};
+  // Painted on nothing of its own, a block is painted on what is behind it: the page's ground is its ground.
   if (!bare(r.paint.bg)) c.bg = r.paint.bg;
+  else if (!bare(r.paint.behind)) c.bg = r.paint.behind ?? undefined;
   if (!bare(r.paint.text)) c.text = r.paint.text;
   const accent = [r.paint.border, r.paint.bg].filter((v) => !bare(v) && chroma(v) > 0.12)[0];
   if (accent && accent !== c.bg) c.accent = accent;
@@ -433,6 +442,46 @@ const FOOTER: Recreatable = {
 };
 
 /**
+ * A list of links: a sidebar of pages, a list of resources, a menu that is
+ * not the top bar. One of the commonest things on any page, and it was
+ * landing as a band of words, which kept the words and lost the fact that
+ * every one of them goes somewhere.
+ */
+const LINKS: Recreatable = {
+  id: "links",
+  featureId: "scrollspy-nav",
+  what: "A list of links: a sidebar of pages, resources, a menu that is not the top bar.",
+  looksLike: "Three or more links, and the links are most of the words in it; not at the very top or the very bottom of the page.",
+  match: (r) => {
+    if (r.links.length < 3) return 0;
+    // The top bar and the footer are their own shapes and read first.
+    if (r.down <= 0.12 && aspect(r) >= 4) return 0;
+    const said = r.text.map((t) => t.words.trim()).filter(Boolean);
+    const linked = r.links.map((l) => l.words.trim()).filter(Boolean);
+    if (!said.length) return 0;
+    // How much of the words are links: all of them is a list, half is a band with links in it.
+    const share = said.filter((w) => linked.some((l) => l === w || w.startsWith(l) || l.startsWith(w))).length / said.length;
+    if (share < 0.5) return 0;
+    return 0.6 + 0.4 * share;
+  },
+  configure: (r) => {
+    const links = r.links.map((l) => l.words.trim()).filter(Boolean).slice(0, 24);
+    const head = headline(r);
+    // A heading over the list is the list's name, and it is not a link.
+    const named = head && !links.includes(head.words.trim()) && head.words.length <= 40 ? head.words.trim() : null;
+    return {
+      patch: {
+        featureId: "scrollspy-nav",
+        custom: false,
+        content: lines(links),
+        ...common(r),
+      },
+      did: `a list of ${links.length} links${named ? ` under "${named}"` : ""}`,
+    };
+  },
+};
+
+/**
  * A band of words: a section that is neither a bar, a hero, a grid nor a
  * button. It is the fall-through and it still lands a real part.
  */
@@ -463,7 +512,7 @@ const PROSE: Recreatable = {
  * and for the same reason: the layer decides for free and decides the same
  * way every time.
  */
-export const RECREATABLE: readonly Recreatable[] = [TOP_BAR, HERO, CARDS, BUTTON, FOOTER, PROSE];
+export const RECREATABLE: readonly Recreatable[] = [TOP_BAR, HERO, CARDS, BUTTON, FOOTER, LINKS, PROSE];
 
 /* ------------------------------------------------------------------ */
 /* The answer                                                           */
@@ -519,7 +568,7 @@ export function recreateFrom(r: ElementReading): Recreation {
 /** What it is called on the board: what it is, and whose it was. */
 export function labelFor(pick: Recreatable, r: ElementReading): string {
   const host = r.from.host.replace(/^www\./, "");
-  const what = pick.id === "top-bar" ? "Top bar" : pick.id === "hero" ? "First screen" : pick.id === "cards" ? "Cards" : pick.id === "button" ? "Button" : pick.id === "footer" ? "Footer" : "Words";
+  const what = pick.id === "top-bar" ? "Top bar" : pick.id === "hero" ? "First screen" : pick.id === "cards" ? "Cards" : pick.id === "button" ? "Button" : pick.id === "footer" ? "Footer" : pick.id === "links" ? "Links" : "Words";
   return `${what} from ${host}`;
 }
 

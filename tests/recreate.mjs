@@ -108,6 +108,20 @@ const HERO = reading({
 });
 const hero = recreateFrom(HERO);
 check("a tall band with one much bigger line becomes the first screen", hero.patch.featureId === "hero-split", hero.id);
+/* A list of links, a sidebar of pages, is a list of links: not a band of words. */
+const sidebar = recreateFrom(reading({
+  box: { x: 900, y: 400, w: 240, h: 420 }, down: 0.15, tag: "aside", role: null,
+  text: [run("Resources", 18, 600), run("View this design's CSS", 14), run("CSS Resources", 14), run("FAQ", 14), run("Submit a design", 14)],
+  links: [{ words: "View this design's CSS", href: "https://x/a" }, { words: "CSS Resources", href: "https://x/b" }, { words: "FAQ", href: "https://x/c" }, { words: "Submit a design", href: "https://x/d" }],
+  layout: { flow: "column", columns: 1, gap: 4 }, children: [{ x: 0, y: 0, w: 240, h: 30 }, { x: 0, y: 40, w: 240, h: 30 }, { x: 0, y: 80, w: 240, h: 30 }, { x: 0, y: 120, w: 240, h: 30 }],
+}));
+check("a sidebar of links becomes a list of links, every link a line", sidebar.patch.featureId === "scrollspy-nav" && sidebar.patch.content === "View this design's CSS\nCSS Resources\nFAQ\nSubmit a design", `${sidebar.id}: ${sidebar.patch.content?.replace(/\n/g, " / ")}`);
+check("named for what it is, and what it did says how many under what", sidebar.patch.label === "Links from acme.example" && /4 links under "Resources"/.test(sidebar.did), sidebar.did);
+check("but a band with a link in it is still a band of words", recreateFrom(reading({ text: [run("A long title here", 32, 700), run("Read the whole story of the harbour and the quay.", 16), run("More", 16)], links: [{ words: "More", href: "https://x" }, { words: "Docs", href: "https://y" }, { words: "Home", href: "https://z" }] })).id !== "links");
+/* Painted on nothing of its own, a block is painted on what is behind it. */
+const onBody = colourFrom(reading({ paint: { bg: "rgba(0, 0, 0, 0)", text: "rgb(50, 80, 80)", behind: "rgb(45, 99, 96)", border: null, radius: 0, shadow: false } }));
+check("a block with no paint of its own takes the page's ground behind it", onBody.bg === "rgb(45, 99, 96)", JSON.stringify(onBody));
+check("and one with its own keeps its own", colourFrom(reading({ paint: { bg: "rgb(1, 2, 3)", text: "rgb(50, 80, 80)", behind: "rgb(45, 99, 96)", border: null, radius: 0, shadow: false } })).bg === "rgb(1, 2, 3)");
 check("carrying the real headline and the real sentence", hero.patch.content.startsWith("Ship the thing\nA sentence about"), hero.patch.content.slice(0, 40));
 
 const CARDS = reading({

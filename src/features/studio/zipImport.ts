@@ -407,6 +407,7 @@ const NAMES: Record<string, string> = {
   cards: "cards",
   button: "a button",
   footer: "a footer",
+  links: "a list of links",
 };
 
 /**

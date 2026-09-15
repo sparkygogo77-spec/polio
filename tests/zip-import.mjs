@@ -90,7 +90,9 @@ function zip(files) {
    read must not wait for it. A script is in it on purpose too: it must be
    taken out, and the panel must say so. */
 const CSS = `
-  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff;color:#111}
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,sans-serif;background:#fff url(img/quay.svg) no-repeat 0 -400px;color:#111}
+  .side{position:absolute;right:32px;top:600px;width:220px;padding:16px;border:1px solid #e3e3e6}
+  .side h4{margin:0 0 8px;font-size:14px} .side a{display:block;font-size:14px;padding:4px 0;color:#225}
   header{display:flex;align-items:center;gap:24px;height:72px;padding:0 32px;background:rgb(17,19,31);color:#fff}
   .name{font-size:22px;font-weight:600;letter-spacing:-0.01em}
   header nav{display:flex;gap:20px;margin-left:auto}
@@ -117,6 +119,7 @@ const HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</t
     <article><h2>Fast</h2><p>Every hop measured, nothing guessed.</p></article>
     <article><h2>Yours</h2><p>Your keys, your data, your account.</p></article>
   </section>
+  <aside class="side"><h4>Resources</h4><a href="/docs/start">Getting started</a><a href="/docs/api">The API</a><a href="/docs/faq">Questions</a><a href="/status">Status</a></aside>
   <footer>Harbour Freight Ltd. Built on the quay. <img alt="" width="1" height="1" src="https://example.invalid/beacon.png"></footer>
   <script>document.body.innerHTML = "";</script>
 </body></html>`;
@@ -250,8 +253,12 @@ check("naming the file it opened", listing.entry === "harbour/index.html", listi
 check("with a picture of the page as it looks", typeof listing.page?.shot === "string" && listing.page.shot.length > 1000);
 check("and it says the page brought scripts, which were not run", listing.scripts === true);
 check("the picture pointing at the network did not hold the read up", Number(listing.took) < 15, `${listing.took}s`);
-const measured = await post(HARBOUR, "harbour.zip", { selectors: JSON.stringify(["header", ".hero", ".cards"]) });
-check("several blocks are measured in one go", measured.ok === true && measured.readings?.length === 3, measured.ok ? "" : measured.message);
+const measured = await post(HARBOUR, "harbour.zip", { selectors: JSON.stringify(["header", ".hero", ".cards", ".side"]) });
+check("several blocks are measured in one go", measured.ok === true && measured.readings?.length === 4, measured.ok ? "" : measured.message);
+/* What is behind a block is read too: the body's colour and the body's picture. */
+const cardsRead = measured.readings?.[2];
+check("a block that paints nothing of its own is read with the page's colour behind it", cardsRead?.paint?.behind === "rgb(255, 255, 255)", cardsRead?.paint?.behind);
+check("and the page's own picture behind it, marked as behind", cardsRead?.images?.some((im) => im.behind && im.ground && /quay\.svg$/.test(im.src)), JSON.stringify(cardsRead?.images?.map((i) => [i.src.split("/").pop(), !!i.behind])));
 const bar = measured.readings?.[0];
 check("the bar is painted the colour its own stylesheet says, so the stylesheet was found in the zip", bar?.paint?.bg === "rgb(17, 19, 31)", bar?.paint?.bg);
 check("and the picture inside the first screen was found there too", measured.readings?.[1]?.images?.some((im) => im.w === 640), JSON.stringify(measured.readings?.[1]?.images?.map((i) => [i.w, i.h])));
@@ -308,12 +315,14 @@ const said = panel.locator("[data-site-said]");
 await said.waitFor({ state: "visible", timeout: 45_000 }).catch(() => undefined);
 const line = await said.innerText().catch(() => "");
 check("the page lands, and the panel says which blocks are real parts and which are less", /of \d blocks from harbour\.zip are real parts of the library/.test(line), line);
-check("naming them", /a top bar/.test(line) && /a first screen/.test(line) && /cards/.test(line), line);
+check("naming them", /a top bar/.test(line) && /a first screen/.test(line) && /cards/.test(line) && /a list of links/.test(line), line);
+check("a sidebar of links is a list of links, every link a line", (await state()).nodes.some((n) => n.featureId === "scrollspy-nav" && n.content === "Getting started\nThe API\nQuestions\nStatus"),
+  JSON.stringify((await state()).nodes.filter((n) => n.featureId === "scrollspy-nav").map((n) => n.content)));
 check("and that the page's scripts were not run", /scripts, which were not run/.test(line));
 const after = await state();
 const space = after.spaces[0];
 const parts = after.nodes.filter((n) => !before.nodes.some((b) => b.id === n.id));
-check("every block is a part on the board", parts.length >= 4, `${parts.length} parts`);
+check("every block is a part on the board", parts.length >= 5, `${parts.length} parts`);
 check("each a real part of the library, not a picture with fields on it", parts.every((n) => !n.custom && !n.code && typeof n.content === "string" && n.content.length > 0), parts.map((n) => n.featureId).join(", "));
 check("named for what it is and whose it was", parts.some((n) => n.label === "Top bar from harbour.zip") && parts.some((n) => n.label === "First screen from harbour.zip"), parts.map((n) => n.label).join(" | "));
 check("with the page's own words in it, a line whole whatever is marked up inside it", parts.some((n) => /Product\nPricing\nDocs/.test(n.content)) && parts.some((n) => /^Everything arrives somewhere\n/.test(n.content)), parts.map((n) => n.content.split("\n")[0]).join(" | "));
