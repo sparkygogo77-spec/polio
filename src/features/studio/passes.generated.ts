@@ -2,14 +2,77 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T06:03:41.709Z";
+export const GENERATED_AT = "2026-09-15T06:25:29.494Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "de7414a",
-    "when": "2026-09-15T06:03:22+00:00",
+    "id": "0b64a1d",
+    "when": "2026-09-15T06:24:34+00:00",
     "day": "15 September",
     "changes": [
+      {
+        "id": "0b64a1d",
+        "says": "The ground's one sliding layer lands on whole pixels",
+        "when": "2026-09-15T06:24:34+00:00",
+        "detail": [
+          "Second of the two. A one-line change, and the reason it works is the thing worth keeping.",
+          "WHAT IT COSTS, isolated first. At twelve boards the cloud layer is worth 8.6 frames per 900ms and the sky behind it 2.0 — but only 1.5 of the cloud's is its *sliding*; the rest is being a full-pane translucent layer that has to be re-blended whenever anything damages the viewport. Opacity, promotion and width made no difference to any of it: 30.6 as it is, 31.2 opaque, 31.0 unpromoted, 31.6 cropped to the on-screen width.",
+          "WHAT THE SLIDING WAS DOING. The layer is the pane and a bit — 1835 by 1191 — and it lands between pixels on nearly every frame. A composited layer that lands between pixels has to be resampled across its whole surface; one that lands on a pixel can be copied. Two and a quarter million pixels, filtered thirty times a second, to move the clouds six.",
+          "`steps(period)` over a slide of exactly `period` pixels is a step of exactly one pixel. Same speed, same distance, same loop — six pixels a second is now a step every sixth of a second — and every frame lands on the grid."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "c9ec7e2",
+    "when": "2026-09-15T06:24:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "2337f93",
+        "says": "Regenerate the passes for the scroll contract and the backend surface",
+        "when": "2026-09-15T06:24:03+00:00",
+        "detail": [
+          "Hypatia's two, taken on their own and not batched with anything: the gap above the page is a small constant with none below it, and the backend is a place you work — a system box, an effort, a conversation. Euler's 22a43b9 landed while this was verifying and waits for the next pass rather than riding along with it.",
+          "Fast-forward onto trunk, nothing to resolve. typecheck clean, build rc=0. Run here on the build, port 4261:",
+          "scroll-contract   24 of 27 hold, 3 FAILED full-page         42 of 42 hold backend-surface   25 of 25 hold board-layout      69/69 passed board-edges       11 of 11 hold quiet-scroll      8 of 8 hold shelf-pass        20/20 passed one-zoom          10/10 passed picked            16/16 passed",
+          "Nothing that was green has gone red. scroll-contract is new with this commit, and it arrives with three of its own reds, all of them the same check at the same viewport:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "22a43b9",
+    "when": "2026-09-15T06:04:08+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "22a43b9",
+        "says": "The ground's sparks rub out where they were, not the whole sheet",
+        "when": "2026-09-15T06:04:08+00:00",
+        "detail": [
+          "First of the two the pane growth made worth doing.",
+          "WHAT IT WAS. A paint began with one `clearRect` over everything. At the pane the shelf left behind it that is 811 by 1191 — 966,000 pixels wiped and handed back thirty times a second — to move a cast of at most ninety-six sparks which, measured on a live page, cover 349 of those pixels. Four hundredths of one per cent of the sheet has anything on it, and all of it was being paid for.",
+          "WHAT IT IS. Each spark is cleared where it was drawn last time and drawn where it is now, and the box it leaves is remembered on the field for the next frame. The whole sheet is wiped only when it is new or has just been resized, because then every old mark is a lie about a bitmap that no longer exists. The box is the tail's width — the widest thing drawn — plus the dot's radius plus two pixels for the antialiasing that smears a stroke past its own width and would otherwise leave a rim of the last frame behind.",
+          "WHAT IT BOUGHT, main-thread task time over five idle seconds with the ground the only thing running, four samples a cell:"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
       {
         "id": "de7414a",
         "says": "The gap above the page is a small constant, and there is none below it",
@@ -848,51 +911,6 @@ export const PASSES: Pass[] = [
         "when": "2026-09-14T20:45:54+00:00",
         "detail": [
           "Hypatia's pass: the site is a full-length page on a surface that moves, with tests/full-page.mjs holding it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e95fb12",
-    "when": "2026-09-14T20:45:28+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "616b9e5",
-        "says": "The site is a full-length page on a surface that moves",
-        "when": "2026-09-14T20:10:02+00:00",
-        "detail": [
-          "Three of J's reports were one thing, and the one thing is the model: the frame was a fixed viewport — a window the site slid behind — and the whole column scrolled rather than the pane. So the preview took the board edge to edge, the categories and the search went below the fold on both screens, and the site scrolled in a box inside the frame.",
-          "His words on the last, which is the distinction that decides the rest: not within a boundary, all of it should be rendered, not scrolling within the same web frame.",
-          "The frame is the whole site again, as tall as the last part reaches. There is no scrollbox in it and no bar on it.",
-          "The pane it stands in is what moves. A wheel over the page pans the surface down the whole length of it and stops a margin past the foot, because a surface you can throw into empty space is worse than one that ends."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d3ab200",
-    "when": "2026-09-14T20:04:40+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "d3ab200",
-        "says": "Regenerate the passes for the idle number and the key-sized construct",
-        "when": "2026-09-14T20:04:40+00:00",
-        "detail": [
-          "Euler's two: the timeline's own idle number, with whether the cost is count or area, and one tile with two settings so the construct works at the size of a key. tests/idle-cost.mjs and tests/key-construct.mjs came with them.",
-          "The first is the question I have been reporting from the outside all day — the timeline's resting frame rate — now measured by the session that owns it, with its own suite. Measured again on the merged tree below."
         ],
         "areas": [
           "studio"
