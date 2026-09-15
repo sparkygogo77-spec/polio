@@ -2,9 +2,44 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T04:30:30.586Z";
+export const GENERATED_AT = "2026-09-15T05:03:18.752Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "ef927ef",
+    "when": "2026-09-15T05:02:41+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "ef927ef",
+        "says": "A list of links is a part, and a block is painted on what is behind it",
+        "when": "2026-09-15T05:02:41+00:00",
+        "detail": [
+          "The two biggest gaps the real zip named. There was no list-of-links part in the catalogue, so a sidebar of pages and a list of resources, among the commonest things on any page, landed as bands of words that had lost the fact that every word went somewhere: three or more links that are most of the words in a block are a list of links now, every link a line, on the library's side nav. And only a block's own background was read, while the page's look sat on the body and its wrapper, so every block read as painted on nothing: the nearest painted colour and the nearest picture behind a block are read too, up to the body, and a block that paints nothing of its own takes the page's ground as its own."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "80d7347",
+        "says": "Regenerate the passes for a hand that moves only what it holds",
+        "when": "2026-09-15T04:32:26+00:00",
+        "detail": [
+          "Hypatia's pass: moving a part says where the part is, and nothing else. The page's height shrink-wraps its content with no slack, the board is as tall as the page and the shelf sits under it in the same scroller — so every pixel a part was dragged downward grew the page, resized the preview and pushed the categories down while the button was still held. Measured in her own commit: page 1960 → 2197, shelf top 1456 → 1606, for one part dragged 240px. The height is held in a ref for the length of a node or resize drag and settles when the hand comes off; a pan is not held, because it changes nothing about the document.",
+          "She has written the note into AGENTS.md as well, including the part worth having there most: her suite's own fixture will lie if the page is short, because a page with `mt-auto` slack pins the shelf to the bottom edge where it cannot move, and the fault reads as fixed while it is broken. A fixture that reports a pass for the wrong reason is worse than no fixture, and it is now written down where the next session will find it.",
+          "Run on this build: hand-steady 11/11, full-page 42/42, board-edges 11/11, picked 16/16."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "17afa2e",
     "when": "2026-09-15T04:30:30+00:00",
@@ -738,108 +773,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "27c269e",
-    "when": "2026-09-14T19:21:41+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "f599e04",
-        "says": "The green card is the preview the Builds page shows, from one definition",
-        "when": "2026-09-14T19:17:00+00:00",
-        "detail": [
-          "J's fourth note, and my earlier one is withdrawn with it.",
-          "The card had its own take on showing a site: a site is taller than a card, so the frame showed a band of it, and when everything an update touched sat below that band the frame slid down to it and the card said how far. That answered a real problem — two updates that both changed something low on the page are otherwise the same picture twice — and it was the wrong answer. It made a preview that had to be read rather than looked at, and a card that was a different kind of thing from every other preview of a site in the app.",
-          "So the card shows what Builds shows: the top of the page, the whole width, scaled down, the fold said with a fade. Nothing to interpret.",
-          "AND THERE IS ONE OF IT. `SitePreview` moved from `builds` into `studio`, because everything it is built out of already lives there — the blocks, the palette, the wash, the frame height — and Builds imports it from its new home. A private copy of a shared thing is the bug this repo names most often; two takes on one thing are the same bug with better manners."
-        ],
-        "areas": [
-          "builds",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "7c04ad1",
-        "says": "Erase deletes a space",
-        "when": "2026-09-14T19:14:03+00:00",
-        "detail": [
-          "Canvas.tsx, two declared lines in the eraser's press: when nothing drawn and no part is under it, the space whose line it is on, or failing that the newest space it is inside, goes (`spaceAtLine`, in space.ts)."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "27bdb13",
-        "says": "The light on a hole is an aura, painted once, and one space is open at a time",
-        "when": "2026-09-14T19:14:03+00:00",
-        "detail": [
-          "Five open holes put the board at six frames a second: each repainted its horizon thirty times a second for a breathing nobody could see, and the light was the disc's crescent, a hundred and sixty gradient strokes beamed to the left of every shape, which read as one lamp off the page rather than as things that glow. The light is an even aura now, sized to the shape and capped to the room it has, laid in bands too fine to count, and it is painted once when the hole opens and left; every frame only while it is consuming.",
-          "One space is open at a time: the one opened most recently, drawing counting as opening, so a drawn space opens itself and a document from before needs nothing. The rest are closed lines with what they are for written on them, in the words from their panel, or \"This space\" until there are any, and pressing one opens it. A surface already made is its parts on their ground, never the open hole.",
-          "tests/space-speed.mjs puts the number on it, the same way for both sides: no spaces, five spaces, five lit at once, idle and panned."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "def4e58",
-        "says": "A box says which one it is, not what o'clock it was",
-        "when": "2026-09-14T19:06:59+00:00",
-        "detail": [
-          "J's third note. A box led with the day it landed, and a date is the wrong axis for a timeline: a person reading one wants to know which iteration they are looking at and how far along it is.",
-          "The boxes are numbered from the oldest instead, ten to the point — the first pass this project made is v0.1, and v0.9 is followed by v1.0. As it stands that runs v0.1 to v2.4 over twenty-four passes.",
-          "It is a position in the history, not a release. Nothing here is published or tagged and the number's whole job is to be an ordinal a person can hold in their head and refer to. The day is not deleted, only demoted: a pass still carries `day`, a change still carries `when`, and every folded line still carries its sha, so anything on the panel can still be traced back to the commit it came from.",
-          "Built once into a map rather than looked up per box, because a scan per box while scrolling is a scan per box while scrolling."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "56bda6e",
-        "says": "The second voice reads: the font on a box stands off its own face",
-        "when": "2026-09-14T19:04:55+00:00",
-        "detail": [
-          "J's second note, and the instrument from the last pass is the right one so it is extended rather than replaced: it measured the marks on the timeline's cards, and the boxes on the Updates panel are nothing but words on the same material, which is where a second voice that is too quiet actually costs somebody something.",
-          "MEASURED, on the Updates boxes, worst pixel first:",
-          "before                 after the box's own title      4.42 / 3.98 / 3.76    7.63 / 6.35 / 5.88 \"under it\"               4.04 / 3.45 / 2.90    8.50 / 6.96 / 5.61 \"better\"                 5.39 / 4.49 / 3.66    9.58 / 7.66 / 5.94 \"new\"                    5.92 / 4.18 / 3.79    8.19 / 6.83 / 5.38 the body of a line      10.5+ / 7.7  / 6.5     unchanged",
-          "(middle / tenth-worst in a hundred / worst.) The body text was always fine at 8 to 12:1, which is exactly why this read as some lines fading rather than as a panel being dark."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "194a15f",
-        "says": "Thirty things alight, not one machine: a construct takes its own share",
-        "when": "2026-09-14T18:55:59+00:00",
-        "detail": [
-          "J's first and most important note: individually the boxes look great, together they move as one, which gives the page a single rhythm and reads as a loop rather than as life.",
-          "MEASURED FIRST, on the real screen rather than on the stylesheet. Two shots a beat apart; the difference between them inside one box is that box's motion for that beat, as a picture; reduce each to a common grid so boxes of different sizes can be compared, then correlate each box with the one next to it. One machine is 1.0.",
-          "before   mean 0.614 across 7 pairs, and one pair at 0.987 after    mean 0.139, 0.142, 0.140 over three runs, closest pair 0.370",
-          "0.987 is not \"alike\". That is the same animation on two boxes."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
