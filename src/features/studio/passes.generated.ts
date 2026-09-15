@@ -2,12 +2,57 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T04:00:24.276Z";
+export const GENERATED_AT = "2026-09-15T04:08:03.356Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "d78a570",
-    "when": "2026-09-15T03:59:39+00:00",
+    "id": "ae494a9",
+    "when": "2026-09-15T04:07:18+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "ae494a9",
+        "says": "Import says so when it cannot open a file, instead of sitting there",
+        "when": "2026-09-15T04:07:18+00:00",
+        "detail": [
+          "The chooser says `video/*`, so it will be handed a .mov of ProRes or an HEIC photo, and a decode that never completes left `ready` false for ever: both keys greyed out and nothing anywhere saying why. Of the three answers a person can get to a file that will not open — it works, it says no, or nothing happens — the last is the worst, and it was the one on offer.",
+          "Two ways a video refuses and both are handled: it errors, or it says nothing at all. The second is the one that hung, so it is on a six-second clock. A picture that will not decode says the same. The message names what happened, says nothing has been changed, and the way out stays where it was; the two landings say \"Nothing to land\" rather than staying mute.",
+          "tests/import.mjs 34 of 34, and the new check is red against the tree before this: \"nothing said, both keys still grey\".",
+          "Merged dijkstra and trunk before committing."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "better"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "11971f0",
+    "when": "2026-09-15T04:06:03+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "de5a8ee",
+        "says": "Regenerate the passes for whole-word names and quiet background work",
+        "when": "2026-09-15T04:01:40+00:00",
+        "detail": [
+          "Dijkstra's pass: a landed part is named by whole words, and background work does not toast.",
+          "Run on this build: create-flow 26/26, create-space 19/19, space-one-open 19/19. Not run: the rest, none of which touches the queue's naming or its toasts."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "07821c4",
+    "when": "2026-09-15T04:06:02+00:00",
     "day": "15 September",
     "changes": [
       {
@@ -19,6 +64,31 @@ export const PASSES: Pass[] = [
           "Declared lines in euler's files: reshapeRun.ts, `nameFrom` beside `text` and one use of it where a drawn part is named; DrawQueue.tsx, the runner's publish strips `toast`, under euler's own note that queued work throws no panel over the board."
         ],
         "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "5c79f3f",
+    "when": "2026-09-15T04:03:06+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "5c79f3f",
+        "says": "What is drawn outside the page shows on the ground, on all four sides",
+        "when": "2026-09-15T04:03:06+00:00",
+        "detail": [
+          "The page's box clipped to itself, and the asymmetry in that is why it went unnoticed for so long. `frameHeight` grows the page downward to meet whatever is drawn, so ink below the last part pushed the box out and stayed visible. Nothing grows it upward — and nothing should, because y=0 is the site's top and moving it would renumber every coordinate in the document — so a stroke above the page simply fell outside and was thrown away.",
+          "The check that should have caught it could not. `scrollHeight > clientHeight` measures overflow below and to the right only: a box with content above it reports `scrollHeight` equal to `clientHeight`, in every browser. Measured with J's own case, one stroke at y -34 on a stock page: 900 against 900, while 28px of a drawn line sat above the edge, unreachable by any gesture. Two of the four sides were invisible to the instrument.",
+          "So the page keeps its origin and stops clipping. Measured against the tree before this, the same document: 28px taken off the top, 57 off the left, 74 off the right, nothing off the bottom — which is the asymmetry, stated as numbers.",
+          "Uncut is not the whole of it. A stroke at y -520 was then whole and still unreachable, 265px above the board's own top, because a scroller only ever travels down. The board grows upward to hold it (`frameTopReach`) while the page does not, and the pane's scrollTop moves by the same amount in the same frame, so the ground does not jump out from under the hand mid-stroke. Sideways is left alone deliberately: the board pans across, so a thing off the left is a pan away rather than lost."
+        ],
+        "areas": [
+          "docs",
           "studio",
           "tests"
         ],
@@ -695,147 +765,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "199d336",
-    "when": "2026-09-14T18:01:32+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "e269355",
-        "says": "The third layer on a construct is what was dropping the frames, so it goes",
-        "when": "2026-09-14T17:46:39+00:00",
-        "detail": [
-          "The idle regression trunk reported twice. It is mine: it arrived with the motion work, in the commit that broke the motion apart into three layers.",
-          "MEASURED FIRST. Frames while nothing at all is happening — requestAnimationFrame gaps over 1.8 seconds on a timeline of boards, three runs each, the turn taken out and put back on the same build:",
-          "12 boards        30 boards with the turn         27.0 27.3 29.1   14.0 15.5 15.8   frames/900ms without it            30.6 31.3 32.6   18.2 18.5 20.4",
-          "A tenth of a card's frames at twelve boards and a quarter at thirty, for one layer, with nothing moving on the screen. The run that first found it, on a quieter box, put the same pair at 24.9 against 33.0 and 11.3 against 16.5 — a third of the frames. Absolute numbers move with whatever else the machine is doing; the direction does not."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "7134b72",
-        "says": "Three slots earn their place or lose it, and the key goes plain",
-        "when": "2026-09-14T17:24:08+00:00",
-        "detail": [
-          "J's wheel list, the four that were reading rather than building.",
-          "**The three-dot More has gone** from the page's wheel. It drew the tray's own two items a second time, and the tray is under the wheel already. Motion and the pencil take half the inner band each now instead of a third, so nothing is left as a sliver where it was.",
-          "**Edit has gone with it.** It held the frame's width and a placeholder, and the width is the third copy of one control: the bar's Desktop / Tablet / Phone keys set it, and so does Frame width on the canvas menu. Three ways to say one thing is not a slab's worth of wheel. The check states that as a count rather than an opinion, so if the width ever stops being set in two other places it has earned a slab back. Picture takes the whole inner bottom, which is the room a thing that opens a file wanted anyway.",
-          "**The pencil stayed and was given more than one box.** A slab that opens onto a single textarea is a slab a person learns to walk past — it costs a piece of the wheel and saves nothing over the box being there. It holds everything written about the page now: its words, its name, and its address, the last two of which had nowhere to be said on the wheel at all."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "5a2861e",
-        "says": "Take the whole page: a zip arrives as parts in a surface, locked as it was laid out",
-        "when": "2026-09-14T17:22:39+00:00",
-        "detail": [
-          "A file well beside the address on the space's panel. The page is shown and every block of it is on offer at once: measured, made into real library parts, laid on the surface in the proportion the page had at the width the surface was drawn, and locked. The line under it says which blocks are real parts and which arrived as a band of words, which hold a picture only the grounded step can make, and whether the page brought scripts that were not run. The space stays picked after a part lands, so that line is read where it was asked for."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0a7da37",
-        "says": "A zip's page is opened and measured with every request answered from the zip",
-        "when": "2026-09-14T17:22:39+00:00",
-        "detail": [
-          "The zip is unpacked in memory by a reader of a few lines and its page opened in the browser the server already finds, with every request the page makes answered out of the zip or refused, so nothing leaves the machine. Scripts are taken out before it opens; what is measured is what the HTML and the CSS say. The bounds are the zip's own: a size packed and unpacked, a count of files, no path that climbs out, one page, opened at its index.html. The element route measures several selectors in one call, so a page taken whole is one opening rather than a dozen."
-        ],
-        "areas": [
-          "pages",
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "659a31d",
-    "when": "2026-09-14T17:22:22+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "659a31d",
-        "says": "Regenerate the passes for the framed preview",
-        "when": "2026-09-14T17:22:22+00:00",
-        "detail": [
-          "Euler's pass: the preview frames what the update changed rather than the masthead every time."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "704b375",
-        "says": "The preview frames what the update changed, not the masthead every time",
-        "when": "2026-09-14T17:21:07+00:00",
-        "detail": [
-          "The green card shows a band of the site rather than the whole of it, because a site squeezed into two hundred pixels reads as nothing at all. The top of the page is the right band nearly always — that is what a site is — but two updates that both changed something below the fold were then the same picture twice, and what the preview is for is showing what *this* update did.",
-          "So the band moves. Everything this update placed or changed is measured; if none of it begins inside the band, the frame slides down the page to it, centred on it where there is room and never past the end. Nothing is scaled differently and nothing is cropped sideways — it is the same picture at the same size, further down, which is what a person scrolling to look at it would do.",
-          "And the card says so, because an unlabelled band that is not the top of a site reads as a site with no masthead: \"861px down · where it changed\", in the corner of the frame, only when it has moved.",
-          "Which parts are the update's own doing is now one rule, `ownParts`, read by both the preview that frames them and the feature list that lights them, so the picture and the list cannot disagree about the same update. It also counts a part that only *moved* now, which the list wanted anyway."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0d3a051",
-        "says": "Regenerate the passes for the green card as the site",
-        "when": "2026-09-14T04:28:57+00:00",
-        "detail": [
-          "Euler's pass: a green card is the site — the preview it left, at the size of a site. pan-cost's seed grew documents on its threads to match, because a board of cards with no documents measures an empty timeline.",
-          "The one conflict was the comment on a check we have both now mended, the check line itself identical on both sides. Trunk keeps the merged wording, which carries both halves."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f2dce00",
-    "when": "2026-09-14T04:28:36+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "affe417",
-        "says": "A green card is the site: the preview it left, at the size of a site",
-        "when": "2026-09-14T03:45:05+00:00",
-        "detail": [
-          "It was a line of prose beside a silhouette of grey rectangles, which says how many things stand on a page and nothing about what they are, and it called itself \"the board as you started it\".",
-          "**It is the site.** Every update snapshots the whole document it landed on, so the card renders that document with the same renderer the preview uses: the real parts, the real theme, laid out at the width the site is built at and scaled down to the card. Only the parts that existed by that update are in it, because the ones that come later arrive on the cards that made them — which is the point of a chain of them. The newest card is the exception: nothing has happened since it, so it shows the board as it stands rather than a snapshot that is already behind the thing it is a picture of. An update that kept no document shows nothing and says so, rather than showing today's site under an old card.",
-          "**At the size J drew.** 620 × 208, about two and a half times the width it was and twice the height, so a green card reads as the site and the red cards read as steps against it. The two used to be the same area on purpose — neither the lesser thing — and that was right while a green card was a line of prose.",
-          "**The prompting above, the feature list below.** What was asked is at the top in the card's own type, with a second page of it holding the same words in a field: sometimes a thing is acceptable and just wants another go, and sometimes the prompt wants a word changed first. Under the site are the parts standing on it, named, with this update's own lit — worked out from the two documents rather than parsed back out of the sentences `diffDocs` writes, because picking a name out of \"+ Top bar placed\" is a parser waiting to be wrong about a part called \"placed\"."
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }

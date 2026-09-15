@@ -30,6 +30,17 @@ const { chromium } = (() => {
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
 const SP = process.env.IMPORT_FIXTURES ?? "/tmp/claude-0/-home-user-polio/178f1cc3-07c7-5da2-a9b1-fc4bddcbd66f/scratchpad";
+/*
+ * Somewhere to put the files this suite makes.
+ *
+ * SP is one session's own scratchpad, and off that machine it does not
+ * exist — so writing a fixture into it threw ENOENT and took the run down
+ * before the check it was for. Anything written here goes to a directory
+ * the suite makes for itself unless SP is really there, which keeps
+ * IMPORT_FIXTURES pointing at a prepared set for anyone who has one.
+ */
+const OWN = existsSync(SP) ? SP : mkdtempSync(join(tmpdir(), "polio-import-"));
+const fixture = (name) => join(OWN, name);
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push(ok);
@@ -171,7 +182,7 @@ const recordClip = async (to) => {
 
 let clip = `${SP}/clip.webm`;
 if (!existsSync(clip)) {
-  const made = join(mkdtempSync(join(tmpdir(), "polio-import-")), "clip.webm");
+  const made = fixture("clip.webm");
   const ok = await recordClip(made).catch(() => false);
   if (ok) clip = made;
   check("a test video exists to scrub", ok, ok ? `recorded one at ${made}` : "could not record one");
@@ -381,7 +392,7 @@ if (existsSync(still)) {
  * the worst of the three answers a person can get.
  */
 {
-  const bad = `${SP}/not-really-a-video.mp4`;
+  const bad = fixture("not-really-a-video.mp4");
   writeFileSync(bad, Buffer.from("00000018667479706d70343200000000", "hex"));
   const p = await open();
   await wheel(p);
