@@ -19,6 +19,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { livePath, useStudio, useStudioHydration } from "../store";
 import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
+import { keepTurn } from "./LiveStage";
 
 const trim = (s: string) => s.replace(/^\/+|\/+$/g, "");
 
@@ -135,6 +136,7 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
               format={format}
               look={look}
               onNavigatePage={goPage}
+              onEvent={(e, nodeId) => keepTurn(e, nodeId)}
               nodeProps={(n) => ctxProps("studio-live-node", n.id, n)}
             />
           </div>

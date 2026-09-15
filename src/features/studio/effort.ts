@@ -7,6 +7,14 @@
  * asked. Every call reads it from here now, so the setting is one setting.
  */
 export const EFFORT_KEY = "builder.backend.effort";
+
+/**
+ * How long the browser waits for a route that asks Claude before it stops
+ * on its own. Longer than any route's own budget (they answer themselves
+ * within their `maxDuration`, 180s), so this fires only when nothing
+ * arrives at all: a deployment that killed the function with no reply.
+ */
+export const CALL_DEADLINE_MS = 210_000;
 export const EFFORT_IDS = ["low", "medium", "high"] as const;
 export type EffortId = (typeof EFFORT_IDS)[number];
 

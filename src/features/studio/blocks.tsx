@@ -11,7 +11,7 @@
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
 import { applyFont, liftTheme, overrideTheme } from "./parts/theme";
-import { textureCss, type Light, type Palette, type TextureLayer } from "./look";
+import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
@@ -44,13 +44,21 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   // everything else follows the site.
   const painted = applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font);
   // …and wear one texture layer of its own, or none, whatever the site does.
+  const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {
     if (!node.texture) return painted;
     if (node.texture === "none") return { ...painted, surfacePaint: undefined };
-    const layer = layers?.find((l) => l.id === node.texture);
-    if (!layer || !palette) return painted;
-    return { ...painted, surfacePaint: textureCss([{ ...layer, on: true }], palette, painted.surface) };
-  }, [node.texture, layers, palette, painted]);
+    if (!worn || !palette) return painted;
+    return { ...painted, surfacePaint: textureCss([{ ...worn, on: true }], palette, painted.surface) };
+  }, [node.texture, worn, palette, painted]);
+  /*
+   * The keyframes the worn layer's drift names. The paint above names
+   * `tex-drift-<hash of this one layer>`, and the only keyframes on the page
+   * were the site stack's, hashed over every layer that is on: the two
+   * agreed only when the stack was exactly this layer, so a part's drift
+   * was a name with nothing behind it. One set per worn layer, beside it.
+   */
+  const drift = worn && palette ? driftKeyframes([{ ...worn, on: true }], palette) : null;
   // Then it is put where it stands under the page's light, so its shadow
   // points the right way. No light, no change.
   const t = light?.on && page
@@ -79,6 +87,8 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
   const part = (
+    <>
+    {drift ? <style data-part-drift={drift.name}>{drift.css}</style> : null}
     <P
       id={node.featureId}
       label={node.label}
@@ -96,6 +106,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       onNavigate={onNavigate}
       emit={emit}
     />
+    </>
   );
   /*
    * A part is a box unless the author said otherwise — drew a line round

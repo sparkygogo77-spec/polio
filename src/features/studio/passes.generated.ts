@@ -2,9 +2,33 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:41:20.885Z";
+export const GENERATED_AT = "2026-09-15T08:48:02.323Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "e741538",
+    "when": "2026-09-15T08:46:00+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "e741538",
+        "says": "Regenerate the passes for Preview here, the tray, and a page's scroll",
+        "when": "2026-09-15T08:46:00+00:00",
+        "detail": [
+          "Bardeen's seven: the wheel's tray is drawn again and Preview here previews here, a page's scroll setting reaches the preview, the published width, the screenshot cut, the Vercel pages and the named behaviours.",
+          "One conflict, in RadialMenu.tsx, and it was an import list: trunk's is bardeen's plus Files, Film, Monitor and Scissors, which arrived with the cube work. Resolved as the union, which is trunk's set, and typecheck agrees nothing is missing or spare.",
+          "Merge otherwise clean, typecheck clean, build rc=0. Run here on the build, port 4282:",
+          "preview-here        5/5 passed page-scroll-live    5/5 passed behaviours-named    5/5 passed published-width     8/8 passed shot-cut            6/6 passed vercel-pages        6/6 passed wheel-pass         12 of 12 hold board-edges        11 of 11 hold full-page          45 of 45 hold"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "1f6d66d",
     "when": "2026-09-15T08:41:20+00:00",
@@ -1062,29 +1086,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "d6dee78",
-    "when": "2026-09-15T06:49:22+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "d6dee78",
-        "says": "Regenerate the passes for the first screen and the findings",
-        "when": "2026-09-15T06:49:22+00:00",
-        "detail": [
-          "Dijkstra's a445520: a tall header is named a first screen, and the findings from the recreate work are written down by owner rather than left in a session. Taken on its own; shannon's f9d0082, the live site read, waits for its own pass.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4263:",
-          "site-read        44 of 44 hold zip-import       68 of 68 hold space-by-hand    28 of 28 hold",
-          "Those are the three suites that read siteRead.ts, and zip-import is where the naming shows:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0

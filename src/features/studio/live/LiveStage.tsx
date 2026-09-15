@@ -12,6 +12,19 @@ import { useStudio } from "../store";
 import { DEVICE_WIDTH, placeNodes, type Device } from "./layout";
 import { LiveSite } from "./LiveSite";
 
+/**
+ * A cube or a solid turned in Preview stays turned. The board is a still
+ * frame by the parts' own rule, so this is where anyone actually turns one,
+ * and the angle they left it at belongs on the node rather than dying with
+ * the preview. Only the cube's was kept, and only on the board's own
+ * Preview; the full /builder/preview page kept neither.
+ */
+export function keepTurn(e: { type: string; turn?: { x: number; y: number } }, nodeId: string | undefined): void {
+  if (!nodeId || !e.turn) return;
+  if (e.type === "cube") useStudio.getState().setCubeTurn(nodeId, e.turn);
+  if (e.type === "mesh") useStudio.getState().setMeshTurn(nodeId, e.turn);
+}
+
 export function LiveStage({
   device: startDevice,
   pageId,
@@ -86,7 +99,7 @@ export function LiveStage({
              * turns one, and the angle they left it at belongs on the node
              * rather than dying with the preview.
              */
-            onEvent={(e, nodeId) => { if (e.type === "cube" && nodeId) useStudio.getState().setCubeTurn(nodeId, e.turn); }}
+            onEvent={(e, nodeId) => keepTurn(e, nodeId)}
             nodeProps={(n) => ctxProps("studio-live-node", n.id, n)}
           />
         </div>
