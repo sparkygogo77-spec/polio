@@ -19,9 +19,15 @@
  * So: one file decides, nothing else writes a size or an empty swatch of its
  * own, and emptiness looks transparent rather than dark.
  *
- *   node tests/colour-menu.mjs
+ *   node tests/colour-menu.mjs [url]   # default http://localhost:3000
  */
 import { readFileSync, readdirSync } from "node:fs";
+
+/* The URL comes in as an argument, the way every other suite here takes it.
+   It was pinned to :3000, so against a build on any other port the live half
+   printed "no Builder" and the suite still said 18 of 18 — green, with the
+   menus never opened. */
+const URL_ = process.argv[2] ?? "http://localhost:3000";
 import { BAND, CHIP, EMPTY, NEAR_OF_HOLE, chipSize, emptyChip, emptyFill, swatchChip } from "../src/features/studio/colourMenu.ts";
 
 const results = [];
@@ -153,21 +159,27 @@ check("a strip is thicker than the thumb that rides it", BAND.strip > 12, `${BAN
  * chip grew, the seventh was gone. Nothing in the source says which colours
  * a menu ends up showing, so this has to be looked at.
  */
-const up = await fetch("http://localhost:3000/builder").then((r) => r.ok).catch(() => false);
+const up = await fetch(`${URL_}/builder`).then((r) => r.ok).catch(() => false);
 if (!up) {
-  console.log("  --   no Builder at localhost:3000 — the menus themselves were not opened");
+  console.log(`  --   no Builder at ${URL_} — the menus themselves were not opened`);
 } else {
   const { createRequire } = await import("node:module");
   const req = createRequire(import.meta.url);
   let chromium = null;
-  for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {
+  /* `playwright-core` is what is installed here, and it was not on this list,
+     so even with a Builder up this half took the "no Playwright" door. Two
+     silent skips in a row is how a suite reports green while looking at
+     nothing. */
+  for (const c of [process.env.PLAYWRIGHT_MODULE, "playwright-core", "playwright", "/opt/node22/lib/node_modules/playwright"].filter(Boolean)) {
     try { ({ chromium } = req(c)); break; } catch { /* next */ }
   }
   if (!chromium) console.log("  --   no Playwright — the menus themselves were not opened");
   else {
-    const browser = await chromium.launch({ headless: true });
+    /* playwright-core ships no browser of its own; this container's is here,
+       and every other suite launches it the same way. */
+    const browser = await chromium.launch({ headless: true, executablePath: "/opt/pw-browsers/chromium" });
     const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
-    await page.goto("http://localhost:3000/builder", { waitUntil: "networkidle" });
+    await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
     await page.waitForTimeout(900);
     await page.keyboard.press("Control+k");
     await page.waitForTimeout(250);
@@ -178,6 +190,12 @@ if (!up) {
     const nb = await page.locator("[data-node-id]").first().boundingBox();
 
     const open = async (words) => {
+      /* Closed first. A menu left standing at level three does not re-root on
+         the next right-click, so every open after the first one found no
+         Looks wedge and reported the wedge missing — which is the suite
+         leaving its own door open, not the Builder losing a wedge. */
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(400);
       await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2, { button: "right" });
       await page.waitForTimeout(600);
       for (const w of words) {

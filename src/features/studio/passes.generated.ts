@@ -2,9 +2,32 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T05:30:00.340Z";
+export const GENERATED_AT = "2026-09-15T05:36:03.539Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "9e5a77a",
+    "when": "2026-09-15T05:34:26+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "9e5a77a",
+        "says": "Regenerate the passes for the three wheel slots",
+        "when": "2026-09-15T05:34:26+00:00",
+        "detail": [
+          "Hypatia's pass: three wheel slots, two that were duplicates and one that said soon. The wheel's own suite is new with it (tests/wheel-trim.mjs) and the background editors gained the drift control the \"soon\" slot had been promising.",
+          "Ran here against the merged tree, on the build, port 4259:",
+          "wheel-trim     14 of 14 hold wheel-pass     12 of 12 hold wheel-dismiss  11/11 passed colour-menu    18 of 18 hold menu-pass      101/101 passed",
+          "Those are the five that touch RadialMenu.tsx, BackgroundEditors.tsx and the studio index between them. typecheck clean, build rc=0."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "4285285",
     "when": "2026-09-15T05:29:59+00:00",
@@ -798,46 +821,6 @@ export const PASSES: Pass[] = [
           "studio"
         ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "88ca8e2",
-    "when": "2026-09-14T20:04:15+00:00",
-    "day": "14 September",
-    "changes": [
-      {
-        "id": "7746e3c",
-        "says": "One tile, two settings: the construct at the size of a key",
-        "when": "2026-09-14T19:31:49+00:00",
-        "detail": [
-          "The queued note, and an answer rather than a second texture. Hypatia owns the Finish key; the tile and the vignette that makes its dark centre are here, so what is exposed is a way to ask the existing tile for the small, bright, even variant. `moltenKeyClass(kind)` and one rule, `.molten.molten-key`.",
-          "WHAT IT RE-POINTS, and it is four values and nothing else. No second picture, no third layer, no keyframe of its own, no stop of its own — the same construct, asked for differently:",
-          "--mo-nebula        the bright cut of J's own render, not the dark one --nebula-period    56px instead of 180 --molten-vignette  a shallow falloff instead of a third of the opacity the face           an even top-to-bottom run instead of the inside-out radial whose centre is `--mo-core`",
-          "WHY EACH. A card is 620 by 208 and a key is nearer 96 by 28, and three things that are right at the first size are wrong at the second."
-        ],
-        "areas": [
-          "core",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "4c6cb37",
-        "says": "The timeline's own idle number, and whether the cost is count or area",
-        "when": "2026-09-14T19:22:44+00:00",
-        "detail": [
-          "J's fifth, and it answers the question the Finish-button note raises as well, because the same measurement answers both.",
-          "`tests/idle-cost.mjs` is new: it seeds a timeline of N boards, sits there touching nothing, and reads frames off the page's own rAF — a frame that never arrived leaves no trace in a profiler's task list, which is why this does not use one. Every row says how many constructs were on the screen and what share of it they covered while it was measured, so an ablation whose selector missed reads as a missed selector rather than as \"removing this changed nothing\".",
-          "THE TIMELINE ALONE, idle, this container, no GPU:",
-          "12 boards, 12 constructs over 34% of the screen as it is                          32 /900ms   40% dropped without the construct's layers     54          0% without the vines                  54          0% without either                     54          0%"
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
       }
     ],
     "more": 0
