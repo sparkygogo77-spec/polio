@@ -92,8 +92,22 @@ const after = await page.evaluate(() => ({
   shelf: Math.round(document.querySelector("[data-drawer]")?.getBoundingClientRect().y ?? -1),
   panels: [...document.querySelectorAll("[data-side-panel]")].map((a) => Math.round(a.getBoundingClientRect().top)),
 }));
-check("wheeling over the site moves the surface down it", before.head - after.head > 40,
-  `the frame's head went ${before.head} → ${after.head}`);
+/*
+ * Whatever travel there is, the wheel spends it — and where there is none,
+ * nothing moving is the right answer rather than a broken one.
+ *
+ * This read `before.head - after.head > 40` flat, which was true only while
+ * the site was always taller than the room it stood in. Now that content
+ * sets the page and the pane sets the zoom, a site that fits its pane has
+ * no travel at all: the frame's head stays put, the categories are already
+ * up, and demanding 40px of movement fails a board that is behaving. The
+ * rule underneath is the one held here, and `full-page` states the same
+ * thing the same way: the shelf is there, or the gesture brings it.
+ */
+const travel = await pane.evaluate((e) => e.scrollHeight - e.clientHeight);
+check(travel > 0 ? "wheeling over the site moves the surface down it" : "with nothing hidden, wheeling leaves the surface where it is",
+  travel > 0 ? before.head - after.head > 40 : before.head === after.head,
+  `${travel}px of travel · the frame's head went ${before.head} → ${after.head}`);
 
 /* ------------------------------------------------------------------ */
 /* 3. The categories come with it; nothing beside it moves at all      */
@@ -109,8 +123,9 @@ check("wheeling over the site moves the surface down it", before.head - after.he
  * could not be gone into; they are under the board in the same scroller
  * now, so they rise with it.
  */
-check("the categories come up with the gesture, in the same scroller",
-  before.shelf - after.shelf > 40, `${before.shelf} → ${after.shelf}`);
+check(travel > 0 ? "the categories come up with the gesture, in the same scroller" : "the categories are already up, because nothing is hidden",
+  travel > 0 ? before.shelf - after.shelf > 40 : before.shelf > 0 && before.shelf === after.shelf,
+  `${before.shelf} → ${after.shelf}, ${travel}px of travel`);
 check("and they are in the pane, which is why", await page.evaluate(() =>
   !!document.querySelector("[data-studio-pane]")?.contains(document.querySelector("[data-drawer]"))));
 check("and the side panels do not move either",

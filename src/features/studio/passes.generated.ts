@@ -2,9 +2,119 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T08:24:36.974Z";
+export const GENERATED_AT = "2026-09-15T08:30:17.113Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "5955bc8",
+    "when": "2026-09-15T08:30:12+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "8c9160e",
+        "says": "Content sets the page, the pane sets the zoom, and the two stopped being one",
+        "when": "2026-09-15T08:29:36+00:00",
+        "detail": [
+          "Two quantities, conflated by the fit I wrote yesterday. Separated here.",
+          "The page's SIZE is its content's. It grows downward and outward to hold everything drawn on it, and nothing in this touches that rule.",
+          "The ZOOM is the pane's. It scales whatever the page has grown to so the whole of it, the headroom above and the shelf below sit inside the pane in both directions; whichever of width or height binds first sets it. The fit reads the page's grown size as its input and never asks the page to be a size. Fitting harder is the answer to a page that grew.",
+          "At 2048×1152 — a 1440p 27 inch at 125% browser zoom, which is the screen J actually uses — the height binds and the arithmetic has no slack in it: the bar takes 87, leaving 1065; the headroom is 20 and the shelf 248, so the page has 797. Before, fitting the width alone drew it 1692×1058 and put the categories 332px under the fold on every load."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0ca7716",
+        "says": "The idle measure checks its own floor, because the floor was the answer",
+        "when": "2026-09-15T08:05:27+00:00",
+        "detail": [
+          "Chasing the last thing that damages the viewport at thirty boards led somewhere I did not expect and undoes a good deal of what this file has been saying.",
+          "Stop the spark canvas, the boards' clouds and the ground's cloud, and the page is still at 63% dropped. Stop one more thing — the Finish button, 65 by 28 pixels — and it is 54.0 and 0% dropped. Neither its mask nor its promotion explains that, so I put one bare element on a page where nothing else moved:",
+          "nothing moves at all (the floor)             53.7 /900ms    0% + one 1x1 TRANSPARENT div sliding            54.0           0%   free + one 10x10 TRANSPARENT div sliding          54.0           0%   free + one 10x10 RED div sliding                  20.3          62% + the same, promoted                         19.9          63% + the same, fading instead of sliding        20.3          62% + one 1x1 red div that exists, but is still  54.0           0%   free the 65x28 Finish button instead              21.0          61% the entire application as it is              20.6          62%",
+          "One hundred painted pixels in motion cost exactly what the whole application costs, and it scales with what is on the page rather than with what moves:"
+        ],
+        "areas": [
+          "tests"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "972ce24",
+        "says": "The fit's last witness is a clock, because a lost notification renders nothing",
+        "when": "2026-09-15T07:45:03+00:00",
+        "detail": [
+          "J measured the deploy again and the read holds: fresh at a 1509 pane the page is 1381, narrowed to a 772 pane it is still 1381, polled every 100ms for 3.2 seconds and never refitted. And it depends on the tab's history rather than the width — a tab that had been at 772 earlier in its life and was returned to it did refit, to 644 at 0.447222. One fit, kept.",
+          "REPRODUCED AT LAST, against the deployed artefact rather than a rebuild of it. Chromium here cannot do TLS to the deployment, so the deployment was put behind a plain-HTTP mirror and loaded in a real browser. Its bundle refits in 163ms on a plain narrow — under a 1.25 device scale, narrowed in four steps, on a document with ink above the page, after a six-second settle, and with reduced motion. So the bundle is not the variable. What does reproduce, every time, is the property underneath his repro: take one notification of the pane's resize away and that build never recovers.",
+          "deployed bundle, one notification lost   page 1381 in a 772 pane, 609px too wide after 2509ms",
+          "That is J's number, arrived at deterministically. A throw inside a ResizeObserver callback is how a notification goes missing in the wild — the browser swallows it, nothing in the console — but the check does not name a cause, only the property: a fit that is lost must not stay lost."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "2d237de",
+        "says": "The fit is remembered only when it happened, and three things watch the width",
+        "when": "2026-09-15T07:14:16+00:00",
+        "detail": [
+          "J, off the deploy at 7b38e86: the page window is 1381 wide at a 1737 viewport and 1381 at a 1000 viewport, where the pane is 772 — 673px off the right edge with no horizontal scroller. 1381 is exactly this fit for a 1509 pane, which is the pane at his widest, so nothing is computing a new width; one fit is being kept.",
+          "IT DOES NOT REPRODUCE HERE, and that is the first thing to say. The deployed bundle is this code: its own chunk carries the fit effect minified as `a.clientWidth!==r&&(r=a.clientWidth,n())` on deps `[fitNonce, frameWidth, fitZoom]`, and its server-rendered markup is `translate(0px, 20px) scale(1.21)` with the page window at 1440px — byte for byte what a build here emits. `git diff` between the deployed commit and this tree touches one generated passes file and nothing else.",
+          "A clean production build of that source, served here, at his three widths:",
+          "viewport 1000   pane  772   page  644   scale 0.447222 viewport 1300   pane 1072   page  944   scale 0.655556 viewport 1737   pane 1509   page 1381   scale 0.959028"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "92c28bd",
+        "says": "The rim's breath is one keyframe, and the ghost is gone",
+        "when": "2026-09-15T07:04:29+00:00",
+        "detail": [
+          "`molten-breathe` was declared and unused. It is not a spare: it is what the rim's breath used to be, 0.78 to 1 on the rim node itself, and that node covers the whole card, paints a nine-pixel sprite bezel, and cannot be promoted inside the card's rounded clip — so it was a full-card repaint per card per frame, 42% of frames dropped against 36% with it stopped, at twelve boards. It was replaced by `molten-swell` on two strips that composite, and the declaration was left behind.",
+          "So it is deleted rather than kept, because a keyframe nothing uses is a second answer to a question that already has one. The header list named the dead one and did not name the live one; it names `molten-swell` now.",
+          "`molten-churn` is the same situation and is deliberately left: it is documented as a spare that was never used, not as the residue of something removed. It is on the sweep list rather than in this commit.",
+          "The pin that read the ghost asserted the wrong rule anyway — \"under a quarter of its range\", which was right for a wash over a whole card and is wrong for a strip. A strip goes the whole way from nothing to itself, because the trough has to be the card without it. Repinned to that, plus a check that the ghost stays gone."
+        ],
+        "areas": [
+          "core",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f77107a",
+    "when": "2026-09-15T08:28:33+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "f77107a",
+        "says": "Regenerate the passes for one undo, and the still under a solid",
+        "when": "2026-09-15T08:28:33+00:00",
+        "detail": [
+          "Meitner's one: one undo takes back an edit, the still under a solid is the object rather than a picture of it, and the pitch limit and the undo are both photographed.",
+          "It touches store.ts, which is the board's, so the board's geometry is measured beside the cube work as it was in aeeee41.",
+          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4280:",
+          "box-to-cube    82/82 passed   (76 before) cube           62/62 passed cube-part      29/29 passed board-edges    11 of 11 hold full-page      42 of 42 hold picked         16/16 passed create-flow    26 of 26 hold"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "016b1f5",
     "when": "2026-09-15T08:24:36+00:00",
@@ -910,145 +1020,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c9ec7e2",
-    "when": "2026-09-15T06:24:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "2337f93",
-        "says": "Regenerate the passes for the scroll contract and the backend surface",
-        "when": "2026-09-15T06:24:03+00:00",
-        "detail": [
-          "Hypatia's two, taken on their own and not batched with anything: the gap above the page is a small constant with none below it, and the backend is a place you work — a system box, an effort, a conversation. Euler's 22a43b9 landed while this was verifying and waits for the next pass rather than riding along with it.",
-          "Fast-forward onto trunk, nothing to resolve. typecheck clean, build rc=0. Run here on the build, port 4261:",
-          "scroll-contract   24 of 27 hold, 3 FAILED full-page         42 of 42 hold backend-surface   25 of 25 hold board-layout      69/69 passed board-edges       11 of 11 hold quiet-scroll      8 of 8 hold shelf-pass        20/20 passed one-zoom          10/10 passed picked            16/16 passed",
-          "Nothing that was green has gone red. scroll-contract is new with this commit, and it arrives with three of its own reds, all of them the same check at the same viewport:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "22a43b9",
-    "when": "2026-09-15T06:04:08+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "22a43b9",
-        "says": "The ground's sparks rub out where they were, not the whole sheet",
-        "when": "2026-09-15T06:04:08+00:00",
-        "detail": [
-          "First of the two the pane growth made worth doing.",
-          "WHAT IT WAS. A paint began with one `clearRect` over everything. At the pane the shelf left behind it that is 811 by 1191 — 966,000 pixels wiped and handed back thirty times a second — to move a cast of at most ninety-six sparks which, measured on a live page, cover 349 of those pixels. Four hundredths of one per cent of the sheet has anything on it, and all of it was being paid for.",
-          "WHAT IT IS. Each spark is cleared where it was drawn last time and drawn where it is now, and the box it leaves is remembered on the field for the next frame. The whole sheet is wiped only when it is new or has just been resized, because then every old mark is a lie about a bitmap that no longer exists. The box is the tail's width — the widest thing drawn — plus the dot's radius plus two pixels for the antialiasing that smears a stroke past its own width and would otherwise leave a rim of the last frame behind.",
-          "WHAT IT BOUGHT, main-thread task time over five idle seconds with the ground the only thing running, four samples a cell:"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "de7414a",
-        "says": "The gap above the page is a small constant, and there is none below it",
-        "when": "2026-09-15T06:03:22+00:00",
-        "detail": [
-          "J measured this himself at three widths and read it correctly: the sides are a constant 64 at every width, the gap above is not, and it is a share of something that scales. On the deploy, 1278 tall: width 1000 gave 152 above a 403 page, 1300 gave 192 above 590, 1737 gave 252 above 863 — a ratio climbing 0.29, 0.33, 0.38 as the pane narrowed.",
-          "THE SCALING THING IS MINE. Three commits ago the board started making room above the page for anything drawn up there, so a stroke at y -520 stopped being unreachable. That room is `frameTopReach`, it had a 160px margin on it, and it is drawn at the board's zoom — so it grows as the pane widens, which is exactly the curve he plotted. Reproduced on a default document: one stroke at y -137 takes the gap from 64 to 255, against his 252. His board has ink above the page and the Builder's default document does not, which is why a measurement here and one there disagreed by 188 pixels.",
-          "THREE FIXES. The gap above is a constant 20, not half of `FRAME_GUTTER`. There is nothing below the page at all — \"the website has no underside gap\", in his words, so the page's foot is the board's foot. And the ink margin is 24 rather than 160: room enough to see what is up there and not a pixel of ceremony.",
-          "A fourth fault the check found that nobody had reported: the Builder was opening 355px down its own scroll. The compensation that keeps the ground still while a stroke crosses the page's top edge was also firing on load, because the document hydrates after the first paint and `above` goes from nothing to its real size in a step or two. A guard against the first step only halved it; it is gated on a hand actually being on the board now."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "be365c9",
-        "says": "The backend is a place you work: a system box, an effort, a conversation",
-        "when": "2026-09-15T05:51:23+00:00",
-        "detail": [
-          "Measured against J's five before changing anything: a prompt box and an output existed, in a dialog. The other three did not.",
-          "the system box — `SYSTEM` was a constant in the route, so the instructions the model works under were the one part of the call nobody using the Builder could see, let alone change.",
-          "the effort — `effort: mode === \"ideas\" ? \"medium\" : \"high\"`, decided in the route and never asked.",
-          "the conversation — every ask was one-shot, which is why \"no, the other one\" had nowhere to go."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "57db749",
-        "says": "Regenerate the passes for one element fitted to its space",
-        "when": "2026-09-15T05:47:36+00:00",
-        "detail": [
-          "Dijkstra's pass: one element taken from a site is fitted to the space it lands in. FromASite.tsx, and five new checks in tests/zip-import.mjs that measure the fitting rather than describe it.",
-          "Fast-forward onto trunk, nothing to resolve. Ran here on the build, port 4260:",
-          "zip-import   67 of 67 hold",
-          "including the new one, which reads the numbers off the board:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "c0e7336",
-        "says": "One element taken from a site is fitted to the space it lands in",
-        "when": "2026-09-15T05:45:09+00:00",
-        "detail": [
-          "Read off a real site, a list of sixteen links measured 841 tall and landed at its own size in a space 380 tall: the board clamped it to the top of the page, its middle fell outside the line, and it was a part with no space, no plan and no panel. One element taken alone keeps its proportion and takes at most nine tenths of the space either way, so it lands inside and the space's plan reaches it."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "36b6bba",
-        "says": "The colour menus were never actually opened",
-        "when": "2026-09-15T05:36:20+00:00",
-        "detail": [
-          "The sixth instrument in this project that reported green while measuring nothing, and the worst of them, because it skipped through two doors in a row rather than one.",
-          "tests/colour-menu.mjs has a logic half read off the source and a live half that opens the menus in a browser. The live half was guarded twice:",
-          "the Builder URL was pinned to localhost:3000 rather than taken as an argument, so against a build on any other port it printed \"no Builder at localhost:3000\" and moved on",
-          "the module list it looked for Playwright in held \"playwright\" and a path into /opt/node22, but this container has playwright-core, so even with a Builder on :3000 it would have printed \"no Playwright\" instead"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "9e5a77a",
-        "says": "Regenerate the passes for the three wheel slots",
-        "when": "2026-09-15T05:34:26+00:00",
-        "detail": [
-          "Hypatia's pass: three wheel slots, two that were duplicates and one that said soon. The wheel's own suite is new with it (tests/wheel-trim.mjs) and the background editors gained the drift control the \"soon\" slot had been promising.",
-          "Ran here against the merged tree, on the build, port 4259:",
-          "wheel-trim     14 of 14 hold wheel-pass     12 of 12 hold wheel-dismiss  11/11 passed colour-menu    18 of 18 hold menu-pass      101/101 passed",
-          "Those are the five that touch RadialMenu.tsx, BackgroundEditors.tsx and the studio index between them. typecheck clean, build rc=0."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
