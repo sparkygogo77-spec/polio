@@ -10,10 +10,13 @@
  *
  * Pure, and tested by `tests/cube.mjs`.
  */
-import { CUBE_SIDES, emptyCube, emptyFace, type CubeData, type CubeFace } from "./types.ts";
+import { CUBE_SIDES, REST, emptyCube, emptyFace, type CubeData, type CubeFace, type CubeSide } from "./types.ts";
 
-export { CUBE_SIDES, emptyCube, emptyFace };
-export type { CubeData, CubeFace };
+export { CUBE_SIDES, REST, emptyCube, emptyFace };
+export type { CubeData, CubeFace, CubeSide };
+
+/** The shortest side a cube part is let be, in board pixels. Under it nothing on a face reads. */
+export const CUBE_MIN = 120;
 
 /** Words that mean "this is a cube" rather than being something to write on one. */
 const CUBE_WORDS = /\b(cube|cuboid|box|3d box|hexahedron)\b/i;

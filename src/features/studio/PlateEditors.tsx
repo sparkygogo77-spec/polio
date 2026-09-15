@@ -20,6 +20,7 @@ import { cn } from "@/core/lib/cn";
 import { Input } from "@/core/ui/input";
 import { Textarea } from "@/core/ui/textarea";
 import { getFeature, MOTION_OPTION_IDS } from "./catalog";
+import { CUBE_SIDES, emptyFace, type CubeFace } from "./parts/cubeFaces";
 import { isLinkable } from "./parts";
 import { NODE_SHAPES, useStudio, type StudioNode } from "./store";
 import { spun } from "./menuGeometry";
@@ -198,6 +199,7 @@ const field = `min-h-0 w-full text-[10px] leading-snug ${SCREEN_FIELD}`;
 export function PlateEditor({ which, node, plate, spare }: { which: string; node: StudioNode; plate: Slab; spare: Slab[] }) {
   const feature = getFeature(node.featureId);
   const pages = useStudio((s) => s.pages);
+  const pickedFace = useStudio((s) => (s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
   const update = (patch: Partial<StudioNode>) => useStudio.getState().updateNode(node.id, patch);
   const [info, setInfo] = React.useState(false);
   const about = feature?.explain ?? feature?.blurb ?? null;
@@ -224,6 +226,28 @@ export function PlateEditor({ which, node, plate, spare }: { which: string; node
   }
 
   if (which === "words") {
+    /*
+     * A picked face takes the pencil.
+     *
+     * The wheel is the whole editor, so what the panel can do to one face
+     * the wheel does too: with a face of the cube picked, the screen is
+     * that face's words, its heading, its line and its own prompt, and
+     * the part's prompt is one press of the face away.
+     */
+    if (pickedFace && node.featureId === "cube-3d") {
+      const i = CUBE_SIDES.indexOf(pickedFace);
+      const face = node.cube?.faces?.[i] ?? emptyFace();
+      const setFace = (patch: Partial<CubeFace>) => useStudio.getState().setCubeFace(node.id, i, patch);
+      return (
+        <PlateQuad {...common} title={`The ${pickedFace} face`} sub={`${feature?.name ?? node.label} · picked`}>
+          <div className="flex flex-1 flex-col gap-1" data-plate-face={pickedFace}>
+            <Input value={face.heading} aria-label={`${pickedFace} heading`} inputSize="sm" className={field} placeholder="Heading" onChange={(e) => setFace({ heading: e.target.value })} />
+            <Textarea rows={2} value={face.body} aria-label={`${pickedFace} body`} className={`${field} resize-none`} placeholder="A line or two" onChange={(e) => setFace({ body: e.target.value })} />
+            <Textarea rows={2} value={face.prompt ?? ""} aria-label={`${pickedFace} prompt`} className={`${field} flex-1 resize-none`} placeholder="What this face is for" onChange={(e) => setFace({ prompt: e.target.value })} />
+          </div>
+        </PlateQuad>
+      );
+    }
     return (
       <PlateQuad {...common} title="This part's prompt">
         <Textarea rows={5} value={node.prompt} aria-label="Element prompt" className={`${field} flex-1 resize-none`} placeholder={feature?.hint ?? "Specific to this placement…"} onChange={(e) => update({ prompt: e.target.value })} />

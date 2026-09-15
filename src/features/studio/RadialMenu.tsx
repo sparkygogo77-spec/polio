@@ -41,7 +41,7 @@
  * menu itself), which is the draft option to compare against.
  */
 import * as React from "react";
-import { Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Monitor, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
+import { Box, Boxes, Brush, ChevronsDown, ChevronsUp, CircleDashed, ClipboardPaste, Copy, Database, Ellipsis, Eraser, Eye, Files, Film, Flag, Gauge, Grid2x2, ImagePlus, Link2, ListTree, Lock, Monitor, Orbit, Palette as PaletteIcon, Pencil, Pipette, Play, Plus, Scissors, SlidersHorizontal, Sparkles, Sun, Tag, Trash2, Type, Undo2, Unlock, Wand2, Wind, X } from "lucide-react";
 import { cn } from "@/core/lib/cn";
 import { AddDisc } from "./AddDisc";
 import { BACKGROUND_ID, heldBackground, livePath, useStudio, type StudioNode } from "./store";
@@ -62,6 +62,7 @@ import { overrideTheme, resolvePalette, themeFrom } from "./parts/theme";
 import { auraColour, auraStyle, lands, newLayer, parseColor, textureCss, type Palette, type RoleId, type TextureLayer } from "./look";
 import { play } from "@/core/audio/engine";
 import { useActions } from "@/core/actions";
+import { makeSolid, showCube } from "./solidRun";
 
 /* ------------------------------------------------------------------ */
 /* Opening it                                                          */
@@ -311,7 +312,16 @@ function motionOptions(node: StudioNode) {
   return (getFeature(node.featureId)?.options ?? []).filter((o) => MOTION_OPTION_IDS.has(o.id));
 }
 
-function choicesFor(group: SlotId, node: StudioNode): Choice[] {
+/**
+ * What the wheel can do that reaches past the part: making a cube a
+ * solid needs the palette and somewhere to say what happened, which the
+ * choices themselves do not carry.
+ */
+interface WheelHands {
+  solid: (nodeId: string) => void;
+}
+
+function choicesFor(group: SlotId, node: StudioNode, hands?: WheelHands): Choice[] {
   switch (group) {
     case "look":
       return [
@@ -345,11 +355,16 @@ function choicesFor(group: SlotId, node: StudioNode): Choice[] {
       return [];
     default:
       // Edit is how the part is *built*: its name, its layout options —
-      // columns, shape, density — and its own type.
+      // columns, shape, density — and its own type. A cube is built one
+      // step further, into a solid, behind the routing table: the piece is
+      // there whenever the part is a cube, and fires the same road the
+      // panel's button does, saying what it needs when it needs a token.
       return [
         { id: "name", label: "Name", icon: Tag },
         { id: "options", label: "Options", icon: SlidersHorizontal },
         { id: "font", label: "Font", icon: Type },
+        ...(node.featureId === "cube-3d" ? [{ id: "solid", label: "Make it a solid", icon: Boxes, act: () => hands?.solid(node.id) }] : []),
+        ...(node.featureId === "mesh-3d" && node.cube ? [{ id: "cube-back", label: "Back to the cube", icon: Box, act: () => { play("tap"); showCube(node.id); } }] : []),
       ];
   }
 }
@@ -945,8 +960,21 @@ export function RadialMenu() {
         { id: "paste", label: "Paste looks", icon: <ClipboardPaste className="size-3" />, disabled: !carriedLooks, onClick: () => { if (carriedLooks) s().updateNode(node!.id, { ...carriedLooks }); } },
       ];
 
+  /*
+   * The solid road from the wheel: the same call the panel's button makes,
+   * with what came of it said as a toast, because the wheel is gone by the
+   * time the model answers.
+   */
+  const solidFromWheel = (nodeId: string) => {
+    play("confirm");
+    closeRadial();
+    void makeSolid(nodeId, palette).then((r) => {
+      ctx.publish({ key: `studio:solid:${nodeId}`, title: r.ok ? "Made a solid" : "Still a cube", body: r.message, level: r.ok ? "success" : "info", source: "studio", toast: true });
+      play(r.ok ? "confirm" : "deny");
+    });
+  };
   const choicesOf = (g: SlotId): Choice[] =>
-    bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!);
+    bg ? bgChoicesFor(g, open.at) : choicesFor(g, node!, { solid: solidFromWheel });
 
   /* ---------------------------------------------------------- level 2 */
   const group = picked && !onBoard ? slots[picked] : null;
