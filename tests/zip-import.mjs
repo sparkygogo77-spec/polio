@@ -105,7 +105,9 @@ const CSS = `
   .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:0 32px 64px}
   .cards article{padding:24px;border:1px solid #e3e3e6;border-radius:8px}
   .cards h2{font-size:20px;margin:0 0 8px}
-  footer{padding:32px;background:#f4f4f6;font-size:13px;color:#555}
+  .terms{padding:0 32px} .terms h3{margin:0;font-size:20px;line-height:30px}
+  .terms p{float:left;width:100%;height:130px;margin:0;font-size:15px;line-height:1.5}
+  footer{clear:both;padding:32px;background:#f4f4f6;font-size:13px;color:#555}
 `;
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#9fb6c8"/><rect y="240" width="640" height="120" fill="#31506b"/><circle cx="520" cy="90" r="44" fill="#f3e2c0"/></svg>';
 const HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</title><link rel="stylesheet" href="css/style.css"><script src="js/app.js"></script></head><body>
@@ -118,6 +120,12 @@ const HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Harbour</t
     <article><h2>Quiet</h2><p>Nothing moves without a reason.</p></article>
     <article><h2>Fast</h2><p>Every hop measured, nothing guessed.</p></article>
     <article><h2>Yours</h2><p>Your keys, your data, your account.</p></article>
+  </section>
+  <section class="terms"><h3>Terms of carriage</h3>
+    <p>Where possible, cargo is booked to the door and not to the quay, so that one bill covers the whole way.</p>
+    <p>Luckily, most freight is dry and boxed, and a box that is measured once is measured for good.</p>
+    <p>We ask that every consignment carry its own papers, and that the papers say what the box says.</p>
+    <p>This is a shared undertaking as well as a service, and the terms are the same for every customer.</p>
   </section>
   <aside class="side"><h4>Resources</h4><a href="/docs/start">Getting started</a><a href="/docs/api">The API</a><a href="/docs/faq">Questions</a><a href="/status">Status</a></aside>
   <footer>Harbour Freight Ltd. Built on the quay. <img alt="" width="1" height="1" src="https://example.invalid/beacon.png"></footer>
@@ -219,6 +227,35 @@ check("and a run's readings merge into one: the boxes united, the words in order
 const zenBlocks = pageBlocks(zen).map((b) => b.selector).join(",");
 check("one box under three names is one block, and a column holding its sections is opened into them",
   zenBlocks === "header,#zen-preamble,#zen-supporting,footer", zenBlocks);
+/* The same page as it is really laid out: the intro's summary and preamble
+   float, so the column after it begins beside them, 310 down, and its box
+   is stretched up over the intro's. The Requirements section's paragraphs
+   are tall, and its box is grown to hold them. Read whole, the page is
+   its sections, one under the next, and Requirements is one of them. */
+const laid = [
+  { selector: "body > div", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 3299 }, words: "all" },
+  { selector: "#zen-supporting", what: "a first screen", box: { x: 0, y: 310, w: 1280, h: 2989 }, words: "So What" },
+  { selector: "#zen-requirements", what: "a band across the page", box: { x: 0, y: 2002, w: 1280, h: 1121 }, words: "Requirements" },
+  { selector: "#zen-intro", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 823 }, words: "CSS Zen Garden" },
+  { selector: "#zen-participation", what: "a band across the page", box: { x: 0, y: 1248, w: 1280, h: 501 }, words: "Participation" },
+  { selector: "header", what: "the top of the page", box: { x: 0, y: 0, w: 1280, h: 310 }, words: "CSS Zen Garden" },
+  { selector: "#zen-explanation", what: "a first screen", box: { x: 0, y: 823, w: 845, h: 425 }, words: "So What" },
+  { selector: "#design-selection", what: "a first screen", box: { x: 854, y: 360, w: 426, h: 769 }, words: "Select a Design" },
+  { selector: "#zen-benefits", what: "a band across the page", box: { x: 0, y: 1749, w: 1280, h: 253 }, words: "Benefits" },
+  { selector: "#zen-preamble", what: "a first screen", box: { x: 0, y: 498, w: 845, h: 325 }, words: "The Road" },
+  { selector: "footer", what: "the foot of the page", box: { x: 0, y: 3123, w: 1280, h: 176 }, words: "HTML CSS" },
+  { selector: "#zen-requirements p:nth-of-type(2)", what: "a paragraph", box: { x: 0, y: 2243, w: 845, h: 240 }, words: "Luckily" },
+  { selector: "#zen-requirements p:nth-of-type(4)", what: "a paragraph", box: { x: 0, y: 2595, w: 845, h: 208 }, words: "This is a learning" },
+  { selector: "#zen-requirements p:nth-of-type(5)", what: "a paragraph", box: { x: 0, y: 2803, w: 1280, h: 320 }, words: "By Dave Shea" },
+  { selector: "#zen-summary", what: "a band across the page", box: { x: 0, y: 310, w: 845, h: 188 }, words: "A demonstration" },
+  { selector: "#zen-requirements p:nth-of-type(1)", what: "a paragraph", box: { x: 0, y: 2099, w: 845, h: 144 }, words: "Where possible" },
+  { selector: "#zen-requirements p:nth-of-type(3)", what: "a paragraph", box: { x: 0, y: 2483, w: 845, h: 112 }, words: "We ask" },
+  { selector: "#zen-requirements h3", what: "a heading", box: { x: 0, y: 2066, w: 845, h: 33 }, words: "Requirements" },
+];
+const laidBlocks = pageBlocks(laid).map((b) => b.selector).join(",");
+check("a column stretched up beside the floats of the section before it is still opened into its sections",
+  /^header,#zen-summary,#design-selection,#zen-preamble,#zen-explanation,#zen-participation,#zen-benefits,#zen-requirements,footer$/.test(laidBlocks), laidBlocks);
+check("and a section of tall paragraphs is one band, not a heading and its paragraphs", !/p:nth-of-type|h3/.test(laidBlocks) && /#zen-requirements/.test(laidBlocks), laidBlocks);
 const fit = fitToSurface({ x: 100, y: 200, w: 640, h: 300 }, 1280, blocks.map((b) => b.box));
 check("laid on the surface at the width it was drawn, the surface grows to the page's proportion", fit.surface.w === 640 && fit.surface.h === 425 && fit.scale === 0.5, JSON.stringify(fit.surface));
 check("and every block keeps its place and size as a share of the page", fit.places[0].h === 36 && fit.places[1].y === 236 && fit.places[3].y === 580 && fit.places[3].h === 45, JSON.stringify(fit.places));
@@ -254,6 +291,11 @@ check("naming the file it opened", listing.entry === "harbour/index.html", listi
    a first screen, so the name agrees with the part it becomes. */
 check("a tall banner is named a first screen, not the bar across the top", listing.candidates.some((c) => /^Everything arrives/.test(c.words) && c.what === "a first screen" && c.box.h > 300) && listing.candidates.some((c) => c.what === "the bar across the top" && c.box.h === 72),
   listing.candidates.filter((c) => /^Everything arrives|^Harbour/.test(c.words)).map((c) => `${c.what} ${c.box.h}`).join(" | "));
+/* A section whose paragraphs float has a box that collapses to its heading,
+   30px tall over four paragraphs of 130. It is read where its words are. */
+const terms = listing.candidates.find((c) => c.selector === ".terms" || /^Terms of carriage/.test(c.words));
+check("a section whose paragraphs float is read where its words are, not at the box that collapsed to its heading", !!terms && terms.box.h >= 30 + 4 * 130 && terms.box.h < 30 + 4 * 130 + 40, terms ? `${terms.box.h} tall` : "not listed");
+check("and its paragraphs are named paragraphs, so a person reading the list knows them for what they are", listing.candidates.filter((c) => /^(Where possible|Luckily|We ask|This is a shared)/.test(c.words)).every((c) => c.what === "a paragraph"), listing.candidates.filter((c) => /^(Where possible|Luckily)/.test(c.words)).map((c) => c.what).join(" | "));
 check("with a picture of the page as it looks", typeof listing.page?.shot === "string" && listing.page.shot.length > 1000);
 check("and it says the page brought scripts, which were not run", listing.scripts === true);
 check("the picture pointing at the network did not hold the read up", Number(listing.took) < 15, `${listing.took}s`);
@@ -323,6 +365,12 @@ check("naming them", /a top bar/.test(line) && /a first screen/.test(line) && /c
 check("a sidebar of links is a list of links, every link a line", (await state()).nodes.some((n) => n.featureId === "scrollspy-nav" && n.content === "Getting started\nThe API\nQuestions\nStatus"),
   JSON.stringify((await state()).nodes.filter((n) => n.featureId === "scrollspy-nav").map((n) => n.content)));
 check("and that the page's scripts were not run", /scripts, which were not run/.test(line));
+const termsParts = (await state()).nodes.filter((n) => /Where possible|Luckily|We ask|This is a shared/.test(n.content ?? ""));
+/* One part, its heading first and its paragraphs after it in order. The
+   band-of-words entry keeps three lines under the heading, so the fourth
+   paragraph is the catalogue's to lose, not the reading's. */
+check("a section whose paragraphs float lands as one part, its heading and its paragraphs in it, not a heading and four parts",
+  termsParts.length === 1 && /^Terms of carriage\nWhere possible[^]*\nLuckily[^]*\nWe ask/.test(termsParts[0].content), `${termsParts.length} parts: ${JSON.stringify(termsParts.map((n) => [n.featureId, n.content]))}`);
 const after = await state();
 const space = after.spaces[0];
 const parts = after.nodes.filter((n) => !before.nodes.some((b) => b.id === n.id));
