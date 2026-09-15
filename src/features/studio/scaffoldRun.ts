@@ -100,7 +100,15 @@ export function buildScaffold(): ScaffoldResult {
     master: s.brief.master,
     frameWidth: s.frameWidth,
     // Each page's behaviours, derived exactly as the live page derives them, so the built site runs what Preview runs.
-    pages: s.pages.map((p) => ({ id: p.id, name: p.name, path: p.path, prompt: p.prompt, behaviours: deriveBehaviours(s.nodes.filter((n) => n.pageId === p.id), p.scroll) })),
+    pages: s.pages.map((p) => {
+      const own = s.nodes.filter((n) => n.pageId === p.id);
+      // The page at a tablet and a phone, placed exactly as the live page places it, so the built site reflows as Preview does.
+      const layout = (device: "tablet" | "phone") => {
+        const { width, height, placed } = placeNodes(own, device, s.frameWidth);
+        return { width, height, placed: placed.map((q) => ({ id: q.node.id, x: q.x, y: q.y, w: q.w, h: q.h })) };
+      };
+      return { id: p.id, name: p.name, path: p.path, prompt: p.prompt, behaviours: deriveBehaviours(own, p.scroll), layouts: { tablet: layout("tablet"), phone: layout("phone") } };
+    }),
     parts,
     palette: palette as unknown as Record<string, string>,
     tokens: {

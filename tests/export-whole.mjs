@@ -63,12 +63,12 @@ const names = new Set([...all.matchAll(/animation"?:\s*"?([a-zA-Z][\w-]*)/g)].ma
 const defined = new Set([...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]));
 const missing = [...names].filter((n) => !defined.has(n));
 check(`every animation the export names has keyframes in globals.css: ${names.size} named, ${defined.size} defined`, names.size >= 3 && missing.length === 0, missing.length ? `missing ${missing.join(", ")}` : [...names].join(", "));
-const riseWrap = page.split('data-part="n_rise"')[1]?.split("</div>")[0] ?? "";
+const riseWrap = page.split('data-part="n_rise"')[1]?.split("</Place>")[0] ?? "";
 check("the entrance is on the part's wrapper and its keyframes are there", /\banimation: "el-rise \d+ms [^"]*both"/.test(riseWrap) && defined.has("el-rise"), riseWrap.match(/\banimation: "[^"]*"/)?.[0] ?? "no animation on the wrapper");
 check("the page's drift keyframes are written, and the body drifts", defined.has("tex-drift-abc") && /animation: tex-drift-abc/.test(css));
 
 /* 2. The aura. */
-const auraWrap = page.split('data-part="n_aura"')[1]?.split("</div>")[0] ?? "";
+const auraWrap = page.split('data-part="n_aura"')[1]?.split("</Place>")[0] ?? "";
 check("a part's aura is on its wrapper, with its colour", /boxShadow|box-shadow/.test(auraWrap) && /--aura/.test(auraWrap), auraWrap.slice(0, 160).replace(/\s+/g, " ") || "no wrapper");
 check("and a pulsing one pulses, with its keyframes there", /aura-pulse/.test(auraWrap) && defined.has("aura-pulse"));
 
@@ -77,9 +77,9 @@ check("the page carries the wash", /data-wash/.test(page) && /radial-gradient\(#
 check("and the veil", /data-veil/.test(page) && /oklch\(0 0 0 \/ 0\.30\)/.test(page));
 
 /* 4. Links. */
-const pageWrap = page.split('data-part="n_page"')[1]?.split("</div>")[0] ?? "";
+const pageWrap = page.split('data-part="n_page"')[1]?.split("</Place>")[0] ?? "";
 check("a link to a page is an anchor to its path, round the part", /<a href="\/about"[^>]*>/.test(pageWrap) && /<\/a>/.test(pageWrap), pageWrap.match(/<a href="[^"]*"[^>]*>/)?.[0] ?? "no anchor round n_page");
-check("a link to a part is an anchor to its id, and the part carries that id", /<a href="#n_aura"/.test(page) && /id="n_aura"/.test(page));
+check("a link to a part is an anchor to its id, and the part carries that id", /<a href="#n_aura"/.test(page) && /id="n_aura"/.test(page) && /<div id=\{id\}/.test(at("components/Frame.tsx")));
 check("a link to a URL opens a new tab, with no opener", /<a href="https:\/\/example\.com\/" target="_blank" rel="noopener noreferrer"/.test(page));
 
 /* 5. The backdrop: painted when there is no texture on the page, and only then, as the live page does. */

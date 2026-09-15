@@ -38,6 +38,15 @@ export interface ScaffoldPage {
   prompt?: string;
   /** The page's behaviours, derived the way the live page derives them (`deriveBehaviours`). */
   behaviours?: ExportBehaviours;
+  /** The page at tablet and phone, placed the way the live page places it (`placeNodes`); the desktop placement is on the parts. */
+  layouts?: { tablet?: ExportLayout; phone?: ExportLayout };
+}
+
+/** One device's layout of a page: its size, and where each part sits in it. */
+export interface ExportLayout {
+  width: number;
+  height: number;
+  placed: { id: string; x: number; y: number; w: number; h: number }[];
 }
 
 /** The switches a page's tier-B parts set. The same shape as the live page's `Behaviours`, kept here so the scaffold stays pure. */
@@ -666,12 +675,18 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
     .join("\n");
   const height = parts.reduce((m, p) => Math.max(m, p.y + p.h), 0) + 160;
   const palette = input.palette as unknown as Palette;
+  const box = (b: { x: number; y: number; w: number; h: number }) => `{ left: ${Math.round(b.x)}, top: ${Math.round(b.y)}, width: ${Math.round(b.w)}, height: ${Math.round(b.h)} }`;
   const placed = parts
     .map((p) => {
-      // The wrapper carries what the live page puts round a part: its place,
-      // its aura, its entrance. The component inside is the markup alone.
+      // The wrapper carries what the live page puts round a part: its place
+      // at each device, its aura, its entrance. The component inside is the
+      // markup alone.
+      const at = [`desktop: ${box(p)}`];
+      for (const device of ["tablet", "phone"] as const) {
+        const hit = page.layouts?.[device]?.placed.find((q) => q.id === p.id);
+        if (hit) at.push(`${device}: ${box(hit)}`);
+      }
       const style: Record<string, string | number> = {
-        position: "absolute", left: Math.round(p.x), top: Math.round(p.y), width: Math.round(p.w), height: Math.round(p.h),
         ...(auraStyle(p.aura, palette, p.auraSize ?? 1, p.auraStyle ?? "glow") ?? {}),
       };
       const entrance = entranceCss(p.anim, p.animSpeed ?? 1, p.animDelay ?? 0, p.animEase ?? "smooth");
@@ -683,15 +698,18 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
           <${componentName(p)} />
         </a>`
         : `<${componentName(p)} />`;
-      return `      <div
+      return `      <Place
         id=${JSON.stringify(p.id)}
         data-part=${JSON.stringify(p.id)}
-        style={${styleJsx(style)}}
+        at={{ ${at.join(", ")} }}${Object.keys(style).length ? `\n        style={${styleJsx(style)}}` : ""}
       >
         ${inner}
-      </div>`;
+      </Place>`;
     })
     .join("\n");
+  const sizes = (["tablet", "phone"] as const)
+    .filter((d) => page.layouts?.[d])
+    .map((d) => `${d}: { width: ${Math.round(page.layouts![d]!.width)}, height: ${Math.round(page.layouts![d]!.height)} }`);
   // The wash and the veil the live page lays over everything, when the look has them.
   const over = [
     input.overlayCss && Object.keys(input.overlayCss).length
@@ -704,19 +722,17 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
   const close = b ? `\n      </Shell>` : "";
   const vars = parts.some((p) => p.aura && (p.auraStyle ?? "glow") === "pulse");
   return `${imports}${vars ? `\nimport type { CSSProperties } from "react";` : ""}
-import { Frame } from "@/components/Frame";${b ? `\nimport { Shell } from "@/components/Shell";` : ""}
+import { Frame, Place } from "@/components/Frame";${b ? `\nimport { Shell } from "@/components/Shell";` : ""}
 
 /**
  * ${page.name} (${page.path})${page.prompt ? `\n *\n * ${page.prompt.split("\n")[0]!.slice(0, 160)}` : ""}
  *
  * The parts sit where the board puts them, at the frame's own width
- * (${input.frameWidth}px); the frame scales the whole page down on a
- * narrower screen rather than reflowing it, which is what the Builder's
- * preview does. Reflow is a decision, not a default — make it here.
+ * (${input.frameWidth}px). ${sizes.length ? "At a tablet or a phone the frame takes the placement the\n * Builder's preview computes for that width, each part stacked in reading\n * order with the height its words need, and scales only between those\n * widths." : "The frame scales the whole page down on a narrower screen."}
  */
 export default function Page() {
   return (
-    <Frame width={${input.frameWidth}} height={${Math.round(height)}}>
+    <Frame width={${input.frameWidth}} height={${Math.round(height)}}${sizes.length ? ` layouts={{ ${sizes.join(", ")} }}` : ""}>
       ${open}${placed}${close}${over ? `\n${over}` : ""}
     </Frame>
   );
@@ -727,25 +743,61 @@ export default function Page() {
 const FRAME_TSX = `"use client";
 import * as React from "react";
 
+export type Device = "desktop" | "tablet" | "phone";
+export interface Box { left: number; top: number; width: number; height: number }
+
+/** The layouts a page carries besides the board's own: the Builder's preview at a tablet (834) and a phone (390). */
+export interface Layouts { tablet?: { width: number; height: number }; phone?: { width: number; height: number } }
+
+const DeviceContext = React.createContext<Device>("desktop");
+
+/** Which layout a screen this wide gets: the phone's up to 480, the tablet's up to 1024, when the page carries them. */
+function deviceFor(innerWidth: number, layouts: Layouts | undefined): Device {
+  if (layouts?.phone && innerWidth <= 480) return "phone";
+  if (layouts?.tablet && innerWidth <= 1024) return "tablet";
+  return "desktop";
+}
+
 /**
- * The page's own frame: a fixed-width canvas, centred, scaled down to fit
- * a narrower screen. The Builder's board is a fixed width and every
- * position in the document is in that frame, so this is the one place that
- * knows how a smaller screen is handled.
+ * The page's own frame. At the board's width every position is the
+ * board's. At a tablet or a phone it takes the placement the Builder's
+ * preview computes for that width, when the page carries one, and only
+ * scales down between those widths. Every part on the page sits in a
+ * \`Place\`, which reads the device from here.
  */
-export function Frame({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {
+export function Frame({ width, height, layouts, children }: { width: number; height: number; layouts?: Layouts; children: React.ReactNode }) {
+  const [device, setDevice] = React.useState<Device>("desktop");
   const [scale, setScale] = React.useState(1);
+  const size = device === "desktop" ? { width, height } : layouts?.[device] ?? { width, height };
   React.useEffect(() => {
-    const fit = () => setScale(Math.min(1, window.innerWidth / width));
+    const fit = () => {
+      const d = deviceFor(window.innerWidth, layouts);
+      const w = d === "desktop" ? width : layouts?.[d]?.width ?? width;
+      setDevice(d);
+      setScale(Math.min(1, window.innerWidth / w));
+    };
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, [width]);
+  }, [width, layouts]);
   return (
-    <div style={{ width: "100%", overflow: "hidden" }}>
-      <div style={{ width, height, position: "relative", transform: \`scale(\${scale})\`, transformOrigin: "top left", marginBottom: (scale - 1) * height }}>
-        {children}
+    <DeviceContext.Provider value={device}>
+      <div style={{ width: "100%", overflow: "hidden" }}>
+        <div style={{ width: size.width, height: size.height, position: "relative", transform: \`scale(\${scale})\`, transformOrigin: "top left", marginBottom: (scale - 1) * size.height, marginInline: "auto" }}>
+          {children}
+        </div>
       </div>
+    </DeviceContext.Provider>
+  );
+}
+
+/** One part's place on the page, at whichever device the frame is showing; the desktop's when a device has none. */
+export function Place({ id, at, style, children, ...rest }: { id: string; at: Partial<Record<Device, Box>> & { desktop: Box }; style?: React.CSSProperties; children: React.ReactNode } & Record<\`data-\${string}\`, string>) {
+  const device = React.useContext(DeviceContext);
+  const box = at[device] ?? at.desktop;
+  return (
+    <div id={id} {...rest} style={{ position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height, ...style }}>
+      {children}
     </div>
   );
 }
