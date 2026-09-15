@@ -1,3 +1,4 @@
+import { useShowcase } from "./store";
 import { LayoutGrid, Palette } from "lucide-react";
 import { defineFeature } from "@/core/types";
 import { ShowcasePage } from "./ShowcasePage";
@@ -39,9 +40,9 @@ export const showcase = defineFeature({
         const data = t.data as { name: string; liked: boolean } | undefined;
         return [
           { type: "label", label: data?.name ?? "Card" },
-          { id: "demo.like", label: "Liked", checked: Boolean(data?.liked), onSelect: () => ctx.publish({ key: `demo:like:${t.id}`, title: `${data?.name ?? "Card"} ${data?.liked ? "unliked" : "liked"}`, level: "success", source: "showcase", toast: true }) },
+          { id: "demo.like", label: "Liked", checked: Boolean(data?.liked), onSelect: () => { useShowcase.getState().toggleLike(t.id); ctx.publish({ key: `demo:like:${t.id}`, title: `${data?.name ?? "Card"} ${data?.liked ? "unliked" : "liked"}`, level: "success", source: "showcase", toast: true }); } },
           { id: "demo.copy", label: "Copy card id", onSelect: () => void ctx.copy(t.id, "card id") },
-          { id: "demo.remove", label: "Remove card", danger: true, onSelect: () => void ctx.confirm({ title: `Remove ${data?.name}?`, danger: true, confirmLabel: "Remove" }).then((ok) => ok && ctx.publish({ key: `demo:remove:${t.id}`, title: `Removed ${data?.name}`, level: "warn", source: "showcase", toast: true })) },
+          { id: "demo.remove", label: "Remove card", danger: true, onSelect: () => void ctx.confirm({ title: `Remove ${data?.name}?`, danger: true, confirmLabel: "Remove" }).then((ok) => { if (!ok) return; useShowcase.getState().remove(t.id); ctx.publish({ key: `demo:remove:${t.id}`, title: `Removed ${data?.name}`, level: "warn", source: "showcase", toast: true }); }) },
         ];
       },
     },
