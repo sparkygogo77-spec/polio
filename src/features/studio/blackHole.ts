@@ -243,6 +243,29 @@ function resample(path: SketchPoint[], n: number): SketchPoint[] {
   return out;
 }
 
+/**
+ * The path moved out along itself by `d`: every point along its own
+ * outward normal, not the whole shape scaled from its centroid. Scaling
+ * moves a point in proportion to its distance from the middle, so on a
+ * wide box the long sides went out further than the short ones and a hair
+ * meant to sit four pixels off the line sat five on one side and three on
+ * another. The ring is a hair off the line, the same hair all the way round.
+ */
+function outward(pts: SketchPoint[], d: number): SketchPoint[] {
+  const n = pts.length;
+  if (n < 3) return pts.slice();
+  const [cx, cy] = centroid(pts);
+  return pts.map(([x, y], i) => {
+    const a = pts[(i + n - 1) % n]!, b = pts[(i + 1) % n]!;
+    const tx = b[0] - a[0], ty = b[1] - a[1];
+    const len = Math.hypot(tx, ty) || 1;
+    let nx = ty / len, ny = -tx / len;
+    // Outward is away from the middle of the area, whichever way the line was drawn.
+    if (nx * (x - cx) + ny * (y - cy) < 0) { nx = -nx; ny = -ny; }
+    return [x + nx * d, y + ny * d];
+  });
+}
+
 function trace(c: CanvasRenderingContext2D, pts: SketchPoint[]) {
   c.beginPath();
   pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
@@ -335,7 +358,7 @@ export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions)
   for (const [style, width, out] of [[WARM(0.22), 2.4, 4], [HOT(0.5), 1.6, 2], ["oklch(1 0.02 90 / 1)", 1.4, 0.6]] as [string, number, number][]) {
     c.strokeStyle = style;
     c.lineWidth = width * hair;
-    trace(c, pts.map(([x, y]) => [cx + (x - cx) * (1 + (out * hair) / R), cy + (y - cy) * (1 + (out * hair) / R)] as SketchPoint));
+    trace(c, outward(pts, out * hair));
     c.stroke();
   }
   c.restore();

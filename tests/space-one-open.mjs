@@ -86,6 +86,31 @@ const patch = async (x, y, n) => {
 const luma = ([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 /** The brightest pixel in a small patch: light is thin, and a sample must not miss it by a pixel. */
 const glow = async (x, y) => Math.round(Math.max(...(await patch(x, y, 5)).map(luma)));
+/**
+ * The light on one side, read along its normal: every pixel from the line
+ * out to `reach` screen pixels, in one screenshot. Two numbers come back.
+ * The lift is the brightest pixel, which is the ring; the aura is the mean
+ * from four pixels out to the reach, which is the light beside it. One
+ * patch at a fixed distance was the first way this was read, and it caught
+ * the ring's peak on one side and landed a pixel past it on the mirrored
+ * side, a spread of sixty at the same zoom from rounding alone. A line of
+ * pixels along the normal reads the light and not the rounding.
+ */
+const along = async (x, y, dx, dy, reach = 14) => {
+  const png = await page.screenshot();
+  const vals = await page.evaluate(async ([b64, pts]) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    return pts.map(([px, py]) => { const d = g.getImageData(Math.round(px), Math.round(py), 1, 1).data; return 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2]; });
+  }, [png.toString("base64"), Array.from({ length: reach + 1 }, (_, i) => [x + dx * i, y + dy * i])]);
+  const outer = vals.slice(4);
+  return { lift: Math.round(Math.max(...vals)), aura: Math.round(outer.reduce((a, b) => a + b, 0) / outer.length) };
+};
 
 /** Page coordinates to screen, through the open hole's host, which is the box grown by HALO. */
 const toScreen = async (id, px, py, boxOf) => {
@@ -110,47 +135,23 @@ check("a closed space with nothing said yet says so", (await closedKey.innerText
 
 const bigBox = { x: BIG.x - 2, y: BIG.y - 2, w: BIG.w + 4, h: BIG.h + 4 };
 const OUT = 7;
+/* The four sides, each read outward from its own line: the bulge of the
+   drawn line at the middle of each side is the line there. */
 const sides = {
-  left: await toScreen("sp_big", BIG.x - OUT, BIG.y + BIG.h / 2, bigBox),
-  right: await toScreen("sp_big", BIG.x + BIG.w + OUT, BIG.y + BIG.h / 2, bigBox),
-  top: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - OUT, bigBox),
-  bottom: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + OUT, bigBox),
+  left: [...await toScreen("sp_big", BIG.x - 2, BIG.y + BIG.h / 2, bigBox), -1, 0],
+  right: [...await toScreen("sp_big", BIG.x + BIG.w + 2, BIG.y + BIG.h / 2, bigBox), 1, 0],
+  top: [...await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - 2, bigBox), 0, -1],
+  bottom: [...await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + 2, bigBox), 0, 1],
 };
-/*
- * Each side against its own background, not against one reading taken on
- * the right.
- *
- * Raw luminance 7px out was read as the aura, with a single page sample off
- * to the right standing for "unlit". That worked while the page behind the
- * hole was one flat colour. It is a full-length page on a surface that
- * moves now, so the backdrop is not flat, and the four readings came back
- * left 254, top 249, right 214, bottom 164 — a 90 point spread with a clean
- * fall from top-left to bottom-right, which is the page underneath showing
- * through the measurement rather than a lopsided aura.
- *
- * So each side is measured against the same direction further out: how much
- * the aura lifts its own patch of background. That is what "lit the same
- * all the way round" means, and it holds whatever is painted behind it.
- */
-const FAR_REF = 180;
-const refs = {
-  left: await toScreen("sp_big", BIG.x - FAR_REF, BIG.y + BIG.h / 2, bigBox),
-  right: await toScreen("sp_big", BIG.x + BIG.w + FAR_REF, BIG.y + BIG.h / 2, bigBox),
-  top: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y - FAR_REF, bigBox),
-  bottom: await toScreen("sp_big", BIG.x + BIG.w / 2, BIG.y + BIG.h + FAR_REF, bigBox),
-};
-const lit = {}, base = {}, lift = {};
-for (const [side, [x, y]] of Object.entries(sides)) lit[side] = await glow(x, y);
-for (const [side, [x, y]] of Object.entries(refs)) base[side] = await glow(x, y);
-for (const side of Object.keys(lit)) lift[side] = lit[side] - base[side];
-const say = Object.keys(lit).map((k) => `${k} ${lit[k]}-${base[k]}=${lift[k]}`).join(", ");
-/* Unlit page, for the reach checks below: the right-hand reference, which
-   is what this was before each side got one of its own. */
-const pageLuma = base.right;
-const vals = Object.values(lift);
-check("every side of the open hole is lit", vals.every((v) => v > 14), say);
-check("and lit the same all the way round, not heavier on the left",
-  Math.max(...vals) - Math.min(...vals) < 45 && lift.left < lift.right + 45, say);
+const lit = {};
+for (const [side, [x, y, , dx, dy]] of Object.entries(sides)) lit[side] = await along(x, y, dx, dy);
+const [px, py] = await toScreen("sp_big", BIG.x + BIG.w + 180, BIG.y + BIG.h / 2, bigBox);
+const pageLuma = await glow(px, py);
+const lifts = ["left", "right", "top", "bottom"].map((k) => lit[k].lift);
+const auras = ["left", "right", "top", "bottom"].map((k) => lit[k].aura);
+const said = `lift left ${lit.left.lift}, right ${lit.right.lift}, top ${lit.top.lift}, bottom ${lit.bottom.lift} · aura left ${lit.left.aura}, right ${lit.right.aura}, top ${lit.top.aura}, bottom ${lit.bottom.aura} · page ${pageLuma}`;
+check("every side of the open hole is lit: the ring on it, and light beside it", lifts.every((v) => v > pageLuma + 100) && auras.every((v) => v > pageLuma + 14), said);
+check("and lit the same all the way round, not heavier on the left", Math.max(...lifts) - Math.min(...lifts) < 45 && Math.max(...auras) < Math.min(...auras) * 1.5 && lit.left.aura < lit.right.aura * 1.5, said);
 /* Size follows the shape: the big hole's aura reaches further than the
    small one's will. Sampled where the big one is still lit and the small
    one, at the same distance, is not. */
