@@ -356,6 +356,45 @@ export function Canvas() {
     [frameWidth],
   );
 
+  /*
+   * The pane width the frame was last fitted for. It is the whole of the
+   * memory this needs: if the pane is that wide, the fit is current; if it
+   * is not, the fit is stale, whoever failed to say so.
+   */
+  const fittedFor = React.useRef<number | null>(null);
+
+  const fitTo = React.useCallback((pane: Element) => {
+    const vw = pane.clientWidth;
+    if (!vw) return;
+    const z = fitZoom(vw);
+    /* Centred on the frame as *drawn*, which is `z` times the base and not
+       `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
+       hung it off the right of the pane — `board-layout` caught it: "frame
+       324,149 677×437 in 752×733". */
+    const drawn = z * BASE_ZOOM;
+    /* Only across. Down is the gutter, and the gutter is a constant. */
+    const x = Math.round((vw - frameWidth * drawn) / 2);
+    const store = useStudio.getState();
+    if (store.zoom !== z) store.setZoom(z);
+    if (store.pan.x !== x || store.pan.y !== 0) store.setPan({ x, y: 0 });
+    /*
+     * Last, and that ordering is the fix rather than a detail.
+     *
+     * The version this replaces wrote the width down *before* fitting, in
+     * the observer's own callback: `was = pane.clientWidth; apply()`. A
+     * throw anywhere inside `apply` — and a throw inside a ResizeObserver
+     * callback is swallowed by the browser, with nothing in the console and
+     * nothing on the page — left the new width recorded and the fit undone,
+     * so the next notification for that width was discarded as already
+     * handled and the frame kept the zoom it had for ever. That is the
+     * exact shape of what J is seeing, and it is unfalsifiable from here
+     * because it leaves no trace. Written in this order the memory is only
+     * ever of a fit that actually happened, so a fit that fails is retried
+     * by the next render rather than remembered as done.
+     */
+    fittedFor.current = vw;
+  }, [fitZoom, frameWidth]);
+
   React.useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -369,31 +408,66 @@ export function Canvas() {
      */
     const pane = el.closest("[data-studio-pane]") ?? el.parentElement ?? el;
     const apply = () => {
-      const vw = pane.clientWidth;
-      const z = fitZoom(vw);
-      useStudio.getState().setZoom(z);
-      /* Centred on the frame as *drawn*, which is `z` times the base and not
-         `z`. Centring on the nominal size put a 1.21× frame in a 1× gap and
-         hung it off the right of the pane — `board-layout` caught it: "frame
-         324,149 677×437 in 752×733". */
-      const drawn = z * BASE_ZOOM;
-      /* Only across. Down is the gutter, and the gutter is a constant. */
-      useStudio.getState().setPan({ x: Math.round((vw - frameWidth * drawn) / 2), y: 0 });
+      fitTo(pane);
       if (pane instanceof HTMLElement) pane.scrollTop = 0;
     };
     apply();
-    // The frame's width is the pane's width less a gutter, so a pane that
-    // changes width is a frame that changes width. Its *height* changing is
-    // the shelf or the window growing, which the fit has no opinion about.
-    let was = pane.clientWidth;
-    const ro = new ResizeObserver(() => {
-      if (pane.clientWidth === was) return;
-      was = pane.clientWidth;
-      apply();
-    });
+    /*
+     * The frame's width is the pane's width less a gutter, so a pane that
+     * changes width is a frame that changes width. Its *height* changing is
+     * the shelf or the window growing, which the fit has no opinion about.
+     *
+     * Two witnesses to the same event, and a third below. J reported, off
+     * the deploy, a frame keeping the zoom it had been fitted at for a 1509
+     * pane while the pane was 772 — 1381 wide in 772 of room, 673 of the
+     * site off the right edge. His pane widths are this layout's to the
+     * pixel at all three of his window sizes, so the only thing that
+     * differed was the zoom, and 1381 is exactly this fit at his widest.
+     * The shape of it is a fit that ran once and never again.
+     *
+     * IT HAS NOT BEEN REPRODUCED HERE, and that is worth writing down
+     * rather than papering over: not in dev, not in a clean production
+     * build, not on a fresh load at 1000, 1300 or 1737, not through the
+     * metrics override, not through a real window resize over CDP, not
+     * through a fifty-pixel drag of the edge from 1700 to 950, not with the
+     * tab hidden, not after a hand zoom, not after the frame-width keys,
+     * and not across a Preview or a Finish round trip. Every one of those
+     * tracked the pane.
+     *
+     * So these are not a diagnosis. They are three independent ways of
+     * noticing the same thing, on the reasoning that a fault whose shape is
+     * "the one notifier did not fire" is answered by not having one
+     * notifier.
+     */
+    const again = () => { if (pane.clientWidth !== fittedFor.current) apply(); };
+    const ro = new ResizeObserver(again);
     ro.observe(pane);
-    return () => ro.disconnect();
-  }, [fitNonce, frameWidth, fitZoom]);
+    window.addEventListener("resize", again);
+    return () => { ro.disconnect(); window.removeEventListener("resize", again); };
+  }, [fitNonce, frameWidth, fitZoom, fitTo]);
+
+  /*
+   * The third witness, which cannot be missed because it is not told: on
+   * every render, the pane's width against the width the frame was fitted
+   * for. A render happens for a hundred reasons and the comparison is two
+   * numbers; if they agree, which is almost always, it does nothing.
+   *
+   * The condition is the *pane's width*, deliberately, and not whether the
+   * frame overruns the pane. Those are different rules and only one of them
+   * is right. A person who has zoomed in has asked for a frame wider than
+   * the room — the board pans across, so nothing is out of reach — and
+   * snapping that back would make the zoom-in key do nothing at all, which
+   * is a fault of its own and one I caught this way: four presses took the
+   * frame to 2022 in a 1509 pane, and the first version of this undid every
+   * one of them. Only a pane that has changed width since the fit is stale,
+   * and only a stale fit is put right.
+   */
+  React.useLayoutEffect(() => {
+    const pane = ref.current?.closest("[data-studio-pane]");
+    if (!(pane instanceof HTMLElement)) return;
+    if (!pane.clientWidth || pane.clientWidth === fittedFor.current) return;
+    fitTo(pane);
+  });
 
   /* ------------------------------------------------------------- wheel */
   /*

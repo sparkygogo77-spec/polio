@@ -74,6 +74,7 @@ const LOOK = () => {
   const pr = pane.getBoundingClientRect();
   const br = board.getBoundingClientRect();
   const f = document.querySelector("[data-frame]").getBoundingClientRect();
+  const win = document.querySelector("[data-page-window]")?.getBoundingClientRect() ?? f;
   const shelf = document.querySelector("[data-drawer]")?.getBoundingClientRect() ?? null;
   return {
     above: Math.round(f.y - br.y),
@@ -84,6 +85,10 @@ const LOOK = () => {
     /* How big the page is drawn, so an allowance in page pixels can be
        compared with a gap in screen pixels. */
     drawn: f.width / 1440,
+    /* The page against the room it is in, across. */
+    paneW: Math.round(pr.width),
+    pageW: Math.round(win.width),
+    over: Math.round(win.right - pr.right),
     shelfBottom: shelf ? Math.round(shelf.bottom) : null,
     fold: window.innerHeight,
     travel: pane.scrollHeight - pane.clientHeight,
@@ -162,6 +167,121 @@ check("and smaller than the sides at every one of them",
 check("so the categories are on screen at every width",
   gaps.every((g) => g.shelfBottom <= g.fold + 1),
   gaps.map((g) => `${g.w}: ${g.shelfBottom} in ${g.fold}`).join(" · "));
+
+/*
+ * The width fit, at the same three widths and on the same three loads.
+ *
+ * J: "At 1000 wide the pane is 772 and the page window is 1381, so it
+ * overflows 673px off the right edge, and there is no horizontal scroller.
+ * At 1300 it overflows 373." Those two overruns are one zoom: 1381 is the
+ * frame fitted for a 1509 pane, which is the pane at 1737, kept while the
+ * pane was 772 and 1072. So the fault is a page that is the same width at
+ * all three, and the check is the page inside the pane at all three.
+ *
+ * NAMED HONESTLY, because he asked for the headroom at 78 here and this
+ * cannot say 78. The 78 is his document, which has ink above the page: 20
+ * of constant gutter plus the room the board makes for that ink, drawn at
+ * his zoom. A bare page has no ink up there, so the same code reads 20.
+ * What is his number and what is the document's is separated above — the
+ * constant is checked for being constant and for being under the 64 at the
+ * sides, and the total is printed rather than asserted.
+ */
+/* His words: "[data-page-window] width is less than or equal to
+   [data-studio-pane] width". Kept as a width against a width, because that
+   is the sentence. */
+check("the page's width is at most the pane's width at every one of them",
+  gaps.every((g) => g.pageW <= g.paneW),
+  gaps.map((g) => `${g.w}: page ${g.pageW} in a ${g.paneW} pane${g.pageW > g.paneW ? ` — ${g.pageW - g.paneW}px too wide` : ""}`).join(" · "));
+/* And where it sits, which a width alone cannot see: a page narrower than
+   the pane can still hang off the right if the pan is stale. */
+check("and it sits inside the pane, not merely fits in it",
+  gaps.every((g) => g.over <= 0),
+  gaps.map((g) => `${g.w}: ${g.over > 0 ? `${g.over}px off the right` : "inside"}`).join(" · "));
+/* The fault named as itself: one width at three widths. */
+check("and it is a different width at each, because it is fitted to each",
+  new Set(gaps.map((g) => g.pageW)).size === gaps.length,
+  gaps.map((g) => g.pageW).join(" · "));
+/* The headroom is printed rather than asserted at 78 — see the note above:
+   78 is his document's 20 of gutter plus the room for ink above the page.
+   A bare page reads 20, and asserting 78 here would assert his document. */
+console.log(`       headroom above, for comparison with his 78: ${gaps.map((g) => `${g.w}: ${g.above}`).join(" · ")}`);
+
+/* ------------------------------------------------------------------ */
+/* The page fits the room it is in, at every width and after a resize   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Reported from a deploy and never reproduced here: the page keeping a zoom
+ * fitted for a 1509 pane while the pane was 772 — the frame 1381 wide in
+ * 772 of room, 673 of the site off the right edge and no horizontal
+ * scroller to reach it. Not in dev, not in a production build, not fresh,
+ * not resized, not a frame after a resize, not through a continuous drag of
+ * the edge. The shape of it is a fit that ran once and never again.
+ *
+ * So this checks the outcome rather than the mechanism: however the width
+ * changed, the frame is inside the pane afterwards. It is checked after a
+ * resize and after a drag of the edge, because those are the two ways a
+ * person changes it and the report came from the first.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 1737, height: 1278 } });
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.evaluate((x) => localStorage.setItem("builder.studio", JSON.stringify(x)), doc(DOCS["a bare page"]));
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1600);
+  const room = () => page.evaluate(() => {
+    const pane = document.querySelector("[data-studio-pane]").getBoundingClientRect();
+    const win = document.querySelector("[data-page-window]").getBoundingClientRect();
+    return { pane: Math.round(pane.width), frame: Math.round(win.width),
+      over: Math.round(win.right - pane.right), left: Math.round(win.x - pane.x) };
+  });
+  for (const w of [1300, 1000, 1737, 900]) {
+    await page.setViewportSize({ width: w, height: 1278 });
+    await page.waitForTimeout(600);
+    const m = await room();
+    check(`resized to ${w}: the page fits the room it is in`,
+      m.over <= 0 && m.left >= 0,
+      `frame ${m.frame} in a ${m.pane} pane, ${m.over > 0 ? `${m.over}px off the right` : "inside"}`);
+  }
+  /* And through a drag of the edge rather than a jump, which is how a tab
+     is actually resized and how the gap curve was found in the first place. */
+  let worst = 0;
+  for (let w = 1700; w >= 950; w -= 50) {
+    await page.setViewportSize({ width: w, height: 1278 });
+    await page.waitForTimeout(40);
+    const m = await room();
+    worst = Math.max(worst, m.over);
+  }
+  check("and through a drag of the edge, it never runs off at any step",
+    worst <= 0, `worst overrun ${worst}px across sixteen steps`);
+
+  /*
+   * The other half of the same rule, and the one the first attempt at this
+   * broke. The fit follows the pane; it does not follow the frame. A person
+   * who presses zoom in has asked for a frame bigger than the room and the
+   * board pans across, so nothing is out of reach — a guard written as
+   * "the frame must not overrun the pane" undoes every press of that key
+   * and the key reads as dead. Measured while it was: four presses took the
+   * frame from 1381 to 2022 in a 1509 pane, and the guard put all four back.
+   */
+  await page.setViewportSize({ width: 1737, height: 1278 });
+  await page.waitForTimeout(700);
+  const before = (await room()).frame;
+  const zoomIn = page.locator('[aria-label="Zoom in"]').first();
+  if (await zoomIn.count()) {
+    for (let i = 0; i < 4; i++) { await zoomIn.click(); await page.waitForTimeout(130); }
+    const after = (await room()).frame;
+    check("zooming in by hand is not undone by the fit",
+      after > before + 100, `${before} → ${after}`);
+    /* And the next change of width is still a fit, not a memory of one. */
+    await page.setViewportSize({ width: 1000, height: 1278 });
+    await page.waitForTimeout(700);
+    const m = await room();
+    check("and the next resize fits the pane again",
+      m.over <= 0, `frame ${m.frame} in a ${m.pane} pane, ${m.over > 0 ? `${m.over}px off` : "inside"}`);
+  } else check("the zoom-in key is on the bar", false, "not found");
+  await page.close();
+}
 
 await browser.close();
 console.log("");
