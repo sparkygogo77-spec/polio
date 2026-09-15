@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, Circle, CircleDashed, Clapperboard, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Scan, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Scan, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
@@ -38,8 +38,10 @@ import { cn } from "@/core/lib/cn";
 import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
+import type { Device } from "./live/layout";
 import { Textarea } from "@/core/ui/textarea";
 import { Tooltip } from "@/core/ui/tooltip";
+import { Popover } from "@/core/ui/popover";
 import { Badge } from "@/core/ui/badge";
 import { Segmented } from "@/core/ui/segmented";
 import { useActions } from "@/core/actions";
@@ -191,7 +193,59 @@ function PageChips() {
   );
 }
 
+/**
+ * Is the window narrower than the panel column can share it with?
+ *
+ * Below 768 px the Builder used to hide its whole side panel and seven of
+ * the bar's controls with nothing in their place (inventory A21). The
+ * width is read here once, off the same breakpoint the classes use, so
+ * what the panel becomes and what the bar folds away agree with the CSS.
+ */
+export const NARROW = "(max-width: 767px)";
+
+/** Does the window match a media query? False until it is read, and read on the client only. */
+export function useMedia(query: string): boolean {
+  const [on, setOn] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia(query);
+    const read = () => setOn(mq.matches);
+    read();
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
+  }, [query]);
+  return on;
+}
+
+export const useNarrow = () => useMedia(NARROW);
+
+/** Below the desktop breakpoint the bar folds Fit, Wires, the readout, Search and Updates away. */
+export const FOLDING = "(max-width: 1023px)";
+
+/**
+ * The device the board's own Preview shows: the one the window is.
+ *
+ * It was hard-coded to desktop, so a phone-wide window showed a 1440 px
+ * site in a 390 px pane. A window under 768 is a phone, under 1024 a
+ * tablet, and the right-click menu's Device entries still change it after.
+ */
+export function useViewportDevice(): Device {
+  const [device, setDevice] = React.useState<Device>("desktop");
+  React.useEffect(() => {
+    const phone = window.matchMedia(NARROW);
+    const tablet = window.matchMedia("(max-width: 1023px)");
+    const read = () => setDevice(phone.matches ? "phone" : tablet.matches ? "tablet" : "desktop");
+    read();
+    phone.addEventListener("change", read);
+    tablet.addEventListener("change", read);
+    return () => { phone.removeEventListener("change", read); tablet.removeEventListener("change", read); };
+  }, []);
+  return device;
+}
+
 function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onToggleLibrary: () => void }) {
+  // The More key exists only while the bar is folding controls away: on a
+  // wide bar it is not drawn at all, because a hidden control is a control.
+  const folding = useMedia(FOLDING);
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
   const zoom = useStudio((s) => s.zoom);
@@ -208,7 +262,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
   // In Preview the board is the site, so the drawing tools have nothing to act on.
   if (mode === "preview") {
     return (
-      <div data-studio-bar="" className="flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
+      <div data-studio-bar="" className="no-bars overflow-x-auto overflow-y-visible flex shrink-0 items-center gap-2 border-b border-border bg-panel/60 px-2 py-1.5">
         <SiteHead />
         <span className="mx-1 h-4 w-px bg-border" />
         <PageChips />
@@ -263,7 +317,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    * a comment, not a guarantee.
    */
   return (
-    <div data-studio-bar="" className="flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
+    <div data-studio-bar="" className="no-bars overflow-x-auto overflow-y-visible flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
       <SiteHead />
       <span className="mx-1 h-4 w-px bg-border" />
       <PageChips />
@@ -364,6 +418,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
         <button
           type="button"
+          aria-label="Zoom readout"
           onClick={() => useStudio.getState().requestFit()}
           className="num hidden w-10 text-center text-[10px] text-fg-muted hover:text-fg lg:block"
         >
@@ -377,10 +432,71 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       {/* The two ways out of Design, at the end of the bar and in that order:
           look at it, then finish it. */}
       <span className="mx-1 h-4 w-px bg-border" />
+      {folding ? <MoreTools shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} /> : null}
       <UpdatesToggle />
       <PreviewToggle />
       <ProcessCounter />
     </div>
+  );
+}
+
+/**
+ * The bar's folded controls, on a narrow window.
+ *
+ * Fit, Wires, the menu's edge, the zoom readout, Search, Updates and the
+ * ink hues fold away below the desktop breakpoints, and used to fold into
+ * nothing: seven controls a phone could never reach. They are behind one
+ * More key now, drawn only while the bar is folding them; on a wide bar
+ * the key is not there, because they are.
+ */
+function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number }) {
+  const [open, setOpen] = React.useState(false);
+  const row = "flex items-center gap-1.5 text-[11px] text-fg";
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      content={
+        <div data-toolbar-more-menu="" className="flex w-[220px] flex-col gap-1.5">
+          <div className={row}>
+            <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}><Scan /></Button>
+            <span className="flex-1">Fit the frame in view</span>
+            <button type="button" aria-label="Zoom readout" className="num text-[10px] text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
+          </div>
+          <div className={row}>
+            <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>{showWires ? <Link2 /> : <Link2Off />}</Button>
+            <span className="flex-1">{showWires ? "Hide the wires" : "Show the wires"}</span>
+          </div>
+          <div className={row}>
+            <Button
+              variant={menuOpen ? "subtle" : "ghost"} size="iconXs"
+              aria-label={shape === "square" ? "Round the part menu" : "Square off the part menu"} aria-pressed={shape === "round"}
+              data-menu-shape={shape}
+              onClick={() => { play("tap"); useStudio.getState().setMenuShape(shape === "square" ? "round" : "square"); }}
+            >
+              {shape === "square" ? <Square /> : <Circle />}
+            </Button>
+            <span className="flex-1">{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</span>
+          </div>
+          {tool === "pen" || tool === "arrow" ? (
+            <div data-ink-hues="" className="flex items-center gap-1">
+              {HUES.map((h) => (
+                <button key={h} type="button" aria-label={`Ink hue ${h}`} onClick={() => useStudio.getState().setInk({ hue: h })} className={cn("tactile size-4 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")} style={{ background: `oklch(0.72 0.16 ${h})` }} />
+              ))}
+            </div>
+          ) : null}
+          <div className={row}>
+            <SearchTools always />
+            <UpdatesToggle always />
+          </div>
+        </div>
+      }
+    >
+      <Button variant={open ? "subtle" : "ghost"} size="iconXs" data-toolbar-more="" aria-label="More tools" aria-pressed={open}>
+        <Ellipsis />
+      </Button>
+    </Popover>
   );
 }
 
@@ -500,7 +616,7 @@ function DeviceSwitch({ width }: { width: number }) {
 }
 
 /** The command palette, from the bar it is about. */
-function SearchTools() {
+function SearchTools({ always = false }: { always?: boolean } = {}) {
   const ctx = useActions();
   return (
     <Tooltip content="Search every command and setting" shortcut="mod+k">
@@ -514,11 +630,11 @@ function SearchTools() {
            its surroundings reads as a label, not as somewhere to type. The
            shortcut chip is gone — it was the widest thing in a control whose
            job is to be typed into, and the tooltip still says it. */
-        className="tactile mx-1 hidden h-6 w-7 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2"
+        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2")}
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />
-        <span className="hidden min-w-0 flex-1 truncate text-left xl:inline">Search commands…</span>
+        <span className={cn("min-w-0 flex-1 truncate text-left", always ? "inline" : "hidden xl:inline")}>Search commands…</span>
       </button>
     </Tooltip>
   );
@@ -534,12 +650,12 @@ function SearchTools() {
  * NOTE: this bar belongs to the sibling branch. This is the single addition
  * the panel requires — the button and its state — so the merge stays clean.
  */
-function UpdatesToggle() {
+function UpdatesToggle({ always = false }: { always?: boolean } = {}) {
   const [open, setOpen] = React.useState(false);
   return (
     <>
       <Tooltip content="What has landed, and what is new to use">
-        <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className="hidden lg:inline-flex" onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="iconXs" data-updates-toggle="" aria-label="Updates" aria-pressed={open} className={always ? undefined : "hidden lg:inline-flex"} onClick={() => setOpen(true)}>
           <History />
         </Button>
       </Tooltip>
@@ -583,10 +699,36 @@ const SIDE_TABS = [
   { value: "motion", label: "Motion", icon: <Clapperboard /> },
 ] as const;
 
+/*
+ * One side, two shapes.
+ *
+ * Wide, the panel is the column it always was. Below 768 px it is a sheet
+ * over the foot of the board, because a phone has no room for a column
+ * and used to get nothing at all: no Element, no Look, no Pages. Same
+ * element, same tabs, same hooks; only where it stands changes.
+ */
+const SHEET = "flex flex-col border-border bg-panel/95 fixed inset-x-0 bottom-0 z-40 max-h-[62dvh] border-t shadow-pop md:static md:inset-auto md:z-auto md:max-h-none md:w-[228px] md:shrink-0 md:border-t-0 md:border-r md:bg-panel/50 md:shadow-none";
+
+/** The sheet's own way out, drawn only while it is a sheet. */
+function SheetHandle({ narrow, onClose }: { narrow: boolean; onClose: () => void }) {
+  if (!narrow) return null;
+  return (
+    <div className="flex h-7 shrink-0 items-center justify-between border-b border-border px-2">
+      <span className="h-1 w-8 rounded-full bg-border" aria-hidden />
+      <Button variant="ghost" size="xs" data-side-sheet-close="" aria-label="Close the side panel" onClick={onClose}>Close</Button>
+    </div>
+  );
+}
+
 export function StudioPage() {
   useStudioHydration();
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
+  const narrow = useNarrow();
+  const viewportDevice = useViewportDevice();
+  // A sheet is asked for, never left lying over the board: on a narrow
+  // window it starts closed and the toggle, the tour and a pick open it.
+  React.useEffect(() => { if (narrow) setLibraryOpen(false); }, [narrow]);
   const [leftPanel, setLeftPanel] = React.useState("look");
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
@@ -746,7 +888,8 @@ export function StudioPage() {
           the card you clicked instead of the board's tabs.
         */}
         {book && libraryOpen ? (
-          <aside data-side-panel="" data-side-panel-timeline="" className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 md:flex">
+          <aside data-side-panel="" data-side-panel-timeline="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
+            <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2 text-[10px] uppercase tracking-[0.14em] text-fg-muted">
               This card
             </div>
@@ -756,7 +899,8 @@ export function StudioPage() {
           </aside>
         ) : null}
         {design && libraryOpen ? (
-          <aside data-side-panel="" className="hidden w-[228px] shrink-0 flex-col border-r border-border bg-panel/50 md:flex">
+          <aside data-side-panel="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
+            <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
             <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
               <Segmented
                 className="min-w-0 flex-1 [&>*]:flex-1"
@@ -871,7 +1015,7 @@ export function StudioPage() {
             ) : book ? (
               <Timeline />
             ) : (
-              <LiveStage device="desktop" pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
+              <LiveStage device={viewportDevice} pageId={page.id} onNavigatePage={(id) => useStudio.getState().setActivePage(id)} />
             )}
             {/*
               The categories, in the same scroller as the site.
