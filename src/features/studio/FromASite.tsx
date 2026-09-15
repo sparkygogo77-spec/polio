@@ -287,8 +287,8 @@ export function FromASite({ space }: { space: Space }) {
             {stage.candidates.length} things to point at on {nameOf(stage.source)}
             {stage.source.kind === "zip" ? `, opened at ${stage.source.entry}` : ""}
           </div>
-          {/* The page as it really looks, so a person points at what they can see. */}
-          <div className="relative mb-1.5 overflow-hidden rounded" style={{ border: `1px solid ${VOID.rim}` }}>
+          {/* The page as it really looks, the whole of it, so a person points at what they can see: it scrolls, because a page is taller than a panel. */}
+          <div className="relative mb-1.5 max-h-[260px] overflow-y-auto rounded" style={{ border: `1px solid ${VOID.rim}` }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img data-site-shot="" alt={`${nameOf(stage.source)} as it looks`} src={`data:image/png;base64,${stage.page.shot}`} className="block w-full" />
           </div>

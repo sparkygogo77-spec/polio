@@ -74,6 +74,34 @@ The pieces, in the order a page passes through them:
   dark stops read as painted on nothing and its white words landed on no
   ground. The mean of a gradient's stops is its colour, for the block's
   own paint and for what is behind it: rgb(33, 40, 40), lightness 0.15.
+- **Fixed.** Chrome reports a colour as it was written when it was
+  written in a newer syntax, so `oklch(0.3 0.1 250)` came back as that
+  string, missed the `rgba?(` regex, and background, text and accent were
+  dropped silently (inventory C24). Every colour is painted onto one
+  canvas pixel and read back as the rgb the browser paints: the fixture's
+  oklch band reads rgb(0, 46, 93) under rgb(238, 238, 238). A line height
+  of `normal` was read as nought and dropped; it is the browser's own,
+  24px on 20px type.
+- **Fixed.** An inline `svg` was not a picture: no `img`, no `src`, and a
+  block of words and a drawing was skipped by the list (inventory C25).
+  It counts as a picture and is carried as its own markup when that is
+  under 40k characters: the fixture's 120×80 drawing is read.
+- **Fixed.** The page's height was the body's scroll height, so a site
+  that scrolls an inner container gave 900 and put everything below the
+  fold past the page's end (inventory C25). The height is the document's
+  or the bottom of the lowest thing on it, whichever is more.
+- **Fixed.** The HTTP status was never checked, so a 404's own error page
+  and a bot wall's 403 loaded and were listed as things to point at
+  (inventory C20). A status of 400 or more is refused with the number.
+- **Fixed.** The read settled for a fixed 900ms after the document
+  loaded, so a page that draws itself by script could read as empty
+  (inventory C21). It waits for the page's requests to go quiet, up to
+  four seconds, then 300ms.
+- **Fixed.** The picture the panel showed was the first 900px while the
+  candidates came from the whole page (inventory C22). The picture is
+  the whole page, up to 4000px tall, in a box that scrolls. The element
+  picture was cut at 2000px and the measure call at 40 selectors while a
+  page of sixteen runs could send more (inventory C23): 4000 and 120.
 - **Fixed, as far as it goes.** Web fonts the page loads from the network
   are not fetched on either door: the zip's page may not ask the network
   for anything, and the address door reads only the one page. Type landed
@@ -87,9 +115,18 @@ The pieces, in the order a page passes through them:
   travel. On the Zen Garden zip every block reads "Libre Baskerville",
   drew false; 10 of 10 landed parts carry the name. The file itself still
   does not come, on either door: that is what "did not travel" means.
-- **Open.** Candidate words in the list are `textContent`, so a row of
-  inline-block links reads as one word: "PlaywrightDocsMCPCLIAPI". The
-  reading itself is right; only the list's caption is squashed.
+- **Fixed.** Candidate words in the list were `textContent`, so a row of
+  inline-block links read as one word: "PlaywrightDocsMCPCLIAPI". The
+  caption is the text nodes joined with a space: "Playwright Docs MCP
+  CLI API".
+- **Fixed.** A button was a `button`, so a link painted as a box, which
+  is what a page's "Get started" usually is, read as no button at all and
+  the first screen carried none. A link that paints its own background
+  and pads its words on both sides is a button, and still a link.
+- **Fixed.** A card grid carried each card's title and the part drew a
+  filler sentence under it. Each title carries the runs after it and
+  before the next title as "title: sentence", which the grid part reads,
+  so the card draws the page's own sentence.
 - **Open, intermittent.** On the deployed site the measure call (the
   second call, selectors given) has answered 502 from the gateway once
   in four walks, in under a second, where the same call took 3 s and
@@ -211,9 +248,10 @@ The pieces, in the order a page passes through them:
   the sentence under it, the third lost. Contents with lines in them are
   split at lines only; a content on one line is still a list by its
   commas. The first screen draws its 82-character headline whole.
-- **Open.** The card-grid part keeps each card's title and not its
-  sentence; the filler under a title on a landed card grid is the
-  part's, not the page's.
+- **Fixed.** The card-grid part kept each card's title and not its
+  sentence, and the filler under a title on a landed card grid was the
+  part's. The catalogue now hands it "title: sentence" and it draws the
+  page's own.
 - **Open, said plainly.** Pictures inside any block are placeholders, and
   the grounded step cannot be reached for them. Walked on the Zen Garden
   zip: 3 of 10 landed blocks hold a picture; `recreate` put in the space's
