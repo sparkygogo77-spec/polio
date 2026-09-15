@@ -104,6 +104,13 @@ export function ShowcasePage() {
   const [hue, setHue] = useSetting<number>("appearance.accentHue");
   const mc = useRandomWalk(1_240_000, 60_000, live, tickMs);
   const price = useRandomWalk(0.0042, 0.0003, live, tickMs);
+  // The feed cues, on the one feed the template ships: a tick up or down
+  // with the price, gated by "Feed events" in the engine.
+  const lastPrice = React.useRef(price);
+  React.useEffect(() => {
+    if (live && price !== lastPrice.current) play(price > lastPrice.current ? "priceUp" : "priceDown");
+    lastPrice.current = price;
+  }, [price, live]);
   const [hist, setHist] = React.useState<number[]>(() => Array.from({ length: 30 }, (_, i) => 50 + Math.sin(i / 3) * 10));
   React.useEffect(() => {
     setHist((h) => [...h.slice(-29), mc / 20_000]);

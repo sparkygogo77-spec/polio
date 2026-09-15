@@ -54,7 +54,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant, size, asChild, sound = "tap", haptics = true, loading, shortcut, optimistic, doneLabel, children, onPointerDown, onKeyDown, onClick, disabled, ...props },
+  { className, variant, size, asChild, sound = "tap", haptics = true, loading, shortcut, optimistic, doneLabel, children, onPointerDown, onPointerEnter, onKeyDown, onClick, disabled, ...props },
   ref,
 ) {
   const Comp = asChild ? Slot.Root : "button";
@@ -88,6 +88,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       className={cn(buttonVariants({ variant, size }), className)}
       disabled={disabled || loading}
       data-done={done || undefined}
+      // The hover tick, off by default; the engine gates it on the setting.
+      onPointerEnter={(e) => { onPointerEnter?.(e); play("hover"); }}
       onPointerDown={(e) => {
         onPointerDown?.(e);
         if (!e.defaultPrevented && !disabled && !loading && e.button === 0) feedback();
