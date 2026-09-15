@@ -267,8 +267,8 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <span className="mx-1 h-4 w-px bg-border" />
       <PageChips />
       <span className="mx-1 h-4 w-px bg-border" />
-      <Tooltip content={libraryOpen ? "Hide colour & texture" : "Show colour & texture"} shortcut="l">
-        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle look" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
+      <Tooltip content={libraryOpen ? "Hide the side panel" : "Show the side panel"} shortcut="l">
+        <Button variant={libraryOpen ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle the side panel" aria-pressed={libraryOpen} onClick={onToggleLibrary}>
           <PanelLeft />
         </Button>
       </Tooltip>

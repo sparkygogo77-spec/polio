@@ -139,7 +139,7 @@ export const studio = defineFeature({
 
   commands: [
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },
-    { id: "studio.library", label: "Builder: show or hide the library", group: "Builder", icon: Layers, when: onStudio, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
+    { id: "studio.library", label: "Builder: show or hide the side panel", group: "Builder", icon: Layers, when: onStudio, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
     { id: "studio.compile", label: "Builder: compile the blueprint", group: "Builder", icon: Send, when: onStudio, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
     {
       id: "studio.copyBrief",
@@ -172,7 +172,7 @@ export const studio = defineFeature({
     { keys: "p", label: "Design / Preview", group: "Builder", when: onBoard, run: () => { const s = useStudio.getState(); s.setMode(s.mode === "preview" ? "design" : "preview"); } },
     { keys: "w", label: "Show / hide the wires", group: "Builder", when: onBoard, run: () => { const s = useStudio.getState(); s.setShowWires(!s.showWires); } },
     { keys: "b", label: "Back to the board", group: "Builder", when: onPreview, run: (c) => c.navigate("/builder") },
-    { keys: "l", label: "Show / hide the library", group: "Builder", when: onBoard, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
+    { keys: "l", label: "Show / hide the side panel", group: "Builder", when: onBoard, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
     { keys: "v", label: "Select tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("select") },
     { keys: "d", label: "Draw tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("pen") },
     { keys: "a", label: "Arrow tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("arrow") },
