@@ -2,14 +2,61 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-16T17:06:44.737Z";
+export const GENERATED_AT = "2026-09-16T19:14:16.519Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "c326155",
-    "when": "2026-09-16T11:02:50+00:00",
+    "id": "870543e",
+    "when": "2026-09-16T18:48:53+00:00",
     "day": "16 September",
     "changes": [
+      {
+        "id": "870543e",
+        "says": "The builder bar is two rows on a phone, and its keys are targets",
+        "when": "2026-09-16T18:48:53+00:00",
+        "detail": [
+          "J counted three rows at 375 and he was right; my \"about 34px\" was an estimate I never measured, and the bar was 109px in three rows with Finish alone on the last one. This is that, and the touch targets with it.",
+          "WHAT I LOOKED FOR FIRST AND DID NOT FIND: a control duplicated from the site chrome. The header holds News, sound, theme, Keys, GitHub and Settings and the builder bar shares none of them. There was nothing to drop there.",
+          "WHAT WAS ACTUALLY DUPLICATED, one layer in: the page strip. Pages is one of the side panel's five tabs and the panel's own toggle is two controls along in the same bar, so switching pages and adding one are both reachable at 375 without it. 95px, and out below md.",
+          "And the site mark, which is not a control at all. The ladder's own words: \"the site's name beside it is not a control, it is what you have open.\" Its one-letter mark is the same sentence, with `Builds` beside it doing the wayfinding. 18px plus a separator, out below md."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "f26129c",
+        "says": "The vines run dark through their middle, and the lanes hang on green, yellow and red vines",
+        "when": "2026-09-16T17:48:12+00:00",
+        "detail": [
+          "Every vine on the timeline now takes the treatment of the one from the green box to the red drawing: lit where it leaves and arrives, the material's own dark along its middle, and a rim held short of hot with no white sliver in it, so a vine between two red drawings no longer wears a bright pink outline.",
+          "The three connectors into the lanes are vines of the same ribbon, three quarters of its width, coloured by the lane: green into the top lane, yellow into the middle, red into the bottom, the same colour as the line inside each lane's rim. The lanes themselves are made from a flat list of offers by cost band, so an offer is always in the lane of its own colour. The lanes stand three gaps off the latest box so the level vine has a run, and the three leave the box's edge a quarter of its height apart rather than from one point.",
+          "The lane boxes are blue right across: the plate behind the words is gone, and the words read by their own weight and a dark edge cast by the letter."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "0a98080",
+        "says": "A phone has a way back, and the lanes stay clear of the foot band",
+        "when": "2026-09-16T17:11:09+00:00",
+        "detail": [
+          "Hypatia's c326155 and dijkstra's de8cc35. Her tip already contained his, so one push carries both rather than the second being empty.",
+          "Measured here on a local build of this commit; the browser in this container cannot reach https, so the deploy itself was not driven.",
+          "The control bar below md, measured rather than taken from the lane's report, and the lane's figure does not match:",
+          "375 wide    109px tall, 16 controls, row tops 53 / 87 / 92 / 118 1440 wide    43px tall, 20 controls, row tops 51 / 53 / 58"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "c326155",
         "says": "A phone has a way back, and asking for smaller no longer gives bigger",
