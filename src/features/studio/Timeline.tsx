@@ -1759,7 +1759,18 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
    * `ThreadDoc` only ever named the few fields somebody had read, so what is
    * handed over is the rest of the same object rather than a hope about it.
    */
-  const from: PreviewDoc | null = live ? now : (thread.doc as PreviewDoc | undefined) ?? null;
+  const kept: PreviewDoc | null = live ? now : (thread.doc as PreviewDoc | undefined) ?? null;
+  /*
+   * A picture only where there is something in it. A site with nothing on
+   * its page drew as its own empty backdrop, a dark field across the middle
+   * of the box, which on a carried-out box was most of the box. He asked
+   * for the box to look like the blue boxes, with a picture on top only
+   * where there is a picture. So an empty site is a line and a note on the
+   * texture, the way a kept-nothing update already is.
+   */
+  const pageOf = kept ? (kept.activePageId ?? kept.pages?.[0]?.id) : null;
+  const stands = !!kept && (kept.nodes ?? []).some((n) => !pageOf || n.pageId === pageOf);
+  const from = stands ? kept : null;
   /*
    * The same proportion as the picture on a Builds card, so the two read
    * as one object: that card's picture is 352 by 168, and this one is as
@@ -1781,8 +1792,8 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
         height: H,
         width: W,
         borderColor: "oklch(0.36 0.091 var(--box-hue, 152))",
-        /* Dark only under a picture: an empty frame is a line on the texture, not a black box over it. */
-        background: from ? "oklch(0.12 0.02 var(--box-hue, 152))" : "transparent",
+        /* Nothing painted behind the picture: the picture is the site's own, on top of the texture, and an empty frame is a line. */
+        background: "transparent",
         contentVisibility: "auto",
         containIntrinsicSize: `${W}px ${H}px`,
       }}
@@ -1791,7 +1802,7 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
         <SitePreview doc={from} width={W} height={H} />
       ) : (
         <span className="grid h-full w-full place-items-center text-[10px] font-semibold" style={{ color: BODY }}>
-          no picture of the site was kept with this one
+          {kept ? "nothing stands on the site yet" : "no picture of the site was kept with this one"}
         </span>
       )}
     </div>
