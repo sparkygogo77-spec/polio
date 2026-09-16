@@ -159,7 +159,38 @@ try {
   contrast = { blue: await contrastOf(lanes.first().locator("[data-lane-detail]")), green: await contrastOf(page.locator('[data-box="g1"] [data-headline]')), red: await contrastOf(page.locator('[data-box="e1"] [data-headline]')) };
 } catch (e) { contrast = null; console.log(`note  contrast could not be read off the screen: ${String(e.message ?? e).slice(0, 80)}`); }
 if (contrast) check("the body words hold 4.5 to 1 or better against their ground on the blue, the green and the red surface", Object.values(contrast).every((c) => c.ratio >= 4.5), Object.entries(contrast).map(([k, c]) => `${k} ${c.ratio.toFixed(1)}:1`).join(", "));
+/* The band along the foot of the pane, the detail under the timeline, and
+   the lanes never share space, at this width or a narrow one; and at the
+   narrow one the lanes are still there to be found, the fan still reading
+   as his drawing. */
+const bandShare = () => page.evaluate(() => {
+  const band = document.querySelector("[data-studio-band]")?.getBoundingClientRect();
+  const pane = document.querySelector("[data-timeline]")?.getBoundingClientRect();
+  const lanes = [...document.querySelectorAll("[data-lane-box]")].map((e) => e.getBoundingClientRect());
+  const lap = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+  const low = lanes.reduce((m, r) => (r.bottom > m.bottom ? r : m), lanes[0]);
+  return { bandTop: band ? Math.round(band.top) : null, bandH: band ? Math.round(band.height) : null, lowBottom: Math.round(low.bottom), under: band ? Math.max(0, Math.round(low.bottom - band.top)) : 0, shared: band ? lanes.reduce((a, r) => a + lap(r, band), 0) : 0, onPane: pane ? lanes.filter((r) => r.bottom > pane.top && r.top < (band ? band.top : pane.bottom) && r.right > pane.left && r.left < pane.right).length : 0 };
+});
+const wide = await bandShare();
+check("no lane sits under the band along the foot of the pane at this width", wide.shared === 0 && wide.under === 0, `band top ${wide.bandTop}, lowest lane bottom ${wide.lowBottom}, under it ${wide.under}px, shared ${wide.shared}px`);
 await shot("hanging");
+await page.setViewportSize({ width: 480, height: 950 });
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1200);
+await page.locator("[data-finish]").first().click({ force: true });
+await page.waitForTimeout(1500);
+const narrow = await bandShare();
+check("nor at 480 wide, where the band is what a phone shows", narrow.shared === 0 && narrow.under === 0, `band top ${narrow.bandTop} (h ${narrow.bandH}), lowest lane bottom ${narrow.lowBottom}, under it ${narrow.under}px, shared ${narrow.shared}px`);
+check("and the lanes are still on the pane to be found, not hidden", narrow.onPane === 3, `${narrow.onPane} of 3 on the pane above the band`);
+const lastN = await rectOf(page.locator('[data-box="g1"]'));
+const lanesN = await lanes.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }));
+check("and the fan still reads as his drawing there: middle level with the latest box, top up and right, bottom down and right", Math.abs(mid(lanesN[1]) - mid(lastN)) < 1 && lanesN[0].x > lanesN[1].x && mid(lanesN[0]) < mid(lastN) && lanesN[2].x > lanesN[1].x && mid(lanesN[2]) > mid(lastN), `middle centre ${mid(lanesN[1]).toFixed(1)} against ${mid(lastN).toFixed(1)}`);
+await shot("narrow");
+await page.setViewportSize({ width: 1500, height: 950 });
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(1200);
+await page.locator("[data-finish]").first().click({ force: true });
+await page.waitForTimeout(1500);
 
 /* Refresh on the middle lane: another offer of the same lane, the box the same shape. */
 const middle = lanes.nth(1);

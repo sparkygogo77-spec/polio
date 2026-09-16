@@ -58,7 +58,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, type View } from "./timelineView";
+import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
 import { BODY, GROUND } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
@@ -509,13 +509,43 @@ export function Timeline() {
     });
     /* The lanes hang off the end and are part of what the view must hold. */
     const lastT = s.threads.at(-1);
-    boxes.push(...laneRects(lastT ? { ...(s.threadSpots[`box:${lastT.id}`] ?? scattered.get(lastT.id) ?? { x: 140, y: 130 }), ...sizeOf(lastT) } : null, BOX, GAP));
+    /* As tall as the last box really stands, the way the lanes measure it, so the fit holds the same fan the screen shows. */
+    const lastH = lastT ? box.querySelector<HTMLElement>(`[data-box="${lastT.id}"]`)?.offsetHeight : undefined;
+    boxes.push(...laneRects(lastT ? { ...(s.threadSpots[`box:${lastT.id}`] ?? scattered.get(lastT.id) ?? { x: 140, y: 130 }), ...sizeOf(lastT), ...(lastH ? { h: lastH } : {}) } : null, BOX, GAP));
     /* The ceiling is a reading of the card against the board, not a fixed 1:
        three updates used to stop at 1 and cover a quarter of the floor. */
     const widest = Math.max(BOX.w, ...boxes.map((b) => b.w));
-    const to = settleView(boxes, { w: box.clientWidth, h: box.clientHeight }, { max: zoomCeiling(box.clientWidth, widest) });
+    /*
+     * The band along the foot of the pane (the detail under the timeline)
+     * stands over the pane's bottom, so the room the set has is the pane
+     * less the band: fitted to the whole pane, the lowest lane sat under
+     * the band by 190px at 1500 wide and 19px at every width below 900.
+     * The room is read off the band itself, so a taller band on a phone
+     * is a shorter room, and the lanes are pinned above it when the set
+     * is too tall to fit at the zoom floor: the chain's start may then go
+     * off the top, which a pan reaches, and the lanes never sit under
+     * the band.
+     */
+    const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+    const room = Math.max(120, box.clientHeight - band);
+    /*
+     * With the band taking its share, a long chain and the fan can be
+     * taller than the room allows at the floor, and the floor's fallback
+     * is to centre the set, which put a box 5px from the pane's top edge.
+     * Under the band only, the fit may pull out past the floor as far as
+     * the set needs to keep its margin, and no further than 0.28: a box
+     * pulled out is still a box; a box on the edge is a box half seen.
+     */
+    const spanH = Math.max(...boxes.map((b) => b.y + b.h)) - Math.min(...boxes.map((b) => b.y));
+    const spanW = Math.max(...boxes.map((b) => b.x + b.w)) - Math.min(...boxes.map((b) => b.x));
+    const needed = Math.min((room - SETTLE_MARGIN * 2) / Math.max(1, spanH), (box.clientWidth - SETTLE_MARGIN * 2) / Math.max(1, spanW));
+    const min = band ? Math.max(0.28, Math.min(SETTLE_MIN_ZOOM, needed)) : SETTLE_MIN_ZOOM;
+    const to = settleView(boxes, { w: box.clientWidth, h: room }, { min, max: zoomCeiling(box.clientWidth, widest) });
     stopSettle();
     if (!to) return;
+    const lanesBottom = Math.max(...boxes.slice(-3).map((b) => (b.y + b.h) * to.zoom + to.pan.y));
+    // The lanes stand as tall as the box they hang off, measured, which the nominal boxes here undercount: the whole margin covers the difference.
+    if (lanesBottom > room - SETTLE_MARGIN) to.pan.y -= lanesBottom - (room - SETTLE_MARGIN);
     const from = viewAt.current;
     if (sameView(from, to)) return;
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
