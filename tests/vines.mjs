@@ -390,7 +390,7 @@ check("a drawing's is red", hues(timeline).includes(18));
 check("nothing is left in the lantern red the boxes used to be", !hues(timeline).includes(34));
 check("the boxes take their colour from the shared surface rather than their own",
   /from "@\/core\/ui\/molten"/.test(timeline));
-check("a box looks lit rather than flat", /moltenClass\("verdant"\)/.test(timeline),
+check("a box looks lit rather than flat", /moltenClass\(lane \? "azure" : "verdant"\)/.test(timeline),
   "the light is the shared molten surface now, not an inline gradient");
 check("the file says what it is now, rather than what it was",
   /green/.test(timeline) && /red/.test(timeline));

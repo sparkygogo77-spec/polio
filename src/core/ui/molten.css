@@ -23,6 +23,8 @@
      --verdant-*   an ITERATION. Green. The boards on the timeline, and the
                    Finish key that opens them, because it is one of them.
      --ember-*     a DRAWING, and every other piece that came off one. Red.
+     --azure-*     an ITERATION A LANE CARRIED OUT. Blue: the verdant's
+                   numbers with the hue turned, and nothing else.
      --molten-*    the base set the other two are shaped from, and the
                    fallback for a construct that has not said which it is.
 
@@ -157,6 +159,18 @@
    */
   /* The reference itself, in its own hue: this is the family the hexes were
      given for, so these are the read-off values rather than a derivation. */
+  /*
+   * The azure: an iteration a lane carried out. The verdant's five stops
+   * with the hue turned to the menu's blue (hue 205, `docs/DESIGN.md` §1),
+   * lightness and chroma untouched, so the blue box is the green box in
+   * another colour and nothing else about it differs.
+   */
+  --azure-white: oklch(0.888 0.208 200);
+  --azure-hot: oklch(0.798 0.209 205);
+  --azure-body: oklch(0.506 0.152 210);
+  --azure-deep: oklch(0.309 0.076 212);
+  --azure-char: oklch(0.254 0.058 213);
+  --azure-core: oklch(0.13 0.03 213);
   --verdant-white: oklch(0.888 0.208 126);
   --verdant-hot: oklch(0.798 0.209 135);
   --verdant-body: oklch(0.506 0.152 144);
@@ -743,6 +757,32 @@
   --mo-cloud-still: 0.7;
   /* J's green box, cut to its frame. */
   --mo-rim: url("/construct/rim-green.png");
+  --mo-rim-width: 9px;
+  --mo-rim-shadow: none;
+}
+
+/*
+ * An azure construct: the verdant's rules, every dial the same, in blue.
+ *
+ * An iteration that a lane carried out stands in the chain with the green
+ * ones and must be told from them at a glance, and by nothing but its hue:
+ * the same face, the same rim cut the same way (`rim-blue.png` and the
+ * blue faces are the green renders with the hue turned, by
+ * `scripts/blue-construct.mjs`), the same cloud weights. When the green is
+ * restyled, this follows, because every number here is the green's.
+ */
+.molten-azure {
+  --mo-white: var(--azure-white);
+  --mo-hot: var(--azure-hot);
+  --mo-body: var(--azure-body);
+  --mo-deep: var(--azure-deep);
+  --mo-char: var(--azure-char);
+  --mo-core: var(--azure-core);
+  --mo-nebula: var(--nebula-azure, none);
+  --mo-nebula-lit: var(--nebula-azure-lit, var(--nebula-azure, none));
+  --mo-cloud: 0.5;
+  --mo-cloud-still: 0.7;
+  --mo-rim: url("/construct/rim-blue.png");
   --mo-rim-width: 9px;
   --mo-rim-shadow: none;
 }

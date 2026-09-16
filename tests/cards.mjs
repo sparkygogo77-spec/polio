@@ -317,7 +317,7 @@ check("the copy control is off the headline, in the corner", (() => {
 })());
 check("a detail box is the reading family, not another card: no lift, squarer, near-neutral face",
   /data-reading=""/.test(cardBlock) && !/shadow-pop/.test(cardBlock) && /rounded-\[4px\]/.test(cardBlock)
-  && /face: "oklch\(0\.15 0\.018 18\)"/.test(cardBlock) && /face: "oklch\(0\.145 0\.016 152\)"/.test(cardBlock));
+  && /face: "oklch\(0\.15 0\.018 18\)"/.test(cardBlock) && /face: `oklch\(0\.145 0\.016 \$\{hue\}\)`/.test(cardBlock) && /const hue = thread\.mode === LANE_MODE \? 210 : 152/.test(cardBlock));
 check("its colour lives in a hairline rim rather than a filled face", /rim: "oklch\([\d. ]+ 18 \/ 0\.7\)"/.test(cardBlock));
 
 const studio = readFileSync("src/features/studio/StudioPage.tsx", "utf8");
@@ -342,7 +342,7 @@ check("and says what to do when nothing is open", /data-timeline-panel-empty=""/
 /* 5. Nothing else moved                                               */
 /* ------------------------------------------------------------------ */
 
-check("an iteration is still the green construct", /moltenClass\("verdant"\)/.test(timeline));
+check("an iteration is still the green construct, and a lane's work the blue one", /moltenClass\(lane \? "azure" : "verdant"\)/.test(timeline));
 check("a drawing is still the red one", /moltenClass\("ember"\)/.test(timeline));
 check("still no clock anywhere", !/toLocaleTimeString/.test(timeline));
 

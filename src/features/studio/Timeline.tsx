@@ -59,6 +59,9 @@ import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, type View } from "./timelineView";
+import { Lanes } from "./Lanes";
+import { BODY, GROUND } from "./boxGround";
+import { LANE_MODE, laneRects } from "./lanes";
 import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
@@ -334,6 +337,8 @@ function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
       return { icon: <Brush className="size-3.5" />, kind: "element prompt" };
     case "start":
       return { icon: <Flag className="size-3.5" />, kind: "where it began" };
+    case LANE_MODE:
+      return { icon: <GitBranch className="size-3.5" />, kind: "a lane, carried out" };
     case "build":
       return { icon: <Layers className="size-3.5" />, kind: "chain prompt" };
     case "critique":
@@ -502,6 +507,9 @@ export function Timeline() {
       const size = sizeOf(t);
       return { x: at.x, y: at.y, w: size.w, h: size.h };
     });
+    /* The lanes hang off the end and are part of what the view must hold. */
+    const lastT = s.threads.at(-1);
+    boxes.push(...laneRects(lastT ? { ...(s.threadSpots[`box:${lastT.id}`] ?? scattered.get(lastT.id) ?? { x: 140, y: 130 }), ...sizeOf(lastT) } : null, BOX, GAP));
     /* The ceiling is a reading of the card against the board, not a fixed 1:
        three updates used to stop at 1 and cover a quarter of the floor. */
     const widest = Math.max(BOX.w, ...boxes.map((b) => b.w));
@@ -1079,6 +1087,9 @@ export function Timeline() {
   }, []);
 
   const nothing = !threads.length;
+  /* Where the lanes hang: one slot past the last real box, wherever it stands now. */
+  const lastThread = all.at(-1)?.thread;
+  const lanesFrom = lastThread ? { ...spotOf(lastThread.id), ...sizeOf(lastThread) } : null;
 
   return (
     <div
@@ -1130,6 +1141,17 @@ export function Timeline() {
             />
           );
         })}
+
+        {/*
+          THE LANES, PAST THE END.
+
+          Three offers of what could come next, hanging one slot past the
+          last real box and moving along with it. Not threads, not placed
+          by hand, not part of the history: what a lane carries out lands
+          as an iteration through the same door as everything else and
+          stands in the chain in blue.
+        */}
+        <Lanes from={lanesFrom} fromId={lastThread?.id ?? null} size={BOX} gap={GAP} />
 
         {/*
           The cut line down each vine, and nothing else on a vine.
@@ -1382,8 +1404,15 @@ function IterationBox({
   onMenu: (e: React.MouseEvent) => void;
 }) {
   const { icon, kind } = kindOf(thread);
+  /*
+   * One hue for everything on the box. A lane's work stands here in the
+   * azure construct and every tint on it, the label, the ask, the site's
+   * frame, the feature chips, follows the same hue, so the blue box is the
+   * green box with the hue turned and nothing else.
+   */
+  const lane = thread.mode === LANE_MODE;
   return (
-    <div className="absolute" style={{ left: at.x, top: at.y, width: BOX.w, zIndex: open ? 40 : dragging ? 30 : 10 }}>
+    <div className="absolute" style={{ left: at.x, top: at.y, width: BOX.w, zIndex: open ? 40 : dragging ? 30 : 10, "--box-hue": lane ? 210 : 152 } as React.CSSProperties}>
       {open ? <Card thread={thread} side="in" /> : null}
       {/* A surface, not a button: it carries the site, and a site inside a
           `<button>` is both invalid and unusable. */}
@@ -1409,7 +1438,7 @@ function IterationBox({
          * nearly match. Everything here is which one and how deep.
          */
         className={cn(
-          moltenClass("verdant"),
+          moltenClass(lane ? "azure" : "verdant"),
           "flex w-full cursor-grab flex-col gap-1 rounded-lg p-2 text-left transition-[box-shadow,transform] active:cursor-grabbing",
         )}
         data-forming={forming < 1 ? "" : undefined}
@@ -1418,7 +1447,7 @@ function IterationBox({
           ...moltenSeed(thread.id),
           ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
           ...COVERED,
-          color: "oklch(0.93 0.055 150)",
+          color: "oklch(0.93 0.055 var(--box-hue, 150))",
           // Depth is the shadow under it and the lift when it is picked up;
           // the light in it comes from the surface, not from here.
           // The weight under it, and the heat it throws: the construct's own
@@ -1444,7 +1473,7 @@ function IterationBox({
           The line above the headline is a label, and it is sized like one:
           what the iteration made is the biggest thing on the box.
         */}
-        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.9_0.05_152)]">
+        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.9_0.05_var(--box-hue,152))]">
           {icon}
           {kind}
           {/* Nothing else on this row. The flag that marked the update being
@@ -1542,10 +1571,10 @@ function Asked({ thread }: { thread: Thread }) {
     askTheBook({ mode: thread.mode, prompt: words.trim(), run: true });
   };
   return (
-    <div data-asked={page} className="flex shrink-0 items-start gap-2">
+    <div data-asked={page} className="flex shrink-0 items-start gap-2 rounded-[4px] px-1.5 py-1" style={{ background: GROUND }}>
       <span className="min-w-0 flex-1">
         {page === 0 ? (
-          <span data-asked-said="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_150)]">
+          <span data-asked-said="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_var(--box-hue,150))]">
             {thread.ask || headlineOf(thread)}
           </span>
         ) : (
@@ -1559,7 +1588,7 @@ function Asked({ thread }: { thread: Thread }) {
             onKeyDown={(e) => e.stopPropagation()}
             placeholder="Say what to do differently, and run it again"
             className="block w-full resize-none rounded-sm border bg-transparent px-1.5 py-1 text-[12px] leading-snug outline-none focus:ring-1"
-            style={{ borderColor: "oklch(0.42 0.118 152 / 0.7)", color: "oklch(0.95 0.05 150)" }}
+            style={{ borderColor: "oklch(0.42 0.118 var(--box-hue, 152) / 0.7)", color: "oklch(0.95 0.05 var(--box-hue, 150))" }}
           />
         )}
       </span>
@@ -1572,10 +1601,12 @@ function Asked({ thread }: { thread: Thread }) {
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); play("tick"); setPage(page === 0 ? 1 : 0); }}
           className="tactile grid size-5 place-items-center rounded-sm border"
-          style={{ borderColor: "oklch(0.42 0.118 152 / 0.7)", color: "oklch(0.8 0.09 152)" }}
+          style={{ borderColor: "oklch(0.42 0.118 var(--box-hue, 152) / 0.7)", color: "oklch(0.8 0.09 var(--box-hue, 152))" }}
         >
           {page === 0 ? <ChevronRight className="size-3" /> : <ChevronLeft className="size-3" />}
         </button>
+        {/* A lane's work was not a prompt to the book, so there is nothing to run again. */}
+        {thread.mode === LANE_MODE ? null : (
         <button
           type="button"
           data-reiterate={thread.id}
@@ -1583,11 +1614,12 @@ function Asked({ thread }: { thread: Thread }) {
           onClick={(e) => { e.stopPropagation(); again(); }}
           title="Run this prompt again"
           className="tactile flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]"
-          style={{ borderColor: "oklch(0.58 0.14 152)", background: "oklch(0.26 0.07 152)", color: "oklch(0.92 0.06 152)" }}
+          style={{ borderColor: "oklch(0.58 0.14 var(--box-hue, 152))", background: "oklch(0.26 0.07 var(--box-hue, 152))", color: "oklch(0.92 0.06 var(--box-hue, 152))" }}
         >
           <RotateCcw className="size-3" />
           Re-iterate
         </button>
+        )}
       </span>
     </div>
   );
@@ -1659,8 +1691,8 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
       className="grid shrink-0 place-items-start overflow-hidden rounded-md border"
       style={{
         height: H,
-        borderColor: "oklch(0.36 0.091 152)",
-        background: "oklch(0.12 0.02 152)",
+        borderColor: "oklch(0.36 0.091 var(--box-hue, 152))",
+        background: "oklch(0.12 0.02 var(--box-hue, 152))",
         contentVisibility: "auto",
         containIntrinsicSize: `${W}px ${H}px`,
       }}
@@ -1668,7 +1700,7 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
       {from ? (
         <SitePreview doc={from} width={W} height={H} />
       ) : (
-        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.88 0.05 152)" }}>
+        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.88 0.05 var(--box-hue, 152))" }}>
           no picture of the site was kept with this one
         </span>
       )}
@@ -1692,8 +1724,9 @@ function Features({ thread }: { thread: Thread }) {
      disagree about which parts are this update's. */
   const { parts, mine } = React.useMemo(() => ownParts(thread, parent), [thread, parent]);
   return (
-    <div className="flex min-h-0 shrink-0 flex-col gap-1">
-      <span data-headline="" className="line-clamp-1 block text-[10px] text-[oklch(0.93_0.06_152)]">
+    <div className="flex min-h-0 shrink-0 flex-col gap-1 rounded-[4px] px-1.5 py-1" style={{ background: GROUND }}>
+      {/* The body line, up toward the title: 12px and medium where it was 10px and regular, near white on the ground. */}
+      <span data-headline="" className="line-clamp-1 block text-[12px] font-medium leading-snug" style={{ color: BODY }}>
         {headlineOf(thread)}
         {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
       </span>
@@ -1721,13 +1754,13 @@ function Features({ thread }: { thread: Thread }) {
                * Lit is still the loud one: brighter plate, brighter edge.
                */
               style={mine.has(n.id)
-                ? { borderColor: "oklch(0.7 0.17 152)", background: "oklch(0.3 0.09 152)", color: "oklch(0.95 0.07 152)" }
-                : { borderColor: "oklch(0.4 0.09 152)", background: "oklch(0.17 0.03 152)", color: "oklch(0.92 0.05 152)" }}
+                ? { borderColor: "oklch(0.7 0.17 var(--box-hue, 152))", background: "oklch(0.3 0.09 var(--box-hue, 152))", color: "oklch(0.95 0.07 var(--box-hue, 152))" }
+                : { borderColor: "oklch(0.4 0.09 var(--box-hue, 152))", background: "oklch(0.17 0.03 var(--box-hue, 152))", color: "oklch(0.92 0.05 var(--box-hue, 152))" }}
             >
               {n.label}
             </li>
           ))}
-          {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.88 0.045 152)" }}>and {parts.length - 14} more</li> : null}
+          {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.88 0.045 var(--box-hue, 152))" }}>and {parts.length - 14} more</li> : null}
         </ul>
       ) : (
         <span className="text-[9px]" style={{ color: "oklch(0.88 0.045 152)" }}>nothing stands on the site yet</span>
@@ -1862,8 +1895,8 @@ function ElementPiece({
             </span>
           )}
         </span>
-        <span className="block text-center">
-          <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
+        <span className="block rounded-[4px] px-1.5 py-0.5 text-center" style={{ background: GROUND, "--box-hue": 18 } as React.CSSProperties}>
+          <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug" style={{ color: BODY }}>{name}</span>
           {thread.changes.length > 1 ? (
             /* 0.93, up from 0.9. At nine pixels on the ember face this was the
                worst run of words anywhere on the timeline and it sat exactly on
@@ -2015,9 +2048,10 @@ function Card({ thread, side }: { thread: Thread; side: "in" | "out" }) {
    * and the corners are squarer than anything on the timeline that is a
    * thing. Same family, different member.
    */
+  const hue = thread.mode === LANE_MODE ? 210 : 152;
   const skin = element
     ? { face: "oklch(0.15 0.018 18)", rim: "oklch(0.46 0.157 18 / 0.7)", text: "oklch(0.92 0.02 18)", dim: "oklch(0.72 0.106 18)" }
-    : { face: "oklch(0.145 0.016 152)", rim: "oklch(0.42 0.118 152 / 0.7)", text: "oklch(0.92 0.02 152)", dim: "oklch(0.7 0.091 152)" };
+    : { face: `oklch(0.145 0.016 ${hue})`, rim: `oklch(0.42 0.118 ${hue} / 0.7)`, text: `oklch(0.92 0.02 ${hue})`, dim: `oklch(0.7 0.091 ${hue})` };
   return (
     <div
       data-card={side}

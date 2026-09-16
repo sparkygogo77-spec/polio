@@ -1,23 +1,31 @@
 /**
- * The bracket: what the latest box on the timeline could become next.
+ * The lanes: three offers hanging off the end of the timeline.
  *
- * One typed structure, read by the page and by nothing else, so that the
+ * They are not part of the history and nobody places them. They sit past
+ * the last real box, anticipating work that nobody has created yet, and
+ * when a box is added they move along and stay at the end. Each lane
+ * offers one item at a time, an update or an improvement, with a Refresh
+ * that swaps in another from the same lane. When a lane's work is carried
+ * out it becomes a blue iteration box in the normal run of boxes, and the
+ * lanes move out past it again.
+ *
+ * One typed structure, read by the lanes and by nothing else, so that the
  * day the sample content is swapped for something live is a change of
- * source and not a rewrite. Everything a box shows is derived here from
- * the item's own numbers, in one direction, so the colours cannot
+ * source and not a rewrite. Everything a lane box shows is derived here
+ * from the item's own numbers, in one direction, so the colours cannot
  * disagree with each other:
  *
  *   difficulty  ->  model and effort
  *   model + tokens  ->  cost
  *   cost  ->  the band, green, yellow or red
  *
- * The band is the one thing that colours a box. Time is printed as a
- * figure and never as a colour, because it is the one number that varies
- * on its own. This file imports nothing, so the checks in
- * `tests/bracket.mjs` can read it straight off the disk.
+ * The band is the one thing that colours a lane box's inner line. Time is
+ * printed as a figure and never as a colour, because it is the one number
+ * that varies on its own. This file imports nothing, so the checks in
+ * `tests/lanes.mjs` can read it straight off the disk.
  */
 
-/** A lane is a row of the bracket. Each box shows one item of its lane at a time. */
+/** A lane is one row of offers. It shows one item at a time. */
 export interface Lane {
   id: string;
   /** What the lane is for, in a word or two: the box's label. */
@@ -25,7 +33,7 @@ export interface Lane {
   items: Item[];
 }
 
-/** One thing the latest box could turn into. */
+/** One offer: an update (a fix) or an improvement (a step). */
 export interface Item {
   id: string;
   /** A fix prints what failed, in mono. A step prints a recommendation. */
@@ -40,17 +48,19 @@ export interface Item {
   tokens: { in: number; out: number };
   /** Estimated minutes, wall clock. Printed as a figure. */
   minutes: number;
+  /**
+   * What carrying this out actually changed on the site, written from the
+   * work itself and not from a template. It becomes the blue box's own
+   * content. Absent until the work has really been done, and the lane's
+   * key says so rather than inventing one.
+   */
+  did?: string;
 }
 
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 
-/** What the bracket grows from: the latest box on the timeline. */
-export interface Generation {
-  /** The box it sprouts from. */
-  from: { id: string; label: string; made: string };
-  /** The three rows, top to bottom. */
-  lanes: [Lane, Lane, Lane];
-}
+/** The three lanes, top to bottom. */
+export type Lanes = [Lane, Lane, Lane];
 
 /* ------------------------------------------------------------------ */
 /* Difficulty picks the model                                           */
@@ -112,14 +122,11 @@ export const BAND_COLOUR: Record<Band, string> = {
   red: "oklch(0.66 0.2 27)",
 };
 
-/** The outer rim every box of a generation wears: the menu's blue, hue 205. */
-export const RIM = "oklch(0.72 0.15 205)";
-
 /* ------------------------------------------------------------------ */
-/* What a box prints                                                    */
+/* What a lane box prints                                               */
 /* ------------------------------------------------------------------ */
 
-/** Everything a box shows, derived once from the item. */
+/** Everything a lane box shows, derived once from the item. */
 export interface Shown {
   item: Item;
   pick: Choice;
@@ -151,4 +158,49 @@ export function saidMinutes(minutes: number): string {
 export function nextIn(lane: Lane, id: string): Item {
   const i = lane.items.findIndex((it) => it.id === id);
   return lane.items[(i + 1) % lane.items.length]!;
+}
+
+/* ------------------------------------------------------------------ */
+/* Where they hang                                                      */
+/* ------------------------------------------------------------------ */
+
+/** A box on the timeline, in the plot's own coordinates. */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The mode a lane's work lands as. The timeline reads it to colour the box blue. */
+export const LANE_MODE = "lane";
+
+/**
+ * Where the three lane boxes stand, from his drawing: a fan off the
+ * latest box to its right, centred on that box. The middle lane is
+ * beside it, level, its vertical centre the latest box's own. The top
+ * lane is diagonally above, up and to the right; the bottom lane
+ * diagonally below, down and to the right. One above the centre line,
+ * one on it, one under it. Every lane is as tall as the box it hangs
+ * off, so the middle's centre is the latest's centre to the pixel. With
+ * no box at all they hang off where the first box would be.
+ *
+ * Diagonal is a real step to the right, three tenths of a box, so the
+ * three read as a fan and not as a column. When the chain has wrapped
+ * and the row above the latest box has a box in the next column, the top
+ * lane stands over part of it: that is where his drawing puts it, and the
+ * lane sits under the real box rather than covering it.
+ */
+export const DIAGONAL = 0.3;
+export function laneRects(from: Rect | null, size: { w: number; h: number }, gap: { x: number; y: number }): [Rect, Rect, Rect] {
+  const h = from ? from.h : size.h;
+  const x = from ? from.x + from.w + gap.x : 140;
+  const cy = from ? from.y + from.h / 2 : 130 + h / 2;
+  const step = h + gap.y;
+  const diag = Math.round(size.w * DIAGONAL);
+  return [
+    { x: x + diag, y: cy - step - h / 2, w: size.w, h },
+    { x, y: cy - h / 2, w: size.w, h },
+    { x: x + diag, y: cy + step - h / 2, w: size.w, h },
+  ];
 }
