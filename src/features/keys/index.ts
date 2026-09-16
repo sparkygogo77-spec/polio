@@ -62,6 +62,15 @@ export const keys = defineFeature({
   ],
   shortcuts: [{ keys: "mod+shift+k", label: "Keys", group: "Keys", run: (ctx) => ctx.togglePanel("keys") }],
   onMount: () => {
+    /*
+     * Opening the entry is asynchronous now — this browser's key comes out of
+     * IndexedDB and the box is decrypted — so it starts the moment the app
+     * does, rather than when the keys panel first renders. Nothing waits on
+     * it; it is a head start, so that a call made seconds after a load finds
+     * the key in memory where it expects it.
+     */
+    void import("./store").then((m) => m.useKeys.getState().refresh());
+
     // A keys panel open when the tab goes away is a keys panel open on a shared machine.
     // A key held for the tab — or a sealed one kept for it — is the tab's own:
     // sessionStorage ends with it, and pagehide also fires on a plain reload,

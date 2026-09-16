@@ -2301,11 +2301,25 @@ remove it from `src/features/index.ts` when you're sure.
   service to `SERVICES` means adding a header a route reads and an arm to
   `/api/keys/test`, which asks each service the smallest question it answers
   — one answer per service, never one standing in for another.
+- **Nothing writes a key down in the clear. Ever, under any name.** One
+  entry, `builder.keys`, always a sealed box: under this browser's own
+  non-extractable key when there is no PIN (`keyring.ts`), under the PIN when
+  there is one (`crypto.ts`). The tab's own record in sessionStorage is
+  sealed the same way, and where a browser can seal nothing it writes
+  nothing. There was a second entry, `builder.keys.plain`, keeping a readable
+  copy so a reload did not lose the key — which made the sealed one pointless
+  while it existed; it is read, folded in and deleted on the next load. If a
+  caller ever cannot read the sealed one, fix that caller. Do not add a
+  readable copy for its convenience. `tests/no-plain-key.mjs` searches every
+  name and value in both stores for a pasted key rather than checking the
+  entry it expects. Say what the browser's key is worth in the same breath as
+  claiming it: real against anything that reads the disk, worth nothing
+  against code running on the page.
 - **The keys panel is the fallback, not the pattern.** `src/features/keys` holds
-  the key in this browser, in localStorage, in the clear, open on arrival and
-  across reloads and tabs, with one way out: **Forget the key**. There is no
-  PIN on the way in. Four digits was a speed bump in front of something
-  anything on the machine could read the moment it was unlocked, and it cost
+  the key in this browser, open on arrival and across reloads and tabs, with
+  one way out: **Forget the key**, which takes the entry and the wrapping key
+  with it. There is no PIN on the way in. Four digits was a speed bump in front of something
+  anything running on the page could read the moment it was unlocked, and it cost
   an unattended run every five minutes and every reload. The panel says
   plainly what holding a key here means and that the server is where a key
   belongs — do not restyle that warning away. The sealed keys is still

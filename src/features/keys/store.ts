@@ -9,14 +9,24 @@
  * without access to the server, sent with a request only when the server has
  * nothing of its own.
  *
- * By default there is no PIN at all. The key is held in this browser, in
- * localStorage, in the clear, open on arrival and across reloads and tabs,
- * with one plain way to be rid of it: **Forget the key**. A pad on the way
- * in bought very little — anything that can read localStorage on this
- * machine can read the key the moment it is unlocked — and cost an
- * unattended run every five minutes and every reload. The honest line is
- * the one drawn here: this browser is not where a key belongs; the server
- * is, and the panel says so.
+ * By default there is no PIN at all. The key is held in this browser, open
+ * on arrival and across reloads and tabs, with one plain way to be rid of
+ * it: **Forget the key**. A pad on the way in bought very little — anything
+ * that can run code on this page can read the key the moment it is
+ * unlocked — and cost an unattended run every five minutes and every
+ * reload. The honest line is the one drawn here: this browser is not where
+ * a key belongs; the server is, and the panel says so.
+ *
+ * **Nothing is ever written down in the clear.** There is one entry,
+ * `builder.keys`, and it is always a sealed box: under the browser's own
+ * non-extractable key when there is no PIN (`keyring.ts`), under the PIN
+ * when there is one (`crypto.ts`). There used to be a second entry beside
+ * it, `builder.keys.plain`, holding a readable copy for the convenience of
+ * surviving a reload — `sk-ant-…` in localStorage, in plain sight of
+ * anything that could read the disk. It is gone, and any browser that still
+ * has one has it taken away and folded into the sealed entry on the next
+ * load. What the browser's own key does and does not protect is set out in
+ * `keyring.ts`, and the panel says the same thing in a sentence.
  *
  * The PIN is still here, behind **Seal the key under a PIN** in Settings
  * (off by default). With it on, the browser can hold the key two ways:
@@ -26,10 +36,13 @@
  *   away. Locked is the resting state. Only the sealed box is ever written
  *   down. This needs Web Crypto, which browsers provide only on https or
  *   localhost.
- * - **Held for this tab**, with no PIN: in memory and in sessionStorage, in
- *   the clear, so it survives a reload of this tab and dies with it. The
- *   honest option where there is no Web Crypto (an embedded browser on a
- *   plain http address), and the simple one anywhere.
+ * - **Held for this tab**, with no PIN: in memory, and sealed into
+ *   sessionStorage when this browser can seal anything, so it survives a
+ *   reload of this tab and dies with it. Where there is no Web Crypto at
+ *   all (an embedded browser on a plain http address) nothing is written
+ *   anywhere: the key lives in the page and a reload loses it, because the
+ *   alternative is writing it down in the clear and that is the thing this
+ *   does not do.
  * - **Kept for this tab**, which is the sealed keys after the PIN has been
  *   entered once, asked to stay open until the tab closes: the open values
  *   go to sessionStorage as well, so a reload does not relock it and neither
@@ -48,6 +61,7 @@
 import { create } from "zustand";
 import { getSetting } from "@/core/settings/store";
 import { isPin, open, seal, type SealedBox } from "./crypto";
+import { canWrap, isWrapped, shred, unwrap, wrap, type WrappedBox } from "./keyring";
 import { rateCardSays } from "@/features/studio/renderMeter";
 
 export type ServiceId = "anthropic" | "replicate" | "github" | "vercel";
@@ -113,10 +127,15 @@ export const SERVER_ONLY: { label: string; names: string[]; does: string }[] = [
 
 export const FIELDS = SERVICES.flatMap((s) => s.fields.map((f) => ({ ...f, service: s.id })));
 
+/** The one entry. Always a sealed box: `v: 1` under a PIN, `v: 2` under this browser's key. */
 const STORE_KEY = "builder.keys";
 const SESSION_KEY = "builder.keys.session";
-/** Where the key lives when there is no PIN: this browser, in the clear. */
-const PLAIN_KEY = "builder.keys.plain";
+/**
+ * The readable copy this used to keep beside the sealed one, kept only so it
+ * can be taken away. Read once on the next load, folded into the sealed
+ * entry, and deleted. Nothing writes it.
+ */
+const LEGACY_PLAIN_KEY = "builder.keys.plain";
 /** The setting that brings the PIN back. Off, and there is no pad anywhere. */
 export const PIN_SETTING = "keys.pin";
 /** The sealed keys relocks itself after this long without a keystroke. */
@@ -132,9 +151,17 @@ export function pinWanted(): boolean {
   return !!getSetting<boolean>(PIN_SETTING);
 }
 
-function readPlain(): Values | null {
+/**
+ * The old readable copy, read and removed in the same breath.
+ *
+ * Whatever it held is carried into the sealed entry by the caller. It is
+ * deleted whether or not that succeeds, because a key nobody can seal is
+ * still a key that should not be sitting in storage in the clear.
+ */
+function takeLegacyPlain(): Values | null {
   try {
-    const raw = localStorage.getItem(PLAIN_KEY);
+    const raw = localStorage.getItem(LEGACY_PLAIN_KEY);
+    localStorage.removeItem(LEGACY_PLAIN_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as unknown;
     return v && typeof v === "object" && !Array.isArray(v) ? (v as Values) : null;
@@ -143,12 +170,12 @@ function readPlain(): Values | null {
   }
 }
 
-function writePlain(values: Values | null) {
+/** Is the old readable copy still there? Only for saying so; reading it removes it. */
+function legacyPlainThere(): boolean {
   try {
-    if (values && Object.keys(values).length) localStorage.setItem(PLAIN_KEY, JSON.stringify(values));
-    else localStorage.removeItem(PLAIN_KEY);
+    return !!localStorage.getItem(LEGACY_PLAIN_KEY);
   } catch {
-    /* private mode, or a full quota: the key lives in memory for this page */
+    return false;
   }
 }
 
@@ -174,11 +201,11 @@ interface KeysState {
   error: string | null;
   lastTouch: number;
 
-  refresh: () => void;
+  refresh: () => Promise<void>;
   create: (pin: string) => Promise<boolean>;
   unlock: (pin: string) => Promise<boolean>;
   /** Open with no PIN, for this tab. */
-  hold: () => void;
+  hold: () => Promise<void>;
   /** Keep the open keys panel for this tab, across reloads, until the tab closes. */
   keep: (on: boolean) => void;
   /** Drop the key this browser holds. The plain keys's only door. */
@@ -210,22 +237,55 @@ export function storageWorks(): boolean {
   }
 }
 
-function read(): SealedBox | null {
+/** Whatever is in the one entry: a PIN box, this browser's box, or nothing. */
+function readBox(): SealedBox | WrappedBox | null {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return null;
-    const box = JSON.parse(raw) as SealedBox;
-    return box && box.v === 1 && box.salt && box.iv && box.cipher ? box : null;
+    const box = JSON.parse(raw) as SealedBox | WrappedBox;
+    if (isWrapped(box)) return box;
+    const sealed = box as SealedBox;
+    return sealed && sealed.v === 1 && sealed.salt && sealed.iv && sealed.cipher ? sealed : null;
   } catch {
     return null;
   }
 }
 
-function write(box: SealedBox) {
+/** The PIN box, when that is what is there. The pad has nothing to open otherwise. */
+function read(): SealedBox | null {
+  const box = readBox();
+  return box && !isWrapped(box) ? box : null;
+}
+
+function write(box: SealedBox | WrappedBox) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(box));
   } catch {
     /* private mode, or a full quota: the keys panel simply does not persist */
+  }
+}
+
+function clearBox() {
+  try {
+    localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(LEGACY_PLAIN_KEY);
+  } catch {
+    /* nothing to remove */
+  }
+}
+
+/**
+ * Write the values down with this browser's own key, replacing whatever was
+ * in the entry. Nothing is written at all if this browser cannot seal: the
+ * key stays in the page, which is the honest end of that road.
+ */
+async function keepSealed(values: Values): Promise<void> {
+  if (!Object.keys(values).length) return clearBox();
+  if (!canWrap()) return clearBox();
+  try {
+    write(await wrap(values));
+  } catch {
+    clearBox();
   }
 }
 
@@ -243,25 +303,36 @@ interface SessionRecord {
   held: boolean;
 }
 
-function readSession(): SessionRecord | null {
+/**
+ * The tab's record is sealed the same way the entry is.
+ *
+ * It holds values and, when the keys panel is being kept open, the PIN that
+ * opened it — both secrets, so neither is written in the clear. A record
+ * from before this was true is readable JSON; it is thrown away rather than
+ * read, because a tab that has to ask again is a smaller price than a
+ * readable key.
+ */
+async function readSession(): Promise<SessionRecord | null> {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as unknown;
-    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
-    const rec = v as Record<string, unknown>;
-    // Before there was anything to keep, the record was the values alone.
-    if (!rec.values || typeof rec.values !== "object") return { values: rec as Values, pin: null, held: true };
-    return { values: rec.values as Values, pin: typeof rec.pin === "string" ? rec.pin : null, held: !!rec.held };
+    if (!isWrapped(v)) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    const rec = await unwrap<SessionRecord>(v);
+    if (!rec || typeof rec !== "object" || !rec.values) return null;
+    return { values: rec.values, pin: typeof rec.pin === "string" ? rec.pin : null, held: !!rec.held };
   } catch {
     return null;
   }
 }
 
-function writeSession(rec: SessionRecord | null) {
+async function writeSession(rec: SessionRecord | null): Promise<void> {
   try {
-    if (rec) sessionStorage.setItem(SESSION_KEY, JSON.stringify({ v: 2, ...rec }));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (!rec || !canWrap()) return void sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(await wrap(rec)));
   } catch {
     /* then it lives in memory only, which still works until the next reload */
   }
@@ -273,6 +344,9 @@ const filled = (values: Values): Values => {
   for (const [k, v] of Object.entries(values)) if (v.trim()) out[k] = v.trim();
   return out;
 };
+
+/** The refresh in flight, so two callers at once are one read. */
+let inFlight: Promise<void> | null = null;
 
 export const useKeys = create<KeysState>()((set, get) => ({
   exists: false,
@@ -291,43 +365,79 @@ export const useKeys = create<KeysState>()((set, get) => ({
 
   refresh: () => {
     /*
-     * No PIN is the ordinary case: the key is in this browser, the keys panel is
-     * open, and there is nothing to unlock. A key held under the old PIN
-     * comes across on the way past — from this tab's own record without
-     * asking, and from a sealed box only when someone types the PIN once
-     * (`bringAcross`), because nothing else can open it.
+     * One at a time, and everybody waits on the same one.
+     *
+     * Two callers open this at once on every load — the module on mount and
+     * the panel on render — and opening is asynchronous now. Racing, the
+     * second one read the entry before the first had finished carrying the
+     * old readable copy into it, and wrote back what it found: the migrated
+     * key was taken away and the one before it put back. So the first call
+     * in flight is the one that runs, and the others are handed its promise.
      */
-    if (!pinWanted()) {
-      const plain = readPlain() ?? readSession()?.values ?? null;
-      if (plain && Object.keys(plain).length) writePlain(plain);
-      writeSession(null);
-      set({
-        exists: !!plain && Object.keys(plain).length > 0,
-        unlocked: true,
-        plain: true,
-        held: false,
-        kept: false,
-        values: plain ?? {},
-        pin: null,
-        sealedWaiting: !plain && !!read(),
-        lastTouch: Date.now(),
-      });
-      return;
-    }
-    // A reload lands here with an empty store and, if this tab was holding or
-    // keeping anything, a record to come back to.
-    const session = get().unlocked ? null : readSession();
-    if (session)
-      set({
-        exists: !!read(),
-        unlocked: true,
-        held: session.held,
-        kept: !session.held,
-        values: session.values,
-        pin: session.pin,
-        lastTouch: Date.now(),
-      });
-    else set({ exists: !!read() });
+    if (inFlight) return inFlight;
+    inFlight = (async () => {
+      /*
+       * No PIN is the ordinary case: the key is in this browser, the keys panel is
+       * open, and there is nothing to unlock. A key held under the old PIN
+       * comes across on the way past — from this tab's own record without
+       * asking, and from a sealed box only when someone types the PIN once
+       * (`bringAcross`), because nothing else can open it.
+       */
+      /*
+       * The readable copy is taken away first, whatever else happens here,
+       * and whatever it held is carried somewhere sealed. A browser that has
+       * been running the old build arrives once with a key in localStorage in
+       * the clear and leaves without it, under a PIN or not.
+       */
+      const legacy = takeLegacyPlain();
+      if (!pinWanted()) {
+        const box = readBox();
+        const values = legacy ?? (box && isWrapped(box) ? await unwrap<Values>(box) : null) ?? (await readSession())?.values ?? null;
+        if (values && Object.keys(values).length) await keepSealed(values);
+        else if (legacy) clearBox();
+        await writeSession(null);
+        set({
+          exists: !!values && Object.keys(values).length > 0,
+          unlocked: true,
+          plain: true,
+          held: false,
+          kept: false,
+          values: values ?? {},
+          pin: null,
+          // A PIN box with nothing else to go on still needs the PIN once.
+          sealedWaiting: !values && !!read(),
+          lastTouch: Date.now(),
+        });
+        return;
+      }
+      /*
+       * Under a PIN, a readable copy found here cannot be folded into the
+       * sealed keys — nothing has the PIN — and it is not going to be left
+       * where it was. It goes into this tab's own sealed record, so the
+       * session it belonged to keeps working and the browser keeps nothing
+       * readable and nothing beyond this tab.
+       */
+      if (legacy && Object.keys(legacy).length) {
+        await writeSession({ values: legacy, pin: null, held: true });
+        set({ exists: !!read(), unlocked: true, held: true, kept: false, values: legacy, pin: null, lastTouch: Date.now() });
+        return;
+      }
+      // A reload lands here with an empty store and, if this tab was holding or
+      // keeping anything, a record to come back to.
+      const session = get().unlocked ? null : await readSession();
+      if (session)
+        set({
+          exists: !!read(),
+          unlocked: true,
+          held: session.held,
+          kept: !session.held,
+          values: session.values,
+          pin: session.pin,
+          lastTouch: Date.now(),
+        });
+      else set({ exists: !!read() });
+    })().finally(() => { inFlight = null; });
+    return inFlight;
   },
   clearError: () => set({ error: null }),
   touch: () => set({ lastTouch: Date.now() }),
@@ -336,10 +446,12 @@ export const useKeys = create<KeysState>()((set, get) => ({
     if (!isPin(pin)) return set({ error: "Four digits." }), false;
     set({ busy: true, error: null });
     try {
-      // Whatever was held for the tab moves into the keys panel rather than being lost.
-      const values = get().held ? get().values : {};
+      // Whatever is already open moves into the keys panel rather than being
+      // lost: a tab's held values, or the ones this browser was keeping sealed
+      // under its own key before the PIN was asked for.
+      const values = get().unlocked ? get().values : {};
       write(await seal(values, pin));
-      writeSession(null);
+      await writeSession(null);
       set({ exists: true, unlocked: true, held: false, kept: false, values, pin, tries: 0, lastTouch: Date.now() });
       return true;
     } catch (err) {
@@ -361,7 +473,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
       const values = await open<Values>(box, pin);
       // Whether this tab keeps it open across reloads is asked for after the
       // PIN, not before it: the PIN is what proves it may be kept at all.
-      writeSession(null);
+      await writeSession(null);
       set({ unlocked: true, held: false, kept: false, values, pin, tries: 0, error: null, lastTouch: Date.now() });
       return true;
     } catch (err) {
@@ -382,15 +494,22 @@ export const useKeys = create<KeysState>()((set, get) => ({
     }
   },
 
-  hold: () => {
-    const values = readSession()?.values ?? {};
-    writeSession({ values, pin: null, held: true });
+  hold: async () => {
+    const values = (await readSession())?.values ?? {};
+    await writeSession({ values, pin: null, held: true });
     set({ unlocked: true, held: true, kept: false, values, pin: null, error: null, lastTouch: Date.now() });
   },
 
   forget: () => {
-    writePlain(null);
-    writeSession(null);
+    /*
+     * Everything, and the key that opened it. Shredding this browser's
+     * wrapping key costs nothing — it seals only what is being thrown away —
+     * and it means a box recovered from a backup after the fact opens for
+     * nobody.
+     */
+    clearBox();
+    void writeSession(null);
+    void shred();
     set({ values: {}, exists: false, error: null, lastTouch: Date.now() });
   },
 
@@ -400,8 +519,8 @@ export const useKeys = create<KeysState>()((set, get) => ({
     set({ busy: true, error: null });
     try {
       const values = await open<Values>(box, pin);
-      writePlain(values);
-      try { localStorage.removeItem(STORE_KEY); } catch { /* it was not there */ }
+      // Out of the PIN's box and into this browser's own, in the same entry.
+      await keepSealed(values);
       set({ values, unlocked: true, plain: true, exists: Object.keys(values).length > 0, sealedWaiting: false, pin: null, error: null, lastTouch: Date.now() });
       return true;
     } catch {
@@ -417,7 +536,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
     // Held is already this tab's for as long as the tab lives; there is
     // nothing to keep, and a locked keys panel has nothing to keep either.
     if (!unlocked || held) return;
-    writeSession(on ? { values, pin, held: false } : null);
+    void writeSession(on ? { values, pin, held: false } : null);
     set({ kept: on, lastTouch: Date.now() });
   },
 
@@ -425,7 +544,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
     // With no PIN there is nothing to lock and nothing behind it: locking
     // would only mean forgetting, and forgetting has its own button.
     if (get().plain) return;
-    writeSession(null);
+    void writeSession(null);
     set({ unlocked: false, held: false, kept: false, values: {}, pin: null, error: null });
   },
 
@@ -433,13 +552,13 @@ export const useKeys = create<KeysState>()((set, get) => ({
     const { pin, held, plain } = get();
     if (plain) {
       const v = filled(values);
-      writePlain(v);
+      await keepSealed(v);
       set({ values: v, exists: Object.keys(v).length > 0, lastTouch: Date.now() });
       return true;
     }
     if (held) {
       const v = filled(values);
-      writeSession({ values: v, pin: null, held: true });
+      await writeSession({ values: v, pin: null, held: true });
       set({ values: v, lastTouch: Date.now() });
       return true;
     }
@@ -448,7 +567,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
     try {
       const v = filled(values);
       write(await seal(v, pin));
-      if (get().kept) writeSession({ values: v, pin, held: false });
+      if (get().kept) await writeSession({ values: v, pin, held: false });
       set({ values: v, lastTouch: Date.now() });
       return true;
     } catch (err) {
@@ -464,7 +583,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
     set({ busy: true, error: null });
     try {
       write(await seal(get().values, next));
-      if (get().kept) writeSession({ values: get().values, pin: next, held: false });
+      if (get().kept) await writeSession({ values: get().values, pin: next, held: false });
       set({ pin: next, lastTouch: Date.now() });
       return true;
     } catch (err) {
@@ -476,13 +595,9 @@ export const useKeys = create<KeysState>()((set, get) => ({
   },
 
   destroy: () => {
-    try {
-      localStorage.removeItem(STORE_KEY);
-      localStorage.removeItem(PLAIN_KEY);
-    } catch {
-      /* nothing to remove */
-    }
-    writeSession(null);
+    clearBox();
+    void writeSession(null);
+    void shred();
     set({ exists: false, unlocked: !get().plain ? false : true, held: false, kept: false, values: {}, pin: null, error: null });
   },
 }));
@@ -490,7 +605,7 @@ export const useKeys = create<KeysState>()((set, get) => ({
 /** Is there anything on this browser — a plain key or a sealed keys — whether or not it is open? */
 export function keysExist(): boolean {
   if (typeof localStorage === "undefined") return false;
-  return !!readPlain() || !!read();
+  return !!readBox() || legacyPlainThere();
 }
 
 /**

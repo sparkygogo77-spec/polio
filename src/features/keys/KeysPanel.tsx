@@ -204,7 +204,7 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
           <Unlock /> {sealable ? "Skip the PIN, hold the key for this tab" : "Hold the key for this tab"}
         </Button>
         <p className="text-center text-[10px] leading-relaxed text-fg-faint">
-          Held in the clear, in this tab only: it survives a reload and goes when the tab closes. Nothing to unlock, nothing to forget.
+          This tab only: it survives a reload, sealed with this browser&rsquo;s own key, and goes when the tab closes. Nothing to unlock, nothing to forget.
         </p>
         {!storage ? (
           <p className="flex items-center justify-center gap-1.5 text-[10px] text-warn"><AlertTriangle className="size-3" /> This browser blocks storage, so nothing here outlives a reload.</p>
@@ -280,7 +280,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-warn" />
           <span>
             {held
-              ? "Held for this tab, in the clear: anyone at this computer with this tab open can read it. It goes when the tab closes. "
+              ? "Held for this tab: anything running on this page can read it while the tab is open, and it goes when the tab closes. "
               : "A four-digit PIN keeps out a passing glance, not a determined person with your unlocked computer. "}
             The safe place for a key is the server, <code className="text-fg">.env.local</code> when you run it yourself, or your
             host&rsquo;s environment variables. A key held here is sent with a request only when the server has none.
@@ -386,9 +386,15 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
           <section className="rounded-lg border border-border bg-elevated/50 p-3">
             <h3 className="mb-2 text-[12px] font-semibold text-fg">How this is kept</h3>
             <p className="text-[11px] leading-relaxed text-fg-muted">
-              In this browser, in the clear, until you forget it: across reloads and across tabs, on this machine only. It is
-              never sent anywhere but this app&rsquo;s own routes, and only when the server has no key of its own. Anything that can
-              read this browser&rsquo;s storage can read it, which is why the right place for a key is still the server.
+              In this browser until you forget it: across reloads and across tabs, on this machine only. It is never sent
+              anywhere but this app&rsquo;s own routes, and only when the server has no key of its own.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
+              It is written down sealed, never as itself. The key that opens it was made by this browser, is kept where a
+              browser keeps such things, and cannot be exported — so a copy of this machine&rsquo;s storage, a backup or a
+              synced profile is a box nobody can open. What that does <em>not</em> stop is code running on this page: an
+              extension, or anything injected into it, can ask for the key exactly as the app does. That is why the right
+              place for a key is still the server.
             </p>
             {sealedWaiting ? (
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">

@@ -59,3 +59,46 @@ The server's own log. The routes were read instead: no `console` line in
 every route trims the header, uses it for the one call, and returns a
 sentence with no key in it. The image route also scrubs a token out of
 any library message before it leaves (`safe()`).
+
+## Where a key is written down, and what that is worth
+
+One entry, `builder.keys`, and it is always a sealed box. Under a PIN when
+the PIN setting is on (PBKDF2, 310,000 iterations, AES-GCM — see
+`crypto.ts`), and otherwise under a key this browser generated for itself
+and cannot export (`keyring.ts`). There is no second entry and no readable
+copy under any name.
+
+There used to be. `builder.keys.plain` held the key as itself, in
+localStorage, so that it survived a reload, and it sat beside the sealed
+one — which meant the sealing was worth nothing while it was there. It is
+gone. A browser that still holds one has it read, folded into the sealed
+entry and deleted on the next load, under a PIN or not. `tests/no-plain-key.mjs`
+walks every name and value in localStorage and sessionStorage looking for a
+pasted key, rather than checking the entry it expects, because a copy under
+a name nobody thought of is exactly what that check is for.
+
+**What the browser's own key is worth, stated so nobody is told otherwise.**
+It is real against anything that reads storage without running code here: a
+copied profile, a synced backup, a glance at the Application tab, a snippet
+that dumps localStorage. It is worth nothing against code running on this
+origin, which can ask for the key exactly as the app does. Only a secret
+that is not stored — the PIN, while locked — keeps a key from code on the
+page, and only the server keeps it from the browser altogether.
+
+## What a browser can reach on its own, measured on the deploy
+
+Measured from the deployed page's own origin, and worth knowing before
+anyone builds a server for a job that does not need one.
+
+| call | from the page | note |
+|---|---|---|
+| Anthropic API | refused outright without `anthropic-dangerous-direct-browser-access: true`; a real 401 on a dummy key with it | so the call reaches them: a visitor's key can call the model from the visitor's own browser, which is what the architecture wants, but only with that header |
+| GitHub API | 200 | reachable |
+| Vercel API | 403 on a dummy token | reachable: the answer came back |
+| example.com, nytimes.com, vercel.com, stripe.com, apple.com | all refused | ordinary pages do not allow it |
+
+Two things follow. The publishing path — repository first, then Vercel —
+needs no server of ours at all. And importing an element from a URL is the
+one job that genuinely does need either a small server or a browser
+extension, because an ordinary page will not answer a browser that asks
+from somewhere else.
