@@ -54,7 +54,7 @@ check("the stylesheet is actually loaded", /@import ".*molten\.css"/.test(readFi
 /* ------------------------------------------------------------------ */
 
 check("there are five stops, not one colour at five opacities", MOLTEN_STOPS.length === 5);
-for (const kind of ["molten", "ember", "verdant"]) {
+for (const kind of ["molten", "ember", "verdant", "azure"]) {
   const stops = MOLTEN_STOPS.map((n) => stop(`${kind}-${n}`));
   check(`${kind}: every stop is declared`, stops.every(Boolean), stops.filter(Boolean).length + "/5");
   const lights = stops.map(lightOf);
@@ -93,9 +93,9 @@ for (const kind of ["molten", "ember", "verdant"]) {
 check("the two temperatures are not the same red twice",
   MOLTEN_STOPS.some((n) => stop(`molten-${n}`) !== stop(`ember-${n}`)));
 check("what each temperature means is written down, not left to taste",
-  Object.keys(MOLTEN_MEANS).length === 3 && /iteration/.test(MOLTEN_MEANS.verdant) && /drawing/.test(MOLTEN_MEANS.ember));
+  Object.keys(MOLTEN_MEANS).length === 4 && /iteration/.test(MOLTEN_MEANS.verdant) && /drawing/.test(MOLTEN_MEANS.ember) && /lane/.test(MOLTEN_MEANS.azure));
 check("the stylesheet says the same thing, for the branch that reads it",
-  /--verdant-\*\s+an ITERATION/.test(css) && /--ember-\*\s+a DRAWING/.test(css));
+  /--verdant-\*\s+an ITERATION/.test(css) && /--ember-\*\s+a DRAWING/.test(css) && /--azure-\*\s+an ITERATION A LANE CARRIED OUT/.test(css));
 
 /* ------------------------------------------------------------------ */
 /* 3. Texture, not a smooth gradient                                   */
@@ -418,11 +418,11 @@ check("…and the two sliding ones are near enough in weight that neither is the
   };
   // An opaque front layer hides everything behind it, and a card with one
   // layer on it slides as one picture. The green sat at 1 and measured 0.002.
-  return ["verdant", "ember"].every((k) => {
+  return ["verdant", "ember", "azure"].every((k) => {
     const [front, back] = w(k);
     return front > 0 && back > 0 && front <= 0.8 && Math.max(front, back) / Math.min(front, back) <= 1.6;
   });
-})(), ["verdant", "ember"].map((k) => `${k} ${/--mo-cloud: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}/${/--mo-cloud-still: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}`).join(", "));
+})(), ["verdant", "ember", "azure"].map((k) => `${k} ${/--mo-cloud: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}/${/--mo-cloud-still: ([\d.]+);/.exec(new RegExp(`\\.molten-${k} \\{([\\s\\S]*?)\\n\\}`).exec(css)?.[1] ?? "")?.[1]}`).join(", "));
 check("nothing is thrown past the rim: no outward shadow on the edge, and no spark", (() => {
   // The drawn rim is a named set now, because a temperature with one of J's
   // sprites wears that instead and the ones without still need this. Both
@@ -521,7 +521,7 @@ check("every animation gets its own offset, so thirty are not one machine",
   (css.match(/animation-delay: calc\(var\(--molten-seed\)/g) ?? []).length >= 2);
 
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
-check("an iteration is the green construct", /moltenClass\("verdant"\)/.test(timeline));
+check("an iteration is the green construct, and a lane's work the blue one", /moltenClass\(lane \? "azure" : "verdant"\)/.test(timeline));
 check("a drawing is the red one", /moltenClass\("ember"\)/.test(timeline));
 check("and nothing on the timeline still asks for the base set", !/moltenClass\("lantern"\)/.test(timeline));
 check("each carries the edge, the flare and the ember on one node",

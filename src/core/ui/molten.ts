@@ -35,6 +35,9 @@
  * - `verdant` — an **iteration**. Green: the boards on the timeline, and the
  *   Finish key that opens them, because it is one of them.
  * - `ember` — a **drawing**, and every other piece that came off one. Red.
+ * - `azure` — an **iteration a lane carried out**: the verdant's every
+ *   number with the hue turned to the menu's blue, so it stands in the
+ *   chain with the green ones and is told from them by its hue alone.
  * - `lantern` — the base set, and the fallback for a construct that has not
  *   said which of the two it is.
  *
@@ -43,12 +46,13 @@
  * either. All three are the same five stops and the same keyframes; a fourth
  * is a decision to take in `molten.css`, not in a component.
  */
-export type MoltenKind = "lantern" | "ember" | "verdant";
+export type MoltenKind = "lantern" | "ember" | "verdant" | "azure";
 
 /** What a construct is, said in the word the rest of the app uses for it. */
 export const MOLTEN_MEANS: Record<MoltenKind, string> = {
   verdant: "an iteration, and the key that opens them",
   ember: "a drawing, and the pieces that came off one",
+  azure: "an iteration a lane carried out",
   lantern: "the base set, for a construct that has not said which it is",
 };
 
@@ -79,6 +83,7 @@ export const MOLTEN_MOTION: Record<(typeof MOLTEN_KEYFRAMES)[number], string> = 
 export function moltenClass(kind: MoltenKind = "lantern"): string {
   if (kind === "ember") return "molten molten-ember";
   if (kind === "verdant") return "molten molten-verdant";
+  if (kind === "azure") return "molten molten-azure";
   return "molten";
 }
 

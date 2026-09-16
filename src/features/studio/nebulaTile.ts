@@ -57,7 +57,7 @@
  */
 export const NEBULA_PERIOD = 180;
 
-export type NebulaKind = "verdant" | "ember";
+export type NebulaKind = "verdant" | "ember" | "azure";
 
 /** Which pair of J's tiles the constructs wear. */
 export type FacePair = "dark" | "bright";
@@ -73,10 +73,12 @@ export const FACES: Record<FacePair, Record<NebulaKind, string>> = {
   dark: {
     verdant: "/construct/face-green-dark.png",
     ember: "/construct/face-red-dark.png",
+    azure: "/construct/face-blue-dark.png",
   },
   bright: {
     verdant: "/construct/face-green.png",
     ember: "/construct/face-red.png",
+    azure: "/construct/face-blue.png",
   },
 };
 
@@ -116,6 +118,7 @@ export function mountNebula(pair: FacePair = "dark"): void {
   root.style.setProperty("--nebula-period", `${NEBULA_PERIOD}px`);
   root.style.setProperty("--nebula-verdant", `url("${FACES[pair].verdant}")`);
   root.style.setProperty("--nebula-ember", `url("${FACES[pair].ember}")`);
+  root.style.setProperty("--nebula-azure", `url("${FACES[pair].azure}")`);
   /*
    * AND THE BRIGHT CUT, ALWAYS, WHATEVER THE PAGE IS WEARING.
    *
@@ -132,6 +135,7 @@ export function mountNebula(pair: FacePair = "dark"): void {
    */
   root.style.setProperty("--nebula-verdant-lit", `url("${FACES.bright.verdant}")`);
   root.style.setProperty("--nebula-ember-lit", `url("${FACES.bright.ember}")`);
+  root.style.setProperty("--nebula-azure-lit", `url("${FACES.bright.azure}")`);
   root.dataset.facePair = pair;
   wearing = pair;
 }

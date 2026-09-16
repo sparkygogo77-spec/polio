@@ -51,7 +51,8 @@ if (live) {
   await page.waitForTimeout(800);
   // A chain prompt and, hanging off it, a drawing made real on a part that is still on the board.
   await page.evaluate(() => {
-    const doc = JSON.parse(localStorage.getItem("builder.studio"));
+    /* A fresh browser has written nothing yet: the store merges a partial document over its defaults. */
+    const doc = JSON.parse(localStorage.getItem("builder.studio") ?? '{"state":{},"version":0}');
     const st = doc.state;
     const pageId = st.activePageId ?? st.pages?.[0]?.id ?? "page_home";
     const strokes = [[[0.05, 0.95], [0.5, 0.1], [0.95, 0.95]]];
