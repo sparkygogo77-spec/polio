@@ -2,14 +2,61 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-16T19:14:16.519Z";
+export const GENERATED_AT = "2026-09-16T20:22:18.307Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "870543e",
-    "when": "2026-09-16T18:48:53+00:00",
+    "id": "b54d035",
+    "when": "2026-09-16T19:59:24+00:00",
     "day": "16 September",
     "changes": [
+      {
+        "id": "b54d035",
+        "says": "The vines are one painted body, and their colours flow into each other",
+        "when": "2026-09-16T19:59:24+00:00",
+        "detail": [
+          "No line down the middle of a vine: the dark core band at the axis is lifted to char with a little core in it, and the faint thread scored along the axis for the cut line is no longer painted at rest. The seam is still there to press, and the press lights it.",
+          "Where two colours meet they lie over each other instead of switching: each end's colour runs whole for three tenths of the length and thins out to nothing by seven tenths, one from each end, over the material's own dark, so some green flows into the red and some red back into the green and each end stays the majority of its own colour.",
+          "The lane vines carry the construct's drifting cloud the timeline lays over its own, clipped to the ribbon, so a lane's vine is the same weather as the box it leaves."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "1fef1d9",
+        "says": "Nothing dark on a box: the texture shows edge to edge, and the words read by their own weight",
+        "when": "2026-09-16T19:48:26+00:00",
+        "detail": [
+          "The plate behind the words is gone from every box, red, green and blue: the strip under the ask line and the headline on a green box, the one under the name on a red piece, and the band that kept the cloud off the middle of a green box. What makes the words read is the type: semibold where it was medium, the small notes up a size, and every glyph on a box casting a dark edge of its own. An icon on a construct casts the same edge as a drop shadow; the two keys on a green box wear a key face and a heavier stroke, since at the zoom a timeline settles to they are seven pixels across.",
+          "The picture of the site in a green box is the same proportion as the picture on a Builds card, 352 by 168, standing in the middle of the box with the texture either side, instead of a strip four times as wide as it is tall. An empty frame is a line on the texture, not a dark box."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "9b4486b",
+        "says": "The builder bar is two rows on a phone, and the lanes hang on coloured vines",
+        "when": "2026-09-16T19:17:55+00:00",
+        "detail": [
+          "Hypatia's 870543e, carrying dijkstra's f26129c — her tip already contained his, so one push ships both.",
+          "Measured on a local build of this commit; the browser here cannot reach https, so the deploy was not driven.",
+          "The bar at 375: 95px tall, 14 controls, two row bands at 53 and 95, nothing past the right edge. Deployed it was 109px, so 14px of pane height back. Zoom keys 36x36, 40x36, 36x36 — short side 36, above the 32 floor. All fourteen named controls present: Builds, panel toggle, tool, Desktop, Tablet, Phone, undo, redo, zoom out, readout, zoom in, More tools, Preview, Finish.",
+          "Desktop unchanged: drawn width 1084 with a short page and 1084 with a page more than twice as tall, no transform, shelf bottom 900 against a fold of 900 in both."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "870543e",
         "says": "The builder bar is two rows on a phone, and its keys are targets",
