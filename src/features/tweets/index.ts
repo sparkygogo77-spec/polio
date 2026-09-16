@@ -199,7 +199,7 @@ export async function tick(manual: boolean) {
 }
 
 /** Send one draft through the API, with the queue's retry rules. */
-export async function sendOne(id: string, manual: boolean, ctx: { getSetting: <T>(id: string) => T; publish: (i: import("@/core/types").NewsInput) => void; play: (c: import("@/core/types").CueName) => void; openPanel: (p: "tweets") => void; copy: (t: string, l?: string) => Promise<void> }) {
+export async function sendOne(id: string, manual: boolean, ctx: { getSetting: <T>(id: string) => T; publish: (i: import("@/core/types").ToastInput) => void; play: (c: import("@/core/types").CueName) => void; openPanel: (p: "tweets") => void; copy: (t: string, l?: string) => Promise<void> }) {
   const st = useTweets.getState();
   const d = st.drafts.find((x) => x.id === id);
   if (!d || d.status === "sending") return;

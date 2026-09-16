@@ -8,7 +8,6 @@
    --accent-h etc. onto <html>; everything below reacts.
 --------------------------------------------------------------------------- */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-@custom-variant compact (&:where([data-density="compact"], [data-density="compact"] *));
 
 :root {
   --accent-h: 160;
@@ -204,7 +203,6 @@
     font-feature-settings: "tnum" 1, "cv11" 1, "ss01" 1;
     overscroll-behavior: none;
   }
-  [data-density="comfortable"] body { font-size: 14px; }
   ::selection { background: var(--accent-soft); color: var(--fg); }
   * { scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
   *::-webkit-scrollbar { width: 8px; height: 8px; }

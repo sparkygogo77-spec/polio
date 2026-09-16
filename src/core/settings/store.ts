@@ -51,6 +51,9 @@ interface SettingsState {
   markHydrated: () => void;
 }
 
+/** Setting ids the app no longer has, cleared out of storage on read. */
+const GONE = ["appearance.density", "feed.maxItems", "feed.bumpOnUpdate"];
+
 export const useSettings = create<SettingsState>()(
   persist(
     (set, get) => ({
@@ -89,7 +92,23 @@ export const useSettings = create<SettingsState>()(
       importValues: (values) => {
         for (const [id, v] of Object.entries(values)) if (defs.has(id)) get().set(id, v);
       },
-      markHydrated: () => set({ hydrated: true }),
+      /*
+       * Hydration is also where settings the app no longer has leave the
+       * browser that kept them. Dropping them from state alone is not
+       * enough: nothing is written back until something changes, so the
+       * dead ids would sit in storage until the next time a setting moved.
+       * Setting `values` here is the write. They are named one by one
+       * because a blanket sweep of ids no def knows would eat the settings
+       * of every feature module that registers after this runs.
+       */
+      markHydrated: () => {
+        const values = get().values;
+        const dead = GONE.filter((id) => id in values);
+        if (!dead.length) return set({ hydrated: true });
+        const kept = { ...values };
+        for (const id of dead) delete kept[id];
+        set({ hydrated: true, values: kept });
+      },
     }),
     {
       name: "builder.settings",

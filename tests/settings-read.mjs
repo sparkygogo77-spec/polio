@@ -39,7 +39,7 @@ const worn = SRC.filter(([p]) => !p.endsWith("globals.css")).reduce((n, [, s]) =
 check("Streamer mode hides something: streamer-hidden is worn by at least two identifiers", worn >= 2, `${worn} worn, in ${uses(/\bstreamer-hidden\b/).join(", ")}`);
 check("Hover ticks: the button primitive plays the hover cue", has("src/core/ui/button.tsx", /play\("hover"/));
 check("Feed events: a feed cue is played somewhere", uses(/play\([^)]*"(newRow|priceUp|priceDown)"/).length >= 1, uses(/play\([^)]*"(newRow|priceUp|priceDown)"/).join(", ") || "nowhere");
-check("Pause feeds on hover: the toaster holds a hovered toast", has("src/core/news/Toaster.tsx", /behaviour\.pauseOnHover/) && has("src/core/news/store.ts", /hold/));
+check("Pause feeds on hover: the toaster holds a hovered toast", has("src/core/toasts/Toaster.tsx", /behaviour\.pauseOnHover/) && has("src/core/toasts/store.ts", /hold/));
 const core = bare("src/core/core-module.ts");
 check("Toggle sidebar, the command and ⌘B, are offered only when a module has a nav entry", (core.match(/when: hasNav\b/g) ?? []).length === 2, `${(core.match(/when: hasNav\b/g) ?? []).length} gates`);
 check("and the Sidebar and Route tabs settings hide with them", (defs.match(/when: hasNav\b/g) ?? []).length === 2 && /bindNavCount\(\(\) => reg\.nav\.length\)/.test(bare("src/core/registry.ts")), `${(defs.match(/when: hasNav\b/g) ?? []).length} settings gated`);

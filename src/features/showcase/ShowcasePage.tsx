@@ -48,7 +48,7 @@ const SECTIONS = [
   ["inputs", "Inputs & toggles"],
   ["overlays", "Overlays & menus"],
   ["context", "Right-click"],
-  ["news", "News & toasts"],
+  ["news", "Toasts"],
   ["data", "Live data"],
   ["sound", "Sound board"],
   ["effects", "Effects"],
@@ -137,8 +137,7 @@ export function ShowcasePage() {
   const levelDemo = (level: Level) =>
     ctx.publish({ key: `showcase:level:${level}`, title: `${level} event`, body: "Same key: press again and the count climbs instead of a new row.", level, source: "showcase", toast: true });
   const spam = () => {
-    for (let i = 0; i < 60; i++) ctx.publish({ title: `Burst event ${i + 1}`, body: "60 publishes in one frame. The rate limiter drops the excess.", level: "info", source: "burst", sound: false });
-    ctx.openPanel("news");
+    for (let i = 0; i < 60; i++) ctx.publish({ title: `Burst event ${i + 1}`, body: "60 publishes in one frame. The rate limiter drops the excess.", level: "info", source: "burst", sound: false, toast: true });
   };
 
   return (
@@ -364,7 +363,7 @@ export function ShowcasePage() {
           </div>
         </Section>
 
-        <Section id="news" title="News & toasts" body="Same key = same line. Reverting before you read it removes the line entirely.">
+        <Section id="news" title="Toasts" body="Same key = same card. Going back to where it started while the card is up takes the card with it.">
           <Row label="Coalesce">
             <Button size="sm" onClick={() => bump(-1)}>
               −1%
@@ -428,7 +427,7 @@ export function ShowcasePage() {
             <Skeleton className="h-4 w-24" />
           </Row>
           <Row label="Empty">
-            <EmptyState icon={Inbox} title="No positions" body="Buys from the feed show up here." action={<Button size="sm" onClick={() => ctx.openPanel("news")}>Open feed</Button>} className="p-2" />
+            <EmptyState icon={Inbox} title="No positions" body="Anything bought shows up here." className="p-2" />
           </Row>
           <Separator />
           <Row label="Format">

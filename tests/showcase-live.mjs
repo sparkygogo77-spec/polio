@@ -62,18 +62,18 @@ await page.getByRole("menuitem", { name: /P3/ }).click();
 await page.waitForTimeout(400);
 check("choosing a preset from the menu says which", (await saidP3()) === 1, `${await saidP3()} toasts name P3`);
 
-/* The feed panel is mounted only while open, and says so either way. */
-const newsOpen = async () => {
-  const l = page.locator('[role="dialog"][aria-label="News"]');
-  if (!(await l.count())) return false;
-  const o = await l.first().getAttribute("data-open");
-  return o === null || o === "1";
+/* The feed the showcase used to open is gone, panel and bell with it. What
+   the page still demonstrates is the coalescing, on the card itself. */
+check("no feed left to open", (await page.getByRole("button", { name: "Open feed" }).count()) === 0);
+check("and no news panel behind it", (await page.locator('[role="dialog"][aria-label="News"]').count()) === 0);
+const coalesced = async () => {
+  await page.getByRole("button", { name: "+1%", exact: true }).click();
+  await page.waitForTimeout(120);
 };
-const before = await newsOpen();
-await page.getByRole("button", { name: "Open feed" }).click();
-await page.waitForTimeout(500);
-const after = await newsOpen();
-check("Open feed opens the feed", !before && after, `${before} → ${after}`);
+await coalesced(); await coalesced(); await coalesced();
+await page.waitForTimeout(300);
+const cards3 = await page.locator('[role="status"]').filter({ hasText: /Slippage/ }).count();
+check("three presses of the same key make one card", cards3 === 1, `${cards3} cards`);
 
 check("no input wears a key hint that nothing honours", (await page.locator("input + * kbd, kbd").filter({ hasText: /^\/$/ }).count()) === 0);
 await browser.close();

@@ -258,14 +258,15 @@ check(2, "the Builder's own call from this browser carries no key either", callB
    (the key button, ⌘⇧K, the Keys panel). The top bar's own "Keys" button
    does not count; it is always there. */
 const askLine = (text) => text.split("\n").map((l) => l.trim()).find((l) => /key|token/i.test(l) && /⌘⇧K|key button|keys panel|under Keys/i.test(l)) ?? "";
-/* Where the ask is, if not on the board: the News panel and the Updates
-   panel, each opened and read. A line a person has to open a panel to see
-   is not a prompt, and the detail says which it was. */
+/* Where the ask is, if not on the board: the Updates panel, opened and
+   read. A line a person has to open a panel to see is not a prompt, and the
+   detail says where it was. The News panel was the other place looked at
+   here and it has been removed. */
 const askWhere = async (page) => {
   const board = askLine(await page.evaluate(() => document.body.innerText));
   if (board) return { where: "on the board", line: board };
   const looked = [];
-  for (const [name, open] of [["News", () => page.getByRole("button", { name: "News", exact: true }).first().click()], ["Updates", () => page.locator("[data-updates-toggle]").first().click()]]) {
+  for (const [name, open] of [["Updates", () => page.locator("[data-updates-toggle]").first().click()]]) {
     try { await open(); await page.waitForTimeout(500); } catch { continue; }
     const line = askLine(await page.evaluate(() => document.body.innerText));
     looked.push(name);

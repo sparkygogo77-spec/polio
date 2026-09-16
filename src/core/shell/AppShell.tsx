@@ -8,8 +8,7 @@ import { AppBootstrap } from "@/core/bootstrap";
 import { useShortcuts } from "@/core/commands/useShortcuts";
 import { CommandPalette } from "@/core/commands/CommandPalette";
 import { ShortcutsSheet } from "@/core/commands/ShortcutsSheet";
-import { NewsPanel } from "@/core/news/NewsPanel";
-import { Toaster } from "@/core/news/Toaster";
+import { Toaster } from "@/core/toasts/Toaster";
 import { SettingsDrawer } from "@/core/settings/SettingsDrawer";
 import { TweetConsole } from "@/features/tweets/TweetConsole";
 import { KeysPanel } from "@/features/keys/KeysPanel";
@@ -26,22 +25,9 @@ function Shortcuts() {
   return null;
 }
 
-/** Only one right-hand panel at a time: opening settings closes news and vice versa. */
-function PanelExclusivity() {
-  const panels = useUi((s) => s.panels);
-  const closePanel = useUi((s) => s.closePanel);
-  const last = React.useRef<"settings" | "news" | null>(null);
-  React.useEffect(() => {
-    if (panels.settings && panels.news) closePanel(last.current === "settings" ? "settings" : "news");
-    if (panels.settings) last.current = "settings";
-    else if (panels.news) last.current = "news";
-  }, [panels.settings, panels.news, closePanel]);
-  return null;
-}
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const width = useSettingValue<string>("appearance.contentWidth");
-  const panelOpen = useUi((s) => s.panels.settings || s.panels.news);
+  const panelOpen = useUi((s) => s.panels.settings);
   return (
     <ActionsProvider>
       <TooltipProvider>
@@ -49,7 +35,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AppBootstrap />
           <ThemeProvider />
           <Shortcuts />
-          <PanelExclusivity />
           <div className="relative z-[1] flex h-dvh flex-col">
             <TopBar />
             <div className="flex min-h-0 flex-1">
@@ -59,7 +44,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </main>
             </div>
           </div>
-          <NewsPanel />
           <SettingsDrawer />
           <TweetConsole />
           <KeysPanel />

@@ -4,8 +4,8 @@ This repository is a **UI foundation**, not a finished product. It is designed
 so that a prompt-driven agent (Claude Code, Cursor, Codex, a custom script) can
 turn it into almost any kind of website by adding *feature modules* on top of
 a shell that already handles navigation, right-click menus, a command palette,
-keyboard shortcuts, tactile feedback, audio cues, settings, theming, and a
-news feed that never repeats itself.
+keyboard shortcuts, tactile feedback, audio cues, settings, theming, and
+toasts that never repeat themselves.
 
 Everything below is the contract. Follow it and the shell picks up your work
 automatically. Break it and the site still runs, but it stops feeling good.
@@ -2130,17 +2130,23 @@ live site to go with them, queues them, and sends them.
 
 ---
 
-## 3. The news feed: never repeat yourself
+## 3. Toasts: never repeat yourself
 
 `ctx.publish(input)` is the only way to tell the user something happened. The
 rule that makes it feel right:
 
-> **Same `key` → same line.** A second publish with the same key inside the
-> coalesce window updates the existing line in place (body replaced, `×N`
-> count, `diff.from` kept from the *original*). Identical content is
-> suppressed entirely. If a value reverts to where it started before the user
-> reads it, the line is removed. Toasts follow the same key and update rather
-> than stack.
+> **Same `key` → same card.** A second publish with the same key while its
+> toast is still up updates that card in place (body replaced, `×N` count,
+> `diff.from` kept from the *original*). Identical content is suppressed
+> entirely. If a value reverts to where it started while the card is up, the
+> card goes with it.
+
+**Nothing is kept.** There was a notification centre here — a bell, an unread
+count, a panel of everything ever published — and it was removed on the
+owner's word: buggy, and nobody read it. So a publish with no `toast` says
+nothing at all. If the user should know, say `toast: true`; if they should be
+able to go somewhere, give it an `href` and the card's title becomes the
+link.
 
 Key conventions:
 
@@ -2151,14 +2157,12 @@ Key conventions:
 | An action on an entity             | `<module>:<verb>:<entity id>`     |
 | A module-wide status               | `<module>:<status>`               |
 
-Use `diff: { from, to, format }` for value changes so the line reads
-"Slippage 1% → 3%". Use `coalesceMs: Infinity` for settings-like state. Use
-`ttlMs` for transient things (a graduation, a fill). Set `toast: true` only
-for things the user should see right now. Set `sound: false` when the caller
-already played a cue.
+Use `diff: { from, to, format }` for value changes so the card reads
+"Slippage 1% → 3%". Use `coalesceMs: Infinity` for settings-like state. Set
+`sound: false` when the caller already played a cue.
 
-Per-source rate limiting (30/s) protects the feed from runaway streams; the
-drop count is visible in the panel.
+Per-source rate limiting (30/s) protects the corner from runaway streams, and
+costs its slot whether or not the publish asked for a card.
 
 ---
 
@@ -2237,8 +2241,9 @@ Tailwind as `bg-panel`, `text-fg-muted`, `border-border`, `text-up`,
 in components; use the tokens so light mode, contrast and accent changes
 keep working.
 
-Density and radius are also tokens (`--row-h`, `--cell-x`, `--radius`).
-Use `h-(--row-h)` for rows so the density toggle affects them.
+Radius is a token too (`--radius`). There is no density mode: compact
+against comfortable moved the body's font size by one pixel and nothing
+else, so it was removed rather than kept as a control that does nothing.
 
 ---
 

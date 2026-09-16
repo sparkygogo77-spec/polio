@@ -6,7 +6,7 @@
 import * as React from "react";
 import { useSettings, onSettingChange, getSetting, getSettingDef, allSettingGroups } from "@/core/settings/store";
 import { setAudioConfigSource, installAudioUnlock, play } from "@/core/audio/engine";
-import { publish, useNews } from "@/core/news/store";
+import { publish, useToasts } from "@/core/toasts/store";
 import { registry } from "@/core/registry";
 import { getActions } from "@/core/actions";
 import { labelValue } from "@/core/lib/format";
@@ -77,7 +77,7 @@ export function AppBootstrap() {
       }
     }, 0);
 
-    const sweep = window.setInterval(() => useNews.getState().sweep(), 500);
+    const sweep = window.setInterval(() => useToasts.getState().sweep(), 500);
 
     return () => {
       unlock();

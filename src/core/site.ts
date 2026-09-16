@@ -39,7 +39,6 @@ export interface SiteConfig {
     accentHue: number;
     /** px */
     radius: number;
-    density: "compact" | "comfortable";
     font: "system" | "mono" | "inter";
     /** Ambient effects on by default. */
     effects: { glow: boolean; scanlines: boolean; noise: boolean };
@@ -88,7 +87,6 @@ export function defineSite(input: SiteInput): SiteConfig {
       defaultMode: "dark",
       accentHue: 235,
       radius: 6,
-      density: "compact",
       font: "system",
       ...input.theme,
       effects: { glow: false, scanlines: false, noise: false, ...input.theme?.effects },

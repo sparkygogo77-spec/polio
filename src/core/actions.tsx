@@ -6,8 +6,8 @@
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import type { ActionContext, CueName, NewsInput, PanelName } from "@/core/types";
-import { publish } from "@/core/news/store";
+import type { ActionContext, CueName, PanelName, ToastInput } from "@/core/types";
+import { publish } from "@/core/toasts/store";
 import { play } from "@/core/audio/engine";
 import { getSetting, setSetting } from "@/core/settings/store";
 import { useUi } from "@/core/ui-state/store";
@@ -46,7 +46,6 @@ async function copyText(text: string, label?: string) {
       source: "clipboard",
       toast: { durationMs: 1600 },
       sound: false,
-      quiet: true,
       coalesceMs: Infinity,
     });
   }
@@ -65,7 +64,7 @@ export function ActionsProvider({ children }: { children: React.ReactNode }) {
         play("navigate");
         router.push(href);
       },
-      publish: (input: NewsInput) => void publish(input),
+      publish: (input: ToastInput) => void publish(input),
       play: (cue: CueName) => play(cue),
       getSetting: <T,>(id: string) => getSetting<T>(id),
       setSetting: (id, v) => setSetting(id, v),

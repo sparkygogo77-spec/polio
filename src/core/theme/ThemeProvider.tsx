@@ -11,7 +11,6 @@ const KEYS = [
   "appearance.mode",
   "appearance.accentHue",
   "appearance.radius",
-  "appearance.density",
   "appearance.font",
   "appearance.fontScale",
   "appearance.contrast",
@@ -60,7 +59,6 @@ export function ThemeProvider() {
     el.style.setProperty("--radius", `${snap["appearance.radius"]}px`);
     el.style.setProperty("--font-scale", String(snap["appearance.fontScale"]));
     el.style.setProperty("--press-scale", String(snap["effects.pressScale"]));
-    el.dataset.density = String(snap["appearance.density"]);
     el.dataset.font = String(snap["appearance.font"]);
     el.dataset.contrast = snap["appearance.contrast"] ? "high" : "normal";
     const motion = snap["effects.motion"] as string;

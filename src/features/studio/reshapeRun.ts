@@ -20,7 +20,7 @@
  * writes it out in words. A drawing is never lost to a missing key.
  */
 import { CALL_DEADLINE_MS, heldEffort } from "./effort";
-import type { NewsInput } from "@/core/types";
+import type { ToastInput } from "@/core/types";
 import { FEATURES, getFeature } from "./catalog";
 import { keyHeader, noKeyMessage } from "./agent";
 import { FULL_BLEED, checkAnswer, clamp, type KindInfo, type ReshapePatch } from "./reshape";
@@ -74,7 +74,7 @@ export function nameFrom(words: string, max = 56): string {
 }
 
 export interface RunDeps {
-  publish: (input: NewsInput) => void;
+  publish: (input: ToastInput) => void;
   /** The keys panel is locked or empty and the reader could not run. */
   onNoKey: () => void;
   /** What the counter says this job is doing. */

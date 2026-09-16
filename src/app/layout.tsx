@@ -24,11 +24,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     mode: site.theme.defaultMode,
     hue: site.theme.accentHue,
     radius: site.theme.radius,
-    density: site.theme.density,
     font: site.theme.font,
   });
   return (
-    <html lang="en" data-theme={site.theme.defaultMode === "light" ? "light" : "dark"} data-density={site.theme.density} data-font={site.theme.font} suppressHydrationWarning>
+    <html lang="en" data-theme={site.theme.defaultMode === "light" ? "light" : "dark"} data-font={site.theme.font} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: boot }} />
       </head>

@@ -30,7 +30,6 @@ export default defineSite({
     defaultMode: "dark",
     accentHue: 235,
     radius: 6,
-    density: "compact",
     font: "system",
     effects: { glow: false, scanlines: false, noise: false },
   },

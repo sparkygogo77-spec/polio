@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { AlertTriangle, Bell, CheckCircle2, X, XCircle } from "lucide-react";
-import { useNews } from "./store";
+import { useToasts } from "./store";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
@@ -13,9 +13,9 @@ const LEVEL_COLOR: Record<Level, string> = { info: "text-info", success: "text-u
 const LEVEL_STRIPE: Record<Level, string> = { info: "bg-info", success: "bg-up", warn: "bg-warn", error: "bg-down" };
 
 function Toast({ t }: { t: ToastItem }) {
-  const dismiss = useNews((s) => s.dismissToast);
-  const hold = useNews((s) => s.holdToast);
-  const release = useNews((s) => s.releaseToast);
+  const dismiss = useToasts((s) => s.dismissToast);
+  const hold = useToasts((s) => s.holdToast);
+  const release = useToasts((s) => s.releaseToast);
   const pauseOnHover = useSettingValue<boolean>("behaviour.pauseOnHover");
   const Icon = t.icon ?? LEVEL_ICON[t.level];
   const ref = useFlashOnChange(t.rev);
@@ -34,10 +34,19 @@ function Toast({ t }: { t: ToastItem }) {
         <Icon className={cn("mt-0.5 size-3.5 shrink-0", LEVEL_COLOR[t.level])} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-xs font-medium text-fg">{t.title}</span>
+            {/* Somewhere to go — a commit, a live site — used to be reachable
+                by clicking the feed row. There is no feed, so the card's own
+                title is the link. */}
+            {t.href ? (
+              <a href={t.href} target="_blank" rel="noreferrer" className="truncate text-xs font-medium text-fg underline decoration-dotted underline-offset-2 hover:text-accent">
+                {t.title}
+              </a>
+            ) : (
+              <span className="truncate text-xs font-medium text-fg">{t.title}</span>
+            )}
             {t.count > 1 ? <span className="num rounded-xs bg-elevated px-1 text-[10px] text-fg-muted">×{t.count}</span> : null}
           </div>
-          {t.diffLabel ? <div className="num mt-0.5 text-[11px] text-fg-muted">{t.diffLabel}</div> : t.body ? <div className="mt-0.5 truncate text-[11px] text-fg-muted">{t.body}</div> : null}
+          {t.diff ? <div className="num mt-0.5 text-[11px] text-fg-muted">{`${t.diff.fromLabel} → ${t.diff.toLabel}`}</div> : t.body ? <div className="mt-0.5 truncate text-[11px] text-fg-muted">{t.body}</div> : null}
           {t.action ? (
             <Button variant="link" size="xs" className="mt-1 h-auto" onClick={t.action.onClick}>
               {t.action.label}
@@ -59,7 +68,7 @@ function Toast({ t }: { t: ToastItem }) {
 }
 
 export function Toaster() {
-  const toasts = useNews((s) => s.toasts);
+  const toasts = useToasts((s) => s.toasts);
   const position = useSettingValue<string>("feed.toastPosition");
   const pos =
     position === "top-right"

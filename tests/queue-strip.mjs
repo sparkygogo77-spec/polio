@@ -1,5 +1,5 @@
 /**
- * The queue strip: what is running, as bars, beside the bell.
+ * The queue strip: what is running, as bars, ahead of the bar's controls.
  *
  * Toasts are off, so this and the timeline are how work is watched. It is a
  * glance and not a panel, and everything below is checked as a glance would
@@ -37,7 +37,10 @@ const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 
 const look = () => page.evaluate(() => {
   const strip = document.querySelector("[data-queue-strip]");
-  const bell = document.querySelector("[aria-label='News']")?.getBoundingClientRect() ?? null;
+  // The strip is in the top bar's status slot, which sits ahead of the
+  // controls; the sound key is the first of them. (It used to be measured
+  // against the news bell, which has gone.)
+  const bell = document.querySelector("[aria-label='Toggle sound']")?.getBoundingClientRect() ?? null;
   if (!strip) return { there: false, bell: !!bell };
   const bars = [...strip.querySelectorAll("[data-queue-bar]")].map((e) => {
     const r = e.getBoundingClientRect();
@@ -116,7 +119,7 @@ check(
   busy.bars[0]?.classes ?? "none",
 );
 
-check("the strip sits on the near side of the bell", busy.bellX !== null && busy.right <= busy.bellX + 1, `strip ends at ${busy.right}, the bell starts at ${busy.bellX}`);
+check("the strip sits on the near side of the bar's controls", busy.bellX !== null && busy.right <= busy.bellX + 1, `strip ends at ${busy.right}, the controls start at ${busy.bellX}`);
 check("and it says the count for anyone who cannot see it", /drawing/.test(busy.label ?? ""), busy.label);
 
 /*

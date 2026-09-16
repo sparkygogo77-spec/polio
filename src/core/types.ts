@@ -39,14 +39,14 @@ export type CueName =
 
 export type CueCategory = "ui" | "feedback" | "alerts" | "feed";
 
-export type PanelName = "settings" | "news" | "commands" | "shortcuts" | "tweets" | "keys";
+export type PanelName = "settings" | "commands" | "shortcuts" | "tweets" | "keys";
 
 /* ------------------------------------------------------------------ */
-/* News / activity feed                                                */
+/* Toasts                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface NewsDiff {
-  /** What changed, e.g. "Slippage". Defaults to the item title. */
+export interface ToastDiff {
+  /** What changed, e.g. "Slippage". Defaults to the toast title. */
   field?: string;
   from: unknown;
   to: unknown;
@@ -54,76 +54,58 @@ export interface NewsDiff {
   format?: (v: unknown) => string;
 }
 
-export interface NewsAction {
+export interface ToastAction {
   label: string;
   onClick: () => void;
 }
 
-export interface NewsInput {
+export interface ToastInput {
   /**
-   * Coalescing key. Publishing again with the same key inside the coalesce
-   * window UPDATES the existing line instead of adding a new one. Use stable
+   * Coalescing key. Publishing again with the same key while the toast is
+   * still up UPDATES that card instead of adding a second one. Use stable
    * keys like "setting:audio.master" or "token:<address>:mc".
    */
   key?: string;
   title: string;
   body?: string;
   level?: Level;
-  /** Module id or subsystem name. Used for filtering and rate limiting. */
+  /** Module id or subsystem name. Used for rate limiting. */
   source?: string;
   icon?: LucideIcon;
-  diff?: NewsDiff;
-  /** Show as a transient toast as well as in the feed. */
+  diff?: ToastDiff;
+  /**
+   * Show a card. Nothing is kept anywhere, so a publish without this says
+   * nothing: it costs its rate-limit slot and returns null.
+   */
   toast?: boolean | { durationMs?: number };
   /** Cue to play. `false` for silent. Defaults by level. */
   sound?: CueName | false;
-  action?: NewsAction;
+  action?: ToastAction;
+  /** Somewhere to go: the card's title becomes the link. */
   href?: string;
-  /** Auto-remove from the feed after this many ms. */
-  ttlMs?: number;
   /** Override the coalesce window for this key. `Infinity` = always coalesce. */
   coalesceMs?: number;
-  /** Don't count towards unread. */
-  quiet?: boolean;
-}
-
-export interface NewsItem {
-  id: string;
-  key: string | null;
-  title: string;
-  body: string | null;
-  level: Level;
-  source: string;
-  icon: LucideIcon | null;
-  diff: { field: string; fromLabel: string; toLabel: string; from: unknown; to: unknown } | null;
-  action: NewsAction | null;
-  href: string | null;
-  createdAt: number;
-  updatedAt: number;
-  /** How many publishes were folded into this line. */
-  count: number;
-  read: boolean;
-  pinned: boolean;
-  /** Bumped every update so rows can re-flash. */
-  rev: number;
-  expiresAt: number | null;
 }
 
 export interface ToastItem {
   id: string;
   key: string | null;
-  newsId: string;
   title: string;
   body: string | null;
   level: Level;
   icon: LucideIcon | null;
-  action: NewsAction | null;
-  diffLabel: string | null;
+  action: ToastAction | null;
+  href: string | null;
+  diff: { field: string; fromLabel: string; toLabel: string; from: unknown; to: unknown } | null;
   createdAt: number;
+  /** When it was last published onto, which is what its time runs from. */
+  updatedAt: number;
   expiresAt: number;
   /** When a pointer came to rest on it; held toasts are not swept. */
   heldAt?: number;
+  /** Bumped every update so the card can re-flash. */
   rev: number;
+  /** How many publishes were folded into this card. */
   count: number;
 }
 
@@ -160,7 +142,7 @@ export interface SettingDef<V = unknown> {
   /** Extra search terms. */
   tags?: string[];
   order?: number;
-  /** Human formatter for news lines and slider readouts. */
+  /** Human formatter for toast lines and slider readouts. */
   format?: (v: V) => string;
   /** Don't publish a feed line when this changes (e.g. very chatty values). */
   silent?: boolean;
@@ -181,7 +163,7 @@ export interface SettingGroupDef {
 /** Everything a command / menu item / shortcut can reach without importing stores. */
 export interface ActionContext {
   navigate: (href: string) => void;
-  publish: (input: NewsInput) => void;
+  publish: (input: ToastInput) => void;
   play: (cue: CueName) => void;
   getSetting: <T = unknown>(id: string) => T;
   setSetting: (id: string, value: unknown) => void;
@@ -293,7 +275,7 @@ export interface NavEntry {
 }
 
 /**
- * A control a module puts in the top bar, beside search, news and settings.
+ * A control a module puts in the top bar, beside search and settings.
  *
  * The bar is core and knows nothing about any feature, so anything that has
  * to live up there — a link out to the repository, the keys panel — arrives
@@ -303,12 +285,12 @@ export interface TopBarItemDef {
   id: string;
   order?: number;
   /**
-   * Which side of the bell it sits on.
+   * Which side of the controls it sits on.
    *
    * `action` is the default and the old behaviour: a control, over on the
    * right with the theme and the settings. `status` is for something that
-   * *shows* rather than does — it sits before the news bell, where the eye
-   * already goes to find out what is happening.
+   * *shows* rather than does — it sits ahead of them, where the eye already
+   * goes to find out what is happening.
    */
   slot?: "status" | "action";
   component: ComponentType;
@@ -319,7 +301,7 @@ export interface TopBarItemDef {
 /* ------------------------------------------------------------------ */
 
 export interface FeatureModule {
-  /** Stable kebab-case id. Also the default news source and settings namespace. */
+  /** Stable kebab-case id. Also the default toast source and settings namespace. */
   id: string;
   name: string;
   description?: string;
