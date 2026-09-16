@@ -978,22 +978,25 @@ export function Timeline() {
     let moved = false;
     /* Where the box is, as of the last move: a cancelled drag puts it down there, not at the cancel event's own point, which is nowhere. */
     let last: Point = from;
+    /*
+     * Letting go lets go, every time. Once a drag has begun the pointer is
+     * captured by the box that was pressed, so the release reaches it
+     * wherever the mouse is, outside the window included; and a drag the
+     * browser cancels midway ends the same way as a release, where before
+     * it left the box stuck to the mouse until the next click. He hit that
+     * by hand. Captured once it moves and not on the press: a captured
+     * pointer sends its click to the captor, and a press on a key inside
+     * the box would never reach the key.
+     */
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - from0.x, ev.clientY - from0.y) < 4) return;
+      if (!moved) { try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ } }
       moved = true;
       last = to(ev);
       setDragging({ id, at: last });
     };
-    /*
-     * Letting go lets go, every time. The pointer is captured by the box
-     * that was pressed, so the release reaches it wherever the mouse is,
-     * outside the window included; and a drag the browser cancels midway
-     * ends the same way as a release, where before it left the box stuck to
-     * the mouse until the next click. He hit that by hand.
-     */
-    const target = e.currentTarget;
-    const pointerId = e.pointerId;
-    try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ }
     let done = false;
     const up = (ev: PointerEvent) => {
       if (done) return;
@@ -1028,17 +1031,19 @@ export function Timeline() {
     stopSettle();
     const from = { x: e.clientX - viewAt.current.pan.x, y: e.clientY - viewAt.current.pan.y };
     let moved = false;
+    /* The same rule as a box: captured by the ground once the pan has begun, and a cancel ends it as a release does. */
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
     const move = (ev: PointerEvent) => {
       // Six, not three: a press with a mouse moves a pixel or two on its own,
       // and a trackpad more, and a press that read as a pan closed nothing.
-      if (Math.abs(ev.clientX - e.clientX) > 6 || Math.abs(ev.clientY - e.clientY) > 6) moved = true;
+      if (!moved && (Math.abs(ev.clientX - e.clientX) > 6 || Math.abs(ev.clientY - e.clientY) > 6)) {
+        moved = true;
+        try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ }
+      }
       claim();
       setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
     };
-    /* The same rule as a box: captured by the ground that was pressed, and a cancel ends it as a release does. */
-    const target = e.currentTarget;
-    const pointerId = e.pointerId;
-    try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ }
     let done = false;
     const up = () => {
       if (done) return;
