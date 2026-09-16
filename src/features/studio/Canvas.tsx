@@ -30,7 +30,7 @@ import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./S
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
-import { BASE_ZOOM, BACKGROUND_ID, ZOOM_MIN } from "./store";
+import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
 import {
   activePage, frameHeight, frameTopReach, groupBounds, pageGroups, pageNodes, pageShapes, pageSpaces, shapeBounds,
   useStudio, type StudioNode, type StudioShape,
@@ -365,7 +365,7 @@ export function Canvas() {
          gutter either side. In nominal terms, because that is what the store
          holds — the width is divided by the base so the *drawn* frame is
          what is being fitted. */
-      return Math.max(ZOOM_MIN, Math.min(1, (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM)));
+      return Math.max(FIT_MIN, Math.min(1, (vw - FRAME_GUTTER) / (frameWidth * BASE_ZOOM)));
     },
     [frameWidth],
   );
@@ -396,7 +396,7 @@ export function Canvas() {
     /* Only across. Down is the gutter, and the gutter is a constant. */
     const x = Math.round((vw - frameWidth * drawn) / 2);
     const store = useStudio.getState();
-    if (store.zoom !== z) store.setZoom(z);
+    if (store.zoom !== z) store.setFitZoom(z);
     if (store.pan.x !== x || store.pan.y !== 0) store.setPan({ x, y: 0 });
     /*
      * Last, and that ordering is the fix rather than a detail.
