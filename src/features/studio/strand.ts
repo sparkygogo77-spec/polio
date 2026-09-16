@@ -44,7 +44,8 @@
  * colours are, and the darkening is a clamp rather than a colour: the two
  * ends' bands are mixed and then pulled down to the lightness and the
  * chroma of `char`, where a hue cannot be read. A vine between two boards
- * of the same kind has no gradient at all.
+ * of the same kind runs down into the same dark: lit at both ends, dark
+ * along the middle, so every vine on the board is the one J pointed at.
  *
  * **The colour moves the way a box's does.** Not painted here: the timeline
  * lays the construct's own nebula over the ribbon, clipped to it
@@ -91,6 +92,8 @@
  * far along the vine a point is, which a bezier cannot say.
  */
 
+import type { Band } from "./lanes";
+
 export interface Point {
   x: number;
   y: number;
@@ -105,7 +108,7 @@ export interface Point {
  * drift from the source. A vine is the boxes' material, not a colour that
  * happens to be near theirs.
  */
-export type VineEnd = "iteration" | "drawing" | "cut";
+export type VineEnd = "iteration" | "drawing" | "cut" | Band;
 
 interface Bark {
   /** The darkest line on it: the axis, down the middle of the ribbon. `--*-core`. */
@@ -143,7 +146,29 @@ export const VINE: Record<VineEnd, Bark> = {
     hot: "oklch(0.42 0.014 150)",
     white: "oklch(0.5 0.016 150)",
   },
+  /*
+   * A lane's vine is coloured by the lane: green at the top, yellow in the
+   * middle, red at the bottom, the same colour as the line inside that
+   * lane's rim. The same five stops as the construct's, at the same
+   * lightness and chroma, turned to the band's own hue (`lanes.ts`,
+   * `BAND_COLOUR`), so a lane's vine is the boxes' material like every
+   * other and only its hue says which lane it is.
+   */
+  green: onHue(148),
+  yellow: onHue(92),
+  red: onHue(27),
 };
+
+/** The construct's five stops, at the construct's own lightness and chroma, on another hue. */
+function onHue(hue: number): Bark {
+  return {
+    core: `oklch(0.13 0.03 ${hue})`,
+    char: `oklch(0.254 0.058 ${hue})`,
+    deep: `oklch(0.309 0.076 ${hue})`,
+    hot: `oklch(0.798 0.209 ${hue})`,
+    white: `oklch(0.888 0.208 ${hue})`,
+  };
+}
 
 /** The four states a vine can be in, kept for the callers that name them. */
 export type StrandTone = "live" | "landed" | "pending" | "cut";
@@ -242,16 +267,37 @@ function section(bark: Bark): string[] {
     // The rim's inner glow: the face, warmed towards the rim rather than
     // jumping to it, which is the `inset 0 0 10px -4px` at a third.
     else if (t < 0.90) out.push(mix(deep, hot, 0.34));
-    // The rim itself, with the white sliver mixed into it.
-    else out.push(mix(hot, white, 0.22));
+    // The rim itself: `hot` held down toward the face rather than lifted
+    // toward `white`. J saw the rim at the sliver's brightness as a bright
+    // pink line round every red vine and asked for the darker red the
+    // green-to-red vine shows; the white sliver is the box's, not the
+    // vine's, and it is not used here.
+    else out.push(mix(deep, hot, RIM));
   }
   return out;
 }
+
+/**
+ * How far the rim band goes from the face toward `hot`.
+ *
+ * At one, and with a sliver of `white` in it, the rim of a vine between
+ * two red drawings ran the whole length at the brightness of the box's
+ * rim, and read as a bright pink outline; the vine from a green box to a
+ * red drawing, whose rim goes down into the dark along the middle, looked
+ * right beside it. So the rim stops short of `hot`: its lightness ends at
+ * about two thirds instead of four fifths, and with the run along the
+ * length dark in the middle for every vine (`FADE`), that brightness is
+ * reached only where a vine meets a board.
+ */
+const RIM = 0.72;
 
 const SECTION: Record<VineEnd, string[]> = {
   iteration: section(VINE.iteration),
   drawing: section(VINE.drawing),
   cut: section(VINE.cut),
+  green: section(VINE.green),
+  yellow: section(VINE.yellow),
+  red: section(VINE.red),
 };
 
 /**
@@ -265,6 +311,13 @@ const SECTION: Record<VineEnd, string[]> = {
  * card has is legible at the size a vine actually is.
  */
 export const STRAND_WIDTH = 24;
+
+/**
+ * A lane's vine is slightly thinner than the timeline's: his words. Three
+ * quarters of the width, so it is plainly the same ribbon and plainly the
+ * lighter one.
+ */
+export const LANE_STRAND_WIDTH = 18;
 
 /**
  * Where the colour stops being one end's and starts being the other's.
@@ -395,7 +448,15 @@ function gather(u: number): number {
 }
 
 /** What one vine is made of, before anything is painted: the same for the paint and the outline. */
-function build(from: Point, to: Point, opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone }) {
+interface Build {
+  ends?: [VineEnd, VineEnd];
+  grow?: number;
+  tone?: StrandTone;
+  /** How wide the ribbon is, across both sides of the axis. `STRAND_WIDTH` unless the caller says. */
+  width?: number;
+}
+
+function build(from: Point, to: Point, opts: Build) {
   const run = Math.hypot(to.x - from.x, to.y - from.y) * (1 + BOW * 0.8);
   const whole = samples(strandPath(from, to), sampleCount(run));
   /*
@@ -408,7 +469,8 @@ function build(from: Point, to: Point, opts: { ends?: [VineEnd, VineEnd]; grow?:
   const s = grow >= 1 ? whole : whole.slice(0, Math.max(2, Math.ceil(whole.length * grow)));
   const dead = opts.tone === "cut";
   const [a, z] = dead ? (["cut", "cut"] as [VineEnd, VineEnd]) : (opts.ends ?? ["iteration", "iteration"]);
-  return { s, dead, ends: [a, z] as [VineEnd, VineEnd], mixed: a !== z, half: STRAND_WIDTH / 2 };
+  const width = opts.width ?? STRAND_WIDTH;
+  return { s, dead, ends: [a, z] as [VineEnd, VineEnd], half: width / 2, width };
 }
 
 /**
@@ -512,7 +574,7 @@ export function strandEnvelope(
   from: Point,
   to: Point,
   part: 0 | 1,
-  opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone } = {},
+  opts: Build = {},
 ): string {
   const { s, half, dead } = build(from, to, opts);
   if (dead || s.length < 2) return "";
@@ -546,7 +608,7 @@ export const SEAM_WIDTH = 7;
 export function strandSeam(
   from: Point,
   to: Point,
-  opts: { ends?: [VineEnd, VineEnd]; grow?: number; tone?: StrandTone } = {},
+  opts: Build = {},
 ): string {
   const { s, half, dead } = build(from, to, opts);
   if (dead || s.length < 2) return "";
@@ -571,10 +633,10 @@ export function paintStrand(
   c: CanvasRenderingContext2D,
   from: Point,
   to: Point,
-  opts: { tone: StrandTone; lit?: number; ends?: [VineEnd, VineEnd]; grow?: number },
+  opts: Build & { tone: StrandTone; lit?: number },
 ) {
   const lit = opts.lit ?? 1;
-  const { s, dead, ends, mixed, half } = build(from, to, opts);
+  const { s, dead, ends, half, width } = build(from, to, opts);
   if (s.length < 2) return;
 
   c.save();
@@ -587,7 +649,7 @@ export function paintStrand(
    * floating on it. One stroke, the width of the ribbon and a little more.
    */
   c.strokeStyle = "oklch(0.08 0.01 150)";
-  c.lineWidth = STRAND_WIDTH * 1.16;
+  c.lineWidth = width * 1.16;
   c.beginPath();
   s.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
   c.stroke();
@@ -604,6 +666,17 @@ export function paintStrand(
   const near = SECTION[ends[0]]!;
   const far = SECTION[ends[1]]!;
   const floor = lch(VINE[ends[0]].char);
+  /*
+   * Every vine runs down into the dark along its middle, whatever it
+   * joins. The ramp was the mixed vine's alone, and a vine between two
+   * boards of the same kind was one flat colour end to end, rim and all:
+   * J put the two side by side and asked for the darker one. So a vine
+   * between two red drawings, or two green boxes, is lit where it leaves
+   * and where it arrives and is the material's own dark between, exactly
+   * as the vine from the green box to the red drawing is. Only a cut vine
+   * stays flat, and it has no colour to lose.
+   */
+  const ramped = !dead;
   /** One band's colour along the run: this end's, the dark, then the other's. */
   const ramp = (a: string, z: string): CanvasGradient => {
     const g = c.createLinearGradient(from.x, from.y, to.x, to.y);
@@ -623,7 +696,7 @@ export function paintStrand(
      * gradient, and a vine still growing is coloured as it will be when it
      * is done.
      */
-    c.fillStyle = mixed ? ramp(near[k]!, far[k]!) : near[k]!;
+    c.fillStyle = ramped ? ramp(near[k]!, far[k]!) : near[k]!;
     c.beginPath();
     for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
     c.fill();
@@ -652,7 +725,7 @@ export function paintStrand(
      * over it takes it white hot when it is wanted (`molten.css`).
      */
     c.globalAlpha = lit * 0.4;
-    c.strokeStyle = mixed ? ramp(near[BANDS - 1]!, far[BANDS - 1]!) : near[BANDS - 1]!;
+    c.strokeStyle = ramped ? ramp(near[BANDS - 1]!, far[BANDS - 1]!) : near[BANDS - 1]!;
     c.lineWidth = 1.1;
     c.beginPath();
     s.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));

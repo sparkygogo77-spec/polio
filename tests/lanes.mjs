@@ -16,8 +16,9 @@
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
-import { BANDS, BAND_COLOUR, PICKS, RATES, bandOf, costOf, laneRects, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/lanes.ts";
-import { SAMPLE } from "../src/features/studio/lanesSample.ts";
+import { BANDS, BAND_COLOUR, LANE_BANDS, PICKS, RATES, REACH, bandOf, costOf, laneRects, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/lanes.ts";
+import { ITEMS } from "../src/features/studio/lanesSample.ts";
+import { LANE_STRAND_WIDTH, STRAND_WIDTH } from "../src/features/studio/strand.ts";
 import { MOLTEN_MEANS, moltenClass } from "../src/core/ui/molten.ts";
 
 const req = createRequire(import.meta.url);
@@ -35,8 +36,14 @@ const check = (name, ok, detail = "") => {
 /* 1. The structure: one direction, no disagreement                     */
 /* ------------------------------------------------------------------ */
 
+const SAMPLE = lanesOf(ITEMS);
 const items = SAMPLE.flatMap((l) => l.items);
-check("three lanes, three or four offers each", SAMPLE.length === 3 && SAMPLE.every((l) => l.items.length >= 3 && l.items.length <= 4), SAMPLE.map((l) => `${l.label}: ${l.items.length}`).join(", "));
+check("three lanes, three to five offers each", SAMPLE.length === 3 && SAMPLE.every((l) => l.items.length >= 3 && l.items.length <= 5), SAMPLE.map((l) => `${l.label}: ${l.items.length}`).join(", "));
+/* His order: green at the top, yellow in the middle, red at the bottom, and an offer is in the lane of its own band. */
+check("the lanes are green, yellow and red from the top down", SAMPLE.map((l) => l.band).join(",") === LANE_BANDS.join(",") && LANE_BANDS.join(",") === "green,yellow,red", SAMPLE.map((l) => `${l.label} is ${l.band}`).join(", "));
+check("every offer is in the lane of its own band, so no lane can hold a colour that is not its own", SAMPLE.every((l) => l.items.every((it) => shown(it).band === l.band)) && SAMPLE.reduce((n, l) => n + l.items.length, 0) === ITEMS.length, SAMPLE.map((l) => `${l.band}: ${l.items.map((it) => shown(it).costSaid).join(" ")}`).join(" · "));
+check("the lanes are made from a flat list by band, and a dear offer cannot land in the green lane", (() => { const l = lanesOf([{ ...ITEMS[0], id: "dear", difficulty: 5, tokens: { in: 200_000, out: 40_000 } }]); return l[0].items.length === 0 && l[1].items.length === 0 && l[2].items.length === 1; })());
+check("the band is the cost's, not the difficulty's: in this sample the two agree on every offer, which is why the green lane reads as the easy one", ITEMS.every((it) => { const b = shown(it).band; return (it.difficulty <= 1 ? "green" : it.difficulty <= 3 ? "yellow" : "red") === b; }), "a live source could put a hard job that costs little in the green lane, and it would still be green");
 check("every offer is an update or an improvement, with a difficulty from 1 to 5, tokens and minutes", items.every((it) => ["fix", "step"].includes(it.kind) && [1, 2, 3, 4, 5].includes(it.difficulty) && it.tokens.in > 0 && it.tokens.out > 0 && it.minutes > 0));
 const rank = (model) => ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"].indexOf(model);
 check("difficulty picks the model and the effort, and a harder job never gets a smaller model",
@@ -55,7 +62,7 @@ check("no em dash in anything a lane prints", items.every((it) => !/—/.test(it
 /* His drawing: a fan off the latest box to its right. Middle level with it, top up and to the right, bottom down and to the right. */
 const rects = laneRects({ x: 100, y: 200, w: 620, h: 234 }, { w: 620, h: 208 }, { x: 20, y: 54 });
 const cyOf = (r) => r.y + r.h / 2;
-check("the middle lane is beside the latest box, level: its vertical centre is the box's own", rects[1].x === 740 && cyOf(rects[1]) === 200 + 234 / 2, `${cyOf(rects[1])} against ${200 + 234 / 2}`);
+check("the middle lane is beside the latest box, level: its vertical centre is the box's own, three gaps to its right so the vine has a run", rects[1].x === 720 + 20 * REACH && REACH === 3 && cyOf(rects[1]) === 200 + 234 / 2, `${cyOf(rects[1])} against ${200 + 234 / 2}, ${rects[1].x - 720} past the box`);
 check("the top lane is diagonally above, up and to the right; the bottom diagonally below, down and to the right",
   rects[0].x > rects[1].x && cyOf(rects[0]) < cyOf(rects[1]) && rects[2].x > rects[1].x && cyOf(rects[2]) > cyOf(rects[1]) && rects[0].x === rects[2].x, `top at ${rects[0].x},${cyOf(rects[0])} · middle at ${rects[1].x},${cyOf(rects[1])} · bottom at ${rects[2].x},${cyOf(rects[2])}`);
 check("every lane is as tall as the box it hangs off, so the centres can agree", rects.every((r) => r.h === 234 && r.w === 620));
@@ -95,7 +102,7 @@ const shot = async (n) => { if (SHOTS) await page.screenshot({ path: `docs/shots
 const boxes = page.locator("[data-box]");
 const lanes = page.locator("[data-lane-box]");
 const rectOf = async (loc) => loc.evaluate((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right }; });
-check("the timeline shows the real boxes, and three lanes hang off the end of them", (await boxes.count()) === 3 && (await lanes.count()) === 3 && (await page.locator("[data-lanes-fan]").count()) === 1);
+check("the timeline shows the real boxes, and three lanes hang off the end of them, with vines into them", (await boxes.count()) === 3 && (await lanes.count()) === 3 && (await page.locator("[data-lane-vines]").count()) === 1 && (await page.locator("[data-lanes-fan]").count()) === 0);
 const last = await rectOf(page.locator('[data-box="g1"]'));
 const laneRs = await lanes.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }));
 check("past the last real box, not among the history: every lane stands to its right", laneRs.every((r) => r.x > last.right), `last box ends at ${Math.round(last.right)}, lanes start at ${Math.round(laneRs[0].x)}`);
@@ -104,25 +111,87 @@ const mid = (r) => r.y + r.h / 2;
 check("the middle lane is beside the latest box and level with it: the two vertical centres are the same number", Math.abs(mid(laneRs[1]) - mid(last)) < 1 && laneRs[1].x > last.right, `middle lane centre ${mid(laneRs[1]).toFixed(1)}, latest box centre ${mid(last).toFixed(1)}`);
 check("the top lane is diagonally above, up and to the right of the middle; the bottom diagonally below, down and to the right", mid(laneRs[0]) < mid(last) && laneRs[0].x > laneRs[1].x && mid(laneRs[2]) > mid(last) && laneRs[2].x > laneRs[1].x, `top centre ${Math.round(mid(laneRs[0]))} at x ${Math.round(laneRs[0].x)} · middle ${Math.round(mid(laneRs[1]))} at x ${Math.round(laneRs[1].x)} · bottom ${Math.round(mid(laneRs[2]))} at x ${Math.round(laneRs[2].x)}`);
 check("one above the box's centre line, one on it, one under it, and every lane as wide and as tall as the box", laneRs.every((r) => Math.abs(r.w - last.w) < 2 && Math.abs(r.h - last.h) < 2), laneRs.map((r) => `${Math.round(r.w)}×${Math.round(r.h)}`).join(", ") + ` against ${Math.round(last.w)}×${Math.round(last.h)}`);
-/* The connector reads as a bracket opening to the right: a level stub out of the box, one bar, a stub into each lane at its own centre. */
-const fan = await page.locator("[data-lanes-fan]").evaluate((svg) => {
-  const box = svg.getBoundingClientRect();
-  const path = (sel) => { const b = svg.querySelector(sel)?.getBBox(); return b ? { x: b.x, y: b.y, width: b.width, height: b.height } : null; };
-  return { stub: path("[data-fan-stub]"), bar: path("[data-fan-bar]"), into: [0, 1, 2].map((i) => path(`[data-fan-into="${i}"]`)), left: box.left, scale: box.width / svg.viewBox.baseVal.width };
-});
-check("the connector is a bracket opening to the right: a level stub, a bar between the box and the lanes, and a stub into each lane at its centre",
-  !!fan.stub && fan.stub.height === 0 && !!fan.bar && fan.bar.width === 0 && fan.into.every((p) => p && p.height === 0) && fan.into[0].y < fan.into[1].y && fan.into[1].y < fan.into[2].y && Math.abs(fan.into[0].width - fan.into[2].width) < 1 && fan.into[0].width > fan.into[1].width,
-  fan.stub ? `stub ${Math.round(fan.stub.width)} across, bar ${Math.round(fan.bar.height)} tall, stubs into the lanes ${fan.into.map((p) => Math.round(p.width)).join(", ")} across` : "no bracket");
+/*
+ * The connectors are vines, his words: the timeline's own ribbon, slightly
+ * thinner, green into the top lane, yellow into the middle, red into the
+ * bottom. Read straight off the canvas, in the plot's own coordinates: a
+ * column of pixels just before each lane's left edge, where the vine
+ * arrives in the lane's colour, and a column at the middle of the level
+ * vine for its width.
+ */
+/* One line of pixels across a canvas, in the plot's coordinates: a column at `x` from `y0` to `y1`, or, with `across` set, a row at `x` (a y) from `y0` to `y1` (two xs). */
+const column = (sel, x, y0, y1, across = false) => page.evaluate(([sel, x, y0, y1, across]) => {
+  const cv = document.querySelector(sel);
+  if (!cv) return null;
+  const st = getComputedStyle(cv);
+  const left = parseFloat(st.left), top = parseFloat(st.top);
+  const scale = cv.width / parseFloat(st.width);
+  const ctx = cv.getContext("2d");
+  const px = Math.round((x - (across ? top : left)) * scale);
+  const a = Math.max(0, Math.round((y0 - (across ? left : top)) * scale)), b = Math.min(across ? cv.width : cv.height, Math.round((y1 - (across ? left : top)) * scale));
+  if (px < 0 || px >= (across ? cv.height : cv.width) || b <= a) return null;
+  const d = across ? ctx.getImageData(a, px, b - a, 1).data : ctx.getImageData(px, a, 1, b - a).data;
+  const rows = [];
+  for (let i = 0; i < b - a; i++) {
+    const [r, g, bl, al] = [d[i * 4], d[i * 4 + 1], d[i * 4 + 2], d[i * 4 + 3]];
+    if (al < 200) continue;
+    rows.push({ y: (across ? left : top) + (a + i) / scale, r, g, b: bl });
+  }
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const luma = (p) => 0.2126 * lin(p.r) + 0.7152 * lin(p.g) + 0.0722 * lin(p.b);
+  const hue = (p) => { const r = p.r / 255, g = p.g / 255, b = p.b / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = mx - mn; if (!c) return null; let h = mx === r ? (g - b) / c : mx === g ? 2 + (b - r) / c : 4 + (r - g) / c; h = (h * 60 + 360) % 360; return { h, c }; };
+  let brightest = null, most = null;
+  for (const p of rows) { const l = luma(p); if (!brightest || l > brightest.l) brightest = { ...p, l }; const hc = hue(p); if (hc && (!most || hc.c > most.c)) most = { ...p, ...hc }; }
+  /* Rows are the canvas's own pixels; `thick` is the same run in the plot's, so two canvases drawn at different scales compare. */
+  return { rows: rows.length, thick: rows.length / scale, span: rows.length ? [Math.round(rows[0].y), Math.round(rows.at(-1).y)] : null, brightest, most };
+}, [sel, x, y0, y1, across]);
+/* Where things stand, in the plot's coordinates: the boxes and lanes are placed there, so their offsets are those coordinates. */
+const plotOf = (sel) => page.evaluate((sel) => { const e = document.querySelector(sel); const w = e.parentElement; return { x: w.offsetLeft, y: w.offsetTop, w: w.offsetWidth, h: w.offsetHeight }; }, sel);
+const lastP = await plotOf('[data-box="g1"]');
+const laneP = [];
+for (const id of LANE_BANDS) laneP.push(await plotOf(`[data-lane-box="${id}"]`));
+const arrivals = [];
+/* A window the ribbon's own height about the lane's centre, so the column reads this lane's vine and not the two fanning past it. */
+const win = LANE_STRAND_WIDTH / 2 + 4;
+for (const r of laneP) arrivals.push(await column("[data-lane-vines]", r.x - 10, r.y + r.h / 2 - win, r.y + r.h / 2 + win));
+const hueOk = (band, h) => h === null ? false : band === "green" ? h >= 90 && h <= 170 : band === "yellow" ? h >= 40 && h < 90 : (h < 40 || h > 330);
+check("a vine arrives at each lane at the lane's own middle, and it is the lane's colour: green, yellow, red from the top down",
+  arrivals.every((a, i) => a && a.rows > 0 && a.most && hueOk(LANE_BANDS[i], a.most.h) && Math.abs((a.span[0] + a.span[1]) / 2 - (laneP[i].y + laneP[i].h / 2)) <= 6),
+  arrivals.map((a, i) => a && a.most ? `${LANE_BANDS[i]}: hue ${Math.round(a.most.h)} over ${a.thick.toFixed(0)}px, centred ${Math.round((a.span[0] + a.span[1]) / 2)} against the lane's ${Math.round(laneP[i].y + laneP[i].h / 2)}` : `${LANE_BANDS[i]}: nothing painted`).join(" · "));
+check("the vines are told apart by hue and nothing else: all three at the same brightness where they arrive", (() => { const l = arrivals.map((a) => a?.brightest?.l ?? -1); return l.every((v) => v >= 0) && Math.max(...l) - Math.min(...l) < 0.35; })(), `brightest pixel where each arrives: ${arrivals.map((a) => (a?.brightest?.l ?? 0).toFixed(2)).join(", ")}`);
+const midX = (lastP.x + lastP.w + laneP[1].x) / 2;
+/* The level vine bows a little off the centre line, so mid-run it is read in a window wide enough to hold the whole ribbon; the other two have left by then, a quarter of the box away. */
+const midRun = await column("[data-lane-vines]", midX, laneP[1].y + laneP[1].h / 2 - 40, laneP[1].y + laneP[1].h / 2 + 40);
+check("the vine runs down into the dark along its middle, as the timeline's do: the brightest pixel at mid-run is dark", !!midRun && midRun.rows > 0 && midRun.brightest.l < 0.12, midRun ? `brightest at mid-run ${midRun.brightest.l.toFixed(3)} luminance, against ${(arrivals[1]?.brightest?.l ?? 0).toFixed(3)} where it arrives` : "nothing painted");
+check("slightly thinner than the timeline's vines, his words: three quarters of the width", LANE_STRAND_WIDTH < STRAND_WIDTH && LANE_STRAND_WIDTH >= STRAND_WIDTH * 0.6, `${LANE_STRAND_WIDTH} against ${STRAND_WIDTH}`);
+/* Each ribbon is read across its own run at mid-length: the level lane vine down a column, the timeline's vine from the drawing to the latest box along a row where it runs mostly up and down, and down a column where it runs mostly across. A ribbon leaning off square reads a little wider than it is, and the shadow under it is in the count both times. */
+const timelineMid = await (async () => {
+  const e1 = await plotOf('[data-box="e1"]');
+  const a = e1.x < lastP.x ? { x: e1.x + e1.w, y: e1.y + e1.h / 2 } : { x: e1.x, y: e1.y + e1.h / 2 };
+  const b = e1.x < lastP.x ? { x: lastP.x, y: lastP.y + lastP.h / 2 } : { x: lastP.x + lastP.w, y: lastP.y + lastP.h / 2 };
+  const upright = Math.abs(b.y - a.y) > Math.abs(b.x - a.x);
+  const read = upright
+    ? await column("[data-timeline-vines]", (a.y + b.y) / 2, Math.min(a.x, b.x) - 200, Math.max(a.x, b.x) + 200, true)
+    : await column("[data-timeline-vines]", (a.x + b.x) / 2, Math.min(a.y, b.y) - 200, Math.max(a.y, b.y) + 200);
+  return read ? { ...read, how: upright ? "along a row" : "down a column" } : null;
+})();
+check("and it is, on the canvas: the level lane vine reads thinner across its run than the timeline's vine between the drawing and the latest box", !!midRun && !!timelineMid && midRun.rows > 0 && timelineMid.rows > 0 && midRun.thick < timelineMid.thick, `${(midRun?.thick ?? 0).toFixed(0)}px down a column against ${(timelineMid?.thick ?? 0).toFixed(0)}px ${timelineMid?.how ?? ""}, shadow included, nominal ${LANE_STRAND_WIDTH} against ${STRAND_WIDTH}`);
 check("every lane wears the same azure construct, and no lane is a thread", (await lanes.evaluateAll((els) => els.every((e) => e.classList.contains("molten-azure") && !e.hasAttribute("data-box")))));
 const bands = await lanes.evaluateAll((els) => els.map((e) => ({ band: e.getAttribute("data-lane-band"), line: getComputedStyle(e.querySelector("[data-lane-band-line]")).borderTopColor })));
-check("inside each rim is one line in the cost band's colour, and nothing else is coloured by cost", bands.every((b) => b.line === BAND_COLOUR[b.band]) && new Set(bands.map((b) => b.line)).size === new Set(bands.map((b) => b.band)).size, bands.map((b) => `${b.band}`).join(", "));
+check("inside each rim is one line in the lane's colour, and nothing else is coloured by cost", bands.every((b) => b.line === BAND_COLOUR[b.band]) && new Set(bands.map((b) => b.line)).size === new Set(bands.map((b) => b.band)).size, bands.map((b) => `${b.band}`).join(", "));
+const order = await lanes.evaluateAll((els) => els.map((e) => ({ band: e.getAttribute("data-lane-band"), y: e.getBoundingClientRect().y })).sort((a, b) => a.y - b.y).map((e) => e.band).join(","));
+check("on the screen, green is the top lane, yellow the middle, red the bottom", order === "green,yellow,red", order);
+/* His words: blue right across, no black plate under the words; the words read by their own contrast against the blue. */
+const plate = await lanes.evaluateAll((els) => els.map((e) => { const line = e.querySelector("[data-lane-band-line]"); const st = getComputedStyle(line); return { bg: st.backgroundColor, shadow: getComputedStyle(e.querySelector("[data-lane-detail]") ?? line).textShadow }; }));
+check("the lane box is blue right across: nothing is painted behind the words", plate.every((p) => p.bg === "rgba(0, 0, 0, 0)"), plate.map((p) => p.bg).join(", "));
+check("and the words carry their own edge instead: a dark shadow cast by the letter, not a plate", plate.every((p) => p.shadow && p.shadow !== "none"), plate[0]?.shadow ?? "none");
 const times = await page.locator("[data-lane-time]").allInnerTexts();
 check("time is printed as a figure in every lane", times.length === 3 && times.every((t) => /^\d+ min$|^\d+ h( \d+ min)?$/.test(t.trim())), times.join(", "));
 const models = await page.locator("[data-lane-model]").evaluateAll((els) => els.map((e) => ({ text: e.innerText, gap: e.closest("[data-lane-box]").getBoundingClientRect().bottom - e.getBoundingClientRect().bottom })));
 check("the model and its effort sit along the bottom edge of every lane", models.every((m) => /Haiku 4\.5|Sonnet 5|Opus 5/.test(m.text) && /low|medium|high|xhigh/.test(m.text) && m.gap < 24), models.map((m) => `${m.text.trim()} ${Math.round(m.gap)}px up`).join(" | "));
 const fixDetail = page.locator('[data-lane-box][data-lane-kind="fix"] [data-lane-detail]').first();
 check("an update prints the error as it was seen, in mono", (await fixDetail.count()) === 1 && /mono/i.test(await fixDetail.evaluate((e) => getComputedStyle(e).fontFamily)) && /FAIL/.test(await fixDetail.innerText()));
-/* Legibility: the body line sits on a calm ground, bigger and heavier, and the contrast holds on green, red and blue alike. */
+/* Legibility: the body line is bigger and heavier, and the contrast holds on green, red and blue alike; on the blue it is measured against the texture itself, since nothing sits between the words and it. */
 /* The type as it is set, in CSS pixels: the computed size is unscaled by the plot's zoom. */
 const typeOf = (loc) => loc.evaluate((e) => { const cs = getComputedStyle(e); return { px: parseFloat(cs.fontSize), weight: cs.fontWeight, color: cs.color }; });
 const groundOf = (loc) => loc.evaluate((e) => { let n = e; while (n && getComputedStyle(n).backgroundColor === "rgba(0, 0, 0, 0)") n = n.parentElement; return n ? getComputedStyle(n).backgroundColor : "none"; });

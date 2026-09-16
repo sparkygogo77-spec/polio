@@ -30,6 +30,8 @@ export interface Lane {
   id: string;
   /** What the lane is for, in a word or two: the box's label. */
   label: string;
+  /** The band every item in it falls in: the lane's colour, and its vine's. */
+  band: Band;
   items: Item[];
 }
 
@@ -59,8 +61,35 @@ export interface Item {
 
 export type Difficulty = 1 | 2 | 3 | 4 | 5;
 
-/** The three lanes, top to bottom. */
+/**
+ * The three lanes, top to bottom: green, yellow, red. His words: green
+ * always at the top, yellow in the middle, red at the bottom, each lane's
+ * vine and the line inside its rim in that colour. So the lanes are not
+ * kinds of work but bands of it, and an item's own band, which its cost
+ * gives it, says which lane it is in. Nothing can put a red item in the
+ * green lane.
+ */
 export type Lanes = [Lane, Lane, Lane];
+
+/** The band of each lane, top to bottom. */
+export const LANE_BANDS: [Band, Band, Band] = ["green", "yellow", "red"];
+
+/** What a lane is called, on its box: the size of the work in it, in a word. */
+export const LANE_LABEL: Record<Band, string> = { green: "Small", yellow: "Middling", red: "Big" };
+
+/**
+ * The three lanes from a flat list of offers: each item goes to the lane of
+ * its own band, in the order given. The one way lanes are made, so the
+ * source that replaces the sample hands over items and never lanes.
+ */
+export function lanesOf(items: Item[]): Lanes {
+  return LANE_BANDS.map((band) => ({
+    id: band,
+    label: LANE_LABEL[band],
+    band,
+    items: items.filter((it) => shown(it).band === band),
+  })) as Lanes;
+}
 
 /* ------------------------------------------------------------------ */
 /* Difficulty picks the model                                           */
@@ -154,10 +183,11 @@ export function saidMinutes(minutes: number): string {
   return rest ? `${h} h ${rest} min` : `${h} h`;
 }
 
-/** The item after this one in its lane, round the end: what Refresh swaps in. Never the same item, unless the lane has one. */
-export function nextIn(lane: Lane, id: string): Item {
+/** The item after this one in its lane, round the end: what Refresh swaps in. Never the same item, unless the lane has one; nothing, if the lane is empty. */
+export function nextIn(lane: Lane, id: string): Item | undefined {
+  if (!lane.items.length) return undefined;
   const i = lane.items.findIndex((it) => it.id === id);
-  return lane.items[(i + 1) % lane.items.length]!;
+  return lane.items[(i + 1) % lane.items.length];
 }
 
 /* ------------------------------------------------------------------ */
@@ -190,11 +220,18 @@ export const LANE_MODE = "lane";
  * and the row above the latest box has a box in the next column, the top
  * lane stands over part of it: that is where his drawing puts it, and the
  * lane sits under the real box rather than covering it.
+ *
+ * The lanes stand three gaps past the latest box, not one: the vines
+ * into them are the timeline's own ribbon, and at one gap the level
+ * vine into the middle lane was a stub twenty pixels long with no run
+ * to be a vine in. Sixty gives it one. The stagger of the top and
+ * bottom lanes against the middle is unchanged.
  */
 export const DIAGONAL = 0.3;
+export const REACH = 3;
 export function laneRects(from: Rect | null, size: { w: number; h: number }, gap: { x: number; y: number }): [Rect, Rect, Rect] {
   const h = from ? from.h : size.h;
-  const x = from ? from.x + from.w + gap.x : 140;
+  const x = from ? from.x + from.w + gap.x * REACH : 140;
   const cy = from ? from.y + from.h / 2 : 130 + h / 2;
   const step = h + gap.y;
   const diag = Math.round(size.w * DIAGONAL);

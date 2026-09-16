@@ -121,7 +121,16 @@ check("…and that dark is a clamp rather than a colour: pulled to char's lightn
   && /Math\.min\(m\.l, floor\.l\)/.test(strandSrc) && /Math\.min\(m\.c, floor\.c\)/.test(strandSrc)
   && /const floor = lch\(VINE\[ends\[0\]\]\.char\);/.test(strandSrc)
 ))());
-check("two boards of the same kind get no gradient at all", /c\.fillStyle = mixed \? ramp\(near\[k\]!, far\[k\]!\) : near\[k\]!;/.test(strandSrc));
+/*
+ * J put a vine between two red drawings beside the vine from a green box
+ * to a red drawing and asked for the darker one everywhere: the flat one
+ * ran at the rim's brightness end to end, a bright pink outline. So every
+ * vine runs down into the dark along its middle now, whatever it joins;
+ * only a cut one, which has no colour, stays flat.
+ */
+check("every vine runs down into the dark along its middle, two boards of the same kind included; only a cut one is flat",
+  /const ramped = !dead;/.test(strandSrc) && /c\.fillStyle = ramped \? ramp\(near\[k\]!, far\[k\]!\) : near\[k\]!;/.test(strandSrc)
+  && !/c\.fillStyle = mixed \?/.test(strandSrc));
 /*
  * The rim was a stop no band could reach. A band is drawn in the colour at
  * its middle, and with eight of them the highest `t` asked for is 0.9375 —
@@ -232,7 +241,22 @@ check("one ribbon, not strands: nothing is wound round anything",
 check("its section is the box's own: core, char, deep, the rim's glow, the rim",
   /const BANDS = 10;/.test(strand) && /function section\(bark: Bark\)/.test(strand)
   && /out\.push\(mix\(core, char,/.test(strand) && /out\.push\(mix\(char, deep,/.test(strand)
-  && /out\.push\(mix\(hot, white, 0\.22\)\);/.test(strand));
+  && /out\.push\(mix\(deep, hot, RIM\)\);/.test(strand));
+/*
+ * The rim is held short of `hot`, and the white sliver is not on it: at
+ * the sliver's brightness the rim of a red-to-red vine read as a bright
+ * pink outline, his words. Two thirds of the way from the face to `hot`,
+ * so it is still the lightest thing on the ribbon and still not the box's
+ * own rim.
+ */
+check("the rim stops short of hot and carries no white sliver: no brighter outline shade", (() => {
+  const rim = Number(/const RIM = ([\d.]+);/.exec(strand)?.[1]);
+  return rim >= 0.6 && rim <= 0.8 && !/mix\(hot, white, 0\.22\)/.test(strand);
+})(), `rim at ${/const RIM = ([\d.]+);/.exec(strand)?.[1]} of the way from deep to hot`);
+check("a lane's vine is the same material in the lane's hue: green, yellow and red barks, each the construct's five stops turned",
+  !!VINE.green && !!VINE.yellow && !!VINE.red && /function onHue\(hue: number\): Bark/.test(strand)
+  && hueOf(VINE.green.deep) >= 130 && hueOf(VINE.green.deep) <= 165 && hueOf(VINE.yellow.deep) >= 80 && hueOf(VINE.yellow.deep) <= 100 && hueOf(VINE.red.deep) <= 45,
+  ["green", "yellow", "red"].map((b) => `${b} ${hueOf(VINE[b].deep)}`).join(", "));
 check("…in the proportions the face is drawn in: a narrow groove, then the field, then the glow and the rim",
   /if \(t < 0\.10\)/.test(strand) && /t < 0\.30/.test(strand) && /t < 0\.70/.test(strand) && /t < 0\.90/.test(strand));
 check("…and no stop is so thin it cannot be seen: every one of them is a pixel across at least", (() => {

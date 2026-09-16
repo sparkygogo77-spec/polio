@@ -5,31 +5,38 @@ import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useStudio } from "./store";
-import { BAND_COLOUR, LANE_MODE, laneRects, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
-import { SAMPLE } from "./lanesSample";
-import { BODY, GROUND } from "./boxGround";
+import { BAND_COLOUR, LANE_MODE, laneRects, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
+import { ITEMS } from "./lanesSample";
+import { BODY } from "./boxGround";
+import { LANE_STRAND_WIDTH, paintStrand, strandBounds, type Point } from "./strand";
 
 /**
  * The three lanes, hanging off the end of the timeline.
  *
- * They are drawn inside the plot, in the boards' own coordinates, one slot
- * past the last real box and stacked down from its top, with a bracket
- * from that box fanning into them. They are not threads: nothing in the
- * store knows them, nobody places them, and when a box lands they move
- * along and stay at the end.
+ * They are drawn inside the plot, in the boards' own coordinates, fanned
+ * off the last real box to its right, with a vine from that box into each
+ * of them. They are not threads: nothing in the store knows them, nobody
+ * places them, and when a box lands they move along and stay at the end.
  *
  * Each lane box is the same construct the iteration boxes are, at the
  * same size, in the azure that marks a lane's work (`molten.css`), so a
- * lane and the blue box its work becomes are one family. Inside the rim
- * is a second line in the cost band's colour and nothing else colours it.
- * Refresh swaps in the next offer of the same lane. Take control carries
- * the work out: the lane's offer becomes a blue iteration in the normal
- * run of boxes, with what the work actually changed as its content, and
- * the lanes move out past it.
+ * lane and the blue box its work becomes are one family: blue right
+ * across, texture and all, the words straight on it as they are on a
+ * green box, and no plate under them. Inside the rim is a second line in
+ * the lane's colour, green at the top, yellow in the middle, red at the
+ * bottom, and the vine into the lane is the same colour: the timeline's
+ * own ribbon (`strand.ts`), slightly thinner, in the lane's hue. Nothing
+ * else colours a lane. Refresh swaps in the next offer of the same lane.
+ * Take control carries the work out: the lane's offer becomes a blue
+ * iteration in the normal run of boxes, with what the work actually
+ * changed as its content, and the lanes move out past it.
  *
  * The content is the checked-in sample (`lanesSample.ts`) read through one
  * typed structure (`lanes.ts`); swapping the source is one import.
  */
+/** The checked-in offers, laned by band. */
+const SAMPLE: LanesData = lanesOf(ITEMS);
+
 export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect | null; fromId: string | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData }) {
   /*
    * The box they hang off is as tall as what it holds, not its nominal
@@ -51,7 +58,7 @@ export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect 
   const rects = laneRects(from && tall ? { ...from, h: tall } : from, size, gap);
   return (
     <>
-      {from ? <Fan from={from && tall ? { ...from, h: tall } : from} to={rects} /> : null}
+      {from ? <Vines from={from && tall ? { ...from, h: tall } : from} to={rects} lanes={lanes} /> : null}
       {lanes.map((lane, i) => (
         <LaneBox key={lane.id} lane={lane} at={rects[i]!} index={i} />
       ))}
@@ -60,45 +67,71 @@ export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect 
 }
 
 /**
- * The bracket, opening to the right: a stub out of the latest box's
- * middle, a bar standing between it and the lanes from the top lane's
- * centre to the bottom's, and a stub from the bar into each lane at its
- * own centre. The middle stub is level; the top and bottom stubs reach
- * out to the diagonal lanes, so nothing on it droops.
+ * The vines into the lanes: one from the latest box's right edge, at its
+ * middle, into each lane at the lane's own middle. The same ribbon the
+ * timeline joins its boxes with, painted by the same painter, so it is the
+ * boxes' material and not a line drawn between them: lit where it leaves
+ * and arrives, dark along its middle, bowed rather than pulled taut. His
+ * two differences: a little thinner than the timeline's, and coloured by
+ * the lane, green, yellow and red from the top down, which is also the
+ * colour of the line inside that lane's rim.
+ *
+ * One canvas over the three, sized to what they can touch, painted again
+ * whenever an end moves. Three vines are thirty fills; there is nothing
+ * here worth a diff.
  */
-function Fan({ from, to }: { from: Rect; to: [Rect, Rect, Rect] }) {
-  const x0 = from.x + from.w;
-  const nearest = Math.min(...to.map((r) => r.x));
-  const bar = x0 + (nearest - x0) / 2;
-  const yFrom = from.y + from.h / 2;
-  const centres = to.map((r) => r.y + r.h / 2);
-  const top = Math.min(yFrom, ...centres) - 8;
-  const bottom = Math.max(yFrom, ...centres) + 8;
-  const right = Math.max(...to.map((r) => r.x));
+function Vines({ from, to, lanes }: { from: Rect; to: [Rect, Rect, Rect]; lanes: LanesData }) {
+  const el = React.useRef<HTMLCanvasElement>(null);
+  /*
+   * Three vines out of one edge, and not out of one point: the top lane's
+   * leaves from the upper part of the box's right edge, the middle's from
+   * its middle, the bottom's from the lower part, a quarter of the box's
+   * height apart. Out of one point they were a knot for the first fifty
+   * pixels, three ribbons over each other, and nothing in it could be told
+   * green from red.
+   */
+  const starts: Point[] = [-1, 0, 1].map((k) => ({ x: from.x + from.w, y: from.y + from.h / 2 + (k * from.h) / 4 }));
+  const ends = to.map((r) => ({ x: r.x, y: r.y + r.h / 2 }));
+  const boxes = ends.map((e, i) => strandBounds(starts[i]!, e));
+  const x0 = Math.floor(Math.min(...boxes.map((b) => b.x)));
+  const y0 = Math.floor(Math.min(...boxes.map((b) => b.y)));
+  const w = Math.ceil(Math.max(...boxes.map((b) => b.x + b.w)) - x0);
+  const h = Math.ceil(Math.max(...boxes.map((b) => b.y + b.h)) - y0);
+  const key = `${starts.map((p) => `${p.x},${p.y}`).join(";")}>${ends.map((e) => `${e.x},${e.y}`).join(";")},${lanes.map((l) => l.band).join(",")}`;
+  React.useEffect(() => {
+    const cv = el.current;
+    const c = cv?.getContext("2d");
+    if (!cv || !c) return;
+    const scale = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.max(1, Math.round(w * scale));
+    cv.height = Math.max(1, Math.round(h * scale));
+    c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
+    c.clearRect(x0, y0, w, h);
+    ends.forEach((e, i) => {
+      const band = lanes[i]!.band;
+      paintStrand(c, starts[i]!, e, { tone: "landed", ends: [band, band], width: LANE_STRAND_WIDTH });
+    });
+    // Everything the paint depends on is in `key`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return (
-    <svg
-      data-lanes-fan=""
+    <canvas
+      ref={el}
+      data-lane-vines=""
       aria-hidden
       className="pointer-events-none absolute"
-      style={{ left: x0, top, width: right - x0, height: bottom - top, overflow: "visible" }}
-      viewBox={`${x0} ${top} ${right - x0} ${bottom - top}`}
-    >
-      <g fill="none" stroke="var(--azure-hot)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.85}>
-        <path data-fan-stub="" d={`M${x0} ${yFrom} H${bar}`} />
-        <path data-fan-bar="" d={`M${bar} ${Math.min(...centres)} V${Math.max(...centres)}`} />
-        {to.map((r, i) => <path key={i} data-fan-into={i} d={`M${bar} ${centres[i]} H${r.x}`} />)}
-      </g>
-    </svg>
+      style={{ left: x0, top: y0, width: w, height: h }}
+    />
   );
 }
 
 function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
-  const [item, setItem] = React.useState<Item>(lane.items[0]!);
-  const s = shown(item);
-  const band = BAND_COLOUR[s.band];
-  const done = !!item.did;
+  const [item, setItem] = React.useState<Item | undefined>(lane.items[0]);
+  const s = item ? shown(item) : null;
+  const band = BAND_COLOUR[lane.band];
+  const done = !!item?.did;
   const carryOut = () => {
-    if (!item.did) return;
+    if (!item?.did) return;
     play("confirm");
     /*
      * The work becomes an iteration in the normal run: the same store
@@ -120,45 +153,51 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
     <div className="absolute" style={{ left: at.x, top: at.y, width: at.w, zIndex: 9 }}>
       <div
         data-lane-box={lane.id}
-        data-lane-item={item.id}
-        data-lane-kind={item.kind}
-        data-lane-band={s.band}
+        data-lane-item={item?.id ?? ""}
+        data-lane-kind={item?.kind ?? ""}
+        data-lane-band={lane.band}
         className={cn(moltenClass("azure"), "flex w-full flex-col rounded-lg p-2 text-left")}
         style={{
           height: at.h,
           ...moltenSeed(`lane:${lane.id}`, index),
-          color: "oklch(0.93 0.055 210)",
+          color: BODY,
           boxShadow: "0 3px 6px oklch(0 0 0 / 0.5)",
+          /*
+           * The words sit straight on the blue, as they do on a green box:
+           * no plate under them. His words. What makes them read is their
+           * own contrast: near white, medium weight, and a dark edge cast
+           * by the letter itself, which lifts a word off a bright filament
+           * without putting anything behind it.
+           */
+          textShadow: "0 1px 1px oklch(0.08 0.03 210 / 0.95), 0 0 5px oklch(0.08 0.03 210 / 0.85)",
         }}
       >
         <span data-molten="" />
-        {/* The cost band: the one line inside the rim, and the one thing coloured by cost.
-            Inside it the words sit on a calm ground, not on the texture: the
-            texture is his and stays, the reading is the ground's. */}
+        {/* The lane's line: the one line inside the rim, in the lane's colour, and nothing else is coloured. */}
         <div
           data-lane-band-line=""
           className="grid min-h-0 flex-1 rounded-md"
-          style={{ border: `2px solid ${band}`, padding: "6px 10px", gridTemplateRows: "16px 18px 1fr 22px", rowGap: 4, background: GROUND }}
+          style={{ border: `2px solid ${band}`, padding: "6px 10px", gridTemplateRows: "16px 18px 1fr 22px", rowGap: 4 }}
         >
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em]" style={{ color: "oklch(0.9 0.05 210)" }}>
-              <GitBranch className="size-3" /> {lane.label} · {item.kind === "fix" ? "an update" : "an improvement"}
+            <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em]">
+              <GitBranch className="size-3" /> {lane.label} · {item ? (item.kind === "fix" ? "an update" : "an improvement") : "nothing yet"}
             </span>
             <span className="font-mono text-[10px] tabular-nums">
-              <span data-lane-cost="" style={{ color: "oklch(0.8 0.05 210)" }}>{s.costSaid}</span> · <span data-lane-time="">{s.timeSaid}</span>
+              <span data-lane-cost="">{s?.costSaid ?? ""}</span> · <span data-lane-time="">{s?.timeSaid ?? ""}</span>
             </span>
           </div>
-          <span data-lane-title="" className="truncate text-[13px] font-medium leading-[18px]" style={{ color: "oklch(0.95 0.05 210)" }}>{item.title}</span>
+          <span data-lane-title="" className="truncate text-[13px] font-medium leading-[18px]">{item?.title ?? "Nothing in this lane yet"}</span>
           <div className="min-h-0 overflow-hidden">
-            {item.kind === "fix" ? (
-              <pre data-lane-detail="" className="m-0 whitespace-pre-wrap break-words font-mono text-[12px] font-medium leading-[16px]" style={{ color: BODY, maxHeight: "100%" }}>{item.detail}</pre>
+            {!item ? null : item.kind === "fix" ? (
+              <pre data-lane-detail="" className="m-0 whitespace-pre-wrap break-words font-mono text-[12px] font-medium leading-[16px]" style={{ maxHeight: "100%" }}>{item.detail}</pre>
             ) : (
-              <p data-lane-detail="" className="m-0 line-clamp-4 text-[12.5px] font-medium leading-[17px]" style={{ color: BODY }}>{item.detail}</p>
+              <p data-lane-detail="" className="m-0 line-clamp-4 text-[12.5px] font-medium leading-[17px]">{item.detail}</p>
             )}
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span data-lane-model="" className="truncate font-mono text-[10px]" style={{ color: "oklch(0.8 0.05 210)" }}>
-              {s.pick.name} · {s.pick.effort}
+            <span data-lane-model="" className="truncate font-mono text-[10px]">
+              {s ? `${s.pick.name} · ${s.pick.effort}` : ""}
             </span>
             <span className="flex shrink-0 items-center gap-1">
               <button
@@ -166,8 +205,9 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
                 data-lane-refresh=""
                 title="Another offer from this lane"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); play("tap"); setItem(nextIn(lane, item.id)); }}
-                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-[10px]"
+                disabled={!item}
+                onClick={(e) => { e.stopPropagation(); if (!item) return; play("tap"); setItem(nextIn(lane, item.id)); }}
+                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-[10px] disabled:opacity-45"
                 style={{ borderColor: "oklch(0.58 0.14 210)", background: "oklch(0.26 0.07 210)", color: "oklch(0.92 0.06 210)" }}
               >
                 <RefreshCw className="size-2.5" /> Refresh
