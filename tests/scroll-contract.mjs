@@ -416,6 +416,104 @@ console.log(`       headroom above, for comparison with his 78: ${gaps.map((g) =
 }
 
 /* ------------------------------------------------------------------ */
+/* Phone width: the same two guarantees, exercised                      */
+/* ------------------------------------------------------------------ */
+
+/*
+ * 400×800 and 375×812, and both rules are the ones already checked above —
+ * the width binds and the height never does, and the shelf scrolls on its
+ * own without moving the page behind it. What phone width adds is a third
+ * thing that only shows there: the fit's floor.
+ *
+ * Measured on the deploy at 42208f9 before this: pageW 436 in a paneW 400
+ * pane and 436 in 375 — 36px off the right edge and then 61, with the pane
+ * clipping and no horizontal scroller to reach it. A desktop frame needs a
+ * zoom of 0.156 to fit a 400px pane and 0.142 to fit 375; the fit asked, was
+ * floored at the zoom key's 0.25, and drew 436 anyway. Two floors for two
+ * jobs, conflated — see `FIT_MIN` in the store.
+ *
+ * AND IT IS EXERCISED, not read at rest: one part against twelve for the
+ * zoom, and a category opened and wheeled for the shelf. A collapsed band
+ * that cannot scroll is correct at rest, so a resting reading can never see
+ * whether either rule holds.
+ */
+for (const [w, h] of [[400, 800], [375, 812]]) {
+  const phone = (n) => ({ state: {
+    pages: [{ id: "page_home", name: "Home", path: "/", prompt: "", scroll: "inherit" }],
+    activePageId: "page_home", groups: [], selection: [], threads: [], spaces: [], shapes: [],
+    nodes: Array.from({ length: n }, (_, i) => part(`p${i}`, 80 + i * 520)),
+  }, version: 0 });
+  const grab = () => {
+    const pane = document.querySelector("[data-studio-pane]");
+    const win = document.querySelector("[data-page-window]");
+    return { paneW: Math.round(pane.clientWidth), pageW: Math.round(win.getBoundingClientRect().width),
+      own: win.style.height, scrollHeight: pane.scrollHeight, clientHeight: pane.clientHeight,
+      canScroll: pane.scrollHeight > pane.clientHeight };
+  };
+  const at = async (n) => {
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+    await ctx.addInitScript((d) => { try { localStorage.setItem("builder.studio", JSON.stringify(d)); } catch { /* private mode */ } }, phone(n));
+    const page = await ctx.newPage();
+    await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1900);
+    const m = await page.evaluate(grab);
+    await ctx.close();
+    return m;
+  };
+  const one = await at(1);
+  const many = await at(12);
+  const tag = `${w}×${h}`;
+  check(`${tag}: the page fits across the pane`,
+    one.pageW <= one.paneW && many.pageW <= many.paneW,
+    `page ${one.pageW} and ${many.pageW} in a ${one.paneW} pane` +
+      (one.pageW > one.paneW ? ` — ${one.pageW - one.paneW}px off the right` : ""));
+  check(`${tag}: and a page twelve parts long is drawn no smaller than a page of one`,
+    many.pageW === one.pageW,
+    `one part: ${one.pageW} wide with a ${one.own} page · twelve: ${many.pageW} wide with a ${many.own} page`);
+  check(`${tag}: the long one is scrolled rather than shrunk`,
+    many.canScroll && !one.canScroll,
+    `one: scrollHeight ${one.scrollHeight} clientHeight ${one.clientHeight} canScroll ${one.canScroll} · twelve: ${many.scrollHeight}/${many.clientHeight} canScroll ${many.canScroll}`);
+
+  /* And the shelf, opened and wheeled. */
+  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  const page = await ctx.newPage();
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1900);
+  const room = () => page.evaluate(() => {
+    const pane = document.querySelector("[data-studio-pane]"), shelf = document.querySelector("[data-shelf]");
+    const f = document.querySelector("[data-frame]").getBoundingClientRect();
+    const d = document.querySelector("[data-drawer]");
+    return { band: Math.round(document.querySelector("[data-studio-band]").getBoundingClientRect().height),
+      shelfBox: shelf ? Math.round(shelf.getBoundingClientRect().height) : null,
+      shelfTravel: shelf ? shelf.scrollHeight - shelf.clientHeight : null,
+      shelfAt: shelf ? Math.round(shelf.scrollTop) : null, paneAt: Math.round(pane.scrollTop),
+      frameY: Math.round(f.y), frameH: Math.round(f.height),
+      drawerBottom: d ? Math.round(d.getBoundingClientRect().bottom) : null, fold: window.innerHeight };
+  });
+  const shut = await room();
+  const cat = page.locator("[data-category]").first();
+  if (!(await cat.count())) check(`${tag}: there is a category to open`, false, "no [data-category] at this width");
+  else {
+    await cat.click();
+    await page.waitForTimeout(900);
+    const open = await room();
+    check(`${tag}: opening a category grows the shelf's box`,
+      open.shelfBox > shut.shelfBox, `the band ${shut.band} → ${open.band}, the shelf's box ${shut.shelfBox} → ${open.shelfBox}`);
+    check(`${tag}: and the categories still end on the fold`,
+      Math.abs(open.drawerBottom - open.fold) <= 1, `the shelf ends at ${open.drawerBottom} in a ${open.fold} window`);
+    const sh = await page.locator("[data-shelf]").boundingBox();
+    await page.mouse.move(sh.x + sh.width / 2, sh.y + sh.height / 2);
+    for (let i = 0; i < 8; i++) { await page.mouse.wheel(0, 300); await page.waitForTimeout(40); }
+    await page.waitForTimeout(350);
+    const after = await room();
+    check(`${tag}: the shelf scrolls on its own and the page behind it does not move`,
+      after.shelfAt > 0 && after.paneAt === open.paneAt && after.frameY === open.frameY && after.frameH === open.frameH,
+      `the shelf ${open.shelfAt} → ${after.shelfAt} of ${open.shelfTravel}, the pane at ${after.paneAt}, the site at y ${after.frameY} ${after.frameH} tall`);
+  }
+  await ctx.close();
+}
+
+/* ------------------------------------------------------------------ */
 /* The freeze                                                           */
 /* ------------------------------------------------------------------ */
 

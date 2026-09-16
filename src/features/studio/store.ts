@@ -91,6 +91,21 @@ export const BASE_ZOOM = 1.21;
 
 /** The clamp, in nominal terms: a quarter of the base to two and a half times it. */
 export const ZOOM_MIN = 0.25;
+/**
+ * How small the *fit* may go, which is not how small a person may zoom.
+ *
+ * Two floors for two jobs, and conflating them put the page off the edge of
+ * a phone. `ZOOM_MIN` is the zoom-out key's stop, a product choice, and
+ * `tests/one-zoom.mjs` holds it at 25%. The fit is not a choice: the page's
+ * two side edges must be on screen, and at a 400px pane a desktop frame
+ * needs 0.156 to manage it. Floored at 0.25 it asked for a 436px page in a
+ * 400px pane and got one — 36 off the right at 400 and 61 at 375, with the
+ * pane clipping and no way to reach it.
+ *
+ * So the fit has its own floor, low enough never to be the reason the width
+ * rule is broken. A person still cannot zoom out past 25% by hand.
+ */
+export const FIT_MIN = 0.05;
 export const ZOOM_MAX = 2.5;
 
 export type BoardMode = "design" | "preview" | "book";
@@ -632,6 +647,8 @@ interface StudioState extends Doc {
   setTool: (t: Tool) => void;
   setInk: (patch: { hue?: number; width?: number }) => void;
   setZoom: (z: number) => void;
+  /** Set by the board's fit only: floored at `FIT_MIN`, not `ZOOM_MIN`. */
+  setFitZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
   setFrameWidth: (w: number) => void;
   requestFit: () => void;
@@ -1570,6 +1587,9 @@ export const useStudio = create<StudioState>()(
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setZoom: (z) => set({ zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) }),
+        /* The board's own fit, floored at `FIT_MIN` rather than the key's
+           `ZOOM_MIN` — see the note on both. Nothing else may use this. */
+        setFitZoom: (z) => set({ zoom: Math.max(FIT_MIN, Math.min(ZOOM_MAX, z)) }),
         setPan: (p) => set({ pan: p }),
         setFrameWidth: (w) => set((s) => ({ frameWidth: w, fitNonce: s.fitNonce + 1 })),
         requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
