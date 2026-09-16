@@ -2,9 +2,55 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-15T20:38:31.581Z";
+export const GENERATED_AT = "2026-09-16T03:27:12.497Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "d3a3bca",
+    "when": "2026-09-16T03:26:48+00:00",
+    "day": "16 September",
+    "changes": [
+      {
+        "id": "a8eb64c",
+        "says": "The bracket: three ways on from the latest box, on one generation, from fixed sample content",
+        "when": "2026-09-15T20:29:10+00:00",
+        "detail": [
+          "A page at /bracket reads one typed structure. Difficulty picks the model, the model and the tokens give the cost, the cost sets the one colour inside the blue rim; time is a figure. Every box is the same shape whatever it holds. Refresh swaps in the next item of its row; Take control marks a box as yours. Its own module, not the studio's timeline, while the studio is another session's; mounting it there is one line."
+        ],
+        "areas": [
+          "bracket",
+          "docs",
+          "index.ts",
+          "tests"
+        ],
+        "kind": "fixed"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "42208f9",
+    "when": "2026-09-15T20:39:50+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "42208f9",
+        "says": "Adding a low element no longer shrinks the whole site",
+        "when": "2026-09-15T20:39:50+00:00",
+        "detail": [
+          "Hypatia's page fit. The complaint it answers: adding an element lower on the page and refreshing shrank the whole website to fit it on screen, instead of letting a person scroll down to it.",
+          "The acceptance test is the zoom, not which node owns the overflow. Measured here on the branch build at 1440x900, the same document twice, once with content to y 800 and once with an element added at y 1800:",
+          "content to y 800      content to y 2200 zoom readout                62%                   62% transform on the page       1.3284                1.3284 frame width                 1084px                1084px page window                 1084 x 723            1084 x 1777 pane scrollHeight           991                   2045 pane clientHeight           813                   813 pane travel                 178px                 1232px",
+          "The scale does not move. The page grows — 723 to 1777, which is the element being held rather than squeezed — and the travel grows with it, 178 to 1232, so the new element is reached by scrolling."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "fixed"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "f2c4631",
     "when": "2026-09-15T19:54:51+00:00",
@@ -920,67 +966,6 @@ export const PASSES: Pass[] = [
           "Two conflicts, both from her and dijkstra working the same file within the hour, both resolved by keeping what each was actually adding:",
           "siteRead.ts — they both declared `border` on the same line of the same function. Hers normalises the colour, his does not, and his commit adds the font face block that the same return statement reads. So: her border line, his face block, one declaration of each. The return below names `border`, `face` and `drew`, and all three now exist once.",
           "docs/RECREATE-FINDINGS.md — bullets appended to the same list by both. Both kept, in list order."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "981e19b",
-    "when": "2026-09-15T08:19:43+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "68beea4",
-        "says": "The morning run of the live read, pictured: 67 of 67",
-        "when": "2026-09-15T07:42:29+00:00",
-        "detail": [
-          "The three shots the panel and the board give on the pushed tree, from the re-run that answers the morning report."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "fc4ebf7",
-        "says": "The live read holds a page written this year: any colour, any status, the whole picture",
-        "when": "2026-09-15T07:36:28+00:00",
-        "detail": [
-          "The inventory's rows for the recreate session (C20 to C25, D32) and what looking at the parts drawn showed, each held by number in tests/site-read.mjs (56 of 56) and tests/site-live.mjs (67 of 67).",
-          "Chrome reports a colour as written when it was written in a newer syntax, so oklch(0.3 0.1 250) missed the rgba?( regex and every such paint was dropped. Every colour is painted onto one canvas pixel and read back as the rgb the browser paints: the fixture's oklch band reads rgb(0, 46, 93) under rgb(238, 238, 238). A line height of normal read as nought; it is the browser's own, 24px on 20px type. An inline svg was not a picture; it counts, carried as its own markup under 40k characters, 120×80 on the fixture. The page's height was the body's scroll height, 900 for a site that scrolls an inner container; it is the document's or the lowest thing on it.",
-          "The status was never checked, so a 404's own error page was listed as things to point at; 400 and up is refused with the number: \"That page answered 404, so there is no page at that address.\" The read settled a fixed 900ms after load; it waits for the page's requests to go quiet, up to four seconds. The picture shown was the first 900px while the candidates came from all of it; it is the whole page, 1280×3077 for playwright.dev, in a box that scrolls. The element picture's cut of 2000px and the measure call's cap of 40 selectors are 4000 and 120.",
-          "A listed thing's caption was textContent, \"PlaywrightDocsMCPCLIAPI\"; its text nodes are joined with a space. A link painted as a box read as no button, so the first screen carried none; a link that paints its own background, a gradient included, and pads its words is a button, and the first screen carries \"button: Get started\". A card grid carried titles and the part drew a filler sentence under each; each title carries the run after it as \"title: sentence\", and the card draws \"Full-featured test runner with auto-waiting…\"."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f339736",
-    "when": "2026-09-15T08:19:07+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f339736",
-        "says": "Regenerate the passes for a cube that is a solid in one step",
-        "when": "2026-09-15T08:19:07+00:00",
-        "detail": [
-          "Meitner's two: where it goes reads the part first, so a cube is a solid in one step rather than two, and the morning report for the box-to-cube arc with what was watched and what was not.",
-          "One source file, space.ts, and the suites that stand on it are the ones run.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4277:",
-          "box-to-cube      76/76 passed   (74 before) space            54 of 54 hold cube             62/62 passed space-one-open   19 of 19 hold create-flow      26 of 26 hold"
         ],
         "areas": [
           "studio"
