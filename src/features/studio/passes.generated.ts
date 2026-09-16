@@ -2,9 +2,46 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-16T05:17:47.393Z";
+export const GENERATED_AT = "2026-09-16T06:42:25.119Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "42803cd",
+    "when": "2026-09-16T06:12:38+00:00",
+    "day": "16 September",
+    "changes": [
+      {
+        "id": "42803cd",
+        "says": "The lanes fan off the latest box as he drew it, and every box's body line sits on a calm ground",
+        "when": "2026-09-16T06:12:38+00:00",
+        "detail": [
+          "Middle lane beside the latest box and level with it, its centre the box's own to the pixel; top lane up and to the right; bottom lane down and to the right; the connector a bracket opening right. The words on a box, green, red or blue, sit on a near-black ground in the box's own hue; the body line is 12px medium where it was 10px regular, and the title stays where it was. Contrast measured off the screen on all three."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "7c54778",
+        "says": "The lanes hang off the end of the timeline, and their work stands in blue",
+        "when": "2026-09-16T05:21:34+00:00",
+        "detail": [
+          "Dijkstra's rework, replacing the standalone bracket page: the lanes sit past the last real box, and a lane that is carried out becomes a blue iteration box in the chain, drawn by the same component as the green and red ones.",
+          "His own suite, tests/lanes.mjs, holds 36 of 36. What follows is what this seat checked itself, because a same-measurements claim is not proof of a shared component and four of these checks have now been worded for a look rather than a meaning.",
+          "1. The lanes are past the last real box, and stay there as boxes are added. Driven at two timeline lengths on the build:",
+          "3 boxes   box x's 284, 616, 947      lanes all at 1250   past by 303 5 boxes   box x's 102, 382, 662, 942, 1222   lanes at 1478   past by 256"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "25afb90",
     "when": "2026-09-16T03:52:36+00:00",
@@ -1313,29 +1350,6 @@ export const PASSES: Pass[] = [
           "pages",
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f339736",
-    "when": "2026-09-15T08:19:07+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f339736",
-        "says": "Regenerate the passes for a cube that is a solid in one step",
-        "when": "2026-09-15T08:19:07+00:00",
-        "detail": [
-          "Meitner's two: where it goes reads the part first, so a cube is a solid in one step rather than two, and the morning report for the box-to-cube arc with what was watched and what was not.",
-          "One source file, space.ts, and the suites that stand on it are the ones run.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4277:",
-          "box-to-cube      76/76 passed   (74 before) space            54 of 54 hold cube             62/62 passed space-one-open   19 of 19 hold create-flow      26 of 26 hold"
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
