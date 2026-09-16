@@ -366,3 +366,30 @@ session's.
 
 Build: `npm run build` passes at `390703e`. Trunk was already merged in;
 no import line moved.
+
+## The inventory, third pass: B22 in four pieces, and what was found on the way
+
+B22 was the one L row left that was nobody else's: Build exported each
+part's markup and the page's tokens and dropped what Preview adds. Taken
+in four pieces, each check written first and red against the export of
+the day, each closing with the site it writes run through tsc in a scratch
+folder so a built site compiles as A4 promised.
+
+| Piece | What the export now carries | Check | Count |
+|---|---|---|---|
+| 1 | The eight entrance keyframes and the aura's pulse, the page's drift keyframes, each part's entrance and aura on its wrapper, a link as an anchor round the part (a page's path, `#id`, a URL in a new tab), the wash, the veil, the backdrop | `tests/export-whole.mjs`, which also typechecks the site it wrote | 14/14, 12 red before |
+| 2 | Each page's tier-B behaviours, derived by the live page's own call, run by one dependency-free `components/Shell.tsx` against the window: progress bar, back to top, reveal, parallax, smooth, snap, the opening wipe, the cursor, tilt, the burst, the corner note | `tests/export-behaviours.mjs` | 9/9, 8 red before |
+| 3 | A solid written as the live part again: the GLB as data in the file, three.js loaded only in the browser and only when installed, the still as the said fallback, the same turning; BUILD.md names `npm install three` | `tests/export-mesh.mjs` | 10/10, 7 red before |
+| 4 | The tablet and phone placements the live page computes, every part in a `Place` that reads the device from the `Frame`, which picks the phone's layout on a phone and scales only between the widths | `tests/export-reflow.mjs` | 7/7, 5 red before |
+
+Found on the way, not mine, left with the finding as D43: the live shell's
+opening wipe and celebration burst name keyframes (`mo-wipe`, `mo-burst`)
+defined nowhere in the repository, so on the live page the intro is a
+still plate for 900 ms and the burst is eighteen still squares. The
+export's shell defines its own.
+
+Also found by the tsc step, and fixed: a wrapper carrying an aura's CSS
+variables failed React's style type; the export casts such a style.
+
+Build: `npm run build` passes. Everything is pushed; trunk was merged in
+twice on the way with no import line moved.

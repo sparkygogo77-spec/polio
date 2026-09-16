@@ -253,12 +253,17 @@ await page.mouse.move(box.x + box.width / 2, box.y + 80);
    missing precondition. */
 console.log(`       the search box starts at y ${m.searchY} in a ${W.height} window` +
   (m.searchY > W.height ? " — below it, so reaching it means something" : " — already on screen"));
-for (let i = 0; i < 45; i++) {
-  const there = await page.evaluate(() => {
-    const s = document.querySelector("[data-parts-search]");
-    return !!s && s.getBoundingClientRect().bottom <= window.innerHeight;
+/* Wheel to the END of the pane, not until the search box shows. The box is
+   on screen from the first frame now, so "stop when you can see it" stopped
+   before the first notch and then asked whether the page had gone by — it
+   had not, and could not have. The end of the travel is the thing that was
+   meant. */
+for (let i = 0; i < 60; i++) {
+  const done = await page.evaluate(() => {
+    const pn = document.querySelector("[data-studio-pane]");
+    return pn.scrollTop >= pn.scrollHeight - pn.clientHeight - 1;
   });
-  if (there) break;
+  if (done) break;
   await page.mouse.wheel(0, 240);
   await page.waitForTimeout(30);
 }
@@ -267,12 +272,15 @@ const after = await page.evaluate(LOOK);
 check("4. the shelf's search box is there, or one wheel gesture from the top brings it",
   after.searchY !== null && after.searchY + 37 <= W.height + 1,
   `y ${m.searchY} → y ${after.searchY}` + (m.searchY + 37 <= W.height + 1 ? " (it was already there)" : ` after ${after.paneTravel}px of travel`));
-const foot = await page.evaluate(() => {
+const end = await page.evaluate(() => {
   const last = [...document.querySelectorAll("[data-node-id]")].pop();
-  return last ? Math.round(last.getBoundingClientRect().bottom) : null;
+  const shelf = document.querySelector("[data-drawer]");
+  return { foot: last ? Math.round(last.getBoundingClientRect().bottom) : null,
+    shelfTop: shelf ? Math.round(shelf.getBoundingClientRect().top) : null };
 });
-check("   and the whole page is behind you when it is", foot !== null && foot < W.height,
-  `the last part ends at y ${foot}`);
+check("   and the whole page is behind you at the end of the travel",
+  end.foot !== null && end.shelfTop !== null && end.foot <= end.shelfTop + 2,
+  `the last part ends at y ${end.foot}, the shelf starts at ${end.shelfTop}, over ${after.paneTravel}px of travel`);
 if (results.includes(false)) console.log(m.chain.join("\n"));
 await page.close();
 

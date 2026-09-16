@@ -17,6 +17,7 @@
  */
 import * as React from "react";
 import { driftKeyframes, lands } from "./look";
+import { deriveBehaviours } from "./live/behaviours";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { Block } from "./blocks";
@@ -79,6 +80,8 @@ export function buildScaffold(): ScaffoldResult {
         // behaviour, so the scaffold writes a component rather than a
         // snapshot of one angle of it.
         cube: n.cube ? { faces: n.cube.faces, turn: n.cube.turn } : null,
+        // A solid is not markup either: the GLB, the still and the angle it was left at.
+        mesh: n.mesh?.glb ? { glb: n.mesh.glb, still: n.mesh.still, turn: n.mesh.turn, from: n.mesh.from } : null,
         // An Idea part with nothing written for it is the one thing the
         // document does not hold: that is what the model is for.
         empty: n.featureId === "custom-idea" && !n.code,
@@ -96,7 +99,16 @@ export function buildScaffold(): ScaffoldResult {
     gimmick: s.brief.gimmick,
     master: s.brief.master,
     frameWidth: s.frameWidth,
-    pages: s.pages.map((p) => ({ id: p.id, name: p.name, path: p.path, prompt: p.prompt })),
+    // Each page's behaviours, derived exactly as the live page derives them, so the built site runs what Preview runs.
+    pages: s.pages.map((p) => {
+      const own = s.nodes.filter((n) => n.pageId === p.id);
+      // The page at a tablet and a phone, placed exactly as the live page places it, so the built site reflows as Preview does.
+      const layout = (device: "tablet" | "phone") => {
+        const { width, height, placed } = placeNodes(own, device, s.frameWidth);
+        return { width, height, placed: placed.map((q) => ({ id: q.node.id, x: q.x, y: q.y, w: q.w, h: q.h })) };
+      };
+      return { id: p.id, name: p.name, path: p.path, prompt: p.prompt, behaviours: deriveBehaviours(own, p.scroll), layouts: { tablet: layout("tablet"), phone: layout("phone") } };
+    }),
     parts,
     palette: palette as unknown as Record<string, string>,
     tokens: {

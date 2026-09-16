@@ -18,7 +18,7 @@ import { resolvePalette } from "./parts/theme";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
-import { Palette } from "./Palette";
+import { Palette, useShelfOpen } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { MotionPanel } from "./MotionPanel";
@@ -61,6 +61,22 @@ import { studioDoc } from "./agent";
  * there is.
  */
 const BAND_H = "clamp(132px, 32vh, 248px)";
+/*
+ * And the band when a category is open, which is a different job.
+ *
+ * Shut, the band is a row of planets to pick from and 248 is plenty. Open,
+ * it is a list to read: 1745px of cards in a 209px strip, with a twelve-span
+ * element drawn the whole shelf's width, so exactly one tile is on screen at
+ * a time. The same shape as the backend's `WORK_H` and for the same reason —
+ * a surface you work at rather than a strip you glance at.
+ *
+ * It takes the room from the site's *visible* height and none from the
+ * site: the board is as tall as the page either way and the pane scrolls
+ * over it, so nothing is lost, only moved behind the fold. The preview
+ * window is a sibling of the pane rather than a child, so it does not move
+ * when this changes — which is checked rather than assumed.
+ */
+const SHELF_OPEN_H = "clamp(320px, 54vh, 640px)";
 /** The band when the backend is up: room for a transcript worth reading. */
 const WORK_H = "clamp(320px, 54vh, 640px)";
 
@@ -739,6 +755,7 @@ export function StudioPage() {
   const mode = useStudio((s) => s.mode);
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
+  const shelfOpen = useShelfOpen();
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
@@ -1014,7 +1031,13 @@ export function StudioPage() {
             /* The pane the site stands in, and the only thing that scrolls.
                `no-bars` because a bar down the design background is the
                thing J does not want to see. */
-            className="no-bars relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
+            /* `overflow-anchor:none` because the band under the site changes
+               height. Opening a category grows it by 374, and the browser
+               anchored the view to what was on screen and scrolled the pane
+               261px to compensate — the site jumping upward on its own the
+               moment a category was pressed. Where the site sits is the
+               person's, not the browser's. */
+            className="no-bars relative flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden [overflow-anchor:none]"
           >
             {design ? (
               <Canvas />
@@ -1067,7 +1090,7 @@ export function StudioPage() {
               the panel it has always been.
             */}
             {design ? (
-              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: BAND_H }}>
+              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: shelfOpen ? SHELF_OPEN_H : BAND_H }}>
                 <Palette />
               </div>
             ) : book ? (

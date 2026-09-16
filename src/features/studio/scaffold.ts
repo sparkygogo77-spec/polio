@@ -36,6 +36,33 @@ export interface ScaffoldPage {
   name: string;
   path: string;
   prompt?: string;
+  /** The page's behaviours, derived the way the live page derives them (`deriveBehaviours`). */
+  behaviours?: ExportBehaviours;
+  /** The page at tablet and phone, placed the way the live page places it (`placeNodes`); the desktop placement is on the parts. */
+  layouts?: { tablet?: ExportLayout; phone?: ExportLayout };
+}
+
+/** One device's layout of a page: its size, and where each part sits in it. */
+export interface ExportLayout {
+  width: number;
+  height: number;
+  placed: { id: string; x: number; y: number; w: number; h: number }[];
+}
+
+/** The switches a page's tier-B parts set. The same shape as the live page's `Behaviours`, kept here so the scaffold stays pure. */
+export interface ExportBehaviours {
+  progress: boolean;
+  backToTop: boolean;
+  reveal: boolean;
+  parallax: number;
+  smooth: boolean;
+  snap: "vertical" | "horizontal" | null;
+  intro: boolean;
+  cursor: string | null;
+  tilt: boolean;
+  confetti: boolean;
+  described: { id: string; label: string }[];
+  any: boolean;
 }
 
 export interface ScaffoldPart {
@@ -79,6 +106,8 @@ export interface ScaffoldPart {
   auraStyle?: AuraStyle;
   /** Where a click on it goes: a page by id, path or name; a part on the page by id; a URL. */
   link?: { kind: "page" | "node" | "url"; target: string } | null;
+  /** The solid, when it is one: written as a component that turns, the still as its fallback. */
+  mesh?: { glb: string; still?: string; turn?: { x: number; y: number }; from?: string } | null;
 }
 
 export interface ScaffoldInput {
@@ -130,9 +159,15 @@ export const EXPORT_KEYFRAMES = `/* Entrances, as the Builder's live page plays 
 }
 `;
 
-/** A style object as JSX writes it: plain keys bare, a CSS variable quoted. */
+/**
+ * A style object as JSX writes it: plain keys bare, a CSS variable quoted,
+ * and the whole cast to `CSSProperties` when a variable is in it, since
+ * React's style type does not know custom properties and the export has
+ * to typecheck.
+ */
 function styleJsx(style: Record<string, string | number>): string {
-  return `{ ${Object.entries(style).map(([k, v]) => `${/^[a-zA-Z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(v)}`).join(", ")} }`;
+  const body = `{ ${Object.entries(style).map(([k, v]) => `${/^[a-zA-Z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(v)}`).join(", ")} }`;
+  return Object.keys(style).some((k) => k.startsWith("--")) ? `${body} as CSSProperties` : body;
 }
 
 const slugOf = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -335,6 +370,8 @@ export function scaffold(input: ScaffoldInput): ScaffoldFile[] {
   files.push({ path: "app/globals.css", content: tokensCss(input) });
   files.push({ path: "app/layout.tsx", content: layoutTsx(input) });
   files.push({ path: "components/Frame.tsx", content: FRAME_TSX });
+  // The shell, when any page has a behaviour for it to run.
+  if (input.pages.some((p) => p.behaviours?.any)) files.push({ path: "components/Shell.tsx", content: SHELL_TSX });
 
   for (const part of input.parts) files.push({ path: `components/parts/${componentName(part)}.tsx`, content: partTsx(part, input.palette) });
 
@@ -504,7 +541,7 @@ function tokensCss(input: ScaffoldInput): string {
   const page = Object.entries(pageCss)
     .map(([k, v]) => `  ${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`)
     .join("\n");
-  const keyframes = [EXPORT_KEYFRAMES, ...(input.keyframes ?? [])].join("\n");
+  const keyframes = [EXPORT_KEYFRAMES, SHELL_CSS, ...(input.keyframes ?? [])].join("\n");
   return `/*
  * The site's tokens, taken from the document — not described, copied.
  * Every colour here is the one the board is painted in; change one and
@@ -560,6 +597,10 @@ function partTsx(part: ScaffoldPart, palette: Record<string, string>): string {
  * change the look here it will differ from the board.
  */
 `;
+  if (part.mesh?.glb) {
+    return `${head}
+${meshTsx(part, name)}`;
+  }
   if (part.cube) {
     // Its own preamble: the sentence about copied markup is untrue here,
     // and a comment that lies about the file under it is worse than none.
@@ -634,12 +675,18 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
     .join("\n");
   const height = parts.reduce((m, p) => Math.max(m, p.y + p.h), 0) + 160;
   const palette = input.palette as unknown as Palette;
+  const box = (b: { x: number; y: number; w: number; h: number }) => `{ left: ${Math.round(b.x)}, top: ${Math.round(b.y)}, width: ${Math.round(b.w)}, height: ${Math.round(b.h)} }`;
   const placed = parts
     .map((p) => {
-      // The wrapper carries what the live page puts round a part: its place,
-      // its aura, its entrance. The component inside is the markup alone.
+      // The wrapper carries what the live page puts round a part: its place
+      // at each device, its aura, its entrance. The component inside is the
+      // markup alone.
+      const at = [`desktop: ${box(p)}`];
+      for (const device of ["tablet", "phone"] as const) {
+        const hit = page.layouts?.[device]?.placed.find((q) => q.id === p.id);
+        if (hit) at.push(`${device}: ${box(hit)}`);
+      }
       const style: Record<string, string | number> = {
-        position: "absolute", left: Math.round(p.x), top: Math.round(p.y), width: Math.round(p.w), height: Math.round(p.h),
         ...(auraStyle(p.aura, palette, p.auraSize ?? 1, p.auraStyle ?? "glow") ?? {}),
       };
       const entrance = entranceCss(p.anim, p.animSpeed ?? 1, p.animDelay ?? 0, p.animEase ?? "smooth");
@@ -651,15 +698,18 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
           <${componentName(p)} />
         </a>`
         : `<${componentName(p)} />`;
-      return `      <div
+      return `      <Place
         id=${JSON.stringify(p.id)}
         data-part=${JSON.stringify(p.id)}
-        style={${styleJsx(style)}}
+        at={{ ${at.join(", ")} }}${Object.keys(style).length ? `\n        style={${styleJsx(style)}}` : ""}
       >
         ${inner}
-      </div>`;
+      </Place>`;
     })
     .join("\n");
+  const sizes = (["tablet", "phone"] as const)
+    .filter((d) => page.layouts?.[d])
+    .map((d) => `${d}: { width: ${Math.round(page.layouts![d]!.width)}, height: ${Math.round(page.layouts![d]!.height)} }`);
   // The wash and the veil the live page lays over everything, when the look has them.
   const over = [
     input.overlayCss && Object.keys(input.overlayCss).length
@@ -667,21 +717,23 @@ function pageTsx(page: ScaffoldPage, parts: ScaffoldPart[], input: ScaffoldInput
       : "",
     input.veil ? `      <div aria-hidden data-veil="" style={${styleJsx({ position: "absolute", inset: 0, pointerEvents: "none", background: input.veil })}} />` : "",
   ].filter(Boolean).join("\n");
-  return `${imports}
-import { Frame } from "@/components/Frame";
+  const b = page.behaviours?.any ? page.behaviours : null;
+  const open = b ? `<Shell behaviours={${JSON.stringify(b)}}>\n` : "";
+  const close = b ? `\n      </Shell>` : "";
+  const vars = parts.some((p) => p.aura && (p.auraStyle ?? "glow") === "pulse");
+  return `${imports}${vars ? `\nimport type { CSSProperties } from "react";` : ""}
+import { Frame, Place } from "@/components/Frame";${b ? `\nimport { Shell } from "@/components/Shell";` : ""}
 
 /**
  * ${page.name} (${page.path})${page.prompt ? `\n *\n * ${page.prompt.split("\n")[0]!.slice(0, 160)}` : ""}
  *
  * The parts sit where the board puts them, at the frame's own width
- * (${input.frameWidth}px); the frame scales the whole page down on a
- * narrower screen rather than reflowing it, which is what the Builder's
- * preview does. Reflow is a decision, not a default — make it here.
+ * (${input.frameWidth}px). ${sizes.length ? "At a tablet or a phone the frame takes the placement the\n * Builder's preview computes for that width, each part stacked in reading\n * order with the height its words need, and scales only between those\n * widths." : "The frame scales the whole page down on a narrower screen."}
  */
 export default function Page() {
   return (
-    <Frame width={${input.frameWidth}} height={${Math.round(height)}}>
-${placed}${over ? `\n${over}` : ""}
+    <Frame width={${input.frameWidth}} height={${Math.round(height)}}${sizes.length ? ` layouts={{ ${sizes.join(", ")} }}` : ""}>
+      ${open}${placed}${close}${over ? `\n${over}` : ""}
     </Frame>
   );
 }
@@ -691,25 +743,434 @@ ${placed}${over ? `\n${over}` : ""}
 const FRAME_TSX = `"use client";
 import * as React from "react";
 
+export type Device = "desktop" | "tablet" | "phone";
+export interface Box { left: number; top: number; width: number; height: number }
+
+/** The layouts a page carries besides the board's own: the Builder's preview at a tablet (834) and a phone (390). */
+export interface Layouts { tablet?: { width: number; height: number }; phone?: { width: number; height: number } }
+
+const DeviceContext = React.createContext<Device>("desktop");
+
+/** Which layout a screen this wide gets: the phone's up to 480, the tablet's up to 1024, when the page carries them. */
+function deviceFor(innerWidth: number, layouts: Layouts | undefined): Device {
+  if (layouts?.phone && innerWidth <= 480) return "phone";
+  if (layouts?.tablet && innerWidth <= 1024) return "tablet";
+  return "desktop";
+}
+
 /**
- * The page's own frame: a fixed-width canvas, centred, scaled down to fit
- * a narrower screen. The Builder's board is a fixed width and every
- * position in the document is in that frame, so this is the one place that
- * knows how a smaller screen is handled.
+ * The page's own frame. At the board's width every position is the
+ * board's. At a tablet or a phone it takes the placement the Builder's
+ * preview computes for that width, when the page carries one, and only
+ * scales down between those widths. Every part on the page sits in a
+ * \`Place\`, which reads the device from here.
  */
-export function Frame({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {
+export function Frame({ width, height, layouts, children }: { width: number; height: number; layouts?: Layouts; children: React.ReactNode }) {
+  const [device, setDevice] = React.useState<Device>("desktop");
   const [scale, setScale] = React.useState(1);
+  const size = device === "desktop" ? { width, height } : layouts?.[device] ?? { width, height };
   React.useEffect(() => {
-    const fit = () => setScale(Math.min(1, window.innerWidth / width));
+    const fit = () => {
+      const d = deviceFor(window.innerWidth, layouts);
+      const w = d === "desktop" ? width : layouts?.[d]?.width ?? width;
+      setDevice(d);
+      setScale(Math.min(1, window.innerWidth / w));
+    };
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, [width]);
+  }, [width, layouts]);
   return (
-    <div style={{ width: "100%", overflow: "hidden" }}>
-      <div style={{ width, height, position: "relative", transform: \`scale(\${scale})\`, transformOrigin: "top left", marginBottom: (scale - 1) * height }}>
-        {children}
+    <DeviceContext.Provider value={device}>
+      <div style={{ width: "100%", overflow: "hidden" }}>
+        <div style={{ width: size.width, height: size.height, position: "relative", transform: \`scale(\${scale})\`, transformOrigin: "top left", marginBottom: (scale - 1) * size.height, marginInline: "auto" }}>
+          {children}
+        </div>
       </div>
+    </DeviceContext.Provider>
+  );
+}
+
+/** One part's place on the page, at whichever device the frame is showing; the desktop's when a device has none. */
+export function Place({ id, at, style, children, ...rest }: { id: string; at: Partial<Record<Device, Box>> & { desktop: Box }; style?: React.CSSProperties; children: React.ReactNode } & Record<\`data-\${string}\`, string>) {
+  const device = React.useContext(DeviceContext);
+  const box = at[device] ?? at.desktop;
+  return (
+    <div id={id} {...rest} style={{ position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height, ...style }}>
+      {children}
+    </div>
+  );
+}
+`;
+
+
+/**
+ * A solid, written out.
+ *
+ * Like the cube, a mesh is not markup: a snapshot of it is a photograph of
+ * one angle. So the export writes the live part again as code: the GLB as
+ * data at the top of the file, three.js loaded only in the browser and only
+ * when it is there, the still the live page falls back to, and the same
+ * turning by pointer and keys. The one dependency is named in BUILD.md.
+ */
+function meshTsx(part: ScaffoldPart, name: string): string {
+  const m = part.mesh!;
+  const start = m.turn ?? { x: -12, y: -28 };
+  return `"use client";
+import * as React from "react";
+
+/**
+ * ${part.label}, a solid you can turn. Written from the document (${part.featureId}${m.from ? `, made by ${m.from}` : ""}).
+ * The GLB rides in this file as data, so nothing is fetched. three.js is
+ * loaded only in the browser and only when it is installed (npm install
+ * three); without it, or without a 3D context, the still is shown and says so.
+ */
+const GLB = ${JSON.stringify(m.glb)};
+const STILL = ${m.still ? JSON.stringify(m.still) : "null"};
+const START = { x: ${Math.round(start.x)}, y: ${Math.round(start.y)} };
+/** Degrees per pixel dragged: the cube's number, so the two turn alike. */
+const PER_PX = 0.42;
+const DECAY = 0.94;
+const SETTLE = 0.35;
+const rad = (d: number) => (d * Math.PI) / 180;
+
+export function ${name}() {
+  const host = React.useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = React.useState("");
+  const turn = React.useRef({ ...START });
+  const spin = React.useRef({ x: 0, y: 0 });
+  const drag = React.useRef<{ x: number; y: number } | null>(null);
+  const held = React.useRef(false);
+
+  React.useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    let stop = false;
+    let frame = 0;
+    let cleanup = () => {};
+    void (async () => {
+      let THREE: typeof import("three");
+      let GLTFLoader: typeof import("three/examples/jsm/loaders/GLTFLoader.js").GLTFLoader;
+      try {
+        THREE = await import("three");
+        ({ GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js"));
+      } catch {
+        if (!stop) setFailed("shown as a still: the 3D library did not load (npm install three)");
+        return;
+      }
+      if (stop) return;
+      let renderer: import("three").WebGLRenderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      } catch {
+        if (!stop) setFailed("shown as a still: this browser gave no 3D context");
+        return;
+      }
+      const box = el.getBoundingClientRect();
+      const width = Math.max(64, Math.round(box.width || ${Math.round(part.w)}));
+      const height = Math.max(64, Math.round(box.height || ${Math.round(part.h)}));
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      renderer.setSize(width, height, false);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+      renderer.domElement.style.width = "100%";
+      renderer.domElement.style.height = "100%";
+      renderer.domElement.style.display = "block";
+      renderer.domElement.style.touchAction = "none";
+      el.append(renderer.domElement);
+      const scene = new THREE.Scene();
+      const key = new THREE.DirectionalLight(0xffffff, 2.6);
+      key.position.set(-0.8, 1.2, 3);
+      scene.add(key);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const rim = new THREE.DirectionalLight(0xffffff, 0.7);
+      rim.position.set(-2, -1, -3);
+      scene.add(rim);
+      const camera = new THREE.PerspectiveCamera(35, width / height, 0.05, 100);
+      const pivot = new THREE.Group();
+      scene.add(pivot);
+      let loaded: import("three").Object3D | null = null;
+      try {
+        loaded = (await new GLTFLoader().loadAsync(GLB)).scene;
+      } catch {
+        if (!stop) setFailed("shown as a still: the solid would not load");
+        renderer.dispose();
+        return;
+      }
+      if (stop || !loaded) { renderer.dispose(); return; }
+      const bounds = new THREE.Box3().setFromObject(loaded);
+      const size = bounds.getSize(new THREE.Vector3());
+      const middle = bounds.getCenter(new THREE.Vector3());
+      const longest = Math.max(size.x, size.y, size.z) || 1;
+      loaded.position.sub(middle);
+      pivot.add(loaded);
+      pivot.scale.setScalar(1 / longest);
+      camera.position.set(0, 0, 1 / 0.86 / (2 * Math.tan(rad(35 / 2))));
+      camera.lookAt(0, 0, 0);
+      const draw = () => {
+        pivot.rotation.x = rad(turn.current.x);
+        pivot.rotation.y = rad(turn.current.y);
+        renderer.render(scene, camera);
+      };
+      const tick = () => {
+        if (stop) return;
+        frame = requestAnimationFrame(tick);
+        if (held.current) return;
+        const s = spin.current;
+        if (Math.abs(s.x) > SETTLE || Math.abs(s.y) > SETTLE) {
+          turn.current = { x: turn.current.x + s.x, y: turn.current.y + s.y };
+          s.x *= DECAY;
+          s.y *= DECAY;
+          draw();
+          return;
+        }
+        if (s.x || s.y) { s.x = 0; s.y = 0; draw(); }
+      };
+      draw();
+      frame = requestAnimationFrame(tick);
+      const resize = () => {
+        const r = el.getBoundingClientRect();
+        const rw = Math.max(64, Math.round(r.width));
+        const rh = Math.max(64, Math.round(r.height));
+        renderer.setSize(rw, rh, false);
+        camera.aspect = rw / rh;
+        camera.updateProjectionMatrix();
+        draw();
+      };
+      const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
+      watch?.observe(el);
+      cleanup = () => {
+        cancelAnimationFrame(frame);
+        watch?.disconnect();
+        renderer.domElement.remove();
+        renderer.dispose();
+      };
+    })();
+    return () => { stop = true; cancelAnimationFrame(frame); cleanup(); };
+  }, []);
+
+  const down = (e: React.PointerEvent) => {
+    e.preventDefault();
+    held.current = true;
+    drag.current = { x: e.clientX, y: e.clientY };
+    spin.current = { x: 0, y: 0 };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const move = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    drag.current = { x: e.clientX, y: e.clientY };
+    spin.current = { x: -dy * PER_PX, y: dx * PER_PX };
+    turn.current = { x: turn.current.x - dy * PER_PX, y: turn.current.y + dx * PER_PX };
+  };
+  const up = (e: React.PointerEvent) => {
+    held.current = false;
+    drag.current = null;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    if (!spin.current.x && !spin.current.y) spin.current = { x: 0.01, y: 0.01 };
+  };
+  const keys = (e: React.KeyboardEvent) => {
+    const step = ({ ArrowLeft: [0, -90], ArrowRight: [0, 90], ArrowUp: [90, 0], ArrowDown: [-90, 0] } as Record<string, [number, number]>)[e.key];
+    if (!step) return;
+    e.preventDefault();
+    turn.current = { x: Math.round(turn.current.x / 90) * 90 + step[0], y: Math.round(turn.current.y / 90) * 90 + step[1] };
+    spin.current = { x: 0.01, y: 0.01 };
+  };
+
+  return (
+    <div
+      data-part=${JSON.stringify(part.id)}
+      data-mesh=""
+      data-mesh-still={failed ? "" : undefined}
+      role="img"
+      tabIndex={failed ? -1 : 0}
+      aria-label=${JSON.stringify(`${part.label}, a solid you can turn. Drag to turn it, or use the arrow keys.`)}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+      onKeyDown={keys}
+      style={{ width: "100%", height: "100%", outline: "none", cursor: failed ? "default" : "grab", touchAction: "none", position: "relative", overflow: "hidden" }}
+    >
+      <div ref={host} style={{ width: "100%", height: "100%", display: failed ? "none" : "block" }} />
+      {failed ? (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {STILL ? <img src={STILL} alt=${JSON.stringify(part.label)} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} /> : <p style={{ color: "var(--muted)", fontSize: 11 }}>${part.label}</p>}
+          <p data-mesh-instead={failed} style={{ position: "absolute", bottom: 4, left: 4, padding: "2px 6px", borderRadius: 4, fontSize: 9, background: "var(--bg)", color: "var(--muted)" }}>{failed}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+`;
+}
+
+/** The stylesheet the shell's behaviours read: the reveal, the snap, the wipe, the burst, the button's rise. */
+const SHELL_CSS = `/* Behaviours: what the shell in components/Shell.tsx switches on. */
+[data-reveal="on"] [data-part] { opacity: 0; transform: translateY(14px); transition: opacity 520ms ease-out, transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+[data-reveal="on"] [data-part].is-in { opacity: 1; transform: none; }
+[data-snap] [data-part] { scroll-snap-align: start; }
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal="on"] [data-part] { opacity: 1; transform: none; transition: none; }
+}
+@keyframes slide-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mo-wipe { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes mo-burst { to { transform: translate(var(--mo-x), var(--mo-y)) rotate(200deg); opacity: 0; } }
+`;
+
+/**
+ * The shell a built site runs its behaviours through: the live page's
+ * shell (`live/LiveShell.tsx`) written against the window rather than a
+ * pinned scroller, with no dependency beyond React. A page mounts it with
+ * the switches its tier-B parts set.
+ */
+const SHELL_TSX = `"use client";
+import * as React from "react";
+
+export interface Behaviours {
+  progress: boolean;
+  backToTop: boolean;
+  reveal: boolean;
+  parallax: number;
+  smooth: boolean;
+  snap: "vertical" | "horizontal" | null;
+  intro: boolean;
+  cursor: string | null;
+  tilt: boolean;
+  confetti: boolean;
+  described: { id: string; label: string }[];
+  any: boolean;
+}
+
+/**
+ * Runs the behaviours the page was given in the Builder: the reading
+ * progress bar, back to top, reveal on scroll, parallax, smooth scrolling,
+ * snapping, the opening wipe, a cursor of the site's own, hover tilt and a
+ * burst on success (dispatch a "site:success" event on the window). The few
+ * that cannot be run honestly are named in the corner rather than faked.
+ */
+export function Shell({ behaviours: b, children }: { behaviours: Behaviours; children: React.ReactNode }) {
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = React.useState(0);
+  const [past, setPast] = React.useState(false);
+  const [cursor, setCursor] = React.useState<{ x: number; y: number } | null>(null);
+  const [intro, setIntro] = React.useState(b.intro);
+  const [bursts, setBursts] = React.useState<number[]>([]);
+
+  React.useEffect(() => {
+    if (!(b.progress || b.backToTop || b.parallax)) return;
+    const read = () => {
+      const top = window.scrollY;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(1, top / max) : 0);
+      setPast(top > 220);
+      if (b.parallax) document.body.style.backgroundPositionY = \`\${-top * b.parallax}px\`;
+    };
+    read();
+    window.addEventListener("scroll", read, { passive: true });
+    return () => window.removeEventListener("scroll", read);
+  }, [b.progress, b.backToTop, b.parallax]);
+
+  React.useEffect(() => {
+    const el = document.documentElement;
+    const before = { behavior: el.style.scrollBehavior, snap: el.style.scrollSnapType };
+    if (b.smooth) el.style.scrollBehavior = "smooth";
+    if (b.snap) el.style.scrollSnapType = \`\${b.snap === "horizontal" ? "x" : "y"} proximity\`;
+    return () => { el.style.scrollBehavior = before.behavior; el.style.scrollSnapType = before.snap; };
+  }, [b.smooth, b.snap]);
+
+  React.useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !b.reveal || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("is-in"); }), { threshold: 0.12 });
+    root.querySelectorAll("[data-part]").forEach((n) => io.observe(n));
+    return () => io.disconnect();
+  }, [b.reveal, children]);
+
+  React.useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !b.tilt) return;
+    const onMove = (e: PointerEvent) => {
+      const node = (e.target as HTMLElement | null)?.closest("[data-part]") as HTMLElement | null;
+      if (!node) return;
+      const r = node.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const dx = (e.clientX - r.left) / r.width - 0.5;
+      const dy = (e.clientY - r.top) / r.height - 0.5;
+      node.style.transform = \`perspective(900px) rotateX(\${(-dy * 7).toFixed(2)}deg) rotateY(\${(dx * 9).toFixed(2)}deg)\`;
+      node.style.transition = "transform 120ms ease-out";
+    };
+    const onLeave = (e: PointerEvent) => {
+      const node = (e.target as HTMLElement | null)?.closest("[data-part]") as HTMLElement | null;
+      if (node) node.style.transform = "";
+    };
+    root.addEventListener("pointermove", onMove);
+    root.addEventListener("pointerleave", onLeave, true);
+    return () => { root.removeEventListener("pointermove", onMove); root.removeEventListener("pointerleave", onLeave, true); };
+  }, [b.tilt]);
+
+  React.useEffect(() => {
+    if (!b.cursor) return;
+    const before = document.body.style.cursor;
+    document.body.style.cursor = "none";
+    const onMove = (e: PointerEvent) => setCursor({ x: e.clientX, y: e.clientY });
+    const onOut = () => setCursor(null);
+    window.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerleave", onOut);
+    return () => { window.removeEventListener("pointermove", onMove); document.removeEventListener("pointerleave", onOut); document.body.style.cursor = before; };
+  }, [b.cursor]);
+
+  React.useEffect(() => {
+    if (!b.intro) return;
+    setIntro(true);
+    const id = window.setTimeout(() => setIntro(false), 900);
+    return () => window.clearTimeout(id);
+  }, [b.intro]);
+
+  React.useEffect(() => {
+    if (!b.confetti) return;
+    const onWin = () => {
+      const id = Date.now();
+      setBursts((xs) => [...xs, id]);
+      window.setTimeout(() => setBursts((xs) => xs.filter((x) => x !== id)), 1400);
+    };
+    window.addEventListener("site:success", onWin);
+    return () => window.removeEventListener("site:success", onWin);
+  }, [b.confetti]);
+
+  const spotlight = b.cursor === "spotlight";
+  return (
+    <div ref={rootRef} data-shell="" data-reveal={b.reveal ? "on" : undefined} data-snap={b.snap ?? undefined} style={{ display: "contents" }}>
+      {children}
+      {b.progress ? (
+        <div role="progressbar" aria-label="Reading progress" aria-valuenow={Math.round(progress * 100)} aria-valuemin={0} aria-valuemax={100} style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 40, pointerEvents: "none" }}>
+          <div style={{ width: \`\${progress * 100}%\`, height: "100%", background: "var(--accent)", transition: "width 90ms linear" }} />
+        </div>
+      ) : null}
+      {b.backToTop && past ? (
+        <button type="button" aria-label="Back to top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} style={{ position: "fixed", right: 18, bottom: 18, zIndex: 45, width: 38, height: 38, borderRadius: 999, border: "none", cursor: "pointer", background: "var(--accent)", color: "var(--surface)", fontSize: 16, boxShadow: "0 8px 22px oklch(0 0 0 / .35)", animation: "slide-up 200ms ease-out both" }}>
+          ↑
+        </button>
+      ) : null}
+      {b.cursor && cursor ? (
+        <span aria-hidden style={{ position: "fixed", left: cursor.x, top: cursor.y, zIndex: 50, pointerEvents: "none", width: spotlight ? 220 : 16, height: spotlight ? 220 : 16, marginLeft: spotlight ? -110 : -8, marginTop: spotlight ? -110 : -8, borderRadius: 999, mixBlendMode: spotlight ? "screen" : "difference", background: spotlight ? "radial-gradient(circle, color-mix(in oklab, var(--accent) 27%, transparent), transparent 70%)" : "var(--accent)", transition: b.cursor === "trail" ? "left 140ms ease-out, top 140ms ease-out" : undefined }} />
+      ) : null}
+      {intro ? <span aria-hidden style={{ position: "fixed", inset: 0, zIndex: 60, background: "var(--surface)", animation: "mo-wipe 900ms cubic-bezier(0.7, 0, 0.2, 1) both", pointerEvents: "none" }} /> : null}
+      {bursts.map((id) => (
+        <span key={id} aria-hidden style={{ position: "fixed", left: "50%", top: "40%", zIndex: 55, pointerEvents: "none" }}>
+          {Array.from({ length: 18 }, (_, i) => {
+            const angle = (i / 18) * Math.PI * 2;
+            return <span key={i} style={{ position: "absolute", width: 7, height: 7, borderRadius: 1, background: i % 2 ? "var(--accent)" : "oklch(0.8 0.16 90)", "--mo-x": \`\${Math.cos(angle) * (90 + (i % 5) * 22)}px\`, "--mo-y": \`\${Math.sin(angle) * (70 + (i % 4) * 20)}px\`, animation: "mo-burst 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) both" } as React.CSSProperties} />;
+          })}
+        </span>
+      ))}
+      {b.described.length ? (
+        <span data-described="" style={{ position: "fixed", left: 12, bottom: 12, zIndex: 35, maxWidth: 300, padding: "6px 10px", borderRadius: 8, background: "var(--surface)", border: "1px solid color-mix(in oklab, var(--accent) 27%, transparent)", color: "var(--accent)", fontSize: 11, lineHeight: 1.4, pointerEvents: "none", opacity: 0.9 }}>
+          Described, not simulated here: {b.described.map((d) => d.label).join(", ")}.
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -735,7 +1196,10 @@ body written for it. Nothing about the look was inferred.
   shape, its clip, its texture, and the shadow the page's lamp casts on it.
 - \`app/**/page.tsx\`, ${input.pages.length} page${input.pages.length === 1 ? "" : "s"}, each placing its parts where the board places them.
 - \`components/Frame.tsx\`, the fixed-width canvas and how it meets a
-  narrower screen.
+  narrower screen.${input.parts.some((p) => p.mesh?.glb) ? `
+- ${input.parts.filter((p) => p.mesh?.glb).length} solid${input.parts.filter((p) => p.mesh?.glb).length === 1 ? "" : "s"} you can turn, written as components that load three.js in the
+  browser: the one dependency this build needs, \`npm install three\`. Without it
+  each shows its still and says so.` : ""}
 
 Re-running Build regenerates exactly these files, byte for byte, from the
 same document.

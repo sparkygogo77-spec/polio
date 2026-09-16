@@ -83,6 +83,7 @@ export function PreviewWindow() {
   return (
     <div
       ref={ref}
+      data-preview-window=""
       className="absolute z-20 flex flex-col overflow-hidden rounded-lg border border-border bg-panel shadow-panel"
       style={{ right: -x, bottom: -y, width: open ? boxW : 132 }}
     >
