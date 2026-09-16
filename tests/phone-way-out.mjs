@@ -77,6 +77,29 @@ for (const [w, h] of [[400, 800], [375, 812]]) {
       pct: chip ? chip.textContent.trim() : "?" };
   });
 
+  /* 0. The bar is at most two rows, and gives the drawing the rest.
+     It wrapped to THREE at 375 — 109px, with Finish alone on the last one —
+     because a control set of about 583 was being wrapped badly, not because
+     it was full. Counted by distinct top edges, not by y of every child:
+     items on one line are centred and so have different tops. */
+  const shape = await page.evaluate(() => {
+    const bar = document.querySelector("[data-studio-bar]");
+    const tops = [...bar.querySelectorAll("button, [role='button'], a[href]")]
+      .map((e) => e.getBoundingClientRect())
+      .filter((r) => r.width && r.height)
+      .map((r) => Math.round(r.top));
+    /* Tops within 12px of each other are the same line. */
+    const lines = [];
+    for (const t of tops.sort((a, b) => a - b)) if (!lines.some((l) => Math.abs(l - t) <= 12)) lines.push(t);
+    const smallest = Math.min(...[...bar.querySelectorAll("button")].map((e) => {
+      const r = e.getBoundingClientRect(); return Math.min(Math.round(r.width), Math.round(r.height));
+    }).filter((n) => n > 0));
+    return { lines: lines.length, h: Math.round(bar.getBoundingClientRect().height), smallest };
+  });
+  check(`${tag}: the bar is at most two rows`, shape.lines <= 2, `${shape.lines} rows, ${shape.h}px tall`);
+  check(`${tag}: and every key in it is a real target`, shape.smallest >= 32,
+    `the smallest is ${shape.smallest}px on its short side`);
+
   /* 1. The bar holds what it has. */
   const bar = await page.evaluate(() => {
     const el = document.querySelector("[data-studio-bar]");

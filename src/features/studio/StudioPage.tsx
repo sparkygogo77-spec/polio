@@ -146,11 +146,23 @@ function SiteHead() {
           Builds
         </Button>
       </Tooltip>
-      <span className="mx-0.5 h-4 w-px bg-border" />
+      <span className="mx-0.5 hidden h-4 w-px bg-border md:block" />
       <span
         data-site-mark=""
         aria-hidden
-        className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] text-[10px] font-bold leading-none"
+        /*
+         * Out of the bar below md, and it is the one thing here that is not
+         * a control. The ladder's own words: "The site's name beside it is
+         * not a control at all, it is what you have open." Its mark is the
+         * same sentence in one letter, and `Builds` is immediately left of
+         * it doing the wayfinding.
+         *
+         * It costs 18 plus a separator and two gaps — about 24 — and the
+         * first line was missing the three device keys by two pixels. This
+         * is what makes the bar two lines rather than three, and it is worth
+         * more than a decoration.
+         */
+        className="hidden size-[18px] shrink-0 items-center justify-center rounded-[5px] text-[10px] font-bold leading-none md:flex"
         style={{ background: palette.accent, color: palette.bg }}
       >
         {initial}
@@ -176,7 +188,25 @@ function PageChips() {
   return (
     // One control, not a row of buttons with a stray plus after it: the pages
     // and the way to add one are the same thing, so they share an edge.
-    <div data-page-strip="" className="flex min-w-0 shrink items-center rounded-md border border-border bg-elevated p-0.5">
+    <div
+      data-page-strip=""
+      /*
+       * Out of the bar below md, and this is the duplicate that pays for the
+       * third row.
+       *
+       * Not a copy of the site chrome — the header holds News, sound, theme,
+       * Keys, GitHub and Settings and the bar shares none of them, so there
+       * was nothing to drop there. It is a copy of the PANEL: Pages is one
+       * of the side panel's five tabs, and the panel's own toggle is two
+       * controls along in this bar. So switching pages and adding one are
+       * both reachable at 375 without it, through a control that is on
+       * screen.
+       *
+       * It is 95px wide, and the second line was ending at 321 with 54 to
+       * spare while Finish wanted 69 — short by fifteen. This is what makes
+       * the bar two lines with room to make every key a real target.
+       */
+      className="hidden min-w-0 shrink items-center rounded-md border border-border bg-elevated p-0.5 md:flex">
       <div className="hide-scrollbar flex min-w-0 shrink items-center gap-0.5 overflow-x-auto">
       {pages.map((p) => {
         const count = nodes.filter((n) => n.pageId === p.id).length;
@@ -355,7 +385,20 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
        * back every control the ladder below promises never goes. The ladder
        * is unchanged above md, where one row still fits.
        */
-      className="no-bars flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5 md:flex-nowrap md:overflow-x-auto md:overflow-y-visible"
+      className={cn(
+        /* `gap-0.5` below md. Four pixels between controls is right when they
+           are 24 across and there is room; at 44 across on a 375 window the
+           second line was ending one to five pixels short of Finish, over
+           and over, and six gaps at two pixels each is the twelve that
+           settles it. The keys are 44 wide, so two of them are never
+           confusable at two pixels apart. */
+        "no-bars flex shrink-0 flex-wrap items-center gap-0.5 border-b border-border bg-panel/60 px-2 py-1.5 md:flex-nowrap md:gap-1 md:overflow-x-auto md:overflow-y-visible",
+        /* A real target below md. 24×24 is what these are at every width and
+           it is half of what a finger needs; 44 is the size both platforms
+           ask for. Above md the pointer is a mouse and the bar is one row, so
+           nothing changes there. */
+        "[&_button]:min-h-9 [&_button]:min-w-9 md:[&_button]:min-h-0 md:[&_button]:min-w-0",
+      )}
     >
       <SiteHead />
       <span className="mx-1 h-4 w-px bg-border" />
@@ -395,7 +438,17 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         this bar. It sits where the hand already is, between the devices and
         the menu's own switch.
       */}
-      <span className="flex-1 xl:hidden" />
+      {/*
+        The spacer that pushes the search to the right — and, on a wrapping
+        bar, the thing that made a third row.
+        `flex-1` on a zero-width span takes every pixel left on its line, so
+        everything after it breaks. Measured at 375: the bar was 109px in
+        three rows, with Finish alone on the last one, while its content came
+        to about 583 — a comfortable two rows of 371. It was not full; it was
+        being pushed. Below md there is no room to push anything anyway, so
+        the spacer only exists from md up, where the bar is one row again.
+      */}
+      <span className="hidden flex-1 md:block xl:hidden" />
       <SearchTools />
 
       {/*
@@ -545,6 +598,7 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
       }
     >
       <Button variant={open ? "subtle" : "ghost"} size="iconXs" data-toolbar-more="" aria-label="More tools" aria-pressed={open}>
+
         <Ellipsis />
       </Button>
     </Popover>
