@@ -8,7 +8,7 @@ import { useStudio } from "./store";
 import { BAND_COLOUR, LANE_MODE, laneRects, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
 import { ITEMS } from "./lanesSample";
 import { BODY, EDGE } from "./boxGround";
-import { LANE_STRAND_WIDTH, paintStrand, strandBounds, type Point } from "./strand";
+import { LANE_STRAND_WIDTH, paintStrand, strandBounds, strandEnvelope, type Point } from "./strand";
 
 /**
  * The three lanes, hanging off the end of the timeline.
@@ -114,14 +114,41 @@ function Vines({ from, to, lanes }: { from: Rect; to: [Rect, Rect, Rect]; lanes:
     // Everything the paint depends on is in `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+  /*
+   * The cloud over each vine, as the timeline lays it over its own: one
+   * element per vine carrying the construct's drifting tile, clipped to the
+   * ribbon's body, at the phase its place gives it, so a lane's vine is the
+   * same weather as the box it leaves. Green and yellow take the verdant
+   * tile, red the ember one: the tiles the construct has.
+   */
+  const period = 512;
   return (
-    <canvas
-      ref={el}
-      data-lane-vines=""
-      aria-hidden
-      className="pointer-events-none absolute"
-      style={{ left: x0, top: y0, width: w, height: h }}
-    />
+    <>
+      <canvas
+        ref={el}
+        data-lane-vines=""
+        aria-hidden
+        className="pointer-events-none absolute"
+        style={{ left: x0, top: y0, width: w, height: h }}
+      />
+      {ends.map((e, i) => {
+        const box = boxes[i]!;
+        const band = lanes[i]!.band;
+        const at = (p: Point) => ({ x: p.x - box.x, y: p.y - box.y });
+        const d = [0, 1].map((side) => strandEnvelope(at(starts[i]!), at(e), side as 0 | 1, { ends: [band, band], width: LANE_STRAND_WIDTH })).filter(Boolean).join(" ");
+        return (
+          <div
+            key={band}
+            data-lane-vine-cloud={band}
+            className="molten-vine"
+            data-heat={band === "red" ? "ember" : "verdant"}
+            style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: d ? `path("${d}")` : "inset(100%)" }}
+          >
+            <i style={{ backgroundPositionX: `${-(((box.x % period) + period) % period)}px` }} />
+          </div>
+        );
+      })}
+    </>
   );
 }
 

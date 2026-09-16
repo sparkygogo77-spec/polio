@@ -100,22 +100,31 @@ check("the section is symmetric about the axis, so there is one strand and not t
   && /const edge = side === 0 \? half : -half;\n  return edge \* \(k \/ BANDS\) \* gather\(u\);/.test(strandSrc)
   && !/function seamAt\(/.test(strandSrc) && !/const SHIFT =/.test(strandSrc)
 ))());
-check("…so the axis is the darkest part of it and both edges carry the rim",
-  /the axis at nought, the rim at one/.test(strandSrc) && /if \(t < 0\.10\) out\.push\(bark\.core\);/.test(strandSrc));
+check("…and the axis carries no groove: he saw the dark core band as a line down the middle of every vine, so the middle is char with a little core in it",
+  /the axis at nought, the rim at one/.test(strandSrc) && /if \(t < 0\.10\) out\.push\(mix\(core, char, 0\.75\)\);/.test(strandSrc) && !/out\.push\(bark\.core\);/.test(strandSrc));
 /*
  * The colour runs ALONG it instead, and the two ends still never meet:
  * blending them put yellow and then brown through the middle of every vine,
  * which is a colour neither board has. So one end's colour holds, the
  * material's own dark holds the middle, and the other comes up out of it.
  */
-check("the colour runs along the length, as one gradient per band", (() => (
-  /const g = c\.createLinearGradient\(from\.x, from\.y, to\.x, to\.y\);/.test(strandSrc)
-  && /g\.addColorStop\(FADE, dark\);/.test(strandSrc) && /g\.addColorStop\(1 - FADE, dark\);/.test(strandSrc)
+/*
+ * His words, later: the colours should fade into each other toward the
+ * centre instead of switching, some green flowing into the red and some
+ * red back into the green, each end still the majority of its own. So each
+ * end's colour is laid over the dark as its own gradient, whole to HOLD
+ * and thinning to nothing by 1 - HOLD, one from each end, and the two lie
+ * over each other through the middle.
+ */
+check("the colour runs along the length: each end's colour is its own gradient, whole then thinning out toward the other end", (() => (
+  /const flow = \(colour: string, end: 0 \| 1\): CanvasGradient =>/.test(strandSrc)
+  && /g\.addColorStop\(HOLD, colour\);/.test(strandSrc) && /g\.addColorStop\(1 - HOLD, thin\(colour, 0\)\);/.test(strandSrc)
+  && /c\.fillStyle = flow\(near\[k\]!, 0\);/.test(strandSrc) && /c\.fillStyle = flow\(far\[k\]!, 1\);/.test(strandSrc)
 ))());
-check("…with a plateau of dark between them, so neither end's colour reaches the other", (() => {
-  const fade = Number(/const FADE = ([\d.]+)/.exec(strandSrc)?.[1]);
-  return fade > 0.3 && fade < 0.5;
-})(), `fade ${/const FADE = ([\d.]+)/.exec(strandSrc)?.[1]}`);
+check("…each end holds the majority of its own colour: whole for three tenths, gone by seven, so the two overlap through the middle two fifths", (() => {
+  const hold = Number(/const HOLD = ([\d.]+)/.exec(strandSrc)?.[1]);
+  return hold >= 0.25 && hold < 0.5;
+})(), `hold ${/const HOLD = ([\d.]+)/.exec(strandSrc)?.[1]}`);
 check("…and that dark is a clamp rather than a colour: pulled to char's lightness, where a hue cannot be read", (() => (
   /function dusk\(a: string, z: string, floor: Lch\): string/.test(strandSrc)
   && /Math\.min\(m\.l, floor\.l\)/.test(strandSrc) && /Math\.min\(m\.c, floor\.c\)/.test(strandSrc)
@@ -129,8 +138,8 @@ check("…and that dark is a clamp rather than a colour: pulled to char's lightn
  * only a cut one, which has no colour, stays flat.
  */
 check("every vine runs down into the dark along its middle, two boards of the same kind included; only a cut one is flat",
-  /const ramped = !dead;/.test(strandSrc) && /c\.fillStyle = ramped \? ramp\(near\[k\]!, far\[k\]!\) : near\[k\]!;/.test(strandSrc)
-  && !/c\.fillStyle = mixed \?/.test(strandSrc));
+  /const ramped = !dead;/.test(strandSrc) && /if \(!ramped\) \{ c\.fillStyle = near\[k\]!; band\(k\); continue; \}/.test(strandSrc)
+  && /c\.fillStyle = dusk\(near\[k\]!, far\[k\]!, floor\);/.test(strandSrc) && !/c\.fillStyle = mixed \?/.test(strandSrc));
 /*
  * The rim was a stop no band could reach. A band is drawn in the colour at
  * its middle, and with eight of them the highest `t` asked for is 0.9375 —
@@ -141,7 +150,7 @@ check("every vine runs down into the dark along its middle, two boards of the sa
  */
 check("every stop of the section is one some band actually reaches", (() => {
   const cuts = [...strandSrc.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]));
-  const first = Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strandSrc)?.[1]);
+  const first = Number(/if \(t < ([\d.]+)\) out\.push\(mix\(core, char, 0\.75\)\);/.exec(strandSrc)?.[1]);
   const bands = Number(/const BANDS = (\d+);/.exec(strandSrc)?.[1]);
   const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
   const edges = [first, ...cuts];
@@ -261,7 +270,7 @@ check("…in the proportions the face is drawn in: a narrow groove, then the fie
   /if \(t < 0\.10\)/.test(strand) && /t < 0\.30/.test(strand) && /t < 0\.70/.test(strand) && /t < 0\.90/.test(strand));
 check("…and no stop is so thin it cannot be seen: every one of them is a pixel across at least", (() => {
   const bands = Number(/const BANDS = (\d+);/.exec(strand)?.[1]);
-  const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
+  const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(mix\(core, char, 0\.75\)\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
   const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
   const per = new Map();
   for (const t of centres) { const r = edges.findIndex((e) => t < e); per.set(r, (per.get(r) ?? 0) + 1); }
@@ -288,7 +297,7 @@ check("nothing travels along it, and nothing sits on it",
 check("a vine is wide enough for its own section to read", STRAND_WIDTH >= 20 && STRAND_WIDTH <= 30, `${STRAND_WIDTH}`);
 check("…and the field is most of it, the way a card's face is most of a card", (() => {
   const bands = Number(/const BANDS = (\d+);/.exec(strand)?.[1]);
-  const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(bark\.core\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
+  const edges = [Number(/if \(t < ([\d.]+)\) out\.push\(mix\(core, char, 0\.75\)\);/.exec(strand)?.[1]), ...[...strand.matchAll(/else if \(t < ([\d.]+)\)/g)].map((m) => Number(m[1]))];
   const centres = Array.from({ length: bands }, (_, i) => (i + 0.5) / bands);
   const per = new Map();
   for (const t of centres) { const r = edges.findIndex((e) => t < e); per.set(r, (per.get(r) ?? 0) + 1); }
@@ -454,10 +463,9 @@ check("a vine carries one line down its middle, scored into the groove at its ax
   /THE CUT LINE, down the middle, and it is what the vine is for/.test(strand)
   && /export function strandSeam\(/.test(strand) && /export const SEAM_WIDTH = \d+;/.test(strand)
 ))());
-check("…and it is faint, or it would be a third rail and a vine would be a cable again", (() => {
-  const a = Number(/c\.globalAlpha = lit \* ([\d.]+);/.exec(strand)?.[1]);
-  return a > 0 && a <= 0.5;
-})(), `${/c\.globalAlpha = lit \* ([\d.]+);/.exec(strand)?.[1]} of the vine's own`);
+check("…and nothing is painted for it at rest: no thread down the axis, the press lights it", (() => (
+  !/c\.globalAlpha = lit \* 0\.4;/.test(strand) && !/c\.lineWidth = 1\.1;/.test(strand) && /nothing\n   \* is painted for it at rest/.test(strand)
+))());
 check("cutting the line takes the later of the two iterations out", (() => (
   /function VineCut\(/.test(timeline) && /of=\{byId\.get\(cord\.to\)\}/.test(timeline)
   && /useStudio\.getState\(\)\.pruneThread\(of\.id\)/.test(timeline)

@@ -32,20 +32,18 @@
  * core is the axis, the light gathers at both edges, and there is one
  * ribbon rather than a pair lying against each other.
  *
- * **The colour runs along it instead, and the two never meet.** A vine
+ * **The colour runs along it instead, and the two flow into each other.** A vine
  * joins a green board to a red drawing and belongs to both, so it is green
  * where it leaves the green one, red where it arrives at the red one, and
- * in between it goes down to the material's own dark — not through a mix.
- * Blending the ends was tried and the middle of every vine came out yellow
- * and then brown, which is a colour neither board has; the way through is
- * that the light in a construct gathers where the construct is, and a vine
- * far from either board has nothing lighting it. Each band is one fill with
- * a gradient along the run, so it is still one fill per band whatever the
- * colours are, and the darkening is a clamp rather than a colour: the two
- * ends' bands are mixed and then pulled down to the lightness and the
- * chroma of `char`, where a hue cannot be read. A vine between two boards
- * of the same kind runs down into the same dark: lit at both ends, dark
- * along the middle, so every vine on the board is the one J pointed at.
+ * through the middle each colour thins out over the material's own dark
+ * as the other comes in, so some green flows into the red and some red
+ * back into the green, each end still the majority of its own (`HOLD`).
+ * Mixing the two into one colour was tried and the middle came out yellow
+ * and then brown, which is a colour neither board has; laid over each
+ * other, each thinning, over a dark that is the two ends' bands mixed and
+ * pulled down to the lightness and the chroma of `char`, they meet without
+ * making a third. A vine between two boards of the same kind runs down
+ * into the same dark: lit at both ends, dark along the middle.
  *
  * **The colour moves the way a box's does.** Not painted here: the timeline
  * lays the construct's own nebula over the ribbon, clipped to it
@@ -261,7 +259,10 @@ function section(bark: Bark): string[] {
   for (let i = 0; i < BANDS; i++) {
     // The middle of the band, as a share of the half-width.
     const t = (i + 0.5) / BANDS;
-    if (t < 0.10) out.push(bark.core);
+    // The axis: no groove. The core band read as a line running down the
+    // middle of every vine, his words, so the middle is char with a little
+    // of the core in it and the ribbon reads as one painted body.
+    if (t < 0.10) out.push(mix(core, char, 0.75));
     else if (t < 0.30) out.push(mix(core, char, (t - 0.10) / 0.20));
     else if (t < 0.70) out.push(mix(char, deep, (t - 0.30) / 0.40));
     // The rim's inner glow: the face, warmed towards the rim rather than
@@ -329,6 +330,18 @@ export const LANE_STRAND_WIDTH = 18;
  * a short one barely shows, because a short vine is nearly all end.
  */
 const FADE = 0.42;
+
+/**
+ * How much of the run each end's colour holds whole before it starts to
+ * let go: three tenths. From there it thins out toward the far end and is
+ * gone at seven tenths, and the far end's colour comes in the same way
+ * from the other side, so through the middle two fifths the two are laid
+ * over each other, each fading as the other rises, over the material's
+ * own dark. His words: the colours fade into each other toward the
+ * centre instead of switching, some green flowing into the red and some
+ * red back into the green, each end still the majority of its own colour.
+ */
+const HOLD = 0.3;
 
 /**
  * How far the path bows away from the straight line, as a share of the run.
@@ -677,29 +690,47 @@ export function paintStrand(
    * stays flat, and it has no colour to lose.
    */
   const ramped = !dead;
-  /** One band's colour along the run: this end's, the dark, then the other's. */
-  const ramp = (a: string, z: string): CanvasGradient => {
-    const g = c.createLinearGradient(from.x, from.y, to.x, to.y);
-    const dark = dusk(a, z, floor);
-    g.addColorStop(0, a);
-    g.addColorStop(FADE, dark);
-    g.addColorStop(1 - FADE, dark);
-    g.addColorStop(1, z);
+  /** A colour with an alpha on it, for the ends to thin out by. */
+  const thin = (colour: string, alpha: number) => colour.replace(/\)\s*$/, ` / ${alpha.toFixed(3)})`);
+  /**
+   * One end's colour along the run: whole to `HOLD`, then thinning to
+   * nothing by `1 - HOLD`. The near end runs one way, the far end the
+   * other, and where they cross each lies over the other. The axis is the
+   * straight line between the boards and not the curve, which is right: a
+   * linear gradient projects onto its axis, so a point halfway along the
+   * bow is halfway along the gradient, and a vine still growing is
+   * coloured as it will be when it is done.
+   */
+  const flow = (colour: string, end: 0 | 1): CanvasGradient => {
+    const g = end === 0
+      ? c.createLinearGradient(from.x, from.y, to.x, to.y)
+      : c.createLinearGradient(to.x, to.y, from.x, from.y);
+    g.addColorStop(0, colour);
+    g.addColorStop(HOLD, colour);
+    g.addColorStop(1 - HOLD, thin(colour, 0));
+    g.addColorStop(1, thin(colour, 0));
     return g;
   };
-  for (let k = 0; k < BANDS; k++) {
-    /*
-     * One fill, and the colour along it is the gradient's job rather than
-     * another polygon's. The axis is the straight line between the boards
-     * and not the curve, which is right: a linear gradient projects onto
-     * its axis, so a point halfway along the bow is halfway along the
-     * gradient, and a vine still growing is coloured as it will be when it
-     * is done.
-     */
-    c.fillStyle = ramped ? ramp(near[k]!, far[k]!) : near[k]!;
+  const band = (k: number) => {
     c.beginPath();
     for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
     c.fill();
+  };
+  for (let k = 0; k < BANDS; k++) {
+    if (!ramped) { c.fillStyle = near[k]!; band(k); continue; }
+    /*
+     * Three fills a band: the material's own dark the whole length, then
+     * this end's colour laid over it and thinning out along the run, then
+     * the other end's coming the other way. Thirty fills for a vine of any
+     * length, and the two colours meet by lying over each other rather than
+     * by being mixed into a third.
+     */
+    c.fillStyle = dusk(near[k]!, far[k]!, floor);
+    band(k);
+    c.fillStyle = flow(near[k]!, 0);
+    band(k);
+    c.fillStyle = flow(far[k]!, 1);
+    band(k);
   }
 
   /*
@@ -715,22 +746,15 @@ export function paintStrand(
    * The timeline puts a small element over it to take the press
    * (`strandSeam`); nothing here knows about pressing.
    */
-  if (!dead) {
-    /*
-     * Faint, and that is the whole of why it is not a third strand. The
-     * core band either side of it is already a dark groove two pixels
-     * across; a bright line in the middle of it, with a bright rim at each
-     * edge, would be three rails and a vine would be a cable again. A
-     * thread at two fifths is a line scored in the material, and the press
-     * over it takes it white hot when it is wanted (`molten.css`).
-     */
-    c.globalAlpha = lit * 0.4;
-    c.strokeStyle = ramped ? ramp(near[BANDS - 1]!, far[BANDS - 1]!) : near[BANDS - 1]!;
-    c.lineWidth = 1.1;
-    c.beginPath();
-    s.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
-    c.stroke();
-  }
+  /*
+   * THE CUT LINE, down the middle, and it is what the vine is for: nothing
+   * is painted for it at rest. A faint thread was scored along the axis
+   * and he saw it as a line running down the middle of every vine that
+   * should not be seen. The seam is still there to press (`strandSeam`):
+   * the timeline lays a small element over it, and the press lights the
+   * line white hot when it is wanted (`molten.css`, `.vine-cut`) and not
+   * before.
+   */
 
   c.restore();
 }
