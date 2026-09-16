@@ -7,6 +7,7 @@ import { play } from "@/core/audio/engine";
 import { useStudio } from "./store";
 import { BAND_COLOUR, LANE_MODE, laneRects, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
 import { SAMPLE } from "./lanesSample";
+import { BODY, GROUND } from "./boxGround";
 
 /**
  * The three lanes, hanging off the end of the timeline.
@@ -29,11 +30,28 @@ import { SAMPLE } from "./lanesSample";
  * The content is the checked-in sample (`lanesSample.ts`) read through one
  * typed structure (`lanes.ts`); swapping the source is one import.
  */
-export function Lanes({ from, size, gap, lanes = SAMPLE }: { from: Rect | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData }) {
-  const rects = laneRects(from, size, gap);
+export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect | null; fromId: string | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData }) {
+  /*
+   * The box they hang off is as tall as what it holds, not its nominal
+   * size, and the middle lane's centre must be that box's centre to the
+   * pixel. So its rendered height is read off the box itself, and read
+   * again whenever it changes.
+   */
+  const [tall, setTall] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (!fromId) { setTall(null); return; }
+    const el = document.querySelector<HTMLElement>(`[data-box="${fromId}"]`);
+    if (!el) { setTall(null); return; }
+    const read = () => setTall(el.offsetHeight || null);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fromId]);
+  const rects = laneRects(from && tall ? { ...from, h: tall } : from, size, gap);
   return (
     <>
-      {from ? <Fan from={from} to={rects} /> : null}
+      {from ? <Fan from={from && tall ? { ...from, h: tall } : from} to={rects} /> : null}
       {lanes.map((lane, i) => (
         <LaneBox key={lane.id} lane={lane} at={rects[i]!} index={i} />
       ))}
@@ -41,26 +59,34 @@ export function Lanes({ from, size, gap, lanes = SAMPLE }: { from: Rect | null; 
   );
 }
 
-/** The bracket: a stub out of the last box, a bar down the three centres, a stub into each. */
+/**
+ * The bracket, opening to the right: a stub out of the latest box's
+ * middle, a bar standing between it and the lanes from the top lane's
+ * centre to the bottom's, and a stub from the bar into each lane at its
+ * own centre. The middle stub is level; the top and bottom stubs reach
+ * out to the diagonal lanes, so nothing on it droops.
+ */
 function Fan({ from, to }: { from: Rect; to: [Rect, Rect, Rect] }) {
   const x0 = from.x + from.w;
-  const bar = x0 + (to[0]!.x - x0) / 2;
+  const nearest = Math.min(...to.map((r) => r.x));
+  const bar = x0 + (nearest - x0) / 2;
   const yFrom = from.y + from.h / 2;
   const centres = to.map((r) => r.y + r.h / 2);
-  const top = Math.min(yFrom, centres[0]!) - 8;
-  const bottom = Math.max(yFrom, centres[2]!) + 8;
+  const top = Math.min(yFrom, ...centres) - 8;
+  const bottom = Math.max(yFrom, ...centres) + 8;
+  const right = Math.max(...to.map((r) => r.x));
   return (
     <svg
       data-lanes-fan=""
       aria-hidden
       className="pointer-events-none absolute"
-      style={{ left: x0, top, width: to[0]!.x - x0, height: bottom - top, overflow: "visible" }}
-      viewBox={`${x0} ${top} ${to[0]!.x - x0} ${bottom - top}`}
+      style={{ left: x0, top, width: right - x0, height: bottom - top, overflow: "visible" }}
+      viewBox={`${x0} ${top} ${right - x0} ${bottom - top}`}
     >
       <g fill="none" stroke="var(--azure-hot)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.85}>
-        <path d={`M${x0} ${yFrom} H${bar}`} />
-        <path d={`M${bar} ${Math.min(yFrom, centres[0]!)} V${Math.max(yFrom, centres[2]!)}`} />
-        {centres.map((y) => <path key={y} d={`M${bar} ${y} H${to[0]!.x}`} />)}
+        <path data-fan-stub="" d={`M${x0} ${yFrom} H${bar}`} />
+        <path data-fan-bar="" d={`M${bar} ${Math.min(...centres)} V${Math.max(...centres)}`} />
+        {to.map((r, i) => <path key={i} data-fan-into={i} d={`M${bar} ${centres[i]} H${r.x}`} />)}
       </g>
     </svg>
   );
@@ -99,18 +125,20 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
         data-lane-band={s.band}
         className={cn(moltenClass("azure"), "flex w-full flex-col rounded-lg p-2 text-left")}
         style={{
-          minHeight: at.h,
+          height: at.h,
           ...moltenSeed(`lane:${lane.id}`, index),
           color: "oklch(0.93 0.055 210)",
           boxShadow: "0 3px 6px oklch(0 0 0 / 0.5)",
         }}
       >
         <span data-molten="" />
-        {/* The cost band: the one line inside the rim, and the one thing coloured by cost. */}
+        {/* The cost band: the one line inside the rim, and the one thing coloured by cost.
+            Inside it the words sit on a calm ground, not on the texture: the
+            texture is his and stays, the reading is the ground's. */}
         <div
           data-lane-band-line=""
           className="grid min-h-0 flex-1 rounded-md"
-          style={{ border: `2px solid ${band}`, padding: "6px 10px", gridTemplateRows: "16px 18px 1fr 22px", rowGap: 4 }}
+          style={{ border: `2px solid ${band}`, padding: "6px 10px", gridTemplateRows: "16px 18px 1fr 22px", rowGap: 4, background: GROUND }}
         >
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em]" style={{ color: "oklch(0.9 0.05 210)" }}>
@@ -123,9 +151,9 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
           <span data-lane-title="" className="truncate text-[13px] font-medium leading-[18px]" style={{ color: "oklch(0.95 0.05 210)" }}>{item.title}</span>
           <div className="min-h-0 overflow-hidden">
             {item.kind === "fix" ? (
-              <pre data-lane-detail="" className="m-0 whitespace-pre-wrap break-words font-mono text-[10px] leading-[14px]" style={{ color: "oklch(0.88 0.04 210)", maxHeight: "100%" }}>{item.detail}</pre>
+              <pre data-lane-detail="" className="m-0 whitespace-pre-wrap break-words font-mono text-[12px] font-medium leading-[16px]" style={{ color: BODY, maxHeight: "100%" }}>{item.detail}</pre>
             ) : (
-              <p data-lane-detail="" className="m-0 line-clamp-5 text-[11px] leading-[15px]" style={{ color: "oklch(0.88 0.04 210)" }}>{item.detail}</p>
+              <p data-lane-detail="" className="m-0 line-clamp-4 text-[12.5px] font-medium leading-[17px]" style={{ color: BODY }}>{item.detail}</p>
             )}
           </div>
           <div className="flex items-center justify-between gap-2">

@@ -60,6 +60,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
+import { BODY, GROUND } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
 import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
@@ -1150,7 +1151,7 @@ export function Timeline() {
           as an iteration through the same door as everything else and
           stands in the chain in blue.
         */}
-        <Lanes from={lanesFrom} size={BOX} gap={GAP} />
+        <Lanes from={lanesFrom} fromId={lastThread?.id ?? null} size={BOX} gap={GAP} />
 
         {/*
           The cut line down each vine, and nothing else on a vine.
@@ -1570,7 +1571,7 @@ function Asked({ thread }: { thread: Thread }) {
     askTheBook({ mode: thread.mode, prompt: words.trim(), run: true });
   };
   return (
-    <div data-asked={page} className="flex shrink-0 items-start gap-2">
+    <div data-asked={page} className="flex shrink-0 items-start gap-2 rounded-[4px] px-1.5 py-1" style={{ background: GROUND }}>
       <span className="min-w-0 flex-1">
         {page === 0 ? (
           <span data-asked-said="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_var(--box-hue,150))]">
@@ -1723,8 +1724,9 @@ function Features({ thread }: { thread: Thread }) {
      disagree about which parts are this update's. */
   const { parts, mine } = React.useMemo(() => ownParts(thread, parent), [thread, parent]);
   return (
-    <div className="flex min-h-0 shrink-0 flex-col gap-1">
-      <span data-headline="" className="line-clamp-1 block text-[10px] text-[oklch(0.93_0.06_var(--box-hue,152))]">
+    <div className="flex min-h-0 shrink-0 flex-col gap-1 rounded-[4px] px-1.5 py-1" style={{ background: GROUND }}>
+      {/* The body line, up toward the title: 12px and medium where it was 10px and regular, near white on the ground. */}
+      <span data-headline="" className="line-clamp-1 block text-[12px] font-medium leading-snug" style={{ color: BODY }}>
         {headlineOf(thread)}
         {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
       </span>
@@ -1893,8 +1895,8 @@ function ElementPiece({
             </span>
           )}
         </span>
-        <span className="block text-center">
-          <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_22)]">{name}</span>
+        <span className="block rounded-[4px] px-1.5 py-0.5 text-center" style={{ background: GROUND, "--box-hue": 18 } as React.CSSProperties}>
+          <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug" style={{ color: BODY }}>{name}</span>
           {thread.changes.length > 1 ? (
             /* 0.93, up from 0.9. At nine pixels on the ember face this was the
                worst run of words anywhere on the timeline and it sat exactly on

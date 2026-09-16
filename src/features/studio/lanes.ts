@@ -176,13 +176,31 @@ export interface Rect {
 export const LANE_MODE = "lane";
 
 /**
- * Where the three lane boxes stand: past the last real box, one slot to
- * its right, stacked downward from its top so the top lane is level with
- * it and nothing above the last row is covered. With no box at all they
- * hang off where the first box would be.
+ * Where the three lane boxes stand, from his drawing: a fan off the
+ * latest box to its right, centred on that box. The middle lane is
+ * beside it, level, its vertical centre the latest box's own. The top
+ * lane is diagonally above, up and to the right; the bottom lane
+ * diagonally below, down and to the right. One above the centre line,
+ * one on it, one under it. Every lane is as tall as the box it hangs
+ * off, so the middle's centre is the latest's centre to the pixel. With
+ * no box at all they hang off where the first box would be.
+ *
+ * Diagonal is a real step to the right, three tenths of a box, so the
+ * three read as a fan and not as a column. When the chain has wrapped
+ * and the row above the latest box has a box in the next column, the top
+ * lane stands over part of it: that is where his drawing puts it, and the
+ * lane sits under the real box rather than covering it.
  */
+export const DIAGONAL = 0.3;
 export function laneRects(from: Rect | null, size: { w: number; h: number }, gap: { x: number; y: number }): [Rect, Rect, Rect] {
+  const h = from ? from.h : size.h;
   const x = from ? from.x + from.w + gap.x : 140;
-  const top = from ? from.y : 130;
-  return [0, 1, 2].map((i) => ({ x, y: top + i * (size.h + gap.y), w: size.w, h: size.h })) as [Rect, Rect, Rect];
+  const cy = from ? from.y + from.h / 2 : 130 + h / 2;
+  const step = h + gap.y;
+  const diag = Math.round(size.w * DIAGONAL);
+  return [
+    { x: x + diag, y: cy - step - h / 2, w: size.w, h },
+    { x, y: cy - h / 2, w: size.w, h },
+    { x: x + diag, y: cy + step - h / 2, w: size.w, h },
+  ];
 }
