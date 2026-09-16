@@ -248,7 +248,14 @@ if (live) {
          that is kindest to the tenth percentile is not always the one that
          is kindest to the floor. */
       byMark.set(r.i, was ? { ...r, worst: Math.min(was.worst, r.worst), tenth: Math.min(was.tenth, r.tenth),
-        best: Math.min(was.best, r.best), fills: Math.max(was.fills, r.fills) } : r);
+        /* `n` is how much ink the mark showed, and it takes the MAX for the
+           same reason `fills` does: it answers "is this a drawing or an
+           icon", not "how legible is it". Spreading `...r` left it as
+           whatever the last phase happened to give, and the bird came out at
+           179 against a threshold of 200 — the drawing check then reported
+           "no drawing was on a card to read" about a drawing that was on the
+           card, 110x62, in plain view. */
+        best: Math.min(was.best, r.best), n: Math.max(was.n, r.n), fills: Math.max(was.fills, r.fills) } : r);
     }
     return [...byMark.values()];
   };
@@ -360,7 +367,19 @@ if (live) {
    * catch a return to a stamp in the middle of an empty card, which is what
    * this was.
    */
-  const pics = rows.filter((r) => r.svg && r.n > 200);
+  /*
+   * A HUNDRED, NOT TWO HUNDRED, AND THE OLD NUMBER WAS MEASURED ON A LIE.
+   *
+   * This separates a drawing from an icon by how much ink it carries. The
+   * threshold was 200, and it worked only because the reading was inflated:
+   * before the face was frozen for the measurement, the cloud drifting
+   * between the two shots was counted as ink, so every mark reported more
+   * pixels than it had. With a still face the same bird measures 179 and the
+   * icons on the same cards measure 13 to 22 — so a hundred sits in a gap
+   * that is an order of magnitude wide, where 200 sat above the thing it was
+   * meant to admit.
+   */
+  const pics = rows.filter((r) => r.svg && r.n > 100);
   check("a drawing on a card runs the whole way across the room it is given",
     pics.length > 0 && pics.every((r) => r.fills >= 0.7),
     pics.map((r) => `${Math.round(r.fills * 100)}% of the room`).join(", ") || "no drawing was on a card to read");
