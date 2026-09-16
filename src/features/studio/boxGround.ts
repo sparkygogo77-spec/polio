@@ -1,18 +1,19 @@
 /**
- * The ground the words on a box sit on.
+ * How the words on a box read on his texture.
  *
- * His render is busy and high in contrast, and words set straight on it
- * lost: nine and ten pixel lines in a colour a shade off the surface. The
- * texture is his and stays. What changed is the reading: every run of
- * body words on a box, green, red or blue, sits on this ground, a near
- * black in the box's own hue at four fifths, so the filaments show
- * through the edges of it and the words stand on something calm. `BODY`
- * is the colour the body line is set in on that ground: near white, and
- * the same on all three hues.
+ * There is no ground under them. There was: a near-black plate in the
+ * box's hue behind every run of words, and he asked for it to go, on the
+ * red, the green and the blue alike, because it covered the texture. The
+ * texture is his and shows edge to edge now, and the words read by what
+ * they are: heavier, a little larger where they were small, and each
+ * glyph casting its own dark edge, which lifts a letter off a bright
+ * filament without putting anything behind the line. `BODY` is the
+ * colour a body line is set in, near white, the same on all three hues.
  *
  * The hue comes off `--box-hue`, which every box sets on itself (152 for
- * an iteration, 210 for a lane's work, 18 for a drawing), so one ground
- * follows the three surfaces without knowing which it is on.
+ * an iteration, 210 for a lane's work, 18 for a drawing).
  */
-export const GROUND = "oklch(0.1 0.015 var(--box-hue, 152) / 0.82)";
 export const BODY = "oklch(0.96 0.015 var(--box-hue, 152))";
+
+/** The edge every glyph on a box casts: tight and dark, then a soft dark halo. Set once on the box; every word in it inherits it. */
+export const EDGE = "0 1px 1px oklch(0.08 0.03 var(--box-hue, 152) / 0.95), 0 0 5px oklch(0.08 0.03 var(--box-hue, 152) / 0.85), 0 0 2px oklch(0.08 0.03 var(--box-hue, 152) / 0.9)";

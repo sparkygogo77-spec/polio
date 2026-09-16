@@ -184,6 +184,15 @@ check("on the screen, green is the top lane, yellow the middle, red the bottom",
 /* His words: blue right across, no black plate under the words; the words read by their own contrast against the blue. */
 const plate = await lanes.evaluateAll((els) => els.map((e) => { const line = e.querySelector("[data-lane-band-line]"); const st = getComputedStyle(line); return { bg: st.backgroundColor, shadow: getComputedStyle(e.querySelector("[data-lane-detail]") ?? line).textShadow }; }));
 check("the lane box is blue right across: nothing is painted behind the words", plate.every((p) => p.bg === "rgba(0, 0, 0, 0)"), plate.map((p) => p.bg).join(", "));
+/* His words, the next day: the same on the red and the green. No plate, no strip under the ask line or the headline; the texture edge to edge, and the words carry the same cast edge. */
+const strips = await page.evaluate(() => {
+  const clear = (e) => !!e && getComputedStyle(e).backgroundColor === "rgba(0, 0, 0, 0)";
+  const g = document.querySelector('[data-box="g1"]'), r = document.querySelector('[data-box="e1"]');
+  const ghead = g.querySelector("[data-headline]"), rhead = r.querySelector("[data-headline]");
+  return { asked: clear(g.querySelector("[data-asked]")), greenHead: clear(ghead.parentElement), redHead: clear(rhead.parentElement), greenEdge: getComputedStyle(ghead).textShadow, redEdge: getComputedStyle(rhead).textShadow, greenWeight: getComputedStyle(ghead).fontWeight, redWeight: getComputedStyle(rhead).fontWeight };
+});
+check("no strip under the ask line or the headline on a green box, and none under the name on a red one: the texture shows edge to edge", strips.asked && strips.greenHead && strips.redHead, `ask ${strips.asked}, green headline ${strips.greenHead}, red name ${strips.redHead}`);
+check("and the words on the green and the red carry the cast edge, at semibold or heavier", strips.greenEdge !== "none" && strips.redEdge !== "none" && Number(strips.greenWeight) >= 600 && Number(strips.redWeight) >= 600, `weights ${strips.greenWeight}, ${strips.redWeight}`);
 check("and the words carry their own edge instead: a dark shadow cast by the letter, not a plate", plate.every((p) => p.shadow && p.shadow !== "none"), plate[0]?.shadow ?? "none");
 const times = await page.locator("[data-lane-time]").allInnerTexts();
 check("time is printed as a figure in every lane", times.length === 3 && times.every((t) => /^\d+ min$|^\d+ h( \d+ min)?$/.test(t.trim())), times.join(", "));

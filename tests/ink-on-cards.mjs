@@ -152,7 +152,7 @@ if (live) {
         if (!svg && !words) continue;
         seen.add(el);
         el.setAttribute("data-mark", String(out.length));
-        out.push({ i: out.length, svg, label: svg ? "a drawing" : (el.textContent ?? "").trim().slice(0, 26) });
+        out.push({ i: out.length, svg, label: svg ? `a drawing (${(el.getAttribute("class") || "").replace(/lucide lucide-|size-\S+/g, "").trim() || "svg"})` : (el.textContent ?? "").trim().slice(0, 26) });
       }
     }
     return out;

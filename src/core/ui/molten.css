@@ -215,6 +215,20 @@
    the same layer, and the only thing about the layer that changed.
 --------------------------------------------------------------------------- */
 
+/*
+ * An icon on a construct casts the edge the words do. Words carry a text
+ * shadow set on the box; a drawing takes none, so the same dark edge is a
+ * drop shadow on the glyph. Without it a six pixel chevron on a bright
+ * filament read at two to one, once the plate it sat on was taken away.
+ */
+.molten svg {
+  filter: drop-shadow(0 1px 1px oklch(0.08 0.03 150 / 0.95)) drop-shadow(0 0 2px oklch(0.08 0.03 150 / 0.9));
+}
+/* A key has a face of its own, so the icon on it needs no edge. */
+.molten button svg {
+  filter: none;
+}
+
 .molten {
   position: relative;
   isolation: isolate;

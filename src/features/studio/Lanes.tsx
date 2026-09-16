@@ -7,7 +7,7 @@ import { play } from "@/core/audio/engine";
 import { useStudio } from "./store";
 import { BAND_COLOUR, LANE_MODE, laneRects, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
 import { ITEMS } from "./lanesSample";
-import { BODY } from "./boxGround";
+import { BODY, EDGE } from "./boxGround";
 import { LANE_STRAND_WIDTH, paintStrand, strandBounds, type Point } from "./strand";
 
 /**
@@ -169,7 +169,7 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
            * by the letter itself, which lifts a word off a bright filament
            * without putting anything behind it.
            */
-          textShadow: "0 1px 1px oklch(0.08 0.03 210 / 0.95), 0 0 5px oklch(0.08 0.03 210 / 0.85)",
+          textShadow: EDGE,
         }}
       >
         <span data-molten="" />

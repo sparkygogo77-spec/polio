@@ -60,7 +60,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
 import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
-import { BODY, GROUND } from "./boxGround";
+import { BODY, EDGE } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
 import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
 import { sayWhere, saySpend } from "./spend";
@@ -216,7 +216,6 @@ function useForming(threads: Thread[]): Map<string, number> {
  * glass rather than a plate. The red ones are also where there is least to
  * win — a fifth of a green card's area each.
  */
-const COVERED = { "--mo-band": "26%" } as React.CSSProperties;
 
 /** The corner the boxes are drawn with (`rounded-lg`). */
 const BOX_RADIUS = 8;
@@ -1476,8 +1475,17 @@ function IterationBox({
           minHeight: BOX.h,
           ...moltenSeed(thread.id),
           ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
-          ...COVERED,
+          /*
+           * The whole face moves. The cloud was banded to the top and bottom
+           * quarters because the site's picture covered the middle edge to
+           * edge; the picture stands in the middle now at the Builds card's
+           * proportion, with the texture showing either side of it, and a
+           * banded face put a bare dark stripe across the waist of every green
+           * box. His words: nothing dark covering the texture. It costs
+           * frames, which `molten.css` counts; the stripe cost more.
+           */
           color: "oklch(0.93 0.055 var(--box-hue, 150))",
+          textShadow: EDGE,
           // Depth is the shadow under it and the lift when it is picked up;
           // the light in it comes from the surface, not from here.
           // The weight under it, and the heat it throws: the construct's own
@@ -1503,7 +1511,7 @@ function IterationBox({
           The line above the headline is a label, and it is sized like one:
           what the iteration made is the biggest thing on the box.
         */}
-        <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em] text-[oklch(0.9_0.05_var(--box-hue,152))]">
+        <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[oklch(0.95_0.03_var(--box-hue,152))]">
           {icon}
           {kind}
           {/* Nothing else on this row. The flag that marked the update being
@@ -1601,10 +1609,10 @@ function Asked({ thread }: { thread: Thread }) {
     askTheBook({ mode: thread.mode, prompt: words.trim(), run: true });
   };
   return (
-    <div data-asked={page} className="flex shrink-0 items-start gap-2 rounded-[4px] px-1.5 py-1" style={{ background: GROUND }}>
+    <div data-asked={page} className="flex shrink-0 items-start gap-2 px-0.5 py-0.5">
       <span className="min-w-0 flex-1">
         {page === 0 ? (
-          <span data-asked-said="" className="line-clamp-2 block text-[13px] font-medium leading-snug text-[oklch(0.95_0.05_var(--box-hue,150))]">
+          <span data-asked-said="" className="line-clamp-2 block text-[13px] font-semibold leading-snug text-[oklch(0.97_0.03_var(--box-hue,150))]">
             {thread.ask || headlineOf(thread)}
           </span>
         ) : (
@@ -1631,9 +1639,9 @@ function Asked({ thread }: { thread: Thread }) {
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); play("tick"); setPage(page === 0 ? 1 : 0); }}
           className="tactile grid size-5 place-items-center rounded-sm border"
-          style={{ borderColor: "oklch(0.42 0.118 var(--box-hue, 152) / 0.7)", color: "oklch(0.8 0.09 var(--box-hue, 152))" }}
+          style={{ borderColor: "oklch(0.58 0.14 var(--box-hue, 152))", background: "oklch(0.26 0.07 var(--box-hue, 152))", color: "oklch(0.95 0.03 var(--box-hue, 152))" }}
         >
-          {page === 0 ? <ChevronRight className="size-3" /> : <ChevronLeft className="size-3" />}
+          {page === 0 ? <ChevronRight className="size-3.5" strokeWidth={2.75} /> : <ChevronLeft className="size-3.5" strokeWidth={2.75} />}
         </button>
         {/* A lane's work was not a prompt to the book, so there is nothing to run again. */}
         {thread.mode === LANE_MODE ? null : (
@@ -1644,9 +1652,10 @@ function Asked({ thread }: { thread: Thread }) {
           onClick={(e) => { e.stopPropagation(); again(); }}
           title="Run this prompt again"
           className="tactile flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]"
-          style={{ borderColor: "oklch(0.58 0.14 var(--box-hue, 152))", background: "oklch(0.26 0.07 var(--box-hue, 152))", color: "oklch(0.92 0.06 var(--box-hue, 152))" }}
+          style={{ borderColor: "oklch(0.58 0.14 var(--box-hue, 152))", background: "oklch(0.26 0.07 var(--box-hue, 152))", color: "oklch(0.97 0.03 var(--box-hue, 152))" }}
         >
-          <RotateCcw className="size-3" />
+          {/* Heavier than the words beside it: at the zoom a timeline settles to this is seven pixels across, and a thin stroke there is a blur. */}
+          <RotateCcw className="size-3.5" strokeWidth={2.75} />
           Re-iterate
         </button>
         )}
@@ -1687,6 +1696,9 @@ function Asked({ thread }: { thread: Thread }) {
  * paint of a card that is not in view, which is what makes thirty of them
  * affordable at all.
  */
+/** The Builds card's picture: 352 wide by 168 tall (`BuildsPage.tsx`). */
+export const SHOT_RATIO = 352 / 168;
+
 function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
   /* One field at a time. A selector that builds an object returns a new one
      every call, so the store thinks it changed on every render and the
@@ -1710,19 +1722,29 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
    * handed over is the rest of the same object rather than a hope about it.
    */
   const from: PreviewDoc | null = live ? now : (thread.doc as PreviewDoc | undefined) ?? null;
+  /*
+   * The same proportion as the picture on a Builds card, so the two read
+   * as one object: that card's picture is 352 by 168, and this one is as
+   * tall as the box's middle and as wide as that proportion makes it,
+   * standing in the middle of the box with the texture either side. Across
+   * the whole box it was four times as wide as it was tall, a strip of the
+   * site's header, and he said so.
+   */
   const H = BOX.h - 66;
-  const W = BOX.w - 16;
+  const W = Math.round(H * SHOT_RATIO);
   return (
     <div
       data-site-shot={thread.id}
       data-site-live={live ? "1" : "0"}
       aria-hidden
       inert
-      className="grid shrink-0 place-items-start overflow-hidden rounded-md border"
+      className="grid shrink-0 place-items-start self-center overflow-hidden rounded-md border"
       style={{
         height: H,
+        width: W,
         borderColor: "oklch(0.36 0.091 var(--box-hue, 152))",
-        background: "oklch(0.12 0.02 var(--box-hue, 152))",
+        /* Dark only under a picture: an empty frame is a line on the texture, not a black box over it. */
+        background: from ? "oklch(0.12 0.02 var(--box-hue, 152))" : "transparent",
         contentVisibility: "auto",
         containIntrinsicSize: `${W}px ${H}px`,
       }}
@@ -1730,7 +1752,7 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
       {from ? (
         <SitePreview doc={from} width={W} height={H} />
       ) : (
-        <span className="grid h-full w-full place-items-center text-[10px]" style={{ color: "oklch(0.88 0.05 var(--box-hue, 152))" }}>
+        <span className="grid h-full w-full place-items-center text-[10px] font-semibold" style={{ color: BODY }}>
           no picture of the site was kept with this one
         </span>
       )}
@@ -1754,9 +1776,9 @@ function Features({ thread }: { thread: Thread }) {
      disagree about which parts are this update's. */
   const { parts, mine } = React.useMemo(() => ownParts(thread, parent), [thread, parent]);
   return (
-    <div className="flex min-h-0 shrink-0 flex-col gap-1 rounded-[4px] px-1.5 py-1" style={{ background: GROUND }}>
-      {/* The body line, up toward the title: 12px and medium where it was 10px and regular, near white on the ground. */}
-      <span data-headline="" className="line-clamp-1 block text-[12px] font-medium leading-snug" style={{ color: BODY }}>
+    <div className="flex min-h-0 shrink-0 flex-col gap-1 px-0.5 py-0.5">
+      {/* The body line, straight on the texture: 12px and semibold, near white, with the edge every glyph on a box casts. */}
+      <span data-headline="" className="line-clamp-1 block text-[12px] font-semibold leading-snug" style={{ color: BODY }}>
         {headlineOf(thread)}
         {thread.changes.length > 1 ? ` · and ${thread.changes.length - 1} more` : ""}
       </span>
@@ -1793,7 +1815,7 @@ function Features({ thread }: { thread: Thread }) {
           {parts.length > 14 ? <li className="px-1 py-px" style={{ color: "oklch(0.88 0.045 var(--box-hue, 152))" }}>and {parts.length - 14} more</li> : null}
         </ul>
       ) : (
-        <span className="text-[9px]" style={{ color: "oklch(0.88 0.045 152)" }}>nothing stands on the site yet</span>
+        <span className="text-[10px] font-semibold" style={{ color: BODY }}>nothing stands on the site yet</span>
       )}
     </div>
   );
@@ -1857,6 +1879,7 @@ function ElementPiece({
         style={{
           minHeight: PIECE.h,
           ...moltenSeed(thread.id),
+          textShadow: EDGE,
           ...(forming < 1 ? (formVars(forming) as React.CSSProperties) : {}),
           /* No band here, and that is the measurement rather than an
              oversight: a red card's middle is a drawing or a rendered part,
@@ -1925,8 +1948,8 @@ function ElementPiece({
             </span>
           )}
         </span>
-        <span className="block rounded-[4px] px-1.5 py-0.5 text-center" style={{ background: GROUND, "--box-hue": 18 } as React.CSSProperties}>
-          <span data-headline="" className="line-clamp-1 block text-[13px] font-medium leading-snug" style={{ color: BODY }}>{name}</span>
+        <span className="block px-0.5 py-0.5 text-center" style={{ "--box-hue": 18 } as React.CSSProperties}>
+          <span data-headline="" className="line-clamp-1 block text-[13px] font-semibold leading-snug" style={{ color: BODY }}>{name}</span>
           {thread.changes.length > 1 ? (
             /* 0.93, up from 0.9. At nine pixels on the ember face this was the
                worst run of words anywhere on the timeline and it sat exactly on
@@ -1936,7 +1959,7 @@ function ElementPiece({
                not a contrast. Still under the name above it at 0.95, so the two
                keep their order. Measured by `ink-on-cards`, which reports the
                worst mark by name now rather than only its number. */
-            <span className="mt-0.5 block text-[9px] text-[oklch(0.93_0.06_18)]">and {thread.changes.length - 1} more</span>
+            <span className="mt-0.5 block text-[10px] font-semibold text-[oklch(0.95_0.04_18)]">and {thread.changes.length - 1} more</span>
           ) : null}
         </span>
       </div>
