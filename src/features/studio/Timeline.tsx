@@ -976,18 +976,37 @@ export function Timeline() {
     // Carrying a box: the view holds still until it is put down.
     stopSettle();
     let moved = false;
+    /* Where the box is, as of the last move: a cancelled drag puts it down there, not at the cancel event's own point, which is nowhere. */
+    let last: Point = from;
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - from0.x, ev.clientY - from0.y) < 4) return;
       moved = true;
-      setDragging({ id, at: to(ev) });
+      last = to(ev);
+      setDragging({ id, at: last });
     };
+    /*
+     * Letting go lets go, every time. The pointer is captured by the box
+     * that was pressed, so the release reaches it wherever the mouse is,
+     * outside the window included; and a drag the browser cancels midway
+     * ends the same way as a release, where before it left the box stuck to
+     * the mouse until the next click. He hit that by hand.
+     */
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
+    try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ }
+    let done = false;
     const up = (ev: PointerEvent) => {
+      if (done) return;
+      done = true;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      target.removeEventListener("lostpointercapture", up as EventListener);
+      try { if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId); } catch { /* already released */ }
       // A box that was carried somewhere is not a box that was clicked: the
       // click that follows a drag would otherwise open whatever was moved.
       if (moved) {
-        const at = to(ev);
+        const at = ev.type === "pointerup" ? to(ev) : last;
         useStudio.getState().moveThread(`box:${id}`, at.x, at.y);
         dropped.current = Date.now();
         play("tap");
@@ -998,6 +1017,8 @@ export function Timeline() {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    target.addEventListener("lostpointercapture", up as EventListener);
   };
 
   /** Dragging the ground pans the whole surface, as far as you like. */
@@ -1014,9 +1035,19 @@ export function Timeline() {
       claim();
       setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
     };
+    /* The same rule as a box: captured by the ground that was pressed, and a cancel ends it as a release does. */
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
+    try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ }
+    let done = false;
     const up = () => {
+      if (done) return;
+      done = true;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      target.removeEventListener("lostpointercapture", up as EventListener);
+      try { if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId); } catch { /* already released */ }
       /*
        * A press on the ground puts the open card away.
        *
@@ -1033,6 +1064,8 @@ export function Timeline() {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    target.addEventListener("lostpointercapture", up as EventListener);
   };
 
   /*
