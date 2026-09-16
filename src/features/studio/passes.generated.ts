@@ -2,9 +2,62 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-16T08:33:19.185Z";
+export const GENERATED_AT = "2026-09-16T17:06:44.737Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c326155",
+    "when": "2026-09-16T11:02:50+00:00",
+    "day": "16 September",
+    "changes": [
+      {
+        "id": "c326155",
+        "says": "A phone has a way back, and asking for smaller no longer gives bigger",
+        "when": "2026-09-16T11:02:50+00:00",
+        "detail": [
+          "A21. J's meaning, which matters more than any number: a person on a phone must be able to get back to a usable size without knowing a trick.",
+          "FIRST, A CORRECTION TO MY OWN REPORT. I said the Desktop, Tablet and Phone keys were hidden below 768px. They are not — I quoted the inventory instead of measuring, and all three are on screen at 375. What is actually wrong is sharper and I found it by driving the bar rather than reading it.",
+          "the bar wants 542 in a 375 window and hangs 167 off the right what is past the edge: the zoom cluster's PLUS, More tools, Preview, Finish so the minus is on screen and the plus is not and pressing the minus takes the page 247 → 436, off the right of a 375 pane",
+          "That last one is mine. `FIT_MIN` let the fit put a desktop frame inside a phone pane at 0.142, but the keys still clamped to `ZOOM_MIN` at 0.25, so the first press of either key jumped UP. A control labelled zoom out that makes the page bigger and strands it off the edge, with no plus and no readout to undo it."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "fixed"
+      },
+      {
+        "id": "de8cc35",
+        "says": "The lanes never sit under the band along the foot of the pane",
+        "when": "2026-09-16T10:33:17+00:00",
+        "detail": [
+          "The fit had the pane's whole height while the band stood over its bottom 248px, so the lowest lane sat under the band by 190px at 1500 wide and 19px at every width below 900. The room is the pane less the band, read off the band itself; the lanes are fitted as tall as the box they hang off really stands; and under the band only, the fit may pull out past the floor as far as the set needs, no further than 0.28, so a long chain and the fan keep their margin rather than a box on an edge. Measured at twelve widths from 1500 to 360: 0px under the band at all."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "5d9d94f",
+        "says": "The fit's own floor, the bird in plain view, and two commits that never shipped",
+        "when": "2026-09-16T08:36:11+00:00",
+        "detail": [
+          "Hypatia's tip, carrying two commits that had been sitting unshipped: her c222207, the fit having its own floor because the key's floor put the page off a phone, and euler's 923bea9, the drawing check that said no drawing was there about a bird in plain view. Both are now ancestors of trunk, checked rather than assumed.",
+          "Why they sat, because the mechanism matters more than the two commits.",
+          "Neither was lost. c222207 was never on trunk at any point: the last merge of hypatia before this one became 42208f9, and c222207 is timestamped after it. The one reset this seat made tonight discarded a held merge that was afterwards re-merged and shipped, and happened before c222207 existed. It was not merged and dropped, and it was not skipped after being handed over. It was never handed over at all.",
+          "The rule here is that this seat acts when a branch is named and idles otherwise, which is the right rule for usage. The gap is that a lane's rule is different: a lane pushes and considers the work delivered. Between those two, a commit can sit for hours with the lane certain it shipped and the merge seat certain it was not yet its turn. Nothing failed. There is simply no step anywhere that compares what the lanes have pushed against what trunk carries."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "5c2a8d4",
     "when": "2026-09-16T08:03:57+00:00",
@@ -958,31 +1011,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "016b1f5",
-    "when": "2026-09-15T08:24:36+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "ee8f32f",
-        "says": "One undo takes back an edit, the still under a solid is the object, and the limit and the undo are photographed",
-        "when": "2026-09-15T08:20:29+00:00",
-        "detail": [
-          "Three things the judged walk still rested on a suite for, or fell short on.",
-          "The pitch limit and the undo are now in docs/shots: the box pinned at 85° with the hand still down, where it came to rest after, the word back after one undo and one redo, and the part back at 302 × 227 after undo.",
-          "One undo takes back an edit, not a letter. Typing writes the document a keystroke at a time and each write pushed its own undo entry, so taking a word off a face was eleven presses. `pushEdit` in the store keys a run of writes to one field: the first pushes, the rest within 1.5 s ride on it, and any other push, an undo or a redo ends the run. `setCubeFace` uses it per face and field; `updateNode` uses it for any patch that touches only the typed fields (prompt, content, data, label), so the same change serves the part's own prompt, and that is measured too: twenty-three keystrokes, one press, the size untouched. Clearing a face stays a step of its own.",
-          "The still under a solid is the object, not one front face: `cubeStill` draws the box at its resting pose, orthographic, every visible face an affine map of its own picture, shaded by the lamp, the words on it. A box nobody has written on is still a box in the fallback. Measured as 512 × 360 with 89 distinct colours at five bits where the front face alone gave one."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
