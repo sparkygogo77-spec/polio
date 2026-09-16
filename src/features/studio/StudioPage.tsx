@@ -308,7 +308,9 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    *
    *   1. the search's own words    (below xl)  — it becomes a magnifier
    *   2. the ink hues              (below lg)  — only out while drawing
-   *   3. the zoom readout          (below lg)  — the minus and plus stay
+   *   3. (was the zoom readout, and it no longer gives way at all — it is
+   *       the one press that returns the page to the size that fits, and a
+   *       way back has to be on screen to be one)
    *   4. Fit and Wires             (below lg)  — both have a key, f and w
    *   5. Updates entirely          (below lg)
    *   6. the search entirely       (below md)  — mod+k still opens it
@@ -336,7 +338,25 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    * a comment, not a guarantee.
    */
   return (
-    <div data-studio-bar="" className="no-bars overflow-x-auto overflow-y-visible flex shrink-0 items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5">
+    <div
+      data-studio-bar=""
+      /*
+       * It WRAPS below md, and the comment above needs that to stay true.
+       *
+       * "Nothing is cut off now" was written for a bar that fits, and at a
+       * 375 window it does not: measured, the bar wants 542 in 375 and hangs
+       * 167 off the right. What was off it was not the least important thing
+       * — it was the zoom cluster's plus key, More tools, Preview and Finish.
+       * A row that scrolls sideways is not an answer on a phone: nothing
+       * says it scrolls, so the controls past the edge are gone as far as
+       * anyone can tell.
+       *
+       * Two rows cost about 34px of the pane's height at that width and give
+       * back every control the ladder below promises never goes. The ladder
+       * is unchanged above md, where one row still fits.
+       */
+      className="no-bars flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-panel/60 px-2 py-1.5 md:flex-nowrap md:overflow-x-auto md:overflow-y-visible"
+    >
       <SiteHead />
       <span className="mx-1 h-4 w-px bg-border" />
       <PageChips />
@@ -431,7 +451,10 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
       </Tooltip>
 
-      <div className="ml-1 flex items-center gap-0.5 rounded-md border border-border bg-elevated px-0.5">
+      {/* `shrink-0` so the three are one thing. Cut in half is the worst of
+          the three states: at 375 the minus was on screen and the plus was
+          not, which is a control that can only make the page smaller. */}
+      <div className="ml-1 flex shrink-0 items-center gap-0.5 rounded-md border border-border bg-elevated px-0.5">
         <Button variant="ghost" size="iconXs" aria-label="Zoom out" onClick={() => useStudio.getState().setZoom(zoom * 0.9)}>
           <ZoomOut />
         </Button>
@@ -439,7 +462,12 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           type="button"
           aria-label="Zoom readout"
           onClick={() => useStudio.getState().requestFit()}
-          className="num hidden w-10 text-center text-[10px] text-fg-muted hover:text-fg lg:block"
+          /* Rung 3 of the ladder above said this goes below lg and the minus
+             and plus stay. It stays at every width now, and the ladder says
+             so: it is not only a readout, it is the one press that puts the
+             page back where it fits, and a way back that is not on screen is
+             not a way back. Forty pixels, and the row wraps to hold them. */
+          className="num block w-10 text-center text-[10px] text-fg-muted hover:text-fg"
         >
           {Math.round(zoom * 100)}%
         </button>

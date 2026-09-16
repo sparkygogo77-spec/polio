@@ -649,6 +649,8 @@ interface StudioState extends Doc {
   setZoom: (z: number) => void;
   /** Set by the board's fit only: floored at `FIT_MIN`, not `ZOOM_MIN`. */
   setFitZoom: (z: number) => void;
+  /** What the board's fit last asked for. The zoom keys never go above it. */
+  fitAt: number;
   setPan: (p: { x: number; y: number }) => void;
   setFrameWidth: (w: number) => void;
   requestFit: () => void;
@@ -1049,6 +1051,7 @@ export const useStudio = create<StudioState>()(
         inkHue: 265,
         inkWidth: 3,
         zoom: 1,
+        fitAt: ZOOM_MIN,
         pan: { x: 0, y: 0 },
         showAllFormat: false,
         showWires: true,
@@ -1586,10 +1589,26 @@ export const useStudio = create<StudioState>()(
         },
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
-        setZoom: (z) => set({ zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)) }),
+        /*
+         * The zoom key's floor is its own, EXCEPT that it is never above the
+         * fit. Measured at 375: the fit is 0.142, `ZOOM_MIN` is 0.25, and
+         * pressing zoom OUT took the page from 247 to 436 — bigger, off the
+         * right edge of a 375 pane, and the button did the opposite of its
+         * name. The gap is mine: `FIT_MIN` let the fit go below the floor the
+         * keys clamp to, so the first press of either key jumped up to 0.25.
+         *
+         * A person may always zoom out as far as the page is drawn when it
+         * fits, and no further; they may never be pushed larger by asking for
+         * smaller.
+         */
+        setZoom: (z) => set((s) => ({ zoom: Math.max(Math.min(ZOOM_MIN, s.fitAt), Math.min(ZOOM_MAX, z)) })),
         /* The board's own fit, floored at `FIT_MIN` rather than the key's
-           `ZOOM_MIN` — see the note on both. Nothing else may use this. */
-        setFitZoom: (z) => set({ zoom: Math.max(FIT_MIN, Math.min(ZOOM_MAX, z)) }),
+           `ZOOM_MIN` — see the note on both. Nothing else may use this. It
+           records what it asked for, which is the keys' floor above. */
+        setFitZoom: (z) => {
+          const at = Math.max(FIT_MIN, Math.min(ZOOM_MAX, z));
+          set({ zoom: at, fitAt: at });
+        },
         setPan: (p) => set({ pan: p }),
         setFrameWidth: (w) => set((s) => ({ frameWidth: w, fitNonce: s.fitNonce + 1 })),
         requestFit: () => set((s) => ({ fitNonce: s.fitNonce + 1 })),
