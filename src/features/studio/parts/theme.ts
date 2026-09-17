@@ -6,7 +6,7 @@
  */
 import type * as React from "react";
 import type { FormatValues } from "../format";
-import { castFrom, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
+import { liftCss, css as cssColour, lands, paletteFromHue, parseColor, contrast, textureCss, withAlpha, ROLES, type Light, type Look, type Palette, type RoleId } from "../look";
 
 // Re-exported so the primitives can tint a role without reaching outside
 // `parts/` — see `types.ts` for why that line matters.
@@ -303,18 +303,10 @@ export type NodeColour = Partial<Record<RoleId, string>>;
  */
 export function liftTheme(t: Theme, light: Light | undefined, cx: number, cy: number): Theme {
   if (!light?.on) return t;
-  const cast = castFrom(light, cx, cy);
-  if (!cast) return t;
-  const dark = Math.max(0, Math.min(0.9, light.strength));
+  const css = liftCss(light, cx, cy);
+  if (!css) return t;
   const away = Math.hypot(cx - light.x, cy - light.y) || 0.0001;
   const from = { x: (light.x - cx) / away, y: (light.y - cy) / away };
-  // Two shadows: a tight one that seats the box on the page, and a long one
-  // that carries the direction. Both point away from the lamp.
-  const near = `${Math.round(cast.dx * 0.35)}px ${Math.round(cast.dy * 0.35)}px ${Math.round(cast.blur * 0.4)}px oklch(0 0 0 / ${(dark * 0.5).toFixed(3)})`;
-  const far = `${cast.dx}px ${cast.dy}px ${cast.blur}px oklch(0 0 0 / ${(dark * 0.55).toFixed(3)})`;
-  // The lit face: a wash coming from the lamp's side, warm, and very slight.
-  const deg = Math.round((Math.atan2(from.x, from.y) * 180) / Math.PI + 180);
-  const lit = `linear-gradient(${deg}deg, oklch(1 0.02 ${Math.round(light.warmth)} / ${(0.1 + dark * 0.12).toFixed(3)}), transparent 62%)`;
   /*
    * Through a variable, with the committed value as the fallback.
    *
@@ -325,7 +317,7 @@ export function liftTheme(t: Theme, light: Light | undefined, cx: number, cy: nu
    * — and while the sun is in somebody's hand `lightRig.ts` sets the variable
    * on each part's box instead, once a frame, with no render at all.
    */
-  return { ...t, shadow: `var(--lift-shadow, ${near}, ${far})`, sheen: `var(--lift-sheen, ${lit})`, lightFrom: from };
+  return { ...t, shadow: `var(--lift-shadow, ${css.shadow})`, sheen: `var(--lift-sheen, ${css.sheen})`, lightFrom: from };
 }
 
 export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): Theme {

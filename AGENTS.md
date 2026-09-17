@@ -281,6 +281,21 @@ sitting at zero is a box that is already there and empty. "Haven't seen the
 timeline yet" includes a session that has only just started, which reverses
 the older rule that a reload showed everything as it stood.
 
+**A control is dead if the pixels do not move.** That is the test, and the
+light panel is where it was written: `tests/light-alive.mjs` moves every
+control end to end and reads the board back as pixels. Two were dead. "How
+high it hangs" scaled the shadow by `min(3, dist * reach) * lift`, where
+`dist` is a fraction of the page — the product ran 0.23 to 0.02 and never
+came near the 3 it was held under, so the whole control was worth two
+pixels of shadow; `castFrom` now measures the length in multiples of how
+far the thing stands off the page. "Warmth" tinted a lit face that one
+component in the app painted, at `oklch(1 0.02 …)`, a chroma at which no
+hue can be read; the wash is painted by `Fill` on every part now and
+carries a colour. And there was one formula in two places, `liftVars` for
+the board and `liftTheme` for the parts, which had drifted — both call
+`look.liftCss` now, because the copy that was wrong was the one on the
+board, which is the one anybody would have looked at.
+
 **The fit belongs to the room, so it follows the room.** It used to be one
 attempt in one frame after the timeline mounted, and it gave up in silence
 if the pane had not laid out yet — and because the pan is the component's

@@ -634,11 +634,24 @@ export function Timeline() {
     }
     const s = useStudio.getState();
     const scattered = homeAt.current;
-    // The store's own spots, and the scatter for anything never moved.
+    /*
+     * The store's own spots, and the scatter for anything never moved — at
+     * the height each box REALLY stands, not the height the catalogue says.
+     *
+     * A box is as tall as what it holds. The fit used the nominal size for
+     * every box and the measured one for the last, which the fan hangs
+     * off; measured, the difference is about 20px a box (126 against 106),
+     * so a column of three was fitted 60px shorter than it is and the top
+     * of it went over the frame's own top edge. He measured exactly that
+     * on the deploy: the first card 5px above the frame. Anything not on
+     * screen yet — a box still waiting its turn to arrive — has no height
+     * to read and keeps the nominal one, which is what it will stand at.
+     */
     const boxes = s.threads.map((t) => {
       const at = s.threadSpots[`box:${t.id}`] ?? scattered.get(t.id) ?? { x: 140, y: 130 };
       const size = sizeOf(t);
-      return { x: at.x, y: at.y, w: size.w, h: size.h };
+      const real = box.querySelector<HTMLElement>(`[data-box="${t.id}"]`)?.offsetHeight;
+      return { x: at.x, y: at.y, w: size.w, h: real && real > 8 ? real : size.h };
     });
     /* The lanes hang off the end and are part of what the view must hold. */
     const lastT = s.threads.at(-1);
