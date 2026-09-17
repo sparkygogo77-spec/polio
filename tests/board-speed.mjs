@@ -48,9 +48,16 @@ const check = (name, ok, detail = "") => {
   // extensionless import, which the bundler resolves and node does not.
   const theme = readFileSync(new URL("../src/features/studio/parts/theme.ts", import.meta.url), "utf8");
   const line = theme.split("\n").find((l) => l.includes("shadow:") && l.includes("return {")) ?? "";
-  check("a lit part asks for the shadow through a variable", /shadow: `var\(--lift-shadow, \$\{near\}, \$\{far\}\)`/.test(line), line.trim().slice(0, 74));
-  check("and for the sheen the same way", /sheen: `var\(--lift-sheen, \$\{lit\}\)`/.test(line));
-  check("with the worked-out values as the fallbacks, so an undragged board is unchanged", /\$\{near\}, \$\{far\}/.test(line) && /\$\{lit\}/.test(line));
+  // Pinned to the mechanism, not to the names of the locals. These three read
+  // `${near}, ${far}` and `${lit}` until the two drifted copies of the light
+  // formula became one in `look.ts`; the fallback is now whatever `liftCss`
+  // worked out, which is the same string by a different name, and a pin that
+  // spells the name fails on a rename that changed nothing.
+  check("a lit part asks for the shadow through a variable", /shadow: `var\(--lift-shadow, \$\{[^}]+\}\)`/.test(line), line.trim().slice(0, 74));
+  check("and for the sheen the same way", /sheen: `var\(--lift-sheen, \$\{[^}]+\}\)`/.test(line));
+  check("with the worked-out values as the fallbacks, so an undragged board is unchanged",
+    /var\(--lift-shadow, \$\{(?!\s*\}).+?\}\)/.test(line) && /var\(--lift-sheen, \$\{(?!\s*\}).+?\}\)/.test(line)
+    && !/var\(--lift-shadow\)/.test(line) && !/var\(--lift-sheen\)/.test(line));
 }
 
 const req = createRequire(import.meta.url);

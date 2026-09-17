@@ -36,8 +36,11 @@ const res = await fetch(`${URL_BASE}/api/version`);
 const v = await res.json();
 check("the version route answers", res.ok && typeof v === "object");
 check("with when the build was made", typeof v.builtAt === "string" && !Number.isNaN(Date.parse(v.builtAt)), String(v.builtAt));
+// The route still answers it, because something has to be able to say which
+// build is live. The mark on screen does not, under the rule in
+// `aboutTheSite.ts`: the website in its entirety never mentions how the work
+// is made, and "v0.1.0 · no commit named" was exactly that.
 check("and the commit, or a plain sentence saying none was given", (typeof v.commit === "string" && v.short === v.commit.slice(0, 7)) || (v.commit === null && /not given a commit/.test(v.note ?? "")), v.short ?? v.note);
-const expectCommit = typeof v.short === "string" ? v.short : null;
 
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
@@ -48,7 +51,7 @@ const onBuilds = page.locator("[data-build-mark]").first();
 check("the Builds page wears the build mark", (await onBuilds.count()) === 1);
 const said = (await onBuilds.innerText().catch(() => "")).replace(/\s+/g, " ").trim();
 check("naming the site's version", /\bv\d+\.\d+/.test(said), said || "-");
-check("and the commit, or that none was named", expectCommit ? said.includes(expectCommit) : /no commit/i.test(said), said || "-");
+check("and never the commit or the branch it was built from", !/commit|branch|\b[0-9a-f]{7,40}\b/i.test(said), said || "-");
 check("and how old the build is", /\b(just now|\d+\s?(s|m|h|d|min|hour|day)|ago|built)\b/i.test(said), said || "-");
 
 await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
