@@ -32,6 +32,7 @@ import { QueueList } from "./DrawQueue";
 import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
+import { staticSite } from "./staticSite";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { activeProject, useBuilds } from "@/features/builds/store";
@@ -477,6 +478,32 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const publishFiles = React.useMemo(() => [...siteFiles(markdown, json), ...files], [markdown, json, files]);
 
   /*
+   * WHAT ACTUALLY GOES UP: the site, and then everything that describes it.
+   *
+   * A publish used to carry the document and the blueprint and nothing a
+   * browser can open, so the repository imported at Vercel had nothing at
+   * its root and answered NOT_FOUND at every address. The pages are written
+   * here, at the moment of pressing, by rendering each one the way the
+   * preview does and reading its markup back (`staticSite`). No key, no
+   * model, nothing asked of anybody: pressing publish is now enough to have
+   * a website.
+   *
+   * Not in the memo above on purpose. Writing the pages mounts and unmounts
+   * a React root per page; that is work to do when somebody presses a
+   * button, not on every render of a dialog.
+   */
+  const everything = () => {
+    try {
+      return [...staticSite(), ...publishFiles];
+    } catch (err) {
+      /* The description still goes up, and the banner says the pages did
+         not — rather than a publish that silently carries half of it. */
+      setNote(`The pages could not be written out (${err instanceof Error ? err.message : "unknown"}), so only the document and the blueprint went up.`);
+      return publishFiles;
+    }
+  };
+
+  /*
    * WHERE A PUSH GOES, AND WHAT A NEW REPOSITORY IS CALLED.
    *
    * Both buttons push, so both ask this rather than each working it out.
@@ -513,11 +540,12 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const doPublish = async () => {
     if (busy) return;
     setNote(null);
-    setBusy(`Pushing ${publishFiles.length} files to GitHub…`);
+    const going = everything();
+    setBusy(`Pushing ${going.length} files to GitHub…`);
     try {
       const { project, repo, branch, create } = pushTo();
       const r = await publish({
-        files: publishFiles,
+        files: going,
         message: pubMessage.trim() || "Builder: publish the site",
         deploy: pubDeploy,
         repo,
@@ -557,9 +585,10 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     setNote(null);
     setLiveRun(null);
     const { project, repo, branch, create } = pushTo();
+    const going = everything();
     try {
-      setBusy(`Pushing ${publishFiles.length} files to GitHub…`);
-      const pushed = await publish({ files: publishFiles, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch, create });
+      setBusy(`Pushing ${going.length} files to GitHub…`);
+      const pushed = await publish({ files: going, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch, create });
       remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
       if (!pushed.ok) {
         setNote(pushed.message);
@@ -603,7 +632,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   };
 
   const downloadAll = () => {
-    for (const f of publishFiles) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
+    for (const f of everything()) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
   };
 
   const current = MODES.find((m) => m.value === mode)!;
