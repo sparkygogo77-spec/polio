@@ -1180,7 +1180,7 @@ export function Timeline() {
           as an iteration through the same door as everything else and
           stands in the chain in blue.
         */}
-        <Lanes from={lanesFrom} fromId={lastThread?.id ?? null} size={BOX} gap={GAP} />
+        <Lanes from={lanesFrom} fromId={lastThread?.id ?? null} size={BOX} gap={GAP} fromEnd={lastThread && isElement(lastThread) ? "drawing" : "iteration"} />
 
         {/*
           The cut line down each vine, and nothing else on a vine.

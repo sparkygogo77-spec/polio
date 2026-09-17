@@ -5,10 +5,10 @@ import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { cn } from "@/core/lib/cn";
 import { play } from "@/core/audio/engine";
 import { useStudio } from "./store";
-import { BAND_COLOUR, LANE_MODE, laneRects, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
+import { BAND_COLOUR, LANE_MODE, laneArm, laneRects, laneSpine, lanesOf, nextIn, shown, type Item, type Lane, type Lanes as LanesData, type Rect } from "./lanes";
 import { ITEMS } from "./lanesSample";
 import { BODY, EDGE } from "./boxGround";
-import { LANE_STRAND_WIDTH, paintStrand, strandBounds, strandEnvelope, type Point } from "./strand";
+import { bracketBounds, bracketEnvelope, LANE_STRAND_WIDTH, paintBracket, type VineEnd } from "./strand";
 
 /**
  * The three lanes, hanging off the end of the timeline.
@@ -37,7 +37,7 @@ import { LANE_STRAND_WIDTH, paintStrand, strandBounds, strandEnvelope, type Poin
 /** The checked-in offers, laned by band. */
 const SAMPLE: LanesData = lanesOf(ITEMS);
 
-export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect | null; fromId: string | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData }) {
+export function Lanes({ from, fromId, size, gap, lanes = SAMPLE, fromEnd = "iteration" }: { from: Rect | null; fromId: string | null; size: { w: number; h: number }; gap: { x: number; y: number }; lanes?: LanesData; fromEnd?: VineEnd }) {
   /*
    * The box they hang off is as tall as what it holds, not its nominal
    * size, and the middle lane's centre must be that box's centre to the
@@ -58,7 +58,7 @@ export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect 
   const rects = laneRects(from && tall ? { ...from, h: tall } : from, size, gap);
   return (
     <>
-      {from ? <Vines from={from && tall ? { ...from, h: tall } : from} to={rects} lanes={lanes} /> : null}
+      {from ? <Vines from={from && tall ? { ...from, h: tall } : from} to={rects} lanes={lanes} gap={gap} fromEnd={fromEnd} /> : null}
       {lanes.map((lane, i) => (
         <LaneBox key={lane.id} lane={lane} at={rects[i]!} index={i} />
       ))}
@@ -80,24 +80,33 @@ export function Lanes({ from, fromId, size, gap, lanes = SAMPLE }: { from: Rect 
  * whenever an end moves. Three vines are thirty fills; there is nothing
  * here worth a diff.
  */
-function Vines({ from, to, lanes }: { from: Rect; to: [Rect, Rect, Rect]; lanes: LanesData }) {
+function Vines({ from, to, lanes, gap, fromEnd }: { from: Rect; to: [Rect, Rect, Rect]; lanes: LanesData; gap: { x: number; y: number }; fromEnd: VineEnd }) {
   const el = React.useRef<HTMLCanvasElement>(null);
   /*
-   * Three vines out of one edge, and not out of one point: the top lane's
-   * leaves from the upper part of the box's right edge, the middle's from
-   * its middle, the bottom's from the lower part, a quarter of the box's
-   * height apart. Out of one point they were a knot for the first fifty
-   * pixels, three ribbons over each other, and nothing in it could be told
-   * green from red.
+   * ONE BRACKET, NOT THREE CURVES.
+   *
+   * A spine out of the middle of the box's right edge, a turn halfway
+   * across the reach, and an arm into each lane's own left edge — square
+   * corners, the same for the same pair every time, and nothing that moves.
+   * It was three bowed vines out of three points a quarter of the box's
+   * height apart, which is a fan however the lanes are arranged, and he
+   * has asked for the bracket the lanes had first: the geometry was right
+   * then, and what was wrong with it was that it was a flat line with no
+   * body. So it is the bracket, in the vine's own material, thinner than
+   * the timeline's (`LANE_STRAND_WIDTH`).
+   *
+   * The corners come from `laneBracket`, beside `laneRects`, so the shape
+   * and the places it joins cannot disagree.
    */
-  const starts: Point[] = [-1, 0, 1].map((k) => ({ x: from.x + from.w, y: from.y + from.h / 2 + (k * from.h) / 4 }));
-  const ends = to.map((r) => ({ x: r.x, y: r.y + r.h / 2 }));
-  const boxes = ends.map((e, i) => strandBounds(starts[i]!, e));
+  const spine = laneSpine(from, gap);
+  const arms = to.map((r) => laneArm(from, r, gap));
+  const runs = [spine, ...arms];
+  const boxes = runs.map((r) => bracketBounds(r, LANE_STRAND_WIDTH));
   const x0 = Math.floor(Math.min(...boxes.map((b) => b.x)));
   const y0 = Math.floor(Math.min(...boxes.map((b) => b.y)));
   const w = Math.ceil(Math.max(...boxes.map((b) => b.x + b.w)) - x0);
   const h = Math.ceil(Math.max(...boxes.map((b) => b.y + b.h)) - y0);
-  const key = `${starts.map((p) => `${p.x},${p.y}`).join(";")}>${ends.map((e) => `${e.x},${e.y}`).join(";")},${lanes.map((l) => l.band).join(",")}`;
+  const key = `${runs.map((r) => r.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join(">")).join(";")}|${fromEnd}|${lanes.map((l) => l.band).join(",")}`;
   React.useEffect(() => {
     const cv = el.current;
     const c = cv?.getContext("2d");
@@ -107,19 +116,20 @@ function Vines({ from, to, lanes }: { from: Rect; to: [Rect, Rect, Rect]; lanes:
     cv.height = Math.max(1, Math.round(h * scale));
     c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
     c.clearRect(x0, y0, w, h);
-    ends.forEach((e, i) => {
-      const band = lanes[i]!.band;
-      paintStrand(c, starts[i]!, e, { tone: "landed", ends: [band, band], width: LANE_STRAND_WIDTH });
-    });
+    // The spine first, in the box's own colour, then the three arms out of
+    // it, each dissipating from that colour into its lane's. They meet only
+    // at the turn, where all four are the box's colour, so nothing shows.
+    paintBracket(c, spine, { ends: [fromEnd, fromEnd], width: LANE_STRAND_WIDTH });
+    arms.forEach((r, i) => paintBracket(c, r, { ends: [fromEnd, lanes[i]!.band], width: LANE_STRAND_WIDTH }));
     // Everything the paint depends on is in `key`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   /*
-   * The cloud over each vine, as the timeline lays it over its own: one
-   * element per vine carrying the construct's drifting tile, clipped to the
-   * ribbon's body, at the phase its place gives it, so a lane's vine is the
-   * same weather as the box it leaves. Green and yellow take the verdant
-   * tile, red the ember one: the tiles the construct has.
+   * The cloud over each arm, as the timeline lays it over its own: one
+   * element per lane carrying the construct's drifting tile, clipped to the
+   * ribbon's body, at the phase its place gives it, so a lane's bracket is
+   * the same weather as the box it leaves. Green and yellow take the
+   * verdant tile, red the ember one: the tiles the construct has.
    */
   const period = 512;
   return (
@@ -131,11 +141,10 @@ function Vines({ from, to, lanes }: { from: Rect; to: [Rect, Rect, Rect]; lanes:
         className="pointer-events-none absolute"
         style={{ left: x0, top: y0, width: w, height: h }}
       />
-      {ends.map((e, i) => {
-        const box = boxes[i]!;
+      {arms.map((r, i) => {
+        const box = boxes[i + 1]!;
         const band = lanes[i]!.band;
-        const at = (p: Point) => ({ x: p.x - box.x, y: p.y - box.y });
-        const d = [0, 1].map((side) => strandEnvelope(at(starts[i]!), at(e), side as 0 | 1, { ends: [band, band], width: LANE_STRAND_WIDTH })).filter(Boolean).join(" ");
+        const d = bracketEnvelope(r.map((p) => ({ x: p.x - box.x, y: p.y - box.y })), LANE_STRAND_WIDTH);
         return (
           <div
             key={band}

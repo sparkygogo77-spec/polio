@@ -109,22 +109,28 @@ check("…and the axis carries no groove: he saw the dark core band as a line do
  * material's own dark holds the middle, and the other comes up out of it.
  */
 /*
- * His words, later: the colours should fade into each other toward the
- * centre instead of switching, some green flowing into the red and some
- * red back into the green, each end still the majority of its own. So each
- * end's colour is laid over the dark as its own gradient, whole to HOLD
- * and thinning to nothing by 1 - HOLD, one from each end, and the two lie
- * over each other through the middle.
+ * His words, later: the colours should flow and dissipate into each other,
+ * with no end line on either. Two of them were laid over the dark as their
+ * own gradients, each whole to HOLD and thinning to nothing after it, and
+ * that is two ribbons overlapping however softly they are faded — sampled
+ * on the deploy, the hue crossed ninety degrees in eight pixels. So there
+ * is one fill a band whose colour is interpolated along the length, and
+ * nothing anywhere has a start or a stop.
  */
-check("the colour runs along the length: each end's colour is its own gradient, whole then thinning out toward the other end", (() => (
-  /const flow = \(colour: string, end: 0 \| 1\): CanvasGradient =>/.test(strandSrc)
-  && /g\.addColorStop\(HOLD, colour\);/.test(strandSrc) && /g\.addColorStop\(1 - HOLD, thin\(colour, 0\)\);/.test(strandSrc)
-  && /c\.fillStyle = flow\(near\[k\]!, 0\);/.test(strandSrc) && /c\.fillStyle = flow\(far\[k\]!, 1\);/.test(strandSrc)
+check("the colour runs along the length as one interpolated ramp, not as two gradients laid over each other", (() => (
+  /function along\(near: Lch, far: Lch, middle: Lch, u: number\): string/.test(strandSrc)
+  && /function ramp\(g: CanvasGradient/.test(strandSrc)
+  && /ramp\(g, lch\(near\[k\]!\), lch\(far\[k\]!\), lch\(dusk\(near\[k\]!, far\[k\]!, floor\)\)\);/.test(strandSrc)
+  && !/const flow = \(colour: string/.test(strandSrc) && !/thin\(colour, 0\)/.test(strandSrc)
 ))());
-check("…each end holds the majority of its own colour: whole for three tenths, gone by seven, so the two overlap through the middle two fifths", (() => {
+check("…and it arrives at every stage flat, so there is not even a bend in it to see: smoothstep, not a straight fade", (() => (
+  /const ease = \(x: number\) => x \* x \* \(3 - 2 \* x\);/.test(strandSrc)
+  && /ease\(Math\.min\(1, \(s - HOLD\) \/ \(0\.5 - HOLD\)\)\)/.test(strandSrc)
+))());
+check("…each end keeps its own colour whole for a short hold and then dissipates the whole way to the middle", (() => {
   const hold = Number(/const HOLD = ([\d.]+)/.exec(strandSrc)?.[1]);
-  return hold >= 0.25 && hold < 0.5;
-})(), `hold ${/const HOLD = ([\d.]+)/.exec(strandSrc)?.[1]}`);
+  return hold > 0 && hold <= 0.2;
+})(), `hold ${/const HOLD = ([\d.]+)/.exec(strandSrc)?.[1]}, so the colour is moving over ${(100 * (1 - 2 * Number(/const HOLD = ([\d.]+)/.exec(strandSrc)?.[1]))).toFixed(0)}% of the run`);
 check("…and that dark is a clamp rather than a colour: pulled to char's lightness, where a hue cannot be read", (() => (
   /function dusk\(a: string, z: string, floor: Lch\): string/.test(strandSrc)
   && /Math\.min\(m\.l, floor\.l\)/.test(strandSrc) && /Math\.min\(m\.c, floor\.c\)/.test(strandSrc)
@@ -139,7 +145,7 @@ check("…and that dark is a clamp rather than a colour: pulled to char's lightn
  */
 check("every vine runs down into the dark along its middle, two boards of the same kind included; only a cut one is flat",
   /const ramped = !dead;/.test(strandSrc) && /if \(!ramped\) \{ c\.fillStyle = near\[k\]!; band\(k\); continue; \}/.test(strandSrc)
-  && /c\.fillStyle = dusk\(near\[k\]!, far\[k\]!, floor\);/.test(strandSrc) && !/c\.fillStyle = mixed \?/.test(strandSrc));
+  && /dusk\(near\[k\]!, far\[k\]!, floor\)/.test(strandSrc) && !/c\.fillStyle = mixed \?/.test(strandSrc));
 /*
  * The rim was a stop no band could reach. A band is drawn in the colour at
  * its middle, and with eight of them the highest `t` asked for is 0.9375 —

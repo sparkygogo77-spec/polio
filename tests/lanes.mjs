@@ -16,7 +16,7 @@
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
-import { BANDS, BAND_COLOUR, LANE_BANDS, PICKS, RATES, REACH, bandOf, costOf, laneRects, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/lanes.ts";
+import { BANDS, BAND_COLOUR, LANE_BANDS, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/lanes.ts";
 import { ITEMS } from "../src/features/studio/lanesSample.ts";
 import { LANE_STRAND_WIDTH, STRAND_WIDTH } from "../src/features/studio/strand.ts";
 import { MOLTEN_MEANS, moltenClass } from "../src/core/ui/molten.ts";
@@ -59,12 +59,31 @@ check("a fix carries what failed and a step carries a recommendation", items.eve
 check("Refresh goes to the next offer of the same lane and round the end, never the same one", SAMPLE.every((l) => l.items.every((it) => { const n = nextIn(l, it.id); return n.id !== it.id && l.items.includes(n); })));
 check("what a carried-out offer changed is written from the work, and only where the work was done", items.filter((it) => it.did).length >= 3 && items.filter((it) => it.did).every((it) => it.did.length > 120 && !/\{|\}|template/i.test(it.did)), `${items.filter((it) => it.did).length} of ${items.length} carried out`);
 check("no em dash in anything a lane prints", items.every((it) => !/—/.test(it.title) && !/—/.test(it.detail) && !/—/.test(it.did ?? "")));
-/* His drawing: a fan off the latest box to its right. Middle level with it, top up and to the right, bottom down and to the right. */
+/* A column off the latest box to its right, joined by a square bracket. It
+   was a fan for a while — each outer lane stepped to the right — and he has
+   rejected that: "the lanes also need to be aligned in a column the bottom
+   and top being outward is awkward". */
 const rects = laneRects({ x: 100, y: 200, w: 620, h: 234 }, { w: 620, h: 208 }, { x: 20, y: 54 });
 const cyOf = (r) => r.y + r.h / 2;
 check("the middle lane is beside the latest box, level: its vertical centre is the box's own, three gaps to its right so the vine has a run", rects[1].x === 720 + 20 * REACH && REACH === 3 && cyOf(rects[1]) === 200 + 234 / 2, `${cyOf(rects[1])} against ${200 + 234 / 2}, ${rects[1].x - 720} past the box`);
-check("the top lane is diagonally above, up and to the right; the bottom diagonally below, down and to the right",
-  rects[0].x > rects[1].x && cyOf(rects[0]) < cyOf(rects[1]) && rects[2].x > rects[1].x && cyOf(rects[2]) > cyOf(rects[1]) && rects[0].x === rects[2].x, `top at ${rects[0].x},${cyOf(rects[0])} · middle at ${rects[1].x},${cyOf(rects[1])} · bottom at ${rects[2].x},${cyOf(rects[2])}`);
+check("the three stand in a column: one left edge between them, one above the middle and one below",
+  rects[0].x === rects[1].x && rects[1].x === rects[2].x && cyOf(rects[0]) < cyOf(rects[1]) && cyOf(rects[2]) > cyOf(rects[1]),
+  `left edges ${rects.map((r) => r.x).join(", ")} · centres ${rects.map((r) => cyOf(r)).join(", ")}`);
+check("and evenly spaced, a box and a gap apart, which is what makes a square bracket read",
+  cyOf(rects[1]) - cyOf(rects[0]) === 234 + 54 && cyOf(rects[2]) - cyOf(rects[1]) === 234 + 54,
+  `${cyOf(rects[1]) - cyOf(rects[0])} and ${cyOf(rects[2]) - cyOf(rects[1])}, against a box of 234 and a gap of 54`);
+/* The bracket itself: a spine out of the box, a turn, an arm into each lane,
+   and every leg of it either level or upright. No diagonals anywhere. */
+const spine = laneSpine({ x: 100, y: 200, w: 620, h: 234 }, { x: 20, y: 54 });
+const armsOf = rects.map((r) => laneArm({ x: 100, y: 200, w: 620, h: 234 }, r, { x: 20, y: 54 }));
+const square = (run) => run.every((p, i) => i === 0 || Math.abs(p.x - run[i - 1].x) < 0.5 || Math.abs(p.y - run[i - 1].y) < 0.5);
+check("the spine leaves the box's right edge, level, and stops at the turn",
+  spine.length === 2 && spine[0].x === 720 && spine[0].y === cyOf(rects[1]) && spine[1].y === spine[0].y && spine[1].x === 720 + 20 * REACH * TURN,
+  `${spine.map((p) => `${p.x},${p.y}`).join(" → ")}`);
+check("every arm turns at a right angle and never runs diagonally", armsOf.every(square),
+  armsOf.map((a) => a.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join(">")).join(" · "));
+check("the middle lane's arm is one straight run, with no turn in it at all", armsOf[1].length === 2);
+check("the arms end on the lanes' own left edges, at their middles", armsOf.every((a, i) => a.at(-1).x === rects[i].x && a.at(-1).y === cyOf(rects[i])));
 check("every lane is as tall as the box it hangs off, so the centres can agree", rects.every((r) => r.h === 234 && r.w === 620));
 check("azure is a kind the construct knows, and it means a lane's work", moltenClass("azure") === "molten molten-azure" && /lane/.test(MOLTEN_MEANS.azure));
 
@@ -109,7 +128,11 @@ check("past the last real box, not among the history: every lane stands to its r
 /* His drawing, proven with the numbers: the middle lane's centre is the latest box's centre; the top is up and to the right; the bottom is down and to the right. */
 const mid = (r) => r.y + r.h / 2;
 check("the middle lane is beside the latest box and level with it: the two vertical centres are the same number", Math.abs(mid(laneRs[1]) - mid(last)) < 1 && laneRs[1].x > last.right, `middle lane centre ${mid(laneRs[1]).toFixed(1)}, latest box centre ${mid(last).toFixed(1)}`);
-check("the top lane is diagonally above, up and to the right of the middle; the bottom diagonally below, down and to the right", mid(laneRs[0]) < mid(last) && laneRs[0].x > laneRs[1].x && mid(laneRs[2]) > mid(last) && laneRs[2].x > laneRs[1].x, `top centre ${Math.round(mid(laneRs[0]))} at x ${Math.round(laneRs[0].x)} · middle ${Math.round(mid(laneRs[1]))} at x ${Math.round(laneRs[1].x)} · bottom ${Math.round(mid(laneRs[2]))} at x ${Math.round(laneRs[2].x)}`);
+check("and on the page the three stand in one column, evenly spaced",
+  Math.abs(laneRs[0].x - laneRs[1].x) < 1 && Math.abs(laneRs[2].x - laneRs[1].x) < 1
+  && Math.abs((mid(laneRs[1]) - mid(laneRs[0])) - (mid(laneRs[2]) - mid(laneRs[1]))) < 2
+  && mid(laneRs[0]) < mid(last) && mid(laneRs[2]) > mid(last),
+  `left edges ${laneRs.map((r) => Math.round(r.x)).join(", ")} · gaps ${Math.round(mid(laneRs[1]) - mid(laneRs[0]))} and ${Math.round(mid(laneRs[2]) - mid(laneRs[1]))}`);
 check("one above the box's centre line, one on it, one under it, and every lane as wide and as tall as the box", laneRs.every((r) => Math.abs(r.w - last.w) < 2 && Math.abs(r.h - last.h) < 2), laneRs.map((r) => `${Math.round(r.w)}×${Math.round(r.h)}`).join(", ") + ` against ${Math.round(last.w)}×${Math.round(last.h)}`);
 /*
  * The connectors are vines, his words: the timeline's own ribbon, slightly
@@ -159,11 +182,33 @@ check("a vine arrives at each lane at the lane's own middle, and it is the lane'
   arrivals.every((a, i) => a && a.rows > 0 && a.most && hueOk(LANE_BANDS[i], a.most.h) && Math.abs((a.span[0] + a.span[1]) / 2 - (laneP[i].y + laneP[i].h / 2)) <= 6),
   arrivals.map((a, i) => a && a.most ? `${LANE_BANDS[i]}: hue ${Math.round(a.most.h)} over ${a.thick.toFixed(0)}px, centred ${Math.round((a.span[0] + a.span[1]) / 2)} against the lane's ${Math.round(laneP[i].y + laneP[i].h / 2)}` : `${LANE_BANDS[i]}: nothing painted`).join(" · "));
 check("the vines are told apart by hue and nothing else: all three at the same brightness where they arrive", (() => { const l = arrivals.map((a) => a?.brightest?.l ?? -1); return l.every((v) => v >= 0) && Math.max(...l) - Math.min(...l) < 0.35; })(), `brightest pixel where each arrives: ${arrivals.map((a) => (a?.brightest?.l ?? 0).toFixed(2)).join(", ")}`);
-const midX = (lastP.x + lastP.w + laneP[1].x) / 2;
-/* The level vine bows a little off the centre line, so mid-run it is read in a window wide enough to hold the whole ribbon; the other two have left by then, a quarter of the box away. */
-const midRun = await column("[data-lane-vines]", midX, laneP[1].y + laneP[1].h / 2 - 40, laneP[1].y + laneP[1].h / 2 + 40);
-check("the vine dips along its middle, as the timeline's do: the brightest pixel at mid-run is darker than where it arrives", !!midRun && midRun.rows > 0 && !!arrivals[1]?.brightest && midRun.brightest.l < arrivals[1].brightest.l * 0.9, midRun ? `brightest at mid-run ${midRun.brightest.l.toFixed(3)} luminance, against ${(arrivals[1]?.brightest?.l ?? 0).toFixed(3)} where it arrives` : "nothing painted");
-check("slightly thinner than the timeline's vines, his words: three quarters of the width", LANE_STRAND_WIDTH < STRAND_WIDTH && LANE_STRAND_WIDTH >= STRAND_WIDTH * 0.6, `${LANE_STRAND_WIDTH} against ${STRAND_WIDTH}`);
+/*
+ * THE BLEND, ON THE ARM THAT ACTUALLY CHANGES COLOUR.
+ *
+ * The spine is the box's own colour and each arm dissipates from that into
+ * its lane's, so the arm down to the red lane leaves green and arrives red.
+ * Read across it at three heights: it must be green near the turn, red near
+ * the lane, and have less colour in it between than at either end — which is
+ * what dissipating into the material's own dark looks like from outside.
+ * "the green flows and dissipates into the red and vice versa", and "i can
+ * see the end lines of each" is what it must not do.
+ */
+const turnX = lastP.x + lastP.w + 20 * REACH * TURN;
+const armY = lastP.y + lastP.h / 2;
+const redY = laneP[2].y + laneP[2].h / 2;
+const downTheArm = [];
+for (const f of [0.12, 0.5, 0.88]) {
+  const y = armY + (redY - armY) * f;
+  downTheArm.push(await column("[data-lane-vines]", y, turnX - 40, turnX + 40, true));
+}
+const colourAt = downTheArm.map((r) => r?.most ?? null);
+check("the arm to the red lane leaves the box in the box's own green and arrives red",
+  !!colourAt[0] && !!colourAt[2] && colourAt[0].h >= 90 && colourAt[0].h <= 190 && (colourAt[2].h < 45 || colourAt[2].h > 330),
+  colourAt.map((c, i) => `${[12, 50, 88][i]}%: ${c ? `hue ${Math.round(c.h)}` : "nothing"}`).join(" · "));
+check("and dissipates between the two rather than ending: less colour in the middle than at either end",
+  !!colourAt[1] && !!colourAt[0] && !!colourAt[2] && colourAt[1].c < colourAt[0].c * 0.9 && colourAt[1].c < colourAt[2].c * 0.9,
+  colourAt.map((c, i) => `${[12, 50, 88][i]}%: ${c ? c.c.toFixed(3) : "—"}`).join(" · "));
+check("thinner than the timeline's vines, his words twice: a little under three fifths of the width", LANE_STRAND_WIDTH < STRAND_WIDTH * 0.7 && LANE_STRAND_WIDTH >= STRAND_WIDTH * 0.5, `${LANE_STRAND_WIDTH} against ${STRAND_WIDTH}`);
 /* Each ribbon is read across its own run at mid-length: the level lane vine down a column, the timeline's vine from the drawing to the latest box along a row where it runs mostly up and down, and down a column where it runs mostly across. A ribbon leaning off square reads a little wider than it is, and the shadow under it is in the count both times. */
 const timelineMid = await (async () => {
   const e1 = await plotOf('[data-box="e1"]');
@@ -175,7 +220,7 @@ const timelineMid = await (async () => {
     : await column("[data-timeline-vines]", (a.x + b.x) / 2, Math.min(a.y, b.y) - 200, Math.max(a.y, b.y) + 200);
   return read ? { ...read, how: upright ? "along a row" : "down a column" } : null;
 })();
-check("and it is, on the canvas: the level lane vine reads thinner across its run than the timeline's vine between the drawing and the latest box", !!midRun && !!timelineMid && midRun.rows > 0 && timelineMid.rows > 0 && midRun.thick < timelineMid.thick, `${(midRun?.thick ?? 0).toFixed(0)}px down a column against ${(timelineMid?.thick ?? 0).toFixed(0)}px ${timelineMid?.how ?? ""}, shadow included, nominal ${LANE_STRAND_WIDTH} against ${STRAND_WIDTH}`);
+check("and it is, on the canvas: the arm into a lane reads thinner across its run than the timeline's vine between the drawing and the latest box", !!arrivals[1] && !!timelineMid && arrivals[1].rows > 0 && timelineMid.rows > 0 && arrivals[1].thick < timelineMid.thick, `${(arrivals[1]?.thick ?? 0).toFixed(0)}px down a column against ${(timelineMid?.thick ?? 0).toFixed(0)}px ${timelineMid?.how ?? ""}, shadow included, nominal ${LANE_STRAND_WIDTH} against ${STRAND_WIDTH}`);
 check("every lane wears the same azure construct, and no lane is a thread", (await lanes.evaluateAll((els) => els.every((e) => e.classList.contains("molten-azure") && !e.hasAttribute("data-box")))));
 const bands = await lanes.evaluateAll((els) => els.map((e) => ({ band: e.getAttribute("data-lane-band"), line: getComputedStyle(e.querySelector("[data-lane-band-line]")).borderTopColor })));
 check("inside each rim is one line in the lane's colour, and nothing else is coloured by cost", bands.every((b) => b.line === BAND_COLOUR[b.band]) && new Set(bands.map((b) => b.line)).size === new Set(bands.map((b) => b.band)).size, bands.map((b) => `${b.band}`).join(", "));
@@ -262,7 +307,7 @@ check("nor at 480 wide, where the band is what a phone shows", narrow.shared ===
 check("and the lanes are still on the pane to be found, not hidden", narrow.onPane === 3, `${narrow.onPane} of 3 on the pane above the band`);
 const lastN = await rectOf(page.locator('[data-box="g1"]'));
 const lanesN = await lanes.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }));
-check("and the fan still reads as his drawing there: middle level with the latest box, top up and right, bottom down and right", Math.abs(mid(lanesN[1]) - mid(lastN)) < 1 && lanesN[0].x > lanesN[1].x && mid(lanesN[0]) < mid(lastN) && lanesN[2].x > lanesN[1].x && mid(lanesN[2]) > mid(lastN), `middle centre ${mid(lanesN[1]).toFixed(1)} against ${mid(lastN).toFixed(1)}`);
+check("and the column still holds there: middle level with the latest box, one left edge between the three", Math.abs(mid(lanesN[1]) - mid(lastN)) < 1 && Math.abs(lanesN[0].x - lanesN[1].x) < 1 && Math.abs(lanesN[2].x - lanesN[1].x) < 1 && mid(lanesN[0]) < mid(lastN) && mid(lanesN[2]) > mid(lastN), `middle centre ${mid(lanesN[1]).toFixed(1)} against ${mid(lastN).toFixed(1)}, left edges ${lanesN.map((r) => Math.round(r.x)).join(", ")}`);
 await shot("narrow");
 await page.setViewportSize({ width: 1500, height: 950 });
 await page.reload({ waitUntil: "networkidle" });

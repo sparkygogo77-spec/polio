@@ -314,11 +314,16 @@ const SECTION: Record<VineEnd, string[]> = {
 export const STRAND_WIDTH = 24;
 
 /**
- * A lane's vine is slightly thinner than the timeline's: his words. Three
- * quarters of the width, so it is plainly the same ribbon and plainly the
- * lighter one.
+ * A lane's bracket is thinner than the timeline's vines: his words, twice.
+ *
+ * Three quarters was the first answer and he asked again, so it is now
+ * fourteen against twenty-four — a little under three fifths, and plainly
+ * the lighter line of the two. It does not go below this: the section is
+ * ten bands to a side, so at fourteen the rim is seven tenths of a pixel,
+ * and thinner than that the lit edge stops being an edge and the ribbon
+ * goes back to being the flat line the bracket used to be.
  */
-export const LANE_STRAND_WIDTH = 18;
+export const LANE_STRAND_WIDTH = 14;
 
 /**
  * Where the colour stops being one end's and starts being the other's.
@@ -332,16 +337,53 @@ export const LANE_STRAND_WIDTH = 18;
 const FADE = 0.42;
 
 /**
- * How much of the run each end's colour holds whole before it starts to
- * let go: three tenths. From there it thins out toward the far end and is
- * gone at seven tenths, and the far end's colour comes in the same way
- * from the other side, so through the middle two fifths the two are laid
- * over each other, each fading as the other rises, over the material's
- * own dark. His words: the colours fade into each other toward the
- * centre instead of switching, some green flowing into the red and some
- * red back into the green, each end still the majority of its own colour.
+ * How much of the run each end's colour keeps whole before it begins to go.
+ *
+ * AN EIGHTH, AND THEN IT DISSIPATES THE WHOLE WAY TO THE MIDDLE. It was
+ * three tenths, with each end's colour laid over the other as a stroke of
+ * its own that faded out — and two strokes, each with a start and a stop,
+ * is two ribbons overlapping however gently they are faded. Sampled along
+ * the run on the deploy, the hue crossed ninety degrees in eight pixels
+ * while the chroma was still a tenth: green ended and red began, and he
+ * could see both ends.
+ *
+ * So there is no overlay. Each band is one fill whose colour is
+ * interpolated along the length — its own end's colour, easing into the
+ * material's own dark by the middle, and out again into the other end's.
+ * Nothing has a start or a stop to see. The ease is `smoothstep`, which
+ * arrives at both the hold and the middle with no slope at all, so there
+ * is not even a bend in the run to catch the eye where one stage becomes
+ * the next.
  */
-const HOLD = 0.3;
+const HOLD = 0.12;
+
+/** How many stops the ramp is written with: one every fortieth of the run. */
+const RAMP_STOPS = 40;
+
+/** Nought to one, arriving at both ends flat, so a ramp has no corners in it. */
+const ease = (x: number) => x * x * (3 - 2 * x);
+
+/**
+ * One band's colour at `u` along the run: its own end's, dissolving.
+ *
+ * Whole to `HOLD`, then easing into the dark by the middle. The far half is
+ * the same thing mirrored, so the two meet at the middle at exactly the
+ * same colour and with exactly the same slope, which is nought.
+ */
+function along(near: Lch, far: Lch, middle: Lch, u: number): string {
+  const own = u <= 0.5 ? near : far;
+  const s = u <= 0.5 ? u : 1 - u;
+  const k = s <= HOLD ? 0 : ease(Math.min(1, (s - HOLD) / (0.5 - HOLD)));
+  return mix(own, middle, k);
+}
+
+/** Write that ramp onto a gradient, over the stretch of the run the gradient spans. */
+function ramp(g: CanvasGradient, near: Lch, far: Lch, middle: Lch, a = 0, z = 1) {
+  for (let i = 0; i <= RAMP_STOPS; i++) {
+    const at = i / RAMP_STOPS;
+    g.addColorStop(at, along(near, far, middle, a + (z - a) * at));
+  }
+}
 
 /**
  * How far the path bows away from the straight line, as a share of the run.
@@ -610,6 +652,155 @@ export function strandEnvelope(
  */
 export const SEAM_WIDTH = 7;
 
+/* ------------------------------------------------------------------ */
+/* The bracket: the same ribbon, with square corners                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A run of straight legs with right-angle turns, drawn in the same material.
+ *
+ * The lanes are not joined by curves. They are a **bracket**: a spine out of
+ * the last box, a turn, and an arm into each lane, square corners, fixed,
+ * never moving. That was the original shape and the geometry was right; what
+ * was wrong with it was that it was a flat line with no body. So it is the
+ * vine's own section — dark down the axis, lit at both edges, the cloud over
+ * it — bent round square corners instead of bowed, and thinner than the
+ * timeline's.
+ *
+ * A corner is mitred by letting each leg overrun it by half the ribbon's
+ * width. Without that the outside of every turn is a missing square the size
+ * of the half-width, because a leg's end is square to its own direction and
+ * the next leg's start is square to another. With it, the two fills cover the
+ * corner between them and the turn is a clean right angle.
+ *
+ * The colour runs along the whole bracket, not along each leg: a leg's
+ * gradient is written over the stretch of the *whole* run that leg occupies,
+ * so the two colours dissipate into each other across the turns exactly as
+ * they do along a curve, and a corner is not a place where anything starts
+ * or stops.
+ */
+interface Leg {
+  a: Point;
+  z: Point;
+  /** Where this leg begins and ends, as a share of the whole run. */
+  t0: number;
+  t1: number;
+  /** The unit normal: which way "across" is on this leg. */
+  nx: number;
+  ny: number;
+}
+
+function legsOf(corners: Point[], half: number): Leg[] {
+  const out: Leg[] = [];
+  const runs: { a: Point; z: Point; len: number }[] = [];
+  for (let i = 0; i + 1 < corners.length; i++) {
+    const a = corners[i]!;
+    const z = corners[i + 1]!;
+    const len = Math.hypot(z.x - a.x, z.y - a.y);
+    if (len > 0.5) runs.push({ a, z, len });
+  }
+  const total = runs.reduce((n, r) => n + r.len, 0) || 1;
+  let done = 0;
+  runs.forEach((r, i) => {
+    const ux = (r.z.x - r.a.x) / r.len;
+    const uy = (r.z.y - r.a.y) / r.len;
+    // Overrun into the corners, and only into the corners: the two ends of
+    // the whole bracket stay where the box and the lane put them.
+    const back = i > 0 ? half : 0;
+    const on = i + 1 < runs.length ? half : 0;
+    out.push({
+      a: { x: r.a.x - ux * back, y: r.a.y - uy * back },
+      z: { x: r.z.x + ux * on, y: r.z.y + uy * on },
+      t0: (done - back) / total,
+      t1: (done + r.len + on) / total,
+      nx: -uy,
+      ny: ux,
+    });
+    done += r.len;
+  });
+  return out;
+}
+
+/** A leg, as samples the ribbon's own band maths can read. */
+function legSamples(leg: Leg): Sample[] {
+  const len = Math.hypot(leg.z.x - leg.a.x, leg.z.y - leg.a.y);
+  const n = Math.max(2, Math.min(24, Math.round(len / 9)));
+  const out: Sample[] = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    out.push({
+      x: leg.a.x + (leg.z.x - leg.a.x) * u,
+      y: leg.a.y + (leg.z.y - leg.a.y) * u,
+      nx: leg.nx,
+      ny: leg.ny,
+      t: leg.t0 + (leg.t1 - leg.t0) * u,
+    });
+  }
+  return out;
+}
+
+/** Everything a bracket through these corners can touch. */
+export function bracketBounds(corners: Point[], width = LANE_STRAND_WIDTH): { x: number; y: number; w: number; h: number } {
+  const xs = corners.map((p) => p.x);
+  const ys = corners.map((p) => p.y);
+  const pad = width * 1.5;
+  const x = Math.min(...xs) - pad;
+  const y = Math.min(...ys) - pad;
+  return { x, y, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 };
+}
+
+/** The bracket's body, as an SVG path, for the cloud to be clipped to. */
+export function bracketEnvelope(corners: Point[], width = LANE_STRAND_WIDTH): string {
+  const half = width / 2;
+  return legsOf(corners, half)
+    .map((leg) => {
+      const s = legSamples(leg);
+      return `${sidePath(s, 0, CLOUD_IN, CLOUD_OUT, half, null)}${sidePath(s, 1, CLOUD_IN, CLOUD_OUT, half, null)}`;
+    })
+    .join(" ");
+}
+
+export function paintBracket(
+  c: CanvasRenderingContext2D,
+  corners: Point[],
+  opts: { ends: [VineEnd, VineEnd]; width?: number; lit?: number },
+) {
+  const width = opts.width ?? LANE_STRAND_WIDTH;
+  const half = width / 2;
+  const legs = legsOf(corners, half);
+  if (!legs.length) return;
+  const near = SECTION[opts.ends[0]]!;
+  const far = SECTION[opts.ends[1]]!;
+  const floor = lch(VINE[opts.ends[0]].char);
+
+  c.save();
+  c.lineCap = "butt";
+  c.lineJoin = "miter";
+  c.miterLimit = 4;
+  c.globalAlpha = opts.lit ?? 1;
+
+  // The shadow, the whole run in one stroke, so it sits on the ground.
+  c.strokeStyle = "oklch(0.08 0.01 150)";
+  c.lineWidth = width * 1.16;
+  c.beginPath();
+  corners.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
+  c.stroke();
+
+  for (let k = 0; k < BANDS; k++) {
+    const middle = lch(dusk(near[k]!, far[k]!, floor));
+    for (const leg of legs) {
+      const s = legSamples(leg);
+      const g = c.createLinearGradient(leg.a.x, leg.a.y, leg.z.x, leg.z.y);
+      ramp(g, lch(near[k]!), lch(far[k]!), middle, leg.t0, leg.t1);
+      c.fillStyle = g;
+      c.beginPath();
+      for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
+      c.fill();
+    }
+  }
+  c.restore();
+}
+
 /**
  * The cut line down the middle of a vine, as an SVG path.
  *
@@ -690,27 +881,14 @@ export function paintStrand(
    * stays flat, and it has no colour to lose.
    */
   const ramped = !dead;
-  /** A colour with an alpha on it, for the ends to thin out by. */
-  const thin = (colour: string, alpha: number) => colour.replace(/\)\s*$/, ` / ${alpha.toFixed(3)})`);
   /**
-   * One end's colour along the run: whole to `HOLD`, then thinning to
-   * nothing by `1 - HOLD`. The near end runs one way, the far end the
-   * other, and where they cross each lies over the other. The axis is the
-   * straight line between the boards and not the curve, which is right: a
-   * linear gradient projects onto its axis, so a point halfway along the
-   * bow is halfway along the gradient, and a vine still growing is
-   * coloured as it will be when it is done.
+   * The run, as one ramp per band.
+   *
+   * The axis is the straight line between the boards and not the curve,
+   * which is right: a linear gradient projects onto its axis, so a point
+   * halfway along the bow is halfway along the gradient, and a vine still
+   * growing is coloured as it will be when it is done.
    */
-  const flow = (colour: string, end: 0 | 1): CanvasGradient => {
-    const g = end === 0
-      ? c.createLinearGradient(from.x, from.y, to.x, to.y)
-      : c.createLinearGradient(to.x, to.y, from.x, from.y);
-    g.addColorStop(0, colour);
-    g.addColorStop(HOLD, colour);
-    g.addColorStop(1 - HOLD, thin(colour, 0));
-    g.addColorStop(1, thin(colour, 0));
-    return g;
-  };
   const band = (k: number) => {
     c.beginPath();
     for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
@@ -719,17 +897,14 @@ export function paintStrand(
   for (let k = 0; k < BANDS; k++) {
     if (!ramped) { c.fillStyle = near[k]!; band(k); continue; }
     /*
-     * Three fills a band: the material's own dark the whole length, then
-     * this end's colour laid over it and thinning out along the run, then
-     * the other end's coming the other way. Thirty fills for a vine of any
-     * length, and the two colours meet by lying over each other rather than
-     * by being mixed into a third.
+     * One fill a band, and one colour at every point of it. It was three —
+     * the dark the whole length, then each end's colour laid over it and
+     * thinned out — and that is two ribbons over a third however softly
+     * they are faded, which is exactly what he saw.
      */
-    c.fillStyle = dusk(near[k]!, far[k]!, floor);
-    band(k);
-    c.fillStyle = flow(near[k]!, 0);
-    band(k);
-    c.fillStyle = flow(far[k]!, 1);
+    const g = c.createLinearGradient(from.x, from.y, to.x, to.y);
+    ramp(g, lch(near[k]!), lch(far[k]!), lch(dusk(near[k]!, far[k]!, floor)));
+    c.fillStyle = g;
     band(k);
   }
 

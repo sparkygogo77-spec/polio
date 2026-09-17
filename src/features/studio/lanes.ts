@@ -206,38 +206,71 @@ export interface Rect {
 export const LANE_MODE = "lane";
 
 /**
- * Where the three lane boxes stand, from his drawing: a fan off the
- * latest box to its right, centred on that box. The middle lane is
- * beside it, level, its vertical centre the latest box's own. The top
- * lane is diagonally above, up and to the right; the bottom lane
- * diagonally below, down and to the right. One above the centre line,
- * one on it, one under it. Every lane is as tall as the box it hangs
- * off, so the middle's centre is the latest's centre to the pixel. With
- * no box at all they hang off where the first box would be.
+ * Where the three lane boxes stand: in a column, past the end of the run.
  *
- * Diagonal is a real step to the right, three tenths of a box, so the
- * three read as a fan and not as a column. When the chain has wrapped
- * and the row above the latest box has a box in the next column, the top
- * lane stands over part of it: that is where his drawing puts it, and the
- * lane sits under the real box rather than covering it.
+ * Same left edge, evenly spaced, the middle one level with the box they
+ * hang off — its vertical centre the latest box's own, to the pixel — and
+ * one above it and one below at a whole box and a gap apart. Every lane is
+ * as tall as the box it hangs off. With no box at all they hang off where
+ * the first box would be.
  *
- * The lanes stand three gaps past the latest box, not one: the vines
- * into them are the timeline's own ribbon, and at one gap the level
- * vine into the middle lane was a stub twenty pixels long with no run
- * to be a vine in. Sixty gives it one. The stagger of the top and
- * bottom lanes against the middle is unchanged.
+ * THE HISTORY, SO NOBODY REVERSES IT AGAIN. They stood in a column first,
+ * joined by flat square brackets. Then they were fanned — each outer lane
+ * stepped to the right, so the three read as a spray rather than a stack —
+ * and that is what he has now rejected: "the lanes also need to be aligned
+ * in a column the bottom and top being outward is awkward". A column is
+ * also what makes a square bracket read: arms of equal length turning at
+ * the same place into three left edges that line up. The fan and the
+ * bracket cannot both be right, and the column is the one that is.
+ *
+ * They stand three gaps past the latest box, not one: the bracket into them
+ * is the timeline's own ribbon, and at one gap there was no run to be a
+ * vine in. Sixty gives the spine, the turn and the arms somewhere to be.
  */
-export const DIAGONAL = 0.3;
 export const REACH = 3;
+
+/**
+ * Where the bracket turns, between the box and the lanes: halfway across
+ * the reach, so the spine out of the box and the arms into the lanes are
+ * the same length. `Lanes` draws it; it lives here because everything that
+ * says where a lane is says it in this one place.
+ */
+export const TURN = 0.5;
+
 export function laneRects(from: Rect | null, size: { w: number; h: number }, gap: { x: number; y: number }): [Rect, Rect, Rect] {
   const h = from ? from.h : size.h;
   const x = from ? from.x + from.w + gap.x * REACH : 140;
   const cy = from ? from.y + from.h / 2 : 130 + h / 2;
   const step = h + gap.y;
-  const diag = Math.round(size.w * DIAGONAL);
   return [
-    { x: x + diag, y: cy - step - h / 2, w: size.w, h },
+    { x, y: cy - step - h / 2, w: size.w, h },
     { x, y: cy - h / 2, w: size.w, h },
-    { x: x + diag, y: cy + step - h / 2, w: size.w, h },
+    { x, y: cy + step - h / 2, w: size.w, h },
   ];
+}
+
+/**
+ * The bracket, in two pieces, because one of them is shared.
+ *
+ * A spine leaves the middle of the box's right edge and runs to the turn.
+ * Three arms leave that turn, one for each lane: up or down to the lane's
+ * own middle, then in to its left edge. Right angles everywhere, and the
+ * middle lane's arm is one straight run with no turn in it at all.
+ *
+ * The spine is one piece and is drawn once. Drawn as part of each arm it
+ * was painted three times over — green, then yellow, then red, and the last
+ * one won — which put a red stub on a green box. It belongs to the box, so
+ * it wears the box's own colour, and each arm dissipates from that into its
+ * lane's, which is the same rule the timeline's vines follow.
+ */
+export function laneSpine(from: Rect, gap: { x: number; y: number }): { x: number; y: number }[] {
+  const y = from.y + from.h / 2;
+  return [{ x: from.x + from.w, y }, { x: from.x + from.w + gap.x * REACH * TURN, y }];
+}
+
+export function laneArm(from: Rect, lane: Rect, gap: { x: number; y: number }): { x: number; y: number }[] {
+  const turn = { x: from.x + from.w + gap.x * REACH * TURN, y: from.y + from.h / 2 };
+  const into = { x: lane.x, y: lane.y + lane.h / 2 };
+  if (Math.abs(into.y - turn.y) < 0.5) return [turn, into];
+  return [turn, { x: turn.x, y: into.y }, into];
 }
