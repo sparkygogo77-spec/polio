@@ -325,6 +325,116 @@ const edges = () => page.evaluate(() => {
     `${back.above}px above, ${back.below}px below`);
 }
 
+/* ------------------------------------------------------------------ */
+/* 5. The middle is the middle of what he is looking at                 */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS MEASUREMENT, off the deploy at 1546x1278: the frame at (228, 87)
+ * 1318x1191, so its centre is (887, 683); the four update cards' box from
+ * (81, 28) to (414, 175), so their centre is (248, 101). The cards sat
+ * 639px left of the frame's centre and 582px above it, with their top edge
+ * 59px ABOVE the frame's own top edge — part of the timeline outside the
+ * timeline. The plot's transform read `matrix(0.683, 0, 0, 0.683, 0, 0)`:
+ * the scale right and the translation NOTHING.
+ *
+ * Two faults behind that, and this holds both shut. The pan is the
+ * component's own state and starts at zero on every mount while the zoom
+ * is the store's and survives, so a settle that does not run leaves
+ * exactly that matrix — and the settle was one attempt in one frame after
+ * mount, which gives up silently if the pane has not laid out yet. And
+ * what the fit centred was every box including the lane fan hanging off
+ * the last one, so the cards a person is actually looking at were pushed
+ * off to one side of their own middle.
+ *
+ * Measured at his size, on his shape of document.
+ */
+{
+  await page.setViewportSize({ width: 1546, height: 1278 });
+  await page.waitForTimeout(700);
+  await centre();
+  await page.waitForTimeout(1400);
+
+  const seen = await page.evaluate(() => {
+    const host = document.querySelector("[data-timeline]").getBoundingClientRect();
+    const band = document.querySelector("[data-studio-band]");
+    const bandH = band ? band.getBoundingClientRect().height : 0;
+    const plot = document.querySelector("[data-timeline-plot]");
+    const m = /matrix\(([-\d.]+), 0, 0, [-\d.]+, ([-\d.]+), ([-\d.]+)\)/.exec(getComputedStyle(plot).transform);
+    const set = [...document.querySelectorAll("[data-box]")].map((e) => e.getBoundingClientRect());
+    const x0 = Math.min(...set.map((r) => r.left)), x1 = Math.max(...set.map((r) => r.right));
+    const y0 = Math.min(...set.map((r) => r.top)), y1 = Math.max(...set.map((r) => r.bottom));
+    /* The room is the frame less the band that stands over its foot. */
+    return {
+      zoom: m ? Number(m[1]) : 1,
+      pan: m ? [Number(m[2]), Number(m[3])] : [0, 0],
+      offX: Math.round((x0 + x1) / 2 - (host.x + host.width / 2)),
+      offY: Math.round((y0 + y1) / 2 - (host.y + (host.height - bandH) / 2)),
+      room: [Math.round(host.width), Math.round(host.height - bandH)],
+      aboveFrame: Math.round(Math.max(0, host.y - y0)),
+      cards: set.length,
+    };
+  });
+
+  check("the plot is translated, not merely scaled", Math.hypot(seen.pan[0], seen.pan[1]) > 1,
+    `matrix(${seen.zoom.toFixed(3)}, 0, 0, ${seen.zoom.toFixed(3)}, ${seen.pan[0].toFixed(0)}, ${seen.pan[1].toFixed(0)})`);
+  check("no update is above the frame's own top edge", seen.aboveFrame === 0, `${seen.aboveFrame}px outside it`);
+  /*
+   * A fifth of the room, not a few pixels. "Nothing sits on an edge" wins
+   * over the middle where the two disagree (`timelineView.ts`), and the
+   * lane fan hanging off the last box is part of what has to stay on
+   * screen, so the updates are pulled a little off their own centre by
+   * design — measured, about 12% down the room at this size. What this
+   * rules out is his reading: 639px off on a 1318px frame, 582px up on a
+   * 1191px one, with part of the set outside the frame altogether.
+   */
+  check("the updates sit at the middle across", Math.abs(seen.offX) < seen.room[0] * 0.2,
+    `${seen.offX}px off the middle of a ${seen.room[0]}px room`);
+  check("and at the middle down the room", Math.abs(seen.offY) < seen.room[1] * 0.2,
+    `${seen.offY}px off the middle of a ${seen.room[1]}px room`);
+}
+
+/* ------------------------------------------------------------------ */
+/* 6. The fit belongs to the room, so it follows the room               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The fault behind his matrix, reproduced directly. The settle was one
+ * attempt in one frame after mount: open the timeline while the pane is
+ * small and it fits to that, and nothing ever runs it again — measured,
+ * the view stayed at scale 0.28 with 126px of the set above the frame's
+ * own top edge after the window went to 1546x1278.
+ */
+{
+  /* A page of its own: `owns` is a module variable that remembers a view
+     somebody moved, and every section above this one has moved it. This
+     is about a timeline nobody has touched, opened into a small room. */
+  const fresh = await context.newPage();
+  await fresh.setViewportSize({ width: 420, height: 240 });
+  await fresh.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await fresh.waitForTimeout(1200);
+  await fresh.locator("[data-finish]").first().click({ force: true });
+  await fresh.waitForTimeout(2200);
+  const small = await fresh.evaluate(() => {
+    const plot = document.querySelector("[data-timeline-plot]");
+    return /matrix\(([-\d.]+)/.exec(getComputedStyle(plot).transform)?.[1] ?? "1";
+  });
+  await fresh.setViewportSize({ width: 1546, height: 1278 });
+  await fresh.waitForTimeout(2200);
+  const big = await fresh.evaluate(() => {
+    const host = document.querySelector("[data-timeline]").getBoundingClientRect();
+    const plot = document.querySelector("[data-timeline-plot]");
+    const z = /matrix\(([-\d.]+)/.exec(getComputedStyle(plot).transform)?.[1] ?? "1";
+    const set = [...document.querySelectorAll("[data-box]")].map((r) => r.getBoundingClientRect());
+    const y0 = Math.min(...set.map((r) => r.top));
+    const x1 = Math.max(...set.map((r) => r.right));
+    return { zoom: Number(z), above: Math.round(Math.max(0, host.y - y0)), past: Math.round(Math.max(0, x1 - (host.x + host.width))) };
+  });
+  check("given more room, the fit takes it", big.zoom > Number(small) * 1.2, `${Number(small).toFixed(3)} in a small window → ${big.zoom.toFixed(3)} in a large one`);
+  check("and nothing is left outside the frame", big.above === 0 && big.past === 0, `${big.above}px above it, ${big.past}px past its right edge`);
+  await fresh.close();
+}
+
 await context.close();
 await browser.close();
 const failed = results.filter((r) => !r).length;

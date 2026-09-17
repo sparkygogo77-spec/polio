@@ -281,6 +281,20 @@ sitting at zero is a box that is already there and empty. "Haven't seen the
 timeline yet" includes a session that has only just started, which reverses
 the older rule that a reload showed everything as it stood.
 
+**The fit belongs to the room, so it follows the room.** It used to be one
+attempt in one frame after the timeline mounted, and it gave up in silence
+if the pane had not laid out yet — and because the pan is the component's
+own state starting at zero while the zoom is the store's and survives, what
+was left was the board's scale with no translation at all. That is the
+`matrix(0.683, 0, 0, 0.683, 0, 0)` he read off the deploy, with the updates
+pinned to the frame's top-left and part of the timeline outside the frame.
+Now a `ResizeObserver` on the frame and on the band re-runs it: it waits
+for a room with a size, it waits for a resize to stop before fitting to it,
+and it fits again when the arrival is over (the fan is measured off the
+last box, which is not there while the run is still coming in). A view
+somebody moved is theirs and is left alone unless the room has stranded it
+off an edge.
+
 **One readout, one press, both surfaces.** The timeline's zoom is the
 board's zoom — one number in one store — so the percentage in the bar was
 already showing whichever surface was in front and had nothing to press

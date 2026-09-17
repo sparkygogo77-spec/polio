@@ -125,16 +125,19 @@ export function settleView(
   let top = Infinity;
   let right = -Infinity;
   let bottom = -Infinity;
+  for (const b of boxes) {
+    left = Math.min(left, b.x);
+    top = Math.min(top, b.y);
+    right = Math.max(right, b.x + Math.max(1, b.w));
+    bottom = Math.max(bottom, b.y + Math.max(1, b.h));
+  }
+
   let mass = 0;
   let mx = 0;
   let my = 0;
   for (const b of boxes) {
     const w = Math.max(1, b.w);
     const h = Math.max(1, b.h);
-    left = Math.min(left, b.x);
-    top = Math.min(top, b.y);
-    right = Math.max(right, b.x + w);
-    bottom = Math.max(bottom, b.y + h);
     const weight = w * h;
     mass += weight;
     mx += (b.x + w / 2) * weight;

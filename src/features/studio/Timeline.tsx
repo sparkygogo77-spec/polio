@@ -673,11 +673,36 @@ export function Timeline() {
     const spanW = Math.max(...boxes.map((b) => b.x + b.w)) - Math.min(...boxes.map((b) => b.x));
     const needed = Math.min((room - SETTLE_MARGIN * 2) / Math.max(1, spanH), (box.clientWidth - SETTLE_MARGIN * 2) / Math.max(1, spanW));
     const min = band ? Math.max(0.28, Math.min(SETTLE_MIN_ZOOM, needed)) : SETTLE_MIN_ZOOM;
+    /*
+     * The whole set decides the middle, the fan included.
+     *
+     * I tried weighing only the update cards, on the reasoning that the
+     * fan is chrome and he is looking at the cards: it moved them 230px
+     * closer to the middle at 1546x1278. It also put 178px of the lowest
+     * lane under the band at the width `tests/lanes.mjs` checks, because
+     * the fit and the shove that keeps the fan clear are tuned against
+     * each other. A fan half under the band is a worse answer than cards
+     * a sixth of a room off centre, and his actual complaint was neither
+     * of those — so the fit is left as it was.
+     */
     const to = settleView(boxes, { w: box.clientWidth, h: room }, { min, max: zoomCeiling(box.clientWidth, widest) });
     stopSettle();
     if (!to) return;
+    /*
+     * The fan, kept off the band.
+     *
+     * The lanes stand as tall as the box they hang off, measured, which
+     * the nominal boxes above undercount; the whole margin covers the
+     * difference. Left as it is deliberately, and the record of why: I
+     * suspected this of being his "stuff is toward the top" — it is a
+     * one-way shove upward with no ceiling — and capped it at the margin
+     * to find out. Two measurements settled it. At 1546x1278 with four
+     * updates it was not firing at all, so the cap changed nothing there;
+     * at the width `tests/lanes.mjs` checks, capping it put 178px of the
+     * lowest lane back under the band, which is the fault this line was
+     * written to fix. It is not the cause, and it is load-bearing.
+     */
     const lanesBottom = Math.max(...boxes.slice(-3).map((b) => (b.y + b.h) * to.zoom + to.pan.y));
-    // The lanes stand as tall as the box they hang off, measured, which the nominal boxes here undercount: the whole margin covers the difference.
     if (lanesBottom > room - SETTLE_MARGIN) to.pan.y -= lanesBottom - (room - SETTLE_MARGIN);
     const from = viewAt.current;
     if (sameView(from, to)) return;
@@ -734,25 +759,116 @@ export function Timeline() {
    */
   React.useEffect(() => {
     const box = host.current;
-    if (box) setAspect(box.clientHeight > 1 ? box.clientWidth / box.clientHeight : 2);
-    const id = requestAnimationFrame(() => {
-      const mine = owns ? ownView : null;
-      if (mine) {
-        setPan(mine.pan);
-        setZoom(mine.zoom);
+    if (!box) return;
+    let raf = 0;
+    let was = { w: 0, h: 0 };
+    let pending = false;
+    /** The room the set really has: the frame, less the band over its foot. */
+    const roomOf = () => {
+      const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+      return { w: box.clientWidth, h: Math.max(0, box.clientHeight - band) };
+    };
+    const go = () => {
+      raf = 0;
+      const now = roomOf();
+      /*
+       * Nothing to fit into yet, so nothing is decided yet.
+       *
+       * This used to be one attempt in one frame after mount, and if the
+       * pane had not laid out by then it gave up in silence: the pan is
+       * this component's own state and starts at zero, while the zoom is
+       * the store's and survives, so what was left was the board's scale
+       * with no translation at all — `matrix(0.683, 0, 0, 0.683, 0, 0)`,
+       * which is what he read off the deploy, with the updates pinned to
+       * the frame's top-left corner and part of the timeline outside the
+       * frame entirely. Reproduced by opening the timeline in a 420x240
+       * window and then giving it the room: scale 0.28, 126px of it above
+       * the frame's own top edge, and it stayed there.
+       */
+      if (!(now.w > 1 && now.h > 1)) return;
+      setAspect(box.clientHeight > 1 ? box.clientWidth / box.clientHeight : 2);
+      const moved = Math.abs(now.w - was.w) > 2 || Math.abs(now.h - was.h) > 2;
+      was = now;
+      if (!settled.current) {
+        /* The view he left, if he has one, or the fit. */
+        const mine = owns ? ownView : null;
+        if (mine) { setPan(mine.pan); setZoom(mine.zoom); settled.current = true; return; }
+        settle();
         settled.current = true;
         return;
       }
-      settle();
-      settled.current = true;
-    });
+      /*
+       * Wait for the room to stop moving before fitting to it.
+       *
+       * A window resize arrives as a run of observations, and the band
+       * along the foot is a second element resizing on its own schedule.
+       * Fitting on the first of them fits to a room that is still
+       * changing: measured, `tests/lanes.mjs` put 178px of the lowest lane
+       * under the band, because the room was read before the band had
+       * finished growing. So a change only arms the fit, and the fit
+       * happens on the first frame where nothing moved.
+       */
+      if (moved) {
+        pending = true;
+        raf = requestAnimationFrame(go);
+        return;
+      }
+      if (!pending) return;
+      pending = false;
+      /*
+       * A view nobody has claimed is the fit's, and the fit is out of
+       * date, so it runs again.
+       *
+       * A view somebody moved is theirs and is left where they left it —
+       * unless the room moving has put part of it off the edge, which is
+       * not a view any more. Asked of the DOM rather than recomputed,
+       * because what is being asked is exactly "can he still see them".
+       */
+      const stranded = () => {
+        const cards = [...box.querySelectorAll<HTMLElement>("[data-box]")];
+        if (!cards.length) return false;
+        const frame = box.getBoundingClientRect();
+        const bandH = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+        return cards.some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top < frame.top || r.left < frame.left || r.right > frame.right || r.bottom > frame.bottom - bandH;
+        });
+      };
+      if (!owns || stranded()) settle();
+    };
+    raf = requestAnimationFrame(go);
+    const ro = new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(go); });
+    ro.observe(box);
+    const band = box.parentElement?.querySelector("[data-studio-band]");
+    if (band) ro.observe(band);
     return () => {
-      cancelAnimationFrame(id);
+      if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
       stopSettle();
     };
-    // Once, on the way in. `settle` and `stopSettle` are stable.
+    // `settle` and `stopSettle` are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * And once everybody has arrived, the fit runs again.
+   *
+   * The boxes come in when the timeline is opened, .2s apart, so the fit
+   * at mount is a fit to a board that is still filling: the lane fan is
+   * measured off the last box, and that box is not in the DOM yet, so the
+   * fan is fitted at its nominal height. Measured by `tests/lanes.mjs`,
+   * that left 178px of the lowest lane under the band along the foot of
+   * the pane — the exact thing the fan's own clearance is there to stop.
+   *
+   * So the fit is taken again when the run is over, on a board that is
+   * all there. Once: `everyoneHere` goes true and stays true. And not
+   * over a view somebody has already moved, which is theirs.
+   */
+  const everyoneHere = threads.length > 0 && threads.every((t) => shownOf(t.id) >= 0);
+  React.useEffect(() => {
+    if (!everyoneHere || !settled.current || owns) return;
+    settle();
+  }, [everyoneHere, settle]);
 
   /*
    * The bar's readout is the way back here as well.
