@@ -65,12 +65,17 @@ const view = () => page.evaluate(() => {
   return m ? { x: +m[1], y: +m[2], zoom: +m[3] } : null;
 });
 
-/** The way back to the middle, by its handle or by its word. */
-const centre = async () => {
-  const byHandle = page.locator("[data-timeline-centre]");
-  if (await byHandle.count()) return byHandle.click();
-  return page.locator("[data-timeline] button", { hasText: /^centre$/ }).first().click();
-};
+/**
+ * The way back to the middle.
+ *
+ * It used to be a "centre" button in the timeline's bottom-left corner,
+ * beside an update count and a second copy of the zoom percentage. All
+ * three are gone: the zoom readout in the bar is one number in one store,
+ * shared with the board, so it is the one press that puts either surface
+ * back — "the zoom percentage number should be the button doing that for
+ * both since they do the same thing now".
+ */
+const centre = async () => page.locator("[data-fit-readout]").first().click();
 
 /** Where every box sits on the screen right now, and how close it gets to an edge. */
 const edges = () => page.evaluate(() => {
@@ -253,6 +258,71 @@ const edges = () => page.evaluate(() => {
   const e = await edges();
   check("everything is back on the screen", e && Math.min(e.left, e.top, e.right, e.bottom) > 20,
     e ? `nearest edge ${Math.min(e.left, e.top, e.right, e.bottom).toFixed(0)}px` : "no boxes");
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Centring is centring in what you can SEE                          */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS WORDS: "centering on the timeline seems to be off while dragging,
+ * stuff is toward the top".
+ *
+ * MEASURED, at 1440x900 with six updates: the pane the timeline stands in
+ * scrolls, by design, so that carrying on scrolling reaches the prompt
+ * section under it — 248px of travel, which is the band's height. The
+ * settle never knew. It fits the boxes into the timeline's own box, less
+ * the band, measured from the timeline's top — and with the pane at its
+ * foot that top is 248px above the window, so the set was cut off 133px
+ * above the top of the screen with 465px of nothing below it, and pressing
+ * centre put it back to exactly the same place.
+ *
+ * So this measures what he measures: where the boxes are against the
+ * WINDOW, which is the only frame a person has, after asking for the
+ * middle. Nothing about the plot's own transform, which was always right.
+ */
+{
+  const inWindow = () => page.evaluate(() => {
+    const pane = document.querySelector("[data-studio-pane]");
+    const band = document.querySelector("[data-studio-band]");
+    const bandTop = band ? band.getBoundingClientRect().top : window.innerHeight;
+    const bar = document.querySelector("[data-studio-pane]").getBoundingClientRect().top;
+    /* The lanes hang off the last box and are part of what the fit holds,
+       so they are part of what "between the two edges" is measured on. */
+    const set = [...document.querySelectorAll("[data-box], [data-lane], [data-lane-box]")].map((e) => e.getBoundingClientRect());
+    if (!set.length) return null;
+    const top = Math.min(...set.map((b) => b.top));
+    const bottom = Math.max(...set.map((b) => b.bottom));
+    return {
+      scroll: Math.round(pane.scrollTop),
+      travel: Math.round(pane.scrollHeight - pane.clientHeight),
+      above: Math.round(top - bar),
+      below: Math.round(bandTop - bottom),
+      cut: Math.round(Math.max(0, bar - top)),
+    };
+  });
+
+  const before = await inWindow();
+  check("the pane under the timeline has travel of its own, as it is meant to", before && before.travel > 40, `${before?.travel}px`);
+  check("and the corner box that used to hold a second way back is gone",
+    (await page.locator("[data-timeline-centre]").count()) === 0
+    && !/\bcentre\b/.test(await page.locator("[data-timeline]").innerText().catch(() => "")),
+    `${await page.locator("[data-timeline-centre]").count()} of them`);
+
+  /* Put it where a wheel gesture or a press low in the pane puts it. */
+  await page.evaluate(() => { const p = document.querySelector("[data-studio-pane]"); p.scrollTop = p.scrollHeight; });
+  await page.waitForTimeout(500);
+  const away = await inWindow();
+  check("scrolled to its foot, the timeline's contents go off the top", away.cut > 20, `cut off ${away.cut}px above the window, ${away.below}px of nothing below`);
+
+  /* And now ask for the middle, the way he would. */
+  await centre().catch(() => {});
+  await page.waitForTimeout(1200);
+  const back = await inWindow();
+  check("asking for the middle brings the pane back with it", back.cut === 0, `${back.cut}px still off the top, pane at ${back.scroll} of ${back.travel}`);
+  check("and leaves the set between the two edges rather than against one",
+    back.above > 8 && back.below > 8 && Math.abs(back.above - back.below) < Math.max(80, back.above * 0.75),
+    `${back.above}px above, ${back.below}px below`);
 }
 
 await context.close();

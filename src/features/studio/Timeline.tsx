@@ -498,6 +498,28 @@ export function Timeline() {
   const settle = React.useCallback(() => {
     const box = host.current;
     if (!box) return;
+    /*
+     * The middle is the middle of what you can SEE.
+     *
+     * The pane the timeline stands in has travel of its own, by design, so
+     * that carrying on scrolling past the last update reaches the prompt
+     * section under it. The fit never knew: it measures the room from the
+     * timeline's own top, and with the pane at its foot that top is the
+     * band's height above the window — measured at 1440x900 with six
+     * updates, the set was cut off 192px above the screen with 423px of
+     * nothing below it, and pressing centre put it back in exactly the
+     * same place. That is his "stuff is toward the top".
+     *
+     * So a settle puts the pane back too. It is only ever the answer to
+     * "show me everything" — opening the timeline, putting a box down,
+     * asking for the middle — and a fit inside a box that is half off the
+     * screen is not an answer to that.
+     */
+    const pane = box.closest("[data-studio-pane]");
+    if (pane instanceof HTMLElement && pane.scrollTop > 0) {
+      const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      pane.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+    }
     const s = useStudio.getState();
     const scattered = homeAt.current;
     // The store's own spots, and the scatter for anything never moved.
@@ -619,6 +641,28 @@ export function Timeline() {
     // Once, on the way in. `settle` and `stopSettle` are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * The bar's readout is the way back here as well.
+   *
+   * `requestFit` is one signal in one store and the zoom it shows is one
+   * number in one store, so the percentage in the bar was already this
+   * surface's percentage — it just had nothing to press for. Now the board
+   * answers it with a fit and the timeline answers it with a settle, which
+   * is why the "fit in view" button beside it and the "centre" button down
+   * in the corner could both go: three controls doing one job.
+   *
+   * `owns` is dropped first, because asking for the middle is asking for
+   * the middle and not for wherever the view was last left.
+   */
+  const fitNonce = useStudio((s) => s.fitNonce);
+  const first = React.useRef(true);
+  React.useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    owns = false;
+    ownView = null;
+    settle();
+  }, [fitNonce, settle]);
 
   /*
    * The floor is not this component's. One ground stands behind the board,
@@ -1261,24 +1305,25 @@ export function Timeline() {
         </div>
       ) : null}
 
-      {/* Where you are, and the way back to the middle. */}
-      <div className="pointer-events-auto absolute bottom-2 left-2 flex items-center gap-1 rounded-md border border-[oklch(0.36_0.07_152)] bg-[oklch(0.16_0.03_158/0.75)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.07_152)] backdrop-blur-sm">
-        <GitBranch className="size-3" />
-        <span className="num">{threads.length}</span>
-        <span className="opacity-60">{threads.length === 1 ? "update" : "updates"}</span>
-        <span className="mx-1 h-3 w-px bg-[oklch(0.36_0.07_152)]" />
-        <button
-          type="button"
-          data-timeline-centre=""
-          className="tactile rounded px-1 hover:text-[oklch(0.92_0.1_152)]"
-          // Centre used to mean the origin, which is only where the boxes
-          // were before anybody touched them.
-          onClick={(e) => { e.stopPropagation(); play("tap"); owns = false; ownView = null; settle(); }}
-        >
-          centre
-        </button>
-        <span className="num opacity-60">{Math.round(zoom * 100)}%</span>
-      </div>
+      {/*
+        The little box that used to sit down here — the update count, a
+        "centre" button and the zoom percentage — is gone on his ruling:
+        "remove the little centre and updates amount box in the bottom left
+        of the timeline box, then remove the button at the top to 'fit in
+        view' when the zoom percentage number should be the button doing
+        that for both since they do the same thing now."
+
+        And they do: the timeline's zoom IS the board's zoom, one number in
+        one store, so the readout in the bar was already showing this
+        surface. It is now the one press that puts either of them back —
+        `requestFit`, watched below — and three controls that did one job
+        are one control.
+
+        It was also the thing that made the fault he reported: a button at
+        the very bottom of a pane with travel in it scrolls that pane to
+        itself when it takes focus, which put the timeline 248px off the
+        top of the window.
+      */}
     </div>
   );
 }

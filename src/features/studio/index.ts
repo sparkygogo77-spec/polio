@@ -178,7 +178,7 @@ export const studio = defineFeature({
     { keys: "a", label: "Arrow tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("arrow") },
     { keys: "e", label: "Erase tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("erase") },
     { keys: "s", label: "Space tool", group: "Builder", when: onDesign, run: () => useStudio.getState().setTool("space") },
-    { keys: "f", label: "Fit the frame in view", group: "Builder", when: onDesign, run: () => useStudio.getState().requestFit() },
+    { keys: "f", label: "Fit in view, or centre the timeline", group: "Builder", when: onDesign, run: () => useStudio.getState().requestFit() },
     { keys: "mod+z", label: "Undo", group: "Builder", when: onDesign, run: () => useStudio.getState().undo() },
     { keys: "mod+shift+z", label: "Redo", group: "Builder", when: onDesign, run: () => useStudio.getState().redo() },
     { keys: "mod+g", label: "Group selection", group: "Builder", when: onDesign, run: () => useStudio.getState().groupSelection() },
@@ -398,7 +398,7 @@ export const studio = defineFeature({
             ],
           },
           { id: "studio.canvas.selectAll", label: "Select everything", shortcut: "mod+a", onSelect: () => s.selectAll() },
-          { id: "studio.canvas.fit", label: "Fit the frame in view", icon: ZoomIn, shortcut: "f", onSelect: () => s.requestFit() },
+          { id: "studio.canvas.fit", label: "Fit in view", icon: ZoomIn, shortcut: "f", onSelect: () => s.requestFit() },
           { id: "studio.canvas.live", label: "Preview this page live", icon: Eye, shortcut: "p", onSelect: () => ctx.navigate(livePath()) },
           { id: "studio.canvas.wires", label: s.showWires ? "Hide the wires" : "Show the wires", icon: s.showWires ? Link2Off : Link2, shortcut: "w", onSelect: () => s.setShowWires(!s.showWires) },
           {

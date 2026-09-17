@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Scan, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
@@ -338,14 +338,21 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    *
    *   1. the search's own words    (below xl)  — it becomes a magnifier
    *   2. the ink hues              (below lg)  — only out while drawing
-   *   3. (was the zoom readout, and it no longer gives way at all — it is
-   *       the one press that returns the page to the size that fits, and a
-   *       way back has to be on screen to be one)
-   *   4. Fit and Wires             (below lg)  — both have a key, f and w
-   *   5. Updates entirely          (below lg)
-   *   6. the search entirely       (below md)  — mod+k still opens it
-   *   7. the menu's edge switch    (below md)
+   *   3. Wires                     (below lg)  — it has a key, w
+   *   4. Updates entirely          (below lg)
+   *   5. the search entirely       (below md)  — mod+k still opens it
+   *   6. the menu's edge switch    (below md)
+   *   7. the page chips            (below md)  — Pages is a panel tab, and
+   *                                              the panel's toggle is in
+   *                                              this bar at every width
    *   8. the site's name           (below sm)  — its mark stays
+   *
+   * Two things left this ladder rather than moving down it. The zoom
+   * readout no longer gives way at any width: it is the one press that
+   * returns either surface to the size that fits, and a way back has to be
+   * on screen to be one. And "Fit in view" is gone from the bar entirely —
+   * it and the readout did the same thing, so the readout does it, on the
+   * board and on the timeline alike.
    *
    * It used to be ten rungs. The top two were the tool's name and the words
    * on Updates and Preview, and those are gone from the bar at every width
@@ -359,9 +366,9 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
    * site's name beside it is not a control at all, it is what you have open.
    *
    * What never goes, at any width: the tool in your hand, the three devices,
-   * undo and redo, zoom's minus and plus, Preview, Finish, the panel toggle
-   * and the pages. Those are the ones you cannot work without, so they are
-   * the ones that survive to the narrowest window.
+   * undo and redo, zoom's minus, its readout and its plus, Preview, Finish
+   * and the panel toggle. Those are the ones you cannot work without, so
+   * they are the ones that survive to the narrowest window.
    *
    * `menu-pass.mjs` measures the bar's scroll width against its own width at
    * eight sizes from 640 up, because a ladder that is merely written down is
@@ -471,11 +478,11 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
       </Tooltip>
 
-      <Tooltip content="Fit the frame in view" shortcut="f">
-        <Button variant="ghost" size="iconXs" aria-label="Fit frame" className="hidden lg:inline-flex" onClick={() => useStudio.getState().requestFit()}>
-          <Scan />
-        </Button>
-      </Tooltip>
+      {/* The "fit in view" button used to stand here. It and the zoom
+          readout two controls along did the same thing, so on his ruling
+          the readout is the one that does it: "remove the button at the top
+          to 'fit in view' when the zoom percentage number should be the
+          button doing that for both since they do the same thing now." */}
       <Tooltip content={showWires ? "Hide the wires between parts" : "Show the wires between parts"} shortcut="w">
         <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} className="hidden lg:inline-flex" onClick={() => useStudio.getState().setShowWires(!showWires)}>
           {showWires ? <Link2 /> : <Link2Off />}
@@ -513,13 +520,20 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
         </Button>
         <button
           type="button"
-          aria-label="Zoom readout"
+          aria-label="Fit in view"
+          title="Fit in view"
+          data-fit-readout=""
           onClick={() => useStudio.getState().requestFit()}
           /* Rung 3 of the ladder above said this goes below lg and the minus
              and plus stay. It stays at every width now, and the ladder says
              so: it is not only a readout, it is the one press that puts the
              page back where it fits, and a way back that is not on screen is
-             not a way back. Forty pixels, and the row wraps to hold them. */
+             not a way back. Forty pixels, and the row wraps to hold them.
+
+             It is the only one now. The Fit button beside it is gone, and so
+             is the timeline's own "centre" in the corner: the zoom it shows
+             is the same number on both surfaces, so one press fits the board
+             or settles the timeline, whichever is in front. */
           className="num block w-10 text-center text-[10px] text-fg-muted hover:text-fg"
         >
           {Math.round(zoom * 100)}%
@@ -560,9 +574,8 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
       content={
         <div data-toolbar-more-menu="" className="flex w-[220px] flex-col gap-1.5">
           <div className={row}>
-            <Button variant="ghost" size="iconXs" aria-label="Fit frame" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}><Scan /></Button>
-            <span className="flex-1">Fit the frame in view</span>
-            <button type="button" aria-label="Zoom readout" className="num text-[10px] text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
+            <span className="flex-1">Fit in view</span>
+            <button type="button" aria-label="Fit in view" data-fit-readout="" className="num text-[10px] text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
           </div>
           <div className={row}>
             <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>{showWires ? <Link2 /> : <Link2Off />}</Button>

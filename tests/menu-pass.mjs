@@ -422,16 +422,27 @@ async function ladder() {
   const LADDER = [
     { rung: 1, what: "the search's own words", goes: 1280, key: "words" },
     { rung: 2, what: "the ink hues", goes: 1024, key: "hues" },
-    { rung: 3, what: "the zoom readout", goes: 1024, key: "zoom" },
-    { rung: 4, what: "Fit", goes: 1024, key: "fit" },
-    { rung: 4, what: "Wires", goes: 1024, key: "wires" },
-    { rung: 5, what: "Updates", goes: 1024, key: "updates" },
-    { rung: 6, what: "the search entirely", goes: 768, key: "search" },
-    { rung: 7, what: "the menu's edge switch", goes: 768, key: "edge" },
+    { rung: 3, what: "Wires", goes: 1024, key: "wires" },
+    { rung: 4, what: "Updates", goes: 1024, key: "updates" },
+    { rung: 5, what: "the search entirely", goes: 768, key: "search" },
+    { rung: 6, what: "the menu's edge switch", goes: 768, key: "edge" },
+    { rung: 7, what: "the page chips", goes: 768, key: "pages" },
     { rung: 8, what: "the site's name", goes: 640, key: "name" },
   ];
-  /* What the comment says never goes, at any width. */
-  const SURVIVES = ["tool", "devices", "undo", "redo", "zoomOut", "zoomIn", "preview", "finish", "panel", "pages"];
+  /*
+   * What the comment says never goes, at any width — the zoom readout now
+   * among them.
+   *
+   * This list and the ladder above had both gone stale, which is why three
+   * of these were failing before anything was changed: the readout was
+   * deliberately kept at every width when it became the way back, and the
+   * page chips were deliberately dropped below md because Pages is one of
+   * the side panel's tabs and the panel's own toggle is in this bar at
+   * every width. Neither was a bug in the bar; both were a test still
+   * holding the bar to an older shape. There is no "Fit" key any more
+   * either: the button is gone and the readout does its job.
+   */
+  const SURVIVES = ["tool", "devices", "undo", "redo", "zoomOut", "zoom", "zoomIn", "preview", "finish", "panel"];
 
   /* The ink hues are only out while drawing, so the pen goes in hand — with a
      press on the board first, or `d` lands in whatever field has focus. */
@@ -454,7 +465,6 @@ async function ladder() {
         words: vis([...bar.querySelectorAll("span")].find((x) => /Search commands/.test(x.textContent || ""))),
         hues: vis(bar.querySelector("[data-ink-hues]")),
         zoom: btns.some((e) => /^\d+%$/.test((e.textContent || "").trim()) && vis(e)),
-        fit: byLabel("Fit frame"),
         wires: byLabel("Toggle wires"),
         updates: vis(bar.querySelector("[data-updates-toggle]")),
         search: vis(bar.querySelector("[data-tool-search]")),

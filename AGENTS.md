@@ -254,6 +254,25 @@ preset into an ordinary node, so the shelf, the wheel, search and "add
 here" all work without knowing where a part came from. A repository with
 no page in it to open says so and names what it found.
 
+**One readout, one press, both surfaces.** The timeline's zoom is the
+board's zoom — one number in one store — so the percentage in the bar was
+already showing whichever surface was in front and had nothing to press
+for. It is the fit now: `requestFit()` bumps `fitNonce`, the board fits and
+the timeline settles. The "fit in view" button beside it and the timeline's
+own bottom-left box (an update count, a "centre" button and a second copy
+of the percentage) are both gone — three controls that did one job.
+
+**Centring is centring in what you can see.** The pane the timeline stands
+in has travel of its own, by design, so scrolling past the last update
+reaches the prompt section under it. The settle did not know: it measures
+the room from the timeline's own top, and with the pane at its foot that
+top is the band's height above the window — measured at 1440×900 with six
+updates, the set was cut off 192px above the screen with 304px of nothing
+below it, and asking for the middle put it back in exactly the same place.
+A settle now puts the pane back with it. That was also what the removed
+corner button caused on its own: a control at the foot of a pane with
+travel scrolls that pane to itself when it takes focus.
+
 **Fail loudly in the Builder, never on the published site.** The publish
 boundary is a rule, not a detail: he is the only person who needs to know a
 part did not render, and a visitor must never see the scaffolding. It is
