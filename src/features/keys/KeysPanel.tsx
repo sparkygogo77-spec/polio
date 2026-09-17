@@ -37,6 +37,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { SCREEN as VOID_SCREEN } from "@/core/ui/void";
 import { guessCostMs, isPin } from "./crypto";
 import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type ServiceId } from "./store";
+import { TRIED_HERE, tryHere } from "./tryHere";
 
 /* ------------------------------------------------------------------ */
 /* The screen                                                          */
@@ -251,11 +252,32 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
     }
   };
 
-  /** Ask the service itself whether the key the next request would use works. */
+  /**
+   * Ask the service itself whether the key the next request would use works.
+   *
+   * A key this browser holds is tried FROM this browser: Claude, GitHub and
+   * Vercel all answer a page directly (`tryHere`), so the button whose whole
+   * purpose is to prove a key is the person's own no longer hands it to us on
+   * the way. The route is asked only for the two cases that are not the
+   * person's key in this browser — the server's own key, and Replicate,
+   * which will not answer a browser from another origin and whose token
+   * reaches the server anyway because the renderer is a server call.
+   */
   const tryKey = async (service: ServiceId) => {
     setTried((t) => ({ ...t, [service]: { busy: true } }));
     const header: Record<string, string> = {};
     const typed = (id: string) => (draft[id] ?? "").trim();
+    const mine = service === "anthropic" ? typed("ANTHROPIC_API_KEY")
+      : service === "replicate" ? typed("REPLICATE_API_TOKEN")
+        : service === "github" ? typed("GITHUB_TOKEN")
+          : typed("VERCEL_TOKEN");
+    if (mine) {
+      const here = await tryHere(service, mine);
+      if (here) {
+        setTried((t) => ({ ...t, [service]: { ok: here.ok, message: here.message, source: here.source } }));
+        return;
+      }
+    }
     if (service === "anthropic" && typed("ANTHROPIC_API_KEY")) header["x-anthropic-key"] = typed("ANTHROPIC_API_KEY");
     if (service === "replicate" && typed("REPLICATE_API_TOKEN")) header["x-replicate-key"] = typed("REPLICATE_API_TOKEN");
     if (service === "github" && typed("GITHUB_TOKEN")) header["x-github-token"] = typed("GITHUB_TOKEN");
@@ -285,6 +307,13 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             The safe place for a key is the server, <code className="text-fg">.env.local</code> when you run it yourself, or your
             host&rsquo;s environment variables. A key held here is sent with a request only when the server has none.
           </span>
+        </p>
+        <p className="mb-3 rounded-md border border-border bg-elevated/40 p-2 text-[10px] leading-relaxed text-fg-muted">
+          <span className="font-medium text-fg">Where each key goes.</span> Try it asks Claude, GitHub and Vercel from this
+          browser, so those keys are never sent to this site&rsquo;s own server to be tested. Doing the work is another matter
+          and it is worth knowing which: a Builder ask, a render and a publish are made by the server, so the key rides with
+          that one request and is used and dropped. Replicate is the one that cannot be tried from here at all — it does not
+          answer a browser from another site.
         </p>
 
         {SERVICES.map((s) => {
@@ -353,7 +382,12 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
                   <span className="text-[10px] text-fg-faint">
                     {server?.set[keyField]
                       ? `Asks ${s.label} whether the server's ${s.fields[0]!.label.toLowerCase()} works.`
-                      : `Asks ${s.label} whether this ${s.fields[0]!.label.toLowerCase()} works, before you save it.`}
+                      /* Where the asking happens is the person's business: the
+                         three that answer a browser are asked from here and
+                         the key never leaves it. */
+                      : TRIED_HERE[s.id]
+                        ? `Asks ${s.label} from this browser whether this ${s.fields[0]!.label.toLowerCase()} works. The key does not leave it.`
+                        : `Asks ${s.label} whether this ${s.fields[0]!.label.toLowerCase()} works. ${s.label} will not answer a browser directly, so this one goes through the site's own route.`}
                   </span>
                 )}
               </div>
