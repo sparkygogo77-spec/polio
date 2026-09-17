@@ -28,22 +28,32 @@
  * nothing arrives at all, and the spinner always stops with a sentence.
  */
 import * as React from "react";
-import { FileArchive, Globe, LayoutTemplate, Loader2, Search } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
+import { FileArchive, GitBranch, LayoutTemplate, Loader2, Search, X, Globe } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
+import { categoryFor, readRepo, repoName, REPO_REFUSAL_SAYS, type Repo } from "./repoImport";
+import { readRepoSite, refused } from "./repoRun";
+import { heldKeys } from "@/features/keys/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
-import { useStudio } from "./store";
+import { useStudio, type StudioNode } from "./store";
 import { lockNow } from "./surfaceRun";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
 
 type Source =
   | { kind: "site"; url: string; host: string }
-  | { kind: "zip"; file: File; name: string; entry: string };
+  | { kind: "zip"; file: File; name: string; entry: string }
+  /* A repository is a zip once it is here: its files were fetched by this
+     browser with his own token and packed on the way in, so everything
+     past that point is the zip path, unchanged. What it keeps beyond a
+     zip is which repository it was, because its elements go into a
+     category named after it. */
+  | { kind: "repo"; repo: Repo; file: File; name: string; entry: string };
 
 type Stage =
   | { at: "nothing" }
@@ -87,9 +97,39 @@ const nameOf = (s: Source) => (s.kind === "site" ? s.host.replace(/^www\./, "") 
 
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
+  const [repoText, setRepoText] = React.useState("");
   const [stage, setStage] = React.useState<Stage>({ at: "nothing" });
   const gate = url.trim() ? allowed(url) : null;
+  const repo = repoText.trim() ? readRepo(repoText) : null;
   const busy = stage.at === "busy";
+
+  /**
+   * A repository, brought in whole.
+   *
+   * The files are fetched here, by this browser, with his own token —
+   * nothing about the token reaches our server — packed into a zip on the
+   * way in, and handed to the route that already opens zips. From that
+   * line down it is the zip path exactly, which is why this is short.
+   */
+  const readRepository = async () => {
+    if (!repo) return;
+    play("tick");
+    const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
+    if (!token) { setStage({ at: "said", says: REPO_REFUSAL_SAYS["no-token"] }); return; }
+    setStage({ at: "busy", says: `Opening ${repoName(repo)}…` });
+    const got = await readRepoSite(repo, token, (says) => setStage({ at: "busy", says }));
+    if (refused(got)) { setStage({ at: "said", says: got.says }); return; }
+    setStage({ at: "busy", says: `Reading the page in ${repo.name}…` });
+    const r = await askZip(got.file);
+    if (!r.ok) { setStage({ at: "said", says: String(r.message ?? "The page in that repository could not be read.") }); return; }
+    setStage({
+      at: "picking",
+      source: { kind: "repo", repo: { ...repo, ref: got.ref }, file: got.file, name: repoName({ ...repo, ref: got.ref }), entry: String(r.entry) },
+      page: r.page as { width: number; height: number; shot: string },
+      candidates: (r.candidates as Block[]) ?? [],
+      scripts: !!r.scripts,
+    });
+  };
 
   const read = async () => {
     if (!gate?.ok) return;
@@ -213,6 +253,41 @@ export function FromASite({ space }: { space: Space }) {
       useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h, font: scaledType(made.patch.font, fit.scale) });
       return made;
     });
+    /*
+     * A repository leaves its elements behind.
+     *
+     * That was the second half of the ask: "a new category specifically
+     * for the elements this repo imports". Each block is kept as a preset
+     * of the real part it became — the words, the colours, the type and
+     * the layout measured off the page — in a category named after the
+     * repository. They are in the shelf from this moment, droppable again
+     * anywhere on the board, and they are saved with the site.
+     */
+    if (source.kind === "repo") {
+      const cat = categoryFor(source.repo);
+      const parts = landed.map((made, i) => {
+        const at = fit.places[i]!;
+        const patch = made.patch;
+        return {
+          id: `${cat.id}:${i + 1}`,
+          categoryId: cat.id,
+          label: String(patch.label ?? `Block ${i + 1}`),
+          basedOn: String(patch.featureId),
+          blurb: made.did,
+          w: at.w,
+          h: at.h,
+          content: String(patch.content ?? ""),
+          options: (patch.options ?? {}) as Record<string, string>,
+          colour: (patch.colour ?? null) as StudioNode["colour"],
+          font: scaledType(patch.font, fit.scale) as StudioNode["font"],
+          prompt: String(patch.prompt ?? ""),
+        };
+      });
+      useStudio.getState().bringIn(
+        { id: cat.id, label: cat.label, hue: cat.hue, from: source.name, page: source.entry, at: Date.now() },
+        parts,
+      );
+    }
     // Locked as the page had it: the layout is the specification.
     lockNow(space.id);
     // Adding picks what was added, which would swap this panel for the
@@ -220,12 +295,54 @@ export function FromASite({ space }: { space: Space }) {
     // where it was asked for, with the parts on the board beside it.
     useStudio.getState().setSelection([space.id]);
     play("confirm");
-    setStage({ at: "said", says: saidOf(landed, nameOf(source), scripts) });
+    setStage({
+      at: "said",
+      says: `${saidOf(landed, nameOf(source), scripts)}${
+        source.kind === "repo"
+          ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(source.repo).label}” — drop any of them anywhere, as many times as you like.`
+          : ""
+      }`,
+    });
   };
 
   return (
     <section data-from-a-site="">
-      <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a site, or a zip</div>
+      <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a repository, a site, or a zip</div>
+
+      {/*
+        A repository first, because it is the one that needs nothing
+        remembered: owner/name is on every page of GitHub and in every
+        clone line. The files are fetched by this browser with his own
+        token and never touch our server.
+      */}
+      <div className="mb-1 flex items-center gap-1">
+        <Input
+          aria-label="A GitHub repository to bring in"
+          data-repo-name=""
+          placeholder="owner/repo"
+          value={repoText}
+          onChange={(e) => { setRepoText(e.target.value); if (stage.at === "said") setStage({ at: "nothing" }); }}
+          onKeyDown={(e) => { if (e.key === "Enter") void readRepository(); }}
+          className={cn("h-7 flex-1 text-[11px]", SCREEN_FIELD)}
+        />
+        <button
+          type="button"
+          data-repo-read=""
+          disabled={!repo || busy}
+          onClick={() => void readRepository()}
+          title="Bring the website in this repository onto the board, with its elements in a category of their own"
+          className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] disabled:opacity-40"
+          style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
+        >
+          {busy ? <Loader2 className="size-3 animate-spin" /> : <GitBranch className="size-3" />}
+          Connect
+        </button>
+      </div>
+      {repoText.trim() && !repo ? (
+        <div data-repo-refused="" className="mb-1 text-[10px]" style={{ color: "oklch(0.72 0.16 30)" }}>{REPO_REFUSAL_SAYS["not-a-repo"]}</div>
+      ) : null}
+
+      <Brought />
 
       <div className="flex items-center gap-1">
         <Input
@@ -333,6 +450,55 @@ export function FromASite({ space }: { space: Space }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The repositories this site has connected, and the way to let one go.
+ *
+ * Shown here rather than only in the shelf because this is where they
+ * were brought in: a category that appeared in the menu with no way back
+ * to where it came from is a category nobody can account for. Letting one
+ * go takes its elements out of the shelf and leaves anything already on
+ * the board exactly where it is — those are parts of this site now.
+ */
+function Brought() {
+  const brought = useStudio(useShallow((s) => s.brought));
+  const parts = useStudio(useShallow((s) => s.broughtParts));
+  if (!brought.length) return null;
+  return (
+    <ul data-brought-repos="" className="mb-1.5 space-y-1">
+      {brought.map((r) => {
+        const n = parts.filter((p) => p.categoryId === r.id).length;
+        return (
+          <li
+            key={r.id}
+            data-brought-repo={r.id}
+            className="flex items-center gap-1.5 rounded px-1.5 py-1 text-[10px]"
+            style={{ background: VOID.box, border: `1px solid ${VOID.rim}`, color: VOID.text }}
+          >
+            <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `oklch(0.72 0.15 ${r.hue})` }} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{r.from}</span>
+              <span className="block truncate text-[9px]" style={{ color: VOID.muted }}>
+                {n} element{n === 1 ? "" : "s"} in the shelf, read from {r.page}
+              </span>
+            </span>
+            <button
+              type="button"
+              data-brought-drop={r.id}
+              aria-label={`Let ${r.from} go`}
+              title="Take its elements out of the shelf. Anything already on the board stays."
+              onClick={() => { play("close"); useStudio.getState().sendBack(r.id); }}
+              className="tactile shrink-0 rounded-sm p-0.5"
+              style={{ color: VOID.muted }}
+            >
+              <X className="size-3" />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

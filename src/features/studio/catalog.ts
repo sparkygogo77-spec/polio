@@ -96,6 +96,26 @@ export interface FeatureDef {
   /** Default footprint on a 1440-wide page. Category defaults apply when unset. */
   w?: number;
   h?: number;
+  /**
+   * This part is a preset of another one.
+   *
+   * A repository's elements arrive as presets: a real library part, with
+   * the words, colours, type and layout measured off the page it came
+   * from. `basedOn` names the part that actually draws, and `preset` is
+   * what the node arrives wearing. Nothing else in the app had to learn a
+   * new kind of part — a preset drops as an ordinary node.
+   */
+  basedOn?: string;
+  preset?: {
+    content?: string;
+    options?: Record<string, string>;
+    colour?: unknown;
+    font?: unknown;
+    prompt?: string;
+    label?: string;
+  };
+  /** Where it came from, for the one line the card says under its name. */
+  from?: string;
 }
 
 /**
@@ -104,9 +124,19 @@ export interface FeatureDef {
  * live with Data, the keyboard-first parts with Interaction — "Dense &
  * keyboard" was a category nobody could see on a page.
  */
-export type CategoryId =
+export type BuiltInCategory =
   | "structure" | "nav" | "hero" | "content" | "media" | "motion" | "interact"
   | "forms" | "data" | "social" | "ai" | "platform";
+/**
+ * The twelve, and the ones a connected repository brings with it.
+ *
+ * A repository's elements land in a category of their own, named after the
+ * repository — that was the ask, and a category is a string id from the
+ * shelf's point of view. `(string & {})` keeps the twelve in autocomplete
+ * while letting `repo:owner/name` through, so nothing that reads a
+ * category id had to be widened by hand.
+ */
+export type CategoryId = BuiltInCategory | (string & {});
 
 export interface CategoryDef {
   id: CategoryId;
@@ -917,31 +947,69 @@ const EXPLAIN: Record<string, string> = {
 };
 
 export const FEATURES: FeatureDef[] = RAW.map((x) => {
-  const [cw, ch] = CATEGORY_SIZE[x.category];
+  const [cw, ch] = CATEGORY_SIZE[x.category as BuiltInCategory] ?? [420, 88];
   const d = DETAILS[x.id] ?? {};
   return { ...x, w: x.w ?? cw, h: x.h ?? ch, ...d, options: d.options ?? x.options, explain: d.explain ?? EXPLAIN[x.id] };
 });
 
 export const FEATURES_BY_ID = new Map(FEATURES.map((x) => [x.id, x]));
 
+/* ------------------------------------------------------------------ */
+/* What a connected repository brought with it                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The library is the twelve categories above plus whatever a repository
+ * has been connected and brought in. Those are the document's, not this
+ * file's — they change while the app is running and they are saved with
+ * the site — so the store hands them here whenever they change, and every
+ * reader below sees one library rather than two.
+ *
+ * A brought part is a **preset**: it names a real part of the library in
+ * `basedOn` and carries the measurements taken off the page in `preset`.
+ * Nothing in the render chain had to learn a new kind of part, and
+ * dropping one puts down an ordinary node that the Inspector edits, the
+ * wheel repaints and the publish ships.
+ */
+let brought: FeatureDef[] = [];
+let broughtCats: CategoryDef[] = [];
+let broughtById = new Map<string, FeatureDef>();
+
+export function setBrought(cats: CategoryDef[], feats: FeatureDef[]): void {
+  broughtCats = cats;
+  brought = feats;
+  broughtById = new Map(feats.map((x) => [x.id, x]));
+}
+
+/** Every part on offer: the library's, and the ones a repository brought. */
+export function allFeatures(): FeatureDef[] {
+  return brought.length ? [...FEATURES, ...brought] : FEATURES;
+}
+
+/** Every category on offer, the twelve first and the repositories after them. */
+export function allCategories(): CategoryDef[] {
+  return broughtCats.length ? [...CATEGORIES, ...broughtCats] : CATEGORIES;
+}
+
 export function getFeature(id: string): FeatureDef | undefined {
-  return FEATURES_BY_ID.get(id);
+  return FEATURES_BY_ID.get(id) ?? broughtById.get(id);
 }
 
 export function featuresByCategory(category: CategoryId): FeatureDef[] {
-  return FEATURES.filter((x) => x.category === category);
+  return allFeatures().filter((x) => x.category === category);
 }
 
 export function searchFeatures(query: string): FeatureDef[] {
   const q = query.trim().toLowerCase();
-  if (!q) return FEATURES;
-  return FEATURES.filter((x) =>
+  const all = allFeatures();
+  if (!q) return all;
+  return all.filter((x) =>
     [x.name, x.blurb, x.id, x.category, ...(x.tags ?? [])].some((s) => s.toLowerCase().includes(q)),
   );
 }
 
 export function categoryOf(id: CategoryId): CategoryDef {
-  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[0]!;
+  return allCategories().find((c) => c.id === id) ?? CATEGORIES[0]!;
 }
 
 /** Sub-groups inside a category, so 229 parts are reachable in three clicks. `tests/shelf-reach.mjs` holds every id to one. */

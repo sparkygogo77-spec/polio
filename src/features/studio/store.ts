@@ -17,7 +17,8 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { getFeature } from "./catalog";
+import { getFeature, setBrought } from "./catalog";
+import { Boxes } from "lucide-react";
 import { takeDoc } from "./docTake";
 import { formatDefaults, type FormatValues } from "./format";
 import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
@@ -310,6 +311,50 @@ export interface StudioBrief {
   master: string;
 }
 
+/**
+ * A repository whose website has been brought onto the board, and the
+ * shelf category its elements live in.
+ *
+ * In the document, not in the catalogue file: these change while the app
+ * is running and they belong to this site, so they are saved with it and
+ * come back with it. `page` is which file in the repository was opened,
+ * because "1:1 with what?" is the first question anybody asks afterwards.
+ */
+export interface BroughtRepo {
+  id: string;
+  label: string;
+  hue: number;
+  /** owner/name, as it was typed, with the ref when one was named. */
+  from: string;
+  page: string;
+  at: number;
+}
+
+/**
+ * One element a repository brought in: a preset of a real library part.
+ *
+ * It sits in the shelf under the repository's own category and drops as an
+ * ordinary node — the words, colours, type and layout measured off the
+ * page, on a component this app already has. Editable and promptable from
+ * that moment, which is the whole point of measuring rather than
+ * screenshotting.
+ */
+export interface BroughtPart {
+  id: string;
+  categoryId: string;
+  label: string;
+  /** The real library part that draws it. */
+  basedOn: string;
+  blurb: string;
+  w: number;
+  h: number;
+  content: string;
+  options: Record<string, string>;
+  colour: NodeColour | null;
+  font: NodeFont | null;
+  prompt: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* The prompts' paper trail                                            */
 /* ------------------------------------------------------------------ */
@@ -461,6 +506,20 @@ interface StudioState extends Doc {
   showWires: boolean;
   /** Parts removed from the library. Nothing is deleted; they can come back. */
   hiddenFeatures: string[];
+  /** The repositories brought onto this board, and the shelf categories they own. */
+  brought: BroughtRepo[];
+  /** Their elements: presets of real parts, droppable like anything else in the shelf. */
+  broughtParts: BroughtPart[];
+  /**
+   * Keep what a repository's page was made of, as a category of its own.
+   *
+   * Bringing the same repository in again replaces what it left rather
+   * than piling a second copy beside it, so reading a site twice gives one
+   * category and not two.
+   */
+  bringIn: (repo: BroughtRepo, parts: BroughtPart[]) => void;
+  /** Let a repository go: its category and its elements leave the shelf. Parts already on the board stay. */
+  sendBack: (repoId: string) => void;
   /** Design surface, or the live site in the same place on screen. */
   mode: BoardMode;
   /**
@@ -971,6 +1030,34 @@ function migrateKey(from: string, to: string) {
  */
 let studioRead = false;
 
+/**
+ * Hand the catalogue what the connected repositories brought.
+ *
+ * The document is the truth and the catalogue is the reader, so this runs
+ * on every change and on hydration, and nothing anywhere keeps a second
+ * copy. A brought part is a preset — `basedOn` names the real library part
+ * that draws it — so the shelf, the wheel, the search box and "add here"
+ * all work on it without knowing where it came from.
+ */
+function shelve(repos: BroughtRepo[], parts: BroughtPart[]): void {
+  setBrought(
+    repos.map((r) => ({ id: r.id, label: r.label, icon: Boxes, blurb: `Brought in from ${r.from}.`, hue: r.hue })),
+    parts.map((p) => ({
+      id: p.id,
+      name: p.label,
+      category: p.categoryId,
+      icon: Boxes,
+      blurb: p.blurb,
+      w: p.w,
+      h: p.h,
+      basedOn: p.basedOn,
+      from: repos.find((r) => r.id === p.categoryId)?.from,
+      tags: ["repo", "imported"],
+      preset: { content: p.content, options: p.options, colour: p.colour, font: p.font, prompt: p.prompt, label: p.label },
+    })),
+  );
+}
+
 export const useStudio = create<StudioState>()(
   persist(
     (set, get) => {
@@ -1068,6 +1155,8 @@ export const useStudio = create<StudioState>()(
         showAllFormat: false,
         showWires: true,
         hiddenFeatures: [],
+        brought: [],
+        broughtParts: [],
         mode: "design",
         companion: { device: "phone", x: -18, y: -18, open: false },
         trail: [],
@@ -1098,6 +1187,28 @@ export const useStudio = create<StudioState>()(
          */
         addNode: (featureId, x, y, patch) => {
           const feature = getFeature(featureId);
+          /*
+           * A part brought in from a repository is a preset of a real one:
+           * it names the part that draws in `basedOn` and carries what was
+           * measured off the page in `preset`. Unfolded here, once, so
+           * every door into the board — the shelf, the wheel, search,
+           * "add here" — puts down an ordinary node and nothing else in
+           * the app had to learn what a brought part is.
+           */
+          const real = feature?.basedOn ?? featureId;
+          const pre = feature?.preset;
+          if (pre) {
+            patch = {
+              label: pre.label ?? feature?.name,
+              content: pre.content ?? "",
+              options: pre.options ?? {},
+              prompt: pre.prompt ?? "",
+              ...(pre.colour ? { colour: pre.colour as StudioNode["colour"] } : {}),
+              ...(pre.font ? { font: pre.font as StudioNode["font"] } : {}),
+              ...patch,
+            };
+          }
+          featureId = real;
           const id = uid("n");
           push();
           set((s) => {
@@ -1737,6 +1848,26 @@ export const useStudio = create<StudioState>()(
         hideFeature: (id) => set((s) => (s.hiddenFeatures.includes(id) ? {} : { hiddenFeatures: [...s.hiddenFeatures, id] })),
         restoreFeature: (id) => set((s) => ({ hiddenFeatures: s.hiddenFeatures.filter((x) => x !== id) })),
         restoreAllFeatures: () => set({ hiddenFeatures: [] }),
+
+        bringIn: (repo, parts) => {
+          push();
+          set((s) => {
+            const brought = [...s.brought.filter((r) => r.id !== repo.id), repo];
+            const broughtParts = [...s.broughtParts.filter((p) => p.categoryId !== repo.id), ...parts];
+            shelve(brought, broughtParts);
+            return { brought, broughtParts };
+          });
+        },
+
+        sendBack: (repoId) => {
+          push();
+          set((s) => {
+            const brought = s.brought.filter((r) => r.id !== repoId);
+            const broughtParts = s.broughtParts.filter((p) => p.categoryId !== repoId);
+            shelve(brought, broughtParts);
+            return { brought, broughtParts };
+          });
+        },
         setBrief: (patch) => {
           push();
           set((s) => ({ brief: { ...s.brief, ...patch } }));
@@ -2233,6 +2364,8 @@ export const useStudio = create<StudioState>()(
         showAllFormat: s.showAllFormat,
         showWires: s.showWires,
         hiddenFeatures: s.hiddenFeatures,
+        brought: s.brought,
+        broughtParts: s.broughtParts,
         trail: s.trail,
         threads: s.threads,
         liveThreadId: s.liveThreadId,
@@ -2263,6 +2396,12 @@ export const useStudio = create<StudioState>()(
            visit has nothing saved and must still be allowed to save. */
         studioRead = true;
         if (!state) return;
+        /* A saved document may already carry repositories: put their
+           elements back on the shelf before anything reads it. A document
+           from before this existed has neither, hence the defaults. */
+        state.brought ??= [];
+        state.broughtParts ??= [];
+        shelve(state.brought, state.broughtParts);
         const stuck = state.threads.some((t) => t.state === "running");
         if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));
       },

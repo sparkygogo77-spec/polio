@@ -24,12 +24,12 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { EyeOff, RotateCcw, Search, Sparkles, X } from "lucide-react";
 import {
-  CATEGORIES, SUBGROUPS, getFeature, searchFeatures,
+  CATEGORIES, SUBGROUPS, allCategories, getFeature, searchFeatures, type CategoryDef,
   type CategoryId, type FeatureDef,
 } from "./catalog";
 import { useStudio } from "./store";
 import { PartPreview, previewHeight } from "./PartPreview";
-import { PLANET } from "./planets";
+import { planetOf } from "./planets";
 import { moonFor } from "./moons";
 import { BAND_LABEL, groupIntoBands, spanOf } from "./showcase";
 import { css, parseColor } from "./look";
@@ -221,13 +221,20 @@ export function Palette() {
   const hidden = useStudio(useShallow((s) => s.hiddenFeatures));
   const hiddenSet = React.useMemo(() => new Set(hidden), [hidden]);
   const searching = query.trim().length > 0;
+  /*
+   * The repositories connected to this site. Their elements are in the
+   * catalogue already — the store put them there — so this is subscribed
+   * to for one reason: so the shelf redraws when one arrives or leaves.
+   */
+  const brought = useStudio(useShallow((s) => s.brought));
 
-  const all = React.useMemo(() => searchFeatures(query), [query]);
+  const all = React.useMemo(() => searchFeatures(query), [query, brought]);
   const live = React.useMemo(() => all.filter((f) => !hiddenSet.has(f.id)), [all, hiddenSet]);
 
+  const shelf = React.useMemo(() => allCategories(), [brought]);
   const categories = React.useMemo(
-    () => CATEGORIES.filter((c) => live.some((f) => f.category === c.id)),
-    [live],
+    () => shelf.filter((c) => live.some((f) => f.category === c.id)),
+    [live, shelf],
   );
   const removed = showRemoved ? all.filter((f) => hiddenSet.has(f.id)) : [];
 
@@ -407,7 +414,7 @@ export function Palette() {
                           "--lit": `inset 0 0 0 1.5px oklch(0.78 0.16 ${c.hue} / 0.85), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.35)`,
                         } as React.CSSProperties}
                       >
-                        {React.createElement(PLANET[c.id], { size: 38 })}
+                        {React.createElement(planetOf(c.id), { size: 38 })}
                       </span>
                       <span className="text-center text-[10px] leading-tight">{c.label}</span>
                       <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
@@ -443,7 +450,7 @@ export function Palette() {
             {/* The open ones, stacked, in the catalogue's order so that
                 opening a second never shuffles the first out from under the
                 pointer. */}
-            {CATEGORIES.filter((c) => open.includes(c.id)).map((c) => (
+            {shelf.filter((c) => open.includes(c.id)).map((c) => (
               <CategorySection
                 key={c.id}
                 category={c}
@@ -484,7 +491,7 @@ export function Palette() {
 function CategorySection({
   category, live, sizeFor, gap, onClose,
 }: {
-  category: (typeof CATEGORIES)[number];
+  category: CategoryDef;
   live: FeatureDef[];
   sizeFor: (f: FeatureDef) => { width: number; tall: number };
   gap: number;
@@ -517,10 +524,15 @@ function CategorySection({
     [category.id, live],
   );
   const shown = React.useMemo(() => {
+    /* A category the catalogue wrote has sub-groups, and they are the
+       reading order. A category a repository brought has none — its parts
+       are whatever that page turned out to be made of — so it shows all of
+       them, in the order the page had them. */
+    if (!subs.length) return live.filter((f) => f.category === category.id);
     const group = subs.find((g) => g.id === sub);
     const ids = group ? group.ids : subs.flatMap((g) => g.ids);
     return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
-  }, [live, sub, subs]);
+  }, [live, sub, subs, category.id]);
   const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
 
   return (
@@ -530,7 +542,7 @@ function CategorySection({
         style={{ background: `oklch(0.16 0.03 ${category.hue} / 0.9)` }}
       >
         <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: `oklch(0.86 0.12 ${category.hue})` }}>
-          {React.createElement(PLANET[category.id], { size: 14 })}
+          {React.createElement(planetOf(category.id), { size: 14 })}
           {category.label}
         </span>
         <div className="hide-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">

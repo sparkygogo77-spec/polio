@@ -8,7 +8,7 @@
  * single stroke weight, so fourteen different objects still look like one set.
  */
 import * as React from "react";
-import type { CategoryId } from "./catalog";
+import type { BuiltInCategory, CategoryId } from "./catalog";
 
 export type IconProps = { className?: string; size?: number };
 
@@ -148,7 +148,7 @@ export const Telescope = (p: IconProps) => (
 );
 
 /** One mark per category. */
-export const PLANET: Record<CategoryId, (p: IconProps) => React.JSX.Element> = {
+export const PLANET: Record<BuiltInCategory, (p: IconProps) => React.JSX.Element> = {
   structure: Ringed,
   nav: Comet,
   hero: Sun,
@@ -162,3 +162,13 @@ export const PLANET: Record<CategoryId, (p: IconProps) => React.JSX.Element> = {
   ai: Helmet,
   platform: Telescope,
 };
+
+/**
+ * The mark for any category, including one a connected repository brought
+ * with it. A repository is not one of the twelve and has no planet of its
+ * own, so it gets the comet: something that came in from outside and is
+ * passing through the same sky.
+ */
+export function planetOf(id: CategoryId): (p: IconProps) => React.JSX.Element {
+  return PLANET[id as BuiltInCategory] ?? Comet;
+}

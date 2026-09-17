@@ -231,6 +231,28 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
 - *A new kind of mark on the board*: add a `ShapeKind` in `store.ts`, draw it
   in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
 
+**A repository can be connected, and its website lands as parts.** His
+words: "connecting an existing repo website and the subsequent website
+popping into my design board 1:1, and with a new category specifically for
+the elements this repo imports". 1:1 means every block of the page arrives
+as a real, editable part of this library at the position, size, words,
+colours and type the page actually had — measured in a browser, never
+described to a model. `repoImport.ts` is the pure half: the address
+somebody typed, which files a browser would ask for, which of them is the
+page (it asks `pageEntry`, so it cannot disagree with the route), the
+category a repository gets, and a stored-zip writer. `repoRun.ts` is the
+browser half: the tree and the blobs are fetched **by his browser with his
+own token** — the zipball redirects to codeload, which sends no CORS
+headers, and a token must never reach our server — packed here and handed
+to the zip route that already exists, so a private repository works like a
+public one and no new server capability was added. Its elements are kept
+as **presets** (`FeatureDef.basedOn` + `preset`) in a category of their
+own: `store.shelve` hands them to the catalogue, `getFeature` and
+`searchFeatures` see one library rather than two, and `addNode` unfolds a
+preset into an ordinary node, so the shelf, the wheel, search and "add
+here" all work without knowing where a part came from. A repository with
+no page in it to open says so and names what it found.
+
 **What the brief promises, the page carries or admits.** Four faults he
 measured on his own deploy were one fault: the brief said a thing and the
 board carried something else, and nothing anywhere owned up. So the brief
