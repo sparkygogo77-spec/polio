@@ -58,7 +58,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { acrossFor, columnHolds, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, STAGGER_MS, type View } from "./timelineView";
+import { acrossFor, columnHolds, hold, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, STAGGER_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
 import { BODY, EDGE } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
@@ -802,6 +802,20 @@ export function Timeline() {
      */
     const lanesBottom = Math.max(...boxes.slice(-3).map((b) => (b.y + b.h) * to.zoom + to.pan.y));
     if (lanesBottom > room - SETTLE_MARGIN) to.pan.y -= lanesBottom - (room - SETTLE_MARGIN);
+    /*
+     * …and the shove is not allowed to strand what it is making room for.
+     *
+     * The fan is furniture and gives; the column never does. Now that the
+     * column decides the zoom, the fan is usually bigger than the room and
+     * this shove is correspondingly larger, so an unbounded upward push
+     * would take the top of the chain off the frame to keep a lane off a
+     * band — the ruling exactly backwards. So the column is held in its
+     * own room afterwards, by the same rule the fit used to place it:
+     * whatever the shove would cost the column, it gives back.
+     */
+    const colTop = Math.min(...cards.map((b) => b.y));
+    const colBottom = Math.max(...cards.map((b) => b.y + b.h));
+    to.pan.y = hold(to.pan.y, colTop * to.zoom, colBottom * to.zoom, room, SETTLE_MARGIN);
     const from = viewAt.current;
     if (sameView(from, to)) return;
     const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -972,10 +986,44 @@ export function Timeline() {
           settled.current = true;
           rescue.current = whenMeasurable(() => {
             const held = ownView ?? mine;
-            if (columnHolds(held, columnOf(box), { w: box.clientWidth, h: box.clientHeight })) return;
-            owns = false;
-            ownView = null;
-            settle();
+            const col = columnOf(box);
+            const frame = { w: box.clientWidth, h: box.clientHeight };
+            if (columnHolds(held, col, frame)) return;
+            /*
+             * TWO WAYS TO LOSE THE COLUMN, and they want different answers.
+             *
+             * If it still FITS at his zoom, he has panned it off the side
+             * and there is nothing he can be looking at that needs that
+             * pan — so the view carries no information worth keeping, and
+             * the fit takes it, which is the second half of the ruling:
+             * as near the room's centre as it can be.
+             *
+             * If it does NOT fit, he has zoomed in to look at part of it,
+             * which is a thing a person does on purpose. Throwing that
+             * away is the zoom resetting on every Finish all over again —
+             * measured, a hand zoom to 1.237 came back as 0.668. So his
+             * zoom is kept and only the pan is corrected, which puts as
+             * much of the column on the screen as there is room for.
+             */
+            let lo = Infinity;
+            let hi = -Infinity;
+            let up = Infinity;
+            let down = -Infinity;
+            for (const b of col) {
+              lo = Math.min(lo, b.x);
+              hi = Math.max(hi, b.x + b.w);
+              up = Math.min(up, b.y);
+              down = Math.max(down, b.y + b.h);
+            }
+            const fits = (hi - lo) * held.zoom <= frame.w - SETTLE_MARGIN * 2
+              && (down - up) * held.zoom <= frame.h - SETTLE_MARGIN * 2;
+            if (fits) { owns = false; ownView = null; settle(); return; }
+            const pan = {
+              x: hold(held.pan.x, lo * held.zoom, hi * held.zoom, frame.w, SETTLE_MARGIN),
+              y: hold(held.pan.y, up * held.zoom, down * held.zoom, frame.h, SETTLE_MARGIN),
+            };
+            ownView = { zoom: held.zoom, pan };
+            setPan(pan);
           });
           return;
         }

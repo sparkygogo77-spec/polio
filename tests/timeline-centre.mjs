@@ -287,9 +287,13 @@ const edges = () => page.evaluate(() => {
     const band = document.querySelector("[data-studio-band]");
     const bandTop = band ? band.getBoundingClientRect().top : window.innerHeight;
     const bar = document.querySelector("[data-studio-pane]").getBoundingClientRect().top;
-    /* The lanes hang off the last box and are part of what the fit holds,
-       so they are part of what "between the two edges" is measured on. */
-    const set = [...document.querySelectorAll("[data-box], [data-lane], [data-lane-box]")].map((e) => e.getBoundingClientRect());
+    /* THE COLUMN, not the set. The lanes were part of what the fit held and
+       so were part of what "between the two edges" was measured on. They are
+       not any more — "the fan is drawn where it falls and may overhang or be
+       clipped" — so measuring them here read the fan hanging 105px below the
+       band and called the column badly placed. What is between the two edges
+       is the thing he is reading. */
+    const set = [...document.querySelectorAll("[data-box]")].map((e) => e.getBoundingClientRect());
     if (!set.length) return null;
     const top = Math.min(...set.map((b) => b.top));
     const bottom = Math.max(...set.map((b) => b.bottom));
@@ -512,6 +516,7 @@ for (const [w, h] of [[1024, 768], [1546, 1278]]) {
       room: Math.round(host.height - bandH),
       wide: Math.round(host.width),
       laneUnder: lanes.length ? Math.round(Math.max(0, Math.max(...lanes.map((r) => r.bottom)) - bandTop)) : 0,
+      colUnder: Math.round(Math.max(0, y1 - bandTop)),
       boxes: set.length,
     };
   });
@@ -520,9 +525,26 @@ for (const [w, h] of [[1024, 768], [1546, 1278]]) {
     `${seen.offRoomY}px off the middle of a ${seen.room}px room`);
   check(`${w}x${h}: and the column is at the middle across`, Math.abs(seen.offX) < 40,
     `${seen.offX}px off the middle of a ${seen.wide}px frame`);
-  /* The fan may overhang to the right. What it may never do is go under
-     the band along the foot, which is where the first attempt put it. */
-  check(`${w}x${h}: and no lane is under the band`, seen.laneUnder === 0, `${seen.laneUnder}px under it`);
+  /*
+   * THE FAN GIVES, INCLUDING DOWNWARD. Superseded, and recorded rather
+   * than deleted, because it was the right rule under the ruling it was
+   * written for and he may want it back.
+   *
+   * It read: the fan may overhang to the right, but may never go under the
+   * band along the foot. That held while the whole set decided the zoom —
+   * there was always slack to shove the fan up into. The column decides
+   * the zoom now, at his word: "the fan is furniture. It should not decide
+   * where the column sits, and for exactly the same reason it should not
+   * decide how far out the view zooms… the fan is drawn where it falls and
+   * may overhang or be clipped." With the column filling its room there is
+   * no slack left, so the shove has nothing to give and the lanes go under
+   * the band: 46px at 1024x768 and 173px at 1546x1278.
+   *
+   * So what is checked is what outranks it: the column is never under the
+   * band, whatever that costs the fan.
+   */
+  check(`${w}x${h}: and the column is never under the band, whatever it costs the fan`,
+    seen.colUnder === 0, `column ${seen.colUnder}px under it, fan ${seen.laneUnder}px under it`);
   await fresh.close();
 }
 

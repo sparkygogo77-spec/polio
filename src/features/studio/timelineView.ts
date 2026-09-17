@@ -101,7 +101,7 @@ export const settleEase = (u: number): number => 1 - Math.pow(1 - Math.max(0, Ma
  * Hold one axis so the set's near and far edges both stay a margin inside
  * the window — or, when it is too big for that, put it in the middle.
  */
-function hold(pan: number, lo: number, hi: number, view: number, margin: number): number {
+export function hold(pan: number, lo: number, hi: number, view: number, margin: number): number {
   const size = hi - lo;
   if (size > view - margin * 2) return (view - size) / 2 - lo;
   return Math.max(margin - lo, Math.min(view - margin - hi, pan));
@@ -121,17 +121,6 @@ export function settleView(
   const min = opts.min ?? SETTLE_MIN_ZOOM;
   const max = opts.max ?? SETTLE_MAX_ZOOM;
 
-  let left = Infinity;
-  let top = Infinity;
-  let right = -Infinity;
-  let bottom = -Infinity;
-  for (const b of boxes) {
-    left = Math.min(left, b.x);
-    top = Math.min(top, b.y);
-    right = Math.max(right, b.x + Math.max(1, b.w));
-    bottom = Math.max(bottom, b.y + Math.max(1, b.h));
-  }
-
   /*
    * WHAT GETS CENTRED, AND WHAT MAY HANG OFF THE SIDE.
    *
@@ -142,11 +131,20 @@ export function settleView(
    * middle'. If the fan then runs off the right edge at a narrow size, the
    * fan is what gives, not the column."
    *
-   * So `weigh`, when it is given, is the column: it decides the middle,
-   * and it is what the pan is held on ACROSS. Everything — the fan
-   * included — still decides the zoom and is still held DOWN the page,
-   * because a fan that overhangs to the right is furniture you can see and
-   * a fan under the opaque band along the foot is furniture that is gone.
+   * And then, because it is the same ruling twice: "the fan is furniture.
+   * It should not decide where the column sits, and for exactly the same
+   * reason it should not decide how far out the view zooms. What the fit is
+   * for is making the thing he is reading legible; letting something three
+   * times the column's size drive that is how you end up at 13% of the
+   * floor with a card at 23% of the width. THE COLUMN DECIDES BOTH THE
+   * CENTRE AND THE ZOOM. The fan is drawn where it falls and may overhang
+   * or be clipped."
+   *
+   * So `weigh`, when it is given, is the column, and it decides all of it:
+   * the middle, the zoom, and what the pan is held on both ways. `boxes` is
+   * then only what there is when nobody has named a column. The fan is
+   * still kept off the band by the caller, and that shove is still not
+   * allowed to push the column off the top — nothing is.
    */
   const middle = opts.weigh?.length ? opts.weigh : boxes;
   let mass = 0;
@@ -154,6 +152,8 @@ export function settleView(
   let my = 0;
   let wide0 = Infinity;
   let wide1 = -Infinity;
+  let tall0 = Infinity;
+  let tall1 = -Infinity;
   for (const b of middle) {
     const w = Math.max(1, b.w);
     const h = Math.max(1, b.h);
@@ -163,11 +163,25 @@ export function settleView(
     my += (b.y + h / 2) * weight;
     wide0 = Math.min(wide0, b.x);
     wide1 = Math.max(wide1, b.x + w);
+    tall0 = Math.min(tall0, b.y);
+    tall1 = Math.max(tall1, b.y + h);
   }
-  if (!Number.isFinite(left) || !mass) return null;
+  if (!Number.isFinite(wide0) || !mass) return null;
 
-  const com = { x: mx / mass, y: my / mass };
-  const span = { w: Math.max(1, right - left), h: Math.max(1, bottom - top) };
+  /*
+   * THE COLUMN'S CENTRE, not its centre of mass.
+   *
+   * His words are "the column's centre sits as near the room's centre as it
+   * can", and a column of cards that are not all the same height has a
+   * centre of mass somewhere other than its middle: measured, 14px off at
+   * 1100x820 with five updates, because the taller cards pulled it. The
+   * middle of what you are looking at is the middle of its box. The mass is
+   * still what decides there IS something to weigh.
+   */
+  const com = opts.weigh?.length
+    ? { x: (wide0 + wide1) / 2, y: (tall0 + tall1) / 2 }
+    : { x: mx / mass, y: my / mass };
+  const span = { w: Math.max(1, wide1 - wide0), h: Math.max(1, tall1 - tall0) };
   const room = { w: Math.max(1, view.w - margin * 2), h: Math.max(1, view.h - margin * 2) };
   /*
    * The whole set decides the zoom — and then the floor gives if the column
@@ -190,15 +204,14 @@ export function settleView(
    * there gave 0.066. There is no fan in that case for the column to be
    * protected from.
    */
-  const colW = Math.max(1, wide1 - wide0);
-  const floor = opts.weigh?.length ? Math.min(min, room.w / colW) : min;
+  const floor = opts.weigh?.length ? Math.min(min, Math.min(room.w / span.w, room.h / span.h)) : min;
   const zoom = Math.min(max, Math.max(floor, wanted));
 
   return {
     zoom,
     pan: {
       x: hold(view.w / 2 - com.x * zoom, wide0 * zoom, wide1 * zoom, view.w, margin),
-      y: hold(view.h / 2 - com.y * zoom, top * zoom, bottom * zoom, view.h, margin),
+      y: hold(view.h / 2 - com.y * zoom, tall0 * zoom, tall1 * zoom, view.h, margin),
     },
   };
 }
