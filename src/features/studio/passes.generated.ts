@@ -2,9 +2,104 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T19:13:10.366Z";
+export const GENERATED_AT = "2026-09-17T20:40:33.742Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "11aaa28",
+    "when": "2026-09-17T20:40:01+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "c62b8cc",
+        "says": "The fit belongs to the room, so it follows the room",
+        "when": "2026-09-17T20:26:27+00:00",
+        "detail": [
+          "His measurement off the deploy at 1546x1278: the frame at (228, 87) 1318x1191, the four update cards from (81, 28) to (414, 175) — 639px left of the frame's centre, 582px above it, their top edge 59px above the frame's own top edge. The plot read `matrix(0.683, 0, 0, 0.683, 0, 0)`: the scale right and the translation nothing.",
+          "REPRODUCED, and he read it correctly. The pan is the timeline's own state and starts at zero on every mount; the zoom is the store's, shared with the board, and survives. So a settle that does not run leaves exactly that matrix. And the settle was one attempt in one frame after mount, which gives up in silence if the pane has no size yet and never runs again. Open the timeline in a 420x240 window and then give it 1546x1278: scale stayed at 0.28 with 285px of the set above the frame's own top edge, and stayed there.",
+          "FIXED. A `ResizeObserver` on the frame and on the band along its foot re-runs the fit. It waits for a room that has a size rather than giving up on one that has not laid out; it waits for a resize to STOP before fitting, because a window resize arrives as a run of observations and the band resizes on its own schedule; and a view somebody has moved is theirs and is left where they left it, unless the room moving has put part of it off an edge, which is not a view any more. Measured: 0.168 in the small window, 0.666 in the large one, nothing outside the frame.",
+          "AND IT FITS AGAIN WHEN THE ARRIVAL IS OVER. The stagger I pushed in 6ae412f meant the fit at mount was a fit to a board still filling: the lane fan is measured off the last box and that box is not in the DOM yet, so the fan was fitted at its nominal height and 178px of the lowest lane ended up under the band. Same class of fault as the fan's own height, same fix — wait for the board to be all there."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "bb72022",
+        "says": "A hand on a vine pulls it; a press takes it apart from the middle",
+        "when": "2026-09-17T19:54:54+00:00",
+        "detail": [
+          "His words: \"the line in the middle of the vines is hoverable ... i would rather no line, the vine maybe pulls a little when you hover ... when click vanishes and fades away and disintegrates from the middle.\"",
+          "NO LINE. `.vine-cut` used to go white hot under the pointer. It paints nothing now, at rest or under a hand: it is the shape that catches the pointer and that is all it is.",
+          "IT PULLS. `strandPath` takes a `tug`, and a vine under the pointer draws taut — 30% of the bow comes out of it and the control pull tightens a tenth, measured at 68.9px off the straight line down to 48.2px. The shape answers the hand instead of a bar being laid over the top of it. The seam that catches the pointer is measured off the vine at REST, so it does not move out from under the hand the moment the vine reacts.",
+          "IT COMES APART FROM THE MIDDLE. A press opens a break at the vine's middle over 460ms; the two ends draw back towards their boards, crumbling — seven grains an edge, placed off their own index and the edge's position, so a repaint mid-cut draws the same grains rather than a fresh shower — and the whole thing fades as it goes. Sliced, not erased: the curve is cut into two pieces and each is painted with the widths and colours it would have had, because `destination-out` on a shared canvas would punch a hole through whatever vine crossed this one. The iteration is pruned when there is nothing left of the vine, not at the press."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "6ae412f",
+        "says": "The boxes arrive when you open the timeline, .2 seconds apart",
+        "when": "2026-09-17T19:41:33+00:00",
+        "detail": [
+          "His words, the spec: \"if you are in the design preview and havent seen the timeline yet dont have the elements add until you open the timeline where everything not seen yet is all loaded in sequentially but each box starts maybe .2 seconds apart, not once the previous is finished.\"",
+          "Three things in that sentence and all three are here. An update is not a thing that happened somewhere he was not looking: `useForming` keeps a session-scoped `watched` set, and every box he has not watched arrive starts forming the moment the timeline opens. They start `STAGGER_MS` apart — 200, his number, and it lives in `timelineView.ts` with the other numbers the view is made of. And they start apart rather than in turn: a formation takes 2.6s, so a run of six overlaps and reads as a sequence instead of a queue.",
+          "A box whose turn has not come is not drawn at all. The first cut had it sitting at zero until its slot, which measured as all six starting in the same millisecond — a box that is already there and empty is not an arrival. It is below zero now and the plot skips it, and the vine into it and the rim round it were already skipping anything that has not begun.",
+          "ONE RULE REVERSED, on his reading. \"Haven't seen the timeline yet\" includes a session that has only just started, so a reload no longer shows the run as it stood — it watches it arrive. The old rule was that whatever was on the board when the timeline first mounted was simply there, on the reasoning that a reload should not replay history; his is the better reading, because an update you have never watched arrive is one you have not seen whether it landed a minute ago or before the tab was opened."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "40c501c",
+        "says": "Centring is centring in what you can see, and one readout does it",
+        "when": "2026-09-17T19:28:13+00:00",
+        "detail": [
+          "His words: \"centering on the timeline seems to be off while dragging, stuff is toward the top ... also remove the little centre and updates amount box in the bottome left of the timeline box, then remove the button at the top to 'fit in view' when the zoom percentage number should be the button doing that for both since they do the same thing now.\"",
+          "Three asks, one piece of work, because they turned out to be one fault.",
+          "THE REGRESSION, reproduced before touching anything. The pane the timeline stands in has 248px of travel of its own — by design, so that carrying on scrolling past the last update reaches the prompt section under it. The settle never knew. It fits the boxes into the timeline's own box less the band, measured from the timeline's top, and with the pane at its foot that top is 192px above the window: measured at 1440×900 with six updates, the set was cut off 192px above the screen with 304px of nothing below it, and pressing centre put it back in exactly the same place. That is \"stuff is toward the top\", and it is his, not the plot's — the transform was right the whole time.",
+          "A settle now puts the pane back with it. A settle is only ever the answer to \"show me everything\" — opening the timeline, putting a box down, asking for the middle — and a fit inside a box that is half off the screen is not an answer to that. After: 56px above and 56px below, the margin exactly, both sides."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "745ca7e",
+    "when": "2026-09-17T19:18:37+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "745ca7e",
+        "says": "Regenerate the passes record for the repo-lands merge",
+        "when": "2026-09-17T19:18:37+00:00",
+        "detail": [],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "4b40472",
     "when": "2026-09-17T19:12:53+00:00",
@@ -1085,67 +1180,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 31
-  },
-  {
-    "id": "0d1697f",
-    "when": "2026-09-15T19:28:10+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "0d1697f",
-        "says": "The width binds the zoom and the height never does, because the height is content",
-        "when": "2026-09-15T19:28:10+00:00",
-        "detail": [
-          "J, off the deploy: \"pane 1509×1191, page window 567×899, scrollHeight 2285, clientHeight 2285, canScroll FALSE. The whole 1440×2224 page is being squeezed to 33% so every part is visible at once. Adding an element low on the page makes everything on the page smaller on the next refresh.\"",
-          "He is right and the rule I was working to was wrong. Fitting the pane in both directions sounds like the same rule said twice and is not: the page's height is its content's, so a zoom that answers to the height answers to how much is on the page. I had measured the size of that myself on the deploy without recognising it — planting one stroke 2400 below the page's bottom took the drawn page from 1275×797 to 436×1083. One stroke, two-thirds off everything already there.",
-          "So the width sets the zoom and nothing else. A page taller than the pane is something to scroll at a readable size, not something to shrink.",
-          "one part,    900px page   →  1381 wide in a 1509 pane, nothing to scroll twelve parts, 5120px page →  1381 wide in a 1509 pane, scrollHeight 5178 against a clientHeight of 1191, canScroll true"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "afad8a0",
-        "says": "The page's wheel is audited slab by slab, and a check that read its own name wrong goes",
-        "when": "2026-09-15T10:42:22+00:00",
-        "detail": [
-          "J's three wheel items were each a slot; this is the rule they were three instances of, held rather than remembered. Every slab on the page's wheel is opened in turn and what it gives back is read. Audited at 1600×1000:",
-          "Motion · Write · Draw · Create · Import · Looks · Strip",
-          "Motion → Glide          Write  → Words, Name, Address Looks  → Color, Texture, Light Draw, Create → a surface of their own rather than a second level Import → the file the picture comes from",
-          "Not one of them says \"soon\", at either level. Two of the three that went had failed exactly that — the three-dot opened the tray a second time and the animation button opened \"Motion asset (soon)\" — so the standard is now a check instead of a memory. Strip is skipped because it is destructive and Import because it opens a file picker."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "95da293",
-    "when": "2026-09-15T09:37:41+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "607c61e",
-        "says": "The floor caps what stopping motion can win, not what removing content can",
-        "when": "2026-09-15T09:34:57+00:00",
-        "detail": [
-          "The previous commit's reading of its own finding was too broad, and the correction matters more than the finding did, because it was written down and passed on as true.",
-          "What it said: \"at thirty boards this instrument reads about 20 whatever you take away, so every ablation is noise against noise.\" What is actually the case: the floor is the cost of re-rastering the content that is on the page, so it caps what STOPPING MOTION can win and does not cap what REMOVING CONTENT can win, because a content ablation moves the floor itself.",
-          "Four passes at each size, one machine, one sitting:",
-          "12 boards        30 boards ceiling, nothing moves at all     54.0  ( 0%)      54.0  ( 0%) floor, one square, page quiet     45.7  (15%)      23.3  (57%) the page as it is                 41.5  (23%)      19.4  (64%)"
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
   }
 ];
