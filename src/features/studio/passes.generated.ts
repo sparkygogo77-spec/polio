@@ -2,9 +2,70 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T19:05:24.856Z";
+export const GENERATED_AT = "2026-09-17T19:13:10.366Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "4b40472",
+    "when": "2026-09-17T19:12:53+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "9add4f1",
+        "says": "Fail loudly in the Builder, never on the published site",
+        "when": "2026-09-17T18:57:18+00:00",
+        "detail": [
+          "THE RULING, and it is his standing one: he is the only person who needs to know a part did not render, and a visitor to his site must never see the scaffolding. The site never mentions him, the chats, the models, or how the work is made — and \"nothing has been built for it yet\" is a sentence about how the work is made.",
+          "WHAT SHIPPED. The audit worked, and then it went out. His live page served, to anybody who visited, at opacity 0.75: a dashed-bordered note reading \"The coordinates / in the layout, and nothing has been built for it yet\"; a block headed \"No words written for these yet\"; and a list headed \"Asked for in the prompt and not on the page\" naming CONNECT WALLET, BUILT FOR THE NEXT BLOCK, the CHAIN 4663 meta row, THE THESIS and JOIN THE TRANSMISSION. The older in-place note — \"this part is described rather than drawn, so there was nothing to publish yet\" — and the \"Not on this page yet\" foot block were the same mistake, and go with them.",
+          "THE BOUNDARY. `Theme.published` is true only for the page a visitor is served. Across it:",
+          "`unwritten()` now has three answers, not two: sample prose on the board so a layout can be read, the plain fact in the live preview where he is looking at what a visitor will get, and nothing at all published — an unwritten card is not written rather than written as a confession."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "003c5b7",
+        "says": "A repository can be connected, and its website lands as parts",
+        "when": "2026-09-17T18:45:20+00:00",
+        "detail": [
+          "His words: \"i will also want the feature of connecting an existing repo website and the subsequent website popping into my design board 1:1, and with a new category specifically for the elements this repo imports\".",
+          "WHAT 1:1 MEANS, in one line: every block of the page arrives as a real, editable part of this library at the position, size, words, colours and type the page actually had — measured in a browser, never described to a model — and anything that cannot be matched to a part arrives saying what it was and what was lost, rather than as a picture of it.",
+          "HOW. Type owner/name (or any GitHub address, or the clone line) on a space's panel and press Connect. The tree and the files a browser would ask for while drawing the page are fetched **by his browser, with his own token**: the zipball redirects to codeload, which sends no CORS headers, and a token must never reach our server. They are packed into a zip here — a stored-zip writer beside the reader the route already has, held to it by a test that writes with one and reads with the other — and handed to the zip route, which opens the page with every request answered out of the zip and nothing reaching the network. A private repository works exactly as a public one does. No new server capability was added.",
+          "THE CATEGORY. Its elements are kept as presets: a real library part in `basedOn` and the measurements in `preset`, in a category named after the repository. The store hands them to the catalogue, so `getFeature` and `searchFeatures` see one library and not two, and `addNode` unfolds a preset into an ordinary node — the shelf, the wheel, search and \"add here\" all work on them without knowing where they came from. They are saved with the site. Letting a repository go empties its category and leaves everything already on the board exactly where it is."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "fe95a47",
+    "when": "2026-09-17T19:12:25+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "fe95a47",
+        "says": "Regenerate the passes record for the surface-is-a-page merge",
+        "when": "2026-09-17T19:12:25+00:00",
+        "detail": [],
+        "areas": [
+          "docs",
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "b807be2",
     "when": "2026-09-17T19:05:08+00:00",
@@ -1083,48 +1144,6 @@ export const PASSES: Pass[] = [
           "tests"
         ],
         "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "bde211f",
-    "when": "2026-09-15T09:37:40+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "140e483",
-        "says": "A handover for the catalogue's owner: three faults, measured, with the checks to add",
-        "when": "2026-09-15T09:27:23+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "a4a4ae8",
-    "when": "2026-09-15T09:19:59+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a4a4ae8",
-        "says": "A page you have not seen starts at its top, and the rest of the contract is held",
-        "when": "2026-09-15T09:19:59+00:00",
-        "detail": [
-          "The three clauses of J's scroll contract that were still open, measured at 2048×1152 on a two-page document of five screens each.",
-          "Two of them turn out to be structural rather than machinery, and that is worth saying plainly rather than claiming work:",
-          "\"Further scrolling down bottoms out against the search tab.\" The search tab is a shrink-0 row above the shelf's own scroller, inside a band that is stuck to the pane's bottom, so it is a floor that cannot move. Held at y 906 through a twenty-notch gesture down, a thirty-notch gesture back up, and ten more pushing past the top.",
-          "\"Scrolling anywhere other than the actual home page allows downward movement only.\" The pane is an ordinary scroller and clamps at nought: 437 → 0 → 0 with nothing pushing it negative."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
       }
     ],
     "more": 0
