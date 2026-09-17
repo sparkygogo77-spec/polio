@@ -114,7 +114,7 @@ function hold(pan: number, lo: number, hi: number, view: number, margin: number)
 export function settleView(
   boxes: ViewBox[],
   view: { w: number; h: number },
-  opts: { margin?: number; min?: number; max?: number } = {},
+  opts: { margin?: number; min?: number; max?: number; weigh?: ViewBox[] } = {},
 ): View | null {
   if (!boxes.length || !(view.w > 1) || !(view.h > 1)) return null;
   const margin = opts.margin ?? SETTLE_MARGIN;
@@ -132,16 +132,37 @@ export function settleView(
     bottom = Math.max(bottom, b.y + Math.max(1, b.h));
   }
 
+  /*
+   * WHAT GETS CENTRED, AND WHAT MAY HANG OFF THE SIDE.
+   *
+   * His ruling, after measuring the set 281px left of the middle in a
+   * 1318px frame: "the set of boxes is what gets centred, and the fan is
+   * furniture that hangs off it. Furniture may overhang, and 'nothing sits
+   * on an edge' does not outrank 'the thing you are reading is in the
+   * middle'. If the fan then runs off the right edge at a narrow size, the
+   * fan is what gives, not the column."
+   *
+   * So `weigh`, when it is given, is the column: it decides the middle,
+   * and it is what the pan is held on ACROSS. Everything — the fan
+   * included — still decides the zoom and is still held DOWN the page,
+   * because a fan that overhangs to the right is furniture you can see and
+   * a fan under the opaque band along the foot is furniture that is gone.
+   */
+  const middle = opts.weigh?.length ? opts.weigh : boxes;
   let mass = 0;
   let mx = 0;
   let my = 0;
-  for (const b of boxes) {
+  let wide0 = Infinity;
+  let wide1 = -Infinity;
+  for (const b of middle) {
     const w = Math.max(1, b.w);
     const h = Math.max(1, b.h);
     const weight = w * h;
     mass += weight;
     mx += (b.x + w / 2) * weight;
     my += (b.y + h / 2) * weight;
+    wide0 = Math.min(wide0, b.x);
+    wide1 = Math.max(wide1, b.x + w);
   }
   if (!Number.isFinite(left) || !mass) return null;
 
@@ -153,7 +174,7 @@ export function settleView(
   return {
     zoom,
     pan: {
-      x: hold(view.w / 2 - com.x * zoom, left * zoom, right * zoom, view.w, margin),
+      x: hold(view.w / 2 - com.x * zoom, wide0 * zoom, wide1 * zoom, view.w, margin),
       y: hold(view.h / 2 - com.y * zoom, top * zoom, bottom * zoom, view.h, margin),
     },
   };

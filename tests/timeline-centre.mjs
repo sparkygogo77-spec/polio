@@ -380,17 +380,21 @@ const edges = () => page.evaluate(() => {
     `matrix(${seen.zoom.toFixed(3)}, 0, 0, ${seen.zoom.toFixed(3)}, ${seen.pan[0].toFixed(0)}, ${seen.pan[1].toFixed(0)})`);
   check("no update is above the frame's own top edge", seen.aboveFrame === 0, `${seen.aboveFrame}px outside it`);
   /*
-   * A fifth of the room, not a few pixels. "Nothing sits on an edge" wins
-   * over the middle where the two disagree (`timelineView.ts`), and the
-   * lane fan hanging off the last box is part of what has to stay on
-   * screen, so the updates are pulled a little off their own centre by
-   * design — measured, about 12% down the room at this size. What this
-   * rules out is his reading: 639px off on a 1318px frame, 582px up on a
-   * 1191px one, with part of the set outside the frame altogether.
+   * ACROSS, it is the column and it is tight. His ruling: "the set of
+   * boxes is what gets centred, and the fan is furniture that hangs off
+   * it. Furniture may overhang, and 'nothing sits on an edge' does not
+   * outrank 'the thing you are reading is in the middle'." It was 281px
+   * left of the middle in a 1318px frame before that; it is single
+   * figures now.
+   *
+   * DOWN, a fifth of the room and no tighter. The fan gives sideways and
+   * must not give downward — a fan under the opaque band along the foot
+   * is gone, not overhanging — so the vertical hold is still on the whole
+   * set and the column is pulled a little off its own centre by it.
    */
-  check("the updates sit at the middle across", Math.abs(seen.offX) < seen.room[0] * 0.2,
+  check("the column sits at the middle across", Math.abs(seen.offX) < 40,
     `${seen.offX}px off the middle of a ${seen.room[0]}px room`);
-  check("and at the middle down the room", Math.abs(seen.offY) < seen.room[1] * 0.2,
+  check("and near the middle down the room", Math.abs(seen.offY) < seen.room[1] * 0.2,
     `${seen.offY}px off the middle of a ${seen.room[1]}px room`);
 }
 
@@ -497,16 +501,28 @@ for (const [w, h] of [[1024, 768], [1546, 1278]]) {
     const set = [...document.querySelectorAll("[data-box]")].map((e) => e.getBoundingClientRect());
     const y0 = Math.min(...set.map((r) => r.top));
     const y1 = Math.max(...set.map((r) => r.bottom));
+    const x0 = Math.min(...set.map((r) => r.left));
+    const x1 = Math.max(...set.map((r) => r.right));
+    const lanes = [...document.querySelectorAll("[data-lane-box]")].map((e) => e.getBoundingClientRect());
+    const bandTop = band ? band.getBoundingClientRect().top : window.innerHeight;
     return {
       above: Math.round(Math.max(0, host.y - y0)),
       offRoomY: Math.round((y0 + y1) / 2 - (host.y + (host.height - bandH) / 2)),
+      offX: Math.round((x0 + x1) / 2 - (host.x + host.width / 2)),
       room: Math.round(host.height - bandH),
+      wide: Math.round(host.width),
+      laneUnder: lanes.length ? Math.round(Math.max(0, Math.max(...lanes.map((r) => r.bottom)) - bandTop)) : 0,
       boxes: set.length,
     };
   });
   check(`${w}x${h}: no box is above the frame's own top edge`, seen.above === 0, `${seen.above}px outside it, ${seen.boxes} boxes`);
   check(`${w}x${h}: and the set is at the middle of the room`, Math.abs(seen.offRoomY) < seen.room * 0.2,
     `${seen.offRoomY}px off the middle of a ${seen.room}px room`);
+  check(`${w}x${h}: and the column is at the middle across`, Math.abs(seen.offX) < 40,
+    `${seen.offX}px off the middle of a ${seen.wide}px frame`);
+  /* The fan may overhang to the right. What it may never do is go under
+     the band along the foot, which is where the first attempt put it. */
+  check(`${w}x${h}: and no lane is under the band`, seen.laneUnder === 0, `${seen.laneUnder}px under it`);
   await fresh.close();
 }
 
