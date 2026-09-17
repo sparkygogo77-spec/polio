@@ -2,9 +2,52 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T18:09:50.790Z";
+export const GENERATED_AT = "2026-09-17T19:05:24.856Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "b807be2",
+    "when": "2026-09-17T19:05:08+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "6dedfbb",
+        "says": "A surface is a page",
+        "when": "2026-09-17T18:24:40+00:00",
+        "detail": [
+          "The ruling, built. A cube's side bound to a page stops being a card with words on it and becomes that page: the page's own parts, drawn at the face's size, under the site's own palette and lamp — on the board, in the preview, and in what a publish writes. Live, a press on that side goes there, because a page you can read and not open is not a page.",
+          "The renderer is handed in rather than imported (`PartProps.surface`), for the reason the whole parts folder exists: a part may not reach the store or the site's renderer. `LiveSite` supplies it and draws itself one level deep — a cube with pages on it, never a hall of mirrors — and the board supplies its own, mounted only for a cube that has a page bound, so an ordinary board pays nothing for it.",
+          "Nothing is dropped quietly. A side bound to a page that has since been deleted says so where it stands. A side that is a page in a place where no page can be drawn — the shelf's thumbnail, the timeline's card — says a page stands there rather than showing a blank face of a box. The brief says which page a surface carries instead of the words behind it, and the publish audit skips another page's parts standing on a surface, so a part that is missing here is not called present because it appears on the side of a box.",
+          "The turning, the weight, the palette and the lamp were already right and are untouched."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "e49c119",
+    "when": "2026-09-17T18:15:31+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "e49c119",
+        "says": "Regenerate the passes record for the brief-lands merge",
+        "when": "2026-09-17T18:15:31+00:00",
+        "detail": [],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "c472ffb",
     "when": "2026-09-17T18:09:08+00:00",
@@ -1080,52 +1123,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "studio",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "adf66c6",
-    "when": "2026-09-15T09:12:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "eceebca",
-        "says": "Every reading is taken on a tab that is in front, and says so",
-        "when": "2026-09-15T09:06:32+00:00",
-        "detail": [
-          "A backgrounded page is given a frame or two a second, so every surface on it measures as costing nothing and the whole table reads as a triumph. Nothing in the numbers afterwards says which it was: throttled and cheap are the same shape. It is the one failure mode here that looks exactly like a pass.",
-          "So each row brings the page to the front before it starts, and `STOP` carries `document.visibilityState` back with every reading. A reading taken while the tab was not visible throws with the row's own name in it rather than being printed, because a number nobody can stand behind is worse than no number.",
-          "This was the discipline the scratch harness for the night's ladders was built around; it belongs in the instrument that is kept rather than in the ones that were thrown away, so the ladders are gone and this is what they leave.",
-          "Checked at twelve boards, whole run, and the tables are unchanged in shape:"
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "21c9098",
-    "when": "2026-09-15T09:12:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "ef5bdec",
-        "says": "Take back the page wheel's Edit slot, which my merge put back",
-        "when": "2026-09-15T09:07:26+00:00",
-        "detail": [
-          "Bardeen's 99b8ade, and it is a fix for something this seat broke. Saying so plainly, because the record is the point.",
-          "A22 on the inventory took two dead choices out of the page's wheel — Width, and \"Per page (soon)\", a tap and nothing — along with the plate-list entry for the width editor. My merge of hypatia's and meitner's work carried an older copy of that slot table, because both branches had been cut before A22 landed and both touched the file, so git took the side that still had the slot. It went out on e741538 and fc67aca. The width editor itself stayed gone; what came back was the dead menu in front of it.",
-          "I also kept it alive by hand. The lucide import conflicted three times tonight, and the first two times I resolved it as the union of both sides, which is right when two sessions each add an icon and wrong when one of them has deliberately taken icons away. Files and Monitor are the two the dead code used, and the union kept them.",
-          "What would have caught it: page-wheel-edit and priority-wheel, which are bardeen's own suites for exactly this, and which I ran on a1ec677 and then did not run again after the merge that carried the older table. wheel-pass passed throughout, which is why nothing looked wrong. The rule this leaves: when a merge brings an older copy of a file another session has just changed, that session's suites for that file are the ones to run, not the general one."
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
