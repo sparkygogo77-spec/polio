@@ -435,6 +435,81 @@ const edges = () => page.evaluate(() => {
   await fresh.close();
 }
 
+/* ------------------------------------------------------------------ */
+/* 7. One way in, and Updates is not it                                 */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS THIRD CAVEAT: "I opened the timeline by pressing Updates on a fresh
+ * load, not by pressing Finish. If those are two different paths into the
+ * same view, the fit may run on one and not the other."
+ *
+ * They are not two paths. Updates opens a dialog of what has landed, over
+ * the board; the timeline is not mounted and there is not a box on the
+ * screen. `setMode("book")` appears once in the whole app, on the Finish
+ * key, and `mode` is not persisted, so a fresh load is always the board.
+ * Held here so that a second way in cannot be added without this saying
+ * so — which is the only way the fit could come to run on one path and
+ * not another.
+ */
+{
+  const fresh = await context.newPage();
+  await fresh.setViewportSize({ width: 1024, height: 768 });
+  await fresh.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await fresh.waitForTimeout(1300);
+  const up = fresh.locator("[data-updates-toggle]").first();
+  check("the bar has an Updates key", (await up.count()) === 1);
+  if (await up.count()) { await up.click(); await fresh.waitForTimeout(1400); }
+  const after = await fresh.evaluate(() => ({
+    panel: document.querySelectorAll("[data-updates-panel]").length,
+    timeline: document.querySelectorAll("[data-timeline]").length,
+    boxes: document.querySelectorAll("[data-box]").length,
+  }));
+  check("Updates opens what has landed, not the timeline", after.panel === 1 && after.timeline === 0 && after.boxes === 0,
+    `${after.panel} panel, ${after.timeline} timelines, ${after.boxes} boxes`);
+  await fresh.close();
+}
+
+/* ------------------------------------------------------------------ */
+/* 8. His size, his pane, measured on whole boxes                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS SECOND CAVEAT: he measured the inner card bodies, not the boxes with
+ * their frames, so his content box was smaller than the real one. These
+ * are whole boxes. HIS FIRST: the fit used the nominal height for every
+ * box and the measured height only for the last one — about 20px a box
+ * out (126 against 106), so a column of three was fitted 60px shorter
+ * than it stands and the top went over the frame's own edge, which is the
+ * 5px he saw. Every box is measured now.
+ */
+for (const [w, h] of [[1024, 768], [1546, 1278]]) {
+  const fresh = await context.newPage();
+  await fresh.setViewportSize({ width: w, height: h });
+  await fresh.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await fresh.waitForTimeout(1300);
+  await fresh.locator("[data-finish]").first().click();
+  await fresh.waitForTimeout(6500);
+  const seen = await fresh.evaluate(() => {
+    const host = document.querySelector("[data-timeline]").getBoundingClientRect();
+    const band = document.querySelector("[data-studio-band]");
+    const bandH = band ? band.getBoundingClientRect().height : 0;
+    const set = [...document.querySelectorAll("[data-box]")].map((e) => e.getBoundingClientRect());
+    const y0 = Math.min(...set.map((r) => r.top));
+    const y1 = Math.max(...set.map((r) => r.bottom));
+    return {
+      above: Math.round(Math.max(0, host.y - y0)),
+      offRoomY: Math.round((y0 + y1) / 2 - (host.y + (host.height - bandH) / 2)),
+      room: Math.round(host.height - bandH),
+      boxes: set.length,
+    };
+  });
+  check(`${w}x${h}: no box is above the frame's own top edge`, seen.above === 0, `${seen.above}px outside it, ${seen.boxes} boxes`);
+  check(`${w}x${h}: and the set is at the middle of the room`, Math.abs(seen.offRoomY) < seen.room * 0.2,
+    `${seen.offRoomY}px off the middle of a ${seen.room}px room`);
+  await fresh.close();
+}
+
 await context.close();
 await browser.close();
 const failed = results.filter((r) => !r).length;
