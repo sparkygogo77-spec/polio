@@ -2,13 +2,20 @@
 /**
  * Which build this is, where a person looks.
  *
- * `/api/version` could say the commit and when the build was made, and
- * nothing in the app asked it; `version` in site.config had no reader; the
- * only visible "v0.N" was the ordinal of a pass on the Updates panel, not a
- * version (inventory B14). This is the one mark: the site's version, the
- * commit when the build was given one and a plain "no commit named" when
- * it was not, and how old the build is. Asked once per page load and
- * shared, because it does not change until the next deployment.
+ * `/api/version` could say when the build was made and nothing in the app
+ * asked it; `version` in site.config had no reader; the only visible "v0.N"
+ * was the ordinal of a pass on the Updates panel, not a version (inventory
+ * B14). This is the one mark: the site's version and how old the build is.
+ * Asked once per page load and shared, because it does not change until the
+ * next deployment.
+ *
+ * IT USED TO NAME THE COMMIT AND THE BRANCH, and read "v0.1.0 · no commit
+ * named · built 3 min ago" when it could not. That is the making talking on
+ * the website, which the rule in `aboutTheSite.ts` does not allow: the
+ * website in its entirety never mentions him, me, the chats, the models, or
+ * how the work is made. The fact is not lost, only taken off the screen —
+ * `/api/version` still answers with the commit and the branch for anything
+ * that needs to know which build is live.
  */
 import * as React from "react";
 import site from "@site";
@@ -44,12 +51,10 @@ export function BuildMark({ className, style }: { className?: string; style?: Re
   React.useEffect(() => { let live = true; void version().then((r) => { if (live) setV(r); }); return () => { live = false; }; }, []);
   const words = [
     `v${site.version}`,
-    v === undefined ? "asking which build" : v?.short ? v.short : "no commit named",
-    v === undefined ? "" : ageOf(v?.builtAt ?? null),
+    v === undefined ? "asking which build" : ageOf(v?.builtAt ?? null),
   ].filter(Boolean).join(" · ");
-  const title = v?.commit ? `commit ${v.commit}${v.branch ? ` on ${v.branch}` : ""}${v.builtAt ? `, built ${v.builtAt}` : ""}` : v?.builtAt ? `built ${v.builtAt}; this build was not given a commit` : undefined;
   return (
-    <span data-build-mark="" title={title} className={className} style={style}>
+    <span data-build-mark="" title={v?.builtAt ?? undefined} className={className} style={style}>
       {words}
     </span>
   );

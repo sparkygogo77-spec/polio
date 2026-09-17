@@ -1,30 +1,40 @@
 /**
- * What landed, as something you can read in a minute.
+ * What changed about the website, as something you can read in a minute.
  *
- * The shape here is the history's own shape, not a changelog's: a **pass** is
- * one merge into the branch (or one day's worth of commits that landed
- * straight on it), and a **change** is one commit inside it. Nobody writes
- * these lines; `npm run passes` reads them out of git into
- * `passes.generated.ts`, because the deployed build has no .git.
+ * A **pass** is a run of work and a **change** is one thing in it that a
+ * person can see on the website. Nobody writes these lines; `npm run passes`
+ * reads them out of the history into `passes.generated.ts`, because the
+ * deployed build cannot read the history itself.
  *
- * What the panel does with them is the other half of the rule: lead with what
- * you can now do, keep the specifics folded until asked.
+ * Everything else that used to ride along is gone, under the one absolute
+ * rule in `aboutTheSite.ts`: the website in its entirety never mentions him,
+ * me, the chats, the models, or how the work is made. Only the changes to
+ * the website itself. So a change is a line and a kind, with no body folded
+ * under it, no name for where it landed, and no corner of the tree it
+ * touched — 10,075 words became 916, and the panel's own claim of five
+ * minutes to read became true instead of being out by a factor of ten.
  */
 import { PASSES, GENERATED_AT } from "./passes.generated.ts";
 
-/** Four kinds, as fine as a subject line can honestly be cut. */
-export type ChangeKind = "new" | "better" | "fixed" | "under";
+/**
+ * Three kinds, as fine as one line can honestly be cut.
+ *
+ * There was a fourth — the work under the floor — and it was never a change
+ * to the website: rulings recorded, notes carried, checks added. It is gone,
+ * and with it the toggle that used to hide it, because a filter that removes
+ * nothing is a control that lies.
+ */
+export type ChangeKind = "new" | "better" | "fixed";
 
 export interface Change {
-  /** The short sha, so a line can be traced back. */
+  /**
+   * What it came from, so a line can be proved to be real rather than
+   * invented. It is a key and an audit trail; it is never shown.
+   */
   id: string;
-  /** The commit subject: one line that says what it is. */
+  /** The one line: what changed about the website. */
   says: string;
   when: string;
-  /** The body, folded away until asked for. */
-  detail: string[];
-  /** Which corners it touched, in names a person uses. */
-  areas: string[];
   kind: ChangeKind;
 }
 
@@ -34,7 +44,11 @@ export interface Pass {
   /** "11 September" — the day it landed. */
   day: string;
   changes: Change[];
-  /** How many were cut from this pass to keep it readable. */
+  /**
+   * How many lines this pass carried that the panel does not show — over the
+   * per-pass limit, or about the making rather than about the website. A
+   * count is not a mention, and nothing goes without being counted.
+   */
   more: number;
 }
 
@@ -45,17 +59,16 @@ export const KIND_MEANS: Record<ChangeKind, string> = {
   new: "New",
   better: "Better",
   fixed: "Fixed",
-  under: "Under it",
 };
 
 /**
  * The line a pass leads with: the first thing in it you can now do.
  *
- * A pass headed "three commits" tells you nothing. Headed by its own biggest
- * new thing, the rest reads as the detail of that.
+ * A pass headed by a count tells you nothing. Headed by its own biggest new
+ * thing, the rest reads as the detail of that.
  */
 export function leadOf(pass: Pass): Change | null {
-  const order: ChangeKind[] = ["new", "better", "fixed", "under"];
+  const order: ChangeKind[] = ["new", "better", "fixed"];
   const sorted = [...pass.changes].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
   return sorted[0] ?? null;
 }
@@ -94,15 +107,14 @@ export function sizeOf(pass: Pass): string {
   return words[n] ?? `${n} things`;
 }
 
-/** Reading time, so "a minute" is a claim we can check rather than a hope. */
+/**
+ * Reading time, over every word the panel shows.
+ *
+ * It counted only the lines while the folded bodies carried nine tenths of
+ * the words, so it read "about 5 minutes" over a fifty-minute panel. There
+ * is nothing folded now, so the count and the panel are the same thing.
+ */
 export function minutes(passes: Pass[]): number {
   const words = passes.reduce((n, p) => n + p.changes.reduce((m, c) => m + c.says.split(/\s+/).length, 0), 0);
   return Math.max(1, Math.round(words / 200));
-}
-
-/** Only the passes that carried something you can use, when asked for that. */
-export function onlyUsable(passes: Pass[]): Pass[] {
-  return passes
-    .map((p) => ({ ...p, changes: p.changes.filter((c) => c.kind !== "under") }))
-    .filter((p) => p.changes.length);
 }

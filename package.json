@@ -11,7 +11,7 @@
     "new:feature": "node scripts/new-feature.mjs",
     "check": "npm run typecheck && npm run build",
     "check:deploy": "node tests/deploy-check.mjs",
-    "passes": "node scripts/passes.mjs"
+    "passes": "node --experimental-strip-types scripts/passes.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

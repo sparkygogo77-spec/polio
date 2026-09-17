@@ -546,6 +546,19 @@ export function Timeline() {
    * *later* of the two boards a vine joins, which is how every vine is
    * keyed here.
    */
+  /*
+   * Whether something is in hand.
+   *
+   * A box being carried holds the view still — that is the rule the board
+   * keeps and the suite measures — and the fit runs from two places that
+   * do not know about the drag: the run finishing its arrival, and the
+   * room changing size. Either one landing mid-carry moves the board out
+   * from under the hand. A ref rather than the state, so reading it costs
+   * no dependency and no re-render.
+   */
+  const inHand = React.useRef(false);
+  inHand.current = !!dragging;
+
   const tugAt = React.useRef<string | null>(null);
   const cutAt = React.useRef<{ id: string | null; p: number }>({ id: null, p: 0 });
   const cutting = React.useRef(0);
@@ -653,6 +666,8 @@ export function Timeline() {
       const real = box.querySelector<HTMLElement>(`[data-box="${t.id}"]`)?.offsetHeight;
       return { x: at.x, y: at.y, w: size.w, h: real && real > 8 ? real : size.h };
     });
+    /* The column, before the fan: what the middle is the middle of. */
+    const cards = boxes.slice();
     /* The lanes hang off the end and are part of what the view must hold. */
     const lastT = s.threads.at(-1);
     /* As tall as the last box really stands, the way the lanes measure it, so the fit holds the same fan the screen shows. */
@@ -687,18 +702,19 @@ export function Timeline() {
     const needed = Math.min((room - SETTLE_MARGIN * 2) / Math.max(1, spanH), (box.clientWidth - SETTLE_MARGIN * 2) / Math.max(1, spanW));
     const min = band ? Math.max(0.28, Math.min(SETTLE_MIN_ZOOM, needed)) : SETTLE_MIN_ZOOM;
     /*
-     * The whole set decides the middle, the fan included.
+     * The column is what gets centred; the fan hangs off it.
      *
-     * I tried weighing only the update cards, on the reasoning that the
-     * fan is chrome and he is looking at the cards: it moved them 230px
-     * closer to the middle at 1546x1278. It also put 178px of the lowest
-     * lane under the band at the width `tests/lanes.mjs` checks, because
-     * the fit and the shove that keeps the fan clear are tuned against
-     * each other. A fan half under the band is a worse answer than cards
-     * a sixth of a room off centre, and his actual complaint was neither
-     * of those — so the fit is left as it was.
+     * His ruling. The first attempt weighed the cards for BOTH axes and
+     * put 178px of the lowest lane under the band, because the fan gives
+     * sideways and must not give downward. `weigh` now decides the middle
+     * and the hold across only — the fan still decides the zoom and is
+     * still held above the band.
      */
-    const to = settleView(boxes, { w: box.clientWidth, h: room }, { min, max: zoomCeiling(box.clientWidth, widest) });
+    const to = settleView(boxes, { w: box.clientWidth, h: room }, {
+      min,
+      max: zoomCeiling(box.clientWidth, widest),
+      weigh: cards,
+    });
     stopSettle();
     if (!to) return;
     /*
@@ -847,6 +863,7 @@ export function Timeline() {
           return r.top < frame.top || r.left < frame.left || r.right > frame.right || r.bottom > frame.bottom - bandH;
         });
       };
+      if (inHand.current) return;
       if (!owns || stranded()) settle();
     };
     raf = requestAnimationFrame(go);
@@ -879,7 +896,7 @@ export function Timeline() {
    */
   const everyoneHere = threads.length > 0 && threads.every((t) => shownOf(t.id) >= 0);
   React.useEffect(() => {
-    if (!everyoneHere || !settled.current || owns) return;
+    if (!everyoneHere || !settled.current || owns || inHand.current) return;
     settle();
   }, [everyoneHere, settle]);
 

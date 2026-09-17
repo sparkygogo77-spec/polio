@@ -13,7 +13,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { GENERATED_AT, KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, versionOf } from "../src/features/studio/passes.ts";
+import { GENERATED_AT, KIND_MEANS, PASSES, leadOf, minutes, sizeOf, versionOf } from "../src/features/studio/passes.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -29,7 +29,9 @@ check("there are passes at all", PASSES.length > 0, `${PASSES.length}`);
 check("the file says when it was read", /^\d{4}-\d{2}-\d{2}T/.test(GENERATED_AT), GENERATED_AT);
 
 const shas = PASSES.flatMap((p) => p.changes.map((c) => c.id));
-check("every line carries the sha it came from", shas.every((s) => /^[0-9a-f]{7,40}$/.test(s)), `${shas.length} lines`);
+// Carried, not shown: it is what proves a line is real rather than invented,
+// and `tests/nothing-said.mjs` is what holds it off the screen.
+check("every line carries what it came from", shas.every((s) => /^[0-9a-f]{7,40}$/.test(s)), `${shas.length} lines`);
 
 const known = new Set(
   execFileSync("git", ["log", "--format=%h", "-400"], { encoding: "utf8" }).split("\n").map((s) => s.trim()).filter(Boolean),
@@ -78,8 +80,7 @@ check("a pass still knows the day it landed", PASSES.every((p) => /^\d{1,2} [A-Z
  * o'clock it was. The boxes are numbered from the oldest instead, ten to the
  * point, so the first pass is v0.1 and v0.9 is followed by v1.0. It is a
  * position in the history rather than a release — nothing here is published
- * or tagged — and the day is still on the pass and the sha still on every
- * folded line for anyone who wants to trace one.
+ * or tagged — and the day is still on the pass for anyone who wants it.
  */
 check("every pass has a version, and they run from v0.1 upward",
   PASSES.every((p) => /^v\d+\.\d$/.test(versionOf(p)))
@@ -111,26 +112,26 @@ check("nothing is told twice across passes", new Set(ids).size === ids.length, `
 for (const p of PASSES.slice(0, 6)) {
   const lead = leadOf(p);
   const kinds = new Set(p.changes.map((c) => c.kind));
-  const best = ["new", "better", "fixed", "under"].find((k) => kinds.has(k));
+  const best = ["new", "better", "fixed"].find((k) => kinds.has(k));
   check(`${p.id} leads with the strongest thing in it`, lead && lead.kind === best, `${lead?.kind} of ${[...kinds].join("/")}`);
 }
 check("every kind has a word a person reads", Object.values(KIND_MEANS).every((w) => w.length > 1));
 check("a pass says its size in words rather than a bare count", /[a-z]/.test(sizeOf(PASSES[0])), sizeOf(PASSES[0]));
 
-const usable = onlyUsable(PASSES);
-check("the plumbing can be dropped and features remain", usable.length > 0 && usable.length <= PASSES.length,
-  `${usable.length} of ${PASSES.length}`);
-check("dropping the plumbing drops only plumbing",
-  usable.every((p) => p.changes.every((c) => c.kind !== "under")));
+// The plumbing is not filtered any more, it is not carried: a ruling
+// recorded or a note carried was never a change to the website, so it never
+// reaches here and the toggle that used to hide it has gone with it.
+check("no plumbing reaches the panel to be filtered", PASSES.every((p) => p.changes.every((c) => c.kind !== "under")));
+check("and no control pretends to filter it", !/data-updates-usable/.test(readFileSync("src/features/studio/Updates.tsx", "utf8")));
 
 /* ------------------------------------------------------------------ */
 /* 5. A minute to read                                                 */
 /* ------------------------------------------------------------------ */
 
 const read = minutes(PASSES);
-check("the whole thing reads in about a minute", read >= 1 && read <= 3, `${read} min`);
-check("the specifics are short enough to unfold",
-  PASSES.every((p) => p.changes.every((c) => c.detail.length <= 6)));
+check("the whole thing reads in a few minutes", read >= 1 && read <= 5, `${read} min`);
+check("and there are no specifics folded under it to blow that out",
+  PASSES.every((p) => p.changes.every((c) => !("detail" in c))));
 
 /* ------------------------------------------------------------------ */
 /* 6. The panel itself                                                 */
@@ -143,7 +144,7 @@ check("it is a slide over standing on nearly the whole screen",
   /fixed/.test(panel) && /w-\[calc\(100vw-1\.5rem\)\]/.test(panel) && /100dvh/.test(panel));
 check("the lines stay in a column a person can read", /max-w-\[1100px\]/.test(panel));
 check("Escape and a press outside close it", /D\.Root/.test(panel) && /D\.Overlay/.test(panel));
-check("the specifics start folded", /React\.useState\(false\)/.test(panel));
+check("there is nothing to fold, so nothing holds an open state", !/React\.useState\(false\)/.test(panel));
 
 const bar = readFileSync("src/features/studio/StudioPage.tsx", "utf8");
 check("one control was added to the bar, no more",

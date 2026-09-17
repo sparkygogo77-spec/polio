@@ -296,6 +296,17 @@ the board and `liftTheme` for the parts, which had drifted — both call
 `look.liftCss` now, because the copy that was wrong was the one on the
 board, which is the one anybody would have looked at.
 
+**The column gets the middle; the fan is furniture.** His ruling, after the
+set measured 281px left of centre in a 1318px frame: the boxes are what
+gets centred and the lane fan hangs off them, so "nothing sits on an edge"
+does not outrank "the thing you are reading is in the middle". `settleView`
+takes `weigh`: it decides the centre of mass and the hold ACROSS, while
+everything — the fan included — still decides the zoom and is still held
+DOWN the page. The asymmetry is the point: a fan overhanging to the right
+is furniture you can see, a fan under the opaque band along the foot is
+furniture that is gone. The first attempt weighed the column on both axes
+and put 178px of lane under the band.
+
 **The fit belongs to the room, so it follows the room.** It used to be one
 attempt in one frame after the timeline mounted, and it gave up in silence
 if the pane had not laid out yet — and because the pan is the component's

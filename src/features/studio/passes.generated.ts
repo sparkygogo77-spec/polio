@@ -2,309 +2,82 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T20:40:33.742Z";
+export const GENERATED_AT = "2026-09-17T21:48:28.905Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "11aaa28",
-    "when": "2026-09-17T20:40:01+00:00",
+    "id": "a91307a",
+    "when": "2026-09-17T21:40:36+00:00",
     "day": "17 September",
     "changes": [
+      {
+        "id": "a91307a",
+        "says": "The column gets the middle; the fan hangs off it",
+        "when": "2026-09-17T21:40:36+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "995b3b2",
+        "says": "The fit measures every box, and there is only one way into the timeline",
+        "when": "2026-09-17T21:22:40+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "b628d43",
+        "says": "Two controls on the light panel were dead; here they are by name",
+        "when": "2026-09-17T21:15:45+00:00",
+        "kind": "new"
+      },
       {
         "id": "c62b8cc",
         "says": "The fit belongs to the room, so it follows the room",
         "when": "2026-09-17T20:26:27+00:00",
-        "detail": [
-          "His measurement off the deploy at 1546x1278: the frame at (228, 87) 1318x1191, the four update cards from (81, 28) to (414, 175) — 639px left of the frame's centre, 582px above it, their top edge 59px above the frame's own top edge. The plot read `matrix(0.683, 0, 0, 0.683, 0, 0)`: the scale right and the translation nothing.",
-          "REPRODUCED, and he read it correctly. The pan is the timeline's own state and starts at zero on every mount; the zoom is the store's, shared with the board, and survives. So a settle that does not run leaves exactly that matrix. And the settle was one attempt in one frame after mount, which gives up in silence if the pane has no size yet and never runs again. Open the timeline in a 420x240 window and then give it 1546x1278: scale stayed at 0.28 with 285px of the set above the frame's own top edge, and stayed there.",
-          "FIXED. A `ResizeObserver` on the frame and on the band along its foot re-runs the fit. It waits for a room that has a size rather than giving up on one that has not laid out; it waits for a resize to STOP before fitting, because a window resize arrives as a run of observations and the band resizes on its own schedule; and a view somebody has moved is theirs and is left where they left it, unless the room moving has put part of it off an edge, which is not a view any more. Measured: 0.168 in the small window, 0.666 in the large one, nothing outside the frame.",
-          "AND IT FITS AGAIN WHEN THE ARRIVAL IS OVER. The stagger I pushed in 6ae412f meant the fit at mount was a fit to a board still filling: the lane fan is measured off the last box and that box is not in the DOM yet, so the fan was fitted at its nominal height and 178px of the lowest lane ended up under the band. Same class of fault as the fan's own height, same fix — wait for the board to be all there."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "bb72022",
         "says": "A hand on a vine pulls it; a press takes it apart from the middle",
         "when": "2026-09-17T19:54:54+00:00",
-        "detail": [
-          "His words: \"the line in the middle of the vines is hoverable ... i would rather no line, the vine maybe pulls a little when you hover ... when click vanishes and fades away and disintegrates from the middle.\"",
-          "NO LINE. `.vine-cut` used to go white hot under the pointer. It paints nothing now, at rest or under a hand: it is the shape that catches the pointer and that is all it is.",
-          "IT PULLS. `strandPath` takes a `tug`, and a vine under the pointer draws taut — 30% of the bow comes out of it and the control pull tightens a tenth, measured at 68.9px off the straight line down to 48.2px. The shape answers the hand instead of a bar being laid over the top of it. The seam that catches the pointer is measured off the vine at REST, so it does not move out from under the hand the moment the vine reacts.",
-          "IT COMES APART FROM THE MIDDLE. A press opens a break at the vine's middle over 460ms; the two ends draw back towards their boards, crumbling — seven grains an edge, placed off their own index and the edge's position, so a repaint mid-cut draws the same grains rather than a fresh shower — and the whole thing fades as it goes. Sliced, not erased: the curve is cut into two pieces and each is painted with the widths and colours it would have had, because `destination-out` on a shared canvas would punch a hole through whatever vine crossed this one. The iteration is pruned when there is nothing left of the vine, not at the press."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "6ae412f",
         "says": "The boxes arrive when you open the timeline, .2 seconds apart",
         "when": "2026-09-17T19:41:33+00:00",
-        "detail": [
-          "His words, the spec: \"if you are in the design preview and havent seen the timeline yet dont have the elements add until you open the timeline where everything not seen yet is all loaded in sequentially but each box starts maybe .2 seconds apart, not once the previous is finished.\"",
-          "Three things in that sentence and all three are here. An update is not a thing that happened somewhere he was not looking: `useForming` keeps a session-scoped `watched` set, and every box he has not watched arrive starts forming the moment the timeline opens. They start `STAGGER_MS` apart — 200, his number, and it lives in `timelineView.ts` with the other numbers the view is made of. And they start apart rather than in turn: a formation takes 2.6s, so a run of six overlaps and reads as a sequence instead of a queue.",
-          "A box whose turn has not come is not drawn at all. The first cut had it sitting at zero until its slot, which measured as all six starting in the same millisecond — a box that is already there and empty is not an arrival. It is below zero now and the plot skips it, and the vine into it and the rim round it were already skipping anything that has not begun.",
-          "ONE RULE REVERSED, on his reading. \"Haven't seen the timeline yet\" includes a session that has only just started, so a reload no longer shows the run as it stood — it watches it arrive. The old rule was that whatever was on the board when the timeline first mounted was simply there, on the reasoning that a reload should not replay history; his is the better reading, because an update you have never watched arrive is one you have not seen whether it landed a minute ago or before the tab was opened."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "40c501c",
         "says": "Centring is centring in what you can see, and one readout does it",
         "when": "2026-09-17T19:28:13+00:00",
-        "detail": [
-          "His words: \"centering on the timeline seems to be off while dragging, stuff is toward the top ... also remove the little centre and updates amount box in the bottome left of the timeline box, then remove the button at the top to 'fit in view' when the zoom percentage number should be the button doing that for both since they do the same thing now.\"",
-          "Three asks, one piece of work, because they turned out to be one fault.",
-          "THE REGRESSION, reproduced before touching anything. The pane the timeline stands in has 248px of travel of its own — by design, so that carrying on scrolling past the last update reaches the prompt section under it. The settle never knew. It fits the boxes into the timeline's own box less the band, measured from the timeline's top, and with the pane at its foot that top is 192px above the window: measured at 1440×900 with six updates, the set was cut off 192px above the screen with 304px of nothing below it, and pressing centre put it back in exactly the same place. That is \"stuff is toward the top\", and it is his, not the plot's — the transform was right the whole time.",
-          "A settle now puts the pane back with it. A settle is only ever the answer to \"show me everything\" — opening the timeline, putting a box down, asking for the middle — and a fit inside a box that is half off the screen is not an answer to that. After: 56px above and 56px below, the margin exactly, both sides."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "745ca7e",
-    "when": "2026-09-17T19:18:37+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "745ca7e",
-        "says": "Regenerate the passes record for the repo-lands merge",
-        "when": "2026-09-17T19:18:37+00:00",
-        "detail": [],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4b40472",
-    "when": "2026-09-17T19:12:53+00:00",
-    "day": "17 September",
-    "changes": [
+      },
       {
         "id": "9add4f1",
         "says": "Fail loudly in the Builder, never on the published site",
         "when": "2026-09-17T18:57:18+00:00",
-        "detail": [
-          "THE RULING, and it is his standing one: he is the only person who needs to know a part did not render, and a visitor to his site must never see the scaffolding. The site never mentions him, the chats, the models, or how the work is made — and \"nothing has been built for it yet\" is a sentence about how the work is made.",
-          "WHAT SHIPPED. The audit worked, and then it went out. His live page served, to anybody who visited, at opacity 0.75: a dashed-bordered note reading \"The coordinates / in the layout, and nothing has been built for it yet\"; a block headed \"No words written for these yet\"; and a list headed \"Asked for in the prompt and not on the page\" naming CONNECT WALLET, BUILT FOR THE NEXT BLOCK, the CHAIN 4663 meta row, THE THESIS and JOIN THE TRANSMISSION. The older in-place note — \"this part is described rather than drawn, so there was nothing to publish yet\" — and the \"Not on this page yet\" foot block were the same mistake, and go with them.",
-          "THE BOUNDARY. `Theme.published` is true only for the page a visitor is served. Across it:",
-          "`unwritten()` now has three answers, not two: sample prose on the board so a layout can be read, the plain fact in the live preview where he is looking at what a visitor will get, and nothing at all published — an unwritten card is not written rather than written as a confession."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
-      {
-        "id": "003c5b7",
-        "says": "A repository can be connected, and its website lands as parts",
-        "when": "2026-09-17T18:45:20+00:00",
-        "detail": [
-          "His words: \"i will also want the feature of connecting an existing repo website and the subsequent website popping into my design board 1:1, and with a new category specifically for the elements this repo imports\".",
-          "WHAT 1:1 MEANS, in one line: every block of the page arrives as a real, editable part of this library at the position, size, words, colours and type the page actually had — measured in a browser, never described to a model — and anything that cannot be matched to a part arrives saying what it was and what was lost, rather than as a picture of it.",
-          "HOW. Type owner/name (or any GitHub address, or the clone line) on a space's panel and press Connect. The tree and the files a browser would ask for while drawing the page are fetched **by his browser, with his own token**: the zipball redirects to codeload, which sends no CORS headers, and a token must never reach our server. They are packed into a zip here — a stored-zip writer beside the reader the route already has, held to it by a test that writes with one and reads with the other — and handed to the zip route, which opens the page with every request answered out of the zip and nothing reaching the network. A private repository works exactly as a public one does. No new server capability was added.",
-          "THE CATEGORY. Its elements are kept as presets: a real library part in `basedOn` and the measurements in `preset`, in a category named after the repository. The store hands them to the catalogue, so `getFeature` and `searchFeatures` see one library and not two, and `addNode` unfolds a preset into an ordinary node — the shelf, the wheel, search and \"add here\" all work on them without knowing where they came from. They are saved with the site. Letting a repository go empties its category and leaves everything already on the board exactly where it is."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "fe95a47",
-    "when": "2026-09-17T19:12:25+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "fe95a47",
-        "says": "Regenerate the passes record for the surface-is-a-page merge",
-        "when": "2026-09-17T19:12:25+00:00",
-        "detail": [],
-        "areas": [
-          "docs",
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "b807be2",
-    "when": "2026-09-17T19:05:08+00:00",
-    "day": "17 September",
-    "changes": [
       {
         "id": "6dedfbb",
         "says": "A surface is a page",
         "when": "2026-09-17T18:24:40+00:00",
-        "detail": [
-          "The ruling, built. A cube's side bound to a page stops being a card with words on it and becomes that page: the page's own parts, drawn at the face's size, under the site's own palette and lamp — on the board, in the preview, and in what a publish writes. Live, a press on that side goes there, because a page you can read and not open is not a page.",
-          "The renderer is handed in rather than imported (`PartProps.surface`), for the reason the whole parts folder exists: a part may not reach the store or the site's renderer. `LiveSite` supplies it and draws itself one level deep — a cube with pages on it, never a hall of mirrors — and the board supplies its own, mounted only for a cube that has a page bound, so an ordinary board pays nothing for it.",
-          "Nothing is dropped quietly. A side bound to a page that has since been deleted says so where it stands. A side that is a page in a place where no page can be drawn — the shelf's thumbnail, the timeline's card — says a page stands there rather than showing a blank face of a box. The brief says which page a surface carries instead of the words behind it, and the publish audit skips another page's parts standing on a surface, so a part that is missing here is not called present because it appears on the side of a box.",
-          "The turning, the weight, the palette and the lamp were already right and are untouched."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e49c119",
-    "when": "2026-09-17T18:15:31+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "e49c119",
-        "says": "Regenerate the passes record for the brief-lands merge",
-        "when": "2026-09-17T18:15:31+00:00",
-        "detail": [],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c472ffb",
-    "when": "2026-09-17T18:09:08+00:00",
-    "day": "17 September",
-    "changes": [
+      },
       {
         "id": "8753e2d",
         "says": "What the brief promises, the page carries or says it does not",
         "when": "2026-09-17T17:58:49+00:00",
-        "detail": [
-          "He measured his own published page and found five faults. Four of them were the same fault in different clothes: the brief says one thing, the board carries another, and nothing anywhere admits the gap.",
-          "THE WORDMARK. The brief binds it — \"wherever a logo or wordmark is drawn it reads BLACKORB, never Logo\" — and two parts printed \"Logo\" anyway, so his site introduced itself twice under a word he never typed. The theme now carries the site's name and the top bar and the footer read it.",
-          "WORDS NOBODY WROTE. A card with a title and no body published nine words of ours under his heading: \"Warm ledger clear orbit open ledger\". Sample prose is how a layout reads on the board before anybody writes it, and a lie on a page a stranger reads. `unwritten(mode, …)` keeps it on the board and says, live, that the words are missing; the publish lists every part that had to say it.",
-          "SECTIONS WITH NO PART. A region drawn with words on it and nothing inside is a section of the brief's own layout: the brief prints it, top to bottom, and nothing ever rendered one. \"The coordinates\" and \"join the transmission\" were in his brief, absent from his site, and unmentioned. `spec.unbuiltSections` is now the one list both sides read, and the page stands a note where the section was drawn."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0b7749c",
-    "when": "2026-09-17T09:13:36+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "0b7749c",
-        "says": "Regenerate the passes record for the picture merge",
-        "when": "2026-09-17T09:13:36+00:00",
-        "detail": [],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "b9512c2",
-    "when": "2026-09-17T09:08:44+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "86c2779",
-        "says": "A picture can be drawn with his own key, and a picture beats a drawn body",
-        "when": "2026-09-17T08:50:32+00:00",
-        "detail": [
-          "DRAWN, NOT ONLY CHOSEN. The renderer that draws a part's body draws a picture instead, asked from the part's own panel with his own Replicate key, and what comes back lands exactly where an uploaded one lands: a file in this browser's storage, a path on the part, the same publish. The price is said BEFORE the press — $0.04 a go at the model's published rate, his key, his money — and what it really cost is said after, because the first number was a guess and the second is not.",
-          "THE RULING, built in. A picture beats a drawn body: somebody who puts a picture on a part has said what they want, and a drawn body is what the part does when nobody has said anything. Two things follow and both are here: taking the picture off brings the body straight back, because the body was never destroyed; and where he is building, a part showing a picture over a body says \"your picture\" in the corner, so he is never guessing whose the thing on screen is. Never on the live site — a visitor is not building anything.",
-          "tests/pictures.mjs grows to 15 checks, 15/15. The drawn path: the panel says $0.04 before the press, asks the renderer for a raster at the part's own 1360×420, lands it as `from: \"drawn\"` under `assets/pictures/`, leaves the document with no bytes in it, and says \"it cost $0.04\" afterwards. Then the same publish as before — committed base64, 78 bytes in and 78 out, the page pointing at the path with no `data:image` in it, and the picture drawing where it is served.",
-          "One fault of mine, caught by the check: the line saying what it cost was written into the box that closes when the drawing works, so it was set and hidden in the same breath. It lives under the picture now."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "5d4edae",
         "says": "A part can hold a picture, and the picture is a file",
         "when": "2026-09-17T07:15:59+00:00",
-        "detail": [
-          "There was no way to give a part an image, which is why there was not one `img` tag on his published site and why the hero drew a hole.",
-          "WHERE THE BYTES ARE, which was the decision worth making before building. Not in the document. The document holds a path, a size and what the picture shows; the bytes live in this browser's file storage while the site is being built, and in the repository once it is published. A photograph inlined in the document would share the browser's small storage with his board, his builds and his keys and take all of them with it when it overflowed — and would be carried again by every publish for ever, whether or not the picture changed, on an account already 142 GB over a 10 GB allowance.",
-          "So: `pictures.ts` keeps the bytes in IndexedDB and hands out a record. `PictureSlot` draws the picture, or says the browser has lost it and it needs adding again, or draws the empty slot as before — three states, all of them said out loud. The publish reads the bytes once, commits them as real files under `assets/pictures/`, and the page points at the path. The panel says which of the two places the picture is in right now, because one that has never been published exists in his browser and nowhere else and he is the only person who can know that.",
-          "tests/pictures.mjs, new, 10/10, through the panel he would use: the document comes out 2418 characters with a path in it and no bytes; the file is committed with `encoding: base64` and the 78 bytes that went in come back byte for byte; the page carries `<img src=\"assets/pictures/…\">` and no `data:image` anywhere; and served as a static host would serve it, the picture draws at 4×4 with nothing missing."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
-    "more": 0
-  },
-  {
-    "id": "2f3ee50",
-    "when": "2026-09-17T06:36:24+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "2f3ee50",
-        "says": "Regenerate the passes record for the hypatia merge",
-        "when": "2026-09-17T06:36:24+00:00",
-        "detail": [],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
+    "more": 3
   },
   {
     "id": "a166f97",
@@ -315,36 +88,6 @@ export const PASSES: Pass[] = [
         "id": "2544bdc",
         "says": "A part that cannot be published says so on the page, and no builder's word goes out with it",
         "when": "2026-09-17T06:22:06+00:00",
-        "detail": [
-          "Four sections of his site did not publish and the page said nothing about it. Before fixing anything I measured what the export actually loses, part by part: the preview settled against the page that ships, both read through `data-live-node`.",
-          "IT LOSES NOTHING. Seven kinds of part — a bar, a hero, one whose body the renderer drew, one that is only a written prompt, number tiles, an accordion with its panels closed, a footer — and every one of them is identical in the published page, markup length for markup length: 3670→3670, 2183→2183, 252 words→252, and the drawn body keeps all 1100 characters inside its frame. So what is missing from his site is missing from his preview too, and the question is the renderer's, not the exporter's.",
-          "What I could reproduce of his four, exactly: a part whose detail lives only in its written prompt renders as a skeleton — its label and nothing else, twenty-five characters where he expects a card. That is the Thesis eyebrow and Connect wallet. A part the registry does not know is NOT dropped; it draws a labelled box. The one shape that vanishes without trace is a part whose `pageId` names a page that no longer exists: no page claims it, so nothing ever asks it to render, and it is on the board and nowhere else.",
-          "So, his rule, and it is the right one: a part that cannot be published faithfully says so where it stood. Every page is audited as it is written. A part that drew nothing — no words, no picture, no frame, no paint of its own — is labelled in its own place with its own name. A part no page claims is named at the foot of the home page. Neither is silent, and the next publish of his board will name the four rather than swallow them."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "62ba427",
-    "when": "2026-09-17T06:33:36+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "62ba427",
-        "says": "Regenerate the passes record for the dijkstra merge",
-        "when": "2026-09-17T06:33:36+00:00",
-        "detail": [
-          "The deployed build has no .git to read, so the record is regenerated on every pass. 24 passes, 69 changes."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       }
     ],
@@ -359,42 +102,18 @@ export const PASSES: Pass[] = [
         "id": "f1b2804",
         "says": "No black field on a carried-out box: a picture only where the site has something on it, on top of the blue",
         "when": "2026-09-16T20:33:43+00:00",
-        "detail": [
-          "The site picture's frame painted a dark field behind the picture, and a site with nothing on its page drew as its own empty backdrop, which on a carried-out box was most of the box. The frame paints nothing now, and an empty site is a line and a note on the texture. Where the site has something on it, the picture sits on top of the box's own texture.",
-          "(cherry picked from commit 2abc2e985931a5f4ae326eb1628203b93d337bc6)"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "ca68ed6",
         "says": "The pointer is captured once a drag begins, not on the press, so keys inside the pane still take their click",
         "when": "2026-09-16T20:27:10+00:00",
-        "detail": [
-          "Captured on the press, the pointer sent its click to the captor: the centre key inside the pane stopped answering. Now a box or the ground captures the pointer the moment the drag really starts, and a plain press goes where it was aimed.",
-          "(cherry picked from commit f4762c61c2244aa2bfde9d677c541be701222ea9)"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "2d81eb4",
         "says": "Letting go lets go: a drag ends on a cancel or a lost pointer as it does on a release",
         "when": "2026-09-16T20:24:36+00:00",
-        "detail": [
-          "A box or the ground ended its drag only on a pointer-up that reached the window. Released outside the window, or cancelled by the browser midway, it stayed on the mouse until the next click. The pressed thing captures the pointer now, and a cancel or a lost capture ends the drag the way a release does; a cancelled box is put down where it last was.",
-          "(cherry picked from commit dada4f68bb45ad2e6488e3201ca07257f1839de2)"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
@@ -406,145 +125,25 @@ export const PASSES: Pass[] = [
     "day": "17 September",
     "changes": [
       {
-        "id": "b5474e8",
-        "says": "Record the ruling: when two lanes rewrite the same thing, the later instruction wins",
-        "when": "2026-09-17T06:13:31+00:00",
-        "detail": [
-          "Dijkstra's five and hypatia's live lane work conflicted across ten hunks in Lanes.tsx, Timeline.tsx, lanes.ts and tests/lanes.mjs. Held rather than resolved silently. The owner's ruling and the general rule it leaves are now in the merge log, with a paragraph addressed to dijkstra saying what to keep and what to drop on the rebase."
-        ],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "4917db3",
-        "says": "A publish puts a website in the repository, and Try it asks the service",
-        "when": "2026-09-17T05:14:23+00:00",
-        "detail": [
-          "Hypatia's 9fb5219 and a5382bd.",
-          "tests/site-lands.mjs, 12 of 12, against a build of this commit with the stub seam wired in. What a publish committed, six files:",
-          "index.html            assets/site.css   118 KB about/index.html      site/BLUEPRINT.md site/blueprint.json site/document.json",
-          "A page at the root, a stylesheet beside it, one address per page of the board, and the three description files still there. The address answers HTTP 200 where the deploy answered NOT_FOUND. Served and opened, it is a page and not a shell: 1500x1144, 32 laid-out elements, 178 characters of text, painted oklch(0.13 0.012 288) rather than left to browser defaults, its stylesheet loaded, nothing it asks for missing, and zero Builder elements came with it."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "a5382bd",
-        "says": "A publish puts a website in the repository, not a description of one",
-        "when": "2026-09-17T04:52:55+00:00",
-        "detail": [
-          "He imported the repository at Vercel and every address answered NOT_FOUND. Nothing was broken: what a publish committed was `site/document.json` and the blueprint in two forms — a description of a website — and there was nothing at the root to serve.",
-          "The scaffold would not have saved it either. It writes a Next app from the document, deterministically and with no model, which is the right thing for behaviour later; it writes no `package.json` and no framework config, so Vercel finds nothing to build, falls back to serving the repository as static files, finds no `index.html`, and answers NOT_FOUND. Two faults, one symptom.",
-          "So a publish now writes the simplest thing that is a real website: `index.html` at the root, one per page at its own path, and one stylesheet beside them. No build, no framework to detect, no configuration — and no serverless function, which matters tonight: his account is 142 GB over a 10 GB function allowance, and a static export costs none of it.",
-          "It is faithful because it is not a second implementation. Each page is rendered by the same `LiveSite` the preview uses, into a detached container at the site's own width, and its DOM is read back; the app's own stylesheets are read out of `document.styleSheets` and written beside it. Same markup, same rules. Images are already data URLs, so the export carries them."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "9fb5219",
-        "says": "Try it asks the service, not us",
-        "when": "2026-09-17T04:38:11+00:00",
-        "detail": [
-          "The one button whose whole purpose is to prove a key is the person's own was also the one that handed it to this site's server: a POST to /api/keys/test with the key on a header, and the server asked Anthropic.",
-          "Claude, GitHub and Vercel each answer a browser directly, so they are asked from the browser now and the key does not leave it. Anthropic needs `anthropic-dangerous-direct-browser-access: true` or it refuses a page outright, which is measured on the deploy and is why this was worth doing rather than assuming.",
-          "Replicate is the exception and is meant to be: it will not answer a browser from another origin, and its token reaches the server anyway because the renderer is a server call. It still goes through the route, and the panel says so in a sentence rather than pretending otherwise.",
-          "The panel also now says plainly where each key goes: tried from this browser for three of the four, and for the work — a Builder ask, a render, a publish — sent with that one request to be used and dropped, because the server is what makes those calls. That is the part of the promise this commit does NOT close, and it should not read as though it did."
-        ],
-        "areas": [
-          "keys",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "808f618",
-        "says": "Publishing: the first commit into an empty repository, and Go live names the site",
-        "when": "2026-09-17T04:19:55+00:00",
-        "detail": [
-          "Hypatia's 24788ec.",
-          "tests/publish-empty.mjs, run against a build of this commit with the stub seam wired in (GITHUB_API pointed at the suite's own stub): 11 of 11.",
-          "Run without the seam first, it reads 4 of 11 with seven failures all saying \"GitHub rejected the token\" — worth recording, because that is what this suite looks like when it is run wrong, and it looks like a product failure rather than a harness one.",
-          "The empty-repository path, in the order the stub was asked:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "24788ec",
-        "says": "Publishing: the first commit into an empty repository, and Go live sends the site's name",
-        "when": "2026-09-17T04:00:49+00:00",
-        "detail": [
-          "PRESS ONE, \"Git Repository is empty.\" The route already knew how to make a root commit and never reached that code. It decided \"there is nothing here\" from a 404, and GitHub answers a 409 for the git ref endpoints of a repository with no commits at all — which is every repository this route has just made for a site's first publish. The 409 came back out as the failure he saw. Both catches now treat 404 and 409 alike, and the base-sha walk is one function that returns the tip, the default branch's tip, or nothing.",
-          "A repository that refuses the git data API altogether until it has one commit is handled too: the first file goes up through the contents API, which will write into an empty repository, and the whole set is written on top of it. Two commits on a first publish of that kind, and no publish that fails.",
-          "PRESS TWO, \"nothing to name a new one after: give the site a name in the brief.\" Nothing was wrong with the brief. Push to GitHub sent `create`, the site's own name; Go live sent nothing at all, so the route had no name to make a repository under and said the one thing that was certain to send him looking in the wrong place. Both buttons now ask one function where a push goes and what a new repository is called. The message no longer blames the brief either: it says what it means.",
-          "AND THE REPOSITORY IT MADE IS REMEMBERED EVEN WHEN THE PUSH THEN FAILED. It was written on the site only on success, so a first publish that created the repository and then hit the 409 left the site not knowing about it — and the next press made another one, with a suffix, because the name was taken. The answer carries `created` on a failure now and the browser writes it down either way."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
         "id": "058abf4",
         "says": "The publish probe answers for the server, and no key is written in the clear",
         "when": "2026-09-17T03:40:13+00:00",
-        "detail": [
-          "Hypatia's b26fdc5.",
-          "The status probe was asked directly with a token in hand rather than watched through a page load, because the lane warned a watch-only check passes falsely when the probe fires before the keys hydrate:",
-          "x-github-token: ghp_...   -> {\"github\":{\"configured\":true,\"token\":\"server\",...}} authorization: Bearer ... -> {\"github\":{\"configured\":true,\"token\":\"server\",...}} no header at all          -> {\"github\":{\"configured\":true,\"token\":\"server\",...}}",
-          "Three requests, three identical answers, \"server\" every time. It no longer reads a token, and handing it one changes nothing."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       },
       {
         "id": "b26fdc5",
         "says": "The vines dissipate, and the lanes are a column joined by a square bracket",
         "when": "2026-09-17T03:17:13+00:00",
-        "detail": [
-          "THE BLEND. \"the blend kind isnt there its just a little overlap clearly … i can see the end lines of each.\" He is right, and the cause is exactly what he guessed: each end's colour was a stroke of its own, laid over the dark, solid to three tenths and faded out by seven. Two strokes, each with a start and a stop, is two ribbons overlapping however gently they are faded — and the fade did not even do the work, because the eye finds the edge of the flat part, not the fade.",
-          "Sampled off the canvas on the deploy 9567416, one green board to one red drawing: three degrees of hue in the first third of the run, then 85 of the 112 degrees — 76% of the whole journey — crammed between two fifths and two thirds. Flat, flat, and a crossing between them. That crossing is the line he can see.",
-          "So there is no overlay. Each band is one fill whose colour is interpolated along the length: its own end's, whole for an eighth, then easing into the material's own dark by the middle, and out again into the other end's. The ease is smoothstep, which arrives at both the hold and the middle with no slope at all, so there is not even a bend in the run to catch the eye. On this build the same measurement reads 30 degrees gone by a third of the way along and 22% of the journey in the middle quarter. Nothing has an end.",
-          "It is also cheaper: one fill a band instead of three."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "742655e",
         "says": "The publish route is not handed a token to answer a question the browser knows",
         "when": "2026-09-17T02:56:49+00:00",
-        "detail": [
-          "`GET /api/studio/publish` is a status probe — can this push, which repository, which branch, is there a deploy hook. It read `x-github-token` so it could answer the first of those, and the Builder sent the person's real token with it on every load that asked. The browser is the thing holding the token, so the browser is the thing that knows: the route now speaks only for the server, and `publishStatus()` ORs in what this browser holds. The POST still carries the token, because pushing is what it is for.",
-          "Measured, not reasoned: the check asks the route directly with a token in its hand, because whether the app happens to send one on a given load is a matter of which component mounted first — on the deploy the probe fired before the keys had hydrated and carried nothing, which would have passed a check that only watched. Asked directly, the deploy answers `token: \"browser\"`, which is the route saying it read what it was handed. This build answers `token: \"server\"` whatever it is given.",
-          "tests/no-plain-key.mjs grows to 19 checks, 7 red on the live deploy 9567416 and 19/19 here. Three of them watch every request the page makes and require that nothing but a POST ever carries a key header at all."
-        ],
-        "areas": [
-          "pages",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
-    "more": 0
+    "more": 6
   },
   {
     "id": "93fc078",
@@ -555,181 +154,64 @@ export const PASSES: Pass[] = [
         "id": "93fc078",
         "says": "No key is written down in the clear, under any name",
         "when": "2026-09-16T23:36:56+00:00",
-        "detail": [
-          "He put real keys into the deployed site, and his browser held two entries: `builder.keys`, unreadable, and `builder.keys.plain` beside it with the key as itself. The second existed so a reload did not lose the key, and while it existed the first was worth nothing.",
-          "ONE REPRESENTATION. `builder.keys` is now always a sealed box and there is no other entry. Under a PIN when the PIN setting is on, as before. Without one, under a key this browser generates for itself and keeps in IndexedDB marked non-extractable — the browser will not hand its bytes to anyone, us included. The tab's own sessionStorage record, which held values and sometimes the PIN in the clear, is sealed the same way; a record from before this is thrown away rather than read. Where a browser can seal nothing at all, nothing is written anywhere and the key lives in the page.",
-          "WHAT THAT IS WORTH, and the panel now says the same. Real against anything that reads storage without running code here: a copied profile, a synced backup, the Application tab, a snippet that dumps localStorage. Worth nothing against code running on this origin, which can ask for the key exactly as the app does. Only a secret that is not stored — the PIN, while locked — stops that, and only the server keeps a key out of the browser altogether. The old sentence, \"in this browser, in the clear\", is gone from the panel, from AGENTS.md and from the store's own notes.",
-          "HIS BROWSER IS CLEANED ON THE NEXT LOAD. The readable copy is read, folded into the sealed entry and deleted, whether or not a PIN is in play; under a PIN, where nothing can reseal it, it goes into the tab's sealed record instead. Nothing writes it again. Forget now takes the entry, the tab's record and the wrapping key, so a box recovered from a backup afterwards opens for nobody — before this it left a sealed box behind while telling the person the key was gone."
-        ],
-        "areas": [
-          "docs",
-          "keys",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "3877ec8",
         "says": "The notifications are gone, and so is the density that did one pixel",
         "when": "2026-09-16T22:16:07+00:00",
-        "detail": [
-          "His words: \"remove notifications tab and panel its buggy and useless as well as compact feature it does 0\".",
-          "THE NOTIFICATIONS. Two candidates were measured on the deploy: the bell top right, labelled News, and Updates in the builder bar. The bell is the notifications one — unread count, a slide-over with a filter strip, read, pinned and dismissed state — and Updates is a changelog of passes, so the bell is what goes. Removed: the bell and its badge, the panel, mod+i, the \"Open news feed\" command, the feed itself, and the settings that only configured a list nobody could see any more (Keep at most, Move updated lines to top). `core/news` is now `core/toasts`, and `NewsInput` is `ToastInput`, because a name that says feed while there is no feed is the next person's wasted hour.",
-          "Kept: the toast. It is a different surface — the line that says what just happened and then stops existing — and every confirmation in the app goes through `publish`. Nothing is stored now, so a publish with no `toast` says nothing at all; of fifty publish sites in the app, forty-nine already asked for one. The one that did not is the showcase's own burst demo, which now does. `href` used to be reachable only by clicking a feed row, so the card carries the link itself: the live-site and commit lines are still one press away.",
-          "THE DENSITY. Compact against comfortable moved `body` from 13px to 14px and did nothing else: the `compact:` variant it declared is used by no class in the app (one grep hit, and that is an object key in RadialMenu). So it was one pixel wearing a control, a command, a shortcut and a menu row. All removed, with `data-density` off the document and `density` out of the site config. Everyone settles on 13px, which is what a browser with no stored choice already had."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "pages",
-          "showcase",
-          "studio",
-          "tests",
-          "tweets"
-        ],
         "kind": "new"
       },
       {
         "id": "b54d035",
         "says": "The vines are one painted body, and their colours flow into each other",
         "when": "2026-09-16T19:59:24+00:00",
-        "detail": [
-          "No line down the middle of a vine: the dark core band at the axis is lifted to char with a little core in it, and the faint thread scored along the axis for the cut line is no longer painted at rest. The seam is still there to press, and the press lights it.",
-          "Where two colours meet they lie over each other instead of switching: each end's colour runs whole for three tenths of the length and thins out to nothing by seven tenths, one from each end, over the material's own dark, so some green flows into the red and some red back into the green and each end stays the majority of its own colour.",
-          "The lane vines carry the construct's drifting cloud the timeline lays over its own, clipped to the ribbon, so a lane's vine is the same weather as the box it leaves."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "1fef1d9",
         "says": "Nothing dark on a box: the texture shows edge to edge, and the words read by their own weight",
         "when": "2026-09-16T19:48:26+00:00",
-        "detail": [
-          "The plate behind the words is gone from every box, red, green and blue: the strip under the ask line and the headline on a green box, the one under the name on a red piece, and the band that kept the cloud off the middle of a green box. What makes the words read is the type: semibold where it was medium, the small notes up a size, and every glyph on a box casting a dark edge of its own. An icon on a construct casts the same edge as a drop shadow; the two keys on a green box wear a key face and a heavier stroke, since at the zoom a timeline settles to they are seven pixels across.",
-          "The picture of the site in a green box is the same proportion as the picture on a Builds card, 352 by 168, standing in the middle of the box with the texture either side, instead of a strip four times as wide as it is tall. An empty frame is a line on the texture, not a dark box."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "9b4486b",
         "says": "The builder bar is two rows on a phone, and the lanes hang on coloured vines",
         "when": "2026-09-16T19:17:55+00:00",
-        "detail": [
-          "Hypatia's 870543e, carrying dijkstra's f26129c — her tip already contained his, so one push ships both.",
-          "Measured on a local build of this commit; the browser here cannot reach https, so the deploy was not driven.",
-          "The bar at 375: 95px tall, 14 controls, two row bands at 53 and 95, nothing past the right edge. Deployed it was 109px, so 14px of pane height back. Zoom keys 36x36, 40x36, 36x36 — short side 36, above the 32 floor. All fourteen named controls present: Builds, panel toggle, tool, Desktop, Tablet, Phone, undo, redo, zoom out, readout, zoom in, More tools, Preview, Finish.",
-          "Desktop unchanged: drawn width 1084 with a short page and 1084 with a page more than twice as tall, no transform, shelf bottom 900 against a fold of 900 in both."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       },
       {
         "id": "870543e",
         "says": "The builder bar is two rows on a phone, and its keys are targets",
         "when": "2026-09-16T18:48:53+00:00",
-        "detail": [
-          "J counted three rows at 375 and he was right; my \"about 34px\" was an estimate I never measured, and the bar was 109px in three rows with Finish alone on the last one. This is that, and the touch targets with it.",
-          "WHAT I LOOKED FOR FIRST AND DID NOT FIND: a control duplicated from the site chrome. The header holds News, sound, theme, Keys, GitHub and Settings and the builder bar shares none of them. There was nothing to drop there.",
-          "WHAT WAS ACTUALLY DUPLICATED, one layer in: the page strip. Pages is one of the side panel's five tabs and the panel's own toggle is two controls along in the same bar, so switching pages and adding one are both reachable at 375 without it. 95px, and out below md.",
-          "And the site mark, which is not a control at all. The ladder's own words: \"the site's name beside it is not a control, it is what you have open.\" Its one-letter mark is the same sentence, with `Builds` beside it doing the wayfinding. 18px plus a separator, out below md."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "f26129c",
         "says": "The vines run dark through their middle, and the lanes hang on green, yellow and red vines",
         "when": "2026-09-16T17:48:12+00:00",
-        "detail": [
-          "Every vine on the timeline now takes the treatment of the one from the green box to the red drawing: lit where it leaves and arrives, the material's own dark along its middle, and a rim held short of hot with no white sliver in it, so a vine between two red drawings no longer wears a bright pink outline.",
-          "The three connectors into the lanes are vines of the same ribbon, three quarters of its width, coloured by the lane: green into the top lane, yellow into the middle, red into the bottom, the same colour as the line inside each lane's rim. The lanes themselves are made from a flat list of offers by cost band, so an offer is always in the lane of its own colour. The lanes stand three gaps off the latest box so the level vine has a run, and the three leave the box's edge a quarter of its height apart rather than from one point.",
-          "The lane boxes are blue right across: the plate behind the words is gone, and the words read by their own weight and a dark edge cast by the letter."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "0a98080",
         "says": "A phone has a way back, and the lanes stay clear of the foot band",
         "when": "2026-09-16T17:11:09+00:00",
-        "detail": [
-          "Hypatia's c326155 and dijkstra's de8cc35. Her tip already contained his, so one push carries both rather than the second being empty.",
-          "Measured here on a local build of this commit; the browser in this container cannot reach https, so the deploy itself was not driven.",
-          "The control bar below md, measured rather than taken from the lane's report, and the lane's figure does not match:",
-          "375 wide    109px tall, 16 controls, row tops 53 / 87 / 92 / 118 1440 wide    43px tall, 20 controls, row tops 51 / 53 / 58"
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       },
       {
         "id": "c326155",
         "says": "A phone has a way back, and asking for smaller no longer gives bigger",
         "when": "2026-09-16T11:02:50+00:00",
-        "detail": [
-          "A21. J's meaning, which matters more than any number: a person on a phone must be able to get back to a usable size without knowing a trick.",
-          "FIRST, A CORRECTION TO MY OWN REPORT. I said the Desktop, Tablet and Phone keys were hidden below 768px. They are not — I quoted the inventory instead of measuring, and all three are on screen at 375. What is actually wrong is sharper and I found it by driving the bar rather than reading it.",
-          "the bar wants 542 in a 375 window and hangs 167 off the right what is past the edge: the zoom cluster's PLUS, More tools, Preview, Finish so the minus is on screen and the plus is not and pressing the minus takes the page 247 → 436, off the right of a 375 pane",
-          "That last one is mine. `FIT_MIN` let the fit put a desktop frame inside a phone pane at 0.142, but the keys still clamped to `ZOOM_MIN` at 0.25, so the first press of either key jumped UP. A control labelled zoom out that makes the page bigger and strands it off the edge, with no plus and no readout to undo it."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "fixed"
       },
       {
         "id": "de8cc35",
         "says": "The lanes never sit under the band along the foot of the pane",
         "when": "2026-09-16T10:33:17+00:00",
-        "detail": [
-          "The fit had the pane's whole height while the band stood over its bottom 248px, so the lowest lane sat under the band by 190px at 1500 wide and 19px at every width below 900. The room is the pane less the band, read off the band itself; the lanes are fitted as tall as the box they hang off really stands; and under the band only, the fit may pull out past the floor as far as the set needs, no further than 0.28, so a long chain and the fan keep their margin rather than a box on an edge. Measured at twelve widths from 1500 to 360: 0px under the band at all."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "5d9d94f",
-        "says": "The fit's own floor, the bird in plain view, and two commits that never shipped",
-        "when": "2026-09-16T08:36:11+00:00",
-        "detail": [
-          "Hypatia's tip, carrying two commits that had been sitting unshipped: her c222207, the fit having its own floor because the key's floor put the page off a phone, and euler's 923bea9, the drawing check that said no drawing was there about a bird in plain view. Both are now ancestors of trunk, checked rather than assumed.",
-          "Why they sat, because the mechanism matters more than the two commits.",
-          "Neither was lost. c222207 was never on trunk at any point: the last merge of hypatia before this one became 42208f9, and c222207 is timestamped after it. The one reset this seat made tonight discarded a held merge that was afterwards re-merged and shipped, and happened before c222207 existed. It was not merged and dropped, and it was not skipped after being handed over. It was never handed over at all.",
-          "The rule here is that this seat acts when a branch is named and idles otherwise, which is the right rule for usage. The gap is that a lane's rule is different: a lane pushes and considers the work delivered. Between those two, a commit can sit for hours with the lane certain it shipped and the merge seat certain it was not yet its turn. Nothing failed. There is simply no step anywhere that compares what the lanes have pushed against what trunk carries."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       }
     ],
-    "more": 0
+    "more": 1
   },
   {
     "id": "5c2a8d4",
@@ -740,16 +222,7 @@ export const PASSES: Pass[] = [
         "id": "923bea9",
         "says": "The drawing check said no drawing was there, about a bird in plain view",
         "when": "2026-09-16T04:38:51+00:00",
-        "detail": [
-          "Two faults, both introduced by the commit that fixed the four before them, which is its own lesson about how far a measurement change reaches.",
-          "`n` IS HOW MUCH INK A MARK SHOWED, SO IT TAKES THE MAX. Sampling six phases and merging them kept the minimum of every contrast figure, which is right, and left `n` as whatever the last phase happened to give, which is not: it answers \"is this a drawing or an icon\", not \"how legible is it\". `fills` already took the max for the same reason and `n` was simply missed.",
-          "THE THRESHOLD WAS CALIBRATED ON A CONTAMINATED READING. A drawing was told from an icon by carrying more than 200 ink pixels. That worked only because the number was inflated — before the face was frozen for the measurement, the cloud drifting between the two shots was counted as ink, so every mark reported more pixels than it had. Against a still face the same bird measures 179, and the check reported \"no drawing was on a card to read\" about a 110x62 drawing sitting in plain view on the card.",
-          "The icons on those same cards measure 13 to 22 ink pixels. So the honest threshold is a hundred: an order of magnitude clear of every icon, and well under the drawing it exists to admit, where 200 sat above it."
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
+        "kind": "new"
       }
     ],
     "more": 0
@@ -763,66 +236,22 @@ export const PASSES: Pass[] = [
         "id": "3898dac",
         "says": "The lanes straddle the latest box, and every body line sits on a calm ground",
         "when": "2026-09-16T06:45:35+00:00",
-        "detail": [
-          "Dijkstra's two corrections. Verified on a local build of this commit, not on the deploy: the browser in this container does not trust the session's egress CA, so it cannot reach https. Same code, same build, driven here.",
-          "1. PLACEMENT. Before and after, the same seeded timeline at 1800x1000:",
-          "before   latest box centre y 436   middle offer centre y 622   186px adrift the three read above, below, below — a list hanging down after    latest box centre y 559   middle offer centre y 559   0px apart the three read above, level, below — straddling the centre line",
-          "All three sit to the right of the box in both. What changed is the shape of the connector. Before, the fan was 15px wide and its spine ran `M1490 404 V928` with 10px stubs off it: a droop with nothing opening out. After, the arms reach `H1686`, nearly 200px rightward off a spine, and the fan occupies 140px of width. It opens as a bracket now."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "42803cd",
-        "says": "The lanes fan off the latest box as he drew it, and every box's body line sits on a calm ground",
-        "when": "2026-09-16T06:12:38+00:00",
-        "detail": [
-          "Middle lane beside the latest box and level with it, its centre the box's own to the pixel; top lane up and to the right; bottom lane down and to the right; the connector a bracket opening right. The words on a box, green, red or blue, sit on a near-black ground in the box's own hue; the body line is 12px medium where it was 10px regular, and the title stays where it was. Contrast measured off the screen on all three."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "7c54778",
         "says": "The lanes hang off the end of the timeline, and their work stands in blue",
         "when": "2026-09-16T05:21:34+00:00",
-        "detail": [
-          "Dijkstra's rework, replacing the standalone bracket page: the lanes sit past the last real box, and a lane that is carried out becomes a blue iteration box in the chain, drawn by the same component as the green and red ones.",
-          "His own suite, tests/lanes.mjs, holds 36 of 36. What follows is what this seat checked itself, because a same-measurements claim is not proof of a shared component and four of these checks have now been worded for a look rather than a meaning.",
-          "1. The lanes are past the last real box, and stay there as boxes are added. Driven at two timeline lengths on the build:",
-          "3 boxes   box x's 284, 616, 947      lanes all at 1250   past by 303 5 boxes   box x's 102, 382, 662, 942, 1222   lanes at 1478   past by 256"
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       },
       {
         "id": "25afb90",
         "says": "The lanes hang off the end of the timeline, and a lane's work stands in the chain in blue",
         "when": "2026-09-16T03:52:36+00:00",
-        "detail": [
-          "Three offers, one slot past the last real box, moving along as boxes land. Not threads, not placed by hand, not history. Take control lands the offer's work as an iteration through the same door as every other, in the lane's mode, and the iteration box takes azure as a third state: the verdant construct with the hue turned, every tint off one hue, the rim and faces cut from the green renders. Pressing it opens what the work changed, in the work's own words. The separate page is gone."
-        ],
-        "areas": [
-          "bracket",
-          "core",
-          "docs",
-          "index.ts",
-          "scripts",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
-    "more": 0
+    "more": 1
   },
   {
     "id": "c222207",
@@ -833,16 +262,6 @@ export const PASSES: Pass[] = [
         "id": "c222207",
         "says": "The fit has its own floor, because the key's floor put the page off a phone",
         "when": "2026-09-16T03:37:34+00:00",
-        "detail": [
-          "The Builder at 400×800 and 375×812, on the deploy at 42208f9, with both guarantees exercised rather than read at rest:",
-          "400×800   pageW 436 in a paneW 400 pane — 36px off the right 375×812   pageW 436 in a paneW 375 pane — 61px off the right",
-          "Both of J's rules already held there and the numbers say so: a page of twelve parts is drawn the same width as a page of one (436 either way), and the long one is scrolled rather than shrunk — 2150 of scrollHeight against 713 of clientHeight. Opening a category takes the band 248 → 432 and the shelf's box 209 → 393, the shelf wheels 481 → 1789 of 1790, and the pane stays at 0 with the site unmoved. The shelf ends at 800 in an 800 fold.",
-          "What does not hold is the width rule, and the cause is two floors doing one job. `ZOOM_MIN` is the zoom-out key's stop — a product choice, held at 25% by `one-zoom` — and the fit was floored at it too. A desktop frame needs 0.156 to fit a 400px pane and 0.142 to fit 375; the fit asked for those, was given 0.25, and drew 436 anyway, into a pane that clips and has no horizontal scroller. The fit is not a choice: the page's two side edges are on screen or they are not."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
@@ -857,15 +276,6 @@ export const PASSES: Pass[] = [
         "id": "42208f9",
         "says": "Adding a low element no longer shrinks the whole site",
         "when": "2026-09-15T20:39:50+00:00",
-        "detail": [
-          "Hypatia's page fit. The complaint it answers: adding an element lower on the page and refreshing shrank the whole website to fit it on screen, instead of letting a person scroll down to it.",
-          "The acceptance test is the zoom, not which node owns the overflow. Measured here on the branch build at 1440x900, the same document twice, once with content to y 800 and once with an element added at y 1800:",
-          "content to y 800      content to y 2200 zoom readout                62%                   62% transform on the page       1.3284                1.3284 frame width                 1084px                1084px page window                 1084 x 723            1084 x 1777 pane scrollHeight           991                   2045 pane clientHeight           813                   813 pane travel                 178px                 1232px",
-          "The scale does not move. The page grows — 723 to 1777, which is the element being held rather than squeezed — and the travel grows with it, 178 to 1232, so the new element is reached by scrolling."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "fixed"
       }
     ],
@@ -880,15 +290,6 @@ export const PASSES: Pass[] = [
         "id": "a8eb64c",
         "says": "The bracket: three ways on from the latest box, on one generation, from fixed sample content",
         "when": "2026-09-15T20:29:10+00:00",
-        "detail": [
-          "A page at /bracket reads one typed structure. Difficulty picks the model, the model and the tokens give the cost, the cost sets the one colour inside the blue rim; time is a figure. Every box is the same shape whatever it holds. Refresh swaps in the next item of its row; Take control marks a box as yours. Its own module, not the studio's timeline, while the studio is another session's; mounting it there is one line."
-        ],
-        "areas": [
-          "bracket",
-          "docs",
-          "index.ts",
-          "tests"
-        ],
         "kind": "fixed"
       }
     ],
@@ -900,81 +301,25 @@ export const PASSES: Pass[] = [
     "day": "15 September",
     "changes": [
       {
-        "id": "cecccf0",
-        "says": "The running note carries the third pass: B22 in four pieces, and D43",
-        "when": "2026-09-15T19:18:18+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
-      },
-      {
         "id": "b158adc",
         "says": "Build exports the page at every device, the way Preview reflows it",
         "when": "2026-09-15T19:17:21+00:00",
-        "detail": [
-          "The export wrote the desktop layout and scaled the whole page down on a narrower screen. Each page now carries the tablet and phone placements the live page computes, every part sits in a Place that reads the device from the Frame, and the frame picks the phone's layout on a phone and scales only between the widths. tests/export-reflow.mjs (7/7, 5 red before). Inventory B22 closed across its four pieces."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "a0f4fdf",
         "says": "Build exports a solid as a solid",
         "when": "2026-09-15T19:15:22+00:00",
-        "detail": [
-          "A part that is a 3D mesh went out as a still, a photograph of one angle. The export writes it as the live part again: the GLB as data in the file, three.js loaded only in the browser and only when installed, the still as the fallback and said as such, the same turning by pointer and keys, starting where it was left; BUILD.md names the one dependency. tests/export-mesh.mjs (10/10, 7 red before), and the exported site typechecks with the solid in it. Inventory B22, third piece; reflow stays named."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "22570ce",
         "says": "Build exports a page's behaviours through one shell, and the exported site is typechecked",
         "when": "2026-09-15T19:11:00+00:00",
-        "detail": [
-          "Tier-B parts set what a page does as it moves, and the export dropped them whole: no shell was written. Each page now carries the switches the live page derives, and the export writes one dependency-free shell the page mounts when it has any, with the rules and keyframes it reads. tests/export-behaviours.mjs (9/9, 8 red before). tests/export-whole.mjs now writes the export out and runs tsc on it, which found the aura's CSS variables failing React's style type; cast. Inventory B22, second piece; the mesh and reflow stay named. D43 added: the live shell's own wipe and burst name keyframes nobody defines, left to its session."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
-    "more": 0
-  },
-  {
-    "id": "31d2f27",
-    "when": "2026-09-15T19:54:50+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a56349d",
-        "says": "The Keys panel is proven on the deploy, and a key too short to be one is said to be too short",
-        "when": "2026-09-15T19:32:25+00:00",
-        "detail": [
-          "Two browsers against the deployed site: a key entered in one is on that person's next call and nowhere else, a second browser is asked for its own, Forget removes it, a rejected key gets a sentence, and no eight characters of a key appear anywhere they should not. Each check says when it cannot be counted. The test route used to answer a pasted key of eight characters or fewer with \"nothing offered by this browser\"."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
+    "more": 1
   },
   {
     "id": "aef261f",
@@ -985,16 +330,6 @@ export const PASSES: Pass[] = [
         "id": "aef261f",
         "says": "The shelf gets a box worth scrolling, and neither region pushes the other",
         "when": "2026-09-15T19:50:28+00:00",
-        "detail": [
-          "J: \"the parts shelf is a small scroll box. When a category is opened the tiles run the full width, so only one tile is visible at a time inside a short box. Opening a category should give that section a much larger scroll area, scrolling on its own, clear of the preview box. The preview box must not resize or move when the shelf area grows or scrolls.\"",
-          "Measured at 2048×1152 before: the band 248 tall whatever was in it, the shelf's own box 209, and one open category putting 1745px of cards into it — 1536 of travel inside 209 of box. `sizeFor` gives a twelve-span element the whole shelf width, so a card is 1820 across and 208 down and fills the strip exactly. That is his one tile at a time.",
-          "The band answers to what is open now, on the same pattern the backend tab already uses and for the same reason: shut it is a row of planets to glance at, open it is a list to read.",
-          "band   248 → 622      the shelf's own box   209 → 583 travel inside it     1536 → 1162            closed again: 622 → 248"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       }
     ],
@@ -1006,179 +341,166 @@ export const PASSES: Pass[] = [
     "day": "15 September",
     "changes": [
       {
-        "id": "e0fe117",
-        "says": "Regenerate the passes for the contrast measure, and free the shelf pair",
-        "when": "2026-09-15T17:58:39+00:00",
-        "detail": [
-          "Euler's e467b4e: the contrast measure was reading the plate as ink, and the worst word was on the bar. Timeline.tsx and his own suite.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4288:",
-          "cards          67/67 passed ink-on-cards   18/18 — but see below board-layout   70/70 passed, after the fix below",
-          "---"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
         "id": "e467b4e",
         "says": "The contrast measure was reading the plate as ink, and the worst word was on the bar",
         "when": "2026-09-15T17:12:11+00:00",
-        "detail": [
-          "`ink-on-cards` passed about three times in four. It was not a flaky machine. It had four faults, and each one of them was hiding the next.",
-          "FIRST, IT MEASURED AGAINST A MOVING FACE. It reads a mark by shooting it, hiding it, shooting again and diffing, so the second shot is the face behind the ink. On a live page the cloud drifts in the 80ms between the two shots, so pixels differ for reasons that are not ink — and `cut` thresholds on exactly that difference, so the drift was being counted as ink. Every animation on the page is stopped for the measurement now.",
-          "SECOND, IT ASKED AT ONE MOMENT AND ANSWERED FOR ALL OF THEM. The face's brightness is wherever the cloud is in its twenty-second cycle, so the check answered \"did this clear 4.5:1 at the instant we looked\" while its name promises \"every run of words clears 4.5:1\". Six phases are sampled and the worst is kept, on every figure the checks read, independently.",
-          "THIRD, AND WORST, IT READ THE PLATE AS INK. `visibility: hidden` takes the element's own background with it, so for anything wearing a plate the second shot was the card behind the plate and the diff counted the plate itself. The kind chips on an Updates box are exactly that — \"New\" is dark ink on a solid violet — so this was reading the whole chip against the construct's drifting face, which is why an opaque plate appeared to move with the cloud. Words go `color: transparent` now and only a drawing is hidden outright. \"New\" reads 6.13:1 against the violet it actually sits on."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e41ad86",
-        "says": "Regenerate the passes for an export that carries what goes round a part",
-        "when": "2026-09-15T16:44:44+00:00",
-        "detail": [
-          "Meitner's ba3e8e1: Build exports what the live page puts round a part — entrances, auras, links, the wash, the veil, the backdrop. Until now those were on the board and on the preview and absent from the thing a person downloads, which is the gap between a site you can see and a site you can take away.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4287:",
-          "export-whole   13/13 passed   (new) scaffold       32/32 passed build-mark      9/9 passed",
-          "scaffold and build-mark are the standing suites over scaffold.ts, which is where the change is, and export-whole is the one that reads the exported files rather than the source that wrote them."
-        ],
-        "areas": [
-          "studio"
-        ],
         "kind": "new"
       },
       {
         "id": "ba3e8e1",
         "says": "Build exports what the live page puts round a part: entrances, auras, links, the wash, the veil, the backdrop",
         "when": "2026-09-15T16:42:52+00:00",
-        "detail": [
-          "The export wrote each part's markup and dropped what Preview adds round it: an entrance named with no keyframes behind it, the page's drift the same, no aura, no wash or veil, a link with its click lost, no gradient or grid backdrop. The stylesheet now carries the entrance and aura keyframes and the page's drift; each wrapper carries its entrance and aura and an id; a link is an anchor round the part; the wash, the veil and the backdrop are written. tests/export-whole.mjs (13/13, 12 red before). Inventory B22, first piece; behaviours, the mesh and reflow stay named."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
-      },
-      {
-        "id": "876a3f1",
-        "says": "Regenerate the passes for meitner's twenty-five",
-        "when": "2026-09-15T16:36:08+00:00",
-        "detail": [
-          "The only branch that had moved: meitner's twenty-five, three hours of work in one merge. Ninety-nine files, fifty of them source, and twenty-three new suites.",
-          "The pictures and what they promise — a picture read off its bytes rather than its name, one base64 reader shared, a fetch that is clocked, a picture refused with a reason, the doors saying what they did with an animation, a link, a cut-out, and a crop picker that says when its picture never shows. The zip reader — names as they were written, what it cannot unpack said aloud, no inflating further than declared, assets under their own names, a data script that is not scripts. The shapes — several open lines or one straight bar are a shape said rather than an edge to cut to, a text box is not a cube, a stroke dragged off the disc stays on it, a column drawn taller than the ceiling keeps its proportion, a narrowed part grows to hold its words. And the recorded tour fitting the time the route has.",
-          "Merge clean, no conflicts, typecheck clean, build rc=0. Run here on the build, port 4286.",
-          "The twenty-three new ones, all green:"
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "e466245",
-        "says": "The merge log moves into docs, where it survives the container",
-        "when": "2026-09-15T16:25:10+00:00",
-        "detail": [
-          "It was in a scratchpad, which is session-local and goes when the container does, so a night's worth of what landed and what was green when it landed was one reclaim away from being gone. docs/MERGE-LOG.md now.",
-          "Twenty-four rows, in the order they were deployed, each saying what it carried and whether it went out green. The two that did not are in the list rather than left out, because a log that records only the good days is not a log: 2337f93 went out with scroll-contract 24 of 27 and the failing check named, and 7b38e86 went out with site-live skipped because Chromium in this container does not trust the session's egress CA.",
-          "The two rules at the end are the ones that cost something:",
-          "when a merge brings an older copy of a file another session has just changed, run that session's suites for that file, not the general one. wheel-pass stayed green right through the Edit slot coming back; page-wheel-edit and priority-wheel were the two that owned it."
-        ],
-        "areas": [
-          "docs",
-          "studio"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "db26826",
-        "says": "The running note carries the second inventory pass",
-        "when": "2026-09-15T13:48:36+00:00",
-        "detail": [],
-        "areas": [
-          "docs"
-        ],
-        "kind": "under"
       },
       {
         "id": "390703e",
         "says": "The cube session's five loose checks say what they measure",
         "when": "2026-09-15T13:47:07+00:00",
-        "detail": [
-          "A box with a scribble is asked one question about the cube; a drag must leave x, y, w and h where they were; a face's colour must be the scaffold's own token expression with no hex beside it; every queued job must end done or failed only for the lack of a key; and both cube suites read the document through the page's own publish seam. Inventory D16, D17, D18, D24 and the cube halves of D27 closed; D10 and D36 named as the euler session's."
-        ],
-        "areas": [
-          "docs",
-          "tests"
-        ],
-        "kind": "under"
+        "kind": "new"
       },
       {
         "id": "754b59f",
         "says": "The crop picker says when its picture never shows, and a tall picture does not run away",
         "when": "2026-09-15T13:44:46+00:00",
-        "detail": [
-          "A picture the browser could not decode left an empty 3:2 picker with nothing said; a picture ten times taller than wide made the picker ten times the column. The picker says it, and is held to twice its width with a taller picture squashed into it and the squash said, since the patch is picked in fractions of the box either way. tests/crop-picker.mjs (6/6, 2 red before). Inventory C26 closed."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "8a67c3b",
         "says": "A zip's page gets its assets under their own names, and a data script is not scripts",
         "when": "2026-09-15T13:41:19+00:00",
-        "detail": [
-          "The list of served types stopped at the commonest twenty, so a .bmp, a .tif, an .eot font or an .mp3 was a broken picture or a missing font with nothing said; a file with no extension was refused; a percent sign that was not an escape threw inside the answer; and a JSON-LD block made the panel say the page brought scripts. The common types are known, a bare name is served as what its bytes say, a bad escape is a miss, and only a script that would run counts as one. tests/zip-assets.mjs (12/12, 8 red before). Inventory C19 closed."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "4dd3e55",
         "says": "The zip reader reads names as they were written, says what it cannot unpack, and inflates no further than declared",
         "when": "2026-09-15T13:38:36+00:00",
-        "detail": [
-          "Every name was decoded as UTF-8 whatever the entry's flag said, so a CP437 name matched nothing and the page came up unstyled with nothing said; a method other than stored or deflated unpacked to nothing, or threw the page read to a 500; Zip64 was called not a zip; and an entry inflated whole, so the unpacked cap held nothing against a bomb. Names decode by the flag, the method is on the entry and the gate refuses an unreadable page with a sentence, Zip64 is refused by name, and an entry inflates no further than the size it declared. tests/zip-honest.mjs (11/11, 7 red before). Inventory C17 and C18 closed."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
         "kind": "new"
       },
       {
         "id": "d3232cb",
         "says": "A video the browser cannot play still goes in; a long recording keeps its length",
         "when": "2026-09-15T13:31:54+00:00",
-        "detail": [
-          "The tweet console failed the whole intake of a video this browser could not decode, when only the preview needed decoding; it goes in with no preview and a warning now. The GIF recorder held its rate to four frames a second under a frame cap, so a five-minute recording became ninety seconds while the comment said the length was kept; the rate is one pure rule with no floor. tests/tweet-intake.mjs (12/12, 6 red before). Inventory C15 and C16 closed."
-        ],
-        "areas": [
-          "docs",
-          "tests",
-          "tweets"
-        ],
+        "kind": "new"
+      },
+      {
+        "id": "30d644c",
+        "says": "The recorded tour fits the time the route has, and says what it did with the width",
+        "when": "2026-09-15T13:29:05+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "26c7fdf",
+        "says": "A narrowed part grows to hold its words; the turn of a line is found in the line's own language",
+        "when": "2026-09-15T13:23:52+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "f0119f9",
+        "says": "The image route reads a picture off its bytes, shares one base64 reader, and clocks its fetch",
+        "when": "2026-09-15T13:18:32+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "e7abbd1",
+        "says": "A column drawn taller than the ceiling keeps its proportion",
+        "when": "2026-09-15T13:15:56+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "d02075a",
+        "says": "A text box is not a cube",
+        "when": "2026-09-15T13:12:44+00:00",
         "kind": "new"
       }
     ],
     "more": 31
+  },
+  {
+    "id": "0d1697f",
+    "when": "2026-09-15T19:28:10+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "0d1697f",
+        "says": "The width binds the zoom and the height never does, because the height is content",
+        "when": "2026-09-15T19:28:10+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "afad8a0",
+        "says": "The page's wheel is audited slab by slab, and a check that read its own name wrong goes",
+        "when": "2026-09-15T10:42:22+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "95da293",
+    "when": "2026-09-15T09:37:41+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "607c61e",
+        "says": "The floor caps what stopping motion can win, not what removing content can",
+        "when": "2026-09-15T09:34:57+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "a4a4ae8",
+    "when": "2026-09-15T09:19:59+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "a4a4ae8",
+        "says": "A page you have not seen starts at its top, and the rest of the contract is held",
+        "when": "2026-09-15T09:19:59+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "adf66c6",
+    "when": "2026-09-15T09:12:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "eceebca",
+        "says": "Every reading is taken on a tab that is in front, and says so",
+        "when": "2026-09-15T09:06:32+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "9600474",
+    "when": "2026-09-15T08:48:28+00:00",
+    "day": "15 September",
+    "changes": [
+      {
+        "id": "362b300",
+        "says": "A part wearing a drifting texture drifts",
+        "when": "2026-09-15T08:45:29+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "1283f1a",
+        "says": "A cube or a solid turned on the full preview page stays turned",
+        "when": "2026-09-15T08:45:29+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "99728da",
+        "says": "The routes behind a drawing have a deadline at both ends",
+        "when": "2026-09-15T08:45:29+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
   }
 ];

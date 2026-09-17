@@ -1,6 +1,6 @@
 "use client";
 /**
- * What has landed, over the whole screen, from the bar.
+ * What changed about the website, over the whole screen, from the bar.
  *
  * Not a page like Builds or Preview: a slide over, because knowing what
  * changed is something you do *while* you are working, not somewhere you
@@ -9,14 +9,16 @@
  *
  * Two rules it is built on.
  *
- * - **Real history, not a written changelog.** Every line here came out of
- *   git through `npm run passes`. Nobody writes a changelog entry per commit
- *   — that chore was killed on purpose and stays dead — so the merges and the
- *   commits they carried are the record, and this reads it.
- * - **Features first, commits underneath.** A pass leads with the thing you
- *   can now do that you could not before, in the words it was done in. The
- *   rest of the pass is a line each, and the specifics — the body, what it
- *   touched, the sha — stay folded until someone asks. A minute's reading.
+ * - **Real record, not a written changelog.** Every line here was read out of
+ *   the history by `npm run passes`. Nobody writes a changelog entry by hand
+ *   — that chore was killed on purpose and stays dead.
+ * - **Only the changes to the website itself.** The absolute rule, kept in
+ *   `aboutTheSite.ts`: nothing here mentions him, me, the chats, the models,
+ *   or how the work is made. That took the whole of what used to hang off a
+ *   line — the folded body, the corners it touched, the name it landed under
+ *   — and a fourth kind of change that was never a change to the website.
+ *   10,075 words became 916, and there is nothing left to unfold, so a line
+ *   is a line and the list is the whole of it.
  *
  * It borrows the timeline's own card language (`FIELD`, `Row`) rather than
  * inventing a second way to show a list of things that happened.
@@ -24,28 +26,24 @@
 import * as React from "react";
 import { BuildMark } from "@/features/builds/BuildMark";
 import { Dialog as D } from "radix-ui";
-import { ChevronRight, History, Sparkles, Wrench, X } from "lucide-react";
+import { History, Sparkles, X } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { Button } from "@/core/ui/button";
 import { FIELD, Row, type Skin } from "./TimelineDetail";
-import { KIND_MEANS, PASSES, leadOf, minutes, onlyUsable, sizeOf, versionOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
+import { KIND_MEANS, PASSES, leadOf, minutes, sizeOf, versionOf, type Change, type ChangeKind, type Pass } from "./passes.ts";
 
 /**
  * The kinds, in the colours the rest of the Builder already uses for them.
  *
  * Each is a plate with near-black words on it, so the plate's own lightness
  * is the whole of whether the word can be read: dark ink at 0.13 needs a
- * ground above about 0.78 to clear 4.5:1, and three of these four sat under
- * that — "under it" worst at 2.9:1 and "better" at 3.7. They are all above
- * it now. `under` stays the quiet one by having almost no colour in it
- * rather than by being the dark one, which is the same move the second voice
- * of the text makes.
+ * ground above about 0.78 to clear 4.5:1, and three of these sat under that
+ * — "better" worst at 3.7:1. They are all above it now.
  */
 const KIND_LIT: Record<ChangeKind, string> = {
   new: "oklch(0.81 0.16 300)",
   better: "oklch(0.82 0.15 158)",
   fixed: "oklch(0.85 0.14 85)",
-  under: "oklch(0.8 0.03 158)",
 };
 
 /** The words on a plate, dark enough that the plate's own lightness carries them. */
@@ -58,8 +56,7 @@ const KIND_INK = "oklch(0.13 0.02 150)";
  * so the way out is where the way in was.
  */
 export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const [usableOnly, setUsableOnly] = React.useState(false);
-  const passes = usableOnly ? onlyUsable(PASSES) : PASSES;
+  const passes = PASSES;
   const read = minutes(passes);
   const changes = passes.reduce((n, p) => n + p.changes.length, 0);
 
@@ -85,26 +82,15 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
                 What has landed
               </D.Title>
               <D.Description className="mt-0.5 text-[11px]" style={{ color: FIELD.dim }}>
-                {passes.length} passes, {changes} changes, about {read} minute{read === 1 ? "" : "s"} to read. Newest first, read straight out of the history.
+                {passes.length} passes, {changes} changes, about {read} minute{read === 1 ? "" : "s"} to read. Newest first.
               </D.Description>
               {/* Which build is answering: the same mark the Builds page wears. */}
               <BuildMark className="mt-1 block text-[10px]" style={{ color: FIELD.dim }} />
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                data-updates-usable=""
-                aria-pressed={usableOnly}
-                onClick={() => { play("tick"); setUsableOnly((v) => !v); }}
-                className="tactile rounded-md border px-2 py-1 text-[10px]"
-                style={{
-                  borderColor: FIELD.rim,
-                  background: usableOnly ? FIELD.lit : FIELD.raised,
-                  color: usableOnly ? FIELD.face : FIELD.dim,
-                }}
-              >
-                Things I can use
-              </button>
+              {/* "Things I can use" stood here and hid the fourth kind. Every
+                  line is a change to the website now, so it removed nothing,
+                  and a control that removes nothing is a control that lies. */}
               <D.Close asChild>
                 <Button variant="ghost" size="iconXs" aria-label="Close">
                   <X />
@@ -121,7 +107,7 @@ export function UpdatesPanel({ open, onOpenChange }: { open: boolean; onOpenChan
               </div>
             ) : (
               <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
-                Nothing has landed yet. The first merge will show up here on its own.
+                Nothing has landed yet. The first change to the site will show up here on its own.
               </p>
             )}
           </div>
@@ -166,47 +152,30 @@ function PassCard({ pass, skin, at }: { pass: Pass; skin: Skin; at: number }) {
   );
 }
 
-/** A line that says what it is; press it for the specifics. */
+/**
+ * A line: what changed about the website, and nothing under it.
+ *
+ * It used to be a button that unfolded the body, the corners of the tree it
+ * touched and the name it landed under. All three were the making talking,
+ * so all three are gone, and with nothing to unfold the button, the chevron
+ * and the open state go with them. `data-change` and `data-change-kind` stay
+ * where they were so the checks still have something to read.
+ */
 function ChangeLine({ change, skin, lead }: { change: Change; skin: Skin; lead?: boolean }) {
-  const [open, setOpen] = React.useState(false);
-  const more = change.detail.length > 0 || change.areas.length > 0;
   return (
-    <div className="rounded-md border" style={{ borderColor: open ? skin.rim : "transparent", background: open ? skin.raised : "transparent" }}>
-      <button
-        type="button"
-        data-change=""
-        data-change-kind={change.kind}
-        disabled={!more}
-        onClick={() => { play("tick"); setOpen((v) => !v); }}
-        className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left disabled:cursor-default"
+    <div className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left" data-change="" data-change-kind={change.kind}>
+      <span
+        className="mt-[3px] shrink-0 rounded-sm px-1 text-[8.5px] uppercase tracking-[0.1em]"
+        style={{ background: KIND_LIT[change.kind], color: KIND_INK }}
       >
-        <span
-          className="mt-[3px] shrink-0 rounded-sm px-1 text-[8.5px] uppercase tracking-[0.1em]"
-          style={{ background: KIND_LIT[change.kind], color: KIND_INK }}
-        >
-          {KIND_MEANS[change.kind]}
-        </span>
-        <span
-          className={lead ? "min-w-0 flex-1 text-[13px] font-medium leading-snug" : "min-w-0 flex-1 text-[11.5px] leading-snug"}
-          style={{ color: skin.text }}
-        >
-          {change.says}
-        </span>
-        {more ? (
-          <ChevronRight className="mt-[2px] size-3 shrink-0 transition-transform" style={{ color: skin.dim, transform: open ? "rotate(90deg)" : "none" }} />
-        ) : null}
-      </button>
-      {open ? (
-        <div className="px-1.5 pb-1.5 pl-9">
-          {change.detail.map((line, i) => (
-            <p key={i} className="text-[10.5px] leading-relaxed" style={{ color: skin.dim }}>{line}</p>
-          ))}
-          <p className="pt-1 flex items-center gap-1.5 text-[9px]" style={{ color: skin.dim }}>
-            <Wrench className="size-2.5" />
-            {change.areas.length ? change.areas.join(", ") : "across the repo"} · {change.id}
-          </p>
-        </div>
-      ) : null}
+        {KIND_MEANS[change.kind]}
+      </span>
+      <span
+        className={lead ? "min-w-0 flex-1 text-[13px] font-medium leading-snug" : "min-w-0 flex-1 text-[11.5px] leading-snug"}
+        style={{ color: skin.text }}
+      >
+        {change.says}
+      </span>
     </div>
   );
 }
