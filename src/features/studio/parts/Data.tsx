@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, useTicker } from "./primitives";
-import { hash, rng, sample } from "./sample";
+import { hash, rng, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
 import { num, opt, type PartProps } from "./types";
 
@@ -384,7 +384,7 @@ export function Dashboard({ id, content, theme: t, mode, w, h }: PartProps) {
 }
 
 /** Events along an axis. */
-export function Timeline({ id, content, theme: t }: PartProps) {
+export function Timeline({ id, content, theme: t, mode }: PartProps) {
   const events = items(content, ["Started: the first commit", "Beta: first ten people", "Launch: doors open", "Today: still here"]).map(titled);
   return (
     <Fill t={t} data-part={id} style={{ display: "flex", flexDirection: "column", gap: 0, overflow: "auto", paddingLeft: t.fontPx * 0.3 }}>
@@ -396,7 +396,7 @@ export function Timeline({ id, content, theme: t }: PartProps) {
           </div>
           <div style={{ paddingBottom: t.fontPx * 0.8, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontFamily: t.headingFamily, fontSize: t.fontPx * 0.95 }}>{e.title}</div>
-            <div style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? sample.sentence(rng(hash(e.title)), 8)}</div>
+            <div style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? unwritten(mode, () => sample.sentence(rng(hash(e.title)), 8), e.title)}</div>
           </div>
         </div>
       ))}

@@ -29,6 +29,8 @@ export function PreviewWindow() {
   const nodes = useStudio((s) => s.nodes);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
+  const shapes = useStudio((s) => s.shapes);
+  const siteName = useStudio((s) => s.brief.name);
   const frameWidth = useStudio((s) => s.frameWidth);
   const activeId = useStudio((s) => s.activePageId);
   const page = useStudio(activePage);
@@ -128,7 +130,7 @@ export function PreviewWindow() {
             <div style={{ width: boxW, height: Math.round(height * scale), position: "relative", overflow: "hidden" }}>
               <div style={{ width, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
                 <LiveSite pages={pages} nodes={nodes} pageId={activeId} device={device} frameWidth={frameWidth} format={format}
-            look={look} />
+            look={look} siteName={siteName} shapes={shapes} />
               </div>
             </div>
           ) : (

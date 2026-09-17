@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
-import { hash, rng, sample } from "./sample";
+import { hash, rng, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, FAMILY, type Theme, ghostStyle} from "./theme";
 import type { PartProps } from "./types";
 
@@ -257,7 +257,7 @@ export function HoverCard({ id, content, theme: t, mode }: PartProps) {
             <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: 999, background: `${t.accent}44`, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>
               <strong style={{ display: "block", fontSize: t.fontPx * 0.85 }}>{name}</strong>
-              <span style={{ color: t.muted, fontSize: t.fontPx * 0.76 }}>{rest[0] ?? sample.sentence(rng(hash(name!)), 8)}</span>
+              <span style={{ color: t.muted, fontSize: t.fontPx * 0.76 }}>{rest[0] ?? unwritten(mode, () => sample.sentence(rng(hash(name!)), 8), name!)}</span>
             </span>
           </span>
         ) : null}

@@ -34,6 +34,8 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
   // preview and the site all disagreed, and a site designed near-black and
   // acid green arrived in the template's purple.
   const look = useStudio((s) => s.look);
+  const shapes = useStudio((s) => s.shapes);
+  const siteName = useStudio((s) => s.brief.name);
   const frameWidth = useStudio((s) => s.frameWidth);
 
   const rest = trim(params["*"] ?? "");
@@ -135,6 +137,8 @@ export function PreviewPage({ params, published }: RouteProps & { published?: bo
               frameWidth={frameWidth}
               format={format}
               look={look}
+              siteName={siteName}
+              shapes={shapes}
               onNavigatePage={goPage}
               onEvent={(e, nodeId) => keepTurn(e, nodeId)}
               nodeProps={(n) => ctxProps("studio-live-node", n.id, n)}

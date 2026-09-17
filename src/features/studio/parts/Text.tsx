@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import { Fill, useTicker } from "./primitives";
-import { hash, rng, sample } from "./sample";
+import { hash, rng, sample, unwritten } from "./sample";
 import { boxStyles, cardStyle, FAMILY, items, titled } from "./theme";
 import { num, opt, type PartProps } from "./types";
 
@@ -16,7 +16,7 @@ export function Prose({ id, content, theme: t, mode }: PartProps) {
   // thinkers" was being drawn as three paragraphs, one clause each, which is
   // what the shared comma split does to every real sentence it is given.
   const typed = content.split("\n").map((x) => x.trim()).filter(Boolean);
-  const paras = typed.length ? typed : [sample.sentence(rng(hash(id)), 22), sample.sentence(rng(hash(id + "2")), 18)];
+  const paras = typed.length ? typed : [unwritten(mode, () => sample.sentence(rng(hash(id)), 22)), unwritten(mode, () => sample.sentence(rng(hash(id + "2")), 18))];
   const quote = id === "pull-quote";
   const dropCap = id === "drop-cap";
   const kinetic = id === "kinetic-type";
@@ -160,7 +160,7 @@ export function Callout({ id, content, theme: t }: PartProps) {
 }
 
 /** Article lists, changelogs and tag rows. */
-export function ArticleList({ id, content, theme: t, onNavigate, w }: PartProps) {
+export function ArticleList({ id, content, theme: t, mode, onNavigate, w }: PartProps) {
   const entries = items(content, id === "changelog" ? ["v1.2: what changed", "v1.1: what changed", "v1.0: first release"] : ["First article", "Second article", "Third article"]).map(titled);
   if (id === "tagging") {
     return (
@@ -187,7 +187,7 @@ export function ArticleList({ id, content, theme: t, onNavigate, w }: PartProps)
           >
             <span style={{ color: t.muted, fontSize: t.fontPx * 0.75 }}>{sample.int(r, 1, 28)} {["Jan", "Feb", "Mar", "Apr", "May", "Jun"][sample.int(r, 0, 5)]}</span>
             <span style={{ fontWeight: 600, fontFamily: t.headingFamily }}>{e.title}</span>
-            <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? sample.sentence(r, 10)}</span>
+            <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? unwritten(mode, () => sample.sentence(r, 10), e.title)}</span>
           </button>
         );
       })}

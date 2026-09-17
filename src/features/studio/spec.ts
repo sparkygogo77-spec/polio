@@ -158,7 +158,7 @@ export function toRows(nodes: StudioNode[]): StudioNode[][] {
 
 const centre = (n: StudioNode) => ({ x: n.x + n.w / 2, y: n.y + n.h / 2 });
 
-function frameContaining(shapes: StudioShape[], n: StudioNode): StudioShape | null {
+export function frameContaining(shapes: StudioShape[], n: StudioNode): StudioShape | null {
   const c = centre(n);
   const frames = shapes.filter((s) => s.kind === "frame" && s.points.length >= 2);
   let best: StudioShape | null = null;
@@ -182,9 +182,45 @@ function frameContaining(shapes: StudioShape[], n: StudioNode): StudioShape | nu
 }
 
 /** A drawn region as a box. */
-function frameBox(f: StudioShape): { x: number; y: number; w: number; h: number } {
+export function frameBox(f: StudioShape): { x: number; y: number; w: number; h: number } {
   const [p1, p2] = [f.points[0]!, f.points[1]!];
   return { x: Math.min(p1[0], p2[0]), y: Math.min(p1[1], p2[1]), w: Math.abs(p2[0] - p1[0]), h: Math.abs(p2[1] - p1[1]) };
+}
+
+/** A section of the layout that nothing on the board carries. */
+export interface UnbuiltSection {
+  id: string;
+  label: string;
+  prompt: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * The sections the brief lays out and the board does not build.
+ *
+ * A region drawn with words on it and nothing inside is a section in its
+ * own right: the brief prints it in the page's layout, top to bottom, with
+ * whatever is written on it. Nothing ever rendered one, so his published
+ * home page went out with "the coordinates" and "join the transmission"
+ * named in his brief, absent from the site, and unmentioned anywhere —
+ * the brief promising six entries and the page carrying five.
+ *
+ * One list, read by both sides: `specFrom` lays the section out in the
+ * brief and `LiveSite` says in its place that it is not built. They cannot
+ * disagree about what is missing, because they are counting the same thing.
+ */
+export function unbuiltSections(shapes: StudioShape[], nodes: StudioNode[], pageId: string): UnbuiltSection[] {
+  const pShapes = shapes.filter((s) => s.pageId === pageId);
+  const pNodes = nodes.filter((n) => n.pageId === pageId);
+  return pShapes
+    .filter((s) => s.kind === "frame" && s.points.length >= 2)
+    .filter((f) => !pNodes.some((n) => frameContaining(pShapes, n)?.id === f.id))
+    .filter((f) => f.prompt.trim() || f.label.trim())
+    .map((f) => ({ id: f.id, label: f.label.trim() || "unnamed region", prompt: f.prompt.trim(), ...frameBox(f) }))
+    .sort((a, b) => a.y - b.y);
 }
 
 function nearestNode(nodes: StudioNode[], x: number, y: number, maxDist = 140): StudioNode | null {

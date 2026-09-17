@@ -2476,7 +2476,8 @@ export function Made({ thread, skin, width = 380, height = 96, live = false, qui
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const node = thread.madeId ? nodes.find((n) => n.id === thread.madeId) ?? null : null;
-  const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
+  const siteName = useStudio((s) => s.brief.name);
+  const theme = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
   const palette = React.useMemo(() => resolvePalette(look?.palette), [look?.palette]);
   if (!node) {
     return (

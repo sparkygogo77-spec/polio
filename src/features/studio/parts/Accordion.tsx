@@ -5,11 +5,11 @@
  */
 import * as React from "react";
 import { Fill } from "./primitives";
-import { sample } from "./sample";
+import { sample, unwritten } from "./sample";
 import { items, titled } from "./theme";
 import type { PartProps } from "./types";
 
-export function Accordion({ id, content, theme: t }: PartProps) {
+export function Accordion({ id, content, theme: t, mode }: PartProps) {
   const rows = items(content, id === "faq" ? ["How does it work?", "What does it cost?", "Can I cancel?"] : ["How it works", "Pricing", "Support"]).map(titled);
   const [open, setOpen] = React.useState<number | null>(0);
   const uid = React.useId();
@@ -39,7 +39,7 @@ export function Accordion({ id, content, theme: t }: PartProps) {
               hidden={!on}
               style={{ paddingBottom: t.fontPx * 0.8, color: t.muted, fontSize: t.fontPx * 0.92 }}
             >
-              {row.body ?? sample.answer(row.title)}
+              {row.body ?? unwritten(mode, () => sample.answer(row.title), row.title)}
             </div>
           </div>
         );

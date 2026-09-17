@@ -66,6 +66,16 @@ export interface Theme {
   /** Set only when a part has its own type; `Fill` puts them on the root and text inherits them. */
   fontWeight?: number;
   letterSpacing?: string;
+  /**
+   * What the site is called, straight off the brief.
+   *
+   * The brief binds it: "wherever a logo or wordmark is drawn it reads
+   * <name>, never Logo". Two parts wrote "Logo" anyway, so the published
+   * page introduced his site under a word he never typed. A wordmark reads
+   * this; when the site has no name yet, there is nothing to read and the
+   * part says so rather than inventing one.
+   */
+  siteName?: string;
 }
 
 /**
@@ -134,7 +144,7 @@ export function resolvePalette(format: FormatValues, look?: Look): Palette {
   return { ...base, ...overrides } as Palette;
 }
 
-export function themeFrom(format: FormatValues, look?: Look): Theme {
+export function themeFrom(format: FormatValues, look?: Look, siteName?: string): Theme {
   const hue = Number(format["palette.accentHue"] ?? 265);
   const mode = String(format["palette.mode"] ?? "dark");
   const light = mode === "light" || mode === "both";
@@ -184,6 +194,7 @@ export function themeFrom(format: FormatValues, look?: Look): Theme {
     light,
     fontPx: Number(format["type.baseSize"] ?? 16),
     lineHeight: Number(format["type.lineHeight"] ?? 1.55),
+    siteName: siteName?.trim() || undefined,
     measurePx: Math.round(Number(format["type.measure"] ?? 66) * 8.2),
     textAlign: align === "center" ? "center" : align === "justified" ? "justify" : "left",
     boxStyle: String(format["type.textBox"] ?? "plain"),

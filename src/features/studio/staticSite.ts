@@ -37,6 +37,8 @@ import { flushSync } from "react-dom";
 import { LiveSite } from "./live/LiveSite";
 import { useStudio, type StudioPage } from "./store";
 import { base64, bytesFor, type Picture } from "./pictures";
+import { missingCopy } from "./promised";
+import { NOT_WRITTEN } from "./parts/sample";
 
 export interface SiteFile {
   path: string;
@@ -121,9 +123,15 @@ function saidInstead(label: string, why: string): string {
  * Every part carries `data-live-node`, so what the page holds can be
  * compared with what the board has. A part that drew nothing is labelled in
  * its own place; a part the renderer never placed at all is named at the
- * foot of the page. Neither is silent.
+ * foot of the page; a part whose words were never written, and a part whose
+ * prompt named copy that is nowhere on the page, are named there too. None
+ * of the four is silent, because silence is how five of his sections went
+ * out missing and he had to find them himself.
  */
-function markupOf(el: React.ReactElement, width: number, expect: { id: string; label: string; featureId: string }[]): { html: string; blank: string[]; unplaced: string[] } {
+interface Expected { id: string; label: string; featureId: string; prompt: string }
+interface Audit { html: string; blank: string[]; unplaced: string[]; unwritten: string[]; unsaid: { part: string; words: string[] }[] }
+
+function markupOf(el: React.ReactElement, width: number, expect: Expected[]): Audit {
   const host = document.createElement("div");
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;pointer-events:none;opacity:0`;
   document.body.appendChild(host);
@@ -131,6 +139,8 @@ function markupOf(el: React.ReactElement, width: number, expect: { id: string; l
   let html = "";
   const blank: string[] = [];
   const unplaced: string[] = [];
+  const unwritten: string[] = [];
+  const unsaid: { part: string; words: string[] }[] = [];
   try {
     flushSync(() => root.render(el));
     const seen = new Set<string>();
@@ -138,24 +148,39 @@ function markupOf(el: React.ReactElement, width: number, expect: { id: string; l
       const id = box.getAttribute("data-live-node") ?? "";
       seen.add(id);
       const part = expect.find((p) => p.id === id);
-      if (!part || !drewNothing(box)) continue;
-      blank.push(part.label || part.featureId);
-      box.setAttribute("data-unmade", part.featureId);
-      box.innerHTML = saidInstead(part.label || part.featureId, "this part is described rather than drawn, so there was nothing to publish yet");
+      if (!part) continue;
+      const name = part.label || part.featureId;
+      const text = (box as HTMLElement).textContent ?? "";
+      if (drewNothing(box)) {
+        blank.push(name);
+        box.setAttribute("data-unmade", part.featureId);
+        box.innerHTML = saidInstead(name, "this part is described rather than drawn, so there was nothing to publish yet");
+        continue;
+      }
+      // Words nobody wrote. The part already says so where it stands; this
+      // is the list, so the gap is findable without reading the whole page.
+      if (text.includes(NOT_WRITTEN)) unwritten.push(name);
+      // Copy the prompt named and the part never carried.
+      const missed = missingCopy(part.prompt, text);
+      if (missed.length) unsaid.push({ part: name, words: missed });
     }
     for (const part of expect) if (!seen.has(part.id)) unplaced.push(part.label || part.featureId);
-    if (unplaced.length) {
-      const note = document.createElement("div");
-      note.className = "site-unplaced";
-      note.innerHTML = `<div class="site-unmade-name">Not on this page yet</div>${unplaced.map((n) => `<div class="site-unmade-why">${esc(n)}</div>`).join("")}`;
-      host.firstElementChild?.appendChild(note);
-    }
+    const note = (kind: string, head: string, lines: string[]) => {
+      if (!lines.length) return;
+      const el2 = document.createElement("div");
+      el2.className = `site-unplaced ${kind}`;
+      el2.innerHTML = `<div class="site-unmade-name">${esc(head)}</div>${lines.map((n) => `<div class="site-unmade-why">${esc(n)}</div>`).join("")}`;
+      host.firstElementChild?.appendChild(el2);
+    };
+    note("site-note-unplaced", "Not on this page yet", unplaced);
+    note("site-note-unwritten", "No words written for these yet", unwritten);
+    note("site-note-unsaid", "Asked for in the prompt and not on the page", unsaid.map((u) => `${u.part}: ${u.words.join(" · ")}`));
     html = host.innerHTML;
   } finally {
     root.unmount();
     host.remove();
   }
-  return { html, blank, unplaced };
+  return { html, blank, unplaced, unwritten, unsaid };
 }
 
 /**
@@ -215,6 +240,11 @@ export function staticSite(): SiteFile[] {
         frameWidth: width,
         format: s.format,
         look: s.look,
+        siteName: s.brief.name,
+        /* The brief's layout is regions as well as parts, and a region with
+           nothing in it is a section the board never built. It is in the
+           brief, so it is on the page — saying it is not built. */
+        shapes: s.shapes,
         /* Not a browser address: the page being written will be read from a
            repository, where the file sits at its own path beside it. */
         pictureAt: (pic) => `${page.id === home ? "" : "../"}${pic.path}`,
@@ -228,7 +258,7 @@ export function staticSite(): SiteFile[] {
        * part that rendered badly, a part nothing ever asked to render.
        */
       [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home ? orphans : [])]
-        .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId })),
+        .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId, prompt: n.prompt ?? "" })),
     );
     const title = page.name?.trim() ? (page.id === home ? name : `${page.name.trim()} · ${name}`) : name;
     const up = page.id === home ? "" : "../";

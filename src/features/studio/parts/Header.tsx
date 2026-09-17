@@ -5,9 +5,9 @@
  */
 import * as React from "react";
 import { Btn, Fill } from "./primitives";
-import { sample, rng, hash } from "./sample";
+import { sample, rng, hash, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
-import { opt, type PartProps } from "./types";
+import { opt, type PartMode, type PartProps } from "./types";
 
 export function Header({ id, content, options, theme: t, mode, link, onNavigate, emit, w }: PartProps) {
   /*
@@ -18,10 +18,16 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
    * site ever built from this. An item written `logo: $BORB` or
    * `button: Connect wallet` is that thing; everything else is a link, so
    * a header typed the plain way still behaves exactly as it did.
+   *
+   * With nothing typed the wordmark is the site's name, which the brief
+   * binds — "wherever a logo or wordmark is drawn it reads BLACKORB, never
+   * Logo" — and which this part was contradicting in two bars on his
+   * published home page. Only a site with no name at all falls through,
+   * and then there is no name to print and the page says so.
    */
   const typed = items(content, id === "mega-menu" ? ["Products", "Solutions", "Pricing", "Docs"] : ["Home", "Work", "About", "Contact"]).map(titled);
   const keyed = (key: string) => typed.find((x) => x.body && x.title.toLowerCase() === key)?.body ?? null;
-  const wordmark = keyed("logo") ?? keyed("wordmark") ?? "Logo";
+  const wordmark = keyed("logo") ?? keyed("wordmark") ?? t.siteName ?? unwritten(mode, () => "Logo", "");
   const buttonLabel = keyed("button") ?? keyed("cta") ?? "Get started";
   const links = typed.filter((x) => !(x.body && ["logo", "wordmark", "button", "cta"].includes(x.title.toLowerCase()))).map((x) => (x.body ? `${x.title}: ${x.body}` : x.title));
   const compact = id === "mobile-nav" || w < 640;
@@ -74,7 +80,7 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
               >
                 {l}{id === "mega-menu" ? <span aria-hidden style={{ marginLeft: 4, fontSize: "0.7em" }}>▾</span> : null}
               </button>
-              {id === "mega-menu" && openMenu === i && mode === "live" ? <MegaPanel t={t} label={l} onPick={go} /> : null}
+              {id === "mega-menu" && openMenu === i && mode === "live" ? <MegaPanel t={t} label={l} onPick={go} mode={mode} /> : null}
             </span>
           ))}
         </nav>
@@ -84,9 +90,9 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
   );
 }
 
-function MegaPanel({ t, label, onPick }: { t: Theme; label: string; onPick: (l: string) => void }) {
+function MegaPanel({ t, label, onPick, mode }: { t: Theme; label: string; onPick: (l: string) => void; mode: PartMode }) {
   const r = rng(hash(label));
-  const groups = ["Overview", "By use", "Learn"].map((g) => ({ g, items: Array.from({ length: 3 }, () => sample.word(r)) }));
+  const groups = ["Overview", "By use", "Learn"].map((g) => ({ g, items: Array.from({ length: 3 }, (_, i) => unwritten(mode, () => sample.word(r), `${g} ${i + 1}`)) }));
   return (
     <div role="menu" style={{ position: "absolute", left: 0, top: "calc(100% + 10px)", zIndex: 20, minWidth: 420, ...cardStyle(t), padding: t.fontPx, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: t.fontPx, boxShadow: `0 16px 40px ${t.light ? "oklch(0 0 0 / .14)" : "oklch(0 0 0 / .55)"}` }}>
       {groups.map(({ g, items: xs }) => (

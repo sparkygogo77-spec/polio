@@ -53,7 +53,7 @@ function markupOf(el: React.ReactElement, w: number, h: number): string {
 export function buildScaffold(): ScaffoldResult {
   const began = typeof performance !== "undefined" ? performance.now() : Date.now();
   const s = useStudio.getState();
-  const theme = themeFrom(s.format, s.look);
+  const theme = themeFrom(s.format, s.look, s.brief.name);
   const palette = resolvePalette(s.format, s.look);
   const parts: ScaffoldPart[] = [];
 
