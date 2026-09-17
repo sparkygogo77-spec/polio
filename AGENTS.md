@@ -254,6 +254,66 @@ preset into an ordinary node, so the shelf, the wheel, search and "add
 here" all work without knowing where a part came from. A repository with
 no page in it to open says so and names what it found.
 
+**A hand on a vine pulls it; a press takes it apart from the middle.** His
+words: "the line in the middle of the vines is hoverable ... i would rather
+no line, the vine maybe pulls a little when you hover ... when click
+vanishes and fades away and disintegrates from the middle". So `.vine-cut`
+paints nothing at all — it is only the shape that catches the pointer — and
+what answers a hand is the vine: `strandPath(from, to, tug)` takes the bow
+out of it and it draws taut. A press parts it at the middle
+(`Build.cut`): the curve is sliced into two pieces that draw back towards
+their boards, crumbling at the break, fading as they go, and the iteration
+is pruned when there is nothing left of the vine rather than at the press.
+Sliced, never erased — `destination-out` on a shared canvas would punch
+through whatever vine crossed this one.
+
+**The boxes arrive when you open the timeline.** His words: "if you are in
+the design preview and havent seen the timeline yet dont have the elements
+add until you open the timeline where everything not seen yet is all loaded
+in sequentially but each box starts maybe .2 seconds apart, not once the
+previous is finished". So an update is never a thing that happened
+somewhere he was not looking: `useForming` keeps a session-scoped `watched`
+set, and every box he has not watched arrive starts forming the moment the
+timeline opens, `STAGGER_MS` (200) apart. Apart, not after — a formation
+takes 2.6s, so a run of six overlaps and reads as a sequence rather than a
+queue. A box whose turn has not come is not drawn at all, because a box
+sitting at zero is a box that is already there and empty. "Haven't seen the
+timeline yet" includes a session that has only just started, which reverses
+the older rule that a reload showed everything as it stood.
+
+**The fit belongs to the room, so it follows the room.** It used to be one
+attempt in one frame after the timeline mounted, and it gave up in silence
+if the pane had not laid out yet — and because the pan is the component's
+own state starting at zero while the zoom is the store's and survives, what
+was left was the board's scale with no translation at all. That is the
+`matrix(0.683, 0, 0, 0.683, 0, 0)` he read off the deploy, with the updates
+pinned to the frame's top-left and part of the timeline outside the frame.
+Now a `ResizeObserver` on the frame and on the band re-runs it: it waits
+for a room with a size, it waits for a resize to stop before fitting to it,
+and it fits again when the arrival is over (the fan is measured off the
+last box, which is not there while the run is still coming in). A view
+somebody moved is theirs and is left alone unless the room has stranded it
+off an edge.
+
+**One readout, one press, both surfaces.** The timeline's zoom is the
+board's zoom — one number in one store — so the percentage in the bar was
+already showing whichever surface was in front and had nothing to press
+for. It is the fit now: `requestFit()` bumps `fitNonce`, the board fits and
+the timeline settles. The "fit in view" button beside it and the timeline's
+own bottom-left box (an update count, a "centre" button and a second copy
+of the percentage) are both gone — three controls that did one job.
+
+**Centring is centring in what you can see.** The pane the timeline stands
+in has travel of its own, by design, so scrolling past the last update
+reaches the prompt section under it. The settle did not know: it measures
+the room from the timeline's own top, and with the pane at its foot that
+top is the band's height above the window — measured at 1440×900 with six
+updates, the set was cut off 192px above the screen with 304px of nothing
+below it, and asking for the middle put it back in exactly the same place.
+A settle now puts the pane back with it. That was also what the removed
+corner button caused on its own: a control at the foot of a pane with
+travel scrolls that pane to itself when it takes focus.
+
 **Fail loudly in the Builder, never on the published site.** The publish
 boundary is a rule, not a detail: he is the only person who needs to know a
 part did not render, and a visitor must never see the scaffolding. It is

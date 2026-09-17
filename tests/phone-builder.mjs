@@ -96,12 +96,14 @@ await page.waitForTimeout(400);
 await page.mouse.click(30, 300);
 await page.waitForTimeout(300);
 
-/* 2. The seven controls. */
+/* 2. The controls the bar folds away. */
+/* Fit used to be its own button here. It and the readout did the same
+   thing, so the readout is the one that does it, on the board and on the
+   timeline alike, and there is one control where there were two. */
 const CONTROLS = [
-  { name: "Fit frame", sel: '[aria-label="Fit frame"]' },
   { name: "Toggle wires", sel: '[aria-label="Toggle wires"]' },
   { name: "the part menu's edge", sel: "[data-menu-shape]" },
-  { name: "the zoom readout", sel: '[aria-label="Zoom readout"]' },
+  { name: "the readout, which is also Fit in view", sel: "[data-fit-readout]" },
   { name: "Search", sel: "[data-tool-search]" },
   { name: "Updates", sel: '[aria-label="Updates"]' },
 ];

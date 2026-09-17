@@ -58,7 +58,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "./timelineView";
+import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, STAGGER_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
 import { BODY, EDGE } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
@@ -139,34 +139,79 @@ function seed(s: string): number {
  * arrives as a stage forming rather than a jump, and which starts again from
  * nothing when a thread is new to this session or its generation goes up.
  *
- * Never on a reload of something that did not change: whatever is on the
- * board when the timeline mounts is shown as it is. Only what lands or
- * changes after that forms. One rAF runs while anything is still moving and
- * none when nothing is, so a still timeline costs nothing here.
+ * WHAT HE ASKED FOR, in his words: "if you are in the design preview and
+ * havent seen the timeline yet dont have the elements add until you open
+ * the timeline where everything not seen yet is all loaded in sequentially
+ * but each box starts maybe .2 seconds apart, not once the previous is
+ * finished."
+ *
+ * So an update is not a thing that happened somewhere he was not looking.
+ * Work on the board makes updates and their boxes wait; the moment he
+ * opens the timeline every box he has not watched arrive forms — in order,
+ * each starting `STAGGER_MS` after the one before it and not after it
+ * finishes, so a run of six reads as a sequence rather than as a queue.
+ *
+ * "Haven't seen the timeline yet" includes a session that has only just
+ * started, which is what changed here: the rule used to be that whatever
+ * was on the board when the timeline first mounted was shown as it stood,
+ * on the reasoning that a reload should not replay history. His reading is
+ * the better one — an update you have never watched arrive is an update
+ * you have not seen, whether it landed a minute ago or before the tab was
+ * opened — and the first sight of the timeline in a session is now the
+ * whole run, arriving.
+ *
+ * `watched` is a module variable, like the held view further down and for
+ * the same reason: it is about where somebody has been looking, not about
+ * the site, so it belongs to the session and never to the document. It
+ * also has to outlive the component, which unmounts every time he goes
+ * back to the board — kept on the instance, going back and returning
+ * would replay everything.
+ *
+ * One rAF runs while anything is still moving and none when nothing is, so
+ * a still timeline costs nothing here.
  */
+/** Every thread whose arrival has been watched, this session. */
+const watched = new Set<string>();
+
 function useForming(threads: Thread[]): Map<string, number> {
   const [shown, setShown] = React.useState<Map<string, number>>(() => new Map());
-  const state = React.useRef({ shown: new Map<string, number>(), gen: new Map<string, number>(), mounted: false, raf: 0 });
+  const state = React.useRef({ shown: new Map<string, number>(), gen: new Map<string, number>(), wait: new Map<string, number>(), raf: 0 });
   React.useEffect(() => {
     const st = state.current;
     const target = new Map<string, number>();
     let moving = false;
+    /*
+     * How many arrivals are already queued ahead of this one on this pass.
+     * Counted over the run rather than off the thread's index, so six that
+     * have waited start 0, 200, 400… apart and a seventh landing while
+     * they play does not wait behind all of them.
+     */
+    let queued = 0;
     for (const t of threads) {
       const f = formOf(t);
       target.set(t.id, f.p);
       const had = st.gen.get(t.id);
       if (had === undefined) {
         st.gen.set(t.id, f.gen);
-        // First sight. At mount it is as it is; after mount it is new, and forms.
-        st.shown.set(t.id, st.mounted ? 0 : f.p);
+        if (watched.has(t.id)) {
+          // Watched it arrive already: the timeline was closed and reopened.
+          st.shown.set(t.id, f.p);
+        } else {
+          /* Below nothing, on purpose: a box whose turn has not come is not
+             drawn at all. "Don't have the elements add until you open the
+             timeline" — a box sitting at zero for a second is a box that is
+             already there and empty, which is not an arrival. */
+          st.shown.set(t.id, -1);
+          st.wait.set(t.id, queued++ * STAGGER_MS);
+        }
       } else if (had !== f.gen) {
         st.gen.set(t.id, f.gen);
-        st.shown.set(t.id, 0);
+        st.shown.set(t.id, -1);
+        st.wait.set(t.id, queued++ * STAGGER_MS);
       }
       if ((st.shown.get(t.id) ?? 1) < f.p) moving = true;
     }
-    for (const id of [...st.shown.keys()]) if (!target.has(id)) { st.shown.delete(id); st.gen.delete(id); }
-    st.mounted = true;
+    for (const id of [...st.shown.keys()]) if (!target.has(id)) { st.shown.delete(id); st.gen.delete(id); st.wait.delete(id); }
     setShown(new Map(st.shown));
     if (!moving || st.raf) return;
     /* A whole formation, from nothing to landed, takes about this long when
@@ -182,7 +227,20 @@ function useForming(threads: Thread[]): Map<string, number> {
       for (const [id, to] of target) {
         const at = st.shown.get(id) ?? to;
         if (at >= to) continue;
-        const next = Math.min(to, at + dt / WHOLE_MS);
+        /* Its turn has not come round yet: it holds at nothing, and the
+           clock runs anyway, so six waiting boxes begin 200ms apart
+           rather than one after another finishing. */
+        const held = st.wait.get(id) ?? 0;
+        if (held > 0) {
+          st.wait.set(id, held - dt);
+          still = true;
+          continue;
+        }
+        // The moment it begins is the moment it counts as watched: leaving
+        // and coming back does not make it arrive twice.
+        watched.add(id);
+        // Its turn: it starts from nothing, not from the sentinel.
+        const next = Math.min(to, Math.max(0, at) + dt / WHOLE_MS);
         st.shown.set(id, next);
         if (next < to) still = true;
       }
@@ -475,6 +533,60 @@ export function Timeline() {
   const paintAt = React.useRef<() => void>(() => {});
 
   /*
+   * What the pointer is doing to a vine, and what a press did to one.
+   *
+   * HIS WORDS: "the line in the middle of the vines is hoverable ... i
+   * would rather no line, the vine maybe pulls a little when you hover ...
+   * when click vanishes and fades away and disintegrates from the middle."
+   *
+   * Both live in refs and neither is state. A vine reacting to the pointer
+   * and a vine coming apart are things the canvas does at the frame rate;
+   * putting them in state would re-render every box on the timeline to
+   * move one ribbon. The painter reads them, and both are named by the
+   * *later* of the two boards a vine joins, which is how every vine is
+   * keyed here.
+   */
+  const tugAt = React.useRef<string | null>(null);
+  const cutAt = React.useRef<{ id: string | null; p: number }>({ id: null, p: 0 });
+  const cutting = React.useRef(0);
+
+  /** Take hold of a vine, or let it go. Repaints that one ribbon and nothing else. */
+  const tug = React.useCallback((id: string | null) => {
+    if (tugAt.current === id) return;
+    tugAt.current = id;
+    paintAt.current();
+  }, []);
+
+  /**
+   * Cut one, and watch it go.
+   *
+   * The break opens from the middle over `CUT_MS`, the two ends draw back
+   * crumbling, and the iteration goes when there is nothing left of the
+   * vine — not before, or the box would vanish while its own vine was
+   * still coming apart, which is two things happening where he asked for
+   * one.
+   */
+  const CUT_MS = 460;
+  const cutVine = React.useCallback((id: string) => {
+    if (cutting.current) return;
+    play("deny");
+    tugAt.current = null;
+    cutAt.current = { id, p: 0 };
+    const began = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - began) / CUT_MS);
+      cutAt.current = { id, p };
+      paintAt.current();
+      if (p < 1) { cutting.current = requestAnimationFrame(tick); return; }
+      cutting.current = 0;
+      cutAt.current = { id: null, p: 0 };
+      useStudio.getState().pruneThread(id);
+    };
+    cutting.current = requestAnimationFrame(tick);
+  }, []);
+  React.useEffect(() => () => { if (cutting.current) cancelAnimationFrame(cutting.current); }, []);
+
+  /*
    * The view becomes the person's the moment they move it.
    *
    * A flag rather than a snapshot: taking the snapshot here would take it
@@ -498,6 +610,28 @@ export function Timeline() {
   const settle = React.useCallback(() => {
     const box = host.current;
     if (!box) return;
+    /*
+     * The middle is the middle of what you can SEE.
+     *
+     * The pane the timeline stands in has travel of its own, by design, so
+     * that carrying on scrolling past the last update reaches the prompt
+     * section under it. The fit never knew: it measures the room from the
+     * timeline's own top, and with the pane at its foot that top is the
+     * band's height above the window — measured at 1440x900 with six
+     * updates, the set was cut off 192px above the screen with 423px of
+     * nothing below it, and pressing centre put it back in exactly the
+     * same place. That is his "stuff is toward the top".
+     *
+     * So a settle puts the pane back too. It is only ever the answer to
+     * "show me everything" — opening the timeline, putting a box down,
+     * asking for the middle — and a fit inside a box that is half off the
+     * screen is not an answer to that.
+     */
+    const pane = box.closest("[data-studio-pane]");
+    if (pane instanceof HTMLElement && pane.scrollTop > 0) {
+      const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      pane.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+    }
     const s = useStudio.getState();
     const scattered = homeAt.current;
     // The store's own spots, and the scatter for anything never moved.
@@ -539,11 +673,36 @@ export function Timeline() {
     const spanW = Math.max(...boxes.map((b) => b.x + b.w)) - Math.min(...boxes.map((b) => b.x));
     const needed = Math.min((room - SETTLE_MARGIN * 2) / Math.max(1, spanH), (box.clientWidth - SETTLE_MARGIN * 2) / Math.max(1, spanW));
     const min = band ? Math.max(0.28, Math.min(SETTLE_MIN_ZOOM, needed)) : SETTLE_MIN_ZOOM;
+    /*
+     * The whole set decides the middle, the fan included.
+     *
+     * I tried weighing only the update cards, on the reasoning that the
+     * fan is chrome and he is looking at the cards: it moved them 230px
+     * closer to the middle at 1546x1278. It also put 178px of the lowest
+     * lane under the band at the width `tests/lanes.mjs` checks, because
+     * the fit and the shove that keeps the fan clear are tuned against
+     * each other. A fan half under the band is a worse answer than cards
+     * a sixth of a room off centre, and his actual complaint was neither
+     * of those — so the fit is left as it was.
+     */
     const to = settleView(boxes, { w: box.clientWidth, h: room }, { min, max: zoomCeiling(box.clientWidth, widest) });
     stopSettle();
     if (!to) return;
+    /*
+     * The fan, kept off the band.
+     *
+     * The lanes stand as tall as the box they hang off, measured, which
+     * the nominal boxes above undercount; the whole margin covers the
+     * difference. Left as it is deliberately, and the record of why: I
+     * suspected this of being his "stuff is toward the top" — it is a
+     * one-way shove upward with no ceiling — and capped it at the margin
+     * to find out. Two measurements settled it. At 1546x1278 with four
+     * updates it was not firing at all, so the cap changed nothing there;
+     * at the width `tests/lanes.mjs` checks, capping it put 178px of the
+     * lowest lane back under the band, which is the fault this line was
+     * written to fix. It is not the cause, and it is load-bearing.
+     */
     const lanesBottom = Math.max(...boxes.slice(-3).map((b) => (b.y + b.h) * to.zoom + to.pan.y));
-    // The lanes stand as tall as the box they hang off, measured, which the nominal boxes here undercount: the whole margin covers the difference.
     if (lanesBottom > room - SETTLE_MARGIN) to.pan.y -= lanesBottom - (room - SETTLE_MARGIN);
     const from = viewAt.current;
     if (sameView(from, to)) return;
@@ -600,25 +759,138 @@ export function Timeline() {
    */
   React.useEffect(() => {
     const box = host.current;
-    if (box) setAspect(box.clientHeight > 1 ? box.clientWidth / box.clientHeight : 2);
-    const id = requestAnimationFrame(() => {
-      const mine = owns ? ownView : null;
-      if (mine) {
-        setPan(mine.pan);
-        setZoom(mine.zoom);
+    if (!box) return;
+    let raf = 0;
+    let was = { w: 0, h: 0 };
+    let pending = false;
+    /** The room the set really has: the frame, less the band over its foot. */
+    const roomOf = () => {
+      const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+      return { w: box.clientWidth, h: Math.max(0, box.clientHeight - band) };
+    };
+    const go = () => {
+      raf = 0;
+      const now = roomOf();
+      /*
+       * Nothing to fit into yet, so nothing is decided yet.
+       *
+       * This used to be one attempt in one frame after mount, and if the
+       * pane had not laid out by then it gave up in silence: the pan is
+       * this component's own state and starts at zero, while the zoom is
+       * the store's and survives, so what was left was the board's scale
+       * with no translation at all — `matrix(0.683, 0, 0, 0.683, 0, 0)`,
+       * which is what he read off the deploy, with the updates pinned to
+       * the frame's top-left corner and part of the timeline outside the
+       * frame entirely. Reproduced by opening the timeline in a 420x240
+       * window and then giving it the room: scale 0.28, 126px of it above
+       * the frame's own top edge, and it stayed there.
+       */
+      if (!(now.w > 1 && now.h > 1)) return;
+      setAspect(box.clientHeight > 1 ? box.clientWidth / box.clientHeight : 2);
+      const moved = Math.abs(now.w - was.w) > 2 || Math.abs(now.h - was.h) > 2;
+      was = now;
+      if (!settled.current) {
+        /* The view he left, if he has one, or the fit. */
+        const mine = owns ? ownView : null;
+        if (mine) { setPan(mine.pan); setZoom(mine.zoom); settled.current = true; return; }
+        settle();
         settled.current = true;
         return;
       }
-      settle();
-      settled.current = true;
-    });
+      /*
+       * Wait for the room to stop moving before fitting to it.
+       *
+       * A window resize arrives as a run of observations, and the band
+       * along the foot is a second element resizing on its own schedule.
+       * Fitting on the first of them fits to a room that is still
+       * changing: measured, `tests/lanes.mjs` put 178px of the lowest lane
+       * under the band, because the room was read before the band had
+       * finished growing. So a change only arms the fit, and the fit
+       * happens on the first frame where nothing moved.
+       */
+      if (moved) {
+        pending = true;
+        raf = requestAnimationFrame(go);
+        return;
+      }
+      if (!pending) return;
+      pending = false;
+      /*
+       * A view nobody has claimed is the fit's, and the fit is out of
+       * date, so it runs again.
+       *
+       * A view somebody moved is theirs and is left where they left it —
+       * unless the room moving has put part of it off the edge, which is
+       * not a view any more. Asked of the DOM rather than recomputed,
+       * because what is being asked is exactly "can he still see them".
+       */
+      const stranded = () => {
+        const cards = [...box.querySelectorAll<HTMLElement>("[data-box]")];
+        if (!cards.length) return false;
+        const frame = box.getBoundingClientRect();
+        const bandH = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+        return cards.some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top < frame.top || r.left < frame.left || r.right > frame.right || r.bottom > frame.bottom - bandH;
+        });
+      };
+      if (!owns || stranded()) settle();
+    };
+    raf = requestAnimationFrame(go);
+    const ro = new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(go); });
+    ro.observe(box);
+    const band = box.parentElement?.querySelector("[data-studio-band]");
+    if (band) ro.observe(band);
     return () => {
-      cancelAnimationFrame(id);
+      if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
       stopSettle();
     };
-    // Once, on the way in. `settle` and `stopSettle` are stable.
+    // `settle` and `stopSettle` are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /*
+   * And once everybody has arrived, the fit runs again.
+   *
+   * The boxes come in when the timeline is opened, .2s apart, so the fit
+   * at mount is a fit to a board that is still filling: the lane fan is
+   * measured off the last box, and that box is not in the DOM yet, so the
+   * fan is fitted at its nominal height. Measured by `tests/lanes.mjs`,
+   * that left 178px of the lowest lane under the band along the foot of
+   * the pane — the exact thing the fan's own clearance is there to stop.
+   *
+   * So the fit is taken again when the run is over, on a board that is
+   * all there. Once: `everyoneHere` goes true and stays true. And not
+   * over a view somebody has already moved, which is theirs.
+   */
+  const everyoneHere = threads.length > 0 && threads.every((t) => shownOf(t.id) >= 0);
+  React.useEffect(() => {
+    if (!everyoneHere || !settled.current || owns) return;
+    settle();
+  }, [everyoneHere, settle]);
+
+  /*
+   * The bar's readout is the way back here as well.
+   *
+   * `requestFit` is one signal in one store and the zoom it shows is one
+   * number in one store, so the percentage in the bar was already this
+   * surface's percentage — it just had nothing to press for. Now the board
+   * answers it with a fit and the timeline answers it with a settle, which
+   * is why the "fit in view" button beside it and the "centre" button down
+   * in the corner could both go: three controls doing one job.
+   *
+   * `owns` is dropped first, because asking for the middle is asking for
+   * the middle and not for wherever the view was last left.
+   */
+  const fitNonce = useStudio((s) => s.fitNonce);
+  const first = React.useRef(true);
+  React.useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    owns = false;
+    ownView = null;
+    settle();
+  }, [fitNonce, settle]);
 
   /*
    * The floor is not this component's. One ground stands behind the board,
@@ -776,9 +1048,14 @@ export function Timeline() {
     for (const cord of cords) {
       const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
       // The first stage of forming: the vine grows from the previous card.
-      const grow = Math.min(1, shownOf(cord.to) / FORM.vine[1]);
+      const grow = Math.min(1, Math.max(0, shownOf(cord.to)) / FORM.vine[1]);
       want.set(`${cord.from}>${cord.to}`, {
         from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to), grow,
+        /* Pulled while the pointer is on its seam, and parting while it
+           is being cut. Read off refs rather than state: both change at
+           the frame rate and neither belongs in a render. */
+        tug: tugAt.current === cord.to ? 1 : 0,
+        cut: cutAt.current.id === cord.to ? cutAt.current.p : 0,
       });
     }
     /*
@@ -891,7 +1168,7 @@ export function Timeline() {
     c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
 
     /* What differs from what is on the canvas. */
-    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
+    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${(v.tug ?? 0).toFixed(2)},${(v.cut ?? 0).toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
     const dirty: { x: number; y: number; w: number; h: number }[] = [];
     const changed = new Set<string>();
     for (const [k, v] of want) {
@@ -922,7 +1199,7 @@ export function Timeline() {
     for (const v of want.values()) {
       if (!dirty.some((r) => hits(r, v.box))) continue;
       if (v.rim) { paintRim(c, v.rim); continue; }
-      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow });
+      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow, tug: v.tug, cut: v.cut });
     }
     c.restore();
 
@@ -1154,9 +1431,23 @@ export function Timeline() {
   }, []);
 
   const nothing = !threads.length;
-  /* Where the lanes hang: one slot past the last real box, wherever it stands now. */
+  /*
+   * Where the lanes hang: one slot past the last real box, wherever it
+   * stands now — and only once that box is on the board.
+   *
+   * The lanes are as tall as the box they hang off, measured off it
+   * (`Lanes`), and that measurement happens in an effect keyed on the
+   * box's id. With the arrival staggered, the last box is not in the DOM
+   * when the timeline first paints, so the measurement found nothing, the
+   * effect never ran again, and the fan stood 106px tall beside a 126px
+   * box for the rest of the session — 10px out of level, which is exactly
+   * the sort of thing he spots. So the fan waits for its box, which is
+   * also the truer thing: a fan hanging off a box that is not there yet
+   * is a fan hanging off nothing.
+   */
   const lastThread = all.at(-1)?.thread;
-  const lanesFrom = lastThread ? { ...spotOf(lastThread.id), ...sizeOf(lastThread) } : null;
+  const lastHere = lastThread && shownOf(lastThread.id) >= 0 ? lastThread : undefined;
+  const lanesFrom = lastHere ? { ...spotOf(lastHere.id), ...sizeOf(lastHere) } : null;
 
   return (
     <div
@@ -1180,6 +1471,9 @@ export function Timeline() {
 
         {all.map((n) => {
           const t = n.thread;
+          // Waiting its turn to arrive: not on the board yet, and not a box
+          // standing empty either.
+          if (shownOf(t.id) < 0) return null;
           const at = spotOf(t.id);
           const live = t.id === liveThreadId;
           const open = t.id === openThreadId;
@@ -1218,7 +1512,7 @@ export function Timeline() {
           as an iteration through the same door as everything else and
           stands in the chain in blue.
         */}
-        <Lanes from={lanesFrom} fromId={lastThread?.id ?? null} size={BOX} gap={GAP} fromEnd={lastThread && isElement(lastThread) ? "drawing" : "iteration"} />
+        <Lanes from={lanesFrom} fromId={lastHere?.id ?? null} size={BOX} gap={GAP} fromEnd={lastHere && isElement(lastHere) ? "drawing" : "iteration"} />
 
         {/*
           The cut line down each vine, and nothing else on a vine.
@@ -1238,6 +1532,8 @@ export function Timeline() {
             of={byId.get(cord.to)}
             at={ends(anchorOf(cord.from), anchorOf(cord.to))}
             ends={cord.ends}
+            onTug={tug}
+            onCut={cutVine}
           />
         ))}
       </div>
@@ -1261,24 +1557,25 @@ export function Timeline() {
         </div>
       ) : null}
 
-      {/* Where you are, and the way back to the middle. */}
-      <div className="pointer-events-auto absolute bottom-2 left-2 flex items-center gap-1 rounded-md border border-[oklch(0.36_0.07_152)] bg-[oklch(0.16_0.03_158/0.75)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.07_152)] backdrop-blur-sm">
-        <GitBranch className="size-3" />
-        <span className="num">{threads.length}</span>
-        <span className="opacity-60">{threads.length === 1 ? "update" : "updates"}</span>
-        <span className="mx-1 h-3 w-px bg-[oklch(0.36_0.07_152)]" />
-        <button
-          type="button"
-          data-timeline-centre=""
-          className="tactile rounded px-1 hover:text-[oklch(0.92_0.1_152)]"
-          // Centre used to mean the origin, which is only where the boxes
-          // were before anybody touched them.
-          onClick={(e) => { e.stopPropagation(); play("tap"); owns = false; ownView = null; settle(); }}
-        >
-          centre
-        </button>
-        <span className="num opacity-60">{Math.round(zoom * 100)}%</span>
-      </div>
+      {/*
+        The little box that used to sit down here — the update count, a
+        "centre" button and the zoom percentage — is gone on his ruling:
+        "remove the little centre and updates amount box in the bottom left
+        of the timeline box, then remove the button at the top to 'fit in
+        view' when the zoom percentage number should be the button doing
+        that for both since they do the same thing now."
+
+        And they do: the timeline's zoom IS the board's zoom, one number in
+        one store, so the readout in the bar was already showing this
+        surface. It is now the one press that puts either of them back —
+        `requestFit`, watched below — and three controls that did one job
+        are one control.
+
+        It was also the thing that made the fault he reported: a button at
+        the very bottom of a pane with travel in it scrolls that pane to
+        itself when it takes focus, which put the timeline 248px off the
+        top of the window.
+      */}
     </div>
   );
 }
@@ -1298,6 +1595,10 @@ interface Vine {
   box: { x: number; y: number; w: number; h: number };
   /** How much of it there is yet, 0..1. A vine into a forming box grows. */
   grow: number;
+  /** Being pulled, 0..1: the pointer is on its seam and the bow comes out of it. */
+  tug?: number;
+  /** Being cut, 0..1: parted at the middle, the ends drawing back and crumbling. */
+  cut?: number;
   /**
    * Not a vine at all: the rim of a forming box, traced round it in green
    * and then closing in. It lives in the same map because it is painted
@@ -2560,8 +2861,19 @@ function CopyBit({ text }: { text: string }) {
  * cutting one iteration out of the middle of a run keeps the rest of the
  * run.
  */
-function VineCut({ of, at, ends: pair }: { of?: Thread; at: [Point, Point]; ends: [VineEnd, VineEnd] }) {
-  if (!of) return null;
+function VineCut({ of, at, ends: pair, onTug, onCut }: {
+  of?: Thread;
+  at: [Point, Point];
+  ends: [VineEnd, VineEnd];
+  onTug: (id: string | null) => void;
+  onCut: (id: string) => void;
+}) {
+  const id = of?.id;
+  /* Let go on the way out, whatever took the element away — a drag
+     starting, the box moving, this unmounting mid-hover. A vine left
+     pulled by a pointer that is not there any more is a vine stuck. */
+  React.useEffect(() => () => { if (id) onTug(null); }, [id, onTug]);
+  if (!of || !id) return null;
   const [from, to] = at;
   const box = strandBounds(from, to);
   const d = strandSeam({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y }, { ends: pair });
@@ -2570,9 +2882,16 @@ function VineCut({ of, at, ends: pair }: { of?: Thread; at: [Point, Point]; ends
     <Tooltip content={`Cut it, and "${headlineOf(of)}" goes`}>
       <button
         type="button"
-        data-vine-cut={of.id}
+        data-vine-cut={id}
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); play("deny"); useStudio.getState().pruneThread(of.id); }}
+        /* The seam is where the hand finds it — measured off the vine at
+           rest, so it does not move out from under the pointer the moment
+           the vine answers by pulling. */
+        onPointerEnter={() => onTug(id)}
+        onPointerLeave={() => onTug(null)}
+        onFocus={() => onTug(id)}
+        onBlur={() => onTug(null)}
+        onClick={(e) => { e.stopPropagation(); onCut(id); }}
         aria-label={`Cut the line, and "${headlineOf(of)}" goes`}
         className="vine-cut absolute"
         style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: `path("${d}")` }}

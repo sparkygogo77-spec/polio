@@ -15,6 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 import { FORM, formOf, formVars, progressOf, stageOf, within } from "../src/features/studio/formation.ts";
+import { STAGGER_MS } from "../src/features/studio/timelineView.ts";
 
 const results = [];
 const check = (name, ok, detail = "") => {
@@ -96,10 +97,22 @@ check("the box is complete when the job is, and a pass still running says so",
   /if \(!r\.pending && job\.threadId\) useStudio\.getState\(\)\.markThread\(job\.threadId, "done"\);/.test(queue)
   && /\.finally\(done\);/.test(readFileSync("src/features/studio/reshapeRun.ts", "utf8")));
 const timeline = readFileSync("src/features/studio/Timeline.tsx", "utf8");
-check("what is shown follows the truth at a capped rate rather than jumping", /const WHOLE_MS = 2600;/.test(timeline) && /at \+ dt \/ WHOLE_MS/.test(timeline));
-check("nothing forms on a reload of something that did not change", /st\.shown\.set\(t\.id, st\.mounted \? 0 : f\.p\);/.test(timeline));
-check("a new generation starts it from nothing", /st\.gen\.set\(t\.id, f\.gen\);\s*st\.shown\.set\(t\.id, 0\);/.test(timeline));
-check("the vine into a forming box grows first", /const grow = Math\.min\(1, shownOf\(cord\.to\) \/ FORM\.vine\[1\]\);/.test(timeline));
+check("what is shown follows the truth at a capped rate rather than jumping", /const WHOLE_MS = 2600;/.test(timeline) && /Math\.max\(0, at\) \+ dt \/ WHOLE_MS/.test(timeline));
+/*
+ * This used to pin the opposite: "nothing forms on a reload of something
+ * that did not change". His reading replaced it — "if you are in the
+ * design preview and havent seen the timeline yet dont have the elements
+ * add until you open the timeline where everything not seen yet is all
+ * loaded in sequentially" — and a session that has only just started has
+ * not seen the timeline either. What is pinned now is the thing that
+ * decides it: a box arrives unless this session watched it arrive.
+ */
+check("a box arrives unless this session has watched it arrive", /const watched = new Set<string>\(\);/.test(timeline) && /if \(watched\.has\(t\.id\)\)/.test(timeline));
+check("and they start a stagger apart rather than one after another finishing",
+  /st\.wait\.set\(t\.id, queued\+\+ \* STAGGER_MS\)/.test(timeline) && /export const STAGGER_MS = 200;/.test(readFileSync("src/features/studio/timelineView.ts", "utf8")));
+check("a box whose turn has not come is not drawn at all", /if \(shownOf\(t\.id\) < 0\) return null;/.test(timeline));
+check("a new generation starts it from nothing", /st\.gen\.set\(t\.id, f\.gen\);\s*st\.shown\.set\(t\.id, -1\);/.test(timeline));
+check("the vine into a forming box grows first", /const grow = Math\.min\(1, Math\.max\(0, shownOf\(cord\.to\)\) \/ FORM\.vine\[1\]\);/.test(timeline));
 check("the rim is traced on the canvas, from where the vine arrived", /function paintRim\(/.test(timeline) && /c\.lineDashOffset = -side;/.test(timeline));
 check("and then the green closes in from the edges, on the box and over the face",
   /inset 0 0 calc\(var\(--form-close, 0\) \* 10px\) calc\(var\(--form-close, 0\) \* 30px\) color-mix\(in oklab, var\(--verdant-hot\)/.test(readFileSync("src/core/ui/molten.css", "utf8")));
@@ -143,7 +156,10 @@ if (live) {
     await page.goto(`${url}/builder`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1300);
     await page.locator("[data-finish]").click();
-    await page.waitForTimeout(2600);
+    /* A whole formation is 2600ms, and the third box in the run waits two
+       stagger slots before it starts: a session that has not seen the
+       timeline watches everything arrive, .2s apart. */
+    await page.waitForTimeout(2600 + 2 * STAGGER_MS + 1200);
     return page;
   };
   const read = (page) => page.evaluate(() => {
@@ -196,10 +212,13 @@ check("and its cloud is all the way in", (() => (
   }
   await done.close();
 
-  /* A reload forms nothing; an update forms it again. */
+  /*
+   * A reload is a session that has not seen the timeline, so a reload
+   * forms it again — and by the time the run is over it has landed.
+   */
   const again = await open(1, "done");
   const r1 = await read(again);
-  check("a reload of something that did not change does not form it again", r1.forming === false);
+  check("a reload forms it again, because a new session has seen nothing arrive", r1.forming === false && r1.form === "", JSON.stringify(r1));
   await again.evaluate(() => {
     // An update: a pass noted on the finished card, as the second pass does.
     const raw = JSON.parse(localStorage.getItem("builder.studio") || "{}");

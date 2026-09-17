@@ -397,11 +397,19 @@ const BOW = 0.22;
  * The curve between two boxes: pulled along the way it is going, and bowed
  * out to one side so it takes a wider path than the shortest line.
  */
-export function strandPath(from: Point, to: Point): [Point, Point, Point, Point] {
+export function strandPath(from: Point, to: Point, tug = 0): [Point, Point, Point, Point] {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const run = Math.hypot(dx, dy) || 1;
-  const pull = Math.max(34, Math.min(210, run * 0.5));
+  /*
+   * `tug` is the vine being pulled, 0 to 1: the bow comes out of it and it
+   * draws a little taut, the way a slack line does when something takes
+   * hold of it. His words for what a vine should do under the pointer —
+   * "i would rather no line, the vine maybe pulls a little when you hover".
+   * It is the shape that answers, not a bar laid over the top of it.
+   */
+  const taut = 1 - 0.3 * Math.max(0, Math.min(1, tug));
+  const pull = Math.max(34, Math.min(210, run * 0.5)) * (1 - 0.1 * Math.max(0, Math.min(1, tug)));
   // Mostly horizontal runs bend sideways; mostly vertical ones bend down.
   const flat = Math.abs(dx) >= Math.abs(dy);
   /*
@@ -414,7 +422,7 @@ export function strandPath(from: Point, to: Point): [Point, Point, Point, Point]
    * boxes sit at every angle to each other the screen still gets curves
    * leaning every way.
    */
-  const bow = Math.min(150, run * BOW);
+  const bow = Math.min(150, run * BOW) * taut;
   const nx = (-dy / run) * bow;
   const ny = (dx / run) * bow;
   const c1 = flat ? { x: from.x + pull + nx, y: from.y + ny } : { x: from.x + nx, y: from.y + pull + ny };
@@ -509,11 +517,22 @@ interface Build {
   tone?: StrandTone;
   /** How wide the ribbon is, across both sides of the axis. `STRAND_WIDTH` unless the caller says. */
   width?: number;
+  /** How hard it is being pulled, 0..1: the bow comes out of it. */
+  tug?: number;
+  /**
+   * How far the break has opened, 0..1.
+   *
+   * A cut vine does not blink out. It parts at its middle and the two ends
+   * draw back towards the boards they came from, crumbling as they go —
+   * "when click vanishes and fades away and disintegrates from the middle".
+   * At 1 there is nothing of it left.
+   */
+  cut?: number;
 }
 
 function build(from: Point, to: Point, opts: Build) {
   const run = Math.hypot(to.x - from.x, to.y - from.y) * (1 + BOW * 0.8);
-  const whole = samples(strandPath(from, to), sampleCount(run));
+  const whole = samples(strandPath(from, to, opts.tug ?? 0), sampleCount(run));
   /*
    * A vine forming grows from where it leaves: `grow` is how much of it
    * there is yet, and only that much of the curve is drawn. The widths and
@@ -525,7 +544,19 @@ function build(from: Point, to: Point, opts: Build) {
   const dead = opts.tone === "cut";
   const [a, z] = dead ? (["cut", "cut"] as [VineEnd, VineEnd]) : (opts.ends ?? ["iteration", "iteration"]);
   const width = opts.width ?? STRAND_WIDTH;
-  return { s, dead, ends: [a, z] as [VineEnd, VineEnd], half: width / 2, width };
+  /*
+   * The break, as two pieces of the one curve.
+   *
+   * Sliced rather than erased: every sample carries where it is along the
+   * *whole* vine, so a piece of it is painted with the widths and the
+   * colours it would have had — and nothing is rubbed off the canvas, so a
+   * vine crossing this one is not punched through while this one goes.
+   */
+  const cut = Math.max(0, Math.min(1, opts.cut ?? 0));
+  const pieces = cut <= 0
+    ? [s]
+    : [s.filter((p) => p.t <= 0.5 - cut / 2), s.filter((p) => p.t >= 0.5 + cut / 2)].filter((piece) => piece.length >= 2);
+  return { s, pieces, cut, dead, ends: [a, z] as [VineEnd, VineEnd], half: width / 2, width };
 }
 
 /**
@@ -840,13 +871,15 @@ export function paintStrand(
   opts: Build & { tone: StrandTone; lit?: number },
 ) {
   const lit = opts.lit ?? 1;
-  const { s, dead, ends, half, width } = build(from, to, opts);
-  if (s.length < 2) return;
+  const { pieces, cut, dead, ends, half, width } = build(from, to, opts);
+  if (!pieces.length) return;
 
   c.save();
   c.lineCap = "round";
   c.lineJoin = "round";
-  c.globalAlpha = lit;
+  /* Going, and going dimmer as it goes: the break opening and the vine
+     fading are one gesture, not two. */
+  c.globalAlpha = lit * (1 - cut * 0.8);
 
   /*
    * A shadow under the whole thing, so it sits on the ground rather than
@@ -854,9 +887,11 @@ export function paintStrand(
    */
   c.strokeStyle = "oklch(0.08 0.01 150)";
   c.lineWidth = width * 1.16;
-  c.beginPath();
-  s.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
-  c.stroke();
+  for (const piece of pieces) {
+    c.beginPath();
+    piece.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
+    c.stroke();
+  }
 
   /*
    * The section, a band at a time, from the axis out to both rims.
@@ -891,7 +926,7 @@ export function paintStrand(
    */
   const band = (k: number) => {
     c.beginPath();
-    for (const side of [0, 1] as const) sidePath(s, side, k, Math.min(BANDS, k + 1.12), half, c);
+    for (const piece of pieces) for (const side of [0, 1] as const) sidePath(piece, side, k, Math.min(BANDS, k + 1.12), half, c);
     c.fill();
   };
   for (let k = 0; k < BANDS; k++) {
@@ -926,10 +961,40 @@ export function paintStrand(
    * is painted for it at rest. A faint thread was scored along the axis
    * and he saw it as a line running down the middle of every vine that
    * should not be seen. The seam is still there to press (`strandSeam`):
-   * the timeline lays a small element over it, and the press lights the
-   * line white hot when it is wanted (`molten.css`, `.vine-cut`) and not
-   * before.
+   * the timeline lays a small element over it; what a press does to the
+   * vine is the break above, and there is nothing to light.
    */
+
+  /*
+   * The crumbling edge.
+   *
+   * Two ends drawing back from a break look like a line being trimmed.
+   * What makes it read as *disintegrating* is what comes off them: a
+   * handful of pieces of the material, thrown from where the break is
+   * opening, getting smaller and dimmer as the vine goes. Deterministic
+   * from where they are on the curve, so a repaint mid-cut draws the same
+   * grains rather than a fresh shower every frame.
+   */
+  if (cut > 0.001 && cut < 0.999) {
+    const grit = SECTION[ends[0]]![Math.max(0, BANDS - 2)]!;
+    c.fillStyle = grit;
+    c.globalAlpha = lit * (1 - cut) * 0.75;
+    for (const piece of pieces) {
+      const edge = piece[piece.length - 1]!.t <= 0.5 ? piece[piece.length - 1]! : piece[0]!;
+      const away = piece[piece.length - 1]!.t <= 0.5 ? 1 : -1;
+      for (let i = 0; i < 7; i++) {
+        /* One number off the grain's own index and where the edge is, so
+           the same grain is in the same place every frame of the cut. */
+        const r = Math.abs(Math.sin((i + 1) * 12.9898 + edge.t * 78.233)) % 1;
+        const back = (i / 7) * cut * 46 * away;
+        const across = (r - 0.5) * half * 2.4 * (0.4 + cut);
+        const size = Math.max(0.6, half * 0.26 * (1 - i / 9) * (1 - cut));
+        c.beginPath();
+        c.arc(edge.x + edge.nx * across + (away > 0 ? -back : back), edge.y + edge.ny * across, size, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+  }
 
   c.restore();
 }

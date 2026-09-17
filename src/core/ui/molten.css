@@ -1092,9 +1092,8 @@
  * The line itself is painted with the vine, scored into the groove at its
  * axis (`strand.ts`). This is the part that takes the press: an element
  * clipped to the line's own shape, so it is the line that is pressable and
- * not the board around it, and it is transparent until it is under the
- * pointer — at which point the line goes white hot, which is the warning
- * and the target at the same time.
+ * not the board around it, and it paints nothing at all — what answers a
+ * hand on a vine is the vine, which draws taut under it.
  *
  * Nothing else is on a vine. A small green node used to sit at the middle
  * of every one and open the pair below, which pressing either box already
@@ -1103,19 +1102,23 @@
 .vine-cut {
   background: transparent;
   cursor: pointer;
-  transition: background 120ms ease-out;
 }
 .vine-cut:hover,
 .vine-cut:focus-visible {
-  /* Not opaque: the line goes white hot and the vine is still under it,
-     which reads as the material lighting rather than a bar laid on it. */
-  background: oklch(0.97 0.05 75 / 0.62);
+  /*
+   * Nothing. It used to go white hot under the pointer, and he said so:
+   * "the line in the middle of the vines is hoverable ... i would rather
+   * no line, the vine maybe pulls a little when you hover". So what
+   * answers a hand on a vine is the vine — the bow comes out of it and it
+   * draws taut (`strandPath`, `tug`) — and this element is nothing but the
+   * shape that catches the pointer.
+   */
+  background: transparent;
   outline: none;
 }
 
 /* Lit, and still. A construct that is read as glowing does not have to move. */
 @media (prefers-reduced-motion: reduce) {
-  .vine-cut { transition: none; }
   .molten::before,
   .molten::after,
   [data-molten],
