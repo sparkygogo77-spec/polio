@@ -51,6 +51,7 @@ import type { DrawnVector, VectorRole } from "./vector";
 import { emptyCube, type CubeData, type CubeFace, type CubeSide } from "./parts/cubeFaces";
 import type { MeshData } from "./parts/types";
 import type { PartCode } from "./snippet";
+import type { Picture } from "./pictures";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
@@ -222,6 +223,17 @@ export interface StudioNode {
   auraStyle: AuraStyle;
   /** A texture layer id this part wears on its own surface, or null. */
   texture: string | null;
+  /**
+   * The picture this part holds, as a reference and never as bytes.
+   *
+   * The document keeps a path, a size and what it shows; the bytes live in
+   * this browser's file storage until a publish puts them in the repository
+   * (`pictures.ts`). A photograph inlined here would share localStorage with
+   * the board, the builds and the keys, and take all of them with it when it
+   * overflowed — and would be carried again by every publish for ever,
+   * whether or not the picture had changed.
+   */
+  picture?: Picture | null;
   /**
    * What was drawn for it on the drawing board, and the words beside it.
    * Kept so the board reopens with the drawing still on it, the blueprint
@@ -2158,6 +2170,12 @@ export const useStudio = create<StudioState>()(
             code: n.code && typeof n.code === "object" && typeof (n.code as PartCode).html === "string" ? (n.code as PartCode) : null,
             aura: n.aura ?? null, auraSize: Number.isFinite(n.auraSize) ? n.auraSize : 1, auraStyle: n.auraStyle ?? "glow", texture: n.texture ?? null,
             sketch: normaliseSketch(n.sketch),
+            /* A reference, checked rather than trusted: a picture whose
+               record is half a record cannot be looked for or published,
+               and a part that thinks it has one draws a hole. */
+            picture: n.picture && typeof n.picture === "object" && typeof (n.picture as Picture).id === "string" && typeof (n.picture as Picture).path === "string"
+              ? (n.picture as Picture)
+              : null,
           })),
           recentColours: Array.isArray(p.recentColours) ? p.recentColours : [],
           shapes: (p.shapes ?? current.shapes).map((sh) => ({ ...sh, relation: sh.relation ?? "flow" })),

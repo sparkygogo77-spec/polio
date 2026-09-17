@@ -3,12 +3,12 @@
  * First-screen parts: heroes, the one-line pitch, and the trust strip.
  */
 import * as React from "react";
-import { Btn, Fill, Placeholder, useTicker } from "./primitives";
+import { Btn, Fill, PictureSlot, useTicker } from "./primitives";
 import { items, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
 import { splitTurn } from "./turn";
 
-export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }: PartProps) {
+export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w, picture }: PartProps) {
   const typing = id === "hero-typewriter";
   // The typewriter cycles phrases; every other hero is a headline plus a subline.
   const lines = items(content, typing ? ["Design faster", "Ship sooner", "Sleep better"] : ["Say the one thing this site does", "in a single line people remember."]);
@@ -51,7 +51,7 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }:
           <Btn t={t} label="Learn more" primary={false} onClick={() => emit?.({ type: "toast", text: "Learn more" })} />
         </div>
       </div>
-      {split ? <div style={{ flex: 1, height: "100%" }}><Placeholder t={t} label={visualLabel} mode={mode} /></div> : null}
+      {split ? <div style={{ flex: 1, height: "100%" }}><PictureSlot t={t} pic={picture?.pic} src={picture?.src} label={visualLabel} mode={mode} /></div> : null}
       {id === "hero-scroll-cue" ? <span style={{ position: "absolute", bottom: t.fontPx, left: "50%", transform: "translateX(-50%)", color: t.muted, fontSize: t.fontPx * 0.85 }}>↓ scroll</span> : null}
     </Fill>
   );

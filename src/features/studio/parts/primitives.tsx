@@ -87,6 +87,58 @@ export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: st
   );
 }
 
+/**
+ * The picture a part holds, or the reason there is not one.
+ *
+ * Three states and all of them are said out loud:
+ *
+ *  - IT IS HERE. The bytes are in this browser's file storage while the site
+ *    is being built, and at the path the publish put them at once it has
+ *    been published. Either way an `<img>` points at it and nothing is
+ *    inlined into the document.
+ *  - IT IS GONE. The part holds a reference and this browser no longer has
+ *    the bytes — cleared site data, a private window, another machine. It
+ *    says the picture needs adding again. It does not draw a hole and hope.
+ *  - THERE IS NONE YET. The empty slot, as before: named on the board for
+ *    whoever is building, silent on the live site.
+ *
+ * `src` is what the caller worked out: a browser address while the work is
+ * happening, or a path relative to the page once published. Undefined means
+ * the bytes could not be found.
+ */
+export function PictureSlot({ t, pic, src, label, mode = "board" }: {
+  t: Theme;
+  pic?: { alt?: string; w?: number; h?: number } | null;
+  src?: string;
+  label?: string;
+  mode?: PartMode;
+}) {
+  if (pic && src) {
+    return (
+      <img
+        src={src}
+        alt={pic.alt ?? ""}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: Math.min(t.radius, 10), border: `1px solid ${t.line}` }}
+      />
+    );
+  }
+  if (pic && !src) {
+    return (
+      <div
+        data-picture-lost=""
+        style={{
+          width: "100%", height: "100%", minHeight: 24, borderRadius: Math.min(t.radius, 10),
+          border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 12, textAlign: "center", color: t.muted, fontSize: t.fontPx * 0.75, lineHeight: 1.35,
+        }}
+      >
+        This picture is not in this browser any more. Add it again to put it back.
+      </div>
+    );
+  }
+  return <Placeholder t={t} label={label} mode={mode} />;
+}
+
 /** A repeating timer that only runs in live mode. */
 export function useTicker(mode: PartMode, ms: number, tick: () => void, enabled = true) {
   const ref = React.useRef(tick);

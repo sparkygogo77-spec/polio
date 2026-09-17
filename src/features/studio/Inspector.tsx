@@ -15,6 +15,9 @@ import { isLinkable } from "./parts";
 import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
+import { drop as dropPicture, put as putPicture, usePicture } from "./pictures";
+import { RENDER_COST } from "./renderer";
+import { rendererHeader } from "./agent";
 import { ColourOverride } from "./ColourOverride";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
@@ -236,6 +239,163 @@ function BackgroundInspector() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * The picture a part holds: choose one, see it, take it away.
+ *
+ * WHERE THE BYTES ARE, because it changes what he should expect. Not in the
+ * document: a photograph inlined there would share the browser's small
+ * storage with his board, his builds and his keys, and take all of them with
+ * it when it overflowed. They are in this browser's file storage while he
+ * works, and in the repository once he publishes — and the line under the
+ * picture says which of those is true right now, because a picture that has
+ * only ever been here exists in one place and he is the only one who can
+ * know that.
+ */
+function PictureField({ node }: { node: StudioNode }) {
+  const pic = node.picture ?? null;
+  const { src, looked } = usePicture(pic);
+  const [busy, setBusy] = React.useState(false);
+  const [asking, setAsking] = React.useState(false);
+  const [want, setWant] = React.useState("");
+  const [drawn, setDrawn] = React.useState<string | null>(null);
+  const file = React.useRef<HTMLInputElement>(null);
+
+  /**
+   * Draw one with his own key.
+   *
+   * The same renderer that draws a part's body, asked for a picture instead,
+   * and what comes back lands exactly where an uploaded one lands: a file in
+   * this browser's storage, a path on the part, and the same publish. What
+   * it really cost comes back with it and is said, because the guess before
+   * the press was a guess.
+   */
+  const draw = async () => {
+    const say = want.trim();
+    if (!say) return;
+    setBusy(true);
+    setDrawn(null);
+    try {
+      const res = await fetch("/api/studio/image", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...rendererHeader() },
+        body: JSON.stringify({ kind: "raster", prompt: say, label: node.label, w: Math.round(node.w), h: Math.round(node.h) }),
+      });
+      const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; message?: string };
+      if (!r.ok || !r.image) {
+        setDrawn(r.message ?? "The renderer could not draw it.");
+        return;
+      }
+      const blob = await (await fetch(r.image)).blob();
+      const made = await putPicture(blob, { alt: say, from: "drawn" });
+      const had = node.picture;
+      useStudio.getState().updateNode(node.id, { picture: made });
+      if (had) void dropPicture(had);
+      setDrawn(typeof r.cost === "number" ? `Drawn. It cost $${r.cost.toFixed(2)}.` : "Drawn. The renderer reported no price for it.");
+      setAsking(false);
+      setWant("");
+    } catch (err) {
+      setDrawn(err instanceof Error ? err.message : "The renderer could not be reached.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const choose = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      const made = await putPicture(f, { alt: f.name.replace(/\.[a-z0-9]+$/i, ""), from: "upload" });
+      const had = node.picture;
+      useStudio.getState().updateNode(node.id, { picture: made });
+      // The one it replaced is nobody's now.
+      if (had) void dropPicture(had);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = () => {
+    const had = node.picture;
+    useStudio.getState().updateNode(node.id, { picture: null });
+    if (had) void dropPicture(had);
+  };
+
+  return (
+    <Field label="Picture" hint="Kept as a file, not inside the document, so a big one cannot take the board down with it.">
+      <div className="space-y-2">
+        {pic ? (
+          <div className="overflow-hidden rounded-md border border-border bg-elevated">
+            {src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={src} alt={pic.alt} className="block max-h-32 w-full object-cover" />
+            ) : looked ? (
+              <div className="p-3 text-[11px] leading-relaxed text-warn">
+                This picture is not in this browser any more. Choose it again to put it back.
+              </div>
+            ) : (
+              <div className="p-3 text-[11px] text-fg-muted">Looking for it…</div>
+            )}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={file}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }}
+          />
+          <Button variant="outline" size="xs" disabled={busy} onClick={() => file.current?.click()}>
+            {pic ? "Choose another" : "Choose a picture"}
+          </Button>
+          <Button variant="ghost" size="xs" disabled={busy} onClick={() => setAsking((v) => !v)}>
+            <Sparkles className="size-3" /> Draw one
+          </Button>
+          {pic ? <Button variant="ghost" size="xs" onClick={clear}>Remove</Button> : null}
+        </div>
+        {asking ? (
+          <div className="space-y-2 rounded-md border border-border bg-elevated/50 p-2">
+            <Input
+              inputSize="sm"
+              autoFocus
+              value={want}
+              placeholder="what the picture should be"
+              onChange={(e) => setWant(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && want.trim()) void draw(); }}
+            />
+            {/*
+              The price before the press, not after it. It is his key and his
+              money, and the rate is the renderer's published one; what it
+              actually cost comes back with the picture and replaces this.
+            */}
+            <p className="text-[10px] leading-relaxed text-fg-muted">
+              Drawn with your own Replicate key, about <span className="num text-fg">${RENDER_COST.raster.toFixed(2)}</span> a
+              go at the model&rsquo;s published rate. It lands as a file on this part, the same as one you chose yourself.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="primary" size="xs" disabled={busy || !want.trim()} loading={busy} onClick={() => void draw()}>
+                Draw it
+              </Button>
+              <Button variant="ghost" size="xs" disabled={busy} onClick={() => setAsking(false)}>Cancel</Button>
+            </div>
+          </div>
+        ) : null}
+        {/* What it really cost, said after, and outside the box that closes
+            when it worked — it was set and then hidden with the asking. */}
+        {drawn ? <p className="text-[10px] leading-relaxed text-fg-muted">{drawn}</p> : null}
+        {pic ? (
+          <p className="text-[10px] leading-relaxed text-fg-muted">
+            {pic.published
+              ? <>Published with the site, at <code className="text-fg">{pic.path}</code>.</>
+              : <>This picture is in this browser only. It goes up with the site the next time you publish, as <code className="text-fg">{pic.path}</code>.</>}
+            {pic.bytes ? ` ${pic.bytes < 1024 * 1024 ? `${Math.round(pic.bytes / 1024)} KB` : `${(pic.bytes / 1024 / 1024).toFixed(1)} MB`}${pic.w ? `, ${pic.w}×${pic.h}` : ""}.` : ""}
+          </p>
+        ) : null}
+      </div>
+    </Field>
   );
 }
 
@@ -538,6 +698,7 @@ export function Inspector() {
         <Field label="Name">
           <Input value={node.label} onChange={(e) => update({ label: e.target.value })} />
         </Field>
+        <PictureField node={node} />
 
         {feature?.content ? (
           <Field label={feature.content.label} hint="Comma-separated. The board draws exactly this.">

@@ -36,6 +36,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { LiveSite } from "./live/LiveSite";
 import { useStudio, type StudioPage } from "./store";
+import { base64, bytesFor, type Picture } from "./pictures";
 
 export interface SiteFile {
   path: string;
@@ -161,6 +162,38 @@ function markupOf(el: React.ReactElement, width: number, expect: { id: string; l
  * The whole site, as files. Nothing is asked of anybody: no key, no model,
  * no network. The same document gives the same files every time.
  */
+/** A file that is bytes rather than words: a picture, on its way to the repository. */
+export interface SiteBinary {
+  path: string;
+  /** Base64, because that is how a file reaches a repository. */
+  content: string;
+  encoding: "base64";
+}
+
+/**
+ * The pictures the parts point at, as real files.
+ *
+ * The document holds a path; this is where the bytes are fetched out of
+ * this browser's file storage and handed to the publish to commit. A
+ * picture this browser has lost is named rather than skipped, so the page
+ * that references it can say why it is not there.
+ */
+export async function sitePictures(): Promise<{ files: SiteBinary[]; lost: Picture[] }> {
+  const s = useStudio.getState();
+  const files: SiteBinary[] = [];
+  const lost: Picture[] = [];
+  const done = new Set<string>();
+  for (const node of s.nodes) {
+    const pic = node.picture;
+    if (!pic || done.has(pic.id)) continue;
+    done.add(pic.id);
+    const blob = await bytesFor(pic);
+    if (!blob) { lost.push(pic); continue; }
+    files.push({ path: pic.path, content: await base64(blob), encoding: "base64" });
+  }
+  return { files, lost };
+}
+
 export function staticSite(): SiteFile[] {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
@@ -182,6 +215,9 @@ export function staticSite(): SiteFile[] {
         frameWidth: width,
         format: s.format,
         look: s.look,
+        /* Not a browser address: the page being written will be read from a
+           repository, where the file sits at its own path beside it. */
+        pictureAt: (pic) => `${page.id === home ? "" : "../"}${pic.path}`,
       }),
       width,
       /*

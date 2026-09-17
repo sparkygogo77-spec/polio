@@ -12,6 +12,7 @@ import { TextureDrift } from "../TextureDrift";
 import { resolvePalette } from "../parts/theme";
 import { auraStyle, entranceCss, type Look } from "../look";
 import type { StudioNode, StudioPage } from "../store";
+import type { Picture } from "../pictures";
 import { deriveBehaviours } from "./behaviours";
 import { LiveShell } from "./LiveShell";
 import { placeNodes, type Device } from "./layout";
@@ -29,6 +30,15 @@ export interface LiveSiteProps {
   onEvent?: (e: PartEvent, nodeId: string) => void;
   /** Extra props for each part's wrapper (the builder hangs its right-click scope here). */
   nodeProps?: (node: StudioNode) => Record<string, unknown>;
+  /**
+   * Where a part's picture is to be pointed at, when the caller knows.
+   *
+   * Left alone, the bytes are found in this browser's file storage. The
+   * publish passes the path the file will have in the repository, because
+   * the page it is writing is read from there and has no browser storage
+   * behind it.
+   */
+  pictureAt?: (pic: Picture) => string | undefined;
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -47,7 +57,7 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps }: LiveSiteProps) {
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt }: LiveSiteProps) {
   const t = React.useMemo(() => themeFrom(format, look), [format, look]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
@@ -119,7 +129,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
                 animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
               }}
             >
-              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} />
+              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} />
             </div>
           ))}
           {placed.length === 0 ? (

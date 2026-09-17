@@ -32,7 +32,7 @@ import { QueueList } from "./DrawQueue";
 import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
-import { staticSite } from "./staticSite";
+import { sitePictures, staticSite } from "./staticSite";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { activeProject, useBuilds } from "@/features/builds/store";
@@ -492,15 +492,32 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
    * a React root per page; that is work to do when somebody presses a
    * button, not on every render of a dialog.
    */
-  const everything = () => {
+  const everything = async (): Promise<GeneratedFile[]> => {
+    let pages: GeneratedFile[] = [];
     try {
-      return [...staticSite(), ...publishFiles];
+      pages = staticSite();
     } catch (err) {
       /* The description still goes up, and the banner says the pages did
          not — rather than a publish that silently carries half of it. */
       setNote(`The pages could not be written out (${err instanceof Error ? err.message : "unknown"}), so only the document and the blueprint went up.`);
       return publishFiles;
     }
+    /*
+     * And the pictures, as real files. The document holds only their paths,
+     * so this is the one moment their bytes are read out of this browser's
+     * storage. One this browser has lost is named rather than skipped: the
+     * page that points at it already says it is missing, and so should the
+     * person pressing publish.
+     */
+    let shots: GeneratedFile[] = [];
+    try {
+      const { files, lost } = await sitePictures();
+      shots = files;
+      if (lost.length) setNote(`${lost.length} picture${lost.length === 1 ? " is" : "s are"} no longer in this browser, so ${lost.length === 1 ? "it" : "they"} could not be published. Add ${lost.length === 1 ? "it" : "them"} again on the board.`);
+    } catch (err) {
+      setNote(`The pictures could not be read out of this browser (${err instanceof Error ? err.message : "unknown"}), so the pages went up without them.`);
+    }
+    return [...pages, ...shots, ...publishFiles];
   };
 
   /*
@@ -540,7 +557,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   const doPublish = async () => {
     if (busy) return;
     setNote(null);
-    const going = everything();
+    const going = await everything();
     setBusy(`Pushing ${going.length} files to GitHub…`);
     try {
       const { project, repo, branch, create } = pushTo();
@@ -585,7 +602,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     setNote(null);
     setLiveRun(null);
     const { project, repo, branch, create } = pushTo();
-    const going = everything();
+    const going = await everything();
     try {
       setBusy(`Pushing ${going.length} files to GitHub…`);
       const pushed = await publish({ files: going, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch, create });
@@ -631,8 +648,8 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     }
   };
 
-  const downloadAll = () => {
-    for (const f of everything()) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
+  const downloadAll = async () => {
+    for (const f of await everything()) download(f.content, f.path.split("/").pop() ?? f.path, "text/plain");
   };
 
   const current = MODES.find((m) => m.value === mode)!;
