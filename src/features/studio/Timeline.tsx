@@ -533,6 +533,60 @@ export function Timeline() {
   const paintAt = React.useRef<() => void>(() => {});
 
   /*
+   * What the pointer is doing to a vine, and what a press did to one.
+   *
+   * HIS WORDS: "the line in the middle of the vines is hoverable ... i
+   * would rather no line, the vine maybe pulls a little when you hover ...
+   * when click vanishes and fades away and disintegrates from the middle."
+   *
+   * Both live in refs and neither is state. A vine reacting to the pointer
+   * and a vine coming apart are things the canvas does at the frame rate;
+   * putting them in state would re-render every box on the timeline to
+   * move one ribbon. The painter reads them, and both are named by the
+   * *later* of the two boards a vine joins, which is how every vine is
+   * keyed here.
+   */
+  const tugAt = React.useRef<string | null>(null);
+  const cutAt = React.useRef<{ id: string | null; p: number }>({ id: null, p: 0 });
+  const cutting = React.useRef(0);
+
+  /** Take hold of a vine, or let it go. Repaints that one ribbon and nothing else. */
+  const tug = React.useCallback((id: string | null) => {
+    if (tugAt.current === id) return;
+    tugAt.current = id;
+    paintAt.current();
+  }, []);
+
+  /**
+   * Cut one, and watch it go.
+   *
+   * The break opens from the middle over `CUT_MS`, the two ends draw back
+   * crumbling, and the iteration goes when there is nothing left of the
+   * vine — not before, or the box would vanish while its own vine was
+   * still coming apart, which is two things happening where he asked for
+   * one.
+   */
+  const CUT_MS = 460;
+  const cutVine = React.useCallback((id: string) => {
+    if (cutting.current) return;
+    play("deny");
+    tugAt.current = null;
+    cutAt.current = { id, p: 0 };
+    const began = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - began) / CUT_MS);
+      cutAt.current = { id, p };
+      paintAt.current();
+      if (p < 1) { cutting.current = requestAnimationFrame(tick); return; }
+      cutting.current = 0;
+      cutAt.current = { id: null, p: 0 };
+      useStudio.getState().pruneThread(id);
+    };
+    cutting.current = requestAnimationFrame(tick);
+  }, []);
+  React.useEffect(() => () => { if (cutting.current) cancelAnimationFrame(cutting.current); }, []);
+
+  /*
    * The view becomes the person's the moment they move it.
    *
    * A flag rather than a snapshot: taking the snapshot here would take it
@@ -881,6 +935,11 @@ export function Timeline() {
       const grow = Math.min(1, Math.max(0, shownOf(cord.to)) / FORM.vine[1]);
       want.set(`${cord.from}>${cord.to}`, {
         from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to), grow,
+        /* Pulled while the pointer is on its seam, and parting while it
+           is being cut. Read off refs rather than state: both change at
+           the frame rate and neither belongs in a render. */
+        tug: tugAt.current === cord.to ? 1 : 0,
+        cut: cutAt.current.id === cord.to ? cutAt.current.p : 0,
       });
     }
     /*
@@ -993,7 +1052,7 @@ export function Timeline() {
     c.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
 
     /* What differs from what is on the canvas. */
-    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
+    const mark = (v: Vine) => `${v.from.x},${v.from.y},${v.to.x},${v.to.y},${v.tone},${v.phase},${v.ends[0]},${v.ends[1]},${v.grow.toFixed(3)},${(v.tug ?? 0).toFixed(2)},${(v.cut ?? 0).toFixed(3)},${v.rim ? v.rim.p.toFixed(3) : ""}`;
     const dirty: { x: number; y: number; w: number; h: number }[] = [];
     const changed = new Set<string>();
     for (const [k, v] of want) {
@@ -1024,7 +1083,7 @@ export function Timeline() {
     for (const v of want.values()) {
       if (!dirty.some((r) => hits(r, v.box))) continue;
       if (v.rim) { paintRim(c, v.rim); continue; }
-      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow });
+      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow, tug: v.tug, cut: v.cut });
     }
     c.restore();
 
@@ -1256,9 +1315,23 @@ export function Timeline() {
   }, []);
 
   const nothing = !threads.length;
-  /* Where the lanes hang: one slot past the last real box, wherever it stands now. */
+  /*
+   * Where the lanes hang: one slot past the last real box, wherever it
+   * stands now — and only once that box is on the board.
+   *
+   * The lanes are as tall as the box they hang off, measured off it
+   * (`Lanes`), and that measurement happens in an effect keyed on the
+   * box's id. With the arrival staggered, the last box is not in the DOM
+   * when the timeline first paints, so the measurement found nothing, the
+   * effect never ran again, and the fan stood 106px tall beside a 126px
+   * box for the rest of the session — 10px out of level, which is exactly
+   * the sort of thing he spots. So the fan waits for its box, which is
+   * also the truer thing: a fan hanging off a box that is not there yet
+   * is a fan hanging off nothing.
+   */
   const lastThread = all.at(-1)?.thread;
-  const lanesFrom = lastThread ? { ...spotOf(lastThread.id), ...sizeOf(lastThread) } : null;
+  const lastHere = lastThread && shownOf(lastThread.id) >= 0 ? lastThread : undefined;
+  const lanesFrom = lastHere ? { ...spotOf(lastHere.id), ...sizeOf(lastHere) } : null;
 
   return (
     <div
@@ -1323,7 +1396,7 @@ export function Timeline() {
           as an iteration through the same door as everything else and
           stands in the chain in blue.
         */}
-        <Lanes from={lanesFrom} fromId={lastThread?.id ?? null} size={BOX} gap={GAP} fromEnd={lastThread && isElement(lastThread) ? "drawing" : "iteration"} />
+        <Lanes from={lanesFrom} fromId={lastHere?.id ?? null} size={BOX} gap={GAP} fromEnd={lastHere && isElement(lastHere) ? "drawing" : "iteration"} />
 
         {/*
           The cut line down each vine, and nothing else on a vine.
@@ -1343,6 +1416,8 @@ export function Timeline() {
             of={byId.get(cord.to)}
             at={ends(anchorOf(cord.from), anchorOf(cord.to))}
             ends={cord.ends}
+            onTug={tug}
+            onCut={cutVine}
           />
         ))}
       </div>
@@ -1404,6 +1479,10 @@ interface Vine {
   box: { x: number; y: number; w: number; h: number };
   /** How much of it there is yet, 0..1. A vine into a forming box grows. */
   grow: number;
+  /** Being pulled, 0..1: the pointer is on its seam and the bow comes out of it. */
+  tug?: number;
+  /** Being cut, 0..1: parted at the middle, the ends drawing back and crumbling. */
+  cut?: number;
   /**
    * Not a vine at all: the rim of a forming box, traced round it in green
    * and then closing in. It lives in the same map because it is painted
@@ -2666,8 +2745,19 @@ function CopyBit({ text }: { text: string }) {
  * cutting one iteration out of the middle of a run keeps the rest of the
  * run.
  */
-function VineCut({ of, at, ends: pair }: { of?: Thread; at: [Point, Point]; ends: [VineEnd, VineEnd] }) {
-  if (!of) return null;
+function VineCut({ of, at, ends: pair, onTug, onCut }: {
+  of?: Thread;
+  at: [Point, Point];
+  ends: [VineEnd, VineEnd];
+  onTug: (id: string | null) => void;
+  onCut: (id: string) => void;
+}) {
+  const id = of?.id;
+  /* Let go on the way out, whatever took the element away — a drag
+     starting, the box moving, this unmounting mid-hover. A vine left
+     pulled by a pointer that is not there any more is a vine stuck. */
+  React.useEffect(() => () => { if (id) onTug(null); }, [id, onTug]);
+  if (!of || !id) return null;
   const [from, to] = at;
   const box = strandBounds(from, to);
   const d = strandSeam({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y }, { ends: pair });
@@ -2676,9 +2766,16 @@ function VineCut({ of, at, ends: pair }: { of?: Thread; at: [Point, Point]; ends
     <Tooltip content={`Cut it, and "${headlineOf(of)}" goes`}>
       <button
         type="button"
-        data-vine-cut={of.id}
+        data-vine-cut={id}
         onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); play("deny"); useStudio.getState().pruneThread(of.id); }}
+        /* The seam is where the hand finds it — measured off the vine at
+           rest, so it does not move out from under the pointer the moment
+           the vine answers by pulling. */
+        onPointerEnter={() => onTug(id)}
+        onPointerLeave={() => onTug(null)}
+        onFocus={() => onTug(id)}
+        onBlur={() => onTug(null)}
+        onClick={(e) => { e.stopPropagation(); onCut(id); }}
         aria-label={`Cut the line, and "${headlineOf(of)}" goes`}
         className="vine-cut absolute"
         style={{ left: box.x, top: box.y, width: box.w, height: box.h, clipPath: `path("${d}")` }}

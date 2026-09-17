@@ -113,8 +113,29 @@ await page.evaluate(() => {
 });
 await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
+/**
+ * Wait for the arrival to be over.
+ *
+ * Boxes now come in when the timeline is opened, .2s apart, and a lane
+ * hangs off the last box and is as tall as it — so measuring a lane while
+ * that box is still forming measures it against a box that has not
+ * finished growing. Held on the condition rather than on a number, so a
+ * slow container waits longer and a quick one does not.
+ */
+const arrived = async () => {
+  for (let i = 0; i < 90; i++) {
+    if (await page.evaluate(() => document.querySelectorAll("[data-box][data-forming]").length === 0 && document.querySelectorAll("[data-box]").length > 0)) {
+      await page.waitForTimeout(500);
+      return true;
+    }
+    await page.waitForTimeout(100);
+  }
+  return false;
+};
+
 await page.locator("[data-finish]").first().click();
 await page.waitForTimeout(1500);
+await arrived();
 if (SHOTS) mkdirSync("docs/shots", { recursive: true });
 const shot = async (n) => { if (SHOTS) await page.screenshot({ path: `docs/shots/lanes-${n}.png` }); };
 
@@ -302,6 +323,7 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 await page.locator("[data-finish]").first().click({ force: true });
 await page.waitForTimeout(1500);
+await arrived();
 const narrow = await bandShare();
 check("nor at 480 wide, where the band is what a phone shows", narrow.shared === 0 && narrow.under === 0, `band top ${narrow.bandTop} (h ${narrow.bandH}), lowest lane bottom ${narrow.lowBottom}, under it ${narrow.under}px, shared ${narrow.shared}px`);
 check("and the lanes are still on the pane to be found, not hidden", narrow.onPane === 3, `${narrow.onPane} of 3 on the pane above the band`);
@@ -314,6 +336,7 @@ await page.reload({ waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 await page.locator("[data-finish]").first().click({ force: true });
 await page.waitForTimeout(1500);
+await arrived();
 
 /* Refresh on the middle lane: another offer of the same lane, the box the same shape. */
 const middle = lanes.nth(1);

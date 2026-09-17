@@ -254,6 +254,19 @@ preset into an ordinary node, so the shelf, the wheel, search and "add
 here" all work without knowing where a part came from. A repository with
 no page in it to open says so and names what it found.
 
+**A hand on a vine pulls it; a press takes it apart from the middle.** His
+words: "the line in the middle of the vines is hoverable ... i would rather
+no line, the vine maybe pulls a little when you hover ... when click
+vanishes and fades away and disintegrates from the middle". So `.vine-cut`
+paints nothing at all — it is only the shape that catches the pointer — and
+what answers a hand is the vine: `strandPath(from, to, tug)` takes the bow
+out of it and it draws taut. A press parts it at the middle
+(`Build.cut`): the curve is sliced into two pieces that draw back towards
+their boards, crumbling at the break, fading as they go, and the iteration
+is pruned when there is nothing left of the vine rather than at the press.
+Sliced, never erased — `destination-out` on a shared canvas would punch
+through whatever vine crossed this one.
+
 **The boxes arrive when you open the timeline.** His words: "if you are in
 the design preview and havent seen the timeline yet dont have the elements
 add until you open the timeline where everything not seen yet is all loaded

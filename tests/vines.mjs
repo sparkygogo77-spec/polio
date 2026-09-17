@@ -474,12 +474,20 @@ check("…and nothing is painted for it at rest: no thread down the axis, the pr
 ))());
 check("cutting the line takes the later of the two iterations out", (() => (
   /function VineCut\(/.test(timeline) && /of=\{byId\.get\(cord\.to\)\}/.test(timeline)
-  && /useStudio\.getState\(\)\.pruneThread\(of\.id\)/.test(timeline)
+  && /useStudio\.getState\(\)\.pruneThread\(id\)/.test(timeline)
+))());
+/* And not before the vine has gone: the break opens from the middle, the
+   ends draw back crumbling, and the iteration goes when there is nothing
+   left of the line that was holding it. */
+check("…once the vine has come apart, and not while it is still coming apart", (() => (
+  /cutAt\.current = \{ id: null, p: 0 \};\s*useStudio\.getState\(\)\.pruneThread\(id\);/.test(timeline)
 ))());
 check("…and the press is on the line rather than on the board around it", (() => {
   const css = readFileSync("src/core/ui/molten.css", "utf8");
   return /clipPath: `path\("\$\{d\}"\)`/.test(timeline) && /strandSeam\(/.test(timeline)
-    && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{/.test(css);
+    && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{/.test(css)
+    /* And it paints nothing, ever: what answers a hand is the vine. */
+    && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{[\s\S]*?background: transparent;/.test(css);
 })());
 check("…lifted while a box is being dragged, because the vine under it is moving", /\{dragging \? null : cords\.map/.test(timeline));
 check("…and it says what would go before it goes", /Cut it, and "\$\{headlineOf\(of\)\}" goes/.test(timeline));
