@@ -196,3 +196,44 @@ Established the same night, both on a held merge:
   · **A git hook counting unpushed commits is not an argument for pushing
     them.** It cannot see that a suite is 21/24. Refuse it and put the
     question to the owner.
+
+## Caused by this merge, or inherited by it
+
+The floor catches reds. It does not follow that every red stops a push, and
+getting this backwards turns a safety net into a gate nothing passes, with
+unrelated work piling up behind a fault nobody is working on.
+
+The distinction is not red against green. It is **caused by this** against
+**inherited by this**:
+
+  · a floor suite that was red BEFORE the merge and is UNCHANGED BY IT does
+    not block that merge — ship past it;
+  · a floor suite that THIS MERGE TURNS RED blocks, every time, no
+    exceptions — hold, name the check, hand it to the lane that changed the
+    line;
+  · either way the reds are named in the commit and to the owner.
+
+Worked on 17 September, all three cases in one night. `board-speed` went
+24/24 → 21/24 on the light-panel merge: caused, so held, and the lane fixed
+its own pins. `ink-on-cards` and `updates-view` were red before and after,
+byte-identical: inherited, so shipped past. Establishing "unchanged by it"
+is worth a build — check out the pre-merge tip, build it, and run the suite
+there rather than reasoning about whether the diff could have reached it.
+
+**Date an inherited red in the same breath.** A red with a date is a known
+debt; a red without one cannot be told apart from something that broke an
+hour ago and nobody noticed. Two dates cost different amounts:
+
+  · CHEAP, git only: when the check itself last moved.
+    `git log --oneline --follow -- tests/<suite>.mjs`, and
+    `git log -S"<the threshold>" -- tests/<suite>.mjs` for the bar itself,
+    with `git rev-list --count <sha>..HEAD` to say how many commits back.
+    A bar that has not moved in hundreds of commits means the PRODUCT
+    drifted under a stationary check, not a check that got stricter — which
+    is most of what an owner wants to know.
+  · EXPENSIVE: when it started failing. That is a bisect with a build at
+    every step. Say it is available rather than spending it unasked.
+
+Dated this way on 17 September: ink-on-cards' 70%-of-the-room bar unchanged
+since 378 commits back, its suite last edited 49 back; updates-view
+untouched for 425 commits. Both reds are drift under old bars.
