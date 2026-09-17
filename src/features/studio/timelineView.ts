@@ -83,6 +83,17 @@ export function zoomCeiling(viewW: number, cardW: number): number {
 /** How long the move takes. Long enough to follow, short enough not to wait on. */
 export const SETTLE_MS = 420;
 
+/**
+ * How far apart two boxes start arriving, in milliseconds. His number.
+ *
+ * "everything not seen yet is all loaded in sequentially but each box
+ * starts maybe .2 seconds apart, not once the previous is finished". The
+ * second clause is the one this number is for: a formation takes a couple
+ * of seconds, so starting a fifth of a second apart means several are
+ * arriving at once and the run reads as a sequence rather than a queue.
+ */
+export const STAGGER_MS = 200;
+
 /** Ease out: quick away, slow into place, so it reads as settling rather than sliding. */
 export const settleEase = (u: number): number => 1 - Math.pow(1 - Math.max(0, Math.min(1, u)), 3);
 

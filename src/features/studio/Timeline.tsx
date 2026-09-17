@@ -58,7 +58,7 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, type View } from "./timelineView";
+import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, STAGGER_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
 import { BODY, EDGE } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
@@ -139,34 +139,79 @@ function seed(s: string): number {
  * arrives as a stage forming rather than a jump, and which starts again from
  * nothing when a thread is new to this session or its generation goes up.
  *
- * Never on a reload of something that did not change: whatever is on the
- * board when the timeline mounts is shown as it is. Only what lands or
- * changes after that forms. One rAF runs while anything is still moving and
- * none when nothing is, so a still timeline costs nothing here.
+ * WHAT HE ASKED FOR, in his words: "if you are in the design preview and
+ * havent seen the timeline yet dont have the elements add until you open
+ * the timeline where everything not seen yet is all loaded in sequentially
+ * but each box starts maybe .2 seconds apart, not once the previous is
+ * finished."
+ *
+ * So an update is not a thing that happened somewhere he was not looking.
+ * Work on the board makes updates and their boxes wait; the moment he
+ * opens the timeline every box he has not watched arrive forms — in order,
+ * each starting `STAGGER_MS` after the one before it and not after it
+ * finishes, so a run of six reads as a sequence rather than as a queue.
+ *
+ * "Haven't seen the timeline yet" includes a session that has only just
+ * started, which is what changed here: the rule used to be that whatever
+ * was on the board when the timeline first mounted was shown as it stood,
+ * on the reasoning that a reload should not replay history. His reading is
+ * the better one — an update you have never watched arrive is an update
+ * you have not seen, whether it landed a minute ago or before the tab was
+ * opened — and the first sight of the timeline in a session is now the
+ * whole run, arriving.
+ *
+ * `watched` is a module variable, like the held view further down and for
+ * the same reason: it is about where somebody has been looking, not about
+ * the site, so it belongs to the session and never to the document. It
+ * also has to outlive the component, which unmounts every time he goes
+ * back to the board — kept on the instance, going back and returning
+ * would replay everything.
+ *
+ * One rAF runs while anything is still moving and none when nothing is, so
+ * a still timeline costs nothing here.
  */
+/** Every thread whose arrival has been watched, this session. */
+const watched = new Set<string>();
+
 function useForming(threads: Thread[]): Map<string, number> {
   const [shown, setShown] = React.useState<Map<string, number>>(() => new Map());
-  const state = React.useRef({ shown: new Map<string, number>(), gen: new Map<string, number>(), mounted: false, raf: 0 });
+  const state = React.useRef({ shown: new Map<string, number>(), gen: new Map<string, number>(), wait: new Map<string, number>(), raf: 0 });
   React.useEffect(() => {
     const st = state.current;
     const target = new Map<string, number>();
     let moving = false;
+    /*
+     * How many arrivals are already queued ahead of this one on this pass.
+     * Counted over the run rather than off the thread's index, so six that
+     * have waited start 0, 200, 400… apart and a seventh landing while
+     * they play does not wait behind all of them.
+     */
+    let queued = 0;
     for (const t of threads) {
       const f = formOf(t);
       target.set(t.id, f.p);
       const had = st.gen.get(t.id);
       if (had === undefined) {
         st.gen.set(t.id, f.gen);
-        // First sight. At mount it is as it is; after mount it is new, and forms.
-        st.shown.set(t.id, st.mounted ? 0 : f.p);
+        if (watched.has(t.id)) {
+          // Watched it arrive already: the timeline was closed and reopened.
+          st.shown.set(t.id, f.p);
+        } else {
+          /* Below nothing, on purpose: a box whose turn has not come is not
+             drawn at all. "Don't have the elements add until you open the
+             timeline" — a box sitting at zero for a second is a box that is
+             already there and empty, which is not an arrival. */
+          st.shown.set(t.id, -1);
+          st.wait.set(t.id, queued++ * STAGGER_MS);
+        }
       } else if (had !== f.gen) {
         st.gen.set(t.id, f.gen);
-        st.shown.set(t.id, 0);
+        st.shown.set(t.id, -1);
+        st.wait.set(t.id, queued++ * STAGGER_MS);
       }
       if ((st.shown.get(t.id) ?? 1) < f.p) moving = true;
     }
-    for (const id of [...st.shown.keys()]) if (!target.has(id)) { st.shown.delete(id); st.gen.delete(id); }
-    st.mounted = true;
+    for (const id of [...st.shown.keys()]) if (!target.has(id)) { st.shown.delete(id); st.gen.delete(id); st.wait.delete(id); }
     setShown(new Map(st.shown));
     if (!moving || st.raf) return;
     /* A whole formation, from nothing to landed, takes about this long when
@@ -182,7 +227,20 @@ function useForming(threads: Thread[]): Map<string, number> {
       for (const [id, to] of target) {
         const at = st.shown.get(id) ?? to;
         if (at >= to) continue;
-        const next = Math.min(to, at + dt / WHOLE_MS);
+        /* Its turn has not come round yet: it holds at nothing, and the
+           clock runs anyway, so six waiting boxes begin 200ms apart
+           rather than one after another finishing. */
+        const held = st.wait.get(id) ?? 0;
+        if (held > 0) {
+          st.wait.set(id, held - dt);
+          still = true;
+          continue;
+        }
+        // The moment it begins is the moment it counts as watched: leaving
+        // and coming back does not make it arrive twice.
+        watched.add(id);
+        // Its turn: it starts from nothing, not from the sentinel.
+        const next = Math.min(to, Math.max(0, at) + dt / WHOLE_MS);
         st.shown.set(id, next);
         if (next < to) still = true;
       }
@@ -820,7 +878,7 @@ export function Timeline() {
     for (const cord of cords) {
       const [from, to] = ends(anchorOf(cord.from), anchorOf(cord.to));
       // The first stage of forming: the vine grows from the previous card.
-      const grow = Math.min(1, shownOf(cord.to) / FORM.vine[1]);
+      const grow = Math.min(1, Math.max(0, shownOf(cord.to)) / FORM.vine[1]);
       want.set(`${cord.from}>${cord.to}`, {
         from, to, tone: cord.tone, phase: seed(cord.to), ends: cord.ends, box: strandBounds(from, to), grow,
       });
@@ -1224,6 +1282,9 @@ export function Timeline() {
 
         {all.map((n) => {
           const t = n.thread;
+          // Waiting its turn to arrive: not on the board yet, and not a box
+          // standing empty either.
+          if (shownOf(t.id) < 0) return null;
           const at = spotOf(t.id);
           const live = t.id === liveThreadId;
           const open = t.id === openThreadId;

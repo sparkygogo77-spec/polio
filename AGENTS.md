@@ -254,6 +254,20 @@ preset into an ordinary node, so the shelf, the wheel, search and "add
 here" all work without knowing where a part came from. A repository with
 no page in it to open says so and names what it found.
 
+**The boxes arrive when you open the timeline.** His words: "if you are in
+the design preview and havent seen the timeline yet dont have the elements
+add until you open the timeline where everything not seen yet is all loaded
+in sequentially but each box starts maybe .2 seconds apart, not once the
+previous is finished". So an update is never a thing that happened
+somewhere he was not looking: `useForming` keeps a session-scoped `watched`
+set, and every box he has not watched arrive starts forming the moment the
+timeline opens, `STAGGER_MS` (200) apart. Apart, not after — a formation
+takes 2.6s, so a run of six overlaps and reads as a sequence rather than a
+queue. A box whose turn has not come is not drawn at all, because a box
+sitting at zero is a box that is already there and empty. "Haven't seen the
+timeline yet" includes a session that has only just started, which reverses
+the older rule that a reload showed everything as it stood.
+
 **One readout, one press, both surfaces.** The timeline's zoom is the
 board's zoom — one number in one store — so the percentage in the bar was
 already showing whichever surface was in front and had nothing to press
