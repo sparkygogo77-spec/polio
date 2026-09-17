@@ -51,7 +51,7 @@ export function Hero({ id, content, theme: t, mode, link, onNavigate, emit, w }:
           <Btn t={t} label="Learn more" primary={false} onClick={() => emit?.({ type: "toast", text: "Learn more" })} />
         </div>
       </div>
-      {split ? <div style={{ flex: 1, height: "100%" }}><Placeholder t={t} label={visualLabel} /></div> : null}
+      {split ? <div style={{ flex: 1, height: "100%" }}><Placeholder t={t} label={visualLabel} mode={mode} /></div> : null}
       {id === "hero-scroll-cue" ? <span style={{ position: "absolute", bottom: t.fontPx, left: "50%", transform: "translateX(-50%)", color: t.muted, fontSize: t.fontPx * 0.85 }}>↓ scroll</span> : null}
     </Fill>
   );

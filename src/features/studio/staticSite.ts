@@ -88,21 +88,73 @@ function rootAttrs(): string {
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** One page, rendered by the same component the preview uses, and read back as markup. */
-function markupOf(el: React.ReactElement, width: number): string {
+/**
+ * Did this part put anything on the page at all?
+ *
+ * Words, a picture, a frame, a drawing, or paint of its own all count. A box
+ * with none of those is a part that rendered nothing, and the page must say
+ * so rather than leave a gap: four sections of his went out missing and the
+ * page did not mention them, which is worse than failing.
+ */
+function drewNothing(el: Element): boolean {
+  if ((el.textContent ?? "").trim()) return false;
+  if (el.querySelector("img, svg, canvas, video, picture, iframe")) return false;
+  for (const kid of [el, ...Array.from(el.querySelectorAll("*"))]) {
+    const cs = getComputedStyle(kid);
+    if (cs.backgroundImage && cs.backgroundImage !== "none") return false;
+    if (cs.backgroundColor && cs.backgroundColor !== "rgba(0, 0, 0, 0)" && cs.backgroundColor !== "transparent") return false;
+    if (cs.borderTopWidth !== "0px" || cs.borderLeftWidth !== "0px") return false;
+  }
+  return true;
+}
+
+/** The plain sentence a part gets when it could not be published as itself. */
+function saidInstead(label: string, why: string): string {
+  return `<div class="site-unmade" role="note"><span class="site-unmade-name">${esc(label)}</span><span class="site-unmade-why">${esc(why)}</span></div>`;
+}
+
+/**
+ * One page, rendered by the same component the preview uses, read back as
+ * markup — and audited on the way out.
+ *
+ * Every part carries `data-live-node`, so what the page holds can be
+ * compared with what the board has. A part that drew nothing is labelled in
+ * its own place; a part the renderer never placed at all is named at the
+ * foot of the page. Neither is silent.
+ */
+function markupOf(el: React.ReactElement, width: number, expect: { id: string; label: string; featureId: string }[]): { html: string; blank: string[]; unplaced: string[] } {
   const host = document.createElement("div");
   host.style.cssText = `position:fixed;left:-20000px;top:0;width:${width}px;pointer-events:none;opacity:0`;
   document.body.appendChild(host);
   const root = createRoot(host);
   let html = "";
+  const blank: string[] = [];
+  const unplaced: string[] = [];
   try {
     flushSync(() => root.render(el));
+    const seen = new Set<string>();
+    for (const box of Array.from(host.querySelectorAll("[data-live-node]"))) {
+      const id = box.getAttribute("data-live-node") ?? "";
+      seen.add(id);
+      const part = expect.find((p) => p.id === id);
+      if (!part || !drewNothing(box)) continue;
+      blank.push(part.label || part.featureId);
+      box.setAttribute("data-unmade", part.featureId);
+      box.innerHTML = saidInstead(part.label || part.featureId, "this part is described rather than drawn, so there was nothing to publish yet");
+    }
+    for (const part of expect) if (!seen.has(part.id)) unplaced.push(part.label || part.featureId);
+    if (unplaced.length) {
+      const note = document.createElement("div");
+      note.className = "site-unplaced";
+      note.innerHTML = `<div class="site-unmade-name">Not on this page yet</div>${unplaced.map((n) => `<div class="site-unmade-why">${esc(n)}</div>`).join("")}`;
+      host.firstElementChild?.appendChild(note);
+    }
     html = host.innerHTML;
   } finally {
     root.unmount();
     host.remove();
   }
-  return html;
+  return { html, blank, unplaced };
 }
 
 /**
@@ -116,10 +168,12 @@ export function staticSite(): SiteFile[] {
   const width = s.frameWidth || 1440;
   const { css, links } = styles();
   const name = s.brief.name?.trim() || "Site";
+  const pageIds = new Set(s.pages.map((p) => p.id));
+  const orphans = s.nodes.filter((n) => !pageIds.has(n.pageId));
   const files: SiteFile[] = [];
 
   for (const page of s.pages) {
-    const body = markupOf(
+    const { html: body } = markupOf(
       React.createElement(LiveSite, {
         pages: s.pages,
         nodes: s.nodes,
@@ -130,6 +184,15 @@ export function staticSite(): SiteFile[] {
         look: s.look,
       }),
       width,
+      /*
+       * What this page is meant to hold — and, on the home page, anything
+       * the board holds that no page claims at all. A part whose `pageId`
+       * names a page that is gone is drawn nowhere and belongs to nothing,
+       * which is the one shape that used to vanish without trace: not a
+       * part that rendered badly, a part nothing ever asked to render.
+       */
+      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home ? orphans : [])]
+        .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId })),
     );
     const title = page.name?.trim() ? (page.id === home ? name : `${page.name.trim()} · ${name}`) : name;
     const up = page.id === home ? "" : "../";
@@ -161,7 +224,23 @@ ${body}
    * this it sat against the left edge of a wider window with the rest of the
    * screen bare. Centred, and the browser's own default margin taken off.
    */
-  const frame = `\n/* The exported page's frame. */\nhtml, body { margin: 0; padding: 0; }\n.site-root { width: ${width}px; max-width: 100%; margin-inline: auto; }\n`;
+  const frame = `
+/* The exported page's frame. */
+html, body { margin: 0; padding: 0; }
+.site-root { width: ${width}px; max-width: 100%; margin-inline: auto; }
+
+/* A part that could not be published as itself says so where it stood.
+   Quiet, and impossible to miss: a gap in a page is read as a mistake by
+   whoever made it and as nothing at all by everybody else. */
+.site-unmade, .site-unplaced {
+  display: flex; flex-direction: column; gap: 4px; justify-content: center;
+  height: 100%; padding: 16px; border: 1px dashed currentColor; border-radius: 8px;
+  opacity: 0.55; font: 500 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+.site-unplaced { margin: 24px; height: auto; }
+.site-unmade-name { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+.site-unmade-why { font-size: 12px; opacity: 0.8; }
+`;
   files.push({ path: "assets/site.css", content: `${css}${frame}` });
   return files;
 }
