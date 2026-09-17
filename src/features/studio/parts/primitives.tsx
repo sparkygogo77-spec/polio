@@ -63,7 +63,16 @@ export function Btn({
   );
 }
 
-export function Placeholder({ t, label }: { t: Theme; label?: string }) {
+/**
+ * The empty slot a part leaves for something it does not have.
+ *
+ * The label on it is a note to whoever is building — "visual", "video",
+ * "view 2" — and it is for the board only. It went out on his published
+ * site: the word `visual` was in the delivered HTML, once, where a picture
+ * should have been. A word like that is the Builder talking to itself in
+ * front of a visitor, so live mode draws the slot and says nothing in it.
+ */
+export function Placeholder({ t, label, mode = "board" }: { t: Theme; label?: string; mode?: PartMode }) {
   return (
     <div
       style={{
@@ -73,7 +82,7 @@ export function Placeholder({ t, label }: { t: Theme; label?: string }) {
         display: "flex", alignItems: "center", justifyContent: "center", color: t.muted, fontSize: t.fontPx * 0.75,
       }}
     >
-      {label}
+      {mode === "board" ? label : null}
     </div>
   );
 }
