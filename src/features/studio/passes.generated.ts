@@ -2,14 +2,91 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T05:12:56.791Z";
+export const GENERATED_AT = "2026-09-17T06:31:22.862Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "a5382bd",
-    "when": "2026-09-17T04:52:55+00:00",
+    "id": "4ad8737",
+    "when": "2026-09-17T06:31:08+00:00",
     "day": "17 September",
     "changes": [
+      {
+        "id": "f1b2804",
+        "says": "No black field on a carried-out box: a picture only where the site has something on it, on top of the blue",
+        "when": "2026-09-16T20:33:43+00:00",
+        "detail": [
+          "The site picture's frame painted a dark field behind the picture, and a site with nothing on its page drew as its own empty backdrop, which on a carried-out box was most of the box. The frame paints nothing now, and an empty site is a line and a note on the texture. Where the site has something on it, the picture sits on top of the box's own texture.",
+          "(cherry picked from commit 2abc2e985931a5f4ae326eb1628203b93d337bc6)"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "ca68ed6",
+        "says": "The pointer is captured once a drag begins, not on the press, so keys inside the pane still take their click",
+        "when": "2026-09-16T20:27:10+00:00",
+        "detail": [
+          "Captured on the press, the pointer sent its click to the captor: the centre key inside the pane stopped answering. Now a box or the ground captures the pointer the moment the drag really starts, and a plain press goes where it was aimed.",
+          "(cherry picked from commit f4762c61c2244aa2bfde9d677c541be701222ea9)"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "2d81eb4",
+        "says": "Letting go lets go: a drag ends on a cancel or a lost pointer as it does on a release",
+        "when": "2026-09-16T20:24:36+00:00",
+        "detail": [
+          "A box or the ground ended its drag only on a pointer-up that reached the window. Released outside the window, or cancelled by the browser midway, it stayed on the mouse until the next click. The pressed thing captures the pointer now, and a cancel or a lost capture ends the drag the way a release does; a cancelled box is put down where it last was.",
+          "(cherry picked from commit dada4f68bb45ad2e6488e3201ca07257f1839de2)"
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "b5474e8",
+    "when": "2026-09-17T06:13:31+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "b5474e8",
+        "says": "Record the ruling: when two lanes rewrite the same thing, the later instruction wins",
+        "when": "2026-09-17T06:13:31+00:00",
+        "detail": [
+          "Dijkstra's five and hypatia's live lane work conflicted across ten hunks in Lanes.tsx, Timeline.tsx, lanes.ts and tests/lanes.mjs. Held rather than resolved silently. The owner's ruling and the general rule it leaves are now in the merge log, with a paragraph addressed to dijkstra saying what to keep and what to drop on the rebase."
+        ],
+        "areas": [
+          "docs"
+        ],
+        "kind": "under"
+      },
+      {
+        "id": "4917db3",
+        "says": "A publish puts a website in the repository, and Try it asks the service",
+        "when": "2026-09-17T05:14:23+00:00",
+        "detail": [
+          "Hypatia's 9fb5219 and a5382bd.",
+          "tests/site-lands.mjs, 12 of 12, against a build of this commit with the stub seam wired in. What a publish committed, six files:",
+          "index.html            assets/site.css   118 KB about/index.html      site/BLUEPRINT.md site/blueprint.json site/document.json",
+          "A page at the root, a stylesheet beside it, one address per page of the board, and the three description files still there. The address answers HTTP 200 where the deploy answered NOT_FOUND. Served and opened, it is a page and not a shell: 1500x1144, 32 laid-out elements, 178 characters of text, painted oklch(0.13 0.012 288) rather than left to browser defaults, its stylesheet loaded, nothing it asks for missing, and zero Builder elements came with it."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "a5382bd",
         "says": "A publish puts a website in the repository, not a description of one",
@@ -1151,93 +1228,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "5955bc8",
-    "when": "2026-09-15T08:30:12+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "8c9160e",
-        "says": "Content sets the page, the pane sets the zoom, and the two stopped being one",
-        "when": "2026-09-15T08:29:36+00:00",
-        "detail": [
-          "Two quantities, conflated by the fit I wrote yesterday. Separated here.",
-          "The page's SIZE is its content's. It grows downward and outward to hold everything drawn on it, and nothing in this touches that rule.",
-          "The ZOOM is the pane's. It scales whatever the page has grown to so the whole of it, the headroom above and the shelf below sit inside the pane in both directions; whichever of width or height binds first sets it. The fit reads the page's grown size as its input and never asks the page to be a size. Fitting harder is the answer to a page that grew.",
-          "At 2048×1152 — a 1440p 27 inch at 125% browser zoom, which is the screen J actually uses — the height binds and the arithmetic has no slack in it: the bar takes 87, leaving 1065; the headroom is 20 and the shelf 248, so the page has 797. Before, fitting the width alone drew it 1692×1058 and put the categories 332px under the fold on every load."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "0ca7716",
-        "says": "The idle measure checks its own floor, because the floor was the answer",
-        "when": "2026-09-15T08:05:27+00:00",
-        "detail": [
-          "Chasing the last thing that damages the viewport at thirty boards led somewhere I did not expect and undoes a good deal of what this file has been saying.",
-          "Stop the spark canvas, the boards' clouds and the ground's cloud, and the page is still at 63% dropped. Stop one more thing — the Finish button, 65 by 28 pixels — and it is 54.0 and 0% dropped. Neither its mask nor its promotion explains that, so I put one bare element on a page where nothing else moved:",
-          "nothing moves at all (the floor)             53.7 /900ms    0% + one 1x1 TRANSPARENT div sliding            54.0           0%   free + one 10x10 TRANSPARENT div sliding          54.0           0%   free + one 10x10 RED div sliding                  20.3          62% + the same, promoted                         19.9          63% + the same, fading instead of sliding        20.3          62% + one 1x1 red div that exists, but is still  54.0           0%   free the 65x28 Finish button instead              21.0          61% the entire application as it is              20.6          62%",
-          "One hundred painted pixels in motion cost exactly what the whole application costs, and it scales with what is on the page rather than with what moves:"
-        ],
-        "areas": [
-          "tests"
-        ],
-        "kind": "under"
-      },
-      {
-        "id": "972ce24",
-        "says": "The fit's last witness is a clock, because a lost notification renders nothing",
-        "when": "2026-09-15T07:45:03+00:00",
-        "detail": [
-          "J measured the deploy again and the read holds: fresh at a 1509 pane the page is 1381, narrowed to a 772 pane it is still 1381, polled every 100ms for 3.2 seconds and never refitted. And it depends on the tab's history rather than the width — a tab that had been at 772 earlier in its life and was returned to it did refit, to 644 at 0.447222. One fit, kept.",
-          "REPRODUCED AT LAST, against the deployed artefact rather than a rebuild of it. Chromium here cannot do TLS to the deployment, so the deployment was put behind a plain-HTTP mirror and loaded in a real browser. Its bundle refits in 163ms on a plain narrow — under a 1.25 device scale, narrowed in four steps, on a document with ink above the page, after a six-second settle, and with reduced motion. So the bundle is not the variable. What does reproduce, every time, is the property underneath his repro: take one notification of the pane's resize away and that build never recovers.",
-          "deployed bundle, one notification lost   page 1381 in a 772 pane, 609px too wide after 2509ms",
-          "That is J's number, arrived at deterministically. A throw inside a ResizeObserver callback is how a notification goes missing in the wild — the browser swallows it, nothing in the console — but the check does not name a cause, only the property: a fit that is lost must not stay lost."
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "2d237de",
-        "says": "The fit is remembered only when it happened, and three things watch the width",
-        "when": "2026-09-15T07:14:16+00:00",
-        "detail": [
-          "J, off the deploy at 7b38e86: the page window is 1381 wide at a 1737 viewport and 1381 at a 1000 viewport, where the pane is 772 — 673px off the right edge with no horizontal scroller. 1381 is exactly this fit for a 1509 pane, which is the pane at his widest, so nothing is computing a new width; one fit is being kept.",
-          "IT DOES NOT REPRODUCE HERE, and that is the first thing to say. The deployed bundle is this code: its own chunk carries the fit effect minified as `a.clientWidth!==r&&(r=a.clientWidth,n())` on deps `[fitNonce, frameWidth, fitZoom]`, and its server-rendered markup is `translate(0px, 20px) scale(1.21)` with the page window at 1440px — byte for byte what a build here emits. `git diff` between the deployed commit and this tree touches one generated passes file and nothing else.",
-          "A clean production build of that source, served here, at his three widths:",
-          "viewport 1000   pane  772   page  644   scale 0.447222 viewport 1300   pane 1072   page  944   scale 0.655556 viewport 1737   pane 1509   page 1381   scale 0.959028"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "92c28bd",
-        "says": "The rim's breath is one keyframe, and the ghost is gone",
-        "when": "2026-09-15T07:04:29+00:00",
-        "detail": [
-          "`molten-breathe` was declared and unused. It is not a spare: it is what the rim's breath used to be, 0.78 to 1 on the rim node itself, and that node covers the whole card, paints a nine-pixel sprite bezel, and cannot be promoted inside the card's rounded clip — so it was a full-card repaint per card per frame, 42% of frames dropped against 36% with it stopped, at twelve boards. It was replaced by `molten-swell` on two strips that composite, and the declaration was left behind.",
-          "So it is deleted rather than kept, because a keyframe nothing uses is a second answer to a question that already has one. The header list named the dead one and did not name the live one; it names `molten-swell` now.",
-          "`molten-churn` is the same situation and is deliberately left: it is documented as a spare that was never used, not as the residue of something removed. It is on the sweep list rather than in this commit.",
-          "The pin that read the ghost asserted the wrong rule anyway — \"under a quarter of its range\", which was right for a wash over a whole card and is wrong for a strip. A strip goes the whole way from nothing to itself, because the trough has to be the card without it. Repinned to that, plus a check that the ghost stays gone."
-        ],
-        "areas": [
-          "core",
           "tests"
         ],
         "kind": "new"
