@@ -62,7 +62,8 @@ import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN
 import { Lanes } from "./Lanes";
 import { BODY, EDGE } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
-import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
+import { paintStrand, strandBounds, strandEnvelope, strandReach, REACH_WIDTH, type Point, type StrandTone, type VineEnd } from "./strand";
+import { REST, letGo, pickUp, still, step, type Rope } from "./tugSpring";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { SitePreview, type PreviewDoc } from "./SitePreview";
@@ -559,16 +560,70 @@ export function Timeline() {
   const inHand = React.useRef(false);
   inHand.current = !!dragging;
 
-  const tugAt = React.useRef<string | null>(null);
+  /*
+   * THE ROPES, one per vine a hand has touched, and the loop that swings them.
+   *
+   * It was `tugAt: string | null` — the one vine under the pointer — and the
+   * painter read it as 1 or 0. That is a second resting position, which is
+   * exactly what he did not want: "the animation just makes it immediately
+   * flex … the hover should make it almost like kind of pulse and almost
+   * like a rope being picked up on hover then dropped back down."
+   *
+   * So a vine is a mass on a spring (`tugSpring.ts`) and hovering is an
+   * event that kicks it. A map rather than one name, because a vine let go
+   * is still swinging while the hand is on the next one, and both have to
+   * be drawn. A rope that has gone quiet is deleted from the map, so at
+   * rest this is empty and the loop is not running.
+   */
+  const ropes = React.useRef(new Map<string, Rope>());
+  const swinging = React.useRef(0);
+  const lastFrame = React.useRef(0);
+
+  /**
+   * The loop: step every rope, repaint once, stop when they are all quiet.
+   *
+   * One frame for all of them, not one per vine — the painter draws the
+   * whole canvas anyway, so a second rope costs arithmetic and no drawing.
+   * `dt` is real elapsed time rather than a fixed step so the motion takes
+   * the same wall-clock time on a 60Hz screen and a 120Hz one, and
+   * `tugSpring.step` caps it so a backgrounded tab cannot integrate one
+   * enormous frame and throw a vine off the board.
+   */
+  const swing = React.useCallback(() => {
+    if (swinging.current) return;
+    lastFrame.current = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - lastFrame.current) / 1000;
+      lastFrame.current = now;
+      for (const [id, r] of ropes.current) {
+        const next = step(r, dt);
+        if (still(next)) ropes.current.delete(id);
+        else ropes.current.set(id, next);
+      }
+      paintAt.current();
+      swinging.current = ropes.current.size ? requestAnimationFrame(tick) : 0;
+    };
+    swinging.current = requestAnimationFrame(tick);
+  }, []);
+  React.useEffect(() => () => { if (swinging.current) cancelAnimationFrame(swinging.current); }, []);
+
+  /**
+   * A hand arrives on a vine, or leaves it.
+   *
+   * Neither sets a position. The kick goes into whatever velocity the rope
+   * already has, so a vine picked up while it is still swinging carries on
+   * from where it actually is — his second consequence, "the second pick-up
+   * starts from wherever the rope actually is" — and there is no way for
+   * two hovers in a row to stack or to jerk.
+   */
+  const tug = React.useCallback((id: string, held: boolean) => {
+    const was = ropes.current.get(id) ?? REST;
+    ropes.current.set(id, held ? pickUp(was) : letGo(was));
+    swing();
+  }, [swing]);
+
   const cutAt = React.useRef<{ id: string | null; p: number }>({ id: null, p: 0 });
   const cutting = React.useRef(0);
-
-  /** Take hold of a vine, or let it go. Repaints that one ribbon and nothing else. */
-  const tug = React.useCallback((id: string | null) => {
-    if (tugAt.current === id) return;
-    tugAt.current = id;
-    paintAt.current();
-  }, []);
 
   /**
    * Cut one, and watch it go.
@@ -583,7 +638,7 @@ export function Timeline() {
   const cutVine = React.useCallback((id: string) => {
     if (cutting.current) return;
     play("deny");
-    tugAt.current = null;
+    ropes.current.delete(id);
     cutAt.current = { id, p: 0 };
     const began = performance.now();
     const tick = (now: number) => {
@@ -1084,7 +1139,7 @@ export function Timeline() {
         /* Pulled while the pointer is on its seam, and parting while it
            is being cut. Read off refs rather than state: both change at
            the frame rate and neither belongs in a render. */
-        tug: tugAt.current === cord.to ? 1 : 0,
+        tug: ropes.current.get(cord.to)?.x ?? 0,
         cut: cutAt.current.id === cord.to ? cutAt.current.p : 0,
       });
     }
@@ -2895,18 +2950,20 @@ function VineCut({ of, at, ends: pair, onTug, onCut }: {
   of?: Thread;
   at: [Point, Point];
   ends: [VineEnd, VineEnd];
-  onTug: (id: string | null) => void;
+  onTug: (id: string, held: boolean) => void;
   onCut: (id: string) => void;
 }) {
   const id = of?.id;
   /* Let go on the way out, whatever took the element away — a drag
      starting, the box moving, this unmounting mid-hover. A vine left
      pulled by a pointer that is not there any more is a vine stuck. */
-  React.useEffect(() => () => { if (id) onTug(null); }, [id, onTug]);
+  React.useEffect(() => () => { if (id) onTug(id, false); }, [id, onTug]);
   if (!of || !id) return null;
   const [from, to] = at;
-  const box = strandBounds(from, to);
-  const d = strandSeam({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y }, { ends: pair });
+  /* The box is the band's, not the paint's: a target wider than the vine
+     needs the room to be wider than the vine, or its far side is clipped. */
+  const box = strandBounds(from, to, REACH_WIDTH);
+  const d = strandReach({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y });
   if (!d) return null;
   return (
     <Tooltip content={`Cut it, and "${headlineOf(of)}" goes`}>
@@ -2914,13 +2971,27 @@ function VineCut({ of, at, ends: pair, onTug, onCut }: {
         type="button"
         data-vine-cut={id}
         onPointerDown={(e) => e.stopPropagation()}
-        /* The seam is where the hand finds it — measured off the vine at
-           rest, so it does not move out from under the pointer the moment
-           the vine answers by pulling. */
-        onPointerEnter={() => onTug(id)}
-        onPointerLeave={() => onTug(null)}
-        onFocus={() => onTug(id)}
-        onBlur={() => onTug(null)}
+        /*
+         * A BAND ALONG THE WHOLE VINE, not the line down the middle of it.
+         *
+         * His words: "it seems to need to be super precisely the line in
+         * the middle of the vine and easy to miss … a band along its whole
+         * length, generous either side, so it catches a hand that is near
+         * it rather than one that is exactly on it." The seam was 7px
+         * across; this is `REACH_WIDTH`, 44, and it is measured off the
+         * vine at rest so it does not move out from under the pointer the
+         * moment the vine answers.
+         *
+         * The press is unchanged and lands on the same band, which is a
+         * bigger thing to press by accident than it was — and it is one
+         * undo, because `pruneThread` pushes history like every other
+         * edit, and the vine visibly lifts under the hand before the press
+         * as well as saying what will go.
+         */
+        onPointerEnter={() => onTug(id, true)}
+        onPointerLeave={() => onTug(id, false)}
+        onFocus={() => onTug(id, true)}
+        onBlur={() => onTug(id, false)}
         onClick={(e) => { e.stopPropagation(); onCut(id); }}
         aria-label={`Cut the line, and "${headlineOf(of)}" goes`}
         className="vine-cut absolute"
