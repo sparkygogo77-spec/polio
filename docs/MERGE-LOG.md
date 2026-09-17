@@ -151,3 +151,48 @@ boxes sit. Drop anything that re-opens the fan, the stagger, or the old vine
 edges. Trunk's lane geometry is the base; do not bring the old one back.
 
 Holding a merge for an hour costs less than quietly deleting a night's work.
+
+## The suite set is not chosen by the diff
+
+17 September, and this one cost a false clean report. The floor below runs on
+every merge, whatever the diff touched. A diff-driven set is an optimisation
+on top of it: it may ADD, it may never SUBTRACT.
+
+    npm run typecheck
+    npm run build
+    node tests/menu-pass.mjs   <url>
+    node tests/lanes.mjs       <url>
+    node tests/full-page.mjs   <url>
+    node tests/ink-on-cards.mjs <url>   # "contrast on cards"
+
+Measured on the 034e34d build: menu-pass 25s, lanes 23s, full-page 52s,
+ink-on-cards 104s — 204s for the four, against a typecheck and a build that
+every merge already runs. There is no case for trimming it on time. If a
+floor ever does get slow, SAY SO and let the owner decide what to trade.
+Never decide it by omission.
+
+**How the gap worked.** I picked suites by which files a diff touched, which
+is a reasonable heuristic and a silent one. ink-on-cards reads pixels off
+`/builder`, and no commit has to touch its files for its numbers to move: a
+colour, a light, a face, a font weight anywhere upstream changes what it
+measures. So it went unrun across several pushes and was red on the live
+deploy at 217ecc3 while I reported that push clean. The owner repeated that
+to the person the work is for.
+
+The general shape, which is the same fault this whole night has been about:
+**a check nothing thinks to ask is a check that fails quietly.** Coverage
+chosen by what changed can only ever find what changed. A floor is the part
+that does not ask permission from the diff.
+
+## Two things a merge seat does not do
+
+Established the same night, both on a held merge:
+
+  · **Do not push red**, even when the failure looks cosmetic. A pin naming
+    an old spelling and a pin catching a real rename are indistinguishable
+    from the merge seat. The lane that changed the line is the only one that
+    knows which it is, so that lane fixes it. Hold, name the check, hand it
+    back.
+  · **A git hook counting unpushed commits is not an argument for pushing
+    them.** It cannot see that a suite is 21/24. Refuse it and put the
+    question to the owner.
