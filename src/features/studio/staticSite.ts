@@ -37,6 +37,7 @@ import { flushSync } from "react-dom";
 import { LiveSite } from "./live/LiveSite";
 import { useStudio, type StudioPage } from "./store";
 import { base64, bytesFor, type Picture } from "./pictures";
+import { unbuiltSections } from "./spec";
 import { missingCopy } from "./promised";
 import { NOT_WRITTEN } from "./parts/sample";
 
@@ -111,10 +112,27 @@ function drewNothing(el: Element): boolean {
   return true;
 }
 
-/** The plain sentence a part gets when it could not be published as itself. */
-function saidInstead(label: string, why: string): string {
-  return `<div class="site-unmade" role="note"><span class="site-unmade-name">${esc(label)}</span><span class="site-unmade-why">${esc(why)}</span></div>`;
-}
+/*
+ * There used to be a `saidInstead` here, and blocks at the foot of the
+ * page listing what had not been built. They are gone from the export on
+ * a ruling, and the ruling is the point of this note: fail loudly in the
+ * Builder, never on the published site.
+ *
+ * WHAT HAPPENED. The audit worked — and then it shipped. His live page
+ * served a dashed-bordered note reading "The coordinates / in the layout,
+ * and nothing has been built for it yet", a block headed "No words
+ * written for these yet", and a list headed "Asked for in the prompt and
+ * not on the page", to anybody who visited, at opacity 0.75. He is the
+ * only person who needs to know a part did not render. A visitor must
+ * never see the scaffolding, and a note saying "nothing has been built
+ * for it yet" is a sentence about how the work is made, which his site is
+ * never to mention at all.
+ *
+ * So the page shows what was built and omits what was not. Nothing is
+ * lost: everything the audit finds comes back from `markupOf` and is
+ * handed to him beside the publish button, which is the same information
+ * at the same volume on the side of the boundary that is his.
+ */
 
 /**
  * One page, rendered by the same component the preview uses, read back as
@@ -159,9 +177,8 @@ function markupOf(el: React.ReactElement, width: number, expect: Expected[]): Au
       const name = part.label || part.featureId;
       const text = (box as HTMLElement).textContent ?? "";
       if (drewNothing(box)) {
+        // Counted for him, and left as the empty box it is on the page.
         blank.push(name);
-        box.setAttribute("data-unmade", part.featureId);
-        box.innerHTML = saidInstead(name, "this part is described rather than drawn, so there was nothing to publish yet");
         continue;
       }
       // Words nobody wrote. The part already says so where it stands; this
@@ -172,16 +189,6 @@ function markupOf(el: React.ReactElement, width: number, expect: Expected[]): Au
       if (missed.length) unsaid.push({ part: name, words: missed });
     }
     for (const part of expect) if (!seen.has(part.id)) unplaced.push(part.label || part.featureId);
-    const note = (kind: string, head: string, lines: string[]) => {
-      if (!lines.length) return;
-      const el2 = document.createElement("div");
-      el2.className = `site-unplaced ${kind}`;
-      el2.innerHTML = `<div class="site-unmade-name">${esc(head)}</div>${lines.map((n) => `<div class="site-unmade-why">${esc(n)}</div>`).join("")}`;
-      host.firstElementChild?.appendChild(el2);
-    };
-    note("site-note-unplaced", "Not on this page yet", unplaced);
-    note("site-note-unwritten", "No words written for these yet", unwritten);
-    note("site-note-unsaid", "Asked for in the prompt and not on the page", unsaid.map((u) => `${u.part}: ${u.words.join(" · ")}`));
     html = host.innerHTML;
   } finally {
     root.unmount();
@@ -226,6 +233,78 @@ export async function sitePictures(): Promise<{ files: SiteBinary[]; lost: Pictu
   return { files, lost };
 }
 
+/** What one page of the site could not build, for the one person who should see it. */
+export interface PageAudit {
+  page: string;
+  /** Parts that put nothing on the page at all. */
+  blank: string[];
+  /** Parts the renderer never placed. */
+  unplaced: string[];
+  /** Parts showing words nobody wrote. */
+  unwritten: string[];
+  /** Copy a prompt named outright that the part is not carrying. */
+  unsaid: { part: string; words: string[] }[];
+  /** Sections of the brief's layout that no part carries. */
+  sections: string[];
+}
+
+/**
+ * What the publish will leave out, page by page.
+ *
+ * The same audit that used to print itself at the foot of his live site,
+ * on the other side of the publish boundary: rendered the way the Builder
+ * renders — so a part standing in for words nobody wrote still says so,
+ * and can be counted — and handed to the panel rather than to a visitor.
+ *
+ * One render per page and no model, no key, no network, like everything
+ * else here. `sections` needs no render at all: it is the brief's own
+ * layout minus what the board carries.
+ */
+export function auditSite(): PageAudit[] {
+  const s = useStudio.getState();
+  if (!s.pages.length) return [];
+  const home = s.pages[0]!.id;
+  const width = s.frameWidth || 1440;
+  const pageIds = new Set(s.pages.map((p) => p.id));
+  const orphans = s.nodes.filter((n) => !pageIds.has(n.pageId));
+
+  return s.pages.map((page) => {
+    const { blank, unplaced, unwritten, unsaid } = markupOf(
+      React.createElement(LiveSite, {
+        pages: s.pages,
+        nodes: s.nodes,
+        pageId: page.id,
+        device: "desktop" as const,
+        frameWidth: width,
+        format: s.format,
+        look: s.look,
+        siteName: s.brief.name,
+        shapes: s.shapes,
+        /* The Builder's own view, because that is where this is read and
+           because a part standing in for missing words has to be visible
+           to be counted. */
+        published: false,
+      }),
+      width,
+      [...s.nodes.filter((n) => n.pageId === page.id), ...(page.id === home ? orphans : [])]
+        .map((n) => ({ id: n.id, label: n.label, featureId: n.featureId, prompt: n.prompt ?? "" })),
+    );
+    return {
+      page: page.name?.trim() || page.path || page.id,
+      blank,
+      unplaced,
+      unwritten,
+      unsaid,
+      sections: unbuiltSections(s.shapes, s.nodes, page.id).map((x) => x.label),
+    };
+  });
+}
+
+/** Is there anything at all to say about this document? */
+export function auditCounts(audit: PageAudit[]): number {
+  return audit.reduce((n, a) => n + a.blank.length + a.unplaced.length + a.unwritten.length + a.unsaid.length + a.sections.length, 0);
+}
+
 export function staticSite(): SiteFile[] {
   const s = useStudio.getState();
   if (!s.pages.length) return [];
@@ -248,6 +327,8 @@ export function staticSite(): SiteFile[] {
         format: s.format,
         look: s.look,
         siteName: s.brief.name,
+        /* A visitor is reading this one. */
+        published: true,
         /* The brief's layout is regions as well as parts, and a region with
            nothing in it is a section the board never built. It is in the
            brief, so it is on the page — saying it is not built. */
@@ -301,18 +382,6 @@ ${body}
 /* The exported page's frame. */
 html, body { margin: 0; padding: 0; }
 .site-root { width: ${width}px; max-width: 100%; margin-inline: auto; }
-
-/* A part that could not be published as itself says so where it stood.
-   Quiet, and impossible to miss: a gap in a page is read as a mistake by
-   whoever made it and as nothing at all by everybody else. */
-.site-unmade, .site-unplaced {
-  display: flex; flex-direction: column; gap: 4px; justify-content: center;
-  height: 100%; padding: 16px; border: 1px dashed currentColor; border-radius: 8px;
-  opacity: 0.55; font: 500 13px/1.4 ui-sans-serif, system-ui, sans-serif;
-}
-.site-unplaced { margin: 24px; height: auto; }
-.site-unmade-name { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
-.site-unmade-why { font-size: 12px; opacity: 0.8; }
 `;
   files.push({ path: "assets/site.css", content: `${css}${frame}` });
   return files;

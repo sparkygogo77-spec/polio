@@ -66,6 +66,16 @@ export interface LiveSiteProps {
    * the page inside a surface draws its parts and hands no surfaces on.
    */
   depth?: number;
+  /**
+   * True when this render is the page a visitor will be served.
+   *
+   * The publish boundary. Everything the page could not build says so
+   * where he is building and says nothing at all where a stranger is
+   * reading: a note about how the work is made has no business on his
+   * domain. The publish gathers the same list and hands it to him beside
+   * the button instead.
+   */
+  published?: boolean;
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -84,8 +94,8 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0 }: LiveSiteProps) {
-  const t = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0, published = false }: LiveSiteProps) {
+  const t = React.useMemo(() => ({ ...themeFrom(format, look, siteName), published }), [format, look, siteName, published]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
   const pageNodes = React.useMemo(() => nodes.filter((n) => n.pageId === pageId), [nodes, pageId]);
@@ -96,7 +106,10 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
    * the page in the order they were drawn; at the board's width each one
    * stands where it was drawn, which is where the brief says it goes.
    */
-  const missing = React.useMemo(() => unbuiltSections(shapes ?? [], nodes, pageId), [shapes, nodes, pageId]);
+  const missing = React.useMemo(
+    () => (published ? [] : unbuiltSections(shapes ?? [], nodes, pageId)),
+    [published, shapes, nodes, pageId],
+  );
   const STRIP = 84;
   const sections = missing.map((sec, i) =>
     reflowed
@@ -178,6 +191,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
               shapes={shapes}
               pictureAt={pictureAt}
               depth={depth + 1}
+              published={published}
             />
           </div>
         </div>

@@ -39,7 +39,7 @@ export function Accordion({ id, content, theme: t, mode }: PartProps) {
               hidden={!on}
               style={{ paddingBottom: t.fontPx * 0.8, color: t.muted, fontSize: t.fontPx * 0.92 }}
             >
-              {row.body ?? unwritten(mode, () => sample.answer(row.title), row.title)}
+              {row.body ?? unwritten(mode, () => sample.answer(row.title), row.title, t.published)}
             </div>
           </div>
         );

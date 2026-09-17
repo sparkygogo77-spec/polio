@@ -178,21 +178,58 @@ const OURS = ["signal", "harbour", "ledger", "orbit", "meadow", "compass", "lant
 const his = seen.text.replace(/Warm start|Clear orbit|Open ledger/gi, " ");
 const invented = OURS.filter((w) => new RegExp(`\\b(clear|steady|quiet|bright|warm|quick|plain|deep|open|sharp|soft|wide) ${w}\\b`, "i").test(his));
 check("no sentence of ours is published under his headings", invented.length === 0, invented.join(", ") || "none");
-check("a card with no body written says so instead", /not written yet/i.test(seen.text), "the card says it");
-check("and the page lists them, so the gap is findable", /No words written for these yet/i.test(seen.text));
 
-/* 3. The section of the layout no part carries. */
-check("a section of the brief's layout with no part is on the page", seen.marks.length === 1, `${seen.marks.length} said`);
-check("named, in his words", /The coordinates/i.test(seen.marks.join(" ")), seen.marks.join(" | ") || "nothing");
-check("and it says why it is empty rather than leaving a gap", /nothing has been built for it/i.test(seen.marks.join(" ")));
+/* ------------------------------------------------------------------ */
+/* 3. And no scaffolding either: the page is the site, only             */
+/* ------------------------------------------------------------------ */
 
-/* 4. Copy the prompt named and the part never carried. */
-check("the page says what the prompt asked for and did not get", /Asked for in the prompt and not on the page/i.test(seen.text));
-for (const want of ["BUILT FOR THE NEXT BLOCK", "CONNECT WALLET", "CHAIN 4663"]) {
-  check(`  — ${want}`, seen.text.includes(want), seen.text.includes(want) ? "named" : "missing from the page and unmentioned");
+/*
+ * THE RULING. Fail loudly in the Builder, never on the published site. He
+ * is the only person who needs to know a part did not render; a visitor
+ * must never see the scaffolding, and a note saying "nothing has been
+ * built for it yet" is a sentence about how the work is made, which his
+ * site never mentions at all. This is the published half: everything the
+ * audit found is measured for its absence here and for its presence in
+ * the Builder below.
+ */
+const SCAFFOLD = [
+  /not written yet/i,
+  /nothing has been built/i,
+  /in the layout/i,
+  /no words written/i,
+  /asked for in the prompt/i,
+  /not on this page yet/i,
+  /described rather than drawn/i,
+  /nothing to publish/i,
+];
+const leaked = SCAFFOLD.filter((re) => re.test(seen.text)).map(String);
+check("the published page says nothing about what was not built", leaked.length === 0, leaked.join(", ") || "none of the eight phrases");
+check("and stands no note where a section of the layout was", seen.marks.length === 0, seen.marks.join(" | ") || "none");
+check("the copy the prompt named is not on the page either, since it was never built", !/BUILT FOR THE NEXT BLOCK|CONNECT WALLET|CHAIN 4663/.test(seen.text));
+/* A page that omits what was not built is not a page that omits everything:
+   what WAS built is still there, or this check is passing on a blank page. */
+check("what was built is still on it", /BLACKORB/.test(seen.text) && seen.text.trim().length > 120, `${seen.text.trim().length} characters of visible text`);
+
+/* ------------------------------------------------------------------ */
+/* 4. The same list, in the Builder, where it belongs                    */
+/* ------------------------------------------------------------------ */
+
+await out.close();
+await page.bringToFront();
+await page.evaluate(() => window.__studioOpenBrief?.());
+await page.waitForTimeout(1200);
+const look = page.locator("[data-left-behind-look]").first();
+check("the publish says, before you press it, that it will leave things out", (await look.count()) === 1);
+if (await look.count()) {
+  await look.click();
+  await page.waitForTimeout(2500);
 }
+const said = await page.evaluate(() => (document.querySelector("[data-left-behind-list]")?.textContent ?? ""));
+check("it names the section of his layout that has no part", /The coordinates/i.test(said), said.slice(0, 120) || "nothing said");
+check("and the card whose words nobody wrote", /thesis|The thesis/i.test(said), said.slice(0, 200) || "nothing said");
+check("and the copy the hero's prompt asked for", /BUILT FOR THE NEXT BLOCK/.test(said) && /CONNECT WALLET/.test(said) && /CHAIN 4663/.test(said), said.slice(0, 260) || "nothing said");
 
-await out.screenshot({ path: ".screenshots/brief-lands.png", fullPage: true });
+await page.screenshot({ path: ".screenshots/brief-lands.png", fullPage: false });
 await browser.close();
 stub.close();
 site.close();
