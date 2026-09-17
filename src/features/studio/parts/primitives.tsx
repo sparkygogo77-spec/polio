@@ -27,6 +27,22 @@ export function Fill({
         ...style,
       }}
     >
+      {/*
+        THE LIT FACE, and why it is here.
+        
+        "Warmth" on the light panel was dead, measured: moving it end to end
+        changed 0% of the pixels on a card and 0% on a call-to-action
+        button, which was the one and only thing in the app that painted
+        `t.sheen` at all. A control whose whole effect is the hue of a wash
+        nothing paints is a control that does nothing.
+        
+        So the wash is painted where a person is looking: over the part, on
+        the side turned toward the lamp, under whatever the part draws. It
+        is a layer of its own rather than a background, because a part that
+        paints its own box would cover a background and most of them do.
+        Nothing when there is no lamp, and it never takes a pointer.
+      */}
+      {t.sheen ? <span aria-hidden data-lit-face="" style={{ position: "absolute", inset: 0, pointerEvents: "none", background: t.sheen, borderRadius: "inherit" }} /> : null}
       {children}
     </div>
   );

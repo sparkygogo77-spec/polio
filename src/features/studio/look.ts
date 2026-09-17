@@ -847,15 +847,71 @@ export function castFrom(light: Light, cx: number, cy: number): { dx: number; dy
   const ox = cx - light.x;
   const oy = cy - light.y;
   const dist = Math.hypot(ox, oy) || 0.0001;
-  // Straight overhead the shadow is directly under the box; low and to one
-  // side it rakes across the page.
-  const reach = (1 - Math.max(0, Math.min(1, light.height))) * 2.4 + 0.25;
-  const len = Math.min(3, dist * reach) * light.lift;
+  const h = Math.max(0, Math.min(1, light.height));
+  /*
+   * HOW LONG THE SHADOW IS, and why this was rewritten.
+   *
+   * "How high it hangs" was dead, measured: moving it end to end changed
+   * 0% of the pixels on a card. The length was `min(3, dist * reach) *
+   * lift`, and `dist` is a fraction of the page — about 0.09 for a part
+   * near the lamp — so `dist * reach` ran from 0.23 to 0.02 and the whole
+   * control was worth 2.27px of shadow at the bottom and 0.21px at the
+   * top. The `min(3, …)` was written as though `dist` were in pixels; it
+   * never came near 3, and what was left was `lift * a small number`, so
+   * lift was the only thing that moved.
+   *
+   * A shadow's length is a multiple of how far the thing stands off the
+   * page, so that is what this is: `reach` runs from about 3.5 lifts with
+   * the lamp raking to about a tenth of one overhead. Distance from the
+   * lamp leans it a little further — the page is one unit across, so it is
+   * a lean and not the whole of it — and the whole thing is capped so a
+   * part in the far corner does not throw a shadow off the page.
+   */
+  const reach = (1 - h) ** 1.5 * 3.4 + 0.12;
+  const away = 0.5 + Math.min(1, dist / 0.45) * 0.8;
+  const len = Math.min(light.lift * 4.2, light.lift * reach * away);
   return {
     dx: Math.round((ox / dist) * len),
-    dy: Math.round((oy / dist) * len + light.lift * 0.4),
-    blur: Math.round(light.lift * 1.6 + len * 0.9),
+    // Overhead, most of what there is sits straight under the box; raking,
+    // almost none of it does and the length carries the direction instead.
+    dy: Math.round((oy / dist) * len + light.lift * (0.18 + 0.32 * h)),
+    blur: Math.round(light.lift * (0.8 + 0.8 * h) + len * 0.55),
     spread: 0,
+  };
+}
+
+
+/**
+ * The two strings a lit surface wears: the shadow it throws and the wash on
+ * the face turned toward the lamp.
+ *
+ * ONE COPY, and the reason for saying so. There were two — `liftVars` for
+ * the board and `liftTheme` for the parts — and they had drifted: fixing
+ * the lit face in one of them left "Warmth" dead on the board, because the
+ * board reads the other. Both call this now.
+ */
+export function liftCss(light: Light, cx: number, cy: number): { shadow: string; sheen: string } | null {
+  const cast = castFrom(light, cx, cy);
+  if (!cast) return null;
+  const dark = Math.max(0, Math.min(0.9, light.strength));
+  const away = Math.hypot(cx - light.x, cy - light.y) || 0.0001;
+  const from = { x: (light.x - cx) / away, y: (light.y - cy) / away };
+  // Two shadows: a tight one that seats the box on the page, and a long one
+  // that carries the direction. Both point away from the lamp.
+  const near = `${Math.round(cast.dx * 0.35)}px ${Math.round(cast.dy * 0.35)}px ${Math.round(cast.blur * 0.4)}px oklch(0 0 0 / ${(dark * 0.5).toFixed(3)})`;
+  const far = `${cast.dx}px ${cast.dy}px ${cast.blur}px oklch(0 0 0 / ${(dark * 0.55).toFixed(3)})`;
+  /*
+   * The lit face. It used to be `oklch(1 0.02 …)`, and at that chroma a hue
+   * cannot be read at all — white is white whatever angle you take it
+   * from — which is why "Warmth" measured as doing nothing even where the
+   * wash was painted. Enough chroma to carry a colour now, and the alpha
+   * still small: this is the light catching an edge, not a tint over the
+   * page.
+   */
+  const deg = Math.round((Math.atan2(from.x, from.y) * 180) / Math.PI + 180);
+  return {
+    shadow: `${near}, ${far}`,
+    sheen: `linear-gradient(${deg}deg, oklch(0.96 0.13 ${Math.round(light.warmth)} / ${(0.07 + dark * 0.13).toFixed(3)}), transparent 58%)`,
   };
 }
 

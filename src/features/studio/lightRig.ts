@@ -28,7 +28,7 @@
  *
  * The store is written once, when the hand lets go.
  */
-import { castFrom, type Light } from "./look";
+import { liftCss, type Light } from "./look";
 import { useStudio } from "./store";
 
 /** One part, as the rig needs it: where to write, and where it stands. */
@@ -69,19 +69,14 @@ const boxOf = (sel: string) => {
  * part whose centre is at (cx, cy). The same arithmetic `liftTheme` does —
  * this is the one place it is done per frame rather than per render.
  */
+/**
+ * The two strings a part wears under the lamp. One formula, in `look.ts`:
+ * this used to hold its own copy, and the copy drifted — the lit face was
+ * fixed in the parts' version and stayed broken here, which is the board,
+ * which is where anybody would have looked.
+ */
 export function liftVars(light: Light, cx: number, cy: number): { shadow: string; sheen: string } | null {
-  const cast = castFrom(light, cx, cy);
-  if (!cast) return null;
-  const dark = Math.max(0, Math.min(0.9, light.strength));
-  const away = Math.hypot(cx - light.x, cy - light.y) || 0.0001;
-  const from = { x: (light.x - cx) / away, y: (light.y - cy) / away };
-  const near = `${Math.round(cast.dx * 0.35)}px ${Math.round(cast.dy * 0.35)}px ${Math.round(cast.blur * 0.4)}px oklch(0 0 0 / ${(dark * 0.5).toFixed(3)})`;
-  const far = `${cast.dx}px ${cast.dy}px ${cast.blur}px oklch(0 0 0 / ${(dark * 0.55).toFixed(3)})`;
-  const deg = Math.round((Math.atan2(from.x, from.y) * 180) / Math.PI + 180);
-  return {
-    shadow: `${near}, ${far}`,
-    sheen: `linear-gradient(${deg}deg, oklch(1 0.02 ${Math.round(light.warmth)} / ${(0.1 + dark * 0.12).toFixed(3)}), transparent 62%)`,
-  };
+  return liftCss(light, cx, cy);
 }
 
 /** Take hold of the board: measure everything once, and nothing again. */
