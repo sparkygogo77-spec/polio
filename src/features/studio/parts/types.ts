@@ -22,6 +22,7 @@
  */
 import type * as React from "react";
 import type { Theme } from "./theme";
+import type { Picture } from "../pictures";
 
 export type PartMode = "board" | "live";
 
@@ -124,6 +125,15 @@ export interface PartProps {
   mode: PartMode;
   /** The six faces, for the one part that has them. */
   cube?: CubeData | null;
+  /**
+   * The picture this part holds, and something to point at it with.
+   *
+   * `pic` is the reference the document keeps; `src` is a browser address
+   * while the site is being built, or the published path once it has been
+   * published. `src` undefined with a `pic` present means this browser no
+   * longer has the bytes, and the part says so (`PictureSlot`).
+   */
+  picture?: { pic: Picture; src?: string } | null;
   /**
    * Which piece of the part is picked, when the board is pointing at one
    * piece rather than the whole: a cube's face. `colour` is the board's

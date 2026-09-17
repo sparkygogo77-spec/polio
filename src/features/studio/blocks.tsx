@@ -15,6 +15,7 @@ import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
+import { usePicture, type Picture } from "./pictures";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
 
@@ -36,10 +37,29 @@ export interface BlockProps {
   layers?: TextureLayer[];
   /** Which piece of the part the board is pointing at, and the mark to draw it in. */
   pick?: { id: string; colour: string } | null;
+  /**
+   * Where this part's picture is to be pointed at, when the caller knows
+   * better than the browser does.
+   *
+   * The board and the preview leave it alone and the bytes are found in this
+   * browser's file storage. The publish passes the path the file will have
+   * in the repository, because the page it is writing will be read from
+   * there and there is no browser storage on the other end.
+   */
+  pictureAt?: (pic: Picture) => string | undefined;
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt }: BlockProps) {
   const def = resolvePart(node.featureId);
+  /*
+   * The picture, resolved once for the part. The hook runs for every part
+   * whether or not it holds one — hooks cannot be conditional — and hands
+   * back nothing when there is nothing to hand back.
+   */
+  const found = usePicture(node.picture ?? null);
+  const picture = node.picture
+    ? { pic: node.picture, src: pictureAt ? pictureAt(node.picture) : found.src }
+    : null;
   // A part can repaint any of the six roles for itself, and set its own type;
   // everything else follows the site.
   const painted = applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font);
@@ -100,6 +120,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       theme={t}
       mode={mode}
       cube={node.cube}
+      picture={picture}
       pick={pick ?? null}
       mesh={node.mesh}
       vector={node.vector}

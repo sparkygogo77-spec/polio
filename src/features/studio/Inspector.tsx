@@ -15,6 +15,7 @@ import { isLinkable } from "./parts";
 import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
+import { drop as dropPicture, put as putPicture, usePicture } from "./pictures";
 import { ColourOverride } from "./ColourOverride";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
@@ -236,6 +237,87 @@ function BackgroundInspector() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * The picture a part holds: choose one, see it, take it away.
+ *
+ * WHERE THE BYTES ARE, because it changes what he should expect. Not in the
+ * document: a photograph inlined there would share the browser's small
+ * storage with his board, his builds and his keys, and take all of them with
+ * it when it overflowed. They are in this browser's file storage while he
+ * works, and in the repository once he publishes — and the line under the
+ * picture says which of those is true right now, because a picture that has
+ * only ever been here exists in one place and he is the only one who can
+ * know that.
+ */
+function PictureField({ node }: { node: StudioNode }) {
+  const pic = node.picture ?? null;
+  const { src, looked } = usePicture(pic);
+  const [busy, setBusy] = React.useState(false);
+  const file = React.useRef<HTMLInputElement>(null);
+
+  const choose = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      const made = await putPicture(f, { alt: f.name.replace(/\.[a-z0-9]+$/i, ""), from: "upload" });
+      const had = node.picture;
+      useStudio.getState().updateNode(node.id, { picture: made });
+      // The one it replaced is nobody's now.
+      if (had) void dropPicture(had);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clear = () => {
+    const had = node.picture;
+    useStudio.getState().updateNode(node.id, { picture: null });
+    if (had) void dropPicture(had);
+  };
+
+  return (
+    <Field label="Picture" hint="Kept as a file, not inside the document, so a big one cannot take the board down with it.">
+      <div className="space-y-2">
+        {pic ? (
+          <div className="overflow-hidden rounded-md border border-border bg-elevated">
+            {src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={src} alt={pic.alt} className="block max-h-32 w-full object-cover" />
+            ) : looked ? (
+              <div className="p-3 text-[11px] leading-relaxed text-warn">
+                This picture is not in this browser any more. Choose it again to put it back.
+              </div>
+            ) : (
+              <div className="p-3 text-[11px] text-fg-muted">Looking for it…</div>
+            )}
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={file}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }}
+          />
+          <Button variant="outline" size="xs" disabled={busy} onClick={() => file.current?.click()}>
+            {pic ? "Choose another" : "Choose a picture"}
+          </Button>
+          {pic ? <Button variant="ghost" size="xs" onClick={clear}>Remove</Button> : null}
+        </div>
+        {pic ? (
+          <p className="text-[10px] leading-relaxed text-fg-muted">
+            {pic.published
+              ? <>Published with the site, at <code className="text-fg">{pic.path}</code>.</>
+              : <>This picture is in this browser only. It goes up with the site the next time you publish, as <code className="text-fg">{pic.path}</code>.</>}
+            {pic.bytes ? ` ${pic.bytes < 1024 * 1024 ? `${Math.round(pic.bytes / 1024)} KB` : `${(pic.bytes / 1024 / 1024).toFixed(1)} MB`}${pic.w ? `, ${pic.w}×${pic.h}` : ""}.` : ""}
+          </p>
+        ) : null}
+      </div>
+    </Field>
   );
 }
 
@@ -538,6 +620,7 @@ export function Inspector() {
         <Field label="Name">
           <Input value={node.label} onChange={(e) => update({ label: e.target.value })} />
         </Field>
+        <PictureField node={node} />
 
         {feature?.content ? (
           <Field label={feature.content.label} hint="Comma-separated. The board draws exactly this.">

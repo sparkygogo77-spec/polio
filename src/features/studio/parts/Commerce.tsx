@@ -6,7 +6,7 @@
  * generator has to make real is written into the blueprint, not faked here.
  */
 import * as React from "react";
-import { Btn, Fill, Placeholder, useTicker } from "./primitives";
+import { Btn, Fill, Placeholder, PictureSlot, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
@@ -65,7 +65,7 @@ export function ProductGrid({ id, content, options, theme: t, mode, emit, w }: P
 /* ---------------------------------------------------------------- detail */
 
 /** One product: gallery, options, price, add to cart. */
-export function ProductDetail({ id, content, theme: t, mode, emit, w }: PartProps) {
+export function ProductDetail({ id, content, theme: t, mode, emit, w, picture }: PartProps) {
   const [product, ...rest] = catalogue(content, ["This product: 48"], id + content);
   const variants = rest.length ? rest.map((r) => r.name) : ["Small", "Medium", "Large"];
   const [shot, setShot] = React.useState(0);
@@ -77,7 +77,7 @@ export function ProductDetail({ id, content, theme: t, mode, emit, w }: PartProp
   return (
     <Fill t={t} data-part={id} style={{ display: "flex", flexDirection: narrow ? "column" : "row", gap: t.fontPx * 1.2, overflow: "auto" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-        <div style={{ flex: 1, minHeight: t.fontPx * 6 }}><Placeholder t={t} label={`view ${shot + 1}`} mode={mode} /></div>
+        <div style={{ flex: 1, minHeight: t.fontPx * 6 }}><PictureSlot t={t} pic={picture?.pic} src={picture?.src} label={`view ${shot + 1}`} mode={mode} /></div>
         <div style={{ display: "flex", gap: 6 }}>
           {[0, 1, 2, 3].map((i) => (
             <button

@@ -35,6 +35,8 @@ export interface GeneratedFile {
   path: string;
   content: string;
   lang?: string;
+  /** Bytes rather than words: a picture, sent base64 and committed as a file. */
+  encoding?: "base64";
 }
 
 /**
@@ -687,7 +689,7 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
       method: "POST",
       headers: { "content-type": "application/json", ...publisherHeader() },
       body: JSON.stringify({
-        files: input.files.map((f) => ({ path: f.path, content: f.content })),
+        files: input.files.map((f) => ({ path: f.path, content: f.content, ...(f.encoding ? { encoding: f.encoding } : {}) })),
         message: input.message,
         deploy: input.deploy,
         // Which site this is. The server decides whether it may go there.
