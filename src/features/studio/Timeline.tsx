@@ -976,18 +976,40 @@ export function Timeline() {
     // Carrying a box: the view holds still until it is put down.
     stopSettle();
     let moved = false;
+    /* Where the box is, as of the last move: a cancelled drag puts it down there, not at the cancel event's own point, which is nowhere. */
+    let last: Point = from;
+    /*
+     * Letting go lets go, every time. Once a drag has begun the pointer is
+     * captured by the box that was pressed, so the release reaches it
+     * wherever the mouse is, outside the window included; and a drag the
+     * browser cancels midway ends the same way as a release, where before
+     * it left the box stuck to the mouse until the next click. He hit that
+     * by hand. Captured once it moves and not on the press: a captured
+     * pointer sends its click to the captor, and a press on a key inside
+     * the box would never reach the key.
+     */
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
     const move = (ev: PointerEvent) => {
       if (!moved && Math.hypot(ev.clientX - from0.x, ev.clientY - from0.y) < 4) return;
+      if (!moved) { try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ } }
       moved = true;
-      setDragging({ id, at: to(ev) });
+      last = to(ev);
+      setDragging({ id, at: last });
     };
+    let done = false;
     const up = (ev: PointerEvent) => {
+      if (done) return;
+      done = true;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      target.removeEventListener("lostpointercapture", up as EventListener);
+      try { if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId); } catch { /* already released */ }
       // A box that was carried somewhere is not a box that was clicked: the
       // click that follows a drag would otherwise open whatever was moved.
       if (moved) {
-        const at = to(ev);
+        const at = ev.type === "pointerup" ? to(ev) : last;
         useStudio.getState().moveThread(`box:${id}`, at.x, at.y);
         dropped.current = Date.now();
         play("tap");
@@ -998,6 +1020,8 @@ export function Timeline() {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    target.addEventListener("lostpointercapture", up as EventListener);
   };
 
   /** Dragging the ground pans the whole surface, as far as you like. */
@@ -1007,16 +1031,28 @@ export function Timeline() {
     stopSettle();
     const from = { x: e.clientX - viewAt.current.pan.x, y: e.clientY - viewAt.current.pan.y };
     let moved = false;
+    /* The same rule as a box: captured by the ground once the pan has begun, and a cancel ends it as a release does. */
+    const target = e.currentTarget;
+    const pointerId = e.pointerId;
     const move = (ev: PointerEvent) => {
       // Six, not three: a press with a mouse moves a pixel or two on its own,
       // and a trackpad more, and a press that read as a pan closed nothing.
-      if (Math.abs(ev.clientX - e.clientX) > 6 || Math.abs(ev.clientY - e.clientY) > 6) moved = true;
+      if (!moved && (Math.abs(ev.clientX - e.clientX) > 6 || Math.abs(ev.clientY - e.clientY) > 6)) {
+        moved = true;
+        try { target.setPointerCapture(pointerId); } catch { /* a pointer that is already gone */ }
+      }
       claim();
       setPan({ x: ev.clientX - from.x, y: ev.clientY - from.y });
     };
+    let done = false;
     const up = () => {
+      if (done) return;
+      done = true;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      target.removeEventListener("lostpointercapture", up as EventListener);
+      try { if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId); } catch { /* already released */ }
       /*
        * A press on the ground puts the open card away.
        *
@@ -1033,6 +1069,8 @@ export function Timeline() {
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    target.addEventListener("lostpointercapture", up as EventListener);
   };
 
   /*
@@ -1721,7 +1759,18 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
    * `ThreadDoc` only ever named the few fields somebody had read, so what is
    * handed over is the rest of the same object rather than a hope about it.
    */
-  const from: PreviewDoc | null = live ? now : (thread.doc as PreviewDoc | undefined) ?? null;
+  const kept: PreviewDoc | null = live ? now : (thread.doc as PreviewDoc | undefined) ?? null;
+  /*
+   * A picture only where there is something in it. A site with nothing on
+   * its page drew as its own empty backdrop, a dark field across the middle
+   * of the box, which on a carried-out box was most of the box. He asked
+   * for the box to look like the blue boxes, with a picture on top only
+   * where there is a picture. So an empty site is a line and a note on the
+   * texture, the way a kept-nothing update already is.
+   */
+  const pageOf = kept ? (kept.activePageId ?? kept.pages?.[0]?.id) : null;
+  const stands = !!kept && (kept.nodes ?? []).some((n) => !pageOf || n.pageId === pageOf);
+  const from = stands ? kept : null;
   /*
    * The same proportion as the picture on a Builds card, so the two read
    * as one object: that card's picture is 352 by 168, and this one is as
@@ -1743,8 +1792,8 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
         height: H,
         width: W,
         borderColor: "oklch(0.36 0.091 var(--box-hue, 152))",
-        /* Dark only under a picture: an empty frame is a line on the texture, not a black box over it. */
-        background: from ? "oklch(0.12 0.02 var(--box-hue, 152))" : "transparent",
+        /* Nothing painted behind the picture: the picture is the site's own, on top of the texture, and an empty frame is a line. */
+        background: "transparent",
         contentVisibility: "auto",
         containIntrinsicSize: `${W}px ${H}px`,
       }}
@@ -1753,7 +1802,7 @@ function SiteShot({ thread, live }: { thread: Thread; live: boolean }) {
         <SitePreview doc={from} width={W} height={H} />
       ) : (
         <span className="grid h-full w-full place-items-center text-[10px] font-semibold" style={{ color: BODY }}>
-          no picture of the site was kept with this one
+          {kept ? "nothing stands on the site yet" : "no picture of the site was kept with this one"}
         </span>
       )}
     </div>

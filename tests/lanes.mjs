@@ -343,6 +343,9 @@ const [g, bl] = [await look(green), await look(blue)];
 check("it is the same construct as the green boxes: same width, same floor, same corners, same padding, same rim weight, same cloud, same edge and glow layer, the same rows in the same order",
   bl.w === g.w && bl.minH === g.minH && bl.radius === g.radius && bl.pad === g.pad && bl.gap === g.gap && bl.rimWidth === g.rimWidth && bl.cloud === g.cloud && bl.still === g.still && bl.glow && g.glow && bl.rows === g.rows && bl.classes.startsWith("molten "),
   `green ${g.w} wide, floor ${g.minH}, ${g.radius}, pad ${g.pad}, rim ${g.rimWidth}, cloud ${g.cloud}/${g.still}, rows ${g.rows} · blue ${bl.w} wide, floor ${bl.minH}, ${bl.radius}, pad ${bl.pad}, rim ${bl.rimWidth}, cloud ${bl.cloud}/${bl.still}, rows ${bl.rows}`);
+/* His words: the carried-out box looks like the blue boxes; a picture sits on top only where there is one, and nothing dark is painted behind it. */
+const field = await blue.evaluate((e) => { const f = e.querySelector("[data-site-shot]"); return f ? { bg: getComputedStyle(f).backgroundColor, note: (f.textContent ?? "").trim().slice(0, 40), pic: !!f.querySelector("[data-site-shot] > div, [data-site-shot] > iframe, [data-site-shot] > span > div") } : null; });
+check("no black field on a carried-out box: the picture frame paints nothing behind it", !!field && field.bg === "rgba(0, 0, 0, 0)", field ? `${field.bg}, ${field.note || "a picture"}` : "no frame");
 check("and only the hue differs: azure where the green is verdant, a blue rim image where the green's is green", bl.classes.includes("molten-azure") && g.classes.includes("molten-verdant") && /rim-blue/.test(bl.rim) && /rim-green/.test(g.rim) && bl.hue !== g.hue, `${bl.classes} · ${bl.rim}`);
 const blueLabel = await blue.locator("span.uppercase").first().innerText();
 check("it is labelled as a lane's work, in the same place the green box carries its label", /lane/i.test(blueLabel), blueLabel.trim());

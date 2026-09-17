@@ -27,7 +27,7 @@ const tl = readFileSync("src/features/studio/Timeline.tsx", "utf8");
 
 check("a press anywhere off the card puts it away", /document\.addEventListener\("pointerdown", down, true\);/.test(tl) && /useStudio\.getState\(\)\.openThread\(null\);/.test(tl));
 check("…but not on the card, a box, the card's panel or a menu over it", /\[data-box\], \[data-card\], \[data-timeline-panel\], \[data-side-panel-timeline\], \[data-thread-menu\], \[role="dialog"\], \[role="menu"\], \[data-radial\]/.test(tl));
-check("…and the ground keeps telling a press from a pan, six pixels wide", /> 6 \|\| Math\.abs\(ev\.clientY - e\.clientY\) > 6\) moved = true;/.test(tl));
+check("…and the ground keeps telling a press from a pan, six pixels wide", /> 6 \|\| Math\.abs\(ev\.clientY - e\.clientY\) > 6\)\) \{\n        moved = true;/.test(tl));
 check("the menu over a box is marked so a press on it keeps the card", /data-thread-menu=""/.test(tl));
 check("an element card carries its own editor", /\{element && thread\.madeId \? <EditHere id=\{thread\.madeId\} skin=\{skin\} \/> : null\}/.test(tl));
 check("…for what it is called and what it is meant to be, written on the part", /data-edit-label=""/.test(tl) && /data-edit-prompt=""/.test(tl) && /useStudio\.getState\(\)\.updateNode\(node\.id, \{ label: name, prompt \}\);/.test(tl));
