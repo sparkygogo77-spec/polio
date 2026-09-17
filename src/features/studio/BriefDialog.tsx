@@ -24,7 +24,7 @@
  * things and hand them to any agent, and the book says so where it matters.
  */
 import * as React from "react";
-import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Pin, PinOff, Sparkles, Wand2, X } from "lucide-react";
+import { BookOpen, Camera, Check, Copy, Download, ExternalLink, FileJson, GitBranch, Globe, Loader2, Pin, PinOff, Search, Sparkles, Wand2, X } from "lucide-react";
 import { briefPrefix, compileSpec, specToJson, specToMarkdown } from "./spec";
 import { trailToMarkdown, useLanes } from "./PromptTrail";
 import { PinnedThreads, ThreadTree, usePieces } from "./ThreadTree";
@@ -32,7 +32,7 @@ import { QueueList } from "./DrawQueue";
 import { doneJobs, pendingJobs } from "./queue";
 import { piecesToSend, threadsToMarkdown } from "./threads";
 import { buildScaffold, gapsOf, type ScaffoldResult } from "./scaffoldRun";
-import { sitePictures, staticSite } from "./staticSite";
+import { auditCounts, auditSite, sitePictures, staticSite, type PageAudit } from "./staticSite";
 import { useStudio } from "./store";
 import { askClaude, claudeReady, deploy, deployStatus, filesFromMarkdown, MODES, noKeyMessage, publish, publishStatus, screenshotPages, screenshotsAvailable, siteFiles, watchDeploy, type AskMode, type DeployStatus, type Device, type GeneratedFile, type Picture, type PublishStatus } from "./agent";
 import { activeProject, useBuilds } from "@/features/builds/store";
@@ -99,6 +99,82 @@ function Card({ title, note, right, children, className }: { title?: React.React
 }
 
 /** The small capital label the whole Builder uses over a field. */
+/**
+ * What the publish will leave out, said here and nowhere else.
+ *
+ * THE RULING THIS EXISTS FOR: fail loudly in the Builder, never on the
+ * published site. The audit used to print itself at the foot of his live
+ * page — "nothing has been built for it yet", in a dashed border, to
+ * anybody who visited — which is both scaffolding a visitor should never
+ * see and a sentence about how the work is made, which his site never
+ * mentions at all. The page now shows what was built and omits what was
+ * not, and this is where the same information goes, at the same volume,
+ * beside the button that would send it.
+ *
+ * Read on demand, because it renders every page of the site to find out:
+ * pressing asks, and the answer stands until it is asked again.
+ */
+function LeftBehind() {
+  const [audit, setAudit] = React.useState<PageAudit[] | null>(null);
+  const [looking, setLooking] = React.useState(false);
+  const look = () => {
+    setLooking(true);
+    /* A frame, so the button has drawn as pressed before the render of
+       every page blocks the thread. */
+    requestAnimationFrame(() => {
+      try {
+        setAudit(auditSite());
+      } finally {
+        setLooking(false);
+      }
+    });
+  };
+  const total = audit ? auditCounts(audit) : 0;
+  return (
+    <div data-left-behind="" className="rounded-md border border-border bg-elevated/40 p-2">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-fg-faint">What will not go out</span>
+        <span className="flex-1" />
+        <Button variant="outline" size="sm" data-left-behind-look="" disabled={looking} onClick={look}>
+          {looking ? <Loader2 className="size-3 animate-spin" /> : <Search className="size-3" />}
+          {audit ? "Check again" : "Check"}
+        </Button>
+      </div>
+      {audit === null ? (
+        <p className="mt-1 text-[10px] leading-snug text-fg-faint">
+          The published page shows what was built and says nothing about what was not — no notes, no placeholders, nothing about how it
+          was made. This is where you find out what that leaves out.
+        </p>
+      ) : total === 0 ? (
+        <p data-left-behind-clean="" className="mt-1 text-[11px] text-up">Everything on the board reaches the page.</p>
+      ) : (
+        <ul data-left-behind-list="" className="mt-1 space-y-1.5">
+          {audit.filter((a) => auditCounts([a]) > 0).map((a) => (
+            <li key={a.page} data-left-behind-page={a.page}>
+              <div className="text-[11px] font-medium text-fg">{a.page}</div>
+              <Left what="in your layout, with no part built for it" names={a.sections} />
+              <Left what="showing words nobody has written" names={a.unwritten} />
+              <Left what="asked for in a prompt and not on the page" names={a.unsaid.map((u) => `${u.part}: ${u.words.join(" \u00b7 ")}`)} />
+              <Left what="drawing nothing at all" names={a.blank} />
+              <Left what="on the board, but on no page" names={a.unplaced} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function Left({ what, names }: { what: string; names: string[] }) {
+  if (!names.length) return null;
+  return (
+    <div className="mt-0.5 text-[10px] leading-snug text-fg-muted">
+      <span className="text-fg-faint">{names.length} {what}: </span>
+      {names.join(", ")}
+    </div>
+  );
+}
+
 function Label({ children }: { children: React.ReactNode }) {
   return <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">{children}</span>;
 }
@@ -825,6 +901,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       note={`${publishFiles.length} files: the document the app renders at /site, the blueprint, ${files.length ? `and ${files.length} generated` : "no generated code yet"}. What this does is written on the live thread's card.`}
     >
       <div data-brief-publish="" className="flex flex-col gap-1.5">
+        <LeftBehind />
         <div className="flex flex-wrap items-center gap-2">
           <Input inputSize="sm" value={pubMessage} onChange={(e) => setPubMessage(e.target.value)} placeholder="Commit message" className="min-w-40 flex-1" disabled={!!busy} />
           {pub?.vercel.hook ? (

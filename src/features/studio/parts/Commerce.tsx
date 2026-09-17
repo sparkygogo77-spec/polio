@@ -94,7 +94,7 @@ export function ProductDetail({ id, content, theme: t, mode, emit, w, picture }:
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: t.fontPx * 0.6, minWidth: 0 }}>
         <h2 style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 1.7, lineHeight: 1.15 }}>{p.name}</h2>
         <span style={{ color: t.accent, fontWeight: 700, fontSize: t.fontPx * 1.3 }}>{money(p.price)}</span>
-        <p style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 0.92, maxWidth: t.measurePx }}>{unwritten(mode, () => sample.sentence(rng(hash(p.name)), 14), p.name)}</p>
+        <p style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 0.92, maxWidth: t.measurePx }}>{unwritten(mode, () => sample.sentence(rng(hash(p.name)), 14), p.name, t.published)}</p>
         <div role="radiogroup" aria-label="Options" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {variants.map((v) => (
             <button
@@ -290,7 +290,7 @@ export function Pricing({ id, content, options, theme: t, mode, emit, w }: PartP
                 ${price}
                 <span style={{ fontSize: t.fontPx * 0.75, color: t.muted, fontWeight: 400 }}>/{yearly ? "mo, billed yearly" : "mo"}</span>
               </span>
-              {[0, 1, 2].map((k) => <span key={k} style={{ color: t.muted, fontSize: t.fontPx * 0.88 }}><span style={{ color: t.accent }}>✓</span> {unwritten(mode, () => sample.word(rng(hash(tier.title + k))), `${tier.title} ${k + 1}`)}</span>)}
+              {[0, 1, 2].map((k) => <span key={k} style={{ color: t.muted, fontSize: t.fontPx * 0.88 }}><span style={{ color: t.accent }}>✓</span> {unwritten(mode, () => sample.word(rng(hash(tier.title + k))), `${tier.title} ${k + 1}`, t.published)}</span>)}
               <span style={{ marginTop: "auto", display: "flex" }}>
                 <Btn t={t} label="Choose" primary={i === hot} onClick={() => emit?.({ type: "toast", text: `${tier.title}, $${price}/mo` })} style={{ width: "100%" }} />
               </span>

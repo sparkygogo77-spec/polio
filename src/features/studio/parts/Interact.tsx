@@ -257,7 +257,7 @@ export function HoverCard({ id, content, theme: t, mode }: PartProps) {
             <span aria-hidden style={{ width: t.fontPx * 2.2, height: t.fontPx * 2.2, borderRadius: 999, background: `${t.accent}44`, flexShrink: 0 }} />
             <span style={{ minWidth: 0 }}>
               <strong style={{ display: "block", fontSize: t.fontPx * 0.85 }}>{name}</strong>
-              <span style={{ color: t.muted, fontSize: t.fontPx * 0.76 }}>{rest[0] ?? unwritten(mode, () => sample.sentence(rng(hash(name!)), 8), name!)}</span>
+              <span style={{ color: t.muted, fontSize: t.fontPx * 0.76 }}>{rest[0] ?? unwritten(mode, () => sample.sentence(rng(hash(name!)), 8), name!, t.published)}</span>
             </span>
           </span>
         ) : null}

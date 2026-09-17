@@ -81,7 +81,7 @@ export function Grid({ id, content, options, theme: t, mode, onNavigate, w }: Pa
         >
           {ruled ? <Mark t={t} seed={card.title} /> : bare ? null : <Placeholder t={t} />}
           <span style={{ fontWeight: 600, fontFamily: t.headingFamily, fontSize: t.fontPx * 0.98, textTransform: ruled ? "uppercase" : undefined, letterSpacing: ruled ? "0.1em" : undefined }}>{card.title}</span>
-          <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{card.body ?? unwritten(mode, () => sample.sentence(rng(hash(card.title)), 6), card.title)}</span>
+          <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{card.body ?? unwritten(mode, () => sample.sentence(rng(hash(card.title)), 6), card.title, t.published)}</span>
         </button>
       ))}
     </Fill>
@@ -139,7 +139,7 @@ export function Split({ id, content, options, theme: t, mode, w }: PartProps) {
       {side === "right" && !narrow ? null : rail}
       <div style={{ flex: 1, minWidth: 0, ...cardStyle(t), padding: t.fontPx, color: t.muted, overflow: "auto" }}>
         <div style={{ fontWeight: 600, color: t.text, fontFamily: t.headingFamily, marginBottom: 6 }}>{list[active]}</div>
-        {unwritten(mode, () => sample.sentence(rng(hash(String(list[active]))), 14), String(list[active] ?? ""))}
+        {unwritten(mode, () => sample.sentence(rng(hash(String(list[active]))), 14), String(list[active] ?? ""), t.published)}
       </div>
       {side === "right" && !narrow ? rail : null}
     </Fill>
@@ -205,7 +205,7 @@ export function Footer({ id, content, options, theme: t, mode, onNavigate, link:
    * unchanged, and a site that has said its name once can say it twice.
    */
   const typed = items(content, ["About", "Pricing", "Docs", "Contact", "Privacy"]).map(titled);
-  const wordmark = typed.find((x) => x.body && ["logo", "wordmark"].includes(x.title.toLowerCase()))?.body ?? t.siteName ?? unwritten(mode, () => "Logo", "");
+  const wordmark = typed.find((x) => x.body && ["logo", "wordmark"].includes(x.title.toLowerCase()))?.body ?? t.siteName ?? unwritten(mode, () => "Logo", "", t.published);
   const links = typed
     .filter((x) => !(x.body && ["logo", "wordmark"].includes(x.title.toLowerCase())))
     .map((x) => (x.body ? `${x.title}: ${x.body}` : x.title));
@@ -262,7 +262,7 @@ export function Footer({ id, content, options, theme: t, mode, onNavigate, link:
             return (
               <div key={head} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: t.fontPx * 0.85, fontFamily: t.headingFamily }}>{head}</span>
-                {Array.from({ length: 3 }, (_, i) => link(unwritten(mode, () => sample.word(r), `${head} ${i + 1}`), i))}
+                {Array.from({ length: 3 }, (_, i) => link(unwritten(mode, () => sample.word(r), `${head} ${i + 1}`, t.published), i))}
               </div>
             );
           })}

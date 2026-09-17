@@ -27,7 +27,7 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
    */
   const typed = items(content, id === "mega-menu" ? ["Products", "Solutions", "Pricing", "Docs"] : ["Home", "Work", "About", "Contact"]).map(titled);
   const keyed = (key: string) => typed.find((x) => x.body && x.title.toLowerCase() === key)?.body ?? null;
-  const wordmark = keyed("logo") ?? keyed("wordmark") ?? t.siteName ?? unwritten(mode, () => "Logo", "");
+  const wordmark = keyed("logo") ?? keyed("wordmark") ?? t.siteName ?? unwritten(mode, () => "Logo", "", t.published);
   const buttonLabel = keyed("button") ?? keyed("cta") ?? "Get started";
   const links = typed.filter((x) => !(x.body && ["logo", "wordmark", "button", "cta"].includes(x.title.toLowerCase()))).map((x) => (x.body ? `${x.title}: ${x.body}` : x.title));
   const compact = id === "mobile-nav" || w < 640;
@@ -92,7 +92,7 @@ export function Header({ id, content, options, theme: t, mode, link, onNavigate,
 
 function MegaPanel({ t, label, onPick, mode }: { t: Theme; label: string; onPick: (l: string) => void; mode: PartMode }) {
   const r = rng(hash(label));
-  const groups = ["Overview", "By use", "Learn"].map((g) => ({ g, items: Array.from({ length: 3 }, (_, i) => unwritten(mode, () => sample.word(r), `${g} ${i + 1}`)) }));
+  const groups = ["Overview", "By use", "Learn"].map((g) => ({ g, items: Array.from({ length: 3 }, (_, i) => unwritten(mode, () => sample.word(r), `${g} ${i + 1}`, t.published)) }));
   return (
     <div role="menu" style={{ position: "absolute", left: 0, top: "calc(100% + 10px)", zIndex: 20, minWidth: 420, ...cardStyle(t), padding: t.fontPx, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: t.fontPx, boxShadow: `0 16px 40px ${t.light ? "oklch(0 0 0 / .14)" : "oklch(0 0 0 / .55)"}` }}>
       {groups.map(({ g, items: xs }) => (

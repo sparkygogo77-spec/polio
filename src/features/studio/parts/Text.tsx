@@ -16,7 +16,7 @@ export function Prose({ id, content, theme: t, mode }: PartProps) {
   // thinkers" was being drawn as three paragraphs, one clause each, which is
   // what the shared comma split does to every real sentence it is given.
   const typed = content.split("\n").map((x) => x.trim()).filter(Boolean);
-  const paras = typed.length ? typed : [unwritten(mode, () => sample.sentence(rng(hash(id)), 22)), unwritten(mode, () => sample.sentence(rng(hash(id + "2")), 18))];
+  const paras = typed.length ? typed : [unwritten(mode, () => sample.sentence(rng(hash(id)), 22), "", t.published), unwritten(mode, () => sample.sentence(rng(hash(id + "2")), 18), "", t.published)];
   const quote = id === "pull-quote";
   const dropCap = id === "drop-cap";
   const kinetic = id === "kinetic-type";
@@ -187,7 +187,7 @@ export function ArticleList({ id, content, theme: t, mode, onNavigate, w }: Part
           >
             <span style={{ color: t.muted, fontSize: t.fontPx * 0.75 }}>{sample.int(r, 1, 28)} {["Jan", "Feb", "Mar", "Apr", "May", "Jun"][sample.int(r, 0, 5)]}</span>
             <span style={{ fontWeight: 600, fontFamily: t.headingFamily }}>{e.title}</span>
-            <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? unwritten(mode, () => sample.sentence(r, 10), e.title)}</span>
+            <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? unwritten(mode, () => sample.sentence(r, 10), e.title, t.published)}</span>
           </button>
         );
       })}

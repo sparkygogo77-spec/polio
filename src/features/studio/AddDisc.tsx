@@ -37,7 +37,7 @@ import { useGround } from "./ground";
 import { BOARD_R } from "./menuGeometry";
 import { addFeatureToCanvas } from "./Palette";
 import { PartPreview, previewHeight } from "./PartPreview";
-import { PLANET } from "./planets";
+import { planetOf } from "./planets";
 import { CONSOLE, keyForHue, SCREEN } from "./RingConsole";
 import { useStudio } from "./store";
 
@@ -379,7 +379,7 @@ export function AddDisc({ at, onBack, onDone }: AddDiscProps) {
       <div role="tablist" aria-label="Categories" aria-orientation="vertical">
         {CATEGORIES.map((c, i) => {
           const on = !searching && c.id === category;
-          const Mark = PLANET[c.id];
+          const Mark = planetOf(c.id);
           const key = keyForHue(c.hue);
           return (
             <button

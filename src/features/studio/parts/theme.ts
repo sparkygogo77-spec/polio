@@ -76,6 +76,22 @@ export interface Theme {
    * part says so rather than inventing one.
    */
   siteName?: string;
+  /**
+   * True when this render is the page a visitor will be served.
+   *
+   * THE PUBLISH BOUNDARY, and the one rule across it: fail loudly in the
+   * Builder, never on the published site. He is the only person who needs
+   * to know a part did not render; a visitor must never see the
+   * scaffolding. So a part that would say "not written yet" where he is
+   * building says nothing at all where a stranger is reading — the page
+   * shows what was built and omits what was not — and everything the
+   * publish found is listed for him instead, beside the button.
+   *
+   * It is the absolute rule as well: the site never mentions him, the
+   * chats, the models, or how the work is made, and "nothing has been
+   * built for it yet" is a sentence about how the work is made.
+   */
+  published?: boolean;
 }
 
 /**

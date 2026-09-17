@@ -396,7 +396,7 @@ export function Timeline({ id, content, theme: t, mode }: PartProps) {
           </div>
           <div style={{ paddingBottom: t.fontPx * 0.8, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontFamily: t.headingFamily, fontSize: t.fontPx * 0.95 }}>{e.title}</div>
-            <div style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? unwritten(mode, () => sample.sentence(rng(hash(e.title)), 8), e.title)}</div>
+            <div style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{e.body ?? unwritten(mode, () => sample.sentence(rng(hash(e.title)), 8), e.title, t.published)}</div>
           </div>
         </div>
       ))}

@@ -167,7 +167,8 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   inside a scaled transform); pointer maths as rect ratios; every non-typed
   number comes from `parts/sample.ts`, seeded by the content, so board, live
   preview and generated site agree.
-- **Nothing a part invents may reach a page a stranger reads.** Sample prose
+- **Nothing a part invents, and nothing about how the work is made, may
+  reach a page a stranger reads.** Sample prose
   is how a layout reads on the board before anybody writes it; on a live or
   published page the same prose is the site talking in the owner's name about
   nothing, which is how his thesis went out as "Warm ledger clear orbit open
@@ -230,6 +231,44 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   belongs in the first screen.
 - *A new kind of mark on the board*: add a `ShapeKind` in `store.ts`, draw it
   in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
+
+**A repository can be connected, and its website lands as parts.** His
+words: "connecting an existing repo website and the subsequent website
+popping into my design board 1:1, and with a new category specifically for
+the elements this repo imports". 1:1 means every block of the page arrives
+as a real, editable part of this library at the position, size, words,
+colours and type the page actually had — measured in a browser, never
+described to a model. `repoImport.ts` is the pure half: the address
+somebody typed, which files a browser would ask for, which of them is the
+page (it asks `pageEntry`, so it cannot disagree with the route), the
+category a repository gets, and a stored-zip writer. `repoRun.ts` is the
+browser half: the tree and the blobs are fetched **by his browser with his
+own token** — the zipball redirects to codeload, which sends no CORS
+headers, and a token must never reach our server — packed here and handed
+to the zip route that already exists, so a private repository works like a
+public one and no new server capability was added. Its elements are kept
+as **presets** (`FeatureDef.basedOn` + `preset`) in a category of their
+own: `store.shelve` hands them to the catalogue, `getFeature` and
+`searchFeatures` see one library rather than two, and `addNode` unfolds a
+preset into an ordinary node, so the shelf, the wheel, search and "add
+here" all work without knowing where a part came from. A repository with
+no page in it to open says so and names what it found.
+
+**Fail loudly in the Builder, never on the published site.** The publish
+boundary is a rule, not a detail: he is the only person who needs to know a
+part did not render, and a visitor must never see the scaffolding. It is
+also the absolute rule — the site never mentions him, the chats, the models
+or how the work is made, and "nothing has been built for it yet" is a
+sentence about how the work is made. The audit shipped once: his live page
+served that note, a "No words written for these yet" block and an "Asked
+for in the prompt and not on the page" list to anybody who visited. So
+`Theme.published` is true only for the page a visitor is served;
+`unwritten()` gives sample prose on the board, the plain fact in the live
+preview, and nothing at all published; `LiveSite` stands no note for an
+unbuilt section there; and `staticSite` writes no in-place note and no foot
+block. Nothing is lost — `auditSite()` gathers the same five lists and the
+publish card shows them under "What will not go out", which is the same
+information at the same volume on the side of the boundary that is his.
 
 **What the brief promises, the page carries or admits.** Four faults he
 measured on his own deploy were one fault: the brief said a thing and the

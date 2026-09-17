@@ -51,7 +51,24 @@ export const NOT_WRITTEN = "— not written yet —";
  * words are missing, and `staticSite` names every part that had to say it,
  * which is the loud failing rather than the silent one.
  */
-export function unwritten(mode: "board" | "live", made: () => string, what = ""): string {
+export function unwritten(mode: "board" | "live", made: () => string, what = "", published = false): string {
+  /*
+   * Three places, one question, three different right answers.
+   *
+   * On the board, sample prose: a layout of empty boxes cannot be read,
+   * and the board is where the shapes are being arranged.
+   *
+   * In the live preview, the plain fact that nothing was written. That is
+   * where he looks at what a visitor will get, and it is the loud failing
+   * he asked for, on the side of the publish boundary that is his.
+   *
+   * On the published page, nothing at all. An unwritten card is not
+   * written rather than written as a confession: the page shows what was
+   * built and omits what was not, and never says a word about how the
+   * work is made. Every one of these is listed for him at the publish
+   * instead, which is the same information on the other side of the line.
+   */
+  if (published) return "";
   if (mode === "board") return made();
   const name = what.trim();
   return name ? `${name} ${NOT_WRITTEN}` : NOT_WRITTEN;

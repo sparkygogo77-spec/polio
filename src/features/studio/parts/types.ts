@@ -18,8 +18,10 @@
  *     hand-roll ARIA (`role="tablist"`, `aria-expanded`, `role="dialog"`)
  *   - pointer maths as rect ratios so it works at any scale
  *   - every random-looking number comes from `sample.ts`, seeded by content
- *   - words nobody typed go through `unwritten(mode, …)`: sample prose is
- *     how a layout reads on the board, and a lie on a page a stranger reads
+ *   - words nobody typed go through `unwritten(mode, …, t.published)`:
+ *     sample prose on the board, the plain fact in the live preview, and
+ *     nothing at all on the page a stranger is served — fail loudly in the
+ *     Builder, never on the published site
  *   - a wordmark with nothing typed for it is `t.siteName`, never "Logo"
  *   - the root element carries `data-part={id}`
  */

@@ -109,6 +109,9 @@ const partsOf = (p) => p.evaluate(() => {
       frames,
       framed: [...el.querySelectorAll("iframe")].reduce((n, f) => n + (f.getAttribute("srcdoc")?.length ?? 0), 0),
       imgs: el.querySelectorAll("img").length,
+      /* Whether what it is showing is a stand-in for words nobody wrote.
+         Those are meant to shrink to nothing on the published page. */
+      standIn: /not written yet/i.test(el.textContent || ""),
     };
   }
   return out;
@@ -173,7 +176,19 @@ for (const id of Object.keys(before)) {
 
 const missing = Object.keys(before).filter((id) => !after[id]);
 check("no part is absent from the published page", missing.length === 0, missing.join(", ") || "none");
-const emptied = Object.keys(before).filter((id) => after[id] && before[id].text > 8 && after[id].text < before[id].text * 0.5);
+/*
+ * A part may only lose what was never his.
+ *
+ * The export is not lossy and that is what this holds. The one shrink
+ * that is correct is a part whose preview was standing in for words
+ * nobody wrote: in the Builder it says so, on the published page it says
+ * nothing at all, and the difference between the two is the ruling, not a
+ * fault. So a part that was showing a stand-in is allowed to shrink; any
+ * other part that loses half its words is the old bug.
+ */
+const emptied = Object.keys(before).filter((id) => after[id] && !before[id].standIn && before[id].text > 8 && after[id].text < before[id].text * 0.5);
+const stood = Object.keys(before).filter((id) => before[id].standIn);
+check("a part standing in for words nobody wrote publishes without them", stood.every((id) => (after[id]?.text ?? 0) < before[id].text), stood.map((id) => `${id} ${before[id].text}\u2192${after[id]?.text ?? 0}`).join(", ") || "no part was standing in");
 check("no part loses half its words on the way", emptied.length === 0,
   emptied.map((id) => `${id} ${before[id].text}→${after[id].text}`).join(", ") || "none");
 const lostFrames = Object.keys(before).filter((id) => before[id].frames > 0 && (after[id]?.framed ?? 0) < before[id].framed * 0.9);
@@ -185,19 +200,26 @@ check("no picture is dropped", lostImgs.length === 0, lostImgs.map((id) => `${id
    where it stood. A fixture part with nothing but a written prompt is the
    case that used to go out as a gap. */
 const unmade = await out.evaluate(() => [...document.querySelectorAll("[data-unmade]")].map((e) => (e.textContent || "").replace(/\s+/g, " ").trim()));
-/* innerText is the *rendered* text, and the heading is uppercased by CSS. */
-const named = await out.evaluate(() => /not on this page yet/i.test(document.body.innerText || ""));
-check("a part that could not be published names itself on the page rather than leaving a gap",
-  unmade.length === 0 || unmade.every((t) => t.length > 10), unmade.join(" · ") || "every part published as itself");
-/* The fixture puts one part on a page that does not exist, which is the one
-   shape that vanished without trace. Written as an assertion and not as a
-   note: the first version of this line passed `true` and could only ever
-   agree with itself. */
-const orphanNames = nodes.filter((x) => x.pageId !== "p0").map((x) => x.label);
 const said = await out.evaluate(() => document.body.innerText || "");
-check("a part on the board that no page claims is named on the published page",
-  orphanNames.every((nm) => said.includes(nm)),
-  `${orphanNames.join(", ")} — ${named ? "the page lists them" : "the page says nothing about them"}`);
+/*
+ * THE RULING, which reverses what these two lines used to hold.
+ *
+ * They used to check that a part which could not be published named
+ * itself on the page, and that a part no page claims was listed at the
+ * foot of it. Both shipped: his live site served "not on this page yet"
+ * and "nothing has been built for it yet" to anybody who visited. He is
+ * the only person who needs to know a part did not render, and a note
+ * about how the work is made is the one thing his site never mentions.
+ * So the page shows what was built and omits what was not, and the same
+ * list is in the Builder beside the publish button instead.
+ */
+check("no part leaves a note on the published page about not being published",
+  unmade.length === 0 && !/described rather than drawn|nothing to publish/i.test(said),
+  unmade.join(" · ") || "no notes on the page");
+const orphanNames = nodes.filter((x) => x.pageId !== "p0").map((x) => x.label);
+check("and a part no page claims is left out of it rather than listed on it",
+  !/not on this page yet/i.test(said) && !orphanNames.some((nm) => said.includes(nm)),
+  `${orphanNames.join(", ")} — ${/not on this page yet/i.test(said) ? "the page still lists them" : "the page says nothing about them"}`);
 check("and nothing prints a builder's placeholder word into the page",
   !/\bvisual\b/i.test(await out.evaluate(() => document.body.innerText)),
   (await out.evaluate(() => document.body.innerText)).match(/.{0,24}visual.{0,24}/i)?.[0] ?? "none");

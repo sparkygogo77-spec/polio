@@ -60,7 +60,7 @@ export function Profile({ id, content, theme: t, mode, emit }: PartProps) {
           </span>
         </div>
         <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.2 }}>{name}</strong>
-        <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>{bio ?? unwritten(mode, () => sample.sentence(r, 9), "Bio")}</span>
+        <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>{bio ?? unwritten(mode, () => sample.sentence(r, 9), "Bio", t.published)}</span>
         <div style={{ display: "flex", gap: t.fontPx, color: t.muted, fontSize: t.fontPx * 0.82, marginTop: "auto" }}>
           {stats.map((s) => <span key={s}>{s}</span>)}
         </div>
