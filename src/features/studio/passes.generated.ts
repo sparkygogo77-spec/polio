@@ -2,20 +2,34 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T21:48:28.905Z";
+export const GENERATED_AT = "2026-09-17T22:11:07.710Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "a91307a",
-    "when": "2026-09-17T21:40:36+00:00",
+    "id": "dbeaf11",
+    "when": "2026-09-17T22:11:07+00:00",
     "day": "17 September",
     "changes": [
+      {
+        "id": "3410536",
+        "says": "The record says what changed about the site and nothing about the making",
+        "when": "2026-09-17T22:02:48+00:00",
+        "kind": "new"
+      },
       {
         "id": "a91307a",
         "says": "The column gets the middle; the fan hangs off it",
         "when": "2026-09-17T21:40:36+00:00",
         "kind": "new"
-      },
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "090b096",
+    "when": "2026-09-17T21:56:28+00:00",
+    "day": "17 September",
+    "changes": [
       {
         "id": "995b3b2",
         "says": "The fit measures every box, and there is only one way into the timeline",
@@ -27,7 +41,29 @@ export const PASSES: Pass[] = [
         "says": "Two controls on the light panel were dead; here they are by name",
         "when": "2026-09-17T21:15:45+00:00",
         "kind": "new"
-      },
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0a4b3fc",
+    "when": "2026-09-17T21:56:19+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "0a4b3fc",
+        "says": "The suite set is not chosen by the diff: write down the floor",
+        "when": "2026-09-17T21:56:19+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
+  {
+    "id": "11aaa28",
+    "when": "2026-09-17T20:40:01+00:00",
+    "day": "17 September",
+    "changes": [
       {
         "id": "c62b8cc",
         "says": "The fit belongs to the room, so it follows the room",
@@ -51,25 +87,57 @@ export const PASSES: Pass[] = [
         "says": "Centring is centring in what you can see, and one readout does it",
         "when": "2026-09-17T19:28:13+00:00",
         "kind": "new"
-      },
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "4b40472",
+    "when": "2026-09-17T19:12:53+00:00",
+    "day": "17 September",
+    "changes": [
       {
         "id": "9add4f1",
         "says": "Fail loudly in the Builder, never on the published site",
         "when": "2026-09-17T18:57:18+00:00",
         "kind": "new"
-      },
+      }
+    ],
+    "more": 1
+  },
+  {
+    "id": "b807be2",
+    "when": "2026-09-17T19:05:08+00:00",
+    "day": "17 September",
+    "changes": [
       {
         "id": "6dedfbb",
         "says": "A surface is a page",
         "when": "2026-09-17T18:24:40+00:00",
         "kind": "new"
-      },
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "c472ffb",
+    "when": "2026-09-17T18:09:08+00:00",
+    "day": "17 September",
+    "changes": [
       {
         "id": "8753e2d",
         "says": "What the brief promises, the page carries or says it does not",
         "when": "2026-09-17T17:58:49+00:00",
         "kind": "new"
-      },
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "b9512c2",
+    "when": "2026-09-17T09:08:44+00:00",
+    "day": "17 September",
+    "changes": [
       {
         "id": "5d4edae",
         "says": "A part can hold a picture, and the picture is a file",
@@ -77,7 +145,7 @@ export const PASSES: Pass[] = [
         "kind": "new"
       }
     ],
-    "more": 3
+    "more": 1
   },
   {
     "id": "a166f97",
@@ -320,187 +388,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 1
-  },
-  {
-    "id": "aef261f",
-    "when": "2026-09-15T19:50:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "aef261f",
-        "says": "The shelf gets a box worth scrolling, and neither region pushes the other",
-        "when": "2026-09-15T19:50:28+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c98c2ed",
-    "when": "2026-09-15T19:45:10+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "e467b4e",
-        "says": "The contrast measure was reading the plate as ink, and the worst word was on the bar",
-        "when": "2026-09-15T17:12:11+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "ba3e8e1",
-        "says": "Build exports what the live page puts round a part: entrances, auras, links, the wash, the veil, the backdrop",
-        "when": "2026-09-15T16:42:52+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "390703e",
-        "says": "The cube session's five loose checks say what they measure",
-        "when": "2026-09-15T13:47:07+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "754b59f",
-        "says": "The crop picker says when its picture never shows, and a tall picture does not run away",
-        "when": "2026-09-15T13:44:46+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "8a67c3b",
-        "says": "A zip's page gets its assets under their own names, and a data script is not scripts",
-        "when": "2026-09-15T13:41:19+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "4dd3e55",
-        "says": "The zip reader reads names as they were written, says what it cannot unpack, and inflates no further than declared",
-        "when": "2026-09-15T13:38:36+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "d3232cb",
-        "says": "A video the browser cannot play still goes in; a long recording keeps its length",
-        "when": "2026-09-15T13:31:54+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "30d644c",
-        "says": "The recorded tour fits the time the route has, and says what it did with the width",
-        "when": "2026-09-15T13:29:05+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "26c7fdf",
-        "says": "A narrowed part grows to hold its words; the turn of a line is found in the line's own language",
-        "when": "2026-09-15T13:23:52+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "f0119f9",
-        "says": "The image route reads a picture off its bytes, shares one base64 reader, and clocks its fetch",
-        "when": "2026-09-15T13:18:32+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "e7abbd1",
-        "says": "A column drawn taller than the ceiling keeps its proportion",
-        "when": "2026-09-15T13:15:56+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "d02075a",
-        "says": "A text box is not a cube",
-        "when": "2026-09-15T13:12:44+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 31
-  },
-  {
-    "id": "0d1697f",
-    "when": "2026-09-15T19:28:10+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "0d1697f",
-        "says": "The width binds the zoom and the height never does, because the height is content",
-        "when": "2026-09-15T19:28:10+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "afad8a0",
-        "says": "The page's wheel is audited slab by slab, and a check that read its own name wrong goes",
-        "when": "2026-09-15T10:42:22+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "95da293",
-    "when": "2026-09-15T09:37:41+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "607c61e",
-        "says": "The floor caps what stopping motion can win, not what removing content can",
-        "when": "2026-09-15T09:34:57+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "a4a4ae8",
-    "when": "2026-09-15T09:19:59+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "a4a4ae8",
-        "says": "A page you have not seen starts at its top, and the rest of the contract is held",
-        "when": "2026-09-15T09:19:59+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "adf66c6",
-    "when": "2026-09-15T09:12:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "eceebca",
-        "says": "Every reading is taken on a tab that is in front, and says so",
-        "when": "2026-09-15T09:06:32+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9600474",
-    "when": "2026-09-15T08:48:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "362b300",
-        "says": "A part wearing a drifting texture drifts",
-        "when": "2026-09-15T08:45:29+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "1283f1a",
-        "says": "A cube or a solid turned on the full preview page stays turned",
-        "when": "2026-09-15T08:45:29+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "99728da",
-        "says": "The routes behind a drawing have a deadline at both ends",
-        "when": "2026-09-15T08:45:29+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
   }
 ];
