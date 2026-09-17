@@ -56,6 +56,16 @@ export interface LiveSiteProps {
    * was: a board with no empty regions has nothing to say here either.
    */
   shapes?: StudioShape[];
+  /**
+   * How far inside another page this one is being drawn.
+   *
+   * A surface is a page, so a cube on the home page can carry the About
+   * page on one side — and the About page could carry a cube of its own.
+   * One level is a cube with pages on it; two would be a hall of mirrors
+   * that costs the browser real work for something nobody can read. So
+   * the page inside a surface draws its parts and hands no surfaces on.
+   */
+  depth?: number;
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -74,7 +84,7 @@ export function resolvePageLink(pages: StudioPage[], target: string): StudioPage
 
 interface Toast { id: number; text: string; level: string }
 
-export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes }: LiveSiteProps) {
+export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, look, onNavigatePage, onEvent, nodeProps, pictureAt, siteName, shapes, depth = 0 }: LiveSiteProps) {
   const t = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const light = look?.light;
@@ -129,6 +139,53 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
     [pages, onNavigatePage, emit],
   );
 
+  /*
+   * A page, drawn to fit a surface.
+   *
+   * The same component, at the site's own width, scaled down to the box it
+   * is standing on and left un-pointable so the thing it is on can still
+   * be turned. The page it is standing on is not offered — a surface
+   * showing the page it is part of is a mirror, not a page — and neither
+   * is anything one level further in.
+   */
+  const surface = React.useCallback(
+    (target: string, box: { w: number; h: number }): React.ReactNode => {
+      if (depth > 0) return null;
+      const page = resolvePageLink(pages, target);
+      if (page?.id === pageId) return null;
+      // A side bound to a page that has since been deleted. The side says
+      // so; it does not quietly become a blank face of a box.
+      if (!page) {
+        return (
+          <div data-cube-surface="gone" style={{ width: box.w, height: box.h, display: "grid", placeItems: "center", padding: 10, boxSizing: "border-box", textAlign: "center", color: t.muted, fontFamily: t.bodyFamily, fontSize: Math.max(9, Math.round(Math.min(box.w, box.h) * 0.07)), pointerEvents: "none" }}>
+            the page this side showed is not in the site any more
+          </div>
+        );
+      }
+      const scale = Math.max(0.02, box.w / Math.max(1, frameWidth));
+      return (
+        <div data-cube-surface={page.id} style={{ width: box.w, height: box.h, overflow: "hidden", pointerEvents: "none" }}>
+          <div style={{ width: frameWidth, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+            <LiveSite
+              pages={pages}
+              nodes={nodes}
+              pageId={page.id}
+              device="desktop"
+              frameWidth={frameWidth}
+              format={format}
+              look={look}
+              siteName={siteName}
+              shapes={shapes}
+              pictureAt={pictureAt}
+              depth={depth + 1}
+            />
+          </div>
+        </div>
+      );
+    },
+    [depth, pages, pageId, nodes, frameWidth, format, look, siteName, shapes, pictureAt, t.muted, t.bodyFamily],
+  );
+
   const transition = String(format["pages.transition"] ?? "fade");
   const motion = String(format["motion.level"] ?? "moderate");
   const animation =
@@ -160,7 +217,7 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
                 animation: entranceCss(p.node.anim, p.node.animSpeed, p.node.animDelay, p.node.animEase),
               }}
             >
-              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} />
+              <Block node={p.node} t={t} palette={palette} light={light} page={{ w: width, h: height }} layers={look?.texture} mode="live" size={{ w: p.w, h: p.h }} onNavigate={navigate} emit={(e) => emit(e, p.node.id)} pictureAt={pictureAt} surface={surface} />
             </div>
           ))}
           {sections.map((sec) => (

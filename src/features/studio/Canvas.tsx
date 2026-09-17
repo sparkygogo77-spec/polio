@@ -16,6 +16,7 @@ import { getFeature, categoryOf } from "./catalog";
 import { isLinkable } from "./parts";
 import { useActions } from "@/core/actions";
 import { Block, themeFrom } from "./blocks";
+import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { pictureOf } from "./reshapeRun";
 import { describeSketch } from "./sketch";
 import { resolvePalette } from "./parts/theme";
@@ -1731,6 +1732,43 @@ function FillTab({ node, chipScale }: { node: StudioNode; chipScale: number }) {
   );
 }
 
+/**
+ * A page of the site, standing on a cube's surface, on the board.
+ *
+ * The same renderer the preview and the published page use, at the site's
+ * own width and scaled into the box the face gives it. Its own page is
+ * never offered — a surface showing the page it is part of is a mirror —
+ * and nothing inside it takes a pointer, so the cube can still be turned
+ * by dragging across it. Mounted only for a cube that has a page bound to
+ * a face, so a board of ordinary parts pays nothing for it.
+ */
+function BoardSurface({ target, on, box }: { target: string; on: string; box: { w: number; h: number } }) {
+  const pages = useStudio((s) => s.pages);
+  const nodes = useStudio((s) => s.nodes);
+  const format = useStudio((s) => s.format);
+  const look = useStudio((s) => s.look);
+  const shapes = useStudio((s) => s.shapes);
+  const siteName = useStudio((s) => s.brief.name);
+  const frameWidth = useStudio((s) => s.frameWidth);
+  const page = resolvePageLink(pages, target);
+  if (page?.id === on) return null;
+  if (!page) {
+    return (
+      <div data-cube-surface="gone" className="grid size-full place-items-center px-2 text-center text-[9px] leading-snug text-fg-faint" style={{ width: box.w, height: box.h, pointerEvents: "none" }}>
+        the page this side showed is not in the site any more
+      </div>
+    );
+  }
+  const scale = Math.max(0.02, box.w / Math.max(1, frameWidth));
+  return (
+    <div data-cube-surface={page.id} style={{ width: box.w, height: box.h, overflow: "hidden", pointerEvents: "none" }}>
+      <div style={{ width: frameWidth, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+        <LiveSite pages={pages} nodes={nodes} pageId={page.id} device="desktop" frameWidth={frameWidth} format={format} look={look} siteName={siteName} shapes={shapes} depth={1} />
+      </div>
+    </div>
+  );
+}
+
 const NodeView = React.memo(function NodeView({ node, selected, theme, palette, zoom, light, page, layers, flash }: { node: StudioNode; selected: boolean; theme: ReturnType<typeof themeFrom>; palette: Palette; zoom: number; light?: Light; page: { w: number; h: number }; layers?: TextureLayer[]; flash?: boolean }) {
   // What a picked part is marked in: the far side of its own aura or fill.
   // Not the app's accent, which was the loudest thing on the board and sat
@@ -1902,6 +1940,14 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
            * writes it down.
            */
           pick={pickedSide ? { id: pickedSide, colour: mark } : null}
+          /*
+           * A surface is a page, on the board as on the site. Only a cube
+           * that has one bound gets the renderer at all; pressing a face
+           * on the board still picks it, because the board is where the
+           * faces are edited and jumping pages mid-edit is not an answer
+           * to a press.
+           */
+          surface={node.cube?.faces?.some((f) => f.pageId?.trim()) ? (target, box) => <BoardSurface target={target} on={node.pageId} box={box} /> : undefined}
           emit={(e) => {
             // Where a thing you can turn was left is worth keeping, so the
             // board draws that angle and publish ships it.

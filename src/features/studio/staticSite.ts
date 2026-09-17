@@ -145,6 +145,13 @@ function markupOf(el: React.ReactElement, width: number, expect: Expected[]): Au
     flushSync(() => root.render(el));
     const seen = new Set<string>();
     for (const box of Array.from(host.querySelectorAll("[data-live-node]"))) {
+      /*
+       * A surface is a page, so this page's markup can hold another page's
+       * parts. Those belong to that page and are audited on it; counted
+       * here they would be read as this page's, and a part that is both
+       * missing here and present on a cube would be called present.
+       */
+      if (box.closest("[data-cube-surface]")) continue;
       const id = box.getAttribute("data-live-node") ?? "";
       seen.add(id);
       const part = expect.find((p) => p.id === id);

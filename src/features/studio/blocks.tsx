@@ -48,9 +48,18 @@ export interface BlockProps {
    * there and there is no browser storage on the other end.
    */
   pictureAt?: (pic: Picture) => string | undefined;
+  /**
+   * A page of the site, drawn small: what a cube's surface stands on.
+   *
+   * The renderer is the site's, so it cannot be imported here without
+   * turning the layering upside down — `LiveSite` draws blocks, not the
+   * other way about. So it is handed in, and a board that has no way to
+   * draw a page simply does not pass one.
+   */
+  surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
 }
 
-export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt }: BlockProps) {
+export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface }: BlockProps) {
   const def = resolvePart(node.featureId);
   /*
    * The picture, resolved once for the part. The hook runs for every part
@@ -182,6 +191,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       pick={pick ?? null}
       mesh={node.mesh}
       vector={node.vector}
+      surface={surface}
       onNavigate={onNavigate}
       emit={emit}
     />

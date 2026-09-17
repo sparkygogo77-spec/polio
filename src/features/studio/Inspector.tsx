@@ -995,6 +995,14 @@ const FACE_COLOURS = [
 
 function Faces({ node, palette }: { node: StudioNode; palette: Record<string, string> | null }) {
   const set = useStudio((s) => s.setCubeFace);
+  /*
+   * Every page but the one the cube is standing on. A surface showing the
+   * page it is part of is a mirror, so it is not offered — the cube would
+   * draw nothing there and the face would fall back to its words, which
+   * looks like a bug rather than a rule.
+   */
+  const pages = useStudio((s) => s.pages);
+  const sites = React.useMemo(() => pages.filter((p) => p.id !== node.pageId), [pages, node.pageId]);
   const picked = useStudio((s) => (s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
   const faces = React.useMemo(() => CUBE_SIDES.map((_, i) => node.cube?.faces?.[i] ?? emptyFace()), [node.cube]);
   const filled = written(node.cube);
@@ -1020,12 +1028,12 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
   return (
     <Field
       label="Faces"
-      hint={`${filled} of six written. A face left blank stays blank: nothing is invented for it. Press a face on the cube, or its name here, to pick it.`}
+      hint={`${filled} of six written. A face left blank stays blank: nothing is invented for it. Press a face on the cube, or its name here, to pick it. A face given a page becomes that page — the page's own parts on the side of the box, and a press goes there.`}
     >
       <div className="flex flex-col gap-2" data-face-list="">
         {CUBE_SIDES.map((side, i) => {
           const face = faces[i]!;
-          const bare = !face.heading.trim() && !face.body.trim();
+          const bare = !face.heading.trim() && !face.body.trim() && !face.pageId;
           const on = picked === side;
           return (
             <div
@@ -1055,7 +1063,7 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                 <button
                   type="button"
                   aria-label={`Clear the ${side} face`}
-                  disabled={bare && !face.colour && !(face.prompt ?? "").trim()}
+                  disabled={bare && !face.colour && !(face.prompt ?? "").trim() && !face.pageId}
                   onClick={() => set(node.id, i, null)}
                   className="tactile rounded-sm border border-border px-1.5 py-0.5 text-[9px] text-fg-muted disabled:opacity-40 hover:text-fg"
                 >
@@ -1090,6 +1098,44 @@ function Faces({ node, palette }: { node: StudioNode; palette: Record<string, st
                 placeholder="What this face is for"
                 onChange={(e) => set(node.id, i, { prompt: e.target.value })}
               />
+              {/* A surface is a page. Given one, this side stops being a
+                  card with words on it and becomes that page, drawn at the
+                  face's size; its heading and body wait behind it and come
+                  back the moment the page is taken off. */}
+              {sites.length ? (
+                <div className="mt-1 flex flex-wrap items-center gap-1" data-face-pages={side}>
+                  <span className="text-[9px] uppercase tracking-[0.14em] text-fg-faint">page</span>
+                  <button
+                    type="button"
+                    data-pick-page="none"
+                    aria-pressed={!face.pageId}
+                    onClick={() => { play("close"); set(node.id, i, { pageId: null }); }}
+                    className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", !face.pageId ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
+                  >
+                    none
+                  </button>
+                  {sites.map((p) => {
+                    const on = face.pageId === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        data-pick-page={p.id}
+                        aria-pressed={on}
+                        onClick={() => { play(on ? "close" : "confirm"); set(node.id, i, { pageId: on ? null : p.id }); }}
+                        className={cn("tactile rounded-sm border px-1.5 py-0.5 text-[9px]", on ? "border-accent bg-accent/15 text-fg" : "border-border text-fg-muted hover:text-fg")}
+                      >
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {face.pageId ? (
+                <p className="mt-1 text-[9px] leading-snug text-fg-faint">
+                  This side is the page. Its heading and body are kept and come back when the page is taken off.
+                </p>
+              ) : null}
               {/* One colour, named as a role, so a face stays inside the
                   site's palette rather than becoming a colour nobody can
                   find again. */}
