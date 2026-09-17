@@ -2,9 +2,53 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T06:31:22.862Z";
+export const GENERATED_AT = "2026-09-17T06:33:57.675Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "a166f97",
+    "when": "2026-09-17T06:33:46+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "2544bdc",
+        "says": "A part that cannot be published says so on the page, and no builder's word goes out with it",
+        "when": "2026-09-17T06:22:06+00:00",
+        "detail": [
+          "Four sections of his site did not publish and the page said nothing about it. Before fixing anything I measured what the export actually loses, part by part: the preview settled against the page that ships, both read through `data-live-node`.",
+          "IT LOSES NOTHING. Seven kinds of part — a bar, a hero, one whose body the renderer drew, one that is only a written prompt, number tiles, an accordion with its panels closed, a footer — and every one of them is identical in the published page, markup length for markup length: 3670→3670, 2183→2183, 252 words→252, and the drawn body keeps all 1100 characters inside its frame. So what is missing from his site is missing from his preview too, and the question is the renderer's, not the exporter's.",
+          "What I could reproduce of his four, exactly: a part whose detail lives only in its written prompt renders as a skeleton — its label and nothing else, twenty-five characters where he expects a card. That is the Thesis eyebrow and Connect wallet. A part the registry does not know is NOT dropped; it draws a labelled box. The one shape that vanishes without trace is a part whose `pageId` names a page that no longer exists: no page claims it, so nothing ever asks it to render, and it is on the board and nowhere else.",
+          "So, his rule, and it is the right one: a part that cannot be published faithfully says so where it stood. Every page is audited as it is written. A part that drew nothing — no words, no picture, no frame, no paint of its own — is labelled in its own place with its own name. A part no page claims is named at the foot of the home page. Neither is silent, and the next publish of his board will name the four rather than swallow them."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "62ba427",
+    "when": "2026-09-17T06:33:36+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "62ba427",
+        "says": "Regenerate the passes record for the dijkstra merge",
+        "when": "2026-09-17T06:33:36+00:00",
+        "detail": [
+          "The deployed build has no .git to read, so the record is regenerated on every pass. 24 passes, 69 changes."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "4ad8737",
     "when": "2026-09-17T06:31:08+00:00",
@@ -1099,132 +1143,6 @@ export const PASSES: Pass[] = [
           "One conflict, in RadialMenu.tsx, and it was an import list: trunk's is bardeen's plus Files, Film, Monitor and Scissors, which arrived with the cube work. Resolved as the union, which is trunk's set, and typecheck agrees nothing is missing or spare.",
           "Merge otherwise clean, typecheck clean, build rc=0. Run here on the build, port 4282:",
           "preview-here        5/5 passed page-scroll-live    5/5 passed behaviours-named    5/5 passed published-width     8/8 passed shot-cut            6/6 passed vercel-pages        6/6 passed wheel-pass         12 of 12 hold board-edges        11 of 11 hold full-page          45 of 45 hold"
-        ],
-        "areas": [
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "1f6d66d",
-    "when": "2026-09-15T08:41:20+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "47bcea8",
-        "says": "The wheel's tray is drawn again, and Preview here previews here",
-        "when": "2026-09-15T08:33:13+00:00",
-        "detail": [
-          "B31 and A23 on the inventory. Closing the small one found the large one. The page's wheel has a tray item, Preview here, that left for the full /builder/preview address while the key `p` flips the board in place, so \"here\" was the one that went away. Going to make it flip the board, the tray turned out not to exist: the `tray` list was built and referenced nowhere, the comment above it described a tray that hung under nothing, and the More piece that once held these actions had been removed on the grounds that the tray was drawn already. Seven actions (Preview here, Forward, Backward, Copy looks, Paste looks, Put the background back) could not be reached from the wheel, and raise, lower and the looks clipboard have no other caller, so six of them could not be reached at all. The tray hangs under whichever level is up now, the same HoverTray the draw board uses, stepping aside for the board and the add disc, and the page's Preview here flips the board's own Preview.",
-          "Also gone: the site config's `home` block (a hero with two calls to action, a module grid, an agent guide) and its type. Builds owns \"/\", and nothing read any of it.",
-          "tests/preview-here.mjs: 5 of 5, 3 red against the tree before this. It opens the page's wheel, hovers the tray, presses Preview here, and finds the address unchanged and the board in Preview. Green alongside: wheel-pass 12/12, wheel-dismiss 11/11, wheel-trim 14/14, menu-pass 101/101, light-placer 16/16."
-        ],
-        "areas": [
-          "core",
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "dc69790",
-        "says": "A page's scroll setting reaches the preview",
-        "when": "2026-09-15T08:33:13+00:00",
-        "detail": [
-          "B26 on the inventory. The Pages panel and the page menu offer a scroll behaviour per page: normal, snap to sections, smooth / inertial, horizontal, scroll-driven story, paged. It reached the blueprint and nothing else; the live page scrolled the same whatever was chosen. The three the preview can do it does now, through the same behaviours a scroll-snap or smooth-scroll part sets, and the two it cannot are named in the corner note beside the other behaviours it describes rather than fakes. The note carries an attribute so a check can read it.",
-          "tests/page-scroll-live.mjs: 5 of 5, 4 red against the tree before this. Each setting seeded and the live scroller's own style read: y proximity for snap, x for horizontal, smooth for smooth, and the note for paged."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "bafb144",
-        "says": "Every behaviour on the board is run or named in the preview, never dropped",
-        "when": "2026-09-15T08:33:13+00:00",
-        "detail": [
-          "B23 on the inventory, the saying half. Seventeen parts are behaviours: placed on the board they are things the page does, not boxes on it. The preview runs ten and names six in a corner note as described only. The seventeenth, page transitions, was dropped: removed from the layout with the rest of the tier and in neither the switch nor the note. It is named now. Running the seven is the other half and stays on the list.",
-          "tests/behaviours-named.mjs: 5 of 5, 1 red against the tree before this. It reads the tier-B ids from the library and holds every one to the switch or the note, none to both, and the note to ids the library has."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "5318245",
-        "says": "A published site is seen at the width it was designed at",
-        "when": "2026-09-15T08:33:13+00:00",
-        "detail": [
-          "B20 on the inventory. Publish writes `frameWidth` into the site's document and the published page loads that document into a fresh visitor's store with `loadDoc`, which set the pages, the parts, the look and the behaviours and never the width. A site designed at phone width arrived at 1440 for everyone who did not build it. What a loaded document brings is one pure rule now, `takeDoc` in docTake.ts, and the width is in it: taken when it is a positive number of pixels, kept otherwise.",
-          "tests/published-width.mjs: 8 of 8. The rule run without the store, at 390, 834, none, zero and a word; and the store's loadDoc pinned to it."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "7eeb34c",
-        "says": "Go live finds the project past the first hundred",
-        "when": "2026-09-15T08:33:12+00:00",
-        "detail": [
-          "B11 on the inventory. The deploy route asked Vercel for projects with limit=100 and looked in that one page; an account or team with more was told there was no project and to import one at vercel.com/new, for a project that was there on page two. The lookup walks `pagination.next` as `until` now, page by page, and stops the moment it has the one it wants or the cursor repeats. The walk is a pure function in vercelProjects.ts so it can be held to that without a token.",
-          "tests/vercel-pages.mjs: 6 of 6. Two hundred and fifty fake projects in pages of a hundred: the one on page three is found after three pages, one on page one after one, none after all three, and a cursor that never ends is given up on."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "3fc46a2",
-        "says": "A screenshot that was cut says so, and the label says what it is",
-        "when": "2026-09-15T08:33:12+00:00",
-        "detail": [
-          "B8 on the inventory, the saying half. The page screenshot that goes up beside an ask is capped at 6000px tall; a page past that lost the rest and went up labelled \"top to bottom\". The route answers three headers when it cut, the cap, the page's real height and the fact, and the label the picture goes up with reads them: \"the top 6000px of a page 6755px tall\" rather than a claim the picture cannot keep. Tiling a tall page into legible strips is the other half and stays on the list.",
-          "tests/shot-cut.mjs: 6 of 6, 3 red against the tree before this. It photographs a short page and one with a part at 7400px on this box's own Playwright, and reads the headers back."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "6163dc4",
-    "when": "2026-09-15T08:39:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "6163dc4",
-        "says": "Content sets the page, the pane sets the zoom: the held work goes in",
-        "when": "2026-09-15T08:39:28+00:00",
-        "detail": [
-          "Hypatia's 8c9160e closes what 972ce24 and 2d237de opened, and it closes it by separating the two things rather than by widening a check. Her own title says it: content sets the page, the pane sets the zoom, and the two stopped being one.",
-          "Her branch had merged euler, so euler's thirty ride in with it and are on trunk for the first time since 0b64a1d.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4281.",
-          "The three that were red on the held commit, and are the reason it was held:"
         ],
         "areas": [
           "studio",
