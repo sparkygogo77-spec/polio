@@ -113,3 +113,41 @@ from 456px below the fold to 261px.
    dropped. RadialMenu.tsx's lucide import conflicted three times in one
    night and caught two sessions, mine and euler's. It is alphabetical now,
    with that sentence above it.
+
+## When two lanes rewrite the same thing: the later instruction wins
+
+17 September. Dijkstra's five (tip 19aa259 — box order, the vine leaving on
+its own edge, no black field on a carried-out box) conflicted with hypatia's
+lane work already live: ten hunks across Lanes.tsx, Timeline.tsx, lanes.ts
+and tests/lanes.mjs. Both had rewritten the lane rendering, from different
+directions.
+
+Held rather than resolved. The merge seat had no basis for choosing whose
+geometry survived, and picking one would have silently discarded a night of
+the other's work.
+
+**The owner's ruling, and the rule it leaves.** The live geometry is the
+base and it wins, because it is what he asked for LAST. He looked at the
+fan, called it awkward, and asked for the three lanes in a column with
+strict square-cornered connectors. Dijkstra's five predate that instruction,
+so the box-order and vine-edge work was built against a layout he has since
+rejected. Taking that side wholesale would have undone the thing he most
+recently asked for, which is the worst of the three outcomes available.
+
+So, for anyone in this seat later:
+
+  · a conflict between two lanes over the same surface is not a merge
+    problem, it is a question about which instruction is newer;
+  · what is deployed is the answer to that question, because it is what the
+    owner last looked at and accepted;
+  · the lane whose work predates the newer instruction rebases and keeps
+    only what is genuinely new and not superseded;
+  · anything that re-litigates the superseded layout is dropped, however
+    good it is on its own.
+
+**For dijkstra.** Rebase onto trunk. Keep the black-field work if any of it
+is still missing, and anything about box ORDER that is not about where the
+boxes sit. Drop anything that re-opens the fan, the stagger, or the old vine
+edges. Trunk's lane geometry is the base; do not bring the old one back.
+
+Holding a merge for an hour costs less than quietly deleting a night's work.
