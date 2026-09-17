@@ -2,14 +2,92 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-16T20:22:18.307Z";
+export const GENERATED_AT = "2026-09-17T03:37:59.252Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "b54d035",
-    "when": "2026-09-16T19:59:24+00:00",
+    "id": "b26fdc5",
+    "when": "2026-09-17T03:17:13+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "b26fdc5",
+        "says": "The vines dissipate, and the lanes are a column joined by a square bracket",
+        "when": "2026-09-17T03:17:13+00:00",
+        "detail": [
+          "THE BLEND. \"the blend kind isnt there its just a little overlap clearly … i can see the end lines of each.\" He is right, and the cause is exactly what he guessed: each end's colour was a stroke of its own, laid over the dark, solid to three tenths and faded out by seven. Two strokes, each with a start and a stop, is two ribbons overlapping however gently they are faded — and the fade did not even do the work, because the eye finds the edge of the flat part, not the fade.",
+          "Sampled off the canvas on the deploy 9567416, one green board to one red drawing: three degrees of hue in the first third of the run, then 85 of the 112 degrees — 76% of the whole journey — crammed between two fifths and two thirds. Flat, flat, and a crossing between them. That crossing is the line he can see.",
+          "So there is no overlay. Each band is one fill whose colour is interpolated along the length: its own end's, whole for an eighth, then easing into the material's own dark by the middle, and out again into the other end's. The ease is smoothstep, which arrives at both the hold and the middle with no slope at all, so there is not even a bend in the run to catch the eye. On this build the same measurement reads 30 degrees gone by a third of the way along and 22% of the journey in the middle quarter. Nothing has an end.",
+          "It is also cheaper: one fill a band instead of three."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "742655e",
+        "says": "The publish route is not handed a token to answer a question the browser knows",
+        "when": "2026-09-17T02:56:49+00:00",
+        "detail": [
+          "`GET /api/studio/publish` is a status probe — can this push, which repository, which branch, is there a deploy hook. It read `x-github-token` so it could answer the first of those, and the Builder sent the person's real token with it on every load that asked. The browser is the thing holding the token, so the browser is the thing that knows: the route now speaks only for the server, and `publishStatus()` ORs in what this browser holds. The POST still carries the token, because pushing is what it is for.",
+          "Measured, not reasoned: the check asks the route directly with a token in its hand, because whether the app happens to send one on a given load is a matter of which component mounted first — on the deploy the probe fired before the keys had hydrated and carried nothing, which would have passed a check that only watched. Asked directly, the deploy answers `token: \"browser\"`, which is the route saying it read what it was handed. This build answers `token: \"server\"` whatever it is given.",
+          "tests/no-plain-key.mjs grows to 19 checks, 7 red on the live deploy 9567416 and 19/19 here. Three of them watch every request the page makes and require that nothing but a POST ever carries a key header at all."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "93fc078",
+    "when": "2026-09-16T23:36:56+00:00",
     "day": "16 September",
     "changes": [
+      {
+        "id": "93fc078",
+        "says": "No key is written down in the clear, under any name",
+        "when": "2026-09-16T23:36:56+00:00",
+        "detail": [
+          "He put real keys into the deployed site, and his browser held two entries: `builder.keys`, unreadable, and `builder.keys.plain` beside it with the key as itself. The second existed so a reload did not lose the key, and while it existed the first was worth nothing.",
+          "ONE REPRESENTATION. `builder.keys` is now always a sealed box and there is no other entry. Under a PIN when the PIN setting is on, as before. Without one, under a key this browser generates for itself and keeps in IndexedDB marked non-extractable — the browser will not hand its bytes to anyone, us included. The tab's own sessionStorage record, which held values and sometimes the PIN in the clear, is sealed the same way; a record from before this is thrown away rather than read. Where a browser can seal nothing at all, nothing is written anywhere and the key lives in the page.",
+          "WHAT THAT IS WORTH, and the panel now says the same. Real against anything that reads storage without running code here: a copied profile, a synced backup, the Application tab, a snippet that dumps localStorage. Worth nothing against code running on this origin, which can ask for the key exactly as the app does. Only a secret that is not stored — the PIN, while locked — stops that, and only the server keeps a key out of the browser altogether. The old sentence, \"in this browser, in the clear\", is gone from the panel, from AGENTS.md and from the store's own notes.",
+          "HIS BROWSER IS CLEANED ON THE NEXT LOAD. The readable copy is read, folded into the sealed entry and deleted, whether or not a PIN is in play; under a PIN, where nothing can reseal it, it goes into the tab's sealed record instead. Nothing writes it again. Forget now takes the entry, the tab's record and the wrapping key, so a box recovered from a backup afterwards opens for nobody — before this it left a sealed box behind while telling the person the key was gone."
+        ],
+        "areas": [
+          "docs",
+          "keys",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "3877ec8",
+        "says": "The notifications are gone, and so is the density that did one pixel",
+        "when": "2026-09-16T22:16:07+00:00",
+        "detail": [
+          "His words: \"remove notifications tab and panel its buggy and useless as well as compact feature it does 0\".",
+          "THE NOTIFICATIONS. Two candidates were measured on the deploy: the bell top right, labelled News, and Updates in the builder bar. The bell is the notifications one — unread count, a slide-over with a filter strip, read, pinned and dismissed state — and Updates is a changelog of passes, so the bell is what goes. Removed: the bell and its badge, the panel, mod+i, the \"Open news feed\" command, the feed itself, and the settings that only configured a list nobody could see any more (Keep at most, Move updated lines to top). `core/news` is now `core/toasts`, and `NewsInput` is `ToastInput`, because a name that says feed while there is no feed is the next person's wasted hour.",
+          "Kept: the toast. It is a different surface — the line that says what just happened and then stops existing — and every confirmation in the app goes through `publish`. Nothing is stored now, so a publish with no `toast` says nothing at all; of fifty publish sites in the app, forty-nine already asked for one. The one that did not is the showcase's own burst demo, which now does. `href` used to be reachable only by clicking a feed row, so the card carries the link itself: the live-site and commit lines are still one press away.",
+          "THE DENSITY. Compact against comfortable moved `body` from 13px to 14px and did nothing else: the `compact:` variant it declared is used by no class in the app (one grep hit, and that is an object key in RadialMenu). So it was one pixel wearing a control, a command, a shortcut and a menu row. All removed, with `data-density` off the document and `density` out of the site config. Everyone settles on 13px, which is what a browser with no stored choice already had."
+        ],
+        "areas": [
+          "core",
+          "docs",
+          "pages",
+          "showcase",
+          "studio",
+          "tests",
+          "tweets"
+        ],
+        "kind": "new"
+      },
       {
         "id": "b54d035",
         "says": "The vines are one painted body, and their colours flow into each other",
@@ -1082,29 +1160,6 @@ export const PASSES: Pass[] = [
         "areas": [
           "core",
           "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f77107a",
-    "when": "2026-09-15T08:28:33+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "f77107a",
-        "says": "Regenerate the passes for one undo, and the still under a solid",
-        "when": "2026-09-15T08:28:33+00:00",
-        "detail": [
-          "Meitner's one: one undo takes back an edit, the still under a solid is the object rather than a picture of it, and the pitch limit and the undo are both photographed.",
-          "It touches store.ts, which is the board's, so the board's geometry is measured beside the cube work as it was in aeeee41.",
-          "Merge clean, typecheck clean, build rc=0. Run here on the build, port 4280:",
-          "box-to-cube    82/82 passed   (76 before) cube           62/62 passed cube-part      29/29 passed board-edges    11 of 11 hold full-page      42 of 42 hold picked         16/16 passed create-flow    26 of 26 hold"
-        ],
-        "areas": [
-          "studio"
         ],
         "kind": "new"
       }
