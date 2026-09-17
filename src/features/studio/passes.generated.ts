@@ -2,14 +2,46 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T03:37:59.252Z";
+export const GENERATED_AT = "2026-09-17T04:18:10.339Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "b26fdc5",
-    "when": "2026-09-17T03:17:13+00:00",
+    "id": "24788ec",
+    "when": "2026-09-17T04:00:49+00:00",
     "day": "17 September",
     "changes": [
+      {
+        "id": "24788ec",
+        "says": "Publishing: the first commit into an empty repository, and Go live sends the site's name",
+        "when": "2026-09-17T04:00:49+00:00",
+        "detail": [
+          "PRESS ONE, \"Git Repository is empty.\" The route already knew how to make a root commit and never reached that code. It decided \"there is nothing here\" from a 404, and GitHub answers a 409 for the git ref endpoints of a repository with no commits at all — which is every repository this route has just made for a site's first publish. The 409 came back out as the failure he saw. Both catches now treat 404 and 409 alike, and the base-sha walk is one function that returns the tip, the default branch's tip, or nothing.",
+          "A repository that refuses the git data API altogether until it has one commit is handled too: the first file goes up through the contents API, which will write into an empty repository, and the whole set is written on top of it. Two commits on a first publish of that kind, and no publish that fails.",
+          "PRESS TWO, \"nothing to name a new one after: give the site a name in the brief.\" Nothing was wrong with the brief. Push to GitHub sent `create`, the site's own name; Go live sent nothing at all, so the route had no name to make a repository under and said the one thing that was certain to send him looking in the wrong place. Both buttons now ask one function where a push goes and what a new repository is called. The message no longer blames the brief either: it says what it means.",
+          "AND THE REPOSITORY IT MADE IS REMEMBERED EVEN WHEN THE PUSH THEN FAILED. It was written on the site only on success, so a first publish that created the repository and then hit the 409 left the site not knowing about it — and the next press made another one, with a suffix, because the name was taken. The answer carries `created` on a failure now and the browser writes it down either way."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "058abf4",
+        "says": "The publish probe answers for the server, and no key is written in the clear",
+        "when": "2026-09-17T03:40:13+00:00",
+        "detail": [
+          "Hypatia's b26fdc5.",
+          "The status probe was asked directly with a token in hand rather than watched through a page load, because the lane warned a watch-only check passes falsely when the probe fires before the keys hydrate:",
+          "x-github-token: ghp_...   -> {\"github\":{\"configured\":true,\"token\":\"server\",...}} authorization: Bearer ... -> {\"github\":{\"configured\":true,\"token\":\"server\",...}} no header at all          -> {\"github\":{\"configured\":true,\"token\":\"server\",...}}",
+          "Three requests, three identical answers, \"server\" every time. It no longer reads a token, and handing it one changes nothing."
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "b26fdc5",
         "says": "The vines dissipate, and the lanes are a column joined by a square bracket",
