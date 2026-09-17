@@ -550,12 +550,25 @@ function readPublishStatus(raw: unknown): PublishStatus {
   };
 }
 
+/**
+ * Can this publish push, and with whose token.
+ *
+ * The probe carries no token. It used to send the person's own so the route
+ * could answer "configured", which sent a real GitHub token across to the
+ * server on every load that asked, for a question this side already knows
+ * the answer to. The route speaks for the server; whether this browser holds
+ * one is read here, where it is held. The token still rides with the push
+ * itself, which is the one call that needs it.
+ */
 export async function publishStatus(): Promise<PublishStatus> {
+  const mine = !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN;
   try {
-    const res = await fetch("/api/studio/publish", { cache: "no-store", headers: publisherHeader() });
-    return readPublishStatus(await res.json());
+    const res = await fetch("/api/studio/publish", { cache: "no-store" });
+    const said = readPublishStatus(await res.json());
+    if (!mine) return said;
+    return { ...said, github: { ...said.github, configured: true, token: "browser", missing: [] } };
   } catch {
-    return NO_PUBLISH;
+    return mine ? { ...NO_PUBLISH, github: { ...NO_PUBLISH.github, configured: true, token: "browser", missing: [] } } : NO_PUBLISH;
   }
 }
 
