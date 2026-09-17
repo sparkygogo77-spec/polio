@@ -2,9 +2,52 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T09:09:24.811Z";
+export const GENERATED_AT = "2026-09-17T18:09:50.790Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c472ffb",
+    "when": "2026-09-17T18:09:08+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "8753e2d",
+        "says": "What the brief promises, the page carries or says it does not",
+        "when": "2026-09-17T17:58:49+00:00",
+        "detail": [
+          "He measured his own published page and found five faults. Four of them were the same fault in different clothes: the brief says one thing, the board carries another, and nothing anywhere admits the gap.",
+          "THE WORDMARK. The brief binds it — \"wherever a logo or wordmark is drawn it reads BLACKORB, never Logo\" — and two parts printed \"Logo\" anyway, so his site introduced itself twice under a word he never typed. The theme now carries the site's name and the top bar and the footer read it.",
+          "WORDS NOBODY WROTE. A card with a title and no body published nine words of ours under his heading: \"Warm ledger clear orbit open ledger\". Sample prose is how a layout reads on the board before anybody writes it, and a lie on a page a stranger reads. `unwritten(mode, …)` keeps it on the board and says, live, that the words are missing; the publish lists every part that had to say it.",
+          "SECTIONS WITH NO PART. A region drawn with words on it and nothing inside is a section of the brief's own layout: the brief prints it, top to bottom, and nothing ever rendered one. \"The coordinates\" and \"join the transmission\" were in his brief, absent from his site, and unmentioned. `spec.unbuiltSections` is now the one list both sides read, and the page stands a note where the section was drawn."
+        ],
+        "areas": [
+          "docs",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "0b7749c",
+    "when": "2026-09-17T09:13:36+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "0b7749c",
+        "says": "Regenerate the passes record for the picture merge",
+        "when": "2026-09-17T09:13:36+00:00",
+        "detail": [],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "b9512c2",
     "when": "2026-09-17T09:08:44+00:00",
@@ -1080,50 +1123,6 @@ export const PASSES: Pass[] = [
           "A22 on the inventory took two dead choices out of the page's wheel — Width, and \"Per page (soon)\", a tap and nothing — along with the plate-list entry for the width editor. My merge of hypatia's and meitner's work carried an older copy of that slot table, because both branches had been cut before A22 landed and both touched the file, so git took the side that still had the slot. It went out on e741538 and fc67aca. The width editor itself stayed gone; what came back was the dead menu in front of it.",
           "I also kept it alive by hand. The lucide import conflicted three times tonight, and the first two times I resolved it as the union of both sides, which is right when two sessions each add an icon and wrong when one of them has deliberately taken icons away. Files and Monitor are the two the dead code used, and the union kept them.",
           "What would have caught it: page-wheel-edit and priority-wheel, which are bardeen's own suites for exactly this, and which I ran on a1ec677 and then did not run again after the merge that carried the older table. wheel-pass passed throughout, which is why nothing looked wrong. The rule this leaves: when a merge brings an older copy of a file another session has just changed, that session's suites for that file are the ones to run, not the general one."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "6fa7daf",
-    "when": "2026-09-15T09:03:13+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "99b8ade",
-        "says": "The merge brought the page wheel's Edit slot back; it is out again",
-        "when": "2026-09-15T08:49:24+00:00",
-        "detail": [
-          "A22 on the inventory, held. The merge of trunk's latest wheel work carried the older copy of the page's slot table, the two dead choices under Edit (Width, and \"Per page (soon)\", a tap and nothing) and the plate-list entry for the width editor, all of which A22 had removed. The page-wheel-edit and priority-wheel suites went red on the merged tree, which is what they are for. Taken out again, with the two icons only that code used; the width editor itself had stayed gone.",
-          "Green: page-wheel-edit 4/4, priority-wheel 6/6, wheel-pass 12/12, wheel-trim 14/14, menu-pass 101/101, preview-here 5/5."
-        ],
-        "areas": [
-          "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "fc67aca",
-    "when": "2026-09-15T08:50:15+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "fc67aca",
-        "says": "Regenerate the passes for a drifting texture and a turn that stays turned",
-        "when": "2026-09-15T08:50:15+00:00",
-        "detail": [
-          "Bardeen's three: a part wearing a drifting texture drifts, a cube or a solid turned on the full preview page stays turned, and the route deadlines.",
-          "Merge clean apart from RadialMenu.tsx's lucide import, which conflicted for the second time tonight on the same line. Resolved as the union again, and this time the line is sorted alphabetically by imported name with a sentence above it saying why: sorted, a merge from any branch resolves to the same line, and it stops being a conflict every time two sessions each add an icon. Nothing was dropped either time — trunk's set already held bardeen's whole list.",
-          "typecheck clean, build rc=0. Run here on the build, port 4283:",
-          "part-drift          3/3 passed    (new) live-turn-saved     4/4 passed    (new) route-deadlines    21/21 passed   (new) texture-patch      28/28 passed cube               62/62 passed"
         ],
         "areas": [
           "studio"
