@@ -583,7 +583,9 @@ export function siteFiles(markdown: string, json: string): GeneratedFile[] {
 
 export type PublishResult =
   | { ok: true; sha: string; commitUrl: string; branch: string; repo: string; files: number; deployed: boolean; hook: boolean; deployNote?: string; /** Set only when this call made the repository. */ created?: string }
-  | { ok: false; message: string; reason?: string };
+  /* A failure can still have made the repository, and says so, so the next
+     press goes to the one that exists rather than making another. */
+  | { ok: false; message: string; reason?: string; created?: string; repo?: string };
 
 /* ------------------------------------------------------------------ */
 /* Going live                                                          */

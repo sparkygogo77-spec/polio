@@ -476,29 +476,56 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
 
   const publishFiles = React.useMemo(() => [...siteFiles(markdown, json), ...files], [markdown, json, files]);
 
+  /*
+   * WHERE A PUSH GOES, AND WHAT A NEW REPOSITORY IS CALLED.
+   *
+   * Both buttons push, so both ask this rather than each working it out.
+   * Go live used to send no `create` at all, so the first press of it on a
+   * site with no repository yet came back "nothing to name a new one after:
+   * give the site a name in the brief" — on a site whose brief plainly says
+   * BLACKORB. Nothing was wrong with the name; the button never sent it.
+   */
+  const pushTo = () => {
+    const project = activeProject();
+    return {
+      project,
+      repo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
+      branch: project?.repo?.branch,
+      /* No repository yet: what to call the one this publish will make.
+         Nobody is asked for a name — the site already has one. */
+      create: project?.repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
+    };
+  };
+
+  /*
+   * A repository the push made is written on the site the moment it exists,
+   * whether or not the push that followed it worked. It used to be written
+   * only on success, so a first publish that made the repository and then
+   * failed left the site not knowing about it — and the next press made
+   * another one, with a suffix, because the name was taken.
+   */
+  const remember = (project: ReturnType<typeof activeProject>, made: string | undefined, branch: string | undefined) => {
+    if (!made || !project) return;
+    const [owner, name] = made.split("/");
+    if (owner && name) useBuilds.getState().setRepo(project.id, { owner, name, branch: branch ?? "main" });
+  };
+
   const doPublish = async () => {
     if (busy) return;
     setNote(null);
     setBusy(`Pushing ${publishFiles.length} files to GitHub…`);
     try {
-      const project = activeProject();
+      const { project, repo, branch, create } = pushTo();
       const r = await publish({
         files: publishFiles,
         message: pubMessage.trim() || "Builder: publish the site",
         deploy: pubDeploy,
-        repo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
-        branch: project?.repo?.branch,
-        /* No repository yet: what to call the one this publish will make.
-           Nobody is asked for a name — the site already has one. */
-        create: project?.repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
+        repo,
+        branch,
+        create,
       });
+      remember(project, r.created, r.ok ? r.branch : branch);
       if (r.ok) {
-        /* It made one. Write it on the site so every publish after this goes
-           to the same place, and the button can say which place that is. */
-        if (r.created && project) {
-          const [owner, name] = r.created.split("/");
-          if (owner && name) useBuilds.getState().setRepo(project.id, { owner, name, branch: r.branch });
-        }
         setPubResult({ url: r.commitUrl, files: r.files, deployed: r.deployed, hook: r.hook, note: r.deployNote });
         // Written on the live thread's card, because this is what that
         // iteration came to: the card says what was made of the answer.
@@ -529,12 +556,11 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     if (busy) return;
     setNote(null);
     setLiveRun(null);
-    const project = activeProject();
-    const repo = project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined;
-    const branch = project?.repo?.branch;
+    const { project, repo, branch, create } = pushTo();
     try {
       setBusy(`Pushing ${publishFiles.length} files to GitHub…`);
-      const pushed = await publish({ files: publishFiles, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch });
+      const pushed = await publish({ files: publishFiles, message: pubMessage.trim() || "Builder: publish the site", deploy: false, repo, branch, create });
+      remember(project, pushed.created, pushed.ok ? pushed.branch : branch);
       if (!pushed.ok) {
         setNote(pushed.message);
         ctx.publish({ key: "studio:publish", title: "Publish failed", body: pushed.message, level: "error", source: "studio", toast: true });
