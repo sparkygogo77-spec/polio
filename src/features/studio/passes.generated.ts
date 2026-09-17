@@ -2,14 +2,61 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T04:18:10.339Z";
+export const GENERATED_AT = "2026-09-17T05:12:56.791Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "24788ec",
-    "when": "2026-09-17T04:00:49+00:00",
+    "id": "a5382bd",
+    "when": "2026-09-17T04:52:55+00:00",
     "day": "17 September",
     "changes": [
+      {
+        "id": "a5382bd",
+        "says": "A publish puts a website in the repository, not a description of one",
+        "when": "2026-09-17T04:52:55+00:00",
+        "detail": [
+          "He imported the repository at Vercel and every address answered NOT_FOUND. Nothing was broken: what a publish committed was `site/document.json` and the blueprint in two forms — a description of a website — and there was nothing at the root to serve.",
+          "The scaffold would not have saved it either. It writes a Next app from the document, deterministically and with no model, which is the right thing for behaviour later; it writes no `package.json` and no framework config, so Vercel finds nothing to build, falls back to serving the repository as static files, finds no `index.html`, and answers NOT_FOUND. Two faults, one symptom.",
+          "So a publish now writes the simplest thing that is a real website: `index.html` at the root, one per page at its own path, and one stylesheet beside them. No build, no framework to detect, no configuration — and no serverless function, which matters tonight: his account is 142 GB over a 10 GB function allowance, and a static export costs none of it.",
+          "It is faithful because it is not a second implementation. Each page is rendered by the same `LiveSite` the preview uses, into a detached container at the site's own width, and its DOM is read back; the app's own stylesheets are read out of `document.styleSheets` and written beside it. Same markup, same rules. Images are already data URLs, so the export carries them."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "9fb5219",
+        "says": "Try it asks the service, not us",
+        "when": "2026-09-17T04:38:11+00:00",
+        "detail": [
+          "The one button whose whole purpose is to prove a key is the person's own was also the one that handed it to this site's server: a POST to /api/keys/test with the key on a header, and the server asked Anthropic.",
+          "Claude, GitHub and Vercel each answer a browser directly, so they are asked from the browser now and the key does not leave it. Anthropic needs `anthropic-dangerous-direct-browser-access: true` or it refuses a page outright, which is measured on the deploy and is why this was worth doing rather than assuming.",
+          "Replicate is the exception and is meant to be: it will not answer a browser from another origin, and its token reaches the server anyway because the renderer is a server call. It still goes through the route, and the panel says so in a sentence rather than pretending otherwise.",
+          "The panel also now says plainly where each key goes: tried from this browser for three of the four, and for the work — a Builder ask, a render, a publish — sent with that one request to be used and dropped, because the server is what makes those calls. That is the part of the promise this commit does NOT close, and it should not read as though it did."
+        ],
+        "areas": [
+          "keys",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "808f618",
+        "says": "Publishing: the first commit into an empty repository, and Go live names the site",
+        "when": "2026-09-17T04:19:55+00:00",
+        "detail": [
+          "Hypatia's 24788ec.",
+          "tests/publish-empty.mjs, run against a build of this commit with the stub seam wired in (GITHUB_API pointed at the suite's own stub): 11 of 11.",
+          "Run without the seam first, it reads 4 of 11 with seven failures all saying \"GitHub rejected the token\" — worth recording, because that is what this suite looks like when it is run wrong, and it looks like a product failure rather than a harness one.",
+          "The empty-repository path, in the order the stub was asked:"
+        ],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      },
       {
         "id": "24788ec",
         "says": "Publishing: the first commit into an empty repository, and Go live sends the site's name",
