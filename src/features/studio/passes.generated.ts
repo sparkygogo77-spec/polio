@@ -2,9 +2,68 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T06:33:57.675Z";
+export const GENERATED_AT = "2026-09-17T09:09:24.811Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "b9512c2",
+    "when": "2026-09-17T09:08:44+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "86c2779",
+        "says": "A picture can be drawn with his own key, and a picture beats a drawn body",
+        "when": "2026-09-17T08:50:32+00:00",
+        "detail": [
+          "DRAWN, NOT ONLY CHOSEN. The renderer that draws a part's body draws a picture instead, asked from the part's own panel with his own Replicate key, and what comes back lands exactly where an uploaded one lands: a file in this browser's storage, a path on the part, the same publish. The price is said BEFORE the press — $0.04 a go at the model's published rate, his key, his money — and what it really cost is said after, because the first number was a guess and the second is not.",
+          "THE RULING, built in. A picture beats a drawn body: somebody who puts a picture on a part has said what they want, and a drawn body is what the part does when nobody has said anything. Two things follow and both are here: taking the picture off brings the body straight back, because the body was never destroyed; and where he is building, a part showing a picture over a body says \"your picture\" in the corner, so he is never guessing whose the thing on screen is. Never on the live site — a visitor is not building anything.",
+          "tests/pictures.mjs grows to 15 checks, 15/15. The drawn path: the panel says $0.04 before the press, asks the renderer for a raster at the part's own 1360×420, lands it as `from: \"drawn\"` under `assets/pictures/`, leaves the document with no bytes in it, and says \"it cost $0.04\" afterwards. Then the same publish as before — committed base64, 78 bytes in and 78 out, the page pointing at the path with no `data:image` in it, and the picture drawing where it is served.",
+          "One fault of mine, caught by the check: the line saying what it cost was written into the box that closes when the drawing works, so it was set and hidden in the same breath. It lives under the picture now."
+        ],
+        "areas": [
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      },
+      {
+        "id": "5d4edae",
+        "says": "A part can hold a picture, and the picture is a file",
+        "when": "2026-09-17T07:15:59+00:00",
+        "detail": [
+          "There was no way to give a part an image, which is why there was not one `img` tag on his published site and why the hero drew a hole.",
+          "WHERE THE BYTES ARE, which was the decision worth making before building. Not in the document. The document holds a path, a size and what the picture shows; the bytes live in this browser's file storage while the site is being built, and in the repository once it is published. A photograph inlined in the document would share the browser's small storage with his board, his builds and his keys and take all of them with it when it overflowed — and would be carried again by every publish for ever, whether or not the picture changed, on an account already 142 GB over a 10 GB allowance.",
+          "So: `pictures.ts` keeps the bytes in IndexedDB and hands out a record. `PictureSlot` draws the picture, or says the browser has lost it and it needs adding again, or draws the empty slot as before — three states, all of them said out loud. The publish reads the bytes once, commits them as real files under `assets/pictures/`, and the page points at the path. The panel says which of the two places the picture is in right now, because one that has never been published exists in his browser and nowhere else and he is the only person who can know that.",
+          "tests/pictures.mjs, new, 10/10, through the panel he would use: the document comes out 2418 characters with a path in it and no bytes; the file is committed with `encoding: base64` and the 78 bytes that went in come back byte for byte; the page carries `<img src=\"assets/pictures/…\">` and no `data:image` anywhere; and served as a static host would serve it, the picture draws at 4×4 with nothing missing."
+        ],
+        "areas": [
+          "pages",
+          "studio",
+          "tests"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "2f3ee50",
+    "when": "2026-09-17T06:36:24+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "2f3ee50",
+        "says": "Regenerate the passes record for the hypatia merge",
+        "when": "2026-09-17T06:36:24+00:00",
+        "detail": [],
+        "areas": [
+          "studio"
+        ],
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "a166f97",
     "when": "2026-09-17T06:33:46+00:00",
@@ -1068,85 +1127,6 @@ export const PASSES: Pass[] = [
         ],
         "areas": [
           "studio"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "9600474",
-    "when": "2026-09-15T08:48:28+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "362b300",
-        "says": "A part wearing a drifting texture drifts",
-        "when": "2026-09-15T08:45:29+00:00",
-        "detail": [
-          "B29 on the inventory. A part can wear one of the page's texture layers. Its paint named an animation, tex-drift-<hash of that one layer>, and the only keyframes on the page were the site stack's, hashed over every layer that is on; the two agreed only when the stack was exactly that layer. With two layers on the page the part's animation was a name with nothing behind it, and the part stood still while the page moved. The block writes the worn layer's own keyframes beside the part now, so the name it wears is defined wherever it is drawn.",
-          "tests/part-drift.mjs: 3 of 3, 2 red against the tree before this. Two layers on the page, one drifting, a card grid wearing the moving one: the part's computed animation name, and a keyframes rule of that name on the page. Before, the page carried the stack's rule alone; it carries both now."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "1283f1a",
-        "says": "A cube or a solid turned on the full preview page stays turned",
-        "when": "2026-09-15T08:45:29+00:00",
-        "detail": [
-          "B28 on the inventory, the turns half. The board is a still frame by the parts' own rule, so the live page is where a cube or a solid is turned and where it is left belongs on the node. The board's own Preview kept a cube's turn; the full /builder/preview page passed no handler at all, so a turn made there died with the page, and a solid's turn was kept nowhere. One `keepTurn` now, on both surfaces, for both kinds.",
-          "tests/live-turn-saved.mjs: 4 of 4, 1 red against the tree before this. A seeded cube on /builder/preview, a quarter turn with the arrow key, and the node read back from storage with the new pose on it."
-        ],
-        "areas": [
-          "docs",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      },
-      {
-        "id": "99728da",
-        "says": "The routes behind a drawing have a deadline at both ends",
-        "when": "2026-09-15T08:45:29+00:00",
-        "detail": [
-          "B7 on the inventory, and rule 8b of docs/DESIGN.md. A call that can hang must have a deadline at both ends and the spinner must always stop with a sentence. The generate route had it all: a budget of its own five seconds inside its maxDuration, one SDK try with a timeout inside that, an answer with a reason and the seconds it took whatever went wrong, the request id when the API said something, and a longer deadline in the browser for when nothing arrives. The body and reshape routes, the two behind every drawing, had none of it: the SDK's own retries and ten minute timeout, no budget, no signal, and callers that waited forever when the platform killed the function with no reply.",
-          "Both routes carry the same arrangement now, and the two callers cut their wait at 210s, past any route's 180s, so the browser's deadline fires only when nothing at all came back.",
-          "tests/route-deadlines.mjs: 21 of 21, 15 red against the tree before this. Source pins, because a real cut needs a key and a slow model."
-        ],
-        "areas": [
-          "docs",
-          "pages",
-          "studio",
-          "tests"
-        ],
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "e741538",
-    "when": "2026-09-15T08:46:00+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "e741538",
-        "says": "Regenerate the passes for Preview here, the tray, and a page's scroll",
-        "when": "2026-09-15T08:46:00+00:00",
-        "detail": [
-          "Bardeen's seven: the wheel's tray is drawn again and Preview here previews here, a page's scroll setting reaches the preview, the published width, the screenshot cut, the Vercel pages and the named behaviours.",
-          "One conflict, in RadialMenu.tsx, and it was an import list: trunk's is bardeen's plus Files, Film, Monitor and Scissors, which arrived with the cube work. Resolved as the union, which is trunk's set, and typecheck agrees nothing is missing or spare.",
-          "Merge otherwise clean, typecheck clean, build rc=0. Run here on the build, port 4282:",
-          "preview-here        5/5 passed page-scroll-live    5/5 passed behaviours-named    5/5 passed published-width     8/8 passed shot-cut            6/6 passed vercel-pages        6/6 passed wheel-pass         12 of 12 hold board-edges        11 of 11 hold full-page          45 of 45 hold"
-        ],
-        "areas": [
-          "studio",
-          "tests"
         ],
         "kind": "new"
       }
