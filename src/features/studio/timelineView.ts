@@ -169,7 +169,30 @@ export function settleView(
   const com = { x: mx / mass, y: my / mass };
   const span = { w: Math.max(1, right - left), h: Math.max(1, bottom - top) };
   const room = { w: Math.max(1, view.w - margin * 2), h: Math.max(1, view.h - margin * 2) };
-  const zoom = Math.max(min, Math.min(max, Math.min(room.w / span.w, room.h / span.h)));
+  /*
+   * The whole set decides the zoom — and then the floor gives if the column
+   * still will not fit at it.
+   *
+   * `min` is a floor on how far out the fit will pull, so that a long chain
+   * does not become unreadable. It is not allowed to cost him the column:
+   * "if the honest answer is that at some sizes the column and the fan
+   * cannot both fit and the fan must be clipped or dropped, that is fine and
+   * expected, and it is the fan that gives." The fan gives by the set being
+   * drawn smaller than the floor would like, which is one more thing off the
+   * edge; the column being off the edge is the thing that outranks it.
+   */
+  const wanted = Math.min(room.w / span.w, room.h / span.h);
+  /*
+   * …and only when there IS a column to protect. With no `weigh` the set is
+   * the whole of what there is, and the floor is what stops a chain twenty
+   * thousand pixels long from being fitted to nothing: `tests/timeline-view`
+   * asks for two boxes 20000 apart and expects the floor, and lowering it
+   * there gave 0.066. There is no fan in that case for the column to be
+   * protected from.
+   */
+  const colW = Math.max(1, wide1 - wide0);
+  const floor = opts.weigh?.length ? Math.min(min, room.w / colW) : min;
+  const zoom = Math.min(max, Math.max(floor, wanted));
 
   return {
     zoom,
@@ -178,6 +201,57 @@ export function settleView(
       y: hold(view.h / 2 - com.y * zoom, top * zoom, bottom * zoom, view.h, margin),
     },
   };
+}
+
+/**
+ * THE FLOOR UNDER EVERY VIEW: is the whole column inside the room?
+ *
+ * HIS RULING, restated after he measured three cards jammed against the right
+ * edge of the frame with 215px of them off it: "NO PART OF THE COLUMN IS
+ * EVER OUTSIDE THE FRAME. Clipping the thing he is reading is worse than any
+ * amount of the fan hanging off. This outranks everything else."
+ *
+ * The fit already keeps it — `settleView` holds the pan on `weigh`, and at
+ * four sizes it lands the column's centre within 10px of the room's with
+ * nothing off any edge. What had no floor under it was the way back in. A
+ * view somebody moves is theirs and survives the mount that Finish tears
+ * down, and it was handed back without anyone asking whether the column was
+ * still on the screen: wheel the board sideways, press Finish twice, and it
+ * came back 1887px off the left edge, in silence.
+ *
+ * So the question is asked, in board coordinates rather than of the DOM,
+ * because at the moment it has to be asked the boxes have not arrived yet.
+ * A view that fails it is not a view; the caller fits instead, which is
+ * also the answer to the second half of the ruling — as near the room's
+ * centre as it can be.
+ *
+ * `margin` is deliberately not the settle's: a view of his own that sits a
+ * few pixels inside the edge is a view, and tidying it up to a 56px margin
+ * would be a floor that fights the hand rather than one that catches it.
+ */
+export function columnHolds(
+  view: View,
+  column: ViewBox[],
+  room: { w: number; h: number },
+  margin = 0,
+): boolean {
+  if (!column.length || !(room.w > 1) || !(room.h > 1)) return true;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const b of column) {
+    left = Math.min(left, b.x);
+    top = Math.min(top, b.y);
+    right = Math.max(right, b.x + Math.max(1, b.w));
+    bottom = Math.max(bottom, b.y + Math.max(1, b.h));
+  }
+  if (!Number.isFinite(left)) return true;
+  const x0 = view.pan.x + left * view.zoom;
+  const x1 = view.pan.x + right * view.zoom;
+  const y0 = view.pan.y + top * view.zoom;
+  const y1 = view.pan.y + bottom * view.zoom;
+  return x0 >= margin && y0 >= margin && x1 <= room.w - margin && y1 <= room.h - margin;
 }
 
 /** Is this view near enough to that one that moving would be fidgeting? */

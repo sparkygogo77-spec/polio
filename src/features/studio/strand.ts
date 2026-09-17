@@ -402,14 +402,21 @@ export function strandPath(from: Point, to: Point, tug = 0): [Point, Point, Poin
   const dy = to.y - from.y;
   const run = Math.hypot(dx, dy) || 1;
   /*
-   * `tug` is the vine being pulled, 0 to 1: the bow comes out of it and it
-   * draws a little taut, the way a slack line does when something takes
-   * hold of it. His words for what a vine should do under the pointer —
-   * "i would rather no line, the vine maybe pulls a little when you hover".
-   * It is the shape that answers, not a bar laid over the top of it.
+   * `tug` is where the rope is, SIGNED, -1 to 1. Positive is picked up: the
+   * bow comes out of the curve and it draws taut, the way a slack line does
+   * when something takes hold of it. Negative is the other half of the same
+   * motion — the swing back past where it hangs, and the sag of a rope
+   * dropped — and it was clamped away at zero while this was a boolean.
+   *
+   * It is not a state any more and nothing sets it to 1. `tugSpring.ts`
+   * gives it a kick and it swings: his words, "almost like a pulse and
+   * almost like a rope being picked up on hover then dropped back down.
+   * instead of immediately flexing to a new position". It is the shape that
+   * answers, not a bar laid over the top of it.
    */
-  const taut = 1 - 0.3 * Math.max(0, Math.min(1, tug));
-  const pull = Math.max(34, Math.min(210, run * 0.5)) * (1 - 0.1 * Math.max(0, Math.min(1, tug)));
+  const held = Math.max(-1, Math.min(1, tug));
+  const taut = 1 - 0.3 * held;
+  const pull = Math.max(34, Math.min(210, run * 0.5)) * (1 - 0.1 * held);
   // Mostly horizontal runs bend sideways; mostly vertical ones bend down.
   const flat = Math.abs(dx) >= Math.abs(dy);
   /*
@@ -440,8 +447,19 @@ export function strandPath(from: Point, to: Point, tug = 0): [Point, Point, Poin
  * costs a few pixels, one that is too small leaves a stripe of the old vine
  * on the canvas.
  */
-export function strandBounds(from: Point, to: Point): { x: number; y: number; w: number; h: number } {
-  const p = strandPath(from, to);
+export function strandBounds(from: Point, to: Point, reach = 0): { x: number; y: number; w: number; h: number } {
+  /*
+   * Over the whole swing, not over where it hangs.
+   *
+   * A vine is a rope now (`tugSpring.ts`): picked up it comes straighter,
+   * which is inside this box, and on the way back it carries PAST where it
+   * hangs and bows deeper, which is outside it. This is the canvas's dirty
+   * rectangle as well as the hit target's room, so a box drawn round the
+   * resting curve clips the deepest part of the swing off — the one frame a
+   * person is actually watching. The hull of both extremes costs a few
+   * pixels of repaint and cannot clip anything the spring can reach.
+   */
+  const p = [...strandPath(from, to, 0), ...strandPath(from, to, -1)];
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -452,7 +470,11 @@ export function strandBounds(from: Point, to: Point): { x: number; y: number; w:
     if (q.y < minY) minY = q.y;
     if (q.y > maxY) maxY = q.y;
   }
-  const pad = STRAND_WIDTH * 2;
+  /* `reach` is the hit band asking for room: a band wider than the paint
+     needs a box wider than the paint's, or the far side of it is clipped off
+     by the element it is drawn in and the vine is easy to catch on one side
+     and impossible on the other. */
+  const pad = STRAND_WIDTH * 2 + reach / 2;
   return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
 }
 
@@ -840,6 +862,54 @@ export function paintBracket(
  * would be cut is plain before anything is. Two subpaths, one each side of
  * the axis, because that is what `sidePath` makes.
  */
+/**
+ * HOW WIDE A VINE IS TO A HAND, as against how wide it is to the eye.
+ *
+ * HIS WORDS: "the hover on the vines is unsatisfactory and it seems to need
+ * to be super precisely the line in the middle of the vine and easy to
+ * miss … a vine needs a hit area far wider than its paint".
+ *
+ * He is right about the cause. The target was the painted line's own shape,
+ * `SEAM_WIDTH` across, which is seven pixels: to catch a vine you had to put
+ * the pointer on a stroke three and a half pixels either side of a curve.
+ * This is the same curve with a band along the whole of it instead, forty
+ * four across — twenty two either side of the axis — which is a hand near
+ * the vine rather than a hand exactly on it, and six times the old reach.
+ *
+ * It is generous rather than huge on purpose: the fan's lanes and a long
+ * chain's vines pass within about sixty pixels of each other at the zooms
+ * the board settles at, so a band much wider than this would have two vines
+ * fighting over the same pointer.
+ */
+export const REACH_WIDTH = 44;
+
+/**
+ * The band a hand can catch this vine by: the axis, widened to `REACH_WIDTH`.
+ *
+ * Built straight off the samples rather than through `bandAt`, because the
+ * section's own bands are gathered at the ends (`gather`) so the ribbon
+ * grows out of a board — right for the paint, wrong for a target, which
+ * should be as catchable at its ends as in its middle.
+ *
+ * Measured at rest, like the seam it replaces. The vine moves now, and a
+ * target that moved with it would slide out from under the pointer at the
+ * moment the pointer arrived, which is the one thing worse than a target
+ * that is hard to hit.
+ */
+export function strandReach(from: Point, to: Point, reach = REACH_WIDTH): string {
+  const run = Math.hypot(to.x - from.x, to.y - from.y) * (1 + BOW * 0.8);
+  const s = samples(strandPath(from, to, 0), sampleCount(run));
+  if (s.length < 2) return "";
+  const half = reach / 2;
+  const near: string[] = [];
+  const far: string[] = [];
+  for (const p of s) {
+    near.push(`${(p.x + p.nx * half).toFixed(1)} ${(p.y + p.ny * half).toFixed(1)}`);
+    far.push(`${(p.x - p.nx * half).toFixed(1)} ${(p.y - p.ny * half).toFixed(1)}`);
+  }
+  return `M${near.join("L")}L${far.reverse().join("L")}Z`;
+}
+
 export function strandSeam(
   from: Point,
   to: Point,

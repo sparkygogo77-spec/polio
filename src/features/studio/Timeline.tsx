@@ -58,11 +58,12 @@ import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
 import { Button } from "@/core/ui/button";
-import { acrossFor, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, STAGGER_MS, type View } from "./timelineView";
+import { acrossFor, columnHolds, sameView, settleEase, settleView, zoomCeiling, SETTLE_MARGIN, SETTLE_MIN_ZOOM, SETTLE_MS, STAGGER_MS, type View } from "./timelineView";
 import { Lanes } from "./Lanes";
 import { BODY, EDGE } from "./boxGround";
 import { LANE_MODE, laneRects } from "./lanes";
-import { paintStrand, strandBounds, strandEnvelope, strandSeam, type Point, type StrandTone, type VineEnd } from "./strand";
+import { paintStrand, strandBounds, strandEnvelope, strandReach, REACH_WIDTH, type Point, type StrandTone, type VineEnd } from "./strand";
+import { REST, letGo, pickUp, still, step, type Rope } from "./tugSpring";
 import { sayWhere, saySpend } from "./spend";
 import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { SitePreview, type PreviewDoc } from "./SitePreview";
@@ -559,16 +560,73 @@ export function Timeline() {
   const inHand = React.useRef(false);
   inHand.current = !!dragging;
 
-  const tugAt = React.useRef<string | null>(null);
+  /*
+   * THE ROPES, one per vine a hand has touched, and the loop that swings them.
+   *
+   * It was `tugAt: string | null` — the one vine under the pointer — and the
+   * painter read it as 1 or 0. That is a second resting position, which is
+   * exactly what he did not want: "the animation just makes it immediately
+   * flex … the hover should make it almost like kind of pulse and almost
+   * like a rope being picked up on hover then dropped back down."
+   *
+   * So a vine is a mass on a spring (`tugSpring.ts`) and hovering is an
+   * event that kicks it. A map rather than one name, because a vine let go
+   * is still swinging while the hand is on the next one, and both have to
+   * be drawn. A rope that has gone quiet is deleted from the map, so at
+   * rest this is empty and the loop is not running.
+   */
+  const ropes = React.useRef(new Map<string, Rope>());
+  const swinging = React.useRef(0);
+  const lastFrame = React.useRef(0);
+
+  /**
+   * The loop: step every rope, repaint once, stop when they are all quiet.
+   *
+   * One frame for all of them, not one per vine — the painter draws the
+   * whole canvas anyway, so a second rope costs arithmetic and no drawing.
+   * `dt` is real elapsed time rather than a fixed step so the motion takes
+   * the same wall-clock time on a 60Hz screen and a 120Hz one, and
+   * `tugSpring.step` caps it so a backgrounded tab cannot integrate one
+   * enormous frame and throw a vine off the board.
+   */
+  const swing = React.useCallback(() => {
+    if (swinging.current) return;
+    lastFrame.current = performance.now();
+    const tick = (now: number) => {
+      const dt = (now - lastFrame.current) / 1000;
+      lastFrame.current = now;
+      for (const [id, r] of ropes.current) {
+        const next = step(r, dt);
+        if (still(next)) ropes.current.delete(id);
+        else ropes.current.set(id, next);
+      }
+      paintAt.current();
+      swinging.current = ropes.current.size ? requestAnimationFrame(tick) : 0;
+    };
+    swinging.current = requestAnimationFrame(tick);
+  }, []);
+  React.useEffect(() => () => { if (swinging.current) cancelAnimationFrame(swinging.current); }, []);
+
+  /**
+   * A hand arrives on a vine, or leaves it.
+   *
+   * Neither sets a position. The kick goes into whatever velocity the rope
+   * already has, so a vine picked up while it is still swinging carries on
+   * from where it actually is — his second consequence, "the second pick-up
+   * starts from wherever the rope actually is" — and there is no way for
+   * two hovers in a row to stack or to jerk.
+   */
+  const tug = React.useCallback((id: string, held: boolean) => {
+    const was = ropes.current.get(id) ?? REST;
+    ropes.current.set(id, held ? pickUp(was) : letGo(was));
+    swing();
+  }, [swing]);
+
+  /** The deferred question the door asks once the boxes are there. */
+  const rescue = React.useRef<{ cancel: () => void } | null>(null);
+
   const cutAt = React.useRef<{ id: string | null; p: number }>({ id: null, p: 0 });
   const cutting = React.useRef(0);
-
-  /** Take hold of a vine, or let it go. Repaints that one ribbon and nothing else. */
-  const tug = React.useCallback((id: string | null) => {
-    if (tugAt.current === id) return;
-    tugAt.current = id;
-    paintAt.current();
-  }, []);
 
   /**
    * Cut one, and watch it go.
@@ -583,7 +641,7 @@ export function Timeline() {
   const cutVine = React.useCallback((id: string) => {
     if (cutting.current) return;
     play("deny");
-    tugAt.current = null;
+    ropes.current.delete(id);
     cutAt.current = { id, p: 0 };
     const began = performance.now();
     const tick = (now: number) => {
@@ -608,6 +666,36 @@ export function Timeline() {
    * view they were leaving. The sync below keeps it current instead.
    */
   const claim = React.useCallback(() => { owns = true; }, []);
+
+  /**
+   * WHERE THE COLUMN STANDS, in the boards' own coordinates.
+   *
+   * The store's own spots, and the scatter for anything never moved — at
+   * the height each box REALLY stands, not the height the catalogue says.
+   *
+   * A box is as tall as what it holds. The fit used the nominal size for
+   * every box and the measured one for the last, which the fan hangs off;
+   * measured, the difference is about 20px a box (126 against 106), so a
+   * column of three was fitted 60px shorter than it is and the top of it
+   * went over the frame's own top edge. He measured exactly that on the
+   * deploy: the first card 5px above the frame. Anything not on screen yet
+   * — a box still waiting its turn to arrive — has no height to read and
+   * keeps the nominal one, which is what it will stand at.
+   *
+   * Its own callback because two things ask it now: the fit, and the door
+   * back in, which has to know whether the view it is about to hand back
+   * still has the column on the screen.
+   */
+  const columnOf = React.useCallback((box: HTMLElement) => {
+    const s = useStudio.getState();
+    const scattered = homeAt.current;
+    return s.threads.map((t) => {
+      const at = s.threadSpots[`box:${t.id}`] ?? scattered.get(t.id) ?? { x: 140, y: 130 };
+      const size = sizeOf(t);
+      const real = box.querySelector<HTMLElement>(`[data-box="${t.id}"]`)?.offsetHeight;
+      return { x: at.x, y: at.y, w: size.w, h: real && real > 8 ? real : size.h };
+    });
+  }, []);
 
   const stopSettle = React.useCallback(() => {
     if (!settling.current) return;
@@ -646,33 +734,14 @@ export function Timeline() {
       pane.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
     }
     const s = useStudio.getState();
-    const scattered = homeAt.current;
-    /*
-     * The store's own spots, and the scatter for anything never moved — at
-     * the height each box REALLY stands, not the height the catalogue says.
-     *
-     * A box is as tall as what it holds. The fit used the nominal size for
-     * every box and the measured one for the last, which the fan hangs
-     * off; measured, the difference is about 20px a box (126 against 106),
-     * so a column of three was fitted 60px shorter than it is and the top
-     * of it went over the frame's own top edge. He measured exactly that
-     * on the deploy: the first card 5px above the frame. Anything not on
-     * screen yet — a box still waiting its turn to arrive — has no height
-     * to read and keeps the nominal one, which is what it will stand at.
-     */
-    const boxes = s.threads.map((t) => {
-      const at = s.threadSpots[`box:${t.id}`] ?? scattered.get(t.id) ?? { x: 140, y: 130 };
-      const size = sizeOf(t);
-      const real = box.querySelector<HTMLElement>(`[data-box="${t.id}"]`)?.offsetHeight;
-      return { x: at.x, y: at.y, w: size.w, h: real && real > 8 ? real : size.h };
-    });
+    const boxes = columnOf(box);
     /* The column, before the fan: what the middle is the middle of. */
     const cards = boxes.slice();
     /* The lanes hang off the end and are part of what the view must hold. */
     const lastT = s.threads.at(-1);
     /* As tall as the last box really stands, the way the lanes measure it, so the fit holds the same fan the screen shows. */
     const lastH = lastT ? box.querySelector<HTMLElement>(`[data-box="${lastT.id}"]`)?.offsetHeight : undefined;
-    boxes.push(...laneRects(lastT ? { ...(s.threadSpots[`box:${lastT.id}`] ?? scattered.get(lastT.id) ?? { x: 140, y: 130 }), ...sizeOf(lastT), ...(lastH ? { h: lastH } : {}) } : null, BOX, GAP));
+    boxes.push(...laneRects(lastT ? { ...(s.threadSpots[`box:${lastT.id}`] ?? homeAt.current.get(lastT.id) ?? { x: 140, y: 130 }), ...sizeOf(lastT), ...(lastH ? { h: lastH } : {}) } : null, BOX, GAP));
     /* The ceiling is a reading of the card against the board, not a fixed 1:
        three updates used to stop at 1 and cover a quarter of the floor. */
     const widest = Math.max(BOX.w, ...boxes.map((b) => b.w));
@@ -771,6 +840,44 @@ export function Timeline() {
     settling.current = requestAnimationFrame(step);
   }, [stopSettle]);
 
+  /**
+   * The fit, once there is something to measure.
+   *
+   * What the fit reads is the boxes' real heights, and a fit taken in the
+   * same tick as the decision to take it reads the nominal ones instead:
+   * measured, that is the difference between the column landing 5px off the
+   * room's centre and 141px off it.
+   *
+   * WAITING FOR THE BOXES RATHER THAN FOR A NUMBER OF FRAMES. Two frames
+   * was enough on a quiet machine and not on a busy one — the same check
+   * came back 5px off centre run alone and 141px off it run in a suite,
+   * which is a race, not a result. So it asks the DOM each frame whether
+   * every box is there with a height on it, and fits on the frame that says
+   * yes. Bounded at thirty frames: if they are still not there half a
+   * second later the fit runs anyway, because a fit on nominal heights is
+   * wrong and no fit at all is the silence this whole evening has been
+   * about.
+   */
+  const whenMeasurable = React.useCallback((run: () => void) => {
+    const pane = plot.current?.closest<HTMLElement>("[data-timeline]") ?? null;
+    let left = 30;
+    let id = 0;
+    const there = () => {
+      const ids = useStudio.getState().threads.map((t) => t.id);
+      if (!pane || !ids.length) return true;
+      return ids.every((i) => (pane.querySelector<HTMLElement>(`[data-box="${i}"]`)?.offsetHeight ?? 0) > 8);
+    };
+    const look = () => {
+      if (left-- <= 0 || there()) { run(); return; }
+      id = requestAnimationFrame(look);
+    };
+    id = requestAnimationFrame(look);
+    return { cancel: () => cancelAnimationFrame(id) };
+  }, []);
+
+  const settleSoon = React.useCallback(() => whenMeasurable(() => settle()), [whenMeasurable, settle]);
+
+
   /*
    * Opening the timeline settles it — the first time, and only then.
    *
@@ -819,10 +926,74 @@ export function Timeline() {
       const moved = Math.abs(now.w - was.w) > 2 || Math.abs(now.h - was.h) > 2;
       was = now;
       if (!settled.current) {
-        /* The view he left, if he has one, or the fit. */
+        /*
+         * The view he left, if he has one AND it still has the column on
+         * the screen — or the fit.
+         *
+         * His ruling, and it outranks the hand: "NO PART OF THE COLUMN IS
+         * EVER OUTSIDE THE FRAME. Clipping the thing he is reading is
+         * worse than any amount of the fan hanging off." What stood here
+         * handed his view back whatever had become of it. Wheel the board
+         * sideways, leave by Finish and come back through it, and the
+         * timeline returned 1887px off the left edge with every card off
+         * the screen and nothing said — which is the same silence as the
+         * fit that used to give up in one frame.
+         *
+         * Asked in board coordinates, not of the DOM: at this moment the
+         * boxes have not arrived, so there is nothing to measure. And
+         * asked with no margin, because a view of his own sitting a few
+         * pixels off the edge is still a view — this is a floor to catch
+         * what has fallen through, not a tidier.
+         *
+         * THE WHOLE PANE, NOT THE PANE LESS THE BAND. His words are
+         * "outside the FRAME", and the band along the foot is inside it.
+         * The fit keeps the set clear of the band, which is right for a
+         * fit; measuring against it here fought the hand instead —
+         * zooming in eight notches by hand puts 161px of the column
+         * behind the band with nothing off the frame at all, and this
+         * threw that view away and refitted, which is the zoom resetting
+         * on every Finish that `tests/updates-view` exists to stop.
+         *
+         * AND ASKED WHEN THERE IS SOMETHING TO MEASURE, which is not now.
+         * A box not yet in the DOM has no height to read and keeps the
+         * nominal one, and nominal is 208 against about 133 — three of
+         * them is 225 board pixels of column that is not there. Asked at
+         * this moment it condemned a perfectly good view: zoomed in by
+         * hand to 0.884 with nothing off the frame, the phantom column
+         * hung off the bottom and the view was thrown away and refitted
+         * to 0.592. So his view is handed back first, and the question is
+         * put a few frames later when the boxes have arrived; if it fails
+         * then, the fit takes it.
+         */
         const mine = owns ? ownView : null;
-        if (mine) { setPan(mine.pan); setZoom(mine.zoom); settled.current = true; return; }
+        if (mine) {
+          setPan(mine.pan);
+          setZoom(mine.zoom);
+          settled.current = true;
+          rescue.current = whenMeasurable(() => {
+            const held = ownView ?? mine;
+            if (columnHolds(held, columnOf(box), { w: box.clientWidth, h: box.clientHeight })) return;
+            owns = false;
+            ownView = null;
+            settle();
+          });
+          return;
+        }
+        /* Nobody owns a view that lost the column. Asking for the middle is
+           asking for the fit, which is the other half of the ruling. */
+        if (owns) { owns = false; ownView = null; }
         settle();
+        /*
+         * …and again once there is something to measure.
+         *
+         * The arrival's own re-fit cannot cover this one: coming back in,
+         * every box has already been watched arrive, so `everyoneHere` is
+         * true on the first render — which is BEFORE this line runs and
+         * drops the ownership, so that effect reads `owns` as still true,
+         * returns, and never runs again because nothing it watches
+         * changed. Two traps of the same shape, one inside the other.
+         */
+        rescue.current = settleSoon();
         settled.current = true;
         return;
       }
@@ -873,6 +1044,8 @@ export function Timeline() {
     if (band) ro.observe(band);
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      rescue.current?.cancel();
+      rescue.current = null;
       ro.disconnect();
       stopSettle();
     };
@@ -896,9 +1069,23 @@ export function Timeline() {
    */
   const everyoneHere = threads.length > 0 && threads.every((t) => shownOf(t.id) >= 0);
   React.useEffect(() => {
-    if (!everyoneHere || !settled.current || owns || inHand.current) return;
-    settle();
-  }, [everyoneHere, settle]);
+    if (!everyoneHere || owns || inHand.current) return;
+    /*
+     * Two frames, and not `settled.current`.
+     *
+     * Coming back in through Finish a second time, every box has already
+     * been watched arrive, so `everyoneHere` is true on the very first
+     * render — before this component has committed, let alone laid out. It
+     * used to be guarded on the mount fit having run, so on re-entry it
+     * returned early and then never ran again, because `everyoneHere` had
+     * not *changed*: the fit was left as it landed on a board with nothing
+     * measurable on it, and the column came back 142px off centre where
+     * the first entry put it within 5. One frame for React's commit and
+     * one for the layout, and then the heights are real.
+     */
+    const f = settleSoon();
+    return () => f.cancel();
+  }, [everyoneHere, settleSoon]);
 
   /*
    * The bar's readout is the way back here as well.
@@ -1084,7 +1271,7 @@ export function Timeline() {
         /* Pulled while the pointer is on its seam, and parting while it
            is being cut. Read off refs rather than state: both change at
            the frame rate and neither belongs in a render. */
-        tug: tugAt.current === cord.to ? 1 : 0,
+        tug: ropes.current.get(cord.to)?.x ?? 0,
         cut: cutAt.current.id === cord.to ? cutAt.current.p : 0,
       });
     }
@@ -2895,18 +3082,20 @@ function VineCut({ of, at, ends: pair, onTug, onCut }: {
   of?: Thread;
   at: [Point, Point];
   ends: [VineEnd, VineEnd];
-  onTug: (id: string | null) => void;
+  onTug: (id: string, held: boolean) => void;
   onCut: (id: string) => void;
 }) {
   const id = of?.id;
   /* Let go on the way out, whatever took the element away — a drag
      starting, the box moving, this unmounting mid-hover. A vine left
      pulled by a pointer that is not there any more is a vine stuck. */
-  React.useEffect(() => () => { if (id) onTug(null); }, [id, onTug]);
+  React.useEffect(() => () => { if (id) onTug(id, false); }, [id, onTug]);
   if (!of || !id) return null;
   const [from, to] = at;
-  const box = strandBounds(from, to);
-  const d = strandSeam({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y }, { ends: pair });
+  /* The box is the band's, not the paint's: a target wider than the vine
+     needs the room to be wider than the vine, or its far side is clipped. */
+  const box = strandBounds(from, to, REACH_WIDTH);
+  const d = strandReach({ x: from.x - box.x, y: from.y - box.y }, { x: to.x - box.x, y: to.y - box.y });
   if (!d) return null;
   return (
     <Tooltip content={`Cut it, and "${headlineOf(of)}" goes`}>
@@ -2914,13 +3103,27 @@ function VineCut({ of, at, ends: pair, onTug, onCut }: {
         type="button"
         data-vine-cut={id}
         onPointerDown={(e) => e.stopPropagation()}
-        /* The seam is where the hand finds it — measured off the vine at
-           rest, so it does not move out from under the pointer the moment
-           the vine answers by pulling. */
-        onPointerEnter={() => onTug(id)}
-        onPointerLeave={() => onTug(null)}
-        onFocus={() => onTug(id)}
-        onBlur={() => onTug(null)}
+        /*
+         * A BAND ALONG THE WHOLE VINE, not the line down the middle of it.
+         *
+         * His words: "it seems to need to be super precisely the line in
+         * the middle of the vine and easy to miss … a band along its whole
+         * length, generous either side, so it catches a hand that is near
+         * it rather than one that is exactly on it." The seam was 7px
+         * across; this is `REACH_WIDTH`, 44, and it is measured off the
+         * vine at rest so it does not move out from under the pointer the
+         * moment the vine answers.
+         *
+         * The press is unchanged and lands on the same band, which is a
+         * bigger thing to press by accident than it was — and it is one
+         * undo, because `pruneThread` pushes history like every other
+         * edit, and the vine visibly lifts under the hand before the press
+         * as well as saying what will go.
+         */
+        onPointerEnter={() => onTug(id, true)}
+        onPointerLeave={() => onTug(id, false)}
+        onFocus={() => onTug(id, true)}
+        onBlur={() => onTug(id, false)}
         onClick={(e) => { e.stopPropagation(); onCut(id); }}
         aria-label={`Cut the line, and "${headlineOf(of)}" goes`}
         className="vine-cut absolute"

@@ -482,9 +482,19 @@ check("cutting the line takes the later of the two iterations out", (() => (
 check("…once the vine has come apart, and not while it is still coming apart", (() => (
   /cutAt\.current = \{ id: null, p: 0 \};\s*useStudio\.getState\(\)\.pruneThread\(id\);/.test(timeline)
 ))());
-check("…and the press is on the line rather than on the board around it", (() => {
+/*
+ * The target is a band ALONG the line now, not the line's own shape.
+ *
+ * It was clipped to `strandSeam`, which is the painted line, seven pixels
+ * across — and he said so: "it seems to need to be super precisely the line
+ * in the middle of the vine and easy to miss". It is `strandReach` instead,
+ * forty four across, measured in `tests/vine-alive.mjs` as 3.5px either side
+ * becoming 22.5. Still clipped to the vine's own shape rather than to a
+ * rectangle over the board, which is what this line is really for.
+ */
+check("…and the press is on a band along the vine rather than on the board around it", (() => {
   const css = readFileSync("src/core/ui/molten.css", "utf8");
-  return /clipPath: `path\("\$\{d\}"\)`/.test(timeline) && /strandSeam\(/.test(timeline)
+  return /clipPath: `path\("\$\{d\}"\)`/.test(timeline) && /strandReach\(/.test(timeline)
     && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{/.test(css)
     /* And it paints nothing, ever: what answers a hand is the vine. */
     && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{[\s\S]*?background: transparent;/.test(css);
