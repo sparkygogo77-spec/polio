@@ -394,6 +394,11 @@ export function compileSpec(input: CompileInput): Spec {
                 const f = n.cube!.faces[i];
                 const said = [f?.heading?.trim(), f?.body?.trim()].filter(Boolean).join(" — ");
                 const why = (f?.prompt ?? "").trim();
+                // A surface bound to a page is that page, and the words
+                // behind it are not what anybody sees, so the brief says
+                // the page rather than the words.
+                const onPage = pages.find((p) => p.id === (f?.pageId ?? ""))?.name;
+                if (onPage) return `${side} is the "${onPage}" page itself, drawn at the face's size; a press on it goes there${why ? `, for: ${why}` : ""}`;
                 return `${side} ${said ? `"${said}"${f?.colour ? ` (${f.colour})` : ""}` : "blank"}${why ? `, for: ${why}` : ""}`;
               }).join("; ")}. A blank face is blank on purpose; do not fill it in. The object is ${n.w} × ${n.h} and as deep as its shorter side: a square box is a cube, a wider one is a wider box.`
             : null,

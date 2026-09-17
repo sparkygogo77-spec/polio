@@ -98,7 +98,7 @@ export function facesFrom(content: string, prompt: string): CubeFace[] {
   return faces;
 }
 
-/** How many faces have anything on them. */
+/** How many faces have anything on them: words, or a whole page. */
 export function written(cube: CubeData | null | undefined): number {
-  return (cube?.faces ?? []).filter((f) => f.heading.trim() || f.body.trim()).length;
+  return (cube?.faces ?? []).filter((f) => f.heading.trim() || f.body.trim() || (f.pageId ?? "").trim()).length;
 }

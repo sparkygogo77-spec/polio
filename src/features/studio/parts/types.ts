@@ -67,6 +67,17 @@ export interface CubeFace {
   prompt?: string;
   /** Another part shown on this face instead of words. */
   nodeId?: string | null;
+  /**
+   * A surface is a page.
+   *
+   * Bound to a page of the site, the face stops being a card with words on
+   * it and becomes that page: the page's own parts, drawn at the face's
+   * size, under the site's own palette and lamp. Live, pressing the face
+   * goes there, which is what a surface being a page has to mean if it
+   * means anything. Unbound — the ordinary case — the face is its heading
+   * and its body, exactly as it was.
+   */
+  pageId?: string | null;
 }
 
 /** The six faces, in the order the part turns through them. */
@@ -154,6 +165,17 @@ export interface PartProps {
    * ships it with everything else.
    */
   vector?: { viewBox: string; paths: { d: string; share: number }[] } | null;
+  /**
+   * A page, drawn small enough to stand on a surface.
+   *
+   * Handed down rather than imported, for the reason the whole folder
+   * exists: a part may not reach the store or the site's renderer. What
+   * comes back is already sized for the box it is given and takes no
+   * pointer, so the thing it stands on can still be turned. Nothing back
+   * means the page is gone, or is this page, and the face says so in
+   * words instead.
+   */
+  surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
   onNavigate?: (link: NodeLink) => void;
   emit?: (e: PartEvent) => void;
 }

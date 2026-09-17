@@ -107,7 +107,7 @@ function faceColour(face: CubeFace | undefined, t: Theme): string {
   return own;
 }
 
-export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, options, emit }: PartProps) {
+export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, options, emit, surface, onNavigate }: PartProps) {
   /*
    * The faces on the node win, and they are what the panel edits. A cube
    * that has never been edited — dropped straight off the shelf — reads its
@@ -117,7 +117,11 @@ export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, opt
    */
   const faces = React.useMemo<CubeFace[]>(() => {
     const own = cube?.faces;
-    if (own?.some((f) => f.heading.trim() || f.body.trim())) return CUBE_SIDES.map((_, i) => own[i] ?? { heading: "", body: "", colour: "" });
+    // A face bound to a page carries something, whatever its words say: the
+    // page is what anyone sees there. Without this a cube whose only edit
+    // was "this side is the About page" fell back to its content field and
+    // the binding vanished.
+    if (own?.some((f) => f.heading.trim() || f.body.trim() || (f.pageId ?? "").trim())) return CUBE_SIDES.map((_, i) => own[i] ?? { heading: "", body: "", colour: "" });
     const typed = facesFrom(content, "");
     if (typed.some((f) => f.heading.trim())) return typed;
     return facesFrom("Overview, How it works, Proof", "");
@@ -256,7 +260,16 @@ export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, opt
     // A press that never became a drag is a point at the face under it.
     if (live && d && Math.hypot(e.clientX - d.fromX, e.clientY - d.fromY) < POINT_PX) {
       spin.current = { x: 0, y: 0 };
-      if (d.on) emit?.({ type: "cube-face", side: d.on });
+      if (!d.on) return;
+      /*
+       * A surface that is a page is a way in. Pressing it goes there —
+       * anything else would be a page you can read and not open — and
+       * only a face with no page left keeps the old meaning, which is
+       * "this is the face I am talking about".
+       */
+      const to = faces[CUBE_SIDES.indexOf(d.on)]?.pageId?.trim();
+      if (to && onNavigate) onNavigate({ kind: "page", target: to });
+      else emit?.({ type: "cube-face", side: d.on });
     }
   };
   const key = (e: React.KeyboardEvent) => {
@@ -282,7 +295,7 @@ export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, opt
   };
 
   const from = t.lightFrom ?? { x: 0.3, y: 0.2 };
-  const filled = faces.filter((f) => f.heading.trim() || f.body.trim()).length;
+  const filled = faces.filter((f) => f.heading.trim() || f.body.trim() || f.pageId?.trim()).length;
   const mark = pick?.colour ?? t.accent;
 
   return (
@@ -320,7 +333,7 @@ export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, opt
           {CUBE_SIDES.map((name, i) => {
             const place = PLACE[name];
             const face = faces[i]!;
-            const bare = !face.heading.trim() && !face.body.trim();
+            const bare = !face.heading.trim() && !face.body.trim() && !face.pageId?.trim();
             if (bare && !showEmpty) return null;
             const lit = litness(place.normal, turn.x, turn.y, from);
             const ground = faceColour(face, t);
@@ -332,6 +345,22 @@ export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, opt
             const out = name === "left" || name === "right" ? W / 2 : name === "top" || name === "bottom" ? H / 2 : D / 2;
             const side = Math.min(fw, fh);
             const isPicked = picked === name;
+            /*
+             * The page on this side, if there is one and it can be drawn.
+             * A page that is gone, or this very page, comes back as
+             * nothing, and the face falls back to its words — which is the
+             * loud failing rather than a blank side of a box.
+             */
+            const on = face.pageId?.trim() ?? "";
+            const shown = on && surface ? surface(on, { w: fw, h: fh }) ?? null : null;
+            /*
+             * A side that is a page, where the page cannot be drawn: the
+             * shelf's thumbnail, the timeline's card, anywhere the renderer
+             * was not handed in. It says a page stands here rather than
+             * showing a blank side of a box, which is the difference
+             * between a thing that is not built yet and a thing that broke.
+             */
+            const stood = !!on && !shown && !face.heading.trim() && !face.body.trim();
             return (
               <div
                 key={name}
@@ -358,12 +387,26 @@ export function Cube({ id, label, content, w, h, theme: t, mode, cube, pick, opt
                   overflow: "hidden",
                 }}
               >
-                {face.heading.trim() ? (
+                {shown ? (
+                  <div
+                    data-face-page={face.pageId ?? ""}
+                    aria-hidden
+                    style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: "inherit" }}
+                  >
+                    {shown}
+                  </div>
+                ) : null}
+                {stood ? (
+                  <span data-face-stands="" style={{ fontFamily: t.bodyFamily, fontSize: Math.max(9, Math.round(side * 0.062)), lineHeight: 1.35, color: withAlpha(t.text, 0.6) }}>
+                    a page of the site stands on this side
+                  </span>
+                ) : null}
+                {!shown && face.heading.trim() ? (
                   <span style={{ fontFamily: t.headingFamily, fontWeight: 650, fontSize: Math.max(11, Math.round(side * 0.11)), lineHeight: 1.15, color: t.text, letterSpacing: "-0.01em" }}>
                     {face.heading}
                   </span>
                 ) : null}
-                {face.body.trim() ? (
+                {!shown && face.body.trim() ? (
                   <span style={{ fontFamily: t.bodyFamily, fontSize: Math.max(9, Math.round(side * 0.062)), lineHeight: 1.35, color: withAlpha(t.text, 0.72) }}>
                     {face.body}
                   </span>
