@@ -106,6 +106,44 @@ check("the document holds a path and not the picture", !!inDoc.pic?.path && !inD
 check("and it says how big the real file is, so a publish can be judged before it happens",
   (inDoc.pic?.bytes ?? 0) === PNG.length, `${inDoc.pic?.bytes ?? 0} against ${PNG.length}`);
 
+/* ------------------------------------------------------------------ */
+/* Drawing one instead of choosing one                                  */
+/* ------------------------------------------------------------------ */
+
+/* The renderer answered by the test, so nothing real is called and no key
+   is needed: what is being checked is where the picture lands and what is
+   said about the money, not whether Replicate draws. */
+let asked = null;
+await page.route("**/api/studio/image", async (route) => {
+  asked = JSON.parse(route.request().postData() ?? "{}");
+  await route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ ok: true, image: `data:image/png;base64,${PNG.toString("base64")}`, cost: 0.04, model: "black-forest-labs/flux-2-pro" }),
+  });
+});
+const drawIt = page.getByRole("button", { name: /Draw one/ }).first();
+check("the part offers to draw one", (await drawIt.count()) > 0);
+if (await drawIt.count()) {
+  await drawIt.click();
+  await page.waitForTimeout(400);
+  const panelText = await page.locator("[data-side-panel]").first().innerText();
+  check("and says what it will cost before it is pressed", /\$0\.04/.test(panelText), (panelText.match(/.{0,60}\$0\.0.{0,40}/) ?? ["nothing about money"])[0].replace(/\n/g, " "));
+  await page.locator('input[placeholder="what the picture should be"]').first().fill("a black orb over a dark sea");
+  await page.getByRole("button", { name: /^Draw it/ }).first().click();
+  await page.waitForTimeout(2000);
+  check("it asks the renderer for a raster of that part's size", asked?.kind === "raster" && asked?.prompt === "a black orb over a dark sea" && asked?.w === 1360,
+    asked ? `${asked.kind}, ${asked.w}×${asked.h}` : "nothing was asked");
+  const after = await page.evaluate(() => {
+    const raw = localStorage.getItem("builder.studio") ?? "";
+    return { pic: JSON.parse(raw)?.state?.nodes?.[0]?.picture ?? null, bytes: /iVBORw0/.test(raw) };
+  });
+  check("a drawn picture lands as a file like any other, and the document still holds no bytes",
+    after.pic?.from === "drawn" && after.pic?.path?.startsWith("assets/pictures/") && !after.bytes,
+    after.pic ? `${after.pic.from}, ${after.pic.path}` : "no picture on the part");
+  check("and it says what it really cost, after", /cost \$0\.04/i.test(await page.locator("[data-side-panel]").first().innerText()));
+}
+
 /* Publish, and read what arrived. */
 for (let go = 0; go < 3; go++) {
   const keys = page.locator('[role="dialog"][aria-label="Keys"]').first();

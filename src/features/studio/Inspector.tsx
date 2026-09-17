@@ -16,6 +16,8 @@ import { lands, speedWord, type Look } from "./look";
 import type { FormatValues } from "./format";
 import { BACKGROUND_ID, heldBackground, HUES, NODE_SHAPES, pageGroups, pageNodes, pageShapes, activePage, useStudio , type StudioNode } from "./store";
 import { drop as dropPicture, put as putPicture, usePicture } from "./pictures";
+import { RENDER_COST } from "./renderer";
+import { rendererHeader } from "./agent";
 import { ColourOverride } from "./ColourOverride";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { CUBE_SIDES, emptyFace, written } from "./parts/cubeFaces";
@@ -256,7 +258,50 @@ function PictureField({ node }: { node: StudioNode }) {
   const pic = node.picture ?? null;
   const { src, looked } = usePicture(pic);
   const [busy, setBusy] = React.useState(false);
+  const [asking, setAsking] = React.useState(false);
+  const [want, setWant] = React.useState("");
+  const [drawn, setDrawn] = React.useState<string | null>(null);
   const file = React.useRef<HTMLInputElement>(null);
+
+  /**
+   * Draw one with his own key.
+   *
+   * The same renderer that draws a part's body, asked for a picture instead,
+   * and what comes back lands exactly where an uploaded one lands: a file in
+   * this browser's storage, a path on the part, and the same publish. What
+   * it really cost comes back with it and is said, because the guess before
+   * the press was a guess.
+   */
+  const draw = async () => {
+    const say = want.trim();
+    if (!say) return;
+    setBusy(true);
+    setDrawn(null);
+    try {
+      const res = await fetch("/api/studio/image", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...rendererHeader() },
+        body: JSON.stringify({ kind: "raster", prompt: say, label: node.label, w: Math.round(node.w), h: Math.round(node.h) }),
+      });
+      const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; message?: string };
+      if (!r.ok || !r.image) {
+        setDrawn(r.message ?? "The renderer could not draw it.");
+        return;
+      }
+      const blob = await (await fetch(r.image)).blob();
+      const made = await putPicture(blob, { alt: say, from: "drawn" });
+      const had = node.picture;
+      useStudio.getState().updateNode(node.id, { picture: made });
+      if (had) void dropPicture(had);
+      setDrawn(typeof r.cost === "number" ? `Drawn. It cost $${r.cost.toFixed(2)}.` : "Drawn. The renderer reported no price for it.");
+      setAsking(false);
+      setWant("");
+    } catch (err) {
+      setDrawn(err instanceof Error ? err.message : "The renderer could not be reached.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const choose = async (f: File | undefined) => {
     if (!f) return;
@@ -306,8 +351,41 @@ function PictureField({ node }: { node: StudioNode }) {
           <Button variant="outline" size="xs" disabled={busy} onClick={() => file.current?.click()}>
             {pic ? "Choose another" : "Choose a picture"}
           </Button>
+          <Button variant="ghost" size="xs" disabled={busy} onClick={() => setAsking((v) => !v)}>
+            <Sparkles className="size-3" /> Draw one
+          </Button>
           {pic ? <Button variant="ghost" size="xs" onClick={clear}>Remove</Button> : null}
         </div>
+        {asking ? (
+          <div className="space-y-2 rounded-md border border-border bg-elevated/50 p-2">
+            <Input
+              inputSize="sm"
+              autoFocus
+              value={want}
+              placeholder="what the picture should be"
+              onChange={(e) => setWant(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && want.trim()) void draw(); }}
+            />
+            {/*
+              The price before the press, not after it. It is his key and his
+              money, and the rate is the renderer's published one; what it
+              actually cost comes back with the picture and replaces this.
+            */}
+            <p className="text-[10px] leading-relaxed text-fg-muted">
+              Drawn with your own Replicate key, about <span className="num text-fg">${RENDER_COST.raster.toFixed(2)}</span> a
+              go at the model&rsquo;s published rate. It lands as a file on this part, the same as one you chose yourself.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="primary" size="xs" disabled={busy || !want.trim()} loading={busy} onClick={() => void draw()}>
+                Draw it
+              </Button>
+              <Button variant="ghost" size="xs" disabled={busy} onClick={() => setAsking(false)}>Cancel</Button>
+            </div>
+          </div>
+        ) : null}
+        {/* What it really cost, said after, and outside the box that closes
+            when it worked — it was set and then hidden with the asking. */}
+        {drawn ? <p className="text-[10px] leading-relaxed text-fg-muted">{drawn}</p> : null}
         {pic ? (
           <p className="text-[10px] leading-relaxed text-fg-muted">
             {pic.published

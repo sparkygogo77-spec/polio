@@ -100,7 +100,16 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * The body is kept on the node, so changing the role back brings it
    * straight back.
    */
-  if (hasBody(node.code) && !DRAWS_ITSELF.has(node.featureId)) {
+  /*
+   * AND A PICTURE BEATS A DRAWN BODY.
+   *
+   * Somebody who puts a picture on a part has said what they want. A drawn
+   * body is what the part does when nobody has said anything — a
+   * placeholder with good manners, not a choice. So the picture wins, and
+   * because the body is still on the node, taking the picture away brings
+   * it straight back rather than leaving a hole.
+   */
+  if (hasBody(node.code) && !DRAWS_ITSELF.has(node.featureId) && !node.picture) {
     const body = <CodedBody node={node} t={t} mode={mode} size={size} />;
     return node.outline ? <Cut node={node}>{body}</Cut> : body;
   }
@@ -109,6 +118,26 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   const part = (
     <>
     {drift ? <style data-part-drift={drift.name}>{drift.css}</style> : null}
+    {/*
+      Which of the two he is looking at, said quietly and only where he is
+      building. A part that has both a picture and a drawn body shows the
+      picture; without a word for it, the only way to know whose the thing
+      on screen is would be to take the picture off and watch. Never on the
+      live site: a visitor is not building anything.
+    */}
+    {mode === "board" && node.picture && hasBody(node.code) ? (
+      <span
+        data-shows="picture"
+        aria-hidden
+        style={{
+          position: "absolute", left: 6, bottom: 6, zIndex: 3, pointerEvents: "none",
+          padding: "1px 6px", borderRadius: 999, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
+          background: "oklch(0.18 0.02 265 / 0.72)", color: "oklch(0.86 0.02 265)",
+        }}
+      >
+        your picture
+      </span>
+    ) : null}
     <P
       id={node.featureId}
       label={node.label}
