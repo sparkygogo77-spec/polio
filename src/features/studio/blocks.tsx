@@ -16,6 +16,7 @@ import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 import { usePicture, type Picture } from "./pictures";
+import { missingCopy } from "./promised";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
 
@@ -115,6 +116,13 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   }
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
+  /*
+   * What the prompt names and the document does not hold. Read off the
+   * node rather than off the rendered page, because on the board the part
+   * has not been read back yet — the publish does that, and says the same
+   * thing at the foot of the page it writes.
+   */
+  const shortfall = missingCopy(node.prompt ?? "", [node.label, node.content ?? "", node.data ?? "", Object.values(node.options ?? {}).join(" ")].join(" "));
   const part = (
     <>
     {drift ? <style data-part-drift={drift.name}>{drift.css}</style> : null}
@@ -125,6 +133,27 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       on screen is would be to take the picture off and watch. Never on the
       live site: a visitor is not building anything.
     */}
+    {/*
+      Copy the prompt asked for and the part is not carrying, said where he
+      is building, before it goes out. His hero's prompt named an eyebrow, a
+      pill and a meta row; the part published its plain text and none of
+      those, and the first anybody knew was the live site. Only what a
+      prompt names outright — quoted, or in capitals — counts, so a prompt
+      about nothing but colour and weight is never accused of anything.
+    */}
+    {mode === "board" && shortfall.length ? (
+      <span
+        data-asked-for={shortfall.length}
+        title={`The prompt asks for ${shortfall.join(", ")}, and this part is not showing ${shortfall.length === 1 ? "it" : "them"}.`}
+        style={{
+          position: "absolute", right: 6, bottom: 6, zIndex: 3, pointerEvents: "none",
+          padding: "1px 6px", borderRadius: 999, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
+          background: "oklch(0.22 0.09 62 / 0.78)", color: "oklch(0.9 0.09 82)",
+        }}
+      >
+        {shortfall.length} not shown
+      </span>
+    ) : null}
     {mode === "board" && node.picture && hasBody(node.code) ? (
       <span
         data-shows="picture"

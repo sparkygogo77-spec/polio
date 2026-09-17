@@ -28,6 +28,35 @@ export function rng(seed: number): () => number {
 
 const pick = <T,>(r: () => number, xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
 
+/**
+ * What stands in the page where words are missing.
+ *
+ * One string, exported, because two places have to agree on it: the part
+ * that prints it and the publish that counts it. Change it here and the
+ * audit still finds every one.
+ */
+export const NOT_WRITTEN = "— not written yet —";
+
+/**
+ * Words the author has not written.
+ *
+ * On the board, sample prose is how a layout reads before anybody writes
+ * it, and it should stay: a board of empty boxes is unreadable. On a page
+ * somebody will actually read, the same prose is the site talking in his
+ * name about nothing. His thesis published as "Warm ledger clear orbit
+ * open ledger" — nine words of ours under his heading — and the page gave
+ * no sign that anything was missing.
+ *
+ * So the invented sentence never leaves the board. Live, the part says the
+ * words are missing, and `staticSite` names every part that had to say it,
+ * which is the loud failing rather than the silent one.
+ */
+export function unwritten(mode: "board" | "live", made: () => string, what = ""): string {
+  if (mode === "board") return made();
+  const name = what.trim();
+  return name ? `${name} ${NOT_WRITTEN}` : NOT_WRITTEN;
+}
+
 const FIRST = ["Ada", "Ravi", "Mina", "Theo", "Sol", "Ines", "Kai", "Nora", "Idris", "Yara", "Leo", "Zia"];
 const LAST = ["Okafor", "Lindqvist", "Marsh", "Tanaka", "Reyes", "Novak", "Adeyemi", "Byrne", "Costa", "Halvorsen"];
 const WORDS = ["clear", "steady", "quiet", "bright", "warm", "quick", "plain", "deep", "open", "sharp", "soft", "wide"];

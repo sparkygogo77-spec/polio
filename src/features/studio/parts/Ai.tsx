@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, Placeholder, useTicker } from "./primitives";
-import { hash, rng, sample } from "./sample";
+import { hash, rng, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
 import type { PartProps } from "./types";
 
@@ -138,7 +138,7 @@ export function AiChat({ id, content, options, theme: t, mode }: PartProps) {
 /** Condense or translate a passage in place, and put it back. */
 export function AiAction({ id, content, theme: t, mode, emit }: PartProps) {
   const translate = id === "ai-translate";
-  const source = items(content, [sample.sentence(rng(hash(id)), 28)])[0]!;
+  const source = items(content, [unwritten(mode, () => sample.sentence(rng(hash(id)), 28))])[0]!;
   const langs = ["English", "Español", "Français", "日本語"];
   const [lang, setLang] = React.useState(langs[0]!);
   const [applied, setApplied] = React.useState(false);

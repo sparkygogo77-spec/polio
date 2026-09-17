@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, Placeholder, PictureSlot, useTicker } from "./primitives";
-import { hash, rng, sample } from "./sample";
+import { hash, rng, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
 import { opt, type PartProps } from "./types";
 
@@ -94,7 +94,7 @@ export function ProductDetail({ id, content, theme: t, mode, emit, w, picture }:
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: t.fontPx * 0.6, minWidth: 0 }}>
         <h2 style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 800, fontSize: t.fontPx * 1.7, lineHeight: 1.15 }}>{p.name}</h2>
         <span style={{ color: t.accent, fontWeight: 700, fontSize: t.fontPx * 1.3 }}>{money(p.price)}</span>
-        <p style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 0.92, maxWidth: t.measurePx }}>{sample.sentence(rng(hash(p.name)), 14)}</p>
+        <p style={{ margin: 0, color: t.muted, fontSize: t.fontPx * 0.92, maxWidth: t.measurePx }}>{unwritten(mode, () => sample.sentence(rng(hash(p.name)), 14), p.name)}</p>
         <div role="radiogroup" aria-label="Options" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {variants.map((v) => (
             <button
@@ -256,7 +256,7 @@ export function Checkout({ id, content, theme: t, emit }: PartProps) {
 /* --------------------------------------------------------------- pricing */
 
 /** Tiers side by side, with a monthly/yearly switch that changes the numbers. */
-export function Pricing({ id, content, options, theme: t, emit, w }: PartProps) {
+export function Pricing({ id, content, options, theme: t, mode, emit, w }: PartProps) {
   const count = Math.max(2, Math.min(4, Number(opt(options, "tiers", "3")) || 3));
   const tiers = items(content, ["Free: 0", "Pro: 12", "Team: 32"].slice(0, count)).map(titled);
   const [yearly, setYearly] = React.useState(false);
@@ -290,7 +290,7 @@ export function Pricing({ id, content, options, theme: t, emit, w }: PartProps) 
                 ${price}
                 <span style={{ fontSize: t.fontPx * 0.75, color: t.muted, fontWeight: 400 }}>/{yearly ? "mo, billed yearly" : "mo"}</span>
               </span>
-              {[0, 1, 2].map((k) => <span key={k} style={{ color: t.muted, fontSize: t.fontPx * 0.88 }}><span style={{ color: t.accent }}>✓</span> {sample.word(rng(hash(tier.title + k)))}</span>)}
+              {[0, 1, 2].map((k) => <span key={k} style={{ color: t.muted, fontSize: t.fontPx * 0.88 }}><span style={{ color: t.accent }}>✓</span> {unwritten(mode, () => sample.word(rng(hash(tier.title + k))), `${tier.title} ${k + 1}`)}</span>)}
               <span style={{ marginTop: "auto", display: "flex" }}>
                 <Btn t={t} label="Choose" primary={i === hot} onClick={() => emit?.({ type: "toast", text: `${tier.title}, $${price}/mo` })} style={{ width: "100%" }} />
               </span>

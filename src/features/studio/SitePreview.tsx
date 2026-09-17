@@ -54,6 +54,8 @@ export interface PreviewDoc {
   look?: Look;
   activePageId?: string;
   frameWidth?: number;
+  /** The site's own name, so a wordmark in the thumbnail reads it and not "Logo". */
+  brief?: { name?: string };
 }
 
 export interface SitePreviewProps {
@@ -71,7 +73,7 @@ export function SitePreview({ doc, width, height }: SitePreviewProps) {
     const nodes = (doc.nodes ?? []).filter((n) => n.pageId === page.id);
     const format = doc.format ?? {};
     const look = doc.look;
-    const theme = themeFrom(format, look);
+    const theme = themeFrom(format, look, doc.brief?.name);
     const palette = resolvePalette(format, look);
     const frameW = Number(format["frame.width"]) || doc.frameWidth || 1440;
     return {

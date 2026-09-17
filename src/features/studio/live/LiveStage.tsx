@@ -42,6 +42,8 @@ export function LiveStage({
   const nodes = useStudio((s) => s.nodes);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
+  const shapes = useStudio((s) => s.shapes);
+  const siteName = useStudio((s) => s.brief.name);
   const frameWidth = useStudio((s) => s.frameWidth);
 
   const ref = React.useRef<HTMLDivElement>(null);
@@ -92,6 +94,8 @@ export function LiveStage({
             frameWidth={frameWidth}
             format={format}
             look={look}
+            siteName={siteName}
+            shapes={shapes}
             onNavigatePage={onNavigatePage}
             /*
              * A cube turned in Preview stays turned. The board is a still

@@ -18,6 +18,9 @@
  *     hand-roll ARIA (`role="tablist"`, `aria-expanded`, `role="dialog"`)
  *   - pointer maths as rect ratios so it works at any scale
  *   - every random-looking number comes from `sample.ts`, seeded by content
+ *   - words nobody typed go through `unwritten(mode, …)`: sample prose is
+ *     how a layout reads on the board, and a lie on a page a stranger reads
+ *   - a wordmark with nothing typed for it is `t.siteName`, never "Logo"
  *   - the root element carries `data-part={id}`
  */
 import type * as React from "react";

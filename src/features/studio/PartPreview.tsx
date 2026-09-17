@@ -42,7 +42,8 @@ export function previewHeight(feature: FeatureDef, width: number): number {
 export function PartPreview({ feature, width, height, round }: { feature: FeatureDef; width: number; height: number; round?: boolean }) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
-  const site = React.useMemo(() => themeFrom(format, look), [format, look]);
+  const siteName = useStudio((s) => s.brief.name);
+  const site = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
   // Everything the part would paint as "the page" becomes the surface instead.
   const theme = React.useMemo(
     () => ({ ...site, bg: site.surface, backdrop: site.surface, surfaceStyle: undefined, partGround: undefined, overlayStyle: undefined }),

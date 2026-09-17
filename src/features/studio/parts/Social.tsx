@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, useTicker } from "./primitives";
-import { hash, rng, sample } from "./sample";
+import { hash, rng, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme } from "./theme";
 import type { PartProps } from "./types";
 
@@ -36,7 +36,7 @@ const inputStyle = (t: Theme): React.CSSProperties => ({
 /* --------------------------------------------------------------- profile */
 
 /** A public identity page. */
-export function Profile({ id, content, theme: t, emit }: PartProps) {
+export function Profile({ id, content, theme: t, mode, emit }: PartProps) {
   const [nameLine, ...rest] = items(content, ["Ada Okafor: Builds things that stay built."]);
   const { title: name, body: bio } = titled(nameLine!);
   const who = { name, initials: name.split(" ").map((x) => x[0]).join("").slice(0, 2) };
@@ -60,7 +60,7 @@ export function Profile({ id, content, theme: t, emit }: PartProps) {
           </span>
         </div>
         <strong style={{ fontFamily: t.headingFamily, fontSize: t.fontPx * 1.2 }}>{name}</strong>
-        <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>{bio ?? sample.sentence(r, 9)}</span>
+        <span style={{ color: t.muted, fontSize: t.fontPx * 0.9 }}>{bio ?? unwritten(mode, () => sample.sentence(r, 9), "Bio")}</span>
         <div style={{ display: "flex", gap: t.fontPx, color: t.muted, fontSize: t.fontPx * 0.82, marginTop: "auto" }}>
           {stats.map((s) => <span key={s}>{s}</span>)}
         </div>

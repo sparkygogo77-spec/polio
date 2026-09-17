@@ -5,7 +5,7 @@
  */
 import * as React from "react";
 import { Btn, Fill, Placeholder } from "./primitives";
-import { rng, hash, sample } from "./sample";
+import { rng, hash, sample, unwritten } from "./sample";
 import { cardStyle, items, titled, type Theme, ghostStyle} from "./theme";
 import { opt, set, type PartProps } from "./types";
 
@@ -81,7 +81,7 @@ export function Grid({ id, content, options, theme: t, mode, onNavigate, w }: Pa
         >
           {ruled ? <Mark t={t} seed={card.title} /> : bare ? null : <Placeholder t={t} />}
           <span style={{ fontWeight: 600, fontFamily: t.headingFamily, fontSize: t.fontPx * 0.98, textTransform: ruled ? "uppercase" : undefined, letterSpacing: ruled ? "0.1em" : undefined }}>{card.title}</span>
-          <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{card.body ?? sample.sentence(rng(hash(card.title)), 6)}</span>
+          <span style={{ color: t.muted, fontSize: t.fontPx * 0.85 }}>{card.body ?? unwritten(mode, () => sample.sentence(rng(hash(card.title)), 6), card.title)}</span>
         </button>
       ))}
     </Fill>
@@ -109,7 +109,7 @@ function Mark({ t, seed }: { t: Theme; seed: string }) {
 }
 
 /** Two halves, or a rail beside the content. The rail's items select. */
-export function Split({ id, content, options, theme: t, w }: PartProps) {
+export function Split({ id, content, options, theme: t, mode, w }: PartProps) {
   const side = opt(options, "side", "left");
   const list = items(content, id === "docs" ? ["Getting started", "Guides", "Reference"] : ["Section one", "Section two", "Section three"]);
   const [active, setActive] = React.useState(0);
@@ -139,7 +139,7 @@ export function Split({ id, content, options, theme: t, w }: PartProps) {
       {side === "right" && !narrow ? null : rail}
       <div style={{ flex: 1, minWidth: 0, ...cardStyle(t), padding: t.fontPx, color: t.muted, overflow: "auto" }}>
         <div style={{ fontWeight: 600, color: t.text, fontFamily: t.headingFamily, marginBottom: 6 }}>{list[active]}</div>
-        {sample.sentence(rng(hash(String(list[active]))), 14)}
+        {unwritten(mode, () => sample.sentence(rng(hash(String(list[active]))), 14), String(list[active] ?? ""))}
       </div>
       {side === "right" && !narrow ? rail : null}
     </Fill>
@@ -196,7 +196,7 @@ export function Overlay({ id, content, options, theme: t, emit }: PartProps) {
  * to and take from, and the legal line is a choice — so the preview in the
  * shelf is a picture of what this footer will actually say.
  */
-export function Footer({ id, content, options, theme: t, onNavigate, link: own, w }: PartProps) {
+export function Footer({ id, content, options, theme: t, mode, onNavigate, link: own, w }: PartProps) {
   /*
    * The foot of the page carries the same wordmark the top of it does, and
    * for the same reason: "Logo" is not the name of anybody's site. An item
@@ -205,7 +205,7 @@ export function Footer({ id, content, options, theme: t, onNavigate, link: own, 
    * unchanged, and a site that has said its name once can say it twice.
    */
   const typed = items(content, ["About", "Pricing", "Docs", "Contact", "Privacy"]).map(titled);
-  const wordmark = typed.find((x) => x.body && ["logo", "wordmark"].includes(x.title.toLowerCase()))?.body ?? "Logo";
+  const wordmark = typed.find((x) => x.body && ["logo", "wordmark"].includes(x.title.toLowerCase()))?.body ?? t.siteName ?? unwritten(mode, () => "Logo", "");
   const links = typed
     .filter((x) => !(x.body && ["logo", "wordmark"].includes(x.title.toLowerCase())))
     .map((x) => (x.body ? `${x.title}: ${x.body}` : x.title));
@@ -262,7 +262,7 @@ export function Footer({ id, content, options, theme: t, onNavigate, link: own, 
             return (
               <div key={head} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
                 <span style={{ fontWeight: 700, fontSize: t.fontPx * 0.85, fontFamily: t.headingFamily }}>{head}</span>
-                {Array.from({ length: 3 }, (_, i) => link(sample.word(r), i))}
+                {Array.from({ length: 3 }, (_, i) => link(unwritten(mode, () => sample.word(r), `${head} ${i + 1}`), i))}
               </div>
             );
           })}

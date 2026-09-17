@@ -167,6 +167,15 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   inside a scaled transform); pointer maths as rect ratios; every non-typed
   number comes from `parts/sample.ts`, seeded by the content, so board, live
   preview and generated site agree.
+- **Nothing a part invents may reach a page a stranger reads.** Sample prose
+  is how a layout reads on the board before anybody writes it; on a live or
+  published page the same prose is the site talking in the owner's name about
+  nothing, which is how his thesis went out as "Warm ledger clear orbit open
+  ledger". Words nobody typed go through `unwritten(mode, …)` in
+  `parts/sample.ts`, which keeps the sample on the board and says plainly,
+  live, that the words are missing; `staticSite` then lists every part that
+  had to say it. A wordmark with nothing typed for it is `t.siteName`, off
+  the brief, never "Logo".
 - Tiers: **A** visual part (a real component); **B** behaviour applied to the
   whole live site; **C** platform mock that cannot run in a browser (auth,
   checkout, an API) and shows a truthful state change instead.
@@ -221,6 +230,18 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   belongs in the first screen.
 - *A new kind of mark on the board*: add a `ShapeKind` in `store.ts`, draw it
   in `Canvas.tsx`'s `ShapeView`, and describe it in `spec.ts`.
+
+**What the brief promises, the page carries or admits.** Four faults he
+measured on his own deploy were one fault: the brief said a thing and the
+board carried something else, and nothing anywhere owned up. So the brief
+and the page now read the same lists. `spec.unbuiltSections` is the sections
+of a page's layout that no part carries — a region drawn with words on it
+and nothing inside — and `LiveSite` stands a note where each one was drawn
+instead of leaving a silent gap. `promised.missingCopy` is the copy a prompt
+names outright (quoted, or in capitals) that the part is not showing:
+`blocks` tags it on the board where the work is done, and `staticSite` names
+it at the foot of the published page. Neither reads the rest of a prompt, so
+a prompt about nothing but colour and weight is never accused of anything.
 
 **A part draws what the page needs, or it is not the part.** Four things the
 BLACKORB rebuild could only fake, each fixed where it lived rather than

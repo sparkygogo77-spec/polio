@@ -157,7 +157,8 @@ export function Canvas() {
   const fitNonce = useStudio((s) => s.fitNonce);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
-  const theme = React.useMemo(() => themeFrom(format, look), [format, look]);
+  const siteName = useStudio((s) => s.brief.name);
+  const theme = React.useMemo(() => themeFrom(format, look, siteName), [format, look, siteName]);
   const wash = React.useMemo(() => washCss(look.light), [look.light]);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
   const pageMark = React.useMemo(() => complementOf(theme.backdrop), [theme.backdrop]);
