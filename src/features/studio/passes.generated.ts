@@ -2,9 +2,29 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T22:11:07.710Z";
+export const GENERATED_AT = "2026-09-17T23:21:50.875Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "6e1e3cb",
+    "when": "2026-09-17T23:21:42+00:00",
+    "day": "17 September",
+    "changes": [
+      {
+        "id": "be1f448",
+        "says": "No part of the column is ever outside the frame",
+        "when": "2026-09-17T23:03:58+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "93e0e2e",
+        "says": "A vine is a rope picked up and dropped, and a hand near it catches it",
+        "when": "2026-09-17T22:28:27+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "dbeaf11",
     "when": "2026-09-17T22:11:07+00:00",
@@ -348,45 +368,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 0
-  },
-  {
-    "id": "b274fd5",
-    "when": "2026-09-16T03:28:37+00:00",
-    "day": "16 September",
-    "changes": [
-      {
-        "id": "a8eb64c",
-        "says": "The bracket: three ways on from the latest box, on one generation, from fixed sample content",
-        "when": "2026-09-15T20:29:10+00:00",
-        "kind": "fixed"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f2c4631",
-    "when": "2026-09-15T19:54:51+00:00",
-    "day": "15 September",
-    "changes": [
-      {
-        "id": "b158adc",
-        "says": "Build exports the page at every device, the way Preview reflows it",
-        "when": "2026-09-15T19:17:21+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "a0f4fdf",
-        "says": "Build exports a solid as a solid",
-        "when": "2026-09-15T19:15:22+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "22570ce",
-        "says": "Build exports a page's behaviours through one shell, and the exported site is typechecked",
-        "when": "2026-09-15T19:11:00+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
   }
 ];
