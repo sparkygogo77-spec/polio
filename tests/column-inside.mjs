@@ -27,6 +27,7 @@
  *     node tests/column-inside.mjs http://127.0.0.1:3013
  */
 import { createRequire } from "node:module";
+import { HAND_SLACK } from "../src/features/studio/timelineView.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -61,9 +62,15 @@ const read = (page) => page.evaluate(() => {
   if (!pane) return null;
   const band = document.querySelector("[data-studio-band]")?.getBoundingClientRect();
   const es = [...document.querySelectorAll("[data-box]")];
+  const all = [...document.querySelectorAll("[data-box], [data-lane], [data-lane-box]")];
   if (!es.length) return null;
   let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
   for (const e of es) { const q = e.getBoundingClientRect(); l = Math.min(l, q.x); t = Math.min(t, q.y); r = Math.max(r, q.right); b = Math.max(b, q.bottom); }
+  /* The SET is what gets centred now — his own word, "lanes being
+     disregarded during centering is problematic" — while the COLUMN is what
+     may never leave the frame. Two different jobs, so two measurements. */
+  let sl = 1e9, sr = -1e9;
+  for (const e of all) { const q = e.getBoundingClientRect(); sl = Math.min(sl, q.x); sr = Math.max(sr, q.right); }
   const floor = band && band.top > pane.top ? band.top : pane.bottom;
   const plot = document.querySelector("[data-timeline-plot]");
   const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(plot).transform);
@@ -75,7 +82,9 @@ const read = (page) => page.evaluate(() => {
       left: Math.round(Math.max(0, pane.left - l)), right: Math.round(Math.max(0, r - pane.right)),
       top: Math.round(Math.max(0, pane.top - t)), bottom: Math.round(Math.max(0, b - floor)),
     },
-    offX: Math.round((l + r) / 2 - (pane.left + pane.right) / 2),
+    offX: Math.round((sl + sr) / 2 - (pane.left + pane.right) / 2),
+    colOffX: Math.round((l + r) / 2 - (pane.left + pane.right) / 2),
+    fanOff: Math.round(Math.max(0, sr - pane.right) + Math.max(0, pane.left - sl)),
     room: `${Math.round(pane.width)}x${Math.round(pane.height)}`,
   };
 });
@@ -96,7 +105,8 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   const s = await read(page);
   check(`${w}x${h}, ${n} updates: no part of the column is outside the frame`,
     s && outside(s) === 0, s ? `room ${s.room}, off L${s.off.left} R${s.off.right} T${s.off.top} B${s.off.bottom}` : "no timeline");
-  check(`…and its centre is the room's`, s && Math.abs(s.offX) <= 12, s ? `${s.offX}px off centre` : "-");
+  check(`…and the SET's centre is the room's, lanes counted`, s && Math.abs(s.offX) <= 12,
+    s ? `set ${s.offX}px off centre, column ${s.colOffX}px off it, nothing of the set outside: ${s.fanOff === 0}` : "-");
   await ctx.close();
 }
 
@@ -132,7 +142,7 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   const back = await read(page);
   check("coming back in never hands back a view with the column off the screen",
     back && outside(back) === 0, back ? `off L${back.off.left} R${back.off.right} T${back.off.top} B${back.off.bottom}` : "no timeline");
-  check("…and what it hands back instead is the middle", back && Math.abs(back.offX) <= 12, `${back?.offX}px off centre`);
+  check("…and what it hands back instead is the middle", back && Math.abs(back.offX) <= 12, `set ${back?.offX}px off centre, column ${back?.colOffX}px off it`);
   await ctx.close();
 }
 
@@ -154,7 +164,19 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   await page.mouse.wheel(60, 0);
   await page.waitForTimeout(700);
   const nudged = await read(page);
-  check("a small move by hand strands nothing", nudged && outside(nudged) === 0, `off ${outside(nudged)}px, ${nudged?.offX}px off centre`);
+  /*
+   * A NUDGE IS NOT A STRANDING, and it is allowed to put a few pixels over.
+   *
+   * This asserted nothing at all was outside, which held while the COLUMN
+   * was what got centred — it sat in the middle with slack on both sides.
+   * The SET is centred now, at his word, so the column sits well to one
+   * side by design and a single wheel notch puts 4px of it past the edge.
+   * The door tolerates that on purpose (`HAND_SLACK`, 24px): rule 1 is
+   * absolute about what the FIT does, and the door is only there to catch a
+   * column that has been lost, not to tidy a hand.
+   */
+  check("a small move by hand is not a stranding", nudged && outside(nudged) < HAND_SLACK,
+    `${outside(nudged)}px over, slack ${HAND_SLACK}px, set ${nudged?.offX}px off centre`);
   await page.locator("[data-finish]").first().click();
   await page.waitForTimeout(1200);
   await page.locator("[data-finish]").first().click();
