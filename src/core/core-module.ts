@@ -71,7 +71,9 @@ export const coreModule = defineFeature({
     { id: "core.copyUrl", label: "Copy page link", group: "Page", icon: Link2, run: (c) => void c.copy(window.location.href, "page link") },
     { id: "core.reload", label: "Reload", group: "Page", icon: RefreshCw, run: () => window.location.reload() },
     { id: "core.resetLayout", label: "Reset appearance to defaults", group: "Appearance", icon: LayoutPanelLeft, run: (c) => {
-      for (const id of ["appearance.mode", "appearance.accentHue", "appearance.radius", "appearance.font", "appearance.fontScale", "appearance.sidebar", "appearance.contentWidth"]) {
+      /* Radius and font are the site's, not the Builder's, so resetting the
+         Builder's appearance no longer touches them. */
+      for (const id of ["appearance.mode", "appearance.accentHue", "appearance.fontScale", "appearance.sidebar", "appearance.contentWidth"]) {
         // set() to the def default is what reset does; use the registry-free path through settings.
         c.setSetting(id, undefined);
       }

@@ -154,6 +154,31 @@ export interface SettingDef<V = unknown> {
   format?: (v: V) => string;
   /** Don't publish a feed line when this changes (e.g. very chatty values). */
   silent?: boolean;
+  /**
+   * A setting whose truth lives somewhere else.
+   *
+   * WHY THIS EXISTS. Every setting above is the *Builder's* own: it dresses
+   * the app you are working in and belongs in this browser, which is where
+   * the settings store puts it. Some settings are not about the Builder at
+   * all — they are about the site being built, and that site is a document
+   * he publishes, opens on another machine, hands to someone else. A corner
+   * radius for the site cannot live in this browser's localStorage; it has
+   * to live in the document, or it is lost the moment the site moves.
+   *
+   * So a definition may name its own source of truth. Give all three and the
+   * drawer reads, writes and re-renders from there instead of from the
+   * settings store: `read` for the value now, `write` for a change, and
+   * `subscribe` so the row repaints when the value moves for any other
+   * reason — the Format panel, the part menu, loading a different site.
+   * `default` is still declared, because that is what the reset dot and the
+   * "changed from default" count compare against.
+   *
+   * Core knows nothing about where it points. The feature that owns the
+   * document supplies the three functions.
+   */
+  read?: () => V;
+  write?: (value: V) => void;
+  subscribe?: (onChange: () => void) => () => void;
 }
 
 export interface SettingGroupDef {
@@ -161,6 +186,21 @@ export interface SettingGroupDef {
   label: string;
   description?: string;
   icon?: LucideIcon;
+  /**
+   * The group's own colour, as an OKLCH hue, 0-360.
+   *
+   * His words: "also give icons color especially those in the side panel
+   * categories". Every group's icon was the app's one accent, so a strip of
+   * eight categories read as eight copies of the same mark and the icon did
+   * no work at all — the label was carrying it alone. A hue per group means
+   * the mark itself says which category you are in, which is the rule the
+   * parts shelf already lives by (`CATEGORIES` in the studio catalogue, and
+   * its twelve hues 30 degrees apart).
+   *
+   * Unset falls back to the accent, so a module that contributes a group
+   * without choosing a colour looks exactly as it did.
+   */
+  hue?: number;
   order?: number;
 }
 
