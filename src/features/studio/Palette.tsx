@@ -70,8 +70,44 @@ export function addFeatureToCanvas(featureId: string) {
 /* One part                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * How long one pass is given before the tile is put back to rest.
+ *
+ * Long enough for an entrance, a sweep or a marquee to read — the motion
+ * archetype's own passes sit under a second — and short enough that a tile
+ * the pointer is resting on is not left running. A part with nothing to play
+ * simply draws itself twice and looks unchanged, which is the right answer
+ * for one that has no animation: it does not have to be asked whether it has
+ * one.
+ */
+const PLAY_MS = 1400;
+
 function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
   const [dragging, setDragging] = React.useState(false);
+  /*
+   * ONE PASS ON HOVER, and forgotten on the way out.
+   *
+   * Entering wakes this tile into `live` mode, where the part is itself and
+   * its animation runs from the start. A timer puts it back to rest after
+   * one pass so nothing on the shelf is ever looping, and leaving puts it
+   * back at once and cancels the timer — so a tile is never left halfway
+   * through, and the next hover starts from the beginning rather than from
+   * wherever the last one was abandoned.
+   */
+  const [awake, setAwake] = React.useState(false);
+  const stop = React.useRef<number | null>(null);
+  React.useEffect(() => () => { if (stop.current) window.clearTimeout(stop.current); }, []);
+  /* `play` is the sound, imported at the top of this file — the state that
+     wakes a tile is `awake` so the two never shadow each other. */
+  const wake = () => {
+    if (stop.current) window.clearTimeout(stop.current);
+    setAwake(true);
+    stop.current = window.setTimeout(() => setAwake(false), PLAY_MS);
+  };
+  const rest = () => {
+    if (stop.current) { window.clearTimeout(stop.current); stop.current = null; }
+    setAwake(false);
+  };
   /*
    * THE CARD IS THE SLOT IT WAS GIVEN, and its height follows from its shape.
    *
@@ -114,7 +150,14 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
 
   return (
     <Tooltip content={feature.explain ?? feature.blurb} side="top">
-      <div className="ember group relative" style={{ width }} data-hot={dragging ? "1" : undefined}>
+      <div
+        className="ember group relative"
+        style={{ width }}
+        data-hot={dragging ? "1" : undefined}
+        data-playing={awake ? "1" : undefined}
+        onPointerEnter={wake}
+        onPointerLeave={rest}
+      >
         {/* The fire this one part sits in: a rim that just clears its edges,
             and tongues that climb out of the bottom of it. */}
         <span aria-hidden className="ember-rim" />
@@ -147,7 +190,7 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
           data-tile={feature.id}
           className="flex cursor-grab flex-col gap-1 outline-none active:cursor-grabbing"
         >
-          <PartPreview feature={feature} width={width} height={height} />
+          <PartPreview feature={feature} width={width} height={height} play={awake} />
           <span className="line-clamp-1 text-[10px] leading-tight text-fg-muted group-hover:text-fg">{feature.name}</span>
         </div>
         <button

@@ -39,7 +39,25 @@ export function previewHeight(feature: FeatureDef, width: number): number {
   return Math.max(36, Math.round(h * (width / w)));
 }
 
-export function PartPreview({ feature, width, height, round }: { feature: FeatureDef; width: number; height: number; round?: boolean }) {
+/**
+ * A preview that can be woken for one pass.
+ *
+ * HIS WORDS: "in the list of parts, when i hover something that is supposed
+ * to have either a unique animation or style, on hover start the animation
+ * once and forget it when i stop hovering."
+ *
+ * The shelf draws every part in `board` mode, which by the parts contract
+ * means the initial state and no timers — the right default for 229 tiles on
+ * one screen, and the reason nothing on the shelf ever moves. `play` puts
+ * this one tile into `live` mode, where a part is itself: whatever entrance
+ * it has runs, and whatever it does under a pointer it does.
+ *
+ * Once, and forgotten. The card drops `play` back to false on its own after
+ * the pass and the instant the pointer leaves, and the `key` below remounts
+ * the part on every change — so it always starts from the beginning and is
+ * always left at rest, never halfway through.
+ */
+export function PartPreview({ feature, width, height, round, play }: { feature: FeatureDef; width: number; height: number; round?: boolean; play?: boolean }) {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const siteName = useStudio((s) => s.brief.name);
@@ -94,7 +112,9 @@ export function PartPreview({ feature, width, height, round }: { feature: Featur
       style={{ width, height, background: theme.surface, contentVisibility: "auto", containIntrinsicSize: `${width}px ${height}px` }}
     >
       <div style={{ width: pw, height: ph, transform: `scale(${scale})`, transformOrigin: "0 0", marginLeft: Math.max(0, (width - pw * scale) / 2) }}>
-        <Block node={node} t={theme} mode="board" />
+        {/* Remounted when `play` turns over, so the pass starts at zero
+            rather than resuming wherever the last one stopped. */}
+        <Block key={play ? "live" : "rest"} node={node} t={theme} mode={play ? "live" : "board"} />
       </div>
     </div>
   );
