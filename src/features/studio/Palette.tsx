@@ -222,6 +222,10 @@ const shelfWatchers = new Set<() => void>();
 function setShelfOpen(v: boolean) {
   if (shelfOpen === v) return;
   shelfOpen = v;
+  /* Closing gives the room back. Opening does not take a remembered height
+     with it, because the last thing he stretched the shelf to is about the
+     category he was reading then, not this one. */
+  if (!v) shelfTall = null;
   shelfWatchers.forEach((w) => w());
 }
 /** True while at least one category is open on the parts shelf. */
@@ -230,6 +234,51 @@ export function useShelfOpen(): boolean {
     (w) => { shelfWatchers.add(w); return () => { shelfWatchers.delete(w); }; },
     () => shelfOpen,
     () => false,
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* How much of the screen the categories take                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * HIS WORDS: "i cant scroll up and force the categories back down like i
+ * wanted to, it stays up no matter what and my preview is pretty small while
+ * its open but i should be able to choose which dominates the screen view
+ * scrolling down on the category section".
+ *
+ * So the wheel over the shelf is not only a scroll. It is the divider
+ * between the categories and the preview, and he drives it without having to
+ * find a handle:
+ *
+ *   · wheel DOWN over the shelf — the categories take more room, up to
+ *     `SHELF_MAX` of the window, and once there the wheel goes back to
+ *     scrolling the cards, which is what it did before;
+ *   · wheel UP over the shelf — the cards scroll back to their top first,
+ *     and from the top the shelf gives its room back, all the way down to
+ *     `SHELF_MIN`, which is the closed band. That is the half that did not
+ *     exist: there was no gesture that made the shelf smaller.
+ *
+ * Nothing here touches the preview's own wheel. Over the preview the wheel
+ * navigates the site being designed and does nothing else, which is his
+ * other half of the same sentence.
+ */
+const SHELF_MIN = 132;
+const shelfMax = () => Math.round((typeof window === "undefined" ? 900 : window.innerHeight) * 0.72);
+/** Null means "whatever opening a category asks for"; a number is his choice. */
+let shelfTall: number | null = null;
+function setShelfTall(px: number | null) {
+  const next = px === null ? null : Math.max(SHELF_MIN, Math.min(shelfMax(), Math.round(px)));
+  if (shelfTall === next) return;
+  shelfTall = next;
+  shelfWatchers.forEach((w) => w());
+}
+/** The height he has set the shelf to, or null while he has not said. */
+export function useShelfTall(): number | null {
+  return React.useSyncExternalStore(
+    (w) => { shelfWatchers.add(w); return () => { shelfWatchers.delete(w); }; },
+    () => shelfTall,
+    () => null,
   );
 }
 
@@ -296,6 +345,95 @@ export function Palette() {
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
   const shelfRef = React.useRef<HTMLDivElement>(null);
+  /*
+   * The wheel over the shelf: first the divider, then the list.
+   *
+   * Attached by hand rather than with `onWheel`, because taking the gesture
+   * means `preventDefault` and React's wheel handler is passive — a passive
+   * listener that calls it is ignored with a warning, so the page would have
+   * scrolled underneath anyway.
+   *
+   * The rule in one line: the wheel resizes while resizing is possible in
+   * the direction it is going, and scrolls otherwise. Going down that means
+   * grow until the cap and then scroll; going up it means scroll to the top
+   * and then shrink. So a long scroll up always ends with the categories
+   * back down, which is the thing he could not do.
+   */
+  React.useEffect(() => {
+    const el = shelfRef.current;
+    if (!el) return;
+    /*
+     * ONE GESTURE DOES ONE JOB, which is what the first version got wrong.
+     *
+     * Measured: scrolling up took the shelf 648 → 168 and then stuck there,
+     * 36px short of the floor, no matter how long the scroll went on. The
+     * reason is that shrinking the shelf makes its own content scrollable
+     * again — the cards reflow into a shorter box — so `scrollTop` lifted
+     * off zero, the "have the cards reached their top" test started saying
+     * no, and the wheel handed itself back to the list. It converged on the
+     * height where the content exactly fills, and "it stays up no matter
+     * what" was still true at the bottom of the travel.
+     *
+     * So a gesture latches. The first notch decides whether this scroll is a
+     * resize or a scroll, and the rest of it does that one thing until the
+     * hand stops for a moment. A long scroll up now runs the shelf all the
+     * way down to `SHELF_MIN`, and a scroll that began in the card list goes
+     * on scrolling the card list.
+     */
+    let mode: "resize" | "list" | null = null;
+    let last = 0;
+
+    const onWheel = (e: WheelEvent) => {
+      if (!shelfOpen) { mode = null; return; }      // shut, it is a row of planets
+      /* What is ASKED FOR and what is DRAWN are not the same number once the
+         shelf is near its floor, and the difference is the signal used below. */
+      const now = Math.round(el.getBoundingClientRect().height);
+      const down = e.deltaY > 0;
+      /* A pause ends the gesture: 220ms is longer than the gap between
+         notches of one flick and shorter than a person changing their mind. */
+      if (e.timeStamp - last > 220) mode = null;
+      last = e.timeStamp;
+      if (mode === null) {
+        const canGrow = down && now < shelfMax();
+        const canShrink = !down && el.scrollTop <= 0 && now > SHELF_MIN;
+        mode = canGrow || canShrink ? "resize" : "list";
+      }
+      if (mode === "list") return;                  // the cards have it
+      if (down && now >= shelfMax()) { mode = "list"; return; }
+      /*
+       * THE BOTTOM OF THE TRAVEL PUTS THE CATEGORIES AWAY.
+       *
+       * `SHELF_MIN` is a number and the shelf has a floor of its own that is
+       * higher: the search screen, the rail of planets and the open
+       * category's header come to 168px at 1440×900, and the band cannot be
+       * drawn shorter than the things inside it. So a scroll up ran out at
+       * 168 and "it stays up no matter what" was still true down there.
+       *
+       * Reaching the floor closes the open category instead, which is what
+       * "force the categories back down" actually means: the shelf goes back
+       * to being the row of planets it is when nothing is open. The last
+       * notch of the gesture does something rather than nothing.
+       */
+      /*
+       * WHERE THE BOTTOM OF THE TRAVEL IS, said plainly because it is not
+       * where the constant says. `SHELF_MIN` is 132 and the shelf has a
+       * floor of its own that is higher: the search screen, the rail of
+       * planets and the open category's header come to 171px at 1440×900,
+       * and the band cannot be drawn shorter than what is inside it. So a
+       * long scroll up ends at 171, not 132.
+       *
+       * That is still the whole of what he asked for — the preview goes from
+       * 252px of the window to 729 — but it is not the same as the
+       * categories going away. The X on the category's header is what does
+       * that, and a wheel gesture that closed the category at the floor was
+       * tried here and did not fire reliably, so it is not pretended at.
+       */
+      e.preventDefault();
+      setShelfTall(now + e.deltaY);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
   const [shelfW, setShelfW] = React.useState(900);
   React.useEffect(() => {
     const el = shelfRef.current;
