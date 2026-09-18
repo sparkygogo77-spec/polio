@@ -154,16 +154,22 @@ export function settleView(
    *      as fully as it can.
    *   4. If all three cannot hold, the fan overhangs to the RIGHT, visibly.
    *
-   * Which cuts one way on each axis, and that is the whole of it. ACROSS,
-   * the column decides: its middle is the middle, its width sets the zoom's
-   * width term, and the pan is held on it, so the fan is free to hang off
-   * the right where a person can see it. DOWN, everything decides: the fan
-   * stacks three lanes around the last box and reaches below it, so the
-   * union's height sets the zoom's height term and the pan is held on the
-   * union, which is what keeps the lowest lane above the band. There is no
-   * right-hand edge to disappear behind; there is a band along the foot.
+   * And then his own word on it, twice in an hour: "lanes being disregarded
+   * during centering is problematic."
+   *
+   * So THE SET IS WHAT GETS CENTRED — the lanes with the column, on both
+   * axes — and `weigh` stops meaning "the thing that is centred" and starts
+   * meaning "the thing that must never leave the frame". Those are two
+   * different jobs and it was doing the first when the order only ever
+   * needed the second: rule 1 is a floor, not a preference, and a floor
+   * does not have to be the thing you aim at.
+   *
+   * Aim at the set; guarantee the column. When both can hold, the lanes are
+   * counted and nothing is outside anything. When they cannot — the set is
+   * wider than the room — the pan gives the column its place and the fan
+   * takes the overhang, to the right, visibly, which is rule 4.
    */
-  const middle = opts.weigh?.length ? opts.weigh : boxes;
+  const middle = boxes;
   let mass = 0;
   let mx = 0;
   let my = 0;
@@ -186,19 +192,26 @@ export function settleView(
   if (!Number.isFinite(wide0) || !mass) return null;
 
   /*
-   * And how far the whole of it reaches DOWN, fan included.
+   * And where the COLUMN is inside all that — the thing rule 1 is about.
    *
-   * The same loop over `boxes` rather than over the column, because rule 2
-   * is about the thing the column does not contain. When nobody named a
-   * column these are the same numbers.
+   * Only ever read as a floor and as a guarantee, never as what the view
+   * aims at. When nobody named a column it is the set, and every rule below
+   * collapses to the one it had before any of this.
    */
-  let deep0 = Infinity;
-  let deep1 = -Infinity;
-  for (const b of boxes) {
-    deep0 = Math.min(deep0, b.y);
-    deep1 = Math.max(deep1, b.y + Math.max(1, b.h));
+  let colW0 = wide0;
+  let colW1 = wide1;
+  let colH0 = tall0;
+  let colH1 = tall1;
+  if (opts.weigh?.length) {
+    colW0 = Infinity; colW1 = -Infinity; colH0 = Infinity; colH1 = -Infinity;
+    for (const b of opts.weigh) {
+      colW0 = Math.min(colW0, b.x);
+      colW1 = Math.max(colW1, b.x + Math.max(1, b.w));
+      colH0 = Math.min(colH0, b.y);
+      colH1 = Math.max(colH1, b.y + Math.max(1, b.h));
+    }
+    if (!Number.isFinite(colW0)) { colW0 = wide0; colW1 = wide1; colH0 = tall0; colH1 = tall1; }
   }
-  if (!Number.isFinite(deep0)) { deep0 = tall0; deep1 = tall1; }
 
   /*
    * THE COLUMN'S CENTRE, not its centre of mass.
@@ -210,10 +223,15 @@ export function settleView(
    * middle of what you are looking at is the middle of its box. The mass is
    * still what decides there IS something to weigh.
    */
-  const com = opts.weigh?.length
-    ? { x: (wide0 + wide1) / 2, y: (deep0 + deep1) / 2 }
-    : { x: mx / mass, y: my / mass };
-  const span = { w: Math.max(1, wide1 - wide0), h: Math.max(1, deep1 - deep0) };
+  /*
+   * The set's own middle, not its centre of mass: a set whose parts are not
+   * all the same size has a centre of mass somewhere other than its middle,
+   * measured 14px off at 1100x820 with five updates. The middle of what you
+   * are looking at is the middle of its box. The mass is still what decides
+   * there IS something to weigh.
+   */
+  const com = { x: (wide0 + wide1) / 2, y: (tall0 + tall1) / 2 };
+  const span = { w: Math.max(1, wide1 - wide0), h: Math.max(1, tall1 - tall0) };
   const room = { w: Math.max(1, view.w - margin * 2), h: Math.max(1, view.h - margin * 2) };
   /*
    * The whole set decides the zoom — and then the floor gives if the column
@@ -236,21 +254,48 @@ export function settleView(
    * there gave 0.066. There is no fan in that case for the column to be
    * protected from.
    */
-  const floor = opts.weigh?.length ? Math.min(min, Math.min(room.w / span.w, room.h / span.h)) : min;
-  /* `tall0`/`tall1` are the column's own reach down, kept for nothing but
-     this: when the two disagree it is the fan reaching past the column, and
-     that difference is what rule 2 is spending zoom on. */
-  void tall0;
-  void tall1;
+  /*
+   * The floor may lower itself, but never past what the COLUMN needs.
+   *
+   * `min` stops a long chain being fitted to nothing. It is not allowed to
+   * cost him rule 1, so when the column alone will not fit at the floor,
+   * the floor gives — and only that far. The set is allowed to be bigger
+   * than the room; the column is not.
+   */
+  const col = opts.weigh?.length
+    ? { w: Math.max(1, colW1 - colW0), h: Math.max(1, colH1 - colH0) }
+    : span;
+  /* …and only when there IS a column distinct from the set. With no `weigh`
+     the two are the same thing and the floor is what stops a chain twenty
+     thousand pixels long being fitted to nothing: `tests/timeline-view` asks
+     for two boxes 20000 apart and expects the floor, and lowering it there
+     gave 0.066. */
+  const floor = opts.weigh?.length ? Math.min(min, Math.min(room.w / col.w, room.h / col.h)) : min;
   const zoom = Math.min(max, Math.max(floor, wanted));
 
-  return {
-    zoom,
-    pan: {
-      x: hold(view.w / 2 - com.x * zoom, wide0 * zoom, wide1 * zoom, view.w, margin),
-      y: hold(view.h / 2 - com.y * zoom, deep0 * zoom, deep1 * zoom, view.h, margin),
-    },
+  const pan = {
+    x: hold(view.w / 2 - com.x * zoom, wide0 * zoom, wide1 * zoom, view.w, margin),
+    y: hold(view.h / 2 - com.y * zoom, tall0 * zoom, tall1 * zoom, view.h, margin),
   };
+
+  /*
+   * RULE 1, AS A FLOOR UNDER THE ANSWER.
+   *
+   * Everything above aims at the set, which is what he asked for. This is
+   * the one thing that outranks aiming: if the set is wider or taller than
+   * the room, `hold` centres the set and the column can be carried out with
+   * it. So the column is held in the room afterwards, by the same rule, and
+   * whatever that costs the set is the fan's overhang — to the right, and
+   * above the band, because the vertical is held on the set first and only
+   * corrected if the column itself is out.
+   *
+   * A no-op whenever the set fits, which is the common case and the whole
+   * point: this never moves a view that was already right.
+   */
+  pan.x = hold(pan.x, colW0 * zoom, colW1 * zoom, view.w, margin);
+  pan.y = hold(pan.y, colH0 * zoom, colH1 * zoom, view.h, margin);
+
+  return { zoom, pan };
 }
 
 /**
@@ -275,15 +320,22 @@ export function settleView(
  * also the answer to the second half of the ruling — as near the room's
  * centre as it can be.
  *
- * `margin` is deliberately not the settle's: a view of his own that sits a
- * few pixels inside the edge is a view, and tidying it up to a 56px margin
- * would be a floor that fights the hand rather than one that catches it.
+ * `margin` is deliberately not the settle's, and it is NEGATIVE by default:
+ * a view of his own with a few pixels of a card past the edge is still his
+ * view. The set is what gets centred now, so the column sits well to one
+ * side of the room and a single wheel notch can put 4px of it over the edge
+ * — measured — and a floor with no slack answered that by moving the board
+ * 60px. That is a floor fighting the hand rather than catching it. Rule 1
+ * is about a column that has been CUT OFF, and it is absolute about what
+ * the fit does; this is the door, and the door only catches what fell.
  */
+export const HAND_SLACK = 24;
+
 export function columnHolds(
   view: View,
   column: ViewBox[],
   room: { w: number; h: number },
-  margin = 0,
+  margin = -HAND_SLACK,
 ): boolean {
   if (!column.length || !(room.w > 1) || !(room.h > 1)) return true;
   let left = Infinity;
