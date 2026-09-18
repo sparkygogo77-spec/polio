@@ -126,7 +126,21 @@ export function LightPlacer() {
    */
   React.useEffect(() => {
     if (!placing) return;
-    const move = (e: PointerEvent) => useStudio.getState().setLightCarry({ x: e.clientX, y: e.clientY });
+    const move = (e: PointerEvent) => {
+      /*
+       * ONLY WHILE NOTHING IS HELD.
+       *
+       * A drag out of the menu owns the pointer from its own press, and it
+       * deliberately writes nothing to the store until the drop so the page
+       * can light under the hand without a re-render behind it. This was
+       * writing on every move regardless, which put a store write in the
+       * middle of that gesture — and the drop then landed at 58%, 18% for a
+       * drop made at 28%, 62%. So while a button is down, whatever started
+       * the gesture owns it.
+       */
+      if (e.buttons !== 0) return;
+      useStudio.getState().setLightCarry({ x: e.clientX, y: e.clientY });
+    };
     window.addEventListener("pointermove", move);
     return () => window.removeEventListener("pointermove", move);
   }, [placing]);
@@ -143,6 +157,27 @@ export function LightPlacer() {
     if (!placing) return;
     const put = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      /*
+       * WHAT WAS PRESSED, NOT WHERE THE PRESS LANDED.
+       *
+       * This asked whether the point was inside the page's rectangle, and
+       * that is not the same question: the wheel, its sliders and the sun
+       * you drag out all float OVER the page, so every one of them is
+       * "inside the page" by geometry. Taking those presses — in capture,
+       * with `stopPropagation` — meant the shadow slider never received its
+       * own press and stayed where it was, and the press that starts the
+       * drag was swallowed so the lamp landed at the sun's own place, 58%
+       * and 18%, for a drop made at 28% and 62%.
+       *
+       * So the press has to have landed ON the page and on nothing that
+       * stands over it. Anything else is left alone entirely, and whatever
+       * was pressed gets its press.
+       */
+      const el = e.target instanceof Element ? e.target : null;
+      const over = el?.closest(
+        '[data-radial], [data-console-slab], [data-look-panel], [data-side-panel], [data-timeline-panel], [role="dialog"], [role="menu"], [data-thread-menu]',
+      );
+      if (over || !el?.closest("[data-frame]")) return;
       const frame = rectOf("[data-frame]");
       const st = useStudio.getState();
       if (frame && inside(frame, { x: e.clientX, y: e.clientY })) {
@@ -160,9 +195,24 @@ export function LightPlacer() {
         st.setPlacingLight(false);
         return;
       }
-      /* Off the page: he changed his mind, and the lamp is left as it was. */
-      play("close");
-      st.cancelPlacingLight();
+      /*
+       * A PRESS OFF THE PAGE IS NOT AN ANSWER, AND MUST NOT BE TREATED AS ONE.
+       *
+       * This used to cancel, and that one line broke two other things,
+       * measured: the sun is DRAGGED out of the wheel, so the press that
+       * starts the drag lands off the page and cancelled the placing before
+       * the drag had begun — the lamp then landed at 58%, 18% for a drop at
+       * 28%, 62%, which is not a transposition, it is the leftovers of a
+       * cancelled gesture. And `cancelPlacingLight` restores the lamp to what
+       * it was when placing began, so any slider moved while the light editor
+       * was open was quietly put back: shadow strength set to 45 stayed at
+       * 45.
+       *
+       * So this listener only ever answers a press ON the page. Changing his
+       * mind already has two ways out that cost nothing — Escape, and letting
+       * a carried light go off the page — and neither of them reaches in here
+       * to undo a setting he moved on purpose.
+       */
     };
     window.addEventListener("pointerdown", put, true);
     return () => window.removeEventListener("pointerdown", put, true);
