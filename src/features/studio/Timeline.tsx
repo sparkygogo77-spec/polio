@@ -1239,7 +1239,26 @@ export function Timeline() {
     () =>
       all
         .map((n) => ({ from: joins.get(n.thread.id) ?? null, to: n.thread.id, thread: n.thread }))
-        .filter((c): c is { from: string; to: string; thread: Thread } => !!c.from && byId.has(c.from))
+        /*
+         * NO VINE EXISTS WITHOUT A BOX AT BOTH ENDS.
+         *
+         * His rule, after a deleted box left its vine behind: "line still
+         * exists", and then "pieces are just floating" — a curve and two
+         * shards out in empty space with nothing at either end. A vine that
+         * ends in mid air is the picture of the bug in every case he has
+         * raised, the unlanded connection included.
+         *
+         * Only the START was checked here. The end was assumed present
+         * because it comes from the list being walked, which is true right
+         * up until the list and the map disagree for a frame — and when they
+         * do, `anchorOf` has no box to ask and falls back to a default spot,
+         * which is how a vine ends up drawn far from anything it belongs to.
+         *
+         * Both ends, every frame. It is one term, it cannot cost anything,
+         * and it makes the invariant true by construction rather than by
+         * everything upstream remembering to keep it.
+         */
+        .filter((c): c is { from: string; to: string; thread: Thread } => !!c.from && byId.has(c.from) && byId.has(c.to))
         .map((c) => ({
           from: c.from,
           to: c.to,

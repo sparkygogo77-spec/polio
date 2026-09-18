@@ -500,6 +500,18 @@ check("…and the press is on a band along the vine rather than on the board aro
     && /\.vine-cut:hover,\n\.vine-cut:focus-visible \{[\s\S]*?background: transparent;/.test(css);
 })());
 check("…lifted while a box is being dragged, because the vine under it is moving", /\{dragging \? null : cords\.map/.test(timeline));
+/*
+ * NO VINE EXISTS WITHOUT A BOX AT BOTH ENDS.
+ *
+ * His rule, after a deleted box left a curve and two shards floating in
+ * empty space: "line still exists", "pieces are just floating". Only the
+ * START was checked; the end was assumed present because it came from the
+ * list being walked, which holds until the list and the map disagree for a
+ * frame — and then `anchorOf` has no box to ask and falls back to a default
+ * spot, which is a vine drawn far from anything it belongs to.
+ */
+check("no vine is built unless there is a box at BOTH of its ends",
+  /byId\.has\(c\.from\) && byId\.has\(c\.to\)/.test(timeline));
 check("…and it says what would go before it goes", /Cut it, and "\$\{headlineOf\(of\)\}" goes/.test(timeline));
 
 /* ------------------------------------------------------------------ */
