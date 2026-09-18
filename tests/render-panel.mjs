@@ -153,12 +153,23 @@ check(
  * not have: a forbidden-words check passes any control nobody thought to
  * forbid. Every control in here is one of his, by name.
  */
-const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price"];
+/*
+ * Everything in this panel is something he named, by name.
+ *
+ * The first five were the image, the tweak, the ratio, the quality, the
+ * effort and the model. Then: "I need the option for input images and what
+ * type of output" \u2014 so a picture to work from and a file type join the
+ * list, and the picture brings a way to take it off again. Nothing else may
+ * be here, and this counts from the panel rather than from a list of things
+ * to forbid, so a control nobody thought to forbid is still caught.
+ */
+const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format"];
 const strays = await panel.evaluate((el, mine) => {
   const out = [];
   for (const node of el.querySelectorAll("input, select, textarea, button, [role='slider'], [role='switch'], [role='combobox']")) {
     const own = [...node.attributes].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
-      ?? [...(node.closest("[data-render-image],[data-render-tweak],[data-render-ratio],[data-render-quality],[data-render-effort],[data-render-model],[data-render-go]")?.attributes ?? [])].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n));
+      ?? [...(node.closest("[data-render-image],[data-render-tweak],[data-render-ratio],[data-render-quality],[data-render-effort],[data-render-model],[data-render-go],[data-render-format],[data-render-row='reference']")?.attributes ?? [])].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
+      ?? ([...node.attributes].some((a) => a.name.startsWith("data-render-row")) ? "row" : undefined);
     if (!own) out.push(`${node.tagName.toLowerCase()}${node.getAttribute("aria-label") ? `[${node.getAttribute("aria-label")}]` : ""}`);
   }
   return out;
@@ -193,10 +204,67 @@ check(
   body.prompt === "a dog in a field" && typeof body.model === "string" && body.model.includes("/"),
   `prompt ${JSON.stringify(body.prompt)}, model ${JSON.stringify(body.model)}`,
 );
+/*
+ * HIS WORDS, EXACTLY, AND NOTHING ELSE.
+ *
+ * He typed `apple` and Replicate was handed "apple, filling the whole frame,
+ * edge to edge, nothing floating small in the middle, no background plate, no
+ * border, no frame, no caption, no watermark, no signature" \u2014 nine clauses
+ * he never wrote. The framing words are a toggle now, off unless a caller
+ * asks, and the panel does not ask.
+ */
+check(
+  "nothing is added to what he typed",
+  body.prompt === "a dog in a field" && body.frame !== true,
+  `${JSON.stringify(body.prompt)}, frame ${JSON.stringify(body.frame)}`,
+);
 const price = (await panel.locator("[data-render-price]").innerText()).trim();
 check("what it really cost replaces the guess", /cost \$/.test(price), price);
-check("and the picture that came back is shown", (await panel.locator("[data-render-image] img").count()) === 1);
+/*
+ * The result lands in the stack, not in the slot.
+ *
+ * This looked in the slot, which is where the one picture used to go \u2014 and
+ * the slot is now what the NEXT one will be, kept empty on purpose so there
+ * is always somewhere to start from. A result that replaced it would be the
+ * behaviour he complained about.
+ */
+check(
+  "the picture that came back is shown, at the top of what he has made",
+  (await panel.locator("[data-render-iteration] img").count()) === 1,
+  `${await panel.locator("[data-render-iteration] img").count()} in the stack, slot left empty for the next`,
+);
 
+/* ------------------------------------------------------------------ */
+/* 6. What he made is still there after leaving the tab                */
+/* ------------------------------------------------------------------ */
+
+/*
+ * "stepping out of the tab resets the tab completely while below i would want
+ * my previous works to continue as well as the option for a new image."
+ */
+check("the picture that was drawn is kept below, not in place of the slot", (await panel.locator("[data-render-iteration]").count()) === 1, `${await panel.locator("[data-render-iteration]").count()} kept`);
+check("with a way to save it, tweak it and run it again", (await panel.locator("[data-render-download]").count()) === 1 && (await panel.locator("[data-render-tweak-from]").count()) === 1 && (await panel.locator("[data-render-again]").count()) === 1);
+check("and it can be dragged onto the page", (await panel.locator("[data-render-drag]").count()) === 1);
+
+/* Leave the tab for another, come back, and it is all still there. */
+const tabs = page.locator('[aria-label="Side panel"] button');
+await tabs.first().click({ force: true });
+await page.waitForTimeout(500);
+check("leaving the tab closes the panel", (await page.locator("[data-render-panel]").count()) === 0);
+await anyTab.click({ force: true });
+await page.waitForTimeout(700);
+const back = page.locator("[data-render-panel]").first();
+check(
+  "and coming back shows the work again, with a fresh slot on top",
+  (await back.locator("[data-render-iteration]").count()) === 1 && (await back.locator("[data-render-image]").count()) === 1,
+  `${await back.locator("[data-render-iteration]").count()} kept, ${await back.locator("[data-render-image]").count()} fresh slot`,
+);
+
+/* And the two new controls he asked for. */
+check("there is a way to give it a picture to work from", (await back.locator("[data-render-reference]").count()) === 1);
+check("and a way to say what comes back", (await back.locator("[data-render-row='format']").count()) === 1);
+
+await page.evaluate(() => localStorage.removeItem("builder.studio"));
 await browser.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);

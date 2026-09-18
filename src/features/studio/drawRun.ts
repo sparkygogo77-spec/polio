@@ -180,7 +180,7 @@ async function trace(picture: string, input: DrawInput): Promise<Traced> {
   const res = await fetch("/api/studio/image", {
     method: "POST",
     headers: { "content-type": "application/json", ...rendererHeader() },
-    body: JSON.stringify({ kind: "vectorize", picture, label: input.label, w: input.w, h: input.h }),
+    body: JSON.stringify({ kind: "vectorize", picture, label: input.label, w: input.w, h: input.h, frame: true }),
   });
   return (await res.json()) as Traced;
 }

@@ -1117,6 +1117,29 @@ export function Canvas() {
         setRefused({ points: drag.points, at: Date.now() });
         news.publish({ key: "studio:space", title: "A surface is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: false });
       }
+    } else if (drag.kind === "draw" && tool === "pen" && store.drawKind === "button" && drag.points && drag.points.length >= 2) {
+      /*
+       * BUTTON, CHOSEN BEFORE THE LINE WAS DRAWN, AND REAL THE MOMENT IT LANDS.
+       *
+       * "i would like some preset options like a button to be instantly coded
+       * and pressable and linkable via the chain to either a link or multiple
+       * options if not linked to another part of the site."
+       *
+       * So nothing is asked of a model and nothing is spent: the line he drew
+       * is a box, and an ordinary `cta-primary` goes in it. It is pressable
+       * from that moment because it is the same part the shelf drops, and the
+       * chain links it because `link` is an ordinary field on an ordinary
+       * node. A stroke too small to be a button gets a button's own minimum
+       * rather than a sliver nobody could press.
+       */
+      const xs = drag.points.map((q) => q[0]);
+      const ys = drag.points.map((q) => q[1]);
+      const x0 = Math.min(...xs), y0 = Math.min(...ys);
+      const w = Math.max(96, Math.round(Math.max(...xs) - x0));
+      const h = Math.max(36, Math.round(Math.max(...ys) - y0));
+      store.addNode("cta-primary", Math.round(x0), Math.round(y0), { w, h });
+      play("confirm");
+      news.publish({ key: "studio:button", title: "A button, ready to press", body: "Link it with the chain, to a page or an address.", level: "success", source: "studio", toast: false });
     } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
       const kind = tool === "pen" ? "pen" : "arrow";
       const pts = drag.points;

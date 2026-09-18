@@ -120,6 +120,12 @@ interface Body {
   ratio?: string;
   quality?: string;
   effort?: string;
+  /** Add the framing words. Off unless asked: what he types is what goes. */
+  frame?: boolean;
+  /** A picture to work from: his own drawing, or one he chose. A data URL. */
+  reference?: string;
+  /** png, jpeg or webp. The model's own default when he has not said. */
+  format?: string;
   /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
   picture?: string;
   prompt?: string;
@@ -256,6 +262,12 @@ export interface Asked {
   ratio?: string;
   quality?: string;
   effort?: string;
+  /** Add the framing words. Off unless asked: what he types is what goes. */
+  frame?: boolean;
+  /** A picture to work from: his own drawing, or one he chose. A data URL. */
+  reference?: string;
+  /** png, jpeg or webp. The model's own default when he has not said. */
+  format?: string;
 }
 
 function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
@@ -266,6 +278,22 @@ function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
     const field = card.fields.find((f) => f.name === "quality");
     if (field && (field.kind !== "enum" || (field.values ?? []).includes(asked.quality))) out.quality = asked.quality;
   }
+  /*
+   * A picture to work from, under whatever this model calls that field.
+   *
+   * "I need the option for input images" \u2014 and "i would like it to be
+   * possible that my freehand drawings become the prompts for replicate
+   * directly creating an image with my drawing as an input image". Same
+   * field either way: a drawing rasterised in the browser is a picture like
+   * any other, so the panel sends one and the route does not care which it
+   * was. A model with no reference field is simply not sent one.
+   */
+  if (asked.reference && card.refField) {
+    out[card.refField] = card.references > 1 ? [asked.reference] : asked.reference;
+  }
+  /* And the file type he asked for, under the model's own field. Left alone,
+     the model's own default stands. */
+  if (asked.format && card.format?.field) out[card.format.field] = asked.format;
   /* Effort goes out under the name this model gives it \u2014 `thinking` on the
      one that has one \u2014 rather than under his word for it, which no model
      would recognise. */
@@ -581,7 +609,7 @@ export async function POST(request: Request) {
   }
   const w = Math.round(Math.max(24, Math.min(4000, Number(body.w) || 320)));
   const h = Math.round(Math.max(24, Math.min(4000, Number(body.h) || 320)));
-  const words = renderPrompt({ kind, prompt, label, closed: body.closed, w, h, palette: body.palette });
+  const words = renderPrompt({ kind, prompt, label, closed: body.closed, w, h, palette: body.palette, frame: body.frame === true });
   // Tracing needs the drawing, and only the drawing. No words go with it,
   // because the whole point of this path is that nothing describes the line.
   const picture = base64Picture(body.picture);
@@ -594,7 +622,14 @@ export async function POST(request: Request) {
   const replicate = new Replicate({ auth: token });
   /* His model, when he named one and the table knows it; otherwise the one
      this kind of drawing has always used. */
-  const asked: Asked = { model: typeof body.model === "string" ? body.model : undefined, ratio: typeof body.ratio === "string" ? body.ratio : undefined, quality: typeof body.quality === "string" ? body.quality : undefined, effort: typeof body.effort === "string" ? body.effort : undefined };
+  const asked: Asked = {
+    model: typeof body.model === "string" ? body.model : undefined,
+    ratio: typeof body.ratio === "string" ? body.ratio : undefined,
+    quality: typeof body.quality === "string" ? body.quality : undefined,
+    effort: typeof body.effort === "string" ? body.effort : undefined,
+    reference: typeof body.reference === "string" && /^data:image\//.test(body.reference) ? body.reference : undefined,
+    format: typeof body.format === "string" && ["png", "jpeg", "webp"].includes(body.format) ? body.format : undefined,
+  };
   const card = asked.model ? modelNamed(asked.model) : null;
   const model = (card?.returns === "picture" ? card.slug : RENDER_MODELS[kind]) as `${string}/${string}`;
   /*

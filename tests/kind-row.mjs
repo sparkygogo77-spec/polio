@@ -41,10 +41,22 @@ check("every one has a name and says what it does",
   `shortest meaning is ${Math.min(...DRAW_KINDS.map((k) => k.means.length))} characters`);
 check("the one that works it out is still among them, so nothing was taken away",
   DRAW_KINDS.some((k) => k.id === "part"), "part");
-/* Button is coming and is deliberately not here yet: a preset kind means
-   coded and pressable the moment it lands, and a chip that is not that is a
-   control that lies. */
-check("and nothing is offered that is not built yet", !DRAW_KINDS.some((k) => k.id === "button"));
+/*
+ * THE RULE, NOT THE LIST.
+ *
+ * This asserted that Button was absent, which was right while Button was not
+ * built: a preset kind means coded and pressable the moment it lands, and a
+ * chip that is not that is a control that lies. Button is built now, so the
+ * check has to be the rule it came from rather than the shape the list
+ * happened to have \u2014 every kind offered must be one the drawing tool acts on
+ * by name, and the browser half of this file presses each one.
+ */
+const ACTED_ON = ["surface", "button", "icon", "cube", "part"];
+check(
+  "every kind offered is one the tool acts on, and none is a chip that does nothing",
+  DRAW_KINDS.every((k) => ACTED_ON.includes(k.id)),
+  DRAW_KINDS.map((k) => k.id).join(", "),
+);
 
 /* ------------------------------------------------------------------ */
 /* 2. Each one is a path that exists                                   */
@@ -136,7 +148,68 @@ if (!URL_) {
   const hues = await page.evaluate(() => document.querySelectorAll("[data-ink-hues] button").length);
   check("and the colour button opens the colours it replaced", hues === 8, `${hues} hues`);
 
-  await browser.close();
+  /* ------------------------------------------------------------------ */
+/* Pressing the colour adjusts it, and Button is a real part           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * "when i click the color i can adjust it" \u2014 eight swatches is choosing from
+ * eight, not adjusting. And "a button to be instantly coded and pressable
+ * and linkable via the chain": no model, no waiting, an ordinary part.
+ */
+/* Opened only if it is not open already: a check earlier in this file opens
+   it, and pressing the button again would shut it. */
+if (!(await page.locator("[data-ink-wheel]").count())) {
+  await page.locator("[data-ink-colour]").first().click({ force: true });
+  await page.waitForTimeout(500);
+}
+const wheel = page.locator("[data-ink-wheel]").first();
+check("pressing the colour opens something that adjusts it", (await wheel.count()) === 1);
+if (await wheel.count()) {
+  const before = Number(await wheel.getAttribute("aria-valuenow"));
+  const wb = await wheel.boundingBox();
+  await page.mouse.click(wb.x + wb.width * 0.82, wb.y + wb.height / 2);
+  await page.waitForTimeout(400);
+  const after = Number(await page.locator("[data-ink-wheel]").first().getAttribute("aria-valuenow"));
+  check(
+    "and it reaches colours no swatch offers",
+    Math.abs(after - before) > 20 && ![0, 30, 60, 120, 180, 210, 270, 320].includes(after),
+    `hue ${before} \u2192 ${after}, which is not one of the eight`,
+  );
+}
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+
+check("Button is one of the kinds he can pick before drawing", (await page.locator('[data-draw-kind="button"]').count()) === 1);
+await page.locator('[data-draw-kind="button"]').first().click({ force: true });
+await page.waitForTimeout(300);
+await page.keyboard.press("d");
+await page.waitForTimeout(200);
+const fr = await page.locator("[data-frame]").first().boundingBox();
+const bx = fr.x + fr.width * 0.3, by = fr.y + 220;
+await page.mouse.move(bx, by);
+await page.mouse.down();
+for (const [dx, dy] of [[60, 0], [120, 0], [120, 30], [120, 44], [60, 44], [0, 44], [0, 0]]) await page.mouse.move(bx + dx, by + dy);
+await page.mouse.up();
+await page.waitForTimeout(900);
+
+const made = await page.evaluate(() => {
+  const st = JSON.parse(localStorage.getItem("builder.studio") || "{}").state ?? {};
+  const n = (st.nodes ?? []).find((x) => x.featureId === "cta-primary");
+  return n ? { id: n.id, w: n.w, h: n.h, link: n.link ?? null, hasLinkField: "link" in n } : null;
+});
+check("drawing one makes a real button part, with no model asked", !!made, made ? `${made.w}\u00d7${made.h}` : "nothing landed");
+check(
+  "it is pressable on the board, because it is the part the shelf drops",
+  (await page.locator('[data-node-id] [data-part="cta-primary"] button, [data-node-id] [data-part="cta-primary"]').count()) >= 1,
+);
+check(
+  "and the chain can link it, to a page or an address",
+  !!made && made.hasLinkField,
+  made ? `link is ${JSON.stringify(made.link)} and is a field the chain sets` : "",
+);
+
+await browser.close();
 }
 
 const failed = results.filter((r) => !r).length;
