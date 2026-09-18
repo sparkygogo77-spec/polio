@@ -74,26 +74,49 @@ for (const n of [3, 8]) {
   await page.waitForTimeout(1400);
   const finish = page.locator('[aria-label^="Finish"]').first();
   await finish.click({ force: true });
-  await page.waitForTimeout(1400);
+  /* Long enough for the whole run to arrive. The boxes come in `STAGGER_MS`
+     apart — his number, 200 — so eight of them is 1.6s of arriving before
+     the last one exists, and 1400ms read the board mid-run and called it
+     "7 of 8". A wait calibrated before the stagger landed. */
+  await page.waitForTimeout(1400 + n * 300);
 
   const open = await state();
   check(`${n} updates are all on the board`, open.cards === n, `${open.cards} of ${n}`);
   /*
    * The fit is allowed to stop for exactly two reasons, and "the cards are
-   * adrift in the middle" is neither of them: either the chain fills the
-   * board, or it stopped because one card had grown to its share of the
-   * width. Checking the area alone was calibrated against a 615-tall board
-   * and went red the moment the board became a whole screen — with the cards
-   * *bigger* than when it passed, which is a threshold measuring the wrong
-   * thing rather than a regression.
+   * adrift in the middle" is neither of them: either the column fills the
+   * room it is given, or it stopped because one card had grown to its share
+   * of the width.
+   *
+   * MEASURED ON THE BINDING AXIS, not as an area. Checking the area alone
+   * was calibrated against a 615-tall board and went red the moment the
+   * board became a whole screen — with the cards *bigger* than when it
+   * passed. It is wrong again now, and for a better reason: the column
+   * decides the zoom, so it fills the room in the direction that runs out
+   * first, and the other direction is slack by exactly as much as the
+   * column's shape differs from the room's. Eight updates fill 103% of the
+   * room's height and 63% of its width, which is 34% of the area and is the
+   * fit doing its job perfectly. The area was measuring the column's aspect
+   * ratio and calling it a fault.
    */
-  const card = await page.evaluate(() => {
-    const c = document.querySelector("[data-box]")?.getBoundingClientRect();
-    const host = document.querySelector("[data-timeline]")?.getBoundingClientRect();
-    return c && host ? { w: Math.round(c.width), share: Math.round((c.width / host.width) * 100) } : null;
+  const room = await page.evaluate(() => {
+    const host = document.querySelector("[data-timeline]").getBoundingClientRect();
+    const band = document.querySelector("[data-studio-band]")?.getBoundingClientRect();
+    const floor = band && band.top > host.top ? band.top : host.bottom;
+    const es = [...document.querySelectorAll("[data-box]")];
+    if (!es.length) return null;
+    let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
+    for (const e of es) { const q = e.getBoundingClientRect(); l = Math.min(l, q.x); t = Math.min(t, q.y); r = Math.max(r, q.right); b = Math.max(b, q.bottom); }
+    const c = es[0].getBoundingClientRect();
+    return {
+      across: Math.round(((r - l) / (host.width - 112)) * 100),
+      down: Math.round(((b - t) / (floor - host.top - 112)) * 100),
+      card: Math.round(c.width), share: Math.round((c.width / host.width) * 100),
+    };
   });
-  check(`and they are not adrift in the middle of it`, open.fill >= 45 || card.share >= 30,
-    `${open.fill}% of ${open.host}, a card ${card.w}px across — ${card.share}% of the board`);
+  check(`and they are not adrift in the middle of it`,
+    Math.max(room.across, room.down) >= 90 || room.share >= 30,
+    `fills ${room.across}% of the room across and ${room.down}% down, a card ${room.card}px — ${room.share}% of the board`);
   /* A board is landscape; a chain that runs off the bottom cannot fill one. */
   check(`and the chain runs across rather than down`, open.across > open.down,
     `${open.across} across, ${open.down} down`);
@@ -115,8 +138,13 @@ for (const n of [3, 8]) {
   check(`${n}: and Finish leaves it where it was`, Math.abs(back.zoom - mine.zoom) < 0.01,
     `${mine.zoom?.toFixed(3)} → ${back.zoom?.toFixed(3)}`);
 
-  /* Centre is how a person asks for the fit back. */
-  await page.locator("[data-timeline-centre]").click({ force: true });
+  /* The zoom readout is how a person asks for the fit back. The little
+     centre-and-count box this used to press was removed at his word — "remove
+     the little centre and updates amount box in the bottom left" — and the
+     readout took the job over, so this pressed an element that had not
+     existed for two days and timed out rather than failing. A check that
+     cannot run is not a check that passes. */
+  await page.locator("[data-fit-readout]").click({ force: true });
   await page.waitForTimeout(900);
   const fitted = await state();
   check(`${n}: centre hands it back to the fit`, Math.abs(fitted.zoom - open.zoom) < 0.02,

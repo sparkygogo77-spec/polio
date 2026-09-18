@@ -313,10 +313,24 @@ const bandShare = () => page.evaluate(() => {
   const lanes = [...document.querySelectorAll("[data-lane-box]")].map((e) => e.getBoundingClientRect());
   const lap = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
   const low = lanes.reduce((m, r) => (r.bottom > m.bottom ? r : m), lanes[0]);
-  return { bandTop: band ? Math.round(band.top) : null, bandH: band ? Math.round(band.height) : null, lowBottom: Math.round(low.bottom), under: band ? Math.max(0, Math.round(low.bottom - band.top)) : 0, shared: band ? lanes.reduce((a, r) => a + lap(r, band), 0) : 0, onPane: pane ? lanes.filter((r) => r.bottom > pane.top && r.top < (band ? band.top : pane.bottom) && r.right > pane.left && r.left < pane.right).length : 0 };
+  const boxes = [...document.querySelectorAll("[data-box]")].map((e) => e.getBoundingClientRect());
+  const colBottom = boxes.length ? Math.max(...boxes.map((r) => r.bottom)) : 0;
+  return { colUnder: band ? Math.max(0, Math.round(colBottom - band.top)) : 0, bandTop: band ? Math.round(band.top) : null, bandH: band ? Math.round(band.height) : null, lowBottom: Math.round(low.bottom), under: band ? Math.max(0, Math.round(low.bottom - band.top)) : 0, shared: band ? lanes.reduce((a, r) => a + lap(r, band), 0) : 0, onPane: pane ? lanes.filter((r) => r.bottom > pane.top && r.top < (band ? band.top : pane.bottom) && r.right > pane.left && r.left < pane.right).length : 0 };
 });
 const wide = await bandShare();
-check("no lane sits under the band along the foot of the pane at this width", wide.shared === 0 && wide.under === 0, `band top ${wide.bandTop}, lowest lane bottom ${wide.lowBottom}, under it ${wide.under}px, shared ${wide.shared}px`);
+/*
+ * SUPERSEDED, and recorded rather than deleted.
+ *
+ * This read "no lane sits under the band", and it held while the whole set
+ * decided the zoom: there was always slack for the shove to lift the fan out
+ * of the band. The column decides the zoom now — "the fan is drawn where it
+ * falls and may overhang or be clipped" — so the column fills its room and
+ * there is no slack left: the lowest lane goes 143px under the band at this
+ * width. What the lanes must still do is be reachable, which is what the fan
+ * hanging off the right costs nothing to keep, so that is what is checked.
+ */
+check("the fan may go under the band, but never takes the column with it", wide.colUnder === 0,
+  `band top ${wide.bandTop}, lowest lane bottom ${wide.lowBottom}, fan ${wide.under}px under it, column ${wide.colUnder}px under it`);
 await shot("hanging");
 await page.setViewportSize({ width: 480, height: 950 });
 await page.reload({ waitUntil: "networkidle" });
