@@ -158,11 +158,33 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
 /**
  * How many categories may be open at once.
  *
- * Two, so you can hold a hero next to a text block and choose between them,
- * and not three, because the shelf is a 248px band and a third turns it from
- * something you read into something you scroll.
+ * ONE. It was two, on the reasoning that you might want to hold a hero next
+ * to a text block and choose between them. In a 209px strip that is not what
+ * two open categories give you: the first one's cards are 208 tall on their
+ * own, so the second never arrives on screen beside the first — it arrives
+ * below the fold, and the only way to see the pair the argument was about is
+ * to scroll one of them out of sight. Two was a comparison that could not
+ * actually be made.
+ *
+ * One also makes the planets row honest. With a single category open the row
+ * can shrink to a rail (see `PLANET_DISC`), which is what puts the open
+ * category on screen without the shelf having to scroll itself — the thing
+ * that made pressing a planet move the view.
  */
-const OPEN_AT_MOST = 2;
+const OPEN_AT_MOST = 1;
+
+/**
+ * The planets, full size and shrunk to a rail.
+ *
+ * Closed, they are the shelf: big lit discs with their names and their counts
+ * under them, which is the way in. Open, they are navigation past the thing
+ * you are actually looking at, so they give the room back — half the disc, no
+ * name, no count, the tooltip still carrying both. The mark stays the same
+ * drawing at both sizes.
+ */
+const PLANET_DISC = { open: 30, shut: 52 } as const;
+const PLANET_MARK = { open: 22, shut: 38 } as const;
+const PLANET_CELL = { open: 40, shut: 86 } as const;
 
 /* ------------------------------------------------------------------ */
 
@@ -199,15 +221,19 @@ export function useShelfOpen(): boolean {
 export function Palette() {
   const [query, setQuery] = React.useState("");
   /*
-   * Which categories are open, and never more than two.
+   * Which category is open. One at a time, and it may be none.
    *
    * It used to be one `cat`, and choosing it took the whole shelf: the row of
-   * planets vanished and was replaced by that category's parts, so comparing
-   * a hero against a text block meant going back and starting again. They are
-   * merged now — the planets stay where they are and a category opens
-   * *underneath* them, in the flow, with a second one stacking below the
-   * first. A third pushes the oldest out, because three open categories in a
-   * 248px band is a list you scroll rather than a shelf you read.
+   * planets vanished and was replaced by that category's parts, so there was
+   * no way back except back. Then it was two stacked under a row of planets
+   * that stayed put, which is the right shape and the wrong number — see
+   * `OPEN_AT_MOST`. It is one now, and the planets neither vanish nor stay
+   * full size: they shrink to a rail, so the category that opens is already
+   * on screen and nothing has to scroll to show it.
+   *
+   * Still an array rather than `CategoryId | null` because everything that
+   * reads it — the lit state, the stacking, the section list — reads it as a
+   * set, and a set of one is the same code as a set of two.
    */
   const [open, setOpen] = React.useState<CategoryId[]>([]);
   /* The band outside needs to know, and a state set during render is not a
@@ -219,6 +245,13 @@ export function Palette() {
     play("select");
     setOpen((was) => (was.includes(id) ? was.filter((c) => c !== id) : [...was, id].slice(-OPEN_AT_MOST)));
   }, []);
+
+  /* Full discs, or the rail. One reading, so the cell, the disc and the mark
+     can never disagree about which of the two the row is in. */
+  const anyOpen = open.length > 0;
+  const cell = anyOpen ? PLANET_CELL.open : PLANET_CELL.shut;
+  const disc = anyOpen ? PLANET_DISC.open : PLANET_DISC.shut;
+  const mark = anyOpen ? PLANET_MARK.open : PLANET_MARK.shut;
 
   const hidden = useStudio(useShallow((s) => s.hiddenFeatures));
   const hiddenSet = React.useMemo(() => new Set(hidden), [hidden]);
@@ -386,22 +419,31 @@ export function Palette() {
               also the way to the *second* thing you want to look at, so they
               do not go anywhere; the one you have open is simply lit.
             */}
-            <div className="relative z-[1] flex flex-wrap justify-center gap-x-3 gap-y-2 px-4 py-3">
+            <div
+              data-planets={anyOpen ? "rail" : "full"}
+              className={cn(
+                "relative z-[1] flex flex-wrap justify-center px-4 transition-[padding] duration-200",
+                anyOpen ? "gap-x-1.5 gap-y-1 py-1.5" : "gap-x-3 gap-y-2 py-3",
+              )}
+            >
               {[...categories].map((c) => {
                 const isOpen = open.includes(c.id);
                 return (
-                  <Tooltip key={c.id} content={c.blurb} side="top">
+                  <Tooltip key={c.id} content={anyOpen ? `${c.label} — ${c.blurb}` : c.blurb} side="top">
                     <button
                       type="button"
                       data-category={c.id}
                       aria-expanded={isOpen}
+                      aria-label={c.label}
                       onClick={() => toggleCat(c.id)}
-                      className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1"
-                      style={{ color: `oklch(0.84 0.13 ${c.hue})` }}
+                      className="group/cat tactile flex shrink-0 flex-col items-center gap-1 transition-[width] duration-200"
+                      style={{ color: `oklch(0.84 0.13 ${c.hue})`, width: cell }}
                     >
                       <span
-                        className="flex size-[52px] items-center justify-center rounded-full transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
+                        className="flex items-center justify-center rounded-full transition-[box-shadow,transform,width,height] duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
                         style={{
+                          width: disc,
+                          height: disc,
                           // The disc carries the colour, so it has to have
                           // some: at a chroma of 0.045 every one of these was
                           // black with a rumour of a hue in it, and the row
@@ -416,10 +458,17 @@ export function Palette() {
                           "--lit": `inset 0 0 0 1.5px oklch(0.78 0.16 ${c.hue} / 0.85), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.35)`,
                         } as React.CSSProperties}
                       >
-                        {React.createElement(planetOf(c.id), { size: 38 })}
+                        {React.createElement(planetOf(c.id), { size: mark })}
                       </span>
-                      <span className="text-center text-[10px] leading-tight">{c.label}</span>
-                      <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                      {/* The name and the count are what the rail gives back.
+                          Both are in the tooltip while it is a rail, so
+                          nothing is only-reachable at full size. */}
+                      {anyOpen ? null : (
+                        <>
+                          <span className="text-center text-[10px] leading-tight">{c.label}</span>
+                          <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                        </>
+                      )}
                     </button>
                   </Tooltip>
                 );
@@ -434,17 +483,23 @@ export function Palette() {
                 <button
                   type="button"
                   data-category="custom-idea"
+                  aria-label="New idea"
                   onClick={() => addFeatureToCanvas("custom-idea")}
-                  className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1 text-accent"
+                  className="group/cat tactile flex shrink-0 flex-col items-center gap-1 text-accent transition-[width] duration-200"
+                  style={{ width: cell }}
                 >
                   <span
-                    className="flex size-[52px] items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
-                    style={{ background: "oklch(0.2 0.04 265 / 0.45)" }}
+                    className="flex items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform,width,height] duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
+                    style={{ width: disc, height: disc, background: "oklch(0.2 0.04 265 / 0.45)" }}
                   >
-                    <Sparkles className="size-[30px]" />
+                    <Sparkles style={{ width: mark * 0.8, height: mark * 0.8 }} />
                   </span>
-                  <span className="text-center text-[10px] leading-tight">New idea</span>
-                  <span className="num text-[9px] text-fg-faint">yours</span>
+                  {anyOpen ? null : (
+                    <>
+                      <span className="text-center text-[10px] leading-tight">New idea</span>
+                      <span className="num text-[9px] text-fg-faint">yours</span>
+                    </>
+                  )}
                 </button>
               </Tooltip>
             </div>
@@ -500,27 +555,27 @@ function CategorySection({
   onClose: () => void;
 }) {
   const [sub, setSub] = React.useState<string | null>(null);
-  /* Opening one brings it into view.
-     The planets fill the shelf's own box on their own, so a section that
-     opens underneath them opens off the bottom of it, and pressing a planet
-     looked like pressing a dead button. It mounts when it opens, so mounting
-     is exactly the moment to scroll — and only the new one moves, because
-     the one already open never remounts.
-
-     The SHELF is scrolled, by hand, and not `scrollIntoView`. That scrolls
-     every scrollable ancestor, so opening a category took the pane with it:
-     measured at 2048×1152, the pane went from 0 to 261 and the site jumped
-     upward on its own the moment a planet was pressed. Two scroll regions
-     that never push each other is the rule, and this was the shelf pushing
-     the site. */
-  const box = React.useRef<HTMLElement>(null);
-  React.useEffect(() => {
-    const el = box.current;
-    const shelf = el?.closest("[data-shelf]");
-    if (!el || !(shelf instanceof HTMLElement)) return;
-    const to = el.getBoundingClientRect().top - shelf.getBoundingClientRect().top + shelf.scrollTop;
-    shelf.scrollTo({ top: Math.max(0, Math.round(to)), behavior: "smooth" });
-  }, []);
+  /*
+   * PRESSING A CATEGORY DOES NOT SCROLL ANYTHING. It opens the category.
+   *
+   * This used to scroll the shelf to bring the opening section to the top,
+   * and before that it called `scrollIntoView`, which scrolls every
+   * scrollable ancestor and so took the pane with it — the site jumping
+   * upward on its own the moment a planet was pressed. Scrolling the shelf
+   * by hand fixed the pane and left the complaint: the view still moved when
+   * all that was asked for was for a category to open.
+   *
+   * The reason it moved was real, and it is fixed at the cause rather than
+   * papered over. The planets filled the shelf's box on their own, so a
+   * section opening underneath them opened off the bottom and a planet
+   * looked like a dead button. With one category open at a time the planets
+   * shrink to a rail (`PLANET_DISC` in this file), which frees enough of the
+   * strip that the section's header is on screen the moment it opens. So
+   * there is nothing to scroll to, and nothing scrolls.
+   *
+   * The wheel still works, and the person still drives it. That is the
+   * whole of it: the shelf moves when it is pushed, never on its own.
+   */
   const subs = React.useMemo(
     () => (SUBGROUPS[category.id] ?? []).filter((g) => g.ids.some((id) => live.some((f) => f.id === id))),
     [category.id, live],
@@ -538,7 +593,7 @@ function CategorySection({
   const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
 
   return (
-    <section ref={box} data-category-open={category.id} className="relative z-[1] border-t border-border/70">
+    <section data-category-open={category.id} className="relative z-[1] border-t border-border/70">
       <div
         className="sticky top-0 z-[2] flex items-center gap-2 px-3 py-1.5 backdrop-blur-sm"
         style={{ background: `oklch(0.16 0.03 ${category.hue} / 0.9)` }}
