@@ -100,18 +100,26 @@ check("and six sides in the DOM", (await cube.locator("[data-face]").count()) ==
 /* 2. Turned, on the board, with the hand                              */
 /* ------------------------------------------------------------------ */
 
-// A part dropped from the shelf arrives selected, which is already the
-// hands-on state. Let go of it to see the resting one.
+/*
+ * Selecting a cube is not holding it.
+ *
+ * It used to be: a selected cube took the pointer, and the press that would
+ * have moved it turned it instead. HIS WORDS: "also once i selected
+ * something i have to click off and then clicck and hold to drag." So a
+ * selected cube is inert like every other part on the board, and taking
+ * hold of one is a second, deliberate press. `tests/selected-drags.mjs`
+ * measures the moving half; this measures the pointer.
+ */
+const peOf = () => cube.evaluate((el) => getComputedStyle(el.closest("[data-mode]")).pointerEvents);
+check("a cube that is merely selected is inert, so the board can still move it", await peOf() === "none", await peOf());
 await page.mouse.click(1200, 620);
 await page.waitForTimeout(600);
-check("a cube nobody is holding is inert, so the board can still move it",
-  await cube.evaluate((el) => getComputedStyle(el.closest("[data-mode]")).pointerEvents) === "none",
-  await cube.evaluate((el) => getComputedStyle(el.closest("[data-mode]")).pointerEvents));
+check("and so is one nobody has picked at all", await peOf() === "none", await peOf());
 
-await page.locator(`[data-node-id="${node.id}"]`).click({ force: true });
+const nodeBox = await page.locator(`[data-node-id="${node.id}"]`).boundingBox();
+await page.mouse.dblclick(nodeBox.x + nodeBox.width / 2, nodeBox.y + nodeBox.height / 2);
 await page.waitForTimeout(700);
-check("picking it up hands it the pointer",
-  await cube.evaluate((el) => getComputedStyle(el.closest("[data-mode]")).pointerEvents) === "auto");
+check("pressing it twice hands it the pointer", await peOf() === "auto", await peOf());
 
 /*
  * The ground goes away for the turning.

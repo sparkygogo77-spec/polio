@@ -47,8 +47,27 @@ export interface View {
   zoom: number;
 }
 
-/** How much clear space is left round the set, in screen pixels. */
-export const SETTLE_MARGIN = 56;
+/**
+ * How much clear space is left round the set, in screen pixels.
+ *
+ * HIS NUMBER: the zoom should sit around 0.915 rather than 70 percent. It was
+ * placed exactly — at 1728x1080 with three updates the fit read 0.697, and it
+ * is the SET that binds it: the column plus the fan stood 633 tall in 745 of
+ * room, which is the room less two 56px margins, to the pixel.
+ *
+ * So the margin comes in to 28 and the column is not touched. What that does
+ * NOT do is reach 0.915, and the reason is his own ruling, made after he
+ * reversed himself on it: "no. Bring it back out where it can be seen.
+ * Furniture may overhang, but it may not disappear. Something hidden under an
+ * opaque band reads as absent, and absent is a lie about the board." Sizing
+ * the column alone to the room is what gets to 0.915, and it puts about 86px
+ * of fan under the band at his size. The ruling is a floor and the number is
+ * what is reached under it, which is the way round he asked for.
+ *
+ * Measured, `tests/fit-margin.mjs`: the clear space either side halves and the
+ * fit rises with it, with nothing under the band at any count.
+ */
+export const SETTLE_MARGIN = 28;
 /** How far out it will pull to take everything in. */
 export const SETTLE_MIN_ZOOM = 0.4;
 /**

@@ -188,9 +188,15 @@ const nodeA = page.locator(`[data-node-id="${A.id}"]`), nodeB = page.locator(`[d
 const cubeA = nodeA.locator("[data-cube]"), cubeB = nodeB.locator("[data-cube]");
 check("each at its own drawn proportion", Math.abs(A.w / A.h - 220 / 170) < 0.06 && Math.abs(B.w / B.h - 1) < 0.06, `${A.w}×${A.h} and ${B.w}×${B.h}`);
 {
-  await nodeA.click({ force: true });
-  await page.waitForTimeout(500);
-  check("picking one makes only that one hands-on", (await cubeA.evaluate((el) => !el.closest("[inert]"))) && (await cubeB.evaluate((el) => !!el.closest("[inert]"))));
+  // Two presses open a solid for handling. One only selects it, and a
+  // selected part is dragged, not turned — see `tests/selected-drags.mjs`.
+  const open = async (node) => {
+    const r = await node.boundingBox();
+    await page.mouse.dblclick(r.x + r.width / 2, r.y + r.height / 2);
+    await page.waitForTimeout(500);
+  };
+  await open(nodeA);
+  check("opening one makes only that one hands-on", (await cubeA.evaluate((el) => !el.closest("[inert]"))) && (await cubeB.evaluate((el) => !!el.closest("[inert]"))));
   const b = await cubeA.boundingBox();
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await page.mouse.down();
@@ -210,8 +216,7 @@ check("each at its own drawn proportion", Math.abs(A.w / A.h - 220 / 170) < 0.06
   const a = now.find((n) => n.id === A.id), bb = now.find((n) => n.id === B.id);
   const i = ["front", "right", "back", "left", "top", "bottom"].indexOf(side);
   check("and the words land on that cube only", a.faces[i]?.heading === "Alpha" && bb.faces.every((f) => !f.heading), `A ${a.faces[i]?.heading}, B ${bb.faces.map((f) => f.heading || "-").join("·")}`);
-  await nodeB.click({ force: true });
-  await page.waitForTimeout(500);
+  await open(nodeB);
   check("picking the other lets the first face go", (await cubeA.locator("[data-face-picked]").count()) === 0 && (await cubeA.getAttribute("data-cube-pick")) === null);
   await cubeB.focus();
   await page.keyboard.press("ArrowRight");
@@ -312,8 +317,13 @@ await page.waitForTimeout(1200);
   await page.waitForTimeout(500);
   const holds = (await page.locator("[data-space-holds]").innerText({ timeout: 3000 }).catch(() => "")).trim();
   check("and the space counts it beside the flat part", /2 parts/.test(holds), holds || "-");
-  await nodeC.click({ force: true });
-  await page.waitForTimeout(500);
+  // Opened, not merely selected: the second press is what hands a solid the
+  // pointer. See `tests/selected-drags.mjs`.
+  {
+    const r = await nodeC.boundingBox();
+    await page.mouse.dblclick(r.x + r.width / 2, r.y + r.height / 2);
+    await page.waitForTimeout(500);
+  }
   const b = await cubeC.boundingBox();
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await page.mouse.down();

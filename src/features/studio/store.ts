@@ -705,6 +705,22 @@ interface StudioState extends Doc {
    */
   pickedFace: { nodeId: string; side: CubeSide } | null;
   pickFace: (nodeId: string, side: CubeSide | null) => void;
+  /**
+   * The one part that has been OPENED, or none.
+   *
+   * HIS WORDS: "also once i selected something i have to click off and then
+   * clicck and hold to drag."
+   *
+   * Two parts on the board are handled rather than looked at — the cube and
+   * the mesh — and they used to take the pointer the moment they were
+   * selected, so the press that would have moved them turned them instead.
+   * Selecting a part is now only selecting it: it drags like every other
+   * part on the board. Taking hold of one is a second, deliberate press, and
+   * this is the part that press opened. Transient like the selection, and
+   * let go of the moment the selection moves off it.
+   */
+  handling: string | null;
+  hold: (nodeId: string | null) => void;
   /** …and the same for a solid, which is turned the same way. */
   setMeshTurn: (nodeId: string, turn: { x: number; y: number }) => void;
 
@@ -1235,6 +1251,7 @@ export const useStudio = create<StudioState>()(
         activePageId: "page_home",
         selection: [],
         pickedFace: null,
+        handling: null,
         tool: "select",
         inkHue: 265,
         inkWidth: 3,
@@ -1444,6 +1461,8 @@ export const useStudio = create<StudioState>()(
         },
 
         pickFace: (nodeId, side) => set({ pickedFace: side ? { nodeId, side } : null }),
+
+        hold: (nodeId) => set({ handling: nodeId }),
 
         setCubeTurn: (nodeId, turn) =>
           set((s) => ({
@@ -1736,7 +1755,13 @@ export const useStudio = create<StudioState>()(
         },
 
         setSelection: (ids) =>
-          set((s) => ({ selection: ids, pickedFace: s.pickedFace && ids.length === 1 && ids[0] === s.pickedFace.nodeId ? s.pickedFace : null })),
+          set((s) => ({
+            selection: ids,
+            pickedFace: s.pickedFace && ids.length === 1 && ids[0] === s.pickedFace.nodeId ? s.pickedFace : null,
+            // A part you were handling is let go of the moment it stops being
+            // the only selected one, so the ground closes it as it always did.
+            handling: s.handling && ids.length === 1 && ids[0] === s.handling ? s.handling : null,
+          })),
         toggleSelection: (id) =>
           set((s) => ({ selection: s.selection.includes(id) ? s.selection.filter((x) => x !== id) : [...s.selection, id] })),
         selectAll: () =>

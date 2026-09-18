@@ -31,7 +31,19 @@ export function Popover({ children, content, align = "start", side = "bottom", c
           side={side}
           sideOffset={6}
           collisionPadding={8}
-          className={cn("z-[70] w-72 rounded-md border border-border glass p-3 text-xs text-fg shadow-pop animate-pop outline-none", className)}
+          /*
+           * A popover never taller than the room it has.
+           *
+           * Radix will flip and shift to keep a panel on screen, but it will
+           * not shrink one: content taller than the window stays its full
+           * height and hangs off an edge. The repository panel is 428px of
+           * sections and was the one that found this. `available-height` is
+           * the room between the trigger and the far edge, minus the
+           * collision padding, so the panel takes what there is and scrolls
+           * the rest. Anything that already fits is untouched.
+           */
+          style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
+          className={cn("no-bars z-[70] w-72 overflow-y-auto rounded-md border border-border glass p-3 text-xs text-fg shadow-pop animate-pop outline-none", className)}
         >
           {title ? <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-fg-faint">{title}</div> : null}
           {content}

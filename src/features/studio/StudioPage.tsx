@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
@@ -109,11 +109,21 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pen", label: "Draw freehand", icon: Pencil, shortcut: "d" },
   { id: "erase", label: "Erase", icon: Eraser, shortcut: "e" },
   { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
-  // The fifth. A closed line drawn with it is a space — an area of the page
-  // set aside before anything is in it (`space.ts`) — so the icon is a ring
-  // that has not closed. It takes no ink hue: a space is not a drawn line
-  // that stays on the page, it is a boundary that becomes a part.
-  { id: "space", label: "Draw a space", icon: CircleDashed, shortcut: "s" },
+  /*
+   * The fifth. A closed line drawn with it is a space — an area of the page
+   * set aside before anything is in it (`space.ts`). It takes no ink hue: a
+   * space is not a drawn line that stays on the page, it is a boundary that
+   * becomes a part.
+   *
+   * HIS WORDS: "the circle button shouldnt just open a circle like 'draw'
+   * does it should allow me to create the shape, make it a triangle with
+   * dashes lines." The mark was a dashed RING, and a ring is a picture of
+   * the thing it makes — so it read as a button that drops a circle rather
+   * than one you draw a shape with. A dashed triangle is a shape nothing
+   * here makes on its own, which is the point: the outline is the idea, and
+   * what it ends up as is whatever his hand draws.
+   */
+  { id: "space", label: "Draw a space", icon: TriangleDashed, shortcut: "s" },
 ];
 
 /**
@@ -912,16 +922,32 @@ function PreviewToggle() {
  * Pages only while something was held — which meant the strip you were
  * reaching for was a different strip depending on what you had just clicked.
  */
+/*
+ * A HUE EACH, because a strip of six identical marks is a strip of no marks.
+ *
+ * Measured on the deploy: all six read at chroma 0.016 or 0.008 on hue 288 —
+ * the void the panels are built from — so the icon was doing no work and the
+ * one visible label was carrying the whole strip. That is the same fault the
+ * settings groups had, and it takes the same fix: the mark says which panel
+ * this is.
+ *
+ * The hues are not invented where the app already has one. Motion is 170,
+ * which is the Motion category's own hue in the parts catalogue; Pages sits
+ * beside Navigation at 230. Element, Format, Look and Draw take the rest of
+ * the wheel, none closer than 30 degrees to a neighbour — the spacing rule
+ * the twelve categories were re-cut to obey, because below about 20 the
+ * difference is not one a person can see.
+ */
 const SIDE_TABS = [
-  { value: "inspector", label: "Element", icon: <Sparkles /> },
-  { value: "format", label: "Format", icon: <Settings2 /> },
-  { value: "pages", label: "Pages", icon: <Layers /> },
-  { value: "look", label: "Look", icon: <PaletteIcon /> },
-  { value: "motion", label: "Motion", icon: <Clapperboard /> },
+  { value: "inspector", label: "Element", icon: <Sparkles />, hue: 265 },
+  { value: "format", label: "Format", icon: <Settings2 />, hue: 200 },
+  { value: "pages", label: "Pages", icon: <Layers />, hue: 230 },
+  { value: "look", label: "Look", icon: <PaletteIcon />, hue: 320 },
+  { value: "motion", label: "Motion", icon: <Clapperboard />, hue: 170 },
   /* Replicate, in the product. His words: "provide a panel tab where i can use
      replicate models exactly as i do on their site" \u2014 so he never has to
      leave it to draw something. */
-  { value: "render", label: "Draw", icon: <ImageIcon /> },
+  { value: "render", label: "Draw", icon: <ImageIcon />, hue: 60 },
 ] as const;
 
 /*
@@ -1142,7 +1168,15 @@ export function StudioPage() {
                    was being said. */
                 options={SIDE_TABS.map((t) => ({
                   value: t.value,
-                  icon: t.icon,
+                  /* The mark wears the panel's colour at both states.
+                     Dimmed when you are not on it rather than drained to
+                     grey: the hue is what says which panel this is, so it
+                     never goes away, it only stands back. */
+                  icon: (
+                    <span className="contents" style={{ color: `oklch(0.82 0.15 ${t.hue})`, opacity: sideTab === t.value ? 1 : 0.72 }}>
+                      {t.icon}
+                    </span>
+                  ),
                   label: <span className={sideTab === t.value ? undefined : "sr-only"}>{t.label}</span>,
                 }))}
                 aria-label="Side panel"
