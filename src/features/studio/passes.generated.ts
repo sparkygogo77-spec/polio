@@ -2,9 +2,29 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T00:32:58.266Z";
+export const GENERATED_AT = "2026-09-18T00:59:19.008Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "a213b1e",
+    "when": "2026-09-18T00:59:10+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "8f2bb99",
+        "says": "The count first: four checks that were green about nothing",
+        "when": "2026-09-18T00:56:29+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "a7146f2",
+        "says": "Furniture may overhang, but it may not disappear",
+        "when": "2026-09-18T00:49:01+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "00504e9",
     "when": "2026-09-18T00:32:49+00:00",
@@ -310,46 +330,6 @@ export const PASSES: Pass[] = [
         "id": "de8cc35",
         "says": "The lanes never sit under the band along the foot of the pane",
         "when": "2026-09-16T10:33:17+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
-  },
-  {
-    "id": "5c2a8d4",
-    "when": "2026-09-16T08:03:57+00:00",
-    "day": "16 September",
-    "changes": [
-      {
-        "id": "923bea9",
-        "says": "The drawing check said no drawing was there, about a bird in plain view",
-        "when": "2026-09-16T04:38:51+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "311f388",
-    "when": "2026-09-16T08:03:53+00:00",
-    "day": "16 September",
-    "changes": [
-      {
-        "id": "3898dac",
-        "says": "The lanes straddle the latest box, and every body line sits on a calm ground",
-        "when": "2026-09-16T06:45:35+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "7c54778",
-        "says": "The lanes hang off the end of the timeline, and their work stands in blue",
-        "when": "2026-09-16T05:21:34+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "25afb90",
-        "says": "The lanes hang off the end of the timeline, and a lane's work stands in the chain in blue",
-        "when": "2026-09-16T03:52:36+00:00",
         "kind": "new"
       }
     ],
