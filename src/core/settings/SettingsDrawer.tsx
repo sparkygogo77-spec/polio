@@ -62,6 +62,59 @@ export function Control({ def, value, onChange }: { def: SettingDef; value: unkn
   }
 }
 
+/**
+ * One row of the drawer.
+ *
+ * Its own component for one reason: a setting that owns its truth elsewhere
+ * (`read`/`write`/`subscribe` on the definition — the site's own options, not
+ * the Builder's) has to re-render when *that* store moves, and a hook cannot
+ * be called inside a `.map` in the parent. `useSyncExternalStore` is handed
+ * the definition's own subscribe, so a change made anywhere else — the Format
+ * panel, the part menu, opening a different site — repaints this row.
+ *
+ * A setting with no `read` behaves exactly as it always did.
+ */
+function Row({ def, stored, isStored, onSet, onReset }: {
+  def: SettingDef;
+  stored: unknown;
+  isStored: boolean;
+  onSet: (v: unknown) => void;
+  onReset: () => void;
+}) {
+  const owned = Boolean(def.read && def.write && def.subscribe);
+  const external = React.useSyncExternalStore(
+    React.useCallback((fn: () => void) => (def.subscribe ? def.subscribe(fn) : () => {}), [def]),
+    () => (def.read ? def.read() : undefined),
+    () => (def.read ? def.read() : undefined),
+  );
+  const value = owned ? external : stored;
+  /* "Changed" for an owned setting is measured against its declared default,
+     because there is no entry in the settings store to look for. */
+  const changed = owned ? !Object.is(value, def.default) : isStored;
+  const set = (v: unknown) => (owned ? def.write!(v) : onSet(v));
+  const reset = () => (owned ? def.write!(def.default) : onReset());
+
+  return (
+    <li className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-hover/40">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          {changed ? (
+            <Tooltip content="Changed. Click to reset.">
+              <button type="button" aria-label="Reset" onClick={reset} className="size-1.5 rounded-full bg-accent" />
+            </Tooltip>
+          ) : null}
+          <span className="truncate text-xs text-fg">{def.label}</span>
+          {def.advanced ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase tracking-wider text-fg-faint">adv</span> : null}
+        </div>
+        {def.description ? <div className="text-[10px] text-fg-muted">{def.description}</div> : null}
+      </div>
+      <div className="shrink-0">
+        <Control def={def} value={value} onChange={set} />
+      </div>
+    </li>
+  );
+}
+
 export function SettingsDrawer() {
   const open = useUi((s) => s.panels.settings);
   const closePanel = useUi((s) => s.closePanel);
@@ -159,16 +212,28 @@ export function SettingsDrawer() {
             <button type="button" onClick={() => setGroup("all")} className={cn("tactile shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]", group === "all" ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover")}>
               All
             </button>
-            {offered.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                onClick={() => setGroup(g.id)}
-                className={cn("tactile shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]", group === g.id ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover")}
-              >
-                {g.label}
-              </button>
-            ))}
+            {/* The tab carries the group's colour too, or picking a category
+                and then looking at its heading would be two different
+                colours for one thing. Off, it is dimmed rather than greyed:
+                the hue is what says which category this is, so it never
+                goes away entirely. */}
+            {offered.map((g) => {
+              const on = group === g.id;
+              const GIcon = g.icon;
+              const tint = g.hue == null ? undefined : `oklch(0.82 0.15 ${g.hue})`;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => setGroup(g.id)}
+                  className={cn("tactile flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px]", !tint && (on ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover"))}
+                  style={tint ? { color: tint, background: on ? `oklch(0.82 0.15 ${g.hue} / 0.16)` : undefined, opacity: on ? 1 : 0.7 } : undefined}
+                >
+                  {GIcon ? <GIcon className="size-3" /> : null}
+                  {g.label}
+                </button>
+              );
+            })}
           </div>
           <Tooltip content={`${hiddenCount} advanced options`}>
             <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] text-fg-muted">
@@ -191,7 +256,7 @@ export function SettingsDrawer() {
             return (
               <section key={g.id} className="border-b border-border">
                 <header className="sticky top-0 z-10 flex items-center gap-2 bg-panel/90 px-3 py-1.5 backdrop-blur">
-                  {GIcon ? <GIcon className="size-3.5 text-accent" /> : null}
+                  {GIcon ? <GIcon className="size-3.5" style={g.hue == null ? undefined : { color: `oklch(0.82 0.15 ${g.hue})` }} /> : null}
                   <div className="flex-1 leading-tight">
                     <div className="text-[11px] font-semibold text-fg">{g.label}</div>
                     {g.description ? <div className="text-[10px] text-fg-faint">{g.description}</div> : null}
@@ -205,29 +270,16 @@ export function SettingsDrawer() {
                   ) : null}
                 </header>
                 <ul>
-                  {list.map((d) => {
-                    const v = d.id in values ? values[d.id] : d.default;
-                    const isMod = d.id in values;
-                    return (
-                      <li key={d.id} className="flex items-center justify-between gap-3 px-3 py-2 hover:bg-hover/40">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            {isMod ? (
-                              <Tooltip content="Changed. Click to reset.">
-                                <button type="button" aria-label="Reset" onClick={() => reset(d.id)} className="size-1.5 rounded-full bg-accent" />
-                              </Tooltip>
-                            ) : null}
-                            <span className="truncate text-xs text-fg">{d.label}</span>
-                            {d.advanced ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase tracking-wider text-fg-faint">adv</span> : null}
-                          </div>
-                          {d.description ? <div className="text-[10px] text-fg-muted">{d.description}</div> : null}
-                        </div>
-                        <div className="shrink-0">
-                          <Control def={d} value={v} onChange={(nv) => set(d.id, nv)} />
-                        </div>
-                      </li>
-                    );
-                  })}
+                  {list.map((d) => (
+                    <Row
+                      key={d.id}
+                      def={d}
+                      stored={d.id in values ? values[d.id] : d.default}
+                      isStored={d.id in values}
+                      onSet={(nv) => set(d.id, nv)}
+                      onReset={() => reset(d.id)}
+                    />
+                  ))}
                 </ul>
               </section>
             );

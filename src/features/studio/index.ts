@@ -2,6 +2,7 @@ import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, 
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
+import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
 import { PreviewPage } from "./live/PreviewPage";
 import { PublishedPage } from "./live/PublishedPage";
@@ -96,8 +97,32 @@ export const studio = defineFeature({
   description: "Lay out what a site should be as parts, drawings and per-part prompts on one board, then compile it into a blueprint.",
   icon: LayoutTemplate,
   tags: ["builder", "board", "prompt", "blueprint"],
-  settingGroups: [{ id: "studio", label: "Builder", icon: LayoutTemplate, order: 240, description: "The drawing board, and what goes to Claude with a prompt." }],
+  settingGroups: [
+    {
+      /*
+       * THE SITE'S OWN OPTIONS, in the same panel as everything else.
+       *
+       * His ruling: corner radius and the fonts are settings for the site
+       * being built, not for the Builder around it. They existed on the site
+       * side already — `layout.radius`, `type.headingFamily`,
+       * `type.bodyFamily` in the Format panel — and he could not find them
+       * there, which is a findability answer, not a "they are missing" one.
+       * So they are offered here as well, reading and writing the *same*
+       * three values in the document. Not copies: `read`, `write` and
+       * `subscribe` point at the studio store, so changing one in Settings
+       * moves the Format panel and the live preview with it, and changing it
+       * in Format moves this row.
+       *
+       * It sits above the Builder's own group because the site is the thing
+       * being made and the Builder is the tool.
+       */
+      id: "site", label: "This site", icon: PaletteIcon, hue: 170, order: 235,
+      description: "The site being built, not the Builder around it. The same values the Format panel holds.",
+    },
+    { id: "studio", label: "Builder", icon: LayoutTemplate, hue: 110, order: 240, description: "The drawing board, and what goes to Claude with a prompt." },
+  ],
   settings: [
+    ...siteFormatSettings,
     {
       id: "studio.drawMode", group: "studio", label: "Drawing board keeps strokes", type: "select", default: "snap", order: 1,
       description: "Snap turns a wobbly box into a box, a loop into a circle, a slanted line level. The switch on the board's rim sets the same thing.",

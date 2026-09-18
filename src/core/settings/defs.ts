@@ -19,14 +19,25 @@ import type { SettingDef, SettingGroupDef } from "@/core/types";
 import site from "@site";
 import { hasNav } from "@/core/nav-gate";
 
+/*
+ * A HUE PER GROUP, so the icon says which category this is.
+ *
+ * Spaced round the wheel and nothing cleverer than that, which is the same
+ * rule the parts shelf's twelve categories live by. Every one of these was
+ * the app's single accent before, so the strip read as eight copies of one
+ * mark and the label did all the work.
+ *
+ * The two site-facing groups modules contribute — "This site" at 235 and
+ * "Builder" at 240 — pick their own from the same wheel.
+ */
 export const CORE_SETTING_GROUPS: SettingGroupDef[] = [
-  { id: "appearance", label: "Appearance", icon: Palette, order: 10, description: "Theme, colour and type." },
-  { id: "effects", label: "Effects", icon: Sparkles, order: 20, description: "Motion, ambience and flashes." },
-  { id: "feedback", label: "Feedback", icon: MousePointerClick, order: 40, description: "Optimism and confirmations." },
-  { id: "feed", label: "Toasts", icon: Bell, order: 50, description: "How events are coalesced and shown." },
-  { id: "behaviour", label: "Behaviour", icon: Workflow, order: 60, description: "Small workflow preferences." },
-  { id: "keyboard", label: "Keyboard", icon: Keyboard, order: 70, description: "Shortcuts and hints." },
-  { id: "privacy", label: "Privacy", icon: Eye, order: 80, description: "Blur and streamer mode." },
+  { id: "appearance", label: "Appearance", icon: Palette, hue: 265, order: 10, description: "Theme, colour and type." },
+  { id: "effects", label: "Effects", icon: Sparkles, hue: 300, order: 20, description: "Motion, ambience and flashes." },
+  { id: "feedback", label: "Feedback", icon: MousePointerClick, hue: 145, order: 40, description: "Optimism and confirmations." },
+  { id: "feed", label: "Toasts", icon: Bell, hue: 60, order: 50, description: "How events are coalesced and shown." },
+  { id: "behaviour", label: "Behaviour", icon: Workflow, hue: 200, order: 60, description: "Small workflow preferences." },
+  { id: "keyboard", label: "Keyboard", icon: Keyboard, hue: 230, order: 70, description: "Shortcuts and hints." },
+  { id: "privacy", label: "Privacy", icon: Eye, hue: 25, order: 80, description: "Blur and streamer mode." },
 ];
 
 const pct = (v: unknown) => `${Math.round(Number(v) * 100)}%`;
@@ -51,21 +62,21 @@ export const CORE_SETTINGS: SettingDef[] = [
     tags: ["dark", "light", "colour", "color"],
   },
   { id: "appearance.accentHue", group: "appearance", label: "Accent hue", type: "hue", default: site.theme.accentHue, min: 0, max: 360, step: 1, order: 2, tags: ["colour", "color", "brand"] },
-  { id: "appearance.radius", group: "appearance", label: "Corner radius", type: "slider", default: site.theme.radius, min: 0, max: 16, step: 1, format: px, order: 4 },
-  {
-    id: "appearance.font",
-    group: "appearance",
-    label: "Font",
-    type: "segmented",
-    default: site.theme.font,
-    options: [
-      { value: "system", label: "System" },
-      { value: "inter", label: "Inter-like" },
-      { value: "mono", label: "Mono" },
-    ],
-    advanced: true,
-    order: 5,
-  },
+  /*
+   * CORNER RADIUS AND FONT ARE GONE FROM HERE, by his ruling: they are
+   * settings for the site being built, not for the Builder around it.
+   *
+   * They are in Settings under "This site", where they read and write the
+   * document's own `layout.radius`, `type.headingFamily` and
+   * `type.bodyFamily` — the same three values the Format panel holds, not
+   * copies of them. See `features/studio/siteSettings.ts`.
+   *
+   * What stood here was the Builder's own dress, and it is the reason the
+   * site's font was hard to find: two controls called "Font" two rows apart,
+   * one of them changing the app and not the site. Removing the app's pair is
+   * what makes the site's pair findable. The Builder keeps its theme, its
+   * accent hue and its type scale, which are about the room and not the work.
+   */
   { id: "appearance.fontScale", group: "appearance", label: "Font scale", type: "slider", default: 1, min: 0.85, max: 1.25, step: 0.05, format: (v) => `${Math.round(Number(v) * 100)}%`, advanced: true, order: 6 },
   { id: "appearance.contrast", group: "appearance", label: "High contrast", description: "Stronger borders and text.", type: "toggle", default: false, advanced: true, order: 7 },
   {
