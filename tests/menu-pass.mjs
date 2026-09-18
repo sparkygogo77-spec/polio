@@ -384,7 +384,11 @@ async function ladder() {
         toolWords: words("[data-tool-picker]"),
         search: on("[data-tool-search]"),
         updates: on("[data-updates-toggle]"),
-        hues: on("[data-ink-hues]"),
+        /* The row, not the swatches: eight hues on the bar became one colour
+           button plus the kind chips, and the swatches now live inside the
+           button's own popover. What this rung is about is the ROW giving
+           way below lg, which is unchanged. */
+        hues: on("[data-draw-row]"),
         /* Any control in the bar still spending width on a *label* — a word
            beside an icon that already says the same thing. Four things carry
            text and are not labels, so they are exempt by name rather than by
@@ -421,7 +425,7 @@ async function ladder() {
      ladder it is supposed to be keeping. */
   const LADDER = [
     { rung: 1, what: "the search's own words", goes: 1280, key: "words" },
-    { rung: 2, what: "the ink hues", goes: 1024, key: "hues" },
+    { rung: 2, what: "the drawing row", goes: 1024, key: "hues" },
     { rung: 3, what: "Wires", goes: 1024, key: "wires" },
     { rung: 4, what: "Updates", goes: 1024, key: "updates" },
     { rung: 5, what: "the search entirely", goes: 768, key: "search" },
@@ -444,7 +448,7 @@ async function ladder() {
    */
   const SURVIVES = ["tool", "devices", "undo", "redo", "zoomOut", "zoom", "zoomIn", "preview", "finish", "panel"];
 
-  /* The ink hues are only out while drawing, so the pen goes in hand — with a
+  /* The drawing row is only out while drawing, so the pen goes in hand — with a
      press on the board first, or `d` lands in whatever field has focus. */
   await page.setViewportSize({ width: 1600, height: 950 });
   await page.waitForTimeout(300);
@@ -463,7 +467,7 @@ async function ladder() {
       const btns = [...bar.querySelectorAll("button")];
       return {
         words: vis([...bar.querySelectorAll("span")].find((x) => /Search commands/.test(x.textContent || ""))),
-        hues: vis(bar.querySelector("[data-ink-hues]")),
+        hues: vis(bar.querySelector("[data-draw-row]")),
         zoom: btns.some((e) => /^\d+%$/.test((e.textContent || "").trim()) && vis(e)),
         wires: byLabel("Toggle wires"),
         updates: vis(bar.querySelector("[data-updates-toggle]")),

@@ -188,6 +188,51 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   await ctx.close();
 }
 
+/* ------------------------------------------------------------------ */
+/* 4. Anything that changes the board re-fits the board                */
+/* ------------------------------------------------------------------ */
+
+{
+  /*
+   * His words after deleting a box: "the lanes went to the green as they
+   * should but it didnt recenter again automatically" — and then, having
+   * pressed the key by hand, "pressing the button worked, just had to
+   * manually do it". One missing trigger, not a broken fit. Arrival had one
+   * and a drag had one; deleting changes the set as much as either.
+   */
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  await ctx.addInitScript((d) => localStorage.setItem("builder.studio", d), doc(3));
+  const page = await ctx.newPage();
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  await page.locator("[data-finish]").first().click();
+  await page.waitForTimeout(5200);
+  const view = () => page.evaluate(() => {
+    const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(document.querySelector("[data-timeline-plot]")).transform)[1].split(",").map(Number);
+    return { zoom: +m[0].toFixed(4), pan: `${Math.round(m[4])},${Math.round(m[5])}`, boxes: document.querySelectorAll("[data-box]").length };
+  });
+  const was = await view();
+  check("three updates are on the board to begin with", was.boxes === 3, `${was.boxes}`);
+
+  await page.evaluate(() => {
+    const el = [...document.querySelectorAll("[data-box]")].find((e) => e.dataset.box === "t1");
+    el?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 200, clientY: 200 }));
+  });
+  await page.waitForTimeout(500);
+  await page.locator("[data-box-menu] button", { hasText: "Prune" }).first().click();
+  await page.waitForTimeout(3000);
+
+  const now = await view();
+  check("deleting one takes it off the board", now.boxes === 2, `${now.boxes} left`);
+  check("…and the board re-fits itself, without the key being pressed",
+    now.zoom !== was.zoom || now.pan !== was.pan,
+    `zoom ${was.zoom} → ${now.zoom}, pan ${was.pan} → ${now.pan}`);
+  const after = await read(page);
+  check("…and what is left is still inside the frame", after && outside(after) === 0,
+    after ? `off L${after.off.left} R${after.off.right} T${after.off.top} B${after.off.bottom}` : "no timeline");
+  await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);

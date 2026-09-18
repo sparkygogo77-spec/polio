@@ -25,7 +25,7 @@ import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
 import { BriefDialog } from "./BriefDialog";
-import { FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
+import { DRAW_KINDS, FRAME_WIDTHS, HUES, activePage, livePath, pageNodes, useStudio, useStudioHydration, type Tool } from "./store";
 import { LiveStage } from "./live/LiveStage";
 import { RadialMenu, useRadialOpen } from "./RadialMenu";
 import { DrawQueue, ProcessCounter } from "./DrawQueue";
@@ -420,18 +420,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
       <ToolPicker tool={tool} setTool={setTool} />
 
       {tool === "pen" || tool === "arrow" ? (
-        <div data-ink-hues="" className="hidden items-center gap-1 rounded-md border border-border bg-elevated px-1 py-0.5 lg:flex">
-          {HUES.map((h) => (
-            <button
-              key={h}
-              type="button"
-              aria-label={`Ink hue ${h}`}
-              onClick={() => useStudio.getState().setInk({ hue: h })}
-              className={cn("tactile size-4 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")}
-              style={{ background: `oklch(0.72 0.16 ${h})` }}
-            />
-          ))}
-        </div>
+        <div className="hidden lg:flex"><DrawKindRow inkHue={inkHue} /></div>
       ) : null}
 
       <span className="mx-1 h-4 w-px bg-border" />
@@ -563,6 +552,80 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
  * More key now, drawn only while the bar is folding them; on a wide bar
  * the key is not there, because they are.
  */
+/**
+ * ONE COLOUR, AND BESIDE IT WHAT HE IS DRAWING.
+ *
+ * His words: "in the places of the colors when i pick to draw freehand just
+ * make the color stay there but only one button instead of multiple, and
+ * when i click the color i can adjust it and beside it the buttons become
+ * preselect options for 'button' 'surface' 'icon' or whatever options i can
+ * draw".
+ *
+ * Eight swatches became one button that wears the colour it is set to and
+ * opens the eight when pressed; the room they took is now the kinds. The
+ * saying-what-a-thing-is moves BEFORE the drawing instead of being asked
+ * afterwards — and `part` is still there, so it moves rather than
+ * disappearing.
+ *
+ * Every chip is wired to a path that already exists (`DRAW_KINDS` in the
+ * store says which). `Button` is not here, and its absence is the point: a
+ * preset kind means coded and pressable the moment it lands, and until that
+ * is true a Button chip would be a control that lies.
+ */
+function DrawKindRow({ inkHue, compact }: { inkHue: number; compact?: boolean }) {
+  const [open, setOpen] = React.useState(false);
+  const kind = useStudio((st) => st.drawKind);
+  return (
+    <div data-draw-row="" className={cn("flex items-center gap-1", compact ? "" : "rounded-md border border-border bg-elevated px-1 py-0.5")}>
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        align="start"
+        content={
+          <div data-ink-hues="" className="flex w-[152px] flex-wrap items-center gap-1.5">
+            {HUES.map((h) => (
+              <button
+                key={h}
+                type="button"
+                aria-label={`Ink hue ${h}`}
+                onClick={() => { useStudio.getState().setInk({ hue: h }); setOpen(false); }}
+                className={cn("tactile size-5 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")}
+                style={{ background: `oklch(0.72 0.16 ${h})` }}
+              />
+            ))}
+          </div>
+        }
+      >
+        <button
+          type="button"
+          data-ink-colour=""
+          aria-label="Ink colour"
+          title="The colour you draw in. Press to change it."
+          className="tactile size-4 shrink-0 rounded-sm border border-fg"
+          style={{ background: `oklch(0.72 0.16 ${inkHue})` }}
+        />
+      </Popover>
+      <span className="mx-0.5 h-3.5 w-px bg-border" />
+      {DRAW_KINDS.map((k) => (
+        <button
+          key={k.id}
+          type="button"
+          data-draw-kind={k.id}
+          aria-pressed={kind === k.id}
+          title={k.means}
+          onClick={() => useStudio.getState().setDrawKind(k.id)}
+          className={cn(
+            "tactile rounded-sm px-1.5 py-px text-[10px]",
+            kind === k.id ? "bg-accent text-on-accent" : "text-fg-muted hover:text-fg",
+          )}
+        >
+          {k.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
   const [open, setOpen] = React.useState(false);
   const row = "flex items-center gap-1.5 text-[11px] text-fg";
@@ -592,13 +655,7 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
             </Button>
             <span className="flex-1">{shape === "square" ? "Part menu: square edge" : "Part menu: round edge"}</span>
           </div>
-          {tool === "pen" || tool === "arrow" ? (
-            <div data-ink-hues="" className="flex items-center gap-1">
-              {HUES.map((h) => (
-                <button key={h} type="button" aria-label={`Ink hue ${h}`} onClick={() => useStudio.getState().setInk({ hue: h })} className={cn("tactile size-4 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")} style={{ background: `oklch(0.72 0.16 ${h})` }} />
-              ))}
-            </div>
-          ) : null}
+          {tool === "pen" || tool === "arrow" ? <DrawKindRow inkHue={inkHue} compact /> : null}
           <div className={row}>
             <SearchTools always />
             <Tooltip content="What has landed, and what is new to use">

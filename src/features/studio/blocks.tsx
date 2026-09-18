@@ -16,7 +16,7 @@ import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
 import type { StudioNode } from "./store";
 import { usePicture, type Picture } from "./pictures";
-import { missingCopy } from "./promised";
+import { missingCopy, namedCopy } from "./promised";
 
 export { items, themeFrom, type Theme } from "./parts/theme";
 
@@ -57,6 +57,63 @@ export interface BlockProps {
    * draw a page simply does not pass one.
    */
   surface?: (pageId: string, box: { w: number; h: number }) => React.ReactNode;
+}
+
+/**
+ * The words his prompt named that the drawn part is not showing.
+ *
+ * It reads the part after it has drawn, not the node behind it, because the
+ * node is not where they go missing: a part handed four lines and built for
+ * three keeps all four and draws three. Twenty-two parts in this library
+ * read only the first line they are given and discard the rest in silence.
+ *
+ * Nothing is measured unless the prompt names copy outright, so a prompt
+ * about nothing but colour and weight costs nothing at all. What it reads is
+ * the part's own `[data-part]` body rather than everything around it, so the
+ * badge can never read its own words back and call them shown. And it reads
+ * twice \u2014 once after the paint and once a beat later \u2014 because a part that
+ * fills itself over a frame or two has nothing on it yet on the first look.
+ */
+function Promised({ prompt, watch }: { prompt: string; watch: string }) {
+  const probe = React.useRef<HTMLSpanElement>(null);
+  const [missing, setMissing] = React.useState<string[]>([]);
+  const wanted = React.useMemo(() => namedCopy(prompt), [prompt]);
+
+  React.useEffect(() => {
+    if (!wanted.length) { setMissing((was) => (was.length ? [] : was)); return; }
+    let live = true;
+    const read = () => {
+      /* Every part but the drawn icon marks its own body; that one draws
+         paths and no words, so the box around it is the honest fallback. */
+      const near = probe.current?.parentElement ?? null;
+      const body = (near?.querySelector("[data-part]") as HTMLElement | null) ?? near;
+      if (!live || !body) return;
+      const next = missingCopy(prompt, body.innerText ?? "");
+      setMissing((was) => (was.length === next.length && was.every((w, i) => w === next[i]) ? was : next));
+    };
+    const frame = requestAnimationFrame(read);
+    const later = window.setTimeout(read, 450);
+    return () => { live = false; cancelAnimationFrame(frame); window.clearTimeout(later); };
+  }, [prompt, watch, wanted.length]);
+
+  return (
+    <>
+      <span ref={probe} hidden aria-hidden data-promised={wanted.length} />
+      {missing.length ? (
+        <span
+          data-asked-for={missing.length}
+          title={`The prompt asks for ${missing.join(", ")}, and this part is not showing ${missing.length === 1 ? "it" : "them"}.`}
+          style={{
+            position: "absolute", right: 6, bottom: 6, zIndex: 3, pointerEvents: "none",
+            padding: "1px 6px", borderRadius: 999, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
+            background: "oklch(0.22 0.09 62 / 0.78)", color: "oklch(0.9 0.09 82)",
+          }}
+        >
+          {missing.length} not shown
+        </span>
+      ) : null}
+    </>
+  );
 }
 
 export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, emit, palette, light, page, layers, pick, pictureAt, surface }: BlockProps) {
@@ -126,12 +183,26 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   if (!def) return <Unknown node={node} t={t} />;
   const P = def.component;
   /*
-   * What the prompt names and the document does not hold. Read off the
-   * node rather than off the rendered page, because on the board the part
-   * has not been read back yet — the publish does that, and says the same
-   * thing at the foot of the page it writes.
+   * What the prompt names and the page does not show.
+   *
+   * THIS USED TO READ THE NODE, AND THAT WAS THE WHOLE BUG.
+   *
+   * It compared the prompt against the node's label, content, data and
+   * options, which is a different question from the one he was asking. A
+   * part that is handed four lines and has room for three keeps all four on
+   * the node and draws three, so the node answers "it is all here" and the
+   * badge stayed quiet while a word of his sat on the board unseen. There
+   * are twenty-two parts that read only the first line they are given and
+   * discard the rest without a word.
+   *
+   * It now reads what the part actually drew, which is what the published
+   * page's audit has always done — the same question, asked in the place
+   * where he is working rather than after it has gone out. Measuring costs
+   * a layout read, so nothing is measured at all unless the prompt names
+   * copy outright: a prompt about nothing but colour and weight never
+   * touches it.
    */
-  const shortfall = missingCopy(node.prompt ?? "", [node.label, node.content ?? "", node.data ?? "", Object.values(node.options ?? {}).join(" ")].join(" "));
+  const watch = [node.prompt ?? "", node.content ?? "", node.data ?? "", JSON.stringify(node.options ?? {}), size?.w ?? node.w, size?.h ?? node.h].join("|");
   const part = (
     <>
     {drift ? <style data-part-drift={drift.name}>{drift.css}</style> : null}
@@ -150,19 +221,7 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       prompt names outright — quoted, or in capitals — counts, so a prompt
       about nothing but colour and weight is never accused of anything.
     */}
-    {mode === "board" && shortfall.length ? (
-      <span
-        data-asked-for={shortfall.length}
-        title={`The prompt asks for ${shortfall.join(", ")}, and this part is not showing ${shortfall.length === 1 ? "it" : "them"}.`}
-        style={{
-          position: "absolute", right: 6, bottom: 6, zIndex: 3, pointerEvents: "none",
-          padding: "1px 6px", borderRadius: 999, fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase",
-          background: "oklch(0.22 0.09 62 / 0.78)", color: "oklch(0.9 0.09 82)",
-        }}
-      >
-        {shortfall.length} not shown
-      </span>
-    ) : null}
+    {mode === "board" ? <Promised prompt={node.prompt ?? ""} watch={watch} /> : null}
     {mode === "board" && node.picture && hasBody(node.code) ? (
       <span
         data-shows="picture"

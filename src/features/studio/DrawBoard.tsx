@@ -230,6 +230,10 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
       frameWidth,
       sketch: drawn,
       picture: pictureOf(drawn.strokes),
+      /* What he chose on the row before he drew. Read now rather than when
+         the answer lands, so changing the row mid-queue cannot change what
+         a finished drawing turns into. */
+      want: useStudio.getState().drawKind,
       ...(landing.drawn ? { drawn: landing.drawn } : {}),
       label: node ? `Reshaping ${label}` : `Making ${label}`,
     });

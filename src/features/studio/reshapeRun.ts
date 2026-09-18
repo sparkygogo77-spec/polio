@@ -855,7 +855,17 @@ function apply(patch: ReshapePatch, drawn: Sketch, node: StudioNode | null, job:
   // The proportion held is the boundary's: the outline the author drew round
   // the part, not the box round every mark that fell outside it.
   const bounds = readBoundary(drawn);
-  const made = checkAnswer({ patch, node, drawn, aspect: bounds?.aspect ?? 1, outline: bounds?.shape, frameWidth, kind: kindInfo, drawnSize: job.drawn ?? null });
+  /*
+   * The preselect, as a part id.
+   *
+   * `surface` is not in here because a surface is not a part: a boundary
+   * becomes a `Space` (`space.ts`) and never goes through the reader at all,
+   * so it is handled where the line is drawn. `part` is absent because it IS
+   * the reader working it out, which is what this whole path does.
+   */
+  const WANTED: Record<string, string> = { icon: "drawn-icon", cube: "cube-3d" };
+  const made = checkAnswer({ patch, node, drawn, aspect: bounds?.aspect ?? 1, outline: bounds?.shape, frameWidth, kind: kindInfo, drawnSize: job.drawn ?? null,
+    want: job.want ? WANTED[job.want] ?? null : null });
   const { featureId, label, w, h, options, kindChanged, reproportioned, keptSize } = made;
   const shared: Partial<StudioNode> = {
     featureId,

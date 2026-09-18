@@ -284,6 +284,44 @@ if (!URL_) {
   check("…so it is a pulse: it visits both sides of where it hangs and comes back",
     low < rest && high > rest, `${low} … ${rest} … ${high}`);
 
+  /*
+   * AND THE TEXTURE TRAVELS WITH IT.
+   *
+   * The cloud over a vine is a DOM element clipped to the ribbon's own
+   * outline, and that outline was computed at the resting curve however far
+   * the vine had swung — so the geometry moved and the weather on it sat
+   * still. His words: "it bounces out properly but it does it while leaving
+   * the texture in place because it doesnt seem to want to move with it".
+   *
+   * Read off the clip path itself rather than off pixels: it is the thing
+   * that was wrong, it is exact, and a cloud tile drifting on its own
+   * twenty-second loop would make a pixel reading lie in both directions.
+   */
+  /* Measured during a pick-up, not after one: the first version of this
+     sampled once the rope had already gone quiet and reported one outline
+     over fifty frames, which is true of a still vine and says nothing. */
+  await page.mouse.move(10, 10);
+  await page.waitForTimeout(1400);
+  const clipRun = page.evaluate(() => new Promise((done) => {
+    const out = [];
+    const tick = () => {
+      const el = document.querySelector(".molten-vine");
+      out.push(el ? getComputedStyle(el).clipPath.slice(0, 120) : "none");
+      /* Past the settle: the pick-up is quiet at 1.32s, so fifty frames
+         ends mid-swing and the tail says "still moving" about a rope that
+         simply had not finished yet. */
+      if (out.length < 110) requestAnimationFrame(tick); else done(out);
+    };
+    requestAnimationFrame(tick);
+  }));
+  await page.mouse.move(found.on.x, found.on.y);
+  const clips = await clipRun;
+  const moved = new Set(clips).size;
+  check("the texture travels with the vine rather than sitting under it",
+    moved > 3, `${moved} distinct outlines over 110 frames`);
+  check("…and comes back to one when the rope is quiet",
+    clips.slice(-6).every((c) => c === clips.at(-1)), `last six frames ${new Set(clips.slice(-6)).size === 1 ? "agree" : "still moving"}`);
+
   const dropSeries = sampler(80);
   await page.mouse.move(10, 10);
   const dropped = await dropSeries;

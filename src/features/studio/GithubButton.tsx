@@ -22,8 +22,13 @@ import site from "@site";
 import { Button } from "@/core/ui/button";
 import { Tooltip } from "@/core/ui/tooltip";
 import { cn } from "@/core/lib/cn";
+import { Popover } from "@/core/ui/popover";
+import { Input } from "@/core/ui/input";
 import { publishStatus, type PublishStatus } from "@/features/studio/agent";
 import { useBuilds } from "@/features/builds/store";
+import { useStudio } from "@/features/studio/store";
+import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
+import { heldKeys } from "@/features/keys/store";
 
 /**
  * The GitHub mark.
@@ -41,6 +46,7 @@ function GithubMark({ className }: { className?: string }) {
 }
 
 export function GithubButton() {
+  const [open, setOpen] = React.useState(false);
   const [status, setStatus] = React.useState<PublishStatus | null>(null);
   const projects = useBuilds((s) => s.projects);
   const activeId = useBuilds((s) => s.activeId);
@@ -78,6 +84,12 @@ export function GithubButton() {
   if (!url && !canPush) return null;
 
   return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      content={<RepoPanel pointsAt={name} branch={project?.repo?.branch ?? status?.github?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
+    >
     <Tooltip content={label}>
       <Button
         variant="ghost"
@@ -94,8 +106,18 @@ export function GithubButton() {
            events, and with no repository yet the tooltip is the entire point
            of this control — it is the only place that says the first publish
            will make one. */
-        aria-disabled={!url}
-        onClick={() => { if (url) window.open(url, "_blank", "noopener"); }}
+        /*
+         * IT OPENS THE REPOSITORY CONTROL, it does not leave the product.
+         *
+         * His words: "this should be what the github icon does in the top
+         * instead of taking me to my profile". It was a link to
+         * `github.com/${name}`, and with no name resolved it fell back to
+         * `site.repository` — which is how pressing it landed him on a
+         * profile page. Connecting a repository existed and was unreachable;
+         * making one did not exist at all. Both are here now, and the repo
+         * this site points at is the first line of it.
+         */
+        onClick={() => setOpen((v) => !v)}
       >
         <GithubMark className={cn("size-3.5", canPush ? "text-fg" : "text-fg-muted")} />
         {canPush ? null : (
@@ -103,5 +125,134 @@ export function GithubButton() {
         )}
       </Button>
     </Tooltip>
+    </Popover>
+  );
+}
+
+/**
+ * THE ONE PLACE FOR REPOSITORIES: the one this points at, another, or a new one.
+ *
+ * Three things, in the order he asked for them and in his own word for them.
+ * He calls them repos, so this says repos.
+ *
+ *   · **Where this site goes.** The repository a publish pushes to, and the
+ *     branch. Null means the server's own, which is what every publish used
+ *     before there was a choice, and it says so rather than looking empty.
+ *   · **Connect a different one.** His repositories, newest pushed first,
+ *     read with his own token. A list rather than a box to type in, because
+ *     the name is something he has rather than something he remembers.
+ *   · **Make a new one.** The thing that was not possible. Private, with a
+ *     first commit so the next publish has something to push onto, under the
+ *     token's own owner — his account, not one this file picked.
+ *
+ * No key of his is stored here. The token rides with the call out of the
+ * Keys panel, in his browser, exactly as it does for a publish.
+ */
+function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
+  const chosen = useStudio((s) => s.siteRepo);
+  const siteName = useStudio((s) => s.brief?.name ?? "");
+  const [mine, setMine] = React.useState<{ name: string; private: boolean }[] | null>(null);
+  const [said, setSaid] = React.useState<string | null>(null);
+  const [making, setMaking] = React.useState(false);
+  const [name, setName] = React.useState(() => repoNameFor(siteName));
+
+  /* His own token if the Keys panel is holding one, and nothing otherwise —
+     the route falls back to the server's, exactly as a publish does. */
+  const token = (): Record<string, string> => {
+    const held = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN;
+    return held ? { "x-github-token": held } : {};
+  };
+
+  React.useEffect(() => {
+    let live = true;
+    void fetch("/api/studio/repo", { headers: token(), cache: "no-store" })
+      .then((r) => r.json())
+      .then((a) => { if (!live) return; if (a.ok) setMine(a.repos ?? []); else setSaid(a.message ?? null); })
+      .catch(() => { if (live) setSaid("Could not reach GitHub from here."); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const make = async () => {
+    const refusal = nameRefusal(name);
+    if (refusal) { setSaid(refusal); return; }
+    setMaking(true);
+    setSaid(null);
+    try {
+      const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name }) });
+      const a = await res.json();
+      if (!a.ok) { setSaid(a.message ?? "GitHub would not make it."); return; }
+      useStudio.getState().setSiteRepo(a.name);
+      setSaid(`Made ${a.name}. This site points at it now.`);
+    } catch {
+      setSaid("Could not reach GitHub from here.");
+    } finally {
+      setMaking(false);
+    }
+  };
+
+  const row = "flex items-center gap-1.5 text-[11px]";
+  return (
+    <div data-repo-panel="" className="flex w-[260px] flex-col gap-2">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">The repo this site goes to</p>
+        <p data-repo-points="" className="truncate text-[12px] font-medium text-fg">
+          {chosen ?? pointsAt ?? "No repo yet"}
+        </p>
+        <p className="text-[10px] text-fg-muted">
+          {chosen ?? pointsAt ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}` : "A publish goes wherever the server says, until you pick a repo."}
+        </p>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Connect a different repo</p>
+        {mine === null ? (
+          <p className="text-[10px] text-fg-muted">{said ?? "Asking GitHub…"}</p>
+        ) : mine.length === 0 ? (
+          <p className="text-[10px] text-fg-muted">No repos on this account yet.</p>
+        ) : (
+          <div className="max-h-[128px] overflow-y-auto">
+            {mine.map((r) => (
+              <button
+                key={r.name}
+                type="button"
+                data-repo-connect={r.name}
+                onClick={() => { useStudio.getState().setSiteRepo(r.name); onDone(); }}
+                className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px]", (chosen ?? pointsAt) === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
+              >
+                <span className="truncate">{r.name}</span>
+                {r.private ? <span className="shrink-0 text-[9px] text-fg-faint">private</span> : null}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Make a new repo</p>
+        <div className={row}>
+          <Input
+            inputSize="sm"
+            data-repo-new=""
+            value={name}
+            aria-label="Name for the new repo"
+            placeholder="a-name"
+            className="h-6 text-[11px]"
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void make(); } }}
+          />
+          <Button size="sm" variant="primary" data-repo-make="" disabled={making} onClick={() => void make()}>
+            {making ? "Making…" : "Make"}
+          </Button>
+        </div>
+        <p className="mt-0.5 text-[10px] text-fg-muted">Private, on your own account, with a first commit so a publish has somewhere to land.</p>
+      </div>
+
+      {said ? <p data-repo-said="" className="text-[10px] text-fg">{said}</p> : null}
+    </div>
   );
 }

@@ -68,16 +68,27 @@ if (serverHas) {
     `configured ${bare.github.configured}, token ${JSON.stringify(bare.github.token)}`,
   );
 }
-const offered = await (await fetch(PUB, { cache: "no-store", headers: { "x-github-token": FAKE } })).json();
+/*
+ * GET is not handed the token, and that is the point of it.
+ *
+ * It used to read `x-github-token` so it could answer "can this push", which
+ * meant the person's real token crossed to this server on every page load
+ * that asked \u2014 to answer a question the browser could answer itself, since the
+ * browser is the thing holding it. So this no longer checks that GET says
+ * "browser"; it checks that offering GET a token changes nothing about what
+ * comes back, which is the regression the contract exists to stop.
+ */
+const bareRaw = await (await fetch(PUB, { cache: "no-store" })).text();
+const offeredRaw = await (await fetch(PUB, { cache: "no-store", headers: { "x-github-token": FAKE } })).text();
 check(
-  "a token from the browser is enough on its own",
-  offered.github.configured === true && offered.github.token === "browser",
-  `configured ${offered.github.configured}, token ${JSON.stringify(offered.github.token)}`,
+  "GET is a status probe, so offering it a token changes nothing it says",
+  offeredRaw === bareRaw,
+  offeredRaw === bareRaw ? "the same answer with a token as without" : `without: ${bareRaw.slice(0, 90)} / with: ${offeredRaw.slice(0, 90)}`,
 );
 check(
   "and GET never says what the token is",
-  !JSON.stringify(offered).includes(FAKE),
-  JSON.stringify(offered).includes(FAKE) ? "the token came back" : "nothing of it comes back",
+  !offeredRaw.includes(FAKE),
+  offeredRaw.includes(FAKE) ? "the token came back" : "nothing of it comes back",
 );
 
 /* --------------------------------------------- no token, no publish, no repo */
@@ -127,6 +138,66 @@ check(
   unnamed.ok === false && unnamed.reason === "no-repo",
   unnamed.message,
 );
+
+/* ------------------------------- whose token actually reaches GitHub */
+/*
+ * The claim "a token from the browser is enough on its own" is a claim about
+ * what leaves this server, not about what GET says, so it is measured where
+ * it happens: a stand-in for GitHub on the address the route was started
+ * against, which writes down the Authorization header it was shown and
+ * refuses everything.
+ *
+ * This is the check that would catch `tokenFor` being turned around to prefer
+ * the environment \u2014 which would quietly push one person's site into whatever
+ * account the machine happens to be set up with. It needs the address to be
+ * free; where something is already answering on it, it says so rather than
+ * guessing.
+ */
+const STUB = Number(process.env.STUB_PORT ?? 4319);
+const seen = [];
+let stub = null;
+try {
+  const { createServer } = await import("node:http");
+  stub = await new Promise((good, bad) => {
+    const srv = createServer((req, res) => {
+      seen.push(req.headers.authorization ?? "");
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end(JSON.stringify({ message: "Bad credentials" }));
+    });
+    srv.on("error", bad);
+    srv.listen(STUB, "127.0.0.1", () => good(srv));
+  });
+} catch {
+  stub = null;
+}
+
+if (!stub) {
+  console.log(`  --   the browser's token is the one that reaches GitHub \u2014 skipped: something else is on 127.0.0.1:${STUB}`);
+} else {
+  /* An explicit repository, so the route goes straight out to GitHub rather
+     than stopping at "nothing to push to". Nothing is created and nothing is
+     pushed: the stand-in refuses the first call. */
+  const reached = await (await post({ files: [{ path: "a.txt", content: "x" }], repo: "someone/a-site" }, { "x-github-token": FAKE })).json();
+  const auth = seen.join(" | ");
+  check(
+    "a token from the browser is the one that reaches GitHub",
+    seen.length > 0 && seen.every((a) => a === `Bearer ${FAKE}`),
+    seen.length === 0
+      ? "the route never called GitHub at all, so nothing was measured"
+      : `GitHub was shown ${seen.length} call${seen.length === 1 ? "" : "s"}, all bearing the browser's token`,
+  );
+  check(
+    "and the server's own token is not what went out",
+    !!process.env.GITHUB_TOKEN === false || !auth.includes(process.env.GITHUB_TOKEN.trim()),
+    process.env.GITHUB_TOKEN ? "the environment's token stayed here" : "this machine has none to confuse it with",
+  );
+  check(
+    "and a refusal from GitHub is reported rather than swallowed",
+    reached.ok === false && typeof reached.message === "string" && reached.message.length > 0,
+    `${reached.reason ?? "?"}: ${(reached.message ?? "").slice(0, 90)}`,
+  );
+  await new Promise((r) => stub.close(r));
+}
 
 console.log("");
 const bad = results.filter((r) => !r.ok);

@@ -92,6 +92,16 @@ export function InvitePanel({ id, content, options, theme: t, mode, link, onNavi
   const label = keyed("label") ?? keyed("eyebrow") ?? loose[0] ?? "";
   const heading = keyed("heading") ?? keyed("headline") ?? loose[1] ?? "Stay in the loop.";
   const button = keyed("button") ?? keyed("cta") ?? loose[2] ?? "Follow on X";
+  /*
+   * Everything past the three slots, kept rather than dropped.
+   *
+   * This panel read loose[0], loose[1] and loose[2] and discarded whatever
+   * came after, in silence \u2014 a headline written across two lines lost its
+   * second one and nothing anywhere said so. It grows to hold what it is
+   * given instead: the extra lines sit under the heading, in the body size,
+   * which is where a line that was meant to be part of the sentence belongs.
+   */
+  const rest = loose.slice(3);
   // The same turn the headline part uses, so "last word" means the same
   // thing in both and a one-sentence heading can still turn at its end.
   const turn = opt(options, "turn", "last word accent");
@@ -119,6 +129,11 @@ export function InvitePanel({ id, content, options, theme: t, mode, link, onNavi
           {split.head}
           {split.tail ? <span style={{ color: turn.endsWith("muted") ? t.muted : t.accent }}>{split.tail}</span> : null}
         </p>
+        {rest.map((line, i) => (
+          <p key={i} style={{ margin: `${t.fontPx * 0.45}px 0 0`, color: t.muted, fontSize: t.fontPx, lineHeight: t.lineHeight }}>
+            {line}
+          </p>
+        ))}
       </div>
       <Btn
         t={t}

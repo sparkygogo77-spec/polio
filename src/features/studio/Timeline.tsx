@@ -1150,6 +1150,38 @@ export function Timeline() {
   }, [everyoneHere, settleSoon]);
 
   /*
+   * ANY CHANGE TO WHAT IS ON THE BOARD RE-FITS THE BOARD.
+   *
+   * His words, after deleting a box: "the lanes went to the green as they
+   * should but it didnt recenter again automatically", and then, having
+   * pressed the key himself: "pressing the button worked, just had to
+   * manually do it". So the fit was never wrong; it simply was not asked.
+   *
+   * Arrival had its own trigger and a drag had one, and between them they
+   * covered adding and moving. Deleting changes the set as much as either
+   * and had nothing. This watches the set itself — the ids, in order — so
+   * it covers a box going, a box arriving out of band, and a re-parent that
+   * changes the chain, rather than naming the three doors one at a time and
+   * waiting for him to find a fourth.
+   *
+   * Not on the first pass: the mount has just fitted, and re-fitting a view
+   * that was made a frame ago is a jump for nothing.
+   */
+  const onBoard = threads.map((t) => t.id).join(",");
+  const wasOnBoard = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const first = wasOnBoard.current === null;
+    const changed = wasOnBoard.current !== onBoard;
+    wasOnBoard.current = onBoard;
+    if (first || !changed || !settled.current || inHand.current) return;
+    /* A view somebody moved is theirs — but a board that has lost a box is
+       not the board they moved, and the column may now be anywhere. The
+       same reckoning the door makes, made here. */
+    const f = settleSoon();
+    return () => f.cancel();
+  }, [onBoard, settleSoon]);
+
+  /*
    * The bar's readout is the way back here as well.
    *
    * `requestFit` is one signal in one store and the zoom it shows is one
@@ -1207,7 +1239,26 @@ export function Timeline() {
     () =>
       all
         .map((n) => ({ from: joins.get(n.thread.id) ?? null, to: n.thread.id, thread: n.thread }))
-        .filter((c): c is { from: string; to: string; thread: Thread } => !!c.from && byId.has(c.from))
+        /*
+         * NO VINE EXISTS WITHOUT A BOX AT BOTH ENDS.
+         *
+         * His rule, after a deleted box left its vine behind: "line still
+         * exists", and then "pieces are just floating" — a curve and two
+         * shards out in empty space with nothing at either end. A vine that
+         * ends in mid air is the picture of the bug in every case he has
+         * raised, the unlanded connection included.
+         *
+         * Only the START was checked here. The end was assumed present
+         * because it comes from the list being walked, which is true right
+         * up until the list and the map disagree for a frame — and when they
+         * do, `anchorOf` has no box to ask and falls back to a default spot,
+         * which is how a vine ends up drawn far from anything it belongs to.
+         *
+         * Both ends, every frame. It is one term, it cannot cost anything,
+         * and it makes the invariant true by construction rather than by
+         * everything upstream remembering to keep it.
+         */
+        .filter((c): c is { from: string; to: string; thread: Thread } => !!c.from && byId.has(c.from) && byId.has(c.to))
         .map((c) => ({
           from: c.from,
           to: c.to,
@@ -1983,11 +2034,27 @@ function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want
       /* Both halves in one path when it is one light: two subpaths clip to
          their union, which is the whole rope and exactly what the two
          elements covered between them. */
+      /*
+       * AT THE SHAPE THE VINE IS ACTUALLY IN, tug included.
+       *
+       * This was called without `tug`, so the clip was always the RESTING
+       * curve. That was right while `tug` was a boolean that snapped once
+       * and sat still, and wrong the moment a vine became a rope: the paint
+       * swings for 1.3s and the cloud stayed where it was. His words —
+       * "when im hovering it now it bounces out properly but it does it
+       * while leaving the texture in place because it doesnt seem to want
+       * to move with it". My regression, from the commit that made it
+       * bounce.
+       *
+       * It costs a re-clip per frame for the one vine under the hand, and
+       * `changed` already had it in the set because `mark` carries `tug` —
+       * so the work was being done and thrown at the old shape.
+       */
       const envelope = (side: 0 | 1) => strandEnvelope(
         { x: v.from.x - box.x, y: v.from.y - box.y },
         { x: v.to.x - box.x, y: v.to.y - box.y },
         side,
-        { ends: v.ends, grow: v.grow, tone: v.tone },
+        { ends: v.ends, grow: v.grow, tone: v.tone, tug: v.tug },
       );
       const d = b === "a" ? [envelope(0), envelope(1)].filter(Boolean).join(" ") : envelope(b);
       el.style.clipPath = d ? `path("${d}")` : "inset(100%)";

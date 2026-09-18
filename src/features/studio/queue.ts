@@ -18,6 +18,7 @@
  * it runs the board is gone and the menu that opened it is gone with it.
  */
 import type { Sketch } from "./sketch";
+import type { DrawKind } from "./store";
 
 export type JobStatus = "waiting" | "asking" | "running" | "done" | "failed";
 
@@ -31,6 +32,14 @@ export interface DrawJob {
   sketch: Sketch;
   /** The drawing as a PNG for the reader, base64, without the data-URL head. */
   picture: string | null;
+  /**
+   * What he said it was BEFORE he drew it, from the drawing row.
+   *
+   * Carried on the job rather than read from the store when the answer comes
+   * back, because the row can be changed while a drawing is in the queue and
+   * the thing that lands must be the thing he asked for when he drew it.
+   */
+  want?: DrawKind | null;
   /**
    * How big the drawing actually was on the board, in canvas units.
    *

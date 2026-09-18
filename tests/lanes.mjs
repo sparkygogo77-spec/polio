@@ -16,7 +16,7 @@
  */
 import { createRequire } from "node:module";
 import { mkdirSync } from "node:fs";
-import { BANDS, BAND_COLOUR, LANE_BANDS, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/lanes.ts";
+import { BANDS, BAND_COLOUR, LANE_H, LANE_BANDS, PICKS, RATES, REACH, TURN, bandOf, costOf, laneArm, laneRects, laneSpine, lanesOf, nextIn, pickFor, saidMinutes, shown } from "../src/features/studio/lanes.ts";
 import { ITEMS } from "../src/features/studio/lanesSample.ts";
 import { LANE_STRAND_WIDTH, STRAND_WIDTH } from "../src/features/studio/strand.ts";
 import { MOLTEN_MEANS, moltenClass } from "../src/core/ui/molten.ts";
@@ -69,9 +69,23 @@ check("the middle lane is beside the latest box, level: its vertical centre is t
 check("the three stand in a column: one left edge between them, one above the middle and one below",
   rects[0].x === rects[1].x && rects[1].x === rects[2].x && cyOf(rects[0]) < cyOf(rects[1]) && cyOf(rects[2]) > cyOf(rects[1]),
   `left edges ${rects.map((r) => r.x).join(", ")} · centres ${rects.map((r) => cyOf(r)).join(", ")}`);
-check("and evenly spaced, a box and a gap apart, which is what makes a square bracket read",
-  cyOf(rects[1]) - cyOf(rects[0]) === 234 + 54 && cyOf(rects[2]) - cyOf(rects[1]) === 234 + 54,
-  `${cyOf(rects[1]) - cyOf(rects[0])} and ${cyOf(rects[2]) - cyOf(rects[1])}, against a box of 234 and a gap of 54`);
+/*
+ * A LANE AND A GAP APART, not a box and a gap.
+ *
+ * A lane used to inherit the height of the box it hangs off, which made the
+ * fan three full cards tall — and the fan's height is what sets the
+ * timeline's zoom, because no part of it may go under the band. Measured at
+ * 1732x1278 that cost 21% of the board: zoom 0.789 where the column alone
+ * wanted 1.105. A lane is `LANE_H` now, 150, floored on `PIECE` at 168x148,
+ * the smallest card this product already shows a preview in. The set went
+ * 1053 tall to 908 and the zoom 0.7888 to 0.9153.
+ *
+ * What makes a square bracket read is that the three are EVENLY spaced, not
+ * what they are spaced by, so that is what is checked.
+ */
+check("and evenly spaced, a lane and a gap apart, which is what makes a square bracket read",
+  cyOf(rects[1]) - cyOf(rects[0]) === LANE_H + 54 && cyOf(rects[2]) - cyOf(rects[1]) === LANE_H + 54,
+  `${cyOf(rects[1]) - cyOf(rects[0])} and ${cyOf(rects[2]) - cyOf(rects[1])}, against a lane of ${LANE_H} and a gap of 54`);
 /* The bracket itself: a spine out of the box, a turn, an arm into each lane,
    and every leg of it either level or upright. No diagonals anywhere. */
 const spine = laneSpine({ x: 100, y: 200, w: 620, h: 234 }, { x: 20, y: 54 });
@@ -84,7 +98,11 @@ check("every arm turns at a right angle and never runs diagonally", armsOf.every
   armsOf.map((a) => a.map((p) => `${Math.round(p.x)},${Math.round(p.y)}`).join(">")).join(" · "));
 check("the middle lane's arm is one straight run, with no turn in it at all", armsOf[1].length === 2);
 check("the arms end on the lanes' own left edges, at their middles", armsOf.every((a, i) => a.at(-1).x === rects[i].x && a.at(-1).y === cyOf(rects[i])));
-check("every lane is as tall as the box it hangs off, so the centres can agree", rects.every((r) => r.h === 234 && r.w === 620));
+/* As wide as the box and all three the same height — the height is the
+   lane's own now, and what has to agree with the box is the MIDDLE one's
+   centre, which is checked on its own below and to the pixel. */
+check("every lane is as wide as the box and all three the same height",
+  rects.every((r) => r.h === LANE_H && r.w === 620), `${rects[0].w}x${rects[0].h}`);
 check("azure is a kind the construct knows, and it means a lane's work", moltenClass("azure") === "molten molten-azure" && /lane/.test(MOLTEN_MEANS.azure));
 
 /* ------------------------------------------------------------------ */
@@ -154,7 +172,9 @@ check("and on the page the three stand in one column, evenly spaced",
   && Math.abs((mid(laneRs[1]) - mid(laneRs[0])) - (mid(laneRs[2]) - mid(laneRs[1]))) < 2
   && mid(laneRs[0]) < mid(last) && mid(laneRs[2]) > mid(last),
   `left edges ${laneRs.map((r) => Math.round(r.x)).join(", ")} · gaps ${Math.round(mid(laneRs[1]) - mid(laneRs[0]))} and ${Math.round(mid(laneRs[2]) - mid(laneRs[1]))}`);
-check("one above the box's centre line, one on it, one under it, and every lane as wide and as tall as the box", laneRs.every((r) => Math.abs(r.w - last.w) < 2 && Math.abs(r.h - last.h) < 2), laneRs.map((r) => `${Math.round(r.w)}×${Math.round(r.h)}`).join(", ") + ` against ${Math.round(last.w)}×${Math.round(last.h)}`);
+check("one above the box's centre line, one on it, one under it, every lane as wide as the box and all of them the same height",
+  laneRs.every((r) => Math.abs(r.w - last.w) < 2) && laneRs.every((r) => Math.abs(r.h - laneRs[0].h) < 2),
+  laneRs.map((r) => `${Math.round(r.w)}×${Math.round(r.h)}`).join(", ") + ` against a box of ${Math.round(last.w)}×${Math.round(last.h)}`);
 /*
  * The connectors are vines, his words: the timeline's own ribbon, slightly
  * thinner, green into the top lane, yellow into the middle, red into the
