@@ -1150,6 +1150,38 @@ export function Timeline() {
   }, [everyoneHere, settleSoon]);
 
   /*
+   * ANY CHANGE TO WHAT IS ON THE BOARD RE-FITS THE BOARD.
+   *
+   * His words, after deleting a box: "the lanes went to the green as they
+   * should but it didnt recenter again automatically", and then, having
+   * pressed the key himself: "pressing the button worked, just had to
+   * manually do it". So the fit was never wrong; it simply was not asked.
+   *
+   * Arrival had its own trigger and a drag had one, and between them they
+   * covered adding and moving. Deleting changes the set as much as either
+   * and had nothing. This watches the set itself — the ids, in order — so
+   * it covers a box going, a box arriving out of band, and a re-parent that
+   * changes the chain, rather than naming the three doors one at a time and
+   * waiting for him to find a fourth.
+   *
+   * Not on the first pass: the mount has just fitted, and re-fitting a view
+   * that was made a frame ago is a jump for nothing.
+   */
+  const onBoard = threads.map((t) => t.id).join(",");
+  const wasOnBoard = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const first = wasOnBoard.current === null;
+    const changed = wasOnBoard.current !== onBoard;
+    wasOnBoard.current = onBoard;
+    if (first || !changed || !settled.current || inHand.current) return;
+    /* A view somebody moved is theirs — but a board that has lost a box is
+       not the board they moved, and the column may now be anywhere. The
+       same reckoning the door makes, made here. */
+    const f = settleSoon();
+    return () => f.cancel();
+  }, [onBoard, settleSoon]);
+
+  /*
    * The bar's readout is the way back here as well.
    *
    * `requestFit` is one signal in one store and the zoom it shows is one
