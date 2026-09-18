@@ -5,31 +5,11 @@
  */
 import * as React from "react";
 import { useSettings, onSettingChange, getSetting, getSettingDef, allSettingGroups } from "@/core/settings/store";
-import { setAudioConfigSource, installAudioUnlock, play } from "@/core/audio/engine";
+import { installAudioUnlock } from "@/core/audio/engine";
 import { publish, useToasts } from "@/core/toasts/store";
 import { registry } from "@/core/registry";
 import { getActions } from "@/core/actions";
 import { labelValue } from "@/core/lib/format";
-import type { SettingDef } from "@/core/types";
-
-setAudioConfigSource(() => ({
-  enabled: getSetting<boolean>("audio.enabled"),
-  master: getSetting<number>("audio.master"),
-  categories: {
-    ui: getSetting<boolean>("audio.ui"),
-    feedback: getSetting<boolean>("audio.feedback"),
-    alerts: getSetting<boolean>("audio.alerts"),
-    feed: getSetting<boolean>("audio.feed"),
-  },
-  hover: getSetting<boolean>("audio.hover"),
-}));
-
-function cueFor(def: SettingDef | undefined, value: unknown) {
-  if (!def) return "select" as const;
-  if (def.type === "toggle") return value ? ("toggleOn" as const) : ("toggleOff" as const);
-  if (def.type === "slider" || def.type === "hue" || def.type === "number") return "tick" as const;
-  return "select" as const;
-}
 
 export function AppBootstrap() {
   const markHydrated = useSettings((s) => s.markHydrated);
@@ -40,12 +20,6 @@ export function AppBootstrap() {
     const unlock = installAudioUnlock();
 
     const offChange = onSettingChange((id, value, prev, def) => {
-      // Sound. Sound-related toggles get a forced confirmation so muting still clicks.
-      const cue = cueFor(def, value);
-      if (id === "audio.enabled") play(value ? "toggleOn" : "toggleOff", { force: true });
-      else if (id === "audio.master") play("tick", { force: true });
-      else play(cue);
-
       if (!def || def.silent || !getSetting<boolean>("feed.settingsInFeed")) return;
       const group = allSettingGroups().find((g) => g.id === def.group);
       const fmt = def.format as ((v: unknown) => string) | undefined;

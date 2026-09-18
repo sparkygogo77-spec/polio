@@ -164,8 +164,10 @@ export const useToasts = create<ToastState>()((set, get) => ({
 
     set({ toasts });
 
-    // Sound: level cue, throttled per key so a slider drag doesn't machine-gun.
-    if (input.sound !== false && getSetting<boolean>("feed.sound")) {
+    /* A toast asks for its level's cue and the engine decides whether any of
+       them can be heard; today only one can. Throttled per key either way, so
+       a slider drag could not machine-gun it. */
+    if (input.sound !== false) {
       const soundKey = key ?? target.id;
       const last = lastSound.get(soundKey) ?? -Infinity;
       if (now - last >= SOUND_GAP_MS || !existing) {

@@ -22,11 +22,14 @@ export const keys = defineFeature({
   icon: KeyRound,
   hidden: true,
   topBarItems: [{ id: "keys.button", order: 10, component: KeysButton }],
-  settingGroups: [{ id: "keys", label: "Keys", icon: KeyRound, order: 250, description: "What this browser holds, and whether a PIN is asked for it." }],
   settings: [
     {
       id: "keys.pin",
       group: "keys",
+      /* The Keys panel in the top bar is where the key is; the switch that
+         seals it belongs beside it, not in a drawer with a tab of its own
+         that read empty because this was the only thing in it. */
+      panel: "keys",
       label: "Seal the key under a PIN",
       description:
         "Off, the key is held in this browser in the clear and the panel opens straight to it. On, it is sealed with AES-GCM under four digits, asked for on every reload and after five idle minutes, which is stronger against someone at this machine and stops an unattended run dead.",

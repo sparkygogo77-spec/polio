@@ -17,10 +17,7 @@ export const showcase = defineFeature({
   // Kept as a developer reference; the Builder's library is where components are browsed.
   hidden: true,
   routes: [{ path: "/showcase", component: ShowcasePage, title: "Showcase" }],
-  settingGroups: [{ id: "showcase", label: "Showcase", icon: Palette, order: 200, description: "Options owned by the showcase module." }],
   settings: [
-    { id: "showcase.liveNumbers", group: "showcase", label: "Animate live numbers", type: "toggle", default: true, order: 1 },
-    { id: "showcase.tickMs", group: "showcase", label: "Tick interval", type: "slider", default: 900, min: 200, max: 3000, step: 100, format: (v) => `${v}ms`, advanced: true, order: 2 },
   ],
   commands: [
     {

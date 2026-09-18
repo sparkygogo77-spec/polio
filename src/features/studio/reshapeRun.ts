@@ -38,6 +38,7 @@ import { claudeSpend, sayBill, sayPass } from "./spend";
 import { tidySteps } from "./space";
 import { oddness, stillAsks, withAnswer } from "./oddness";
 import type { Step } from "./imageRoute";
+import { play } from "@/core/audio/engine";
 
 /** A data URL down to its bytes, which is all the second pass takes. */
 const bare = (dataUrl: string | null | undefined): string | null => {
@@ -343,6 +344,13 @@ export async function runDrawJob(job: DrawJob, deps: RunDeps): Promise<RunResult
         // `why` travels with it: a question is only worth answering while
         // the same one would still be asked (`stillAsks`).
         useStudio.getState().updateJob(job.id, { status: "asking", question: { ask: q.ask, choices: q.choices, why: q.why }, step: undefined });
+        /*
+         * The one sound this app makes. A job that is `asking` waits on the
+         * person, not on the queue \u2014 the run has stopped and will not go on
+         * until he answers, which is the only thing worth interrupting him
+         * for. Everything else that used to click, tick and chime is silent.
+         */
+        play("notify");
         return { ok: true, asked: true, note: q.ask };
       }
     }

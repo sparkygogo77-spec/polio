@@ -139,6 +139,14 @@ export interface SettingDef<V = unknown> {
   advanced?: boolean;
   /** Offered only while this is true: a knob for chrome no module has asked for is a knob on nothing. */
   when?: () => boolean;
+  /**
+   * The panel that owns this control, when it is not the settings drawer.
+   *
+   * A module with a console of its own keeps its own knobs there, beside the
+   * thing they act on, rather than in a drawer across the app. The drawer
+   * skips anything with this set; the named panel renders exactly those.
+   */
+  panel?: string;
   /** Extra search terms. */
   tags?: string[];
   order?: number;
