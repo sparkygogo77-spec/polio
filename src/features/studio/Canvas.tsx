@@ -988,6 +988,26 @@ export function Canvas() {
         setRefused({ points: drag.points, at: Date.now() });
         news.publish({ key: "studio:space", title: "A space is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: false });
       }
+    } else if (drag.kind === "draw" && tool === "pen" && store.drawKind === "surface" && drag.points && drag.points.length >= 2) {
+      /*
+       * SURFACE, CHOSEN BEFORE THE LINE WAS DRAWN.
+       *
+       * His words: "i found the draw a space button which is cool but i
+       * think it should also be this way in the menu like i said instead of
+       * forcing the circle". The behaviour he liked is this one, so it is
+       * reused rather than reinvented — the same `addSpace` the space tool
+       * calls, reached by saying "surface" first and then drawing.
+       *
+       * A line that does not close is refused exactly as the space tool
+       * refuses it, on the line itself, because a surface is a closed line
+       * whichever door you came through.
+       */
+      if (isBoundary(drag.points)) { store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" }); play("confirm"); }
+      else {
+        play("deny");
+        setRefused({ points: drag.points, at: Date.now() });
+        news.publish({ key: "studio:space", title: "A surface is a closed line", body: "Draw round the area and come back to where you started.", level: "info", source: "studio", toast: false });
+      }
     } else if (drag.kind === "draw" && drag.points && drag.points.length >= 2) {
       const kind = tool === "pen" ? "pen" : "arrow";
       const pts = drag.points;

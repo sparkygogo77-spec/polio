@@ -48,6 +48,7 @@ import type { NodeLink } from "./parts/types";
 import type { NodeColour, NodeFont } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
+import type { DrawKind } from "./drawKinds";
 import type { DrawnVector, VectorRole } from "./vector";
 import { emptyCube, type CubeData, type CubeFace, type CubeSide } from "./parts/cubeFaces";
 import type { MeshData } from "./parts/types";
@@ -489,6 +490,20 @@ interface StudioState extends Doc {
   tool: Tool;
   inkHue: number;
   inkWidth: number;
+  /**
+   * WHAT HE IS DRAWING, chosen BEFORE he draws it.
+   *
+   * His words: "when i click the color i can adjust it and beside it the
+   * buttons become preselect options for 'button' 'surface' 'icon' or
+   * whatever options i can draw". The saying-what-it-is moves earlier; it
+   * does not disappear, which is what `part` is for — the one that still
+   * works it out from the drawing, the way everything did before this.
+   *
+   * Every one of these is wired to something real. A chip that fell through
+   * to the model would be a preselect that does not preselect, which is the
+   * same disease as a dead control.
+   */
+  drawKind: DrawKind;
   zoom: number;
   pan: { x: number; y: number };
   /**
@@ -717,6 +732,7 @@ interface StudioState extends Doc {
   paste: () => boolean;
   setTool: (t: Tool) => void;
   setInk: (patch: { hue?: number; width?: number }) => void;
+  setDrawKind: (kind: DrawKind) => void;
   setZoom: (z: number) => void;
   /** Set by the board's fit only: floored at `FIT_MIN`, not `ZOOM_MIN`. */
   setFitZoom: (z: number) => void;
@@ -867,6 +883,10 @@ function reformed(t: { state?: string; form?: { p: number; gen: number } }): { p
   return { p: 1, gen: had.gen + 1 };
 }
 export const HUES = [265, 200, 160, 30, 340, 90, 240, 15];
+
+/* The kinds a drawing can be declared as: `drawKinds.ts`, which has no
+   imports so a check can read it without the app's aliases. */
+export { DRAW_KINDS, type DrawKind } from "./drawKinds";
 
 /**
  * Where a new part may land: inside the page, always.
@@ -1149,6 +1169,7 @@ export const useStudio = create<StudioState>()(
         tool: "select",
         inkHue: 265,
         inkWidth: 3,
+        drawKind: "part",
         zoom: 1,
         fitAt: ZOOM_MIN,
         pan: { x: 0, y: 0 },
@@ -1712,6 +1733,7 @@ export const useStudio = create<StudioState>()(
         },
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
+        setDrawKind: (kind) => set({ drawKind: kind }),
         /*
          * The zoom key's floor is its own, EXCEPT that it is never above the
          * fit. Measured at 375: the fit is 0.142, `ZOOM_MIN` is 0.25, and

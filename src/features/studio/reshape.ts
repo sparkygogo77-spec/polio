@@ -64,6 +64,8 @@ export interface CurrentPart {
 }
 
 export interface CheckInput {
+  /** The kind he chose on the drawing row before drawing, if he chose one. */
+  want?: string | null;
   patch: ReshapePatch;
   node: CurrentPart | null;
   drawn: Sketch;
@@ -146,14 +148,25 @@ const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.i
 const text = (v: unknown, max: number) => (typeof v === "string" ? cut(v.trim(), max) : "");
 
 /** Claude's answer, held to the catalog, the frame and the drawing. */
-export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, kind, drawnSize }: CheckInput): Checked {
+export function checkAnswer({ patch, node, drawn, aspect, outline, frameWidth, kind, drawnSize, want }: CheckInput): Checked {
   const words = drawn.words.trim();
   const isNew = !node;
 
-  // The kind: an id from the library, or the one the part has, or an idea.
+  /*
+   * The kind: what he SAID before he drew, then an id from the library, then
+   * the one the part has, then an idea.
+   *
+   * `want` is the preselect from the drawing row, and it comes first because
+   * a preselect that the answer can talk you out of is a hint, not a choice.
+   * His words: "i should be able to preselect what im making instead of
+   * clarifying after for the ai". It is still held to the library — a kind
+   * nothing in the catalogue answers to is no kind at all — so this can
+   * pin a part, never invent one.
+   */
+  const pinned = typeof want === "string" && kind(want) ? want : null;
   const proposedKind = typeof patch.featureId === "string" && kind(patch.featureId) ? patch.featureId : null;
   const currentKind = node && kind(node.featureId) ? node.featureId : null;
-  const featureId = proposedKind ?? currentKind ?? IDEA_ID;
+  const featureId = pinned ?? proposedKind ?? currentKind ?? IDEA_ID;
   const info = kind(featureId) ?? null;
   const kindChanged = !!node && featureId !== node.featureId;
   const custom = featureId === IDEA_ID;
