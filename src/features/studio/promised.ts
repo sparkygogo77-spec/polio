@@ -15,11 +15,32 @@
  * a prompt about nothing but style is never accused of going missing.
  */
 
-/** Words a prompt names outright: anything quoted, and any run of capitals. */
+/**
+ * Words a prompt names outright: anything quoted, and any run of capitals.
+ *
+ * A run of capitals inside something already quoted is the same copy said
+ * twice, not two things missing. Measured off his own board: a prompt asking
+ * for a meta row reading "\u25cf CHAIN 4663 \u00b7 COMMUNITY OWNED \u00b7 ZERO TAX" was
+ * counted as four missing strings \u2014 the row, and then each of its three
+ * parts over again \u2014 and a button reading "FOLLOW ON X \u2197" as two. Four of
+ * the eighteen strings his badges named were the same words twice. So the
+ * capitals pass skips anything standing inside a quotation the first pass
+ * has already taken, by where it sits rather than by what it says, so a
+ * phrase that happens to appear both inside quotes and outside them is still
+ * counted where it appears loose.
+ */
 export function namedCopy(prompt: string): string[] {
   const out: string[] = [];
-  for (const m of prompt.matchAll(/["“”'‘’]([^"“”'‘’\n]{2,60})["“”'‘’]/g)) out.push(m[1] ?? "");
-  for (const m of prompt.matchAll(/\b[A-Z][A-Z0-9]{1,}(?:[ \t]+[A-Z0-9]{2,}){0,6}\b/g)) out.push(m[0] ?? "");
+  const quotedSpans: [number, number][] = [];
+  for (const m of prompt.matchAll(/["\u201c\u201d'\u2018\u2019]([^"\u201c\u201d'\u2018\u2019\n]{2,60})["\u201c\u201d'\u2018\u2019]/g)) {
+    out.push(m[1] ?? "");
+    if (m.index !== undefined) quotedSpans.push([m.index, m.index + m[0].length]);
+  }
+  const inside = (at: number, end: number) => quotedSpans.some(([a, b]) => at >= a && end <= b);
+  for (const m of prompt.matchAll(/\b[A-Z][A-Z0-9]{1,}(?:[ \t]+[A-Z0-9]{2,}){0,6}\b/g)) {
+    if (m.index !== undefined && inside(m.index, m.index + m[0].length)) continue;
+    out.push(m[0] ?? "");
+  }
   const seen = new Set<string>();
   const kept: string[] = [];
   for (const raw of out) {
