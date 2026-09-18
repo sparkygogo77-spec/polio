@@ -1983,11 +1983,27 @@ function syncLights(host: HTMLDivElement, els: Map<string, HTMLDivElement>, want
       /* Both halves in one path when it is one light: two subpaths clip to
          their union, which is the whole rope and exactly what the two
          elements covered between them. */
+      /*
+       * AT THE SHAPE THE VINE IS ACTUALLY IN, tug included.
+       *
+       * This was called without `tug`, so the clip was always the RESTING
+       * curve. That was right while `tug` was a boolean that snapped once
+       * and sat still, and wrong the moment a vine became a rope: the paint
+       * swings for 1.3s and the cloud stayed where it was. His words —
+       * "when im hovering it now it bounces out properly but it does it
+       * while leaving the texture in place because it doesnt seem to want
+       * to move with it". My regression, from the commit that made it
+       * bounce.
+       *
+       * It costs a re-clip per frame for the one vine under the hand, and
+       * `changed` already had it in the set because `mark` carries `tug` —
+       * so the work was being done and thrown at the old shape.
+       */
       const envelope = (side: 0 | 1) => strandEnvelope(
         { x: v.from.x - box.x, y: v.from.y - box.y },
         { x: v.to.x - box.x, y: v.to.y - box.y },
         side,
-        { ends: v.ends, grow: v.grow, tone: v.tone },
+        { ends: v.ends, grow: v.grow, tone: v.tone, tug: v.tug },
       );
       const d = b === "a" ? [envelope(0), envelope(1)].filter(Boolean).join(" ") : envelope(b);
       el.style.clipPath = d ? `path("${d}")` : "inset(100%)";
