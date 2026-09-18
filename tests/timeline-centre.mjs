@@ -518,10 +518,22 @@ for (const [w, h] of [[1024, 768], [1546, 1278]]) {
       boxes: set.length,
     };
   });
-  check(`${w}x${h}: no box is above the frame's own top edge`, seen.above === 0, `${seen.above}px outside it, ${seen.boxes} boxes`);
-  check(`${w}x${h}: and the set is at the middle of the room`, Math.abs(seen.offRoomY) < seen.room * 0.2,
+  /*
+   * THE COUNT FIRST, ALWAYS.
+   *
+   * `Math.max()` of nothing is -Infinity, so "how far past the edge" comes
+   * back 0 on a board with no boxes on it and every check below this one
+   * passes over an empty set. He found the same shape from the other end
+   * tonight: the box eyebrow is uppercased by CSS, so a selector matching
+   * "AN UPDATE" against `textContent` — which returns "an update" — finds
+   * nothing, and the assertions that follow are green about nothing. A
+   * suite that lies is worse than no suite.
+   */
+  check(`${w}x${h}: there are boxes on the board to measure`, seen.boxes > 0, `${seen.boxes} boxes`);
+  check(`${w}x${h}: no box is above the frame's own top edge`, seen.boxes > 0 && seen.above === 0, `${seen.above}px outside it, ${seen.boxes} boxes`);
+  check(`${w}x${h}: and the set is at the middle of the room`, seen.boxes > 0 && Math.abs(seen.offRoomY) < seen.room * 0.2,
     `${seen.offRoomY}px off the middle of a ${seen.room}px room`);
-  check(`${w}x${h}: and the column is at the middle across`, Math.abs(seen.offX) < 40,
+  check(`${w}x${h}: and the column is at the middle across`, seen.boxes > 0 && Math.abs(seen.offX) < 40,
     `${seen.offX}px off the middle of a ${seen.wide}px frame`);
   /*
    * AND NOTHING IS UNDER THE BAND, fan included.
@@ -536,7 +548,7 @@ for (const [w, h] of [[1024, 768], [1546, 1278]]) {
    * there is no edge to disappear behind.
    */
   check(`${w}x${h}: and nothing is under the band, the fan included`,
-    seen.colUnder === 0 && seen.laneUnder === 0, `column ${seen.colUnder}px under it, fan ${seen.laneUnder}px under it`);
+    seen.boxes > 0 && seen.colUnder === 0 && seen.laneUnder === 0, `column ${seen.colUnder}px under it, fan ${seen.laneUnder}px under it`);
   await fresh.close();
 }
 
