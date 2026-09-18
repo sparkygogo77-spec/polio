@@ -2,7 +2,7 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T07:17:49.934Z";
+export const GENERATED_AT = "2026-09-18T07:22:47.508Z";
 
 export const PASSES: Pass[] = [
   {
@@ -222,52 +222,6 @@ export const PASSES: Pass[] = [
         "id": "b628d43",
         "says": "Two controls on the light panel were dead; here they are by name",
         "when": "2026-09-17T21:15:45+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "0a4b3fc",
-    "when": "2026-09-17T21:56:19+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "0a4b3fc",
-        "says": "The suite set is not chosen by the diff: write down the floor",
-        "when": "2026-09-17T21:56:19+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
-  },
-  {
-    "id": "11aaa28",
-    "when": "2026-09-17T20:40:01+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "c62b8cc",
-        "says": "The fit belongs to the room, so it follows the room",
-        "when": "2026-09-17T20:26:27+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "bb72022",
-        "says": "A hand on a vine pulls it; a press takes it apart from the middle",
-        "when": "2026-09-17T19:54:54+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "6ae412f",
-        "says": "The boxes arrive when you open the timeline, .2 seconds apart",
-        "when": "2026-09-17T19:41:33+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "40c501c",
-        "says": "Centring is centring in what you can see, and one readout does it",
-        "when": "2026-09-17T19:28:13+00:00",
         "kind": "new"
       }
     ],
