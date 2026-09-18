@@ -947,7 +947,10 @@ const SIDE_TABS = [
   /* Replicate, in the product. His words: "provide a panel tab where i can use
      replicate models exactly as i do on their site" \u2014 so he never has to
      leave it to draw something. */
-  { value: "render", label: "Draw", icon: <ImageIcon />, hue: 60 },
+  /* HIS WORD: "change it from 'Draw' to Generate". Draw is what the pen does
+     on the board; this tab asks a model for a picture, and the two being
+     called the same thing is one name doing two jobs. */
+  { value: "render", label: "Generate", icon: <ImageIcon />, hue: 60 },
 ] as const;
 
 /*

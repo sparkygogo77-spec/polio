@@ -30,6 +30,7 @@ import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
+import { rasterFragment } from "./renderer";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
 import { BASE_ZOOM, BACKGROUND_ID, FIT_MIN } from "./store";
@@ -654,6 +655,43 @@ export function Canvas() {
   /* ---------------------------------------------------------------- drop */
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    /*
+     * A PICTURE DRAGGED OFF THE GENERATE PANEL, AT THE SIZE IT REALLY IS.
+     *
+     * HIS WORDS: "the output should also be draggable off the output image
+     * onto the web design 1 to 1". So the drag carries the picture's own
+     * pixel size and the board uses it rather than guessing a box — one to
+     * one is the point, and a picture landed in a default rectangle is a
+     * picture that has been resized on the way in.
+     *
+     * It gives back proportionally when it is wider than the page, because
+     * the alternative is a part standing off both edges, and it lands as an
+     * ordinary Picture part he can select, move and resize like any other:
+     * nothing generated is ever baked into the page behind his back.
+     */
+    const dropped = e.dataTransfer.getData("application/x-studio-picture");
+    if (dropped) {
+      try {
+        const pic = JSON.parse(dropped) as { src?: string; w?: number; h?: number };
+        if (pic.src) {
+          const p0 = toCanvas(e.clientX, e.clientY);
+          const natural = { w: Math.max(1, pic.w || 512), h: Math.max(1, pic.h || 512) };
+          const scale = Math.min(1, frameWidth / natural.w);
+          const w = Math.round(natural.w * scale);
+          const h = Math.round(natural.h * scale);
+          const id = useStudio.getState().addNode("picture", snapGrid(p0.x - w / 2), snapGrid(p0.y - h / 2), { w, h });
+          useStudio.getState().updateNode(id, {
+            label: "Picture",
+            /* The same record any rendered body carries, so the part is an
+               ordinary one: it publishes, exports and edits like the rest. */
+            code: { html: rasterFragment(pic.src), overlap: 1, attempts: 1, at: Date.now(), source: "renderer", kind: "raster" },
+          });
+          play("confirm");
+          haptic();
+        }
+      } catch { /* not ours after all */ }
+      return;
+    }
     const featureId = e.dataTransfer.getData("application/x-studio-feature");
     if (!featureId) return;
     const p = toCanvas(e.clientX, e.clientY);

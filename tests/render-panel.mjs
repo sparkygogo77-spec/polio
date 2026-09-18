@@ -163,12 +163,18 @@ check(
  * be here, and this counts from the panel rather than from a list of things
  * to forbid, so a control nobody thought to forbid is still caught.
  */
-const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format"];
+/* …and then: "just make the input images allow multiple ... there should be
+   an input images section with just a + box to add and drop pictures instead
+   of choose file", and "make the output image generated pastable instead of
+   just a savable file". So the pictures section, its + box, the way to take a
+   picture back out, and Copy are his too. Named one at a time, deliberately:
+   the guard's whole job is that a control has to be asked for by name. */
+const MINE = ["render-image", "render-tweak", "render-ratio", "render-quality", "render-effort", "render-model", "render-go", "render-price", "render-reference", "render-reference-clear", "render-format", "render-inputs", "render-add", "render-input", "render-input-drop", "render-copy"];
 const strays = await panel.evaluate((el, mine) => {
   const out = [];
   for (const node of el.querySelectorAll("input, select, textarea, button, [role='slider'], [role='switch'], [role='combobox']")) {
     const own = [...node.attributes].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
-      ?? [...(node.closest("[data-render-image],[data-render-tweak],[data-render-ratio],[data-render-quality],[data-render-effort],[data-render-model],[data-render-go],[data-render-format],[data-render-row='reference']")?.attributes ?? [])].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
+      ?? [...(node.closest("[data-render-image],[data-render-tweak],[data-render-ratio],[data-render-quality],[data-render-effort],[data-render-model],[data-render-go],[data-render-format],[data-render-inputs],[data-render-row='reference']")?.attributes ?? [])].map((a) => a.name.replace(/^data-/, "")).find((n) => mine.includes(n))
       ?? ([...node.attributes].some((a) => a.name.startsWith("data-render-row")) ? "row" : undefined);
     if (!own) out.push(`${node.tagName.toLowerCase()}${node.getAttribute("aria-label") ? `[${node.getAttribute("aria-label")}]` : ""}`);
   }

@@ -124,6 +124,8 @@ interface Body {
   frame?: boolean;
   /** A picture to work from: his own drawing, or one he chose. A data URL. */
   reference?: string;
+  /** Several pictures to work from, when the model takes more than one. */
+  references?: string[];
   /** png, jpeg or webp. The model's own default when he has not said. */
   format?: string;
   /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
@@ -265,6 +267,7 @@ export interface Asked {
   /** Add the framing words. Off unless asked: what he types is what goes. */
   frame?: boolean;
   /** A picture to work from: his own drawing, or one he chose. A data URL. */
+  references?: string[];
   reference?: string;
   /** png, jpeg or webp. The model's own default when he has not said. */
   format?: string;
@@ -288,8 +291,16 @@ function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
    * any other, so the panel sends one and the route does not care which it
    * was. A model with no reference field is simply not sent one.
    */
-  if (asked.reference && card.refField) {
-    out[card.refField] = card.references > 1 ? [asked.reference] : asked.reference;
+  /*
+   * HIS WORDS: "just make the input images allow multiple". A model's own row
+   * says how many it takes, so the list is cut to that rather than refused:
+   * one picture to a model that takes one, up to `references` for a model
+   * that takes more, and the field is shaped the way that model wants it.
+   */
+  const given = asked.references?.length ? asked.references : asked.reference ? [asked.reference] : [];
+  if (given.length && card.refField) {
+    const take = given.slice(0, Math.max(1, card.references));
+    out[card.refField] = card.references > 1 ? take : take[0];
   }
   /* And the file type he asked for, under the model's own field. Left alone,
      the model's own default stands. */
@@ -628,6 +639,9 @@ export async function POST(request: Request) {
     quality: typeof body.quality === "string" ? body.quality : undefined,
     effort: typeof body.effort === "string" ? body.effort : undefined,
     reference: typeof body.reference === "string" && /^data:image\//.test(body.reference) ? body.reference : undefined,
+    references: Array.isArray(body.references)
+      ? body.references.filter((r): r is string => typeof r === "string" && /^data:image\//.test(r))
+      : undefined,
     format: typeof body.format === "string" && ["png", "jpeg", "webp"].includes(body.format) ? body.format : undefined,
   };
   const card = asked.model ? modelNamed(asked.model) : null;
