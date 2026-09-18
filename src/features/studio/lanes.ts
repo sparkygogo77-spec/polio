@@ -237,10 +237,36 @@ export const REACH = 3;
  */
 export const TURN = 0.5;
 
+/**
+ * HOW TALL A LANE BOX IS, and why it is not the box it hangs off.
+ *
+ * It used to inherit the last box's height, which made the fan three full
+ * cards tall — 849px of board to show three small offers — and the fan's
+ * height is what sets the timeline's zoom, because rule 2 says no part of it
+ * may go under the band. Measured at 1732x1278: the set was 1053 tall
+ * against a room of 831, so the board was drawn at 0.789 and his cards were
+ * 21% smaller than they needed to be for furniture.
+ *
+ * The curve, at a fan of 732, 640, 560, 480 and 408: zoom 0.836, 0.876,
+ * 0.915, 0.931, 0.931. It stops moving below about 500 because the set's
+ * WIDTH takes over there and nothing further is on offer, so the last rung
+ * worth taking is the one at 560.
+ *
+ * 150 is that rung — 3 x 150 + 2 x 54 = 558 — and the number is floored on
+ * something real rather than chosen to maximise the zoom: `PIECE` is 168x148,
+ * the red card that already carries a live preview, so 150 is the smallest
+ * box this product has ever shown a preview in. He has asked for a preview
+ * in every lane box, and a box too small for one cannot do its job.
+ */
+export const LANE_H = 150;
+
 export function laneRects(from: Rect | null, size: { w: number; h: number }, gap: { x: number; y: number }): [Rect, Rect, Rect] {
-  const h = from ? from.h : size.h;
+  /* The box's own height still decides where the middle lane's CENTRE sits —
+     that has to be the box's centre to the pixel — but not how tall a lane
+     is. */
+  const h = LANE_H;
   const x = from ? from.x + from.w + gap.x * REACH : 140;
-  const cy = from ? from.y + from.h / 2 : 130 + h / 2;
+  const cy = from ? from.y + from.h / 2 : 130 + (from ? h : size.h) / 2;
   const step = h + gap.y;
   return [
     { x, y: cy - step - h / 2, w: size.w, h },
