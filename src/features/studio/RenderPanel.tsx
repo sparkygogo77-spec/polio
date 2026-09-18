@@ -22,7 +22,8 @@
  * afterwards.
  */
 import * as React from "react";
-import { ImageIcon, LoaderCircle, Sparkles } from "lucide-react";
+import { Copy, ImageIcon, LoaderCircle, Plus, Sparkles, X } from "lucide-react";
+import { cn } from "@/core/lib/cn";
 import { Button } from "@/core/ui/button";
 import { Select } from "@/core/ui/select";
 import { Textarea } from "@/core/ui/textarea";
@@ -31,9 +32,22 @@ import { rendererHeader } from "./agent";
 import { money, RENDER_COST } from "./renderer";
 import { useStudio } from "./store";
 
-/** Only the models that give back a picture: this panel makes pictures. */
-function picturesOnly(): ModelCard[] {
-  return modelTable().models.filter((m) => m.returns === "picture");
+/**
+ * The models that DRAW a picture, which is what this panel is for.
+ *
+ * HIS WORDS: "background remover option also did not work, i think that just
+ * telling the bot to empty the background is sufficient in the prompt. remove
+ * background remover option."
+ *
+ * It is gone, and gone by a rule rather than by name: a remover returns a
+ * picture but it never serves the step that MAKES one — its row says it
+ * serves `alpha` and nothing else. So the panel asks the table for the models
+ * that can draw first, and anything that only edits what it is handed falls
+ * out on its own. The remover is still there for the part-making route's
+ * alpha step, which is a different lane and not what he was using.
+ */
+function drawingModels(): ModelCard[] {
+  return modelTable().models.filter((m) => m.returns === "picture" && m.serves.some((x) => x.step === "first" && x.makings.length > 0));
 }
 
 /**
@@ -49,7 +63,7 @@ function choices(card: ModelCard | undefined, name: string): string[] {
 }
 
 export function RenderPanel() {
-  const models = React.useMemo(picturesOnly, []);
+  const models = React.useMemo(drawingModels, []);
   const [slug, setSlug] = React.useState(models[0]?.slug ?? "");
   const card = models.find((m) => m.slug === slug);
   const [tweak, setTweak] = React.useState("");
@@ -59,7 +73,20 @@ export function RenderPanel() {
   const [busy, setBusy] = React.useState(false);
   const [said, setSaid] = React.useState<string | null>(null);
   const [format, setFormat] = React.useState("");
-  const [reference, setReference] = React.useState<string | null>(null);
+  /*
+   * The pictures it works from, not the picture.
+   *
+   * HIS WORDS: "just make the input images allow multiple, as well as be drag
+   * and droppable or pastable". A model's own row says how many it will take,
+   * so the box stops accepting at that number rather than sending more than
+   * the model would keep.
+   */
+  const [references, setReferences] = React.useState<string[]>([]);
+  const picker = React.useRef<HTMLInputElement>(null);
+  /** Whether a file is being held over the box, so the box can say so. */
+  const [over, setOver] = React.useState(false);
+  /** Which picture was just copied, so the control can say it happened. */
+  const [copied, setCopied] = React.useState<string | null>(null);
   /*
    * The work lives in the document, not in this component.
    *
@@ -82,6 +109,45 @@ export function RenderPanel() {
   const effortOn = card ? effortField(card) : null;
   const efforts = effortOn && effortOn.kind === "enum" ? [...(effortOn.values ?? [])] : [];
 
+  /** How many pictures this model will take. One, unless its row says more. */
+  const mostPictures = Math.max(1, card?.references ?? 1);
+
+  /**
+   * Take pictures in, however they arrived.
+   *
+   * Three doors and one handler: the + box's picker, a drop, and a paste.
+   * They add rather than replace — "beside it rather than instead of it" is
+   * the whole of "allow multiple" — and they stop at what the model takes,
+   * quietly, because a picture silently sent to a model that discards it is
+   * money spent on nothing.
+   */
+  const take = React.useCallback((files: FileList | File[] | null | undefined) => {
+    const pics = [...(files ?? [])].filter((f) => f.type.startsWith("image/"));
+    if (!pics.length) return;
+    for (const f of pics) {
+      const r = new FileReader();
+      r.onload = () => setReferences((was) => (was.length >= mostPictures ? was : [...was, String(r.result)]));
+      r.readAsDataURL(f);
+    }
+  }, [mostPictures]);
+
+  /*
+   * A paste is not a drop and does not land on anything in particular, so it
+   * is listened for on the panel rather than on one box. Only while the panel
+   * is open, and only when what was pasted is a picture — pasting words into
+   * the prompt is still pasting words into the prompt.
+   */
+  React.useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = [...(e.clipboardData?.files ?? [])];
+      if (!files.some((f) => f.type.startsWith("image/"))) return;
+      e.preventDefault();
+      take(files);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [take]);
+
   /* A ratio that the model he has just picked does not offer is dropped
      rather than sent: the list is what that model will actually take. */
   React.useEffect(() => {
@@ -102,12 +168,12 @@ export function RenderPanel() {
         body: JSON.stringify({
           kind: "raster", prompt: tweak.trim(), w: 1024, h: 1024, model: slug,
           ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined,
-          format: format || undefined, reference: reference || undefined,
+          format: format || undefined, references: references.length ? references : undefined,
         }),
       });
       const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; message?: string };
       if (r.ok && r.image) {
-        addDraw({ prompt: tweak.trim(), model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: reference ?? undefined, image: r.image, cost: r.cost ?? null });
+        addDraw({ prompt: tweak.trim(), model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], image: r.image, cost: r.cost ?? null });
         setSaid(typeof r.cost === "number" ? `Drawn. It cost ${money(r.cost)}.` : "Drawn. The renderer reported no price for it.");
       } else {
         setSaid(r.message ?? "Nothing came back.");
@@ -133,9 +199,9 @@ export function RenderPanel() {
     <div data-render-panel="" className="flex min-h-0 flex-col">
       {/* THE SLOT FOR THE NEXT ONE, and the picture it works from. */}
       <div data-render-image="" className="m-3 grid aspect-square place-items-center overflow-hidden rounded-sm border border-border bg-panel/60">
-        {reference ? (
+        {references[0] ? (
           // eslint-disable-next-line @next/next/no-img-element -- a data URL he chose
-          <img src={reference} alt="" data-render-reference-shown="" className="size-full object-contain opacity-80" />
+          <img src={references[0]} alt="" data-render-reference-shown="" className="size-full object-contain opacity-80" />
         ) : (
           <span className="flex flex-col items-center gap-1 text-[11px] text-fg-faint">
             <ImageIcon className="size-5" />
@@ -160,28 +226,73 @@ export function RenderPanel() {
         <Select value={slug} onChange={(v) => setSlug(String(v))} options={models.map((m) => ({ value: m.slug, label: m.name }))} />
       </Row>
 
-      {/* A PICTURE TO WORK FROM \u2014 one he chooses, or a drawing off the board. */}
-      <label data-render-row="reference" className="flex items-center justify-between gap-2 px-3 py-1.5">
-        <span className="text-[11px] text-fg-muted">Work from a picture</span>
-        <span className="flex shrink-0 items-center gap-1">
-          <input
-            data-render-reference=""
-            type="file"
-            accept="image/*"
-            className="w-[108px] text-[10px] text-fg-muted file:mr-1 file:rounded-sm file:border file:border-border file:bg-panel file:px-1 file:py-0.5 file:text-[10px] file:text-fg"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const r = new FileReader();
-              r.onload = () => setReference(String(r.result));
-              r.readAsDataURL(f);
-            }}
-          />
-          {reference ? (
-            <Button data-render-reference-clear="" size="sm" variant="ghost" onClick={() => setReference(null)}>Clear</Button>
+      {/*
+        INPUT IMAGES — as many as the model takes, by drop, by paste, or by
+        pressing the + box.
+
+        HIS WORDS: "there should be an input images section with just a + box
+        to add and drop pictures instead of choose file which should pop up if
+        that box is clicked." The file field is still there, because it is the
+        only thing that can open a picker, and it is not on the face of it:
+        the + box is what you see and what you drop on, and pressing it opens
+        the picker.
+      */}
+      <div
+        data-render-inputs=""
+        className="px-3 pb-1 pt-1.5"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setOver(true); } }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}
+      >
+        <div className="mb-1 flex items-baseline justify-between">
+          <span className="text-[11px] text-fg-muted">Input images</span>
+          {/* What this model will take, said before he fills it rather than
+              after it refuses one. */}
+          <span data-render-inputs-count="" className="num text-[10px] text-fg-faint">
+            {references.length ? `${references.length} of ${mostPictures}` : mostPictures > 1 ? `up to ${mostPictures}` : "one"}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {references.map((src, i) => (
+            <span key={`${i}-${src.slice(-24)}`} data-render-input={i} className="group relative size-12 overflow-hidden rounded-sm border border-border bg-panel/60">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a data URL he chose */}
+              <img src={src} alt="" className="size-full object-cover" />
+              <button
+                type="button"
+                data-render-input-drop={i}
+                aria-label="Take this picture out"
+                onClick={() => setReferences((was) => was.filter((_, j) => j !== i))}
+                className="tactile absolute right-0 top-0 grid size-4 place-items-center rounded-bl-sm border-b border-l border-border bg-panel/90 leading-none text-fg-muted opacity-0 group-hover:opacity-100"
+              >
+                <X className="size-2.5" />
+              </button>
+            </span>
+          ))}
+          {references.length < mostPictures ? (
+            <button
+              type="button"
+              data-render-add=""
+              aria-label="Add a picture to work from"
+              onClick={() => picker.current?.click()}
+              className={cn(
+                "tactile grid size-12 place-items-center rounded-sm border border-dashed text-fg-faint hover:text-fg",
+                over ? "border-accent bg-accent-soft text-fg" : "border-border bg-panel/40",
+              )}
+            >
+              <Plus className="size-4" />
+            </button>
           ) : null}
-        </span>
-      </label>
+        </div>
+        <input
+          ref={picker}
+          data-render-reference=""
+          type="file"
+          accept="image/*"
+          multiple={mostPictures > 1}
+          className="sr-only"
+          onChange={(e) => { take(e.target.files); e.target.value = ""; }}
+        />
+      </div>
 
       {/* WHAT COMES BACK */}
       <Row label="Output" mark="format">
@@ -212,7 +323,7 @@ export function RenderPanel() {
       <div className="flex items-center gap-2 px-3 pb-3 pt-2">
         <Button data-render-go="" variant="primary" size="sm" disabled={!tweak.trim() || busy} onClick={() => void run()}>
           {busy ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-          Draw it
+          Generate
         </Button>
         {/* The price before the press, not after it. It is his key and his
             money, so what it will cost is said before anything is spent, and
@@ -238,19 +349,74 @@ export function RenderPanel() {
                 draggable
                 data-render-drag={d.id}
                 onDragStart={(e) => {
-                  /* The same two kinds a picture dropped on the board arrives
-                     as, so the page takes it the way it takes any picture. */
+                  /*
+                   * ONE DRAG, TWO DESTINATIONS.
+                   *
+                   * HIS WORDS: "the output should also be draggable off the
+                   * output image onto the web design 1 to 1 or draggable
+                   * outside of the website."
+                   *
+                   * Onto the design: the two kinds a picture dropped on the
+                   * board already arrives as, plus the picture's own size, so
+                   * the board can land it at the size it really is instead of
+                   * guessing a box. Out of the site: `DownloadURL`, which is
+                   * what a browser reads when something is dropped on the
+                   * desktop — type, name, source, and it writes the file.
+                   *
+                   * Both are set on the same drag because which one is meant
+                   * is decided by where he lets go, not before.
+                   */
+                  const el = e.currentTarget as HTMLImageElement;
+                  const type = /^data:(image\/[a-z0-9.+-]+)/i.exec(d.image)?.[1] ?? "image/webp";
+                  const name = `${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? type.split("/")[1] ?? "webp"}`;
                   e.dataTransfer.setData("text/uri-list", d.image);
                   e.dataTransfer.setData("text/plain", d.image);
+                  e.dataTransfer.setData("DownloadURL", `${type}:${name}:${d.image}`);
+                  e.dataTransfer.setData("application/x-studio-picture", JSON.stringify({
+                    src: d.image,
+                    w: el.naturalWidth || undefined,
+                    h: el.naturalHeight || undefined,
+                  }));
                   e.dataTransfer.effectAllowed = "copy";
                 }}
                 className="mb-1.5 block aspect-square w-full cursor-grab rounded-sm border border-border object-contain active:cursor-grabbing"
               />
               <figcaption className="flex items-center gap-1">
                 <span className="min-w-0 flex-1 truncate text-[10px] text-fg-muted" title={d.prompt}>{d.prompt}</span>
+                {/*
+                  COPIED, not only saved.
+
+                  HIS WORDS: "make the output image generated pastable instead
+                  of just a savable file." So the picture goes to the clipboard
+                  as a picture — a real blob of its own type, which is what
+                  another app pastes — and the address goes with it as text for
+                  anything that would rather have that. Saving stays, because
+                  he asked for it earlier and both are wanted.
+                */}
+                <button
+                  type="button"
+                  data-render-copy={d.id}
+                  onClick={async () => {
+                    try {
+                      const blob = await (await fetch(d.image)).blob();
+                      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob, "text/plain": new Blob([d.image], { type: "text/plain" }) })]);
+                      setCopied(d.id);
+                      window.setTimeout(() => setCopied((was) => (was === d.id ? null : was)), 1400);
+                    } catch {
+                      /* Some browsers will not write a picture to the clipboard
+                         at all. Say so on the control rather than in silence. */
+                      setCopied(`${d.id}:no`);
+                      window.setTimeout(() => setCopied((was) => (was === `${d.id}:no` ? null : was)), 2200);
+                    }
+                  }}
+                  className="tactile flex items-center gap-0.5 rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg"
+                >
+                  <Copy className="size-2.5" />
+                  {copied === d.id ? "Copied" : copied === `${d.id}:no` ? "Cannot" : "Copy"}
+                </button>
                 <a data-render-download={d.id} href={d.image} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Save</a>
-                <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReference(d.reference); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Tweak</button>
-                <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReference(d.reference); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Again</button>
+                <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Tweak</button>
+                <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Again</button>
               </figcaption>
             </figure>
           ))}

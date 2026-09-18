@@ -40,7 +40,25 @@ const { chromium } = (() => {
 
 const URL_BASE = process.argv.find((a) => a.startsWith("http")) ?? "http://localhost:3000";
 const VISIT = process.argv.includes("--visit");
-const SHOTS = process.env.SHOTS ?? "docs/shots";
+/*
+ * Where the shots go, and why the default is not the committed ones.
+ *
+ * This suite photographs what it walks, and it used to default straight at
+ * `docs/shots` — so every session that ran the floor rewrote tracked PNGs as
+ * a side effect, with byte-level render noise for a diff and nothing visual
+ * changed. A merge session had to throw four of them away to avoid pushing
+ * that noise over a deliberate refresh.
+ *
+ * A shot is a deliberate act, so it is asked for by name. The default is the
+ * ignored scratch path, where the pictures are still there to look at:
+ *
+ *   node tests/cube-second.mjs                     # writes .screenshots, tree stays clean
+ *   SHOTS=docs/shots node tests/cube-second.mjs    # refreshes the committed baseline
+ *
+ * Held by `tests/dead-declarations.mjs`, which fails if any suite points its
+ * default back at the tracked directory.
+ */
+const SHOTS = process.env.SHOTS ?? ".screenshots";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];
 const check = (name, ok, detail = "") => {
