@@ -567,6 +567,23 @@ interface Build {
    * At 1 there is nothing of it left.
    */
   cut?: number;
+  /**
+   * Which half of the painting to do, when the board is doing both in order.
+   *
+   * WHERE VINES CROSS, ONE MUST GO OVER THE OTHER, NOT INTO IT. Every vine
+   * strokes a shadow under itself a sixth wider than its body. Painted a
+   * vine at a time, a vine drawn later lays that shadow ACROSS the body of
+   * one drawn earlier, and the shadow is nearly black: measured on two
+   * crossing bars, the first came out 178 of 255 darker where the second
+   * passed over it, and a pile of crossings ends up darker than anything in
+   * it. His words: overlapping colours on the vines.
+   *
+   * So the board lays every shadow down first and every body after. A shadow
+   * then falls on the ground, which is what a shadow is for, and a crossing
+   * shows one whole vine over another. Left unsaid, a vine paints both and
+   * looks after itself, which is what a lone vine wants.
+   */
+  pass?: "shadow" | "body";
 }
 
 function build(from: Point, to: Point, opts: Build) {
@@ -972,13 +989,16 @@ export function paintStrand(
    * A shadow under the whole thing, so it sits on the ground rather than
    * floating on it. One stroke, the width of the ribbon and a little more.
    */
-  c.strokeStyle = "oklch(0.08 0.01 150)";
-  c.lineWidth = width * 1.16;
-  for (const piece of pieces) {
-    c.beginPath();
-    piece.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
-    c.stroke();
+  if (opts.pass !== "body") {
+    c.strokeStyle = "oklch(0.08 0.01 150)";
+    c.lineWidth = width * 1.16;
+    for (const piece of pieces) {
+      c.beginPath();
+      piece.forEach((p, i) => (i ? c.lineTo(p.x + 1, p.y + 2) : c.moveTo(p.x + 1, p.y + 2)));
+      c.stroke();
+    }
   }
+  if (opts.pass === "shadow") { c.restore(); return; }
 
   /*
    * The section, a band at a time, from the axis out to both rims.
