@@ -176,6 +176,15 @@ export function Canvas() {
   const nominalZoom = useStudio((s) => s.zoom);
   const zoom = nominalZoom * BASE_ZOOM;
   const pan = useStudio((s) => s.pan);
+  /**
+   * Is the hand making a boundary rather than laying down ink?
+   *
+   * Two doors reach the same place — the shape tool, and the pen once
+   * "surface" has been chosen — so the question is asked once here and both
+   * the dashed line and the `addSpace` below read the same answer.
+   */
+  const drawKind = useStudio((s) => s.drawKind);
+  const makingASpace = tool === "space" || (tool === "pen" && drawKind === "surface");
   const inkHue = useStudio((s) => s.inkHue);
   const inkWidth = useStudio((s) => s.inkWidth);
   const frameWidth = useStudio((s) => s.frameWidth);
@@ -1083,6 +1092,18 @@ export function Canvas() {
   const onPointerUp = () => {
     if (!drag) return;
     const store = useStudio.getState();
+    /*
+     * Drawing the shape is the whole action.
+     *
+     * HIS WORDS: "'this space' should be for the shape i drew and it should
+     * skip having to press that buutton once i draw it." The "This space"
+     * button on a fresh hole is the way IN to its panel, and it only shows
+     * while the space is not the picked one — so a space that picks itself
+     * the moment it is drawn never puts that press between him and the
+     * panel, and the button is still there for a space he comes back to.
+     * Both doors to `addSpace` come through here, so both behave alike.
+     */
+    const madeASpace = (id: string) => store.setSelection([id]);
 
     if ((drag.kind === "node" || drag.kind === "resize") && drag.moved) {
       // Grid-snap only when no guide claimed the position: a guide is more exact than the grid.
@@ -1133,7 +1154,7 @@ export function Canvas() {
       }
     } else if (drag.kind === "draw" && tool === "space" && drag.points && drag.points.length >= 2) {
       // The space tool: a closed line is a placeholder (`space.ts`), an open one is nothing, and says so.
-      if (isBoundary(drag.points)) { store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" }); play("confirm"); }
+      if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
       else {
         /* Said where the hand was, not in the corner of the window: the
            feed still gets the line, and the message itself is drawn on the
@@ -1156,7 +1177,7 @@ export function Canvas() {
        * refuses it, on the line itself, because a surface is a closed line
        * whichever door you came through.
        */
-      if (isBoundary(drag.points)) { store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" }); play("confirm"); }
+      if (isBoundary(drag.points)) { madeASpace(store.addSpace({ pageId: store.activePageId, boundary: drag.points, prompt: "", label: "" })); play("confirm"); }
       else {
         play("deny");
         setRefused({ points: drag.points, at: Date.now() });
@@ -1433,7 +1454,17 @@ export function Canvas() {
               reason={reasonOn(sh, nodes)}
             />
           ))}
-          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "arrow" ? "arrow" : "pen", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected /> : null}
+          {/*
+             A boundary being drawn is drawn as a boundary.
+
+             HIS WORDS: "it should allow me to create the shape ... with
+             dashes lines". Ink and a boundary were the same solid line
+             under the hand, so nothing on screen said which of the two you
+             were making until you let go. A space is dashed the whole way
+             round, which is the same language the marquee and the frame
+             already speak here: a dashed line is a line that is about to
+             become something rather than a line that stays. */}
+          {ink && ink.length >= 2 ? <ShapeView shape={{ id: "live", pageId: "", kind: tool === "arrow" ? "arrow" : "pen", points: ink, hue: inkHue, width: inkWidth, label: "", prompt: "" }} selected dashed={makingASpace} /> : null}
           {marquee ? <rect x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} fill="var(--accent-soft)" stroke="var(--accent)" strokeDasharray="4 3" /> : null}
           {guides.x.map((x) => <line key={`gx${x}`} x1={x} x2={x} y1={-40} y2={frameH + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
           {guides.y.map((y) => <line key={`gy${y}`} y1={y} y2={y} x1={-40} x2={frameWidth + 40} stroke="var(--accent)" strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />)}
@@ -1827,7 +1858,7 @@ function reasonOn(shape: StudioShape, nodes: StudioNode[]): string {
   return shape.label.trim() || linkReason(from, to, shape.relation ?? "flow");
 }
 
-const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason }: { shape: StudioShape; selected: boolean; fresh?: boolean; reason?: string }) {
+const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason, dashed }: { shape: StudioShape; selected: boolean; fresh?: boolean; reason?: string; dashed?: boolean }) {
   const color = `oklch(0.78 0.16 ${shape.hue})`;
   // Ink is marked the same way a part is: the far side of its own colour,
   // rather than the app's accent glowing round somebody's drawing.
@@ -1918,7 +1949,17 @@ const ShapeView = React.memo(function ShapeView({ shape, selected, fresh, reason
       </g>
     );
   }
-  return <path {...common} d={penPath(shape.points)} strokeLinecap="round" strokeLinejoin="round" />;
+  return (
+    <path
+      {...common}
+      d={penPath(shape.points)}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      /* A boundary under the hand, rather than ink. The dash is in the
+         shape's own stroke width so it reads the same at any zoom. */
+      strokeDasharray={dashed ? `${shape.width * 3} ${shape.width * 2.2}` : undefined}
+    />
+  );
 });
 
 /**

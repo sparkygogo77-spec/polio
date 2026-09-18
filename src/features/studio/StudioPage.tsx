@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
@@ -109,11 +109,21 @@ const TOOLS: { id: Tool; label: string; icon: typeof MousePointer2; shortcut: st
   { id: "pen", label: "Draw freehand", icon: Pencil, shortcut: "d" },
   { id: "erase", label: "Erase", icon: Eraser, shortcut: "e" },
   { id: "arrow", label: "Connect two elements", icon: Link, shortcut: "a" },
-  // The fifth. A closed line drawn with it is a space — an area of the page
-  // set aside before anything is in it (`space.ts`) — so the icon is a ring
-  // that has not closed. It takes no ink hue: a space is not a drawn line
-  // that stays on the page, it is a boundary that becomes a part.
-  { id: "space", label: "Draw a space", icon: CircleDashed, shortcut: "s" },
+  /*
+   * The fifth. A closed line drawn with it is a space — an area of the page
+   * set aside before anything is in it (`space.ts`). It takes no ink hue: a
+   * space is not a drawn line that stays on the page, it is a boundary that
+   * becomes a part.
+   *
+   * HIS WORDS: "the circle button shouldnt just open a circle like 'draw'
+   * does it should allow me to create the shape, make it a triangle with
+   * dashes lines." The mark was a dashed RING, and a ring is a picture of
+   * the thing it makes — so it read as a button that drops a circle rather
+   * than one you draw a shape with. A dashed triangle is a shape nothing
+   * here makes on its own, which is the point: the outline is the idea, and
+   * what it ends up as is whatever his hand draws.
+   */
+  { id: "space", label: "Draw a space", icon: TriangleDashed, shortcut: "s" },
 ];
 
 /**
