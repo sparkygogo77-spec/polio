@@ -2,12 +2,12 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T00:59:19.008Z";
+export const GENERATED_AT = "2026-09-18T02:56:25.872Z";
 
 export const PASSES: Pass[] = [
   {
-    "id": "a213b1e",
-    "when": "2026-09-18T00:59:10+00:00",
+    "id": "88c3cbe",
+    "when": "2026-09-18T02:54:17+00:00",
     "day": "18 September",
     "changes": [
       {
@@ -23,7 +23,27 @@ export const PASSES: Pass[] = [
         "kind": "new"
       }
     ],
-    "more": 0
+    "more": 1
+  },
+  {
+    "id": "a9b8898",
+    "when": "2026-09-18T02:54:07+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "a9b8898",
+        "says": "Correction: the fan is not tinting the cards, the zoom dropped",
+        "when": "2026-09-18T02:54:07+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "d2d2cc3",
+        "says": "For the lane: the fan's new position is tinting the cards, and rule 5",
+        "when": "2026-09-18T01:47:24+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
   },
   {
     "id": "00504e9",
