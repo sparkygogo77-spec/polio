@@ -2,9 +2,37 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T02:56:25.872Z";
+export const GENERATED_AT = "2026-09-18T03:07:39.153Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "e5c3b51",
+    "when": "2026-09-18T03:07:30+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "08a8823",
+        "says": "The lanes are counted: the set is centred, the column is guaranteed",
+        "when": "2026-09-18T01:33:23+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "6b9a01d",
+    "when": "2026-09-18T03:00:45+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "6b9a01d",
+        "says": "The owner's two rulings: the zoom-out is not accepted, and ink-on-cards must refuse to judge",
+        "when": "2026-09-18T03:00:45+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
   {
     "id": "88c3cbe",
     "when": "2026-09-18T02:54:17+00:00",
@@ -260,99 +288,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 0
-  },
-  {
-    "id": "b5474e8",
-    "when": "2026-09-17T06:13:31+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "058abf4",
-        "says": "The publish probe answers for the server, and no key is written in the clear",
-        "when": "2026-09-17T03:40:13+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "b26fdc5",
-        "says": "The vines dissipate, and the lanes are a column joined by a square bracket",
-        "when": "2026-09-17T03:17:13+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "742655e",
-        "says": "The publish route is not handed a token to answer a question the browser knows",
-        "when": "2026-09-17T02:56:49+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 6
-  },
-  {
-    "id": "93fc078",
-    "when": "2026-09-16T23:36:56+00:00",
-    "day": "16 September",
-    "changes": [
-      {
-        "id": "93fc078",
-        "says": "No key is written down in the clear, under any name",
-        "when": "2026-09-16T23:36:56+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "3877ec8",
-        "says": "The notifications are gone, and so is the density that did one pixel",
-        "when": "2026-09-16T22:16:07+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "b54d035",
-        "says": "The vines are one painted body, and their colours flow into each other",
-        "when": "2026-09-16T19:59:24+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "1fef1d9",
-        "says": "Nothing dark on a box: the texture shows edge to edge, and the words read by their own weight",
-        "when": "2026-09-16T19:48:26+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "9b4486b",
-        "says": "The builder bar is two rows on a phone, and the lanes hang on coloured vines",
-        "when": "2026-09-16T19:17:55+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "870543e",
-        "says": "The builder bar is two rows on a phone, and its keys are targets",
-        "when": "2026-09-16T18:48:53+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "f26129c",
-        "says": "The vines run dark through their middle, and the lanes hang on green, yellow and red vines",
-        "when": "2026-09-16T17:48:12+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "0a98080",
-        "says": "A phone has a way back, and the lanes stay clear of the foot band",
-        "when": "2026-09-16T17:11:09+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "c326155",
-        "says": "A phone has a way back, and asking for smaller no longer gives bigger",
-        "when": "2026-09-16T11:02:50+00:00",
-        "kind": "fixed"
-      },
-      {
-        "id": "de8cc35",
-        "says": "The lanes never sit under the band along the foot of the pane",
-        "when": "2026-09-16T10:33:17+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
   }
 ];
