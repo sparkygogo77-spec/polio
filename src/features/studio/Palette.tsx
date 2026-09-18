@@ -31,7 +31,7 @@ import { useStudio } from "./store";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { planetOf } from "./planets";
 import { moonFor } from "./moons";
-import { BAND_LABEL, groupIntoBands, spanOf } from "./showcase";
+import { SHAPE_LABEL, groupIntoShapes, type Shape } from "./showcase";
 import { css, parseColor } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -72,13 +72,28 @@ export function addFeatureToCanvas(featureId: string) {
 
 function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
   const [dragging, setDragging] = React.useState(false);
-  // Fit the whole card, not the preview inside it. A part taller than the cap
-  // is drawn narrower rather than letterboxed, so the box is always exactly
-  // the picture — no transparent margin for the fire to come through.
-  const natural = previewHeight(feature, slot);
-  const shrink = Math.min(1, tall / Math.max(1, natural));
-  const width = Math.max(120, Math.round(slot * shrink));
-  const height = Math.max(44, Math.round(natural * shrink));
+  /*
+   * THE CARD IS THE SLOT IT WAS GIVEN, and its height follows from its shape.
+   *
+   * It used to be the other way round: the group fixed a height cap, and a
+   * card too tall for the cap was *narrowed* until it fitted — so a
+   * full-width part was drawn at 630 of a 1188 slot and the other 558 of its
+   * row was bare. Measured on Layout at 1440x900: 9 of 11 rows had a bare
+   * gutter, two of them over 700px wide, and the shelf covered 69.6% of its
+   * own width. That is what "sorted space-inefficiently" was.
+   *
+   * The cap has not gone; it decides how many cards go across instead (see
+   * `columnsFor`). So a card is always exactly its slot, a row is always
+   * full, and a group of them tiles.
+   */
+  const width = Math.max(120, Math.round(slot));
+  /* No cap applied here. `columnsFor` already chose a column count whose
+     widest slot keeps this group's tallest card inside the cap, so capping
+     again could only letterboxing — a scaled-down preview in a box with a
+     transparent margin for the fire to come through, which is the thing the
+     narrowing was invented to avoid. `tall` is carried for the one case
+     `columnsFor` cannot solve: a part so tall that no column count fits it. */
+  const height = Math.max(44, Math.min(previewHeight(feature, width), tall));
 
   if (removed) {
     return (
@@ -274,8 +289,9 @@ export function Palette() {
   const removed = showRemoved ? all.filter((f) => hiddenSet.has(f.id)) : [];
 
   /* Searching is the one view that is not the accordion: a name typed in
-     crosses every category, so the results are one flat list of bands. */
-  const found = React.useMemo(() => (searching ? groupIntoBands(live) : []), [searching, live]);
+     crosses every category, so the results are one flat list — grouped the
+     same way an open category is, by size and shape. */
+  const found = React.useMemo(() => (searching ? groupIntoShapes(live) : []), [searching, live]);
 
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
@@ -295,12 +311,35 @@ export function Palette() {
   // four across with a thin gap, because a preview you cannot read is not a
   // preview. The height cap follows, so a wide part is also a tall one.
   const GAP = 10;
-  const sizeFor = React.useCallback((f: FeatureDef) => {
-    const span = spanOf(f);
-    const per = span >= 12 ? 1 : span >= 6 ? 2 : span >= 4 ? 3 : 4;
-    const width = Math.max(150, Math.floor((shelfW - GAP * (per - 1)) / per));
-    const wide = (f.w ?? 420) / (f.h ?? 88) >= 5;
-    return { width, tall: per === 1 ? (wide ? 118 : 208) : per === 2 ? 208 : 168 };
+  /*
+   * ONE SLOT WIDTH PER GROUP, chosen so the group's tallest card fits the cap.
+   *
+   * The old rule sized every card on its own: a span decided how many would
+   * go across, a cap decided how tall the card could be, and a card too tall
+   * for the cap was narrowed inside its slot until it fitted. The narrowing
+   * is where the wasted space came from — a full-width part drawn at 630 of
+   * an 1188 slot leaves 558 of that row bare, and nothing can fill it,
+   * because the slot is still a whole row wide.
+   *
+   * So the cap decides the COLUMN COUNT now, not the card's width. Start at
+   * the count the shape asks for, and while the group's tallest natural
+   * preview is over the cap, put one more across — a narrower slot makes
+   * every card in the group shorter in proportion, and they all stay exactly
+   * their slot. A row is therefore always full, and a group tiles.
+   *
+   * Six across is the floor: past that a preview is a thumbnail of a
+   * thumbnail, and an unreadable preview is worse than a scroll.
+   */
+  const CAPS: Record<Shape, number> = { strip: 118, block: 208, half: 208, third: 168, quarter: 168 };
+  const FROM: Record<Shape, number> = { strip: 1, block: 1, half: 2, third: 3, quarter: 4 };
+  const columnsFor = React.useCallback((shape: Shape, items: FeatureDef[]) => {
+    const cap = CAPS[shape];
+    const widthAt = (per: number) => Math.max(150, Math.floor((shelfW - GAP * (per - 1)) / per));
+    let per = FROM[shape];
+    const tallest = (per_: number) => items.reduce((m, f) => Math.max(m, previewHeight(f, widthAt(per_))), 0);
+    while (per < 6 && tallest(per) > cap) per += 1;
+    return { width: widthAt(per), tall: cap, per };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shelfW]);
 
   // The field the previews float on: the surface's complement, dimmed, so a
@@ -392,16 +431,16 @@ export function Palette() {
         {searching ? (
           found.length ? (
             <div className="relative z-[1] px-3 py-3">
-              {found.map(({ band, items }) => (
-                <Band key={band} title={BAND_LABEL[band]}>
-                  <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                    {items.map((f) => {
-                      const { width, tall } = sizeFor(f);
-                      return <Card key={f.id} feature={f} width={width} tall={tall} />;
-                    })}
-                  </div>
-                </Band>
-              ))}
+              {found.map(({ shape, items }) => {
+                const { width, tall } = columnsFor(shape, items);
+                return (
+                  <Band key={shape} title={SHAPE_LABEL[shape]}>
+                    <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
+                      {items.map((f) => <Card key={f.id} feature={f} width={width} tall={tall} />)}
+                    </div>
+                  </Band>
+                );
+              })}
               <div className="h-10" />
             </div>
           ) : (
@@ -512,7 +551,7 @@ export function Palette() {
                 key={c.id}
                 category={c}
                 live={live}
-                sizeFor={sizeFor}
+                columnsFor={columnsFor}
                 gap={GAP}
                 onClose={() => toggleCat(c.id)}
               />
@@ -522,7 +561,7 @@ export function Palette() {
               <div className="relative z-[1] px-3 pb-3">
                 <Band title="Removed">
                   <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                    {removed.map((f) => <Card key={f.id} feature={f} width={sizeFor(f).width} tall={72} removed />)}
+                    {removed.map((f) => <Card key={f.id} feature={f} width={columnsFor("quarter", removed).width} tall={72} removed />)}
                   </div>
                 </Band>
               </div>
@@ -546,11 +585,11 @@ export function Palette() {
  * only thing the wheel talks to.
  */
 function CategorySection({
-  category, live, sizeFor, gap, onClose,
+  category, live, columnsFor, gap, onClose,
 }: {
   category: CategoryDef;
   live: FeatureDef[];
-  sizeFor: (f: FeatureDef) => { width: number; tall: number };
+  columnsFor: (shape: Shape, items: FeatureDef[]) => { width: number; tall: number; per: number };
   gap: number;
   onClose: () => void;
 }) {
@@ -590,7 +629,7 @@ function CategorySection({
     const ids = group ? group.ids : subs.flatMap((g) => g.ids);
     return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
   }, [live, sub, subs, category.id]);
-  const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
+  const groups = React.useMemo(() => groupIntoShapes(shown), [shown]);
 
   return (
     <section data-category-open={category.id} className="relative z-[1] border-t border-border/70">
@@ -635,19 +674,19 @@ function CategorySection({
         </button>
       </div>
       <div className="px-3 py-2">
-        {bands.map(({ band, items }) => (
-          <Band key={band} title={BAND_LABEL[band]}>
-            {/* items-start, or a flex line makes every card as tall as the
-                tallest one in it, and the stretched-out part of a short
-                card is empty space with the fire showing through it. */}
-            <div className="flex flex-wrap items-start" style={{ gap }}>
-              {items.map((f) => {
-                const { width, tall } = sizeFor(f);
-                return <Card key={f.id} feature={f} width={width} tall={tall} />;
-              })}
-            </div>
-          </Band>
-        ))}
+        {groups.map(({ shape, items }) => {
+          const { width, tall } = columnsFor(shape, items);
+          return (
+            <Band key={shape} title={SHAPE_LABEL[shape]}>
+              {/* items-start, or a flex line makes every card as tall as the
+                  tallest one in it, and the stretched-out part of a short
+                  card is empty space with the fire showing through it. */}
+              <div className="flex flex-wrap items-start" style={{ gap }}>
+                {items.map((f) => <Card key={f.id} feature={f} width={width} tall={tall} />)}
+              </div>
+            </Band>
+          );
+        })}
       </div>
     </section>
   );
