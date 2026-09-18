@@ -116,7 +116,9 @@ const typical = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps
    are actually wrong — all at once, and one after another. */
 check(`they start about ${STAGGER_MS}ms apart`, typical >= STAGGER_MS * 0.4 && typical <= STAGGER_MS * 2.6,
   `gaps ${gaps.join(", ")}ms, middle one ${typical}ms`);
-check("not all at once", gaps.every((g) => g > 20), `smallest gap ${Math.min(...gaps)}ms`);
+/* The count first: `[].every()` is true, so a run where nothing arrived at
+   all would pass this for having no gaps too small. */
+check("not all at once", gaps.length > 0 && gaps.every((g) => g > 20), `${gaps.length} gaps, smallest ${gaps.length ? Math.min(...gaps) : "—"}ms`);
 
 /*
  * And the clause he wrote it for: overlapping. One box's formation takes a
