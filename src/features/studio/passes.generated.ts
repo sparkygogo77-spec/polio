@@ -2,9 +2,23 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T03:07:39.153Z";
+export const GENERATED_AT = "2026-09-18T03:20:57.317Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c59c4c2",
+    "when": "2026-09-18T03:20:49+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "fe025c0",
+        "says": "The instrument refuses to judge a mark it cannot measure",
+        "when": "2026-09-18T03:14:21+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "e5c3b51",
     "when": "2026-09-18T03:07:30+00:00",
@@ -258,32 +272,6 @@ export const PASSES: Pass[] = [
         "id": "2544bdc",
         "says": "A part that cannot be published says so on the page, and no builder's word goes out with it",
         "when": "2026-09-17T06:22:06+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4ad8737",
-    "when": "2026-09-17T06:31:08+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "f1b2804",
-        "says": "No black field on a carried-out box: a picture only where the site has something on it, on top of the blue",
-        "when": "2026-09-16T20:33:43+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "ca68ed6",
-        "says": "The pointer is captured once a drag begins, not on the press, so keys inside the pane still take their click",
-        "when": "2026-09-16T20:27:10+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "2d81eb4",
-        "says": "Letting go lets go: a drag ends on a cancel or a lost pointer as it does on a release",
-        "when": "2026-09-16T20:24:36+00:00",
         "kind": "new"
       }
     ],
