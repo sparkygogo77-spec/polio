@@ -226,6 +226,9 @@ export function Canvas() {
   const handOn = drag?.kind === "node" || drag?.kind === "resize";
   if (!handOn) settled.current = wanted;
   const pageH = handOn ? settled.current : wanted;
+  /* The foot a snap aims at: the one on screen, held still for the length of
+     a drag by the same ref the frame is drawn from. */
+  const settledH = pageH;
   const frameH = pageH;
   /* Nothing scrolls inside the frame, and nothing pans down the ground:
      the pane does it. */
@@ -318,6 +321,26 @@ export function Canvas() {
   const paneTop = React.useCallback(() => paneOf()?.scrollTop ?? 0, [paneOf]);
 
   /** Screen → canvas coordinates. */
+  /*
+   * THE EDGE SCROLL.
+   *
+   * His words: "when i move an element up the website it should scroll for me
+   * as i reach the boundary as well as downward". Measured before this: held
+   * still against the foot of the pane with a part in hand, the pane went
+   * 0 -> 0. There was no edge scroll in either direction.
+   *
+   * It is a loop rather than something done on each pointer move, because the
+   * hand is *still* when it is against an edge \u2014 there are no more moves to
+   * hang it off. Each tick nudges the pane and then re-applies the drag at the
+   * same point on screen: the board's box moves with the pane's scroll, so the
+   * same screen point maps a little further down the page each time and the
+   * part travels with it, staying under the hand.
+   */
+  const handAt = React.useRef<{ x: number; y: number } | null>(null);
+  const dragRef = React.useRef(drag);
+  dragRef.current = drag;
+  const carryRef = React.useRef<((x: number, y: number) => void) | null>(null);
+
   const toCanvas = React.useCallback(
     (clientX: number, clientY: number) => {
       const rect = ref.current?.getBoundingClientRect();
@@ -611,7 +634,16 @@ export function Canvas() {
       const cx = (left + right) / 2;
       const cy = (top + bottom) / 2;
       const xs = [0, frameWidth / 2, frameWidth];
-      const ys = [0];
+      /*
+       * The page has a foot, and it is a target like any other edge.
+       *
+       * This was `[0]` — the top and nothing else — while the sides had left,
+       * middle and right. His words: "i should be able to snap to bottom like
+       * i can the top and sides." It is the settled height rather than the
+       * wanted one, so what he snaps to is the foot he can see while his hand
+       * is still down, not one recomputed from where the part has got to.
+       */
+      const ys = [0, settledH / 2, settledH];
       for (const n of nodes) {
         if (ids.has(n.id)) continue;
         xs.push(n.x, n.x + n.w / 2, n.x + n.w);
@@ -647,8 +679,72 @@ export function Canvas() {
       }
       return { dx, dy, guides: { x: gx, y: gy }, snapped: gx.length > 0 || gy.length > 0 };
     },
-    [nodes, zoom, frameWidth],
+    [nodes, zoom, frameWidth, settledH],
   );
+
+  /**
+   * Put the parts in hand where the hand is, snapped.
+   *
+   * Pulled out of the move handler so the edge scroll can call it with the
+   * hand standing still: the scroll changes what a fixed point on screen
+   * means in the page, so the same call carries the part along with it.
+   */
+  const carry = React.useCallback((dx: number, dy: number) => {
+    const d = dragRef.current;
+    if (!d || d.kind !== "node" || !d.ids?.length || !d.origin) return;
+    const ids = new Set(d.ids);
+    const rects = d.ids.map((id) => ({ ...d.origin![id]!, x: d.origin![id]!.x + dx, y: d.origin![id]!.y + dy }));
+    const snap = snapSelection(rects, ids);
+    const positions: Record<string, { x: number; y: number }> = {};
+    for (const id of d.ids) positions[id] = { x: Math.round(d.origin![id]!.x + dx + snap.dx), y: Math.round(d.origin![id]!.y + dy + snap.dy) };
+    useStudio.getState().setPositions(positions);
+    setGuides(snap.guides);
+    setDrag({ ...d, moved: true, snapped: snap.snapped });
+  }, [snapSelection]);
+
+  carryRef.current = (clientX: number, clientY: number) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const p = toCanvas(clientX, clientY);
+    carry(p.x - d.startX, p.y - d.startY);
+  };
+
+  /*
+   * How near an edge counts, and how fast it goes there.
+   *
+   * A band rather than a line, so it starts gently as he approaches and is at
+   * full speed only when he is right up against it \u2014 an edge scroll that
+   * comes on like a switch throws the page past where he was aiming.
+   */
+  const EDGE_BAND = 64;
+  const EDGE_TOP_SPEED = 22;
+
+  React.useEffect(() => {
+    const moving = drag?.kind === "node";
+    if (!moving) { handAt.current = null; return; }
+    let frame = 0;
+    const tick = () => {
+      const pane = ref.current?.closest("[data-studio-pane]");
+      const at = handAt.current;
+      if (pane instanceof HTMLElement && at) {
+        const box = pane.getBoundingClientRect();
+        const overTop = EDGE_BAND - (at.y - box.top);
+        const overFoot = EDGE_BAND - (box.bottom - at.y);
+        const push = overFoot > 0 ? overFoot : overTop > 0 ? -overTop : 0;
+        if (push) {
+          const step = Math.sign(push) * Math.min(EDGE_TOP_SPEED, (Math.abs(push) / EDGE_BAND) * EDGE_TOP_SPEED);
+          const was = pane.scrollTop;
+          pane.scrollTop = Math.max(0, Math.min(pane.scrollHeight - pane.clientHeight, was + step));
+          /* Only when the pane actually moved: at either end there is nothing
+             to follow, and re-applying the carry would jitter the part. */
+          if (pane.scrollTop !== was) carryRef.current?.(at.x, at.y);
+        }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [drag?.kind]);
 
   /* ------------------------------------------------------------- pointer */
   const onPointerDown = (e: React.PointerEvent) => {
@@ -768,6 +864,9 @@ export function Canvas() {
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag) return;
+    /* Where the hand is, in window terms, for the edge scroll to read while
+       it is standing still. */
+    handAt.current = { x: e.clientX, y: e.clientY };
     const store = useStudio.getState();
 
     if (drag.kind === "pan") {
@@ -795,14 +894,7 @@ export function Canvas() {
         if (Math.abs(dxRaw) < 2 && Math.abs(dyRaw) < 2) return;
         store.commit(); // undo lands where the drag began
       }
-      const ids = new Set(drag.ids);
-      const rects = drag.ids.map((id) => ({ ...drag.origin![id]!, x: drag.origin![id]!.x + dxRaw, y: drag.origin![id]!.y + dyRaw }));
-      const snap = snapSelection(rects, ids);
-      const positions: Record<string, { x: number; y: number }> = {};
-      for (const id of drag.ids) positions[id] = { x: Math.round(drag.origin[id]!.x + dxRaw + snap.dx), y: Math.round(drag.origin[id]!.y + dyRaw + snap.dy) };
-      store.setPositions(positions);
-      setGuides(snap.guides);
-      setDrag({ ...drag, moved: true, snapped: snap.snapped });
+      carry(dxRaw, dyRaw);
       return;
     }
 

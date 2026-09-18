@@ -17,6 +17,7 @@ import {
   inputFor,
   isSolid,
   model as modelNamed,
+  type ImageModel,
   makingOf,
   needsAlpha,
   noModelSays,
@@ -107,6 +108,17 @@ const MESH_LIMIT = 3_600_000;
 
 interface Body {
   kind?: string;
+  /*
+   * The five things he can say about a picture, and no sixth.
+   *
+   * "with only the mentions i asked for of image, option to tweak, aspect
+   * ratio, quality, effort, and model choice." The image is what comes back,
+   * the tweak is `prompt`, and the model he picked is `model` below, which
+   * the second pass already had \u2014 these three are the rest of it.
+   */
+  ratio?: string;
+  quality?: string;
+  effort?: string;
   /** The drawing, for the kinds that trace rather than imagine: PNG, base64, no data-URL head. */
   picture?: string;
   prompt?: string;
@@ -224,10 +236,44 @@ function shapeFor(kind: RenderKind, w: number, h: number): Record<string, unknow
 }
 
 
+/**
+ * The five things he can say about a picture, on their way to the model.
+ *
+ * His words: "provide a panel tab where i can use replicate models exactly as
+ * i do on their site, with only the mentions i asked for of image, option to
+ * tweak, aspect ratio, quality, effort, and model choice." So the route takes
+ * those and nothing else: they are passed under the names the model itself
+ * uses, and a model that has no opinion about one of them simply never sees
+ * it rather than being handed a field it would refuse.
+ *
+ * Nothing here is invented. A ratio is only sent if the chosen model lists it
+ * (`imageRoute.ts` carries each model's own list), and quality and effort are
+ * only sent to models whose own option table has them.
+ */
+export interface Asked {
+  model?: string;
+  ratio?: string;
+  quality?: string;
+  effort?: string;
+}
+
+function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
+  if (!card) return {};
+  const out: Record<string, unknown> = {};
+  if (asked.ratio && card.ratios.includes(asked.ratio)) out.aspect_ratio = asked.ratio;
+  for (const name of ["quality", "effort"] as const) {
+    const want = asked[name];
+    if (!want) continue;
+    const field = card.fields.find((f) => f.name === name);
+    if (field && (field.kind !== "enum" || (field.values ?? []).includes(want))) out[name] = want;
+  }
+  return out;
+}
+
 /** What each model is handed: a picture to trace, or words to imagine from. */
-function input(kind: RenderKind, words: string, picture: string | null, w: number, h: number): Record<string, unknown> {
+function input(kind: RenderKind, words: string, picture: string | null, w: number, h: number, card: ImageModel | null = null, asked: Asked = {}): Record<string, unknown> {
   if (fromPicture(kind)) return { image: `data:image/png;base64,${picture}` };
-  return { prompt: words, ...shapeFor(kind, w, h) };
+  return { prompt: words, ...shapeFor(kind, w, h), ...said(card, asked) };
 }
 
 /** How long the bytes behind an answer may take to arrive. */
@@ -540,7 +586,11 @@ export async function POST(request: Request) {
   // Handed the token for this call only. Nothing here keeps it, and it goes
   // when the request does.
   const replicate = new Replicate({ auth: token });
-  const model = RENDER_MODELS[kind];
+  /* His model, when he named one and the table knows it; otherwise the one
+     this kind of drawing has always used. */
+  const asked: Asked = { model: typeof body.model === "string" ? body.model : undefined, ratio: typeof body.ratio === "string" ? body.ratio : undefined, quality: typeof body.quality === "string" ? body.quality : undefined, effort: typeof body.effort === "string" ? body.effort : undefined };
+  const card = asked.model ? modelNamed(asked.model) : null;
+  const model = (card?.returns === "picture" ? card.slug : RENDER_MODELS[kind]) as `${string}/${string}`;
   /*
    * A prediction, created and waited on, rather than `run`: `run` hands
    * back the output alone and throws the prediction away with its metrics,
@@ -550,7 +600,7 @@ export async function POST(request: Request) {
   let done: Prediction;
   try {
     try {
-      done = await predict(replicate, model, input(kind, words, picture, w, h));
+      done = await predict(replicate, model, input(kind, words, picture, w, h, card, asked));
     } catch (first) {
       // A field this version of the model does not have is the one failure
       // worth a second go: the prompt alone is a shape every model takes.

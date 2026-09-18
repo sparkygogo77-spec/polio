@@ -9,7 +9,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { Workspace } from "./Workspace";
@@ -21,6 +21,7 @@ import { UpdatesPanel } from "./Updates";
 import { Palette, useShelfOpen } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
+import { RenderPanel } from "./RenderPanel";
 import { MotionPanel } from "./MotionPanel";
 import { FormatPanel } from "./FormatPanel";
 import { PagesPanel } from "./PagesPanel";
@@ -871,6 +872,10 @@ const SIDE_TABS = [
   { value: "pages", label: "Pages", icon: <Layers /> },
   { value: "look", label: "Look", icon: <PaletteIcon /> },
   { value: "motion", label: "Motion", icon: <Clapperboard /> },
+  /* Replicate, in the product. His words: "provide a panel tab where i can use
+     replicate models exactly as i do on their site" \u2014 so he never has to
+     leave it to draw something. */
+  { value: "render", label: "Draw", icon: <ImageIcon /> },
 ] as const;
 
 /*
@@ -1102,7 +1107,8 @@ export function StudioPage() {
                   gone and the bar's toggle is the whole story. */}
             </div>
             <div className="no-bars min-h-0 flex-1 overflow-y-auto">
-              {sideTab === "inspector" ? <Inspector />
+              {sideTab === "render" ? <RenderPanel />
+                : sideTab === "inspector" ? <Inspector />
                 : sideTab === "format" ? <FormatPanel />
                 : sideTab === "pages" ? <PagesPanel />
                 : sideTab === "motion" ? <MotionPanel />

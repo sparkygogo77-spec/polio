@@ -6,11 +6,31 @@
 import * as React from "react";
 import { Fill, Placeholder, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
-import { cardStyle, items } from "./theme";
+import { cardStyle, items, standIn, withAlpha } from "./theme";
 import { num, opt, type PartProps } from "./types";
 
-const swatch = (t: { accent: string; muted: string }, i: number) =>
-  `linear-gradient(${140 + i * 24}deg, ${t.accent}${i % 2 ? "33" : "22"}, ${t.muted}1f)`;
+/**
+ * The stand-in every picture-shaped hole wears until it has a picture.
+ *
+ * AND THE REASON THEY WERE GREY, WHICH IS NOT THE REASON ANYBODY THOUGHT.
+ *
+ * This built its colours by sticking a hex alpha on the end of the theme's
+ * own: `${t.accent}33`. The theme's colours are `oklch(...)`, so that made
+ * `oklch(0.7 0.1 150)33` \u2014 not a colour \u2014 and one bad colour in a
+ * `background` shorthand throws the whole declaration away. Measured on a
+ * gallery cell: `background-image: none`. Those cells were not painting a
+ * faint gradient that read as grey; they were painting nothing at all, and
+ * had been for as long as the theme has been in oklch.
+ *
+ * So the alpha goes through `withAlpha`, which knows both spellings, and on
+ * top of it sits a crop of the one picture in the repository \u2014 a different
+ * part of the same field for each slot, so a gallery reads as a gallery of
+ * photographs rather than as six tinted boxes.
+ */
+const swatch = (t: { accent: string; muted: string }, i: number) => {
+  const crop = standIn(`swatch-${i}`);
+  return `${crop.backgroundImage} ${crop.backgroundPosition} / cover no-repeat, linear-gradient(${140 + i * 24}deg, ${withAlpha(t.accent, i % 2 ? 0.2 : 0.13)}, ${withAlpha(t.muted, 0.12)})`;
+};
 
 /** Grids of images; clicking one opens it full size inside the part. */
 /**
@@ -33,11 +53,13 @@ export function Picture({ id, label, theme: t }: PartProps) {
       data-part-picture={painted ? "" : undefined}
       style={{
         padding: 0, overflow: "hidden", borderRadius: t.radius,
-        ...(painted ? t.surfacePaint : { border: `1px dashed ${t.line}`, display: "grid", placeItems: "center" }),
+        ...(painted ? t.surfacePaint : { ...standIn(id), display: "grid", placeItems: "center" }),
       }}
     >
       {painted ? null : (
-        <span style={{ color: t.muted, fontSize: t.fontPx * 0.9, fontFamily: t.bodyFamily }}>{label || "Picture"}</span>
+        /* A name over the crop, on a plate, so it is readable whatever part
+           of the field this one landed on. */
+        <span style={{ color: t.text, fontSize: t.fontPx * 0.9, fontFamily: t.bodyFamily, background: withAlpha(t.surface, 0.72), padding: "2px 10px", borderRadius: 999, backdropFilter: "blur(4px)" }}>{label || "Picture"}</span>
       )}
     </Fill>
   );

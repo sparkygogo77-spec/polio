@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="A field under a wide sky">
+<!--
+  ONE PICTURE, FOR EVERY PLACEHOLDER IN THE LIBRARY.
+
+  Eighteen tiles in the shelf drew an empty frame, because a part whose job is
+  to hold a picture has none until somebody gives it one. This is the picture.
+  It is drawn once, committed once, and every placeholder is a crop of it —
+  `object-fit: cover` with its own `object-position`, so a wide banner, a
+  square avatar and a tall card each take a different part of the same field
+  and none of them are the same grey rectangle.
+
+  Drawn rather than rendered: it costs nothing, it is the same every time, and
+  it weighs a couple of kilobytes instead of a megabyte. A vector crops and
+  resizes without ever softening, which is the whole job here.
+-->
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#1a2740"/>
+    <stop offset="0.45" stop-color="#3f5f7d"/>
+    <stop offset="0.72" stop-color="#b98a63"/>
+    <stop offset="1" stop-color="#e8b27a"/>
+  </linearGradient>
+  <radialGradient id="sun" cx="0.68" cy="0.68" r="0.5">
+    <stop offset="0" stop-color="#ffe6b8" stop-opacity="0.95"/>
+    <stop offset="0.5" stop-color="#ffc27a" stop-opacity="0.35"/>
+    <stop offset="1" stop-color="#ffc27a" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#4a6b62"/><stop offset="1" stop-color="#2f4a45"/>
+  </linearGradient>
+  <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#3d6b4a"/><stop offset="1" stop-color="#274a34"/>
+  </linearGradient>
+  <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2c5a38"/><stop offset="1" stop-color="#16321f"/>
+  </linearGradient>
+</defs>
+
+<rect width="1600" height="900" fill="url(#sky)"/>
+<circle cx="1090" cy="560" r="300" fill="url(#sun)"/>
+<circle cx="1090" cy="588" r="46" fill="#ffe9c4" opacity="0.9"/>
+
+<!-- clouds, thin and lit from below -->
+<g opacity="0.5" fill="#f0d0ae">
+  <ellipse cx="300" cy="230" rx="190" ry="20"/>
+  <ellipse cx="420" cy="205" rx="120" ry="14"/>
+  <ellipse cx="1180" cy="300" rx="230" ry="18"/>
+  <ellipse cx="980" cy="160" rx="150" ry="12"/>
+</g>
+
+<!-- three ridges, each lighter behind the last -->
+<path d="M0 600 C 220 556 380 592 560 574 C 760 554 900 590 1120 566 C 1320 544 1460 576 1600 560 L1600 900 L0 900 Z" fill="url(#far)"/>
+<path d="M0 668 C 260 630 420 664 640 648 C 880 630 1020 668 1260 646 C 1420 632 1520 656 1600 646 L1600 900 L0 900 Z" fill="url(#mid)"/>
+<path d="M0 760 C 300 726 520 766 780 744 C 1040 722 1240 762 1600 736 L1600 900 L0 900 Z" fill="url(#near)"/>
+
+<!-- grasses along the near ridge -->
+<g stroke="#1d4327" stroke-width="3" stroke-linecap="round" opacity="0.85">
+  <path d="M90 790 q 8 -34 2 -54"/><path d="M140 800 q -8 -30 -2 -48"/>
+  <path d="M320 782 q 9 -36 1 -56"/><path d="M366 794 q -7 -28 0 -46"/>
+  <path d="M700 786 q 8 -32 1 -52"/><path d="M745 798 q -8 -30 -1 -48"/>
+  <path d="M1180 778 q 9 -34 1 -54"/><path d="M1232 790 q -8 -28 -1 -46"/>
+  <path d="M1460 786 q 8 -32 1 -52"/>
+</g>
+
+<!-- a dog, mid-field, walking away into the light -->
+<g fill="#1b3a24">
+  <ellipse cx="560" cy="742" rx="52" ry="8" opacity="0.5"/>
+</g>
+<g fill="#2b1d16">
+  <path d="M520 716 q 22 -22 58 -20 q 34 2 44 20 q 6 12 -4 18 l -96 0 q -10 -6 -2 -18 Z"/>
+  <path d="M614 706 q 16 -10 22 2 q 6 12 -8 16 q -12 4 -18 -6 Z"/>
+  <path d="M632 700 q 12 -16 18 -2 q 4 10 -8 12 Z"/>
+  <path d="M512 718 q -18 -10 -22 -26 q 12 8 26 12 Z"/>
+  <rect x="530" y="730" width="8" height="24" rx="4"/>
+  <rect x="556" y="732" width="8" height="22" rx="4"/>
+  <rect x="588" y="730" width="8" height="24" rx="4"/>
+  <rect x="606" y="732" width="8" height="22" rx="4"/>
+</g>
+<ellipse cx="641" cy="705" rx="3" ry="3" fill="#f2d9a8" opacity="0.8"/>
+</svg>
