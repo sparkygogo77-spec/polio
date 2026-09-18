@@ -132,18 +132,28 @@ export const Helmet = (p: IconProps) => (
   </Svg>
 );
 
-/** Under the hood — the bonnet propped open. */
-export const Telescope = (p: IconProps) => (
+/**
+ * Engine — a rocket motor: the chamber, the bell it flares into, and the
+ * burn under it.
+ *
+ * It used to be a car with its bonnet propped up, which was a drawing of the
+ * words "under the hood" rather than of the thing. The category is Engine
+ * now, and every other mark in this set is something in the sky, so the
+ * engine that belongs here is the one that pushes a rocket: it means motor
+ * to anyone, and it keeps the twelve reading as one set.
+ */
+export const Thruster = (p: IconProps) => (
   <Svg {...p}>
-    {/* the car, seen from the side, with its nose to the right */}
-    <path d="M2.5 17.5h19" />
-    <path d="M3.5 17.5v-3.2l3.4-1" />
-    <circle cx="7" cy="17.6" r="1.9" />
-    <circle cx="18" cy="17.6" r="1.9" />
-    <path d="M10.5 17.5v-2.6l9.5-1.1v3.7" />
-    {/* the bonnet, propped up */}
-    <path d="M10.8 13.6 9.2 6.2l9.7 4.6" />
-    <path d="M13.4 12.1 12.6 8.6" />
+    {/* the chamber, and the bell flaring out of it */}
+    <path d="M9.4 4.6a2.6 2.6 0 0 1 5.2 0" />
+    <path d="M9.4 4.6C9.1 8.1 8 11.4 5.8 14.6" />
+    <path d="M14.6 4.6c.3 3.5 1.4 6.8 3.6 10" />
+    {/* the mouth of it, seen a little from above */}
+    <ellipse cx="12" cy="14.8" rx="6.2" ry="1.5" />
+    {/* the throat, where the burn is narrowest */}
+    <path d="M9.1 8h5.8" />
+    {/* and the burn */}
+    <path d="M8.9 17.7 7.9 20.6M12 18.1V21.1M15.1 17.7l1 2.9" />
   </Svg>
 );
 
@@ -160,7 +170,7 @@ export const PLANET: Record<BuiltInCategory, (p: IconProps) => React.JSX.Element
   data: Constellation,
   social: Saucer,
   ai: Helmet,
-  platform: Telescope,
+  platform: Thruster,
 };
 
 /**

@@ -17,7 +17,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Accessibility, Activity, AlignLeft, Archive, ArrowDown, AtSign, Award, BadgeCheck, BarChart3,
   Bell, Blend, Bookmark, BookOpen, Bot, Box, Boxes, Brain, Brush, Calendar, Camera, CaseSensitive,
-  Check, CheckSquare, ChevronsDown, Circle, Clapperboard, Clock, Cloud, Code2, Cog, Coins, Columns3,
+  Check, CheckSquare, ChevronsDown, Circle, Clapperboard, Clock, Cloud, Code2, Cog, Coins, Columns3, Cpu,
   Command, Component, Compass, Contrast, Copy, CreditCard, Crown, Database, Dices, DollarSign,
   Download, Droplet, Eye, Feather, Film, Filter, Fingerprint, Flag, FlaskConical, Footprints,
   Gamepad2, Gauge, Ghost, GitBranch, Globe, GraduationCap, Grid2x2, Hand, Hash, Heading, Heart,
@@ -170,7 +170,7 @@ export const CATEGORIES: CategoryDef[] = [
   { id: "data", label: "Data", icon: BarChart3, blurb: "Numbers made legible, and the dense views.", hue: 260 },
   { id: "social", label: "Social", icon: Users, blurb: "People and their traces.", hue: 350 },
   { id: "ai", label: "AI", icon: Sparkles, blurb: "Model-powered surfaces.", hue: 290 },
-  { id: "platform", label: "Engine", icon: ShieldCheck, blurb: "The things that make it real.", hue: 20 },
+  { id: "platform", label: "Engine", icon: Cpu, blurb: "The things that make it real.", hue: 20 },
 ];
 
 const f = (
