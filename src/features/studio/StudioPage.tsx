@@ -18,7 +18,7 @@ import { resolvePalette } from "./parts/theme";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
-import { Palette, useShelfOpen } from "./Palette";
+import { Palette, useShelfOpen, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { RenderPanel } from "./RenderPanel";
@@ -988,6 +988,7 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
   const shelfOpen = useShelfOpen();
+  const shelfTall = useShelfTall();
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
@@ -1331,7 +1332,14 @@ export function StudioPage() {
               the panel it has always been.
             */}
             {design ? (
-              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: shelfOpen ? SHELF_OPEN_H : BAND_H }}>
+              <div
+                data-studio-band=""
+                data-band-set={shelfTall == null ? undefined : "1"}
+                className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg"
+                /* His height if he has set one with the wheel over the
+                   categories, otherwise the two the band has always had. */
+                style={{ height: shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
+              >
                 <Palette />
               </div>
             ) : book ? (
