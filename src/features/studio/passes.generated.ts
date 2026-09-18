@@ -2,9 +2,23 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T05:50:52.997Z";
+export const GENERATED_AT = "2026-09-18T06:23:15.254Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "15f7458",
+    "when": "2026-09-18T06:23:04+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "c9f88f4",
+        "says": "Count the ink on every tile in the shelf, before drawing anything",
+        "when": "2026-09-18T05:59:15+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "36f69e1",
     "when": "2026-09-18T05:37:33+00:00",
@@ -262,20 +276,6 @@ export const PASSES: Pass[] = [
         "id": "6dedfbb",
         "says": "A surface is a page",
         "when": "2026-09-17T18:24:40+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c472ffb",
-    "when": "2026-09-17T18:09:08+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "8753e2d",
-        "says": "What the brief promises, the page carries or says it does not",
-        "when": "2026-09-17T17:58:49+00:00",
         "kind": "new"
       }
     ],
