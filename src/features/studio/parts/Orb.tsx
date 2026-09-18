@@ -44,7 +44,10 @@ interface OrbSet {
   /** How far the glow reaches, 0..1. */
   glow: number;
   rings: number;
+  /** The idle turn, when he has left it on. */
   moving: boolean;
+  /** Is it in anybody's hands? Only on a live page: the board is one still frame. */
+  hands: boolean;
 }
 
 function settings(options: Record<string, string>, mode: PartMode, movingId: string): OrbSet {
@@ -56,6 +59,13 @@ function settings(options: Record<string, string>, mode: PartMode, movingId: str
     glow: num(options, "glow", 55, 0, 100) / 100,
     rings: ringWord === "none" ? 0 : ringWord === "one" ? 1 : ringWord === "three" ? 3 : 2,
     moving: mode === "live" && opt(options, movingId, "yes") === "yes",
+    /*
+     * Turning it off is about the idle spin, not about whether he can touch
+     * it. With the two tied together, an orb with the spin switched off was
+     * inert: no loop, no pointer, nothing. Measured at 0.0% of the sphere
+     * moving under a drag right across it.
+     */
+    hands: mode === "live",
   };
 }
 
@@ -87,16 +97,34 @@ function lights(hue: number) {
   };
 }
 
-/** The rings: ellipses that cut past the sphere, each on its own lean. */
-function Rings({ n, tilt, hue, turning }: { n: number; tilt: number; hue: number; turning: boolean }) {
+/**
+ * The rings: ellipses that cut past the sphere, each on its own lean — and
+ * each drawn twice, because an orbit has a near side.
+ *
+ * Drawn once and behind, a ring is a halo pinned to the back of a flat disc:
+ * measured, nought pixels of the sphere's face were ever covered by one, and
+ * the ring's two halves came out 803 above the middle against 806 below,
+ * which is what a halo looks like and not what an orbit looks like. So the
+ * far half goes behind the sphere and the near half goes in front of it, and
+ * the seam between them is the screen's own middle.
+ *
+ * The clip is on a wrapper that does not turn, never on the ellipse itself:
+ * "near" means the lower half of what you are looking at, and a ring that
+ * leans as it goes round would carry a clip of its own into the top of the
+ * frame and be drawn in front up there.
+ */
+function Rings({ n, tilt, hue, turning, half }: { n: number; tilt: number; hue: number; turning: boolean; half: "far" | "near" }) {
   const c = lights(hue);
   const specs = [
     { w: 88, h: 29, deg: tilt, colour: c.key(0.3), secs: 34 },
     { w: 94, h: 39, deg: tilt + 80, colour: c.cool(0.42), secs: 46 },
     { w: 76, h: 18, deg: tilt - 38, colour: c.keySoft(0.22), secs: 27 },
   ].slice(0, n);
+  /* A hair of overlap at the seam, so the two halves meet rather than leave
+     a gap where the ellipse is steepest. */
+  const clip = half === "near" ? "inset(49.8% -60% -60% -60%)" : "inset(-60% -60% 49.8% -60%)";
   return (
-    <>
+    <span aria-hidden style={{ position: "absolute", inset: 0, clipPath: clip, pointerEvents: "none" }}>
       {specs.map((r, i) => (
         <span
           key={i}
@@ -110,10 +138,11 @@ function Rings({ n, tilt, hue, turning }: { n: number; tilt: number; hue: number
           }}
         />
       ))}
-      {turning ? (
+      {/* Both halves run the same turn off the same keyframes, so they stay one ring. */}
+      {turning && half === "far" ? (
         <style>{specs.map((r, i) => `@keyframes orb-ring-${i}{from{transform:rotate(${r.deg}deg)}to{transform:rotate(${r.deg + 360}deg)}}`).join("")}</style>
       ) : null}
-    </>
+    </span>
   );
 }
 
@@ -123,7 +152,7 @@ function Tag({ t, text }: { t: Theme; text: string }) {
   return (
     <span
       style={{
-        position: "absolute", bottom: "10%", left: "4%", zIndex: 3,
+        position: "absolute", bottom: "10%", left: "4%", zIndex: 4,
         padding: "6px 14px", borderRadius: 999,
         border: `1px solid ${t.line}`, background: withAlpha(t.surface, 0.85),
         color: t.muted, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
@@ -161,9 +190,13 @@ function Stage({
     <Fill t={t} data-part={id} style={{ display: "grid", placeItems: "center" }}>
       <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", transform: `rotate(${s.tilt * 0.12}deg)` }}>
         <Glow hue={s.hue} glow={s.glow} size={s.size} />
-        <Rings n={s.rings} tilt={s.tilt} hue={s.hue} turning={s.moving} />
+        <Rings n={s.rings} tilt={s.tilt} hue={s.hue} turning={s.moving} half="far" />
       </div>
       <div style={{ position: "relative", zIndex: 2, width: `${s.size * 100}%`, aspectRatio: "1 / 1", maxHeight: "100%" }}>{children}</div>
+      {/* The near half of every ring, over the sphere: the half that is in front of it. */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", transform: `rotate(${s.tilt * 0.12}deg)` }}>
+        <Rings n={s.rings} tilt={s.tilt} hue={s.hue} turning={s.moving} half="near" />
+      </div>
       <Tag t={t} text={tag} />
     </Fill>
   );
@@ -251,11 +284,98 @@ function DrawnBall({ s, spin }: { s: OrbSet; spin: boolean }) {
 /** Where the two lamps hang, in the wrapped picture. Found by sweeping and looking. */
 const LAMP = { key: { u: 0.42, v: 0.68 }, cool: { u: 0.17, v: 0.72 }, white: { u: 0.5, v: 0.12 } };
 
+/**
+ * How the surface behaves. A body that carries a colour cannot be a pure
+ * mirror: a metal of one reflects and never shows what it is made of, which
+ * is why the first orb came out black whatever colour was asked for — its
+ * dark half measured 0% saturated at a red and 0% at a blue, and the face of
+ * it read 4 of 255 bright. So each surface keeps some of itself.
+ */
+const SURFACE: Record<string, { roughness: number; metalness: number; clearcoat: number }> = {
+  matte: { roughness: 0.66, metalness: 0.12, clearcoat: 0.12 },
+  metal: { roughness: 0.3, metalness: 0.68, clearcoat: 0.32 },
+  glass: { roughness: 0.16, metalness: 0.3, clearcoat: 1 },
+};
+
+/**
+ * The body, painted: his colour, with something on it.
+ *
+ * Both of the things he asked for are this one thing. A smooth sphere with
+ * nothing on it looks identical from every angle, so turning it is invisible
+ * and there is nothing to grab — which is why the first orb turned the room
+ * and called it rotation. Give the body bands and mottling in his colour and
+ * the turn can be watched, and the colour he picked is on the thing itself
+ * rather than only in what it reflects.
+ *
+ * Everything here is fixed rather than random: two orbs of the same colour
+ * are the same orb, and a part that drew itself differently each time could
+ * not hold still for the one frame the board is allowed.
+ */
+const MARKS: { u: number; v: number; r: number; l: number }[] = [
+  { u: 0.18, v: 0.34, r: 0.17, l: 40 }, { u: 0.46, v: 0.62, r: 0.22, l: 11 },
+  { u: 0.71, v: 0.28, r: 0.14, l: 36 }, { u: 0.88, v: 0.71, r: 0.19, l: 12 },
+  { u: 0.33, v: 0.81, r: 0.12, l: 43 }, { u: 0.62, v: 0.15, r: 0.16, l: 9 },
+];
+
+function bodyCanvas(hue: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 1024;
+  c.height = 512;
+  const g = c.getContext("2d")!;
+  g.fillStyle = hsl(hue, 50, 29);
+  g.fillRect(0, 0, 1024, 512);
+  /* Latitudes: a slow swell of light and dark round the body, so a turn
+     reads even where nothing else is happening. */
+  for (let y = 0; y < 512; y++) {
+    const band = Math.sin((y / 512) * Math.PI * 7) * 0.5 + Math.sin((y / 512) * Math.PI * 2.3) * 0.5;
+    g.fillStyle = hsl(hue, 50, 29 + band * 10, 0.6);
+    g.fillRect(0, y, 1024, 1);
+  }
+  for (const m of MARKS) {
+    const x = m.u * 1024;
+    const y = m.v * 512;
+    const rad = m.r * 320;
+    const grad = g.createRadialGradient(x, y, 0, x, y, rad);
+    grad.addColorStop(0, hsl(hue, 58, m.l, 0.85));
+    grad.addColorStop(1, hsl(hue, 58, m.l, 0));
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(x, y, rad, 0, Math.PI * 2);
+    g.fill();
+    /* The same mark again a full turn away, so nothing seams at the join. */
+    const x2 = x > 512 ? x - 1024 : x + 1024;
+    const g2 = g.createRadialGradient(x2, y, 0, x2, y, rad);
+    g2.addColorStop(0, hsl(hue, 58, m.l, 0.85));
+    g2.addColorStop(1, hsl(hue, 58, m.l, 0));
+    g.fillStyle = g2;
+    g.beginPath();
+    g.arc(x2, y, rad, 0, Math.PI * 2);
+    g.fill();
+  }
+  return c;
+}
+
+/** How far a drag across the whole box turns the sphere: a little over half a turn. */
+const HAND = 3.4;
+/** What is left of a throw each frame once it is let go of, and when it is done. */
+const CARRY = 0.93;
+const STILL = 0.0006;
+
 function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: () => void }) {
   const host = React.useRef<HTMLDivElement>(null);
-  // Where the pointer is, as a fraction of the box: how far the room is turned.
-  const aim = React.useRef({ x: 0.5, y: 0.5 });
-  const live = s.moving;
+  /*
+   * Where the sphere has been turned to: pitch and yaw, in radians, counted
+   * up and never clamped, because free means free. Kept on a ref rather than
+   * in state so that turning it does not re-render the part, and kept
+   * outside the effect so that changing his colour does not stand it back up
+   * straight.
+   */
+  const turn = React.useRef({ x: 0, y: 0 });
+  const fling = React.useRef({ x: 0, y: 0 });
+  const held = React.useRef(false);
+  const from = React.useRef({ x: 0, y: 0 });
+  /** Set once three.js is up: ask for the loop back when something is happening. */
+  const wake = React.useRef<() => void>(() => {});
 
   React.useEffect(() => {
     const el = host.current;
@@ -325,47 +445,71 @@ function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: ()
       env.mapping = THREE.EquirectangularReflectionMapping;
       env.colorSpace = THREE.SRGBColorSpace;
 
+      const skin = new THREE.CanvasTexture(bodyCanvas(s.hue));
+      skin.colorSpace = THREE.SRGBColorSpace;
+      skin.wrapS = THREE.RepeatWrapping;
+
       const scene = new THREE.Scene();
       scene.environment = env;
       scene.environmentIntensity = 1.5 + s.glow;
       const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
       camera.position.set(0, 0, 4.4);
 
+      const look = SURFACE[surface] ?? SURFACE.glass!;
       const ball = new THREE.Mesh(
         new THREE.SphereGeometry(1, 128, 128),
         new THREE.MeshPhysicalMaterial({
-          color: new THREE.Color(0x000000),
-          roughness: surface === "matte" ? 0.38 : surface === "metal" ? 0.18 : 0.08,
-          metalness: 1,
-          clearcoat: surface === "glass" ? 1 : 0.3,
+          map: skin,
+          roughness: look.roughness,
+          metalness: look.metalness,
+          clearcoat: look.clearcoat,
           clearcoatRoughness: 0.04,
         }),
       );
-      scene.add(ball, new THREE.AmbientLight(0xffffff, 0.03));
+      /* Enough plain light to see the body by. The room alone is two lamps
+         in a black box, which lights a crescent and leaves the rest nothing. */
+      scene.add(ball, new THREE.AmbientLight(0xffffff, 1.9));
 
-      const draw = (t: number) => {
-        // The room turns with the pointer; the sphere turns on its own.
-        scene.environmentRotation.set(0, (s.tilt * Math.PI) / 180 + (aim.current.x - 0.5) * 2.2, 0);
-        ball.rotation.y = t * 0.00012;
-        ball.rotation.x = (0.5 - aim.current.y) * 0.5;
+      const draw = () => {
+        /* The room stays where it is. It is the sphere that turns, which is
+           the whole point: a reflection that travelled with the hand looked
+           the same whichever way the ball was facing. */
+        scene.environmentRotation.set(0, (s.tilt * Math.PI) / 180, 0);
+        ball.rotation.x = turn.current.x;
+        ball.rotation.y = turn.current.y;
         renderer.render(scene, camera);
       };
 
-      if (live) {
-        const loop = (t: number) => {
-          if (stop) return;
-          draw(t);
-          frame = requestAnimationFrame(loop);
-        };
-        frame = requestAnimationFrame(loop);
-      } else {
-        // Board mode: one frame, held. No loop, nothing running under a drag.
-        draw(2400);
-      }
+      let running = false;
+      const step = () => {
+        if (stop) return;
+        if (!held.current) {
+          /* What is left of a throw, and the idle turn under it. */
+          fling.current.x *= CARRY;
+          fling.current.y *= CARRY;
+          turn.current.x += fling.current.x;
+          turn.current.y += fling.current.y + (s.moving ? 0.0016 : 0);
+        }
+        draw();
+        const busy = s.moving || held.current || Math.abs(fling.current.x) + Math.abs(fling.current.y) > STILL;
+        if (busy) frame = requestAnimationFrame(step);
+        else { running = false; draw(); }
+      };
+      wake.current = () => {
+        if (running || stop) return;
+        running = true;
+        frame = requestAnimationFrame(step);
+      };
+
+      // Board mode, and a live orb left alone: one frame, held. No loop.
+      if (s.moving || held.current || Math.abs(fling.current.x) + Math.abs(fling.current.y) > STILL) wake.current();
+      else draw();
 
       dispose = () => {
         cancelAnimationFrame(frame);
+        wake.current = () => {};
         env.dispose();
+        skin.dispose();
         ball.geometry.dispose();
         (ball.material as import("three").Material).dispose();
         renderer.dispose();
@@ -377,16 +521,50 @@ function GlBall({ s, surface, onFail }: { s: OrbSet; surface: string; onFail: ()
       stop = true;
       dispose?.();
     };
-  }, [s.hue, s.tilt, s.glow, live, surface, onFail]);
+  }, [s.hue, s.tilt, s.glow, s.moving, surface, onFail]);
 
+  /*
+   * The hand. The pointer is captured on the way down, so a drag that leaves
+   * the sphere keeps turning it instead of stopping at the edge of the box,
+   * and a pointer nobody is pressing does nothing at all — the orb used to
+   * move under a mouse merely passing over it.
+   */
   return (
     <div
       ref={host}
-      style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", cursor: live ? "crosshair" : undefined }}
+      data-orb-ball=""
+      style={{
+        position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden",
+        cursor: s.hands ? "grab" : undefined, touchAction: s.hands ? "none" : undefined,
+      }}
+      onPointerDown={(e) => {
+        if (!s.hands) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.currentTarget.style.cursor = "grabbing";
+        held.current = true;
+        fling.current = { x: 0, y: 0 };
+        from.current = { x: e.clientX, y: e.clientY };
+        wake.current();
+      }}
       onPointerMove={(e) => {
-        if (!live) return;
+        if (!s.hands || !held.current) return;
         const r = e.currentTarget.getBoundingClientRect();
-        aim.current = { x: (e.clientX - r.left) / Math.max(1, r.width), y: (e.clientY - r.top) / Math.max(1, r.height) };
+        const dy = ((e.clientX - from.current.x) / Math.max(1, r.width)) * HAND;
+        const dx = ((e.clientY - from.current.y) / Math.max(1, r.height)) * HAND;
+        turn.current.y += dy;
+        turn.current.x += dx;
+        fling.current = { x: dx, y: dy };
+        from.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={(e) => {
+        if (!held.current) return;
+        held.current = false;
+        e.currentTarget.style.cursor = "grab";
+        wake.current();
+      }}
+      onPointerCancel={(e) => {
+        held.current = false;
+        e.currentTarget.style.cursor = "grab";
       }}
     />
   );
