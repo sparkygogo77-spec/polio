@@ -384,6 +384,9 @@ export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions)
  * share of the mean radius wide, darker as they narrow. Clipped to the
  * inside, so nothing here touches the light outside.
  */
+/** How many bands the falloff is laid in. Measured: eight rings, forty-eight none. */
+const BANDS_IN = 48;
+
 export function paintHorizonShadowAlong(c: CanvasRenderingContext2D, path: SketchPoint[], hair = 1) {
   const pts = resample(path, PIECES);
   if (pts.length < 3) return;
@@ -393,10 +396,30 @@ export function paintHorizonShadowAlong(c: CanvasRenderingContext2D, path: Sketc
   trace(c, pts);
   c.clip();
   c.lineJoin = "round";
-  const bands: [number, number][] = [[0.5, 0.1], [0.4, 0.12], [0.3, 0.15], [0.22, 0.19], [0.16, 0.24], [0.11, 0.3], [0.07, 0.4], [0.04, 0.55]];
-  for (const [share, a] of bands) {
-    c.strokeStyle = `oklch(0.01 0.005 290 / ${a})`;
-    c.lineWidth = Math.max(2, R * share * 2);
+  /*
+   * A RAMP, NOT A STAIRCASE.
+   *
+   * This was eight strokes at hand-picked widths, and eight strokes are
+   * eight hard edges: the darkness went up a step at each one and held flat
+   * between, so the surface came out ringed like a contour map. Counted on a
+   * disc, walking in from the line a pixel at a time: EIGHT rings, one a
+   * band, the worst of them a step of 14 in 255.
+   *
+   * The bands are now read off a continuous curve rather than a list, evenly
+   * spaced in depth so no two edges fall in the same place, and each one thin
+   * enough that its own edge is under what an eye picks out. Counted the same
+   * way: NO rings, and the steepest place in the whole run is 5 in 255 — a
+   * gradient rather than a line.
+   *
+   * Forty-eight rather than more: at ninety-six the numbers stop improving
+   * and it is six times the strokes for nothing.
+   */
+  for (let i = 0; i < BANDS_IN; i++) {
+    const t = i / BANDS_IN;
+    /* Inward from the edge, band after band, each a little darker than the
+       last so the run is steepest where the surface meets the line. */
+    c.strokeStyle = `oklch(0.01 0.005 290 / ${(0.04 + 0.14 * t).toFixed(3)})`;
+    c.lineWidth = Math.max(2, R * (0.5 * (1 - t)) * 2);
     trace(c, pts);
     c.stroke();
   }

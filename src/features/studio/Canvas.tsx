@@ -18,6 +18,7 @@ import { useActions } from "@/core/actions";
 import { Block, themeFrom } from "./blocks";
 import { LiveSite, resolvePageLink } from "./live/LiveSite";
 import { pictureOf } from "./reshapeRun";
+import { REACH_WIDTH } from "./strand";
 import { describeSketch } from "./sketch";
 import { resolvePalette } from "./parts/theme";
 import { AlignCenter, AlignLeft, AlignRight, StretchHorizontal, Scissors, Sparkles, Ungroup } from "lucide-react";
@@ -91,6 +92,16 @@ const TOP_GUTTER = 20;
 /** The screen each device actually has, so the frame is a real viewport. */
 const SCREEN_H: Record<number, number> = { 1440: 900, 834: 1112, 390: 844 };
 const snapGrid = (v: number) => Math.round(v / GRID) * GRID;
+
+/**
+ * How near the eraser has to pass, in board pixels.
+ *
+ * "THE SAME GENEROSITY AS THE VINE." A vine gives a hand half of
+ * `REACH_WIDTH` either side of itself to be caught by; the eraser was giving
+ * ten, which is less than half of that, so a stroke he could see himself
+ * passing over went by untouched.
+ */
+const ERASE_REACH = REACH_WIDTH / 2;
 const MIN_W = 40;
 const MIN_H = 24;
 
@@ -101,6 +112,9 @@ interface Drag {
   startX: number;
   startY: number;
   ids?: string[];
+  /** Where the hand was on the last move, so a sweep knows what it crossed. */
+  lastX?: number;
+  lastY?: number;
   /** Original rects at drag start, so positions are set absolutely (and snapped) each move. */
   origin?: Record<string, { x: number; y: number; w: number; h: number }>;
   points?: [number, number][];
@@ -956,15 +970,18 @@ export function Canvas() {
       // The sweep. Drawings only: a part under a passing eraser is not an
       // instruction, and a part is erased by pressing on it.
       const live = store.shapes.filter((sh) => sh.pageId === page.id);
-      const hit = hitShape(live, p.x, p.y, 10 / zoom);
-      if (!hit) return;
+      /* From where the hand was to where it is, at the same reach the vine
+         gives a hand: half of `REACH_WIDTH`. Ten pixels was a good deal less
+         generous than the thing he has already said was right. */
+      const was: [number, number] = [drag.lastX ?? drag.startX, drag.lastY ?? drag.startY];
+      const hits = hitAlong(live, was, [p.x, p.y], ERASE_REACH / zoom);
+      setDrag({ ...drag, lastX: p.x, lastY: p.y, moved: drag.moved || hits.length > 0 });
+      if (!hits.length) return;
       // One step back for the whole sweep, written by whichever came first:
       // the press, or this hit.
-      if (!drag.moved) {
-        store.commit();
-        setDrag({ ...drag, moved: true });
-      }
-      useStudio.setState((s) => ({ shapes: s.shapes.filter((sh) => sh.id !== hit.id), selection: s.selection.filter((id) => id !== hit.id) }));
+      if (!drag.moved) store.commit();
+      const gone = new Set(hits.map((h) => h.id));
+      useStudio.setState((s) => ({ shapes: s.shapes.filter((sh) => !gone.has(sh.id)), selection: s.selection.filter((id) => !gone.has(id)) }));
       play("tap");
     }
   };
@@ -1591,6 +1608,53 @@ function hitShape(shapes: StudioShape[], x: number, y: number, tol: number): Stu
     if (d < bestD) { bestD = d; best = sh; }
   }
   return best;
+}
+
+/** Do two segments cross? The one case min-of-four-ends cannot see. */
+function segsCross(a1: [number, number], a2: [number, number], b1: [number, number], b2: [number, number]): boolean {
+  const side = (p: [number, number], q: [number, number], r: [number, number]) =>
+    Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+  const d1 = side(b1, b2, a1), d2 = side(b1, b2, a2), d3 = side(a1, a2, b1), d4 = side(a1, a2, b2);
+  return d1 !== d2 && d3 !== d4;
+}
+
+/**
+ * EVERYTHING THE STROKE PASSES OVER, and it is a stroke rather than a dot.
+ *
+ * The sweep used to ask `hitShape` where the pointer happened to BE on each
+ * move, which is two faults in one. A hand moving quickly reports a handful
+ * of points a long way apart, and everything between them was never asked
+ * about \u2014 so a quick scribble across a drawing left most of it standing. And
+ * `hitShape` gives back the NEAREST one thing, so a stroke laid across three
+ * drawings at once took one of them and left two.
+ *
+ * This takes the segment from where the hand was to where it is, and gives
+ * back every drawing within reach of ANY part of it.
+ */
+function hitAlong(shapes: StudioShape[], from: [number, number], to: [number, number], tol: number): StudioShape[] {
+  const out: StudioShape[] = [];
+  for (const sh of shapes) {
+    const pts = sh.points;
+    if (pts.length < 2) continue;
+    const edges: [[number, number], [number, number]][] = [];
+    if (sh.kind === "frame") {
+      const [a, b] = [pts[0]!, pts[pts.length - 1]!];
+      const corners: [number, number][] = [a, [b[0], a[1]], b, [a[0], b[1]]];
+      for (let i = 0; i < 4; i++) edges.push([corners[i]!, corners[(i + 1) % 4]!]);
+    } else {
+      for (let i = 1; i < pts.length; i++) edges.push([pts[i - 1]!, pts[i]!]);
+    }
+    const near = edges.some(([e1, e2]) =>
+      segsCross(from, to, e1, e2)
+      || Math.min(
+        toSegment(from[0], from[1], e1, e2),
+        toSegment(to[0], to[1], e1, e2),
+        toSegment(e1[0], e1[1], from, to),
+        toSegment(e2[0], e2[1], from, to),
+      ) < tol);
+    if (near) out.push(sh);
+  }
+  return out;
 }
 
 function penPath(points: [number, number][]): string {

@@ -2,9 +2,49 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T08:34:56.124Z";
+export const GENERATED_AT = "2026-09-18T08:49:36.022Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "c64b397",
+    "when": "2026-09-18T08:49:30+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "c39c105",
+        "says": "The Engine catalogue audited: 24 entries, both halves, nothing cut",
+        "when": "2026-09-18T08:48:41+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "836025b",
+        "says": "Engine gets an engine, not a pun about one",
+        "when": "2026-09-18T08:45:55+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "297765f",
+    "when": "2026-09-18T08:40:02+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "7e2027f",
+        "says": "The eraser erases what the stroke passes over",
+        "when": "2026-09-18T08:39:53+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "24752be",
+        "says": "Contour bands in a drawn space: a ramp, not a staircase",
+        "when": "2026-09-18T08:35:44+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "d234fa5",
     "when": "2026-09-18T08:34:50+00:00",
@@ -126,73 +166,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 0
-  },
-  {
-    "id": "e5c3b51",
-    "when": "2026-09-18T03:07:30+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "08a8823",
-        "says": "The lanes are counted: the set is centred, the column is guaranteed",
-        "when": "2026-09-18T01:33:23+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "6b9a01d",
-    "when": "2026-09-18T03:00:45+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "6b9a01d",
-        "says": "The owner's two rulings: the zoom-out is not accepted, and ink-on-cards must refuse to judge",
-        "when": "2026-09-18T03:00:45+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
-  },
-  {
-    "id": "88c3cbe",
-    "when": "2026-09-18T02:54:17+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "8f2bb99",
-        "says": "The count first: four checks that were green about nothing",
-        "when": "2026-09-18T00:56:29+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "a7146f2",
-        "says": "Furniture may overhang, but it may not disappear",
-        "when": "2026-09-18T00:49:01+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
-  },
-  {
-    "id": "a9b8898",
-    "when": "2026-09-18T02:54:07+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "a9b8898",
-        "says": "Correction: the fan is not tinting the cards, the zoom dropped",
-        "when": "2026-09-18T02:54:07+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "d2d2cc3",
-        "says": "For the lane: the fan's new position is tinting the cards, and rule 5",
-        "when": "2026-09-18T01:47:24+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
   }
 ];
