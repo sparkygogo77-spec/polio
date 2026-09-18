@@ -348,3 +348,27 @@ commit.
 does NOT imply an overlay. Smaller text produces exactly that signature
 through antialiasing. Before calling a contrast drop an overlay, read the
 painted size of the mark and the zoom, not only the colours.
+
+## The owner's two rulings off that push, 18 September
+
+Shipped with the red named, and NEITHER of these is approval of what shipped.
+
+**1. THE 21% ZOOM-OUT IS NOT ACCEPTED.** It breaks the constraint order
+rather than satisfying it. Rule 3 says the column fills the room AS FULLY AS
+IT CAN; rule 4 says that where the rules cannot all hold, THE FAN OVERHANGS
+TO THE RIGHT, VISIBLY. Neither says the board shrinks. **Room for the fan
+comes out of overhang, not out of his text.** 0.7939 to 0.6234 is a real loss
+on the surface he reads all night and it comes back in the next commit.
+
+**2. `ink-on-cards` GETS ITS OWN COMMIT.** It must REFUSE TO JUDGE a mark it
+cannot measure rather than report a number it cannot support. A check that
+fails on 10px text and passes on 14px is not measuring legibility. It handed
+the owner two false readings in one day: once reported as a real dimming that
+was antialiasing, and once cited in a clean report where it had not been run
+at all.
+
+The general form, which is the night's lesson in one line: **an instrument
+that answers when it cannot see is worse than one that says it cannot see**,
+because the answers get believed and acted on. Same shape as the four checks
+that were green about nothing, and as the suite that timed out on a deleted
+element and reported the six checks behind it as passing.
