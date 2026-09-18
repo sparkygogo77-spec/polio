@@ -6,12 +6,21 @@
 import * as React from "react";
 import { useSettings, getSettingDef } from "@/core/settings/store";
 import { prefersReducedMotion } from "@/core/lib/env";
+import site from "@site";
 
+/*
+ * `appearance.radius` and `appearance.font` are NOT here any more.
+ *
+ * They were the Builder's own corner radius and typeface, and they are gone
+ * from the Settings panel by his ruling: radius and font are settings for the
+ * site being built, and they live in the document now (Settings, "This site").
+ * The Builder still needs a radius and a face to draw itself with — it just
+ * no longer takes them from a knob. Both come from `site.theme`, written once
+ * below, which is also what `boot.ts` writes before React starts.
+ */
 const KEYS = [
   "appearance.mode",
   "appearance.accentHue",
-  "appearance.radius",
-  "appearance.font",
   "appearance.fontScale",
   "appearance.contrast",
   "effects.motion",
@@ -56,10 +65,10 @@ export function ThemeProvider() {
     const el = document.documentElement;
     const on = (v: unknown) => (v ? "on" : "off");
     el.style.setProperty("--accent-h", String(snap["appearance.accentHue"]));
-    el.style.setProperty("--radius", `${snap["appearance.radius"]}px`);
+    el.style.setProperty("--radius", `${site.theme.radius}px`);
     el.style.setProperty("--font-scale", String(snap["appearance.fontScale"]));
     el.style.setProperty("--press-scale", String(snap["effects.pressScale"]));
-    el.dataset.font = String(snap["appearance.font"]);
+    el.dataset.font = String(site.theme.font);
     el.dataset.contrast = snap["appearance.contrast"] ? "high" : "normal";
     const motion = snap["effects.motion"] as string;
     el.dataset.motion = motion === "full" && prefersReducedMotion() ? "reduced" : motion;
