@@ -64,8 +64,10 @@ const lp = peaks(lift);
 check("picked up, it lifts", lp[0] > 0.8, `peaks at ${lp[0].toFixed(2)}`);
 check("…and carries past where it hangs rather than stopping there", lp[1] < -0.2, `swings back to ${lp[1].toFixed(2)}`);
 check("…and back again, smaller", lp[2] > 0.05 && lp[2] < lp[0], `${lp[2].toFixed(2)}`);
+/* The count first: `[].every()` is true, so an unmoving rope would pass this
+   for having no swings at all to be bigger than each other. */
 check("…each swing smaller than the one before, so it can only quieten",
-  lp.every((p, i) => i === 0 || Math.abs(p) < Math.abs(lp[i - 1])), `${lp.length} turns`);
+  lp.length >= 3 && lp.every((p, i) => i === 0 || Math.abs(p) < Math.abs(lp[i - 1])), `${lp.length} turns`);
 check("…and it is quiet while the hand is still on it, not held taut",
   quietAt(lift) > 0.6 && quietAt(lift) < 2, `quiet at ${quietAt(lift).toFixed(2)}s, ending at ${lift.at(-1).toFixed(4)}`);
 
