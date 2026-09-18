@@ -6,7 +6,8 @@
  * still on that face, then moves and resizes the whole thing like any
  * other part — with no key anywhere, because the site has none and a
  * person landing on it should still see the thing turn. Every step is
- * walked here by hand, measured, and photographed into `docs/shots/`.
+ * walked here by hand, measured, and photographed — into the ignored
+ * scratch path unless the committed shots are asked for by name (see `SHOTS`).
  *
  *   1. a box drawn with the pen, no words, is read as a box off its own
  *      geometry and says so on the part; it lands as the cube, at the
@@ -46,7 +47,25 @@ const { chromium } = (() => {
 })();
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
-const SHOTS = process.env.SHOTS ?? "docs/shots";
+/*
+ * Where the shots go, and why the default is not the committed ones.
+ *
+ * This suite photographs what it walks, and it used to default straight at
+ * `docs/shots` — so every session that ran the floor rewrote tracked PNGs as
+ * a side effect, with byte-level render noise for a diff and nothing visual
+ * changed. A merge session had to throw four of them away to avoid pushing
+ * that noise over a deliberate refresh.
+ *
+ * A shot is a deliberate act, so it is asked for by name. The default is the
+ * ignored scratch path, where the pictures are still there to look at:
+ *
+ *   node tests/box-to-cube.mjs                     # writes .screenshots, tree stays clean
+ *   SHOTS=docs/shots node tests/box-to-cube.mjs    # refreshes the committed baseline
+ *
+ * Held by `tests/dead-declarations.mjs`, which fails if any suite points its
+ * default back at the tracked directory.
+ */
+const SHOTS = process.env.SHOTS ?? ".screenshots";
 mkdirSync(SHOTS, { recursive: true });
 const results = [];
 const check = (name, ok, detail = "") => {

@@ -82,6 +82,29 @@ const orphans = shots.filter((f) => !docs.includes(f) && !flagged.has(f));
 check("every screenshot under docs/shots is linked from a doc, or is another session's, named", orphans.length === 0,
   orphans.length ? `${orphans.length} orphaned: ${orphans.slice(0, 5).join(", ")}${orphans.length > 5 ? ", …" : ""}` : `${shots.length} shots, ${shots.filter((f) => docs.includes(f)).length} linked, ${shots.filter((f) => flagged.has(f)).length} another session's`);
 
+/* E9. No suite writes into the committed shots by itself.
+
+   Running the floor should leave the tree clean. Two suites defaulted their
+   output at `docs/shots`, so every session that ran them rewrote tracked PNGs
+   as a side effect — byte-level render noise, not visual change — and a merge
+   session had to discard four of them to avoid pushing noise over a
+   deliberate refresh. A shot is a deliberate act: the default goes to the
+   ignored scratch path, and the baseline is rewritten only by naming it. */
+{
+  const suites = readdirSync("tests").filter((f) => f.endsWith(".mjs"));
+  const writers = suites.filter((f) => {
+    const src = read(join("tests", f));
+    /* The fault itself, and only it: the line that decides where a suite's
+       shots go, defaulting to the tracked directory. Written narrowly on
+       purpose — a first pass looked for the path anywhere in the file and
+       flagged this suite, which only READS `docs/shots` to check the shots
+       are linked from a doc. */
+    return /^\s*const\s+SHOTS\s*=.*docs\/shots/m.test(src);
+  });
+  check("no suite rewrites the committed shots unless it is asked to", writers.length === 0,
+    writers.length ? `${writers.length} write there by default: ${writers.join(", ")}` : `${suites.length} suites, all of them opt-in`);
+}
+
 /* The general rule. An export mentioned once in src + tests + scripts is
    mentioned only where it is declared: nothing imports it, nothing calls it,
    and nothing in the same file uses it either. */
