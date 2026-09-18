@@ -583,17 +583,63 @@ function DrawKindRow({ inkHue, compact }: { inkHue: number; compact?: boolean })
         onOpenChange={setOpen}
         align="start"
         content={
-          <div data-ink-hues="" className="flex w-[152px] flex-wrap items-center gap-1.5">
-            {HUES.map((h) => (
-              <button
-                key={h}
-                type="button"
-                aria-label={`Ink hue ${h}`}
-                onClick={() => { useStudio.getState().setInk({ hue: h }); setOpen(false); }}
-                className={cn("tactile size-5 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")}
-                style={{ background: `oklch(0.72 0.16 ${h})` }}
+          /*
+           * PRESSING THE COLOUR ADJUSTS IT.
+           *
+           * "when i click the color i can adjust it" \u2014 and eight swatches is
+           * not adjusting, it is choosing from eight. The wheel is the whole
+           * wheel, so the colour he wants is reachable whether or not
+           * somebody thought of it; the eight stay under it as the quick way
+           * back to a colour he has used, which is what they were good for.
+           */
+          <div data-ink-hues="" className="flex w-[176px] flex-col gap-2">
+            <div
+              data-ink-wheel=""
+              role="slider"
+              tabIndex={0}
+              aria-label="Ink colour"
+              aria-valuemin={0}
+              aria-valuemax={359}
+              aria-valuenow={Math.round(inkHue)}
+              onKeyDown={(e) => {
+                const step = e.key === "ArrowLeft" ? -4 : e.key === "ArrowRight" ? 4 : 0;
+                if (!step) return;
+                e.preventDefault();
+                useStudio.getState().setInk({ hue: (Math.round(inkHue) + step + 360) % 360 });
+              }}
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                const pick = (clientX: number) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  useStudio.getState().setInk({ hue: Math.max(0, Math.min(359, Math.round(((clientX - r.left) / Math.max(1, r.width)) * 359))) });
+                };
+                pick(e.clientX);
+                const move = (m: PointerEvent) => pick(m.clientX);
+                const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+                window.addEventListener("pointermove", move);
+                window.addEventListener("pointerup", up);
+              }}
+              className="relative h-5 w-full cursor-ew-resize rounded-sm border border-border"
+              style={{ background: "linear-gradient(to right, oklch(0.72 0.16 0), oklch(0.72 0.16 60), oklch(0.72 0.16 120), oklch(0.72 0.16 180), oklch(0.72 0.16 240), oklch(0.72 0.16 300), oklch(0.72 0.16 359))" }}
+            >
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-[-2px] h-[22px] w-[3px] rounded-full border border-bg bg-fg"
+                style={{ left: `calc(${(inkHue / 359) * 100}% - 1.5px)` }}
               />
-            ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {HUES.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  aria-label={`Ink hue ${h}`}
+                  onClick={() => { useStudio.getState().setInk({ hue: h }); setOpen(false); }}
+                  className={cn("tactile size-5 rounded-sm border", inkHue === h ? "border-fg" : "border-transparent")}
+                  style={{ background: `oklch(0.72 0.16 ${h})` }}
+                />
+              ))}
+            </div>
           </div>
         }
       >
