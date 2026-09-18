@@ -1021,6 +1021,17 @@ export function StudioPage() {
    */
   const sideTab = leftPanel;
 
+  /* A panel asking to be opened — the background's way of handing you to
+     Looks, where its controls now live. */
+  React.useEffect(() => {
+    const go = (e: Event) => {
+      const which = (e as CustomEvent<string>).detail;
+      if (typeof which === "string") { setLeftPanel(which); setLibraryOpen(true); }
+    };
+    window.addEventListener("studio:panel", go);
+    return () => window.removeEventListener("studio:panel", go);
+  }, []);
+
   React.useEffect(() => {
     // The setters beside the togglers are for anything that has to put the
     // Builder into a known state rather than flip it — the tour, which cannot

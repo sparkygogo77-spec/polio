@@ -6,10 +6,7 @@
  */
 import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  AlignCenter, AlignLeft, AlignRight, Box, Brush, ClipboardPaste, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Paintbrush, Palette as PaletteIcon, Play,
-  Scissors, SlidersHorizontal, Sparkles, SunDim, Trash2, Type, Unlock, Wand2,
-} from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Box, Brush, ClipboardPaste, Frame, Grid2x2, Group, Layers, Lightbulb, Link2, Lock, MousePointerClick, Paintbrush, Palette as PaletteIcon, Pencil, Play, Scissors, SlidersHorizontal, Sparkles, SunDim, Trash2, Type, Unlock, Wand2 } from "lucide-react";
 import { getFeature, categoryOf, type FeatureOption } from "./catalog";
 import { isLinkable } from "./parts";
 import { lands, speedWord, type Look } from "./look";
@@ -174,7 +171,7 @@ function backgroundDesigns(look: Look, format: FormatValues): Design[] {
  * in the Looks stack that land on the page, switched here without leaving
  * the board. Cut strips it bare and holds it; put back restores it.
  */
-function BackgroundInspector() {
+export function BackgroundInspector() {
   const look = useStudio((s) => s.look);
   const format = useStudio((s) => s.format);
   const s = useStudio.getState;
@@ -254,6 +251,92 @@ function BackgroundInspector() {
  * only ever been here exists in one place and he is the only one who can
  * know that.
  */
+
+/* ------------------------------------------------------------------ */
+/* The row of six                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * WHAT ELEMENT IS BUILT AGAINST: the wheel, not a form.
+ *
+ * His complaint was "this element tab does not make sense", and the panel it
+ * was said about held 27 labelled fields in a column — the most generic thing
+ * a panel can be, and the same thing he meant by "the side panel left side is
+ * extremely generic". The wheel is the benchmark he set: everything reachable
+ * fast, the most used nearest, colour doing real work, and a control showing
+ * what it does rather than naming it.
+ *
+ * So the panel is a row of six marks and one open field. The order is how
+ * often he reaches for them, which he gave himself: prompt, looks, link,
+ * size, motion, delete.
+ *
+ * ON THE COLOURS, because copying the wheel literally would have been wrong.
+ * The wheel is one flat blue for all seven pieces on purpose — DESIGN.md:
+ * "so the wheel reads as one object" — with red kept for Delete alone. Six
+ * blue marks in a row would read as one object too, and this row is not one
+ * object: it is six different places to go. So it takes the wheel's RULE
+ * rather than its literal hue — colour means where this goes, red is still
+ * only Delete — and each mark wears the hue of the thing it opens, the same
+ * hues the side-panel tabs use, so the app says one thing twice.
+ *
+ * EVERY MARK WEARS ITS STATE, which is the "shows what it does" half:
+ *
+ *   prompt   lit once there are words in it, so an unwritten part says so
+ *   looks    painted in the part's OWN colour, so it is a swatch, not a word
+ *   link     dim when it points nowhere, lit when it does
+ *   size     carries the part's width as a fraction of the frame
+ *   motion   plays the part's entrance once when the pointer touches it
+ *   delete   the one red thing, as on the wheel
+ */
+type MarkId = "prompt" | "looks" | "link" | "size" | "motion" | "delete";
+
+const MARK_HUE: Record<Exclude<MarkId, "looks">, number> = {
+  /* The wheel's own Write hue. */
+  prompt: 258,
+  /* Where a thing goes — the hue Pages and Navigation already use. */
+  link: 230,
+  /* Layout, which is Format's hue. */
+  size: 200,
+  /* Motion's own hue, in the catalogue and in the tab strip. */
+  motion: 170,
+  /* The wheel's red, reserved for this and nothing else. */
+  delete: 18,
+};
+
+function Mark({
+  id, label, hue, on, lit, note, icon, onPress, onTouch,
+}: {
+  id: MarkId; label: string; hue: number; on: boolean; lit: boolean;
+  note?: string; icon: React.ReactNode; onPress: () => void; onTouch?: () => void;
+}) {
+  return (
+    <Tooltip content={note ? `${label} — ${note}` : label} side="bottom">
+      <button
+        type="button"
+        data-mark={id}
+        data-on={on ? "1" : undefined}
+        data-lit={lit ? "1" : undefined}
+        aria-label={label}
+        aria-pressed={on}
+        onClick={onPress}
+        onPointerEnter={onTouch}
+        className="tactile flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-sm py-1 transition-[background,box-shadow] duration-150"
+        style={{
+          /* Never drab, on or off: the hue is what the mark IS, so it only
+             ever stands back, it does not drain away. A mark with nothing in
+             it yet is the same colour at lower light, not grey. */
+          color: `oklch(${lit ? 0.84 : 0.66} ${lit ? 0.16 : 0.09} ${hue})`,
+          background: on ? `oklch(0.7 0.15 ${hue} / 0.18)` : undefined,
+          boxShadow: on ? `inset 0 0 0 1px oklch(0.75 0.15 ${hue} / 0.5)` : undefined,
+        }}
+      >
+        <span className="flex size-4 items-center justify-center">{icon}</span>
+        <span className="num text-[8px] leading-none opacity-80">{note ?? "\u00a0"}</span>
+      </button>
+    </Tooltip>
+  );
+}
+
 function PictureField({ node }: { node: StudioNode }) {
   const pic = node.picture ?? null;
   const { src, looked } = usePicture(pic);
@@ -441,6 +524,9 @@ export function Inspector() {
   const groups = useStudio(useShallow(pageGroups));
   const page = useStudio(activePage);
   const frameWidth = useStudio((s) => s.frameWidth);
+  /* Which mark is open. None is the resting state, and the prompt is
+     always there under it — see the row below. */
+  const [mark, setMark] = React.useState<MarkId | null>(null);
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
   const palette = React.useMemo(() => resolvePalette(format, look), [format, look]);
@@ -449,8 +535,38 @@ export function Inspector() {
   const selShapes = shapes.filter((s) => selection.includes(s.id));
   const store = useStudio.getState;
 
-  /* ----------------------------------------------------- the background */
-  if (selection.includes(BACKGROUND_ID)) return <BackgroundInspector />;
+  /*
+   * THE BACKGROUND HAS LEFT THIS PANEL, by his ruling and for the reason he
+   * gave: the page's fill and the textures on it are the SITE's look, not
+   * this element's, and having them here was the one thing in Element that
+   * genuinely belonged in Looks. They are a section of the Look panel now.
+   *
+   * Picking the background still has to answer for itself rather than read
+   * as an empty panel, so it says where its controls went — and the way it
+   * says so is a button that takes you there, not a sentence telling you to
+   * go yourself.
+   */
+  if (selection.includes(BACKGROUND_ID)) {
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 p-6 text-center">
+        <span
+          className="flex size-9 items-center justify-center rounded-full"
+          style={{ background: "oklch(0.7 0.15 320 / 0.18)", color: "oklch(0.84 0.16 320)" }}
+        >
+          <PaletteIcon className="size-4" />
+        </span>
+        <p className="text-[11px] text-fg-muted">The page&rsquo;s fill and its textures are the site&rsquo;s look.</p>
+        <Button
+          size="xs"
+          variant="outline"
+          data-to-looks=""
+          onClick={() => window.dispatchEvent(new CustomEvent("studio:panel", { detail: "look" }))}
+        >
+          Open Looks
+        </Button>
+      </div>
+    );
+  }
 
   /* ------------------------------------------------------- nothing picked */
   if (selNodes.length === 0 && selShapes.length === 0) {
@@ -694,7 +810,79 @@ export function Inspector() {
       </div>
 
       <Designs items={nodeDesigns(node)} />
+
+      {/* The six. Pressing one opens it and closes whatever was open, so the
+          panel is never a column of everything at once — which is what it
+          was. Pressing the open one again closes it, leaving the prompt. */}
+      <div className="flex shrink-0 items-stretch gap-0.5 border-b border-border px-1.5 pb-1.5">
+        <Mark
+          id="prompt" label="Prompt" hue={MARK_HUE.prompt} icon={<Pencil className="size-4" />}
+          on={mark === "prompt"} lit={node.prompt.trim().length > 0}
+          note={node.prompt.trim() ? "written" : undefined}
+          onPress={() => setMark((m) => (m === "prompt" ? null : "prompt"))}
+        />
+        <Mark
+          id="looks" label="Looks"
+          /* The part's own colour when it has one — the mark IS the swatch.
+             With none set it takes the category's hue, which is what the
+             part is actually drawn in, so it is never a colour that lies. */
+          hue={node.hue ?? cat?.hue ?? 320}
+          icon={<PaletteIcon className="size-4" />}
+          on={mark === "looks"} lit={node.hue != null || node.colour != null}
+          note={node.hue != null || node.colour != null ? "set" : undefined}
+          onPress={() => setMark((m) => (m === "looks" ? null : "looks"))}
+        />
+        <Mark
+          id="link" label="Link" hue={MARK_HUE.link} icon={<Link2 className="size-4" />}
+          on={mark === "link"} lit={!!node.link}
+          note={node.link ? (node.link.kind === "url" ? "web" : node.link.kind) : undefined}
+          onPress={() => setMark((m) => (m === "link" ? null : "link"))}
+        />
+        <Mark
+          id="size" label="Size" hue={MARK_HUE.size} icon={<Frame className="size-4" />}
+          on={mark === "size"} lit
+          note={`${Math.round((Math.min(node.w, frameWidth) / frameWidth) * 100)}%`}
+          onPress={() => setMark((m) => (m === "size" ? null : "size"))}
+        />
+        <Mark
+          id="motion" label="Motion" hue={MARK_HUE.motion} icon={<Play className="size-4" />}
+          on={mark === "motion"} lit={!!node.anim}
+          note={node.anim ? String(node.anim) : undefined}
+          onPress={() => setMark((m) => (m === "motion" ? null : "motion"))}
+          /* Touching it plays the part's entrance once on the board, which is
+             the only honest way to show what an entrance is. */
+          onTouch={() => { if (node.anim) window.dispatchEvent(new CustomEvent("studio:replay", { detail: node.id })); }}
+        />
+        <Mark
+          id="delete" label="Delete" hue={MARK_HUE.delete} icon={<Trash2 className="size-4" />}
+          on={false} lit
+          onPress={() => useStudio.getState().removeNodes([node.id])}
+        />
+      </div>
+
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {/*
+          THE PROMPT IS THE ONE THING ALWAYS OPEN. It is what he reaches for
+          every time, and every other control on this panel is one press away
+          behind its own mark.
+        */}
+        <Field
+          label="Prompt for this element"
+          hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."
+        >
+          <Textarea
+            autoGrow
+            rows={5}
+            aria-label="Element prompt"
+            value={node.prompt}
+            placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
+            onChange={(e) => update({ prompt: e.target.value })}
+          />
+        </Field>
+
+        {/* The words stay fields, by his ruling: the part is not edited in
+            place. Name and contents are what the board draws, so they sit
+            with the prompt rather than behind a mark. */}
         <Field label="Name">
           <Input value={node.label} onChange={(e) => update({ label: e.target.value })} />
         </Field>
@@ -713,6 +901,7 @@ export function Inspector() {
           </Field>
         ) : null}
 
+        {mark === "size" ? (
         <div className="rounded-md border border-border p-2">
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Size & position</span>
@@ -752,20 +941,7 @@ export function Inspector() {
             </Tooltip>
           </div>
         </div>
-
-        <Field
-          label="Prompt for this element"
-          hint="Specific to this placement. Mention neighbours by name and the builder will honour the relationship."
-        >
-          <Textarea
-            autoGrow
-            rows={5}
-            aria-label="Element prompt"
-            value={node.prompt}
-            placeholder={feature?.hint ?? `e.g. ${feature?.name ?? "This"} sits tight against the element on its left and shares its colour.`}
-            onChange={(e) => update({ prompt: e.target.value })}
-          />
-        </Field>
+        ) : null}
 
         {/*
           Under the prompt, not beside it: what the words are handed to. The
@@ -778,6 +954,7 @@ export function Inspector() {
           <AuditPanel node={node} />
         </Field>
 
+        {mark === "looks" ? (
         <Field label="Shape" hint="What the part is cut to. A circle drawn round it on the board sets this.">
           <Segmented
             size="xs"
@@ -787,6 +964,8 @@ export function Inspector() {
           />
         </Field>
 
+        ) : null}
+        {mark === "looks" ? (
         <Field label="Priority">
           <Segmented
             size="xs"
@@ -799,6 +978,7 @@ export function Inspector() {
             ]}
           />
         </Field>
+        ) : null}
 
         {feature?.options?.length ? (
           <div className="space-y-2 rounded-md border border-border p-2">
@@ -853,8 +1033,13 @@ export function Inspector() {
         {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Faces node={node} palette={palette} /> : null}
         {node.featureId === "cube-3d" || (node.featureId === "mesh-3d" && node.cube) ? <Solid node={node} palette={palette} /> : null}
 
-        {isLinkable(node.featureId) ? <LinkField node={node} /> : null}
+        {mark === "link" && isLinkable(node.featureId) ? <LinkField node={node} /> : null}
+        {mark === "link" && !isLinkable(node.featureId) ? (
+          <p className="text-[10px] text-fg-muted">This part does not send anyone anywhere, so it has nothing to point at.</p>
+        ) : null}
 
+        {mark === "looks" ? (
+        <>
         <Field label="Colour" hint="This part only. Naming a role keeps it inside the site's palette.">
           <ColourOverride colour={node.colour} palette={palette} onChange={(colour) => update({ colour })} />
         </Field>
@@ -880,6 +1065,8 @@ export function Inspector() {
             ))}
           </div>
         </Field>
+        </>
+        ) : null}
 
         {group ? (
           <div className="rounded-md border border-border p-2">
