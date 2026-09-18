@@ -721,6 +721,21 @@ interface StudioState extends Doc {
    */
   handling: string | null;
   hold: (nodeId: string | null) => void;
+  /**
+   * When he last opened the timeline.
+   *
+   * HIS WORDS: "green ones stay until timeline is opened." A finished action's
+   * bar is the only thing that says the work landed, so it is not taken away
+   * the instant it lands — it waits where he can see it until he goes to the
+   * place that shows what happened. Persisted, because a reload is not him
+   * looking.
+   *
+   * Zero means he has never opened it, and the strip reads that as "since
+   * this page loaded" rather than as 1970: an old board would otherwise come
+   * back with every iteration it has ever run sitting green in the header.
+   */
+  queueSeenAt: number;
+  markQueueSeen: () => void;
   /** …and the same for a solid, which is turned the same way. */
   setMeshTurn: (nodeId: string, turn: { x: number; y: number }) => void;
 
@@ -761,6 +776,8 @@ interface StudioState extends Doc {
    */
   draws: {
     id: string;
+    /** The iteration this picture landed as, when it was made from the panel. */
+    threadId?: string;
     /** Exactly what he typed. Nothing is added to it. */
     prompt: string;
     model: string;
@@ -1252,6 +1269,7 @@ export const useStudio = create<StudioState>()(
         selection: [],
         pickedFace: null,
         handling: null,
+        queueSeenAt: 0,
         tool: "select",
         inkHue: 265,
         inkWidth: 3,
@@ -1463,6 +1481,8 @@ export const useStudio = create<StudioState>()(
         pickFace: (nodeId, side) => set({ pickedFace: side ? { nodeId, side } : null }),
 
         hold: (nodeId) => set({ handling: nodeId }),
+
+        markQueueSeen: () => set({ queueSeenAt: Date.now() }),
 
         setCubeTurn: (nodeId, turn) =>
           set((s) => ({
@@ -2478,6 +2498,7 @@ export const useStudio = create<StudioState>()(
         nodes: s.nodes,
         /* His drawings survive leaving the tab, which is the whole point of them. */
         draws: s.draws,
+        queueSeenAt: s.queueSeenAt,
         groups: s.groups,
         shapes: s.shapes,
         spaces: s.spaces,

@@ -30,6 +30,7 @@ import { Textarea } from "@/core/ui/textarea";
 import { effortField, modelTable, type ModelCard } from "./imageRoute";
 import { rendererHeader } from "./agent";
 import { money, RENDER_COST } from "./renderer";
+import { GENERATION } from "./threads";
 import { useStudio } from "./store";
 
 /**
@@ -70,7 +71,9 @@ export function RenderPanel() {
   const [ratio, setRatio] = React.useState("");
   const [quality, setQuality] = React.useState("");
   const [effort, setEffort] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
+  /* How many are out at once. Not a lock: he may queue as many as he likes,
+     and this only says whether anything is still working. */
+  const [running, setRunning] = React.useState(0);
   const [said, setSaid] = React.useState<string | null>(null);
   const [format, setFormat] = React.useState("");
   /*
@@ -98,6 +101,21 @@ export function RenderPanel() {
    */
   const draws = useStudio((st) => st.draws);
   const addDraw = useStudio((st) => st.addDraw);
+  /*
+   * A generation is a job like any other job.
+   *
+   * HIS WORDS: "I should be able to queue multiple images, and these image
+   * generations should appear in my timeline ... they should be queued like
+   * any other generation being made in the builder."
+   *
+   * So pressing it lands an iteration straight away, running, and the picture
+   * fills it in when it arrives — the same shape a drawing being made real
+   * has. Nothing is awaited in the press, so a second press while the first
+   * is still out queues a second one rather than being refused.
+   */
+  const landThread = useStudio((st) => st.landThread);
+  const markThread = useStudio((st) => st.markThread);
+  const noteProgress = useStudio((st) => st.noteProgress);
 
   const ratios = choices(card, "aspect_ratio");
   const qualities = choices(card, "quality");
@@ -157,10 +175,18 @@ export function RenderPanel() {
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async () => {
-    if (!tweak.trim() || busy) return;
-    setBusy(true);
+    const asked = tweak.trim();
+    if (!asked) return;
+    /* The iteration exists from the press, not from the answer: that is what
+       puts it on the timeline while it is still working. */
+    const threadId = landThread({ mode: GENERATION, model: slug, ask: asked, answer: "", state: "running" });
+    setRunning((n) => n + 1);
     setSaid(null);
     try {
+      /* It has been sent and is out with the model. There is nothing finer to
+         report — Replicate gives no progress — so the bar says "gone, waiting"
+         rather than inventing a percentage. */
+      noteProgress(threadId, 0.35);
       const res = await fetch("/api/studio/image", {
         method: "POST",
         headers: { "content-type": "application/json", ...rendererHeader() },
@@ -173,15 +199,20 @@ export function RenderPanel() {
       });
       const r = (await res.json()) as { ok?: boolean; image?: string; cost?: number | null; message?: string };
       if (r.ok && r.image) {
-        addDraw({ prompt: tweak.trim(), model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], image: r.image, cost: r.cost ?? null });
+        /* Kept here first. The picture outlives its box on the timeline: he
+           can delete the iteration and the picture is still his. */
+        addDraw({ prompt: asked, model: slug, ratio: ratio || undefined, quality: quality || undefined, effort: effort || undefined, format: format || undefined, reference: references[0], image: r.image, cost: r.cost ?? null, threadId });
+        markThread(threadId, "done");
         setSaid(typeof r.cost === "number" ? `Drawn. It cost ${money(r.cost)}.` : "Drawn. The renderer reported no price for it.");
       } else {
+        markThread(threadId, "cut");
         setSaid(r.message ?? "Nothing came back.");
       }
     } catch (err) {
+      markThread(threadId, "cut");
       setSaid(`Could not reach the renderer: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setBusy(false);
+      setRunning((n) => Math.max(0, n - 1));
     }
   };
 
@@ -321,8 +352,8 @@ export function RenderPanel() {
       ) : null}
 
       <div className="flex items-center gap-2 px-3 pb-3 pt-2">
-        <Button data-render-go="" variant="primary" size="sm" disabled={!tweak.trim() || busy} onClick={() => void run()}>
-          {busy ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+        <Button data-render-go="" variant="primary" size="sm" disabled={!tweak.trim()} onClick={() => void run()}>
+          {running ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
           Generate
         </Button>
         {/* The price before the press, not after it. It is his key and his
