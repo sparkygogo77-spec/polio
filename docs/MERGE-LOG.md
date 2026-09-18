@@ -237,3 +237,66 @@ hour ago and nobody noticed. Two dates cost different amounts:
 Dated this way on 17 September: ink-on-cards' 70%-of-the-room bar unchanged
 since 378 commits back, its suite last edited 49 back; updates-view
 untouched for 425 commits. Both reds are drift under old bars.
+
+## The constraint order for the timeline, as the owner has ruled it
+
+Five rules, in this order. Later rules give way to earlier ones, never the
+other way round.
+
+  1. No part of the COLUMN is ever outside the frame.
+  2. No part of the FAN is ever under the band. Something hidden under an
+     opaque band reads as absent, and absent is a lie about the board.
+  3. Subject to those, the column is centred in the room and fills it as
+     fully as it can.
+  4. If all of those cannot hold at some width, the FAN OVERHANGS TO THE
+     RIGHT, visibly, and the widths and the amounts are named.
+  5. The fan may overhang and it may sit in front of things, but it MUST NOT
+     TINT WHAT IS UNDER IT.
+
+Rule 5 was added on 18 September off the finding below. A merge seat does not
+codify a lane's own reading of a rule as though it were the owner's ruling —
+that mistake was made once tonight, with "the column is never under the band,
+whatever it costs the fan", which is the opposite of rule 2.
+
+## FOR THE LANE: the fan's new position is tinting the cards
+
+`a7146f2` + `8f2bb99` are merged and HELD, not pushed. `ink-on-cards` is
+17/18 on that tree and was 18/18 the commit before, so this is caused, not
+inherited. The suite is not in the diff; the bar has not moved in 378
+commits.
+
+**The lead.** The declared ink is LIGHT — `oklch(0.95 0.07 152)` — and what
+lands is `rgb(115,151,124)`. A near-white ink does not measure as mid
+grey-green unless something is laid over it. The fan's new position is
+tinting the cards; the ink itself has not changed.
+
+The four failing samples, all `<li>` feature names inside `ul[data-features]`
+on a green card:
+
+    mark        ink measured      declared ink          face measured   ratio
+    "Top bar"   rgb(131,168,140)  oklch(0.95 0.07 152)  rgb(0,58,21)    4.41
+    "Hero"      rgb(115,151,124)  oklch(0.95 0.07 152)  rgb(0,58,21)    3.46
+    "Join"      rgb(114,151,124)  oklch(0.95 0.07 152)  rgb(0,58,21)    3.50
+    "Footer"    rgb(126,165,136)  oklch(0.95 0.07 152)  rgb(0,61,22)    4.01
+
+"Hero" was 4.54:1 one commit ago on the same 24px of core.
+
+What was ruled out, by measurement rather than by argument:
+
+  · the GROUND IS UNCHANGED at `rgb(0,58,21)`, the `<li>`'s own
+    `oklch(0.3 0.09 152)`;
+  · NOTHING IS BEHIND the marks — no lane box intersects any of the four.
+    Across the whole board there is exactly one card/lane-box overlap,
+    105x92px, and it is on none of them;
+  · the layer stack under every failing mark is
+    `li[data-feature-new]` → `ul[data-features]` → `div` →
+    `div[data-box]` → `div[data-timeline]` → `div[data-studio-pane]`,
+    and every layer above `data-box` is `rgba(0,0,0,0)`.
+
+So the ground did not lighten. The ink darkened. Something the fan's move
+introduced is being laid over the card.
+
+**Fix the tint, not the colour.** Darkening or lightening the ink to clear
+the bar treats the symptom and loses the colour he chose. This is likely one
+line.
+
