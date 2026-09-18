@@ -2,9 +2,23 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T07:22:47.508Z";
+export const GENERATED_AT = "2026-09-18T07:28:04.668Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "f55bc12",
+    "when": "2026-09-18T07:27:52+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "9c1b50a",
+        "says": "The red-to-green seam, measured and held shut",
+        "when": "2026-09-18T07:23:47+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "4f37020",
     "when": "2026-09-18T07:11:57+00:00",
@@ -182,46 +196,6 @@ export const PASSES: Pass[] = [
         "id": "93e0e2e",
         "says": "A vine is a rope picked up and dropped, and a hand near it catches it",
         "when": "2026-09-17T22:28:27+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "dbeaf11",
-    "when": "2026-09-17T22:11:07+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "3410536",
-        "says": "The record says what changed about the site and nothing about the making",
-        "when": "2026-09-17T22:02:48+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "a91307a",
-        "says": "The column gets the middle; the fan hangs off it",
-        "when": "2026-09-17T21:40:36+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "090b096",
-    "when": "2026-09-17T21:56:28+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "995b3b2",
-        "says": "The fit measures every box, and there is only one way into the timeline",
-        "when": "2026-09-17T21:22:40+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "b628d43",
-        "says": "Two controls on the light panel were dead; here they are by name",
-        "when": "2026-09-17T21:15:45+00:00",
         "kind": "new"
       }
     ],
