@@ -179,7 +179,7 @@ interface Lch { l: number; c: number; h: number }
 
 const READ = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/;
 
-function lch(s: string): Lch {
+export function lch(s: string): Lch {
   const m = READ.exec(s);
   return m ? { l: +m[1]!, c: +m[2]!, h: +m[3]! } : { l: 0.3, c: 0.05, h: 150 };
 }
@@ -370,7 +370,7 @@ const ease = (x: number) => x * x * (3 - 2 * x);
  * the same thing mirrored, so the two meet at the middle at exactly the
  * same colour and with exactly the same slope, which is nought.
  */
-function along(near: Lch, far: Lch, middle: Lch, u: number): string {
+export function along(near: Lch, far: Lch, middle: Lch, u: number): string {
   const own = u <= 0.5 ? near : far;
   const s = u <= 0.5 ? u : 1 - u;
   const k = s <= HOLD ? 0 : ease(Math.min(1, (s - HOLD) / (0.5 - HOLD)));
@@ -594,7 +594,7 @@ function build(from: Point, to: Point, opts: Build) {
  * which are already darker than `char`, are not touched by the clamp at
  * all.
  */
-function dusk(a: string, z: string, floor: Lch): string {
+export function dusk(a: string, z: string, floor: Lch): string {
   const m = lch(mix(lch(a), lch(z), 0.5));
   return `oklch(${Math.min(m.l, floor.l).toFixed(3)} ${Math.min(m.c, floor.c).toFixed(3)} ${m.h.toFixed(1)})`;
 }
