@@ -53,7 +53,7 @@
  * hue and nothing else.
  */
 import * as React from "react";
-import { Brush, ChevronLeft, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, RotateCcw, Scissors, Sparkles, Wand2 } from "lucide-react";
+import { Brush, ChevronLeft, Image as ImageIcon, ChevronRight, Coins, Copy, Flag, GitBranch, Layers, ListChecks, MapPin, Pin, PinOff, RotateCcw, Scissors, Sparkles, Wand2 } from "lucide-react";
 import { play } from "@/core/audio/engine";
 import { cn } from "@/core/lib/cn";
 import { Tooltip } from "@/core/ui/tooltip";
@@ -70,6 +70,7 @@ import { SitePreview, type PreviewDoc } from "./SitePreview";
 import { chainOf, diffDocs, PROCESS, processDone, threadTitle, type Thread, type ThreadDoc, type ThreadNode } from "./threads";
 import { pictureOf } from "./reshapeRun";
 import { FORM, formOf, formVars, within } from "./formation";
+import { GENERATION } from "./threads";
 import { useStudio } from "./store";
 import { askTheBook } from "./BriefDialog";
 import { Block, themeFrom } from "./blocks";
@@ -399,9 +400,14 @@ function scatter(nodes: ThreadNode[], aspect = 2, size: { w: number; h: number }
 /** An element prompt is a drawing made real on one part; everything else is a chain prompt. */
 export const isElement = (t: Thread) => t.mode === "drawing";
 
+/** Orange, in the same oklch the rest of the board's hues are named in. */
+const GENERATION_HUE = 62;
+
 /** What kind of iteration this is, in one word and one mark. */
 function kindOf(t: Thread): { icon: React.ReactNode; kind: string } {
   switch (t.mode) {
+    case GENERATION:
+      return { icon: <ImageIcon className="size-3.5" />, kind: "a picture generated" };
     case "drawing":
       return { icon: <Brush className="size-3.5" />, kind: "element prompt" };
     case "start":
@@ -2138,8 +2144,18 @@ function IterationBox({
    * green box with the hue turned and nothing else.
    */
   const lane = thread.mode === LANE_MODE;
+  /*
+   * A picture generated is its own kind, and it is orange.
+   *
+   * HIS WORDS: "these image generations should appear in my timeline ... it
+   * should appear in a orange colored timeline box." The box is one hue with
+   * everything on it following, so this is the whole of it: the construct,
+   * the label, the frame and the chips all turn together, and an orange box
+   * is a green box with the hue turned, exactly as the azure lane box is.
+   */
+  const generated = thread.mode === GENERATION;
   return (
-    <div className="absolute" style={{ left: at.x, top: at.y, width: BOX.w, zIndex: open ? 40 : dragging ? 30 : 10, "--box-hue": lane ? 210 : 152 } as React.CSSProperties}>
+    <div className="absolute" style={{ left: at.x, top: at.y, width: BOX.w, zIndex: open ? 40 : dragging ? 30 : 10, "--box-hue": generated ? GENERATION_HUE : lane ? 210 : 152 } as React.CSSProperties}>
       {open ? <Card thread={thread} side="in" /> : null}
       {/* A surface, not a button: it carries the site, and a site inside a
           `<button>` is both invalid and unusable. */}

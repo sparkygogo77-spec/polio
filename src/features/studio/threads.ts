@@ -38,6 +38,16 @@ export interface ThreadDoc {
   motion?: unknown[];
 }
 
+/**
+ * The mode a picture generation lands under.
+ *
+ * HIS WORDS: "these image generations should appear in my timeline ... it
+ * should appear in a orange colored timeline box". Named once, here, because
+ * three places have to agree on it: the panel that lands it, the timeline
+ * that colours it, and the strip in the header that counts it.
+ */
+export const GENERATION = "generate";
+
 export interface Thread {
   id: string;
   /** The thread this one landed on top of, or null for the first. */
