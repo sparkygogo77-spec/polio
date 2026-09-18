@@ -300,3 +300,51 @@ introduced is being laid over the card.
 the bar treats the symptom and loses the colour he chose. This is likely one
 line.
 
+
+## CORRECTION: the fan is not tinting the cards. The zoom dropped.
+
+The section above was right in its numbers and wrong in its diagnosis. The
+lane had read the source and found no `mix-blend-mode`, no `backdrop-filter`,
+no z-index on the vine layers, the lane canvas `pointer-events-none` with no
+stacking context, and the boxes at zIndex 12 rendered after the lanes. It was
+right. There is no overlay.
+
+The same instrument, run on the build BEFORE the fan moved and after:
+
+                      BEFORE 1a11243        AFTER 10dc554
+    plot zoom         0.7939                0.6234
+    feature li        9px declared          9px declared
+    painted height    13.2px                10.3px
+    "Hero"            4.54:1, 24px core     3.46:1, 24px core
+    "Top bar"         5.03:1, 36px core     4.41:1, 10px core
+    "Footer"          5.10:1, 29px core     4.01:1, 24px core
+    "Join"            5.43:1, 15px core     3.50:1,  9px core
+    face              rgb(0,58,21)          rgb(0,58,21)  — IDENTICAL
+
+The ground did not move. The TEXT GOT SMALLER: the fit zooms out 21% further
+than it did, so 9px text paints 10.3px tall instead of 13.2px, and the core
+pixel counts collapse with it — "Top bar" from 36 pixels of core to 10.
+
+At that size a glyph stem is about a pixel wide and nearly every pixel is a
+blend of ink and ground. `ink-on-cards` cuts its "core" at 0.7 of the largest
+difference in the patch, which does not separate ink from antialiasing at
+10px, so what it reports as the ink is a mixture of ink and ground — darker
+by exactly the amount the antialiasing contributes. The declared ink,
+`oklch(0.95 0.07 152)`, never changed.
+
+**Both halves are true.** The fan's change DID move the number, so the check
+is not reading a pre-existing state — but not by laying anything over the
+card. It moved it by zooming out. And the check IS at fault, in that it
+cannot measure 9px text honestly and reports antialiasing as dimmer ink.
+
+**So neither fix in the note above is the right one.** Do not hunt a tint;
+there is none. Do not move the ink; it is unchanged and correct. The two real
+questions are whether the fit should zoom out this far on this board, which
+is the owner's to answer, and whether `ink-on-cards` should read a mark whose
+painted size leaves it no core — an instrument question and a different
+commit.
+
+**The rule this leaves.** "Ground unchanged, ink darker, nothing behind it"
+does NOT imply an overlay. Smaller text produces exactly that signature
+through antialiasing. Before calling a contrast drop an overlay, read the
+painted size of the mark and the zoom, not only the colours.
