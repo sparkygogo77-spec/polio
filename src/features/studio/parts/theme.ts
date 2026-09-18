@@ -371,3 +371,46 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
   }
   return next;
 }
+
+/**
+ * A crop of the one picture, for a part that is holding nothing yet.
+ *
+ * EIGHTEEN TILES IN THE SHELF DREW AN EMPTY FRAME, because a part whose job
+ * is to hold a picture has none until somebody gives it one, and a category
+ * of grey rectangles is why he could not tell what any element was.
+ *
+ * There is one picture in the repository and every placeholder is a crop of
+ * it. The crop is chosen from the part's own name, so it is the same crop for
+ * the same part every time — a still board stays still — and different parts
+ * take different parts of the field, so a row of them does not read as the
+ * same photograph five times.
+ *
+ * It never covers a picture somebody has actually put there: this is only
+ * ever the `else` of a part that has nothing.
+ */
+export const STAND_IN = "/placeholder/scene.svg";
+
+export function standIn(key: string): React.CSSProperties {
+  let n = 0;
+  for (let i = 0; i < key.length; i++) n = (n * 31 + key.charCodeAt(i)) >>> 0;
+  /*
+   * Across the field, and only across the lit band of it.
+   *
+   * The first pass let the crop wander the full height and half of them
+   * landed in the near ridge, which is nearly black \u2014 at the size a shelf
+   * tile is, a crop of the dark ground is a grey rectangle again, which is
+   * the thing this is here to stop. So the window stays where the light is:
+   * sky, cloud, the sun on the horizon and the top of the field.
+   */
+  /* `>>>`, not `>>`: a signed shift on a value made unsigned goes negative
+     above 2^31, and a negative modulo put one crop at `57% -31%` \u2014 off the
+     top of the picture, which paints nothing. */
+  const across = 10 + (n % 80);
+  const down = 6 + ((n >>> 7) % 46);
+  return {
+    backgroundImage: `url(${STAND_IN})`,
+    backgroundSize: "cover",
+    backgroundPosition: `${across}% ${down}%`,
+    backgroundRepeat: "no-repeat",
+  };
+}
