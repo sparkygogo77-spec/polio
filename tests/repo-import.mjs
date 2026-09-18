@@ -21,7 +21,6 @@
  *   node tests/repo-import.mjs [url]
  */
 import { createRequire } from "node:module";
-import { createServer } from "node:http";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -38,94 +37,28 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-/* ---------------------------------------------------- GitHub, stood in for */
-const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
-const REPOS = {
-  "him/his-site": {
-    tree: [
-      { path: "index.html", type: "blob" },
-      { path: "style.css", type: "blob" },
-      { path: "photo.png", type: "blob" },
-      { path: "README.md", type: "blob" },
-    ],
-    files: { "index.html": "<h1>His other site</h1>", "style.css": "h1{color:red}", "photo.png": "x" },
-  },
-  "him/his-sources": {
-    tree: [
-      { path: "package.json", type: "blob" },
-      { path: "src/app/page.tsx", type: "blob" },
-      { path: "next.config.ts", type: "blob" },
-    ],
-    files: {},
-  },
-  "him/his-nothing": { tree: [{ path: "NOTES", type: "blob" }], files: {} },
-};
+/*
+ * NOTHING HERE CALLS GITHUB, AND THAT IS THE POINT.
+ *
+ * The first version of this file stood a GitHub in and pointed a route of its
+ * own at it \u2014 because the first version of the feature fetched the
+ * repository server-side. That was a duplicate of `repoImport.ts` and
+ * `repoRun.ts`, which already do it a better way: the files are fetched by
+ * the browser with his own token and packed into a zip there, so nothing
+ * about the token reaches our server. The duplicate is gone.
+ *
+ * What was missing was never the import. It was the way in: the importer sits
+ * on a drawn space's panel, so the only way to reach it was to draw a space
+ * first. So what is checked here is the door \u2014 that it is in the repo
+ * control, that it refuses a name that is not one before doing anything, and
+ * that pressing it makes the surface and hands the repository over.
+ */
+import { readRepo, repoName, REPO_REFUSAL_SAYS } from "../src/features/studio/repoImport.ts";
 
-const stub = createServer((r, res) => {
-  const url = new URL(r.url, "http://x");
-  const send = (code, body) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
-  let m;
-  if ((m = url.pathname.match(/^\/repos\/([^/]+\/[^/]+)$/))) {
-    return REPOS[m[1]] ? send(200, { default_branch: "main", full_name: m[1] }) : send(404, { message: "Not Found" });
-  }
-  if ((m = url.pathname.match(/^\/repos\/([^/]+\/[^/]+)\/git\/trees\//))) {
-    return REPOS[m[1]] ? send(200, { tree: REPOS[m[1]].tree }) : send(404, { message: "Not Found" });
-  }
-  if ((m = url.pathname.match(/^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/))) {
-    const body = REPOS[m[1]]?.files[decodeURIComponent(m[2])];
-    return body === undefined ? send(404, { message: "Not Found" }) : send(200, { content: b64(body), encoding: "base64" });
-  }
-  if (url.pathname === "/user") return send(200, { login: "him" });
-  if (url.pathname === "/user/repos") return send(200, Object.keys(REPOS).map((full_name) => ({ full_name, private: true, pushed_at: "2026-01-01T00:00:00Z" })));
-  return send(404, { message: "Not Found" });
-});
-await new Promise((r, bad) => { stub.on("error", bad); stub.listen(Number(process.env.STUB_PORT ?? 4319), "127.0.0.1", r); });
-
-/* ------------------------------------------------------ what the route says */
-const bring = async (repo) => {
-  const res = await fetch(`${URL_BASE}/api/studio/repo?repo=${encodeURIComponent(repo)}`, { method: "PUT", headers: { "x-github-token": "ghp_00000000000000000000000000000000TEST" } });
-  return res.json();
-};
-
-const site = await bring("him/his-site");
-check(
-  "a repo with a page in it comes in, with the page and what it needs",
-  site.ok === true && site.entry === "index.html" && (site.files ?? []).length >= 2,
-  site.ok ? `${site.entry}, ${(site.files ?? []).length} files: ${(site.files ?? []).map((f) => f.name).join(", ")}` : `${site.reason}: ${site.message}`,
-);
-check(
-  "and it leaves behind what a page does not need",
-  site.ok === true && !(site.files ?? []).some((f) => /README/i.test(f.name)),
-  (site.files ?? []).map((f) => f.name).join(", "),
-);
-
-const sources = await bring("him/his-sources");
-check(
-  "a repo of unbuilt sources says so, rather than failing somewhere further down",
-  sources.ok === false && sources.reason === "sources",
-  `${sources.reason}: ${sources.message}`,
-);
-check(
-  "and it says what to do about it",
-  typeof sources.message === "string" && /build/i.test(sources.message),
-  sources.message,
-);
-
-const nothing = await bring("him/his-nothing");
-check(
-  "a repo with nothing to open is a different answer from one full of sources",
-  nothing.ok === false && nothing.reason === "no-page" && nothing.reason !== sources.reason,
-  `${nothing.reason}: ${nothing.message}`,
-);
-
-const missing = await bring("him/not-a-repo");
-check(
-  "a repo that is not there, or not visible to this token, says which",
-  missing.ok === false && missing.reason === "missing",
-  `${missing.reason}: ${missing.message}`,
-);
-const bad = await bring("notarepo");
-check("and a name that is not owner/name is refused before GitHub is troubled", bad.ok === false && bad.reason === "name", bad.message);
+check("a name that is not owner/name is not a repo", readRepo("notarepo") === null);
+check("and one that is, is read whole", (() => { const r = readRepo("him/his-site"); return !!r && repoName(r).includes("his-site"); })(), JSON.stringify(readRepo("him/his-site")));
+check("an address of one is read too, so pasting the page he is looking at works", !!readRepo("https://github.com/him/his-site"), JSON.stringify(readRepo("https://github.com/him/his-site")));
+check("and a refusal has words for every way it can fail", Object.values(REPO_REFUSAL_SAYS).every((v) => typeof v === "string" && v.length > 20), Object.keys(REPO_REFUSAL_SAYS).join(", "));
 
 /* ------------------------------------------------------------- reachable */
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
@@ -145,10 +78,23 @@ if (await panel.count()) {
       && (await panel.locator("[data-repo-connect]").count()) >= 0 && (await panel.locator("[data-repo-new]").count()) === 1,
     "bring, connect and make are one control",
   );
+
+  /* A name that is not one is refused where he typed it, and nothing is made. */
+  const spacesBefore = await page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.spaces ?? []).length);
+  await panel.locator("[data-repo-bring]").fill("notarepo");
+  await page.waitForTimeout(200);
+  /* Pressed on the element itself: a popover's own overlay swallows a real
+     click, and what is being checked is what the button does, not whether
+     Playwright can reach through a portal. */
+  await panel.locator("[data-repo-pull]").evaluate((el) => el.click());
+  await page.waitForTimeout(700);
+  const says = await panel.locator("[data-repo-said]").innerText().catch(() => "");
+  const spacesAfter = await page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.spaces ?? []).length);
+  check("a name that is not one is refused where he typed it", says.trim().length > 10, says.trim().slice(0, 90));
+  check("and nothing is made on the board for it", spacesAfter === spacesBefore, `${spacesBefore} spaces before, ${spacesAfter} after`);
 }
 
 await browser.close();
-await new Promise((r) => stub.close(r));
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);
 process.exit(failed ? 1 : 0);

@@ -111,6 +111,26 @@ export function FromASite({ space }: { space: Space }) {
    * way in, and handed to the route that already opens zips. From that
    * line down it is the zip path exactly, which is why this is short.
    */
+  /*
+   * A repository handed over by the GitHub control.
+   *
+   * That control makes the surface and names the repository; this picks it
+   * up, fills the box in and starts, so pressing "Bring it" up there is the
+   * whole gesture rather than the first half of one. Cleared as it is taken,
+   * because it is a handover and not a setting: opening this panel again
+   * must not re-import anything.
+   */
+  const handed = useStudio((st) => st.bringRepo);
+  React.useEffect(() => {
+    if (!handed || handed.space !== space.id) return;
+    useStudio.getState().setBringRepo(null);
+    setRepoText(handed.repo);
+    /* After the paint that puts it in the box, so what runs is what he can
+       see in it. */
+    const t = window.setTimeout(() => { void readRepository(); }, 0);
+    return () => window.clearTimeout(t);
+  }, [handed, space.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const readRepository = async () => {
     if (!repo) return;
     play("tick");
