@@ -29,6 +29,7 @@ import { useBuilds } from "@/features/builds/store";
 import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys } from "@/features/keys/store";
+import { readRepo, repoName, REPO_REFUSAL_SAYS } from "@/features/studio/repoImport";
 
 /**
  * The GitHub mark.
@@ -196,29 +197,39 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
   /**
    * Bring one of his other sites in.
    *
-   * The same control, because it is the same question: which repository are
-   * we talking about. What comes back is a page and the things it needs, in
-   * the shape the zip path already understands, and the recreate flow turns
-   * it into ordinary parts from there.
+   * THIS DOES NOT FETCH ANYTHING ITSELF, and the first version of it did,
+   * which was a mistake worth naming. `repoImport.ts` and `repoRun.ts`
+   * already do this, and they do it a better way: the files are fetched
+   * **by the browser, with his own token**, packed into a zip there, and
+   * handed to the zip route \u2014 so nothing about the token ever reaches our
+   * server. A second copy that fetched them server-side would have sent his
+   * token across for no gain.
    *
-   * A repository with no page in it is told so in words \u2014 and told WHICH
-   * kind of nothing it is, because "it is sources rather than a built site"
-   * is a different answer from "it is empty" and only one of them has an
-   * obvious next move.
+   * What was actually missing was not the import. It was the way IN: the
+   * importer lives on a drawn space's panel, so the only way to reach it was
+   * to draw a space first. So this is a door. It checks the name, makes the
+   * surface the site will land on, and opens the importer on it with the
+   * repository already filled in.
    */
-  const bringIn = async () => {
+  const bringIn = () => {
     const want = bring.trim();
     if (!want || pulling) return;
+    const repo = readRepo(want);
+    if (!repo) { setSaid(REPO_REFUSAL_SAYS["not-a-repo"]); return; }
+    if (!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN) { setSaid(REPO_REFUSAL_SAYS["no-token"]); return; }
     setPulling(true);
-    setSaid(null);
     try {
-      const res = await fetch(`/api/studio/repo?repo=${encodeURIComponent(want)}`, { method: "PUT", headers: token(), cache: "no-store" });
-      const r = (await res.json()) as { ok?: boolean; entry?: string; files?: { name: string }[]; message?: string; reason?: string };
-      if (!r.ok) { setSaid(r.message ?? "That repo could not be read."); return; }
-      setSaid(`${want}: ${r.entry}, with ${(r.files ?? []).length - 1} file${(r.files ?? []).length === 2 ? "" : "s"} it needs. Opening it\u2026`);
-      window.dispatchEvent(new CustomEvent("studio:bring-repo", { detail: r }));
-    } catch (err) {
-      setSaid(`Could not reach GitHub: ${err instanceof Error ? err.message : String(err)}`);
+      /* The surface it lands on, made here so he does not have to draw one
+         first. The importer resizes it to the page's own proportion. */
+      const st = useStudio.getState();
+      const id = st.addSpace({
+        pageId: st.activePageId,
+        boundary: [[240, 160], [1240, 160], [1240, 860], [240, 860]],
+        prompt: "",
+        label: repoName(repo),
+      });
+      st.setBringRepo({ space: id, repo: want });
+      onDone();
     } finally {
       setPulling(false);
     }

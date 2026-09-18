@@ -724,6 +724,18 @@ interface StudioState extends Doc {
   /** A closed line becomes a space, and starts consuming its area at once. Returns its id. */
   addSpace: (space: Omit<Space, "id" | "at" | "since"> & Partial<Pick<Space, "since">>) => string;
   /**
+   * A repository somebody asked for from the GitHub control, and the surface
+   * it is to land on.
+   *
+   * The importer lives on a space's own panel, so the only way to reach it
+   * was to draw a space first. This is how the control on the top bar hands
+   * one over: it makes the surface, names the repository, and the panel that
+   * opens on that surface picks it up and starts. Not persisted \u2014 it is a
+   * handover, not a setting, and a reload should not re-import anything.
+   */
+  bringRepo: { space: string; repo: string } | null;
+  setBringRepo: (v: { space: string; repo: string } | null) => void;
+  /**
    * Make the surface: lock every element in it where it was drawn, and set
    * it forming. The layout is the specification, so this is where it stops
    * being a set of coordinates and becomes a proportion.
@@ -1580,6 +1592,8 @@ export const useStudio = create<StudioState>()(
           set((s) => ({ shapes: s.shapes.filter((sh) => !set_.has(sh.id)), selection: s.selection.filter((id) => !set_.has(id)) }));
         },
 
+        bringRepo: null,
+        setBringRepo: (v) => set({ bringRepo: v }),
         addSpace: (space) => {
           const id = uid("sp");
           push();
