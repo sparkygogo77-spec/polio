@@ -1526,10 +1526,23 @@ export function Timeline() {
       c.clearRect(r.x, r.y, r.w, r.h);
     }
     c.clip();
-    for (const v of want.values()) {
-      if (!dirty.some((r) => hits(r, v.box))) continue;
+    /*
+     * Every shadow, then every body.
+     *
+     * A vine painting itself whole lays its own shadow over whatever is
+     * already on the board, and the shadow is nearly black \u2014 so a vine that
+     * happens to be drawn second smears a dark band across one drawn first,
+     * and a pile of crossings comes out darker than any vine in it. Two
+     * passes and a shadow falls on the ground, where it belongs.
+     */
+    const show = [...want.values()].filter((v) => dirty.some((r) => hits(r, v.box)));
+    for (const v of show) {
+      if (v.rim) continue;
+      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow, tug: v.tug, cut: v.cut, pass: "shadow" });
+    }
+    for (const v of show) {
       if (v.rim) { paintRim(c, v.rim); continue; }
-      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow, tug: v.tug, cut: v.cut });
+      paintStrand(c, v.from, v.to, { tone: v.tone, ends: v.ends, grow: v.grow, tug: v.tug, cut: v.cut, pass: "body" });
     }
     c.restore();
 
