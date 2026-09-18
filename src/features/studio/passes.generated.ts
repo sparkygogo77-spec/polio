@@ -2,9 +2,23 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T07:28:04.668Z";
+export const GENERATED_AT = "2026-09-18T08:19:35.315Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "37d3fc9",
+    "when": "2026-09-18T08:19:29+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "2451d87",
+        "says": "The line down the middle of every vine was in the ramp",
+        "when": "2026-09-18T08:19:00+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "f55bc12",
     "when": "2026-09-18T07:27:52+00:00",
@@ -176,26 +190,6 @@ export const PASSES: Pass[] = [
         "id": "08ff465",
         "says": "The column decides the zoom too; the fan is drawn where it falls",
         "when": "2026-09-17T23:51:26+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "6e1e3cb",
-    "when": "2026-09-17T23:21:42+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "be1f448",
-        "says": "No part of the column is ever outside the frame",
-        "when": "2026-09-17T23:03:58+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "93e0e2e",
-        "says": "A vine is a rope picked up and dropped, and a hand near it catches it",
-        "when": "2026-09-17T22:28:27+00:00",
         "kind": "new"
       }
     ],
