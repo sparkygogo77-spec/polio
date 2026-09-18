@@ -140,11 +140,28 @@ export function settleView(
    * CENTRE AND THE ZOOM. The fan is drawn where it falls and may overhang
    * or be clipped."
    *
-   * So `weigh`, when it is given, is the column, and it decides all of it:
-   * the middle, the zoom, and what the pan is held on both ways. `boxes` is
-   * then only what there is when nobody has named a column. The fan is
-   * still kept off the band by the caller, and that shove is still not
-   * allowed to push the column off the top — nothing is.
+   * And then his ruling on what that cost, which completes it: "no. Bring it
+   * back out where it can be seen. Furniture may overhang, but it may not
+   * disappear. Something hidden under an opaque band reads as absent, and
+   * absent is a lie about the board. 173px of fan gone at his size is worse
+   * than 173px of fan sticking out."
+   *
+   * THE ORDER, COMPLETE, and this function is where the first three live:
+   *
+   *   1. No part of the column is ever outside the frame.
+   *   2. No part of the fan is ever under the band.
+   *   3. Subject to those, the column is centred in the room and fills it
+   *      as fully as it can.
+   *   4. If all three cannot hold, the fan overhangs to the RIGHT, visibly.
+   *
+   * Which cuts one way on each axis, and that is the whole of it. ACROSS,
+   * the column decides: its middle is the middle, its width sets the zoom's
+   * width term, and the pan is held on it, so the fan is free to hang off
+   * the right where a person can see it. DOWN, everything decides: the fan
+   * stacks three lanes around the last box and reaches below it, so the
+   * union's height sets the zoom's height term and the pan is held on the
+   * union, which is what keeps the lowest lane above the band. There is no
+   * right-hand edge to disappear behind; there is a band along the foot.
    */
   const middle = opts.weigh?.length ? opts.weigh : boxes;
   let mass = 0;
@@ -169,6 +186,21 @@ export function settleView(
   if (!Number.isFinite(wide0) || !mass) return null;
 
   /*
+   * And how far the whole of it reaches DOWN, fan included.
+   *
+   * The same loop over `boxes` rather than over the column, because rule 2
+   * is about the thing the column does not contain. When nobody named a
+   * column these are the same numbers.
+   */
+  let deep0 = Infinity;
+  let deep1 = -Infinity;
+  for (const b of boxes) {
+    deep0 = Math.min(deep0, b.y);
+    deep1 = Math.max(deep1, b.y + Math.max(1, b.h));
+  }
+  if (!Number.isFinite(deep0)) { deep0 = tall0; deep1 = tall1; }
+
+  /*
    * THE COLUMN'S CENTRE, not its centre of mass.
    *
    * His words are "the column's centre sits as near the room's centre as it
@@ -179,9 +211,9 @@ export function settleView(
    * still what decides there IS something to weigh.
    */
   const com = opts.weigh?.length
-    ? { x: (wide0 + wide1) / 2, y: (tall0 + tall1) / 2 }
+    ? { x: (wide0 + wide1) / 2, y: (deep0 + deep1) / 2 }
     : { x: mx / mass, y: my / mass };
-  const span = { w: Math.max(1, wide1 - wide0), h: Math.max(1, tall1 - tall0) };
+  const span = { w: Math.max(1, wide1 - wide0), h: Math.max(1, deep1 - deep0) };
   const room = { w: Math.max(1, view.w - margin * 2), h: Math.max(1, view.h - margin * 2) };
   /*
    * The whole set decides the zoom — and then the floor gives if the column
@@ -205,13 +237,18 @@ export function settleView(
    * protected from.
    */
   const floor = opts.weigh?.length ? Math.min(min, Math.min(room.w / span.w, room.h / span.h)) : min;
+  /* `tall0`/`tall1` are the column's own reach down, kept for nothing but
+     this: when the two disagree it is the fan reaching past the column, and
+     that difference is what rule 2 is spending zoom on. */
+  void tall0;
+  void tall1;
   const zoom = Math.min(max, Math.max(floor, wanted));
 
   return {
     zoom,
     pan: {
       x: hold(view.w / 2 - com.x * zoom, wide0 * zoom, wide1 * zoom, view.w, margin),
-      y: hold(view.h / 2 - com.y * zoom, tall0 * zoom, tall1 * zoom, view.h, margin),
+      y: hold(view.h / 2 - com.y * zoom, deep0 * zoom, deep1 * zoom, view.h, margin),
     },
   };
 }

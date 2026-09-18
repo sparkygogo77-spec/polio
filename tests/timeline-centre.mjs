@@ -287,13 +287,11 @@ const edges = () => page.evaluate(() => {
     const band = document.querySelector("[data-studio-band]");
     const bandTop = band ? band.getBoundingClientRect().top : window.innerHeight;
     const bar = document.querySelector("[data-studio-pane]").getBoundingClientRect().top;
-    /* THE COLUMN, not the set. The lanes were part of what the fit held and
-       so were part of what "between the two edges" was measured on. They are
-       not any more — "the fan is drawn where it falls and may overhang or be
-       clipped" — so measuring them here read the fan hanging 105px below the
-       band and called the column badly placed. What is between the two edges
-       is the thing he is reading. */
-    const set = [...document.querySelectorAll("[data-box]")].map((e) => e.getBoundingClientRect());
+    /* The set, fan included, because the fan is what the fit holds DOWN the
+       page again: rule 2 says no part of it may be under the band, so it is
+       part of what is placed between the two edges. Across is the column's
+       alone — there is no right-hand edge to disappear behind. */
+    const set = [...document.querySelectorAll("[data-box], [data-lane], [data-lane-box]")].map((e) => e.getBoundingClientRect());
     if (!set.length) return null;
     const top = Math.min(...set.map((b) => b.top));
     const bottom = Math.max(...set.map((b) => b.bottom));
@@ -520,31 +518,37 @@ for (const [w, h] of [[1024, 768], [1546, 1278]]) {
       boxes: set.length,
     };
   });
-  check(`${w}x${h}: no box is above the frame's own top edge`, seen.above === 0, `${seen.above}px outside it, ${seen.boxes} boxes`);
-  check(`${w}x${h}: and the set is at the middle of the room`, Math.abs(seen.offRoomY) < seen.room * 0.2,
+  /*
+   * THE COUNT FIRST, ALWAYS.
+   *
+   * `Math.max()` of nothing is -Infinity, so "how far past the edge" comes
+   * back 0 on a board with no boxes on it and every check below this one
+   * passes over an empty set. He found the same shape from the other end
+   * tonight: the box eyebrow is uppercased by CSS, so a selector matching
+   * "AN UPDATE" against `textContent` — which returns "an update" — finds
+   * nothing, and the assertions that follow are green about nothing. A
+   * suite that lies is worse than no suite.
+   */
+  check(`${w}x${h}: there are boxes on the board to measure`, seen.boxes > 0, `${seen.boxes} boxes`);
+  check(`${w}x${h}: no box is above the frame's own top edge`, seen.boxes > 0 && seen.above === 0, `${seen.above}px outside it, ${seen.boxes} boxes`);
+  check(`${w}x${h}: and the set is at the middle of the room`, seen.boxes > 0 && Math.abs(seen.offRoomY) < seen.room * 0.2,
     `${seen.offRoomY}px off the middle of a ${seen.room}px room`);
-  check(`${w}x${h}: and the column is at the middle across`, Math.abs(seen.offX) < 40,
+  check(`${w}x${h}: and the column is at the middle across`, seen.boxes > 0 && Math.abs(seen.offX) < 40,
     `${seen.offX}px off the middle of a ${seen.wide}px frame`);
   /*
-   * THE FAN GIVES, INCLUDING DOWNWARD. Superseded, and recorded rather
-   * than deleted, because it was the right rule under the ruling it was
-   * written for and he may want it back.
+   * AND NOTHING IS UNDER THE BAND, fan included.
    *
-   * It read: the fan may overhang to the right, but may never go under the
-   * band along the foot. That held while the whole set decided the zoom —
-   * there was always slack to shove the fan up into. The column decides
-   * the zoom now, at his word: "the fan is furniture. It should not decide
-   * where the column sits, and for exactly the same reason it should not
-   * decide how far out the view zooms… the fan is drawn where it falls and
-   * may overhang or be clipped." With the column filling its room there is
-   * no slack left, so the shove has nothing to give and the lanes go under
-   * the band: 46px at 1024x768 and 173px at 1546x1278.
-   *
-   * So what is checked is what outranks it: the column is never under the
-   * band, whatever that costs the fan.
+   * He wanted it back and said why in one line: "furniture may overhang, but
+   * it may not disappear. Something hidden under an opaque band reads as
+   * absent, and absent is a lie about the board. 173px of fan gone at his
+   * size is worse than 173px of fan sticking out." It went 46px under at
+   * 1024x768 and 173px under at 1546x1278 while the column alone decided the
+   * zoom on both axes. The column decides ACROSS and everything decides
+   * DOWN, so the fan pays for its own height and hangs off the right, where
+   * there is no edge to disappear behind.
    */
-  check(`${w}x${h}: and the column is never under the band, whatever it costs the fan`,
-    seen.colUnder === 0, `column ${seen.colUnder}px under it, fan ${seen.laneUnder}px under it`);
+  check(`${w}x${h}: and nothing is under the band, the fan included`,
+    seen.boxes > 0 && seen.colUnder === 0 && seen.laneUnder === 0, `column ${seen.colUnder}px under it, fan ${seen.laneUnder}px under it`);
   await fresh.close();
 }
 
