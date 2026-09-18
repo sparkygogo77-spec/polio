@@ -249,7 +249,7 @@ const BANDS = 10;
 const CLOUD_IN = 1;
 const CLOUD_OUT = BANDS - 1;
 
-function section(bark: Bark): string[] {
+export function section(bark: Bark): string[] {
   const core = lch(bark.core);
   const char = lch(bark.char);
   const deep = lch(bark.deep);
@@ -262,8 +262,25 @@ function section(bark: Bark): string[] {
     // The axis: no groove. The core band read as a line running down the
     // middle of every vine, his words, so the middle is char with a little
     // of the core in it and the ribbon reads as one painted body.
+    /*
+     * THE LINE DOWN THE MIDDLE, AND IT WAS IN THE RAMP.
+     *
+     * The axis was taken off the core a while ago and he could still see a
+     * line, because the band after it started over. Inside a tenth the
+     * colour is three quarters of the way from `core` to `char`; from a
+     * tenth it was `mix(core, char, (t - 0.10) / 0.20)`, which at a tenth is
+     * `mix(core, char, 0)` \u2014 PURE CORE, the darkest thing in the section.
+     * So the middle lifted, dropped straight back to black either side of
+     * itself, and climbed again: a dark stripe down the axis of every vine,
+     * which is a scored line however it got there.
+     *
+     * It carries on from where it was instead. The first tenth ends at 0.75
+     * of the way to `char`, so the next stretch runs 0.75 to 1 rather than 0
+     * to 1, and there is nowhere in the section where the colour goes back
+     * the way it came.
+     */
     if (t < 0.10) out.push(mix(core, char, 0.75));
-    else if (t < 0.30) out.push(mix(core, char, (t - 0.10) / 0.20));
+    else if (t < 0.30) out.push(mix(core, char, 0.75 + ((t - 0.10) / 0.20) * 0.25));
     else if (t < 0.70) out.push(mix(char, deep, (t - 0.30) / 0.40));
     // The rim's inner glow: the face, warmed towards the rim rather than
     // jumping to it, which is the `inset 0 0 10px -4px` at a third.
