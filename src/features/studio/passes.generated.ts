@@ -2,9 +2,23 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-17T23:21:50.875Z";
+export const GENERATED_AT = "2026-09-18T00:32:58.266Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "00504e9",
+    "when": "2026-09-18T00:32:49+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "08ff465",
+        "says": "The column decides the zoom too; the fan is drawn where it falls",
+        "when": "2026-09-17T23:51:26+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "6e1e3cb",
     "when": "2026-09-17T23:21:42+00:00",
@@ -340,33 +354,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 1
-  },
-  {
-    "id": "c222207",
-    "when": "2026-09-16T03:37:34+00:00",
-    "day": "16 September",
-    "changes": [
-      {
-        "id": "c222207",
-        "says": "The fit has its own floor, because the key's floor put the page off a phone",
-        "when": "2026-09-16T03:37:34+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "c55d9f4",
-    "when": "2026-09-16T03:37:29+00:00",
-    "day": "16 September",
-    "changes": [
-      {
-        "id": "42208f9",
-        "says": "Adding a low element no longer shrinks the whole site",
-        "when": "2026-09-15T20:39:50+00:00",
-        "kind": "fixed"
-      }
-    ],
-    "more": 0
   }
 ];
