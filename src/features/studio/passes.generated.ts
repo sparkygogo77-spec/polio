@@ -2,9 +2,29 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T06:23:15.254Z";
+export const GENERATED_AT = "2026-09-18T07:12:13.813Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "4f37020",
+    "when": "2026-09-18T07:11:57+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "35d76d7",
+        "says": "One picture for every placeholder, and the reason they were grey",
+        "when": "2026-09-18T07:07:38+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "7991437",
+        "says": "The page scrolls under a carried part, and its foot holds still",
+        "when": "2026-09-18T06:40:38+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
   {
     "id": "15f7458",
     "when": "2026-09-18T06:23:04+00:00",
@@ -266,19 +286,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 1
-  },
-  {
-    "id": "b807be2",
-    "when": "2026-09-17T19:05:08+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "6dedfbb",
-        "says": "A surface is a page",
-        "when": "2026-09-17T18:24:40+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
   }
 ];
