@@ -28,7 +28,8 @@ import { IterationBook } from "./BriefDialog";
 import { headlineOf, Drawn, Made } from "./Timeline";
 import { diffDocs, threadTitle, type Thread } from "./threads";
 import { sayBill } from "./spend";
-import { useStudio } from "./store";
+import { money, RENDER_COST } from "./renderer";
+import { useStudio, type StudioNode } from "./store";
 import { AuditPanel, AuditReadout } from "./AuditPanel";
 import { Backend } from "./Backend";
 import { cn } from "@/core/lib/cn";
@@ -128,7 +129,7 @@ export function TimelineDetail() {
   return (
     <section
       data-timeline-detail=""
-      className="flex h-full w-full flex-col overflow-hidden border-t"
+      className="flex w-full flex-col border-t"
       style={{ background: FIELD.face, borderColor: FIELD.rim }}
     >
       {/* Two menus, side by side and separate: this iteration, and the site. */}
@@ -153,26 +154,45 @@ export function TimelineDetail() {
         ) : null}
       </div>
 
-      {/* The backend surface scrolls its own thread and holds its boxes
-          still, so it is not put inside the scroller the other two share. */}
+      {/*
+        NO SCROLLER IN HERE.
+
+        HIS WORDS: "just make it so the contents are always full size and show
+        fully and scrolling down i can go down and see them without a scroll
+        bar bothering the side of the screen, away from the timeline, and
+        scrolling back up the timeline comes back into full view as it is
+        currently."
+
+        This was a fixed-height band with `overflow-y-auto` inside it, which
+        is the small box he had to scroll for every point, with its bar down
+        the edge of the screen. The contents stand at their full height now
+        and the band is as tall as they are; the one wheel that already runs
+        from the board into the categories carries on from the timeline into
+        them, and back up brings the timeline whole again because nothing
+        under it ever took the wheel.
+
+        The backend is the exception and keeps a surface of its own: it is a
+        live transcript rather than a page of text, and standing it at full
+        height would put the prompt box a screen away from the thread.
+      */}
       {tab === "backend" ? (
         <div className="min-h-0 flex-1">
           <Backend />
         </div>
       ) : (
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === "book" ? (
-          // Unchanged, and in its own tab: same fields, same screen face,
-          // same words. Only where it lives has moved.
-          <IterationBook />
-        ) : open ? (
-          <Iteration thread={open} />
-        ) : (
-          <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
-            Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to. Press "this iteration" on a box to work in it, and this follows it.
-          </p>
-        )}
-      </div>
+        <div className="min-h-0 flex-1">
+          {tab === "book" ? (
+            // Unchanged, and in its own tab: same fields, same screen face,
+            // same words. Only where it lives has moved.
+            <IterationBook />
+          ) : open ? (
+            <Iteration thread={open} />
+          ) : (
+            <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
+              Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to. Press "this iteration" on a box to work in it, and this follows it.
+            </p>
+          )}
+        </div>
       )}
     </section>
   );
@@ -480,6 +500,43 @@ function Convert({ skin, label, icon, blurb, onClick, disabled }: { skin: Skin; 
  * before it and not the one being worked in. Click another card and this
  * is that one instead.
  */
+/**
+ * One of his three lines, as a block.
+ *
+ * Numbered on screen because he asked for one place to complete step 1 2 and
+ * 3, and a step with no number is a section: the count is the thing that says
+ * this is a route through, not a list of panels.
+ */
+function Step({ mark, n, says, skin, children }: { mark: "say" | "make" | "take"; n: number; says: string; skin: Skin; children: React.ReactNode }) {
+  return (
+    <section data-panel-block={mark} className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span
+          className="num grid size-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold"
+          style={{ background: skin.lit, color: skin.face }}
+        >
+          {n}
+        </span>
+        <span className="text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{says}</span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * What the next run will cost, said before the press.
+ *
+ * A real number when the part's own plan names models that charge by the
+ * press; otherwise the honest answer, which is that nothing here spends until
+ * a model that charges is chosen.
+ */
+function priceAhead(made: StudioNode | null): string {
+  const steps = made?.plan?.steps?.length ?? 0;
+  if (!steps) return "Nothing is spent until you pick something that charges.";
+  return `About ${money(RENDER_COST.raster * steps)} on your own key, for ${steps} pass${steps === 1 ? "" : "es"}.`;
+}
+
 export function TimelinePanel() {
   const openId = useStudio((s) => s.openThreadId);
   const threads = useStudio((s) => s.threads);
@@ -532,36 +589,34 @@ export function TimelinePanel() {
         <p className="line-clamp-2 text-[12px] font-medium leading-snug" style={{ color: skin.text }}>{threadTitle(open)}</p>
         <p className="mt-0.5 text-[10px]" style={{ color: skin.dim }}>{open.mode}</p>
       </div>
-      <Block
-        head="Input"
-        text={open.ask}
-        what="the prompt"
-        show={open.sketch?.strokes?.length ? (
-          <span className="flex items-center justify-center"><Drawn sketch={open.sketch} size={72} tone={skin.lit} /></span>
-        ) : null}
-      />
-      <Block
-        head="Output"
-        text={open.answer}
-        what="the answer"
-        show={open.madeId ? <Made thread={open} skin={skin} width={186} height={120} live /> : null}
-      />
-      {/*
-        Where the next pass goes. This is the panel a person is looking at
-        when they want to change the model, and until now the only way to
-        reach that was to leave the timeline, find the part on the board and
-        open its Element tab — which is a long way round from the card that
-        told you the model was wrong.
 
-        It is the same `AuditPanel` the left panel carries, writing the same
-        `node.plan`, so the two say the same thing about the same part. An
-        update with no part of its own gets the readout: a chain prompt made
-        no one thing, so there is nothing to hold a setting.
+      {/*
+        HIS THREE LINES, READ BACK TO HIM AND APPROVED, IN HIS OWN WORDS:
+
+          say what this thing should be, and show me the drawing if i drew one
+          pick what makes it, and tell me what it costs before i press anything
+          press make, and when it comes back put it on the page
+
+        And nothing else in here. What went: a second copy of the route
+        choice, which used to live both here and under the timeline writing
+        the same setting, so the same question was asked twice on one screen;
+        the bill line, because what a thing cost after the fact is not what he
+        needs when he is deciding whether to press; and the book, which is
+        about the whole site rather than this one thing.
       */}
-      <section data-panel-block="route" className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
-        <span className="mb-1.5 block text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>
-          Where the next pass goes
-        </span>
+
+      {/* ONE. Say what this thing should be. */}
+      <Step mark="say" n={1} says="Say what this should be" skin={skin}>
+        {open.sketch?.strokes?.length ? (
+          <span className="mb-1.5 flex items-center justify-center"><Drawn sketch={open.sketch} size={72} tone={skin.lit} /></span>
+        ) : null}
+        <p className="whitespace-pre-wrap text-[12px] leading-snug" style={{ color: skin.text }}>
+          {open.ask || "nothing was typed with this one"}
+        </p>
+      </Step>
+
+      {/* TWO. Pick what makes it, and what that costs, before anything is pressed. */}
+      <Step mark="make" n={2} says="Pick what makes it" skin={skin}>
         {made ? (
           <AuditPanel node={made} />
         ) : (
@@ -570,10 +625,51 @@ export function TimelinePanel() {
             planned={{ label: threadTitle(open), prompt: open.ask, featureId: "custom-idea", w: 600, h: 320, role: null, outline: null, content: "" }}
           />
         )}
-      </section>
-      {bill ? (
-        <p className="num px-3 py-2 text-[10px]" style={{ color: skin.dim }}>{bill}</p>
-      ) : null}
+        {/*
+          The price BEFORE the press, which is his rule and the money rule
+          both: it is his credit, so what a run will cost is on screen while
+          he is deciding, not after it is spent.
+        */}
+        <p data-panel-price="" className="num mt-1.5 text-[10px]" style={{ color: skin.dim }}>
+          {priceAhead(made)}
+        </p>
+      </Step>
+
+      {/* THREE. Press make, and put what came back on the page. */}
+      <Step mark="take" n={3} says="Make it, and put it on the page" skin={skin}>
+        <div className="flex items-center gap-1.5">
+          <Button
+            data-panel-make=""
+            variant="primary"
+            size="sm"
+            onClick={(e) => {
+              play("confirm");
+              /* Opened where the button is, so the wheel arrives under his
+                 hand rather than in a corner. */
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              if (made) drawOnPart(made.id, r.left + r.width / 2, r.top);
+            }}
+            disabled={!made}
+          >
+            <Sparkles className="size-3" />
+            Make it
+          </Button>
+          {made ? (
+            <Button
+              data-panel-take=""
+              variant="subtle"
+              size="sm"
+              onClick={() => { play("select"); useStudio.getState().setSelection([made.id]); useStudio.getState().setMode("design"); }}
+            >
+              <ArrowRight className="size-3" />
+              Put it on the page
+            </Button>
+          ) : null}
+        </div>
+        {open.answer ? (
+          <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-[11px] leading-snug" style={{ color: skin.dim }}>{open.answer}</p>
+        ) : null}
+      </Step>
     </div>
   );
 }

@@ -81,10 +81,18 @@ const board = () => page.evaluate(() => {
      here rather than guessed from a constant that may move. */
   const card = document.querySelector("[data-box]")?.getBoundingClientRect();
   const zoom = m ? Number(m[1]) : null;
+  /* Both axes, because either can be the one that runs out first. */
+  let left = 1e9, right = -1e9;
+  for (const e of es) {
+    const q = e.getBoundingClientRect();
+    left = Math.min(left, q.left - host.left);
+    right = Math.max(right, q.right - host.left);
+  }
   return {
     zoom, count: es.length, paneW: Math.round(host.width),
     cardW: card && zoom ? Math.round(card.width / zoom) : 0,
     room: Math.round(bandTop), top: Math.round(top), bottom: Math.round(bottom),
+    left: Math.round(left), right: Math.round(right),
     under: Math.round(Math.max(0, bottom - bandTop)),
   };
 });
@@ -112,14 +120,29 @@ for (const n of [1, 3, 8]) {
    * the floor — asking the second of a fit that cannot answer it is how a
    * check calls a working rule a fault.
    */
+  /*
+   * ON THE BINDING AXIS, which is not always the vertical one.
+   *
+   * This measured the gap above and below and nothing else. That was right
+   * while the timeline's strip stood over the pane and took its height away:
+   * the room was short, so the vertical ran out first. With the strip a block
+   * below rather than a band over, the pane is whole and it is the WIDTH that
+   * runs out first — so reading the vertical was reading the slack side and
+   * calling a fit that fills the room a fit that does not. The fit's own
+   * comment has said this the whole time: measured on the binding axis, not
+   * as an area.
+   */
   const ceiling = zoomCeiling(b.paneW, b.cardW);
-  const gap = Math.min(b.top, b.room - b.bottom);
+  const slackAcross = Math.min(b.left, b.paneW - b.right);
+  const slackDown = Math.min(b.top, b.room - b.bottom);
+  const binding = slackAcross <= slackDown ? "across" : "down";
+  const gap = Math.min(slackAcross, slackDown);
   if (b.zoom && Math.abs(b.zoom - ceiling) < 0.005) {
     check(`${n}: the fit stopped at the ceiling, as one card in a wide pane should`, true,
       `fit ${b.zoom.toFixed(3)} is the ceiling for a ${b.cardW}px card in a ${b.paneW}px pane`);
   } else {
-    check(`${n}: the set fills the room to the margin`, gap <= SETTLE_MARGIN + 4,
-      `clear ${b.top}px above and ${b.room - b.bottom}px below in ${b.room}px of room, margin ${SETTLE_MARGIN} — fit ${b.zoom?.toFixed(3)}`);
+    check(`${n}: the set fills the room to the margin on the axis that runs out first`, gap <= SETTLE_MARGIN + 4,
+      `slack ${slackAcross}px across and ${slackDown}px down, so ${binding} binds — margin ${SETTLE_MARGIN}, fit ${b.zoom?.toFixed(3)}`);
   }
 }
 

@@ -18,6 +18,7 @@
  *   node tests/updates-view.mjs [url]
  */
 import { createRequire } from "node:module";
+import { SETTLE_MARGIN } from "../src/features/studio/timelineView.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -99,30 +100,51 @@ for (const n of [3, 8]) {
    * fit doing its job perfectly. The area was measuring the column's aspect
    * ratio and calling it a fault.
    */
-  const room = await page.evaluate(() => {
+  const room = await page.evaluate((margin) => {
     const host = document.querySelector("[data-timeline]").getBoundingClientRect();
-    const band = document.querySelector("[data-studio-band]")?.getBoundingClientRect();
+    /*
+     * Only a band that STANDS OVER the pane is a floor.
+     *
+     * The timeline's strip is a block below now, in the same travel, so it
+     * takes no room from the fit — and measuring against it measured a room
+     * the fit was never given.
+     */
+    const band = document.querySelector("[data-studio-band][data-band-over]")?.getBoundingClientRect();
     const floor = band && band.top > host.top ? band.top : host.bottom;
-    /* Across is the column's; down is everything's, fan included — the two
-       axes are held by different sets now and the fill has to be read the
-       same way or it measures neither. */
+    /*
+     * BOTH AXES OFF THE SAME SET, because that is what the fit sizes.
+     *
+     * `across` read the column alone while `down` read everything, fan
+     * included. `settleView` aims at the SET on both axes and only
+     * guarantees the column stays in frame, so measuring the column across
+     * measured a subset of what was fitted: with the width now the axis that
+     * runs out first, the set filled it to the margin while the column alone
+     * came to 70% and this called that adrift.
+     */
     const es = [...document.querySelectorAll("[data-box]")];
     const all = [...document.querySelectorAll("[data-box], [data-lane], [data-lane-box]")];
     if (!es.length) return null;
     let l = 1e9, r = -1e9;
-    for (const e of es) { const q = e.getBoundingClientRect(); l = Math.min(l, q.x); r = Math.max(r, q.right); }
+    for (const e of all) { const q = e.getBoundingClientRect(); l = Math.min(l, q.x); r = Math.max(r, q.right); }
     let t = 1e9, b = -1e9;
     for (const e of all) { const q = e.getBoundingClientRect(); t = Math.min(t, q.y); b = Math.max(b, q.bottom); }
     const c = es[0].getBoundingClientRect();
+    /* The room is the pane less the margin either side — the fit's own
+       margin, read from the source rather than written in here, so moving it
+       moves this too. It was 112, which was twice a margin that has since
+       halved, and that alone put the fill 20 points under. */
     return {
-      across: Math.round(((r - l) / (host.width - 112)) * 100),
-      down: Math.round(((b - t) / (floor - host.top - 112)) * 100),
+      across: Math.round(((r - l) / (host.width - margin * 2)) * 100),
+      down: Math.round(((b - t) / (floor - host.top - margin * 2)) * 100),
       card: Math.round(c.width), share: Math.round((c.width / host.width) * 100),
     };
-  });
+  }, SETTLE_MARGIN);
+  /* On the BINDING axis, which is whichever of the two fills more: with the
+     strip no longer standing over the pane the width runs out first, so
+     reading the vertical read the slack side. */
   check(`and they are not adrift in the middle of it`,
     Math.max(room.across, room.down) >= 90 || room.share >= 30,
-    `fills ${room.across}% of the room across and ${room.down}% down, a card ${room.card}px — ${room.share}% of the board`);
+    `fills ${room.across}% of the room across and ${room.down}% down — ${room.across >= room.down ? "across" : "down"} binds — a card ${room.card}px, ${room.share}% of the board`);
   /* A board is landscape; a chain that runs off the bottom cannot fill one. */
   check(`and the chain runs across rather than down`, open.across > open.down,
     `${open.across} across, ${open.down} down`);
@@ -188,8 +210,13 @@ for (const n of [3, 8]) {
   await page.waitForTimeout(700);
   const side = page.locator("[data-side-panel-timeline]");
   check("the timeline has a panel on its left", (await side.count()) === 1);
-  const route = side.locator('[data-panel-block="route"]');
-  check("and it says where the next pass goes", (await route.count()) === 1,
+  /* The block is his second line now — "pick what makes it, and tell me what
+     it costs before i press anything" — so the route choice lives under the
+     mark `make` rather than `route`, and the price rides with it. The panel's
+     whole shape is held by `tests/finish-panel.mjs`; this asks only that the
+     choice is still reachable from the timeline's own panel. */
+  const route = side.locator('[data-panel-block="make"]');
+  check("and it says what makes the next one, and what that costs", (await route.count()) === 1,
     (await route.count()) ? (await route.innerText()).split("\n")[0] : "not there");
   /* These updates made no part, so there is nothing to hold a setting and
      the panel says so rather than offering a control that writes nowhere. */
