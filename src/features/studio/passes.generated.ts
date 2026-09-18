@@ -2,7 +2,7 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T05:38:02.679Z";
+export const GENERATED_AT = "2026-09-18T05:50:52.997Z";
 
 export const PASSES: Pass[] = [
   {
@@ -280,19 +280,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 0
-  },
-  {
-    "id": "b9512c2",
-    "when": "2026-09-17T09:08:44+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "5d4edae",
-        "says": "A part can hold a picture, and the picture is a file",
-        "when": "2026-09-17T07:15:59+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
   }
 ];
