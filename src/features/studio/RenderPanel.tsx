@@ -26,7 +26,7 @@ import { ImageIcon, LoaderCircle, Sparkles } from "lucide-react";
 import { Button } from "@/core/ui/button";
 import { Select } from "@/core/ui/select";
 import { Textarea } from "@/core/ui/textarea";
-import { modelTable, type ModelCard } from "./imageRoute";
+import { effortField, modelTable, type ModelCard } from "./imageRoute";
 import { rendererHeader } from "./agent";
 import { money, RENDER_COST } from "./renderer";
 
@@ -61,7 +61,13 @@ export function RenderPanel() {
 
   const ratios = choices(card, "aspect_ratio");
   const qualities = choices(card, "quality");
-  const efforts = choices(card, "effort");
+  /*
+   * EFFORT IS WHATEVER THIS MODEL CALLS IT. Ideogram calls it `thinking`;
+   * nothing else that draws a picture has one, and those models are not
+   * offered a slider that goes nowhere. The label stays his word for it.
+   */
+  const effortOn = card ? effortField(card) : null;
+  const efforts = effortOn && effortOn.kind === "enum" ? [...(effortOn.values ?? [])] : [];
 
   /* A ratio that the model he has just picked does not offer is dropped
      rather than sent: the list is what that model will actually take. */

@@ -118,6 +118,26 @@ check(
   nano.quality === false,
   `Nano Banana 2 offers ratio ${nano.ratio}, quality ${nano.quality}, effort ${nano.effort}`,
 );
+
+/*
+ * EFFORT IS REAL, AND IT IS CALLED SOMETHING ELSE.
+ *
+ * His ruling: never a control that does nothing \u2014 map it to the field that
+ * means it, and hide it where there is no equivalent. Ideogram calls it
+ * `thinking`, very low to very high, and says in its own note that higher is
+ * better and slower. Nothing else that draws a picture has one.
+ */
+const pruna = await offersFor("Ideogram (Pruna)");
+check(
+  "the model that has an effort under another name is offered one",
+  pruna.effort === true,
+  `Ideogram offers ratio ${pruna.ratio}, quality ${pruna.quality}, effort ${pruna.effort}`,
+);
+check(
+  "and the models with no equivalent are not offered a dead one",
+  gpt.effort === false && nano.effort === false,
+  `GPT Image 2 ${gpt.effort}, Nano Banana 2 ${nano.effort}`,
+);
 check(
   "every model offers the aspect ratio, which they all take",
   gpt.ratio && nano.ratio,
