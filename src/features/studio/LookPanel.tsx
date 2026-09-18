@@ -29,6 +29,7 @@ import { Input } from "@/core/ui/input";
 import { Select } from "@/core/ui/select";
 import { Slider } from "@/core/ui/slider";
 import { Tooltip } from "@/core/ui/tooltip";
+import { BackgroundInspector } from "./Inspector";
 
 /* ------------------------------------------------------------------ */
 /* The mixer                                                           */
@@ -765,6 +766,10 @@ function LightSection() {
 export function LookPanel() {
   return (
     <div data-look-panel="" className="no-bars flex h-full min-h-0 flex-col overflow-y-auto">
+      {/* The page itself, first: its fill and the textures that land on it.
+          It used to be inside Element, where it was the one block that was
+          about the site rather than about the element picked. */}
+      <BackgroundInspector />
       <ColourSection />
       <LightSection />
       <TextureSection />
