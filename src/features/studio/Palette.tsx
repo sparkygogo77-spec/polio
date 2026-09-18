@@ -128,6 +128,8 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
               addFeatureToCanvas(feature.id);
             }
           }}
+          /* Named, so a check can ask each tile what it is showing. */
+          data-tile={feature.id}
           className="flex cursor-grab flex-col gap-1 outline-none active:cursor-grabbing"
         >
           <PartPreview feature={feature} width={width} height={height} />
