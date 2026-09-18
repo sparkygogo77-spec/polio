@@ -176,8 +176,21 @@ const zoom = await page.evaluate(() => { const el = document.querySelector("[dat
   check("at the size it was drawn", node && Math.abs(node.w * zoom - DRAWN.w) < 12, `${Math.round((node?.w ?? 0) * zoom)} screen px wide against ${DRAWN.w} drawn`);
 }
 const part = page.locator(`[data-node-id="${node.id}"]`);
-await part.click({ force: true });
-await page.waitForTimeout(600);
+/*
+ * Two presses open a solid for handling; one only selects it.
+ *
+ * HIS WORDS: "also once i selected something i have to click off and then
+ * clicck and hold to drag." A selected cube used to take the pointer, so
+ * the press that would have moved it turned it instead. Now selecting is
+ * only selecting and the second press is what hands it the pointer and the
+ * keys. `tests/selected-drags.mjs` measures both halves.
+ */
+const openPart = async () => {
+  const r = await part.boundingBox();
+  await page.mouse.dblclick(r.x + r.width / 2, r.y + r.height / 2);
+  await page.waitForTimeout(600);
+};
+await openPart();
 check("the part chip says what it is: a box, made a cube", (await part.locator("[data-kind-chip=cube]").count()) === 1, await part.locator("[data-kind-chip=cube]").innerText().catch(() => "-"));
 const cube = part.locator("[data-cube]").first();
 check("the cube stands at the rest pose before anyone touches it", (await cube.getAttribute("data-cube-turn")) === `${REST.x},${REST.y}`, await cube.getAttribute("data-cube-turn"));
@@ -275,8 +288,7 @@ let side = null;
   await page.waitForTimeout(400);
   check("and one redo puts it back", (await read())?.faces?.[idx]?.heading === "Hello there", (await read())?.faces?.[idx]?.heading ?? "-");
   await shot("4b-face-undo-redo", await around(part, 80));
-  await part.click({ force: true });
-  await page.waitForTimeout(500);
+  await openPart();
   await openElement();
   await page.locator(`[data-face-list] [data-cube-face="${side}"] [data-face-prompt]`).fill("the greeting");
   await page.waitForTimeout(300);

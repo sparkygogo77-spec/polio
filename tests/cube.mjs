@@ -378,7 +378,10 @@ check("with the three things on its first three faces", ["Speed", "Proof", "Reac
 check("and nothing was asked of a model to get there", asked.length === 0, asked.join(" ") || "none");
 check("it is a part, not a cutout", !boxed?.outline && !boxed?.code);
 {
-  await page.locator(`[data-node-id="${boxed.id}"]`).click({ force: true });
+  // Two presses open a solid for handling; one only selects it, and a
+  // selected part is dragged, not turned. See `tests/selected-drags.mjs`.
+  const nb = await page.locator(`[data-node-id="${boxed.id}"]`).boundingBox();
+  await page.mouse.dblclick(nb.x + nb.width / 2, nb.y + nb.height / 2);
   await page.waitForTimeout(700);
   const c = page.locator("[data-cube]").first();
   const bb = await c.boundingBox();

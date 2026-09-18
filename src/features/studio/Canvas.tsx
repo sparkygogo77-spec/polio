@@ -46,13 +46,24 @@ import { openRadial, pageSpot } from "./RadialMenu";
 const GRID = 8;
 
 /**
- * Parts that take the pointer on the board once they are selected.
+ * Parts that take the pointer on the board once they have been OPENED.
  *
  * A very short list on purpose, and both of them are on it for the same
  * reason: they are solids, and looking at a solid tells you nothing that
- * turning it does. See `handsOn`.
+ * turning it does.
+ *
+ * It used to be "once they are selected", and that is the bug he found:
+ * "once i selected something i have to click off and then clicck and hold
+ * to drag." Selecting one handed it the pointer, so the press that would
+ * have moved it turned it instead, and the only way to move it was to let
+ * go of it first. Now selecting is only selecting, opening is a second
+ * press, and the ground closes it. See `handsOn`.
  */
 const HANDS_ON = new Set(["cube-3d", "mesh-3d"]);
+/** Two presses this close together, on the same part, are one gesture. */
+const DOUBLE_MS = 400;
+/** …and they have to land within this many board pixels of each other. */
+const DOUBLE_SLOP = 8;
 
 /** Parts that wear a drawn icon when one is dropped on them. */
 const WEARS_AN_ICON = new Set(["cta-primary", "quick-action", "follow"]);
@@ -354,6 +365,16 @@ export function Canvas() {
   const dragRef = React.useRef(drag);
   dragRef.current = drag;
   const carryRef = React.useRef<((x: number, y: number) => void) | null>(null);
+  /**
+   * The last press on a part, so a second press on the same one can be told
+   * from a first.
+   *
+   * A pointer event carries no click count — `detail` is 0 on every
+   * `pointerdown` by spec — and the `dblclick` that does carry one is
+   * delivered to whatever captured the pointer, which is the board, never
+   * the part. So the two presses are timed here.
+   */
+  const pressed = React.useRef<{ id: string; at: number; x: number; y: number } | null>(null);
 
   const toCanvas = React.useCallback(
     (clientX: number, clientY: number) => {
@@ -823,6 +844,30 @@ export function Canvas() {
           store.setSelection(ids);
         }
         play("select");
+        /*
+         * The second press opens a solid for handling.
+         *
+         * A cube is a thing you turn, and turning it is a drag across it —
+         * the same gesture that moves every other part on the board. That
+         * collision is what he found: "once i selected something i have to
+         * click off and then clicck and hold to drag." So the two gestures
+         * are told apart by how many presses they start with. One press
+         * selects and moves, like everything else. Two says "I am turning
+         * this one", and from then until the ground is pressed the part has
+         * the pointer and the keys.
+         *
+         * It is read off the press itself rather than from a `dblclick`
+         * handler on the part: the board captures the pointer, so the
+         * click that follows is delivered to the board and never reaches
+         * the part at all.
+         */
+        const last = pressed.current;
+        const again = !!last && last.id === id && e.timeStamp - last.at < DOUBLE_MS && Math.hypot(p.x - last.x, p.y - last.y) < DOUBLE_SLOP;
+        pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
+        if (again && node && !node.locked && HANDS_ON.has(node.featureId) && ids.length === 1) {
+          store.hold(id);
+          return;
+        }
         capture();
         const origin: Drag["origin"] = {};
         for (const n of store.nodes) if (ids.includes(n.id)) origin[n.id] = { x: n.x, y: n.y, w: n.w, h: n.h };
@@ -1992,12 +2037,18 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         : undefined;
   const feature = getFeature(node.featureId);
   /**
-   * The parts that are worth touching on the board itself, once they are
-   * the selected one. A very short list on purpose: a part earns a place
-   * here only when looking at it tells you nothing and handling it tells
-   * you everything.
+   * The parts that are worth touching on the board itself, once they have
+   * been opened. A very short list on purpose: a part earns a place here
+   * only when looking at it tells you nothing and handling it tells you
+   * everything.
+   *
+   * Opened, not selected. A selected part is a part you are working on and
+   * it drags like every other part on the board — that is his complaint,
+   * and it is answered here. A part you are HANDLING is one you pressed
+   * twice, and while it is open the press belongs to it.
    */
-  const handsOn = selected && HANDS_ON.has(node.featureId);
+  const canHandle = HANDS_ON.has(node.featureId);
+  const handsOn = useStudio((s) => s.handling === node.id) && canHandle;
   // The face being pointed at, when this is the cube it belongs to.
   const pickedSide = useStudio((s) => (handsOn && s.pickedFace?.nodeId === node.id ? s.pickedFace.side : null));
   const cat = feature ? categoryOf(feature.category) : null;
@@ -2101,12 +2152,13 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
          *
          * One exception, and it is the whole point of the part it is for. A
          * cube is a thing you turn; a cube you cannot turn is a picture of a
-         * cube. So when it is the selected part — already the state that
-         * means "I am working on this one" — it takes the pointer and the
-         * keys. Unselected it is inert like everything else, which is how it
-         * is still dragged around the page: click the ground to let go of
-         * it, then drag it.
+         * cube. So a cube you have OPENED — pressed twice, which is a
+         * deliberate "I am handling this one" — takes the pointer and the
+         * keys. Merely selecting it does not, because that was the bug:
+         * selecting it handed it the press that would have moved it, and
+         * the only way to move it was to let go of it first.
          */
+        data-handling={handsOn ? "" : undefined}
         inert={handsOn ? undefined : true}
         style={{
           pointerEvents: handsOn ? "auto" : "none",
@@ -2211,6 +2263,14 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         <span className="num text-fg-faint">{node.w}×{node.h}</span>
         {/* What the drawing was read as, on the part it made: a box says it is a box. */}
         {node.kind === "cube" ? <span data-kind-chip="cube" className="rounded-xs border border-border px-1 text-[9px] text-fg-faint">box · cube</span> : null}
+        {/* A solid is turned, and a gesture nobody can see is a gesture
+            nobody uses. So the part says which of the two it is in, and the
+            way out of the one it is in. */}
+        {canHandle && selected
+          ? <span data-hold-chip={handsOn ? "open" : "shut"} className="rounded-xs border px-1 text-[9px]" style={{ borderColor: mark, color: mark }}>
+              {handsOn ? "turning · press the ground to stop" : "press twice to turn it"}
+            </span>
+          : null}
         {hasPrompt ? <span className="size-1.5 rounded-full bg-accent" title="Has its own prompt" /> : null}
         {node.priority !== "must" ? <span className="rounded-xs border border-border px-1 text-[9px] uppercase text-fg-faint">{node.priority}</span> : null}
         {node.locked ? <span className="text-[9px] text-fg-faint">locked</span> : null}
