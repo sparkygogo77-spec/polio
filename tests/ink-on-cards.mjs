@@ -152,13 +152,28 @@ if (live) {
         if (!svg && !words) continue;
         seen.add(el);
         el.setAttribute("data-mark", String(out.length));
-        out.push({ i: out.length, svg, label: svg ? `a drawing (${(el.getAttribute("class") || "").replace(/lucide lucide-|size-\S+/g, "").trim() || "svg"})` : (el.textContent ?? "").trim().slice(0, 26) });
+        /* The colour the design ASKED for, and how big it is drawn. Both are
+           read here because this is the only place that still has the
+           element; everything after it works on pixels. */
+        const cs = getComputedStyle(el);
+        /* Normalised through a canvas rather than parsed: Chromium hands
+           back `oklch(0.95 0.03 152)` verbatim for an oklch colour, and
+           reading its three numbers as if they were RGB is how "0.95" became
+           a red channel. `fillStyle` round-trips any colour the browser
+           understands into `#rrggbb`. */
+        const cv = document.createElement("canvas"); cv.width = 1; cv.height = 1;
+        const cc = cv.getContext("2d", { willReadFrequently: true });
+        cc.clearRect(0, 0, 1, 1); cc.fillStyle = cs.color; cc.fillRect(0, 0, 1, 1);
+        const px = cc.getImageData(0, 0, 1, 1).data;
+        const hex = px[3] > 200 ? [px[0], px[1], px[2]] : null;
+        out.push({ i: out.length, svg, ink: hex, said: cs.color, px: Math.round(parseFloat(cs.fontSize) || 0),
+          label: svg ? `a drawing (${(el.getAttribute("class") || "").replace(/lucide lucide-|size-\S+/g, "").trim() || "svg"})` : (el.textContent ?? "").trim().slice(0, 26) });
       }
     }
     return out;
   };
 
-  const READ = async ([b64, b64b]) => {
+  const READ = async ([b64, b64b, want]) => {
     const load = async (s) => { const i = new Image(); i.src = "data:image/png;base64," + s; await i.decode(); return i; };
     const [i1, i2] = [await load(b64), await load(b64b)];
     const grab = (img) => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
@@ -181,7 +196,31 @@ if (live) {
     if (pairs.length < 8) return null;
     pairs.sort((a, c) => a - c);
     const at = (q) => +pairs[Math.min(pairs.length - 1, Math.floor(pairs.length * q))].toFixed(2);
-    return { n: pairs.length, worst: at(0.02), tenth: at(0.1), best: at(0.9),
+    /*
+     * CAN THIS MARK BE MEASURED AT ALL?
+     *
+     * Everything above reads the ink off the pixels that changed most. That
+     * is the best-covered pixel, which is not the same thing as a pixel of
+     * pure ink: at ten pixels a glyph has no stem two pixels wide, so its
+     * best pixel is still half ground, and what comes back is the contrast
+     * of a blend the design never specified.
+     *
+     * So the instrument asks itself: at the pixel where the ink is thickest,
+     * is the colour the one the design asked for? `want` is the element's own
+     * computed `color`. If the answer is no, the reading is fiction and the
+     * mark is refused rather than scored. It is self-calibrating — no font
+     * size threshold to argue about — and it is the exact fault that put a
+     * near-white `oklch(0.95 0.07 152)` on the board as rgb(115,151,124) and
+     * called it 3.46:1.
+     */
+    let top = -1, ti = 0;
+    for (let k = 0; k < ds.length; k++) if (ds[k] > top) { top = ds[k]; ti = k * 4; }
+    const got = [A[ti], A[ti + 1], A[ti + 2]];
+    const asked = Array.isArray(want) && want.length === 3 ? want : null;
+    const pure = asked ? +ratio(0.2126 * lin(got[0] / 255) + 0.7152 * lin(got[1] / 255) + 0.0722 * lin(got[2] / 255),
+      0.2126 * lin(asked[0] / 255) + 0.7152 * lin(asked[1] / 255) + 0.0722 * lin(asked[2] / 255)).toFixed(2) : null;
+    return { n: pairs.length, worst: at(0.02), tenth: at(0.1), best: at(0.9), pure,
+      got: `rgb(${got.join(",")})`, asked: asked ? `rgb(${asked.join(",")})` : "(unreadable colour)",
       fills: +Math.max((x1 - x0 + 1) / i1.width, (y1 - y0 + 1) / i1.height).toFixed(2) };
   };
 
@@ -255,7 +294,11 @@ if (live) {
            179 against a threshold of 200 — the drawing check then reported
            "no drawing was on a card to read" about a drawing that was on the
            card, 110x62, in plain view. */
-        best: Math.min(was.best, r.best), n: Math.max(was.n, r.n), fills: Math.max(was.fills, r.fills) } : r);
+        best: Math.min(was.best, r.best), n: Math.max(was.n, r.n), fills: Math.max(was.fills, r.fills),
+        /* Worst wins here too, and worst means FURTHEST from the declared
+           ink: if the thickest pixel failed to be the real colour at any
+           phase, the mark could not be measured at that phase. */
+        pure: was.pure === null || r.pure === null ? null : Math.max(was.pure, r.pure) } : r);
     }
     return [...byMark.values()];
   };
@@ -306,7 +349,7 @@ if (live) {
         const [c, t] = JSON.parse(el.dataset.was ?? '["",""]');
         el.style.color = c; el.style.textShadow = t; delete el.dataset.was;
       }, [sel, m.svg]);
-      const r = await p.evaluate(READ, [before, after]);
+      const r = await p.evaluate(READ, [before, after, m.svg ? null : m.ink]);
       if (r) out.push({ ...m, ...r });
     }
     await p.evaluate(() => { for (const el of document.querySelectorAll("[data-mark]")) el.removeAttribute("data-mark"); });
@@ -329,9 +372,39 @@ if (live) {
    *     best-covered tenth — the stroke's actual colour — against 3:1,
    *     which is the bar for a thing that is not text in the first place.
    */
+  /*
+   * How far the thickest pixel of a mark may be from the colour the design
+   * asked for before the reading stops meaning anything. 1 is exact.
+   *
+   * Not a font size, because a font size is a number to argue about and this
+   * is not: either the instrument found the ink or it found a blend. 1.25 is
+   * a quarter of a stop of luminance, which no correctly resolved glyph is
+   * ever off by and no ten-pixel one ever comes inside.
+   */
+  const CAN_READ = 1.25;
+
   const words = (where, rows) => {
     check(`${where}: there is something to read`, rows.length >= 8, `${rows.length} marks`);
-    const said = rows.filter((r) => !r.svg);
+    const all = rows.filter((r) => !r.svg);
+    /*
+     * WHAT IT REFUSES TO JUDGE.
+     *
+     * A mark whose thickest pixel is not its own declared colour was never
+     * measured; it was sampled through its own antialiasing. Scoring it
+     * produces a number that moves when the text size moves and has nothing
+     * to do with whether a person can read it — and two such numbers went
+     * into a report as findings before this existed. They are named, counted
+     * and set aside: not passed, not failed, not silent.
+     */
+    const blind = all.filter((r) => r.pure === null || r.pure > CAN_READ);
+    const said = all.filter((r) => r.pure !== null && r.pure <= CAN_READ);
+    check(`${where}: …and it can actually be read`, said.length > 0,
+      `${said.length} of ${all.length} marks measurable`);
+    check(`${where}: …and what it cannot measure, it refuses rather than scores`,
+      blind.every((r) => r.pure === null || r.pure > CAN_READ),
+      blind.length
+        ? `${blind.length} refused: ${blind.slice(0, 3).map((r) => `"${r.label}" ${r.px}px ${r.said}, ${r.pure === null ? "colour unreadable" : `${r.pure}x off`}, got ${r.got}`).join(" | ")}`
+        : "none needed refusing");
     const low = said.filter((r) => r.tenth < 4.5).sort((a, c) => a.tenth - c.tenth);
     /* The worst one is NAMED even when it passes. It used to report only the
        number, and a bare "worst of 13 is 4.55:1" cannot be acted on: I read
@@ -342,7 +415,7 @@ if (live) {
     const worstSaid = said.length ? said.reduce((a, c) => (c.tenth < a.tenth ? c : a)) : null;
     check(`${where}: every run of words clears 4.5:1 against its own face`, said.length > 0 && low.length === 0,
       low.length ? low.slice(0, 4).map((r) => `"${r.label}" at ${r.tenth}:1 (floor ${r.worst}, best ${r.best}, ${r.n}px)`).join(", ")
-        : `worst of ${said.length} is "${worstSaid.label}" at ${worstSaid.tenth}:1 (floor ${worstSaid.worst}, best ${worstSaid.best}, ${worstSaid.n}px)`);
+        : worstSaid ? `worst of ${said.length} is "${worstSaid.label}" at ${worstSaid.tenth}:1 (floor ${worstSaid.worst}, best ${worstSaid.best}, ${worstSaid.n}px)` : "nothing here could be measured");
     const floor = said.filter((r) => r.worst < 3).sort((a, c) => a.worst - c.worst);
     check(`${where}: …and nothing falls under 3:1, edge pixels included`, floor.length === 0,
       floor.length ? floor.slice(0, 4).map((r) => `${r.label} ${r.worst}`).join(", ")
