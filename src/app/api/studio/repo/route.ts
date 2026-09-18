@@ -77,6 +77,83 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * Bringing one of his other sites in.
+ *
+ * "i want to be able to import a repo of my other site pretty soon to see how
+ * existing repos are handled." So the repo control that connects and creates
+ * also imports, and it is the same control because they are the same
+ * question: which repository are we talking about.
+ *
+ * WHAT CAN BE BROUGHT IN, PLAINLY. The importer opens a *rendered page* and
+ * measures what is on it; it has never read source code, and it does not
+ * start now. So a repository with an `index.html` in it \u2014 which is what this
+ * Builder publishes \u2014 comes in whole. A repository of unbuilt sources has no
+ * page to open, and that is said in words rather than failing somewhere
+ * further down with something obscure about a zip.
+ *
+ * Nothing is fetched twice: the tree is asked for once, the page and the
+ * things it needs are fetched, and what comes back is the same shape the zip
+ * path already understands.
+ */
+const PAGE = /(^|\/)index\.html?$/i;
+/** What a page is allowed to bring with it, so a repository of photographs is not downloaded whole. */
+const CARRIES = /\.(css|js|mjs|svg|png|jpe?g|webp|avif|gif|ico|woff2?)$/i;
+const MOST = 60;
+
+export async function PUT(request: Request) {
+  const found = tokenFrom(request);
+  if (!found) return NextResponse.json(NO_TOKEN);
+  const { token } = found;
+  const asked = new URL(request.url).searchParams.get("repo")?.trim() ?? "";
+  if (!/^[\w.-]+\/[\w.-]+$/.test(asked)) {
+    return NextResponse.json({ ok: false, reason: "name", message: "A repository is owner/name." });
+  }
+  try {
+    const info = await fetch(`${API}/repos/${asked}`, { headers: head(token), cache: "no-store" });
+    if (info.status === 404) return NextResponse.json({ ok: false, reason: "missing", message: `No repository called ${asked}, or this token cannot see it.` });
+    if (info.status === 401) return NextResponse.json({ ok: false, reason: "auth", message: "GitHub rejected that token. Check it is copied whole and still active." });
+    if (!info.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${info.status} for ${asked}.` });
+    const branch = ((await info.json()) as { default_branch?: string }).default_branch ?? "main";
+
+    const treeRes = await fetch(`${API}/repos/${asked}/git/trees/${encodeURIComponent(branch)}?recursive=1`, { headers: head(token), cache: "no-store" });
+    if (!treeRes.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${treeRes.status} for the file list of ${asked}.` });
+    const tree = ((await treeRes.json()) as { tree?: { path: string; type: string; size?: number }[] }).tree ?? [];
+    const paths = tree.filter((t) => t.type === "blob").map((t) => t.path);
+
+    /* The page nearest the root, the way the zip path picks one. */
+    const pages = paths.filter((p) => PAGE.test(p)).sort((a, b) => a.split("/").length - b.split("/").length || a.length - b.length);
+    const entry = pages[0] ?? paths.filter((p) => /\.html?$/i.test(p)).sort((a, b) => a.split("/").length - b.split("/").length)[0];
+    if (!entry) {
+      /* Named rather than guessed at: he is owed the reason, and "it is
+         sources rather than a site" is a different answer from "it is empty". */
+      const source = paths.some((p) => /\.(tsx?|jsx?|vue|svelte|astro)$/i.test(p)) || paths.includes("package.json");
+      return NextResponse.json({
+        ok: false,
+        reason: source ? "sources" : "no-page",
+        message: source
+          ? `${asked} is a repository of sources, not a built site: there is no HTML page in it to open. Build it first and import what the build makes, or point this at the repository a build publishes to.`
+          : `There is no HTML page in ${asked} to open.`,
+        files: paths.length,
+      });
+    }
+
+    const dir = entry.includes("/") ? `${entry.slice(0, entry.lastIndexOf("/"))}/` : "";
+    const wanted = [entry, ...paths.filter((p) => p !== entry && p.startsWith(dir) && CARRIES.test(p)).slice(0, MOST - 1)];
+    const files: { name: string; body: string; base64: boolean }[] = [];
+    for (const path of wanted) {
+      const one = await fetch(`${API}/repos/${asked}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(branch)}`, { headers: head(token), cache: "no-store" });
+      if (!one.ok) continue;
+      const got = (await one.json()) as { content?: string; encoding?: string };
+      if (typeof got.content !== "string") continue;
+      files.push({ name: path.slice(dir.length), body: got.content.replace(/\n/g, ""), base64: true });
+    }
+    return NextResponse.json({ ok: true, repo: asked, branch, entry: entry.slice(dir.length), files });
+  } catch (error) {
+    return NextResponse.json({ ok: false, reason: "network", message: `Could not reach GitHub: ${error instanceof Error ? error.message : "unknown"}` });
+  }
+}
+
 export async function POST(request: Request) {
   const t = tokenFrom(request);
   if (!t) return NextResponse.json(NO_TOKEN);

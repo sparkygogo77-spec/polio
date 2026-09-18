@@ -154,6 +154,8 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
   const [mine, setMine] = React.useState<{ name: string; private: boolean }[] | null>(null);
   const [said, setSaid] = React.useState<string | null>(null);
   const [making, setMaking] = React.useState(false);
+  const [bring, setBring] = React.useState("");
+  const [pulling, setPulling] = React.useState(false);
   const [name, setName] = React.useState(() => repoNameFor(siteName));
 
   /* His own token if the Keys panel is holding one, and nothing otherwise —
@@ -188,6 +190,37 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
       setSaid("Could not reach GitHub from here.");
     } finally {
       setMaking(false);
+    }
+  };
+
+  /**
+   * Bring one of his other sites in.
+   *
+   * The same control, because it is the same question: which repository are
+   * we talking about. What comes back is a page and the things it needs, in
+   * the shape the zip path already understands, and the recreate flow turns
+   * it into ordinary parts from there.
+   *
+   * A repository with no page in it is told so in words \u2014 and told WHICH
+   * kind of nothing it is, because "it is sources rather than a built site"
+   * is a different answer from "it is empty" and only one of them has an
+   * obvious next move.
+   */
+  const bringIn = async () => {
+    const want = bring.trim();
+    if (!want || pulling) return;
+    setPulling(true);
+    setSaid(null);
+    try {
+      const res = await fetch(`/api/studio/repo?repo=${encodeURIComponent(want)}`, { method: "PUT", headers: token(), cache: "no-store" });
+      const r = (await res.json()) as { ok?: boolean; entry?: string; files?: { name: string }[]; message?: string; reason?: string };
+      if (!r.ok) { setSaid(r.message ?? "That repo could not be read."); return; }
+      setSaid(`${want}: ${r.entry}, with ${(r.files ?? []).length - 1} file${(r.files ?? []).length === 2 ? "" : "s"} it needs. Opening it\u2026`);
+      window.dispatchEvent(new CustomEvent("studio:bring-repo", { detail: r }));
+    } catch (err) {
+      setSaid(`Could not reach GitHub: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setPulling(false);
     }
   };
 
@@ -250,6 +283,28 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
           </Button>
         </div>
         <p className="mt-0.5 text-[10px] text-fg-muted">Private, on your own account, with a first commit so a publish has somewhere to land.</p>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Bring a repo in</p>
+        <div className={row}>
+          <Input
+            inputSize="sm"
+            data-repo-bring=""
+            value={bring}
+            aria-label="The repo to bring in"
+            placeholder="owner/name"
+            className="h-6 text-[11px]"
+            onChange={(e) => setBring(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void bringIn(); } }}
+          />
+          <Button size="sm" variant="outline" data-repo-pull="" disabled={pulling || !bring.trim()} onClick={() => void bringIn()}>
+            {pulling ? "Reading\u2026" : "Bring it"}
+          </Button>
+        </div>
+        <p className="mt-0.5 text-[10px] text-fg-muted">A site with a page in it comes in as ordinary parts. A repo of unbuilt sources has no page to open, and says so.</p>
       </div>
 
       {said ? <p data-repo-said="" className="text-[10px] text-fg">{said}</p> : null}
