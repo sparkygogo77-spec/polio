@@ -109,6 +109,64 @@ export function LightPlacer() {
     if (mode !== "design" && useStudio.getState().placingLight) useStudio.getState().cancelPlacingLight();
   }, [mode]);
   const carry = useStudio((s) => s.lightCarry);
+
+  /*
+   * THE LIGHT IS IN HIS HAND THE WHOLE TIME HE IS PLACING IT.
+   *
+   * HIS WORDS, twice: "pressing the place the light button does nothing but
+   * create a bleeding aura through categories around the web box." Measured,
+   * and he was right: a press armed the mode and painted a ring, and the ball
+   * only ever appeared if the press became a DRAG off the button. A person
+   * who presses a button and lets go — which is what a button is for — got an
+   * aura and nothing else, and a press on the page after that placed nothing.
+   *
+   * So the mode itself follows the pointer. The drag off the button still
+   * works and is still the quick way; this is the other half, and it is the
+   * half that makes the button a button.
+   */
+  React.useEffect(() => {
+    if (!placing) return;
+    const move = (e: PointerEvent) => useStudio.getState().setLightCarry({ x: e.clientX, y: e.clientY });
+    window.addEventListener("pointermove", move);
+    return () => window.removeEventListener("pointermove", move);
+  }, [placing]);
+
+  /*
+   * …and a press on the page is where it goes.
+   *
+   * Listened for on the window while placing, so the press lands wherever he
+   * looked rather than only on something that happens to carry a handler. A
+   * press off the page leaves the lamp alone and ends the placing, which is
+   * the same answer letting go off the page gives a drag.
+   */
+  React.useEffect(() => {
+    if (!placing) return;
+    const put = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      const frame = rectOf("[data-frame]");
+      const st = useStudio.getState();
+      if (frame && inside(frame, { x: e.clientX, y: e.clientY })) {
+        e.preventDefault();
+        e.stopPropagation();
+        play("confirm");
+        st.setLook({
+          light: {
+            ...st.look.light,
+            on: true,
+            x: Math.max(0, Math.min(1, (e.clientX - frame.x) / Math.max(1, frame.w))),
+            y: Math.max(0, Math.min(1, (e.clientY - frame.y) / Math.max(1, frame.h))),
+          },
+        });
+        st.setPlacingLight(false);
+        return;
+      }
+      /* Off the page: he changed his mind, and the lamp is left as it was. */
+      play("close");
+      st.cancelPlacingLight();
+    };
+    window.addEventListener("pointerdown", put, true);
+    return () => window.removeEventListener("pointerdown", put, true);
+  }, [placing]);
   const light = useStudio((s) => s.look.light);
   const zoom = useStudio((s) => s.zoom);
   const pan = useStudio((s) => s.pan);
@@ -176,8 +234,19 @@ export function LightPlacer() {
               top: page.y - board.y,
               width: page.w,
               height: page.h,
+              /*
+               * THE MARK IS ON THE PAGE, NOT AROUND IT.
+               *
+               * It was a 26px blur with 6px of spread thrown outwards, which
+               * is 32px of glow reaching over whatever the page sits next to
+               * — his "bleeding aura through categories". The same mark drawn
+               * INSIDE the page's own box says the same thing and cannot
+               * reach anything: an inset shadow is clipped to the box it is
+               * on, so there is nothing to clip it against.
+               */
               outline: `1.5px solid oklch(0.85 0.14 ${warm} / 0.8)`,
-              boxShadow: `0 0 26px 6px oklch(0.85 0.16 ${warm} / 0.18)`,
+              outlineOffset: "-1.5px",
+              boxShadow: `inset 0 0 26px 6px oklch(0.85 0.16 ${warm} / 0.18)`,
               transition: "box-shadow 200ms ease-out",
             }}
           />

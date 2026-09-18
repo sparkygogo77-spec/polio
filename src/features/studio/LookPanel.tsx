@@ -12,7 +12,7 @@ import * as React from "react";
 import { ChevronDown, ChevronUp, Copy, Layers2, Pipette, Shuffle, Trash2 } from "lucide-react";
 import {
   contrast, css, HARMONIES, harmonise, newLayer, parseColor, ROLES, ROLE_LABEL,
-  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, lands, type BlendMode, type Harmony,
+  TEXTURE_KINDS, TEXTURE_TARGETS, textureCss, toHex, withAlpha, lands, type BlendMode, type Harmony,
   type Oklch, type Palette, type RoleId, type TextureKind, type TextureLayer, type TextureTarget,
 } from "./look";
 import { flattenLayers } from "./texture";
@@ -607,22 +607,41 @@ function TextureSection() {
         })}
       </div>
 
-      <div className="flex flex-wrap gap-1">
+      {/*
+        WHAT IT CAN MAKE, MADE.
+
+        HIS WORDS: "the texture part too toward the bottom should be more
+        exemplary and display the types of textures it can create." They were
+        six word-chips reading "+ Noise", "+ Stripes" — the name of a thing
+        instead of the thing, which is the opposite of his own rule that a
+        setting should show what it does. Each one is now painted with the
+        texture it adds, in this site's own palette, by the same `textureCss`
+        that paints the page: the sample is not a picture of the result, it is
+        the result at 44 pixels.
+      */}
+      <div className="grid grid-cols-3 gap-1.5">
         {(["flat", "noise", "stripes", "dots", "grid", "mesh"] as TextureKind[]).map((k) => (
           <button
             key={k}
             type="button"
+            data-texture-sample={k}
+            aria-label={`Add ${TEXTURE_KINDS.find((x) => x.id === k)?.label ?? k}`}
+            title={TEXTURE_KINDS.find((x) => x.id === k)?.hint}
             onClick={() => { play("confirm"); const l = newLayer(k); s().addTexture(l); setOpenId(l.id); }}
-            className="tactile rounded-full border border-border px-2 py-0.5 text-[10px] text-fg-muted hover:border-accent hover:text-fg"
+            className="tactile group relative h-11 overflow-hidden rounded-md border border-border hover:border-accent"
+            style={textureCss([newLayer(k)], palette, palette.bg)}
           >
-            + {TEXTURE_KINDS.find((x) => x.id === k)?.label}
+            {/* The name, small and on a plate, so the sample is what is read
+                first and the word only settles which one it was. */}
+            <span
+              className="absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-[9px] font-medium text-fg"
+              style={{ background: withAlpha(palette.bg, 0.72) }}
+            >
+              {TEXTURE_KINDS.find((x) => x.id === k)?.label}
+            </span>
           </button>
         ))}
       </div>
-      <p className="text-[10px] leading-snug text-fg-faint">
-        Layers stack top to bottom, the first is nearest you. Turn one down to see through it, or
-        merge it into the one below to bake the pair into a single picture.
-      </p>
     </section>
   );
 }
@@ -687,9 +706,18 @@ function LightSection() {
   const light = useStudio((st) => st.look.light);
   const s = () => useStudio.getState();
   const set = (patch: Partial<typeof light>) => s().setLook({ light: { ...useStudio.getState().look.light, ...patch } });
+  /*
+   * Folded away unless he asks for it.
+   *
+   * HIS WORDS: "these settings should atleast be a dropdown for the light
+   * section which shouldnt always be open like this." Five sliders standing
+   * open is five things to read past to reach the one control that does the
+   * work, which is placing the light. The button stays out; the dials go in.
+   */
+  const [open, setOpen] = React.useState(false);
 
   return (
-    <section data-look-light="" className="border-t border-border p-3">
+    <section data-look-light="" data-light-section="" className="border-t border-border p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-[11px] font-semibold text-fg">Light &amp; depth</h3>
         <Toggle
@@ -732,32 +760,69 @@ function LightSection() {
         </span>
       </button>
 
-      <Row label="How high it hangs" value={light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}>
-        <Slider value={[Math.round(light.height * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ height: (v[0] ?? 55) / 100 })} />
-      </Row>
-      <Row label="How far things stand off" value={`${light.lift}px`}>
-        <Slider value={[light.lift]} min={0} max={40} step={1} onValueChange={(v) => set({ lift: v[0] ?? 10 })} />
-      </Row>
-      <Row label="Shadow strength" value={`${Math.round(light.strength * 100)}%`}>
-        <Slider value={[Math.round(light.strength * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ strength: (v[0] ?? 45) / 100 })} />
-      </Row>
-      <Row label="Warmth" value={`${Math.round(light.warmth)}°`}>
-        <Slider value={[Math.round(light.warmth)]} min={0} max={360} step={1} onValueChange={(v) => set({ warmth: v[0] ?? 80 })} />
-      </Row>
       {/*
-        Kept apart from the rest on purpose. The lamp throws shadows whether or
-        not any of its light lands on the background, and wanting the first
-        almost never means wanting the second: a warm pool under a palette
-        someone chose is the quickest way to make that palette look wrong.
+        The dials, behind one press.
+
+        The opener says how the light stands right now rather than the word
+        "settings" — his own rule, a control showing what it does — so a
+        glance at the closed row already answers the question the sliders
+        would have been read for.
       */}
-      <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
-        <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
-      </Row>
-      <p className="text-[10px] leading-snug text-fg-faint">
-        Every surface works out its own shadow from where it stands relative to the lamp, so a card on
-        the left throws left and one underneath throws almost nothing. The blueprint says where the
-        light is, not what each shadow was.
-      </p>
+      <button
+        type="button"
+        data-light-open=""
+        aria-expanded={open}
+        onClick={() => { play(open ? "close" : "open"); setOpen((v) => !v); }}
+        className="tactile flex w-full items-center gap-2 rounded-md border border-border bg-elevated px-2 py-1.5 text-left hover:bg-hover"
+      >
+        <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", open && "rotate-180")} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-medium text-fg">How it falls</span>
+          <span className="block truncate text-[10px] text-fg-faint">
+            {light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}
+            {" \u00b7 "}{light.lift}px off
+            {" \u00b7 "}{Math.round(light.strength * 100)}% shadow
+            {(light.wash ?? 0) > 0.005 ? ` \u00b7 ${Math.round((light.wash ?? 0) * 100)}% on the page` : ""}
+          </span>
+        </span>
+        {/* The warmth, shown as the colour it is rather than as a number. */}
+        <span
+          aria-hidden
+          className="size-3 shrink-0 rounded-full border border-border"
+          style={{ background: `oklch(0.82 0.15 ${Math.round(light.warmth)})` }}
+        />
+      </button>
+
+      {open ? (
+        <div data-light-dials="" className="mt-2">
+        <Row label="How high it hangs" value={light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}>
+          <Slider value={[Math.round(light.height * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ height: (v[0] ?? 55) / 100 })} />
+        </Row>
+        <Row label="How far things stand off" value={`${light.lift}px`}>
+          <Slider value={[light.lift]} min={0} max={40} step={1} onValueChange={(v) => set({ lift: v[0] ?? 10 })} />
+        </Row>
+        <Row label="Shadow strength" value={`${Math.round(light.strength * 100)}%`}>
+          <Slider value={[Math.round(light.strength * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ strength: (v[0] ?? 45) / 100 })} />
+        </Row>
+        <Row label="Warmth" value={`${Math.round(light.warmth)}°`}>
+          <Slider value={[Math.round(light.warmth)]} min={0} max={360} step={1} onValueChange={(v) => set({ warmth: v[0] ?? 80 })} />
+        </Row>
+        {/*
+          Kept apart from the rest on purpose. The lamp throws shadows whether or
+          not any of its light lands on the background, and wanting the first
+          almost never means wanting the second: a warm pool under a palette
+          someone chose is the quickest way to make that palette look wrong.
+        */}
+        <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
+          <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
+        </Row>
+        <p className="text-[10px] leading-snug text-fg-faint">
+          Every surface works out its own shadow from where it stands relative to the lamp, so a card on
+          the left throws left and one underneath throws almost nothing. The blueprint says where the
+          light is, not what each shadow was.
+        </p>
+        </div>
+      ) : null}
     </section>
   );
 }
