@@ -563,6 +563,34 @@ export const MODELS: readonly ImageModel[] = [
  */
 export const ALPHA_FIRST = "openai/gpt-image-2";
 
+/**
+ * What a model calls EFFORT, when it has one at all.
+ *
+ * HIS RULING: never a control that does nothing \u2014 so map it to the real field
+ * that means it, and hide it entirely for a model that has no equivalent.
+ *
+ * "Effort" is how hard the model is asked to work before it answers, and the
+ * models spell it differently or not at all. Ideogram calls it `thinking`,
+ * very low to very high, and says in its own note that higher is better and
+ * slower, which is the whole idea. Nothing else that returns a picture has
+ * anything like it.
+ *
+ * `quality` is NOT it, and is deliberately left alone: GPT Image has both a
+ * quality and no effort, and folding one into the other would put two
+ * controls on one field and call the second of them something it is not.
+ * `steps` is the same idea as `thinking`, but the only model carrying one
+ * returns a mesh rather than a picture, so it never reaches this panel.
+ */
+const EFFORT_IS: Record<string, string> = {
+  "prunaai/p-image-ideogram": "thinking",
+};
+
+/** The field that means effort on this model, or nothing when it has none. */
+export function effortField(m: { slug: string; fields: readonly ModelField[] }): ModelField | null {
+  const named = EFFORT_IS[m.slug];
+  return (named && m.fields.find((f) => f.name === named)) || null;
+}
+
 export function model(slug: string): ImageModel | null {
   return MODELS.find((m) => m.slug === slug) ?? null;
 }

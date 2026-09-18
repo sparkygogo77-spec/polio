@@ -16,6 +16,7 @@ import {
 import {
   inputFor,
   isSolid,
+  effortField,
   model as modelNamed,
   type ImageModel,
   makingOf,
@@ -261,11 +262,16 @@ function said(card: ImageModel | null, asked: Asked): Record<string, unknown> {
   if (!card) return {};
   const out: Record<string, unknown> = {};
   if (asked.ratio && card.ratios.includes(asked.ratio)) out.aspect_ratio = asked.ratio;
-  for (const name of ["quality", "effort"] as const) {
-    const want = asked[name];
-    if (!want) continue;
-    const field = card.fields.find((f) => f.name === name);
-    if (field && (field.kind !== "enum" || (field.values ?? []).includes(want))) out[name] = want;
+  if (asked.quality) {
+    const field = card.fields.find((f) => f.name === "quality");
+    if (field && (field.kind !== "enum" || (field.values ?? []).includes(asked.quality))) out.quality = asked.quality;
+  }
+  /* Effort goes out under the name this model gives it \u2014 `thinking` on the
+     one that has one \u2014 rather than under his word for it, which no model
+     would recognise. */
+  if (asked.effort) {
+    const field = effortField(card);
+    if (field && (field.kind !== "enum" || (field.values ?? []).includes(asked.effort))) out[field.name] = asked.effort;
   }
   return out;
 }
