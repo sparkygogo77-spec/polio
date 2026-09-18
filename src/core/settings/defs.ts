@@ -8,13 +8,11 @@
  */
 import {
   Bell,
-  Code2,
   Eye,
   Keyboard,
   MousePointerClick,
   Palette,
   Sparkles,
-  Volume2,
   Workflow,
 } from "lucide-react";
 import type { SettingDef, SettingGroupDef } from "@/core/types";
@@ -24,13 +22,11 @@ import { hasNav } from "@/core/nav-gate";
 export const CORE_SETTING_GROUPS: SettingGroupDef[] = [
   { id: "appearance", label: "Appearance", icon: Palette, order: 10, description: "Theme, colour and type." },
   { id: "effects", label: "Effects", icon: Sparkles, order: 20, description: "Motion, ambience and flashes." },
-  { id: "audio", label: "Audio", icon: Volume2, order: 30, description: "Cues for clicks, alerts and the feed." },
-  { id: "feedback", label: "Feedback", icon: MousePointerClick, order: 40, description: "Haptics, optimism, confirmations." },
+  { id: "feedback", label: "Feedback", icon: MousePointerClick, order: 40, description: "Optimism and confirmations." },
   { id: "feed", label: "Toasts", icon: Bell, order: 50, description: "How events are coalesced and shown." },
   { id: "behaviour", label: "Behaviour", icon: Workflow, order: 60, description: "Small workflow preferences." },
   { id: "keyboard", label: "Keyboard", icon: Keyboard, order: 70, description: "Shortcuts and hints." },
   { id: "privacy", label: "Privacy", icon: Eye, order: 80, description: "Blur and streamer mode." },
-  { id: "developer", label: "Developer", icon: Code2, order: 90, description: "Diagnostics for building on the template." },
 ];
 
 const pct = (v: unknown) => `${Math.round(Number(v) * 100)}%`;
@@ -129,17 +125,8 @@ export const CORE_SETTINGS: SettingDef[] = [
   { id: "effects.glass", group: "effects", label: "Translucent panels", type: "toggle", default: true, advanced: true, order: 9 },
 
   /* Audio ---------------------------------------------------------- */
-  { id: "audio.enabled", group: "audio", label: "Sound", type: "toggle", default: site.audio.enabled, order: 1, tags: ["mute", "volume"] },
-  { id: "audio.master", group: "audio", label: "Volume", type: "slider", default: site.audio.volume, min: 0, max: 1, step: 0.05, format: pct, order: 2 },
-  { id: "audio.ui", group: "audio", label: "Interface clicks", type: "toggle", default: true, advanced: true, order: 3 },
-  { id: "audio.feedback", group: "audio", label: "Success / error", type: "toggle", default: true, advanced: true, order: 4 },
-  { id: "audio.alerts", group: "audio", label: "Alerts", type: "toggle", default: true, advanced: true, order: 5 },
-  { id: "audio.feed", group: "audio", label: "Feed events", description: "New rows and price ticks.", type: "toggle", default: true, advanced: true, order: 6 },
-  { id: "audio.hover", group: "audio", label: "Hover ticks", description: "A very quiet tick when hovering buttons.", type: "toggle", default: false, advanced: true, order: 7 },
 
   /* Feedback ------------------------------------------------------- */
-  { id: "feedback.haptics", group: "feedback", label: "Haptics", description: "Vibrate on press where supported.", type: "toggle", default: true, order: 1 },
-  { id: "feedback.hapticsMs", group: "feedback", label: "Haptic length", type: "slider", default: 8, min: 2, max: 30, step: 1, format: ms, advanced: true, order: 2 },
   { id: "feedback.optimistic", group: "feedback", label: "Optimistic actions", description: "Show actions as done the instant you click.", type: "toggle", default: true, order: 3 },
   { id: "feedback.confirmDestructive", group: "feedback", label: "Confirm destructive actions", type: "toggle", default: true, order: 4 },
   { id: "feedback.copyToast", group: "feedback", label: "Toast on copy", type: "toggle", default: true, advanced: true, order: 5 },
@@ -162,7 +149,6 @@ export const CORE_SETTINGS: SettingDef[] = [
     order: 2,
   },
   { id: "feed.toastDurationMs", group: "feed", label: "Toast duration", type: "slider", default: site.feed.toastDurationMs, min: 1000, max: 10000, step: 250, format: ms, order: 3 },
-  { id: "feed.sound", group: "feed", label: "Sound on a toast", type: "toggle", default: true, order: 4 },
   { id: "feed.maxToasts", group: "feed", label: "Max visible toasts", type: "slider", default: site.feed.maxToasts, min: 1, max: 8, step: 1, advanced: true, order: 5 },
   {
     id: "feed.coalesceMs",
@@ -195,6 +181,4 @@ export const CORE_SETTINGS: SettingDef[] = [
   { id: "privacy.streamer", group: "privacy", label: "Streamer mode", description: "Also hides addresses and identifiers.", type: "toggle", default: false, advanced: true, order: 2 },
 
   /* Developer ------------------------------------------------------ */
-  { id: "developer.showScopes", group: "developer", label: "Show context-menu scopes", description: "Outline right-clickable regions.", type: "toggle", default: false, advanced: true, order: 1 },
-  { id: "developer.logNews", group: "developer", label: "Log toasts to console", type: "toggle", default: false, advanced: true, order: 2 },
 ];

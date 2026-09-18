@@ -240,16 +240,27 @@ export function cueCategory(name: CueName): CueCategory {
   return CUES[name].category;
 }
 
+/**
+ * The one sound left.
+ *
+ * HIS RULE: sound goes, except a ping when something is waiting on him. A
+ * click that clicks and a slider that ticks are not information; a job that
+ * has stopped and needs him is. So the cues stay defined \u2014 they are a few
+ * oscillators each and cost nothing unheard \u2014 and exactly one of them can be
+ * heard. There is nothing to mute, so there is no mute, and nothing in the
+ * settings panel about volume.
+ *
+ * `force` is still honoured, for the one page whose whole purpose is to play
+ * a cue so somebody can hear what it sounds like.
+ */
+const STILL_RINGS = new Set<CueName>(["notify"]);
+
 /** Play a cue. Safe to call anywhere on the client; silently no-ops on the server. */
 export function play(name: CueName, opts: { volume?: number; force?: boolean } = {}) {
   const cfg = configSource();
   const spec = CUES[name];
   if (!spec) return;
-  if (!opts.force) {
-    if (!cfg.enabled || cfg.master <= 0) return;
-    if (!cfg.categories[spec.category]) return;
-    if (name === "hover" && !cfg.hover) return;
-  }
+  if (!opts.force && !STILL_RINGS.has(name)) return;
   const c = ensureContext();
   if (!c || !master) return;
   const now = performance.now();

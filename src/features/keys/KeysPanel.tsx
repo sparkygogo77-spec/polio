@@ -37,6 +37,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { SCREEN as VOID_SCREEN } from "@/core/ui/void";
 import { guessCostMs, isPin } from "./crypto";
 import { canSeal, IDLE_MS, SERVER_ONLY, SERVICES, storageWorks, useKeys, type ServiceId } from "./store";
+import { OwnSettings } from "@/core/settings/OwnSettings";
 import { TRIED_HERE, tryHere } from "./tryHere";
 
 /* ------------------------------------------------------------------ */
@@ -493,6 +494,13 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             </p>
           </section>
         )}
+      </div>
+
+      {/* The switch that seals the key, beside the key. It had a settings tab
+          of its own, and because it was the only thing in that tab and marked
+          advanced, the tab read empty. */}
+      <div className="shrink-0 border-t border-border">
+        <OwnSettings panel="keys" advanced />
       </div>
 
       <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2.5">

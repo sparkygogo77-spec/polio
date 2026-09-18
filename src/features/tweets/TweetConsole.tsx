@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import site from "@site";
 import { useUi } from "@/core/ui-state/store";
+import { OwnSettings } from "@/core/settings/OwnSettings";
 import { useActions } from "@/core/actions";
 import { useSettingValue } from "@/core/settings/useSetting";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -924,7 +925,7 @@ function TourPanel({ draft, active, intent, onIntentDone }: { draft: Draft | nul
 export function TweetConsole() {
   const open = useUi((st) => st.panels.tweets);
   const closePanel = useUi((st) => st.closePanel);
-  const openPanel = useUi((st) => st.openPanel);
+  const [showOwn, setShowOwn] = React.useState(false);
   useTweetsHydration();
   const drafts = useTweets((st) => st.drafts);
   const focusedId = useTweets((st) => st.focusedId);
@@ -994,11 +995,21 @@ export function TweetConsole() {
           <Tooltip content="Ask the server again">
             <Button variant="ghost" size="icon" aria-label="Check keys again" onClick={refreshApi}><RefreshCw /></Button>
           </Tooltip>
+          {/* The console's own knobs, in the console. This used to close the
+              console and open the settings drawer, which is a long way to go
+              to change a handle. */}
           <Tooltip content="Tweet console settings">
-            <Button variant="ghost" size="icon" aria-label="Settings" onClick={() => { closePanel("tweets"); openPanel("settings"); }}><Settings2 /></Button>
+            <Button variant={showOwn ? "subtle" : "ghost"} size="icon" aria-label="Settings" aria-pressed={showOwn} onClick={() => setShowOwn((v) => !v)}><Settings2 /></Button>
           </Tooltip>
           <Button variant="ghost" size="icon" aria-label="Close the tweet console" onClick={() => closePanel("tweets")}><X /></Button>
         </header>
+
+        {open && showOwn ? (
+          <div className="min-h-0 shrink-0 overflow-auto border-b border-border bg-panel/60" style={{ maxHeight: "40%" }}>
+            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-fg-faint">The console's own settings</div>
+            <OwnSettings panel="tweets" />
+          </div>
+        ) : null}
 
         {open ? (
           <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] grid-rows-[minmax(0,3fr)_minmax(0,2fr)] xl:grid-cols-[260px_minmax(0,1fr)_minmax(360px,42%)] xl:grid-rows-1">

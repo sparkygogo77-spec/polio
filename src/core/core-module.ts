@@ -16,7 +16,6 @@ import {
   RefreshCw,
   Settings,
   Sun,
-  Volume2,
   VolumeX,
   Eye,
 } from "lucide-react";
@@ -45,15 +44,6 @@ export const coreModule = defineFeature({
       shortcut: "mod+shift+l",
       keywords: ["theme", "dark", "light"],
       run: toggleTheme,
-    },
-    {
-      id: "core.sound",
-      label: "Toggle sound",
-      group: "Appearance",
-      icon: Volume2,
-      shortcut: "mod+.",
-      keywords: ["mute", "audio"],
-      run: (c) => c.setSetting("audio.enabled", !c.getSetting<boolean>("audio.enabled")),
     },
     {
       id: "core.blur",
@@ -93,7 +83,6 @@ export const coreModule = defineFeature({
     { keys: "/", label: "Shortcut cheat sheet", group: "General", run: (c) => c.togglePanel("shortcuts") },
     { keys: "escape", label: "Close panels", group: "General", run: (c) => c.closePanel(), passive: true, allowInInput: true },
     { keys: "mod+shift+l", label: "Toggle theme", group: "Appearance", run: toggleTheme },
-    { keys: "mod+.", label: "Toggle sound", group: "Appearance", run: (c) => c.setSetting("audio.enabled", !c.getSetting<boolean>("audio.enabled")) },
     { keys: "mod+shift+b", label: "Toggle blur", group: "Appearance", run: (c) => c.setSetting("privacy.blur", !c.getSetting<boolean>("privacy.blur")) },
     { keys: "mod+b", label: "Toggle sidebar", group: "Appearance", when: hasNav, run: (c) => c.setSetting("appearance.sidebar", c.getSetting<string>("appearance.sidebar") === "hidden" ? "collapsible" : "hidden") },
     { keys: "g h", label: "Go home", group: "Navigate", run: (c) => c.navigate("/") },
@@ -104,7 +93,6 @@ export const coreModule = defineFeature({
       order: 1000,
       items: (target, ctx) => {
         const selection = typeof window !== "undefined" ? window.getSelection()?.toString().trim() : "";
-        const soundOn = ctx.getSetting<boolean>("audio.enabled");
         const dark = ctx.getSetting<string>("appearance.mode") !== "light";
         const items: MenuEntry[] = [];
         if (target.stack.length > 0) items.push({ type: "separator", id: "core-sep-top" });
@@ -117,7 +105,6 @@ export const coreModule = defineFeature({
             icon: LayoutPanelLeft,
             children: [
               { id: "core.theme", label: dark ? "Light theme" : "Dark theme", icon: dark ? Sun : Moon, shortcut: "mod+shift+l", onSelect: () => toggleTheme(ctx) },
-              { id: "core.sound", label: "Sound", icon: soundOn ? Volume2 : VolumeX, shortcut: "mod+.", checked: soundOn, onSelect: () => ctx.setSetting("audio.enabled", !soundOn) },
               { id: "core.blur", label: "Blur amounts", icon: Eye, shortcut: "mod+shift+b", checked: ctx.getSetting<boolean>("privacy.blur"), onSelect: () => ctx.setSetting("privacy.blur", !ctx.getSetting<boolean>("privacy.blur")) },
             ],
           },

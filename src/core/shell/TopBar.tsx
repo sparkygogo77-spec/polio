@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon, Search, Settings, Sun, Volume2, VolumeX } from "lucide-react";
+import { Moon, Search, Settings, Sun } from "lucide-react";
 import { registry, resolveRoute } from "@/core/registry";
 import { Guarded } from "./Guarded";
 import { useActions } from "@/core/actions";
@@ -19,7 +19,6 @@ export function TopBar() {
   const pathname = usePathname();
   const ctx = useActions();
   const panels = useUi((s) => s.panels);
-  const [sound, setSound] = useSetting<boolean>("audio.enabled");
   const [mode, setMode] = useSetting<string>("appearance.mode");
   const topTabs = useSettingValue<boolean>("appearance.topTabs");
   const tabs = registry.nav.filter((n) => n.placement !== "side");
@@ -90,12 +89,8 @@ export function TopBar() {
           <Guarded key={i.id} id={i.id}><i.component /></Guarded>
         ))}
 
-        <Tooltip content={sound ? "Mute" : "Unmute"} shortcut="mod+.">
-          <Button variant="ghost" size="icon" aria-label="Toggle sound" aria-pressed={sound} sound={false} onClick={() => setSound(!sound)}>
-            {sound ? <Volume2 /> : <VolumeX className="text-fg-faint" />}
-          </Button>
-        </Tooltip>
-
+        {/* There was a mute here. Nothing makes a sound now but the ping that
+            says something is waiting on him, and that one is not for muting. */}
         <Tooltip content={dark ? "Light theme" : "Dark theme"} shortcut="mod+shift+l">
           <Button variant="ghost" size="icon" aria-label="Toggle theme" sound={false} onClick={() => setMode(dark ? "light" : "dark")}>
             {dark ? <Sun /> : <Moon />}

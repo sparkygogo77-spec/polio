@@ -17,7 +17,7 @@ import { Tooltip } from "@/core/ui/tooltip";
 import { ScrollArea } from "@/core/ui/scroll-area";
 import type { SettingDef } from "@/core/types";
 
-function Control({ def, value, onChange }: { def: SettingDef; value: unknown; onChange: (v: unknown) => void }) {
+export function Control({ def, value, onChange }: { def: SettingDef; value: unknown; onChange: (v: unknown) => void }) {
   switch (def.type) {
     case "toggle":
       return <Switch checked={Boolean(value)} onCheckedChange={onChange} silent aria-label={def.label} />;
@@ -79,7 +79,8 @@ export function SettingsDrawer() {
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const groups = allSettingGroups();
-  const defs = allSettingDefs();
+  /* A control a module keeps in its own console is not the drawer's to show. */
+  const defs = allSettingDefs().filter((d) => !d.panel);
   const query = q.trim().toLowerCase();
   const matches = (d: SettingDef) =>
     !query || [d.label, d.description ?? "", d.id, ...(d.tags ?? [])].some((s) => s.toLowerCase().includes(query));
@@ -88,6 +89,18 @@ export function SettingsDrawer() {
   for (const d of visible) byGroup.set(d.group, [...(byGroup.get(d.group) ?? []), d]);
   const modified = Object.keys(values).length;
   const hiddenCount = defs.filter((d) => d.advanced).length;
+  /*
+   * A tab that leads nowhere is not offered.
+   *
+   * TWO OF THEM READ EMPTY ON HIS BOARD. Every option in Developer and in
+   * Keys was marked advanced, and the strip listed every group whether or not
+   * it had anything to show at the level being looked at \u2014 so the tab was
+   * there, he pressed it, and it said "No options match". What can be reached
+   * from here is worked out the same way the list below is, from what is
+   * actually visible, so the two can never disagree again.
+   */
+  const reachable = defs.filter((d) => (!d.when || d.when()) && (advanced || !d.advanced || query) && matches(d));
+  const offered = groups.filter((g) => reachable.some((d) => d.group === g.id));
 
   const doExport = () => {
     const json = JSON.stringify(exportSettings(), null, 2);
@@ -146,7 +159,7 @@ export function SettingsDrawer() {
             <button type="button" onClick={() => setGroup("all")} className={cn("tactile shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]", group === "all" ? "bg-accent-soft text-accent" : "text-fg-muted hover:bg-hover")}>
               All
             </button>
-            {groups.map((g) => (
+            {offered.map((g) => (
               <button
                 key={g.id}
                 type="button"
