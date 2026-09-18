@@ -105,3 +105,81 @@ export function groupIntoBands(features: FeatureDef[]): { band: Band; items: Fea
     items: [...buckets.get(band)!].sort((a, b) => spanOf(b) - spanOf(a)),
   }));
 }
+
+/* ------------------------------------------------------------------ */
+/* Grouping by size and shape                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The shelf groups elements by how big they are and what shape they are, not
+ * by where they would sit on a page.
+ *
+ * WHY IT CHANGED. Bands — across the top, first screen, the body, further
+ * down, the foot — are a good thing to know and a bad way to pack a shelf.
+ * A band holds whatever sizes it happens to hold, so a twelve-span card 1820
+ * across sits in the same flex line as a quarter-width one, and because a
+ * line is only as tall as the tallest card allows, the short ones leave holes
+ * under them and the wide one leaves the rest of its row empty. Measured on
+ * Layout with the shelf 1188 wide: "The body" put one full-width card in a
+ * row by itself and left 548px of that row bare.
+ *
+ * Grouped by size instead, every card in a group has the same width and the
+ * same height cap — `sizeFor` in `Palette.tsx` derives both from the span —
+ * so a group tiles exactly and there are no holes to leave.
+ *
+ * SHAPE, not only size. Full width splits in two: a strip (something much
+ * wider than it is tall — a header, a footer, a marquee, a logo row) and a
+ * block (a hero, a section). They are both twelve spans and they are not the
+ * same object, and a strip is 118 tall against a block's 208, so mixing them
+ * is the hole problem again inside one group. Strips come first, because two
+ * of them stack inside the shelf's strip where one block fills it.
+ *
+ * The page-position knowledge above is kept, not deleted: it is the right
+ * answer to a different question, and `bandOf` is what a reading of an
+ * imported page would want.
+ */
+export type Shape = "strip" | "block" | "half" | "third" | "quarter";
+
+export const SHAPES: Shape[] = ["strip", "block", "half", "third", "quarter"];
+
+export const SHAPE_LABEL: Record<Shape, string> = {
+  strip: "Full width, shallow",
+  block: "Full width",
+  half: "Half width",
+  third: "A third each",
+  quarter: "A quarter each",
+};
+
+/** Much wider than it is tall: a strip rather than a block. */
+export function isStrip(feature: FeatureDef): boolean {
+  return (feature.w ?? 420) / (feature.h ?? 88) >= 5;
+}
+
+/** Which size-and-shape group a part belongs to. */
+export function shapeOf(feature: FeatureDef, frameWidth = 1440): Shape {
+  const span = spanOf(feature, frameWidth);
+  if (span >= 12) return isStrip(feature) ? "strip" : "block";
+  if (span >= 6) return "half";
+  if (span >= 4) return "third";
+  return "quarter";
+}
+
+/**
+ * The shelf's groups, biggest first, and inside a group the widest-relative-to
+ * -tall first — so similar shapes end up beside each other and the eye can
+ * compare them.
+ */
+export function groupIntoShapes(features: FeatureDef[]): { shape: Shape; items: FeatureDef[] }[] {
+  const buckets = new Map<Shape, FeatureDef[]>();
+  for (const f of features) {
+    const shape = shapeOf(f);
+    const list = buckets.get(shape);
+    if (list) list.push(f);
+    else buckets.set(shape, [f]);
+  }
+  const aspect = (f: FeatureDef) => (f.w ?? 420) / (f.h ?? 88);
+  return SHAPES.filter((sh) => buckets.has(sh)).map((shape) => ({
+    shape,
+    items: [...buckets.get(shape)!].sort((a, b) => aspect(b) - aspect(a)),
+  }));
+}

@@ -31,7 +31,7 @@ import { useStudio } from "./store";
 import { PartPreview, previewHeight } from "./PartPreview";
 import { planetOf } from "./planets";
 import { moonFor } from "./moons";
-import { BAND_LABEL, groupIntoBands, spanOf } from "./showcase";
+import { SHAPE_LABEL, groupIntoShapes, type Shape } from "./showcase";
 import { css, parseColor } from "./look";
 import { resolvePalette } from "./parts/theme";
 import { ctxProps } from "@/core/context-menu/ctx";
@@ -72,13 +72,28 @@ export function addFeatureToCanvas(featureId: string) {
 
 function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; width: number; tall: number; removed?: boolean }) {
   const [dragging, setDragging] = React.useState(false);
-  // Fit the whole card, not the preview inside it. A part taller than the cap
-  // is drawn narrower rather than letterboxed, so the box is always exactly
-  // the picture — no transparent margin for the fire to come through.
-  const natural = previewHeight(feature, slot);
-  const shrink = Math.min(1, tall / Math.max(1, natural));
-  const width = Math.max(120, Math.round(slot * shrink));
-  const height = Math.max(44, Math.round(natural * shrink));
+  /*
+   * THE CARD IS THE SLOT IT WAS GIVEN, and its height follows from its shape.
+   *
+   * It used to be the other way round: the group fixed a height cap, and a
+   * card too tall for the cap was *narrowed* until it fitted — so a
+   * full-width part was drawn at 630 of a 1188 slot and the other 558 of its
+   * row was bare. Measured on Layout at 1440x900: 9 of 11 rows had a bare
+   * gutter, two of them over 700px wide, and the shelf covered 69.6% of its
+   * own width. That is what "sorted space-inefficiently" was.
+   *
+   * The cap has not gone; it decides how many cards go across instead (see
+   * `columnsFor`). So a card is always exactly its slot, a row is always
+   * full, and a group of them tiles.
+   */
+  const width = Math.max(120, Math.round(slot));
+  /* No cap applied here. `columnsFor` already chose a column count whose
+     widest slot keeps this group's tallest card inside the cap, so capping
+     again could only letterboxing — a scaled-down preview in a box with a
+     transparent margin for the fire to come through, which is the thing the
+     narrowing was invented to avoid. `tall` is carried for the one case
+     `columnsFor` cannot solve: a part so tall that no column count fits it. */
+  const height = Math.max(44, Math.min(previewHeight(feature, width), tall));
 
   if (removed) {
     return (
@@ -158,11 +173,33 @@ function Card({ feature, width: slot, tall, removed }: { feature: FeatureDef; wi
 /**
  * How many categories may be open at once.
  *
- * Two, so you can hold a hero next to a text block and choose between them,
- * and not three, because the shelf is a 248px band and a third turns it from
- * something you read into something you scroll.
+ * ONE. It was two, on the reasoning that you might want to hold a hero next
+ * to a text block and choose between them. In a 209px strip that is not what
+ * two open categories give you: the first one's cards are 208 tall on their
+ * own, so the second never arrives on screen beside the first — it arrives
+ * below the fold, and the only way to see the pair the argument was about is
+ * to scroll one of them out of sight. Two was a comparison that could not
+ * actually be made.
+ *
+ * One also makes the planets row honest. With a single category open the row
+ * can shrink to a rail (see `PLANET_DISC`), which is what puts the open
+ * category on screen without the shelf having to scroll itself — the thing
+ * that made pressing a planet move the view.
  */
-const OPEN_AT_MOST = 2;
+const OPEN_AT_MOST = 1;
+
+/**
+ * The planets, full size and shrunk to a rail.
+ *
+ * Closed, they are the shelf: big lit discs with their names and their counts
+ * under them, which is the way in. Open, they are navigation past the thing
+ * you are actually looking at, so they give the room back — half the disc, no
+ * name, no count, the tooltip still carrying both. The mark stays the same
+ * drawing at both sizes.
+ */
+const PLANET_DISC = { open: 30, shut: 52 } as const;
+const PLANET_MARK = { open: 22, shut: 38 } as const;
+const PLANET_CELL = { open: 40, shut: 86 } as const;
 
 /* ------------------------------------------------------------------ */
 
@@ -199,15 +236,19 @@ export function useShelfOpen(): boolean {
 export function Palette() {
   const [query, setQuery] = React.useState("");
   /*
-   * Which categories are open, and never more than two.
+   * Which category is open. One at a time, and it may be none.
    *
    * It used to be one `cat`, and choosing it took the whole shelf: the row of
-   * planets vanished and was replaced by that category's parts, so comparing
-   * a hero against a text block meant going back and starting again. They are
-   * merged now — the planets stay where they are and a category opens
-   * *underneath* them, in the flow, with a second one stacking below the
-   * first. A third pushes the oldest out, because three open categories in a
-   * 248px band is a list you scroll rather than a shelf you read.
+   * planets vanished and was replaced by that category's parts, so there was
+   * no way back except back. Then it was two stacked under a row of planets
+   * that stayed put, which is the right shape and the wrong number — see
+   * `OPEN_AT_MOST`. It is one now, and the planets neither vanish nor stay
+   * full size: they shrink to a rail, so the category that opens is already
+   * on screen and nothing has to scroll to show it.
+   *
+   * Still an array rather than `CategoryId | null` because everything that
+   * reads it — the lit state, the stacking, the section list — reads it as a
+   * set, and a set of one is the same code as a set of two.
    */
   const [open, setOpen] = React.useState<CategoryId[]>([]);
   /* The band outside needs to know, and a state set during render is not a
@@ -219,6 +260,13 @@ export function Palette() {
     play("select");
     setOpen((was) => (was.includes(id) ? was.filter((c) => c !== id) : [...was, id].slice(-OPEN_AT_MOST)));
   }, []);
+
+  /* Full discs, or the rail. One reading, so the cell, the disc and the mark
+     can never disagree about which of the two the row is in. */
+  const anyOpen = open.length > 0;
+  const cell = anyOpen ? PLANET_CELL.open : PLANET_CELL.shut;
+  const disc = anyOpen ? PLANET_DISC.open : PLANET_DISC.shut;
+  const mark = anyOpen ? PLANET_MARK.open : PLANET_MARK.shut;
 
   const hidden = useStudio(useShallow((s) => s.hiddenFeatures));
   const hiddenSet = React.useMemo(() => new Set(hidden), [hidden]);
@@ -241,8 +289,9 @@ export function Palette() {
   const removed = showRemoved ? all.filter((f) => hiddenSet.has(f.id)) : [];
 
   /* Searching is the one view that is not the accordion: a name typed in
-     crosses every category, so the results are one flat list of bands. */
-  const found = React.useMemo(() => (searching ? groupIntoBands(live) : []), [searching, live]);
+     crosses every category, so the results are one flat list — grouped the
+     same way an open category is, by size and shape. */
+  const found = React.useMemo(() => (searching ? groupIntoShapes(live) : []), [searching, live]);
 
   // One measurement for the shelf: previews are real components, so they need
   // a pixel width, and three columns of it is what a page's middle looks like.
@@ -262,12 +311,35 @@ export function Palette() {
   // four across with a thin gap, because a preview you cannot read is not a
   // preview. The height cap follows, so a wide part is also a tall one.
   const GAP = 10;
-  const sizeFor = React.useCallback((f: FeatureDef) => {
-    const span = spanOf(f);
-    const per = span >= 12 ? 1 : span >= 6 ? 2 : span >= 4 ? 3 : 4;
-    const width = Math.max(150, Math.floor((shelfW - GAP * (per - 1)) / per));
-    const wide = (f.w ?? 420) / (f.h ?? 88) >= 5;
-    return { width, tall: per === 1 ? (wide ? 118 : 208) : per === 2 ? 208 : 168 };
+  /*
+   * ONE SLOT WIDTH PER GROUP, chosen so the group's tallest card fits the cap.
+   *
+   * The old rule sized every card on its own: a span decided how many would
+   * go across, a cap decided how tall the card could be, and a card too tall
+   * for the cap was narrowed inside its slot until it fitted. The narrowing
+   * is where the wasted space came from — a full-width part drawn at 630 of
+   * an 1188 slot leaves 558 of that row bare, and nothing can fill it,
+   * because the slot is still a whole row wide.
+   *
+   * So the cap decides the COLUMN COUNT now, not the card's width. Start at
+   * the count the shape asks for, and while the group's tallest natural
+   * preview is over the cap, put one more across — a narrower slot makes
+   * every card in the group shorter in proportion, and they all stay exactly
+   * their slot. A row is therefore always full, and a group tiles.
+   *
+   * Six across is the floor: past that a preview is a thumbnail of a
+   * thumbnail, and an unreadable preview is worse than a scroll.
+   */
+  const CAPS: Record<Shape, number> = { strip: 118, block: 208, half: 208, third: 168, quarter: 168 };
+  const FROM: Record<Shape, number> = { strip: 1, block: 1, half: 2, third: 3, quarter: 4 };
+  const columnsFor = React.useCallback((shape: Shape, items: FeatureDef[]) => {
+    const cap = CAPS[shape];
+    const widthAt = (per: number) => Math.max(150, Math.floor((shelfW - GAP * (per - 1)) / per));
+    let per = FROM[shape];
+    const tallest = (per_: number) => items.reduce((m, f) => Math.max(m, previewHeight(f, widthAt(per_))), 0);
+    while (per < 6 && tallest(per) > cap) per += 1;
+    return { width: widthAt(per), tall: cap, per };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shelfW]);
 
   // The field the previews float on: the surface's complement, dimmed, so a
@@ -359,16 +431,16 @@ export function Palette() {
         {searching ? (
           found.length ? (
             <div className="relative z-[1] px-3 py-3">
-              {found.map(({ band, items }) => (
-                <Band key={band} title={BAND_LABEL[band]}>
-                  <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                    {items.map((f) => {
-                      const { width, tall } = sizeFor(f);
-                      return <Card key={f.id} feature={f} width={width} tall={tall} />;
-                    })}
-                  </div>
-                </Band>
-              ))}
+              {found.map(({ shape, items }) => {
+                const { width, tall } = columnsFor(shape, items);
+                return (
+                  <Band key={shape} title={SHAPE_LABEL[shape]}>
+                    <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
+                      {items.map((f) => <Card key={f.id} feature={f} width={width} tall={tall} />)}
+                    </div>
+                  </Band>
+                );
+              })}
               <div className="h-10" />
             </div>
           ) : (
@@ -386,22 +458,31 @@ export function Palette() {
               also the way to the *second* thing you want to look at, so they
               do not go anywhere; the one you have open is simply lit.
             */}
-            <div className="relative z-[1] flex flex-wrap justify-center gap-x-3 gap-y-2 px-4 py-3">
+            <div
+              data-planets={anyOpen ? "rail" : "full"}
+              className={cn(
+                "relative z-[1] flex flex-wrap justify-center px-4 transition-[padding] duration-200",
+                anyOpen ? "gap-x-1.5 gap-y-1 py-1.5" : "gap-x-3 gap-y-2 py-3",
+              )}
+            >
               {[...categories].map((c) => {
                 const isOpen = open.includes(c.id);
                 return (
-                  <Tooltip key={c.id} content={c.blurb} side="top">
+                  <Tooltip key={c.id} content={anyOpen ? `${c.label} — ${c.blurb}` : c.blurb} side="top">
                     <button
                       type="button"
                       data-category={c.id}
                       aria-expanded={isOpen}
+                      aria-label={c.label}
                       onClick={() => toggleCat(c.id)}
-                      className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1"
-                      style={{ color: `oklch(0.84 0.13 ${c.hue})` }}
+                      className="group/cat tactile flex shrink-0 flex-col items-center gap-1 transition-[width] duration-200"
+                      style={{ color: `oklch(0.84 0.13 ${c.hue})`, width: cell }}
                     >
                       <span
-                        className="flex size-[52px] items-center justify-center rounded-full transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
+                        className="flex items-center justify-center rounded-full transition-[box-shadow,transform,width,height] duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[var(--lit)]"
                         style={{
+                          width: disc,
+                          height: disc,
                           // The disc carries the colour, so it has to have
                           // some: at a chroma of 0.045 every one of these was
                           // black with a rumour of a hue in it, and the row
@@ -416,10 +497,17 @@ export function Palette() {
                           "--lit": `inset 0 0 0 1.5px oklch(0.78 0.16 ${c.hue} / 0.85), 0 3px 12px oklch(0.5 0.14 ${c.hue} / 0.35)`,
                         } as React.CSSProperties}
                       >
-                        {React.createElement(planetOf(c.id), { size: 38 })}
+                        {React.createElement(planetOf(c.id), { size: mark })}
                       </span>
-                      <span className="text-center text-[10px] leading-tight">{c.label}</span>
-                      <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                      {/* The name and the count are what the rail gives back.
+                          Both are in the tooltip while it is a rail, so
+                          nothing is only-reachable at full size. */}
+                      {anyOpen ? null : (
+                        <>
+                          <span className="text-center text-[10px] leading-tight">{c.label}</span>
+                          <span className="num text-[9px] text-fg-faint">{live.filter((f) => f.category === c.id).length}</span>
+                        </>
+                      )}
                     </button>
                   </Tooltip>
                 );
@@ -434,17 +522,23 @@ export function Palette() {
                 <button
                   type="button"
                   data-category="custom-idea"
+                  aria-label="New idea"
                   onClick={() => addFeatureToCanvas("custom-idea")}
-                  className="group/cat tactile flex w-[86px] shrink-0 flex-col items-center gap-1 text-accent"
+                  className="group/cat tactile flex shrink-0 flex-col items-center gap-1 text-accent transition-[width] duration-200"
+                  style={{ width: cell }}
                 >
                   <span
-                    className="flex size-[52px] items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform] duration-150 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
-                    style={{ background: "oklch(0.2 0.04 265 / 0.45)" }}
+                    className="flex items-center justify-center rounded-full border border-dashed border-accent/55 transition-[box-shadow,transform,width,height] duration-200 group-hover/cat:-translate-y-0.5 group-hover/cat:shadow-[0_3px_12px_var(--accent-soft)]"
+                    style={{ width: disc, height: disc, background: "oklch(0.2 0.04 265 / 0.45)" }}
                   >
-                    <Sparkles className="size-[30px]" />
+                    <Sparkles style={{ width: mark * 0.8, height: mark * 0.8 }} />
                   </span>
-                  <span className="text-center text-[10px] leading-tight">New idea</span>
-                  <span className="num text-[9px] text-fg-faint">yours</span>
+                  {anyOpen ? null : (
+                    <>
+                      <span className="text-center text-[10px] leading-tight">New idea</span>
+                      <span className="num text-[9px] text-fg-faint">yours</span>
+                    </>
+                  )}
                 </button>
               </Tooltip>
             </div>
@@ -457,7 +551,7 @@ export function Palette() {
                 key={c.id}
                 category={c}
                 live={live}
-                sizeFor={sizeFor}
+                columnsFor={columnsFor}
                 gap={GAP}
                 onClose={() => toggleCat(c.id)}
               />
@@ -467,7 +561,7 @@ export function Palette() {
               <div className="relative z-[1] px-3 pb-3">
                 <Band title="Removed">
                   <div className="flex flex-wrap items-start" style={{ gap: GAP }}>
-                    {removed.map((f) => <Card key={f.id} feature={f} width={sizeFor(f).width} tall={72} removed />)}
+                    {removed.map((f) => <Card key={f.id} feature={f} width={columnsFor("quarter", removed).width} tall={72} removed />)}
                   </div>
                 </Band>
               </div>
@@ -491,36 +585,36 @@ export function Palette() {
  * only thing the wheel talks to.
  */
 function CategorySection({
-  category, live, sizeFor, gap, onClose,
+  category, live, columnsFor, gap, onClose,
 }: {
   category: CategoryDef;
   live: FeatureDef[];
-  sizeFor: (f: FeatureDef) => { width: number; tall: number };
+  columnsFor: (shape: Shape, items: FeatureDef[]) => { width: number; tall: number; per: number };
   gap: number;
   onClose: () => void;
 }) {
   const [sub, setSub] = React.useState<string | null>(null);
-  /* Opening one brings it into view.
-     The planets fill the shelf's own box on their own, so a section that
-     opens underneath them opens off the bottom of it, and pressing a planet
-     looked like pressing a dead button. It mounts when it opens, so mounting
-     is exactly the moment to scroll — and only the new one moves, because
-     the one already open never remounts.
-
-     The SHELF is scrolled, by hand, and not `scrollIntoView`. That scrolls
-     every scrollable ancestor, so opening a category took the pane with it:
-     measured at 2048×1152, the pane went from 0 to 261 and the site jumped
-     upward on its own the moment a planet was pressed. Two scroll regions
-     that never push each other is the rule, and this was the shelf pushing
-     the site. */
-  const box = React.useRef<HTMLElement>(null);
-  React.useEffect(() => {
-    const el = box.current;
-    const shelf = el?.closest("[data-shelf]");
-    if (!el || !(shelf instanceof HTMLElement)) return;
-    const to = el.getBoundingClientRect().top - shelf.getBoundingClientRect().top + shelf.scrollTop;
-    shelf.scrollTo({ top: Math.max(0, Math.round(to)), behavior: "smooth" });
-  }, []);
+  /*
+   * PRESSING A CATEGORY DOES NOT SCROLL ANYTHING. It opens the category.
+   *
+   * This used to scroll the shelf to bring the opening section to the top,
+   * and before that it called `scrollIntoView`, which scrolls every
+   * scrollable ancestor and so took the pane with it — the site jumping
+   * upward on its own the moment a planet was pressed. Scrolling the shelf
+   * by hand fixed the pane and left the complaint: the view still moved when
+   * all that was asked for was for a category to open.
+   *
+   * The reason it moved was real, and it is fixed at the cause rather than
+   * papered over. The planets filled the shelf's box on their own, so a
+   * section opening underneath them opened off the bottom and a planet
+   * looked like a dead button. With one category open at a time the planets
+   * shrink to a rail (`PLANET_DISC` in this file), which frees enough of the
+   * strip that the section's header is on screen the moment it opens. So
+   * there is nothing to scroll to, and nothing scrolls.
+   *
+   * The wheel still works, and the person still drives it. That is the
+   * whole of it: the shelf moves when it is pushed, never on its own.
+   */
   const subs = React.useMemo(
     () => (SUBGROUPS[category.id] ?? []).filter((g) => g.ids.some((id) => live.some((f) => f.id === id))),
     [category.id, live],
@@ -535,10 +629,10 @@ function CategorySection({
     const ids = group ? group.ids : subs.flatMap((g) => g.ids);
     return ids.map((id) => live.find((f) => f.id === id)).filter((f): f is FeatureDef => !!f);
   }, [live, sub, subs, category.id]);
-  const bands = React.useMemo(() => groupIntoBands(shown), [shown]);
+  const groups = React.useMemo(() => groupIntoShapes(shown), [shown]);
 
   return (
-    <section ref={box} data-category-open={category.id} className="relative z-[1] border-t border-border/70">
+    <section data-category-open={category.id} className="relative z-[1] border-t border-border/70">
       <div
         className="sticky top-0 z-[2] flex items-center gap-2 px-3 py-1.5 backdrop-blur-sm"
         style={{ background: `oklch(0.16 0.03 ${category.hue} / 0.9)` }}
@@ -580,19 +674,19 @@ function CategorySection({
         </button>
       </div>
       <div className="px-3 py-2">
-        {bands.map(({ band, items }) => (
-          <Band key={band} title={BAND_LABEL[band]}>
-            {/* items-start, or a flex line makes every card as tall as the
-                tallest one in it, and the stretched-out part of a short
-                card is empty space with the fire showing through it. */}
-            <div className="flex flex-wrap items-start" style={{ gap }}>
-              {items.map((f) => {
-                const { width, tall } = sizeFor(f);
-                return <Card key={f.id} feature={f} width={width} tall={tall} />;
-              })}
-            </div>
-          </Band>
-        ))}
+        {groups.map(({ shape, items }) => {
+          const { width, tall } = columnsFor(shape, items);
+          return (
+            <Band key={shape} title={SHAPE_LABEL[shape]}>
+              {/* items-start, or a flex line makes every card as tall as the
+                  tallest one in it, and the stretched-out part of a short
+                  card is empty space with the fire showing through it. */}
+              <div className="flex flex-wrap items-start" style={{ gap }}>
+                {items.map((f) => <Card key={f.id} feature={f} width={width} tall={tall} />)}
+              </div>
+            </Band>
+          );
+        })}
       </div>
     </section>
   );
