@@ -1135,6 +1135,19 @@ function migrateKey(from: string, to: string) {
  */
 let studioRead = false;
 
+/*
+ * Whether a swap between sites is in flight.
+ *
+ * `swapDoc` replaces the whole document in one synchronous go, and while it
+ * does the store passes through states that belong to neither site. Nothing
+ * of that may reach the live key, because the live key is what the projects
+ * store copies into a site's own slot — and one site's work landing in
+ * another site's slot is the fault this exists to make impossible, not a
+ * cosmetic one. So the pen is held for the length of the swap and the caller
+ * writes the live key itself, once, with the document it means.
+ */
+let studioSwapping = false;
+
 /**
  * Hand the catalogue what the connected repositories brought.
  *
@@ -2407,10 +2420,100 @@ export const useStudio = create<StudioState>()(
        */
       storage: createJSONStorage(() => ({
         getItem: (k) => localStorage.getItem(k),
-        setItem: (k, v) => { if (studioRead) localStorage.setItem(k, v); },
+        setItem: (k, v) => { if (studioRead && !studioSwapping) localStorage.setItem(k, v); },
         removeItem: (k) => localStorage.removeItem(k),
       })),
-      merge: (persisted, current) => {
+      merge: (persisted, current) => mergeDoc(persisted, current as StudioState),
+      partialize: docOnly,
+      skipHydration: true,
+      /*
+       * A thread left running is a thread whose process is gone.
+       *
+       * Nothing survives a reload except the document, so anything still
+       * marked running when the store comes back was abandoned: the tab
+       * closed, the job died, the run was stopped. Both of those read red,
+       * which is what makes one mark enough for two states.
+       */
+      onRehydrateStorage: () => (state) => {
+        /* Read at last, whether or not there was anything there: a first-ever
+           visit has nothing saved and must still be allowed to save. */
+        studioRead = true;
+        if (!state) return;
+        /* A saved document may already carry repositories: put their
+           elements back on the shelf before anything reads it. A document
+           from before this existed has neither, hence the defaults. */
+        state.brought ??= [];
+        state.broughtParts ??= [];
+        shelve(state.brought, state.broughtParts);
+        const stuck = state.threads.some((t) => t.state === "running");
+        if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));
+      },
+    },
+  ),
+);
+
+
+/* ------------------------------------------------------------------ */
+/* Loading a document                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The part of the store that IS the document.
+ *
+ * Named rather than inline because two things need it and they must never
+ * drift: the persister, which writes it out, and `PRISTINE`, which is what a
+ * site with nothing saved has to be loaded as. A key added here is saved and
+ * blanked by the same edit.
+ */
+function docOnly(s: StudioState) {
+  return {
+        pages: s.pages,
+        nodes: s.nodes,
+        /* His drawings survive leaving the tab, which is the whole point of them. */
+        draws: s.draws,
+        groups: s.groups,
+        shapes: s.shapes,
+        spaces: s.spaces,
+        format: s.format,
+        brief: s.brief,
+        look: s.look,
+        motion: s.motion,
+        activePageId: s.activePageId,
+        showAllFormat: s.showAllFormat,
+        showWires: s.showWires,
+        hiddenFeatures: s.hiddenFeatures,
+        brought: s.brought,
+        broughtParts: s.broughtParts,
+        trail: s.trail,
+        threads: s.threads,
+        liveThreadId: s.liveThreadId,
+        pinnedThreads: s.pinnedThreads,
+        bookPinned: s.bookPinned,
+        openThreadId: s.openThreadId,
+        currentThreadId: s.currentThreadId,
+        threadSpots: s.threadSpots,
+        draftPieces: s.draftPieces,
+        sentPieces: s.sentPieces,
+        companion: s.companion,
+        menuShape: s.menuShape,
+        menuSpin: s.menuSpin,
+        recentColours: s.recentColours,
+        frameWidth: s.frameWidth,
+        /* Which repository this site points at is part of the site, not part
+           of where somebody is looking, so it is saved with the document. */
+        siteRepo: s.siteRepo,
+  };
+}
+
+/**
+ * A saved document, read onto a base.
+ *
+ * Named for the same reason. The persister hands it the live store as the
+ * base; `swapDoc` hands it a pristine one, which is the difference between
+ * "fill in what this document does not mention" and "let the last site's
+ * work show through the gaps".
+ */
+function mergeDoc(persisted: unknown, current: StudioState): StudioState {
         const p = (persisted ?? {}) as Partial<StudioState>;
         return {
           ...current,
@@ -2472,70 +2575,81 @@ export const useStudio = create<StudioState>()(
             frames: Array.from({ length: SLEEVES }, (_, i) => m.frames?.[i] ?? null),
           })),
         };
-      },
-      partialize: (s) => ({
-        pages: s.pages,
-        nodes: s.nodes,
-        /* His drawings survive leaving the tab, which is the whole point of them. */
-        draws: s.draws,
-        groups: s.groups,
-        shapes: s.shapes,
-        spaces: s.spaces,
-        format: s.format,
-        brief: s.brief,
-        look: s.look,
-        motion: s.motion,
-        activePageId: s.activePageId,
-        showAllFormat: s.showAllFormat,
-        showWires: s.showWires,
-        hiddenFeatures: s.hiddenFeatures,
-        brought: s.brought,
-        broughtParts: s.broughtParts,
-        trail: s.trail,
-        threads: s.threads,
-        liveThreadId: s.liveThreadId,
-        pinnedThreads: s.pinnedThreads,
-        bookPinned: s.bookPinned,
-        openThreadId: s.openThreadId,
-        currentThreadId: s.currentThreadId,
-        threadSpots: s.threadSpots,
-        draftPieces: s.draftPieces,
-        sentPieces: s.sentPieces,
-        companion: s.companion,
-        menuShape: s.menuShape,
-        menuSpin: s.menuSpin,
-        recentColours: s.recentColours,
-        frameWidth: s.frameWidth,
-        /* Which repository this site points at is part of the site, not part
-           of where somebody is looking, so it is saved with the document. */
-        siteRepo: s.siteRepo,
-      }),
-      skipHydration: true,
-      /*
-       * A thread left running is a thread whose process is gone.
-       *
-       * Nothing survives a reload except the document, so anything still
-       * marked running when the store comes back was abandoned: the tab
-       * closed, the job died, the run was stopped. Both of those read red,
-       * which is what makes one mark enough for two states.
-       */
-      onRehydrateStorage: () => (state) => {
-        /* Read at last, whether or not there was anything there: a first-ever
-           visit has nothing saved and must still be allowed to save. */
-        studioRead = true;
-        if (!state) return;
-        /* A saved document may already carry repositories: put their
-           elements back on the shelf before anything reads it. A document
-           from before this existed has neither, hence the defaults. */
-        state.brought ??= [];
-        state.broughtParts ??= [];
-        shelve(state.brought, state.broughtParts);
-        const stuck = state.threads.some((t) => t.state === "running");
-        if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));
-      },
-    },
-  ),
-);
+}
+
+/**
+ * The document a site with nothing saved has.
+ *
+ * Taken once, from the store's own initial state, before anything can have
+ * hydrated — `skipHydration` is what makes that safe. Deep-copied, so a
+ * later edit to the live document can never reach back and change what
+ * "empty" means.
+ */
+const PRISTINE: ReturnType<typeof docOnly> = JSON.parse(JSON.stringify(docOnly(useStudio.getState())));
+
+/**
+ * Put a site's saved document into the store, synchronously.
+ *
+ * WHAT THIS REPLACES AND WHY. Switching sites used to copy the target's
+ * document into the live key and call `persist.rehydrate()`. That works for
+ * a site that has something saved and does nothing at all for one that does
+ * not: zustand only runs `merge` when there IS persisted state, so
+ * rehydrating from nothing leaves the store exactly as it was — still
+ * holding the last site's work. Measured: three sites, one part each, and
+ * the third site's slot came back reading `waypoint,split-screen` when
+ * `split-screen` was the only part ever made on it. The board showed the
+ * previous site's work, and the first edit wrote it out under the new site's
+ * name. An empty slot cannot overwrite a full store.
+ *
+ * So the load does not go through the persister at all. It is synchronous —
+ * no await anywhere in it, so nothing can observe the store mid-swap — and
+ * it merges onto PRISTINE rather than onto the live state, which is the part
+ * that actually matters: merging onto the live state is precisely how the
+ * last site shows through wherever this document is silent.
+ *
+ * `raw` is the stored envelope as it sits in local storage, or null for a
+ * site that has never been saved. Null is not a failure; it is the answer,
+ * and the answer is a blank board.
+ */
+export function swapDoc(raw: string | null): void {
+  studioSwapping = true;
+  try {
+    /* A fresh copy every time: `mergeDoc` may hand parts of the base
+       straight through, and PRISTINE must stay the thing it was. */
+    const blank = JSON.parse(JSON.stringify(PRISTINE)) as Partial<StudioState>;
+    const base = { ...useStudio.getState(), ...blank } as StudioState;
+    let doc: StudioState = base;
+    if (raw) {
+      try {
+        const env = JSON.parse(raw) as { state?: unknown };
+        doc = mergeDoc(env?.state ?? null, base);
+      } catch {
+        /* A slot that will not parse is a slot with nothing readable in it.
+           A blank board is the honest answer; the bad text is left where it
+           is rather than tidied away, so it can still be looked at. */
+        doc = base;
+      }
+    }
+    useStudio.setState({
+      ...doc,
+      /* Not the document, and all of it about the site being left: a
+         selection of parts that no longer exist, and an undo history that
+         would step this site's board back into the last one's. */
+      selection: [],
+      past: [],
+      future: [],
+    });
+    /* The same two things `onRehydrateStorage` does after a read, because
+       this is a read — it just did not come through the persister. */
+    const now = useStudio.getState();
+    shelve(now.brought ?? [], now.broughtParts ?? []);
+    if (now.threads.some((t) => t.state === "running")) {
+      useStudio.setState({ threads: now.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t)) });
+    }
+  } finally {
+    studioSwapping = false;
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* Derived selectors                                                   */
