@@ -2,9 +2,41 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T03:20:57.317Z";
+export const GENERATED_AT = "2026-09-18T05:38:02.679Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "36f69e1",
+    "when": "2026-09-18T05:37:33+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "574e90f",
+        "says": "A lane box is its own height, and the board gets 16% back",
+        "when": "2026-09-18T03:57:42+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "284eb91",
+        "says": "No vine exists without a box at both ends",
+        "when": "2026-09-18T03:46:54+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "abf88f2",
+        "says": "Anything that changes the board re-fits the board",
+        "when": "2026-09-18T03:42:36+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "b0cc8af",
+        "says": "The texture travels with the vine",
+        "when": "2026-09-18T03:36:13+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 4
+  },
   {
     "id": "c59c4c2",
     "when": "2026-09-18T03:20:49+00:00",
@@ -262,19 +294,5 @@ export const PASSES: Pass[] = [
       }
     ],
     "more": 1
-  },
-  {
-    "id": "a166f97",
-    "when": "2026-09-17T06:33:46+00:00",
-    "day": "17 September",
-    "changes": [
-      {
-        "id": "2544bdc",
-        "says": "A part that cannot be published says so on the page, and no builder's word goes out with it",
-        "when": "2026-09-17T06:22:06+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
   }
 ];
