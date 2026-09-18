@@ -100,6 +100,17 @@ import { resolvePalette } from "./parts/theme";
 let ownView: View | null = null;
 /** Whether they have taken hold of it at all. */
 let owns = false;
+/**
+ * The zoom the fit last chose, kept beside the view it belongs to.
+ *
+ * It is how the door tells a pan from a zoom. A view that has lost the
+ * column was either panned away — same zoom as the fit, nothing in it worth
+ * keeping, so the fit takes it back — or zoomed into on purpose, which is a
+ * thing a person does and must survive the trip. Guessing from whether the
+ * column still fits got that wrong: eight updates zoomed to 0.688 fit
+ * perfectly well and came back as 0.372.
+ */
+let fitZoom = 0;
 
 /*
  * A green card is the site, so it is the size of a thing you can read a site
@@ -786,6 +797,7 @@ export function Timeline() {
     });
     stopSettle();
     if (!to) return;
+    fitZoom = to.zoom;
     /*
      * The fan, kept off the band.
      *
@@ -992,18 +1004,21 @@ export function Timeline() {
             /*
              * TWO WAYS TO LOSE THE COLUMN, and they want different answers.
              *
-             * If it still FITS at his zoom, he has panned it off the side
-             * and there is nothing he can be looking at that needs that
-             * pan — so the view carries no information worth keeping, and
-             * the fit takes it, which is the second half of the ruling:
-             * as near the room's centre as it can be.
+             * If the zoom is still the fit's, he only PANNED it off the
+             * side, and there is nothing he can be looking at that needs
+             * that pan — so the view carries no information worth keeping
+             * and the fit takes it, as near the room's centre as it can be.
              *
-             * If it does NOT fit, he has zoomed in to look at part of it,
-             * which is a thing a person does on purpose. Throwing that
+             * If the zoom is his own, he has zoomed in to look at part of
+             * it, which is a thing a person does on purpose. Throwing that
              * away is the zoom resetting on every Finish all over again —
              * measured, a hand zoom to 1.237 came back as 0.668. So his
              * zoom is kept and only the pan is corrected, which puts as
              * much of the column on the screen as there is room for.
+             *
+             * Told apart by the zoom itself rather than by whether the
+             * column still fits at it: eight updates zoomed to 0.688 fit
+             * perfectly well, and the fits test threw that away too.
              */
             let lo = Infinity;
             let hi = -Infinity;
@@ -1015,9 +1030,8 @@ export function Timeline() {
               up = Math.min(up, b.y);
               down = Math.max(down, b.y + b.h);
             }
-            const fits = (hi - lo) * held.zoom <= frame.w - SETTLE_MARGIN * 2
-              && (down - up) * held.zoom <= frame.h - SETTLE_MARGIN * 2;
-            if (fits) { owns = false; ownView = null; settle(); return; }
+            const zoomed = fitZoom > 0 && Math.abs(held.zoom - fitZoom) > 0.01;
+            if (!zoomed) { owns = false; ownView = null; settle(); return; }
             const pan = {
               x: hold(held.pan.x, lo * held.zoom, hi * held.zoom, frame.w, SETTLE_MARGIN),
               y: hold(held.pan.y, up * held.zoom, down * held.zoom, frame.h, SETTLE_MARGIN),

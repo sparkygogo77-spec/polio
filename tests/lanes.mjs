@@ -319,18 +319,15 @@ const bandShare = () => page.evaluate(() => {
 });
 const wide = await bandShare();
 /*
- * SUPERSEDED, and recorded rather than deleted.
- *
- * This read "no lane sits under the band", and it held while the whole set
- * decided the zoom: there was always slack for the shove to lift the fan out
- * of the band. The column decides the zoom now — "the fan is drawn where it
- * falls and may overhang or be clipped" — so the column fills its room and
- * there is no slack left: the lowest lane goes 143px under the band at this
- * width. What the lanes must still do is be reachable, which is what the fan
- * hanging off the right costs nothing to keep, so that is what is checked.
+ * RESTORED, at his ruling: "furniture may overhang, but it may not
+ * disappear." It went 143px under the band at this width in the one build
+ * where the column decided the zoom on both axes. The column decides ACROSS
+ * and everything decides DOWN now, so the fan pays for its own height and
+ * hangs off the right instead, where it can still be seen.
  */
-check("the fan may go under the band, but never takes the column with it", wide.colUnder === 0,
-  `band top ${wide.bandTop}, lowest lane bottom ${wide.lowBottom}, fan ${wide.under}px under it, column ${wide.colUnder}px under it`);
+check("nothing sits under the band along the foot of the pane at this width",
+  wide.shared === 0 && wide.under === 0 && wide.colUnder === 0,
+  `band top ${wide.bandTop}, lowest lane bottom ${wide.lowBottom}, fan ${wide.under}px under it, column ${wide.colUnder}px under it, shared ${wide.shared}px`);
 await shot("hanging");
 await page.setViewportSize({ width: 480, height: 950 });
 await page.reload({ waitUntil: "networkidle" });

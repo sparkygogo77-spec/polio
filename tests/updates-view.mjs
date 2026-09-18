@@ -103,10 +103,16 @@ for (const n of [3, 8]) {
     const host = document.querySelector("[data-timeline]").getBoundingClientRect();
     const band = document.querySelector("[data-studio-band]")?.getBoundingClientRect();
     const floor = band && band.top > host.top ? band.top : host.bottom;
+    /* Across is the column's; down is everything's, fan included — the two
+       axes are held by different sets now and the fill has to be read the
+       same way or it measures neither. */
     const es = [...document.querySelectorAll("[data-box]")];
+    const all = [...document.querySelectorAll("[data-box], [data-lane], [data-lane-box]")];
     if (!es.length) return null;
-    let l = 1e9, t = 1e9, r = -1e9, b = -1e9;
-    for (const e of es) { const q = e.getBoundingClientRect(); l = Math.min(l, q.x); t = Math.min(t, q.y); r = Math.max(r, q.right); b = Math.max(b, q.bottom); }
+    let l = 1e9, r = -1e9;
+    for (const e of es) { const q = e.getBoundingClientRect(); l = Math.min(l, q.x); r = Math.max(r, q.right); }
+    let t = 1e9, b = -1e9;
+    for (const e of all) { const q = e.getBoundingClientRect(); t = Math.min(t, q.y); b = Math.max(b, q.bottom); }
     const c = es[0].getBoundingClientRect();
     return {
       across: Math.round(((r - l) / (host.width - 112)) * 100),
