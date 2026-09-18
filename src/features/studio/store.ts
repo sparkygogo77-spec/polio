@@ -437,14 +437,31 @@ export function frameHeight(
   min = 900,
   also: { shapes?: StudioShape[]; spaces?: Space[] } = {},
 ): number {
-  let bottom = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+  /*
+   * A PART'S FOOT IS THE FOOT OF THE PAGE. INK BELOW IT IS NOT.
+   *
+   * This used to add 160px under whatever was lowest, of any kind, which
+   * meant the end of the page was always a margin past the last thing on it
+   * — so putting a part near the bottom moved the bottom, and putting it at
+   * the new bottom moved it again. Measured: a part dropped at the foot of an
+   * 837px page came to rest at y 838 and the page went to 1054. There was
+   * nothing to snap to because the end of the page ran away from whatever was
+   * put near it.
+   *
+   * So a part sets the page's foot exactly, and the page settles. Ink, arrows
+   * and drawn spaces keep their margin, because those are drawn on the ground
+   * below the page rather than placed on it, and the window they live in has
+   * to know they are there or the last of them is unreachable.
+   */
+  const placed = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
+  let scratch = 0;
   for (const sh of also.shapes ?? []) {
-    for (const [, y] of sh.points) bottom = Math.max(bottom, y);
+    for (const [, y] of sh.points) scratch = Math.max(scratch, y);
   }
   for (const sp of also.spaces ?? []) {
-    for (const [, y] of sp.boundary) bottom = Math.max(bottom, y);
+    for (const [, y] of sp.boundary) scratch = Math.max(scratch, y);
   }
-  return Math.max(min, bottom + 160);
+  return Math.max(min, placed, scratch ? scratch + 160 : 0);
 }
 
 /**
