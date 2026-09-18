@@ -504,6 +504,18 @@ interface StudioState extends Doc {
    * same disease as a dead control.
    */
   drawKind: DrawKind;
+  /**
+   * WHICH REPOSITORY THIS SITE POINTS AT, as `owner/name`.
+   *
+   * His words: "how do i create a new repo from the site, it should be
+   * apparent to connect repo, this should be what the github icon does".
+   * Connecting was supported on the wire the whole time — `publish` takes a
+   * repo from the browser and the server decides whether it may go there —
+   * and nothing on screen let him name one, so the choice had nowhere to
+   * live. Here it is. Null means the server's own `GITHUB_REPO`, which is
+   * what every publish used before there was a choice.
+   */
+  siteRepo: string | null;
   zoom: number;
   pan: { x: number; y: number };
   /**
@@ -733,6 +745,7 @@ interface StudioState extends Doc {
   setTool: (t: Tool) => void;
   setInk: (patch: { hue?: number; width?: number }) => void;
   setDrawKind: (kind: DrawKind) => void;
+  setSiteRepo: (repo: string | null) => void;
   setZoom: (z: number) => void;
   /** Set by the board's fit only: floored at `FIT_MIN`, not `ZOOM_MIN`. */
   setFitZoom: (z: number) => void;
@@ -1170,6 +1183,7 @@ export const useStudio = create<StudioState>()(
         inkHue: 265,
         inkWidth: 3,
         drawKind: "part",
+        siteRepo: null,
         zoom: 1,
         fitAt: ZOOM_MIN,
         pan: { x: 0, y: 0 },
@@ -1734,6 +1748,7 @@ export const useStudio = create<StudioState>()(
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setDrawKind: (kind) => set({ drawKind: kind }),
+        setSiteRepo: (repo) => set({ siteRepo: repo?.trim() || null }),
         /*
          * The zoom key's floor is its own, EXCEPT that it is never above the
          * fit. Measured at 375: the fit is 0.142, `ZOOM_MIN` is 0.25, and
@@ -2403,6 +2418,9 @@ export const useStudio = create<StudioState>()(
         menuSpin: s.menuSpin,
         recentColours: s.recentColours,
         frameWidth: s.frameWidth,
+        /* Which repository this site points at is part of the site, not part
+           of where somebody is looking, so it is saved with the document. */
+        siteRepo: s.siteRepo,
       }),
       skipHydration: true,
       /*
