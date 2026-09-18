@@ -31,8 +31,9 @@ const { chromium } = (() => {
 })();
 
 const URL_ = process.argv[2] ?? "http://localhost:3000";
-/** Copied, not imported: a test that reads the code's own number cannot catch it changing. */
-const OPEN_AT_MOST = 2;
+/** Copied, not imported: a test that reads the code's own number cannot catch it changing.
+    One, not two, at the owner's word: "shouldnt be able to open two categories at once". */
+const OPEN_AT_MOST = 1;
 
 mkdirSync(".screenshots", { recursive: true });
 const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM, args: ["--no-sandbox"] } : {}) });
@@ -83,15 +84,9 @@ async function look(w, h, tag) {
 
   await press("content");
   const two = await state();
-  check(`${tag}: a second category opens beside the first`, two.open.length === 2, JSON.stringify(two.open.map((o) => o.id)));
-  if (two.open.length === 2) {
-    const [a, b] = two.open;
-    check(
-      `${tag}: and it stacks under it rather than replacing it`,
-      b.top >= a.bottom - 4,
-      `${a.id} ends at ${a.bottom}, ${b.id} starts at ${b.top}`,
-    );
-  }
+  check(`${tag}: a second category replaces the first rather than opening beside it`,
+    two.open.length === OPEN_AT_MOST && two.open.some((o) => o.id === "content") && !two.open.some((o) => o.id === "hero"),
+    JSON.stringify(two.open.map((o) => o.id)));
 
   await press("media");
   const three = await state();
@@ -101,18 +96,18 @@ async function look(w, h, tag) {
     `${three.open.length} open: ${JSON.stringify(three.open.map((o) => o.id))}`,
   );
   check(
-    `${tag}: the one that goes is the one opened longest ago`,
-    !three.open.some((o) => o.id === "hero") && three.open.some((o) => o.id === "media"),
+    `${tag}: and the one standing open is the one just pressed`,
+    three.open.length === OPEN_AT_MOST && three.open.every((o) => o.id === "media"),
     JSON.stringify(three.open.map((o) => o.id)),
   );
 
   // Pressing an open one shuts it again.
   await press("media");
   const back = await state();
-  check(`${tag}: pressing an open category shuts it`, back.open.length === 1 && !back.open.some((o) => o.id === "media"), JSON.stringify(back.open.map((o) => o.id)));
+  check(`${tag}: pressing an open category shuts it`, back.open.length === 0, JSON.stringify(back.open.map((o) => o.id)));
 
   /* One wheel, and it moves everything.
-     With two categories open the shelf holds several thousand pixels of
+     With a category open the shelf holds several thousand pixels of
      cards. The complaint was that the elements scrolled inside their own box
      — a fixed header with a small scrolling area under it — so what is
      checked is the thing that made it feel that way: there is exactly one
