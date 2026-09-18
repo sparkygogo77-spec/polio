@@ -733,6 +733,33 @@ interface StudioState extends Doc {
    * opens on that surface picks it up and starts. Not persisted \u2014 it is a
    * handover, not a setting, and a reload should not re-import anything.
    */
+  /**
+   * Everything the Draw panel has made, newest first.
+   *
+   * HIS WORDS: "stepping out of the tab resets the tab completely while below
+   * i would want my previous works to continue as well as the option for a
+   * new image", and "tweakable iterations and save each iteration". So the
+   * panel keeps nothing of its own \u2014 the work lives here, is persisted, and
+   * the panel is a view of it. Leaving the tab and coming back shows what was
+   * there.
+   */
+  draws: {
+    id: string;
+    /** Exactly what he typed. Nothing is added to it. */
+    prompt: string;
+    model: string;
+    ratio?: string;
+    quality?: string;
+    effort?: string;
+    format?: string;
+    /** The picture it was drawn from, when there was one. */
+    reference?: string;
+    image: string;
+    cost: number | null;
+    at: number;
+  }[];
+  addDraw: (d: Omit<StudioState["draws"][number], "id" | "at">) => void;
+  removeDraw: (id: string) => void;
   bringRepo: { space: string; repo: string } | null;
   setBringRepo: (v: { space: string; repo: string } | null) => void;
   /**
@@ -1592,6 +1619,9 @@ export const useStudio = create<StudioState>()(
           set((s) => ({ shapes: s.shapes.filter((sh) => !set_.has(sh.id)), selection: s.selection.filter((id) => !set_.has(id)) }));
         },
 
+        draws: [],
+        addDraw: (d) => set((st) => ({ draws: [{ ...d, id: `dw_${Math.random().toString(36).slice(2, 10)}`, at: Date.now() }, ...st.draws].slice(0, 40) })),
+        removeDraw: (id) => set((st) => ({ draws: st.draws.filter((d) => d.id !== id) })),
         bringRepo: null,
         setBringRepo: (v) => set({ bringRepo: v }),
         addSpace: (space) => {
@@ -2421,6 +2451,8 @@ export const useStudio = create<StudioState>()(
       partialize: (s) => ({
         pages: s.pages,
         nodes: s.nodes,
+        /* His drawings survive leaving the tab, which is the whole point of them. */
+        draws: s.draws,
         groups: s.groups,
         shapes: s.shapes,
         spaces: s.spaces,

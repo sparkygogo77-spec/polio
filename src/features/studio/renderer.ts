@@ -132,6 +132,22 @@ export interface RenderAsk {
   w?: number;
   h?: number;
   palette?: { bg?: string; text?: string; accent?: string; muted?: string };
+  /**
+   * Add the framing words, or send what was typed and nothing else.
+   *
+   * HIS WORDS: "my prompt was only 'apple' everything else the site added
+   * during my api call ... im pretty sure thats unneccessary prompting." And
+   * it was: he typed `apple` and Replicate was handed "apple, filling the
+   * whole frame, edge to edge, nothing floating small in the middle, no
+   * background plate, no border, no frame, no caption, no watermark, no
+   * signature".
+   *
+   * The words are not useless \u2014 a part made from a drawing has its silhouette
+   * compared against the line that was drawn, so it has to fill the box and
+   * sit on nothing. They are useless to somebody typing a prompt. So they are
+   * a toggle, OFF unless a caller asks, and the part-making runs ask.
+   */
+  frame?: boolean;
 }
 
 /**
@@ -146,6 +162,8 @@ export function renderPrompt(ask: RenderAsk): string {
   const bits: string[] = [];
   const said = (ask.prompt || ask.label || "").trim();
   bits.push(said || "an abstract mark");
+  /* Nothing is added unless it was asked for. What he types is what goes. */
+  if (!ask.frame) return bits[0]!;
   bits.push(
     ask.closed === false
       ? "drawn as a band following a single open line, edge to edge of the frame"
