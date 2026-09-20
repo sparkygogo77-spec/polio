@@ -694,7 +694,9 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
         deploy: input.deploy,
         // Which site this is. The server decides whether it may go there.
         ...(input.repo ? { repo: input.repo } : {}),
-        ...(input.branch ? { branch: input.branch } : {}),
+        /* The site's open edit branch, unless the caller names one: main is
+           never pushed to by accident while a branch is open. */
+        ...((input.branch ?? useStudio.getState().siteBranch) ? { branch: input.branch ?? useStudio.getState().siteBranch } : {}),
         // What to call a repository if this site has not got one yet.
         ...(input.create ? { create: input.create } : {}),
       }),

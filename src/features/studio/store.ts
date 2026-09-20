@@ -533,6 +533,19 @@ interface StudioState extends Doc {
    * what every publish used before there was a choice.
    */
   siteRepo: string | null;
+  /**
+   * The branch this site's edits go to while it has a repository.
+   *
+   * HIS DESIGN, in his words: "would editing my own website create a
+   * paradox? i think it should create a branchfirst and there should be a
+   * seperate merge button". Not a paradox, but editing live is dangerous, so
+   * the moment a site that points at a repository is edited it takes a
+   * branch, every Publish goes there, and main does not move until he
+   * presses Merge himself. Null means no branch is open: the next edit opens
+   * one. Saved with the document, because it is part of the site.
+   */
+  siteBranch: string | null;
+  setSiteBranch: (b: string | null) => void;
   zoom: number;
   pan: { x: number; y: number };
   /**
@@ -1247,7 +1260,15 @@ export const useStudio = create<StudioState>()(
       const push = () => {
         seed();
         run = null;
-        set((s) => ({ past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT), future: [] }));
+        set((s) => ({
+          past: [...s.past, snapshot(s)].slice(-HISTORY_LIMIT),
+          future: [],
+          /* THE BRANCH OPENS THE MOMENT HE STARTS EDITING. An undo checkpoint
+             is an edit by definition, so this is where a site with a
+             repository and no open branch takes one. Named by the site and
+             the day, so two sites and two days never collide. */
+          ...(s.siteRepo && !s.siteBranch ? { siteBranch: `edit/${(s.brief?.name || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "site"}-${new Date().toISOString().slice(0, 10)}` } : {}),
+        }));
       };
       /*
        * One undo takes back an edit, not a letter.
@@ -1288,6 +1309,7 @@ export const useStudio = create<StudioState>()(
         inkWidth: 3,
         drawKind: "part",
         siteRepo: null,
+        siteBranch: null,
         zoom: 1,
         fitAt: ZOOM_MIN,
         pan: { x: 0, y: 0 },
@@ -1868,6 +1890,7 @@ export const useStudio = create<StudioState>()(
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setDrawKind: (kind) => set({ drawKind: kind }),
         setSiteRepo: (repo) => set({ siteRepo: repo?.trim() || null }),
+        setSiteBranch: (b) => set({ siteBranch: b?.trim() || null }),
         /*
          * The zoom key's floor is its own, EXCEPT that it is never above the
          * fit. Measured at 375: the fit is 0.142, `ZOOM_MIN` is 0.25, and
@@ -2526,6 +2549,7 @@ function docOnly(s: StudioState) {
         /* Which repository this site points at is part of the site, not part
            of where somebody is looking, so it is saved with the document. */
         siteRepo: s.siteRepo,
+        siteBranch: s.siteBranch,
   };
 }
 
