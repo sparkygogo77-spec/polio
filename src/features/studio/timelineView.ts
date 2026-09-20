@@ -339,22 +339,19 @@ export function settleView(
  * also the answer to the second half of the ruling — as near the room's
  * centre as it can be.
  *
- * `margin` is deliberately not the settle's, and it is NEGATIVE by default:
- * a view of his own with a few pixels of a card past the edge is still his
- * view. The set is what gets centred now, so the column sits well to one
- * side of the room and a single wheel notch can put 4px of it over the edge
- * — measured — and a floor with no slack answered that by moving the board
- * 60px. That is a floor fighting the hand rather than catching it. Rule 1
- * is about a column that has been CUT OFF, and it is absolute about what
- * the fit does; this is the door, and the door only catches what fell.
+ * `margin` is zero: off the screen is off the screen. There was a tolerance
+ * here — 24px of a card past the edge still counted as held — because the
+ * door used this to decide whether to move a hand-panned view back, and a
+ * single wheel notch put 32px over. The door no longer moves his view at
+ * all (his ruling: rule 1 binds the fit, not the hand), so this is only
+ * ever asked to say whether the way back should be on screen, and for that
+ * the honest answer has no slack in it.
  */
-export const HAND_SLACK = 24;
-
 export function columnHolds(
   view: View,
   column: ViewBox[],
   room: { w: number; h: number },
-  margin = -HAND_SLACK,
+  margin = 0,
 ): boolean {
   if (!column.length || !(room.w > 1) || !(room.h > 1)) return true;
   let left = Infinity;

@@ -1008,52 +1008,30 @@ export function Timeline() {
          */
         const mine = owns ? ownView : null;
         if (mine) {
+          /*
+           * A VIEW HE MOVED COMES BACK EXACTLY AS HE LEFT IT.
+           *
+           * HIS RULING, relayed: rule 1 — no part of the column is ever
+           * outside the frame — binds the FIT, not the hand. He made it when
+           * the fit was pushing the column out of the frame on its own, and
+           * he separately said the builder must stop overruling what he does
+           * by hand, which is the complaint he made about lanes being
+           * disregarded during centring. Read together they do not collide.
+           *
+           * What stood here measured his view against a tolerance after
+           * handing it back — and with the SET centred the column sits to one
+           * side by design, so one wheel notch put 32px of it past the edge,
+           * the tolerance was 24, and the builder put his board back and undid
+           * the notch. Widening the tolerance only buys until the next notch.
+           * The fault was asking the question at all.
+           *
+           * So: his pan, his zoom, and nothing that second-guesses either. What
+           * stops that being a trap is `lost` below — whenever the column is
+           * off the screen, the way back is ON the screen.
+           */
           setPan(mine.pan);
           setZoom(mine.zoom);
           settled.current = true;
-          rescue.current = whenMeasurable(() => {
-            const held = ownView ?? mine;
-            const col = columnOf(box);
-            const frame = { w: box.clientWidth, h: box.clientHeight };
-            if (columnHolds(held, col, frame)) return;
-            /*
-             * TWO WAYS TO LOSE THE COLUMN, and they want different answers.
-             *
-             * If the zoom is still the fit's, he only PANNED it off the
-             * side, and there is nothing he can be looking at that needs
-             * that pan — so the view carries no information worth keeping
-             * and the fit takes it, as near the room's centre as it can be.
-             *
-             * If the zoom is his own, he has zoomed in to look at part of
-             * it, which is a thing a person does on purpose. Throwing that
-             * away is the zoom resetting on every Finish all over again —
-             * measured, a hand zoom to 1.237 came back as 0.668. So his
-             * zoom is kept and only the pan is corrected, which puts as
-             * much of the column on the screen as there is room for.
-             *
-             * Told apart by the zoom itself rather than by whether the
-             * column still fits at it: eight updates zoomed to 0.688 fit
-             * perfectly well, and the fits test threw that away too.
-             */
-            let lo = Infinity;
-            let hi = -Infinity;
-            let up = Infinity;
-            let down = -Infinity;
-            for (const b of col) {
-              lo = Math.min(lo, b.x);
-              hi = Math.max(hi, b.x + b.w);
-              up = Math.min(up, b.y);
-              down = Math.max(down, b.y + b.h);
-            }
-            const zoomed = fitZoom > 0 && Math.abs(held.zoom - fitZoom) > 0.01;
-            if (!zoomed) { owns = false; ownView = null; settle(); return; }
-            const pan = {
-              x: hold(held.pan.x, lo * held.zoom, hi * held.zoom, frame.w, SETTLE_MARGIN),
-              y: hold(held.pan.y, up * held.zoom, down * held.zoom, frame.h, SETTLE_MARGIN),
-            };
-            ownView = { zoom: held.zoom, pan };
-            setPan(pan);
-          });
           return;
         }
         /* Nobody owns a view that lost the column. Asking for the middle is
@@ -1209,6 +1187,25 @@ export function Timeline() {
    * `owns` is dropped first, because asking for the middle is asking for
    * the middle and not for wherever the view was last left.
    */
+  /*
+   * Is the column off the screen? Then the way back has to be on it.
+   *
+   * Measured against the live pan and zoom by the same `columnOf` the fit
+   * reads, with NO tolerance: off is off. Unconditional on whose view it is
+   * — the fit is held to rule 1 separately and should never put it there,
+   * but if anything ever does, he is not left looking at an empty board
+   * with a control he would have to know about.
+   */
+  const [lost, setLost] = React.useState(false);
+  React.useEffect(() => {
+    const box = host.current;
+    if (!box) return;
+    const col = columnOf(box);
+    const frame = { w: box.clientWidth, h: box.clientHeight };
+    const holds = columnHolds({ pan, zoom }, col, frame);
+    setLost((was) => (was === !holds ? was : !holds));
+  }, [pan, zoom, columnOf, all.length]);
+
   const fitNonce = useStudio((s) => s.fitNonce);
   const first = React.useRef(true);
   React.useEffect(() => {
@@ -1815,6 +1812,19 @@ export function Timeline() {
       onPointerDown={startPan}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {lost ? (
+        <button
+          type="button"
+          data-timeline-lost=""
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => { play("confirm"); useStudio.getState().requestFit(); }}
+          className="tactile absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-medium shadow-panel"
+          style={{ background: "oklch(0.16 0.03 152 / 0.94)", borderColor: "oklch(0.66 0.17 152 / 0.6)", color: "oklch(0.92 0.06 152)" }}
+        >
+          <MapPin className="size-3.5" />
+          The updates are off the screen — bring them back
+        </button>
+      ) : null}
       <div
         ref={plot}
         data-timeline-plot=""

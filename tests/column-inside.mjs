@@ -27,7 +27,6 @@
  *     node tests/column-inside.mjs http://127.0.0.1:3013
  */
 import { createRequire } from "node:module";
-import { HAND_SLACK } from "../src/features/studio/timelineView.ts";
 
 const req = createRequire(import.meta.url);
 const { chromium } = (() => {
@@ -140,9 +139,35 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   await page.locator("[data-finish]").first().click();
   await page.waitForTimeout(5200);
   const back = await read(page);
-  check("coming back in never hands back a view with the column off the screen",
-    back && outside(back) === 0, back ? `off L${back.off.left} R${back.off.right} T${back.off.top} B${back.off.bottom}` : "no timeline");
-  check("…and what it hands back instead is the middle", back && Math.abs(back.offX) <= 12, `set ${back?.offX}px off centre, column ${back?.colOffX}px off it`);
+  /*
+   * WHAT IS ACTUALLY TRUE NOW, and it is two things rather than one.
+   *
+   * This used to assert that coming back in never hands back a view with the
+   * column off the screen, which was the old reading of rule 1 — that the
+   * builder tidies up after a hand. HIS RULING, relayed: rule 1 binds the
+   * FIT, not the hand. He made it when the fit was pushing the column out of
+   * the frame on its own, and he separately said the builder must stop
+   * overruling what he does by hand. So a view he moved comes back exactly as
+   * he left it, stranded or not — and what stops that being a trap is that
+   * the way back is ON SCREEN, not merely available to somebody who knows a
+   * control exists.
+   */
+  check("a view he moved himself comes back exactly as he left it",
+    back && Math.abs(back.panX - moved.panX) <= 2 && Math.abs(back.panY - moved.panY) <= 2,
+    `left at ${moved?.panX},${moved?.panY} — handed back ${back?.panX},${back?.panY}`);
+  check("…and because the column is off the screen, the way back is on it",
+    (await page.locator("[data-timeline-lost]").count()) === 1,
+    `${await page.locator("[data-timeline-lost]").count()} on screen, column off by ${outside(back)}px`);
+  /* And it is a way back, not a label: pressing it fits. */
+  await page.locator("[data-timeline-lost]").first().click({ force: true });
+  await page.waitForTimeout(1400);
+  const rescued = await read(page);
+  check("…pressing it brings the whole set back", rescued && outside(rescued) === 0,
+    rescued ? `off L${rescued.off.left} R${rescued.off.right} T${rescued.off.top} B${rescued.off.bottom}` : "no timeline");
+  check("…and what it hands back is the middle", rescued && Math.abs(rescued.offX) <= 12, `set ${rescued?.offX}px off centre, column ${rescued?.colOffX}px off it`);
+  check("…and once the set is back, the way back is not on screen any more",
+    (await page.locator("[data-timeline-lost]").count()) === 0,
+    `${await page.locator("[data-timeline-lost]").count()} of them`);
   await ctx.close();
 }
 
@@ -158,25 +183,25 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   await page.waitForTimeout(1500);
   await page.locator("[data-finish]").first().click();
   await page.waitForTimeout(5200);
+  const fitted0 = await read(page);
   const pane = await page.locator("[data-timeline]").boundingBox();
   await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
-  /* One notch: it moves, and it strands nothing. */
+  /* One notch: it moves. */
   await page.mouse.wheel(60, 0);
   await page.waitForTimeout(700);
   const nudged = await read(page);
   /*
-   * A NUDGE IS NOT A STRANDING, and it is allowed to put a few pixels over.
+   * A NUDGE IS HIS, AND IT IS NOT MEASURED AGAINST A TOLERANCE AT ALL.
    *
-   * This asserted nothing at all was outside, which held while the COLUMN
-   * was what got centred — it sat in the middle with slack on both sides.
-   * The SET is centred now, at his word, so the column sits well to one
-   * side by design and a single wheel notch puts 4px of it past the edge.
-   * The door tolerates that on purpose (`HAND_SLACK`, 24px): rule 1 is
-   * absolute about what the FIT does, and the door is only there to catch a
-   * column that has been lost, not to tidy a hand.
+   * This asked whether a hand pan had strayed further than the builder would
+   * put up with — 24px — and a single wheel notch strays 32, so the builder
+   * put his board back and undid the notch. Widening the tolerance only buys
+   * until the next notch; the fault was asking the question. A view he moved
+   * is his, however far he moved it.
    */
-  check("a small move by hand is not a stranding", nudged && outside(nudged) < HAND_SLACK,
-    `${outside(nudged)}px over, slack ${HAND_SLACK}px, set ${nudged?.offX}px off centre`);
+  check("a small move by hand moves it, and nothing is measured against a tolerance",
+    nudged && fitted0 && Math.abs(nudged.panX - fitted0.panX) > 2,
+    `${outside(nudged)}px of the column over the edge, and that is his business`);
   await page.locator("[data-finish]").first().click();
   await page.waitForTimeout(1200);
   await page.locator("[data-finish]").first().click();
