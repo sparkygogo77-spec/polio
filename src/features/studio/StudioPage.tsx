@@ -18,7 +18,7 @@ import { resolvePalette } from "./parts/theme";
 import { ImportFlow } from "./ImportFlow";
 import { PreviewWindow } from "./Preview";
 import { UpdatesPanel } from "./Updates";
-import { Palette, useShelfOpen } from "./Palette";
+import { Palette, useShelfOpen, useShelfTall } from "./Palette";
 import { Inspector } from "./Inspector";
 import { LookPanel } from "./LookPanel";
 import { RenderPanel } from "./RenderPanel";
@@ -988,6 +988,7 @@ export function StudioPage() {
   const page = useStudio(activePage);
   const detailTab = useDetailTab();
   const shelfOpen = useShelfOpen();
+  const shelfTall = useShelfTall();
   const design = mode === "design";
   const book = mode === "book";
   // The two nebula tiles every construct reads, painted once for the page.
@@ -1331,16 +1332,45 @@ export function StudioPage() {
               the panel it has always been.
             */}
             {design ? (
-              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: shelfOpen ? SHELF_OPEN_H : BAND_H }}>
+              <div
+                data-studio-band=""
+                data-band-over=""
+                data-band-set={shelfTall == null ? undefined : "1"}
+                className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg"
+                /* His height if he has set one with the wheel over the
+                   categories, otherwise the two the band has always had. */
+                style={{ height: shelfTall != null ? `${shelfTall}px` : shelfOpen ? SHELF_OPEN_H : BAND_H }}
+              >
                 <Palette />
               </div>
             ) : book ? (
               /* Taller for the backend, which is a surface you work at
                  rather than a page of text: at the strip's height its
                  transcript was 80px and the prompt box was below the fold. */
-              <div data-studio-band="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: detailTab === "backend" ? WORK_H : BAND_H }}>
-                <TimelineDetail />
-              </div>
+              /*
+                THE TIMELINE'S STRIP IS NOT A BAND.
+
+                The shelf below the board is stuck to the fold and given a
+                fixed height for a reason of his — he must never load in
+                unable to see the categories — and that reason is about the
+                categories, not about this. Here the same shape was the fault:
+                "the box stays small and i have to scroll for every specific
+                point." So under the timeline it is an ordinary block, as tall
+                as what it holds, and the pane's own wheel travels it.
+
+                The backend keeps a height of its own: it is a live surface
+                with a transcript rather than a page of text, and standing it
+                at its full height would put the prompt box a screen away.
+              */
+              detailTab === "backend" ? (
+                <div data-studio-band="" data-band-over="" className="sticky bottom-0 z-10 mt-auto w-full shrink-0 border-t border-border bg-bg" style={{ height: WORK_H }}>
+                  <TimelineDetail />
+                </div>
+              ) : (
+                <div data-studio-band="" className="mt-auto w-full shrink-0 border-t border-border bg-bg">
+                  <TimelineDetail />
+                </div>
+              )
             ) : null}
           </div>
         </div>

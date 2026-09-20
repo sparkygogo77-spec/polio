@@ -939,6 +939,21 @@ const EXPLAIN: Record<string, string> = {
   "quick-action": "A button that does the thing straight away with no confirmation dialog. Only for things that can be undone.",
   "diff-view": "Two versions side by side or inline, with what was added and removed marked.",
   "archive-mode": "Everything that came before, still browsable. Nothing you publish has to disappear.",
+
+  /* The last ten with nothing to say on hover. Each one says what the part
+     DOES once the site is finished, in the present tense, rather than what
+     kind of thing it is — the name already says that, and a hover that
+     repeats the name is a hover that was not worth waiting for. */
+  "invite-panel": "Asks one person in by name or by link, and shows who is already in. For anything behind a door rather than open to the street.",
+  "eyebrow-rule": "The small line above a heading that says which section you are in, with a rule under it. Reads as a label, never as a second heading.",
+  "picture": "One image, at the size and crop you set, that stays sharp on a phone and never pushes the text about while it loads.",
+  "details-table": "Rows of name and value for one thing — a spec sheet, a listing, an order. Stays readable on a phone by stacking rather than scrolling sideways.",
+  "orb-css": "A soft lit sphere that drifts and answers the pointer, drawn in CSS alone. Costs nothing to load and works everywhere.",
+  "orb-webgl": "The same sphere with real light and depth on the graphics card: it catches highlights and refracts what is behind it. Falls back to the CSS one where WebGL is off.",
+  "orb-image": "A sphere wearing a picture you give it, turning slowly. For a logo or a planet rather than an abstract shape.",
+  "cube-3d": "A cube you can turn with the pointer, each face carrying its own heading, words, or a whole page of the site. Turning it is how you read the other five.",
+  "drawn-icon": "An icon drawn from your own description rather than picked from a set, so it matches the site instead of the library it came from.",
+  "corner-glow": "A wash of light bleeding in from one corner, behind everything else. Sets a mood without being a thing on the page.",
   "custom-idea": "Something not in the library. Name it and describe it, and it goes into the blueprint as your own part.",
   "gimmick": "The one idea the whole site hangs on. Write it in a sentence; everything else is downstream of it.",
   "note": "A note to yourself or to whoever builds this. It goes into the blueprint but is not part of the page.",

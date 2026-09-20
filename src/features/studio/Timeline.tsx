@@ -773,7 +773,16 @@ export function Timeline() {
      * off the top, which a pan reaches, and the lanes never sit under
      * the band.
      */
-    const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+    /*
+     * Only a band that STANDS OVER the pane takes room away from the fit.
+     *
+     * The shelf under the board is stuck to the fold, so the set has to keep
+     * clear of it. The timeline's own strip is not: it is a block below, in
+     * the same travel, as tall as what it holds — so subtracting its height
+     * shrank the room by a band that was never covering anything, and the set
+     * came to rest against the top edge, 28px above it and 136 below.
+     */
+    const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band][data-band-over]")?.offsetHeight ?? 0;
     const room = Math.max(120, box.clientHeight - band);
     /*
      * With the band taking its share, a long chain and the fan can be
@@ -933,7 +942,7 @@ export function Timeline() {
     let pending = false;
     /** The room the set really has: the frame, less the band over its foot. */
     const roomOf = () => {
-      const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+      const band = box.parentElement?.querySelector<HTMLElement>("[data-studio-band][data-band-over]")?.offsetHeight ?? 0;
       return { w: box.clientWidth, h: Math.max(0, box.clientHeight - band) };
     };
     const go = () => {
@@ -1096,7 +1105,7 @@ export function Timeline() {
         const cards = [...box.querySelectorAll<HTMLElement>("[data-box]")];
         if (!cards.length) return false;
         const frame = box.getBoundingClientRect();
-        const bandH = box.parentElement?.querySelector<HTMLElement>("[data-studio-band]")?.offsetHeight ?? 0;
+        const bandH = box.parentElement?.querySelector<HTMLElement>("[data-studio-band][data-band-over]")?.offsetHeight ?? 0;
         return cards.some((el) => {
           const r = el.getBoundingClientRect();
           return r.top < frame.top || r.left < frame.left || r.right > frame.right || r.bottom > frame.bottom - bandH;
@@ -1108,7 +1117,7 @@ export function Timeline() {
     raf = requestAnimationFrame(go);
     const ro = new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(go); });
     ro.observe(box);
-    const band = box.parentElement?.querySelector("[data-studio-band]");
+    const band = box.parentElement?.querySelector("[data-studio-band][data-band-over]");
     if (band) ro.observe(band);
     return () => {
       if (raf) cancelAnimationFrame(raf);

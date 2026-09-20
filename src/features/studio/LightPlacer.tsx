@@ -109,6 +109,114 @@ export function LightPlacer() {
     if (mode !== "design" && useStudio.getState().placingLight) useStudio.getState().cancelPlacingLight();
   }, [mode]);
   const carry = useStudio((s) => s.lightCarry);
+
+  /*
+   * THE LIGHT IS IN HIS HAND THE WHOLE TIME HE IS PLACING IT.
+   *
+   * HIS WORDS, twice: "pressing the place the light button does nothing but
+   * create a bleeding aura through categories around the web box." Measured,
+   * and he was right: a press armed the mode and painted a ring, and the ball
+   * only ever appeared if the press became a DRAG off the button. A person
+   * who presses a button and lets go — which is what a button is for — got an
+   * aura and nothing else, and a press on the page after that placed nothing.
+   *
+   * So the mode itself follows the pointer. The drag off the button still
+   * works and is still the quick way; this is the other half, and it is the
+   * half that makes the button a button.
+   */
+  React.useEffect(() => {
+    if (!placing) return;
+    const move = (e: PointerEvent) => {
+      /*
+       * ONLY WHILE NOTHING IS HELD.
+       *
+       * A drag out of the menu owns the pointer from its own press, and it
+       * deliberately writes nothing to the store until the drop so the page
+       * can light under the hand without a re-render behind it. This was
+       * writing on every move regardless, which put a store write in the
+       * middle of that gesture — and the drop then landed at 58%, 18% for a
+       * drop made at 28%, 62%. So while a button is down, whatever started
+       * the gesture owns it.
+       */
+      if (e.buttons !== 0) return;
+      useStudio.getState().setLightCarry({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("pointermove", move);
+    return () => window.removeEventListener("pointermove", move);
+  }, [placing]);
+
+  /*
+   * …and a press on the page is where it goes.
+   *
+   * Listened for on the window while placing, so the press lands wherever he
+   * looked rather than only on something that happens to carry a handler. A
+   * press off the page leaves the lamp alone and ends the placing, which is
+   * the same answer letting go off the page gives a drag.
+   */
+  React.useEffect(() => {
+    if (!placing) return;
+    const put = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      /*
+       * WHAT WAS PRESSED, NOT WHERE THE PRESS LANDED.
+       *
+       * This asked whether the point was inside the page's rectangle, and
+       * that is not the same question: the wheel, its sliders and the sun
+       * you drag out all float OVER the page, so every one of them is
+       * "inside the page" by geometry. Taking those presses — in capture,
+       * with `stopPropagation` — meant the shadow slider never received its
+       * own press and stayed where it was, and the press that starts the
+       * drag was swallowed so the lamp landed at the sun's own place, 58%
+       * and 18%, for a drop made at 28% and 62%.
+       *
+       * So the press has to have landed ON the page and on nothing that
+       * stands over it. Anything else is left alone entirely, and whatever
+       * was pressed gets its press.
+       */
+      const el = e.target instanceof Element ? e.target : null;
+      const over = el?.closest(
+        '[data-radial], [data-console-slab], [data-look-panel], [data-side-panel], [data-timeline-panel], [role="dialog"], [role="menu"], [data-thread-menu]',
+      );
+      if (over || !el?.closest("[data-frame]")) return;
+      const frame = rectOf("[data-frame]");
+      const st = useStudio.getState();
+      if (frame && inside(frame, { x: e.clientX, y: e.clientY })) {
+        e.preventDefault();
+        e.stopPropagation();
+        play("confirm");
+        st.setLook({
+          light: {
+            ...st.look.light,
+            on: true,
+            x: Math.max(0, Math.min(1, (e.clientX - frame.x) / Math.max(1, frame.w))),
+            y: Math.max(0, Math.min(1, (e.clientY - frame.y) / Math.max(1, frame.h))),
+          },
+        });
+        st.setPlacingLight(false);
+        return;
+      }
+      /*
+       * A PRESS OFF THE PAGE IS NOT AN ANSWER, AND MUST NOT BE TREATED AS ONE.
+       *
+       * This used to cancel, and that one line broke two other things,
+       * measured: the sun is DRAGGED out of the wheel, so the press that
+       * starts the drag lands off the page and cancelled the placing before
+       * the drag had begun — the lamp then landed at 58%, 18% for a drop at
+       * 28%, 62%, which is not a transposition, it is the leftovers of a
+       * cancelled gesture. And `cancelPlacingLight` restores the lamp to what
+       * it was when placing began, so any slider moved while the light editor
+       * was open was quietly put back: shadow strength set to 45 stayed at
+       * 45.
+       *
+       * So this listener only ever answers a press ON the page. Changing his
+       * mind already has two ways out that cost nothing — Escape, and letting
+       * a carried light go off the page — and neither of them reaches in here
+       * to undo a setting he moved on purpose.
+       */
+    };
+    window.addEventListener("pointerdown", put, true);
+    return () => window.removeEventListener("pointerdown", put, true);
+  }, [placing]);
   const light = useStudio((s) => s.look.light);
   const zoom = useStudio((s) => s.zoom);
   const pan = useStudio((s) => s.pan);
@@ -176,8 +284,19 @@ export function LightPlacer() {
               top: page.y - board.y,
               width: page.w,
               height: page.h,
+              /*
+               * THE MARK IS ON THE PAGE, NOT AROUND IT.
+               *
+               * It was a 26px blur with 6px of spread thrown outwards, which
+               * is 32px of glow reaching over whatever the page sits next to
+               * — his "bleeding aura through categories". The same mark drawn
+               * INSIDE the page's own box says the same thing and cannot
+               * reach anything: an inset shadow is clipped to the box it is
+               * on, so there is nothing to clip it against.
+               */
               outline: `1.5px solid oklch(0.85 0.14 ${warm} / 0.8)`,
-              boxShadow: `0 0 26px 6px oklch(0.85 0.16 ${warm} / 0.18)`,
+              outlineOffset: "-1.5px",
+              boxShadow: `inset 0 0 26px 6px oklch(0.85 0.16 ${warm} / 0.18)`,
               transition: "box-shadow 200ms ease-out",
             }}
           />

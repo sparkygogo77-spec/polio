@@ -15,7 +15,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { useStudio } from "@/features/studio/store";
+import { swapDoc, useStudio } from "@/features/studio/store";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 
 /** Where the Builder reads and writes the document it is editing. */
@@ -123,29 +123,55 @@ export const useBuilds = create<Builds>()(
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, updatedAt: Date.now() } : p)) }));
       },
 
+      /*
+       * ONE SITE'S WORK IS NEVER WRITTEN INTO ANOTHER SITE'S SLOT.
+       *
+       * Both of these do the same four things in the same order, and the
+       * order is the guarantee:
+       *
+       *   1. save    the live key goes to the slot of the site being left,
+       *              while `activeId` still names that site. This is the only
+       *              moment a slot is written, and it is written with its own
+       *              document.
+       *   2. read    the target's slot, or null if it has never been saved.
+       *   3. write   the live key becomes that, before `activeId` moves, so
+       *              the two never name different sites.
+       *   4. swap    the store takes the new document, synchronously.
+       *
+       * There is no `await` between any of them, so no state in which the
+       * live key and `activeId` disagree is ever observable — and `swapDoc`
+       * holds the persister's pen for its own duration, so nothing it does
+       * on the way through reaches the live key either.
+       *
+       * What this is instead of: writing the live key and calling
+       * `persist.rehydrate()`, which is asynchronous and, worse, does
+       * nothing at all when the target has nothing saved — see `swapDoc`.
+       * That is how a blank site came to adopt the last site's work.
+       */
       create: (name) => {
         get().save();
         const id = uid();
-        // A new project starts empty: no slot, so opening it gives the Builder
-        // nothing to hydrate from and it falls back to its own defaults.
+        // A new site has no slot and no document: `swapDoc(null)` is what
+        // makes the board actually blank rather than whatever was on it.
         write(slot(id), null);
+        write(LIVE, null);
         set((s) => ({
           projects: [{ id, name: name?.trim() || `Site ${s.projects.length + 1}`, updatedAt: Date.now() }, ...s.projects],
           activeId: id,
         }));
-        write(LIVE, null);
-        void useStudio.persist.rehydrate();
+        swapDoc(null);
         return id;
       },
 
       open: (id) => {
         if (get().activeId === id) return;
         get().save();
-        write(LIVE, read(slot(id)));
+        const held = read(slot(id));
+        write(LIVE, held);
         set({ activeId: id });
-        // The Builder re-reads the key it was already watching, so every panel
-        // and the canvas come back on the new document without a reload.
-        void useStudio.persist.rehydrate();
+        // Every panel and the canvas come back on the new document without a
+        // reload, and an empty site comes back empty.
+        swapDoc(held);
       },
 
       rename: (id, name) =>
@@ -163,15 +189,23 @@ export const useBuilds = create<Builds>()(
       },
 
       remove: (id) => {
+        const was = get().activeId;
         write(slot(id), null);
         set((s) => {
           const left = s.projects.filter((p) => p.id !== id);
           return { projects: left, activeId: s.activeId === id ? (left[0]?.id ?? null) : s.activeId };
         });
-        // Removing the one that was open leaves the Builder on whatever is
-        // next, rather than on a document with nothing behind it.
+        /* Removing the one that was open leaves the Builder on whatever is
+           next, rather than on a document with nothing behind it — and by the
+           same swap the other two use, because the site it lands on may well
+           be one that has never been saved. Rehydrating onto that left the
+           deleted site's work on the board, and the next edit wrote it into
+           the surviving site's slot. */
+        if (was !== id) return;
         const next = get().activeId;
-        if (next) { write(LIVE, read(slot(next))); void useStudio.persist.rehydrate(); }
+        const held = next ? read(slot(next)) : null;
+        write(LIVE, held);
+        swapDoc(held);
       },
 
       setRepo: (id, repo) =>
