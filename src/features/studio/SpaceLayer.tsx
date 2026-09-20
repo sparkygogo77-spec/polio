@@ -36,7 +36,7 @@ import { moltenClass, moltenSeed } from "@/core/ui/molten";
 import { VOID } from "@/core/ui/void";
 import { formVars, progressOf, stageOf, within } from "./formation";
 import { PROCESS } from "./threads";
-import { HALO, paintHoleAlong, paintHorizonShadowAlong } from "./blackHole";
+import { HALO, paintHoleAlong, paintRingAlong } from "./blackHole";
 import { useGround } from "./ground";
 import { boundaryBox, boundaryPath, centroid, consumed, CONSUME_MS, grownBoundary, isBoundary, isMade, openOf, spaceBox, spaceOf, spaceOfDrawing, type Space } from "./space";
 import type { SketchPoint as Pt } from "./sketch";
@@ -411,6 +411,13 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
  * never changes, so the weather is generated once; the growth is a second
  * clip on the wrapper, written straight to the element.
  */
+/**
+ * How much of the opening is the ring going round the line, and how much is
+ * the middle filling in behind it. His order: the ring first, closed, and
+ * only then the centre.
+ */
+const TRACE = 0.55;
+
 function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: SketchPoint[]; pad: number; box: { w: number; h: number }; zoom: number; form: number }) {
   const host = React.useRef<HTMLDivElement>(null);
   const clouds = React.useRef<HTMLDivElement>(null);
@@ -460,16 +467,42 @@ function Hole({ space, local, pad, box, zoom, form }: { space: Space; local: Ske
       }
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, w, h);
-      // The edge so far: the line grown from the middle of the area.
-      /* Consuming first, then forming. The hole eats its way out to the
-         line it was drawn as; once it is a surface being made, the edge is
-         already there and what grows is what is inside it. */
-      const edge = p >= 1 ? local : grownBoundary(local, 0.04 + 0.96 * p);
-      if (grow.current) grow.current.style.clipPath = p >= 1 ? "none" : `path("${boundaryPath(edge.map(([x, y]) => [x - pad, y - pad]))}")`;
+      /*
+       * A PORTAL: the ring goes round the line he drew, and then the middle
+       * forms inside it.
+       *
+       * HIS WORDS: "the black hole should animate like a dr strange portal
+       * tracing the outline as i drew it with the ring and then the center
+       * forms, remove the blac edges on the inside."
+       *
+       * It used to grow its whole edge out of the middle of the area, so the
+       * ring was complete from the first frame at a small size and swelled
+       * outward — measured, no light at all where his hand started until the
+       * edge got there, which is the opposite of tracing. Two phases now, in
+       * his order: the ring is laid along the REAL line, from his first point
+       * round to his last, and only when it has closed does the ground start
+       * to fill the middle.
+       */
+      const t = Math.min(1, p / TRACE);
+      const fill = p <= TRACE ? 0 : (p - TRACE) / (1 - TRACE);
       // The page layer is scaled by the zoom, so a one-pixel ring is drawn 1/zoom wide to land as one pixel.
       const hair = Math.max(1, 1 / zoomSettled);
-      paintHorizonShadowAlong(c, edge, hair);
-      paintHoleAlong(c, { path: edge, hair });
+
+      /* Nothing inside until the ring is closed; then the middle grows out to
+         meet it, which is the half of the old animation that was right. */
+      if (grow.current) {
+        grow.current.style.clipPath = fill <= 0
+          ? 'path("M 0 0 Z")'
+          : fill >= 1
+            ? "none"
+            : `path("${boundaryPath(grownBoundary(local, 0.04 + 0.96 * fill).map(([x, y]) => [x - pad, y - pad]))}")`;
+      }
+
+      /* No shadow inside the line, at any stage: the surface used to fall to
+         black as it neared the horizon — measured at 98% coverage right at
+         the line — and that is the black edge he asked to have taken off. */
+      if (t < 1) paintRingAlong(c, { path: local, hair, upTo: t });
+      else paintHoleAlong(c, { path: local, hair });
       if (p >= 1) setOpen((o) => o || true);
     };
     raf = requestAnimationFrame(paint);
