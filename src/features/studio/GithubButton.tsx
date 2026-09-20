@@ -158,6 +158,32 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
   const [bring, setBring] = React.useState("");
   const [pulling, setPulling] = React.useState(false);
   const [name, setName] = React.useState(() => repoNameFor(siteName));
+  const siteBranch = useStudio((s) => s.siteBranch);
+  const [merging, setMerging] = React.useState(false);
+  /*
+   * MAIN MOVES HERE AND NOWHERE ELSE, by his hand on this button. The
+   * merge route does GitHub's own merge of the edit branch into the
+   * default branch and deletes the branch; the document then forgets it,
+   * so the next edit opens a fresh one. Confirmed first, because it is the
+   * one thing on this panel that cannot be undone.
+   */
+  const merge = async () => {
+    const repo = chosen ?? pointsAt;
+    if (!repo || !siteBranch || merging) return;
+    setMerging(true);
+    setSaid(null);
+    try {
+      const res = await fetch("/api/studio/merge", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo, branch: siteBranch }) });
+      const a = await res.json();
+      if (!a.ok) { setSaid(a.message ?? "GitHub would not merge it."); return; }
+      useStudio.getState().setSiteBranch(null);
+      setSaid(a.message ?? `Merged ${siteBranch}.`);
+    } catch {
+      setSaid("Could not reach GitHub from here.");
+    } finally {
+      setMerging(false);
+    }
+  };
 
   /* His own token if the Keys panel is holding one, and nothing otherwise —
      the route falls back to the server's, exactly as a publish does. */
@@ -229,6 +255,17 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
         label: repoName(repo),
       });
       st.setBringRepo({ space: id, repo: want });
+      /*
+       * AND PICKS IT. Measured with a token held: pressing Bring it saved a
+       * space, closed this panel, and then nothing — no request ever left
+       * the browser. The importer that reads `bringRepo` lives on the
+       * space's own panel, and that panel only mounts when the space is
+       * picked. `addSpace` picks nothing, so the hand-off sat in memory and
+       * a reload dropped it. Picking the space here is what makes the panel
+       * mount, the effect fire and the import actually run, on the panel
+       * that is now on screen where his hand is.
+       */
+      st.setSelection([id]);
       onDone();
     } finally {
       setPulling(false);
@@ -247,6 +284,29 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
           {chosen ?? pointsAt ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}` : "A publish goes wherever the server says, until you pick a repo."}
         </p>
       </div>
+
+      {siteBranch && (chosen ?? pointsAt) ? (
+        <div data-repo-branch={siteBranch} className="rounded-md border px-2 py-1.5" style={{ borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" }}>
+          <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Edits are on a branch</p>
+          <p className="truncate font-mono text-[11px] text-fg" title={siteBranch}>{siteBranch}</p>
+          <p className="mt-0.5 text-[10px] text-fg-muted">
+            The running site stays on main until you merge. Look first:{" "}
+            <a className="text-accent underline-offset-2 hover:underline" href={`https://github.com/${chosen ?? pointsAt}/tree/${encodeURIComponent(siteBranch)}`} target="_blank" rel="noreferrer">the branch on GitHub</a>
+            {" "}— and Vercel deploys it at a preview address of its own on every publish.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            data-repo-merge=""
+            disabled={merging}
+            className="mt-1.5 w-full"
+            style={{ borderColor: "oklch(0.72 0.17 18)", color: "oklch(0.8 0.16 18)" }}
+            onClick={() => { if (window.confirm(`Merge ${siteBranch} into main? The running site changes.`)) void merge(); }}
+          >
+            {merging ? "Merging…" : "Merge into main"}
+          </Button>
+        </div>
+      ) : null}
 
       <div className="h-px bg-border" />
 

@@ -31,6 +31,7 @@ import * as React from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FileArchive, GitBranch, LayoutTemplate, Loader2, Search, X, Globe } from "lucide-react";
 import { play } from "@/core/audio/engine";
+import { useActions } from "@/core/actions";
 import { cn } from "@/core/lib/cn";
 import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Input } from "@/core/ui/input";
@@ -123,31 +124,66 @@ export function FromASite({ space }: { space: Space }) {
   const handed = useStudio((st) => st.bringRepo);
   React.useEffect(() => {
     if (!handed || handed.space !== space.id) return;
+    /*
+     * NO TIMER, AND NO CLEANUP. This used to put the read on a 0ms timer
+     * "after the paint", and return a cleanup that cleared the timer. But
+     * the first thing it does is set `bringRepo` to null — which is its own
+     * dependency — so React ran the cleanup for the previous pass before the
+     * timer had fired, and the read was cancelled by the effect that asked
+     * for it. Measured: panel on screen, box filled, 0 requests, nothing
+     * said. The repository is passed by value now, so there is nothing to
+     * wait for: it runs at once.
+     */
+    const r = readRepo(handed.repo);
     useStudio.getState().setBringRepo(null);
     setRepoText(handed.repo);
-    /* After the paint that puts it in the box, so what runs is what he can
-       see in it. */
-    const t = window.setTimeout(() => { void readRepository(); }, 0);
-    return () => window.clearTimeout(t);
+    void readRepository(r);
   }, [handed, space.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const readRepository = async () => {
-    if (!repo) return;
+  /*
+   * A REFUSAL IS NEVER INVISIBLE. Whatever the reason this declines, it says
+   * which repository, why, and what he can do instead — on this panel, and
+   * as a toast, because this panel is inside a space and a refusal that only
+   * shows where nobody is looking is the same as doing nothing. The refusal
+   * texts already carry the "instead" (add a key, bring the deployed address
+   * in); the repository's name is put in front so the line stands alone.
+   */
+  const ctx = useActions();
+  const refuse = (says: string, of?: Repo | null) => {
+    const which = of ?? repo;
+    const line = `${which ? repoName(which) : "That repository"}: ${says}`;
+    setStage({ at: "said", says: line });
+    ctx.publish({ key: `studio:repo:${which?.name ?? "?"}`, title: "Could not bring the repository in", body: line, level: "error", source: "studio", toast: true });
+    play("deny");
+  };
+
+  /*
+   * TAKES THE REPOSITORY IT IS GIVEN, and only falls back to the one in the
+   * box. The hand-off from the GitHub panel put the name in the box and
+   * called this on a 0ms timer — before the box's state had committed — so
+   * `repo` was still null, this returned on its first line, and the import
+   * silently did not happen even once the panel was on screen. Measured:
+   * panel mounted, 0 requests, nothing said. A function that reads its
+   * input from state it has just set is a function that runs once too early.
+   */
+  const readRepository = async (given?: Repo | null) => {
+    const r = given ?? repo;
+    if (!r) return;
     play("tick");
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
-    if (!token) { setStage({ at: "said", says: REPO_REFUSAL_SAYS["no-token"] }); return; }
-    setStage({ at: "busy", says: `Opening ${repoName(repo)}…` });
-    const got = await readRepoSite(repo, token, (says) => setStage({ at: "busy", says }));
-    if (refused(got)) { setStage({ at: "said", says: got.says }); return; }
-    setStage({ at: "busy", says: `Reading the page in ${repo.name}…` });
-    const r = await askZip(got.file);
-    if (!r.ok) { setStage({ at: "said", says: String(r.message ?? "The page in that repository could not be read.") }); return; }
+    if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
+    setStage({ at: "busy", says: `Opening ${repoName(r)}…` });
+    const got = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }));
+    if (refused(got)) { refuse(got.says, r); return; }
+    setStage({ at: "busy", says: `Reading the page in ${r.name}…` });
+    const zr = await askZip(got.file);
+    if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     setStage({
       at: "picking",
-      source: { kind: "repo", repo: { ...repo, ref: got.ref }, file: got.file, name: repoName({ ...repo, ref: got.ref }), entry: String(r.entry) },
-      page: r.page as { width: number; height: number; shot: string },
-      candidates: (r.candidates as Block[]) ?? [],
-      scripts: !!r.scripts,
+      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: String(zr.entry) },
+      page: zr.page as { width: number; height: number; shot: string },
+      candidates: (zr.candidates as Block[]) ?? [],
+      scripts: !!zr.scripts,
     });
   };
 
