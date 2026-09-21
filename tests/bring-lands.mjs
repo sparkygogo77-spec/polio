@@ -46,9 +46,11 @@ const PAGE = `<!doctype html><html><head><title>A page</title><style>body{margin
 const BLANK = `<!doctype html><html><head><title>Blank</title></head><body></body></html>`;
 /* The site itself: this repository's own published document, BLACKORB, with
    one part given a picture so the picture path is exercised too. */
-const DOC = JSON.parse(readFileSync("site/document.json", "utf8"));
+/* The shipped document is empty now; the sample it used to hold, BLACKORB, is kept beside the suite as its fixture. */
+const DOC = JSON.parse(readFileSync("tests/fixtures/blackorb.document.json", "utf8"));
+const EMPTY = { pages: [], nodes: [] };
 DOC.nodes.push({ ...DOC.nodes[0], id: "n_pic_test", featureId: "orb-image", content: "", picture: { id: "pic_test1", path: "assets/pictures/pic_test1.png", type: "image/png", w: 1, h: 1, bytes: 70, alt: "", from: "upload" } });
-const DOC2 = { ...DOC, brief: { ...DOC.brief, name: "Madeless" }, nodes: DOC.nodes.slice(0, 3) };
+const DOC2 = { ...DOC, brief: { ...DOC.brief, name: "Madeless" }, nodes: DOC.nodes.slice(0, 3), publishedTo: { repo: "someone/else", branch: "main", at: "2026-09-21T00:00:00Z" } };
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const repos = {
   /* A site made here, deployed: copied whole from its document, pictures and all. */
@@ -57,6 +59,8 @@ const repos = {
   "him/madeless": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "n1", size: 10 }, { path: "site/document.json", type: "blob", sha: "n2", size: 1000 }] },
   /* A page in its files AND a deployed address: the address is tried first, and the files are the fallback, said as such. */
   "him/pagedeployed": { homepage: "https://polio-two.vercel.app", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }] },
+  /* A Builder itself, with the empty document a fresh one ships: nothing published, and said so. */
+  "him/builder": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "u1", size: 10 }, { path: "site/document.json", type: "blob", sha: "u2", size: 30 }, { path: "src/features/studio/published.ts", type: "blob", sha: "u3", size: 100 }] },
   "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
   "him/sources": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "s1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "s2", size: 100 }] },
@@ -82,6 +86,7 @@ await page.route("https://api.github.com/**", (r) => {
   if (rest === "/git/blobs/m2") return j({ encoding: "base64", content: Buffer.from(JSON.stringify(DOC)).toString("base64") });
   if (rest === "/git/blobs/n2") return j({ encoding: "base64", content: Buffer.from(JSON.stringify(DOC2)).toString("base64") });
   if (rest === "/git/blobs/m4") return j({ encoding: "base64", content: PNG });
+  if (rest === "/git/blobs/u2") return j({ encoding: "base64", content: Buffer.from(JSON.stringify(EMPTY)).toString("base64") });
   return j({ message: "no" }, 404);
 });
 
@@ -216,6 +221,7 @@ const pic = await page.evaluate(() => new Promise((done) => {
 }));
 check("its picture is in this browser's file storage under the id the part names", typeof pic === "number" && pic > 0, String(pic));
 check("and the toast says what was copied and where it is connected", await toast("is a new site now, copied whole from him/made"));
+check("a document sitting alone, without the blueprint a publish writes, is named as the Builder's own sample and copied anyway", await toast("the Builder's own sample rather than something published there. Copied anyway"));
 const old = await page.evaluate((id) => { const v = JSON.parse(localStorage.getItem(`builder.doc:${id}`) || "null"); return v ? (v.state.spaces ?? []).length : null; }, before2.active);
 check("the site he was on keeps its board as it was, without the space made for the hand-off", old === before2.spaces, `${old} spaces, was ${before2.spaces}`);
 
@@ -229,6 +235,17 @@ for (let i = 0; i < 60; i++) {
   if (less.n > sites.list.length) break;
 }
 check("a site made here with no deployed address copies just the same", less.n === sites.list.length + 1 && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
+check("and a document stamped as published elsewhere says so", await toast("It says it was published to someone/else, not this repository"));
+
+/* 2d. A Builder with nothing published: said, not read at an address that would show the tool's own front. */
+await page.waitForTimeout(8000);
+const beforeBuilder = await doc();
+await bring("him/builder");
+let builderLine = "";
+for (let i = 0; i < 40 && !/nothing published|could not be read|carried/.test(builderLine); i++) { await page.waitForTimeout(1000); builderLine = await said(); }
+check("a Builder with an empty document is refused in words: nothing published into it yet", /him\/builder is a Builder with nothing published into it yet\. Publish a site to it first, or bring in the address of a page\./.test(builderLine), builderLine.slice(0, 200));
+check("and its address is never read", !/From its address|polio-two/.test(builderLine));
+check("with nothing landed", (await doc()).nodes === beforeBuilder.nodes);
 
 /* 3. Sources deployed at an address: read there, and when that fails, say so by name. */
 await page.waitForTimeout(6500);

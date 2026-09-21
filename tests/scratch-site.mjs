@@ -36,6 +36,7 @@ const check = (name, ok, detail = "") => {
 const GH_PORT = 4322;
 const APP_PORT = 3014;
 const seen = [];
+const blobs = [];
 const stub = createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
   seen.push(`${req.method} ${path}`);
@@ -43,7 +44,10 @@ const stub = createServer((req, res) => {
   if (path === "/user") return json(200, { login: "him" });
   /* Making a repository is refused here: the point is what is asked, not what is made. */
   if (req.method === "POST" && path === "/user/repos") return json(403, { message: "Resource not accessible by integration" });
-  if (path.startsWith("/repos/him/real")) return json(200, { default_branch: "trunk", object: { sha: "0".repeat(40) }, sha: "0".repeat(40), tree: [] });
+  if (path.startsWith("/repos/him/real")) {
+    if (req.method === "POST" && path.endsWith("/git/blobs")) { let b = ""; req.on("data", (d) => { b += d; }); req.on("end", () => { try { blobs.push(JSON.parse(b)); } catch { /* not json */ } json(200, { sha: "1".repeat(40) }); }); return; }
+    return json(200, { default_branch: "trunk", object: { sha: "0".repeat(40) }, sha: "0".repeat(40), tree: [] });
+  }
   return json(404, { message: `stub has no ${req.method} ${path}` });
 });
 await new Promise((r) => stub.listen(GH_PORT, "127.0.0.1", r));
@@ -74,13 +78,22 @@ check("and never touches the server's repository", !seen.some((s) => s.includes(
 check("with the refusal said in words rather than a push somewhere else", scratch.ok === false && typeof scratch.message === "string" && !/him\/real/.test(scratch.message), scratch.message);
 
 seen.length = 0;
-await fetch(`${BASE}/api/studio/publish`, { method: "POST", headers: HEAD, body: JSON.stringify({ files: [{ path: "index.html", content: "<p>hi</p>" }], message: "A page" }) });
+blobs.length = 0;
+await fetch(`${BASE}/api/studio/publish`, { method: "POST", headers: HEAD, body: JSON.stringify({ files: [{ path: "index.html", content: "<p>hi</p>" }, { path: "site/document.json", content: JSON.stringify({ pages: [{ id: "p" }], nodes: [{ id: "n" }] }) }], message: "A page" }) });
 check("only a request that names no site at all still goes to the server's", seen.some((s) => s.includes("/repos/him/real")), seen.slice(0, 3).join(", "));
+const stamped = blobs.map((b) => { try { return JSON.parse(b.encoding === "base64" ? Buffer.from(b.content, "base64").toString("utf8") : b.content); } catch { return null; } }).find((d) => d && d.publishedTo);
+check("a publish stamps the document with the repository and branch it went to", !!stamped && stamped.publishedTo.repo === "him/real" && stamped.publishedTo.branch === "trunk", JSON.stringify(stamped && stamped.publishedTo));
 
 /* -------------------------------------------------------------- the bar */
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+/* A fresh browser at /site, with nothing published: told so in words, not shown a sample. */
+await page.goto(`${BASE}/site`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+const empty = await page.evaluate(() => ({ notice: !!document.querySelector("[data-nothing-published]"), text: document.body.innerText.replace(/\s+/g, " ").slice(0, 200) }));
+check("a fresh deploy's /site says nothing has been published here yet, and shows no sample", empty.notice && /Nothing has been published here yet/.test(empty.text) && !/BLACKORB|Power in the dark/.test(empty.text), empty.text);
+
 await page.goto(`${BASE}/builder`, { waitUntil: "networkidle" });
 await page.waitForTimeout(1200);
 const button = await page.evaluate(() => {

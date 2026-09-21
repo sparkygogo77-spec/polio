@@ -316,12 +316,21 @@ export function FromASite({ space }: { space: Space }) {
         try { await keep({ id: p.id, path: p.path, type: p.type, w: 0, h: 0, bytes: p.bytes.length, alt: "", from: "upload" }, new Blob([p.bytes as BlobPart], { type: p.type })); kept++; } catch { /* named below by count */ }
       }
       const behind = copy.pictures.length - kept + copy.lost.length;
+      /* Warned, not refused: a document that says it was published
+         elsewhere, or one sitting alone without the blueprint a publish
+         writes beside it, is copied anyway and said for what it is. */
+      const here = `${of.owner}/${of.name}`.toLowerCase();
+      const doubt = copy.stamped && copy.stamped.toLowerCase() !== here
+        ? ` It says it was published to ${copy.stamped}, not this repository.`
+        : !copy.stamped && !copy.blueprint
+          ? " It sits in the repository on its own, without the blueprint a publish writes beside it: the Builder's own sample rather than something published there. Copied anyway."
+          : "";
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       ctx.publish({
         key: `studio:repo:${of.name}`,
         title: `${copy.name} is a new site now, copied whole from ${repoName(of)}`,
-        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}`,
-        level: behind ? "warn" : "success",
+        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}${doubt}`,
+        level: behind || doubt ? "warn" : "success",
         source: "studio",
         toast: { durationMs: 10000 },
       });
