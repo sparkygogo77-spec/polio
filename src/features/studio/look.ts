@@ -640,7 +640,15 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
  * (`texture.ts`), so what is under a half-solid layer is the layer below it,
  * not the page colour painted over the top of it.
  */
-export function textureCss(layers: TextureLayer[], palette: Palette, base: string, under: string[] = []): React.CSSProperties {
+export function textureCss(
+  layers: TextureLayer[],
+  palette: Palette,
+  base: string,
+  /* The page's fill, each layer with the size it is laid down at — structural
+     rather than the `FillLayer` type itself, which lives in `parts/theme.ts`
+     and imports this file. */
+  under: { image: string; size: string }[] = [],
+): React.CSSProperties {
   const on = layers.filter((l) => l.on);
   /*
    * `under` is the page's own FILL, and it is painted beneath the stack
@@ -655,10 +663,14 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
    *
    * CSS paints background images front to back, so the fill goes on the END
    * of the list and everything else sits over it, which is what "before any
-   * texture" always meant. Sized `auto` and repeated, because a fill is a
-   * gradient across the whole page rather than a tile.
+   * texture" always meant.
+   *
+   * The size comes in with the layer. It used to be forced to `auto` here,
+   * on the reasoning that a fill is a gradient across the page rather than a
+   * tile — true of the gradients, false of Grid, and the reason a grid with
+   * a grain over it was a hairline with a grain over it.
    */
-  const bed = under.map((image) => ({ image, size: "auto", repeat: "repeat", blend: "normal", dx: 0, dy: 0 }));
+  const bed = under.map(({ image, size }) => ({ image, size, repeat: "repeat", blend: "normal", dx: 0, dy: 0 }));
   if (!on.length) return bed.length ? flat(bed, base) : { background: base };
 
   const parts = [...compose(on, palette), ...bed];

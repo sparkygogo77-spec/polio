@@ -444,6 +444,17 @@ const BLENDS: { value: BlendMode; label: string }[] = [
  * background colour — the same function the site is painted from, so a
  * swatch cannot drift from what pressing it does.
  */
+
+/**
+ * The tile these swatches draw a tiling fill at.
+ *
+ * A swatch is 36px of a 1440px page, so the page's own tile shows one corner
+ * of one cell and reads as blank. Smaller, and stated — the drift this row's
+ * comment promises there would be none of started as a size hardcoded here
+ * against one the page was never given.
+ */
+const SWATCH_TILE = 8;
+
 function FillRow({ palette }: { palette: Palette }) {
   const format = useStudio((st) => st.format);
   const fill = String(format["palette.background"] ?? "flat");
@@ -463,7 +474,7 @@ function FillRow({ palette }: { palette: Palette }) {
       </div>
       <div className="grid grid-cols-4 gap-1">
         {FILLS.map((f) => {
-          const layers = fillLayers(f.id, hue, light);
+          const layers = fillLayers(f.id, hue, light, SWATCH_TILE);
           return (
             <Tooltip key={f.id} content={f.label}>
               <button
@@ -477,8 +488,13 @@ function FillRow({ palette }: { palette: Palette }) {
                 )}
                 style={{
                   backgroundColor: palette.bg,
+                  /* A 36px square is a miniature, so it asks the fill for a
+                     miniature's tile rather than shrinking the page's behind
+                     its back — which is how this swatch came to draw a grid
+                     the page itself never drew. The size still comes off the
+                     layer. */
                   ...(layers.length
-                    ? { backgroundImage: layers.join(", "), backgroundSize: f.id === "grid" ? "8px 8px" : "auto", backgroundRepeat: "repeat" }
+                    ? { backgroundImage: layers.map((l) => l.image).join(", "), backgroundSize: layers.map((l) => l.size).join(", "), backgroundRepeat: "repeat" }
                     : {}),
                 }}
               />

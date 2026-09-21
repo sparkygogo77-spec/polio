@@ -34,6 +34,7 @@ import { Slider } from "@/core/ui/slider";
 import { Badge } from "@/core/ui/badge";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
+import { VirtualList } from "@/core/ui/virtual-list";
 import { linkReason } from "./links";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
@@ -520,6 +521,60 @@ export function HuePicker({ value, onChange }: { value: number | null; onChange:
   );
 }
 
+/**
+ * The elements on this page, as a roll you can pick from.
+ *
+ * It is here because the Element tab has to say something about elements
+ * when none is picked, and the truest thing it can say is which ones there
+ * are. Pressing a row picks that part, which fills this same panel with its
+ * editor, so the roll is a way INTO the tab rather than a second screen
+ * beside it.
+ *
+ * Virtualised because a page has no ceiling on parts, and a list in this
+ * panel that is fine at nine rows and stutters at three hundred is the kind
+ * of thing nobody finds until a real site is on the board.
+ */
+function ElementRoll({ nodes }: { nodes: StudioNode[] }) {
+  return (
+    <VirtualList
+      items={nodes}
+      getKey={(n) => n.id}
+      estimateSize={34}
+      className="px-2 py-1"
+      empty={
+        <p className="px-4 text-center text-[11px] text-fg-muted">
+          Nothing on this page yet. Open the parts drawer under the board, place a part, then pick it to say what it should be.
+        </p>
+      }
+      renderItem={(n) => {
+        const feature = getFeature(n.featureId);
+        const cat = feature ? categoryOf(feature.category) : null;
+        const hue = n.hue ?? cat?.hue ?? 265;
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            data-element-row=""
+            className="h-8 w-full justify-start gap-2 px-2"
+            onClick={() => useStudio.getState().setSelection([n.id])}
+          >
+            <span
+              className="flex size-5 shrink-0 items-center justify-center rounded-sm"
+              style={{ background: `oklch(0.7 0.14 ${hue} / 0.16)`, color: `oklch(0.8 0.15 ${hue})` }}
+            >
+              {n.glyph ? <span className="text-[10px]">{n.glyph}</span> : feature ? <feature.icon className="size-3" /> : <Frame className="size-3" />}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-left text-[11px] text-fg">{n.label}</span>
+            {n.prompt.trim() ? (
+              <Wand2 className="size-3 shrink-0 text-fg-faint" aria-label="has words" />
+            ) : null}
+          </Button>
+        );
+      }}
+    />
+  );
+}
+
 export function Inspector() {
   const selection = useStudio((s) => s.selection);
   const nodes = useStudio(useShallow(pageNodes));
@@ -548,25 +603,44 @@ export function Inspector() {
    * as an empty panel, so it says where its controls went — and the way it
    * says so is a button that takes you there, not a sentence telling you to
    * go yourself.
+   *
+   * WHAT IT MAY NOT DO IS BE THE WHOLE PANEL, which is the fault he read as
+   * this tab having nothing in it. A press on the page is how most people
+   * arrive here, and what they arrived at was a tab called Element saying
+   * one sentence about the page's fill and offering to send them somewhere
+   * else. A tab named for a thing leads with that thing: the elements on
+   * this page, each one a press away from its own editor, and the signpost
+   * folded to a line at the foot where a signpost belongs.
    */
   if (selection.includes(BACKGROUND_ID)) {
     return (
-      <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 p-6 text-center">
-        <span
-          className="flex size-9 items-center justify-center rounded-full"
-          style={{ background: "oklch(0.7 0.15 320 / 0.18)", color: "oklch(0.84 0.16 320)" }}
-        >
-          <PaletteIcon className="size-4" />
-        </span>
-        <p className="text-[11px] text-fg-muted">The page&rsquo;s fill and its textures are the site&rsquo;s look.</p>
-        <Button
-          size="xs"
-          variant="outline"
-          data-to-looks=""
-          onClick={() => window.dispatchEvent(new CustomEvent("studio:panel", { detail: "look" }))}
-        >
-          Open Looks
-        </Button>
+      <div className="flex h-full min-h-0 flex-col" data-page-picked="">
+        <div className="border-b border-border px-3 py-2">
+          <div className="text-[11px] font-semibold text-fg">{page.name}</div>
+          <div className="text-[10px] text-fg-muted">
+            {nodes.length ? `${nodes.length} element${nodes.length === 1 ? "" : "s"} on this page. Pick one to prompt it.` : "The page itself is picked."}
+          </div>
+        </div>
+        <div className="min-h-0 flex-1">
+          <ElementRoll nodes={nodes} />
+        </div>
+        <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+          <span
+            className="flex size-6 shrink-0 items-center justify-center rounded-sm"
+            style={{ background: "oklch(0.7 0.15 320 / 0.18)", color: "oklch(0.84 0.16 320)" }}
+          >
+            <PaletteIcon className="size-3.5" />
+          </span>
+          <p className="min-w-0 flex-1 text-[10px] text-fg-muted">The page&rsquo;s fill and its textures are the site&rsquo;s look.</p>
+          <Button
+            size="xs"
+            variant="outline"
+            data-to-looks=""
+            onClick={() => window.dispatchEvent(new CustomEvent("studio:panel", { detail: "look" }))}
+          >
+            Open Looks
+          </Button>
+        </div>
       </div>
     );
   }

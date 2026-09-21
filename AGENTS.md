@@ -1421,12 +1421,31 @@ a kicker with a rule, and label-and-value rows that copy.
   there is still a marquee); the frame wears the accent outline and a label,
   and the Inspector shows `BackgroundInspector` — the fill (the format's
   `palette.background`) and the texture layers that land on the page,
-  switched there. **⌘X cuts it** (`cutBackground`: every page layer off, the
+  switched there. **The Inspector no longer shows it**: the page's fill and
+  its textures are the site's look, so they are a section of the Look panel
+  (`BackgroundInspector`, mounted in `LookPanel.tsx`) and the Element tab
+  leads with the page's own elements instead. Picking the page there gives
+  the roll of what is on it, each row a press away from that part's editor,
+  with the way to Looks folded to a line at the foot. A tab named Element
+  that says only where the fill went reads as an empty tab
+  (`tests/element-leads.mjs`). **⌘X cuts it** (`cutBackground`: every page layer off, the
   fill flat, what went held), **⌘V puts it back** (`pasteBackground`), ⌫
   strips it the same way. Cut and paste on parts work too (`cutNodes` /
   `pasteNodes`); `cut()` and `paste()` pick by what is selected and what was
   cut last. What is held is a module variable, never persisted. The canvas
   menu has a Background submenu for the same three things.
+- **A fill carries its own tile** (`fillLayers`, `FILL_TILE` in
+  `parts/theme.ts`). One definition says what the page's fill is AND how big
+  it is laid down, because a layer that goes out unsized is sized `auto` by
+  CSS, and `auto` on a repeating gradient is one hairline down the left and
+  one across the top rather than a grid. When it was missing, every consumer
+  patched a size in privately and none agreed: the Look panel's swatch at
+  8px, the board's page frame at 24px, the live page and the exported site
+  at neither. `themeFrom` writes the fill as the `background` SHORTHAND
+  (`<image> 0 0 / <size> repeat`) so the tile travels with the image into
+  the preview, the frame and the site's `pageCss`, none of which set a
+  second property. A miniature asks for a smaller tile (`SWATCH_TILE`); it
+  does not overrule one it was handed (`tests/fill-tile.mjs`).
 - **The background has the wheel too** (`SLOTS_BG`, `bgChoicesFor` in
   `RadialMenu.tsx`; `BackgroundEditors.tsx`). A right press on the bare
   frame opens the same seven pieces about the page, in the same places, so

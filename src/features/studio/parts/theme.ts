@@ -252,19 +252,54 @@ export function resolvePalette(format: FormatValues, look?: Look): Palette {
   return { ...base, ...overrides } as Palette;
 }
 
+/** One layer of the page's fill: the image, and how big it is laid down. */
+export interface FillLayer {
+  image: string;
+  /** A CSS background-size. `auto` for a gradient that covers rather than tiles. */
+  size: string;
+}
+
+/**
+ * How big a grid tile is on the page, in px.
+ *
+ * A number rather than a taste: under about 12px the rules crowd into a
+ * weave and the page reads as grey, and over about 64px there is not enough
+ * of a grid on a phone to be one.
+ */
+export const FILL_TILE = 32;
+
 /**
  * The page's own fill, as background-image layers over the background colour.
  *
  * One definition, read by the theme that paints the site and by the panel
  * that offers the choice, so a swatch in the panel cannot drift from what
  * the page actually does. Flat has no layers at all: the colour is the fill.
+ *
+ * A LAYER CARRIES ITS OWN SIZE, and that is the whole of what was wrong with
+ * Grid. Two `linear-gradient`s went out with nothing said about how big they
+ * were, so CSS sized them `auto` — a gradient the size of the element, which
+ * is one 1px rule down the left and one across the top. A hairline, called a
+ * grid. And because the drawing was right and only the size was missing,
+ * every consumer that wanted a grid quietly patched a size in on its own:
+ * the swatch at 8px, the board's page frame at 24px, the live page and the
+ * exported site at neither. Three answers to a question this function is
+ * here to answer once.
+ *
+ * `tile` is for a MINIATURE, which is the one honest reason to want another
+ * size: a 36px swatch at the page's own tile shows one corner of one cell
+ * and reads as blank. Asking for a smaller tile is not the same as being
+ * handed one and overruling it.
  */
-export function fillLayers(background: string, hue: number, light: boolean): string[] {
+export function fillLayers(background: string, hue: number, light: boolean, tile: number = FILL_TILE): FillLayer[] {
   if (background === "subtle gradient" || background === "mesh gradient")
-    return [`radial-gradient(120% 80% at 20% 0%, oklch(0.7 0.14 ${hue} / 0.2), transparent 70%)`];
+    return [{ image: `radial-gradient(120% 80% at 20% 0%, oklch(0.7 0.14 ${hue} / 0.2), transparent 70%)`, size: "auto" }];
   if (background === "grid") {
     const line = light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)";
-    return [`linear-gradient(${line} 1px, transparent 1px)`, `linear-gradient(90deg, ${line} 1px, transparent 1px)`];
+    const size = `${tile}px ${tile}px`;
+    return [
+      { image: `linear-gradient(${line} 1px, transparent 1px)`, size },
+      { image: `linear-gradient(90deg, ${line} 1px, transparent 1px)`, size },
+    ];
   }
   return [];
 }
@@ -282,7 +317,20 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
   // chosen, and the flourishes below are painted *over* whatever it ends up as.
   const roles = resolvePalette(format, look);
   const bed = fillLayers(background, hue, light);
-  const backdrop = bed.length ? `${bed.join(", ")}, ${roles.bg}` : roles.bg;
+  /*
+   * Written as the `background` SHORTHAND, one layer at a time, rather than
+   * as a list of images that needs a matching list of sizes beside it.
+   *
+   * `backdrop` is handed to places that set `background:` and nothing else —
+   * the preview, the board's page frame, and the pageCss the exported site
+   * ships with — and a second property is exactly what none of them had.
+   * `<image> <position> / <size> <repeat>` carries the tile with the image
+   * it belongs to, so a layer cannot arrive anywhere without its size. The
+   * colour goes last, which is where the shorthand takes it.
+   */
+  const backdrop = bed.length
+    ? `${bed.map((l) => `${l.image} 0 0 / ${l.size} repeat`).join(", ")}, ${roles.bg}`
+    : roles.bg;
 
   // Each layer says where it lands, so one texture can dress the page while
   // another dresses the cards.
