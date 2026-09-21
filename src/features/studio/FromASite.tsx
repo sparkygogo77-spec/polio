@@ -131,10 +131,52 @@ const NOTHING: Stage = { at: "nothing" };
 const STAGES = new Map<string, Stage>();
 const stageListeners = new Set<() => void>();
 const stageOf = (spaceId: string): Stage => STAGES.get(spaceId) ?? NOTHING;
-const putStage = (spaceId: string, stage: Stage) => { STAGES.set(spaceId, stage); for (const l of stageListeners) l(); };
+/** The most recent import anywhere on the board, for the strip that is never hidden. */
+let latest: { spaceId: string; stage: Stage; when: number } | null = null;
+const putStage = (spaceId: string, stage: Stage) => {
+  STAGES.set(spaceId, stage);
+  latest = stage.at === "nothing" ? (latest?.spaceId === spaceId ? null : latest) : { spaceId, stage, when: Date.now() };
+  for (const l of stageListeners) l();
+};
 const subscribeStages = (l: () => void) => { stageListeners.add(l); return () => { stageListeners.delete(l); }; };
 /** How long one step may go without a word before the import is told to stop and say so. */
 const STEP_PATIENCE_MS = 90_000;
+
+/**
+ * THE IMPORT'S LINE, WHERE IT CANNOT BE HIDDEN.
+ *
+ * Driven by hand, three times: a repository brought in, a space named
+ * after it, and "nothing". Reproduced: the ending fired within a second,
+ * the no-page refusal, and sat in this panel's import section, which the
+ * space's aside keeps below its fold on a short window, 736 pixels down
+ * in a 640 pixel one, with nothing saying to scroll. With toasts off, that
+ * was every word there was. So the latest import's line is drawn here
+ * too, across the top of the board, in the same words, until he dismisses
+ * it or starts another.
+ */
+export function ImportStrip() {
+  const it = React.useSyncExternalStore(subscribeStages, () => latest, () => null);
+  if (!it || it.stage.at === "nothing" || it.stage.at === "picking") return null;
+  const busyNow = it.stage.at === "busy";
+  const says = it.stage.says;
+  const refused = /^[\w.-]+\/[\w.-]+: /.test(says) && !busyNow && !/landed|carried|copied|real parts|arrived/.test(says);
+  return (
+    <div
+      data-import-strip={busyNow ? "busy" : refused ? "refused" : "done"}
+      role="status"
+      className="flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-[11px]"
+      style={{ borderColor: refused ? "oklch(0.72 0.17 18 / 0.6)" : VOID.rim, background: refused ? "oklch(0.72 0.17 18 / 0.08)" : VOID.box, color: VOID.text }}
+    >
+      {busyNow ? <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" /> : null}
+      <span className="min-w-0 flex-1">{says}</span>
+      {!busyNow ? (
+        <button type="button" data-import-strip-dismiss="" aria-label="Dismiss" onClick={() => putStage(it.spaceId, NOTHING)} className="tactile shrink-0 rounded px-1" style={{ color: VOID.muted }}>
+          <X className="size-3" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");

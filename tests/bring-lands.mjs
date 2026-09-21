@@ -224,6 +224,45 @@ const end = await doc();
 const landedThere = end.nodes > mid.nodes;
 check(landedThere ? "and its page landed as parts" : "and when this machine cannot open that address, the panel says so with the reason", landedThere || /could not be read/.test(line3), landedThere ? `${end.nodes} parts` : line3.slice(-160));
 
+/* 4. THE LINE WHERE IT CANNOT BE HIDDEN. A short window, toasts off, the
+   space's aside keeping its import section below the fold: the ending is
+   still on screen, across the top of the board, in the same words. */
+const short = await browser.newPage({ viewport: { width: 1280, height: 640 } });
+await short.route("https://api.github.com/**", (r) => {
+  const u = new URL(r.request().url());
+  const j = (b, code = 200) => r.fulfill({ status: code, contentType: "application/json", body: JSON.stringify(b) });
+  if (u.pathname === "/repos/him/sources") return j({ default_branch: "main", homepage: "" });
+  if (u.pathname.startsWith("/repos/him/sources/git/trees/")) return j({ tree: repos["him/sources"].tree });
+  return j({ message: "no" }, 404);
+});
+await short.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
+await short.evaluate(() => {
+  const env = (state) => JSON.stringify({ state, version: 0 });
+  localStorage.setItem("builder.builds", env({ projects: [{ id: "s9", name: "Short", updatedAt: Date.now() }], activeId: "s9" }));
+  localStorage.setItem("builder.studio", env({ nodes: [] }));
+  localStorage.setItem("builder.settings", JSON.stringify({ state: { values: { "feed.toasts": false } }, version: 0 }));
+});
+await short.reload({ waitUntil: "networkidle" });
+await short.waitForTimeout(900);
+const k2 = short.locator("[data-keys-panel]");
+await short.getByRole("button", { name: "Keys", exact: true }).click(); await short.waitForTimeout(500);
+const skip2 = k2.getByRole("button", { name: /Skip the PIN|Hold the key for this tab/ }); if (await skip2.count()) { await skip2.first().click(); await short.waitForTimeout(300); }
+await k2.locator('[data-service="github"] input[type="password"]').first().fill("not-a-token-placeholder-xxxx");
+await k2.getByRole("button", { name: /Save to this browser|Hold in this tab/ }).first().click(); await short.waitForTimeout(400);
+await k2.getByRole("button", { name: "Close keys" }).click(); await short.waitForTimeout(400);
+await short.locator("[data-github-button]").first().click(); await short.waitForTimeout(700);
+await short.locator("[data-repo-bring]").fill("him/sources");
+await short.locator("[data-repo-pull]").click();
+let strip = null;
+for (let i = 0; i < 20 && !(strip && strip.kind === "refused"); i++) { await short.waitForTimeout(500); strip = await short.evaluate(() => { const e = document.querySelector("[data-import-strip]"); if (!e) return null; const r = e.getBoundingClientRect(); return { kind: e.getAttribute("data-import-strip"), text: e.textContent, top: Math.round(r.top), bottom: Math.round(r.bottom), inner: innerHeight }; }); }
+check("on a short window with toasts off, the ending is still on screen: a strip across the top of the board, in the same words", !!strip && strip.kind === "refused" && /him\/sources: There is no page in this repository to open/.test(strip.text ?? ""), JSON.stringify(strip));
+check("and it is inside the window, not below it", !!strip && strip.top >= 0 && strip.bottom <= strip.inner, strip ? `${strip.top}..${strip.bottom} of ${strip.inner}` : "-");
+const aside = await short.evaluate(() => { const e = document.querySelector("[data-from-a-site]"); if (!e) return null; const r = e.getBoundingClientRect(); return { top: Math.round(r.top), inner: innerHeight }; });
+check("which matters because the panel's own copy sits below the fold there", !!aside && aside.top > aside.inner - 40, aside ? `section at ${aside.top} in ${aside.inner}` : "no section");
+await short.locator("[data-import-strip-dismiss]").click(); await short.waitForTimeout(300);
+check("and it goes when dismissed", (await short.locator("[data-import-strip]").count()) === 0);
+await short.close();
+
 await browser.close();
 const failed = results.filter((r) => !r).length;
 console.log(`\n${failed ? `${failed} FAILED` : "all good"} — ${results.length - failed}/${results.length}`);
