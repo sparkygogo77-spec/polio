@@ -330,10 +330,23 @@ for (const [w, h, n] of [[1600, 1000, 8], [1600, 1000, 5], [1280, 900, 3]]) {
   const stood = await page.locator("[data-studio-band][data-band-over]").count();
   check(`${w}x${h}, ${n} updates: the backend's band stands over the pane`, stood === 1,
     `${stood} band over the pane — without one the rule below measures nothing`);
-  await page.locator('[aria-label="Fit in view"]').first().click({ force: true });
+  /*
+   * NOTHING IS PRESSED HERE, and that is the point of it.
+   *
+   * The band standing up is the room halving, so the board re-fits itself
+   * on it the way it re-fits itself on a window resize. It did not: the
+   * band was looked up once at mount, there is none to find on the
+   * iteration tab, and the backend's band takes better than half the room
+   * without changing the pane's own height by a pixel — so nothing
+   * observed it and nothing ran. MEASURED before the fix, at this exact
+   * sequence: 512px of the set and 401px of the column under the band at
+   * 1600x1000 with eight updates, in silence, and it stayed there.
+   *
+   * Asking for a fit by hand hid it. This asks for nothing.
+   */
   await page.waitForTimeout(2500);
   const s = await read(page);
-  check(`…and the fit puts no part of the set under it`, s && s.setUnderBand === 0,
+  check(`…and the board re-fits itself on it, with nothing pressed`, s && s.setUnderBand === 0,
     s ? `${s.setUnderBand}px below the band's top edge, column ${s.off.bottom}px, at zoom ${s.zoom}` : "-");
   check(`…and no part of the column is outside the frame either`, s && outside(s) === 0,
     s ? `off L${s.off.left} R${s.off.right} T${s.off.top} B${s.off.bottom}` : "-");

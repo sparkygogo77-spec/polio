@@ -1095,13 +1095,59 @@ export function Timeline() {
     raf = requestAnimationFrame(go);
     const ro = new ResizeObserver(() => { if (!raf) raf = requestAnimationFrame(go); });
     ro.observe(box);
-    const band = box.parentElement?.querySelector("[data-studio-band][data-band-over]");
-    if (band) ro.observe(band);
+    /*
+     * A BAND THAT ARRIVES LATER IS STILL A BAND.
+     *
+     * This looked the band up once, at mount, and watched whatever it found.
+     * On the iteration tab there is none to find — the strip below the
+     * timeline is an ordinary block in the same travel — so nothing was
+     * watched at all; and when the backend tab is opened afterwards it
+     * mounts a band that stands OVER the pane, which takes better than half
+     * the room without changing the pane's own height by a pixel. So no
+     * observation fired, `go` never ran, and the room quietly halved under a
+     * board that had already fitted to the whole of it.
+     *
+     * MEASURED, finishing and then opening the backend: 512px of the set and
+     * 401px of the COLUMN under the band at 1600x1000 with eight updates,
+     * and it stayed there. His rule is that furniture may overhang but may
+     * never disappear, because something hidden under an opaque band reads
+     * as absent and absent is a lie about the board — and that outranks any
+     * zoom number, so the column sitting under it in silence is the worst
+     * version of it.
+     *
+     * Nothing below this needed changing to fix it. `roomOf` already reads
+     * the band live and `stranded` already measures against its top edge;
+     * the only thing missing was anything at all telling them to look. So
+     * the band is re-found whenever one arrives or leaves, and the fit is
+     * armed the same way a window resize arms it — which also means it goes
+     * through the same guard, and a view he moved himself is still left
+     * exactly where he left it unless the band has taken the column off the
+     * screen, which is the one case his rule 1 puts above his hand.
+     */
+    let watched: Element | null = null;
+    const bindBand = () => {
+      const now = box.parentElement?.querySelector("[data-studio-band][data-band-over]") ?? null;
+      if (now === watched) return;
+      if (watched) ro.unobserve(watched);
+      watched = now;
+      if (now) ro.observe(now);
+      /* The room has changed shape even if nothing has resized, so say so
+         the way a resize would and let `go` settle on the new one. */
+      if (!raf) raf = requestAnimationFrame(go);
+    };
+    bindBand();
+    /* Watched on the pane's parent, which is what the band is mounted into
+       and out of. `data-band-over` is in the filter because the timeline's
+       own strip is the same element with and without it: a tab change can
+       turn a band into a block rather than removing anything. */
+    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(bindBand);
+    if (box.parentElement) mo?.observe(box.parentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-band-over", "data-studio-band"] });
     return () => {
       if (raf) cancelAnimationFrame(raf);
       rescue.current?.cancel();
       rescue.current = null;
       ro.disconnect();
+      mo?.disconnect();
       stopSettle();
     };
     // `settle` and `stopSettle` are stable.
