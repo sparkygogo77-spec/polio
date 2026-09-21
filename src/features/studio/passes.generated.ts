@@ -2,9 +2,205 @@
 // Regenerate after a merge; the deployed build has no .git to read.
 import type { Pass } from "./passes.ts";
 
-export const GENERATED_AT = "2026-09-18T17:26:17.317Z";
+export const GENERATED_AT = "2026-09-21T04:59:14.901Z";
 
 export const PASSES: Pass[] = [
+  {
+    "id": "f7773b0",
+    "when": "2026-09-21T04:47:41+00:00",
+    "day": "21 September",
+    "changes": [
+      {
+        "id": "d14a6cb",
+        "says": "Connected repos show on the site, published or not",
+        "when": "2026-09-21T04:20:29+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 2
+  },
+  {
+    "id": "1bd56e5",
+    "when": "2026-09-21T03:21:28+00:00",
+    "day": "21 September",
+    "changes": [
+      {
+        "id": "1bd56e5",
+        "says": "Fix timeline view-restore reset racing dev-mode double-invoke",
+        "when": "2026-09-21T03:21:28+00:00",
+        "kind": "fixed"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "f867c24",
+    "when": "2026-09-21T02:58:34+00:00",
+    "day": "21 September",
+    "changes": [
+      {
+        "id": "574ff29",
+        "says": "The hole opens like a portal, and a button that points nowhere can be told what to do",
+        "when": "2026-09-20T22:49:11+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
+  {
+    "id": "93832fa",
+    "when": "2026-09-20T22:17:00+00:00",
+    "day": "20 September",
+    "changes": [
+      {
+        "id": "8f6e93a",
+        "says": "Element is six marks and one open field, and the background has gone to Looks",
+        "when": "2026-09-18T23:40:43+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "11a3330",
+    "when": "2026-09-20T22:06:40+00:00",
+    "day": "20 September",
+    "changes": [
+      {
+        "id": "a1931d8",
+        "says": "One place to finish a thing, and contents you travel rather than scroll",
+        "when": "2026-09-18T22:52:18+00:00",
+        "kind": "better"
+      },
+      {
+        "id": "cc5125e",
+        "says": "A part on the shelf plays once under the pointer, and is left at rest",
+        "when": "2026-09-18T22:35:02+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "35d86d3",
+        "says": "Placing a light asks what was pressed, not where the press landed",
+        "when": "2026-09-18T22:28:16+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "57d0b2a",
+        "says": "The wheel over the categories decides who gets the screen",
+        "when": "2026-09-18T21:39:21+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "15a6676",
+        "says": "The light is placed, the dials fold away, the textures are shown",
+        "when": "2026-09-18T21:24:25+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "2cdb919",
+        "says": "A blank site is blank, and no site's work is ever written into another's slot",
+        "when": "2026-09-18T21:02:06+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "851e2fd",
+    "when": "2026-09-18T21:43:51+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "851e2fd",
+        "says": "queue-strip reads the one bar that fills, not the bar that grew",
+        "when": "2026-09-18T21:43:51+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "dcb6ec8",
+    "when": "2026-09-18T21:32:47+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "adf1503",
+        "says": "A generation is a queued job, and the bar is one bar that fills",
+        "when": "2026-09-18T20:42:42+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "59c01d2",
+    "when": "2026-09-18T20:11:38+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "9e7fd32",
+        "says": "The shape button draws a shape, and what you drew is the space",
+        "when": "2026-09-18T20:05:17+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "0116057",
+        "says": "The Updates fit fills the room to half the margin",
+        "when": "2026-09-18T19:59:59+00:00",
+        "kind": "new"
+      },
+      {
+        "id": "9206723",
+        "says": "A selected part drags at once; a solid is opened to turn it",
+        "when": "2026-09-18T19:38:55+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
+  {
+    "id": "4da0ddc",
+    "when": "2026-09-18T19:25:44+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "6d5d026",
+        "says": "A colour you adjust, and Button as a real part",
+        "when": "2026-09-18T19:10:12+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 1
+  },
+  {
+    "id": "5afcbad",
+    "when": "2026-09-18T19:19:13+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "ec78cab",
+        "says": "Radius and font belong to the site, and a category's icon has a colour",
+        "when": "2026-09-18T18:59:17+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
+  {
+    "id": "a1db628",
+    "when": "2026-09-18T17:33:47+00:00",
+    "day": "18 September",
+    "changes": [
+      {
+        "id": "a1db628",
+        "says": "shelf-pass holds the one-open rule the owner asked for",
+        "when": "2026-09-18T17:33:47+00:00",
+        "kind": "new"
+      }
+    ],
+    "more": 0
+  },
   {
     "id": "79609e8",
     "when": "2026-09-18T17:25:50+00:00",
@@ -102,68 +298,6 @@ export const PASSES: Pass[] = [
         "id": "888165f",
         "says": "Where vines cross, one goes over the other",
         "when": "2026-09-18T08:31:48+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "37d3fc9",
-    "when": "2026-09-18T08:19:29+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "2451d87",
-        "says": "The line down the middle of every vine was in the ramp",
-        "when": "2026-09-18T08:19:00+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "f55bc12",
-    "when": "2026-09-18T07:27:52+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "9c1b50a",
-        "says": "The red-to-green seam, measured and held shut",
-        "when": "2026-09-18T07:23:47+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 0
-  },
-  {
-    "id": "4f37020",
-    "when": "2026-09-18T07:11:57+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "35d76d7",
-        "says": "One picture for every placeholder, and the reason they were grey",
-        "when": "2026-09-18T07:07:38+00:00",
-        "kind": "new"
-      },
-      {
-        "id": "7991437",
-        "says": "The page scrolls under a carried part, and its foot holds still",
-        "when": "2026-09-18T06:40:38+00:00",
-        "kind": "new"
-      }
-    ],
-    "more": 1
-  },
-  {
-    "id": "15f7458",
-    "when": "2026-09-18T06:23:04+00:00",
-    "day": "18 September",
-    "changes": [
-      {
-        "id": "c9f88f4",
-        "says": "Count the ink on every tile in the shelf, before drawing anything",
-        "when": "2026-09-18T05:59:15+00:00",
         "kind": "new"
       }
     ],
