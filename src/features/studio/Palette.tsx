@@ -704,8 +704,26 @@ export function Palette() {
                   type="button"
                   data-category="custom-idea"
                   aria-label="New idea"
+                  /*
+                   * CARRIED LIKE EVERY OTHER PART, because it is one.
+                   *
+                   * Every tile on the shelf can be dragged onto the board and
+                   * let go where it is wanted. This one could only be pressed,
+                   * and a press puts a part at the foot of whatever is already
+                   * on the page — so the one part whose whole point is that
+                   * you are describing something new was also the one part you
+                   * could not put anywhere in particular. It carries the same
+                   * payload a tile carries, so the board needs nothing new to
+                   * receive it.
+                   */
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-studio-feature", "custom-idea");
+                    e.dataTransfer.effectAllowed = "copy";
+                    play("tap");
+                  }}
                   onClick={() => addFeatureToCanvas("custom-idea")}
-                  className="group/cat tactile flex shrink-0 flex-col items-center gap-1 text-accent transition-[width] duration-200"
+                  className="group/cat tactile flex shrink-0 cursor-grab flex-col items-center gap-1 text-accent transition-[width] duration-200 active:cursor-grabbing"
                   style={{ width: cell }}
                 >
                   <span
