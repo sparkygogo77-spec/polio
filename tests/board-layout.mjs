@@ -345,20 +345,29 @@ async function toTheFoot(page) {
   const { context, page } = await open(1280, 900);
   check("there is one side panel, not two", (await page.locator("aside[data-side-panel]").count()) === 1 && (await page.locator("main aside, aside").count()) <= 2);
 
-  /* The strip is the same five in the same order whatever is held.
+  /* The strip is the same row in the same order whatever is held.
      It used to grow and shrink with the selection — Element, Format and
      Pages appearing when something was picked up and going when it was let
      go — so the tab you were reaching for depended on what you had just
-     clicked. Permanence is the rule now, so that is what is asked. */
+     clicked. Permanence is the rule now, so that is what is asked.
+
+     SIX RATHER THAN THE OLD COUNT, and the sixth was put there on purpose:
+     the Draw tab was renamed on his word, "change it from 'Draw' to
+     Generate", because Draw is what the pen does on the board while that
+     tab asks a model for a picture. This counted the old row and went red
+     on the rename. The row is written out in full rather than counted, so
+     the thing this check is actually about still bites: a tab that goes
+     missing with the selection, or moves in the order, fails it exactly as
+     it did before. */
   const tabs = () => page.locator("[data-side-panel] [role=radio]").evaluateAll((els) => els.map((e) => e.textContent?.trim()));
-  const FIVE = "Element,Format,Pages,Look,Motion";
+  const ROW = "Element,Format,Pages,Look,Motion,Generate";
   const before = await tabs();
-  check("with nothing picked it is still all five, in order", before.join(",") === FIVE, before.join(" · "));
+  check("with nothing picked it is the whole row, in order", before.join(",") === ROW, before.join(" · "));
 
   await page.locator('[data-node-id="cta"]').click();
   await page.waitForTimeout(600);
   const after = await tabs();
-  check("picking something does not move them", after.join(",") === FIVE, after.join(" · "));
+  check("picking something does not move them", after.join(",") === ROW, after.join(" · "));
   // The strip's first tab is always "Element", so its text proved nothing.
   // Picking does not move the tab (`StudioPage.tsx`: the tab you are on is
   // the tab you stay on), so Element is pressed, and then the panel's name
@@ -381,7 +390,7 @@ async function toTheFoot(page) {
   await page.mouse.click(pane.x + 12, pane.y + 12);
   await page.waitForTimeout(600);
   const back = await tabs();
-  check("and letting go does not move them either", back.join(",") === FIVE, back.join(" · "));
+  check("and letting go does not move them either", back.join(",") === ROW, back.join(" · "));
   await context.close();
 }
 

@@ -61,6 +61,7 @@ export function Spectrum({
         {/* What the colour is right now. A badge, not a chip: it is read,
             not picked, so it takes `PREVIEW` like the wheel's three. */}
         <span
+          data-preview-badge=""
           style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: value, boxShadow: litEdge(CONSOLE_HUE), outline: "1px solid oklch(0.3 0.04 20)" }}
         />
       </div>
