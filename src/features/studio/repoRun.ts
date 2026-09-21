@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 
 const API = "https://api.github.com";
 
@@ -35,6 +35,23 @@ export interface RepoRead {
   files: number;
   bytes: number;
   /** The branch, tag or commit actually read. */
+  ref: string;
+}
+
+/**
+ * A site made here, read whole: its document, exactly as published, and
+ * the pictures it names, so a copy is the site and not a reading of it.
+ */
+export interface RepoCopy {
+  document: Record<string, unknown>;
+  /** What the site calls itself, from its brief, or the repository's name. */
+  name: string;
+  pages: number;
+  parts: number;
+  /** Each picture the document names that the repository holds, with its bytes. */
+  pictures: { path: string; id: string; bytes: Uint8Array; type: string }[];
+  /** Pictures the document names that the repository does not hold. */
+  lost: string[];
   ref: string;
 }
 
@@ -56,6 +73,7 @@ export interface RepoNo {
 
 const isNo = (r: unknown): r is RepoNo => !!r && typeof r === "object" && "no" in (r as RepoNo);
 export { isNo as refused };
+export const isCopy = (r: unknown): r is RepoCopy => !!r && typeof r === "object" && "document" in (r as RepoCopy);
 
 /** One GitHub call, with his token, answering with the shape or a reason. */
 async function gh(path: string, token: string): Promise<unknown | RepoNo> {
@@ -85,6 +103,62 @@ function unbase64(s: string): Uint8Array {
   return out;
 }
 
+/** How many pictures a copy brings across before the rest are named as left behind. */
+const MOST_PICTURES = 40;
+
+/**
+ * The document, and the pictures it names.
+ *
+ * Null when the document is not there or is not a document, and the caller
+ * falls through to reading the page. A picture the tree does not hold is
+ * named rather than fetched blind; past `MOST_PICTURES` or the byte cap,
+ * the rest are named too, so the copy says what it left behind.
+ */
+async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: string; sha: string; size?: number }[], say: (line: string) => void): Promise<RepoCopy | null> {
+  const at = blobs.find((e) => e.path === MADE_HERE);
+  if (!at) return null;
+  const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${at.sha}`, token);
+  if (isNo(blob)) return null;
+  const it = blob as { content?: string; encoding?: string };
+  if (it.encoding !== "base64" || typeof it.content !== "string") return null;
+  let document: Record<string, unknown>;
+  try {
+    document = JSON.parse(new TextDecoder().decode(unbase64(it.content))) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const pages = Array.isArray(document.pages) ? (document.pages as unknown[]).length : 0;
+  const nodes = Array.isArray(document.nodes) ? (document.nodes as { picture?: { id?: unknown; path?: unknown; type?: unknown } }[]) : [];
+  if (!pages || !Array.isArray(document.nodes)) return null;
+  const brief = document.brief as { name?: unknown } | undefined;
+  const name = (typeof brief?.name === "string" && brief.name.trim()) || repo.name;
+
+  /* Each picture once, by id: two parts may show the same one. */
+  const wanted = new Map<string, { id: string; path: string; type: string }>();
+  for (const n of nodes) {
+    const p = n.picture;
+    if (p && typeof p.id === "string" && typeof p.path === "string" && !wanted.has(p.id)) wanted.set(p.id, { id: p.id, path: p.path, type: typeof p.type === "string" ? p.type : "image/png" });
+  }
+  const pictures: RepoCopy["pictures"] = [];
+  const lost: string[] = [];
+  let weight = 0;
+  let i = 0;
+  for (const p of wanted.values()) {
+    const entry = blobs.find((e) => e.path === p.path);
+    if (!entry) { lost.push(p.path); continue; }
+    if (pictures.length >= MOST_PICTURES || weight + (entry.size ?? 0) > MAX_REPO_BYTES) { lost.push(p.path); continue; }
+    say(`Fetching its pictures… ${++i} of ${wanted.size}`);
+    const got = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${entry.sha}`, token);
+    if (isNo(got)) { lost.push(p.path); continue; }
+    const g = got as { content?: string; encoding?: string };
+    if (g.encoding !== "base64" || typeof g.content !== "string") { lost.push(p.path); continue; }
+    const bytes = unbase64(g.content);
+    weight += bytes.length;
+    pictures.push({ ...p, bytes });
+  }
+  return { document, name, pages, parts: nodes.length, pictures, lost, ref };
+}
+
 /**
  * The repository's site, as a zip this app can open.
  *
@@ -92,7 +166,7 @@ function unbase64(s: string): Uint8Array {
  * dozen calls over somebody's connection and a spinner with no words is
  * how a minute feels like a failure.
  */
-export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void): Promise<RepoRead | RepoNo> {
+export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void): Promise<RepoRead | RepoCopy | RepoNo> {
   if (!token) return { no: "no-token", says: REPO_REFUSAL_SAYS["no-token"] };
 
   /* Asked every time, not only when no ref was named: the About line's
@@ -114,6 +188,21 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
   );
   const blobs = entries.filter((e) => e.type === "blob");
   const paths = blobs.map((e) => e.path);
+
+  /*
+   * A SITE MADE HERE IS COPIED, NOT READ. The document a publish leaves in
+   * the repository is the site exactly: every part, position, colour and
+   * prompt. Fidelity first: it is taken whole, ahead of any page in the
+   * repository and ahead of any address, and the pictures it names come
+   * with it from the same tree. Only a document that cannot be read falls
+   * through to the page or the address, and says so.
+   */
+  if (madeHere(paths)) {
+    say(`Reading the site itself out of ${repo.owner}/${repo.name}…`);
+    const copy = await copyOf(repo, token, ref, blobs, say);
+    if (copy) return copy;
+    say("Its document could not be read, so the page is read instead…");
+  }
 
   const page = pageIn(paths);
   if (!page) {

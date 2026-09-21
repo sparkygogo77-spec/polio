@@ -103,6 +103,20 @@ export async function put(blob: Blob, opts: { alt?: string; from?: Picture["from
   return { id, path: `assets/pictures/${id}.${endsWith(type)}`, type, w, h, bytes: blob.size, alt: opts.alt ?? opts.name ?? "", from: opts.from ?? "upload" };
 }
 
+/**
+ * Keep a picture under the id a document already names.
+ *
+ * A site copied from its repository brings its document whole, and every
+ * part in it points at a picture by id and path. The bytes are in the
+ * repository at that path; put here under that same id, the part finds
+ * them exactly as it did in the browser that published it. `put` makes a
+ * new id, which would be a new picture nothing points at.
+ */
+export async function keep(pic: Picture, blob: Blob): Promise<void> {
+  if (!ok()) throw new Error("This browser has no file storage, so a picture cannot be kept here.");
+  await ask((await shelf("readwrite")).put(blob, pic.id));
+}
+
 /** The file itself, for the publish to carry. Null when this browser no longer has it. */
 export async function bytesFor(pic: Picture): Promise<Blob | null> {
   if (!ok()) return null;

@@ -38,9 +38,10 @@ import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
-import { readRepoSite, refused } from "./repoRun";
+import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
+import { keep } from "./pictures";
+import { repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
-import { useBuilds } from "@/features/builds/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio, type StudioNode } from "./store";
@@ -197,6 +198,7 @@ export function FromASite({ space }: { space: Space }) {
     if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
     setStage({ at: "busy", says: `Opening ${repoName(r)}…` });
     const got = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }));
+    if (isCopy(got)) { copySite(got, r); return; }
     if (refused(got)) {
       /*
        * SOURCES ARE READ AT THE ADDRESS THEY ARE DEPLOYED AT.
@@ -240,6 +242,46 @@ export function FromASite({ space }: { space: Space }) {
       candidates: (zr.candidates as Block[]) ?? [],
       scripts: !!zr.scripts,
     });
+  };
+
+  /*
+   * A SITE MADE HERE BECOMES A NEW SITE, WHOLE.
+   *
+   * HIS WORDS: he wants the site imported with what can be copied exactly.
+   * For a site made here, everything can: the document in the repository
+   * is the site, so it is loaded as a new site in the switcher, named from
+   * its brief, every part where it was with its colour, its type, its
+   * motion and its prompt, and connected to the repository it came from so
+   * the next edit opens a branch there. Its pictures are put into this
+   * browser's file storage under the ids the parts already name. The space
+   * this panel was opened on is taken away again: nothing landed in it,
+   * and it belongs to the site he was on, not the one he is now.
+   */
+  const copySite = (copy: RepoCopy, of: Repo) => {
+    const st = useStudio.getState();
+    st.removeSpaces([space.id]);
+    const builds = useBuilds.getState();
+    const id = builds.create(copy.name);
+    useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
+    const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
+    if (repo) builds.setRepo(id, repo);
+    void (async () => {
+      let kept = 0;
+      for (const p of copy.pictures) {
+        try { await keep({ id: p.id, path: p.path, type: p.type, w: 0, h: 0, bytes: p.bytes.length, alt: "", from: "upload" }, new Blob([p.bytes as BlobPart], { type: p.type })); kept++; } catch { /* named below by count */ }
+      }
+      const behind = copy.pictures.length - kept + copy.lost.length;
+      const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
+      ctx.publish({
+        key: `studio:repo:${of.name}`,
+        title: `${copy.name} is a new site now, copied whole from ${repoName(of)}`,
+        body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}`,
+        level: behind ? "warn" : "success",
+        source: "studio",
+        toast: { durationMs: 10000 },
+      });
+      play("confirm");
+    })();
   };
 
   /*
