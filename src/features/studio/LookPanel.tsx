@@ -254,7 +254,7 @@ function ColourSection() {
   return (
     <section data-look-colour="" className="space-y-2 border-b border-border p-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold text-fg">Colour</h3>
+        <h3 data-look-heading className="text-[11px] font-semibold text-fg">Colour</h3>
         {look.palette && Object.keys(look.palette).length ? (
           <button type="button" onClick={() => useStudio.getState().setLook({ palette: {} })} className="text-[10px] text-fg-muted hover:text-fg">
             Reset
@@ -561,7 +561,7 @@ function TextureSection() {
         void readPicture(file).then((p) => takeImage(p.src, undefined, p.note)).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
       }}
     >
-      <h3 className="text-[11px] font-semibold text-fg">Texture</h3>
+      <h3 data-look-heading className="text-[11px] font-semibold text-fg">Texture</h3>
       {refused ? (
         <p data-picture-refused="" className="text-[10px] leading-snug text-danger">
           {refused} Nothing has been changed.
@@ -904,7 +904,7 @@ function LightSection() {
   return (
     <section data-look-light="" data-light-section="" className="border-t border-border p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold text-fg">Light &amp; depth</h3>
+        <h3 data-look-heading className="text-[11px] font-semibold text-fg">Light &amp; depth</h3>
         <Toggle
           label=""
           hint=""
