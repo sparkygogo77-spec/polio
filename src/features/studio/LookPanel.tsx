@@ -19,7 +19,7 @@ import { flattenLayers } from "./texture";
 import { CropPicker } from "./CropPicker";
 import { Spectrum } from "./MenuConsole";
 import { CHIP, emptyFill } from "./colourMenu";
-import { resolvePalette } from "./parts/theme";
+import { fillLayers, resolvePalette } from "./parts/theme";
 import { ImageWell, dropSays, imageFrom, readPicture, refusal, usePasteImage } from "./ImageIntake";
 import { useStudio } from "./store";
 import { cn } from "@/core/lib/cn";
@@ -110,6 +110,115 @@ function ContrastBadge({ a, b, label }: { a: string; b: string; label: string })
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* What a role actually does                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PICK A ROLE AND SEE THE THING IT PAINTS, not its name.
+ *
+ * HIS WORDS: the colour selector "should make it apparent what is about to
+ * change before he changes it ... so he is never picking a colour blind."
+ * And the standard behind it, his own: a setting should directly show what
+ * it does rather than name it.
+ *
+ * What stood here was the name of the role and nothing else. "Muted text"
+ * and "Highlight" are words about a colour; neither tells you which of the
+ * things on your page turns that colour when you drag the mixer, and the
+ * six chips above cannot either, because a chip is the colour and never the
+ * use. So each role draws its own use, at the size it is used at:
+ *
+ *   Background, Surface   a square, his word, and the surface stands ON the
+ *                         background because a card is only ever read
+ *                         against the page behind it.
+ *   Text, Muted text      a font example, his word: real type at the real
+ *                         weight, muted set under text so the drop between
+ *                         them is the thing you are actually choosing.
+ *   Accent                what it actually affects, which is the things you
+ *                         press: a button, and a link in a line of text.
+ *   Highlight             what it actually affects, which is a phrase marked
+ *                         as if with a pen, and a part told to wear it.
+ *
+ * Every one of them is painted from the RESOLVED palette, so it is live: it
+ * moves under the mixer as the colour moves, which is what makes it a look
+ * before rather than a report after. The example is drawn on the page's own
+ * background for the same reason a card is, because a colour has no contrast
+ * on its own and all six of these are read against the page.
+ */
+function RoleExample({ role, palette }: { role: RoleId; palette: Palette }) {
+  const frame = "relative h-[58px] overflow-hidden rounded-md border border-border";
+  /* Background and surface: a square each, and the surface on the page. */
+  if (role === "bg" || role === "surface") {
+    return (
+      <div data-role-example={role} className={cn(frame, "flex items-center justify-center gap-3")} style={{ background: palette.bg }}>
+        <span
+          className="size-9 rounded"
+          style={{ background: palette.bg, outline: role === "bg" ? `2px solid ${palette.accent}` : `1px solid ${withAlpha(palette.text, 0.14)}` }}
+        />
+        <span
+          className="size-9 rounded"
+          style={{ background: palette.surface, outline: role === "surface" ? `2px solid ${palette.accent}` : `1px solid ${withAlpha(palette.text, 0.14)}` }}
+        />
+        <span className="text-[9px]" style={{ color: palette.muted }}>
+          {role === "bg" ? "the page" : "cards on the page"}
+        </span>
+      </div>
+    );
+  }
+  /* Text and muted: a font example, one under the other. */
+  if (role === "text" || role === "muted") {
+    return (
+      <div data-role-example={role} className={cn(frame, "flex flex-col justify-center gap-0.5 px-3")} style={{ background: palette.bg }}>
+        <span
+          className="text-[13px] font-semibold leading-tight"
+          style={{ color: palette.text, opacity: role === "text" ? 1 : 0.45 }}
+        >
+          A heading on the page
+        </span>
+        <span
+          className="text-[10px] leading-tight"
+          style={{ color: palette.muted, opacity: role === "muted" ? 1 : 0.45 }}
+        >
+          The quieter line under it
+        </span>
+      </div>
+    );
+  }
+  /* Accent: the things you press. His standard names buttons especially. */
+  if (role === "accent") {
+    return (
+      <div data-role-example={role} className={cn(frame, "flex items-center gap-2 px-3")} style={{ background: palette.bg }}>
+        <span
+          className="rounded px-2 py-1 text-[10px] font-semibold"
+          style={{ background: palette.accent, color: palette.bg }}
+        >
+          Button
+        </span>
+        <span className="text-[10px]" style={{ color: palette.text }}>
+          and a{" "}
+          <span style={{ color: palette.accent, textDecoration: "underline", textUnderlineOffset: 2 }}>link</span>
+        </span>
+      </div>
+    );
+  }
+  /* Highlight: a phrase marked with it, and a part wearing it. */
+  return (
+    <div data-role-example={role} className={cn(frame, "flex items-center gap-2 px-3")} style={{ background: palette.bg }}>
+      <span className="text-[10px] leading-tight" style={{ color: palette.text }}>
+        one phrase{" "}
+        <span style={{ background: palette.highlight, color: palette.bg, padding: "1px 3px", borderRadius: 2 }}>marked</span>{" "}
+        in a line
+      </span>
+      <span
+        className="ml-auto rounded px-2 py-1 text-[9px] font-semibold"
+        style={{ background: palette.highlight, color: palette.bg }}
+      >
+        a part
+      </span>
+    </div>
+  );
+}
+
 function ColourSection() {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
@@ -175,6 +284,10 @@ function ColourSection() {
           <ContrastBadge a={resolved.accent} b={resolved.bg} label="accent" />
         </span>
       </div>
+
+      {/* The example goes BEFORE the mixer, because it is what the mixer is
+          about: picked first, dragged second, and never dragged blind. */}
+      <RoleExample role={role} palette={resolved} />
 
       <Mixer value={current} onChange={setRoleColour} />
 
@@ -308,6 +421,75 @@ const BLENDS: { value: BlendMode; label: string }[] = [
   { value: "difference", label: "Invert" },
 ];
 
+/**
+ * THE FILL, WHICH IS THE BOTTOM OF THIS STACK.
+ *
+ * HIS WORDS: the Background Fill options "may be redundant against the
+ * Texture section at the bottom; merge them in some way rather than leaving
+ * two places that paint the page."
+ *
+ * They were worse than redundant. The fill and the stack both painted the
+ * page, and the stack did not sit on the fill, it REPLACED it: switch on any
+ * layer that lands on the page and the fill was dropped, so a mesh gradient
+ * with a grain over it was a grain and no mesh, with nothing said anywhere.
+ * Two controls for one surface, one of them silently beating the other.
+ *
+ * So there is one place now, in the order the page is actually painted: the
+ * fill at the bottom, the layers over it, and `themeFrom` composes them the
+ * same way rather than choosing between them.
+ *
+ * AND IT SHOWS WHAT IT DOES RATHER THAN NAMING IT, which is his standard.
+ * The four choices were the words flat, gradient, grid and mesh; they are
+ * painted now, each swatch drawn from `fillLayers` over the page's own
+ * background colour — the same function the site is painted from, so a
+ * swatch cannot drift from what pressing it does.
+ */
+function FillRow({ palette }: { palette: Palette }) {
+  const format = useStudio((st) => st.format);
+  const fill = String(format["palette.background"] ?? "flat");
+  const hue = Number(format["palette.accentHue"] ?? 265);
+  const light = String(format["palette.mode"] ?? "dark") === "light";
+  const FILLS = [
+    { id: "flat", label: "Flat" },
+    { id: "subtle gradient", label: "Gradient" },
+    { id: "grid", label: "Grid" },
+    { id: "mesh gradient", label: "Mesh" },
+  ];
+  return (
+    <div data-look-fill="" className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[9px] uppercase tracking-wider text-fg-muted">Fill, under everything</span>
+        <span className="text-[9px] text-fg-faint">{FILLS.find((f) => f.id === fill)?.label ?? fill}</span>
+      </div>
+      <div className="grid grid-cols-4 gap-1">
+        {FILLS.map((f) => {
+          const layers = fillLayers(f.id, hue, light);
+          return (
+            <Tooltip key={f.id} content={f.label}>
+              <button
+                type="button"
+                aria-label={f.label}
+                aria-pressed={fill === f.id}
+                onClick={() => { play("select"); useStudio.getState().setFormat("palette.background", f.id); }}
+                className={cn(
+                  "h-9 rounded-md border-2 transition-colors",
+                  fill === f.id ? "border-accent" : "border-border hover:border-border-strong",
+                )}
+                style={{
+                  backgroundColor: palette.bg,
+                  ...(layers.length
+                    ? { backgroundImage: layers.join(", "), backgroundSize: f.id === "grid" ? "8px 8px" : "auto", backgroundRepeat: "repeat" }
+                    : {}),
+                }}
+              />
+            </Tooltip>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TextureSection() {
   const format = useStudio((s) => s.format);
   const look = useStudio((s) => s.look);
@@ -386,6 +568,8 @@ function TextureSection() {
         </p>
       ) : null}
       {noted ? <p data-picture-note="" className="text-[10px] leading-snug text-fg-muted">{noted}</p> : null}
+
+      <FillRow palette={palette} />
 
       <StackPreview layers={look.texture} palette={palette} />
 

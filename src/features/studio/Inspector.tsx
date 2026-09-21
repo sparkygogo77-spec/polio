@@ -34,7 +34,6 @@ import { Slider } from "@/core/ui/slider";
 import { Badge } from "@/core/ui/badge";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Tooltip } from "@/core/ui/tooltip";
-import { Switch } from "@/core/ui/switch";
 import { linkReason } from "./links";
 
 export const GLYPHS = ["✦", "◆", "▲", "●", "✱", "❖", "☾", "⚡", "🌀", "🔮", "🧩", "🎛", "🪄", "🛰", "🧪", "🎚"];
@@ -193,41 +192,28 @@ export function BackgroundInspector() {
         </Tooltip>
       </div>
       <Designs items={backgroundDesigns(look, format)} />
+      {/*
+        ONE PLACE PAINTS THE PAGE, and it is the stack at the foot of this
+        panel. His words: the fill options "may be redundant against the
+        Texture section at the bottom; merge them in some way rather than
+        leaving two places that paint the page."
+
+        What stood here was both halves of the redundancy. The Fill control
+        was one of the two places, and under it sat a list of the very same
+        page layers the Texture section lists, with a switch each — a second
+        remote for a control three inches further down. Both are gone: the
+        fill is the bottom row of the stack now, where the page's own order
+        puts it, and the layers are switched where they are built.
+
+        What stays here is what is only here: what the page is wearing, at a
+        glance, and cut and put back.
+      */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {/* Not a Field: a <label> round a radio group names its first radio after the field. */}
-        <div className="mb-3">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">Fill</div>
-          <Segmented
-            size="xs"
-            aria-label="Background fill"
-            value={fill}
-            onChange={(v) => s().setFormat("palette.background", v)}
-            options={[
-              { value: "flat", label: "flat" },
-              { value: "subtle gradient", label: "gradient" },
-              { value: "grid", label: "grid" },
-              { value: "mesh gradient", label: "mesh" },
-            ]}
-          />
-          <p className="mt-1 text-[10px] text-fg-muted">What the page is painted with before any texture.</p>
-        </div>
-        <Field label="Texture on the page" hint="Layers from the Looks stack that land behind the page.">
-          {layers.length === 0 ? (
-            <p className="text-[10px] text-fg-muted">None. Add one under Looks › Texture and it shows up here.</p>
-          ) : (
-            layers.map((l) => (
-              <label key={l.id} className="flex items-center justify-between gap-2 py-0.5 text-[11px] text-fg">
-                <span className="truncate">{l.kind} · {l.role}</span>
-                <Switch
-                  size="sm"
-                  checked={l.on}
-                  aria-label={`Texture ${l.kind}`}
-                  onCheckedChange={(on) => s().setLook({ texture: (look.texture ?? []).map((x) => (x.id === l.id ? { ...x, on } : x)) })}
-                />
-              </label>
-            ))
-          )}
-        </Field>
+        <p className="text-[10px] leading-snug text-fg-muted">
+          {fill === "flat" ? "Painted flat" : `Painted with a ${fill}`}
+          {layers.length ? `, under ${layers.length} texture${layers.length === 1 ? "" : "s"}` : ""}
+          . The fill and the layers are one stack, at the foot of this panel.
+        </p>
         {held ? (
           <Button size="xs" variant="ghost" className="mt-2" onClick={() => s().pasteBackground()}>
             <ClipboardPaste />

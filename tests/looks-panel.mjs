@@ -145,6 +145,99 @@ const shown = await page.evaluate(() => ({
 check("the textures it can make are shown as examples", shown.samples >= 3, `${shown.samples} samples`);
 check("rather than as a paragraph about them", shown.words < 160, `${shown.words} characters of prose`);
 
+/* ------------------------------------------------------------------ */
+/* 5. PICKING A COLOUR IS NEVER DONE BLIND                             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS WORDS: the colour selector "should make it apparent what is about to
+ * change before he changes it ... so he is never picking a colour blind" —
+ * a font example for the text roles, a square for background and surface,
+ * and for highlight whatever it actually affects.
+ *
+ * What stood there was the role's NAME. So this asks two things a name
+ * cannot pass: that every one of the six draws something, and that what it
+ * draws is different from role to role. A single shared example would sail
+ * through the first and fail the second, which is the point of the second.
+ */
+const ROLE_NAMES = ["Background", "Surface", "Text", "Muted text", "Accent", "Highlight"];
+const seen = [];
+for (const name of ROLE_NAMES) {
+  await page.getByRole("button", { name, exact: true }).first().click({ force: true });
+  await page.waitForTimeout(350);
+  /*
+   * FINGERPRINTED ON WHAT IS DRAWN, never on the role's own id.
+   *
+   * The first version of this put the role id in the fingerprint, which
+   * made the "six different things" check below unfailable: two roles
+   * drawing an identical example would still have had two different ids
+   * and sailed past. Text and Muted text share their words on purpose —
+   * they are the same two lines with the emphasis moved between them — so
+   * the id was carrying exactly the pair the check needed to catch. What
+   * is read now is the words plus every mark's own colour and opacity,
+   * which is the thing his eye is actually being shown.
+   */
+  const ex = await page.evaluate(() => {
+    const e = document.querySelector("[data-role-example]");
+    if (!e) return null;
+    const paint = [...e.querySelectorAll("*")].map((n) => {
+      const cs = getComputedStyle(n);
+      return `${cs.color}|${cs.backgroundColor}|${cs.opacity}|${cs.textDecorationLine}`;
+    });
+    return { role: e.getAttribute("data-role-example"), text: e.innerText.trim(), marks: paint.length, paint: paint.join(" ") };
+  });
+  check(`picking ${name} shows what it paints, not its name`, !!ex && (ex.text.length > 0 || ex.marks > 0),
+    ex ? `${ex.role}: "${ex.text.replace(/\n+/g, " / ")}"` : "nothing drawn");
+  seen.push(ex ? `${ex.text}::${ex.paint}` : "");
+}
+check("and the six examples are six different things, not one example relabelled",
+  new Set(seen).size === ROLE_NAMES.length, `${new Set(seen).size} distinct of ${ROLE_NAMES.length}, read off the words and every mark's own colour`);
+
+/* ------------------------------------------------------------------ */
+/* 6. ONE PLACE PAINTS THE PAGE                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * His words again: the fill options "may be redundant against the Texture
+ * section at the bottom; merge them in some way rather than leaving two
+ * places that paint the page."
+ */
+const places = await page.evaluate(() => ({
+  fill: document.querySelectorAll("[data-look-fill] button").length,
+  oldFill: document.querySelectorAll('[aria-label="Background fill"]').length,
+  oldSwitches: document.querySelectorAll('[data-background-inspector] [aria-label^="Texture "]').length,
+}));
+check("the fill sits in the stack it belongs to, as painted swatches", places.fill === 4, `${places.fill} swatches`);
+check("and the second place that painted the page is gone", places.oldFill === 0 && places.oldSwitches === 0,
+  `${places.oldFill} old fill control, ${places.oldSwitches} duplicate layer switches`);
+
+/*
+ * AND THE FILL IS STILL THERE UNDER A TEXTURE, which is what made the two
+ * worse than redundant. The stack used to REPLACE the fill rather than sit
+ * on it: switch on any page layer and a mesh gradient was dropped, in
+ * silence. MEASURED before the fix, the page's own background-image with a
+ * mesh set and one layer on: the layer alone, no radial-gradient anywhere.
+ */
+await page.locator('[data-look-fill] button[aria-label="Mesh"]').first().click({ force: true });
+await page.waitForTimeout(700);
+const bare = await page.evaluate(() => getComputedStyle(document.querySelector("[data-frame]")).backgroundImage);
+check("choosing a fill paints it on the page", /radial-gradient/.test(bare), bare.slice(0, 70));
+const kinds = page.locator("[data-look-texture] button");
+const n = await kinds.count();
+for (let i = 4; i < n; i++) {
+  await kinds.nth(i).click({ force: true });
+  await page.waitForTimeout(800);
+  if (await page.locator('[data-look-texture] [aria-label="Remove layer"]').count()) break;
+}
+await page.waitForTimeout(700);
+const over = await page.evaluate(() => ({
+  img: getComputedStyle(document.querySelector("[data-frame]")).backgroundImage,
+  layers: document.querySelectorAll('[data-look-texture] [aria-label="Remove layer"]').length,
+}));
+check("a texture on the page goes OVER the fill rather than deleting it",
+  over.layers > 0 && /radial-gradient/.test(over.img),
+  over.layers ? `${over.layers} layer up, page paints: ${over.img.slice(0, 90)}` : "no layer was added, so this measured nothing");
+
 await page.evaluate(() => localStorage.removeItem("builder.studio"));
 await browser.close();
 console.log("");

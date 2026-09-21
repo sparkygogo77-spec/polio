@@ -160,6 +160,23 @@ export function resolvePalette(format: FormatValues, look?: Look): Palette {
   return { ...base, ...overrides } as Palette;
 }
 
+/**
+ * The page's own fill, as background-image layers over the background colour.
+ *
+ * One definition, read by the theme that paints the site and by the panel
+ * that offers the choice, so a swatch in the panel cannot drift from what
+ * the page actually does. Flat has no layers at all: the colour is the fill.
+ */
+export function fillLayers(background: string, hue: number, light: boolean): string[] {
+  if (background === "subtle gradient" || background === "mesh gradient")
+    return [`radial-gradient(120% 80% at 20% 0%, oklch(0.7 0.14 ${hue} / 0.2), transparent 70%)`];
+  if (background === "grid") {
+    const line = light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)";
+    return [`linear-gradient(${line} 1px, transparent 1px)`, `linear-gradient(90deg, ${line} 1px, transparent 1px)`];
+  }
+  return [];
+}
+
 export function themeFrom(format: FormatValues, look?: Look, siteName?: string): Theme {
   const hue = Number(format["palette.accentHue"] ?? 265);
   const mode = String(format["palette.mode"] ?? "dark");
@@ -172,12 +189,8 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
   // role is the background — the accent hue only fills in when nothing has been
   // chosen, and the flourishes below are painted *over* whatever it ends up as.
   const roles = resolvePalette(format, look);
-  const backdrop =
-    background === "subtle gradient" || background === "mesh gradient"
-      ? `radial-gradient(120% 80% at 20% 0%, oklch(0.7 0.14 ${hue} / 0.2), transparent 70%), ${roles.bg}`
-      : background === "grid"
-        ? `linear-gradient(${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), linear-gradient(90deg, ${light ? "oklch(0 0 0 / .05)" : "oklch(1 0 0 / .05)"} 1px, transparent 1px), ${roles.bg}`
-        : roles.bg;
+  const bed = fillLayers(background, hue, light);
+  const backdrop = bed.length ? `${bed.join(", ")}, ${roles.bg}` : roles.bg;
 
   // Each layer says where it lands, so one texture can dress the page while
   // another dresses the cards.
@@ -185,7 +198,15 @@ export function themeFrom(format: FormatValues, look?: Look, siteName?: string):
   const onPage = layers.filter((l) => lands(l, "page"));
   const onCards = layers.filter((l) => lands(l, "surfaces"));
   const onTop = layers.filter((l) => lands(l, "over"));
-  const painted = onPage.length ? textureCss(onPage, roles, roles.bg) : null;
+  /*
+   * The fill goes UNDER the page's texture rather than being thrown away.
+   *
+   * This read `painted ? "" : backdrop`, which is the whole of the fault:
+   * the moment one page layer was switched on, the fill the format had been
+   * given stopped being painted, and nothing in either panel said so. They
+   * are one stack, and the fill is the bottom of it.
+   */
+  const painted = onPage.length ? textureCss(onPage, roles, roles.bg, bed) : null;
   const onSurfaces = onCards.length ? textureCss(onCards, roles, roles.surface) : null;
   const over = onTop.length ? textureCss(onTop, roles, "transparent") : null;
 
