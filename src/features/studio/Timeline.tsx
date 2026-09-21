@@ -1207,9 +1207,23 @@ export function Timeline() {
   }, [pan, zoom, columnOf, all.length]);
 
   const fitNonce = useStudio((s) => s.fitNonce);
-  const first = React.useRef(true);
+  /*
+   * Skipped on mount, but by VALUE rather than a boolean flag.
+   *
+   * A `useRef(true)` "have I run yet" flag reads right once, but dev's
+   * double-invoke of effects on mount runs this effect twice against the
+   * same ref: the first pass flips the flag, and the second — still the
+   * same mount, not a real second trigger — finds it already flipped and
+   * fires for real, wiping the view he just claimed before the restore
+   * effect above ever gets to read it. `wasOnBoard` just above this one
+   * dodges the same trap by comparing the seen value rather than asking
+   * whether it has been seen at all, so a re-run against an unchanged
+   * value is a no-op instead of an edge. This does the same.
+   */
+  const seenFitNonce = React.useRef(fitNonce);
   React.useEffect(() => {
-    if (first.current) { first.current = false; return; }
+    if (seenFitNonce.current === fitNonce) return;
+    seenFitNonce.current = fitNonce;
     owns = false;
     ownView = null;
     settle();
