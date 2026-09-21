@@ -29,6 +29,16 @@ export interface Project {
   updatedAt: number;
   /** Where it publishes to. Unset until someone says. */
   repo?: { owner: string; name: string; branch: string };
+  /**
+   * HOW THE SITE CAME TO ITS REPOSITORY, which is the lock. A site is bound
+   * to one repository: brought in from it, made for it, or connected to
+   * it. Bound, it publishes there and nowhere else, and nothing else can be
+   * brought into it by accident. A repository a site was brought in from
+   * belongs to that site: no other site may be pointed at it.
+   */
+  bound?: "import" | "made" | "connected";
+  /** The new-site offer was answered: nothing to offer again. */
+  offered?: boolean;
   /** Where it went live, the last time it did. */
   live?: { url: string; at: number };
 }
@@ -57,7 +67,9 @@ interface Builds {
   rename: (id: string, name: string) => void;
   duplicate: (id: string) => void;
   remove: (id: string) => void;
-  setRepo: (id: string, repo: Project["repo"]) => void;
+  setRepo: (id: string, repo: Project["repo"], bound?: Project["bound"]) => void;
+  /** The new site's offer was taken or declined. */
+  setOffered: (id: string) => void;
   setLive: (id: string, url: string) => void;
   /** Write the open document back to its own slot. */
   save: () => void;
@@ -219,8 +231,11 @@ export const useBuilds = create<Builds>()(
         swapDoc(held);
       },
 
-      setRepo: (id, repo) =>
-        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, repo } : p)) })),
+      setRepo: (id, repo, bound) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, repo, bound: repo ? (bound ?? p.bound ?? "connected") : undefined } : p)) })),
+
+      setOffered: (id) =>
+        set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, offered: true } : p)) })),
 
       setLive: (id, url) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, live: { url, at: Date.now() } } : p)) })),
@@ -257,6 +272,16 @@ export const activeProject = (): Project | null => {
 export const repoFrom = (name: string, branch = "main"): Project["repo"] | undefined => {
   const [owner, repo, more] = name.trim().split("/");
   return owner && repo && !more ? { owner, name: repo, branch: branch.trim() || "main" } : undefined;
+};
+
+/**
+ * The site a repository was brought in from, if any. That repository
+ * belongs to that site: an existing design must never overwrite a
+ * repository he imported, so no other site may be pointed at it.
+ */
+export const importedBy = (name: string, exceptId?: string | null): Project | null => {
+  const want = name.trim().toLowerCase();
+  return useBuilds.getState().projects.find((p) => p.id !== exceptId && p.bound === "import" && p.repo && `${p.repo.owner}/${p.repo.name}`.toLowerCase() === want) ?? null;
 };
 
 /** As `owner/name`, which is how every route and every label wants it. */

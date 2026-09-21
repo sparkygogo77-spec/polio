@@ -611,6 +611,9 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
       project,
       repo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
       branch: project?.repo?.branch,
+      /* The lock, said to the route: this site publishes to the repository
+         it is bound to and nowhere else, whatever else the call says. */
+      boundTo: project?.repo ? `${project.repo.owner}/${project.repo.name}` : undefined,
       /* No repository yet: what to call the one this publish will make.
          Nobody is asked for a name — the site already has one. */
       create: project?.repo ? undefined : (siteName.trim() || project?.name?.trim() || "site"),
@@ -636,7 +639,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
     const going = await everything();
     setBusy(`Pushing ${going.length} files to GitHub…`);
     try {
-      const { project, repo, branch, create } = pushTo();
+      const { project, repo, branch, create, boundTo } = pushTo();
       const r = await publish({
         files: going,
         message: pubMessage.trim() || "Builder: publish the site",
@@ -644,6 +647,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         repo,
         branch,
         create,
+        boundTo,
       });
       remember(project, r.created, r.ok ? r.branch : branch);
       if (r.ok) {

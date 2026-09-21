@@ -683,7 +683,7 @@ export async function watchDeploy(
   }
 }
 
-export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string }): Promise<PublishResult> {
+export async function publish(input: { files: GeneratedFile[]; message: string; deploy: boolean; repo?: string; branch?: string; create?: string; boundTo?: string }): Promise<PublishResult> {
   try {
     const res = await fetch("/api/studio/publish", {
       method: "POST",
@@ -699,6 +699,8 @@ export async function publish(input: { files: GeneratedFile[]; message: string; 
         ...((input.branch ?? useStudio.getState().siteBranch) ? { branch: input.branch ?? useStudio.getState().siteBranch } : {}),
         // What to call a repository if this site has not got one yet.
         ...(input.create ? { create: input.create } : {}),
+        // Which repository this site is bound to: the route refuses any other.
+        ...(input.boundTo ? { boundTo: input.boundTo } : {}),
       }),
     });
     const data = (await res.json()) as PublishResult;

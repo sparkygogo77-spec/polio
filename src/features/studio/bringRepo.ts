@@ -19,6 +19,7 @@
  */
 import { useStudio } from "./store";
 import { readRepo, repoName } from "./repoImport";
+import { clearImportLine } from "./FromASite";
 
 /** Where a request waits for the board: this tab only, and taken once. */
 const KEPT = "builder.bring";
@@ -33,6 +34,8 @@ export function boardIsHere(): boolean {
 export function placeBring(want: string): string | null {
   const repo = readRepo(want);
   if (!repo) return null;
+  /* Every press starts from a clear strip: the last press's ending is not this one's. */
+  clearImportLine();
   const st = useStudio.getState();
   const id = st.addSpace({
     pageId: st.activePageId,

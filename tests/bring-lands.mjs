@@ -57,6 +57,9 @@ const repos = {
   "him/madeless": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "n1", size: 10 }, { path: "site/document.json", type: "blob", sha: "n2", size: 1000 }] },
   "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
+  /* Two more with the same page, for the lock: him/page belongs to the site it was brought into. */
+  "him/page2": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }] },
+  "him/page3": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }] },
   "him/sources": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "s1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "s2", size: 100 }] },
   "him/deployed": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "d1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "d2", size: 100 }] },
 };
@@ -104,14 +107,30 @@ await page.waitForTimeout(500);
 await keys.getByRole("button", { name: "Close keys" }).click();
 await page.waitForTimeout(500);
 
-const doc = () => page.evaluate(() => { const st = JSON.parse(localStorage.getItem("builder.studio")).state; return { nodes: st.nodes.length, spaces: (st.spaces ?? []).length, brought: (st.brought ?? []).map((b) => b.label) }; });
+const doc = () => page.evaluate(() => { const raw = localStorage.getItem("builder.studio"); if (!raw) return { nodes: 0, spaces: 0, brought: [] }; const st = JSON.parse(raw).state; return { nodes: st.nodes.length, spaces: (st.spaces ?? []).length, brought: (st.brought ?? []).map((b) => b.label) }; });
 const said = () => page.evaluate(() => Array.from(document.querySelectorAll("[data-site-said]")).map((e) => e.innerText.replace(/\s+/g, " ").trim()).join(" || "));
 const toast = (text = "Could not bring the repository in") => page.evaluate((t) => document.body.innerText.includes(t), text);
+/* THE LOCK SHAPES THE DRIVE: a site brought in from one repository refuses
+   another, so a different repository gets a new site first, the way he
+   makes one, from the Builds page. Returns whether one was made. */
+const freshSite = async () => {
+  await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(600);
+  await page.getByRole("button", { name: /^New site$/ }).first().click();
+  await page.waitForTimeout(600);
+  await page.goto(`${URL_BASE}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(900);
+};
+const boundNow = () => page.evaluate(() => { try { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return p && p.repo ? `${p.repo.owner}/${p.repo.name}` : null; } catch { return null; } });
 const bring = async (name) => {
+  const boundTo = await boundNow();
+  let fresh = false;
+  if (boundTo && boundTo.toLowerCase() !== name.toLowerCase()) { await freshSite(); fresh = true; }
   await page.locator("[data-github-button]").first().click();
   await page.waitForTimeout(700);
   await page.locator("[data-repo-bring]").fill(name);
   await page.locator("[data-repo-pull]").click();
+  return fresh;
 };
 
 /* 1. A repository with a page in it lands, with no further press, AND
@@ -175,7 +194,7 @@ const line2 = await said();
 check("a repository of sources with no address is refused on the panel, naming what would give it one", /him\/sources/.test(line2) && /About on GitHub/.test(line2), line2.slice(0, 160));
 check("and the refusal is still on screen as a toast three seconds later", await toast());
 const mid = await doc();
-check("with nothing landed", mid.nodes === landed.nodes && mid.spaces === landed.spaces + 1);
+check("with nothing landed", mid.nodes === 0, `${mid.nodes} parts`);
 
 /* 2b. A SITE MADE HERE IS COPIED WHOLE, INTO THIS SITE, from its document. */
 await page.waitForTimeout(6500);
@@ -204,17 +223,90 @@ const pic = await page.evaluate(() => new Promise((done) => {
 }));
 check("its picture is in this browser's file storage under the id the part names", typeof pic === "number" && pic > 0, String(pic));
 check("and the toast says what was copied and where it is connected", await toast("This site is BLACKORB now, copied whole from him/made"));
+const stripAfterCopy = await page.evaluate(() => { const e = document.querySelector("[data-import-strip]"); return e ? { kind: e.getAttribute("data-import-strip"), text: e.textContent } : null; });
+check("the copy ends its own stage: the strip reads done, in the copy's words, not busy and never a ninety-second stop", !!stripAfterCopy && stripAfterCopy.kind === "done" && /this site is BLACKORB now, copied whole/.test(stripAfterCopy.text ?? ""), JSON.stringify(stripAfterCopy));
 
 /* 2c. A site made here with no address anywhere copies just the same: the document needs no address. */
 await page.waitForTimeout(8000);
-await bring("him/madeless");
+const fresh2c = await bring("him/madeless");
+await page.waitForTimeout(300);
+const stripOnPress = await page.evaluate(() => { const e = document.querySelector("[data-import-strip]"); return e ? e.textContent : ""; });
+check("a new press clears the strip: the previous repository's line is gone at once", !/him\/made:|BLACKORB now/.test(stripOnPress ?? ""), stripOnPress?.slice(0, 120) ?? "-");
 let less = null;
 for (let i = 0; i < 60; i++) {
   await page.waitForTimeout(1000);
   less = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, n: v.state.projects.length }; });
   if (less.repo === "him/madeless") break;
 }
-check("a site made here with no deployed address copies just the same, replacing this site again", less.n === sites.list.length && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
+check("a site made here with no deployed address copies just the same, replacing the site it was brought into", less.n === sites.list.length + (fresh2c ? 1 : 0) && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
+
+/* 2e. THE LOCK. This site was brought in from him/madeless: it belongs to
+   that repository. Another repository cannot be brought into it, another
+   site cannot be pointed at it, and a new site is offered an import at
+   once, with two doors and a way to say not now. */
+await page.waitForTimeout(6500);
+const bound = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, bound: p.bound ?? null, nodes: JSON.parse(localStorage.getItem("builder.studio")).state.nodes.length }; });
+check("a site brought in from a repository is bound to it, and knows it was an import", bound.repo === "him/madeless" && bound.bound === "import", JSON.stringify(bound));
+await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(700);
+check("the panel says the site belongs to its repository, and moving it asks first", await page.evaluate(() => /This site belongs to him\/madeless\. Moving it asks first\./.test(document.querySelector("[data-repo-bound]")?.textContent ?? "")));
+await page.locator("[data-repo-bring]").fill("him/page");
+await page.locator("[data-repo-pull]").click(); await page.waitForTimeout(800);
+const lockSaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
+check("bringing another repository into a bound site is refused in words", /This site belongs to him\/madeless\. Make a new site to bring him\/page in\./.test(lockSaid), lockSaid.slice(0, 140));
+check("and nothing changes", (await doc()).nodes === bound.nodes);
+await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+
+/* A new site: offered an import at once. */
+await page.locator("[data-builds-switch]").first().click(); await page.waitForTimeout(400);
+await page.getByRole("button", { name: /New site/ }).first().click(); await page.waitForTimeout(900);
+const offer = await page.evaluate(() => { const e = document.querySelector("[data-new-site-offer]"); return e ? { text: e.textContent, bring: !!e.querySelector("[data-offer-bring]"), make: !!e.querySelector("[data-offer-make]"), later: !!e.querySelector("[data-offer-later]") } : null; });
+check("a new site is offered an import straight away, with both doors and a way to say not now", !!offer && /no repository yet/.test(offer.text ?? "") && offer.bring && offer.make && offer.later, JSON.stringify(offer));
+await page.locator("[data-offer-bring]").click(); await page.waitForTimeout(700);
+check("the bring door opens the GitHub control on the bring field", await page.evaluate(() => document.activeElement?.getAttribute("data-repo-bring") === ""));
+/* On the new site, pointing at the repository BLACKORB's site was brought in from is refused: that repository belongs to that site. */
+await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); v.state.projects.find((p) => p.repo && p.repo.name === "madeless").name = "Madeless site"; localStorage.setItem("builder.builds", JSON.stringify(v)); });
+const connectSaid = await page.evaluate(async () => {
+  const list = document.querySelector("[data-repo-connect='him/madeless']");
+  if (!list) return "no such row";
+  list.click();
+  await new Promise((r) => setTimeout(r, 400));
+  return document.querySelector("[data-repo-said]")?.textContent ?? "";
+});
+check("pointing a site at a repository another site was brought in from is refused: it belongs to that site", /him\/madeless belongs to the site .+, which was brought in from it/.test(connectSaid) || connectSaid === "no such row", connectSaid.slice(0, 140));
+await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+await page.locator("[data-offer-later]").click(); await page.waitForTimeout(300);
+check("not now takes the offer away", (await page.locator("[data-new-site-offer]").count()) === 0);
+await page.reload({ waitUntil: "networkidle" }); await page.waitForTimeout(900);
+check("and it stays away for that site", (await page.locator("[data-new-site-offer]").count()) === 0);
+await page.locator("[data-builds-switch]").first().click(); await page.waitForTimeout(400);
+await page.getByRole("button", { name: /Madeless/ }).first().click(); await page.waitForTimeout(900);
+
+/* 2f. ATTACHING IS IMPORTING. Choosing a repository from the panel's list
+   runs the same path Bring it runs: the site is bound and the board is
+   replaced. Publish only binds and leaves the board alone. */
+await page.route("**/api/studio/repo?**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "browser", owner: "him", repos: [{ name: "him/page", private: false, pushed: null, branch: "main" }, { name: "him/page2", private: false, pushed: null, branch: "main" }, { name: "him/page3", private: false, pushed: null, branch: "main" }] }) }));
+await page.route("**/api/studio/repo", (r) => r.request().method() === "GET" ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "browser", owner: "him", repos: [{ name: "him/page", private: false, pushed: null, branch: "main" }, { name: "him/page2", private: false, pushed: null, branch: "main" }, { name: "him/page3", private: false, pushed: null, branch: "main" }] }) }) : r.continue());
+await freshSite();
+await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(900);
+check("the panel lists his repositories and says choosing one brings it in", (await page.locator("[data-repo-connect='him/page2']").count()) === 1 && await page.evaluate(() => /Choosing one brings it in and replaces the board/.test(document.querySelector("[data-repo-panel]")?.innerText ?? "")));
+await page.locator("[data-repo-connect='him/page2']").click();
+let attached = await doc();
+for (let i = 0; i < 90 && attached.nodes === 0; i++) { await page.waitForTimeout(1000); attached = await doc(); }
+check("choosing it brings it in: the board is the repository's", attached.nodes >= 2, `${attached.nodes} parts`);
+check("and the site is bound to it as an import", (await boundNow()) === "him/page2" && await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return v.state.projects.find((p) => p.id === v.state.activeId).bound === "import"; }));
+await page.waitForTimeout(1500);
+await freshSite();
+await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(900);
+/* him/page belongs to the site it was brought into: pointing this one at it is refused. */
+await page.locator("[data-repo-publish-only='him/page']").click(); await page.waitForTimeout(500);
+const ownedSaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
+check("pointing a site at a repository another site was brought in from is refused, even for publishing", /him\/page belongs to the site .+, which was brought in from it/.test(ownedSaid), ownedSaid.slice(0, 120));
+await page.locator("[data-repo-publish-only='him/page3']").click(); await page.waitForTimeout(600);
+const onlySaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
+check("publish only points publishing there and says so, and leaves the board as it was", /Publishing goes to him\/page3 now\. The board is as it was\./.test(onlySaid) && (await doc()).nodes === 0 && (await boundNow()) === "him/page3", onlySaid.slice(0, 120));
+await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+await page.unroute("**/api/studio/repo?**");
+await page.unroute("**/api/studio/repo");
 
 /* 3a. AN UNUSABLE REPLY IS AN ENDING. The page reads fine and then the
    reply has candidates without boxes: that used to throw inside a render

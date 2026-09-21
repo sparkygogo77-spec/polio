@@ -23,6 +23,7 @@
  * named, and nothing is half-brought.
  */
 import { MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { MAX_SOURCE_BYTES, MAX_SOURCE_FILES, findPage, neededBy, readSource, type SourceNotes } from "./sourceSite";
 
 const API = "https://api.github.com";
 
@@ -36,6 +37,8 @@ export interface RepoRead {
   bytes: number;
   /** The branch, tag or commit actually read. */
   ref: string;
+  /** Set when the page was built from the repository's source rather than found in it: which file, and what the reading did. */
+  source?: { page: string; notes: SourceNotes };
 }
 
 /**
@@ -105,6 +108,88 @@ function unbase64(s: string): Uint8Array {
 
 /** How many pictures a copy brings across before the rest are named as left behind. */
 const MOST_PICTURES = 40;
+
+type Blob = { path: string; sha: string; size?: number };
+
+/** One file's bytes out of the tree, or the reason it did not come. */
+async function bytesOf(repo: Repo, token: string, e: Blob): Promise<Uint8Array | RepoNo> {
+  const blob = await gh(`/repos/${repo.owner}/${repo.name}/git/blobs/${e.sha}`, token);
+  if (isNo(blob)) return blob;
+  const it = blob as { content?: string; encoding?: string };
+  if (it.encoding !== "base64" || typeof it.content !== "string") return { no: "github", says: `GitHub would not hand over ${e.path}.` };
+  return unbase64(it.content);
+}
+
+/**
+ * HIS OWN REPOSITORIES ARE READ FROM THEIR SOURCE.
+ *
+ * A v0 or Next app has no page in it, only the source a page is built
+ * from: `app/page.tsx`, the components it imports, its `globals.css`, its
+ * pictures under `public/`. Reading that source is reading the site as
+ * he wrote it: its words, its classes, its colours, banded as the file is
+ * banded. The page is fetched first, then what it imports, in rounds,
+ * until nothing more is wanted or the cap is met; then the pictures the
+ * reading named. Null when the repository has no such page, so the caller
+ * falls through to a page in the files or the address it is deployed at.
+ */
+async function sourceOf(repo: Repo, token: string, ref: string, blobs: Blob[], say: (line: string) => void): Promise<RepoRead | RepoNo | null> {
+  const paths = blobs.map((e) => e.path);
+  const page = findPage(paths);
+  if (!page) return null;
+  const have = new Set(paths);
+  const byPath = new Map(blobs.map((e) => [e.path, e]));
+  const texts = new Map<string, string>();
+  let weight = 0;
+  const decoder = new TextDecoder();
+  const take = async (list: string[], line: string): Promise<RepoNo | null> => {
+    const AT_ONCE = 6;
+    for (let i = 0; i < list.length; i += AT_ONCE) {
+      say(`${line} ${Math.min(i + AT_ONCE, list.length)} of ${list.length}`);
+      const batch = await Promise.all(list.slice(i, i + AT_ONCE).map(async (path) => ({ path, got: await bytesOf(repo, token, byPath.get(path)!) })));
+      for (const { path, got } of batch) {
+        if (isNo(got)) return got;
+        weight += got.length;
+        texts.set(path, decoder.decode(got));
+      }
+    }
+    return null;
+  };
+  say(`Reading the source of ${repo.owner}/${repo.name}: ${page}…`);
+  const first = [page, ...["app/globals.css", "src/app/globals.css", "styles/globals.css"].filter((p) => have.has(p))];
+  /* A source this token cannot fetch is a source that cannot be seen: the page in the files or at the address is read instead, and the line says why. */
+  const no = await take(first, "Reading the page…");
+  if (no) { say(`Its source could not be read: ${no.says} Its page is looked for instead…`); return null; }
+  /* What the page imports, then what those import, until nothing more is wanted or the cap is met. */
+  for (let round = 0; round < 4; round++) {
+    const want = neededBy(texts, have).filter((p) => byPath.has(p)).slice(0, Math.max(0, MAX_SOURCE_FILES - texts.size));
+    if (!want.length || weight > MAX_SOURCE_BYTES) break;
+    const no = await take(want, "Opening the parts it is made of…");
+    if (no) { say(`One part could not be fetched: ${no.says} The page is read with what came.`); break; }
+  }
+  const publicNames = paths.filter((p) => /^public\//.test(p));
+  const read = readSource([...texts].map(([path, text]) => ({ path, text })), publicNames);
+  if (!read) { say(`No page could be built from ${page}: it does not return markup this can read. Its page is looked for instead…`); return null; }
+  /* The pictures it names, from the same tree, at the names the page asks for them by. */
+  const pictures: { name: string; bytes: Uint8Array }[] = [];
+  const named = read.notes.pictures.filter((p) => byPath.has(p)).slice(0, MOST_PICTURES);
+  for (let i = 0; i < named.length; i++) {
+    say(`Fetching its pictures… ${i + 1} of ${named.length}`);
+    const got = await bytesOf(repo, token, byPath.get(named[i]!)!);
+    if (isNo(got)) return got;
+    pictures.push({ name: named[i]!.replace(/^public\//, ""), bytes: got });
+  }
+  say("Packing it…");
+  const zip = zipOf([{ name: "index.html", bytes: new TextEncoder().encode(read.html) }, ...pictures]);
+  const name = `${repo.owner}-${repo.name}.zip`;
+  return {
+    file: new File([zip as BlobPart], name, { type: "application/zip" }),
+    entry: "index.html",
+    files: texts.size + pictures.length,
+    bytes: zip.length,
+    ref,
+    source: { page: read.entry, notes: read.notes },
+  };
+}
 
 /**
  * The document, and the pictures it names.
@@ -203,6 +288,15 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     if (copy) return copy;
     say("Its document could not be read, so the page is read instead…");
   }
+
+  /*
+   * His own repositories are read from their source: the page file, the
+   * components it opens, the classes and colours as written. Only a
+   * repository with no page source falls through to a page in its files,
+   * and from there to the address it is deployed at.
+   */
+  const fromSource = await sourceOf(repo, token, ref, blobs, say);
+  if (fromSource) return fromSource;
 
   const page = pageIn(paths);
   if (!page) {

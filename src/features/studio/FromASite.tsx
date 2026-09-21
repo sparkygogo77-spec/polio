@@ -139,6 +139,15 @@ const putStage = (spaceId: string, stage: Stage) => {
   for (const l of stageListeners) l();
 };
 const subscribeStages = (l: () => void) => { stageListeners.add(l); return () => { stageListeners.delete(l); }; };
+/**
+ * A NEW PRESS CLEARS THE STRIP. Driven by hand: the strip kept the previous
+ * press's line, naming the wrong repository, through the whole of the next
+ * press, which read as silence. Every Bring it starts from a clear strip.
+ */
+export function clearImportLine(): void {
+  latest = null;
+  for (const l of stageListeners) l();
+}
 /** How long one step may go without a word before the import is told to stop and say so. */
 const STEP_PATIENCE_MS = 90_000;
 
@@ -254,6 +263,8 @@ export function FromASite({ space }: { space: Space }) {
     patience.current = window.setTimeout(() => {
       const now = stageOf(space.id);
       if (now.at !== "busy" || now.says !== says) return;
+      /* A later press owns the strip now: this one's silence is not news. */
+      if (latest && latest.spaceId !== space.id) return;
       const line = `Nothing came back within ${Math.round(STEP_PATIENCE_MS / 1000)} seconds while: ${says.replace(/…$/, "")}. Stopped.`;
       if (of) refuse(line, of); else setStage({ at: "said", says: line });
     }, STEP_PATIENCE_MS);
@@ -321,12 +332,17 @@ export function FromASite({ space }: { space: Space }) {
       });
       return;
     }
-    busy(`Reading the page in ${r.name}…`);
+    /* A page built from source says so, and what the reading did: which parts opened, which stayed closed on a first view. */
+    if (got.source) {
+      const n = got.source.notes;
+      const opened = [...new Set(n.opened)];
+      busy(`From its source, ${got.source.page}: ${n.bands.length} bands${opened.length ? `, opened ${opened.join(", ")}` : ""}${n.closed.length ? `; ${[...new Set(n.closed)].join(", ")} closed on a first view` : ""}.`);
+    } else busy(`Reading the page in ${r.name}…`);
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
       at: "picking",
-      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: String(zr.entry) },
+      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: got.source?.page ?? String(zr.entry) },
       page: zr.page as { width: number; height: number; shot: string },
       candidates: (zr.candidates as Block[]) ?? [],
       scripts: !!zr.scripts,
@@ -366,7 +382,9 @@ export function FromASite({ space }: { space: Space }) {
     const id = activeProject()?.id ?? null;
     useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
-    if (id && repo) builds.setRepo(id, repo);
+    /* Brought in from it: the site is bound to this repository, and the
+       repository belongs to this site from now on. */
+    if (id && repo) builds.setRepo(id, repo, "import");
     if (id && copy.name) builds.rename(id, copy.name);
     void (async () => {
       let kept = 0;
@@ -383,6 +401,12 @@ export function FromASite({ space }: { space: Space }) {
         source: "studio",
         toast: { durationMs: 10000 },
       });
+      /* THE COPY ENDS ITS OWN STAGE. It did not: the space was gone, the
+         stage stayed "busy", and ninety seconds later the patience rule
+         ended a step that had long finished, with a refusal on the strip
+         naming this repository under whatever came next. */
+      if (patience.current) { window.clearTimeout(patience.current); patience.current = null; }
+      setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}` });
       play("confirm");
     })();
   };
@@ -593,6 +617,14 @@ export function FromASite({ space }: { space: Space }) {
         parts,
       );
     }
+    /* A page brought in from a repository binds the site to it, when the
+       site had none: the site is that repository's now. */
+    if (from) {
+      const here = activeProject();
+      const bound = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
+      const same = here?.repo && `${here.repo.owner}/${here.repo.name}`.toLowerCase() === `${from.owner}/${from.name}`.toLowerCase();
+      if (here && bound && (!here.repo || same)) useBuilds.getState().setRepo(here.id, same ? here.repo : bound, "import");
+    }
     // Locked as the page had it: the layout is the specification.
     lockNow(space.id);
     // Adding picks what was added, which would swap this panel for the
@@ -608,6 +640,10 @@ export function FromASite({ space }: { space: Space }) {
     setStage({
       at: "said",
       says: `${saidOf(landed, nameOf(source), scripts)}${
+        source.kind === "repo" && /\.(tsx|jsx)$/.test(source.entry)
+          ? ` From its source, ${source.entry}: the page was built as a first view of the site, before anything is clicked or connected.`
+          : ""
+      }${
         from
           ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(from).label}” — drop any of them anywhere, as many times as you like.`
           : ""

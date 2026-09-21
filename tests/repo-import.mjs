@@ -102,6 +102,8 @@ check("the panel's stage lives outside the panel, keyed by space, so a re-mount 
 check("every busy step is a toast from the board as well as a line, updated in place", /const busy = \(says: string\) => \{/.test(door3) && /ctx\.publish\(\{ key: `studio:repo:\$\{of\.name\}`, title: `\$\{repoName\(of\)\}: \$\{says\}`/.test(door3));
 check("a step that goes quiet is ended by name rather than left spinning", /STEP_PATIENCE_MS = 90_000/.test(door3) && /Nothing came back within/.test(door3));
 check("an exception anywhere in the read is an ending, said by name", /readRepository\(r\)\.catch\(\(err: unknown\) => refuse\(`stopped before it could finish:/.test(door3));
+check("a patience stop never overwrites a later press's strip", /if \(latest && latest\.spaceId !== space\.id\) return;/.test(door3));
+check("every press starts from a clear strip", /clearImportLine\(\);/.test(readFileSync("src/features/studio/bringRepo.ts", "utf8")) && /export function clearImportLine/.test(door3));
 check("and the automatic landing never passes through the picking stage", !/const landWhole = async \(picking: Picking\) => \{\n    setStage\(picking\);/.test(door3));
 check("a candidate without a box is skipped, never thrown on: this runs inside a render", (() => { try { return pageBlocks([{ box: null }, null, { selector: "x", what: "y", box: { x: 0, y: 0, w: 100, h: 50 }, words: "w" }]).length === 1; } catch { return false; } })());
 
