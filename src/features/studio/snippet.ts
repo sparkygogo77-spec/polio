@@ -46,8 +46,15 @@ export interface PartCode {
   note?: string;
   /** Who made it: the renderer that draws, or the model that writes code. */
   source?: "renderer" | "written";
-  /** Which renderer, when one drew it: the drawing traced, SVG from words, or pixels. */
-  kind?: "vectorize" | "vector" | "raster";
+  /** Which renderer, when one drew it: the drawing traced, SVG from words, or pixels. `carried` is a block of a real page, cloned with its styles. */
+  kind?: "vectorize" | "vector" | "raster" | "carried";
+  /**
+   * A carried block: the size it had on its page, so the frame scales it
+   * to the part rather than reflowing it, where it came from, and what
+   * did and did not travel. Never repainted into roles: it is the page's
+   * own colours, on purpose.
+   */
+  carried?: { w: number; h: number; from: string; notes: { scripts: number; hover: number; motion: number; fonts: number; hidden: number; images: number; imagesLeft: number } };
   /** What the whole loop cost at the renderer, in dollars. Zero when nothing was drawn. */
   cost?: number;
   /** What was taken out of the code on the way in, if anything. */
@@ -130,15 +137,23 @@ export function cleanSnippet(raw: string, limit = SNIPPET_LIMIT): { html: string
  * the fragment fill the part and never scroll — a body cut to an outline
  * that then scrolls inside it is two shapes disagreeing.
  */
-export function frameDoc(code: string, opts: { background?: string; colour?: string; font?: string; clip?: string; roles?: string } = {}): string {
+export function frameDoc(code: string, opts: { background?: string; colour?: string; font?: string; clip?: string; roles?: string; net?: boolean; scale?: number } = {}): string {
   const bg = opts.background ?? "transparent";
   const fg = opts.colour ?? "currentColor";
   const font = opts.font ?? "ui-sans-serif, system-ui, sans-serif";
   // The same crop the board applies, by the same mechanism: a clip path in
   // objectBoundingBox units, so it stretches with the frame.
   const cut = (opts.clip ?? "").trim();
+  /* A carried block keeps its pictures and faces by address, so those may
+     load over the network; nothing else may, and scripts never. A drawn
+     body stays sealed as before. */
+  const net = opts.net ? " https:" : "";
+  /* A carried block is laid out at the size it had on its page and scaled
+     to the frame, so its lines break where they broke. */
+  const s = opts.scale && opts.scale > 0 && opts.scale !== 1 ? opts.scale : null;
+  const scaled = s ? `#cut { transform: scale(${s}); transform-origin: 0 0; width: ${100 / s}%; height: ${100 / s}%; }` : "";
   return `<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
+<meta http-equiv="content-security-policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:${net}; font-src data:${net}; media-src data:${net}">
 <style>
   /* The palette's roles, so a body that baked its colours in still answers
      the theme: bodyPaint.ts hands each baked colour to the role it stands
@@ -148,6 +163,7 @@ export function frameDoc(code: string, opts: { background?: string; colour?: str
   *, *::before, *::after { box-sizing: border-box; }
   svg { display: block; width: 100%; height: 100%; }
   #cut { width: 100%; height: 100%; ${cut ? "clip-path: url(#outline); -webkit-clip-path: url(#outline);" : ""} }
+  ${scaled}
 </style></head><body>${cut ? `<svg width="0" height="0" aria-hidden style="position:absolute"><defs><clipPath id="outline" clipPathUnits="objectBoundingBox"><path d="${cut}"/></clipPath></defs></svg>` : ""}<div id="cut">${code}</div></body></html>`;
 }
 

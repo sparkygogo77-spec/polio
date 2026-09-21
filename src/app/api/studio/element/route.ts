@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { findPlaywright, NO_PLAYWRIGHT } from "../headless";
 import { allowed, MAX_ELEMENTS, READ_BUDGET_MS } from "@/features/studio/siteFetch";
-import { CANDIDATES, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { CANDIDATES, CARRY, MEASURE, type Candidate } from "@/features/studio/siteRead";
 
 /**
  * Reading one element off a live page, exactly.
@@ -111,6 +111,21 @@ export async function POST(request: Request) {
         candidates: list,
         took: took(),
       });
+    }
+
+    /* Carried, not measured: each block cloned with its styles, as itself.
+       Pictures keep their addresses; the frame a carried body renders in
+       may load them. */
+    if (selectors && body.carry === true) {
+      const carried = [];
+      for (const sel of selectors) {
+        const one = await page.evaluate(CARRY, { selector: sel, inline: false, maxBytes: 0 }).catch(() => null);
+        if (one) carried.push(one);
+      }
+      const height = await page.evaluate(() => Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight ?? 0, innerHeight));
+      await context.close();
+      if (!carried.length) return NextResponse.json({ ok: false, reason: "gone", message: "None of those are on the page any more. Read the page again.", took: took() });
+      return NextResponse.json({ ok: true, page: { width, height }, carried, took: took() });
     }
 
     if (selectors) {

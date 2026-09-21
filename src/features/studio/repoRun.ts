@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { BLUEPRINT_MARK, BUILDER_MARK, MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 
 const API = "https://api.github.com";
 
@@ -53,6 +53,23 @@ export interface RepoCopy {
   /** Pictures the document names that the repository does not hold. */
   lost: string[];
   ref: string;
+  /** The blueprint a publish writes beside the document is there too. Without it, the document was not published there. */
+  blueprint: boolean;
+  /** Which repository the document says it was published to, when a publish stamped it. */
+  stamped: string | null;
+}
+
+/**
+ * Any other repository, deployed: read at that address, because that is
+ * the site as it renders. `filesToo` says a page file is in the repository
+ * as well, for the caller to fall back on and say so if the address
+ * cannot be read.
+ */
+export interface RepoAt {
+  at: string;
+  why: "root" | "site";
+  ref: string;
+  filesToo: boolean;
 }
 
 export interface RepoNo {
@@ -74,6 +91,7 @@ export interface RepoNo {
 const isNo = (r: unknown): r is RepoNo => !!r && typeof r === "object" && "no" in (r as RepoNo);
 export { isNo as refused };
 export const isCopy = (r: unknown): r is RepoCopy => !!r && typeof r === "object" && "document" in (r as RepoCopy);
+export const isAt = (r: unknown): r is RepoAt => !!r && typeof r === "object" && "at" in (r as RepoAt) && "filesToo" in (r as RepoAt);
 
 /** One GitHub call, with his token, answering with the shape or a reason. */
 async function gh(path: string, token: string): Promise<unknown | RepoNo> {
@@ -156,7 +174,8 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
     weight += bytes.length;
     pictures.push({ ...p, bytes });
   }
-  return { document, name, pages, parts: nodes.length, pictures, lost, ref };
+  const to = document.publishedTo as { repo?: unknown } | undefined;
+  return { document, name, pages, parts: nodes.length, pictures, lost, ref, blueprint: blobs.some((e) => e.path === BLUEPRINT_MARK), stamped: typeof to?.repo === "string" ? to.repo : null };
 }
 
 /**
@@ -166,7 +185,7 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
  * dozen calls over somebody's connection and a spinner with no words is
  * how a minute feels like a failure.
  */
-export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void): Promise<RepoRead | RepoCopy | RepoNo> {
+export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void, opts: { alsoAt?: string | null; filesOnly?: boolean } = {}): Promise<RepoRead | RepoCopy | RepoAt | RepoNo> {
   if (!token) return { no: "no-token", says: REPO_REFUSAL_SAYS["no-token"] };
 
   /* Asked every time, not only when no ref was named: the About line's
@@ -201,10 +220,27 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     say(`Reading the site itself out of ${repo.owner}/${repo.name}…`);
     const copy = await copyOf(repo, token, ref, blobs, say);
     if (copy) return copy;
+    /* An empty document in a Builder is nothing published yet, and that is
+       said rather than read at an address that would show the tool's own
+       front. Any other unreadable document falls through to the page. */
+    if (paths.includes(BUILDER_MARK)) return { no: "no-site", says: `${repo.owner}/${repo.name} is a Builder with nothing published into it yet. Publish a site to it first, or bring in the address of a page.` };
     say("Its document could not be read, so the page is read instead…");
   }
 
   const page = pageIn(paths);
+
+  /*
+   * ADDRESS BEFORE FILES. A deployed page is the site as it actually
+   * renders, styles cascaded and fonts applied; the files are what it was
+   * built from. So a repository that says where it is deployed is read
+   * there, and the files are the fallback, said as such, when that read
+   * fails. `filesOnly` is that fallback asking.
+   */
+  if (!opts.filesOnly) {
+    const deployed = pageAddress(homepage || opts.alsoAt || null, false);
+    if (deployed.at) return { at: deployed.at, why: deployed.why === "site" ? "site" : "root", ref, filesToo: !!page };
+  }
+
   if (!page) {
     /*
      * No page in it. That is not a failure to hide: it is a project that

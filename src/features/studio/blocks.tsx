@@ -343,13 +343,20 @@ function CodedBody({ node, t, mode, size }: { node: StudioNode; t: Theme; mode: 
     () => (["accent", "text", "muted"] as const).filter((r) => !!node.colour?.[r]),
     [node.colour],
   );
+  const carried = node.code!.kind === "carried" ? node.code!.carried : undefined;
+  const frameW = size?.w ?? node.w;
   const doc = React.useMemo(
-    () => frameDoc(paintRoles(node.code!.html, { prefer: own }), {
-      colour: t.text,
-      font: t.bodyFamily,
-      roles: roleVars({ bg: t.bg, text: t.text, accent: t.accent, muted: t.muted }),
-    }),
-    [node.code, own, t.text, t.bodyFamily, t.bg, t.accent, t.muted],
+    () => (carried
+      /* A block carried off a real page keeps its own colours and its own
+         layout: never painted into roles, scaled to the part instead of
+         reflowed, and allowed its pictures and faces by address. */
+      ? frameDoc(node.code!.html, { net: true, scale: carried.w > 0 ? frameW / carried.w : 1 })
+      : frameDoc(paintRoles(node.code!.html, { prefer: own }), {
+        colour: t.text,
+        font: t.bodyFamily,
+        roles: roleVars({ bg: t.bg, text: t.text, accent: t.accent, muted: t.muted }),
+      })),
+    [node.code, carried, frameW, own, t.text, t.bodyFamily, t.bg, t.accent, t.muted],
   );
   return (
     <iframe

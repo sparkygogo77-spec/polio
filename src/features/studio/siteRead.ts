@@ -469,3 +469,210 @@ export const MEASURE = (selector: string) => {
     children,
   };
 };
+
+/* ------------------------------------------------------------------ */
+/* Carrying a block exactly                                            */
+/* ------------------------------------------------------------------ */
+
+/** What a carried block says about what it holds and what it could not. */
+export interface CarryNotes {
+  /** Scripts, frames and handlers taken out. Behaviour does not travel. */
+  scripts: number;
+  /** Hover rules carried, scoped to the block. */
+  hover: number;
+  /** Keyframe sets carried, so animation can run again. */
+  motion: number;
+  /** Font faces carried by their own address. */
+  fonts: number;
+  /** Pieces present but hidden as the page had them: tabs, accordions, menus. */
+  hidden: number;
+  /** Pictures carried, and pictures left as their address or dropped for size. */
+  images: number;
+  imagesLeft: number;
+}
+
+export interface Carried {
+  selector: string;
+  box: { x: number; y: number; w: number; h: number };
+  /** Self-contained: a style block for faces, keyframes and hover, then the markup with computed styles inlined. */
+  html: string;
+  bytes: number;
+  notes: CarryNotes;
+}
+
+/**
+ * ONE BLOCK, CARRIED AS ITSELF.
+ *
+ * HIS WORDS: he wants the site imported with what can be copied exactly.
+ * So a block is not read and remade from the nearest library part; it is
+ * cloned with the styles the page gave it, after the build ran and the
+ * cascade settled. Every element gets the computed values that differ
+ * from its tag's own defaults written inline, so the fragment stands on
+ * its own in a frame with no stylesheet of the page's. What a render
+ * cannot carry is counted and said: scripts and handlers are taken out,
+ * and a font loads from its own address or not at all.
+ *
+ * Hidden pieces stay hidden as they were, which is how a tab panel or a
+ * menu arrives intact rather than unrolled. Keyframes named by anything in
+ * the block, hover rules that match anything in it, and the page's font
+ * faces come along in a style block scoped to the block's own id.
+ *
+ * `inline` says whether pictures are fetched into the markup as data: a
+ * page read from files has no address for them afterwards, so they are;
+ * a page read at its address keeps their addresses, within `maxBytes`.
+ *
+ * Runs in the page. Nothing outside this function is reachable from it.
+ */
+export const CARRY = async (opts: { selector: string; inline: boolean; maxBytes: number }): Promise<Carried | null> => {
+  const selector = opts.selector;
+  const el = document.querySelector(selector) as HTMLElement | null;
+  if (!el) return null;
+  const own = el.getBoundingClientRect();
+  const box = { x: Math.round(own.x + scrollX), y: Math.round(own.y + scrollY), w: Math.round(own.width), h: Math.round(own.height) };
+  const notes: CarryNotes = { scripts: 0, hover: 0, motion: 0, fonts: 0, hidden: 0, images: 0, imagesLeft: 0 };
+  const abs = (u: string): string => { try { return new URL(u, location.href).href; } catch { return u; } };
+
+  /* The properties that make a thing look the way it does. Layout, box,
+     paint, type, and the few that svg draws with. */
+  const PROPS = [
+    "display", "position", "top", "right", "bottom", "left", "z-index", "float", "clear",
+    "width", "height", "min-width", "min-height", "max-width", "max-height", "box-sizing",
+    "margin-top", "margin-right", "margin-bottom", "margin-left", "padding-top", "padding-right", "padding-bottom", "padding-left",
+    "border-top", "border-right", "border-bottom", "border-left", "border-radius", "outline", "box-shadow",
+    "background-color", "background-image", "background-size", "background-position", "background-repeat", "background-clip", "background-origin",
+    "color", "opacity", "visibility", "overflow", "overflow-x", "overflow-y", "clip-path", "filter", "backdrop-filter", "mix-blend-mode",
+    "font-family", "font-size", "font-weight", "font-style", "font-variant", "line-height", "letter-spacing", "word-spacing", "text-align", "text-decoration", "text-transform", "text-shadow", "text-overflow", "white-space", "word-break", "vertical-align", "direction",
+    "flex-direction", "flex-wrap", "flex-grow", "flex-shrink", "flex-basis", "justify-content", "align-items", "align-self", "align-content", "gap", "row-gap", "column-gap", "order",
+    "grid-template-columns", "grid-template-rows", "grid-template-areas", "grid-auto-flow", "grid-auto-columns", "grid-auto-rows", "grid-column", "grid-row", "place-items", "place-content",
+    "list-style", "object-fit", "object-position", "aspect-ratio", "cursor", "pointer-events", "transform", "transform-origin", "transition", "animation",
+    "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin",
+  ];
+  /* A tag's own defaults, so only what the page set travels. */
+  const probeRoot = document.createElement("div");
+  probeRoot.style.cssText = "position:absolute;left:-99999px;top:0;visibility:hidden;";
+  document.body.appendChild(probeRoot);
+  const defaults = new Map<string, CSSStyleDeclaration>();
+  const defaultsFor = (tag: string): CSSStyleDeclaration => {
+    let d = defaults.get(tag);
+    if (!d) {
+      const probe = tag.includes(":") ? document.createElementNS("http://www.w3.org/2000/svg", tag.split(":").pop()!) : document.createElement(tag);
+      probeRoot.appendChild(probe);
+      d = getComputedStyle(probe);
+      defaults.set(tag, d);
+    }
+    return d;
+  };
+
+  const inlineTo = new Map<string, string>();
+  let weight = 0;
+  const toData = async (url: string): Promise<string | null> => {
+    if (inlineTo.has(url)) return inlineTo.get(url)!;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      if (weight + blob.size > opts.maxBytes) return null;
+      weight += blob.size;
+      const data = await new Promise<string>((done, no) => { const r = new FileReader(); r.onload = () => done(String(r.result)); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+      inlineTo.set(url, data);
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  const clone = el.cloneNode(true) as HTMLElement;
+  const pairs: [Element, Element][] = [];
+  const walk = (a: Element, b: Element) => {
+    pairs.push([a, b]);
+    const ak = Array.from(a.children), bk = Array.from(b.children);
+    for (let i = 0; i < ak.length && i < bk.length; i++) walk(ak[i]!, bk[i]!);
+  };
+  walk(el, clone);
+
+  const animations = new Set<string>();
+  const drop: Element[] = [];
+  for (const [a, b] of pairs) {
+    const tag = a.tagName.toLowerCase();
+    if (tag === "script" || tag === "iframe" || tag === "object" || tag === "embed" || tag === "noscript" || tag === "link" || tag === "style" || tag === "template") { drop.push(b); notes.scripts++; continue; }
+    for (const attr of Array.from(b.attributes)) {
+      if (/^on/i.test(attr.name)) { b.removeAttribute(attr.name); notes.scripts++; }
+      else if (attr.name === "srcset" || attr.name === "id" || attr.name === "class" || attr.name === "style") b.removeAttribute(attr.name);
+    }
+    const cs = getComputedStyle(a);
+    const def = defaultsFor(tag);
+    const out: string[] = [];
+    for (const p of PROPS) {
+      const v = cs.getPropertyValue(p);
+      if (!v || v === def.getPropertyValue(p)) continue;
+      out.push(`${p}:${v}`);
+    }
+    if (cs.display === "none" || cs.visibility === "hidden") notes.hidden++;
+    if (cs.animationName && cs.animationName !== "none") for (const n of cs.animationName.split(",")) animations.add(n.trim());
+    if (a === el) {
+      out.push("position:relative", "top:auto", "left:auto", "right:auto", "bottom:auto", "margin:0", `width:${box.w}px`, `min-height:${box.h}px`, "max-width:none");
+    } else if (cs.position === "fixed") {
+      out.push("position:absolute");
+    }
+    /* Addresses. A picture keeps its own, or is fetched in when it will
+       have none afterwards. */
+    if (b instanceof HTMLImageElement || tag === "img") {
+      const src = a.getAttribute("src") || (a as HTMLImageElement).currentSrc || "";
+      if (src) {
+        const full = abs(src);
+        if (opts.inline) {
+          const data = await toData(full);
+          if (data) { b.setAttribute("src", data); notes.images++; } else { b.setAttribute("src", full); notes.imagesLeft++; }
+        } else { b.setAttribute("src", full); notes.images++; }
+      }
+    }
+    if (tag === "a" && a.getAttribute("href")) b.setAttribute("href", abs(a.getAttribute("href")!));
+    if (tag === "form" && a.getAttribute("action")) b.setAttribute("action", abs(a.getAttribute("action")!));
+    if (tag === "source" || tag === "video" || tag === "audio") { if (a.getAttribute("src")) b.setAttribute("src", abs(a.getAttribute("src")!)); }
+    const bg = cs.backgroundImage;
+    if (bg && bg !== "none" && /url\(/.test(bg)) {
+      const urls = Array.from(bg.matchAll(/url\((["']?)(.*?)\1\)/g)).map((m) => m[2]!);
+      let painted = bg;
+      for (const u of urls) {
+        const full = abs(u);
+        const data = opts.inline ? await toData(full) : null;
+        painted = painted.replace(u, data ?? full);
+        if (data) notes.images++; else if (opts.inline) notes.imagesLeft++; else notes.images++;
+      }
+      const i = out.findIndex((s) => s.startsWith("background-image:"));
+      if (i >= 0) out[i] = `background-image:${painted}`; else out.push(`background-image:${painted}`);
+    }
+    if (out.length) b.setAttribute("style", out.join(";"));
+  }
+  for (const d of drop) d.remove();
+  probeRoot.remove();
+
+  /* Faces, keyframes and hover, from the sheets this page can read. */
+  const faces: string[] = [];
+  const frames: string[] = [];
+  const hovers: string[] = [];
+  const inside = (sel: string): boolean => {
+    try { return el.matches(sel) || !!el.querySelector(sel); } catch { return false; }
+  };
+  const absolutise = (css: string): string => css.replace(/url\((["']?)(?!data:)(.*?)\1\)/g, (_m, q: string, u: string) => `url(${q}${abs(u)}${q})`);
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules: CSSRuleList;
+    try { rules = sheet.cssRules; } catch { continue; }
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSFontFaceRule) { faces.push(absolutise(rule.cssText)); continue; }
+      if (rule instanceof CSSKeyframesRule) { if (animations.has(rule.name)) frames.push(rule.cssText); continue; }
+      if (rule instanceof CSSStyleRule && /:hover/.test(rule.selectorText)) {
+        const parts = rule.selectorText.split(",").map((s) => s.trim()).filter((s) => /:hover/.test(s));
+        const kept = parts.filter((s) => inside(s.replace(/:hover/g, "")));
+        if (!kept.length) continue;
+        hovers.push(`${kept.map((s) => `#carried ${s}`).join(", ")}{${rule.style.cssText}}`);
+      }
+    }
+  }
+  notes.fonts = faces.length;
+  notes.motion = frames.length;
+  notes.hover = hovers.length;
+  const style = [...faces, ...frames, ...hovers].join("\n");
+  const html = `${style ? `<style>${style}</style>` : ""}<div id="carried">${clone.outerHTML}</div>`;
+  return { selector, box, html, bytes: html.length, notes };
+};

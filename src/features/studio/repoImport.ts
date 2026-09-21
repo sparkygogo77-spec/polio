@@ -40,13 +40,14 @@ export const MAX_REPO_FILES = 80;
 /** And how much of it, unpacked. The zip route's own cap is the one that matters; this is the fetch's. */
 export const MAX_REPO_BYTES = 8 * 1024 * 1024;
 
-export type RepoRefusal = "not-a-repo" | "no-token" | "no-page" | "too-big" | "github";
+export type RepoRefusal = "not-a-repo" | "no-token" | "no-page" | "no-site" | "too-big" | "github";
 
 export const REPO_REFUSAL_SAYS: Record<RepoRefusal, string> = {
   "not-a-repo": "That is not a repository. It wants to be owner/name, or the address of one on GitHub.",
   "no-token": "This reads the repository with your own GitHub token, and there is not one saved yet. Add one under Keys (⌘⇧K).",
   "no-page":
     "There is no page in this repository to open. It is sources that have to be built before they are a website, and nothing here builds them. Put the address it is deployed at under About on GitHub, or type that address under Read the page, and it comes in from there.",
+  "no-site": "This repository is a Builder with nothing published into it yet. Publish a site to it first, or bring in the address of a page.",
   "too-big": "That repository has more in it than this reads. It is meant for the site, not the whole project.",
   github: "GitHub would not hand over the files.",
 };
@@ -79,6 +80,10 @@ export function noPageSays(repo: Repo, kinds: readonly string[], at: string | nu
  * its files; this is for the ones that predate that.
  */
 export const MADE_HERE = "site/document.json";
+/** The file that renders the published document: a repository holding it is a Builder itself. */
+export const BUILDER_MARK = "src/features/studio/published.ts";
+/** What a publish writes beside the document. A document without it was not published there. */
+export const BLUEPRINT_MARK = "site/blueprint.json";
 export function madeHere(paths: readonly string[]): boolean {
   return paths.includes(MADE_HERE);
 }
