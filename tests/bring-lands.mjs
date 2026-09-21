@@ -18,6 +18,8 @@
  *   · one with a page in it: its blocks land as parts with no further press,
  *     and again when Bring it is pressed from the Builds page;
  *   · one with a page nothing can be made from: said as a toast;
+ *   · two made here, carrying their published document: copied whole as a
+ *     new site each, parts, pictures and brief, connected to the repository;
  *   · one of sources with no address anywhere: the refusal stays on screen;
  *   · one of sources deployed at an address this machine cannot open: the
  *     refusal names the address and why.
@@ -27,7 +29,7 @@
  *
  *   node tests/bring-lands.mjs [url]
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { chromium } from "playwright-core";
 
 const URL_BASE = process.argv[2] ?? "http://localhost:3000";
@@ -42,10 +44,16 @@ const PAGE = `<!doctype html><html><head><title>A page</title><style>body{margin
 <main><section><h2>What we make</h2><p>Sites, mostly. Some of them for other people.</p><a href="#" style="display:inline-block;padding:12px 20px;background:#e63;color:#fff">Say hello</a></section></main></body></html>`;
 
 const BLANK = `<!doctype html><html><head><title>Blank</title></head><body></body></html>`;
+/* The site itself: this repository's own published document, BLACKORB, with
+   one part given a picture so the picture path is exercised too. */
+const DOC = JSON.parse(readFileSync("site/document.json", "utf8"));
+DOC.nodes.push({ ...DOC.nodes[0], id: "n_pic_test", featureId: "orb-image", content: "", picture: { id: "pic_test1", path: "assets/pictures/pic_test1.png", type: "image/png", w: 1, h: 1, bytes: 70, alt: "", from: "upload" } });
+const DOC2 = { ...DOC, brief: { ...DOC.brief, name: "Madeless" }, nodes: DOC.nodes.slice(0, 3) };
+const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const repos = {
-  /* A site made here, deployed: its page is /site, not the root. */
-  "him/made": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "m1", size: 10 }, { path: "site/document.json", type: "blob", sha: "m2", size: 1000 }, { path: "src/app/page.tsx", type: "blob", sha: "m3", size: 100 }] },
-  /* A site made here, and the repository does not say where it is deployed. */
+  /* A site made here, deployed: copied whole from its document, pictures and all. */
+  "him/made": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "m1", size: 10 }, { path: "site/document.json", type: "blob", sha: "m2", size: 1000 }, { path: "assets/pictures/pic_test1.png", type: "blob", sha: "m4", size: 70 }, { path: "src/app/page.tsx", type: "blob", sha: "m3", size: 100 }] },
+  /* A site made here that says nowhere it is deployed: the document needs no address. */
   "him/madeless": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "n1", size: 10 }, { path: "site/document.json", type: "blob", sha: "n2", size: 1000 }] },
   "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
@@ -69,6 +77,9 @@ await page.route("https://api.github.com/**", (r) => {
   if (rest.startsWith("/git/trees/")) return j({ tree: repo.tree });
   if (rest === "/git/blobs/p1") return j({ encoding: "base64", content: Buffer.from(PAGE).toString("base64") });
   if (rest === "/git/blobs/b1") return j({ encoding: "base64", content: Buffer.from(BLANK).toString("base64") });
+  if (rest === "/git/blobs/m2") return j({ encoding: "base64", content: Buffer.from(JSON.stringify(DOC)).toString("base64") });
+  if (rest === "/git/blobs/n2") return j({ encoding: "base64", content: Buffer.from(JSON.stringify(DOC2)).toString("base64") });
+  if (rest === "/git/blobs/m4") return j({ encoding: "base64", content: PNG });
   return j({ message: "no" }, 404);
 });
 
@@ -148,21 +159,46 @@ check("and the refusal is still on screen as a toast three seconds later", await
 const mid = await doc();
 check("with nothing landed", mid.nodes === landed.nodes && mid.spaces === landed.spaces + 1);
 
-/* 2b. A site made here: its page is /site of the deployment, never the root. */
+/* 2b. A SITE MADE HERE IS COPIED WHOLE, as a new site, from its document. */
 await page.waitForTimeout(6500);
+const before2 = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { sites: v.state.projects.length, active: v.state.activeId, spaces: (s.spaces ?? []).length }; });
 await bring("him/made");
-let madeLine = "";
-for (let i = 0; i < 60 && !/could not be read|landed|block/.test(madeLine); i++) { await page.waitForTimeout(1000); madeLine = await said(); }
-check("a repository carrying the published document is read at /site of its deployment, not at the root", /him\/made is a site made here, so it is read at its page: https:\/\/polio-two\.vercel\.app\/site/.test(madeLine), madeLine.slice(0, 200));
-check("and never at the bare root", !/deployed at: https:\/\/polio-two\.vercel\.app\/?\./.test(madeLine));
+let sites = null;
+for (let i = 0; i < 60; i++) {
+  await page.waitForTimeout(1000);
+  sites = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return { list: v.state.projects.map((p) => ({ name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}@${p.repo.branch}` : null, id: p.id })), active: v.state.activeId }; });
+  if (sites.list.length > before2.sites) break;
+}
+const made = sites?.list[0];
+check("a repository carrying the published document becomes a new site in the switcher, named from its brief", sites.list.length === before2.sites + 1 && made?.name === DOC.brief.name, JSON.stringify(made));
+check("and the Builder is on it", sites.active === made?.id);
+check("connected to the repository it came from, on the branch that was read", made?.repo === "him/made@main", made?.repo ?? "none");
+await page.waitForTimeout(1500);
+const copied = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { nodes: s.nodes.length, pages: s.pages.length, spaces: (s.spaces ?? []).length, first: s.nodes[0] ? { featureId: s.nodes[0].featureId, x: s.nodes[0].x, y: s.nodes[0].y, w: s.nodes[0].w, content: s.nodes[0].content } : null, brief: s.brief?.name }; });
+check("every part is there, on every page", copied.nodes === DOC.nodes.length && copied.pages === DOC.pages.length, `${copied.nodes} parts on ${copied.pages} pages, expected ${DOC.nodes.length} on ${DOC.pages.length}`);
+check("in its place, with its words", copied.first?.featureId === DOC.nodes[0].featureId && copied.first?.x === DOC.nodes[0].x && copied.first?.y === DOC.nodes[0].y && copied.first?.w === DOC.nodes[0].w && copied.first?.content === DOC.nodes[0].content, JSON.stringify(copied.first));
+check("and its brief", copied.brief === DOC.brief.name, copied.brief);
+check("with no space left over from the hand-off", copied.spaces === 0, `${copied.spaces} spaces`);
+const pic = await page.evaluate(() => new Promise((done) => {
+  const req = indexedDB.open("builder.pictures", 1);
+  req.onerror = () => done("no db");
+  req.onsuccess = () => { try { const get = req.result.transaction("files", "readonly").objectStore("files").get("pic_test1"); get.onsuccess = () => done(get.result ? get.result.size : "missing"); get.onerror = () => done("error"); } catch (e) { done(String(e)); } };
+}));
+check("its picture is in this browser's file storage under the id the part names", typeof pic === "number" && pic > 0, String(pic));
+check("and the toast says what was copied and where it is connected", await toast("is a new site now, copied whole from him/made"));
+const old = await page.evaluate((id) => { const v = JSON.parse(localStorage.getItem(`builder.doc:${id}`) || "null"); return v ? (v.state.spaces ?? []).length : null; }, before2.active);
+check("the site he was on keeps its board as it was, without the space made for the hand-off", old === before2.spaces, `${old} spaces, was ${before2.spaces}`);
 
-/* 2c. A site made here with nowhere named: said, with where the page would be. */
-await page.waitForTimeout(6500);
+/* 2c. A site made here with no address anywhere copies just the same: the document needs no address. */
+await page.waitForTimeout(8000);
 await bring("him/madeless");
-await page.waitForTimeout(3500);
-const lessLine = await said();
-check("a site made here with no address says the page is at /site of wherever it is deployed, and that the repository does not say where", /him\/madeless is a site made here, published at \/site of wherever it is deployed, and the repository does not say where/.test(lessLine), lessLine.slice(0, 200));
-check("and that refusal is a toast too", await toast("published at /site of wherever it is deployed"));
+let less = null;
+for (let i = 0; i < 60; i++) {
+  await page.waitForTimeout(1000);
+  less = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects[0]; return { name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, n: v.state.projects.length }; });
+  if (less.n > sites.list.length) break;
+}
+check("a site made here with no deployed address copies just the same", less.n === sites.list.length + 1 && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
 
 /* 3. Sources deployed at an address: read there, and when that fails, say so by name. */
 await page.waitForTimeout(6500);
