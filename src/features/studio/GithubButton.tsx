@@ -82,8 +82,18 @@ export function GithubButton() {
   const mine = project?.repo ? `${project.repo.owner}/${project.repo.name}` : null;
   const name = mine;
   const url = name ? `https://github.com/${name}` : (site.repository ?? null);
-  const canPush = status?.github?.configured === true;
-  const where = status?.github?.token ?? null;
+  /*
+   * ONE ANSWER ABOUT THE TOKEN. The button used to take a snapshot: the
+   * server asked once, the held key read at that moment. The Keys panel
+   * relocks itself after five idle minutes, the button re-asked and heard
+   * "no token", and the list fetched earlier stayed on screen above it,
+   * so the same panel gave two answers. The browser's key is read live
+   * here, and the panel below reads the same value.
+   */
+  const mineNow = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
+  const serverHas = status?.github?.token === "server";
+  const canPush = mineNow || serverHas;
+  const where = mineNow ? "browser" : serverHas ? "server" : null;
 
   const label = !canPush
     ? name
@@ -177,6 +187,14 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
   const ctx = useActions();
   const router = useRouter();
   const [branches, setBranches] = React.useState<{ base: string; rows: BranchRow[]; more: number } | null>(null);
+  /* The same live answer the button gives: when the key locks again, the
+     list read with it is taken down and the reason said, rather than left
+     standing under a button that says there is no token. */
+  const keyNow = useKeys((s) => s.unlocked && !!s.values.GITHUB_TOKEN);
+  const listedWithKey = React.useRef(false);
+  React.useEffect(() => {
+    if (!keyNow && listedWithKey.current) { listedWithKey.current = false; setMine(null); setSaid("The key is locked again after five minutes idle. Open Keys to unlock it, and the list comes back."); }
+  }, [keyNow]);
   const [branchSaid, setBranchSaid] = React.useState<string | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
   /*
@@ -269,7 +287,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
     let live = true;
     void fetch("/api/studio/repo", { headers: token(), cache: "no-store" })
       .then((r) => r.json())
-      .then((a) => { if (!live) return; if (a.ok) setMine(a.repos ?? []); else setSaid(a.message ?? null); })
+      .then((a) => { if (!live) return; if (a.ok) { setMine(a.repos ?? []); listedWithKey.current = !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN; } else setSaid(a.message ?? null); })
       .catch(() => { if (live) setSaid("Could not reach GitHub from here."); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -292,7 +310,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
    * site, and no other site may be pointed at it: an existing design must
    * never overwrite a repository he imported.
    */
-  const connect = (full: string, onBranch: string, how: "connected" | "made" = "connected"): boolean => {
+  const connect = (full: string, onBranch: string, how: "connected" | "made" | "import" = "connected"): boolean => {
     const repo = repoFrom(full, onBranch);
     if (!repo) { setSaid(`${full} is not an owner/name, so it cannot be connected.`); return false; }
     let project = activeProject();
@@ -342,8 +360,17 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
    * surface the site will land on, and opens the importer on it with the
    * repository already filled in.
    */
-  const bringIn = () => {
-    const want = bring.trim();
+  const bringIn = () => startBring(bring.trim());
+  /*
+   * ATTACHING IS IMPORTING. HIS RULING. Picking a repository from the list
+   * used to bind where the site publishes and bring nothing in, with no
+   * line and no change on the board, which read as broken. Choosing one
+   * now runs the same path Bring it runs: the site is bound and the board
+   * is replaced with the repository, under the lock. "Publish only" is the
+   * separate, plainly named control for pointing publishing somewhere
+   * without touching the board.
+   */
+  const startBring = (want: string) => {
     if (!want || pulling) return;
     /* Never quietly on a stale page: a press on an older build than the
        server loads code the server no longer has, and ends in nothing. */
@@ -474,8 +501,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
       <div className="h-px bg-border" />
 
       <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">{own ? "Move to a different repo" : "Connect a repo"}</p>
-        {own ? <p data-repo-bound="" className="mb-0.5 text-[10px] text-fg-muted">This site belongs to {own}. Moving it asks first.</p> : null}
+        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">{own ? "Move to a different repo" : "Bring in one of your repos"}</p>
+        <p className="mb-0.5 text-[10px] text-fg-muted">{own ? <span data-repo-bound="">This site belongs to {own}. Moving it asks first.</span> : "Choosing one brings it in and replaces the board. Publish only just points publishing there."}</p>
         {mine === null ? (
           <p className="text-[10px] text-fg-muted">{said ?? "Asking GitHub…"}</p>
         ) : mine.length === 0 ? (
@@ -483,16 +510,27 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
         ) : (
           <div className="max-h-[128px] overflow-y-auto">
             {mine.map((r) => (
+              <div key={r.name} className="flex items-center gap-1">
               <button
-                key={r.name}
                 type="button"
                 data-repo-connect={r.name}
-                onClick={() => { if (connect(r.name, r.branch ?? "main")) onDone(); }}
-                className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px]", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
+                onClick={() => { if (connect(r.name, r.branch ?? "main", "import")) startBring(r.name); }}
+                title={`Bring ${r.name} in: this site becomes it, and publishes to it`}
+                className={cn("tactile flex min-w-0 flex-1 items-center justify-between rounded px-1 py-0.5 text-left text-[11px]", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
               >
                 <span className="truncate">{r.name}</span>
                 {r.private ? <span className="shrink-0 text-[9px] text-fg-faint">private</span> : null}
               </button>
+              <button
+                type="button"
+                data-repo-publish-only={r.name}
+                title={`Publish only: point publishing at ${r.name} and leave the board as it is`}
+                onClick={() => { if (connect(r.name, r.branch ?? "main")) { setSaid(`Publishing goes to ${r.name} now. The board is as it was.`); } }}
+                className="tactile shrink-0 rounded px-1 py-0.5 text-[9px] text-fg-faint hover:text-fg"
+              >
+                publish only
+              </button>
+              </div>
             ))}
           </div>
         )}

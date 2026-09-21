@@ -57,6 +57,9 @@ const repos = {
   "him/madeless": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "n1", size: 10 }, { path: "site/document.json", type: "blob", sha: "n2", size: 1000 }] },
   "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
+  /* Two more with the same page, for the lock: him/page belongs to the site it was brought into. */
+  "him/page2": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }] },
+  "him/page3": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }] },
   "him/sources": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "s1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "s2", size: 100 }] },
   "him/deployed": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "d1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "d2", size: 100 }] },
 };
@@ -104,7 +107,7 @@ await page.waitForTimeout(500);
 await keys.getByRole("button", { name: "Close keys" }).click();
 await page.waitForTimeout(500);
 
-const doc = () => page.evaluate(() => { const st = JSON.parse(localStorage.getItem("builder.studio")).state; return { nodes: st.nodes.length, spaces: (st.spaces ?? []).length, brought: (st.brought ?? []).map((b) => b.label) }; });
+const doc = () => page.evaluate(() => { const raw = localStorage.getItem("builder.studio"); if (!raw) return { nodes: 0, spaces: 0, brought: [] }; const st = JSON.parse(raw).state; return { nodes: st.nodes.length, spaces: (st.spaces ?? []).length, brought: (st.brought ?? []).map((b) => b.label) }; });
 const said = () => page.evaluate(() => Array.from(document.querySelectorAll("[data-site-said]")).map((e) => e.innerText.replace(/\s+/g, " ").trim()).join(" || "));
 const toast = (text = "Could not bring the repository in") => page.evaluate((t) => document.body.innerText.includes(t), text);
 /* THE LOCK SHAPES THE DRIVE: a site brought in from one repository refuses
@@ -277,6 +280,33 @@ await page.reload({ waitUntil: "networkidle" }); await page.waitForTimeout(900);
 check("and it stays away for that site", (await page.locator("[data-new-site-offer]").count()) === 0);
 await page.locator("[data-builds-switch]").first().click(); await page.waitForTimeout(400);
 await page.getByRole("button", { name: /Madeless/ }).first().click(); await page.waitForTimeout(900);
+
+/* 2f. ATTACHING IS IMPORTING. Choosing a repository from the panel's list
+   runs the same path Bring it runs: the site is bound and the board is
+   replaced. Publish only binds and leaves the board alone. */
+await page.route("**/api/studio/repo?**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "browser", owner: "him", repos: [{ name: "him/page", private: false, pushed: null, branch: "main" }, { name: "him/page2", private: false, pushed: null, branch: "main" }, { name: "him/page3", private: false, pushed: null, branch: "main" }] }) }));
+await page.route("**/api/studio/repo", (r) => r.request().method() === "GET" ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, source: "browser", owner: "him", repos: [{ name: "him/page", private: false, pushed: null, branch: "main" }, { name: "him/page2", private: false, pushed: null, branch: "main" }, { name: "him/page3", private: false, pushed: null, branch: "main" }] }) }) : r.continue());
+await freshSite();
+await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(900);
+check("the panel lists his repositories and says choosing one brings it in", (await page.locator("[data-repo-connect='him/page2']").count()) === 1 && await page.evaluate(() => /Choosing one brings it in and replaces the board/.test(document.querySelector("[data-repo-panel]")?.innerText ?? "")));
+await page.locator("[data-repo-connect='him/page2']").click();
+let attached = await doc();
+for (let i = 0; i < 90 && attached.nodes === 0; i++) { await page.waitForTimeout(1000); attached = await doc(); }
+check("choosing it brings it in: the board is the repository's", attached.nodes >= 2, `${attached.nodes} parts`);
+check("and the site is bound to it as an import", (await boundNow()) === "him/page2" && await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return v.state.projects.find((p) => p.id === v.state.activeId).bound === "import"; }));
+await page.waitForTimeout(1500);
+await freshSite();
+await page.locator("[data-github-button]").first().click(); await page.waitForTimeout(900);
+/* him/page belongs to the site it was brought into: pointing this one at it is refused. */
+await page.locator("[data-repo-publish-only='him/page']").click(); await page.waitForTimeout(500);
+const ownedSaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
+check("pointing a site at a repository another site was brought in from is refused, even for publishing", /him\/page belongs to the site .+, which was brought in from it/.test(ownedSaid), ownedSaid.slice(0, 120));
+await page.locator("[data-repo-publish-only='him/page3']").click(); await page.waitForTimeout(600);
+const onlySaid = await page.evaluate(() => document.querySelector("[data-repo-said]")?.textContent ?? "");
+check("publish only points publishing there and says so, and leaves the board as it was", /Publishing goes to him\/page3 now\. The board is as it was\./.test(onlySaid) && (await doc()).nodes === 0 && (await boundNow()) === "him/page3", onlySaid.slice(0, 120));
+await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+await page.unroute("**/api/studio/repo?**");
+await page.unroute("**/api/studio/repo");
 
 /* 3a. AN UNUSABLE REPLY IS AN ENDING. The page reads fine and then the
    reply has candidates without boxes: that used to throw inside a render

@@ -617,7 +617,8 @@ export function FromASite({ space }: { space: Space }) {
     if (from) {
       const here = activeProject();
       const bound = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
-      if (here && !here.repo && bound) useBuilds.getState().setRepo(here.id, bound, "import");
+      const same = here?.repo && `${here.repo.owner}/${here.repo.name}`.toLowerCase() === `${from.owner}/${from.name}`.toLowerCase();
+      if (here && bound && (!here.repo || same)) useBuilds.getState().setRepo(here.id, same ? here.repo : bound, "import");
     }
     // Locked as the page had it: the layout is the specification.
     lockNow(space.id);
