@@ -114,13 +114,31 @@ const bring = async (name) => {
   await page.locator("[data-repo-pull]").click();
 };
 
-/* 1. A repository with a page in it lands, with no further press. */
+/* 1. A repository with a page in it lands, with no further press, AND
+   REPLACES WHAT WAS ON THE PAGE. HIS WORDS: "polio would at least be
+   somewhat imported into my site but it never changes". A part of his own
+   is on the page first; after the import it is gone and the page is the
+   repository's, from the top, at full width. */
+await page.evaluate((his) => {
+  const env = (state) => JSON.stringify({ state, version: 0 });
+  const st = JSON.parse(localStorage.getItem("builder.studio")).state;
+  /* A real part, in the shape a saved one has: a bare object is not one. */
+  st.nodes = [{ ...his, id: "n_his", pageId: st.activePageId ?? "page_home", label: "His own", content: "Mine, before", x: 300, y: 300, w: 400, h: 120 }];
+  localStorage.setItem("builder.studio", env(st));
+}, DOC.nodes.find((n) => n.featureId === "value-prop"));
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForTimeout(900);
 const before = await doc();
+check("his own part is on the page before the import", before.nodes === 1, `${before.nodes} parts`);
 await bring("him/page");
 let landed = before;
-for (let i = 0; i < 90 && landed.nodes === before.nodes; i++) { await page.waitForTimeout(1000); landed = await doc(); }
-check("a repository with a page in it lands as parts on the board, with nothing more pressed", landed.nodes > before.nodes, `${before.nodes} → ${landed.nodes} parts`);
-check("in a space of its own", landed.spaces === before.spaces + 1, `${landed.spaces} spaces`);
+for (let i = 0; i < 90 && (landed.nodes === before.nodes || landed.spaces === 0); i++) { await page.waitForTimeout(1000); landed = await doc(); }
+await page.waitForTimeout(1200);
+landed = await doc();
+const placed = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { his: s.nodes.some((n) => n.id === "n_his"), ids: s.nodes.map((n) => n.featureId), space: (s.spaces ?? [])[0]?.boundary ?? null, frame: s.frameWidth }; });
+check("a repository with a page in it lands as parts on the board, with nothing more pressed", landed.nodes >= 2, `${before.nodes} → ${landed.nodes} parts`);
+check("and it replaces what was on the page: his own part is gone", !placed.his, placed.ids.join(", "));
+check("in one space, from the top of the page at its full width", landed.spaces === 1 && !!placed.space && placed.space[0][0] === 0 && placed.space[0][1] === 0 && placed.space[1][0] >= (placed.frame || 1440) - 1, JSON.stringify(placed.space));
 check("and its elements go to the shelf under the repository's name", landed.brought.includes("page"), landed.brought.join(", ") || "none");
 await page.waitForTimeout(1500);
 const line1 = await said();
@@ -138,7 +156,7 @@ check("pressed on the Builds page, Bring it opens the board", /\/builder/.test(p
 check("and says so, step by step, from the board", await toast("him/page"));
 let again = landed;
 for (let i = 0; i < 90 && again.nodes === landed.nodes; i++) { await page.waitForTimeout(1000); again = await doc(); }
-check("and the page lands there, in a space of its own", again.nodes > landed.nodes && again.spaces === landed.spaces + 1, `${landed.nodes} → ${again.nodes} parts, ${again.spaces} spaces`);
+check("and the page lands there, replacing the page again, in one space", again.nodes >= 2 && again.spaces === 1, `${landed.nodes} → ${again.nodes} parts, ${again.spaces} spaces`);
 landed = again;
 
 /* 1c. A page with nothing on it: said as a toast, not only on the aside. */
@@ -159,7 +177,7 @@ check("and the refusal is still on screen as a toast three seconds later", await
 const mid = await doc();
 check("with nothing landed", mid.nodes === landed.nodes && mid.spaces === landed.spaces + 1);
 
-/* 2b. A SITE MADE HERE IS COPIED WHOLE, as a new site, from its document. */
+/* 2b. A SITE MADE HERE IS COPIED WHOLE, INTO THIS SITE, from its document. */
 await page.waitForTimeout(6500);
 const before2 = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { sites: v.state.projects.length, active: v.state.activeId, spaces: (s.spaces ?? []).length }; });
 await bring("him/made");
@@ -167,11 +185,11 @@ let sites = null;
 for (let i = 0; i < 60; i++) {
   await page.waitForTimeout(1000);
   sites = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); return { list: v.state.projects.map((p) => ({ name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}@${p.repo.branch}` : null, id: p.id })), active: v.state.activeId }; });
-  if (sites.list.length > before2.sites) break;
+  if (sites.list.find((p) => p.id === sites.active)?.repo) break;
 }
-const made = sites?.list[0];
-check("a repository carrying the published document becomes a new site in the switcher, named from its brief", sites.list.length === before2.sites + 1 && made?.name === DOC.brief.name, JSON.stringify(made));
-check("and the Builder is on it", sites.active === made?.id);
+const made = sites?.list.find((p) => p.id === sites.active);
+check("a repository carrying the published document replaces this site with the whole of it, and the site takes its name", sites.list.length === before2.sites && made?.name === DOC.brief.name && sites.active === before2.active, JSON.stringify(made));
+check("no second site is made", sites.list.length === before2.sites, `${sites.list.length} sites`);
 check("connected to the repository it came from, on the branch that was read", made?.repo === "him/made@main", made?.repo ?? "none");
 await page.waitForTimeout(1500);
 const copied = await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("builder.studio")).state; return { nodes: s.nodes.length, pages: s.pages.length, spaces: (s.spaces ?? []).length, first: s.nodes[0] ? { featureId: s.nodes[0].featureId, x: s.nodes[0].x, y: s.nodes[0].y, w: s.nodes[0].w, content: s.nodes[0].content } : null, brief: s.brief?.name }; });
@@ -185,9 +203,7 @@ const pic = await page.evaluate(() => new Promise((done) => {
   req.onsuccess = () => { try { const get = req.result.transaction("files", "readonly").objectStore("files").get("pic_test1"); get.onsuccess = () => done(get.result ? get.result.size : "missing"); get.onerror = () => done("error"); } catch (e) { done(String(e)); } };
 }));
 check("its picture is in this browser's file storage under the id the part names", typeof pic === "number" && pic > 0, String(pic));
-check("and the toast says what was copied and where it is connected", await toast("is a new site now, copied whole from him/made"));
-const old = await page.evaluate((id) => { const v = JSON.parse(localStorage.getItem(`builder.doc:${id}`) || "null"); return v ? (v.state.spaces ?? []).length : null; }, before2.active);
-check("the site he was on keeps its board as it was, without the space made for the hand-off", old === before2.spaces, `${old} spaces, was ${before2.spaces}`);
+check("and the toast says what was copied and where it is connected", await toast("This site is BLACKORB now, copied whole from him/made"));
 
 /* 2c. A site made here with no address anywhere copies just the same: the document needs no address. */
 await page.waitForTimeout(8000);
@@ -195,10 +211,10 @@ await bring("him/madeless");
 let less = null;
 for (let i = 0; i < 60; i++) {
   await page.waitForTimeout(1000);
-  less = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects[0]; return { name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, n: v.state.projects.length }; });
-  if (less.n > sites.list.length) break;
+  less = await page.evaluate(() => { const v = JSON.parse(localStorage.getItem("builder.builds")); const p = v.state.projects.find((x) => x.id === v.state.activeId); return { name: p.name, repo: p.repo ? `${p.repo.owner}/${p.repo.name}` : null, n: v.state.projects.length }; });
+  if (less.repo === "him/madeless") break;
 }
-check("a site made here with no deployed address copies just the same", less.n === sites.list.length + 1 && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
+check("a site made here with no deployed address copies just the same, replacing this site again", less.n === sites.list.length && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
 
 /* 3a. AN UNUSABLE REPLY IS AN ENDING. The page reads fine and then the
    reply has candidates without boxes: that used to throw inside a render
