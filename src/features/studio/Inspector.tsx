@@ -177,12 +177,29 @@ export function BackgroundInspector() {
   const fill = String(format["palette.background"] ?? "flat");
   const layers = (look.texture ?? []).filter((l) => lands(l, "page"));
   const held = heldBackground();
+  /*
+   * A SECTION OF A COLUMN, NOT A PANEL OF ITS OWN.
+   *
+   * This kept the shape it was born with, back when it WAS the whole of the
+   * Element tab: `h-full` on the outside and `flex-1 overflow-y-auto` on the
+   * body, which is how you fill a panel. Dropped into the Look column, which
+   * is itself a flex column that scrolls, `h-full` had nothing to measure
+   * against and the block collapsed — MEASURED at a 227px panel, 9px tall,
+   * from y 119 to y 128, with its own contents running on to y 156. So the
+   * Background heading was painted at 127 and the Colour heading at 140, two
+   * headings sharing a band, and the line "The page behind every part" ran
+   * straight through the row of swatches below it.
+   *
+   * It is not a margin that was wrong; it was the box. A section takes its
+   * own height and the column stacks it and does the scrolling, which is
+   * what every other section in this panel already does.
+   */
   return (
-    <div className="flex h-full min-h-0 flex-col" data-background-inspector="">
+    <section className="border-b border-border" data-background-inspector="">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Layers className="size-3.5 text-fg-muted" />
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-semibold text-fg">Background</div>
+          <div data-look-heading className="text-[11px] font-semibold text-fg">Background</div>
           <div className="text-[10px] text-fg-muted">The page behind every part</div>
         </div>
         <Tooltip content="Cut the background" shortcut="mod+x">
@@ -208,7 +225,7 @@ export function BackgroundInspector() {
         What stays here is what is only here: what the page is wearing, at a
         glance, and cut and put back.
       */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="p-3">
         <p className="text-[10px] leading-snug text-fg-muted">
           {fill === "flat" ? "Painted flat" : `Painted with a ${fill}`}
           {layers.length ? `, under ${layers.length} texture${layers.length === 1 ? "" : "s"}` : ""}
@@ -221,7 +238,7 @@ export function BackgroundInspector() {
           </Button>
         ) : null}
       </div>
-    </div>
+    </section>
   );
 }
 

@@ -238,6 +238,56 @@ check("a texture on the page goes OVER the fill rather than deleting it",
   over.layers > 0 && /radial-gradient/.test(over.img),
   over.layers ? `${over.layers} layer up, page paints: ${over.img.slice(0, 90)}` : "no layer was added, so this measured nothing");
 
+/* ------------------------------------------------------------------ */
+/* 7. THE SECTIONS STACK, RATHER THAN SHARING A BAND                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A LIVE ONE, off the surface he works on. The Background block kept the
+ * shape it was born with, from when it was the whole of the Element tab:
+ * `h-full` outside and `flex-1 overflow-y-auto` on its body, which is how a
+ * panel fills its pane. Moved into the Look column — itself a flex column
+ * that scrolls — `h-full` had nothing to measure against and the block
+ * collapsed to 9px while its own contents ran on for another 28.
+ *
+ * MEASURED at a 227px panel, before the fix: the block stood from y 119 to
+ * y 128 with its heading at 127 and the Colour heading at 140, two headings
+ * inside a 15px band, and the line "The page behind every part" laid across
+ * the row of swatches under it.
+ *
+ * TWO QUESTIONS, because one of them is the fault and the other is the
+ * shape of it. No two headings may share a band, which is what he saw. And
+ * no section may be shorter than what it holds, which is what was actually
+ * wrong — a margin was never going to fix a box of the wrong height, and
+ * the second question is the one that catches the next block dropped into
+ * this column with a panel's shape still on it.
+ */
+const laid = await page.evaluate(() => {
+  const panel = document.querySelector("[data-look-panel]");
+  if (!panel) return null;
+  const heads = [...panel.querySelectorAll("[data-look-heading]")].map((e) => {
+    const r = e.getBoundingClientRect();
+    return { name: e.textContent.trim(), top: Math.round(r.top), bottom: Math.round(r.bottom) };
+  });
+  const spill = [...panel.querySelectorAll("[data-background-inspector], [data-look-colour], [data-look-texture]")].map((sec) => {
+    const r = sec.getBoundingClientRect();
+    let low = r.bottom;
+    for (const kid of sec.children) low = Math.max(low, kid.getBoundingClientRect().bottom);
+    return { name: sec.dataset.backgroundInspector !== undefined ? "background" : sec.dataset.lookColour !== undefined ? "colour" : "texture",
+      h: Math.round(r.height), over: Math.round(low - r.bottom) };
+  });
+  return { heads, spill };
+});
+check("the panel's sections each carry a heading", !!laid && laid.heads.length >= 3,
+  laid ? `${laid.heads.length}: ${laid.heads.map((h) => `${h.name} at ${h.top}`).join(", ")}` : "no panel");
+const shared = !laid ? [] : laid.heads.flatMap((a, i) =>
+  laid.heads.slice(i + 1).filter((b) => a.top < b.bottom && a.bottom > b.top).map((b) => `${a.name} at ${a.top}-${a.bottom} and ${b.name} at ${b.top}-${b.bottom}`));
+check("and no two of them share a band", shared.length === 0, shared.join("; ") || "every heading has its own");
+const burst = !laid ? [] : laid.spill.filter((x) => x.over > 1);
+check("and no section is shorter than what it holds", burst.length === 0,
+  burst.map((x) => `${x.name} is ${x.h}px with ${x.over}px hanging out of it`).join("; ")
+    || (laid ? laid.spill.map((x) => `${x.name} ${x.h}px`).join(", ") : "-"));
+
 await page.evaluate(() => localStorage.removeItem("builder.studio"));
 await browser.close();
 console.log("");
