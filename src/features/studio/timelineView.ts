@@ -253,26 +253,40 @@ export function settleView(
   const span = { w: Math.max(1, wide1 - wide0), h: Math.max(1, tall1 - tall0) };
   const room = { w: Math.max(1, view.w - margin * 2), h: Math.max(1, view.h - margin * 2) };
   /*
-   * The whole set decides the zoom — and then the floor gives if the column
-   * still will not fit at it.
+   * WHAT THE COLUMN IS, before anything is sized to it.
    *
-   * `min` is a floor on how far out the fit will pull, so that a long chain
-   * does not become unreadable. It is not allowed to cost him the column:
-   * "if the honest answer is that at some sizes the column and the fan
-   * cannot both fit and the fan must be clipped or dropped, that is fine and
-   * expected, and it is the fan that gives." The fan gives by the set being
-   * drawn smaller than the floor would like, which is one more thing off the
-   * edge; the column being off the edge is the thing that outranks it.
+   * With no `weigh` the column and the set are the same thing and every
+   * line below collapses to the one it had before any of this.
    */
-  const wanted = Math.min(room.w / span.w, room.h / span.h);
+  const col = opts.weigh?.length
+    ? { w: Math.max(1, colW1 - colW0), h: Math.max(1, colH1 - colH0) }
+    : span;
   /*
-   * …and only when there IS a column to protect. With no `weigh` the set is
-   * the whole of what there is, and the floor is what stops a chain twenty
-   * thousand pixels long from being fitted to nothing: `tests/timeline-view`
-   * asks for two boxes 20000 apart and expects the floor, and lowering it
-   * there gave 0.066. There is no fan in that case for the column to be
-   * protected from.
+   * THE COLUMN DECIDES THE ZOOM. THE OVERHANG ABSORBS THE FAN.
+   *
+   * This was sized on the whole set for a while, and it cost him 21 percent
+   * of his text: the fit went 0.7939 to 0.6234 because the fan is the wider
+   * thing and was buying its own room out of the size he reads at. Measured
+   * at 1600x1000 before this line changed, the set's width came to the
+   * room's width to the pixel at three, five and eight updates, every time,
+   * while the column took 718 of 1316 across at three. The fan was binding
+   * the zoom on every count measured and the height never bound at all.
+   *
+   * His order is what says where that room comes back from. Rule 3 is the
+   * COLUMN filling the room; rule 4 is what gives when the rules cannot all
+   * hold, and what gives is the fan, to the RIGHT, visibly. So the width is
+   * read off the column and the fan hangs past the right edge, which is
+   * rule 4 doing the job it was written for rather than sitting idle while
+   * rule 3 pays for it.
+   *
+   * WHAT DOES NOT GIVE IS THE HEIGHT. Rule 2 outranks any zoom number:
+   * furniture may overhang but may never disappear, and a fan pushed off
+   * the bottom goes under the band, which reads as absent. Overhang is a
+   * sideways word. So the set's HEIGHT still caps the zoom — the fan is
+   * held inside the room down the page and takes its room out of the right
+   * edge only.
    */
+  const wanted = Math.min(room.w / col.w, room.h / col.h, room.h / span.h);
   /*
    * The floor may lower itself, but never past what the COLUMN needs.
    *
@@ -280,15 +294,13 @@ export function settleView(
    * cost him rule 1, so when the column alone will not fit at the floor,
    * the floor gives — and only that far. The set is allowed to be bigger
    * than the room; the column is not.
+   *
+   * …and only when there IS a column distinct from the set. With no `weigh`
+   * the two are the same thing and the floor is what stops a chain twenty
+   * thousand pixels long being fitted to nothing: `tests/timeline-view`
+   * asks for two boxes 20000 apart and expects the floor, and lowering it
+   * there gave 0.066.
    */
-  const col = opts.weigh?.length
-    ? { w: Math.max(1, colW1 - colW0), h: Math.max(1, colH1 - colH0) }
-    : span;
-  /* …and only when there IS a column distinct from the set. With no `weigh`
-     the two are the same thing and the floor is what stops a chain twenty
-     thousand pixels long being fitted to nothing: `tests/timeline-view` asks
-     for two boxes 20000 apart and expects the floor, and lowering it there
-     gave 0.066. */
   const floor = opts.weigh?.length ? Math.min(min, Math.min(room.w / col.w, room.h / col.h)) : min;
   const zoom = Math.min(max, Math.max(floor, wanted));
 

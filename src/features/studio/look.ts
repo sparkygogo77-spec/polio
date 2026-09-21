@@ -640,11 +640,28 @@ export function layerCss(layer: TextureLayer, colour: string): { image: string; 
  * (`texture.ts`), so what is under a half-solid layer is the layer below it,
  * not the page colour painted over the top of it.
  */
-export function textureCss(layers: TextureLayer[], palette: Palette, base: string): React.CSSProperties {
+export function textureCss(layers: TextureLayer[], palette: Palette, base: string, under: string[] = []): React.CSSProperties {
   const on = layers.filter((l) => l.on);
-  if (!on.length) return { background: base };
+  /*
+   * `under` is the page's own FILL, and it is painted beneath the stack
+   * rather than replaced by it.
+   *
+   * It used to be replaced, and in silence. The fill and the texture stack
+   * are two different controls that paint the same page, and the moment any
+   * page layer was switched on the fill was dropped on the floor — set a
+   * mesh gradient, add a grain over it, and the mesh is gone with nothing
+   * said. A control that stops doing anything without saying so is worse
+   * than one that is not there.
+   *
+   * CSS paints background images front to back, so the fill goes on the END
+   * of the list and everything else sits over it, which is what "before any
+   * texture" always meant. Sized `auto` and repeated, because a fill is a
+   * gradient across the whole page rather than a tile.
+   */
+  const bed = under.map((image) => ({ image, size: "auto", repeat: "repeat", blend: "normal", dx: 0, dy: 0 }));
+  if (!on.length) return bed.length ? flat(bed, base) : { background: base };
 
-  const parts = compose(on, palette);
+  const parts = [...compose(on, palette), ...bed];
   if (!parts.length) return { background: base };
   const moving = parts.some((p) => p.dx || p.dy);
   return {
@@ -655,6 +672,17 @@ export function textureCss(layers: TextureLayer[], palette: Palette, base: strin
     backgroundBlendMode: parts.map((p) => p.blend).join(", "),
     backgroundColor: base,
     ...(moving ? { animation: `${driftName(parts)} ${DRIFT_CYCLE}s linear infinite` } : {}),
+  };
+}
+
+/** The fill on its own, with no texture over it. */
+function flat(bed: Part[], base: string): React.CSSProperties {
+  return {
+    backgroundImage: bed.map((p) => p.image).join(", "),
+    backgroundSize: bed.map((p) => p.size).join(", "),
+    backgroundRepeat: bed.map((p) => p.repeat).join(", "),
+    backgroundPosition: bed.map(() => "center").join(", "),
+    backgroundColor: base,
   };
 }
 
