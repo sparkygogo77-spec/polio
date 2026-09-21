@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { BuildGuard } from "./BuildGuard";
 import { ActionsProvider } from "@/core/actions";
 import { TooltipProvider } from "@/core/ui/tooltip";
 import { ContextMenuProvider } from "@/core/context-menu/ContextMenuProvider";
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <ThemeProvider />
           <Shortcuts />
           <div className="relative z-[1] flex h-dvh flex-col">
+            <BuildGuard />
             <TopBar />
             <div className="flex min-h-0 flex-1">
               <Sidebar />

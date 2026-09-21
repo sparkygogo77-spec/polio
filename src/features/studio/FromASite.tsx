@@ -117,13 +117,37 @@ function deployedBy(r: Repo): string | null {
   return useBuilds.getState().projects.find((p) => p.repo && same(p.repo.owner, r.owner) && same(p.repo.name, r.name) && p.live?.url)?.live?.url ?? null;
 }
 
+/*
+ * THE STAGE LIVES OUTSIDE THE PANEL, keyed by the space it belongs to.
+ *
+ * It was component state, and component state dies with the component:
+ * anything that re-mounts this panel mid-import, a pick, a re-fit, a
+ * layout change, threw away the line that said what was happening, and
+ * the import ended in silence on a panel that read "nothing in it yet".
+ * Kept here, the line is there whenever the panel is, and the same line
+ * is what the toast from the board says.
+ */
+const NOTHING: Stage = { at: "nothing" };
+const STAGES = new Map<string, Stage>();
+const stageListeners = new Set<() => void>();
+const stageOf = (spaceId: string): Stage => STAGES.get(spaceId) ?? NOTHING;
+const putStage = (spaceId: string, stage: Stage) => { STAGES.set(spaceId, stage); for (const l of stageListeners) l(); };
+const subscribeStages = (l: () => void) => { stageListeners.add(l); return () => { stageListeners.delete(l); }; };
+/** How long one step may go without a word before the import is told to stop and say so. */
+const STEP_PATIENCE_MS = 90_000;
+
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
   const [repoText, setRepoText] = React.useState("");
-  const [stage, setStage] = React.useState<Stage>({ at: "nothing" });
+  const stage = React.useSyncExternalStore(subscribeStages, () => stageOf(space.id), () => NOTHING);
+  const setStage = React.useCallback((next: Stage) => putStage(space.id, next), [space.id]);
+  /* Which repository is being brought in, so a busy line can also be a
+     toast from the board, and a step that goes quiet can be ended by name. */
+  const bringing = React.useRef<Repo | null>(null);
+  const patience = React.useRef<number | null>(null);
   const gate = url.trim() ? allowed(url) : null;
   const repo = repoText.trim() ? readRepo(repoText) : null;
-  const busy = stage.at === "busy";
+  const working = stage.at === "busy";
 
   /**
    * A repository, brought in whole.
@@ -158,7 +182,8 @@ export function FromASite({ space }: { space: Space }) {
     const r = readRepo(handed.repo);
     useStudio.getState().setBringRepo(null);
     setRepoText(handed.repo);
-    void readRepository(r);
+    /* An exception anywhere in the read is an ending too, said by name. */
+    void readRepository(r).catch((err: unknown) => refuse(`stopped before it could finish: ${err instanceof Error ? err.message : String(err)}`, r));
   }, [handed, space.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /*
@@ -170,6 +195,27 @@ export function FromASite({ space }: { space: Space }) {
    * in); the repository's name is put in front so the line stands alone.
    */
   const ctx = useActions();
+  /**
+   * EVERY STEP IS SAID, ON THE PANEL AND FROM THE BOARD.
+   *
+   * Driven by hand: a repository was brought in, a space appeared, and for
+   * twenty seconds nothing was said anywhere while a page was being read.
+   * A busy line on a narrow aside is not enough; the same line is a toast
+   * now, updated in place as the steps go by. And a step that says nothing
+   * for `STEP_PATIENCE_MS` is ended, by name, rather than left spinning.
+   */
+  const busy = (says: string) => {
+    setStage({ at: "busy", says });
+    const of = bringing.current;
+    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${repoName(of)}: ${says}`, level: "info", source: "studio", toast: { durationMs: STEP_PATIENCE_MS } });
+    if (patience.current) window.clearTimeout(patience.current);
+    patience.current = window.setTimeout(() => {
+      const now = stageOf(space.id);
+      if (now.at !== "busy" || now.says !== says) return;
+      const line = `Nothing came back within ${Math.round(STEP_PATIENCE_MS / 1000)} seconds while: ${says.replace(/…$/, "")}. Stopped.`;
+      if (of) refuse(line, of); else setStage({ at: "said", says: line });
+    }, STEP_PATIENCE_MS);
+  };
   const refuse = (says: string, of?: Repo | null) => {
     const which = of ?? repo;
     const line = `${which ? repoName(which) : "That repository"}: ${says}`;
@@ -193,11 +239,12 @@ export function FromASite({ space }: { space: Space }) {
   const readRepository = async (given?: Repo | null) => {
     const r = given ?? repo;
     if (!r) return;
+    bringing.current = r;
     play("tick");
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
-    setStage({ at: "busy", says: `Opening ${repoName(r)}…` });
-    const got = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }));
+    busy(`Opening ${repoName(r)}…`);
+    const got = await readRepoSite(r, token, (says) => busy(says));
     if (isCopy(got)) { copySite(got, r); return; }
     if (refused(got)) {
       /*
@@ -220,7 +267,7 @@ export function FromASite({ space }: { space: Space }) {
       const mine = got.no === "no-page" ? pageAddress(deployedBy(r), made).at : null;
       const at = got.no === "no-page" ? [got.pageAt, mine].map((a) => (a ? allowed(a) : null)).find((a) => a?.ok) : null;
       if (!at?.ok) { refuse(got.says, r); return; }
-      setStage({ at: "busy", says: noPageSays(r, [], at.url, made) });
+      busy(noPageSays(r, [], at.url, made));
       const read = await askSite({ url: at.url });
       if (!read.ok) { refuse(`${noPageSays(r, [], at.url, made)} That page could not be read: ${String(read.message ?? "no answer")}`, r); return; }
       await landWhole({
@@ -232,7 +279,7 @@ export function FromASite({ space }: { space: Space }) {
       });
       return;
     }
-    setStage({ at: "busy", says: `Reading the page in ${r.name}…` });
+    busy(`Reading the page in ${r.name}…`);
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
@@ -298,14 +345,17 @@ export function FromASite({ space }: { space: Space }) {
    * were pointed at one thing as often as at the whole.
    */
   const landWhole = async (picking: Picking) => {
-    setStage(picking);
+    /* Straight to the landing, never through the picking stage: showing
+       that stage renders its controls, and a render is no place to find
+       out a page's candidates are unusable. The landing says every
+       ending itself. */
     await takeAll(picking);
   };
 
   const read = async () => {
     if (!gate?.ok) return;
     play("tick");
-    setStage({ at: "busy", says: "Opening the page…" });
+    busy("Opening the page…");
     const r = await askSite({ url: gate.url });
     if (!r.ok) { setStage({ at: "said", says: String(r.message ?? "That page could not be read.") }); return; }
     setStage({
@@ -320,7 +370,7 @@ export function FromASite({ space }: { space: Space }) {
   const readZip = async (file: File | null) => {
     if (!file) return;
     play("tick");
-    setStage({ at: "busy", says: `Opening ${file.name}…` });
+    busy(`Opening ${file.name}…`);
     const r = await askZip(file);
     if (!r.ok) { setStage({ at: "said", says: String(r.message ?? "That zip could not be read.") }); return; }
     setStage({
@@ -346,7 +396,7 @@ export function FromASite({ space }: { space: Space }) {
     if (stage.at !== "picking") return;
     play("tick");
     const { source } = stage;
-    setStage({ at: "busy", says: "Measuring it…" });
+    busy("Measuring it…");
     // A block that is a run of small boxes is measured member by member
     // and read as one, the same as when the whole page is taken.
     const got = await measure(source, selectorsOf(c));
@@ -407,7 +457,7 @@ export function FromASite({ space }: { space: Space }) {
     const tell = (says: string) => { if (of) refuse(says, of); else setStage({ at: "said", says }); };
     if (!blocks.length) { tell(`Nothing on the page in ${nameOf(source)} could be made into a part.${source.kind === "site" ? ` The page at ${source.url} may be an app rather than a page of content. Try the address of a published page instead.` : ""}`); return; }
     play("tick");
-    setStage({ at: "busy", says: `Measuring ${blocks.length} block${blocks.length === 1 ? "" : "s"}…` });
+    busy(`Measuring ${blocks.length} block${blocks.length === 1 ? "" : "s"}…`);
     const got = await measure(source, blocks.flatMap(selectorsOf));
     if (typeof got === "string") { tell(got); return; }
     /* A block is one reading, or a run of small boxes read together and
@@ -514,13 +564,13 @@ export function FromASite({ space }: { space: Space }) {
         <button
           type="button"
           data-repo-read=""
-          disabled={!repo || busy}
+          disabled={!repo || working}
           onClick={() => void readRepository()}
           title="Bring the website in this repository onto the board, with its elements in a category of their own"
           className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] disabled:opacity-40"
           style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         >
-          {busy ? <Loader2 className="size-3 animate-spin" /> : <GitBranch className="size-3" />}
+          {working ? <Loader2 className="size-3 animate-spin" /> : <GitBranch className="size-3" />}
           Connect
         </button>
       </div>
@@ -537,19 +587,19 @@ export function FromASite({ space }: { space: Space }) {
           placeholder="https://…"
           value={url}
           onChange={(e) => { setUrl(e.target.value); if (stage.at === "said") setStage({ at: "nothing" }); }}
-          onKeyDown={(e) => { if (e.key === "Enter") void read(); }}
+          onKeyDown={(e) => { if (e.key === "Enter") void read().catch((err: unknown) => setStage({ at: "said", says: `Stopped before it could finish: ${err instanceof Error ? err.message : String(err)}` })); }}
           className={cn("h-7 flex-1 text-[11px]", SCREEN_FIELD)}
         />
         <button
           type="button"
           data-site-read=""
-          disabled={!gate?.ok || busy}
-          onClick={() => void read()}
+          disabled={!gate?.ok || working}
+          onClick={() => void read().catch((err: unknown) => setStage({ at: "said", says: `Stopped before it could finish: ${err instanceof Error ? err.message : String(err)}` }))}
           title="Open the page and list what is worth pointing at"
           className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] disabled:opacity-40"
           style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         >
-          {busy && stage.says.startsWith("Opening the page") ? <Loader2 className="size-3 animate-spin" /> : <Globe className="size-3" />}
+          {working && stage.says.startsWith("Opening the page") ? <Loader2 className="size-3 animate-spin" /> : <Globe className="size-3" />}
           Read
         </button>
       </div>
@@ -566,7 +616,7 @@ export function FromASite({ space }: { space: Space }) {
       */}
       <label
         data-zip-well=""
-        className={cn("tactile mt-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-[10px]", busy && "pointer-events-none opacity-40")}
+        className={cn("tactile mt-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-[10px]", working && "pointer-events-none opacity-40")}
         style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         title="A zip with a page in it: index.html and what it uses"
       >
@@ -577,12 +627,12 @@ export function FromASite({ space }: { space: Space }) {
           accept=".zip,application/zip,application/x-zip-compressed"
           data-zip-file=""
           className="sr-only"
-          disabled={busy}
-          onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; void readZip(f); }}
+          disabled={working}
+          onChange={(e) => { const f = e.target.files?.[0] ?? null; e.target.value = ""; void readZip(f).catch((err: unknown) => setStage({ at: "said", says: `Stopped before it could finish: ${err instanceof Error ? err.message : String(err)}` })); }}
         />
       </label>
 
-      {busy ? <Waiting says={stage.says} /> : null}
+      {working ? <Waiting says={stage.says} /> : null}
 
       {stage.at === "picking" ? (
         <div className="mt-2">

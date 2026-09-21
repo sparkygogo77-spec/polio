@@ -32,6 +32,7 @@ import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys, useKeys } from "@/features/keys/store";
 import { readRepo, repoName, REPO_REFUSAL_SAYS } from "@/features/studio/repoImport";
 import { boardIsHere, keepBringForBoard, placeBring } from "@/features/studio/bringRepo";
+import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
 import type { BranchRow } from "@/app/api/studio/branches/route";
@@ -331,6 +332,9 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
   const bringIn = () => {
     const want = bring.trim();
     if (!want || pulling) return;
+    /* Never quietly on a stale page: a press on an older build than the
+       server loads code the server no longer has, and ends in nothing. */
+    if (staleBuild()) { setSaid(staleSays()); return; }
     const repo = readRepo(want);
     if (!repo) { setSaid(REPO_REFUSAL_SAYS["not-a-repo"]); return; }
     if (!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN) { setSaid(REPO_REFUSAL_SAYS["no-token"]); return; }
