@@ -233,17 +233,29 @@ function SiteCard({ project, active }: { project: Project; active: boolean }) {
 /* The repository side                                                 */
 /* ------------------------------------------------------------------ */
 
-function RepoRow({ project, active, serverRepo, serverBranch }: { project: Project; active: boolean; serverRepo: string | null; serverBranch: string }) {
+/*
+ * THE SERVER'S REPOSITORY IS NOT THIS SITE'S, and this row never wears it.
+ *
+ * It used to sit in the empty field as the placeholder, with the server's
+ * branch filled in beside it and a line saying Publish would push there. A
+ * brand new site read as already aimed at the real repository, because it
+ * was. A site with none says so now, and its first publish makes one of its
+ * own. The field keeps an edit on blur as well as on Enter and the button:
+ * a field that shows a value is that value.
+ */
+function RepoRow({ project, active }: { project: Project; active: boolean }) {
   const { setRepo } = useBuilds();
+  const saveFailed = useBuilds((s) => s.saveFailed);
   const [draft, setDraft] = React.useState(repoLabel(project));
-  const [branch, setBranch] = React.useState(project.repo?.branch ?? serverBranch);
+  const [branch, setBranch] = React.useState(project.repo?.branch ?? "main");
   const [saved, setSaved] = React.useState(false);
 
-  React.useEffect(() => { setDraft(repoLabel(project)); setBranch(project.repo?.branch ?? serverBranch); }, [project, serverBranch]);
+  React.useEffect(() => { setDraft(repoLabel(project)); setBranch(project.repo?.branch ?? "main"); }, [project]);
 
   const parsed = parseRepo(draft);
-  const changed = draft.trim() !== repoLabel(project) || branch.trim() !== (project.repo?.branch ?? serverBranch);
+  const changed = draft.trim() !== repoLabel(project) || branch.trim() !== (project.repo?.branch ?? "main");
   const commit = () => {
+    if (!changed) return;
     if (!draft.trim()) { setRepo(project.id, undefined); }
     else if (parsed) { setRepo(project.id, { ...parsed, branch: branch.trim() || "main" }); }
     else return;
@@ -263,8 +275,9 @@ function RepoRow({ project, active, serverRepo, serverBranch }: { project: Proje
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
-          placeholder={serverRepo ?? "owner/name"}
+          placeholder="owner/name"
           spellCheck={false}
           className="h-7 w-52 text-xs"
           aria-label={`Repository for ${project.name}`}
@@ -273,6 +286,7 @@ function RepoRow({ project, active, serverRepo, serverBranch }: { project: Proje
         <Input
           value={branch}
           onChange={(e) => setBranch(e.target.value)}
+          onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
           placeholder="main"
           spellCheck={false}
@@ -299,12 +313,12 @@ function RepoRow({ project, active, serverRepo, serverBranch }: { project: Proje
       <p className="mt-1.5 text-[11px] text-fg-muted">
         {draft.trim() && !parsed ? (
           <span className="text-down">A repository is owner/name.</span>
+        ) : saveFailed ? (
+          <span className="text-down">This browser would not keep the change: its storage is full. Remove a site or its pictures, then set it again.</span>
         ) : project.repo ? (
           <>Publish pushes this site to <span className="text-fg">{repoLabel(project)}</span> on <span className="text-fg">{project.repo.branch}</span>.</>
-        ) : serverRepo ? (
-          <>No repository of its own, so Publish uses the server&rsquo;s: <span className="text-fg">{serverRepo}</span> on {serverBranch}.</>
         ) : (
-          <>Nothing set here and nothing on the server, so Publish can only hand you the files.</>
+          <span data-repo-none="">No repository of its own yet. The first Publish makes a private one named after this site, or set one here.</span>
         )}
       </p>
     </li>
@@ -318,7 +332,6 @@ function RepoRow({ project, active, serverRepo, serverBranch }: { project: Proje
 export function BuildsPage() {
   const { projects, activeId, adopt, create } = useBuilds();
   const [view, setView] = React.useState("sites");
-  const [server, setServer] = React.useState<{ repo: string | null; branch: string } | null>(null);
 
   // The store persists itself, and the first visit has to take whatever the
   // Builder is already holding rather than list nothing beside it.
@@ -327,16 +340,6 @@ export function BuildsPage() {
     adopt();
   }, [adopt]);
 
-  React.useEffect(() => {
-    let alive = true;
-    void fetch("/api/studio/publish", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((s: { github?: { repo?: string | null; branch?: string } }) => {
-        if (alive) setServer({ repo: s.github?.repo ?? null, branch: s.github?.branch ?? "main" });
-      })
-      .catch(() => { if (alive) setServer(null); });
-    return () => { alive = false; };
-  }, []);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10" {...ctxProps("builds", "page", null)}>
@@ -400,8 +403,6 @@ export function BuildsPage() {
               key={p.id}
               project={p}
               active={p.id === activeId}
-              serverRepo={server?.repo ?? null}
-              serverBranch={server?.branch ?? "main"}
             />
           ))}
         </ul>
