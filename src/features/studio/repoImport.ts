@@ -24,8 +24,12 @@
  *
  * WHAT IS NOT DONE, said here rather than found out: a repository that has
  * no page in it to open — a framework project that has to be built first —
- * cannot be read this way, and the panel says so and names what it found
- * instead of quietly bringing in nothing.
+ * cannot be read from its files, and nothing here builds it. What CAN be
+ * done for it is to read the address it is deployed at, which is the same
+ * page a visitor sees: GitHub's own About line on the repository names it,
+ * and so does this Builder for a site it published. `noPageSays` is the
+ * sentence for the case where neither does, and it names what was found
+ * and what he can do about it instead of quietly bringing in nothing.
  *
  * Pure: no fetch, no browser, no keys. `tests/repo-import.mjs` holds it.
  */
@@ -42,10 +46,24 @@ export const REPO_REFUSAL_SAYS: Record<RepoRefusal, string> = {
   "not-a-repo": "That is not a repository. It wants to be owner/name, or the address of one on GitHub.",
   "no-token": "This reads the repository with your own GitHub token, and there is not one saved yet. Add one under Keys (⌘⇧K).",
   "no-page":
-    "There is no page in this repository to open. It is a project that has to be built before it is a website, and nothing here builds it — bring in the address it is deployed at instead.",
+    "There is no page in this repository to open. It is sources that have to be built before they are a website, and nothing here builds them. Put the address it is deployed at under About on GitHub, or type that address under Read the page, and it comes in from there.",
   "too-big": "That repository has more in it than this reads. It is meant for the site, not the whole project.",
   github: "GitHub would not hand over the files.",
 };
+
+/**
+ * The sentence for a repository with no page in it.
+ *
+ * Three facts, in the order he needs them: which repository, what is in it
+ * instead of a page, and what happens next. With a deployed address known
+ * the next step is taken rather than described, so this only says where
+ * the page is being read from; without one it says what would give it one.
+ */
+export function noPageSays(repo: Repo, kinds: readonly string[], deployedAt: string | null): string {
+  const found = kinds.length ? ` What is in it: ${kinds.slice(0, 8).join(", ")}.` : "";
+  if (deployedAt) return `There is no page in the sources of ${repoName(repo)}, so it is read at the address it is deployed at: ${deployedAt}.${found}`;
+  return `${REPO_REFUSAL_SAYS["no-page"]}${found}`;
+}
 
 export interface Repo {
   owner: string;

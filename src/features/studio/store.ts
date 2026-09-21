@@ -57,6 +57,7 @@ import type { Picture } from "./pictures";
 import { liveAfterPrune, pruneThread as cutThread, THREAD_LIMIT, type Thread, type ThreadDoc } from "./threads";
 import { QUEUED } from "./formation";
 import { trimQueue, type DrawJob } from "./queue";
+import { activeRepo } from "@/features/builds/store";
 import { boundaryIn, inheritedFrom, lockLayout, placeLocked, spaceOf, tidyBoundary } from "./space";
 import type { Locked, Placed, Plan, Space } from "./space";
 
@@ -521,18 +522,17 @@ interface StudioState extends Doc {
    * same disease as a dead control.
    */
   drawKind: DrawKind;
-  /**
-   * WHICH REPOSITORY THIS SITE POINTS AT, as `owner/name`.
+  /*
+   * WHICH REPOSITORY THIS SITE POINTS AT is not held here.
    *
-   * His words: "how do i create a new repo from the site, it should be
-   * apparent to connect repo, this should be what the github icon does".
-   * Connecting was supported on the wire the whole time — `publish` takes a
-   * repo from the browser and the server decides whether it may go there —
-   * and nothing on screen let him name one, so the choice had nowhere to
-   * live. Here it is. Null means the server's own `GITHUB_REPO`, which is
-   * what every publish used before there was a choice.
+   * It was, as `siteRepo`, and that was the bug: the GitHub control wrote
+   * the choice here while the Sites list, the Builds page, Publish and the
+   * Brief all read `project.repo` on the builds store, which only a publish
+   * wrote. A site connected and never published showed "no repository"
+   * however many times it was connected. The builds store is the one place
+   * now; read it with `activeRepo()` or `useSiteRepo()`, and the old value
+   * a saved document still carries is copied across once, on load.
    */
-  siteRepo: string | null;
   /**
    * The branch this site's edits go to while it has a repository.
    *
@@ -847,7 +847,6 @@ interface StudioState extends Doc {
   setTool: (t: Tool) => void;
   setInk: (patch: { hue?: number; width?: number }) => void;
   setDrawKind: (kind: DrawKind) => void;
-  setSiteRepo: (repo: string | null) => void;
   setZoom: (z: number) => void;
   /** Set by the board's fit only: floored at `FIT_MIN`, not `ZOOM_MIN`. */
   setFitZoom: (z: number) => void;
@@ -1267,7 +1266,7 @@ export const useStudio = create<StudioState>()(
              is an edit by definition, so this is where a site with a
              repository and no open branch takes one. Named by the site and
              the day, so two sites and two days never collide. */
-          ...(s.siteRepo && !s.siteBranch ? { siteBranch: `edit/${(s.brief?.name || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "site"}-${new Date().toISOString().slice(0, 10)}` } : {}),
+          ...(activeRepo() && !s.siteBranch ? { siteBranch: `edit/${(s.brief?.name || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "site"}-${new Date().toISOString().slice(0, 10)}` } : {}),
         }));
       };
       /*
@@ -1308,7 +1307,6 @@ export const useStudio = create<StudioState>()(
         inkHue: 265,
         inkWidth: 3,
         drawKind: "part",
-        siteRepo: null,
         siteBranch: null,
         zoom: 1,
         fitAt: ZOOM_MIN,
@@ -1889,7 +1887,6 @@ export const useStudio = create<StudioState>()(
         setTool: (t) => set({ tool: t }),
         setInk: (patch) => set((s) => ({ inkHue: patch.hue ?? s.inkHue, inkWidth: patch.width ?? s.inkWidth })),
         setDrawKind: (kind) => set({ drawKind: kind }),
-        setSiteRepo: (repo) => set({ siteRepo: repo?.trim() || null }),
         setSiteBranch: (b) => set({ siteBranch: b?.trim() || null }),
         /*
          * The zoom key's floor is its own, EXCEPT that it is never above the
@@ -2546,9 +2543,9 @@ function docOnly(s: StudioState) {
         menuSpin: s.menuSpin,
         recentColours: s.recentColours,
         frameWidth: s.frameWidth,
-        /* Which repository this site points at is part of the site, not part
-           of where somebody is looking, so it is saved with the document. */
-        siteRepo: s.siteRepo,
+        /* The open edit branch is part of the site, not part of where
+           somebody is looking, so it is saved with the document. Which
+           repository it belongs to is the builds store's, not this one's. */
         siteBranch: s.siteBranch,
   };
 }
@@ -2562,7 +2559,11 @@ function docOnly(s: StudioState) {
  * work show through the gaps".
  */
 function mergeDoc(persisted: unknown, current: StudioState): StudioState {
-        const p = (persisted ?? {}) as Partial<StudioState>;
+        const { siteRepo: was, ...p } = (persisted ?? {}) as Partial<StudioState> & { siteRepo?: unknown };
+        /* A document saved before the builds store held the repository still
+           names one. Kept aside for the builds store to copy across, and
+           never spread into the state, where nothing reads it any more. */
+        carried = typeof was === "string" && was.trim() ? was.trim() : null;
         return {
           ...current,
           ...p,
@@ -2659,6 +2660,18 @@ const PRISTINE: ReturnType<typeof docOnly> = JSON.parse(JSON.stringify(docOnly(u
  * site that has never been saved. Null is not a failure; it is the answer,
  * and the answer is a blank board.
  */
+/**
+ * The repository a document named for itself, before the builds store was
+ * the one place for it. Set by every load, read once by the builds store's
+ * copy across, and gone after that.
+ */
+let carried: string | null = null;
+export function takeCarriedRepo(): string | null {
+  const it = carried;
+  carried = null;
+  return it;
+}
+
 export function swapDoc(raw: string | null): void {
   studioSwapping = true;
   try {

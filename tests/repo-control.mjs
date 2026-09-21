@@ -62,9 +62,19 @@ check("and every way it can fail says which one in plain words",
   ["auth", "scope", "taken", "upstream", "network", "name"].every((r) => new RegExp(`reason: "${r}"`).test(route)),
   ["auth", "scope", "taken", "upstream", "network", "name"].filter((r) => !new RegExp(`reason: "${r}"`).test(route)).join(", ") || "all six");
 
+/* One place. The document used to keep its own `siteRepo`, which nothing
+   that shows a site's repository read; the builds store is where the Sites
+   list, the Builds page and Publish look, so it is where a connect writes. */
 const store = readFileSync("src/features/studio/store.ts", "utf8");
-check("the choice is kept with the document, because it is part of the site",
-  /siteRepo: string \| null;/.test(store) && /siteRepo: s\.siteRepo,/.test(store));
+const builds = readFileSync("src/features/builds/store.ts", "utf8");
+const button = readFileSync("src/features/studio/GithubButton.tsx", "utf8");
+check("the choice is kept on the site in the builds store, the one place everything reads",
+  /repo\?: \{ owner: string; name: string; branch: string \}/.test(builds) && /export const activeRepo/.test(builds));
+check("and not on the document any more", !/siteRepo: s\.siteRepo/.test(store) && !/setSiteRepo/.test(store));
+check("connecting and making both write there, with the branch",
+  /useBuilds\.getState\(\)\.setRepo\(project\.id, repo\)/.test(button) && !/setSiteRepo/.test(button) && /connect\(r\.name, r\.branch/.test(button) && /connect\(String\(a\.name\), String\(a\.branch/.test(button));
+check("an edit opens its branch by asking the same place", /activeRepo\(\) && !s\.siteBranch/.test(store));
+check("a document that still names one is copied across once", /takeCarriedRepo/.test(store) && /function carryRepos/.test(builds));
 
 /* ------------------------------------------------------------------ */
 /* 3. On the bar                                                       */

@@ -37,9 +37,10 @@ import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
-import { categoryFor, readRepo, repoName, REPO_REFUSAL_SAYS, type Repo } from "./repoImport";
+import { categoryFor, noPageSays, readRepo, repoName, REPO_REFUSAL_SAYS, type Repo } from "./repoImport";
 import { readRepoSite, refused } from "./repoRun";
 import { heldKeys } from "@/features/keys/store";
+import { useBuilds } from "@/features/builds/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio, type StudioNode } from "./store";
@@ -47,7 +48,10 @@ import { lockNow } from "./surfaceRun";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
 
 type Source =
-  | { kind: "site"; url: string; host: string }
+  /* A site read at its address. `repo` is set when the address stood in
+     for a repository of sources, so what lands goes into that
+     repository's own category exactly as its files would have. */
+  | { kind: "site"; url: string; host: string; repo?: Repo }
   | { kind: "zip"; file: File; name: string; entry: string }
   /* A repository is a zip once it is here: its files were fetched by this
      browser with his own token and packed on the way in, so everything
@@ -94,7 +98,22 @@ const askZip = (file: File, extra: Record<string, string> = {}) => {
   return ask("/api/studio/zip", { method: "POST", body: form });
 };
 
-const nameOf = (s: Source) => (s.kind === "site" ? s.host.replace(/^www\./, "") : s.name);
+const nameOf = (s: Source) => (s.kind === "site" ? (s.repo ? repoName(s.repo) : s.host.replace(/^www\./, "")) : s.name);
+/** The repository a source stands for, whether its files or its address were read. */
+const repoOf = (s: Source): Repo | null => (s.kind === "repo" ? s.repo : s.kind === "site" ? (s.repo ?? null) : null);
+
+/**
+ * Where this Builder itself put that repository, if it did.
+ *
+ * A site published from here records the address it went live at, beside
+ * the repository it went to. Bringing that repository back in, this
+ * Builder's own included, reads the page there when GitHub's About line
+ * does not say.
+ */
+function deployedBy(r: Repo): string | null {
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  return useBuilds.getState().projects.find((p) => p.repo && same(p.repo.owner, r.owner) && same(p.repo.name, r.name) && p.live?.url)?.live?.url ?? null;
+}
 
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
@@ -174,7 +193,34 @@ export function FromASite({ space }: { space: Space }) {
     if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
     setStage({ at: "busy", says: `Opening ${repoName(r)}…` });
     const got = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }));
-    if (refused(got)) { refuse(got.says, r); return; }
+    if (refused(got)) {
+      /*
+       * SOURCES ARE READ AT THE ADDRESS THEY ARE DEPLOYED AT.
+       *
+       * He brought this Builder's own repository in and expected its page
+       * to land, editable. Its files are sources with no page in them, and
+       * the answer used to be a sentence telling him to type the deployed
+       * address instead: a thing the software can do itself. So a
+       * repository with no page falls through to the address GitHub's About
+       * line names, or to the address this Builder published that same
+       * repository to, and comes in from there as the page a visitor sees.
+       * Only with no address anywhere does it say so and stop.
+       */
+      const mine = got.no === "no-page" ? deployedBy(r) : null;
+      const at = got.no === "no-page" ? [got.deployedAt, mine].map((a) => (a ? allowed(a) : null)).find((a) => a?.ok) : null;
+      if (!at?.ok) { refuse(got.says, r); return; }
+      setStage({ at: "busy", says: noPageSays(r, [], at.url) });
+      const read = await askSite({ url: at.url });
+      if (!read.ok) { refuse(`${noPageSays(r, [], at.url)} That page could not be read: ${String(read.message ?? "no answer")}`, r); return; }
+      setStage({
+        at: "picking",
+        source: { kind: "site", url: String(read.url), host: String(read.host), repo: r },
+        page: read.page as { width: number; height: number; shot: string },
+        candidates: (read.candidates as Block[]) ?? [],
+        scripts: false,
+      });
+      return;
+    }
     setStage({ at: "busy", says: `Reading the page in ${r.name}…` });
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
@@ -319,8 +365,9 @@ export function FromASite({ space }: { space: Space }) {
      * repository. They are in the shelf from this moment, droppable again
      * anywhere on the board, and they are saved with the site.
      */
-    if (source.kind === "repo") {
-      const cat = categoryFor(source.repo);
+    const from = repoOf(source);
+    if (from) {
+      const cat = categoryFor(from);
       const parts = landed.map((made, i) => {
         const at = fit.places[i]!;
         const patch = made.patch;
@@ -340,7 +387,9 @@ export function FromASite({ space }: { space: Space }) {
         };
       });
       useStudio.getState().bringIn(
-        { id: cat.id, label: cat.label, hue: cat.hue, from: source.name, page: source.entry, at: Date.now() },
+        /* Read from its files: the zip and the page in it. Read at its
+           address: that address, and the page is the address too. */
+        { id: cat.id, label: cat.label, hue: cat.hue, from: source.kind === "site" ? source.url : source.name, page: source.kind === "site" ? source.url : source.entry, at: Date.now() },
         parts,
       );
     }
@@ -354,8 +403,8 @@ export function FromASite({ space }: { space: Space }) {
     setStage({
       at: "said",
       says: `${saidOf(landed, nameOf(source), scripts)}${
-        source.kind === "repo"
-          ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(source.repo).label}” — drop any of them anywhere, as many times as you like.`
+        from
+          ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(from).label}” — drop any of them anywhere, as many times as you like.`
           : ""
       }`,
     });
