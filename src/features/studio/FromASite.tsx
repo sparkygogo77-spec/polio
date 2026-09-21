@@ -60,10 +60,11 @@ type Source =
      category named after it. */
   | { kind: "repo"; repo: Repo; file: File; name: string; entry: string };
 
+type Picking = { at: "picking"; source: Source; page: { width: number; height: number; shot: string }; candidates: Block[]; scripts: boolean };
 type Stage =
   | { at: "nothing" }
   | { at: "busy"; says: string }
-  | { at: "picking"; source: Source; page: { width: number; height: number; shot: string }; candidates: Block[]; scripts: boolean }
+  | Picking
   | { at: "said"; says: string };
 
 /** Ask a route, with a deadline of our own and a sentence for every ending. */
@@ -172,7 +173,10 @@ export function FromASite({ space }: { space: Space }) {
     const which = of ?? repo;
     const line = `${which ? repoName(which) : "That repository"}: ${says}`;
     setStage({ at: "said", says: line });
-    ctx.publish({ key: `studio:repo:${which?.name ?? "?"}`, title: "Could not bring the repository in", body: line, level: "error", source: "studio", toast: true });
+    /* Long enough to read: a refusal that leaves in under two seconds,
+       while the panel it also sits on is a narrow aside he may not have
+       open, is the same as no refusal. */
+    ctx.publish({ key: `studio:repo:${which?.name ?? "?"}`, title: "Could not bring the repository in", body: line, level: "error", source: "studio", toast: { durationMs: 9000 } });
     play("deny");
   };
 
@@ -212,7 +216,7 @@ export function FromASite({ space }: { space: Space }) {
       setStage({ at: "busy", says: noPageSays(r, [], at.url) });
       const read = await askSite({ url: at.url });
       if (!read.ok) { refuse(`${noPageSays(r, [], at.url)} That page could not be read: ${String(read.message ?? "no answer")}`, r); return; }
-      setStage({
+      await landWhole({
         at: "picking",
         source: { kind: "site", url: String(read.url), host: String(read.host), repo: r },
         page: read.page as { width: number; height: number; shot: string },
@@ -224,13 +228,31 @@ export function FromASite({ space }: { space: Space }) {
     setStage({ at: "busy", says: `Reading the page in ${r.name}…` });
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
-    setStage({
+    await landWhole({
       at: "picking",
       source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: String(zr.entry) },
       page: zr.page as { width: number; height: number; shot: string },
       candidates: (zr.candidates as Block[]) ?? [],
       scripts: !!zr.scripts,
     });
+  };
+
+  /*
+   * BRINGING A REPOSITORY IN IS THE WHOLE GESTURE, not the first half of one.
+   *
+   * Driven by hand on the live site: Bring it read the repository, fell
+   * through to the address it is deployed at, opened the page there, and
+   * then stood at the picking stage on this panel waiting for "Take the
+   * whole page", which he had no reason to know about. What he saw was
+   * nothing on the board, no refusal and no question. A repository named
+   * on the GitHub control is a page asked for whole, so it is taken whole
+   * here, and the panel is left saying what landed. A page read by its
+   * address or a zip opened by hand still offers the choice, because those
+   * were pointed at one thing as often as at the whole.
+   */
+  const landWhole = async (picking: Picking) => {
+    setStage(picking);
+    await takeAll(picking);
   };
 
   const read = async () => {
@@ -325,10 +347,11 @@ export function FromASite({ space }: { space: Space }) {
    * this surface is the page, the way a surface drawn here is its
    * drawing.
    */
-  const takeAll = async () => {
-    if (stage.at !== "picking") return;
-    const { source, scripts } = stage;
-    const blocks = pageBlocks(stage.candidates);
+  const takeAll = async (given?: Picking) => {
+    const picked = given ?? stage;
+    if (picked.at !== "picking") return;
+    const { source, scripts } = picked;
+    const blocks = pageBlocks(picked.candidates);
     if (!blocks.length) { setStage({ at: "said", says: `Nothing on the page in ${nameOf(source)} could be made into a part.` }); return; }
     play("tick");
     setStage({ at: "busy", says: `Measuring ${blocks.length} block${blocks.length === 1 ? "" : "s"}…` });

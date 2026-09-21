@@ -42,6 +42,14 @@ export interface Shape {
 interface Builds {
   projects: Project[];
   activeId: string | null;
+  /**
+   * The last write to this browser's storage failed, so what is on screen
+   * is not what a reload brings back. A full quota is the usual cause: the
+   * documents and pictures of every site share it. Said on the Builds page
+   * rather than swallowed, because a setting that looks kept and is not is
+   * the worst kind of lost.
+   */
+  saveFailed: boolean;
   /** First run: take whatever is already in the Builder rather than lose it. */
   adopt: () => void;
   create: (name?: string) => string;
@@ -104,6 +112,7 @@ export const useBuilds = create<Builds>()(
     (set, get) => ({
       projects: [],
       activeId: null,
+      saveFailed: false,
 
       adopt: () => {
         if (get().projects.length) { carryRepos(); return; }
@@ -216,7 +225,25 @@ export const useBuilds = create<Builds>()(
       setLive: (id, url) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, live: { url, at: Date.now() } } : p)) })),
     }),
-    { name: "builder.builds", storage: createJSONStorage(() => localStorage), skipHydration: true },
+    {
+      name: "builder.builds",
+      /* The same storage, but a write that fails is said rather than lost:
+         the persister swallows the throw, and a list that reads as kept
+         and comes back as before on reload was the report from the field.
+         Only a change of outcome sets state, so a failing write does not
+         set, persist, fail and set again without end. */
+      storage: createJSONStorage(() => ({
+        getItem: (k) => localStorage.getItem(k),
+        removeItem: (k) => localStorage.removeItem(k),
+        setItem: (k, v) => {
+          let failed = false;
+          try { localStorage.setItem(k, v); } catch { failed = true; }
+          if (useBuilds.getState().saveFailed !== failed) useBuilds.setState({ saveFailed: failed });
+        },
+      })),
+      partialize: (s) => ({ projects: s.projects, activeId: s.activeId }) as Builds,
+      skipHydration: true,
+    },
   ),
 );
 

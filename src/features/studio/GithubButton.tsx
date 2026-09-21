@@ -29,7 +29,7 @@ import { publishStatus, type PublishStatus } from "@/features/studio/agent";
 import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
-import { heldKeys } from "@/features/keys/store";
+import { heldKeys, useKeys } from "@/features/keys/store";
 import { readRepo, repoName, REPO_REFUSAL_SAYS } from "@/features/studio/repoImport";
 import type { BranchRow } from "@/app/api/studio/branches/route";
 
@@ -55,21 +55,28 @@ export function GithubButton() {
   const activeId = useBuilds((s) => s.activeId);
   const project = projects.find((p) => p.id === activeId) ?? null;
 
+  /*
+   * WHETHER A PUBLISH CAN PUSH is asked again whenever the keys change.
+   *
+   * It was asked once, when the bar mounted. A token put in the Keys panel
+   * after that left this saying "no token, so a publish cannot push" while
+   * the panel below it listed his private repositories with that very
+   * token: both read the same held key, one of them a page load too early.
+   */
   React.useEffect(() => {
     let alive = true;
-    void publishStatus().then((s) => { if (alive) setStatus(s); });
-    return () => { alive = false; };
+    const ask = () => { void publishStatus().then((s) => { if (alive) setStatus(s); }); };
+    ask();
+    const off = useKeys.subscribe(ask);
+    return () => { alive = false; off(); };
   }, []);
 
-  /* The site's own repository first, then the server's, then whatever
-     `site.config.ts` says. The first is the one a publish actually uses. */
+  /* THE SITE'S OWN REPOSITORY, AND NOTHING ELSE. The server's used to stand
+     in here when the site had none, so a scratch site read as aimed at the
+     real repository, and it was. A site with none says so, and its first
+     publish makes one of its own. */
   const mine = project?.repo ? `${project.repo.owner}/${project.repo.name}` : null;
-  /* Through `github`, not into it. `status?.github.repo` guards the reply and
-     not the field inside it, which is a crash for any answer that is an
-     object without a `github` on it. `publishStatus` will not hand one over
-     any more, but a control in the top bar is the wrong place to find out
-     that something upstream was wrong about that. */
-  const name = mine ?? status?.github?.repo ?? null;
+  const name = mine;
   const url = name ? `https://github.com/${name}` : (site.repository ?? null);
   const canPush = status?.github?.configured === true;
   const where = status?.github?.token ?? null;
@@ -79,8 +86,8 @@ export function GithubButton() {
       ? `${name} — no GitHub token, so Publish cannot push. Put one in the Keys panel, or set GITHUB_TOKEN on the server.`
       : "No GitHub token yet. Put one in the Keys panel and the first Publish makes this site a repository of its own."
     : name
-      ? `${name} · ${project?.repo?.branch ?? status?.github?.branch ?? "main, assumed"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
-      : `The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
+      ? `${name} · ${project?.repo?.branch ?? "main"} — Publish pushes here, with ${where === "browser" ? "your own token" : "the server's token"}.`
+      : `No repo of its own yet. The first Publish makes a private repository named after this site and pushes to it, with ${where === "browser" ? "your own token" : "the server's token"}.`;
 
   /* Nothing to open and nothing yet to describe: before a site is published
      and with no token anywhere, this button has nothing to say. */
@@ -91,7 +98,7 @@ export function GithubButton() {
       open={open}
       onOpenChange={setOpen}
       align="end"
-      content={<RepoPanel own={mine} server={status?.github?.repo ?? null} branch={project?.repo?.branch ?? status?.github?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
+      content={<RepoPanel own={mine} branch={project?.repo?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
     >
     <Tooltip content={label}>
       <Button
@@ -151,9 +158,9 @@ export function GithubButton() {
  * No key of his is stored here. The token rides with the call out of the
  * Keys panel, in his browser, exactly as it does for a publish.
  */
-function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | null; server: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
-  /* The site's own first, the server's otherwise: the one a publish uses. */
-  const pointsAt = own ?? server;
+function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
+  /* The site's own, or nothing: there is no other repository a publish goes to. */
+  const pointsAt = own;
   const siteName = useStudio((s) => s.brief?.name ?? "");
   const [mine, setMine] = React.useState<{ name: string; private: boolean; branch?: string }[] | null>(null);
   const [said, setSaid] = React.useState<string | null>(null);
@@ -364,9 +371,7 @@ function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | nul
         <p className="text-[10px] text-fg-muted">
           {own
             ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}`
-            : server
-              ? `A publish goes to the server's ${server} until you pick a repo below.`
-              : "The first publish makes one named after this site, unless you pick a repo below."}
+            : "The first publish makes a private one named after this site, unless you pick a repo below."}
         </p>
       </div>
 
