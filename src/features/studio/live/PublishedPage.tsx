@@ -31,19 +31,6 @@ export function PublishedPage(props: RouteProps) {
     }
   }, []);
   if (!ready) return null;
-  /* NOTHING PUBLISHED, SAID SO. The repository used to ship a sample site
-     in the published document's place, so a fresh deploy showed somebody
-     else's site here and an import of a repository that had never been
-     published copied that sample. The document ships empty now, and a
-     visitor with no document of their own is told so in words. */
-  if (!hasPublished() && useStudio.getState().nodes.length === 0) {
-    return (
-      <main data-nothing-published="" className="flex min-h-dvh flex-col items-center justify-center gap-2 px-6 text-center">
-        <h1 className="text-lg font-semibold text-fg">Nothing has been published here yet.</h1>
-        <p className="max-w-md text-sm text-fg-muted">Publish a site from the Builder and it shows here, at this address.</p>
-      </main>
-    );
-  }
   return (
     <>
       <style>{`header, footer { display: none !important; } [data-published-site] > div { height: 100dvh !important; }`}</style>

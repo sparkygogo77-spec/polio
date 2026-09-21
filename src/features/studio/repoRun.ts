@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { BLUEPRINT_MARK, BUILDER_MARK, MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { MADE_HERE, MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 
 const API = "https://api.github.com";
 
@@ -53,10 +53,6 @@ export interface RepoCopy {
   /** Pictures the document names that the repository does not hold. */
   lost: string[];
   ref: string;
-  /** The blueprint a publish writes beside the document is there too. Without it, the document was not published there. */
-  blueprint: boolean;
-  /** Which repository the document says it was published to, when a publish stamped it. */
-  stamped: string | null;
 }
 
 /**
@@ -174,8 +170,7 @@ async function copyOf(repo: Repo, token: string, ref: string, blobs: { path: str
     weight += bytes.length;
     pictures.push({ ...p, bytes });
   }
-  const to = document.publishedTo as { repo?: unknown } | undefined;
-  return { document, name, pages, parts: nodes.length, pictures, lost, ref, blueprint: blobs.some((e) => e.path === BLUEPRINT_MARK), stamped: typeof to?.repo === "string" ? to.repo : null };
+  return { document, name, pages, parts: nodes.length, pictures, lost, ref };
 }
 
 /**
@@ -220,10 +215,6 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     say(`Reading the site itself out of ${repo.owner}/${repo.name}…`);
     const copy = await copyOf(repo, token, ref, blobs, say);
     if (copy) return copy;
-    /* An empty document in a Builder is nothing published yet, and that is
-       said rather than read at an address that would show the tool's own
-       front. Any other unreadable document falls through to the page. */
-    if (paths.includes(BUILDER_MARK)) return { no: "no-site", says: `${repo.owner}/${repo.name} is a Builder with nothing published into it yet. Publish a site to it first, or bring in the address of a page.` };
     say("Its document could not be read, so the page is read instead…");
   }
 
