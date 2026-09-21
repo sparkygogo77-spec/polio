@@ -55,6 +55,7 @@ const check = (name, ok, detail = "") => {
  */
 import { readFileSync } from "node:fs";
 import { madeHere, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays } from "../src/features/studio/repoImport.ts";
+import { pageBlocks } from "../src/features/studio/zipImport.ts";
 
 check("a name that is not owner/name is not a repo", readRepo("notarepo") === null);
 check("and one that is, is read whole", (() => { const r = readRepo("him/his-site"); return !!r && repoName(r).includes("his-site"); })(), JSON.stringify(readRepo("him/his-site")));
@@ -93,6 +94,16 @@ check("a thin landing from a site made here's root names /site", /The site is at
 check("a thin landing from the published page itself says the page is small", /the published page there has little on it/.test(thinSays(2, { url: "https://x.example/site", why: "site", isMadeHere: true })));
 check("a thin landing from files says the page is small", /the page in the repository has little on it/.test(thinSays(2, { url: null, why: "none", isMadeHere: false })));
 check("three or more blocks is not thin", thinSays(3, { url: "https://x.example", why: "root", isMadeHere: false }) === "");
+
+/* Driven by hand: a repository brought in, a space named after it, and
+   twenty seconds of nothing on a panel that read "nothing in it yet". */
+const door3 = readFileSync("src/features/studio/FromASite.tsx", "utf8");
+check("the panel's stage lives outside the panel, keyed by space, so a re-mount cannot lose the line", /useSyncExternalStore\(subscribeStages, \(\) => stageOf\(space\.id\)/.test(door3) && /const STAGES = new Map<string, Stage>\(\)/.test(door3));
+check("every busy step is a toast from the board as well as a line, updated in place", /const busy = \(says: string\) => \{/.test(door3) && /ctx\.publish\(\{ key: `studio:repo:\$\{of\.name\}`, title: `\$\{repoName\(of\)\}: \$\{says\}`/.test(door3));
+check("a step that goes quiet is ended by name rather than left spinning", /STEP_PATIENCE_MS = 90_000/.test(door3) && /Nothing came back within/.test(door3));
+check("an exception anywhere in the read is an ending, said by name", /readRepository\(r\)\.catch\(\(err: unknown\) => refuse\(`stopped before it could finish:/.test(door3));
+check("and the automatic landing never passes through the picking stage", !/const landWhole = async \(picking: Picking\) => \{\n    setStage\(picking\);/.test(door3));
+check("a candidate without a box is skipped, never thrown on: this runs inside a render", (() => { try { return pageBlocks([{ box: null }, null, { selector: "x", what: "y", box: { x: 0, y: 0, w: 100, h: 50 }, words: "w" }]).length === 1; } catch { return false; } })());
 
 const run = readFileSync("src/features/studio/repoRun.ts", "utf8");
 check("the read carries the page address and the mark with the refusal", /pageAt: page\.at, pageWhy: page\.why, madeHere: made/.test(run));

@@ -135,7 +135,7 @@ await page.waitForTimeout(800);
 await bring("him/page");
 await page.waitForTimeout(1500);
 check("pressed on the Builds page, Bring it opens the board", /\/builder/.test(page.url()), page.url());
-check("and says so", await toast("Opening the board to bring him/page in") || await toast("Reading him/page"));
+check("and says so, step by step, from the board", await toast("him/page"));
 let again = landed;
 for (let i = 0; i < 90 && again.nodes === landed.nodes; i++) { await page.waitForTimeout(1000); again = await doc(); }
 check("and the page lands there, in a space of its own", again.nodes > landed.nodes && again.spaces === landed.spaces + 1, `${landed.nodes} → ${again.nodes} parts, ${again.spaces} spaces`);
@@ -199,6 +199,20 @@ for (let i = 0; i < 60; i++) {
   if (less.n > sites.list.length) break;
 }
 check("a site made here with no deployed address copies just the same", less.n === sites.list.length + 1 && less.name === "Madeless" && less.repo === "him/madeless", JSON.stringify(less));
+
+/* 3a. AN UNUSABLE REPLY IS AN ENDING. The page reads fine and then the
+   reply has candidates without boxes: that used to throw inside a render
+   and take the whole Builder down with nothing said. It ends in a
+   sentence now, naming the route and the reason. */
+await page.waitForTimeout(6500);
+await page.route("**/api/studio/element", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, url: "https://polio-two.vercel.app/", host: "polio-two.vercel.app", page: { width: 1280, height: 900, shot: "" }, candidates: [{ box: null }] }) }));
+await bring("him/deployed");
+let brokeLine = "";
+for (let i = 0; i < 40 && !/could be made into a part|stopped before it could finish|landed|blocks/.test(brokeLine); i++) { await page.waitForTimeout(1000); brokeLine = await said(); }
+check("when the page opens and its reply is unusable, the panel still ends in a sentence with the reason", /^him\/deployed: .*(could be made into a part|stopped before it could finish)/.test(brokeLine), brokeLine.slice(0, 160));
+check("and so does a toast", await toast("could be made into a part") || await toast("stopped before it could finish"));
+check("and the Builder is still standing", (await page.locator("[data-github-button]").count()) === 1);
+await page.unroute("**/api/studio/element");
 
 /* 3. Sources deployed at an address: read there, and when that fails, say so by name. */
 await page.waitForTimeout(6500);

@@ -289,6 +289,10 @@ export function pageBlocks(candidates: readonly Block[]): Block[] {
   const same = (a: Box, b: Box) => Math.abs(a.x - b.x) <= 2 && Math.abs(a.y - b.y) <= 2 && Math.abs(a.w - b.w) <= 2 && Math.abs(a.h - b.h) <= 2;
   let pool: Block[] = [];
   for (const c of candidates) {
+    /* A candidate without a box is not a block, and never a throw: this
+       runs inside a render, and a throw here took the whole Builder down
+       with nothing said. */
+    if (!c || !c.box || typeof c.box.w !== "number" || typeof c.box.h !== "number") continue;
     if (c.box.w <= 0 || c.box.h <= 0) continue;
     if (!pool.some((p) => same(p.box, c.box))) pool.push(c);
   }
