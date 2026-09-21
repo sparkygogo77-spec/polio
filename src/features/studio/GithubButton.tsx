@@ -31,6 +31,9 @@ import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys, useKeys } from "@/features/keys/store";
 import { readRepo, repoName, REPO_REFUSAL_SAYS } from "@/features/studio/repoImport";
+import { boardIsHere, keepBringForBoard, placeBring } from "@/features/studio/bringRepo";
+import { useActions } from "@/core/actions";
+import { useRouter } from "next/navigation";
 import type { BranchRow } from "@/app/api/studio/branches/route";
 
 /**
@@ -170,6 +173,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
   const [name, setName] = React.useState(() => repoNameFor(siteName));
   const siteBranch = useStudio((s) => s.siteBranch);
   const [merging, setMerging] = React.useState(false);
+  const ctx = useActions();
+  const router = useRouter();
   const [branches, setBranches] = React.useState<{ base: string; rows: BranchRow[]; more: number } | null>(null);
   const [branchSaid, setBranchSaid] = React.useState<string | null>(null);
   const [removing, setRemoving] = React.useState<string | null>(null);
@@ -333,25 +338,24 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
     try {
       /* The surface it lands on, made here so he does not have to draw one
          first. The importer resizes it to the page's own proportion. */
-      const st = useStudio.getState();
-      const id = st.addSpace({
-        pageId: st.activePageId,
-        boundary: [[240, 160], [1240, 160], [1240, 860], [240, 860]],
-        prompt: "",
-        label: repoName(repo),
-      });
-      st.setBringRepo({ space: id, repo: want });
       /*
-       * AND PICKS IT. Measured with a token held: pressing Bring it saved a
-       * space, closed this panel, and then nothing — no request ever left
-       * the browser. The importer that reads `bringRepo` lives on the
-       * space's own panel, and that panel only mounts when the space is
-       * picked. `addSpace` picks nothing, so the hand-off sat in memory and
-       * a reload dropped it. Picking the space here is what makes the panel
-       * mount, the effect fire and the import actually run, on the panel
-       * that is now on screen where his hand is.
+       * ON THE BOARD, OR ON THE WAY TO IT. This control is on every page's
+       * top bar, the Builds page included, and pressed there it used to put
+       * a space into a store that was not loaded, with no board to show it
+       * and no panel to run the import: nothing landed and nothing was
+       * said. Now the request is placed when the board is here, and kept
+       * for the board and the Builder opened when it is not. Said as a
+       * toast either way, because this panel closes and the space's own
+       * panel is a narrow aside he may not be looking at.
        */
-      st.setSelection([id]);
+      if (boardIsHere()) {
+        placeBring(want);
+        ctx.publish({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands in a space on the board, and the space's panel says how it is going.", level: "info", source: "studio", toast: { durationMs: 5000 } });
+      } else {
+        keepBringForBoard(want);
+        ctx.publish({ key: `studio:repo:${repo.name}`, title: `Opening the board to bring ${repoName(repo)} in`, body: "It lands in a space there, and the space's panel says how it is going.", level: "info", source: "studio", toast: { durationMs: 5000 } });
+        router.push("/builder");
+      }
       onDone();
     } finally {
       setPulling(false);

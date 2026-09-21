@@ -352,11 +352,17 @@ export function FromASite({ space }: { space: Space }) {
     if (picked.at !== "picking") return;
     const { source, scripts } = picked;
     const blocks = pageBlocks(picked.candidates);
-    if (!blocks.length) { setStage({ at: "said", says: `Nothing on the page in ${nameOf(source)} could be made into a part.` }); return; }
+    /* Every ending of a repository's import is a toast as well as a line
+       on this panel: this panel is a narrow aside, and the toast is what
+       he sees from the board. A page the importer can find no blocks on
+       is usually an app rather than a page of content, so that is said. */
+    const of = repoOf(source);
+    const tell = (says: string) => { if (of) refuse(says, of); else setStage({ at: "said", says }); };
+    if (!blocks.length) { tell(`Nothing on the page in ${nameOf(source)} could be made into a part.${source.kind === "site" ? ` The page at ${source.url} may be an app rather than a page of content. Try the address of a published page instead.` : ""}`); return; }
     play("tick");
     setStage({ at: "busy", says: `Measuring ${blocks.length} block${blocks.length === 1 ? "" : "s"}…` });
     const got = await measure(source, blocks.flatMap(selectorsOf));
-    if (typeof got === "string") { setStage({ at: "said", says: got }); return; }
+    if (typeof got === "string") { tell(got); return; }
     /* A block is one reading, or a run of small boxes read together and
        merged into one: the page's own sections, where the page gave them
        no box of their own. */
@@ -365,7 +371,7 @@ export function FromASite({ space }: { space: Space }) {
       .map((b) => selectorsOf(b).map((sel) => bySelector.get(sel)).filter((r): r is ElementReading => !!r))
       .filter((rs) => rs.length > 0)
       .map((rs) => mergeReadings(rs));
-    if (!readings.length) { setStage({ at: "said", says: `Nothing on the page in ${nameOf(source)} could be measured.` }); return; }
+    if (!readings.length) { tell(`Nothing on the page in ${nameOf(source)} could be measured.`); return; }
 
     const store = useStudio.getState();
     const live = store.spaces.find((sp) => sp.id === space.id) ?? space;
@@ -423,6 +429,7 @@ export function FromASite({ space }: { space: Space }) {
     // where it was asked for, with the parts on the board beside it.
     useStudio.getState().setSelection([space.id]);
     play("confirm");
+    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${landed.length} block${landed.length === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: `In the space named after it, and in the shelf under “${categoryFor(of).label}”.`, level: "success", source: "studio", toast: { durationMs: 7000 } });
     setStage({
       at: "said",
       says: `${saidOf(landed, nameOf(source), scripts)}${
