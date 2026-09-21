@@ -332,12 +332,17 @@ export function FromASite({ space }: { space: Space }) {
       });
       return;
     }
-    busy(`Reading the page in ${r.name}…`);
+    /* A page built from source says so, and what the reading did: which parts opened, which stayed closed on a first view. */
+    if (got.source) {
+      const n = got.source.notes;
+      const opened = [...new Set(n.opened)];
+      busy(`From its source, ${got.source.page}: ${n.bands.length} bands${opened.length ? `, opened ${opened.join(", ")}` : ""}${n.closed.length ? `; ${[...new Set(n.closed)].join(", ")} closed on a first view` : ""}.`);
+    } else busy(`Reading the page in ${r.name}…`);
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
       at: "picking",
-      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: String(zr.entry) },
+      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: got.source?.page ?? String(zr.entry) },
       page: zr.page as { width: number; height: number; shot: string },
       candidates: (zr.candidates as Block[]) ?? [],
       scripts: !!zr.scripts,
@@ -635,6 +640,10 @@ export function FromASite({ space }: { space: Space }) {
     setStage({
       at: "said",
       says: `${saidOf(landed, nameOf(source), scripts)}${
+        source.kind === "repo" && /\.(tsx|jsx)$/.test(source.entry)
+          ? ` From its source, ${source.entry}: the page was built as a first view of the site, before anything is clicked or connected.`
+          : ""
+      }${
         from
           ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(from).label}” — drop any of them anywhere, as many times as you like.`
           : ""
