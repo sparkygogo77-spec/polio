@@ -38,7 +38,9 @@ import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
-import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
+import { isAt, isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
+import { CARRY_MAX_BYTES, carriedSays, routeSays, sumNotes, type Route } from "./carry";
+import type { Carried } from "./siteRead";
 import { keep } from "./pictures";
 import { repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
@@ -52,14 +54,14 @@ type Source =
   /* A site read at its address. `repo` is set when the address stood in
      for a repository of sources, so what lands goes into that
      repository's own category exactly as its files would have. */
-  | { kind: "site"; url: string; host: string; repo?: Repo; read?: { why: "site" | "root"; isMadeHere: boolean } }
+  | { kind: "site"; url: string; host: string; repo?: Repo; read?: { why: "site" | "root"; isMadeHere: boolean }; route?: Route }
   | { kind: "zip"; file: File; name: string; entry: string }
   /* A repository is a zip once it is here: its files were fetched by this
      browser with his own token and packed on the way in, so everything
      past that point is the zip path, unchanged. What it keeps beyond a
      zip is which repository it was, because its elements go into a
      category named after it. */
-  | { kind: "repo"; repo: Repo; file: File; name: string; entry: string };
+  | { kind: "repo"; repo: Repo; file: File; name: string; entry: string; route?: Route };
 
 type Picking = { at: "picking"; source: Source; page: { width: number; height: number; shot: string }; candidates: Block[]; scripts: boolean };
 type Stage =
@@ -117,7 +119,14 @@ function deployedBy(r: Repo): string | null {
   return useBuilds.getState().projects.find((p) => p.repo && same(p.repo.owner, r.owner) && same(p.repo.name, r.name) && p.live?.url)?.live?.url ?? null;
 }
 
+/** How a page comes in: as itself, or remade from the nearest library parts. His to choose, and remembered. */
+type How = "exact" | "parts";
+const HOW_KEY = "builder.import.how";
+const readHow = (): How => { try { return localStorage.getItem(HOW_KEY) === "parts" ? "parts" : "exact"; } catch { return "exact"; } };
+
 export function FromASite({ space }: { space: Space }) {
+  const [how, setHowState] = React.useState<How>(readHow);
+  const setHow = (h: How) => { setHowState(h); try { localStorage.setItem(HOW_KEY, h); } catch { /* remembered for this render only */ } };
   const [url, setUrl] = React.useState("");
   const [repoText, setRepoText] = React.useState("");
   const [stage, setStage] = React.useState<Stage>({ at: "nothing" });
@@ -197,8 +206,39 @@ export function FromASite({ space }: { space: Space }) {
     const token = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN ?? "";
     if (!token) { refuse(REPO_REFUSAL_SAYS["no-token"], r); return; }
     setStage({ at: "busy", says: `Opening ${repoName(r)}…` });
-    const got = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }));
+    const got = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }), { alsoAt: deployedBy(r) });
     if (isCopy(got)) { copySite(got, r); return; }
+    if (isAt(got)) {
+      /* Route two: read at its address. Route three when that fails and
+         the files hold a page, said as such; otherwise the failure. */
+      const at = allowed(got.at);
+      if (at.ok) {
+        setStage({ at: "busy", says: `${routeSays({ kind: "address", url: at.url, ownPage: got.why === "site" })} opening the page…` });
+        const read = await askSite({ url: at.url });
+        if (read.ok) {
+          await landWhole({
+            at: "picking",
+            source: { kind: "site", url: String(read.url), host: String(read.host), repo: r, read: { why: got.why, isMadeHere: false }, route: { kind: "address", url: String(read.url), ownPage: got.why === "site" } },
+            page: read.page as { width: number; height: number; shot: string },
+            candidates: (read.candidates as Block[]) ?? [],
+            scripts: false,
+          });
+          return;
+        }
+        const why = String(read.message ?? "no answer");
+        if (!got.filesToo) { refuse(`${routeSays({ kind: "address", url: at.url, ownPage: got.why === "site" })} that page could not be read: ${why}`, r); return; }
+        setStage({ at: "busy", says: `Its address could not be read (${why}), so reading its files…` });
+        const files = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }), { filesOnly: true });
+        if (refused(files) || isCopy(files) || isAt(files)) { refuse(refused(files) ? files.says : "Its files could not be read either.", r); return; }
+        await openFiles(files, r, why);
+        return;
+      }
+      if (!got.filesToo) { refuse(`${got.at} is not an address this can open, and the repository holds no page.`, r); return; }
+      const files = await readRepoSite(r, token, (says) => setStage({ at: "busy", says }), { filesOnly: true });
+      if (refused(files) || isCopy(files) || isAt(files)) { refuse(refused(files) ? files.says : "Its files could not be read.", r); return; }
+      await openFiles(files, r, `${got.at} is not an address this can open`);
+      return;
+    }
     if (refused(got)) {
       /*
        * SOURCES ARE READ AT THE ADDRESS THEY ARE DEPLOYED AT.
@@ -225,19 +265,24 @@ export function FromASite({ space }: { space: Space }) {
       if (!read.ok) { refuse(`${noPageSays(r, [], at.url, made)} That page could not be read: ${String(read.message ?? "no answer")}`, r); return; }
       await landWhole({
         at: "picking",
-        source: { kind: "site", url: String(read.url), host: String(read.host), repo: r, read: { why: made ? "site" : "root", isMadeHere: made } },
+        source: { kind: "site", url: String(read.url), host: String(read.host), repo: r, read: { why: made ? "site" : "root", isMadeHere: made }, route: { kind: "address", url: String(read.url), ownPage: made } },
         page: read.page as { width: number; height: number; shot: string },
         candidates: (read.candidates as Block[]) ?? [],
         scripts: false,
       });
       return;
     }
-    setStage({ at: "busy", says: `Reading the page in ${r.name}…` });
+    await openFiles(got, r, null);
+  };
+
+  /** Route three: the page in its files, opened and landed. */
+  const openFiles = async (got: { file: File; entry: string; ref: string }, r: Repo, addressFailed: string | null) => {
+    setStage({ at: "busy", says: `${routeSays({ kind: "files", entry: got.entry, addressFailed })} reading the page…` });
     const zr = await askZip(got.file);
     if (!zr.ok) { refuse(String(zr.message ?? "The page in that repository could not be read."), r); return; }
     await landWhole({
       at: "picking",
-      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: String(zr.entry) },
+      source: { kind: "repo", repo: { ...r, ref: got.ref }, file: got.file, name: repoName({ ...r, ref: got.ref }), entry: String(zr.entry), route: { kind: "files", entry: String(zr.entry), addressFailed } },
       page: zr.page as { width: number; height: number; shot: string },
       candidates: (zr.candidates as Block[]) ?? [],
       scripts: !!zr.scripts,
@@ -394,9 +439,67 @@ export function FromASite({ space }: { space: Space }) {
    * this surface is the page, the way a surface drawn here is its
    * drawing.
    */
+  /** Which route a source came by, for the line on the panel. */
+  const routeOf = (s: Source): Route =>
+    s.kind === "site" ? (s.route ?? { kind: "typed", url: s.url }) : s.kind === "repo" ? (s.route ?? { kind: "files", entry: s.entry }) : { kind: "zip", name: s.name };
+
+  /**
+   * THE WHOLE PAGE, CARRIED EXACTLY. Every block cloned with the styles
+   * the page computed for it, laid on the surface in the proportion it
+   * had, each one a part that holds its own markup: movable, resizable,
+   * promptable as code, and rendered in its own frame at its own scale
+   * so its lines break where they broke. Fidelity first: this is the
+   * default; remaking blocks from library parts is the other choice.
+   */
+  const carryAll = async (picked: Picking) => {
+    const { source } = picked;
+    const blocks = pageBlocks(picked.candidates);
+    const of = repoOf(source);
+    const route = routeSays(routeOf(source));
+    const tell = (says: string) => { if (of) refuse(says, of); else setStage({ at: "said", says }); };
+    if (!blocks.length) { tell(`${route} nothing on the page could be made into a block.${source.kind === "site" ? ` The page at ${source.url} may be an app rather than a page of content.` : ""}`); return; }
+    play("tick");
+    setStage({ at: "busy", says: `${route} carrying ${blocks.length} block${blocks.length === 1 ? "" : "s"}…` });
+    const selectors = blocks.map((b) => selectorsOf(b)[0]!).filter(Boolean);
+    const r = source.kind === "site"
+      ? await askSite({ url: source.url, selectors, carry: true })
+      : await askZip(source.file, { selectors: JSON.stringify(selectors), carry: "1" });
+    if (!r.ok || !Array.isArray(r.carried)) { tell(`${route} ${String(r.message ?? "the blocks could not be carried.")}`); return; }
+    const page = r.page as { width: number; height: number } | undefined;
+    const carried = (r.carried as Carried[]).filter((c) => c.html && c.box.w > 0 && c.box.h > 0);
+    if (!carried.length) { tell(`${route} nothing on the page could be carried.`); return; }
+    const tooBig = carried.filter((c) => c.bytes > CARRY_MAX_BYTES);
+    const kept = carried.filter((c) => c.bytes <= CARRY_MAX_BYTES);
+    if (!kept.length) { tell(`${route} every block is too large to keep in this browser's document (${Math.round(carried[0]!.bytes / 1024)} KB and up).`); return; }
+
+    const store = useStudio.getState();
+    const live = store.spaces.find((sp) => sp.id === space.id) ?? space;
+    const fit = fitToSurface(boundaryBox(live.boundary), page?.width ?? 1280, kept.map((c) => c.box));
+    store.resizeSpace(space.id, fit.surface);
+    const from = source.kind === "site" ? source.url : source.kind === "repo" ? `${source.name}/${source.entry}` : source.name;
+    kept.forEach((c, i) => {
+      const at = fit.places[i]!;
+      useStudio.getState().addNode("custom-idea", at.x, at.y, {
+        w: at.w, h: at.h, custom: true,
+        label: `Block ${i + 1} of ${nameOf(source)}`,
+        code: { html: c.html, overlap: 1, attempts: 0, at: Date.now(), source: "renderer", kind: "carried", carried: { w: c.box.w, h: c.box.h, from, notes: c.notes } },
+      });
+    });
+    lockNow(space.id);
+    useStudio.getState().setSelection([space.id]);
+    play("confirm");
+    const thin = thinSays(kept.length, source.kind === "site"
+      ? { url: source.url, why: source.read?.why ?? "hand", isMadeHere: source.read?.isMadeHere ?? false }
+      : { url: null, why: "none", isMadeHere: false });
+    const line = `${route} ${carriedSays(kept.length, sumNotes(kept.map((c) => c.notes)), { width: page?.width ?? 1280, height: Math.min(page?.height ?? 900, 4000) })}${tooBig.length ? ` ${tooBig.length} block${tooBig.length === 1 ? " was" : "s were"} too large to keep in this browser's document and ${tooBig.length === 1 ? "was" : "were"} left out.` : ""}${thin}`;
+    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${kept.length} block${kept.length === 1 ? "" : "s"} from ${repoName(of)} carried onto the board`, body: line, level: tooBig.length ? "warn" : "success", source: "studio", toast: { durationMs: 9000 } });
+    setStage({ at: "said", says: line });
+  };
+
   const takeAll = async (given?: Picking) => {
     const picked = given ?? stage;
     if (picked.at !== "picking") return;
+    if (how === "exact") { await carryAll(picked); return; }
     const { source, scripts } = picked;
     const blocks = pageBlocks(picked.candidates);
     /* Every ending of a repository's import is a toast as well as a line
@@ -494,6 +597,15 @@ export function FromASite({ space }: { space: Space }) {
   return (
     <section data-from-a-site="">
       <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a repository, a site, or a zip</div>
+      {/* HIS TO CHOOSE, not something that happens to him: a page comes in as
+          itself, or remade from the nearest library parts. Exact is the
+          default because he said so; the other stays for a page he wants
+          as sliders rather than as it was. */}
+      <div data-import-how={how} className="mb-1.5 flex items-center gap-1 text-[10px]">
+        <span style={{ color: VOID.muted }}>Pages come in as</span>
+        <button type="button" data-import-exact="" onClick={() => setHow("exact")} className={cn("tactile rounded px-1.5 py-0.5", how === "exact" ? "font-medium" : "opacity-60 hover:opacity-100")} style={{ color: VOID.text, background: how === "exact" ? VOID.box : "transparent", border: `1px solid ${how === "exact" ? VOID.rim : "transparent"}` }} title="Each block carried as itself: its markup, styles and pictures, exactly as the page had them">exact copies</button>
+        <button type="button" data-import-parts="" onClick={() => setHow("parts")} className={cn("tactile rounded px-1.5 py-0.5", how === "parts" ? "font-medium" : "opacity-60 hover:opacity-100")} style={{ color: VOID.text, background: how === "parts" ? VOID.box : "transparent", border: `1px solid ${how === "parts" ? VOID.rim : "transparent"}` }} title="Each block remade from the nearest library part, with its sliders, and the look approximated">library parts</button>
+      </div>
 
       {/*
         A repository first, because it is the one that needs nothing

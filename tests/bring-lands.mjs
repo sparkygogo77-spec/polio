@@ -55,6 +55,8 @@ const repos = {
   "him/made": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "m1", size: 10 }, { path: "site/document.json", type: "blob", sha: "m2", size: 1000 }, { path: "assets/pictures/pic_test1.png", type: "blob", sha: "m4", size: 70 }, { path: "src/app/page.tsx", type: "blob", sha: "m3", size: 100 }] },
   /* A site made here that says nowhere it is deployed: the document needs no address. */
   "him/madeless": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "n1", size: 10 }, { path: "site/document.json", type: "blob", sha: "n2", size: 1000 }] },
+  /* A page in its files AND a deployed address: the address is tried first, and the files are the fallback, said as such. */
+  "him/pagedeployed": { homepage: "https://polio-two.vercel.app", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }] },
   "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
   "him/sources": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "s1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "s2", size: 100 }] },
@@ -114,22 +116,50 @@ const bring = async (name) => {
   await page.locator("[data-repo-pull]").click();
 };
 
-/* 1. A repository with a page in it lands, with no further press. */
+/* 1. A repository with a page in it lands, with no further press: CARRIED EXACTLY, the default. */
 const before = await doc();
 await bring("him/page");
 let landed = before;
 for (let i = 0; i < 90 && landed.nodes === before.nodes; i++) { await page.waitForTimeout(1000); landed = await doc(); }
-check("a repository with a page in it lands as parts on the board, with nothing more pressed", landed.nodes > before.nodes, `${before.nodes} → ${landed.nodes} parts`);
+check("a repository with a page in it lands on the board, with nothing more pressed", landed.nodes > before.nodes, `${before.nodes} → ${landed.nodes} parts`);
 check("in a space of its own", landed.spaces === before.spaces + 1, `${landed.spaces} spaces`);
-check("and its elements go to the shelf under the repository's name", landed.brought.includes("page"), landed.brought.join(", ") || "none");
 await page.waitForTimeout(1500);
+const carriedNodes = await page.evaluate(() => JSON.parse(localStorage.getItem("builder.studio")).state.nodes.filter((n) => n.code && n.code.kind === "carried").map((n) => ({ w: n.w, h: n.h, own: n.code.carried && n.code.carried.w, html: n.code.html.length, hasWords: /Blackorb/.test(n.code.html) || /Say hello/.test(n.code.html), styled: /style="/.test(n.code.html), from: n.code.carried && n.code.carried.from })));
+check("each block is carried as itself: its own markup with the page's styles inlined, in a part that knows its size on the page", carriedNodes.length === 2 && carriedNodes.every((n) => n.styled && n.own > 0 && n.html > 200) && carriedNodes.some((n) => n.hasWords), JSON.stringify(carriedNodes));
 const line1 = await said();
-check("and the panel says what landed", /block|part|element/i.test(line1), line1.slice(0, 160));
-check("and so does a toast, seen from the board", await toast("landed on the board"));
+check("the panel names the route first: from its files", /^From its files, index\.html:/.test(line1.replace(/^him\/page@main: /, "")), line1.slice(0, 120));
+check("and says what came in exactly and what could not", /2 blocks carried exactly: markup and styles as the page had them/.test(line1) && /Not carried: behaviour: no scripts ran; anything past the 1280×/.test(line1), line1.slice(0, 260));
+check("and so does a toast, seen from the board", await toast("carried onto the board"));
 check("two blocks is thin, and the panel says so", /Only 2 blocks came from it: the page in the repository has little on it/.test(line1), line1.slice(-120));
 check("with no page error on the way", errors.length === 0, errors.join(" / "));
 
+/* 1a. His other choice: the same page remade from library parts. */
+await page.waitForTimeout(8000);
+await page.locator("[data-import-parts]").first().click();
+await page.waitForTimeout(300);
+check("library parts can be chosen on the panel, and the choice is remembered", (await page.evaluate(() => localStorage.getItem("builder.import.how"))) === "parts");
+const beforeParts = await doc();
+await bring("him/page");
+let partsLanded = beforeParts;
+for (let i = 0; i < 90 && partsLanded.nodes === beforeParts.nodes; i++) { await page.waitForTimeout(1000); partsLanded = await doc(); }
+await page.waitForTimeout(1200);
+const partsLine = await said();
+check("chosen, the page comes in as library parts instead, said as such, with its elements on the shelf", partsLanded.nodes > beforeParts.nodes && /real parts of the library|band of words/.test(partsLine) && partsLanded.brought.includes("page"), partsLine.slice(0, 160));
+await page.locator("[data-import-exact]").first().click();
+await page.waitForTimeout(300);
+
+/* 1d. A page in its files and a deployed address: the address first, then the files, said as such. */
+await page.waitForTimeout(6500);
+const beforeDeployedFiles = await doc();
+await bring("him/pagedeployed");
+let viaFiles = beforeDeployedFiles;
+for (let i = 0; i < 90 && viaFiles.nodes === beforeDeployedFiles.nodes; i++) { await page.waitForTimeout(1000); viaFiles = await doc(); }
+await page.waitForTimeout(1200);
+const fallbackLine = await said();
+check("with an address that cannot be read and a page in the files, the files are read, and the line says the address failed first", viaFiles.nodes > beforeDeployedFiles.nodes && /Its address could not be read \(.+\), so from its files, index\.html:/.test(fallbackLine) && /carried exactly/.test(fallbackLine), fallbackLine.slice(0, 220));
+
 /* 1b. The same, pressed from the Builds page: the board opens and it lands there. */
+landed = await doc();
 await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
 await page.waitForTimeout(800);
 await bring("him/page");
@@ -145,9 +175,9 @@ landed = again;
 await page.waitForTimeout(8000);
 await bring("him/blank");
 let blankLine = "";
-for (let i = 0; i < 60 && !/could be made into a part/.test(blankLine); i++) { await page.waitForTimeout(1000); blankLine = await said(); }
-check("a page nothing can be made from is said on the panel", /could be made into a part/.test(blankLine), blankLine.slice(0, 160));
-check("and as a toast", await toast("could be made into a part"));
+for (let i = 0; i < 60 && !/could be made into a (part|block)/.test(blankLine); i++) { await page.waitForTimeout(1000); blankLine = await said(); }
+check("a page nothing can be made from is said on the panel, with its route named", /^him\/blank@main: From its files, index\.html: nothing on the page could be made into a block/.test(blankLine), blankLine.slice(0, 160));
+check("and as a toast", await toast("could be made into a block"));
 landed = await doc();
 
 /* 2. Sources with no address anywhere: refused in words that stay. */
@@ -204,8 +234,8 @@ check("a site made here with no deployed address copies just the same", less.n =
 await page.waitForTimeout(6500);
 await bring("him/deployed");
 let line3 = "";
-for (let i = 0; i < 60 && !/polio-two\.vercel\.app/.test(line3) ; i++) { await page.waitForTimeout(1000); line3 = await said(); }
-check("a repository of sources with a deployed address is read at that address", /read at the address it is deployed at: https:\/\/polio-two\.vercel\.app/.test(line3), line3.slice(0, 200));
+for (let i = 0; i < 60 && !/could not be read|landed|carried/.test(line3) ; i++) { await page.waitForTimeout(1000); line3 = await said(); }
+check("a repository of sources with a deployed address is read at that address, and the route is named", /From its address, https:\/\/polio-two\.vercel\.app\/?:/.test(line3), line3.slice(0, 200));
 const end = await doc();
 const landedThere = end.nodes > mid.nodes;
 check(landedThere ? "and its page landed as parts" : "and when this machine cannot open that address, the panel says so with the reason", landedThere || /could not be read/.test(line3), landedThere ? `${end.nodes} parts` : line3.slice(-160));
