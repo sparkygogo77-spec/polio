@@ -12,6 +12,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
+import { placeBring, takeKeptBring } from "./bringRepo";
 import { Workspace } from "./Workspace";
 import { useBuilds } from "@/features/builds/store";
 import { resolvePalette } from "./parts/theme";
@@ -976,6 +977,14 @@ function SheetHandle({ narrow, onClose }: { narrow: boolean; onClose: () => void
 
 export function StudioPage() {
   useStudioHydration();
+  /* A repository named on another page's top bar waits for this board.
+     Placed once the document has loaded, so the space lands in the site
+     that is open rather than in a document about to be replaced. */
+  React.useEffect(() => {
+    const place = () => { const kept = takeKeptBring(); if (kept) placeBring(kept); };
+    if (useStudio.persist.hasHydrated()) { place(); return; }
+    return useStudio.persist.onFinishHydration(place);
+  }, []);
   const [briefOpen, setBriefOpen] = React.useState(false);
   const [libraryOpen, setLibraryOpen] = React.useState(true);
   const narrow = useNarrow();

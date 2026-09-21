@@ -7,9 +7,17 @@
  * picking stage of a narrow panel waiting for "Take the whole page". What
  * he saw was nothing on the board, no refusal and no question.
  *
- * Three repositories, answered by this file in the browser, the way GitHub
+ * Then again by hand, from the Builds page this time: a fresh site, the
+ * control on that page's own top bar, Bring it, and nothing, with the view
+ * still on the Builds page. The control had put a space into a store that
+ * page never loads. So a request made off the board is kept for it and the
+ * Builder is opened, and every ending is a toast as well as a panel line.
+ *
+ * Four repositories, answered by this file in the browser, the way GitHub
  * would answer his token:
- *   · one with a page in it: its blocks land as parts with no further press;
+ *   · one with a page in it: its blocks land as parts with no further press,
+ *     and again when Bring it is pressed from the Builds page;
+ *   · one with a page nothing can be made from: said as a toast;
  *   · one of sources with no address anywhere: the refusal stays on screen;
  *   · one of sources deployed at an address this machine cannot open: the
  *     refusal names the address and why.
@@ -33,7 +41,9 @@ const PAGE = `<!doctype html><html><head><title>A page</title><style>body{margin
 <body><header><h1>Blackorb</h1><p>A small studio for small things.</p></header>
 <main><section><h2>What we make</h2><p>Sites, mostly. Some of them for other people.</p><a href="#" style="display:inline-block;padding:12px 20px;background:#e63;color:#fff">Say hello</a></section></main></body></html>`;
 
+const BLANK = `<!doctype html><html><head><title>Blank</title></head><body></body></html>`;
 const repos = {
+  "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
   "him/sources": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "s1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "s2", size: 100 }] },
   "him/deployed": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "d1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "d2", size: 100 }] },
@@ -54,6 +64,7 @@ await page.route("https://api.github.com/**", (r) => {
   if (!rest) return j({ default_branch: "main", homepage: repo.homepage });
   if (rest.startsWith("/git/trees/")) return j({ tree: repo.tree });
   if (rest === "/git/blobs/p1") return j({ encoding: "base64", content: Buffer.from(PAGE).toString("base64") });
+  if (rest === "/git/blobs/b1") return j({ encoding: "base64", content: Buffer.from(BLANK).toString("base64") });
   return j({ message: "no" }, 404);
 });
 
@@ -80,7 +91,7 @@ await page.waitForTimeout(500);
 
 const doc = () => page.evaluate(() => { const st = JSON.parse(localStorage.getItem("builder.studio")).state; return { nodes: st.nodes.length, spaces: (st.spaces ?? []).length, brought: (st.brought ?? []).map((b) => b.label) }; });
 const said = () => page.evaluate(() => Array.from(document.querySelectorAll("[data-site-said]")).map((e) => e.innerText.replace(/\s+/g, " ").trim()).join(" || "));
-const toast = () => page.evaluate(() => document.body.innerText.includes("Could not bring the repository in"));
+const toast = (text = "Could not bring the repository in") => page.evaluate((t) => document.body.innerText.includes(t), text);
 const bring = async (name) => {
   await page.locator("[data-github-button]").first().click();
   await page.waitForTimeout(700);
@@ -99,7 +110,29 @@ check("and its elements go to the shelf under the repository's name", landed.bro
 await page.waitForTimeout(1500);
 const line1 = await said();
 check("and the panel says what landed", /block|part|element/i.test(line1), line1.slice(0, 160));
+check("and so does a toast, seen from the board", await toast("landed on the board"));
 check("with no page error on the way", errors.length === 0, errors.join(" / "));
+
+/* 1b. The same, pressed from the Builds page: the board opens and it lands there. */
+await page.goto(`${URL_BASE}/builds`, { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+await bring("him/page");
+await page.waitForTimeout(1500);
+check("pressed on the Builds page, Bring it opens the board", /\/builder/.test(page.url()), page.url());
+check("and says so", await toast("Opening the board to bring him/page in") || await toast("Reading him/page"));
+let again = landed;
+for (let i = 0; i < 90 && again.nodes === landed.nodes; i++) { await page.waitForTimeout(1000); again = await doc(); }
+check("and the page lands there, in a space of its own", again.nodes > landed.nodes && again.spaces === landed.spaces + 1, `${landed.nodes} → ${again.nodes} parts, ${again.spaces} spaces`);
+landed = again;
+
+/* 1c. A page with nothing on it: said as a toast, not only on the aside. */
+await page.waitForTimeout(8000);
+await bring("him/blank");
+let blankLine = "";
+for (let i = 0; i < 60 && !/could be made into a part/.test(blankLine); i++) { await page.waitForTimeout(1000); blankLine = await said(); }
+check("a page nothing can be made from is said on the panel", /could be made into a part/.test(blankLine), blankLine.slice(0, 160));
+check("and as a toast", await toast("could be made into a part"));
+landed = await doc();
 
 /* 2. Sources with no address anywhere: refused in words that stay. */
 await bring("him/sources");
