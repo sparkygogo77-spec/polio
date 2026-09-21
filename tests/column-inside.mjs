@@ -68,8 +68,8 @@ const read = (page) => page.evaluate(() => {
   /* The SET is what gets centred now — his own word, "lanes being
      disregarded during centering is problematic" — while the COLUMN is what
      may never leave the frame. Two different jobs, so two measurements. */
-  let sl = 1e9, sr = -1e9;
-  for (const e of all) { const q = e.getBoundingClientRect(); sl = Math.min(sl, q.x); sr = Math.max(sr, q.right); }
+  let sl = 1e9, sr = -1e9, sb = -1e9;
+  for (const e of all) { const q = e.getBoundingClientRect(); sl = Math.min(sl, q.x); sr = Math.max(sr, q.right); sb = Math.max(sb, q.bottom); }
   const floor = band && band.top > pane.top ? band.top : pane.bottom;
   const plot = document.querySelector("[data-timeline-plot]");
   const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(plot).transform);
@@ -83,7 +83,15 @@ const read = (page) => page.evaluate(() => {
     },
     offX: Math.round((sl + sr) / 2 - (pane.left + pane.right) / 2),
     colOffX: Math.round((l + r) / 2 - (pane.left + pane.right) / 2),
-    fanOff: Math.round(Math.max(0, sr - pane.right) + Math.max(0, pane.left - sl)),
+    /* Split, because the two sides are not the same thing. Rule 4 spends the
+       RIGHT edge and only the right edge: a fan off the left is the column
+       having been shoved out of the room, which is a fault. */
+    fanRight: Math.round(Math.max(0, sr - pane.right)),
+    fanLeft: Math.round(Math.max(0, pane.left - sl)),
+    /* Rule 2, measured on the FAN as well as the column: furniture may
+       overhang but may never disappear, and the band is what it disappears
+       under. `off.bottom` reads the column alone. */
+    setUnderBand: Math.round(Math.max(0, sb - floor)),
     room: `${Math.round(pane.width)}x${Math.round(pane.height)}`,
   };
 });
@@ -104,8 +112,33 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   const s = await read(page);
   check(`${w}x${h}, ${n} updates: no part of the column is outside the frame`,
     s && outside(s) === 0, s ? `room ${s.room}, off L${s.off.left} R${s.off.right} T${s.off.top} B${s.off.bottom}` : "no timeline");
-  check(`…and the SET's centre is the room's, lanes counted`, s && Math.abs(s.offX) <= 12,
-    s ? `set ${s.offX}px off centre, column ${s.colOffX}px off it, nothing of the set outside: ${s.fanOff === 0}` : "-");
+  /*
+   * RULE 2, AND THEN RULE 3 OR RULE 4 — whichever of the two is the one in
+   * force at this size.
+   *
+   * This asked for the SET's centre to be the room's, full stop, and it was
+   * right for exactly as long as the set was also what decided the zoom.
+   * That reading cost him 21 percent of his text: sized on the set, the fan
+   * bought its own room out of the size he reads at, 0.7939 down to 0.6234,
+   * and the set's width came to the room's width to the pixel at every
+   * count measured because the fan was always the wider thing. The zoom is
+   * the column's now and the fan takes the overhang, which is rule 4, and
+   * rule 4 firing is the set's centre no longer being the room's. A check
+   * that demanded otherwise was demanding the fault back.
+   *
+   * So it asks the order instead, which is the thing that is actually true
+   * at every size: nothing is ever under the band; the fan spends the RIGHT
+   * edge and never the left; and where the set does fit, it is centred as
+   * before. The fan overhanging is not a pass by itself — the column is
+   * held inside the frame by the check above it, on the same reading.
+   */
+  check(`…and nothing of the set is under the band`, s && s.setUnderBand === 0,
+    s ? `${s.setUnderBand}px of it below the band's top edge` : "-");
+  check(`…and the fan spends the right edge, never the left`, s && s.fanLeft === 0,
+    s ? `${s.fanLeft}px off the left, ${s.fanRight}px off the right` : "-");
+  check(`…and where the whole set fits, the set's centre is the room's`,
+    s && (s.fanRight > 0 || Math.abs(s.offX) <= 12),
+    s ? `set ${s.offX}px off centre, column ${s.colOffX}px off it, fan ${s.fanRight}px past the right` : "-");
   await ctx.close();
 }
 
@@ -164,7 +197,11 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   const rescued = await read(page);
   check("…pressing it brings the whole set back", rescued && outside(rescued) === 0,
     rescued ? `off L${rescued.off.left} R${rescued.off.right} T${rescued.off.top} B${rescued.off.bottom}` : "no timeline");
-  check("…and what it hands back is the middle", rescued && Math.abs(rescued.offX) <= 12, `set ${rescued?.offX}px off centre, column ${rescued?.colOffX}px off it`);
+  /* The middle, read the same way as above: the column in the room, the fan
+     free to hang off the right, and nothing under the band. */
+  check("…and what it hands back is the middle", rescued && rescued.fanLeft === 0 && rescued.setUnderBand === 0
+    && (rescued.fanRight > 0 || Math.abs(rescued.offX) <= 12),
+    `set ${rescued?.offX}px off centre, column ${rescued?.colOffX}px off it, fan ${rescued?.fanRight}px past the right`);
   check("…and once the set is back, the way back is not on screen any more",
     (await page.locator("[data-timeline-lost]").count()) === 0,
     `${await page.locator("[data-timeline-lost]").count()} of them`);
@@ -255,6 +292,51 @@ for (const [w, h, n] of [[1495, 1365, 3], [1280, 900, 3], [1920, 1400, 8], [1100
   const after = await read(page);
   check("…and what is left is still inside the frame", after && outside(after) === 0,
     after ? `off L${after.off.left} R${after.off.right} T${after.off.top} B${after.off.bottom}` : "no timeline");
+  await ctx.close();
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. RULE 2, WITH A BAND ACTUALLY STANDING OVER THE PANE              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A check that passes for any input measures nothing, and until this section
+ * existed that is what rule 2 had. Every case above runs on the iteration
+ * tab, where the strip below the timeline is an ordinary block in the same
+ * travel and no band stands over the pane at all — so "nothing is under the
+ * band" was true of a board with no band, which is not the claim.
+ *
+ * The backend is the one tab that keeps a band of its own, and it cannot be
+ * opened before the first fit because the tabs do not exist until a thing
+ * has been finished. So the order is the real one: finish, open the
+ * backend, and only then ask for a fit, which is the fit that has to honour
+ * a band that already stands.
+ *
+ * MEASURED, the three sizes below: nothing of the set under it at any of
+ * them, at a zoom of 0.28 to 0.34 — the band takes better than half the
+ * room and the fit pulls out until the set clears it, which is rule 2
+ * outranking the zoom exactly as he ordered.
+ */
+for (const [w, h, n] of [[1600, 1000, 8], [1600, 1000, 5], [1280, 900, 3]]) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+  await ctx.addInitScript((d) => localStorage.setItem("builder.studio", d), doc(n));
+  const page = await ctx.newPage();
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  await page.locator("[data-finish]").first().click();
+  await page.waitForTimeout(3000);
+  await page.getByText("The backend", { exact: true }).first().click({ force: true });
+  await page.waitForTimeout(1500);
+  const stood = await page.locator("[data-studio-band][data-band-over]").count();
+  check(`${w}x${h}, ${n} updates: the backend's band stands over the pane`, stood === 1,
+    `${stood} band over the pane — without one the rule below measures nothing`);
+  await page.locator('[aria-label="Fit in view"]').first().click({ force: true });
+  await page.waitForTimeout(2500);
+  const s = await read(page);
+  check(`…and the fit puts no part of the set under it`, s && s.setUnderBand === 0,
+    s ? `${s.setUnderBand}px below the band's top edge, column ${s.off.bottom}px, at zoom ${s.zoom}` : "-");
+  check(`…and no part of the column is outside the frame either`, s && outside(s) === 0,
+    s ? `off L${s.off.left} R${s.off.right} T${s.off.top} B${s.off.bottom}` : "-");
   await ctx.close();
 }
 
