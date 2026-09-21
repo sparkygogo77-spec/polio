@@ -204,10 +204,15 @@ const pic = await page.evaluate(() => new Promise((done) => {
 }));
 check("its picture is in this browser's file storage under the id the part names", typeof pic === "number" && pic > 0, String(pic));
 check("and the toast says what was copied and where it is connected", await toast("This site is BLACKORB now, copied whole from him/made"));
+const stripAfterCopy = await page.evaluate(() => { const e = document.querySelector("[data-import-strip]"); return e ? { kind: e.getAttribute("data-import-strip"), text: e.textContent } : null; });
+check("the copy ends its own stage: the strip reads done, in the copy's words, not busy and never a ninety-second stop", !!stripAfterCopy && stripAfterCopy.kind === "done" && /this site is BLACKORB now, copied whole/.test(stripAfterCopy.text ?? ""), JSON.stringify(stripAfterCopy));
 
 /* 2c. A site made here with no address anywhere copies just the same: the document needs no address. */
 await page.waitForTimeout(8000);
 await bring("him/madeless");
+await page.waitForTimeout(300);
+const stripOnPress = await page.evaluate(() => { const e = document.querySelector("[data-import-strip]"); return e ? e.textContent : ""; });
+check("a new press clears the strip: the previous repository's line is gone at once", !/him\/made:|BLACKORB now/.test(stripOnPress ?? ""), stripOnPress?.slice(0, 120) ?? "-");
 let less = null;
 for (let i = 0; i < 60; i++) {
   await page.waitForTimeout(1000);

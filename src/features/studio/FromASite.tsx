@@ -139,6 +139,15 @@ const putStage = (spaceId: string, stage: Stage) => {
   for (const l of stageListeners) l();
 };
 const subscribeStages = (l: () => void) => { stageListeners.add(l); return () => { stageListeners.delete(l); }; };
+/**
+ * A NEW PRESS CLEARS THE STRIP. Driven by hand: the strip kept the previous
+ * press's line, naming the wrong repository, through the whole of the next
+ * press, which read as silence. Every Bring it starts from a clear strip.
+ */
+export function clearImportLine(): void {
+  latest = null;
+  for (const l of stageListeners) l();
+}
 /** How long one step may go without a word before the import is told to stop and say so. */
 const STEP_PATIENCE_MS = 90_000;
 
@@ -254,6 +263,8 @@ export function FromASite({ space }: { space: Space }) {
     patience.current = window.setTimeout(() => {
       const now = stageOf(space.id);
       if (now.at !== "busy" || now.says !== says) return;
+      /* A later press owns the strip now: this one's silence is not news. */
+      if (latest && latest.spaceId !== space.id) return;
       const line = `Nothing came back within ${Math.round(STEP_PATIENCE_MS / 1000)} seconds while: ${says.replace(/…$/, "")}. Stopped.`;
       if (of) refuse(line, of); else setStage({ at: "said", says: line });
     }, STEP_PATIENCE_MS);
@@ -383,6 +394,12 @@ export function FromASite({ space }: { space: Space }) {
         source: "studio",
         toast: { durationMs: 10000 },
       });
+      /* THE COPY ENDS ITS OWN STAGE. It did not: the space was gone, the
+         stage stayed "busy", and ninety seconds later the patience rule
+         ended a step that had long finished, with a refusal on the strip
+         naming this repository under whatever came next. */
+      if (patience.current) { window.clearTimeout(patience.current); patience.current = null; }
+      setStage({ at: "said", says: `${repoName(of)}: this site is ${copy.name} now, copied whole: ${parts}.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository.` : ""}` });
       play("confirm");
     })();
   };
