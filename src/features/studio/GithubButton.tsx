@@ -31,6 +31,7 @@ import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys } from "@/features/keys/store";
 import { readRepo, repoName, REPO_REFUSAL_SAYS } from "@/features/studio/repoImport";
+import type { BranchRow } from "@/app/api/studio/branches/route";
 
 /**
  * The GitHub mark.
@@ -162,6 +163,9 @@ function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | nul
   const [name, setName] = React.useState(() => repoNameFor(siteName));
   const siteBranch = useStudio((s) => s.siteBranch);
   const [merging, setMerging] = React.useState(false);
+  const [branches, setBranches] = React.useState<{ base: string; rows: BranchRow[]; more: number } | null>(null);
+  const [branchSaid, setBranchSaid] = React.useState<string | null>(null);
+  const [removing, setRemoving] = React.useState<string | null>(null);
   /*
    * MAIN MOVES HERE AND NOWHERE ELSE, by his hand on this button. The
    * merge route does GitHub's own merge of the edit branch into the
@@ -180,6 +184,7 @@ function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | nul
       if (!a.ok) { setSaid(a.message ?? "GitHub would not merge it."); return; }
       useStudio.getState().setSiteBranch(null);
       setSaid(a.message ?? `Merged ${siteBranch}.`);
+      void listBranches();
     } catch {
       setSaid("Could not reach GitHub from here.");
     } finally {
@@ -192,6 +197,59 @@ function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | nul
   const token = (): Record<string, string> => {
     const held = heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN;
     return held ? { "x-github-token": held } : {};
+  };
+
+  /*
+   * THE BRANCH LIST. He cleans branches up by hand today, on GitHub. Every
+   * edit opens one and every merge closes one, so the ones left are the
+   * ones opened and walked away from, and the question about each is the
+   * same: does main already have its work, and if not, how much is there.
+   * That is what each row shows, in numbers, and nothing is counted here.
+   */
+  const listBranches = React.useCallback(async () => {
+    if (!pointsAt) { setBranches(null); return; }
+    setBranchSaid(null);
+    try {
+      const res = await fetch(`/api/studio/branches?repo=${encodeURIComponent(pointsAt)}`, { headers: token(), cache: "no-store" });
+      const a = await res.json();
+      if (!a.ok) { setBranches(null); setBranchSaid(a.message ?? "GitHub would not list the branches."); return; }
+      setBranches({ base: String(a.base ?? "main"), rows: (a.branches ?? []) as BranchRow[], more: Number(a.more ?? 0) });
+    } catch {
+      setBranches(null);
+      setBranchSaid("Could not reach GitHub from here.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsAt]);
+  React.useEffect(() => { void listBranches(); }, [listBranches]);
+
+  /*
+   * DELETE IS THE ONE THING HERE THAT CANNOT BE UNDONE, so it wears the
+   * same red ring the Merge button does, and the question it asks names
+   * the branch and what goes with it: nothing, when main already has its
+   * work, or the updates and lines that were never merged. Deleting the
+   * branch this site's edits are on closes it here too, so the next edit
+   * opens a fresh one rather than publishing to a branch that is gone.
+   */
+  const remove = async (row: BranchRow) => {
+    if (!pointsAt || removing) return;
+    const asks = row.updates > 0
+      ? `Delete ${row.name}? Its ${row.updates} update${row.updates === 1 ? "" : "s"} (+${row.added} −${row.removed}) are not in ${branches?.base ?? "main"} and go with it.`
+      : `Delete ${row.name}? Everything in it is already in ${branches?.base ?? "main"}.`;
+    if (!window.confirm(asks)) return;
+    setRemoving(row.name);
+    setBranchSaid(null);
+    try {
+      const res = await fetch("/api/studio/branches", { method: "DELETE", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ repo: pointsAt, branch: row.name }) });
+      const a = await res.json();
+      if (!a.ok) { setBranchSaid(a.message ?? `GitHub would not delete ${row.name}.`); return; }
+      if (row.name === siteBranch) useStudio.getState().setSiteBranch(null);
+      setBranches((b) => (b ? { ...b, rows: b.rows.filter((r) => r.name !== row.name) } : b));
+      setBranchSaid(a.message ?? `Deleted ${row.name}.`);
+    } catch {
+      setBranchSaid("Could not reach GitHub from here.");
+    } finally {
+      setRemoving(null);
+    }
   };
 
   React.useEffect(() => {
@@ -333,6 +391,56 @@ function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | nul
             {merging ? "Merging…" : "Merge into main"}
           </Button>
         </div>
+      ) : null}
+
+      {pointsAt ? (
+        <>
+          <div className="h-px bg-border" />
+          <div data-repo-branches="">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Branches besides {branches?.base ?? "main"}</p>
+            {branches === null ? (
+              <p className="text-[10px] text-fg-muted">{branchSaid ?? "Asking GitHub…"}</p>
+            ) : branches.rows.length === 0 ? (
+              <p className="text-[10px] text-fg-muted">None. Every edit branch has been merged or removed.</p>
+            ) : (
+              <ul className="max-h-[152px] overflow-y-auto">
+                {branches.rows.map((r) => {
+                  const unmerged = r.updates > 0;
+                  const here = r.name === siteBranch;
+                  return (
+                    <li key={r.name} data-repo-branch-row={r.name} data-repo-branch-unmerged={unmerged ? "1" : "0"} className="flex items-center gap-1.5 py-0.5">
+                      {/* The mark is the decision: amber for work main has not got, faint for a branch main already holds. */}
+                      <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: unmerged ? "oklch(0.8 0.15 75)" : "oklch(0.6 0.02 260 / 0.5)" }} />
+                      <span className="min-w-0 flex-1">
+                        <span className={cn("block truncate font-mono text-[10px]", unmerged ? "text-fg" : "text-fg-muted")} title={r.name}>{r.name}{here ? " · open here" : ""}</span>
+                        <span className="block text-[10px] text-fg-faint">
+                          {r.updates < 0
+                            ? "GitHub would not compare it"
+                            : unmerged
+                              ? <>{r.updates} update{r.updates === 1 ? "" : "s"} not in {branches.base} · <span style={{ color: "oklch(0.78 0.16 145)" }}>+{r.added}</span> <span style={{ color: "oklch(0.75 0.17 25)" }}>−{r.removed}</span></>
+                              : `everything in ${branches.base}`}
+                        </span>
+                      </span>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        data-repo-branch-delete={r.name}
+                        disabled={removing !== null}
+                        className="shrink-0"
+                        style={{ borderColor: "oklch(0.72 0.17 18)", color: "oklch(0.8 0.16 18)" }}
+                        onClick={() => void remove(r)}
+                      >
+                        {removing === r.name ? "Deleting…" : "Delete"}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {branches && branches.more > 0 ? <p className="text-[10px] text-fg-faint">And {branches.more} more on GitHub.</p> : null}
+            {branches !== null && branchSaid ? <p data-repo-branch-said="" className="text-[10px] text-fg">{branchSaid}</p> : null}
+          </div>
+        </>
       ) : null}
 
       <div className="h-px bg-border" />
