@@ -290,6 +290,23 @@ every part at tablet or phone was stacked into one column and his header,
 his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
 measures the board and Preview at Tablet off a page shaped like his.
 
+**A picture draws the picture it holds, and the layer it wears is its own.**
+Two ways a part carries a picture. `node.picture`, a file in this browser's
+storage, the way the split hero and the product page hold theirs: the
+Picture part ignored the prop and drew its stand-in crop with the file's
+name on a plate; it goes through `PictureSlot` now like they do.
+`node.texture`, an image layer in the look's stack, the way the Builder's
+own shrink-in import and his capture carry theirs: the part wears the layer
+whether or not it is on, and on, the page and every card wore it too — his
+logo came up tiled across the whole ground with the parts unreadable under
+it. `docTake.pictureLayersOff` turns a layer some picture names off for the
+page wherever a document is taken in (`loadDoc`, the persister's merge), and
+the shrink-in import adds its layer off. And a node that carries `pad` says
+its padding is all the padding: `applyPad` sets `t.tight` and a part that
+pads its words (the pitch line, prose's box styles) adds none, because a
+captured box was measured with its padding inside it. `tests/picture-held.mjs`
+holds the three; it was run red against the build before the fix.
+
 **A hand on a vine pulls it; a press takes it apart from the middle.** His
 words: "the line in the middle of the vines is hoverable ... i would rather
 no line, the vine maybe pulls a little when you hover ... when click

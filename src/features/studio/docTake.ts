@@ -32,6 +32,27 @@ export interface DocPrev {
   frameWidth: number;
 }
 
+/**
+ * A layer a picture wears is the picture's, not the page's.
+ *
+ * A picture part carries its bytes as an image layer in the look's stack
+ * (`node.texture`), and the part wears that layer whether or not it is on.
+ * Left on, the same layer is also painted by the page or by every card —
+ * his page came up with its logo tiled across the whole ground and every
+ * panel, and the parts under it unreadable. So a layer some picture part
+ * names is turned off for the page when a document is taken in, and stays
+ * on the part. Pure, and applied wherever a document is loaded.
+ */
+export function pictureLayersOff<L extends { id: string; on?: boolean }>(nodes: readonly unknown[], layers: readonly L[]): L[] {
+  const worn = new Set<string>();
+  for (const n of nodes) {
+    const node = n as { featureId?: unknown; texture?: unknown };
+    if (node && node.featureId === "picture" && typeof node.texture === "string") worn.add(node.texture);
+  }
+  if (!worn.size) return [...layers];
+  return layers.map((l) => (worn.has(l.id) && l.on ? { ...l, on: false } : l));
+}
+
 export function takeDoc<P extends DocPrev>(
   s: P,
   doc: DocIn,
@@ -50,7 +71,10 @@ export function takeDoc<P extends DocPrev>(
     brief: { ...s.brief, ...(doc.brief ?? {}) },
     // The look and the behaviours are the document too. Leaving them out
     // meant a published site came back in the template's colours.
-    look: doc.look ? { ...defaults.look(), ...doc.look } : s.look,
+    look: (() => {
+      const look = (doc.look ? { ...defaults.look(), ...doc.look } : s.look) as object & { texture?: { id: string; on?: boolean }[] };
+      return Array.isArray(look.texture) ? { ...look, texture: pictureLayersOff(doc.nodes ?? s.nodes, look.texture) } : look;
+    })(),
     motion: doc.motion ?? s.motion,
     frameWidth: width,
     activePageId: pages[0]!.id,

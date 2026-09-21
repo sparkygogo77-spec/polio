@@ -59,6 +59,13 @@ export interface Theme {
   lineHeight: number;
   measurePx: number;
   textAlign: "left" | "center" | "right" | "justify";
+  /**
+   * The box's padding is all the padding: a part adds none of its own.
+   * Set when a node carries `pad` — a captured box was measured with its
+   * padding inside it, so a part padding itself again pushed the words out
+   * of the box and cut them off.
+   */
+  tight?: boolean;
   boxStyle: string;
   boxPad: number;
   headingFamily: string;
@@ -178,6 +185,11 @@ export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
   if (!text?.align) return t;
   const a = text.align;
   return { ...t, textAlign: a === "center" ? "center" : a === "justify" ? "justify" : a === "end" || a === "right" ? "right" : "left" };
+}
+
+/** The theme, told that the box pads itself: a part that pads its words stops. */
+export function applyPad(t: Theme, pad: NodePad | null | undefined): Theme {
+  return pad ? { ...t, tight: true } : t;
 }
 
 /**
@@ -351,7 +363,7 @@ export function radiusFor(shape: string | undefined, t: Theme): number {
 }
 
 export function boxStyles(t: Theme): React.CSSProperties {
-  const base: React.CSSProperties = { borderRadius: t.radius, padding: t.boxPad };
+  const base: React.CSSProperties = { borderRadius: t.radius, padding: t.tight ? 0 : t.boxPad };
   switch (t.boxStyle) {
     case "bordered": return { ...base, border: `1px solid ${t.line}` };
     case "filled": return { ...base, background: t.surface };

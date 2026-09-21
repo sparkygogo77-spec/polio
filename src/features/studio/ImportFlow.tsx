@@ -245,7 +245,9 @@ export function ImportFlow() {
   const shrinkIn = () => {
     if (!frame) return;
     const s = useStudio.getState();
-    const layer = { ...newLayer("image"), src: frame.src, pattern: false, weave: 1, opacity: 1, contrast: 0, scale: 100, target: "surfaces" as const };
+    /* Off for the page: the part wears it whether or not it is on, and on it
+       was painted by every card as well (`docTake.pictureLayersOff`). */
+    const layer = { ...newLayer("image"), src: frame.src, pattern: false, weave: 1, opacity: 1, contrast: 0, scale: 100, target: "surfaces" as const, on: false };
     s.addTexture(layer);
     /* Its own aspect, inset from the frame so it reads as a thing ON the
        page rather than as the page. Two thirds across is the same room a

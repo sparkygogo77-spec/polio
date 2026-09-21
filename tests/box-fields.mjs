@@ -63,6 +63,7 @@ const doc = JSON.stringify({ state: {
     node("strip", "box", "", 0, 180, FW, 232, { layout: { display: "flex", direction: "row", wrap: true, gap: 16 }, pad: { top: 16, right: 24, bottom: 16, left: 24 } }),
     ...[0, 1, 2].map((i) => node(`card${i}`, "box", `Card ${i + 1}`, 24 + i * 572, 196, 556, 200, { colour: { bg: "rgb(20, 28, 48)", surface: "rgb(20, 28, 48)" }, edge: { width: 1, style: "solid", colour: "accent" } })),
     node("foot", "prose", "The foot of the page", 24, 440, 1715, 60),
+    node("tight", "value-prop", "Measured at its own bounds", 24, 520, 400, 28, { pad: { top: 0, right: 0, bottom: 0, left: 0 } }),
   ],
   groups: [], shapes: [], format: {}, brief: { name: "Capture", gimmick: "", master: "" },
   frameWidth: FW, activePageId: "p0", trail: [],
@@ -105,6 +106,13 @@ const tag = await page.evaluate(() => {
 });
 check("the words' box carries their alignment and case", !!tag && tag.boxAlign === "center" && tag.boxCase === "uppercase", JSON.stringify(tag));
 check("and the part sets its words that way: the element holding them is centred and uppercase", !!tag && tag.wordsAlign === "center" && tag.wordsCase === "uppercase", JSON.stringify(tag));
+
+const tight = await page.evaluate(() => {
+  const part = document.querySelector('[data-node-id="tight"] [data-part]');
+  const loose = document.querySelector('[data-node-id="tag"] [data-part]');
+  return part && loose ? { tight: getComputedStyle(part).paddingTop, loose: getComputedStyle(loose).paddingTop } : null;
+});
+check("a node that says its padding is all the padding: the part adds none of its own, where a part without the field still does", !!tight && tight.tight === "0px" && tight.loose !== "0px", JSON.stringify(tight));
 
 const none = await page.evaluate(() => ["logo", "cta", "foot"].map((id) => document.querySelectorAll(`[data-node-id="${id}"] [data-part-box]`).length));
 check("a part that says nothing about its box gets no box: nothing already on a board moves", none.every((n) => n === 0), none.join(", "));
