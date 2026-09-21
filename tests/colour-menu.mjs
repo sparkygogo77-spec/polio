@@ -241,16 +241,30 @@ if (!up) {
     /* The wheel's three preview badges. Not chips — you read them, you do not
        pick them — and every one had been its own size: the page's colour
        18x18 at 4px, a part's aura 15x15 at 4px, a part's hue 34x14 at 3px.
-       Three heights and two corners, side by side on one wheel. */
+       Three heights and two corners, side by side on one wheel.
+
+       READ OFF THE BADGES THEMSELVES, not off anything span-shaped.
+
+       This used to sweep every span on the wheel between 10 and 40px that
+       had a background or a child, and call whatever came back a badge. It
+       went red, and the thing it had caught was not a badge: a 32x20 square
+       with a `title="More"` and an icon inside it, which is the tray's own
+       control. The three real badges measured 34x18, 18x18 and 18x18, every
+       one at a 6px corner — already one height and one corner, already
+       obeying the rule this is about, and failed anyway by a control that
+       wandered into the net.
+
+       So the badges carry `data-preview-badge` and this reads that. It is
+       the stricter question, not the looser one: the old net could only ever
+       catch more things than it should, and a badge that stopped being a
+       badge-sized span would have slipped out of it entirely and passed. */
     const badges = async () => page.evaluate(() => {
       const r = document.querySelector("[data-radial]");
       if (!r) return [];
-      return [...r.querySelectorAll("span")].map((e) => {
+      return [...r.querySelectorAll("[data-preview-badge]")].map((e) => {
         const cs = getComputedStyle(e);
-        const w = parseFloat(cs.width), h = parseFloat(cs.height);
-        const shown = cs.backgroundColor !== "rgba(0, 0, 0, 0)" || e.children.length > 0;
-        return w >= 10 && w <= 40 && h >= 10 && h <= 40 && shown ? { w: Math.round(w), h: Math.round(h), r: cs.borderRadius } : null;
-      }).filter(Boolean);
+        return { w: Math.round(parseFloat(cs.width)), h: Math.round(parseFloat(cs.height)), r: cs.borderRadius };
+      });
     });
     const seen = [];
     for (const [who, words] of [["a part", [/^Looks$/]], ["the page", null]]) {
@@ -273,8 +287,11 @@ if (!up) {
     if (seen.length) {
       const heights = [...new Set(seen.map((b) => b.h))];
       const corners = [...new Set(seen.map((b) => b.r))];
-      check("every preview badge stands the same height", heights.length === 1, `${heights.join(" and ")}px, from three`);
-      check("and takes the same corner", corners.length === 1, `${corners.join(" and ")}, from two`);
+      /* The count first: one badge is trivially one height, so a wheel that
+         had lost two of its three would sail past both checks below. */
+      check("the wheel carries its preview badges", seen.length >= 3, `${seen.length} of them: ${seen.map((b) => `${b.w}x${b.h}`).join(" ")}`);
+      check("every preview badge stands the same height", heights.length === 1, `${heights.join(" and ")}px, from ${seen.length}`);
+      check("and takes the same corner", corners.length === 1, `${corners.join(" and ")}, from ${seen.length}`);
       check("a badge carrying several colours is still allowed to be wide",
         seen.some((b) => b.w > b.h), seen.map((b) => `${b.w}x${b.h}`).join(" "));
     }

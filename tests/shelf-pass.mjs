@@ -169,6 +169,89 @@ async function look(w, h, tag) {
 await look(2560, 1440, "1440p");
 await look(1282, 917, "pane");
 
+/* ------------------------------------------------------------------ */
+/* CARRYING A PART OUT OF THE SHELF                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A tile is carried onto the board and let go where it is wanted. That had
+ * worked for a long while and nothing asked for it, so it could have gone
+ * at any time without a word — which is the whole reason this is here.
+ *
+ * AND THE ONE THING THAT COULD NOT BE CARRIED: the New idea disc. Every
+ * tile could be dragged; this one could only be pressed, and a press puts a
+ * part at the foot of whatever is already on the page. So the one part
+ * whose point is that you are describing something new was the one part you
+ * could not put anywhere in particular. MEASURED before the change, the
+ * same drag moved nothing at all: 0 carried.
+ *
+ * WHERE IT LANDS is the half worth asking about. Carrying and pressing both
+ * add a part, so a check that only counted parts would pass on a shelf
+ * whose drag did nothing but fire the click. The drop is aimed low on the
+ * page and what is asked is that the part is near it.
+ *
+ * On the instrument: this drives Chromium's own drag and drop through
+ * Playwright's `dragTo`, which does carry the dataTransfer. A run where the
+ * drag silently did nothing would read as 0 carried, not as a pass.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto(`${URL_}/builder`, { waitUntil: "networkidle" });
+  await page.waitForSelector("[data-category]", { timeout: 20000 });
+  await page.waitForTimeout(2000);
+  const nodes = () => page.evaluate(() => (JSON.parse(localStorage.getItem("builder.studio") || "{}").state?.nodes ?? []));
+  const frame = page.locator("[data-frame]").first();
+  const fb = await frame.boundingBox();
+
+  /* The New idea disc first, while the shelf is at rest: opening a category
+     puts the tiles where the discs were, and it is no longer on screen. */
+  const idea = page.locator('[data-category="custom-idea"]').first();
+  const was = (await nodes()).length;
+  await idea.dragTo(frame, { targetPosition: { x: Math.round(fb.width * 0.3), y: Math.round(fb.height * 0.65) } });
+  await page.waitForTimeout(1300);
+  const afterIdea = await nodes();
+  check("the New idea disc is carried onto the board like any other part",
+    afterIdea.length === was + 1 && afterIdea[afterIdea.length - 1]?.featureId === "custom-idea",
+    `${was} before, ${afterIdea.length} after, last is ${afterIdea[afterIdea.length - 1]?.featureId ?? "none"}`);
+
+  /* Then a tile, which needs a category open. */
+  await page.getByText("Layout", { exact: true }).first().click({ force: true });
+  await page.waitForTimeout(1000);
+  const tile = page.locator("[data-tile]").first();
+  const id = await tile.getAttribute("data-tile");
+  const was2 = (await nodes()).length;
+  await tile.dragTo(frame, { targetPosition: { x: Math.round(fb.width * 0.5), y: Math.round(fb.height * 0.45) } });
+  await page.waitForTimeout(1300);
+  const afterTile = await nodes();
+  check("and so is a tile, out of an opened category",
+    afterTile.length === was2 + 1 && afterTile[afterTile.length - 1]?.featureId === id,
+    `${id}: ${was2} before, ${afterTile.length} after, last is ${afterTile[afterTile.length - 1]?.featureId ?? "none"}`);
+
+  /*
+   * AND IT IS A CARRY, NOT A PRESS.
+   *
+   * Both add a part, so counting parts cannot tell them apart. The first
+   * draft of this asked that the part land near where it was dropped, with
+   * a third of the page's height as the tolerance — and a deliberate break
+   * that turned the drop into a press SAILED THROUGH IT, because the foot
+   * of a page holding one part is also near the middle. It measured
+   * nothing and it is written out here so it is not written again.
+   *
+   * What separates the two is direction, not distance. The New idea was
+   * dropped low, at 0.65 of the page; this tile is dropped ABOVE it, at
+   * 0.45. A press stacks under whatever is already there, so a press can
+   * only ever put this one BELOW the first. Above is something only a carry
+   * can do.
+   */
+  const last = afterTile[afterTile.length - 1];
+  const first = afterIdea[afterIdea.length - 1];
+  check("and it is a carry rather than a press: it lands above the part dropped below it",
+    !!last && !!first && last.y < first.y,
+    last && first ? `dropped at 0.45 of the page against 0.65, landed at y ${last.y} against y ${first.y}` : "nothing landed");
+  await page.evaluate(() => localStorage.removeItem("builder.studio"));
+  await page.close();
+}
+
 await browser.close();
 const bad = results.filter((r) => !r.ok);
 console.log(`\n${results.length - bad.length}/${results.length} passed`);

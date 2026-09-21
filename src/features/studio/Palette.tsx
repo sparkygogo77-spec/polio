@@ -523,15 +523,34 @@ export function Palette() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shelfW]);
 
-  // The field the previews float on: the surface's complement, dimmed, so a
-  // surface-coloured part separates from it without needing a border.
-  const format = useStudio((st) => st.format);
-  const look = useStudio((st) => st.look);
-  const behind = React.useMemo(() => {
-    const surface = parseColor(resolvePalette(format, look).surface);
-    if (!surface) return "oklch(0.14 0.01 260)";
-    return css({ l: Math.max(0.11, surface.l * 0.62), c: Math.min(0.07, surface.c + 0.03), h: (surface.h + 180) % 360 });
-  }, [format, look]);
+  /*
+   * THE FIELD THE PREVIEWS FLOAT ON IS THE BUILDER'S, NOT THE SITE'S.
+   *
+   * This was the site's SURFACE role, dimmed and spun half a turn round the
+   * wheel, on the reasoning that a surface-coloured part would then separate
+   * from it without needing a border. What that actually did was paint the
+   * Builder's own furniture out of his site's palette: the shelf is the
+   * Builder, not the page, and a role is about the page.
+   *
+   * MEASURED, the same shelf with nothing else changed. Set Surface to a
+   * blue at hue 263.6 and the band came out at hue 83.6, which is gold; set
+   * it to a grey and the band came out at hue 180. That is his report
+   * exactly, and the half-turn is the whole of the mechanism — a complement
+   * is by definition the one colour furthest from what he chose, so the
+   * better he picked, the louder the shelf shouted back at him.
+   *
+   * The reason it was derived does not survive either. Every preview already
+   * carries `border-border/70` of its own — the Builder's border, not the
+   * site's — so a part the colour of its own surface separates from this
+   * field whatever colour the field is. The tint was buying something that
+   * was already paid for.
+   *
+   * So: the void the rest of the chrome is built from, and no site role
+   * read here at all. `--bg` rather than the drawer's own `--panel`, so the
+   * field still sits a shade under the band it is set into and the shelf
+   * keeps its depth.
+   */
+  const behind = "var(--bg)";
 
   return (
     <div data-drawer="" className="relative flex h-full flex-col border-t border-border bg-panel/50">
@@ -587,7 +606,7 @@ export function Palette() {
       </div>
 
       {/* ------------------------------------------------ the parts */}
-      <div className="relative min-h-0 flex-1" style={{ background: behind }}>
+      <div data-parts-field="" className="relative min-h-0 flex-1" style={{ background: behind }}>
         {/*
           One scroller for the whole shelf, and nothing inside it scrolls.
 
@@ -704,8 +723,26 @@ export function Palette() {
                   type="button"
                   data-category="custom-idea"
                   aria-label="New idea"
+                  /*
+                   * CARRIED LIKE EVERY OTHER PART, because it is one.
+                   *
+                   * Every tile on the shelf can be dragged onto the board and
+                   * let go where it is wanted. This one could only be pressed,
+                   * and a press puts a part at the foot of whatever is already
+                   * on the page — so the one part whose whole point is that
+                   * you are describing something new was also the one part you
+                   * could not put anywhere in particular. It carries the same
+                   * payload a tile carries, so the board needs nothing new to
+                   * receive it.
+                   */
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-studio-feature", "custom-idea");
+                    e.dataTransfer.effectAllowed = "copy";
+                    play("tap");
+                  }}
                   onClick={() => addFeatureToCanvas("custom-idea")}
-                  className="group/cat tactile flex shrink-0 flex-col items-center gap-1 text-accent transition-[width] duration-200"
+                  className="group/cat tactile flex shrink-0 cursor-grab flex-col items-center gap-1 text-accent transition-[width] duration-200 active:cursor-grabbing"
                   style={{ width: cell }}
                 >
                   <span

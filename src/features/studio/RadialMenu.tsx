@@ -1147,7 +1147,7 @@ export function RadialMenu() {
                 preview:
                   bg
                     ? p.choice.id === "bg-color"
-                      ? <span className="block" style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
+                      ? <span data-preview-badge="" className="block" style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: palette.bg, outline: "1px solid oklch(0 0 0 / 0.45)" }} />
                       : undefined
                     : p.choice.id === "hue" ? <HueSwatch node={node!} palette={palette} />
                       // Aura shows the aura this part has, worn the way it wears
@@ -1553,6 +1553,7 @@ function HueSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
   const roles: RoleId[] = ["bg", "surface", "accent", "highlight", "text"];
   return (
     <span
+      data-preview-badge=""
       className="flex overflow-hidden"
       style={{ height: PREVIEW.size, width: PREVIEW.wide, borderRadius: PREVIEW.radius, outline: "1px solid oklch(0 0 0 / 0.45)" }}
     >
@@ -1602,6 +1603,7 @@ function AuraSwatch({ node, palette }: { node: StudioNode; palette: Palette }) {
   return (
     <span
       data-aura-swatch=""
+      data-preview-badge=""
       className="block"
       style={{ width: PREVIEW.size, height: PREVIEW.size, borderRadius: PREVIEW.radius, background: palette.surface, outline: `1px solid ${worn ? "transparent" : "oklch(1 0 0 / 0.45)"}`, ...((worn ?? {}) as React.CSSProperties) }}
     />
