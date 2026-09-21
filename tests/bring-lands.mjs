@@ -43,6 +43,10 @@ const PAGE = `<!doctype html><html><head><title>A page</title><style>body{margin
 
 const BLANK = `<!doctype html><html><head><title>Blank</title></head><body></body></html>`;
 const repos = {
+  /* A site made here, deployed: its page is /site, not the root. */
+  "him/made": { homepage: "https://polio-two.vercel.app", tree: [{ path: "package.json", type: "blob", sha: "m1", size: 10 }, { path: "site/document.json", type: "blob", sha: "m2", size: 1000 }, { path: "src/app/page.tsx", type: "blob", sha: "m3", size: 100 }] },
+  /* A site made here, and the repository does not say where it is deployed. */
+  "him/madeless": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "n1", size: 10 }, { path: "site/document.json", type: "blob", sha: "n2", size: 1000 }] },
   "him/blank": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "b1", size: BLANK.length }] },
   "him/page": { homepage: "", tree: [{ path: "index.html", type: "blob", sha: "p1", size: PAGE.length }, { path: "README.md", type: "blob", sha: "p2", size: 10 }] },
   "him/sources": { homepage: "", tree: [{ path: "package.json", type: "blob", sha: "s1", size: 10 }, { path: "src/app/page.tsx", type: "blob", sha: "s2", size: 100 }] },
@@ -111,6 +115,7 @@ await page.waitForTimeout(1500);
 const line1 = await said();
 check("and the panel says what landed", /block|part|element/i.test(line1), line1.slice(0, 160));
 check("and so does a toast, seen from the board", await toast("landed on the board"));
+check("two blocks is thin, and the panel says so", /Only 2 blocks came from it: the page in the repository has little on it/.test(line1), line1.slice(-120));
 check("with no page error on the way", errors.length === 0, errors.join(" / "));
 
 /* 1b. The same, pressed from the Builds page: the board opens and it lands there. */
@@ -142,6 +147,22 @@ check("a repository of sources with no address is refused on the panel, naming w
 check("and the refusal is still on screen as a toast three seconds later", await toast());
 const mid = await doc();
 check("with nothing landed", mid.nodes === landed.nodes && mid.spaces === landed.spaces + 1);
+
+/* 2b. A site made here: its page is /site of the deployment, never the root. */
+await page.waitForTimeout(6500);
+await bring("him/made");
+let madeLine = "";
+for (let i = 0; i < 60 && !/could not be read|landed|block/.test(madeLine); i++) { await page.waitForTimeout(1000); madeLine = await said(); }
+check("a repository carrying the published document is read at /site of its deployment, not at the root", /him\/made is a site made here, so it is read at its page: https:\/\/polio-two\.vercel\.app\/site/.test(madeLine), madeLine.slice(0, 200));
+check("and never at the bare root", !/deployed at: https:\/\/polio-two\.vercel\.app\/?\./.test(madeLine));
+
+/* 2c. A site made here with nowhere named: said, with where the page would be. */
+await page.waitForTimeout(6500);
+await bring("him/madeless");
+await page.waitForTimeout(3500);
+const lessLine = await said();
+check("a site made here with no address says the page is at /site of wherever it is deployed, and that the repository does not say where", /him\/madeless is a site made here, published at \/site of wherever it is deployed, and the repository does not say where/.test(lessLine), lessLine.slice(0, 200));
+check("and that refusal is a toast too", await toast("published at /site of wherever it is deployed"));
 
 /* 3. Sources deployed at an address: read there, and when that fails, say so by name. */
 await page.waitForTimeout(6500);

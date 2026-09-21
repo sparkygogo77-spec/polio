@@ -59,10 +59,63 @@ export const REPO_REFUSAL_SAYS: Record<RepoRefusal, string> = {
  * the next step is taken rather than described, so this only says where
  * the page is being read from; without one it says what would give it one.
  */
-export function noPageSays(repo: Repo, kinds: readonly string[], deployedAt: string | null): string {
+export function noPageSays(repo: Repo, kinds: readonly string[], at: string | null, isMadeHere = false): string {
   const found = kinds.length ? ` What is in it: ${kinds.slice(0, 8).join(", ")}.` : "";
-  if (deployedAt) return `There is no page in the sources of ${repoName(repo)}, so it is read at the address it is deployed at: ${deployedAt}.${found}`;
+  if (isMadeHere && at) return `${repoName(repo)} is a site made here, so it is read at its page: ${at}.`;
+  if (isMadeHere) return `${repoName(repo)} is a site made here, published at /site of wherever it is deployed, and the repository does not say where. Put that address under About on GitHub, or type it with /site on the end under Read the page.`;
+  if (at) return `There is no page in the sources of ${repoName(repo)}, so it is read at the address it is deployed at: ${at}.${found}`;
   return `${REPO_REFUSAL_SAYS["no-page"]}${found}`;
+}
+
+/**
+ * THE MARK A PUBLISH FROM HERE LEAVES: the document the app renders at /site.
+ *
+ * A repository that carries it is a site made in this Builder, and the
+ * root of wherever it is deployed is the Builder's own front, which is the
+ * tool and not the site. Driven by hand: bringing this Builder's own
+ * repository in read its root and landed two blocks of the Builds page,
+ * while the site itself, thirty-odd parts, sat at /site. A newer publish
+ * also writes an index page into the repository, and that comes in through
+ * its files; this is for the ones that predate that.
+ */
+export const MADE_HERE = "site/document.json";
+export function madeHere(paths: readonly string[]): boolean {
+  return paths.includes(MADE_HERE);
+}
+
+/**
+ * Where a repository's page is, given where it is deployed.
+ *
+ * A site made here keeps its page at /site of its deployment. Anything
+ * else is read at the root, because nothing in the repository says
+ * otherwise, and `why` carries which of the two it was so the landing
+ * can say the right thing if it comes back thin. No address is no guess.
+ */
+export function pageAddress(deployedAt: string | null | undefined, isMadeHere: boolean): { at: string | null; why: "site" | "root" | "none" } {
+  const base = (deployedAt ?? "").trim().replace(/\/+$/, "");
+  if (!base) return { at: null, why: "none" };
+  if (isMadeHere) return { at: `${base.replace(/\/site$/i, "")}/site`, why: "site" };
+  return { at: base, why: "root" };
+}
+
+/**
+ * WHEN WHAT LANDED IS THIN, one or two blocks, say so and say what to try.
+ *
+ * Two blocks from a root address is what a front page or an app gives, and
+ * he should not have to work out that he aimed at the wrong page. What can
+ * be said depends on what is known: a site made here has its page at
+ * /site, and that is named; a repository nothing is known about is said to
+ * be unknown, with where to type another address; a page read from files
+ * is simply a small page.
+ */
+export function thinSays(n: number, from: { url: string | null; why: "site" | "root" | "none" | "hand"; isMadeHere: boolean }): string {
+  if (n > 2) return "";
+  const only = `Only ${n} block${n === 1 ? "" : "s"} came from`;
+  if (!from.url) return ` ${only} it: the page in the repository has little on it.`;
+  if (from.why === "site") return ` ${only} ${from.url}: the published page there has little on it.`;
+  if (from.why === "root" && from.isMadeHere) return ` ${only} ${from.url}, which is the Builder's own front. The site is at ${pageAddress(from.url, true).at}: type that under Read the page.`;
+  if (from.why === "root") return ` ${only} ${from.url}. That may be a front page or an app rather than the page you meant, and nothing in the repository says where its page is. If it is elsewhere on that site, type its address under Read the page.`;
+  return ` ${only} ${from.url}. If the page you meant is elsewhere on that site, type its address here; a site made here keeps its page at /site of its address.`;
 }
 
 export interface Repo {

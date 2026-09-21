@@ -54,7 +54,7 @@ const check = (name, ok, detail = "") => {
  * that pressing it makes the surface and hands the repository over.
  */
 import { readFileSync } from "node:fs";
-import { noPageSays, readRepo, repoName, REPO_REFUSAL_SAYS } from "../src/features/studio/repoImport.ts";
+import { madeHere, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays } from "../src/features/studio/repoImport.ts";
 
 check("a name that is not owner/name is not a repo", readRepo("notarepo") === null);
 check("and one that is, is read whole", (() => { const r = readRepo("him/his-site"); return !!r && repoName(r).includes("his-site"); })(), JSON.stringify(readRepo("him/his-site")));
@@ -72,9 +72,31 @@ check("a repo of sources with a deployed address is read there, and the line nam
 check("and names what the sources are", /ts, tsx, json/.test(at) && /ts, tsx, json/.test(not));
 check("with no address it says plainly what would give it one", /About on GitHub/.test(not) && /Read the page/.test(not), not);
 const door = readFileSync("src/features/studio/FromASite.tsx", "utf8");
-check("the panel takes that step itself rather than telling him to", /got\.no === "no-page" \? deployedBy\(r\)/.test(door) && /askSite\(\{ url: at\.url \}\)/.test(door));
+check("the panel takes that step itself rather than telling him to", /const mine = got\.no === "no-page" \? pageAddress\(deployedBy\(r\), made\)\.at/.test(door) && /askSite\(\{ url: at\.url \}\)/.test(door));
 check("and what lands from the address still goes into the repository's own category", /repo\?: Repo/.test(door) && /const from = repoOf\(source\)/.test(door));
+/* ------------------------------------------- a site made here has a page */
+/* Driven by hand: bringing this Builder's own repository in read the root
+   of its deployment, which is the Builds page, and landed two blocks; the
+   site itself sat at /site. The repository carries the mark of a publish
+   from here, and that mark decides the address. */
+check("a repository carrying the published document is a site made here", madeHere(["package.json", "site/document.json", "src/app/page.tsx"]) && !madeHere(["package.json", "src/app/page.tsx"]));
+check("its page is /site of where it is deployed, not the root", pageAddress("https://polio-two.vercel.app", true).at === "https://polio-two.vercel.app/site" && pageAddress("https://polio-two.vercel.app/", true).why === "site");
+check("and once is enough: an address already ending in /site is not doubled", pageAddress("https://polio-two.vercel.app/site", true).at === "https://polio-two.vercel.app/site");
+check("anything else is read at its root, and says so", pageAddress("https://x.example", false).at === "https://x.example" && pageAddress("https://x.example", false).why === "root");
+check("no address is no guess", pageAddress("", true).at === null && pageAddress(null, false).why === "none");
+const madeAt = noPageSays(src, ["ts", "json"], "https://polio-two.vercel.app/site", true);
+const madeNo = noPageSays(src, ["ts", "json"], null, true);
+check("the line for a site made here names its page", /is a site made here, so it is read at its page: https:\/\/polio-two\.vercel\.app\/site/.test(madeAt), madeAt);
+check("and with no address it says where the page would be and that the repository does not say", /published at \/site of wherever it is deployed/.test(madeNo) && /does not say where/.test(madeNo) && /About on GitHub/.test(madeNo), madeNo);
+check("a thin landing from a root address, repository unknown, says so and where to type another", /Only 2 blocks came from https:\/\/x\.example/.test(thinSays(2, { url: "https://x.example", why: "root", isMadeHere: false })) && /nothing in the repository says where its page is/.test(thinSays(2, { url: "https://x.example", why: "root", isMadeHere: false })));
+check("a thin landing from a site made here's root names /site", /The site is at https:\/\/x\.example\/site/.test(thinSays(1, { url: "https://x.example", why: "root", isMadeHere: true })));
+check("a thin landing from the published page itself says the page is small", /the published page there has little on it/.test(thinSays(2, { url: "https://x.example/site", why: "site", isMadeHere: true })));
+check("a thin landing from files says the page is small", /the page in the repository has little on it/.test(thinSays(2, { url: null, why: "none", isMadeHere: false })));
+check("three or more blocks is not thin", thinSays(3, { url: "https://x.example", why: "root", isMadeHere: false }) === "");
+
 const run = readFileSync("src/features/studio/repoRun.ts", "utf8");
+check("the read carries the page address and the mark with the refusal", /pageAt: page\.at, pageWhy: page\.why, madeHere: made/.test(run));
+check("and the panel reads the page address, with the same rule on its own record of where it published", /\[got\.pageAt, mine\]/.test(door) && /pageAddress\(deployedBy\(r\), made\)/.test(door));
 check("the deployed address comes back with the refusal, asked for on every read", /deployedAt: homepage \|\| null/.test(run) && /const info = await gh\(`\/repos\/\$\{repo\.owner\}\/\$\{repo\.name\}`, token\);\n  if \(isNo\(info\)\) return info;\n  const it/.test(run));
 
 /* ------------------------------------------------------------- reachable */

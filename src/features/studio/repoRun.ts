@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, noPageSays, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, madeHere, noPageSays, pageAddress, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 
 const API = "https://api.github.com";
 
@@ -47,6 +47,11 @@ export interface RepoNo {
    * the line is empty; the caller may know a better one of its own.
    */
   deployedAt?: string | null;
+  /** For `no-page` only: the address of its PAGE, which for a site made here is /site of the deployment, not its root. */
+  pageAt?: string | null;
+  pageWhy?: "site" | "root" | "none";
+  /** For `no-page` only: the repository carries the document a publish from here leaves. */
+  madeHere?: boolean;
 }
 
 const isNo = (r: unknown): r is RepoNo => !!r && typeof r === "object" && "no" in (r as RepoNo);
@@ -120,7 +125,9 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
      * meant by bringing the repository in.
      */
     const kinds = [...new Set(paths.map((p) => (p.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase()).filter(Boolean))];
-    return { no: "no-page", says: noPageSays(repo, kinds, homepage || null), deployedAt: homepage || null };
+    const made = madeHere(paths);
+    const page = pageAddress(homepage || null, made);
+    return { no: "no-page", says: noPageSays(repo, kinds, page.at, made), deployedAt: homepage || null, pageAt: page.at, pageWhy: page.why, madeHere: made };
   }
 
   const keep = wanted(paths);

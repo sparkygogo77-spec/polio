@@ -37,7 +37,7 @@ import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
-import { categoryFor, noPageSays, readRepo, repoName, REPO_REFUSAL_SAYS, type Repo } from "./repoImport";
+import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
 import { readRepoSite, refused } from "./repoRun";
 import { heldKeys } from "@/features/keys/store";
 import { useBuilds } from "@/features/builds/store";
@@ -51,7 +51,7 @@ type Source =
   /* A site read at its address. `repo` is set when the address stood in
      for a repository of sources, so what lands goes into that
      repository's own category exactly as its files would have. */
-  | { kind: "site"; url: string; host: string; repo?: Repo }
+  | { kind: "site"; url: string; host: string; repo?: Repo; read?: { why: "site" | "root"; isMadeHere: boolean } }
   | { kind: "zip"; file: File; name: string; entry: string }
   /* A repository is a zip once it is here: its files were fetched by this
      browser with his own token and packed on the way in, so everything
@@ -210,15 +210,20 @@ export function FromASite({ space }: { space: Space }) {
        * repository to, and comes in from there as the page a visitor sees.
        * Only with no address anywhere does it say so and stop.
        */
-      const mine = got.no === "no-page" ? deployedBy(r) : null;
-      const at = got.no === "no-page" ? [got.deployedAt, mine].map((a) => (a ? allowed(a) : null)).find((a) => a?.ok) : null;
+      /* Its PAGE, not its root: a site made here keeps its page at /site of
+         wherever it is deployed, and the root there is the Builder's own
+         front. The same rule is applied to the address this Builder itself
+         published the repository to. */
+      const made = got.no === "no-page" && !!got.madeHere;
+      const mine = got.no === "no-page" ? pageAddress(deployedBy(r), made).at : null;
+      const at = got.no === "no-page" ? [got.pageAt, mine].map((a) => (a ? allowed(a) : null)).find((a) => a?.ok) : null;
       if (!at?.ok) { refuse(got.says, r); return; }
-      setStage({ at: "busy", says: noPageSays(r, [], at.url) });
+      setStage({ at: "busy", says: noPageSays(r, [], at.url, made) });
       const read = await askSite({ url: at.url });
-      if (!read.ok) { refuse(`${noPageSays(r, [], at.url)} That page could not be read: ${String(read.message ?? "no answer")}`, r); return; }
+      if (!read.ok) { refuse(`${noPageSays(r, [], at.url, made)} That page could not be read: ${String(read.message ?? "no answer")}`, r); return; }
       await landWhole({
         at: "picking",
-        source: { kind: "site", url: String(read.url), host: String(read.host), repo: r },
+        source: { kind: "site", url: String(read.url), host: String(read.host), repo: r, read: { why: made ? "site" : "root", isMadeHere: made } },
         page: read.page as { width: number; height: number; shot: string },
         candidates: (read.candidates as Block[]) ?? [],
         scripts: false,
@@ -429,14 +434,18 @@ export function FromASite({ space }: { space: Space }) {
     // where it was asked for, with the parts on the board beside it.
     useStudio.getState().setSelection([space.id]);
     play("confirm");
-    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${landed.length} block${landed.length === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: `In the space named after it, and in the shelf under “${categoryFor(of).label}”.`, level: "success", source: "studio", toast: { durationMs: 7000 } });
+    /* Thin is said, with the better address when one is known. */
+    const thin = thinSays(landed.length, source.kind === "site"
+      ? { url: source.url, why: source.read?.why ?? "hand", isMadeHere: source.read?.isMadeHere ?? false }
+      : { url: null, why: "none", isMadeHere: false });
+    if (of) ctx.publish({ key: `studio:repo:${of.name}`, title: `${landed.length} block${landed.length === 1 ? "" : "s"} from ${repoName(of)} landed on the board`, body: `In the space named after it, and in the shelf under “${categoryFor(of).label}”.${thin}`, level: thin ? "warn" : "success", source: "studio", toast: { durationMs: thin ? 10000 : 7000 } });
     setStage({
       at: "said",
       says: `${saidOf(landed, nameOf(source), scripts)}${
         from
           ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(from).label}” — drop any of them anywhere, as many times as you like.`
           : ""
-      }`,
+      }${thin}`,
     });
   };
 
