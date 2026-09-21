@@ -15,7 +15,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
-import { swapDoc, useStudio } from "@/features/studio/store";
+import { swapDoc, takeCarriedRepo, useStudio } from "@/features/studio/store";
 import type { PreviewDoc } from "@/features/studio/SitePreview";
 
 /** Where the Builder reads and writes the document it is editing. */
@@ -106,13 +106,14 @@ export const useBuilds = create<Builds>()(
       activeId: null,
 
       adopt: () => {
-        if (get().projects.length) return;
+        if (get().projects.length) { carryRepos(); return; }
         const id = uid();
         // Whatever the Builder is holding becomes the first project, so nobody
         // opens this page and finds their work replaced by an empty list.
         const held = read(LIVE);
         if (held) write(slot(id), held);
         set({ projects: [{ id, name: "First site", updatedAt: Date.now() }], activeId: id });
+        carryRepos();
       },
 
       save: () => {
@@ -172,6 +173,7 @@ export const useBuilds = create<Builds>()(
         // Every panel and the canvas come back on the new document without a
         // reload, and an empty site comes back empty.
         swapDoc(held);
+        carryRepos();
       },
 
       rename: (id, name) =>
@@ -223,3 +225,65 @@ export const activeProject = (): Project | null => {
   const { projects, activeId } = useBuilds.getState();
   return projects.find((p) => p.id === activeId) ?? null;
 };
+
+/** `owner/name`, or null: a repository is two words with a slash between. */
+export const repoFrom = (name: string, branch = "main"): Project["repo"] | undefined => {
+  const [owner, repo, more] = name.trim().split("/");
+  return owner && repo && !more ? { owner, name: repo, branch: branch.trim() || "main" } : undefined;
+};
+
+/** As `owner/name`, which is how every route and every label wants it. */
+export const repoLabel = (repo: Project["repo"] | undefined): string | null => (repo ? `${repo.owner}/${repo.name}` : null);
+
+/**
+ * THE ONE PLACE A SITE'S REPOSITORY IS KEPT is `project.repo`, here.
+ *
+ * The repository the open site points at, as `owner/name`, or null when it
+ * has none. Everything that needs the answer reads it here: the GitHub
+ * control, the Sites list, the Builds page, Publish, and the studio store
+ * when an edit decides whether to open a branch. Null means the server's
+ * own repository, which is what every publish used before there was a
+ * choice, and every surface says so in words rather than showing a blank.
+ */
+export const activeRepo = (): string | null => repoLabel(activeProject()?.repo);
+
+/** The same, as a hook, so a control follows a connect the moment it lands. */
+export function useSiteRepo(): string | null {
+  return useBuilds((s) => repoLabel(s.projects.find((p) => p.id === s.activeId)?.repo));
+}
+
+/**
+ * THE COPY ACROSS, once, for sites that connected before this was the place.
+ *
+ * The GitHub control used to write the choice into the document itself, as
+ * `siteRepo`, and a site connected that way but never published has it there
+ * and nowhere else. Every project without a repository is asked whether its
+ * saved document names one; the open site's document may already be in the
+ * studio store rather than on disk, so its answer comes from there. The
+ * branch is taken as `main`, the one thing the old field never recorded; the
+ * Builds page lets it be changed. Runs after every hydration and every
+ * switch, and does nothing once a project holds its own.
+ */
+function carryRepos(): void {
+  const { projects, activeId } = useBuilds.getState();
+  const fromDoc = (id: string): string | null => {
+    try {
+      const raw = read(id === activeId ? LIVE : slot(id));
+      const was = raw ? (JSON.parse(raw) as { state?: { siteRepo?: unknown } }).state?.siteRepo : null;
+      return typeof was === "string" && was.trim() ? was.trim() : null;
+    } catch {
+      return null;
+    }
+  };
+  const held = takeCarriedRepo();
+  let changed = false;
+  const next = projects.map((p) => {
+    if (p.repo) return p;
+    const named = (p.id === activeId ? held : null) ?? fromDoc(p.id);
+    const repo = named ? repoFrom(named) : undefined;
+    if (!repo) return p;
+    changed = true;
+    return { ...p, repo };
+  });
+  if (changed) useBuilds.setState({ projects: next });
+}

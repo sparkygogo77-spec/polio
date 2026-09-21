@@ -65,12 +65,14 @@ export async function GET(request: Request) {
     if (!who.ok) return NextResponse.json({ ok: false, reason: "upstream", message: `GitHub answered ${who.status} when asked who the token belongs to.` });
     const me = (await who.json()) as { login?: string };
     const list = await fetch(`${API}/user/repos?per_page=100&sort=pushed`, { headers: head(t.token), cache: "no-store" });
-    const repos = list.ok ? ((await list.json()) as { full_name?: string; private?: boolean; pushed_at?: string }[]) : [];
+    const repos = list.ok ? ((await list.json()) as { full_name?: string; private?: boolean; pushed_at?: string; default_branch?: string }[]) : [];
     return NextResponse.json({
       ok: true,
       source: t.source,
       owner: me.login ?? null,
-      repos: repos.map((r) => ({ name: r.full_name ?? "", private: r.private === true, pushed: r.pushed_at ?? null })).filter((r) => r.name),
+      /* The default branch rides along so connecting one records where its
+         main is, rather than assuming. */
+      repos: repos.map((r) => ({ name: r.full_name ?? "", private: r.private === true, pushed: r.pushed_at ?? null, branch: r.default_branch ?? "main" })).filter((r) => r.name),
     });
   } catch (error) {
     return NextResponse.json({ ok: false, reason: "network", message: `Could not reach GitHub: ${error instanceof Error ? error.message : "unknown"}` });

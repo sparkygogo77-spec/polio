@@ -4,9 +4,10 @@
  *
  * A link, and it says what it is linking to. Which repository that is comes
  * from the *site*, not the server: each build on the Builds page carries its
- * own `owner/name`, written there by the publish that made it. A site with
- * none yet has not been published, and the tooltip says what the first one
- * will do rather than asking for a name.
+ * own `owner/name`, written there by a connect, a make, or the publish that
+ * made it, and read from there by everything. A site with none yet says so,
+ * and the tooltip says what the first publish will do rather than asking
+ * for a name.
  *
  * "A browser cannot hold a GitHub token that would do anything" is what this
  * file used to say, and it was wrong — it is exactly where the token belongs,
@@ -25,7 +26,7 @@ import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { Input } from "@/core/ui/input";
 import { publishStatus, type PublishStatus } from "@/features/studio/agent";
-import { useBuilds } from "@/features/builds/store";
+import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys } from "@/features/keys/store";
@@ -89,7 +90,7 @@ export function GithubButton() {
       open={open}
       onOpenChange={setOpen}
       align="end"
-      content={<RepoPanel pointsAt={name} branch={project?.repo?.branch ?? status?.github?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
+      content={<RepoPanel own={mine} server={status?.github?.repo ?? null} branch={project?.repo?.branch ?? status?.github?.branch ?? null} canPush={canPush} onDone={() => setOpen(false)} />}
     >
     <Tooltip content={label}>
       <Button
@@ -149,10 +150,11 @@ export function GithubButton() {
  * No key of his is stored here. The token rides with the call out of the
  * Keys panel, in his browser, exactly as it does for a publish.
  */
-function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
-  const chosen = useStudio((s) => s.siteRepo);
+function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | null; server: string | null; branch: string | null; canPush: boolean; onDone: () => void }) {
+  /* The site's own first, the server's otherwise: the one a publish uses. */
+  const pointsAt = own ?? server;
   const siteName = useStudio((s) => s.brief?.name ?? "");
-  const [mine, setMine] = React.useState<{ name: string; private: boolean }[] | null>(null);
+  const [mine, setMine] = React.useState<{ name: string; private: boolean; branch?: string }[] | null>(null);
   const [said, setSaid] = React.useState<string | null>(null);
   const [making, setMaking] = React.useState(false);
   const [bring, setBring] = React.useState("");
@@ -168,7 +170,7 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
    * one thing on this panel that cannot be undone.
    */
   const merge = async () => {
-    const repo = chosen ?? pointsAt;
+    const repo = pointsAt;
     if (!repo || !siteBranch || merging) return;
     setMerging(true);
     setSaid(null);
@@ -202,6 +204,26 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /*
+   * CONNECTING WRITES THE BUILDS STORE, and nothing else.
+   *
+   * It used to write `siteRepo` on the document, which nothing that shows
+   * a site's repository read: the Sites list, the Builds page and Publish
+   * all read `project.repo`, so a connected site said "no repository" and
+   * its first publish made a second repository named after the site. One
+   * place now, with the branch, so every surface agrees the moment this
+   * lands. A Builder with no site adopted yet takes one first.
+   */
+  const connect = (full: string, onBranch: string): boolean => {
+    const repo = repoFrom(full, onBranch);
+    if (!repo) { setSaid(`${full} is not an owner/name, so it cannot be connected.`); return false; }
+    let project = activeProject();
+    if (!project) { useBuilds.getState().adopt(); project = activeProject(); }
+    if (!project) { setSaid("There is no site open to connect it to."); return false; }
+    useBuilds.getState().setRepo(project.id, repo);
+    return true;
+  };
+
   const make = async () => {
     const refusal = nameRefusal(name);
     if (refusal) { setSaid(refusal); return; }
@@ -211,8 +233,7 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
       const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name }) });
       const a = await res.json();
       if (!a.ok) { setSaid(a.message ?? "GitHub would not make it."); return; }
-      useStudio.getState().setSiteRepo(a.name);
-      setSaid(`Made ${a.name}. This site points at it now.`);
+      if (connect(String(a.name), String(a.branch ?? "main"))) setSaid(`Made ${a.name}. This site points at it now.`);
     } catch {
       setSaid("Could not reach GitHub from here.");
     } finally {
@@ -277,21 +298,27 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
     <div data-repo-panel="" className="flex w-[260px] flex-col gap-2">
       <div>
         <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">The repo this site goes to</p>
-        <p data-repo-points="" className="truncate text-[12px] font-medium text-fg">
-          {chosen ?? pointsAt ?? "No repo yet"}
+        {/* A site with none says so in words. It never wears the server's
+            name as if it were its own, and never shows a blank. */}
+        <p data-repo-points="" data-repo-own={own ?? ""} className={cn("truncate text-[12px] font-medium", own ? "text-fg" : "text-fg-muted")}>
+          {own ?? "No repo of its own yet"}
         </p>
         <p className="text-[10px] text-fg-muted">
-          {chosen ?? pointsAt ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}` : "A publish goes wherever the server says, until you pick a repo."}
+          {own
+            ? `on ${branch ?? "main"}${canPush ? "" : " — no token, so a publish cannot push"}`
+            : server
+              ? `A publish goes to the server's ${server} until you pick a repo below.`
+              : "The first publish makes one named after this site, unless you pick a repo below."}
         </p>
       </div>
 
-      {siteBranch && (chosen ?? pointsAt) ? (
+      {siteBranch && pointsAt ? (
         <div data-repo-branch={siteBranch} className="rounded-md border px-2 py-1.5" style={{ borderColor: "oklch(0.7 0.15 18 / 0.45)", background: "oklch(0.7 0.15 18 / 0.08)" }}>
           <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Edits are on a branch</p>
           <p className="truncate font-mono text-[11px] text-fg" title={siteBranch}>{siteBranch}</p>
           <p className="mt-0.5 text-[10px] text-fg-muted">
             The running site stays on main until you merge. Look first:{" "}
-            <a className="text-accent underline-offset-2 hover:underline" href={`https://github.com/${chosen ?? pointsAt}/tree/${encodeURIComponent(siteBranch)}`} target="_blank" rel="noreferrer">the branch on GitHub</a>
+            <a className="text-accent underline-offset-2 hover:underline" href={`https://github.com/${pointsAt}/tree/${encodeURIComponent(siteBranch)}`} target="_blank" rel="noreferrer">the branch on GitHub</a>
             {" "}— and Vercel deploys it at a preview address of its own on every publish.
           </p>
           <Button
@@ -323,8 +350,8 @@ function RepoPanel({ pointsAt, branch, canPush, onDone }: { pointsAt: string | n
                 key={r.name}
                 type="button"
                 data-repo-connect={r.name}
-                onClick={() => { useStudio.getState().setSiteRepo(r.name); onDone(); }}
-                className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px]", (chosen ?? pointsAt) === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
+                onClick={() => { if (connect(r.name, r.branch ?? "main")) onDone(); }}
+                className={cn("tactile flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px]", own === r.name ? "text-fg" : "text-fg-muted hover:text-fg")}
               >
                 <span className="truncate">{r.name}</span>
                 {r.private ? <span className="shrink-0 text-[9px] text-fg-faint">private</span> : null}
