@@ -1450,6 +1450,50 @@ function LinkField({ node }: { node: StudioNode }) {
       {link?.kind === "url" ? (
         <Input className="mt-1.5" value={link.target} placeholder="https://" aria-label="Web address" onChange={(e) => set({ kind: "url", target: e.target.value })} />
       ) : null}
+      {!link ? <WorkField node={node} /> : null}
     </Field>
+  );
+}
+
+/**
+ * The other thing a button that points nowhere can be: one that DOES something.
+ *
+ * HIS WORDS: "a drawn button if not linked to something should offer options
+ * of a web link, prompt for backend to fill in, like a button i draw, I can
+ * title it 'buy' and then i say 'swap route aggregator through jupiter or
+ * specific exchange or platform via trading wallet' and it builds the backend
+ * required to make it work where this exact button is."
+ *
+ * So the two are offered together, and only while it points nowhere: once it
+ * sends people somewhere, asking what it should do instead is asking a
+ * question he has already answered.
+ *
+ * What he writes goes on the part's own `data`, which is the field this app
+ * already defines as "what it shows or does — the values and actions the
+ * backend must provide". It is not a note about the button: it is the work,
+ * and it is sited at the button because it lives on it, which is what the
+ * backend surface reads when it builds.
+ */
+function WorkField({ node }: { node: StudioNode }) {
+  const says = node.data ?? "";
+  return (
+    <div className="mt-2 border-t border-border pt-2">
+      <p className="mb-1 text-[10px] leading-snug text-fg-muted">
+        Or say what it should <em>do</em>, and the backend for it is built here, on this button.
+      </p>
+      <Textarea
+        data-backend-ask=""
+        rows={3}
+        value={says}
+        aria-label="What this button should do"
+        placeholder={"swap route aggregator through jupiter or specific exchange or platform via trading wallet"}
+        onChange={(e) => useStudio.getState().updateNode(node.id, { data: e.target.value })}
+      />
+      {says.trim() ? (
+        <p data-backend-sited="" className="mt-1 text-[10px] leading-snug text-fg-faint">
+          The backend builds this where this button is.
+        </p>
+      ) : null}
+    </div>
   );
 }

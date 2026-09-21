@@ -317,6 +317,53 @@ const AURA_BANDS = 36;
  * the same. Fourteen strokes rather than a hundred and sixty gradients, and
  * nothing in it moves, so it is painted once and left.
  */
+/**
+ * The ring being drawn round the line, in the order the hand went.
+ *
+ * HIS WORDS: "the black hole should animate like a dr strange portal tracing
+ * the outline as i drew it with the ring and then the center forms."
+ *
+ * The hole used to open by growing its whole edge out of the middle, so the
+ * ring existed complete from the first frame at a small size and swelled —
+ * measured, there was no light at all where his hand had started until the
+ * edge reached it. This lays the ring ALONG the line he drew, from his first
+ * point to `upTo` of the way round, in the same three passes the open hole's
+ * photon ring uses so the arc being traced is the same light that will be
+ * there when it closes.
+ */
+export function paintRingAlong(c: CanvasRenderingContext2D, o: { path: SketchPoint[]; hair?: number; upTo: number }) {
+  const all = resample(o.path, PIECES);
+  if (all.length < 3) return;
+  const hair = o.hair ?? 1;
+  /* At least two points, and never the whole loop while it is still being
+     traced: the closing of the ring is the moment the middle is allowed to
+     form, and it must not happen a frame early. */
+  const n = Math.max(2, Math.min(all.length - 1, Math.round(all.length * Math.max(0, Math.min(1, o.upTo)))));
+  const arc = all.slice(0, n);
+
+  c.save();
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  c.globalCompositeOperation = "lighter";
+  for (const [style, width, out] of [[WARM(0.22), 2.4, 4], [HOT(0.5), 1.6, 2], ["oklch(1 0.02 90 / 1)", 1.4, 0.6]] as [string, number, number][]) {
+    c.strokeStyle = style;
+    c.lineWidth = width * hair;
+    const line = outward(all, out * hair).slice(0, n);
+    c.beginPath();
+    line.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+    c.stroke();
+  }
+  /* The head of it, a shade brighter: the point his hand is at. */
+  const head = arc[arc.length - 1];
+  if (head) {
+    c.fillStyle = "oklch(1 0.03 90 / 0.9)";
+    c.beginPath();
+    c.arc(head[0], head[1], 1.8 * hair, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+}
+
 export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions) {
   const pts = resample(o.path, PIECES);
   if (pts.length < 3) return;
@@ -375,60 +422,15 @@ export function paintHoleAlong(c: CanvasRenderingContext2D, o: HoleAlongOptions)
   c.restore();
 }
 
-/**
- * The shadow inside a drawn line: the surface falls to black as it nears
- * the horizon, whatever shape the horizon is.
+/*
+ * THE SHADOW INSIDE THE LINE IS GONE, and this is where it was.
  *
- * A gradient from the middle would reach a near edge too soon and a far one
- * too late, so the shadow is laid as bands along the line itself, each a
- * share of the mean radius wide, darker as they narrow. Clipped to the
- * inside, so nothing here touches the light outside.
+ * HIS WORDS: "remove the blac edges on the inside." `paintHorizonShadowAlong`
+ * laid the surface down to black as it neared the horizon, in forty-eight
+ * bands off a curve — measured at 98% coverage right at the line, falling to
+ * 30% sixty pixels in, which is exactly the black edge he was looking at. The
+ * painter is removed rather than left unused: nothing calls it, and a painter
+ * nothing calls is a thing the next person has to work out the status of.
  */
-/** How many bands the falloff is laid in. Measured: eight rings, forty-eight none. */
-const BANDS_IN = 48;
 
-export function paintHorizonShadowAlong(c: CanvasRenderingContext2D, path: SketchPoint[], hair = 1) {
-  const pts = resample(path, PIECES);
-  if (pts.length < 3) return;
-  const [cx, cy] = centroid(pts);
-  const R = pts.reduce((acc, [x, y]) => acc + Math.hypot(x - cx, y - cy), 0) / pts.length;
-  c.save();
-  trace(c, pts);
-  c.clip();
-  c.lineJoin = "round";
-  /*
-   * A RAMP, NOT A STAIRCASE.
-   *
-   * This was eight strokes at hand-picked widths, and eight strokes are
-   * eight hard edges: the darkness went up a step at each one and held flat
-   * between, so the surface came out ringed like a contour map. Counted on a
-   * disc, walking in from the line a pixel at a time: EIGHT rings, one a
-   * band, the worst of them a step of 14 in 255.
-   *
-   * The bands are now read off a continuous curve rather than a list, evenly
-   * spaced in depth so no two edges fall in the same place, and each one thin
-   * enough that its own edge is under what an eye picks out. Counted the same
-   * way: NO rings, and the steepest place in the whole run is 5 in 255 — a
-   * gradient rather than a line.
-   *
-   * Forty-eight rather than more: at ninety-six the numbers stop improving
-   * and it is six times the strokes for nothing.
-   */
-  for (let i = 0; i < BANDS_IN; i++) {
-    const t = i / BANDS_IN;
-    /* Inward from the edge, band after band, each a little darker than the
-       last so the run is steepest where the surface meets the line. */
-    c.strokeStyle = `oklch(0.01 0.005 290 / ${(0.04 + 0.14 * t).toFixed(3)})`;
-    c.lineWidth = Math.max(2, R * (0.5 * (1 - t)) * 2);
-    trace(c, pts);
-    c.stroke();
-  }
-  c.strokeStyle = "oklch(0 0 0 / 1)";
-  c.lineWidth = 3 * hair;
-  trace(c, pts);
-  c.stroke();
-  c.restore();
-}
-
-/** How much room the light needs outside the disc. */
 export const HALO = 64;
