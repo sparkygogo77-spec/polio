@@ -91,7 +91,7 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     229 parts in 12 categories, plain names, one f(...) line each;
+  catalog.ts     230 parts in 12 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
   blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
@@ -204,7 +204,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   section, so a final prompt that builds the server is written against a list
   the board produced rather than from memory. None of it is domain-specific:
   it is free text plus wires.
-- **All 229 ids are real components.** There is no legacy path: `blocks.tsx`
+- **All 230 ids are real components.** There is no legacy path: `blocks.tsx`
   falls back to a labelled box (`data-part-fallback`) only if an id loses its
   `DEFS` line, and `all.mjs` fails if that ever happens. Every part's root
   carries `data-part={id}`, tier-B roots also carry `data-behaviour`, and the
@@ -253,6 +253,17 @@ own: `store.shelve` hands them to the catalogue, `getFeature` and
 preset into an ordinary node, so the shelf, the wheel, search and "add
 here" all work without knowing where a part came from. A repository with
 no page in it to open says so and names what it found.
+
+**A box on a page is a box.** His captured page landed 126 parts, and 75
+of them — every wrapper with no words of its own: the header, a row, a
+column, a card — were the Idea part, so each wore a dashed edge, an IDEA
+label and a "header · 1 inside" line over his content. `box` (`PlainBox`,
+Layout › Page shape) draws nothing of its own: its colour through `Fill`,
+its edge, padding and layout from the node's box fields (below), and the
+words typed into it, plainly. Nothing typed, nothing drawn — no edge, no
+name, no count. The shelf gives it a line so the tile is not a blank disc.
+`tests/plain-box.mjs` counts the words and the colours inside it, beside an
+Idea part that still says what it is.
 
 **A hand on a vine pulls it; a press takes it apart from the middle.** His
 words: "the line in the middle of the vines is hoverable ... i would rather
@@ -2000,7 +2011,7 @@ a kicker with a rule, and label-and-value rows that copy.
   from `docs/MOTION.md` on the identical timing, and `spec.ts` puts it in the
   blueprint, so the Builder's own pass is the floor and a generator's is the
   ceiling.
-- The parts drawer drills down rather than listing 229 tiles: categories carry
+- The parts drawer drills down rather than listing 230 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
   one).

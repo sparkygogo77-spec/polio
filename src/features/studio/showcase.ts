@@ -85,6 +85,8 @@ const REPEATS = new Set([
 
 /** Two items, named after the part, so a shelf preview shows a quantity of two. */
 export function previewContent(feature: FeatureDef): string | undefined {
+  // A box draws only what it is given, so the shelf gives it a line to show what it is.
+  if (feature.id === "box") return "Whatever you put in it";
   if (!REPEATS.has(feature.id)) return undefined;
   const noun = feature.name.split(" ")[0] ?? "Item";
   return `${noun} one, ${noun} two`;

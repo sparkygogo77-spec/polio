@@ -360,6 +360,26 @@ export function Note({ id, label, content, theme: t }: PartProps) {
   );
 }
 
+/**
+ * A box that draws nothing of its own.
+ *
+ * A captured page is mostly wrappers: a header, a row, a column, a card
+ * with no words of its own. Each one used to land as the Idea part and wear
+ * a dashed edge, a kind word and a label over his content — 75 of the 126
+ * parts on his page. This is only what the node carries: its colour through
+ * the fill, its edge and padding from the box fields, and the words typed
+ * into it, drawn plainly. With nothing typed it draws nothing at all: no
+ * edge, no name, no count of what is inside.
+ */
+export function PlainBox({ id, content, theme: t }: PartProps) {
+  const words = content.trim();
+  return (
+    <Fill t={t} data-part={id} style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+      {words ? words : null}
+    </Fill>
+  );
+}
+
 /** Breadcrumb trails. The last crumb is where you are. */
 export function Breadcrumbs({ id, content, theme: t, onNavigate }: PartProps) {
   const trail = items(content, ["Home", "Section", "Page"]);

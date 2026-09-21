@@ -28,7 +28,7 @@ import {
   Package, Palette, PanelLeft, PanelTop, Paperclip, PenTool, Percent, PieChart, Pin, Podcast,
   Printer, Puzzle, QrCode, Quote, Radar, Radio, RefreshCw, Rocket, RotateCw, Route, Rows3, Rss,
   Scan, ScrollText, Search, Send, Server, Share2, Shapes, Shield, ShieldCheck, ShoppingCart,
-  Signature, Signpost, SlidersHorizontal, Smartphone, Sparkles, Spline, Sticker, Store,
+  Signature, Signpost, SlidersHorizontal, Smartphone, Sparkles, Spline, Square, Sticker, Store,
   StretchHorizontal, Sun, Sunrise, Table2, Tag, Target, Telescope, Terminal, Timer, ToggleLeft,
   TrendingUp, Trophy, Type, Undo2, Upload, User, Users, Verified, Video, Volume2, Wallet, Wand2,
   Waves, Waypoints, Wifi, Workflow, WrapText, Zap,
@@ -192,6 +192,7 @@ const RAW: FeatureDef[] = [
   f("masonry", "Staggered grid", "structure", LayoutGrid, "Uneven heights packed without gaps.", { options: [columns] }),
   f("sidebar-layout", "Sidebar", "structure", PanelLeft, "Persistent side rail beside the content.", { options: [{ id: "side", label: "Side", values: ["left", "right"] }, { id: "behaviour", label: "Behaviour", values: ["collapsible", "fixed", "overlay"] }] }),
   f("holy-grail", "Header, body, footer", "structure", LayoutTemplate, "The dependable three-band page.", {}),
+  f("box", "Box", "structure", Square, "A plain box: its colour, its edge, its padding and the words you put in it, and nothing of its own.", { tags: ["plain", "container", "div", "frame", "import", "captured"] }),
   f("card-grid", "Card grid", "structure", Boxes, "Repeating cards from a list of items.", { options: [columns, density] }),
   f("tabs-panel", "Tabs", "structure", Component, "Switch between panels in place.", { options: [{ id: "style", label: "Style", values: ["underline", "pill", "segmented"] }] }),
   f("accordion", "Expanding rows", "structure", ChevronsDown, "Collapsible rows that expand one at a time.", {}),
@@ -718,6 +719,7 @@ const DETAILS: Record<string, Partial<FeatureDef>> = {
   "custom-idea": { w: 480, h: 200, content: { label: "What it is", placeholder: "Describe the idea in your own words" } },
   gimmick: { w: 880, h: 120, content: { label: "The idea", placeholder: "The one unusual thing this site is built around" } },
   note: { w: 320, h: 120, content: { label: "Note", placeholder: "Anything the builder should know" } },
+  box: { w: 640, h: 200, content: { label: "Words", placeholder: "What the box holds; blank draws nothing" } },
   mood: { w: 320, h: 140, content: { label: "References", placeholder: "Sites, eras, feelings" } },
   constraint: { w: 320, h: 100, content: { label: "The rule", placeholder: "Must load in under a second" } },
 };
@@ -957,6 +959,7 @@ const EXPLAIN: Record<string, string> = {
   "custom-idea": "Something not in the library. Name it and describe it, and it goes into the blueprint as your own part.",
   "gimmick": "The one idea the whole site hangs on. Write it in a sentence; everything else is downstream of it.",
   "note": "A note to yourself or to whoever builds this. It goes into the blueprint but is not part of the page.",
+  "box": "A box and nothing else: the colour, edge, padding and words it is given, with no edge, label or kind of its own. What a captured page's wrappers land as.",
   "mood": "A reference, a site, a feeling, a picture in words. Steers the look without prescribing it.",
   "constraint": "A rule the build must not break, a budget, a colour, a deadline, an accessibility floor.",
 };
@@ -1027,12 +1030,12 @@ export function categoryOf(id: CategoryId): CategoryDef {
   return allCategories().find((c) => c.id === id) ?? CATEGORIES[0]!;
 }
 
-/** Sub-groups inside a category, so 229 parts are reachable in three clicks. `tests/shelf-reach.mjs` holds every id to one. */
+/** Sub-groups inside a category, so 230 parts are reachable in three clicks. `tests/shelf-reach.mjs` holds every id to one. */
 export interface SubGroup { id: string; emoji: string; label: string; ids: string[] }
 
 export const SUBGROUPS: Record<string, SubGroup[]> = {
   "structure": [
-    { id: "page-shape", emoji: "\ud83e\uddf1", label: "Page shape", ids: ["section-stack", "holy-grail", "container-width", "multi-page", "waypoint", "scan-region"] },
+    { id: "page-shape", emoji: "\ud83e\uddf1", label: "Page shape", ids: ["section-stack", "holy-grail", "container-width", "multi-page", "waypoint", "scan-region", "box"] },
     { id: "grids", emoji: "\ud83d\udd32", label: "Grids", ids: ["card-grid", "bento-grid", "masonry"] },
     { id: "split-layouts", emoji: "\u2194\ufe0f", label: "Split layouts", ids: ["split-screen", "sidebar-layout"] },
     { id: "switchers", emoji: "\ud83d\uddc2\ufe0f", label: "Switchers", ids: ["tabs-panel", "accordion"] },
