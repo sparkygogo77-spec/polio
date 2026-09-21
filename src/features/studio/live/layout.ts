@@ -3,65 +3,32 @@
  *
  * At the width the board was designed for, positions are the board's — the
  * frame is the truth. Narrower than that, rows reflow: each row's parts stack
- * in reading order at the device width. A picture keeps its aspect; anything
- * else narrowed by some factor grows in height by that factor, bounded, since
- * its words need the lines. Heights used to be kept as they were, and a text
- * part narrowed to a third of its width was cut off by its own fill at the
- * height it had on the desktop.
+ * in reading order at the device width, and a part whose layout says it is a
+ * row, a column or a grid keeps its children inside it (`reflow.ts`, which
+ * holds the arithmetic and is pure so a test can hold it too). This wrapper
+ * knows what the arithmetic must not: which parts are behaviours and take no
+ * room, and which keep their aspect when narrowed.
  */
 import { getFeature } from "../catalog";
 import { resolvePart } from "../parts";
 import { FULL_BLEED } from "../reshape";
 import type { StudioNode } from "../store";
-import { toRows } from "../spec";
+import { reflow, type Placed } from "./reflow";
 
-/** The most a narrowed part grows in height: a part four times narrower is four times taller, and no more. */
-const GROW_MAX = 4;
+export { frameHeightOf, type Placed } from "./reflow";
 
 export type Device = "desktop" | "tablet" | "phone";
 export const DEVICE_WIDTH: Record<Device, number> = { desktop: 1440, tablet: 834, phone: 390 };
 
-export interface Placed {
-  node: StudioNode;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export function frameHeightOf(nodes: StudioNode[], min = 900): number {
-  const bottom = nodes.reduce((m, n) => Math.max(m, n.y + n.h), 0);
-  return Math.max(min, bottom + 160);
+/** Pictures and first screens keep their aspect; everything else grows in height as it narrows. */
+function aspectBound(n: StudioNode): boolean {
+  const cat = getFeature(n.featureId)?.category;
+  return cat === "media" || cat === "hero";
 }
 
 export function placeNodes(all: StudioNode[], device: Device, frameWidth: number): { width: number; height: number; placed: Placed[]; reflowed: boolean } {
   // Behaviours apply to the whole page; they take no room in it.
   const nodes = all.filter((n) => resolvePart(n.featureId)?.tier !== "B");
   const target = device === "desktop" ? frameWidth : DEVICE_WIDTH[device];
-  if (target >= frameWidth) {
-    return {
-      width: frameWidth,
-      height: frameHeightOf(nodes),
-      placed: nodes.map((n) => ({ node: n, x: n.x, y: n.y, w: n.w, h: n.h })),
-      reflowed: false,
-    };
-  }
-  const gap = 12;
-  const placed: Placed[] = [];
-  let y = gap;
-  for (const row of toRows(nodes)) {
-    for (const n of row) {
-      // Full width is the reshape rule's nine tenths, not the frame less a pixel.
-      const full = n.w >= frameWidth * FULL_BLEED;
-      const w = full ? target : Math.min(n.w, target - gap * 2);
-      // Pictures keep their aspect; everything else grows by how much narrower it got, so its text has the lines it needs.
-      const cat = getFeature(n.featureId)?.category;
-      const aspectBound = cat === "media" || cat === "hero";
-      const narrower = Math.min(GROW_MAX, Math.max(1, n.w / Math.max(1, w)));
-      const h = aspectBound ? (n.w > target ? Math.round(n.h * Math.min(1, target / n.w) * 1.15) : n.h) : Math.round(n.h * narrower);
-      placed.push({ node: n, x: full ? 0 : Math.round((target - w) / 2), y: full && placed.length === 0 ? 0 : y, w, h });
-      y = (full && placed.length === 1 ? 0 : y) + h + gap;
-    }
-  }
-  return { width: target, height: Math.max(y + gap, 320), placed, reflowed: true };
+  return reflow(nodes, target, frameWidth, { fullBleed: FULL_BLEED, aspectBound });
 }

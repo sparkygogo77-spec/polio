@@ -265,6 +265,31 @@ name, no count. The shelf gives it a line so the tile is not a blank disc.
 `tests/plain-box.mjs` counts the words and the colours inside it, beside an
 Idea part that still says what it is.
 
+**A box carries its layout, its padding, its edge and how its words are
+set, and the reflow keeps a laid-out box's children inside it.** The ledger
+of his captured page — display 37, direction 37, align 33, pad 29, gap 19,
+justify 15, border 13 — all went "nowhere: a node has no layout field".
+`StudioNode` has four optional fields now, typed beside `NodeFont` in
+`parts/theme.ts` so the parts folder still ships whole: `layout` (display,
+direction, align, justify, gap, wrap, columns), `pad` (four sides), `edge`
+(width, style, a colour or a palette role) and `text` (align, transform).
+Margin and icon path geometry stay out: a box already stands where its
+margin put it. `Block` puts them round the part as one `[data-part-box]`
+wrapper, and only when a node says something, so a node that says nothing
+gets the part alone and nothing already on a board moves; `applyText` sets
+the theme's align so a part that reads `t.textAlign` follows it. Board,
+pinned preview, full preview and Build all draw through `Block`, so they
+agree. The blueprint writes them as one `box:` line. In the live page the
+arithmetic of `placeNodes` moved to `live/reflow.ts`, pure, so
+`tests/reflow-same.mjs` can hold it against the trunk algorithm written out
+verbatim (BLACKORB at every device, two hundred random boards): a part
+whose layout says flex or grid is a container, the parts its box holds are
+placed inside its placed box, squeezed across with it, a wrapping row
+wraps and grows past `WRAP_AT`, and what follows moves down — where before
+every part at tablet or phone was stacked into one column and his header,
+his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
+measures the board and Preview at Tablet off a page shaped like his.
+
 **A hand on a vine pulls it; a press takes it apart from the middle.** His
 words: "the line in the middle of the vines is hoverable ... i would rather
 no line, the vine maybe pulls a little when you hover ... when click
