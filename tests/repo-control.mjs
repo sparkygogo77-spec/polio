@@ -72,7 +72,7 @@ check("the choice is kept on the site in the builds store, the one place everyth
   /repo\?: \{ owner: string; name: string; branch: string \}/.test(builds) && /export const activeRepo/.test(builds));
 check("and not on the document any more", !/siteRepo: s\.siteRepo/.test(store) && !/setSiteRepo/.test(store));
 check("connecting and making both write there, with the branch",
-  /useBuilds\.getState\(\)\.setRepo\(project\.id, repo\)/.test(button) && !/setSiteRepo/.test(button) && /connect\(r\.name, r\.branch/.test(button) && /connect\(String\(a\.name\), String\(a\.branch/.test(button));
+  /useBuilds\.getState\(\)\.setRepo\(project\.id, repo, how\)/.test(button) && !/setSiteRepo/.test(button) && /connect\(r\.name, r\.branch/.test(button) && /connect\(String\(a\.name\), String\(a\.branch/.test(button));
 check("an edit opens its branch by asking the same place", /activeRepo\(\) && !s\.siteBranch/.test(store));
 check("a document that still names one is copied across once", /takeCarriedRepo/.test(store) && /function carryRepos/.test(builds));
 
@@ -114,7 +114,7 @@ if (!URL_) {
   /* The whole complaint: it used to leave the product. */
   check("…and does not leave the product", left.length === 0, left.join(" ") || "no window opened");
   check("it says where this site goes", !!seen.points, seen.points ?? "-");
-  check("it offers to connect a different repo", /connect a different repo/.test(seen.words));
+  check("it offers to connect a repo, or to move a bound site to a different one", /connect a repo|move to a different repo/.test(seen.words));
   check("and it offers to make a new one, which was not possible before",
     seen.field === 1 && seen.make === 1);
   check("it calls them repos, which is what he calls them", /\brepo\b/.test(seen.words), seen.words.match(/\brepos?\b/g)?.join(" ") ?? "-");

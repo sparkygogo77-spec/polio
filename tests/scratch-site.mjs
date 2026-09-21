@@ -77,6 +77,15 @@ seen.length = 0;
 await fetch(`${BASE}/api/studio/publish`, { method: "POST", headers: HEAD, body: JSON.stringify({ files: [{ path: "index.html", content: "<p>hi</p>" }], message: "A page" }) });
 check("only a request that names no site at all still goes to the server's", seen.some((s) => s.includes("/repos/him/real")), seen.slice(0, 3).join(", "));
 
+/* THE LOCK, AT THE ROUTE. A site bound to one repository is refused into another before a byte moves. */
+seen.length = 0;
+const locked = await (await fetch(`${BASE}/api/studio/publish`, { method: "POST", headers: HEAD, body: JSON.stringify({ files: [{ path: "index.html", content: "<p>hi</p>" }], message: "A page", repo: "him/real", boundTo: "him/mine" }) })).json();
+check("a publish from a site bound to one repository into another is refused in words", locked.ok === false && locked.reason === "bound" && /This site belongs to him\/mine and cannot be published into him\/real/.test(locked.message), locked.message);
+check("before anything reaches the repository", !seen.some((s) => s.includes("/repos/him/real")), seen.join(", ") || "nothing sent");
+seen.length = 0;
+await fetch(`${BASE}/api/studio/publish`, { method: "POST", headers: HEAD, body: JSON.stringify({ files: [{ path: "index.html", content: "<p>hi</p>" }], message: "A page", repo: "him/real", boundTo: "him/real" }) });
+check("the repository it is bound to still takes it", seen.some((s) => s.includes("/repos/him/real")));
+
 /* -------------------------------------------------------------- the bar */
 const AT = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
 const browser = await chromium.launch({ args: ["--no-sandbox"], ...(existsSync(AT) ? { executablePath: AT } : {}) });

@@ -13,6 +13,7 @@ import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as Ima
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { ImportStrip } from "./FromASite";
+import { NewSiteOffer } from "./NewSiteOffer";
 import { placeBring, takeKeptBring } from "./bringRepo";
 import { Workspace } from "./Workspace";
 import { useBuilds } from "@/features/builds/store";
@@ -1276,6 +1277,7 @@ export function StudioPage() {
           */}
           {/* The latest import's line, across the top of the board, where
               no panel's clipping and no toast setting can hide it. */}
+          <NewSiteOffer />
           <ImportStrip />
           <Workspace />
           {/* The little live window floats over the column, not inside the

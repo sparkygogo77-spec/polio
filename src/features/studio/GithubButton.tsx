@@ -26,7 +26,7 @@ import { cn } from "@/core/lib/cn";
 import { Popover } from "@/core/ui/popover";
 import { Input } from "@/core/ui/input";
 import { publishStatus, type PublishStatus } from "@/features/studio/agent";
-import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
+import { activeProject, importedBy, repoFrom, useBuilds } from "@/features/builds/store";
 import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys, useKeys } from "@/features/keys/store";
@@ -285,13 +285,26 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
    * place now, with the branch, so every surface agrees the moment this
    * lands. A Builder with no site adopted yet takes one first.
    */
-  const connect = (full: string, onBranch: string): boolean => {
+  /*
+   * THE LOCK. A site is bound to one repository. Pointing a bound site at
+   * another is deliberate: a confirmation naming both, never a click on a
+   * list. A repository another site was brought in from belongs to that
+   * site, and no other site may be pointed at it: an existing design must
+   * never overwrite a repository he imported.
+   */
+  const connect = (full: string, onBranch: string, how: "connected" | "made" = "connected"): boolean => {
     const repo = repoFrom(full, onBranch);
     if (!repo) { setSaid(`${full} is not an owner/name, so it cannot be connected.`); return false; }
     let project = activeProject();
     if (!project) { useBuilds.getState().adopt(); project = activeProject(); }
     if (!project) { setSaid("There is no site open to connect it to."); return false; }
-    useBuilds.getState().setRepo(project.id, repo);
+    const theirs = importedBy(full, project.id);
+    if (theirs) { setSaid(`${full} belongs to the site ${theirs.name}, which was brought in from it. Open that site to publish to it.`); return false; }
+    const current = project.repo ? `${project.repo.owner}/${project.repo.name}` : null;
+    if (current && current.toLowerCase() !== full.toLowerCase()) {
+      if (!window.confirm(`Move this site from ${current} to ${full}? Publishes go to ${full} from now on, and ${current} is left as it is.`)) return false;
+    }
+    useBuilds.getState().setRepo(project.id, repo, how);
     return true;
   };
 
@@ -304,7 +317,7 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
       const res = await fetch("/api/studio/repo", { method: "POST", headers: { "content-type": "application/json", ...token() }, body: JSON.stringify({ name }) });
       const a = await res.json();
       if (!a.ok) { setSaid(a.message ?? "GitHub would not make it."); return; }
-      if (connect(String(a.name), String(a.branch ?? "main"))) setSaid(`Made ${a.name}. This site points at it now.`);
+      if (connect(String(a.name), String(a.branch ?? "main"), "made")) setSaid(`Made ${a.name}. This site points at it now.`);
     } catch {
       setSaid("Could not reach GitHub from here.");
     } finally {
@@ -336,6 +349,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
        server loads code the server no longer has, and ends in nothing. */
     if (staleBuild()) { setSaid(staleSays()); return; }
     const repo = readRepo(want);
+    /* A bound site brings in its own repository and no other. */
+    if (repo && own && `${repo.owner}/${repo.name}`.toLowerCase() !== own.toLowerCase()) { setSaid(`This site belongs to ${own}. Make a new site to bring ${repo.owner}/${repo.name} in.`); return; }
     if (!repo) { setSaid(REPO_REFUSAL_SAYS["not-a-repo"]); return; }
     if (!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN) { setSaid(REPO_REFUSAL_SAYS["no-token"]); return; }
     setPulling(true);
@@ -459,7 +474,8 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
       <div className="h-px bg-border" />
 
       <div>
-        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">Connect a different repo</p>
+        <p className="text-[10px] uppercase tracking-[0.12em] text-fg-faint">{own ? "Move to a different repo" : "Connect a repo"}</p>
+        {own ? <p data-repo-bound="" className="mb-0.5 text-[10px] text-fg-muted">This site belongs to {own}. Moving it asks first.</p> : null}
         {mine === null ? (
           <p className="text-[10px] text-fg-muted">{said ?? "Asking GitHub…"}</p>
         ) : mine.length === 0 ? (

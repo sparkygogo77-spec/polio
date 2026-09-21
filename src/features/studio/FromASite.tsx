@@ -377,7 +377,9 @@ export function FromASite({ space }: { space: Space }) {
     const id = activeProject()?.id ?? null;
     useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
-    if (id && repo) builds.setRepo(id, repo);
+    /* Brought in from it: the site is bound to this repository, and the
+       repository belongs to this site from now on. */
+    if (id && repo) builds.setRepo(id, repo, "import");
     if (id && copy.name) builds.rename(id, copy.name);
     void (async () => {
       let kept = 0;
@@ -609,6 +611,13 @@ export function FromASite({ space }: { space: Space }) {
         { id: cat.id, label: cat.label, hue: cat.hue, from: source.kind === "site" ? source.url : source.name, page: source.kind === "site" ? source.url : source.entry, at: Date.now() },
         parts,
       );
+    }
+    /* A page brought in from a repository binds the site to it, when the
+       site had none: the site is that repository's now. */
+    if (from) {
+      const here = activeProject();
+      const bound = repoFrom(`${from.owner}/${from.name}`, from.ref ?? "main");
+      if (here && !here.repo && bound) useBuilds.getState().setRepo(here.id, bound, "import");
     }
     // Locked as the page had it: the layout is the specification.
     lockNow(space.id);
