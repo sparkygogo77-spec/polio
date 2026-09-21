@@ -12,6 +12,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as ImageIcon, Eraser, Eye, FileText, History, Layers, Link, Link2, Link2Off, Monitor, MousePointer2, Palette as PaletteIcon, PanelLeft, Pencil, PlayCircle, Plus, Redo2, Search, Settings2, Smartphone, Sparkles, Square, Tablet, TriangleDashed, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
+import { ImportStrip } from "./FromASite";
 import { placeBring, takeKeptBring } from "./bringRepo";
 import { Workspace } from "./Workspace";
 import { useBuilds } from "@/features/builds/store";
@@ -1273,6 +1274,9 @@ export function StudioPage() {
             column's size, which does not move, and the whole length of the
             page passes in front of it.
           */}
+          {/* The latest import's line, across the top of the board, where
+              no panel's clipping and no toast setting can hide it. */}
+          <ImportStrip />
           <Workspace />
           {/* The little live window floats over the column, not inside the
               scroll: a companion that slid away as the page went by would be

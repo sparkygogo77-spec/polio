@@ -40,7 +40,7 @@ import { recreateFrom, type ElementReading } from "./recreate";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
 import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
 import { keep } from "./pictures";
-import { repoFrom, useBuilds } from "@/features/builds/store";
+import { activeProject, repoFrom, useBuilds } from "@/features/builds/store";
 import { heldKeys } from "@/features/keys/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
@@ -131,10 +131,52 @@ const NOTHING: Stage = { at: "nothing" };
 const STAGES = new Map<string, Stage>();
 const stageListeners = new Set<() => void>();
 const stageOf = (spaceId: string): Stage => STAGES.get(spaceId) ?? NOTHING;
-const putStage = (spaceId: string, stage: Stage) => { STAGES.set(spaceId, stage); for (const l of stageListeners) l(); };
+/** The most recent import anywhere on the board, for the strip that is never hidden. */
+let latest: { spaceId: string; stage: Stage; when: number } | null = null;
+const putStage = (spaceId: string, stage: Stage) => {
+  STAGES.set(spaceId, stage);
+  latest = stage.at === "nothing" ? (latest?.spaceId === spaceId ? null : latest) : { spaceId, stage, when: Date.now() };
+  for (const l of stageListeners) l();
+};
 const subscribeStages = (l: () => void) => { stageListeners.add(l); return () => { stageListeners.delete(l); }; };
 /** How long one step may go without a word before the import is told to stop and say so. */
 const STEP_PATIENCE_MS = 90_000;
+
+/**
+ * THE IMPORT'S LINE, WHERE IT CANNOT BE HIDDEN.
+ *
+ * Driven by hand, three times: a repository brought in, a space named
+ * after it, and "nothing". Reproduced: the ending fired within a second,
+ * the no-page refusal, and sat in this panel's import section, which the
+ * space's aside keeps below its fold on a short window, 736 pixels down
+ * in a 640 pixel one, with nothing saying to scroll. With toasts off, that
+ * was every word there was. So the latest import's line is drawn here
+ * too, across the top of the board, in the same words, until he dismisses
+ * it or starts another.
+ */
+export function ImportStrip() {
+  const it = React.useSyncExternalStore(subscribeStages, () => latest, () => null);
+  if (!it || it.stage.at === "nothing" || it.stage.at === "picking") return null;
+  const busyNow = it.stage.at === "busy";
+  const says = it.stage.says;
+  const refused = /^[\w.-]+\/[\w.-]+: /.test(says) && !busyNow && !/landed|carried|copied|real parts|arrived/.test(says);
+  return (
+    <div
+      data-import-strip={busyNow ? "busy" : refused ? "refused" : "done"}
+      role="status"
+      className="flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-[11px]"
+      style={{ borderColor: refused ? "oklch(0.72 0.17 18 / 0.6)" : VOID.rim, background: refused ? "oklch(0.72 0.17 18 / 0.08)" : VOID.box, color: VOID.text }}
+    >
+      {busyNow ? <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" /> : null}
+      <span className="min-w-0 flex-1">{says}</span>
+      {!busyNow ? (
+        <button type="button" data-import-strip-dismiss="" aria-label="Dismiss" onClick={() => putStage(it.spaceId, NOTHING)} className="tactile shrink-0 rounded px-1" style={{ color: VOID.muted }}>
+          <X className="size-3" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 export function FromASite({ space }: { space: Space }) {
   const [url, setUrl] = React.useState("");
@@ -304,14 +346,28 @@ export function FromASite({ space }: { space: Space }) {
    * this panel was opened on is taken away again: nothing landed in it,
    * and it belongs to the site he was on, not the one he is now.
    */
+  /*
+   * AN IMPORT REPLACES WHAT IS ON THE PAGE. HIS WORDS: "polio would at
+   * least be somewhat imported into my site but it never changes". A copy
+   * used to open a second site and leave the one he was on as it was,
+   * which read as nothing happening. It replaces this site now: the
+   * document becomes the repository's, whole, the site takes its name and
+   * its repository, and one undo brings the old board back.
+   */
   const copySite = (copy: RepoCopy, of: Repo) => {
     const st = useStudio.getState();
-    st.removeSpaces([space.id]);
+    /* Every space goes, not only the one made for the hand-off: the
+       document loaded next carries none of its own, and a space left from
+       an earlier import would sit on the copied site as a hole. */
+    st.removeSpaces(st.spaces.map((sp) => sp.id));
     const builds = useBuilds.getState();
-    const id = builds.create(copy.name);
+    const here = activeProject();
+    if (!here) { builds.adopt(); }
+    const id = activeProject()?.id ?? null;
     useStudio.getState().loadDoc(copy.document as Parameters<typeof st.loadDoc>[0]);
     const repo = repoFrom(`${of.owner}/${of.name}`, copy.ref);
-    if (repo) builds.setRepo(id, repo);
+    if (id && repo) builds.setRepo(id, repo);
+    if (id && copy.name) builds.rename(id, copy.name);
     void (async () => {
       let kept = 0;
       for (const p of copy.pictures) {
@@ -321,7 +377,7 @@ export function FromASite({ space }: { space: Space }) {
       const parts = `${copy.parts} part${copy.parts === 1 ? "" : "s"} on ${copy.pages} page${copy.pages === 1 ? "" : "s"}`;
       ctx.publish({
         key: `studio:repo:${of.name}`,
-        title: `${copy.name} is a new site now, copied whole from ${repoName(of)}`,
+        title: `This site is ${copy.name} now, copied whole from ${repoName(of)}`,
         body: `${parts}, every position, colour, motion and prompt as published${kept ? `, and ${kept} picture${kept === 1 ? "" : "s"}` : ""}. Connected to ${of.owner}/${of.name} on ${copy.ref}: the next edit opens a branch there.${behind ? ` ${behind} picture${behind === 1 ? " is" : "s are"} named by the site but not in the repository, and ${behind === 1 ? "says" : "say"} so on the board.` : ""}`,
         level: behind ? "warn" : "success",
         source: "studio",
@@ -471,10 +527,28 @@ export function FromASite({ space }: { space: Space }) {
     if (!readings.length) { tell(`Nothing on the page in ${nameOf(source)} could be measured.`); return; }
 
     const store = useStudio.getState();
-    const live = store.spaces.find((sp) => sp.id === space.id) ?? space;
+    /*
+     * A REPOSITORY REPLACES THE PAGE. It used to land inside a space beside
+     * whatever was already there, and with a page full of his own parts
+     * that read as nothing happening. Everything on this page goes, the
+     * space takes the whole width from the top, and the page comes in as
+     * the page; one undo brings the old board back. A page read by its
+     * address or a zip opened by hand still lands in the space it was
+     * pointed at, because those were pointed at a place.
+     */
+    if (repoOf(source)) {
+      const pageId = space.pageId;
+      const others = store.spaces.filter((sp) => sp.pageId === pageId && sp.id !== space.id).map((sp) => sp.id);
+      const gone = store.nodes.filter((n) => n.pageId === pageId).map((n) => n.id);
+      if (gone.length) store.removeNodes(gone);
+      if (others.length) useStudio.getState().removeSpaces(others);
+      const fw = useStudio.getState().frameWidth || 1440;
+      useStudio.getState().resizeSpace(space.id, { x: 0, y: 0, w: fw, h: Math.round(fw * 0.625) });
+    }
+    const live = useStudio.getState().spaces.find((sp) => sp.id === space.id) ?? space;
     const fit = fitToSurface(boundaryBox(live.boundary), got.width, readings.map((r) => r.box));
     // The surface takes the page's proportion at the width it was drawn.
-    store.resizeSpace(space.id, fit.surface);
+    useStudio.getState().resizeSpace(space.id, fit.surface);
     const landed = readings.map((reading, i) => {
       const made = recreateFrom(reading);
       const at = fit.places[i]!;
