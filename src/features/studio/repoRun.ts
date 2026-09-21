@@ -22,7 +22,7 @@
  * that is not there, a repository too big to be a page: each is said,
  * named, and nothing is half-brought.
  */
-import { MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
+import { MAX_REPO_BYTES, MAX_REPO_FILES, REPO_REFUSAL_SAYS, noPageSays, pageIn, wanted, zipOf, type Repo, type RepoRefusal } from "./repoImport";
 
 const API = "https://api.github.com";
 
@@ -41,6 +41,12 @@ export interface RepoRead {
 export interface RepoNo {
   no: RepoRefusal;
   says: string;
+  /**
+   * For `no-page` only: the address GitHub's About line says the repository
+   * is deployed at, so the caller can read the page there instead. Null when
+   * the line is empty; the caller may know a better one of its own.
+   */
+  deployedAt?: string | null;
 }
 
 const isNo = (r: unknown): r is RepoNo => !!r && typeof r === "object" && "no" in (r as RepoNo);
@@ -84,16 +90,15 @@ function unbase64(s: string): Uint8Array {
 export async function readRepoSite(repo: Repo, token: string, say: (line: string) => void): Promise<RepoRead | RepoNo> {
   if (!token) return { no: "no-token", says: REPO_REFUSAL_SAYS["no-token"] };
 
-  let ref = repo.ref;
-  let homepage = "";
-  if (!ref) {
-    say("Asking GitHub which branch is the default…");
-    const info = await gh(`/repos/${repo.owner}/${repo.name}`, token);
-    if (isNo(info)) return info;
-    const it = info as { default_branch?: string; homepage?: string };
-    ref = it.default_branch || "main";
-    homepage = (it.homepage ?? "").trim();
-  }
+  /* Asked every time, not only when no ref was named: the About line's
+     address is what a repository of sources is read at, whichever branch
+     was asked for. */
+  say(repo.ref ? `Asking GitHub about ${repo.owner}/${repo.name}…` : "Asking GitHub which branch is the default…");
+  const info = await gh(`/repos/${repo.owner}/${repo.name}`, token);
+  if (isNo(info)) return info;
+  const it = info as { default_branch?: string; homepage?: string };
+  const ref = repo.ref || it.default_branch || "main";
+  const homepage = (it.homepage ?? "").trim();
 
   say(`Reading what is in ${repo.owner}/${repo.name}…`);
   const tree = await gh(`/repos/${repo.owner}/${repo.name}/git/trees/${encodeURIComponent(ref)}?recursive=1`, token);
@@ -110,13 +115,12 @@ export async function readRepoSite(repo: Repo, token: string, say: (line: string
     /*
      * No page in it. That is not a failure to hide: it is a project that
      * has to be built before it is a website, and the honest answer names
-     * what was actually found and where the built one probably lives.
+     * what was actually found. The address it is deployed at goes back with
+     * the answer so the caller can read the page there, which is what he
+     * meant by bringing the repository in.
      */
     const kinds = [...new Set(paths.map((p) => (p.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase()).filter(Boolean))];
-    return {
-      no: "no-page",
-      says: `${REPO_REFUSAL_SAYS["no-page"]}${kinds.length ? ` What is in it: ${kinds.slice(0, 8).join(", ")}.` : ""}${homepage ? ` Its own page says it is deployed at ${homepage} — read that address instead.` : ""}`,
-    };
+    return { no: "no-page", says: noPageSays(repo, kinds, homepage || null), deployedAt: homepage || null };
   }
 
   const keep = wanted(paths);

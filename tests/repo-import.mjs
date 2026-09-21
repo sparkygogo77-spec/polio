@@ -53,12 +53,29 @@ const check = (name, ok, detail = "") => {
  * control, that it refuses a name that is not one before doing anything, and
  * that pressing it makes the surface and hands the repository over.
  */
-import { readRepo, repoName, REPO_REFUSAL_SAYS } from "../src/features/studio/repoImport.ts";
+import { readFileSync } from "node:fs";
+import { noPageSays, readRepo, repoName, REPO_REFUSAL_SAYS } from "../src/features/studio/repoImport.ts";
 
 check("a name that is not owner/name is not a repo", readRepo("notarepo") === null);
 check("and one that is, is read whole", (() => { const r = readRepo("him/his-site"); return !!r && repoName(r).includes("his-site"); })(), JSON.stringify(readRepo("him/his-site")));
 check("an address of one is read too, so pasting the page he is looking at works", !!readRepo("https://github.com/him/his-site"), JSON.stringify(readRepo("https://github.com/him/his-site")));
 check("and a refusal has words for every way it can fail", Object.values(REPO_REFUSAL_SAYS).every((v) => typeof v === "string" && v.length > 20), Object.keys(REPO_REFUSAL_SAYS).join(", "));
+
+/* ------------------------------------------ sources, read where they run */
+/* He brought this Builder's own repository in: sources, no page in them.
+   With a deployed address known the page is read there, and the sentence
+   says so; with none it says what would give it one, and never just "no". */
+const src = readRepo("him/polio");
+const at = noPageSays(src, ["ts", "tsx", "json"], "https://polio.example.app");
+const not = noPageSays(src, ["ts", "tsx", "json"], null);
+check("a repo of sources with a deployed address is read there, and the line names the address", /read at the address it is deployed at: https:\/\/polio\.example\.app/.test(at) && /him\/polio/.test(at), at);
+check("and names what the sources are", /ts, tsx, json/.test(at) && /ts, tsx, json/.test(not));
+check("with no address it says plainly what would give it one", /About on GitHub/.test(not) && /Read the page/.test(not), not);
+const door = readFileSync("src/features/studio/FromASite.tsx", "utf8");
+check("the panel takes that step itself rather than telling him to", /got\.no === "no-page" \? deployedBy\(r\)/.test(door) && /askSite\(\{ url: at\.url \}\)/.test(door));
+check("and what lands from the address still goes into the repository's own category", /repo\?: Repo/.test(door) && /const from = repoOf\(source\)/.test(door));
+const run = readFileSync("src/features/studio/repoRun.ts", "utf8");
+check("the deployed address comes back with the refusal, asked for on every read", /deployedAt: homepage \|\| null/.test(run) && /const info = await gh\(`\/repos\/\$\{repo\.owner\}\/\$\{repo\.name\}`, token\);\n  if \(isNo\(info\)\) return info;\n  const it/.test(run));
 
 /* ------------------------------------------------------------- reachable */
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });

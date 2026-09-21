@@ -402,7 +402,7 @@ function RepoPanel({ own, server, branch, canPush, onDone }: { own: string | nul
             {pulling ? "Reading\u2026" : "Bring it"}
           </Button>
         </div>
-        <p className="mt-0.5 text-[10px] text-fg-muted">A site with a page in it comes in as ordinary parts. A repo of unbuilt sources has no page to open, and says so.</p>
+        <p className="mt-0.5 text-[10px] text-fg-muted">A repo with a page in it comes in as ordinary parts. A repo of sources is read at the address it is deployed at, from About on GitHub or from a publish made here, and says so if it has none.</p>
       </div>
 
       {said ? <p data-repo-said="" className="text-[10px] text-fg">{said}</p> : null}
