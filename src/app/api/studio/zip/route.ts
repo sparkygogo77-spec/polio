@@ -3,7 +3,7 @@ import { findPlaywright, NO_PLAYWRIGHT, type PWPage } from "../headless";
 import { readZipInfo } from "@/features/studio/zipFile";
 import { checkZip, contentType, fileFor, hadScripts, MAX_ZIP_BYTES, sansScripts, ZIP_BUDGET_MS, ZIP_REFUSAL_SAYS } from "@/features/studio/zipImport";
 import { MAX_ELEMENTS } from "@/features/studio/siteFetch";
-import { CANDIDATES, CARRY, MEASURE, type Candidate } from "@/features/studio/siteRead";
+import { CANDIDATES, MEASURE, type Candidate } from "@/features/studio/siteRead";
 
 /**
  * Reading the page inside a zip, exactly.
@@ -30,9 +30,6 @@ import { CANDIDATES, CARRY, MEASURE, type Candidate } from "@/features/studio/si
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-/** How many bytes of pictures one carried block may take into the document: it lives in this browser's storage beside every site. */
-const CARRY_INLINE_BYTES = 160 * 1024;
 
 const HOME = "https://zip.invalid";
 
@@ -111,20 +108,6 @@ export async function POST(request: Request) {
         candidates: list,
         took: took(),
       });
-    }
-
-    /* Carried, not measured. A page read from files has no address for
-       its pictures afterwards, so they are fetched into the markup, up to
-       a size the document can hold. */
-    if (form.get("carry") === "1") {
-      const carried = [];
-      for (const selector of selectors) {
-        const one = await page.evaluate(CARRY, { selector, inline: true, maxBytes: CARRY_INLINE_BYTES }).catch(() => null);
-        if (one) carried.push(one);
-      }
-      await context.close();
-      if (!carried.length) return no("gone", "None of those are on the page any more. Read the zip again.");
-      return NextResponse.json({ ok: true, name, entry: gate.entry, scripts, page: { width, height }, carried, took: took() });
     }
 
     const readings = [];

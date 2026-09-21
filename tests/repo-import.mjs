@@ -55,7 +55,6 @@ const check = (name, ok, detail = "") => {
  */
 import { readFileSync } from "node:fs";
 import { madeHere, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays } from "../src/features/studio/repoImport.ts";
-import { carriedSays, routeSays, sumNotes } from "../src/features/studio/carry.ts";
 
 check("a name that is not owner/name is not a repo", readRepo("notarepo") === null);
 check("and one that is, is read whole", (() => { const r = readRepo("him/his-site"); return !!r && repoName(r).includes("his-site"); })(), JSON.stringify(readRepo("him/his-site")));
@@ -94,22 +93,6 @@ check("a thin landing from a site made here's root names /site", /The site is at
 check("a thin landing from the published page itself says the page is small", /the published page there has little on it/.test(thinSays(2, { url: "https://x.example/site", why: "site", isMadeHere: true })));
 check("a thin landing from files says the page is small", /the page in the repository has little on it/.test(thinSays(2, { url: null, why: "none", isMadeHere: false })));
 check("three or more blocks is not thin", thinSays(3, { url: "https://x.example", why: "root", isMadeHere: false }) === "");
-
-/* ------------------------------------------------ carried exactly, and said */
-/* HIS WORDS: he wants the site imported with what can be copied exactly. A
-   block is cloned with its styles, not remade from the nearest library part,
-   and the line names the route that read it and what did not travel. */
-check("the route is named first, in his words: its own document", routeSays({ kind: "document" }) === "Its own document:");
-check("its own page, or an address", /^Its own page, https:\/\/x\/site:$/.test(routeSays({ kind: "address", url: "https://x/site", ownPage: true })) && /^From its address, https:\/\/x:$/.test(routeSays({ kind: "address", url: "https://x", ownPage: false })));
-check("its files, saying when the address failed first", routeSays({ kind: "files", entry: "index.html" }) === "From its files, index.html:" && /Its address could not be read \(no answer\), so from its files, index\.html:/.test(routeSays({ kind: "files", entry: "index.html", addressFailed: "no answer" })));
-const notes = sumNotes([{ scripts: 1, hover: 2, motion: 1, fonts: 1, hidden: 3, images: 2, imagesLeft: 0 }, { scripts: 0, hover: 0, motion: 0, fonts: 0, hidden: 0, images: 1, imagesLeft: 1 }]);
-const said = carriedSays(2, notes, { width: 1280, height: 2000 });
-check("what came in exactly is listed: markup, styles, pictures, hidden pieces, hover, keyframes, faces", /2 blocks carried exactly: markup and styles as the page had them, 3 pictures, 3 hidden pieces kept hidden as they were, 2 hover rules, 1 keyframe set/.test(said) && /1 font face, loading from its own address/.test(said), said);
-check("and what could not: scripts, pictures too large, and anything past the read", /Not carried: 1 script or handler, so behaviour; 1 picture too large to keep, left as its address; anything past the 1280×2000 read\./.test(said), said);
-check("with no scripts on the page, behaviour is still named as not carried", /Not carried: behaviour: no scripts ran; anything past/.test(carriedSays(1, sumNotes([]), { width: 1280, height: 900 })));
-const door2 = readFileSync("src/features/studio/FromASite.tsx", "utf8");
-check("exact copies are the default, and library parts are his choice on the panel", /const readHow = \(\): How => \{ try \{ return localStorage\.getItem\(HOW_KEY\) === "parts" \? "parts" : "exact"; \}/.test(door2) && /data-import-exact=""/.test(door2) && /data-import-parts=""/.test(door2) && /if \(how === "exact"\) \{ await carryAll\(picked\); return; \}/.test(door2));
-check("a repository deployed at an address is read there before its files, and the files are the fallback said as such", /if \(!opts\.filesOnly\) \{/.test(readFileSync("src/features/studio/repoRun.ts", "utf8")) && /addressFailed/.test(door2));
 
 const run = readFileSync("src/features/studio/repoRun.ts", "utf8");
 check("the read carries the page address and the mark with the refusal", /pageAt: page\.at, pageWhy: page\.why, madeHere: made/.test(run));
