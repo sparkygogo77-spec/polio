@@ -28,6 +28,8 @@ import { auraFilter, auraStyle, complementOf, markColour, washCss, type Light, t
 import { liftVars } from "./lightRig";
 import { linkReason } from "./links";
 import { TextureDrift } from "./TextureDrift";
+import { CarriedFonts } from "./live/CarriedFonts";
+import type { CarriedFont } from "./fonts";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
 import { rasterFragment } from "./renderer";
@@ -147,6 +149,20 @@ interface Guides {
 export function Canvas() {
   const ref = React.useRef<HTMLDivElement>(null);
   const news = useActions();
+  /* A carried face that will not load is said, once per face, with why:
+     silence about a substitute face is what made his headings wrap in
+     one without anybody knowing. */
+  const fontFailed = React.useCallback((f: CarriedFont) => {
+    const where = f.source.kind === "data" ? "the file in the document" : f.source.kind === "link" ? f.source.href : f.source.url || "nowhere named";
+    news.publish({
+      key: `studio:font:${f.id}`,
+      title: `${f.family} is not drawing`,
+      body: `${f.says ?? `It could not be loaded from ${where}`}. Its parts show in the nearest face this machine has.`,
+      level: "warn",
+      source: "studio",
+      toast: { durationMs: 9000 },
+    });
+  }, [news]);
   const nodes = useStudio(useShallow(pageNodes));
   const shapes = useStudio(useShallow(pageShapes));
   /* Read here rather than off `getState()` in a handler, because the page's
@@ -1419,6 +1435,8 @@ export function Canvas() {
           style={{ width: frameWidth, height: pageH }}
         >
         <TextureDrift layers={look.texture} palette={palette} />
+        {/* The faces the site carries, drawn in the real file; one that will not load is said once. */}
+        <CarriedFonts fonts={look.fonts} onFail={fontFailed} />
         <SpaceMarks zoom={zoom} />
         <SpaceInk zoom={zoom} />
         <SpaceRefused at={refused} zoom={zoom} />

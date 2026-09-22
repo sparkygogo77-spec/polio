@@ -307,6 +307,34 @@ pads its words (the pitch line, prose's box styles) adds none, because a
 captured box was measured with its padding inside it. `tests/picture-held.mjs`
 holds the three; it was run red against the build before the fix.
 
+**Faces come through one to one, or say why they did not.** His ruling:
+fonts must come through as they are, because size and ratios have to stay
+true — he measured his layout against the real face, and a substitute that
+is merely close is a layout fault wearing a disguise. The name of a face
+travelled (`NodeFont.face`) and the file did not, so his headings wrapped
+in a wider face and nothing said so. `FACES` (`siteRead.ts`) reads a
+page's `@font-face` rules off its sheets, addresses made absolute against
+the sheet that declared them, and lists the sheets it cannot read;
+`fonts.ts` (`carryFaces`, pure, the routes hand in the fetcher) carries
+the faces the readings are set in: Latin subsets only, by unicode-range;
+a system face has no rule and is named and moved on; a host whose licence
+forbids carrying (Typekit, Adobe, Cloud.typography, Monotype, MyFonts) is
+not fetched and its sheet link is kept with the reason; a file past
+`FONT_FILE_MAX` or behind a dead address is kept by its address with the
+reason, never dropped. They live in `look.fonts`, a stack beside the
+textures, and a part goes on naming its face by name, so a carried face
+stays swappable — the wheel's family readout lists carried faces first,
+set in themselves, and choosing a class drops the face. `CarriedFonts`
+puts the rules on the board and in the live page (the published static
+site copies them like any rule; Build writes them into `globals.css`) and
+asks every face to load; one that will not is said once as a toast with
+why. The strip says what came, what could not and why, what is a system
+face, and — `genericSays` — what is set in a generic keyword like
+`ui-monospace`, the machine's own face, which is a different face on a
+different machine and cannot be carried. `tests/fonts-carried.mjs` holds
+the carrying, the reading off a served page, and the drawing in the
+Builder with a real file under a made-up name.
+
 **A hand on a vine pulls it; a press takes it apart from the middle.** His
 words: "the line in the middle of the vines is hoverable ... i would rather
 no line, the vine maybe pulls a little when you hover ... when click

@@ -125,6 +125,8 @@ export interface ScaffoldInput {
   pageCss?: Record<string, string>;
   /** The keyframes the page's own paint names (`driftKeyframes`), written into the stylesheet. */
   keyframes?: string[];
+  /** The `@font-face` rules for the faces the site carries (`fontFaceCss`), written into the stylesheet so the built site draws in the real files. */
+  fontCss?: string;
   /** The wash over the page, when a texture lands over everything. */
   overlayCss?: Record<string, string>;
   /** The veil over the page, as a colour, when the look has one. */
@@ -541,7 +543,7 @@ function tokensCss(input: ScaffoldInput): string {
   const page = Object.entries(pageCss)
     .map(([k, v]) => `  ${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${v};`)
     .join("\n");
-  const keyframes = [EXPORT_KEYFRAMES, SHELL_CSS, ...(input.keyframes ?? [])].join("\n");
+  const keyframes = [EXPORT_KEYFRAMES, SHELL_CSS, ...(input.keyframes ?? []), ...(input.fontCss ? [input.fontCss] : [])].join("\n");
   return `/*
  * The site's tokens, taken from the document — not described, copied.
  * Every colour here is the one the board is painted in; change one and

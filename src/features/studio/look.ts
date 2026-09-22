@@ -1,3 +1,4 @@
+import type { CarriedFont } from "./fonts";
 /**
  * Colour and texture: the site's look, as data.
  *
@@ -872,6 +873,13 @@ export interface Look {
   light: Light;
   /** A dark veil over the whole page, 0..0.85. Nothing, when absent. */
   veil?: number;
+  /**
+   * The faces carried with the site, one to one (`fonts.ts`): the file as
+   * bytes, or the link that loads it, beside the textures. A part names a
+   * face by name (`NodeFont.face`), so a carried face stays swappable.
+   * Absent on every site that carried none, and nothing is drawn for it.
+   */
+  fonts?: CarriedFont[];
 }
 
 export const emptyLook = (): Look => ({ palette: {}, texture: [], target: "page", light: defaultLight() });
@@ -1193,6 +1201,15 @@ const WHERE: Record<TextureTarget, string> = {
 /** Describe the look in words, for the blueprint. */
 export function describeLook(look: Look, resolved: Palette): string[] {
   const lines: string[] = [];
+  if (look.fonts?.length) {
+    lines.push("Faces carried with the site (use these files, at the sizes the parts say):");
+    const seen = new Set<string>();
+    for (const f of look.fonts) {
+      if (seen.has(f.family)) continue;
+      seen.add(f.family);
+      lines.push(`  - ${f.family}: ${f.carried ? (f.source.kind === "link" ? `loaded from ${f.source.href}` : "the file is in the document") : `not carried — ${f.says ?? "no file"}`}; ${f.licence}`);
+    }
+  }
   const roles = ROLES.filter((r) => look.palette[r]);
   if (roles.length) {
     lines.push("Colour roles (use these exactly):");

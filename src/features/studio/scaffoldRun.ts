@@ -15,6 +15,7 @@
  * network. What Claude is asked for afterwards is only what a document
  * cannot hold.
  */
+import { fontFaceCss } from "./fonts";
 import * as React from "react";
 import { driftKeyframes, lands } from "./look";
 import { deriveBehaviours } from "./live/behaviours";
@@ -127,6 +128,7 @@ export function buildScaffold(): ScaffoldResult {
       : undefined,
     // The keyframes that paint names, the wash and the veil over the page,
     // and the backdrop chosen with no texture: all of it used to stop here.
+    fontCss: fontFaceCss(s.look?.fonts ?? []) || undefined,
     keyframes: [driftKeyframes((s.look?.texture ?? []).filter((l) => l.on && lands(l, "page")), palette)?.css].filter((k): k is string => !!k),
     overlayCss: theme.overlayStyle
       ? Object.fromEntries(Object.entries(theme.overlayStyle).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]))

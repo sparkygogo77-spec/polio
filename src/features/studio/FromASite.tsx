@@ -37,6 +37,7 @@ import { SCREEN, VOID, screenFace } from "@/core/ui/void";
 import { Input } from "@/core/ui/input";
 import { SCREEN_FIELD } from "./PlateEditors";
 import { recreateFrom, type ElementReading } from "./recreate";
+import { facesSays, genericsOf, genericSays, type FacesCarried } from "./fonts";
 import { categoryFor, noPageSays, pageAddress, readRepo, repoName, REPO_REFUSAL_SAYS, thinSays, type Repo } from "./repoImport";
 import { isCopy, readRepoSite, refused, type RepoCopy } from "./repoRun";
 import { keep } from "./pictures";
@@ -463,13 +464,28 @@ export function FromASite({ space }: { space: Space }) {
   };
 
   /** Those elements, measured in full, from whichever source the page came. */
-  const measure = async (source: Source, selectors: string[]): Promise<{ readings: ElementReading[]; width: number } | string> => {
+  const measure = async (source: Source, selectors: string[]): Promise<{ readings: ElementReading[]; width: number; faces: FacesCarried } | string> => {
     const r = source.kind === "site"
       ? await askSite({ url: source.url, selectors })
       : await askZip(source.file, { selectors: JSON.stringify(selectors) });
     if (!r.ok || !Array.isArray(r.readings)) return String(r.message ?? "That could not be measured.");
     const page = r.page as { width: number } | undefined;
-    return { readings: r.readings as ElementReading[], width: page?.width ?? 1280 };
+    const faces = (r.faces && typeof r.faces === "object" && Array.isArray((r.faces as FacesCarried).fonts) ? r.faces : { fonts: [], named: [] }) as FacesCarried;
+    return { readings: r.readings as ElementReading[], width: page?.width ?? 1280, faces };
+  };
+
+  /**
+   * The faces a page came with go into the site's look, beside the
+   * textures, one entry per face and weight; a face brought twice is one
+   * entry, the newer reading winning. What could not be carried is kept
+   * too, with its reason, so the board can say why a part is not drawing
+   * in the face its node names.
+   */
+  const carry = (faces: FacesCarried) => {
+    if (!faces.fonts.length) return;
+    const had = useStudio.getState().look.fonts ?? [];
+    const ids = new Set(faces.fonts.map((f) => f.id));
+    useStudio.getState().setLook({ fonts: [...had.filter((f) => !ids.has(f.id)), ...faces.fonts] });
   };
 
   const take = async (c: Block) => {
@@ -489,6 +505,7 @@ export function FromASite({ space }: { space: Space }) {
      * page's own.
      */
     const made = recreateFrom(mergeReadings(got.readings));
+    carry(got.faces);
     const store = useStudio.getState();
     /*
      * Landed at the middle of the space, fitted to it, so it is inside it
@@ -514,7 +531,7 @@ export function FromASite({ space }: { space: Space }) {
     play("confirm");
     setStage({
       at: "said",
-      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture stays a placeholder: this part has no picture of its own to show, and the grounded step runs on drawings only." : ""}${made.face && !made.face.drew ? ` It is set in ${made.face.name}, which did not travel with the page: the name is on the part, and it shows in the nearest face this machine has.` : ""}`,
+      says: `${made.did}. It is a part of the library now: change its words, its colour and its type like any other.${made.wantsPicture ? " Its picture stays a placeholder: this part has no picture of its own to show, and the grounded step runs on drawings only." : ""}${made.face && !made.face.drew && !got.faces.fonts.some((f) => f.carried && f.family.toLowerCase() === made.face?.name.toLowerCase()) ? ` It is set in ${made.face.name}, which did not travel with the page: the name is on the part, and it shows in the nearest face this machine has.` : ""}${facesSays(got.faces) ? ` ${facesSays(got.faces)}` : ""}${genericSays(genericsOf(got.readings.map((r) => r.type.family))) ? ` ${genericSays(genericsOf(got.readings.map((r) => r.type.family)))}` : ""}`,
     });
   };
 
@@ -549,6 +566,7 @@ export function FromASite({ space }: { space: Space }) {
       .filter((rs) => rs.length > 0)
       .map((rs) => mergeReadings(rs));
     if (!readings.length) { tell(`Nothing on the page in ${nameOf(source)} could be measured.`); return; }
+    carry(got.faces);
 
     const store = useStudio.getState();
     /*
@@ -647,7 +665,7 @@ export function FromASite({ space }: { space: Space }) {
         from
           ? ` Its ${landed.length} element${landed.length === 1 ? " is" : "s are"} in the shelf now, under “${categoryFor(from).label}” — drop any of them anywhere, as many times as you like.`
           : ""
-      }${thin}`,
+      }${thin}${facesSays(got.faces) ? ` ${facesSays(got.faces)}` : ""}${genericSays(genericsOf(readings.map((r) => r.type.family))) ? ` ${genericSays(genericsOf(readings.map((r) => r.type.family)))}` : ""}`,
     });
   };
 
