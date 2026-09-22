@@ -290,6 +290,44 @@ every part at tablet or phone was stacked into one column and his header,
 his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
 measures the board and Preview at Tablet off a page shaped like his.
 
+**An old board heals itself on load, and a box he moved is his.** Two things
+were wrong with the healing above. Its gate was `from` — the live element a
+part was recreated from — and `from` is written on ONE import door
+(`FromASite`), so every board that arrived by another one looked hand-placed
+and was never healed at all. And it only ever repaired an overlap that GROWTH
+had created: an overlap already written into the document — a capture that
+recorded a box and the one under it into each other, or heights an older
+one-shot tidy left — was invisible, because neither box was drawing taller
+than it was saved and `toRows` bands two boxes lying on each other into one
+row, where every member takes the same shift and nothing moves apart. That is
+what survived on his Documentation page after the rest healed. He ruled
+against re-importing to fix it: a re-import throws away everything he has
+changed since, and he would hit it again after every landed fix.
+
+So the question is asked the other way round. `StudioNode.byHand` says HIS
+HAND PUT THIS BOX WHERE IT IS, and a part is the machine's unless it says so:
+set when a part is added from the library, the wheel or "add here", and when
+a box is dragged, resized or typed into. A node carrying it is never grown,
+never shifted and never pushed — though it still stands on the page as a
+floor for what comes under it, because it is still there. A document saved
+before the field existed is settled once on hydration: if nothing in it came
+off a page (no repository brought in, no part carrying `from`, no box carrying
+a layout, padding, edge or text setting — those four are written by a capture
+and by nothing else) then the board is his and nothing may move. Otherwise it
+heals, and parts he moved before today are unmarked because nothing recorded
+that he did — bounded by the healing only ever moving a part DOWN, so it can
+never put one back where the capture had it.
+
+And `fitRows` carries a floor: a row is laid below the lowest thing already
+placed that it stands over. Only what it stands over, and never a box that
+holds this one or is held by it — a captured page is wrappers round wrappers
+and prising a child out of its parent is far worse than the overlap. The rows
+`toRows` returns are cut first, in the tidy, into what is actually side by
+side; `toRows` itself is left alone because it is the live page's, held
+verbatim against the trunk algorithm by `tests/reflow-same.mjs`.
+`tests/grew-moves.mjs` holds all of it at his own measurements, each mechanism
+run red on its own first.
+
 **A box that grew moves what follows it, whenever it grows.** The floor in
 `parts/primitives.tsx` keeps a box's words visible by letting it draw taller
 than the document says. Nothing moved what sat under it unless a flex parent

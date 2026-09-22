@@ -143,6 +143,114 @@ check("…and not one of them has been moved or resized",
   hand.saved.para.h === 40 && hand.saved.b1.y === 152 && hand.saved.b2.y === 188 && hand.saved.b3.y === 224,
   `para h ${hand.saved.para.h}, bullets at ${hand.saved.b1.y}, ${hand.saved.b2.y}, ${hand.saved.b3.y}`);
 
+
+/* ------------------------------------------------------------------ */
+/* 3. An overlap already written into the document                     */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS TWO SURVIVORS. After the growth overlaps healed, two pairs stayed on
+ * his Documentation page — 50px and 31px — and they are a different fault
+ * wearing the same symptom. Neither box was drawing taller than it was
+ * saved, so there was no growth to propagate; the overlap was already in the
+ * stored geometry, from a capture that recorded a box and the one under it
+ * into each other or from heights an older one-shot tidy left. And `toRows`
+ * bands two boxes that lie on each other into ONE row, where every member
+ * takes the same shift and nothing is ever moved apart.
+ *
+ * Laid at his measurements. The wrapper-and-child pair at the foot is the
+ * guard that matters as much: a captured page is wrappers round wrappers,
+ * and prising a child out of its parent would be far worse than the overlap.
+ */
+const BOXY = { layout: { display: "block" }, pad: { top: 0, right: 0, bottom: 0, left: 0 } };
+const stored = JSON.stringify({ state: {
+  pages: [{ id: "p0", name: "Documentation", path: "/", prompt: "", scroll: "inherit" }],
+  nodes: [
+    node("wrap1", "box", "", 40, 100, 832, 115, BOXY),
+    node("reclaim", "prose", "Reclaim lost SOL by closing empty token accounts", 40, 165, 832, 88, BOXY),
+    node("solcin", "prose", "SOLCINERATOR is Solana's original wallet cleanup tool", 40, 300, 832, 96, BOXY),
+    node("ul", "prose", "SPL Token accounts\nstorage costs\nJupiter", 40, 365, 832, 144, BOXY),
+    node("holder", "box", "", 40, 560, 832, 200, BOXY),
+    node("inside", "prose", "held", 60, 580, 400, 60, BOXY),
+  ],
+  groups: [], shapes: [], format: {}, brief: { name: "SOLCINERATOR", gimmick: "", master: "" },
+  frameWidth: 1440, activePageId: "p0", trail: [],
+}, version: 0 });
+
+const already = await open(stored);
+const over = crossings(already.drawn);
+check("an overlap already in the stored boxes is pulled apart, not only one growth made", over.length === 0, over.join("; ") || "no pairs cross");
+check("…the 50px pair: the words are laid under the box above them",
+  (already.saved.reclaim?.y ?? 0) >= (already.saved.wrap1.y + already.saved.wrap1.h),
+  `reclaim y ${already.saved.reclaim?.y} against wrap1 bottom ${already.saved.wrap1.y + already.saved.wrap1.h}`);
+check("…the 31px pair the same",
+  (already.saved.ul?.y ?? 0) >= (already.saved.solcin.y + already.saved.solcin.h),
+  `ul y ${already.saved.ul?.y} against solcin bottom ${already.saved.solcin.y + already.saved.solcin.h}`);
+check("…and a wrapper still holds its child rather than being pulled off it",
+  already.saved.inside.y >= already.saved.holder.y && already.saved.inside.y + already.saved.inside.h <= already.saved.holder.y + already.saved.holder.h,
+  `inside ${already.saved.inside.y}..${already.saved.inside.y + already.saved.inside.h} within holder ${already.saved.holder.y}..${already.saved.holder.y + already.saved.holder.h}`);
+
+/* ------------------------------------------------------------------ */
+/* 4. A part he moved is his                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * His condition on the healing, in his words: a part he moved himself is
+ * his, and healing must not drag it back to where the capture put it. Two
+ * halves — one marked as his is not moved at all, and the healing can only
+ * ever push DOWN, so there is no direction in which it could return a part
+ * to a captured position even before the mark is read.
+ */
+const withMine = JSON.stringify({ state: {
+  pages: [{ id: "p0", name: "Documentation", path: "/", prompt: "", scroll: "inherit" }],
+  nodes: [
+    node("para", "prose", PARA, 40, 100, 684, 40, { from: FROM }),
+    /* He dragged this one a long way down, and said so. */
+    node("his", "prose", "Moved here on purpose", 40, 700, 684, 28, { from: FROM, byHand: true }),
+    node("other", "prose", "Ordinary", 40, 152, 684, 28, { from: FROM }),
+  ],
+  groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
+  frameWidth: 1440, activePageId: "p0", trail: [],
+}, version: 0 });
+
+const kept = await open(withMine);
+check("a part he moved is left exactly where he left it", kept.saved.his.y === 700 && kept.saved.his.h === 28, `y ${kept.saved.his.y}, h ${kept.saved.his.h}`);
+check("…while the rest of the page still heals round it", kept.saved.other.y > 152, `152 → ${kept.saved.other.y}`);
+check("…and nothing anywhere was moved upward, so nothing can be dragged back to where the capture had it",
+  kept.saved.para.y >= 100 && kept.saved.other.y >= 152 && kept.saved.his.y >= 700,
+  `para ${kept.saved.para.y}≥100, other ${kept.saved.other.y}≥152, his ${kept.saved.his.y}≥700`);
+
+/* ------------------------------------------------------------------ */
+/* 5. A board that never came off a page is never touched              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The gate is no longer `from`, because `from` is written on one import door
+ * only and every board that came in by another one was left to overlap. It
+ * is `byHand` now, asked the other way round: a part is the machine's unless
+ * somebody moved it. A document saved before that field existed carries it
+ * on nothing, so it is settled once on hydration — and the question asked
+ * there is whether the document came off a page at all. This one did not:
+ * no repository brought in, nothing carrying the element it was read from,
+ * no box carrying a layout, a padding, an edge or a way its words are set.
+ * So every part of it is his and not one of them may move, even though two
+ * of them are deliberately over each other.
+ */
+const hisOwn = JSON.stringify({ state: {
+  pages: [{ id: "p0", name: "Mine", path: "/", prompt: "", scroll: "inherit" }],
+  nodes: [
+    node("a", "prose", PARA, 40, 100, 684, 40),
+    node("b", "prose", "Sitting over it on purpose", 40, 120, 684, 60),
+  ],
+  groups: [], shapes: [], format: {}, brief: { name: "BLACKORB", gimmick: "", master: "" },
+  frameWidth: 1440, activePageId: "p0", trail: [],
+}, version: 0 });
+
+const mine = await open(hisOwn);
+check("a board he laid out himself is not healed, overlaps and all",
+  mine.saved.a.y === 100 && mine.saved.a.h === 40 && mine.saved.b.y === 120 && mine.saved.b.h === 60,
+  `a y${mine.saved.a.y} h${mine.saved.a.h}, b y${mine.saved.b.y} h${mine.saved.b.h}`);
+
 await browser.close();
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);

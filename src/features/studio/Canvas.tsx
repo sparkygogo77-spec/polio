@@ -1213,6 +1213,19 @@ export function Canvas() {
     const madeASpace = (id: string) => store.setSelection([id]);
 
     if ((drag.kind === "node" || drag.kind === "resize") && drag.moved) {
+      /*
+       * A BOX HE MOVED IS HIS FROM NOW ON.
+       *
+       * The healing in `textFit.ts` writes grown heights down and lays what
+       * follows under them; it must never move a part he put somewhere on
+       * purpose. This is the moment that becomes true — a drag or a resize
+       * that actually travelled — so it is marked here rather than guessed
+       * at later from the geometry.
+       */
+      const moved = new Set(drag.ids ?? [drag.nodeId!]);
+      useStudio.setState({
+        nodes: useStudio.getState().nodes.map((n) => (moved.has(n.id) && !n.byHand ? { ...n, byHand: true } : n)),
+      });
       // Grid-snap only when no guide claimed the position: a guide is more exact than the grid.
       if (!drag.snapped) {
         const ids = new Set(drag.ids ?? [drag.nodeId!]);
