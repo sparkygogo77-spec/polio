@@ -27,7 +27,34 @@ const SRC = walk("src").map((p) => [p, readFileSync(p, "utf8")]);
 
 const defs = readFileSync("src/core/settings/defs.ts", "utf8");
 const ids = [...defs.matchAll(/\bid: "([a-z]+\.[A-Za-z0-9]+)"/g)].map((m) => m[1]);
-check("the core settings are there to read", ids.length >= 40, `${ids.length} settings`);
+
+/*
+ * THE FLOOR IS AN ANTI-VACUITY GUARD, not a target, and it used to be the
+ * number 40.
+ *
+ * Its job is real: if the shape of `defs.ts` changes and the regex above
+ * stops matching, `ids` is empty, and the check below it — that every
+ * setting has a reader — passes on an empty list and reports nothing wrong.
+ * A floor catches that.
+ *
+ * The number could not do the job because it was never true. It was written
+ * asking for 40 on a tree that had 34, so it was red the day it landed and
+ * has been red ever since; two more left later, on his ruling that the
+ * corner radius and the font belong to the site being built rather than to
+ * the Builder around it, which is why the tree says 32 today. A check that
+ * has never once passed is not holding anything, and the next person to
+ * raise the number to whatever the tree happens to hold is starting the
+ * same clock again.
+ *
+ * So the floor is the invariant instead: every category declared here has
+ * at least one setting under it. The regex cannot quietly stop matching
+ * without that failing, and the count moves with the app rather than
+ * against a number somebody guessed.
+ */
+const categories = [...defs.matchAll(/\{ id: "([a-z]+)", label:/g)].map((m) => m[1]);
+const empty = categories.filter((c) => !ids.some((id) => id.startsWith(`${c}.`)));
+check("every settings category has settings under it to read", categories.length > 0 && empty.length === 0,
+  empty.length ? `nothing under ${empty.join(", ")}` : `${ids.length} settings across ${categories.length} categories`);
 const readers = (id) => SRC.filter(([p, s]) => !p.endsWith("settings/defs.ts") && s.includes(`"${id}"`)).length;
 const unread = ids.filter((id) => readers(id) === 0);
 check("every core setting has a reader outside its definition", unread.length === 0, unread.length ? `unread: ${unread.join(", ")}` : `${ids.length} read`);
