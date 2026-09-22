@@ -18,6 +18,16 @@
  * box that holds them, and whether the box under it was pushed down or left
  * to be sat on.
  *
+ * WHAT THIS FIXTURE DOES NOT EXERCISE, said plainly so the next person does
+ * not read a green run as more than it is: the reading route stood in for
+ * here returns no `faces`, so the page carries no web font and every part
+ * draws in whatever this machine already has. A real captured page that
+ * brings its faces with it lays out differently — that is the whole point of
+ * carrying them — and the heights below would change with it. They are
+ * measured off the drawn part every time, so the floor holds either way;
+ * it is the stored heights that a different face would make wrong, which is
+ * why they are a convenience and not the guarantee.
+ *
  *   node tests/words-fit.mjs [url]
  */
 import { createRequire, registerHooks } from "node:module";
