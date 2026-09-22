@@ -2254,7 +2254,7 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
          * the capture gave it. `flex: 1 0 auto` fills the box when the box
          * is the taller of the two.
          */
-        className="relative w-full overflow-hidden"
+        className="relative flex w-full flex-col overflow-hidden"
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
         /*
