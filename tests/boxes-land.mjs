@@ -212,8 +212,14 @@ check("a box does not wait for the one before it to finish", counts.some((c) => 
  * parts are added together and only their painting waits.
  *
  * What this pins is a ceiling, not a wish: one press per part, and at most
- * one more for the surface the run landed on. Measured on this tree and on
- * one without the stagger, it is the same number either way.
+ * two more — one for the surface the run landed on, and one for the tidy
+ * that follows an import whose boxes did not hold their words. Measured on
+ * this tree and on one without the stagger, it is the same number either
+ * way, which is the property: the arriving costs nothing per box.
+ *
+ * The blocks below fit their words, so no tidy runs and the count here is
+ * the bare one. A real page usually does need it. Said out loud because the
+ * ceiling would otherwise be a trap for the next fixture that does.
  *
  * It is worth saying plainly that the number is not one. `FromASite` says
  * above the run that "one undo brings the old board back", and on this path
@@ -226,15 +232,15 @@ check("a box does not wait for the one before it to finish", counts.some((c) => 
 await page.mouse.click(PANE.x + 60, PANE.y + PANE.height - 60);
 await page.waitForTimeout(300);
 let presses = 0;
-while (presses < N + 6 && (await page.locator("[data-node-id]").count()) > before) {
+while (presses < N + 7 && (await page.locator("[data-node-id]").count()) > before) {
   await page.keyboard.press(process.platform === "darwin" ? "Meta+z" : "Control+z");
   await page.waitForTimeout(220);
   presses++;
 }
 const after = await page.locator("[data-node-id]").count();
 check("undo takes the import back off the board", after === before, `${after} parts, was ${before} before it`);
-check("and the arriving costs no undo step of its own", after === before && presses <= N + 1,
-  `${presses} presses for ${N} parts${presses > 1 ? " (one per part and one for the surface, as it was before this change)" : ""}`);
+check("and the arriving costs no undo step of its own", after === before && presses <= N + 2,
+  `${presses} presses for ${N} parts${presses > 1 ? ` (one per part, one for the surface${presses > N + 1 ? ", one for the tidy" : ""}, as it was before this change)` : ""}`);
 
 const passed = results.filter(Boolean).length;
 console.log(`\n${passed === results.length ? "all good" : "FAILED"} — ${passed}/${results.length}`);
