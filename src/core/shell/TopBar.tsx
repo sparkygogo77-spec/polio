@@ -68,7 +68,7 @@ export function TopBar() {
             <button
               type="button"
               onClick={() => ctx.togglePanel("commands")}
-              className="tactile hidden h-7 w-64 items-center gap-2 rounded-md border border-border bg-elevated px-2 text-[11px] text-fg-faint hover:border-border-strong hover:text-fg-muted sm:flex"
+              className="tactile hidden h-7 w-64 items-center gap-2 rounded-md border border-border bg-elevated px-2 text-plain text-fg-faint hover:border-border-strong hover:text-fg-muted sm:flex"
             >
               <Search className="size-3.5" />
               <span className="flex-1 truncate text-left">Search or run a command…</span>

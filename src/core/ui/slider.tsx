@@ -38,7 +38,7 @@ export const Slider = React.forwardRef<React.ComponentRef<typeof S.Root>, Slider
           />
         ))}
       </S.Root>
-      {readout ? <span className="num w-12 shrink-0 text-right text-[11px] text-fg-muted">{readout(current[0] ?? 0)}</span> : null}
+      {readout ? <span className="num w-12 shrink-0 text-right text-plain text-fg-muted">{readout(current[0] ?? 0)}</span> : null}
     </div>
   );
 });

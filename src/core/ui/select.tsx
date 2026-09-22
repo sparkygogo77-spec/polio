@@ -54,7 +54,7 @@ export function Select({ value, onChange, options, placeholder, className, size 
                   <Check className="size-3.5 text-accent" />
                 </S.ItemIndicator>
                 <S.ItemText>{o.label}</S.ItemText>
-                {o.description ? <span className="ml-2 text-[10px] text-fg-faint">{o.description}</span> : null}
+                {o.description ? <span className="ml-2 text-small text-fg-faint">{o.description}</span> : null}
               </S.Item>
             ))}
           </S.Viewport>

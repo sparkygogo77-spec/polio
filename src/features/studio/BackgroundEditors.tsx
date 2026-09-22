@@ -332,7 +332,7 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
           rows={6}
           value={page.prompt}
           aria-label="Page prompt"
-          className={`min-h-0 w-full flex-1 resize-none text-[10px] leading-snug ${SCREEN_FIELD}`}
+          className={`min-h-0 w-full flex-1 resize-none text-small leading-snug ${SCREEN_FIELD}`}
           placeholder="e.g. One continuous scroll; nothing is clickable until the reader reaches the bottom."
           onChange={(e) => s().updatePage(page.id, { prompt: e.target.value })}
         />
@@ -349,7 +349,7 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
         <Input
           value={page.name}
           aria-label="Page name"
-          className={`w-full text-[11px] ${SCREEN_FIELD}`}
+          className={`w-full text-plain ${SCREEN_FIELD}`}
           onChange={(e) => s().updatePage(page.id, { name: e.target.value })}
         />
         <p className="text-[8px]" style={{ color: SCREEN.dim }}>The name on its tab, and what the builder calls it.</p>
@@ -365,7 +365,7 @@ export function BackgroundEditor({ which, slabs, page }: { which: string; slabs:
         <Input
           value={page.path}
           aria-label="Page address"
-          className={`w-full text-[11px] ${SCREEN_FIELD}`}
+          className={`w-full text-plain ${SCREEN_FIELD}`}
           placeholder="/"
           onChange={(e) => {
             // A path is one thing or it is a broken link: leading slash, no

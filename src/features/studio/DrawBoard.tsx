@@ -316,7 +316,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
 
       {/* a hint where the first stroke goes, gone once there is one; it sits just under the middle point, not over it */}
       <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-[10px] leading-snug transition-opacity"
+        className="pointer-events-none absolute inset-0 flex items-center justify-center text-center text-small leading-snug transition-opacity"
         style={{ color: "oklch(0.62 0.03 285)", opacity: strokes.length || live.current ? 0 : 1, textShadow: "0 1px 3px oklch(0 0 0 / 0.8)", paddingTop: 44 }}
       >
         <span className="max-w-[150px]">{node ? "Draw the shape it should be" : "Draw the shape of a new part"}</span>
@@ -370,7 +370,7 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           value={words}
           aria-label="Words to go with the drawing"
           placeholder="Words, if the drawing isn't enough"
-          className="h-6 border-[oklch(0.36_0.06_290)] bg-[oklch(0.13_0.03_288/0.85)] text-[10px] text-[oklch(0.92_0.02_285)] placeholder:text-[oklch(0.55_0.03_285)]"
+          className="h-6 border-[oklch(0.36_0.06_290)] bg-[oklch(0.13_0.03_288/0.85)] text-small text-[oklch(0.92_0.02_285)] placeholder:text-[oklch(0.55_0.03_285)]"
           onChange={(e) => setWords(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") { e.preventDefault(); void makeReal(); }
@@ -380,12 +380,12 @@ export function DrawBoard({ node, at, onBack, onDone }: DrawBoardProps) {
           }}
         />
         {note ? (
-          <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>{note}</p>
+          <p className="mt-1 text-center text-fine" style={{ color: CONSOLE.on }}>{note}</p>
         ) : boxAlone ? (
           /* What the geometry read, said where it was drawn: a box on its own is a cube before Make real is pressed. */
-          <p data-draw-read="box" className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.on }}>a box: it will be a cube, six faces you can turn and write on</p>
+          <p data-draw-read="box" className="mt-1 text-center text-fine" style={{ color: CONSOLE.on }}>a box: it will be a cube, six faces you can turn and write on</p>
         ) : read ? (
-          <p className="mt-1 text-center text-[9px]" style={{ color: CONSOLE.muted }}>snapped to {/^[aeiou]/.test(read) ? "an" : "a"} {read}</p>
+          <p className="mt-1 text-center text-fine" style={{ color: CONSOLE.muted }}>snapped to {/^[aeiou]/.test(read) ? "an" : "a"} {read}</p>
         ) : null}
       </div>
 

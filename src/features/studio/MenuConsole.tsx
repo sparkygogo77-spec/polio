@@ -57,7 +57,7 @@ export function Spectrum({
   return (
     <div className="mb-2">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[9px] uppercase tracking-wider" style={{ color: "oklch(0.9 0.05 20)" }}>{label}</span>
+        <span className="text-fine uppercase tracking-wider" style={{ color: "oklch(0.9 0.05 20)" }}>{label}</span>
         {/* What the colour is right now. A badge, not a chip: it is read,
             not picked, so it takes `PREVIEW` like the wheel's three. */}
         <span

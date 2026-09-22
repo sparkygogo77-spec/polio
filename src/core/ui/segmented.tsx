@@ -24,7 +24,7 @@ export interface SegmentedProps {
 /** Single-choice control that reads like a terminal timeframe picker. */
 export function Segmented({ value, onChange, options, size = "sm", className, silent, ...rest }: SegmentedProps) {
   const h = size === "xs" ? "h-6" : size === "sm" ? "h-7" : "h-8";
-  const text = size === "xs" ? "text-[11px] px-1.5" : size === "sm" ? "text-xs px-2" : "text-xs px-3";
+  const text = size === "xs" ? "text-plain px-1.5" : size === "sm" ? "text-xs px-2" : "text-xs px-3";
   return (
     <ToggleGroup.Root
       type="single"

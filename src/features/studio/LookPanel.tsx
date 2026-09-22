@@ -103,7 +103,7 @@ function ContrastBadge({ a, b, label }: { a: string; b: string; label: string })
   const large = ratio >= 3;
   return (
     <Tooltip content={ok ? "Readable at any size" : large ? "Only readable at large sizes" : "Too close to read"}>
-      <span className={cn("num rounded-sm px-1 py-0.5 text-[9px]", ok ? "bg-accent-soft text-accent" : large ? "text-fg-muted" : "text-[oklch(0.7_0.19_25)]")}>
+      <span className={cn("num rounded-sm px-1 py-0.5 text-fine", ok ? "bg-accent-soft text-accent" : large ? "text-fg-muted" : "text-[oklch(0.7_0.19_25)]")}>
         {label} {ratio.toFixed(1)}
       </span>
     </Tooltip>
@@ -159,7 +159,7 @@ function RoleExample({ role, palette }: { role: RoleId; palette: Palette }) {
           className="size-9 rounded"
           style={{ background: palette.surface, outline: role === "surface" ? `2px solid ${palette.accent}` : `1px solid ${withAlpha(palette.text, 0.14)}` }}
         />
-        <span className="text-[9px]" style={{ color: palette.muted }}>
+        <span className="text-fine" style={{ color: palette.muted }}>
           {role === "bg" ? "the page" : "cards on the page"}
         </span>
       </div>
@@ -176,7 +176,7 @@ function RoleExample({ role, palette }: { role: RoleId; palette: Palette }) {
           A heading on the page
         </span>
         <span
-          className="text-[10px] leading-tight"
+          className="text-small leading-tight"
           style={{ color: palette.muted, opacity: role === "muted" ? 1 : 0.45 }}
         >
           The quieter line under it
@@ -189,12 +189,12 @@ function RoleExample({ role, palette }: { role: RoleId; palette: Palette }) {
     return (
       <div data-role-example={role} className={cn(frame, "flex items-center gap-2 px-3")} style={{ background: palette.bg }}>
         <span
-          className="rounded px-2 py-1 text-[10px] font-semibold"
+          className="rounded px-2 py-1 text-small font-semibold"
           style={{ background: palette.accent, color: palette.bg }}
         >
           Button
         </span>
-        <span className="text-[10px]" style={{ color: palette.text }}>
+        <span className="text-small" style={{ color: palette.text }}>
           and a{" "}
           <span style={{ color: palette.accent, textDecoration: "underline", textUnderlineOffset: 2 }}>link</span>
         </span>
@@ -204,13 +204,13 @@ function RoleExample({ role, palette }: { role: RoleId; palette: Palette }) {
   /* Highlight: a phrase marked with it, and a part wearing it. */
   return (
     <div data-role-example={role} className={cn(frame, "flex items-center gap-2 px-3")} style={{ background: palette.bg }}>
-      <span className="text-[10px] leading-tight" style={{ color: palette.text }}>
+      <span className="text-small leading-tight" style={{ color: palette.text }}>
         one phrase{" "}
         <span style={{ background: palette.highlight, color: palette.bg, padding: "1px 3px", borderRadius: 2 }}>marked</span>{" "}
         in a line
       </span>
       <span
-        className="ml-auto rounded px-2 py-1 text-[9px] font-semibold"
+        className="ml-auto rounded px-2 py-1 text-fine font-semibold"
         style={{ background: palette.highlight, color: palette.bg }}
       >
         a part
@@ -254,9 +254,9 @@ function ColourSection() {
   return (
     <section data-look-colour="" className="space-y-2 border-b border-border p-3">
       <div className="flex items-center justify-between">
-        <h3 data-look-heading className="text-[11px] font-semibold text-fg">Colour</h3>
+        <h3 data-look-heading className="text-plain font-semibold text-fg">Colour</h3>
         {look.palette && Object.keys(look.palette).length ? (
-          <button type="button" onClick={() => useStudio.getState().setLook({ palette: {} })} className="text-[10px] text-fg-muted hover:text-fg">
+          <button type="button" onClick={() => useStudio.getState().setLook({ palette: {} })} className="text-small text-fg-muted hover:text-fg">
             Reset
           </button>
         ) : null}
@@ -277,7 +277,7 @@ function ColourSection() {
           </Tooltip>
         ))}
       </div>
-      <div className="flex items-center justify-between text-[10px] text-fg-muted">
+      <div className="flex items-center justify-between text-small text-fg-muted">
         <span>{ROLE_LABEL[role]}</span>
         <span className="flex gap-1">
           <ContrastBadge a={resolved.text} b={resolved.bg} label="text" />
@@ -331,7 +331,7 @@ function ColourSection() {
           </Button>
         </Tooltip>
       </div>
-      <p className="text-[10px] leading-snug text-fg-faint">
+      <p className="text-small leading-snug text-fg-faint">
         Builds all six roles from {ROLE_LABEL[role].toLowerCase()}. Every part reads these, and any one element can override a role.
       </p>
     </section>
@@ -398,11 +398,11 @@ function StackPreview({ layers, palette }: { layers: TextureLayer[]; palette: Pa
     <div data-look-stack="" className="space-y-1">
       {shown.map((g) => (
         <div key={g.key} className="flex items-center gap-2">
-          <span className="w-[62px] shrink-0 truncate text-[9px] text-fg-muted">{g.label}</span>
+          <span className="w-[62px] shrink-0 truncate text-fine text-fg-muted">{g.label}</span>
           <div className="h-6 min-w-0 flex-1 overflow-hidden rounded border border-border" style={CHECKS}>
             <div className="size-full" style={textureCss(g.list, palette, g.base)} />
           </div>
-          <span className="w-10 shrink-0 text-right text-[9px] tabular-nums text-fg-faint">
+          <span className="w-10 shrink-0 text-right text-fine tabular-nums text-fg-faint">
             {g.list.length} up
           </span>
         </div>
@@ -469,8 +469,8 @@ function FillRow({ palette }: { palette: Palette }) {
   return (
     <div data-look-fill="" className="space-y-1">
       <div className="flex items-baseline justify-between">
-        <span className="text-[9px] uppercase tracking-wider text-fg-muted">Fill, under everything</span>
-        <span className="text-[9px] text-fg-faint">{FILLS.find((f) => f.id === fill)?.label ?? fill}</span>
+        <span className="text-fine uppercase tracking-wider text-fg-muted">Fill, under everything</span>
+        <span className="text-fine text-fg-faint">{FILLS.find((f) => f.id === fill)?.label ?? fill}</span>
       </div>
       <div className="grid grid-cols-4 gap-1">
         {FILLS.map((f) => {
@@ -577,20 +577,20 @@ function TextureSection() {
         void readPicture(file).then((p) => takeImage(p.src, undefined, p.note)).catch((err: unknown) => { play("deny"); setRefused(refusal(err)); });
       }}
     >
-      <h3 data-look-heading className="text-[11px] font-semibold text-fg">Texture</h3>
+      <h3 data-look-heading className="text-plain font-semibold text-fg">Texture</h3>
       {refused ? (
-        <p data-picture-refused="" className="text-[10px] leading-snug text-danger">
+        <p data-picture-refused="" className="text-small leading-snug text-danger">
           {refused} Nothing has been changed.
         </p>
       ) : null}
-      {noted ? <p data-picture-note="" className="text-[10px] leading-snug text-fg-muted">{noted}</p> : null}
+      {noted ? <p data-picture-note="" className="text-small leading-snug text-fg-muted">{noted}</p> : null}
 
       <FillRow palette={palette} />
 
       <StackPreview layers={look.texture} palette={palette} />
 
       {look.texture.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border p-3 text-center text-[10px] leading-snug text-fg-muted">
+        <p className="rounded-md border border-dashed border-border p-3 text-center text-small leading-snug text-fg-muted">
           Drop a picture here, or stack a layer. A picture is turned into a pattern you can paint in any
           palette colour, so the background colour always shows through it.
         </p>
@@ -615,8 +615,8 @@ function TextureSection() {
                 />
                 <Swatch layer={layer} palette={palette} />
                 <button type="button" onClick={() => setOpenId(open ? null : layer.id)} className="min-w-0 flex-1 text-left">
-                  <span className="block truncate text-[11px] text-fg">{kind?.label}</span>
-                  <span className="block truncate text-[9px] text-fg-muted">
+                  <span className="block truncate text-plain text-fg">{kind?.label}</span>
+                  <span className="block truncate text-fine text-fg-muted">
                     {tintable ? ROLE_LABEL[layer.role] : "own colours"} · {WHERE_SHORT[layer.target ?? "page"]} · {Math.round(layer.opacity * 100)}% solid
                   </span>
                 </button>
@@ -664,7 +664,7 @@ function TextureSection() {
                     aria-label="Where this layer lands"
                     className="w-full"
                   />
-                  <p className="text-[10px] leading-snug text-fg-faint">{WHERE_HINT[layer.target ?? "page"]}</p>
+                  <p className="text-small leading-snug text-fg-faint">{WHERE_HINT[layer.target ?? "page"]}</p>
 
                   <Row label="How solid" value={layer.opacity < 0.005 ? "invisible" : `${Math.round(layer.opacity * 100)}%`}>
                     <Slider value={[Math.round(layer.opacity * 100)]} min={0} max={100} step={1} onValueChange={(v) => s().updateTexture(layer.id, { opacity: (v[0] ?? 14) / 100 })} aria-label="How solid" />
@@ -732,7 +732,7 @@ function TextureSection() {
                     options={BLENDS}
                     aria-label="Blend"
                   />
-                  <p className="text-[10px] leading-snug text-fg-faint">
+                  <p className="text-small leading-snug text-fg-faint">
                     {layer.kind === "flat"
                       ? "A flat colour. Solid at 0% fade, that is the static background, and it fades away along the angle as you turn it up."
                       : kind?.hint}
@@ -753,7 +753,7 @@ function TextureSection() {
 
                   {picture ? (
                     <div className="space-y-2 rounded-md border border-border p-2">
-                      <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">This picture</div>
+                      <div className="text-small font-medium uppercase tracking-wider text-fg-faint">This picture</div>
                       <ImageWell
                         src={layer.src}
                         onImage={(src) => takeImage(src, layer.id)}
@@ -761,7 +761,7 @@ function TextureSection() {
                       />
                       {layer.src ? (
                         <>
-                          <div className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Where the texture is in it</div>
+                          <div className="text-small font-medium uppercase tracking-wider text-fg-faint">Where the texture is in it</div>
                           <CropPicker
                             src={layer.src}
                             crop={layer.crop}
@@ -835,7 +835,7 @@ function TextureSection() {
             {/* The name, small and on a plate, so the sample is what is read
                 first and the word only settles which one it was. */}
             <span
-              className="absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-[9px] font-medium text-fg"
+              className="absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-fine font-medium text-fg"
               style={{ background: withAlpha(palette.bg, 0.72) }}
             >
               {TEXTURE_KINDS.find((x) => x.id === k)?.label}
@@ -873,8 +873,8 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint: strin
         style={{ accentColor: "var(--accent)" }}
       />
       <span className="min-w-0">
-        <span className="block text-[10px] text-fg">{label}</span>
-        <span className="block text-[9px] leading-snug text-fg-faint">{hint}</span>
+        <span className="block text-small text-fg">{label}</span>
+        <span className="block text-fine leading-snug text-fg-faint">{hint}</span>
       </span>
     </label>
   );
@@ -883,7 +883,7 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint: strin
 function Row({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-0.5 flex items-center justify-between text-[10px] text-fg-muted">
+      <span className="mb-0.5 flex items-center justify-between text-small text-fg-muted">
         {label}
         <span className="num text-fg-faint">{value}</span>
       </span>
@@ -920,7 +920,7 @@ function LightSection() {
   return (
     <section data-look-light="" data-light-section="" className="border-t border-border p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h3 data-look-heading className="text-[11px] font-semibold text-fg">Light &amp; depth</h3>
+        <h3 data-look-heading className="text-plain font-semibold text-fg">Light &amp; depth</h3>
         <Toggle
           label=""
           hint=""
@@ -954,8 +954,8 @@ function LightSection() {
           }}
         />
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-medium text-fg">Place the light</span>
-          <span className="block truncate text-[10px] text-fg-faint">
+          <span className="block text-plain font-medium text-fg">Place the light</span>
+          <span className="block truncate text-small text-fg-faint">
             {light.on ? `On the page at ${Math.round(light.x * 100)}%, ${Math.round(light.y * 100)}%` : "Off, pointing at a place turns it on"}
           </span>
         </span>
@@ -978,8 +978,8 @@ function LightSection() {
       >
         <ChevronDown className={cn("size-3 shrink-0 text-fg-faint transition-transform", open && "rotate-180")} />
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-medium text-fg">How it falls</span>
-          <span className="block truncate text-[10px] text-fg-faint">
+          <span className="block text-plain font-medium text-fg">How it falls</span>
+          <span className="block truncate text-small text-fg-faint">
             {light.height > 0.75 ? "overhead" : light.height > 0.4 ? "at an angle" : "low, raking"}
             {" \u00b7 "}{light.lift}px off
             {" \u00b7 "}{Math.round(light.strength * 100)}% shadow
@@ -1017,7 +1017,7 @@ function LightSection() {
         <Row label="Light on the page" value={(light.wash ?? 0) > 0.005 ? `${Math.round((light.wash ?? 0) * 100)}%` : "none"}>
           <Slider value={[Math.round((light.wash ?? 0) * 100)]} min={0} max={100} step={1} onValueChange={(v) => set({ wash: (v[0] ?? 0) / 100 })} />
         </Row>
-        <p className="text-[10px] leading-snug text-fg-faint">
+        <p className="text-small leading-snug text-fg-faint">
           Every surface works out its own shadow from where it stands relative to the lamp, so a card on
           the left throws left and one underneath throws almost nothing. The blueprint says where the
           light is, not what each shadow was.

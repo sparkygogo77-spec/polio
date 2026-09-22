@@ -148,7 +148,7 @@ export function TimelineDetail() {
         </Tab>
         <span className="flex-1" />
         {open ? (
-          <span className="truncate pr-1 text-[10px]" style={{ color: FIELD.dim }}>
+          <span className="truncate pr-1 text-small" style={{ color: FIELD.dim }}>
             {threadTitle(open)}
           </span>
         ) : null}
@@ -188,7 +188,7 @@ export function TimelineDetail() {
           ) : open ? (
             <Iteration thread={open} />
           ) : (
-            <p className="p-6 text-center text-[12px]" style={{ color: FIELD.dim }}>
+            <p className="p-6 text-center text-large" style={{ color: FIELD.dim }}>
               Click an iteration above to read it here, the prompt, what came back, what it changed, and what it led to. Press "this iteration" on a box to work in it, and this follows it.
             </p>
           )}
@@ -204,7 +204,7 @@ function Tab({ on, onClick, icon, children }: { on: boolean; onClick: () => void
       type="button"
       onClick={onClick}
       aria-pressed={on}
-      className="tactile flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px]"
+      className="tactile flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-plain"
       style={{
         background: on ? FIELD.raised : "transparent",
         borderColor: on ? FIELD.lit : "transparent",
@@ -301,7 +301,7 @@ function Iteration({ thread }: { thread: Thread }) {
         style={{ background: skin.face, borderColor: skin.rim }}
       >
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] uppercase tracking-[0.14em]"
+          <span className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-small uppercase tracking-[0.14em]"
             style={{ borderColor: skin.rim, background: skin.raised, color: skin.dim }}>
             {element ? <Brush className="size-3.5" /> : <MessageSquare className="size-3.5" />}
             {element ? "element prompt" : "the prompt"}
@@ -309,7 +309,7 @@ function Iteration({ thread }: { thread: Thread }) {
           {/* The flag again, where the prompt is written, so the two are
               never out of step with one another. */}
           {current ? (
-            <span data-working-here="" className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] uppercase tracking-[0.14em]"
+            <span data-working-here="" className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-small uppercase tracking-[0.14em]"
               style={{ background: skin.lit, color: skin.face }}>
               <Flag className="size-3" />
               working here
@@ -322,7 +322,7 @@ function Iteration({ thread }: { thread: Thread }) {
             <Copy className="size-3" /> copy
           </Button>
         </div>
-        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: skin.dim }}>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-small" style={{ color: skin.dim }}>
           {/* No clock: the chain says what came after what, and the first box
               says where it began. */}
           <span>{thread.mode}</span>
@@ -340,9 +340,9 @@ function Iteration({ thread }: { thread: Thread }) {
             {changed.length ? (
               <ul className="space-y-0.5 font-mono text-[10.5px]">{changed.slice(0, 8).map((l, i) => <li key={i}>{l}</li>)}</ul>
             ) : thread.changes.length ? (
-              <ul className="space-y-0.5 text-[11px]">{thread.changes.map((c, i) => <li key={i}>{c}</li>)}</ul>
+              <ul className="space-y-0.5 text-plain">{thread.changes.map((c, i) => <li key={i}>{c}</li>)}</ul>
             ) : (
-              <p className="text-[11px]" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
+              <p className="text-plain" style={{ color: skin.dim }}>nothing on the board changed with this one</p>
             )}
           </Row>
           <Row skin={skin} kind={element ? "ember" : "verdant"} seed={`${thread.id}-findings`} icon={<ListChecks className="size-3.5" />} title={`Findings${findings.length ? ` · ${findings.length}` : ""}`}>
@@ -350,10 +350,10 @@ function Iteration({ thread }: { thread: Thread }) {
               <ul className="space-y-1.5">
                 {findings.map((f) => (
                   <li key={f.id} className="rounded-md border p-2" style={{ borderColor: skin.rim, background: skin.raised }}>
-                    <p className="text-[11px]" style={{ color: skin.text }}>{f.target.label}: {f.text}</p>
+                    <p className="text-plain" style={{ color: skin.text }}>{f.target.label}: {f.text}</p>
                     {f.prompt ? (
                       <div className="mt-1 flex items-start gap-2">
-                        <p className="min-w-0 flex-1 text-[10px] italic" style={{ color: skin.dim }}>{f.prompt}</p>
+                        <p className="min-w-0 flex-1 text-small italic" style={{ color: skin.dim }}>{f.prompt}</p>
                         <Button variant="outline" size="xs" disabled={f.applied} onClick={() => useStudio.getState().applyRevision(f.id)}>{f.applied ? "taken" : "take it"}</Button>
                       </div>
                     ) : null}
@@ -361,7 +361,7 @@ function Iteration({ thread }: { thread: Thread }) {
                 ))}
               </ul>
             ) : (
-              <p className="text-[11px]" style={{ color: skin.dim }}>no findings came out of this one</p>
+              <p className="text-plain" style={{ color: skin.dim }}>no findings came out of this one</p>
             )}
           </Row>
           {children.length ? (
@@ -371,7 +371,7 @@ function Iteration({ thread }: { thread: Thread }) {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className="tactile rounded-md border px-2 py-1 text-[11px]"
+                      className="tactile rounded-md border px-2 py-1 text-plain"
                       style={{ borderColor: skin.rim, background: skin.raised, color: skin.text }}
                       onClick={() => { play("select"); useStudio.getState().openThread(c.id); }}
                     >
@@ -386,7 +386,7 @@ function Iteration({ thread }: { thread: Thread }) {
 
         {/* What to do with it. */}
         <aside className="flex w-full shrink-0 flex-col gap-1 lg:w-72">
-          <p className="px-1 text-[9px] uppercase tracking-[0.16em]" style={{ color: skin.dim }}>turn this into</p>
+          <p className="px-1 text-fine uppercase tracking-[0.16em]" style={{ color: skin.dim }}>turn this into</p>
           <Convert skin={skin} label="Take every finding" icon={<Check className="size-3.5" />} blurb={`${findings.filter((f) => !f.applied).length} prompts to write onto their parts`} disabled={!findings.some((f) => !f.applied)}
             onClick={() => { play("confirm"); for (const f of findings) if (!f.applied) useStudio.getState().applyRevision(f.id); }} />
           <Convert skin={skin} label={live ? "The board is on this" : "Stand the board on it"} icon={<MapPin className="size-3.5" />} blurb="Put every part back the way this update left it" disabled={live || !thread.doc}
@@ -416,7 +416,7 @@ function Iteration({ thread }: { thread: Thread }) {
           <Convert skin={skin} label="Ask the next thing" icon={<Sparkles className="size-3.5" />} blurb="The book, with this update live under it"
             onClick={() => { play("confirm"); useStudio.getState().standOn(thread.id); window.dispatchEvent(new CustomEvent("studio:book")); }} />
           {usage ? (
-            <p className="px-1 pt-1 text-[9px]" style={{ color: skin.dim }}>{usage}</p>
+            <p className="px-1 pt-1 text-fine" style={{ color: skin.dim }}>{usage}</p>
           ) : null}
         </aside>
       </div>
@@ -484,8 +484,8 @@ function Convert({ skin, label, icon, blurb, onClick, disabled }: { skin: Skin; 
       className="tactile flex w-full flex-col gap-0.5 rounded-md border px-2.5 py-2 text-left transition-[border-color,background] disabled:opacity-45"
       style={{ borderColor: skin.rim, background: skin.raised, color: skin.text }}
     >
-      <span className="flex items-center gap-1.5 text-[11px]">{icon}{label}</span>
-      <span className="text-[10px] leading-snug" style={{ color: skin.dim }}>{blurb}</span>
+      <span className="flex items-center gap-1.5 text-plain">{icon}{label}</span>
+      <span className="text-small leading-snug" style={{ color: skin.dim }}>{blurb}</span>
     </button>
   );
 }
@@ -512,12 +512,12 @@ function Step({ mark, n, says, skin, children }: { mark: "say" | "make" | "take"
     <section data-panel-block={mark} className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
       <div className="mb-1.5 flex items-center gap-1.5">
         <span
-          className="num grid size-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold"
+          className="num grid size-4 shrink-0 place-items-center rounded-full text-fine font-semibold"
           style={{ background: skin.lit, color: skin.face }}
         >
           {n}
         </span>
-        <span className="text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{says}</span>
+        <span className="text-fine font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{says}</span>
       </div>
       {children}
     </section>
@@ -546,7 +546,7 @@ export function TimelinePanel() {
   if (!open) {
     return (
       <div data-timeline-panel="" data-timeline-panel-empty="" className="p-3">
-        <p className="text-[11px] leading-relaxed" style={{ color: FIELD.dim }}>
+        <p className="text-plain leading-relaxed" style={{ color: FIELD.dim }}>
           Click a card on the timeline to read exactly what went into it and what came out.
         </p>
       </div>
@@ -571,14 +571,14 @@ export function TimelinePanel() {
   const Block = ({ head, text, what, show }: { head: "Input" | "Output"; text: string; what: string; show?: React.ReactNode }) => (
     <section data-panel-block={head.toLowerCase()} className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
       <div className="mb-1 flex items-center">
-        <span className="text-[9px] font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{head}</span>
+        <span className="text-fine font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{head}</span>
         <span className="flex-1" />
         <Button variant="ghost" size="xs" onClick={() => void ctx.copy(text, what)} style={{ color: skin.dim }}>
           <Copy className="size-3" />
         </Button>
       </div>
       {show ? <div className="mb-1.5">{show}</div> : null}
-      <p className="whitespace-pre-wrap text-[12px] leading-snug" style={{ color: skin.text }}>
+      <p className="whitespace-pre-wrap text-large leading-snug" style={{ color: skin.text }}>
         {text || `nothing ${head === "Input" ? "was typed with this one" : "came back"}`}
       </p>
     </section>
@@ -586,8 +586,8 @@ export function TimelinePanel() {
   return (
     <div data-timeline-panel="" data-timeline-panel-of={open.id} className="flex min-h-0 flex-col">
       <div className="border-b px-3 py-2" style={{ borderColor: skin.rim, background: skin.raised }}>
-        <p className="line-clamp-2 text-[12px] font-medium leading-snug" style={{ color: skin.text }}>{threadTitle(open)}</p>
-        <p className="mt-0.5 text-[10px]" style={{ color: skin.dim }}>{open.mode}</p>
+        <p className="line-clamp-2 text-large font-medium leading-snug" style={{ color: skin.text }}>{threadTitle(open)}</p>
+        <p className="mt-0.5 text-small" style={{ color: skin.dim }}>{open.mode}</p>
       </div>
 
       {/*
@@ -610,7 +610,7 @@ export function TimelinePanel() {
         {open.sketch?.strokes?.length ? (
           <span className="mb-1.5 flex items-center justify-center"><Drawn sketch={open.sketch} size={72} tone={skin.lit} /></span>
         ) : null}
-        <p className="whitespace-pre-wrap text-[12px] leading-snug" style={{ color: skin.text }}>
+        <p className="whitespace-pre-wrap text-large leading-snug" style={{ color: skin.text }}>
           {open.ask || "nothing was typed with this one"}
         </p>
       </Step>
@@ -630,7 +630,7 @@ export function TimelinePanel() {
           both: it is his credit, so what a run will cost is on screen while
           he is deciding, not after it is spent.
         */}
-        <p data-panel-price="" className="num mt-1.5 text-[10px]" style={{ color: skin.dim }}>
+        <p data-panel-price="" className="num mt-1.5 text-small" style={{ color: skin.dim }}>
           {priceAhead(made)}
         </p>
       </Step>
@@ -667,7 +667,7 @@ export function TimelinePanel() {
           ) : null}
         </div>
         {open.answer ? (
-          <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-[11px] leading-snug" style={{ color: skin.dim }}>{open.answer}</p>
+          <p className="mt-1.5 line-clamp-3 whitespace-pre-wrap text-plain leading-snug" style={{ color: skin.dim }}>{open.answer}</p>
         ) : null}
       </Step>
     </div>

@@ -102,7 +102,7 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
 
   if (failed) {
     return (
-      <p data-crop-refused="" className="rounded-md border border-dashed border-border p-2 text-[10px] leading-snug text-fg-muted">
+      <p data-crop-refused="" className="rounded-md border border-dashed border-border p-2 text-small leading-snug text-fg-muted">
         This picture could not be shown, so there is no patch to pick. Replace it with one the browser can open.
       </p>
     );
@@ -136,7 +136,7 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
           onError={() => setFailed(true)}
         />
         {squashed ? (
-          <span data-crop-squashed="" className="pointer-events-none absolute inset-x-0 top-0 bg-[oklch(0.05_0.01_280/0.6)] px-1 py-0.5 text-center text-[9px] text-fg-muted">
+          <span data-crop-squashed="" className="pointer-events-none absolute inset-x-0 top-0 bg-[oklch(0.05_0.01_280/0.6)] px-1 py-0.5 text-center text-fine text-fg-muted">
             Shown squashed to fit; the patch is picked in the picture's own proportions
           </span>
         ) : null}
@@ -148,7 +148,7 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
           instead of making one.
         */}
         {whole ? (
-          <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-[oklch(0.05_0.01_280/0.6)] px-1 py-0.5 text-center text-[9px] text-fg-muted">
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-[oklch(0.05_0.01_280/0.6)] px-1 py-0.5 text-center text-fine text-fg-muted">
             Drag to pick the patch
           </span>
         ) : null}
@@ -187,7 +187,7 @@ export function CropPicker({ src, crop, onChange }: { src: string; crop?: Crop; 
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] text-fg-faint">
+        <span className="text-small text-fg-faint">
           {whole ? "The whole picture" : `${Math.round(c.w * 100)}% × ${Math.round(c.h * 100)}% of it`}
         </span>
         <Button variant="outline" size="xs" disabled={whole} onClick={() => { play("tap"); onChange(undefined); }}>

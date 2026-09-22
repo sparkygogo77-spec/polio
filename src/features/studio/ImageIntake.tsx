@@ -215,7 +215,7 @@ export function ImageWell({
       <label
         title={compact ? (src ? `Replace ${label}` : `Drop, paste or choose ${label}`) : undefined}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-center text-[10px] transition-colors",
+          "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed text-center text-small transition-colors",
           compact ? "h-11 p-0.5" : "p-2",
           over ? "border-accent bg-accent/10 text-fg" : "border-border text-fg-muted hover:border-accent hover:text-fg",
         )}
@@ -239,10 +239,10 @@ export function ImageWell({
           onChange={(e) => void take(e.target.files?.[0] ?? null)}
         />
       </label>
-      {error ? <p data-picture-refused="" className="text-[10px] text-danger">{error}</p> : null}
-      {note ? <p data-picture-note="" className="text-[10px] text-fg-muted">{note}</p> : null}
+      {error ? <p data-picture-refused="" className="text-small text-danger">{error}</p> : null}
+      {note ? <p data-picture-note="" className="text-small text-fg-muted">{note}</p> : null}
       {src && onClear ? (
-        <button type="button" onClick={onClear} className="text-[10px] text-fg-muted hover:text-fg">
+        <button type="button" onClick={onClear} className="text-small text-fg-muted hover:text-fg">
           Remove
         </button>
       ) : null}

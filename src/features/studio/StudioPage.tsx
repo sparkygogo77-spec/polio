@@ -176,12 +176,12 @@ function SiteHead() {
          * is what makes the bar two lines rather than three, and it is worth
          * more than a decoration.
          */
-        className="hidden size-[18px] shrink-0 items-center justify-center rounded-[5px] text-[10px] font-bold leading-none md:flex"
+        className="hidden size-[18px] shrink-0 items-center justify-center rounded-[5px] text-small font-bold leading-none md:flex"
         style={{ background: palette.accent, color: palette.bg }}
       >
         {initial}
       </span>
-      <span data-site-build="" className="hidden max-w-[170px] truncate text-[12px] font-semibold text-fg sm:inline" title={name}>
+      <span data-site-build="" className="hidden max-w-[170px] truncate text-large font-semibold text-fg sm:inline" title={name}>
         {name}
       </span>
     </>
@@ -232,13 +232,13 @@ function PageChips() {
             {...ctxProps("studio-page", p.id, p)}
             onClick={() => { play("navigate"); useStudio.getState().setActivePage(p.id); }}
             className={cn(
-              "tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px]",
+              "tactile flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-plain",
               active ? "bg-accent-soft text-fg" : "text-fg-muted hover:bg-hover hover:text-fg",
             )}
           >
             <FileText className={cn("size-3 shrink-0", active && "text-accent")} />
             <span className="max-w-[110px] truncate">{p.name}</span>
-            {count ? <span className="num text-[9px] text-fg-faint">{count}</span> : null}
+            {count ? <span className="num text-fine text-fg-faint">{count}</span> : null}
           </button>
         );
       })}
@@ -537,7 +537,7 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
              is the timeline's own "centre" in the corner: the zoom it shows
              is the same number on both surfaces, so one press fits the board
              or settles the timeline, whichever is in front. */
-          className="num block w-10 text-center text-[10px] text-fg-muted hover:text-fg"
+          className="num block w-10 text-center text-small text-fg-muted hover:text-fg"
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -675,7 +675,7 @@ function DrawKindRow({ inkHue, compact }: { inkHue: number; compact?: boolean })
           title={k.means}
           onClick={() => useStudio.getState().setDrawKind(k.id)}
           className={cn(
-            "tactile rounded-sm px-1.5 py-px text-[10px]",
+            "tactile rounded-sm px-1.5 py-px text-small",
             kind === k.id ? "bg-accent text-on-accent" : "text-fg-muted hover:text-fg",
           )}
         >
@@ -688,7 +688,7 @@ function DrawKindRow({ inkHue, compact }: { inkHue: number; compact?: boolean })
 
 function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }: { shape: "square" | "round"; menuOpen: boolean; showWires: boolean; zoom: number; tool: string; inkHue: number; onUpdates: () => void }) {
   const [open, setOpen] = React.useState(false);
-  const row = "flex items-center gap-1.5 text-[11px] text-fg";
+  const row = "flex items-center gap-1.5 text-plain text-fg";
   return (
     <Popover
       open={open}
@@ -698,7 +698,7 @@ function MoreTools({ shape, menuOpen, showWires, zoom, tool, inkHue, onUpdates }
         <div data-toolbar-more-menu="" className="flex w-[220px] flex-col gap-1.5">
           <div className={row}>
             <span className="flex-1">Fit in view</span>
-            <button type="button" aria-label="Fit in view" data-fit-readout="" className="num text-[10px] text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
+            <button type="button" aria-label="Fit in view" data-fit-readout="" className="num text-small text-fg-muted hover:text-fg" onClick={() => { useStudio.getState().requestFit(); setOpen(false); }}>{Math.round(zoom * 100)}%</button>
           </div>
           <div className={row}>
             <Button variant={showWires ? "subtle" : "ghost"} size="iconXs" aria-label="Toggle wires" aria-pressed={showWires} onClick={() => useStudio.getState().setShowWires(!showWires)}>{showWires ? <Link2 /> : <Link2Off />}</Button>
@@ -865,7 +865,7 @@ function SearchTools({ always = false }: { always?: boolean } = {}) {
            its surroundings reads as a label, not as somewhere to type. The
            shortcut chip is gone — it was the widest thing in a control whose
            job is to be typed into, and the tooltip still says it. */
-        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-[11px] text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2")}
+        className={cn("tactile mx-1 h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent/45 text-plain text-fg-muted hover:border-accent/70 hover:text-fg", always ? "flex w-auto flex-1 justify-start px-2" : "hidden w-7 md:flex xl:w-auto xl:flex-1 xl:justify-start xl:px-2")}
         style={{ background: "color-mix(in oklch, var(--accent) 14%, var(--elevated))" }}
       >
         <Search className="size-3.5 shrink-0 text-accent" />
@@ -1168,7 +1168,7 @@ export function StudioPage() {
         {book && libraryOpen ? (
           <aside data-side-panel="" data-side-panel-timeline="" data-side-sheet={narrow ? "" : undefined} className={SHEET}>
             <SheetHandle narrow={narrow} onClose={() => setLibraryOpen(false)} />
-            <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2 text-[10px] uppercase tracking-[0.14em] text-fg-muted">
+            <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border px-2 text-small uppercase tracking-[0.14em] text-fg-muted">
               This card
             </div>
             <div className="no-bars min-h-0 flex-1 overflow-y-auto">

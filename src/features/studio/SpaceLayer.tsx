@@ -102,7 +102,7 @@ function ClosedMark({ space, zoom }: { space: Space; zoom: number }) {
           useStudio.getState().updateSpace(space.id, { opened: Date.now() });
           useStudio.getState().setSelection([space.id]);
         }}
-        className={cn("tactile absolute z-30 max-w-[240px] truncate rounded-md border px-2 py-1 text-[10px] font-medium", erasing ? "pointer-events-none" : "pointer-events-auto")}
+        className={cn("tactile absolute z-30 max-w-[240px] truncate rounded-md border px-2 py-1 text-small font-medium", erasing ? "pointer-events-none" : "pointer-events-auto")}
         style={{
           left: mx, top: my,
           transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`,
@@ -177,7 +177,7 @@ export function SpaceInk({ zoom }: { zoom: number }) {
                land on it, so the badge is the way to pick the drawing: it
                is on the drawing, says which space it is in, and opens the
                drawing's own words. */
-            className="tactile pointer-events-auto absolute z-20 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium"
+            className="tactile pointer-events-auto absolute z-20 whitespace-nowrap rounded px-1 py-0.5 text-fine font-medium"
             style={{
               left: g.bounds.x,
               top: g.bounds.y + g.bounds.h + 4,
@@ -233,7 +233,7 @@ export function SpaceRefused({ at, zoom }: { at: { points: Pt[]; at: number } | 
       <div
         data-space-refused=""
         role="status"
-        className="absolute whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium shadow-lg"
+        className="absolute whitespace-nowrap rounded-md px-2 py-1 text-plain font-medium shadow-lg"
         style={{
           left: box.w / 2,
           top: -6,
@@ -389,7 +389,7 @@ function FillKey({ space, zoom, at }: { space: Space; zoom: number; at: [number,
       title="What this space is for, and how to fill it"
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => { e.stopPropagation(); play("select"); useStudio.getState().setSelection([space.id]); }}
-      className={cn("tactile absolute z-30 flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-medium shadow-sm", erasing ? "pointer-events-none" : "pointer-events-auto")}
+      className={cn("tactile absolute z-30 flex items-center gap-1 whitespace-nowrap rounded-md border px-2 py-1 text-small font-medium shadow-sm", erasing ? "pointer-events-none" : "pointer-events-auto")}
       style={{
         left: at[0], top: at[1],
         transform: `translate(-50%, -50%) scale(${Math.max(1, 1 / zoom)})`,
@@ -597,7 +597,7 @@ function SurfaceHandles({ space, zoom, pad, box }: { space: Space; zoom: number;
         onPointerMove={move}
         onPointerUp={end}
         onPointerCancel={end}
-        className="tactile pointer-events-auto absolute z-30 flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-medium"
+        className="tactile pointer-events-auto absolute z-30 flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-fine font-medium"
         style={{
           left: pad, top: pad - 8, transform: `translateY(-100%) scale(${counter})`, transformOrigin: "0 100%",
           borderColor: "oklch(0.86 0.16 72 / 0.6)", background: "oklch(0.09 0.02 290 / 0.9)", color: "oklch(0.95 0.08 80)", cursor: "grab",

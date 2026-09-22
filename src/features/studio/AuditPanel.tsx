@@ -67,7 +67,7 @@ export function AuditPanel({ node }: { node: StudioNode }) {
       {/* Which model. The route's own pick is marked, so choosing it back is
           not a guess about which of them was the default. */}
       <div className="space-y-1">
-        <span className="block text-[10px] font-medium uppercase tracking-wider text-fg-faint">Model</span>
+        <span className="block text-small font-medium uppercase tracking-wider text-fg-faint">Model</span>
         {choices.length ? (
           <div data-model-choices="" className="flex flex-wrap gap-1">
             {choices.map((c, i) => (
@@ -82,7 +82,7 @@ export function AuditPanel({ node }: { node: StudioNode }) {
             ))}
           </div>
         ) : (
-          <p data-no-model="" className="text-[10px] text-fg-muted">
+          <p data-no-model="" className="text-small text-fg-muted">
             {reading.why ?? "Nothing in the table serves this one."}
           </p>
         )}
@@ -92,14 +92,14 @@ export function AuditPanel({ node }: { node: StudioNode }) {
       {picked ? (
         <div className="space-y-1.5 border-t border-border pt-2">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">Its options</span>
-            <span className="text-[10px] text-fg-faint">{rows.length}</span>
+            <span className="text-small font-medium uppercase tracking-wider text-fg-faint">Its options</span>
+            <span className="text-small text-fg-faint">{rows.length}</span>
             {node.plan ? (
               <button
                 type="button"
                 data-plan-reset=""
                 aria-label="Let the route decide everything"
-                className="tactile ml-auto inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] text-fg-faint hover:text-fg"
+                className="tactile ml-auto inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-small text-fg-faint hover:text-fg"
                 onClick={() => { play("tap"); writePlan(node, reading, { model: null, steps: [], options: null }); }}
               >
                 <RotateCcw className="size-3" /> route decides
@@ -134,12 +134,12 @@ export function AuditReadout({ subject, planned }: { subject: string; planned: P
         what={reading.making ? MAKING_MEANS[reading.making] : "—"}
         steps={reading.steps.map((st) => STEP_MEANS[st])}
       />
-      <p className="text-[10px] text-fg-muted">
+      <p className="text-small text-fg-muted">
         {reading.model
           ? <>The route would send {subject} to <span className="text-fg">{reading.model.name}</span>.</>
           : <>{reading.why ?? "Nothing in the table serves this one."}</>}
       </p>
-      <p className="text-[10px] leading-snug text-fg-faint">
+      <p className="text-small leading-snug text-fg-faint">
         Settings live on a part. Pick one to choose its model and what it is told.
       </p>
     </div>
@@ -151,8 +151,8 @@ export function AuditReadout({ subject, planned }: { subject: string; planned: P
 function Line({ what, steps }: { what: string; steps: string[] }) {
   return (
     <div className="space-y-1">
-      <p data-audit-what="" className="text-[10px] text-fg-muted">{what}</p>
-      <ol data-audit-steps="" className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-fg-faint">
+      <p data-audit-what="" className="text-small text-fg-muted">{what}</p>
+      <ol data-audit-steps="" className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-small text-fg-faint">
         {steps.map((s, i) => (
           <li key={s} className="flex items-center gap-1">
             {i ? <span aria-hidden className="text-fg-faint/60">›</span> : null}
@@ -189,7 +189,7 @@ function ModelKey({
         aria-pressed={on}
         onClick={onPick}
         className={cn(
-          "tactile rounded-sm border px-1.5 py-0.5 text-[10px]",
+          "tactile rounded-sm border px-1.5 py-0.5 text-small",
           on ? "border-fg text-fg" : "border-border text-fg-muted hover:text-fg",
         )}
       >

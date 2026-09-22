@@ -39,7 +39,7 @@ export function SwitchButton() {
       className="w-64 bg-panel p-1.5"
       content={
         <>
-          <div className="px-1.5 pb-1 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-fg-faint">Sites</div>
+          <div className="px-1.5 pb-1 pt-0.5 text-small font-medium uppercase tracking-wider text-fg-faint">Sites</div>
           <ul className="max-h-72 overflow-y-auto">
             {projects.map((p) => {
               const on = p.id === activeId;
@@ -58,7 +58,7 @@ export function SwitchButton() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs">{p.name}</span>
-                      <span className="block truncate text-[10px] text-fg-faint">
+                      <span className="block truncate text-small text-fg-faint">
                         {p.repo ? `${p.repo.owner}/${p.repo.name}` : "no repository"}
                         {on ? "" : ` · ${fmtAge(p.updatedAt)} ago`}
                       </span>

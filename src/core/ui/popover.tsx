@@ -45,7 +45,7 @@ export function Popover({ children, content, align = "start", side = "bottom", c
           style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
           className={cn("no-bars z-[70] w-72 overflow-y-auto rounded-md border border-border glass p-3 text-xs text-fg shadow-pop animate-pop outline-none", className)}
         >
-          {title ? <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-fg-faint">{title}</div> : null}
+          {title ? <div className="mb-2 text-small font-medium uppercase tracking-wider text-fg-faint">{title}</div> : null}
           {content}
         </P.Content>
       </P.Portal>

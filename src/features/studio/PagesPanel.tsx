@@ -40,18 +40,18 @@ export function PagesPanel() {
           under the board, so the workspace is not two text boxes tall. */}
       <div className="shrink-0 space-y-2 border-b border-border p-3" {...ctxProps("studio-brief", "brief", brief)}>
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-fg-faint">Site name</span>
+          <span className="text-small uppercase tracking-wider text-fg-faint">Site name</span>
           <Input value={brief.name} placeholder="Untitled" aria-label="Site name" onChange={(e) => useStudio.getState().setBrief({ name: e.target.value })} />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-fg-faint">Central idea</span>
+          <span className="text-small uppercase tracking-wider text-fg-faint">Central idea</span>
           <Textarea autoGrow rows={2} value={brief.gimmick} placeholder="The one thing everything serves" aria-label="Central idea" onChange={(e) => useStudio.getState().setBrief({ gimmick: e.target.value })} />
         </label>
       </div>
       <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
         <div>
-          <div className="text-[11px] font-semibold text-fg">Pages</div>
-          <div className="text-[10px] text-fg-muted">{pages.length} route{pages.length === 1 ? "" : "s"}</div>
+          <div className="text-plain font-semibold text-fg">Pages</div>
+          <div className="text-small text-fg-muted">{pages.length} route{pages.length === 1 ? "" : "s"}</div>
         </div>
         <Button
           size="xs"
@@ -88,8 +88,8 @@ export function PagesPanel() {
                 >
                   <FileText className={cn("size-3.5 shrink-0", isActive ? "text-accent" : "text-fg-faint")} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] font-medium text-fg">{page.name}</span>
-                    <span className="block truncate font-mono text-[10px] text-fg-faint">{page.path}</span>
+                    <span className="block truncate text-plain font-medium text-fg">{page.name}</span>
+                    <span className="block truncate font-mono text-small text-fg-faint">{page.path}</span>
                   </span>
                   <Badge size="sm">{count}</Badge>
                 </button>

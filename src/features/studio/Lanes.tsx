@@ -219,20 +219,20 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
             <span className="flex items-center gap-1.5 text-[8px] uppercase tracking-[0.14em]">
               <GitBranch className="size-3" /> {lane.label} · {item ? (item.kind === "fix" ? "an update" : "an improvement") : "nothing yet"}
             </span>
-            <span className="font-mono text-[10px] tabular-nums">
+            <span className="font-mono text-small tabular-nums">
               <span data-lane-cost="">{s?.costSaid ?? ""}</span> · <span data-lane-time="">{s?.timeSaid ?? ""}</span>
             </span>
           </div>
           <span data-lane-title="" className="truncate text-[13px] font-medium leading-[18px]">{item?.title ?? "Nothing in this lane yet"}</span>
           <div className="min-h-0 overflow-hidden">
             {!item ? null : item.kind === "fix" ? (
-              <pre data-lane-detail="" className="m-0 whitespace-pre-wrap break-words font-mono text-[12px] font-medium leading-[16px]" style={{ maxHeight: "100%" }}>{item.detail}</pre>
+              <pre data-lane-detail="" className="m-0 whitespace-pre-wrap break-words font-mono text-large font-medium leading-[16px]" style={{ maxHeight: "100%" }}>{item.detail}</pre>
             ) : (
               <p data-lane-detail="" className="m-0 line-clamp-4 text-[12.5px] font-medium leading-[17px]">{item.detail}</p>
             )}
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span data-lane-model="" className="truncate font-mono text-[10px]">
+            <span data-lane-model="" className="truncate font-mono text-small">
               {s ? `${s.pick.name} · ${s.pick.effort}` : ""}
             </span>
             <span className="flex shrink-0 items-center gap-1">
@@ -243,7 +243,7 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
                 onPointerDown={(e) => e.stopPropagation()}
                 disabled={!item}
                 onClick={(e) => { e.stopPropagation(); if (!item) return; play("tap"); setItem(nextIn(lane, item.id)); }}
-                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-[10px] disabled:opacity-45"
+                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-small disabled:opacity-45"
                 style={{ borderColor: "oklch(0.58 0.14 210)", background: "oklch(0.26 0.07 210)", color: "oklch(0.92 0.06 210)" }}
               >
                 <RefreshCw className="size-2.5" /> Refresh
@@ -255,7 +255,7 @@ function LaneBox({ lane, at, index }: { lane: Lane; at: Rect; index: number }) {
                 title={done ? "Carry this out: it becomes a box in the timeline" : "Nothing has carried this out yet"}
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); carryOut(); }}
-                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-[10px] disabled:opacity-45"
+                className="tactile flex h-5 items-center gap-1 rounded-sm border px-1.5 text-small disabled:opacity-45"
                 style={{ borderColor: "oklch(0.58 0.14 210)", background: "oklch(0.26 0.07 210)", color: "oklch(0.92 0.06 210)" }}
               >
                 <Hand className="size-2.5" /> Take control

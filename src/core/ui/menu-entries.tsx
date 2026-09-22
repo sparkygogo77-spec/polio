@@ -33,7 +33,7 @@ export const menuContentClass =
   "z-[70] min-w-[190px] max-w-[320px] overflow-hidden rounded-md border border-border glass p-1 text-xs text-fg shadow-pop animate-pop";
 export const menuItemClass =
   "relative flex h-[26px] cursor-default select-none items-center gap-2 rounded-sm px-2 text-xs outline-none data-[highlighted]:bg-hover data-[highlighted]:text-fg data-[disabled]:opacity-40 data-[disabled]:pointer-events-none [&_svg]:size-3.5 [&_svg]:text-fg-muted data-[highlighted]:[&_svg]:text-fg";
-export const menuLabelClass = "px-2 pt-1.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-fg-faint";
+export const menuLabelClass = "px-2 pt-1.5 pb-1 text-small font-medium uppercase tracking-wider text-fg-faint";
 export const menuSeparatorClass = "-mx-1 my-1 h-px bg-border";
 
 export function MenuEntries({
@@ -63,7 +63,7 @@ export function MenuEntries({
           <>
             {Icon ? <Icon /> : item.checked !== undefined ? <span className="size-3.5" /> : null}
             <span className={cn("flex-1 truncate", item.danger && "text-down")}>{item.label}</span>
-            {item.hint ? <span className="text-[10px] text-fg-faint">{item.hint}</span> : null}
+            {item.hint ? <span className="text-small text-fg-faint">{item.hint}</span> : null}
             {item.shortcut ? <Kbd className="ml-2">{item.shortcut}</Kbd> : null}
           </>
         );

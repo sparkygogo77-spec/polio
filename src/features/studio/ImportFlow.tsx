@@ -292,8 +292,8 @@ export function ImportFlow() {
       <div className="pointer-events-auto w-[min(660px,92vw)] rounded-xl border border-border bg-panel/95 p-3 shadow-panel backdrop-blur">
         <div className="mb-2 flex items-center gap-2">
           <ImageIcon className="size-4 text-fg-muted" />
-          <span className="text-[12px] font-medium text-fg">{d.from === "video" ? "Pick the frame" : "Where it lands"}</span>
-          <span className="truncate text-[11px] text-fg-faint">{d.name}</span>
+          <span className="text-large font-medium text-fg">{d.from === "video" ? "Pick the frame" : "Where it lands"}</span>
+          <span className="truncate text-plain text-fg-faint">{d.name}</span>
           <button
             type="button"
             aria-label="Cancel the import"
@@ -305,7 +305,7 @@ export function ImportFlow() {
         </div>
 
         {refused ? (
-          <p data-import-refused="" className="mb-3 text-[11px] leading-snug text-fg-muted">
+          <p data-import-refused="" className="mb-3 text-plain leading-snug text-fg-muted">
             {refused} Nothing has been changed — a picture, or a video in a format it plays, will go through.
           </p>
         ) : null}
@@ -328,7 +328,7 @@ export function ImportFlow() {
               className="w-full accent-[var(--accent)]"
               onChange={(e) => seek(Number(e.target.value))}
             />
-            <div className="mt-1 flex justify-between text-[10px] text-fg-faint">
+            <div className="mt-1 flex justify-between text-small text-fg-faint">
               <span className="num">{clock(at)}</span>
               <span className="num">{clock(length)}</span>
             </div>
@@ -348,8 +348,8 @@ export function ImportFlow() {
             className={cn("tactile flex-1 rounded-lg border border-border px-3 py-2 text-left", !ready && "opacity-40")}
             onClick={fitToStandard}
           >
-            <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg"><Check className="size-3.5" /> Fit to standard</span>
-            <span className="mt-0.5 block text-[10px] leading-snug text-fg-muted">
+            <span className="flex items-center gap-1.5 text-large font-medium text-fg"><Check className="size-3.5" /> Fit to standard</span>
+            <span className="mt-0.5 block text-small leading-snug text-fg-muted">
               {refused ? "Nothing to land." : "One picture, covering the page at its standard size."}
             </span>
           </button>
@@ -360,8 +360,8 @@ export function ImportFlow() {
             className={cn("tactile flex-1 rounded-lg border border-border px-3 py-2 text-left", !ready && "opacity-40")}
             onClick={shrinkIn}
           >
-            <span className="flex items-center gap-1.5 text-[12px] font-medium text-fg"><Scissors className="size-3.5" /> Shrink in</span>
-            <span className="mt-0.5 block text-[10px] leading-snug text-fg-muted">
+            <span className="flex items-center gap-1.5 text-large font-medium text-fg"><Scissors className="size-3.5" /> Shrink in</span>
+            <span className="mt-0.5 block text-small leading-snug text-fg-muted">
               {refused ? "Nothing to land." : "In from the edges, as a part you can drag and resize."}
             </span>
           </button>

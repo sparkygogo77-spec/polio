@@ -173,14 +173,14 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
           style={{ background: SCREEN.glass, border: `1px solid ${SCREEN.rim}`, boxShadow: `inset 0 0 30px oklch(0 0 0 / 0.5), 0 8px 30px oklch(0 0 0 / 0.4)` }}
         >
           <div className="pointer-events-none absolute inset-0 rounded-lg opacity-40" style={{ backgroundImage: SCREEN.scan }} />
-          <p className="mb-4 text-center text-[11px] font-medium tracking-wide" style={{ color: SCREEN.dim }}>{title}</p>
+          <p className="mb-4 text-center text-plain font-medium tracking-wide" style={{ color: SCREEN.dim }}>{title}</p>
           <Dots n={pin.length} shake={shake} />
           <div className="mt-5">
             <Pad onDigit={push} onBack={() => setPin((p) => p.slice(0, -1))} disabled={busy} />
           </div>
         </div>
       ) : (
-        <div className="flex max-w-[320px] gap-2 rounded-md border border-warn/30 bg-warn/8 p-3 text-[11px] leading-relaxed text-fg-muted">
+        <div className="flex max-w-[320px] gap-2 rounded-md border border-warn/30 bg-warn/8 p-3 text-plain leading-relaxed text-fg-muted">
           <AlertTriangle className="mt-px size-3.5 shrink-0 text-warn" />
           <span>
             This browser will not do cryptography on this address, so a PIN cannot seal anything here. Browsers only allow it on
@@ -190,9 +190,9 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
       )}
 
       {error ? (
-        <p className="flex items-center gap-1.5 text-[11px] text-down"><AlertTriangle className="size-3" />{error}</p>
+        <p className="flex items-center gap-1.5 text-plain text-down"><AlertTriangle className="size-3" />{error}</p>
       ) : sealable ? (
-        <p className="max-w-[300px] text-center text-[10px] leading-relaxed text-fg-faint">
+        <p className="max-w-[300px] text-center text-small leading-relaxed text-fg-faint">
           {mode === "create"
             ? "This seals what you keep here. Forget it and the contents are gone, there is no way back in and no reset."
             : cost
@@ -205,11 +205,11 @@ function PinGate({ mode }: { mode: "create" | "unlock" }) {
         <Button variant={sealable ? "outline" : "primary"} size="sm" disabled={busy} onClick={hold}>
           <Unlock /> {sealable ? "Skip the PIN, hold the key for this tab" : "Hold the key for this tab"}
         </Button>
-        <p className="text-center text-[10px] leading-relaxed text-fg-faint">
+        <p className="text-center text-small leading-relaxed text-fg-faint">
           This tab only: it survives a reload, sealed with this browser&rsquo;s own key, and goes when the tab closes. Nothing to unlock, nothing to forget.
         </p>
         {!storage ? (
-          <p className="flex items-center justify-center gap-1.5 text-[10px] text-warn"><AlertTriangle className="size-3" /> This browser blocks storage, so nothing here outlives a reload.</p>
+          <p className="flex items-center justify-center gap-1.5 text-small text-warn"><AlertTriangle className="size-3" /> This browser blocks storage, so nothing here outlives a reload.</p>
         ) : null}
       </div>
 
@@ -299,7 +299,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col" onPointerDown={touch} onKeyDown={touch}>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        <p className="mb-3 flex gap-2 rounded-md border border-warn/30 bg-warn/8 p-2 text-[10px] leading-relaxed text-fg-muted">
+        <p className="mb-3 flex gap-2 rounded-md border border-warn/30 bg-warn/8 p-2 text-small leading-relaxed text-fg-muted">
           <ShieldCheck className="mt-px size-3.5 shrink-0 text-warn" />
           <span>
             {held
@@ -309,7 +309,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             host&rsquo;s environment variables. A key held here is sent with a request only when the server has none.
           </span>
         </p>
-        <p className="mb-3 rounded-md border border-border bg-elevated/40 p-2 text-[10px] leading-relaxed text-fg-muted">
+        <p className="mb-3 rounded-md border border-border bg-elevated/40 p-2 text-small leading-relaxed text-fg-muted">
           <span className="font-medium text-fg">Where each key goes.</span> Try it asks Claude, GitHub and Vercel from this
           browser, so those keys are never sent to this site&rsquo;s own server to be tested. Doing the work is another matter
           and it is worth knowing which: a Builder ask, a render and a publish are made by the server, so the key rides with
@@ -329,7 +329,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             <React.Fragment key={s.id}>
             <section data-service={s.id} className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
               <header className="mb-2 flex flex-wrap items-center gap-2">
-                <h3 className="text-[12px] font-semibold text-fg">{s.label}</h3>
+                <h3 className="text-large font-semibold text-fg">{s.label}</h3>
                 {onServer ? (
                   <Tooltip content="Set in the server's environment. Nothing you type here is used for it.">
                     <Badge variant="up" size="sm"><Check className="size-3" /> on the server</Badge>
@@ -338,17 +338,17 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
                   <Badge variant="default" size="sm">not on the server</Badge>
                 )}
                 <span className="flex-1" />
-                <a href={s.where} target="_blank" rel="noopener noreferrer" className="text-[10px] text-accent underline underline-offset-2">where to get one</a>
+                <a href={s.where} target="_blank" rel="noopener noreferrer" className="text-small text-accent underline underline-offset-2">where to get one</a>
               </header>
-              <p className="mb-2 text-[10px] leading-snug text-fg-faint">{s.blurb}</p>
+              <p className="mb-2 text-small leading-snug text-fg-faint">{s.blurb}</p>
               <div className="grid gap-2">
                 {s.fields.map((f) => {
                   const here = !!draft[f.id];
                   return (
                     <label key={f.id} className="flex min-w-0 flex-col gap-1">
                       <span className="flex items-baseline justify-between gap-2">
-                        <span className="text-[10px] font-medium text-fg-muted">{f.label}</span>
-                        {server?.set[f.id] ? <span className="text-[9px] text-up">server has it</span> : here ? <span className="text-[9px] text-accent">{held ? "held for this tab" : "held here"}</span> : null}
+                        <span className="text-small font-medium text-fg-muted">{f.label}</span>
+                        {server?.set[f.id] ? <span className="text-fine text-up">server has it</span> : here ? <span className="text-fine text-accent">{held ? "held for this tab" : "held here"}</span> : null}
                       </span>
                       <Input
                         inputSize="sm"
@@ -375,12 +375,12 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
                   <Sparkles /> Try it
                 </Button>
                 {answer && !("busy" in answer) ? (
-                  <span className={cn("flex items-center gap-1 text-[10px]", answer.ok ? "text-up" : "text-down")}>
+                  <span className={cn("flex items-center gap-1 text-small", answer.ok ? "text-up" : "text-down")}>
                     {answer.ok ? <Check className="size-3" /> : <AlertTriangle className="size-3" />}
                     {answer.message}
                   </span>
                 ) : (
-                  <span className="text-[10px] text-fg-faint">
+                  <span className="text-small text-fg-faint">
                     {server?.set[keyField]
                       ? `Asks ${s.label} whether the server's ${s.fields[0]!.label.toLowerCase()} works.`
                       /* Where the asking happens is the person's business: the
@@ -398,8 +398,8 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
         })}
 
         <section className="mb-3 rounded-lg border border-border bg-elevated/50 p-3">
-          <h3 className="mb-1 text-[12px] font-semibold text-fg">Only on the server</h3>
-          <p className="mb-2 text-[10px] leading-snug text-fg-faint">
+          <h3 className="mb-1 text-large font-semibold text-fg">Only on the server</h3>
+          <p className="mb-2 text-small leading-snug text-fg-faint">
             These are used by the server alone, so a copy in this browser would do nothing. They go in <code className="text-fg">.env.local</code> or your host&rsquo;s environment; see <code className="text-fg">.env.example</code>.
           </p>
           <ul className="space-y-1">
@@ -407,7 +407,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
               const set = o.names.every((n) => server?.set[n]);
               const some = o.names.some((n) => server?.set[n]);
               return (
-                <li key={o.label} className="flex items-center gap-2 text-[10px]">
+                <li key={o.label} className="flex items-center gap-2 text-small">
                   <Badge variant={set ? "up" : some ? "warn" : "default"} size="sm">{set ? <Check className="size-3" /> : null} {set ? "set" : some ? "partly set" : "not set"}</Badge>
                   <span className="font-medium text-fg">{o.label}</span>
                   <span className="text-fg-faint">— {o.does}</span>
@@ -419,12 +419,12 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
 
         {plain ? (
           <section className="rounded-lg border border-border bg-elevated/50 p-3">
-            <h3 className="mb-2 text-[12px] font-semibold text-fg">How this is kept</h3>
-            <p className="text-[11px] leading-relaxed text-fg-muted">
+            <h3 className="mb-2 text-large font-semibold text-fg">How this is kept</h3>
+            <p className="text-plain leading-relaxed text-fg-muted">
               In this browser until you forget it: across reloads and across tabs, on this machine only. It is never sent
               anywhere but this app&rsquo;s own routes, and only when the server has no key of its own.
             </p>
-            <p className="mt-2 text-[11px] leading-relaxed text-fg-muted">
+            <p className="mt-2 text-plain leading-relaxed text-fg-muted">
               It is written down sealed, never as itself. The key that opens it was made by this browser, is kept where a
               browser keeps such things, and cannot be exported — so a copy of this machine&rsquo;s storage, a backup or a
               synced profile is a box nobody can open. What that does <em>not</em> stop is code running on this page: an
@@ -433,13 +433,13 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             </p>
             {sealedWaiting ? (
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-                <span className="text-[11px] text-fg-muted">There is a key here sealed under a PIN. Type it once to bring it across:</span>
+                <span className="text-plain text-fg-muted">There is a key here sealed under a PIN. Type it once to bring it across:</span>
                 <Input inputSize="sm" inputMode="numeric" maxLength={4} value={pinning} placeholder="four digits" onChange={(e) => setPinning(e.target.value.replace(/\D/g, "").slice(0, 4))} className="w-28" />
                 <Button variant="outline" size="sm" disabled={!isPin(pinning) || busy} onClick={() => void bringAcross(pinning).then((ok) => ok && setPinning(""))}>Bring it across</Button>
               </div>
             ) : null}
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-              <span className="text-[10px] text-fg-faint">A PIN is available under Settings › Keys, off by default.</span>
+              <span className="text-small text-fg-faint">A PIN is available under Settings › Keys, off by default.</span>
               <span className="flex-1" />
               <Button
                 variant="danger"
@@ -452,7 +452,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
           </section>
         ) : held ? (
           <section className="rounded-lg border border-border bg-elevated/50 p-3">
-            <h3 className="mb-2 text-[12px] font-semibold text-fg">Held for this tab</h3>
+            <h3 className="mb-2 text-large font-semibold text-fg">Held for this tab</h3>
             <div className="flex flex-wrap items-center gap-2">
               {sealable ? (
                 <>
@@ -460,14 +460,14 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
                   <Button variant="outline" size="sm" disabled={!isPin(pinning) || busy} onClick={() => void create(pinning).then((ok) => ok && setPinning(""))}>Seal it under a PIN instead</Button>
                 </>
               ) : (
-                <span className="text-[10px] text-fg-faint">Sealing needs https or localhost, which this address is not.</span>
+                <span className="text-small text-fg-faint">Sealing needs https or localhost, which this address is not.</span>
               )}
             </div>
-            <p className="mt-2 text-[10px] text-fg-faint">Forget drops it now; closing the tab drops it anyway.</p>
+            <p className="mt-2 text-small text-fg-faint">Forget drops it now; closing the tab drops it anyway.</p>
           </section>
         ) : (
           <section className="rounded-lg border border-border bg-elevated/50 p-3">
-            <h3 className="mb-2 text-[12px] font-semibold text-fg">The PIN itself</h3>
+            <h3 className="mb-2 text-large font-semibold text-fg">The PIN itself</h3>
             <div className="flex flex-wrap items-center gap-2">
               <Input inputSize="sm" inputMode="numeric" maxLength={4} value={pinning} placeholder="new four digits" onChange={(e) => setPinning(e.target.value.replace(/\D/g, "").slice(0, 4))} className="w-32" />
               <Button variant="outline" size="sm" disabled={!isPin(pinning) || busy} onClick={() => void changePin(pinning).then((ok) => ok && setPinning(""))}>Change it</Button>
@@ -482,12 +482,12 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
             </div>
             <label className="mt-3 flex items-start gap-2 border-t border-border pt-3">
               <Switch checked={kept} onCheckedChange={(v) => keep(v)} />
-              <span className="text-[11px] leading-relaxed text-fg-muted">
+              <span className="text-plain leading-relaxed text-fg-muted">
                 <span className="font-medium text-fg">Keep it open in this tab.</span> Reloading the page does not relock it and the idle timer stands
                 aside, so a long run left alone is not stopped halfway by a PIN pad. A new tab still asks for the PIN, and closing this one drops it.
               </span>
             </label>
-            <p className="mt-2 text-[10px] text-fg-faint">
+            <p className="mt-2 text-small text-fg-faint">
               {kept
                 ? "Kept for this tab: it stays open until you lock it or the tab closes."
                 : `The keys panel locks itself after ${Math.round(IDLE_MS / 60_000)} minutes without a keystroke, on reload, and whenever this tab closes.`}
@@ -510,7 +510,7 @@ function HeldKeys({ server }: { server: ServerStatus | null }) {
           <Button variant="ghost" size="sm" onClick={lock}>{held ? <><Trash2 /> Forget</> : <><Lock /> Lock</>}</Button>
         )}
         <span className="flex-1" />
-        {saved ? <span className="flex items-center gap-1 text-[11px] text-up"><Check className="size-3" /> saved</span> : null}
+        {saved ? <span className="flex items-center gap-1 text-plain text-up"><Check className="size-3" /> saved</span> : null}
         <Button variant="primary" size="sm" disabled={!dirty} loading={busy} onClick={() => void commit()}>{held ? "Hold in this tab" : "Save to this browser"}</Button>
       </div>
     </div>
@@ -566,7 +566,7 @@ export function KeysPanel() {
           <KeyRound className={cn("size-4", unlocked ? "text-accent" : "text-fg-muted")} />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-fg">Keys</h2>
-            <p className="truncate text-[11px] text-fg-muted">{unlocked ? (plain ? (exists ? "Held in this browser." : "Nothing kept in this browser yet.") : held ? "Held for this tab." : kept ? "Open, and kept for this tab." : "Open. Lock it when you are done.") : exists ? "Locked." : "Nothing kept in this browser yet."}</p>
+            <p className="truncate text-plain text-fg-muted">{unlocked ? (plain ? (exists ? "Held in this browser." : "Nothing kept in this browser yet.") : held ? "Held for this tab." : kept ? "Open, and kept for this tab." : "Open. Lock it when you are done.") : exists ? "Locked." : "Nothing kept in this browser yet."}</p>
           </div>
           {unlocked && !plain ? <Badge variant="accent" size="sm">{held ? <Unlock className="size-3" /> : <LockOpen className="size-3" />} {held ? "held" : kept ? "kept" : "open"}</Badge> : null}
           <Button variant="ghost" size="icon" aria-label="Close keys" onClick={() => closePanel("keys")}><X /></Button>

@@ -43,7 +43,7 @@ export function SlideOver({
         {Icon ? <Icon className="size-4 text-accent" /> : null}
         <div className="min-w-0 flex-1 leading-tight">
           <div className="truncate text-xs font-semibold text-fg">{title}</div>
-          {subtitle ? <div className="truncate text-[10px] text-fg-muted">{subtitle}</div> : null}
+          {subtitle ? <div className="truncate text-small text-fg-muted">{subtitle}</div> : null}
         </div>
         {actions}
         <Button variant="ghost" size="iconXs" aria-label="Close" sound="close" onClick={onClose}>

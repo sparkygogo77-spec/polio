@@ -46,6 +46,7 @@ import { heldKeys } from "@/features/keys/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio, type StudioNode } from "./store";
+import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
@@ -175,7 +176,7 @@ export function ImportStrip() {
     <div
       data-import-strip={busyNow ? "busy" : refused ? "refused" : "done"}
       role="status"
-      className="flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-[11px]"
+      className="flex shrink-0 items-start gap-2 border-b px-3 py-1.5 text-plain"
       style={{ borderColor: refused ? "oklch(0.72 0.17 18 / 0.6)" : VOID.rim, background: refused ? "oklch(0.72 0.17 18 / 0.08)" : VOID.box, color: VOID.text }}
     >
       {busyNow ? <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin" /> : null}
@@ -593,6 +594,13 @@ export function FromASite({ space }: { space: Space }) {
     // The surface takes the page's proportion at the width it was drawn.
     useStudio.getState().resizeSpace(space.id, fit.surface);
     const ids: string[] = [];
+    /*
+     * The boxes come up one after another rather than all at once. The run
+     * below is unchanged and still synchronous — one undo still brings the
+     * old board back — and it is the painting of each box that waits its
+     * turn. `boxEntry.ts` holds the reasoning and the number.
+     */
+    holdIncoming(readings.length);
     const landed = readings.map((reading, i) => {
       const made = recreateFrom(reading);
       const at = fit.places[i]!;
@@ -689,7 +697,7 @@ export function FromASite({ space }: { space: Space }) {
 
   return (
     <section data-from-a-site="">
-      <div className="mb-1 text-[9px] uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a repository, a site, or a zip</div>
+      <div className="mb-1 text-fine uppercase tracking-[0.14em]" style={{ color: VOID.muted }}>From a repository, a site, or a zip</div>
 
       {/*
         A repository first, because it is the one that needs nothing
@@ -705,7 +713,7 @@ export function FromASite({ space }: { space: Space }) {
           value={repoText}
           onChange={(e) => { setRepoText(e.target.value); if (stage.at === "said") setStage({ at: "nothing" }); }}
           onKeyDown={(e) => { if (e.key === "Enter") void readRepository(); }}
-          className={cn("h-7 flex-1 text-[11px]", SCREEN_FIELD)}
+          className={cn("h-7 flex-1 text-plain", SCREEN_FIELD)}
         />
         <button
           type="button"
@@ -713,7 +721,7 @@ export function FromASite({ space }: { space: Space }) {
           disabled={!repo || working}
           onClick={() => void readRepository()}
           title="Bring the website in this repository onto the board, with its elements in a category of their own"
-          className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] disabled:opacity-40"
+          className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-small disabled:opacity-40"
           style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         >
           {working ? <Loader2 className="size-3 animate-spin" /> : <GitBranch className="size-3" />}
@@ -721,7 +729,7 @@ export function FromASite({ space }: { space: Space }) {
         </button>
       </div>
       {repoText.trim() && !repo ? (
-        <div data-repo-refused="" className="mb-1 text-[10px]" style={{ color: "oklch(0.72 0.16 30)" }}>{REPO_REFUSAL_SAYS["not-a-repo"]}</div>
+        <div data-repo-refused="" className="mb-1 text-small" style={{ color: "oklch(0.72 0.16 30)" }}>{REPO_REFUSAL_SAYS["not-a-repo"]}</div>
       ) : null}
 
       <Brought />
@@ -734,7 +742,7 @@ export function FromASite({ space }: { space: Space }) {
           value={url}
           onChange={(e) => { setUrl(e.target.value); if (stage.at === "said") setStage({ at: "nothing" }); }}
           onKeyDown={(e) => { if (e.key === "Enter") void read().catch((err: unknown) => setStage({ at: "said", says: `Stopped before it could finish: ${err instanceof Error ? err.message : String(err)}` })); }}
-          className={cn("h-7 flex-1 text-[11px]", SCREEN_FIELD)}
+          className={cn("h-7 flex-1 text-plain", SCREEN_FIELD)}
         />
         <button
           type="button"
@@ -742,7 +750,7 @@ export function FromASite({ space }: { space: Space }) {
           disabled={!gate?.ok || working}
           onClick={() => void read().catch((err: unknown) => setStage({ at: "said", says: `Stopped before it could finish: ${err instanceof Error ? err.message : String(err)}` }))}
           title="Open the page and list what is worth pointing at"
-          className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-[10px] disabled:opacity-40"
+          className="tactile flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-small disabled:opacity-40"
           style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         >
           {working && stage.says.startsWith("Opening the page") ? <Loader2 className="size-3 animate-spin" /> : <Globe className="size-3" />}
@@ -752,7 +760,7 @@ export function FromASite({ space }: { space: Space }) {
 
       {/* Why an address will not be opened, before anything is opened. */}
       {gate && !gate.ok ? (
-        <div data-site-refused="" className="mt-1 text-[10px]" style={{ color: "oklch(0.72 0.16 30)" }}>{gate.says}</div>
+        <div data-site-refused="" className="mt-1 text-small" style={{ color: "oklch(0.72 0.16 30)" }}>{gate.says}</div>
       ) : null}
 
       {/*
@@ -762,7 +770,7 @@ export function FromASite({ space }: { space: Space }) {
       */}
       <label
         data-zip-well=""
-        className={cn("tactile mt-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-[10px]", working && "pointer-events-none opacity-40")}
+        className={cn("tactile mt-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-small", working && "pointer-events-none opacity-40")}
         style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
         title="A zip with a page in it: index.html and what it uses"
       >
@@ -782,7 +790,7 @@ export function FromASite({ space }: { space: Space }) {
 
       {stage.at === "picking" ? (
         <div className="mt-2">
-          <div className="mb-1 text-[10px]" style={{ color: VOID.muted }}>
+          <div className="mb-1 text-small" style={{ color: VOID.muted }}>
             {stage.candidates.length} things to point at on {nameOf(stage.source)}
             {stage.source.kind === "zip" ? `, opened at ${stage.source.entry}` : ""}
           </div>
@@ -796,7 +804,7 @@ export function FromASite({ space }: { space: Space }) {
             data-site-take-all=""
             onClick={() => void takeAll()}
             title="Every block of the page, as parts, laid on this surface in the proportion they had"
-            className="tactile mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-[10px]"
+            className="tactile mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border px-2 py-1 text-small"
             style={{ borderColor: VOID.rim, background: VOID.box, color: VOID.text }}
           >
             <LayoutTemplate className="size-3" />
@@ -815,10 +823,10 @@ export function FromASite({ space }: { space: Space }) {
                 >
                   <Search className="mt-[2px] size-2.5 shrink-0" style={{ color: SCREEN.dim }} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-[10px]">{c.what}</span>
-                    {c.words ? <span className="block truncate text-[9px]" style={{ color: SCREEN.dim }}>{c.words}</span> : null}
+                    <span className="block truncate font-mono text-small">{c.what}</span>
+                    {c.words ? <span className="block truncate text-fine" style={{ color: SCREEN.dim }}>{c.words}</span> : null}
                   </span>
-                  <span className="shrink-0 font-mono text-[9px]" style={{ color: SCREEN.dim }}>{c.box.w}×{c.box.h}</span>
+                  <span className="shrink-0 font-mono text-fine" style={{ color: SCREEN.dim }}>{c.box.w}×{c.box.h}</span>
                 </button>
               </li>
             ))}
@@ -827,7 +835,7 @@ export function FromASite({ space }: { space: Space }) {
       ) : null}
 
       {stage.at === "said" ? (
-        <div data-site-said="" className="mt-1.5 rounded px-2 py-1 text-[10px]" style={{ background: VOID.box, border: `1px solid ${VOID.rim}`, color: VOID.text }}>
+        <div data-site-said="" className="mt-1.5 rounded px-2 py-1 text-small" style={{ background: VOID.box, border: `1px solid ${VOID.rim}`, color: VOID.text }}>
           {stage.says}
         </div>
       ) : null}
@@ -856,13 +864,13 @@ function Brought() {
           <li
             key={r.id}
             data-brought-repo={r.id}
-            className="flex items-center gap-1.5 rounded px-1.5 py-1 text-[10px]"
+            className="flex items-center gap-1.5 rounded px-1.5 py-1 text-small"
             style={{ background: VOID.box, border: `1px solid ${VOID.rim}`, color: VOID.text }}
           >
             <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `oklch(0.72 0.15 ${r.hue})` }} />
             <span className="min-w-0 flex-1">
               <span className="block truncate">{r.from}</span>
-              <span className="block truncate text-[9px]" style={{ color: VOID.muted }}>
+              <span className="block truncate text-fine" style={{ color: VOID.muted }}>
                 {n} element{n === 1 ? "" : "s"} in the shelf, read from {r.page}
               </span>
             </span>
@@ -886,7 +894,7 @@ function Brought() {
 
 function Waiting({ says }: { says: string }) {
   return (
-    <div className="mt-1.5 flex items-center gap-1 text-[10px]" style={{ color: VOID.muted }}>
+    <div className="mt-1.5 flex items-center gap-1 text-small" style={{ color: VOID.muted }}>
       <Loader2 className="size-3 animate-spin" />
       {says}
     </div>

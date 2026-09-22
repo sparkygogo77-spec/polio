@@ -60,7 +60,7 @@ function Section({ id, title, body, children }: { id: string; title: string; bod
     <section id={id} className="scroll-mt-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold text-fg">{title}</h2>
-        {body ? <p className="text-[11px] text-fg-muted">{body}</p> : null}
+        {body ? <p className="text-plain text-fg-muted">{body}</p> : null}
       </div>
       <Card>
         <CardContent className="flex flex-col gap-4">{children}</CardContent>
@@ -72,7 +72,7 @@ function Section({ id, title, body, children }: { id: string; title: string; bod
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <span className="w-28 shrink-0 text-[10px] uppercase tracking-wider text-fg-faint">{label}</span>
+      <span className="w-28 shrink-0 text-small uppercase tracking-wider text-fg-faint">{label}</span>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );
@@ -144,7 +144,7 @@ export function ShowcasePage() {
     <div className="flex gap-6 px-4 py-6 sm:px-6">
       <nav className="sticky top-4 hidden h-fit w-40 shrink-0 flex-col gap-0.5 lg:flex" aria-label="Sections">
         {SECTIONS.map(([id, label]) => (
-          <a key={id} href={`#${id}`} onClick={() => play("select")} className="tactile rounded-sm px-2 py-1 text-[11px] text-fg-muted hover:bg-hover hover:text-fg">
+          <a key={id} href={`#${id}`} onClick={() => play("select")} className="tactile rounded-sm px-2 py-1 text-plain text-fg-muted hover:bg-hover hover:text-fg">
             {label}
           </a>
         ))}
@@ -153,7 +153,7 @@ export function ShowcasePage() {
       <div className="flex min-w-0 flex-1 flex-col gap-8">
         <div>
           <h1 className="text-lg font-semibold text-fg">Showcase</h1>
-          <p className="text-[11px] text-fg-muted">Every primitive with sound, haptics and instant feedback wired in. Right-click anything.</p>
+          <p className="text-plain text-fg-muted">Every primitive with sound, haptics and instant feedback wired in. Right-click anything.</p>
         </div>
 
         <Section id="buttons" title="Buttons" body="Cues fire on pointer-down, before the click resolves. Press scale is a setting.">
@@ -243,13 +243,13 @@ export function ShowcasePage() {
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
               </TabsList>
-              <TabsContent value="positions" className="text-[11px] text-fg-muted">
+              <TabsContent value="positions" className="text-plain text-fg-muted">
                 Open positions render here.
               </TabsContent>
-              <TabsContent value="orders" className="text-[11px] text-fg-muted">
+              <TabsContent value="orders" className="text-plain text-fg-muted">
                 Limit orders and triggers.
               </TabsContent>
-              <TabsContent value="history" className="text-[11px] text-fg-muted">
+              <TabsContent value="history" className="text-plain text-fg-muted">
                 Every fill, exportable.
               </TabsContent>
             </Tabs>
@@ -372,7 +372,7 @@ export function ShowcasePage() {
             <Button size="sm" onClick={() => bump(1)}>
               +1%
             </Button>
-            <span className="text-[11px] text-fg-muted">Change slippage a few times, then open the bell: one line reading “from → to”.</span>
+            <span className="text-plain text-fg-muted">Change slippage a few times, then open the bell: one line reading “from → to”.</span>
           </Row>
           <Row label="Levels">
             <Button size="sm" variant="outline" onClick={() => levelDemo("info")}>
@@ -443,11 +443,11 @@ export function ShowcasePage() {
                   <Play className="size-3" />
                   {c}
                 </span>
-                <span className="text-[9px] uppercase text-fg-faint">{cueCategory(c)}</span>
+                <span className="text-fine uppercase text-fg-faint">{cueCategory(c)}</span>
               </Button>
             ))}
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-fg-muted">
+          <div className="flex items-center gap-2 text-plain text-fg-muted">
             <Volume2 className="size-3.5" />
             Master volume lives in Settings → Audio. <Kbd>mod+.</Kbd> mutes everything.
           </div>
@@ -490,7 +490,7 @@ export function ShowcasePage() {
               )}
             />
           </div>
-          <div className="text-[11px] text-fg-faint">
+          <div className="text-plain text-fg-faint">
             <Download className="mr-1 inline size-3" />
             Rows also carry a scope, so right-click works inside the window.
           </div>

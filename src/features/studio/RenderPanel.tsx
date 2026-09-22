@@ -221,7 +221,7 @@ export function RenderPanel() {
      check looking for the control found a bare button instead. */
   const Row = ({ label, mark, children }: { label: string; mark: string; children: React.ReactNode }) => (
     <label data-render-row={mark} className="flex items-center justify-between gap-2 px-3 py-1.5">
-      <span className="text-[11px] text-fg-muted">{label}</span>
+      <span className="text-plain text-fg-muted">{label}</span>
       <span {...{ [`data-render-${mark}`]: "" }} className="shrink-0">{children}</span>
     </label>
   );
@@ -234,7 +234,7 @@ export function RenderPanel() {
           // eslint-disable-next-line @next/next/no-img-element -- a data URL he chose
           <img src={references[0]} alt="" data-render-reference-shown="" className="size-full object-contain opacity-80" />
         ) : (
-          <span className="flex flex-col items-center gap-1 text-[11px] text-fg-faint">
+          <span className="flex flex-col items-center gap-1 text-plain text-fg-faint">
             <ImageIcon className="size-5" />
             A new one
           </span>
@@ -276,10 +276,10 @@ export function RenderPanel() {
         onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}
       >
         <div className="mb-1 flex items-baseline justify-between">
-          <span className="text-[11px] text-fg-muted">Input images</span>
+          <span className="text-plain text-fg-muted">Input images</span>
           {/* What this model will take, said before he fills it rather than
               after it refuses one. */}
-          <span data-render-inputs-count="" className="num text-[10px] text-fg-faint">
+          <span data-render-inputs-count="" className="num text-small text-fg-faint">
             {references.length ? `${references.length} of ${mostPictures}` : mostPictures > 1 ? `up to ${mostPictures}` : "one"}
           </span>
         </div>
@@ -359,7 +359,7 @@ export function RenderPanel() {
         {/* The price before the press, not after it. It is his key and his
             money, so what it will cost is said before anything is spent, and
             what it actually cost replaces this when the picture comes back. */}
-        <span data-render-price="" className="text-[10px] text-fg-faint">
+        <span data-render-price="" className="text-small text-fg-faint">
           {said ?? `About ${money(RENDER_COST.raster)} a picture, on your own Replicate key.`}
         </span>
       </div>
@@ -413,7 +413,7 @@ export function RenderPanel() {
                 className="mb-1.5 block aspect-square w-full cursor-grab rounded-sm border border-border object-contain active:cursor-grabbing"
               />
               <figcaption className="flex items-center gap-1">
-                <span className="min-w-0 flex-1 truncate text-[10px] text-fg-muted" title={d.prompt}>{d.prompt}</span>
+                <span className="min-w-0 flex-1 truncate text-small text-fg-muted" title={d.prompt}>{d.prompt}</span>
                 {/*
                   COPIED, not only saved.
 
@@ -440,14 +440,14 @@ export function RenderPanel() {
                       window.setTimeout(() => setCopied((was) => (was === `${d.id}:no` ? null : was)), 2200);
                     }
                   }}
-                  className="tactile flex items-center gap-0.5 rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg"
+                  className="tactile flex items-center gap-0.5 rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg"
                 >
                   <Copy className="size-2.5" />
                   {copied === d.id ? "Copied" : copied === `${d.id}:no` ? "Cannot" : "Copy"}
                 </button>
-                <a data-render-download={d.id} href={d.image} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Save</a>
-                <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Tweak</button>
-                <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-[10px] text-fg-muted hover:text-fg">Again</button>
+                <a data-render-download={d.id} href={d.image} download={`${d.prompt.slice(0, 40).replace(/[^a-z0-9]+/gi, "-") || "drawing"}.${d.format ?? "webp"}`} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Save</a>
+                <button type="button" data-render-tweak-from={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Tweak</button>
+                <button type="button" data-render-again={d.id} onClick={() => { setTweak(d.prompt); setSlug(d.model); if (d.reference) setReferences([d.reference]); window.setTimeout(() => void run(), 0); }} className="tactile rounded-sm border border-border px-1 py-0.5 text-small text-fg-muted hover:text-fg">Again</button>
               </figcaption>
             </figure>
           ))}

@@ -354,16 +354,16 @@ export function Tour() {
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
-                "grid size-4 shrink-0 place-items-center rounded-full text-[9px] font-semibold num",
+                "grid size-4 shrink-0 place-items-center rounded-full text-fine font-semibold num",
                 p.box ? "bg-accent text-accent-fg" : "border border-border text-fg-faint",
               )}
             >
               {i + 1}
             </span>
-            <span className="text-[12px] font-semibold text-fg">{p.spot.name}</span>
+            <span className="text-large font-semibold text-fg">{p.spot.name}</span>
           </div>
-          <p className="mt-1 text-[11px] leading-snug text-fg-muted">{p.spot.line}</p>
-          <p className="mt-1.5 flex items-start gap-1 text-[10px] leading-snug text-fg-faint">
+          <p className="mt-1 text-plain leading-snug text-fg-muted">{p.spot.line}</p>
+          <p className="mt-1.5 flex items-start gap-1 text-small leading-snug text-fg-faint">
             <MapPin className="mt-px size-2.5 shrink-0" />
             {p.spot.where}
           </p>
@@ -375,12 +375,12 @@ export function Tour() {
         <div className="flex max-w-3xl flex-wrap items-center gap-3 rounded-xl border border-border bg-panel/95 px-3 py-2 shadow-pop backdrop-blur">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[12px] font-semibold text-fg">{current.title}</span>
-              <span className="num rounded-full border border-border px-1.5 py-px text-[10px] text-fg-muted">
+              <span className="text-large font-semibold text-fg">{current.title}</span>
+              <span className="num rounded-full border border-border px-1.5 py-px text-small text-fg-muted">
                 Step {step + 1} of {STEPS.length}
               </span>
             </div>
-            <p className="mt-0.5 max-w-md text-[11px] leading-snug text-fg-muted">{current.blurb}</p>
+            <p className="mt-0.5 max-w-md text-plain leading-snug text-fg-muted">{current.blurb}</p>
           </div>
 
           {/* One pip per step: the length of the thing, at a glance. */}

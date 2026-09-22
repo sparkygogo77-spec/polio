@@ -31,9 +31,9 @@ function keyOf(i: number): React.CSSProperties {
 }
 
 const itemClass =
-  "group flex h-9 cursor-default select-none items-center gap-2.5 rounded-[6px] px-2 text-[12px] transition-colors data-[selected=true]:text-[oklch(0.99_0_0)]";
+  "group flex h-9 cursor-default select-none items-center gap-2.5 rounded-[6px] px-2 text-large transition-colors data-[selected=true]:text-[oklch(0.99_0_0)]";
 const groupClass =
-  "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[9px] [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.18em]";
+  "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-2.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-fine [&_[cmdk-group-heading]]:font-bold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.18em]";
 
 /** An icon in its own coloured key. */
 function Key({ i, children }: { i: number; children: React.ReactNode }) {
@@ -121,7 +121,7 @@ export function CommandPalette() {
               </div>
             </div>
             <Command.List className="max-h-[50vh] overflow-y-auto p-1.5 pt-0" style={{ scrollbarWidth: "thin" }}>
-              <Command.Empty className="px-3 py-8 text-center font-mono text-[11px]" style={{ color: VOID.muted }}>
+              <Command.Empty className="px-3 py-8 text-center font-mono text-plain" style={{ color: VOID.muted }}>
                 Nothing matches.
               </Command.Empty>
 
@@ -132,7 +132,7 @@ export function CommandPalette() {
                     <Command.Item key={n.href} value={`page ${n.label} ${n.href}`} onSelect={() => run(() => ctx.navigate(n.href))} className={itemClass} style={{ color: VOID.text }}>
                       <Key i={i}><Icon /></Key>
                       <span className="flex-1">{n.label}</span>
-                      <span className="font-mono text-[10px]" style={{ color: VOID.muted }}>{n.href}</span>
+                      <span className="font-mono text-small" style={{ color: VOID.muted }}>{n.href}</span>
                     </Command.Item>
                   );
                 })}
@@ -171,7 +171,7 @@ export function CommandPalette() {
                         {on ? <ToggleRight /> : <ToggleLeft />}
                       </span>
                       <span className="flex-1">{d.label}</span>
-                      <span className={cn("font-mono text-[10px] uppercase tracking-wider")} style={{ color: on ? SCREEN.ink : VOID.muted, textShadow: on ? `0 0 6px ${SCREEN.ink}` : undefined }}>
+                      <span className={cn("font-mono text-small uppercase tracking-wider")} style={{ color: on ? SCREEN.ink : VOID.muted, textShadow: on ? `0 0 6px ${SCREEN.ink}` : undefined }}>
                         {on ? "on" : "off"}
                       </span>
                     </Command.Item>
@@ -185,7 +185,7 @@ export function CommandPalette() {
                 ))}
               </Command.Group>
             </Command.List>
-            <div className="flex items-center gap-3 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider" style={{ color: VOID.muted, borderTop: `1px solid ${VOID.rim}` }}>
+            <div className="flex items-center gap-3 px-3 py-1.5 font-mono text-small uppercase tracking-wider" style={{ color: VOID.muted, borderTop: `1px solid ${VOID.rim}` }}>
               <span className="flex items-center gap-1">
                 <Kbd raw>↑↓</Kbd> navigate
               </span>

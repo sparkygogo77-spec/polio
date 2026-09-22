@@ -387,6 +387,19 @@ numbers are measured against whatever face resolved that day; a face that
 resolves wider later makes them too small, and the CSS floor is what keeps
 the words visible when they are.
 
+**A captured page's boxes arrive the same way** (`boxEntry.ts`,
+`tests/boxes-land.mjs`). `FromASite` lands every block it read in one
+synchronous loop, and they all appeared in the same frame, which reads as a
+picture being pasted rather than as a page being built. They come up
+`STAGGER_MS` apart now, the same number as the timeline, imported rather
+than written again. What waits is the PAINTING and not the part: every node
+is added in the same run it always was, and a box holds its place in the
+layout at `opacity: 0` until its turn. That is not taste. A part added on a
+timer takes its undo checkpoint on a timer, and a board that is half arrived
+when undo is pressed breaks quietly. The suite pins the ceiling: clearing an
+import costs one press per part and one for the surface, the same with the
+stagger as without it.
+
 **A control is dead if the pixels do not move.** That is the test, and the
 light panel is where it was written: `tests/light-alive.mjs` moves every
 control end to end and reads the board back as pixels. Two were dead. "How
@@ -2515,6 +2528,31 @@ keep working.
 Radius is a token too (`--radius`). There is no density mode: compact
 against comfortable moved the body's font size by one pixel and nothing
 else, so it was removed rather than kept as a control that does nothing.
+
+**The four sizes the Builder is written in are tokens** (`--text-fine`
+0.5625rem, `--text-small` 0.625rem, `--text-plain` 0.6875rem,
+`--text-large` 0.75rem — 9, 10, 11 and 12px at the default scale), used as
+`text-fine`, `text-small`, `text-plain`, `text-large`. **In rem, so Font
+scale reaches them**: `html` takes `font-size: calc(100% * var(--font-scale))`,
+so a px size is one that setting cannot touch, and the Builder's own chrome
+was 578 of them. Each fraction is exact in binary, so at scale 1 they are
+exactly the pixel counts they replaced; at the ends of the slider they run
+7.65 to 11.25px (85%) and 11.25 to 15px (125%). They were 578
+arbitrary values across 66 files, which is not a scale, it is one decision
+taken 578 times. Use a name; do not write `text-[10px]` in a component.
+Two things go with them:
+
+- **A new named size must be declared in `src/core/lib/cn.ts` as well.**
+  `tailwind-merge` knows Tailwind's own scale and nothing else, so it reads
+  an unknown `text-*` name as a text COLOUR and drops the size as a
+  duplicate wherever a component sets both in one `cn` call. The text then
+  inherits 13px silently. `tests/type-scale.mjs` holds it, in both merge
+  orders, and measures the four on screen.
+- **`src/features/studio/parts/` keeps its arbitrary values on purpose.**
+  A part is what the exported site is made of, and the export writes its own
+  stylesheet from the document's tokens rather than shipping this one, so a
+  name that stylesheet has never heard of is a size that goes missing in
+  somebody's built site.
 
 ---
 

@@ -998,7 +998,7 @@ export function SectorButton({
       />
       <Glued at={at} spin={spin} w={100} h={34}>
         <div
-          className="flex flex-col items-center gap-0.5 text-[9px] font-semibold leading-tight"
+          className="flex flex-col items-center gap-0.5 text-fine font-semibold leading-tight"
           style={{
             color: on ? "oklch(0.16 0.04 27)" : disabled ? CONSOLE.muted : CONSOLE.text,
             textShadow: on ? undefined : "0 1px 2px oklch(0 0 0 / 0.6)",
@@ -1063,7 +1063,7 @@ export function HoverTray({ at, icon, label, items, testId, lit }: { at: Pt; ico
             title={it.label}
             disabled={it.disabled}
             onClick={() => { play(it.primary ? "confirm" : "tap"); it.onClick(); }}
-            className="flex h-6 items-center gap-1 whitespace-nowrap rounded-[4px] px-1.5 text-[9px] font-semibold transition-[filter] enabled:hover:brightness-125 disabled:opacity-40"
+            className="flex h-6 items-center gap-1 whitespace-nowrap rounded-[4px] px-1.5 text-fine font-semibold transition-[filter] enabled:hover:brightness-125 disabled:opacity-40"
             style={{
               background: it.primary ? "oklch(0.66 0.155 205)" : CONSOLE.box,
               color: it.primary ? "oklch(0.99 0 0)" : CONSOLE.text,

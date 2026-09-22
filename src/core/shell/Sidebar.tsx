@@ -40,7 +40,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto p-1.5">
         {[...groups.entries()].map(([g, list]) => (
           <div key={g} className="mb-2">
-            {g && !rail ? <div className="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-faint">{g}</div> : null}
+            {g && !rail ? <div className="px-2 pb-1 pt-2 text-small font-medium uppercase tracking-wider text-fg-faint">{g}</div> : null}
             {list.map((n) => {
               const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
               const Icon = n.icon;
@@ -85,7 +85,7 @@ export function Sidebar() {
                 href={l.href}
                 target={l.external ? "_blank" : undefined}
                 rel={l.external ? "noreferrer" : undefined}
-                className="tactile flex h-6 items-center gap-1 rounded-sm px-1.5 text-[10px] text-fg-faint hover:bg-hover hover:text-fg"
+                className="tactile flex h-6 items-center gap-1 rounded-sm px-1.5 text-small text-fg-faint hover:bg-hover hover:text-fg"
               >
                 {l.label}
                 {l.external ? <ExternalLink className="size-2.5" /> : null}

@@ -319,7 +319,7 @@ export function LightPlacer() {
             }}
           />
           <div
-            className="absolute whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+            className="absolute whitespace-nowrap rounded-sm px-1.5 py-0.5 text-small font-semibold"
             style={{
               left: carry.x + 16,
               top: carry.y + 14,

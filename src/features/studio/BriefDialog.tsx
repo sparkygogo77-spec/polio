@@ -87,8 +87,8 @@ function Card({ title, note, right, children, className }: { title?: React.React
       {title || right ? (
         <div className="mb-1.5 flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            {title ? <h3 className="text-[12px] font-semibold leading-snug text-fg">{title}</h3> : null}
-            {note ? <p className="mt-0.5 text-[11px] leading-snug text-fg-muted">{note}</p> : null}
+            {title ? <h3 className="text-large font-semibold leading-snug text-fg">{title}</h3> : null}
+            {note ? <p className="mt-0.5 text-plain leading-snug text-fg-muted">{note}</p> : null}
           </div>
           {right ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">{right}</div> : null}
         </div>
@@ -133,7 +133,7 @@ function LeftBehind() {
   return (
     <div data-left-behind="" className="rounded-md border border-border bg-elevated/40 p-2">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-fg-faint">What will not go out</span>
+        <span className="text-small uppercase tracking-wider text-fg-faint">What will not go out</span>
         <span className="flex-1" />
         <Button variant="outline" size="sm" data-left-behind-look="" disabled={looking} onClick={look}>
           {looking ? <Loader2 className="size-3 animate-spin" /> : <Search className="size-3" />}
@@ -141,17 +141,17 @@ function LeftBehind() {
         </Button>
       </div>
       {audit === null ? (
-        <p className="mt-1 text-[10px] leading-snug text-fg-faint">
+        <p className="mt-1 text-small leading-snug text-fg-faint">
           The published page shows what was built and says nothing about what was not — no notes, no placeholders, nothing about how it
           was made. This is where you find out what that leaves out.
         </p>
       ) : total === 0 ? (
-        <p data-left-behind-clean="" className="mt-1 text-[11px] text-up">Everything on the board reaches the page.</p>
+        <p data-left-behind-clean="" className="mt-1 text-plain text-up">Everything on the board reaches the page.</p>
       ) : (
         <ul data-left-behind-list="" className="mt-1 space-y-1.5">
           {audit.filter((a) => auditCounts([a]) > 0).map((a) => (
             <li key={a.page} data-left-behind-page={a.page}>
-              <div className="text-[11px] font-medium text-fg">{a.page}</div>
+              <div className="text-plain font-medium text-fg">{a.page}</div>
               <Left what="in your layout, with no part built for it" names={a.sections} />
               <Left what="showing words nobody has written" names={a.unwritten} />
               <Left what="asked for in a prompt and not on the page" names={a.unsaid.map((u) => `${u.part}: ${u.words.join(" \u00b7 ")}`)} />
@@ -168,7 +168,7 @@ function LeftBehind() {
 function Left({ what, names }: { what: string; names: string[] }) {
   if (!names.length) return null;
   return (
-    <div className="mt-0.5 text-[10px] leading-snug text-fg-muted">
+    <div className="mt-0.5 text-small leading-snug text-fg-muted">
       <span className="text-fg-faint">{names.length} {what}: </span>
       {names.join(", ")}
     </div>
@@ -176,7 +176,7 @@ function Left({ what, names }: { what: string; names: string[] }) {
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">{children}</span>;
+  return <span className="text-small font-medium uppercase tracking-wider text-fg-faint">{children}</span>;
 }
 
 export function BriefDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -776,7 +776,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         <div className="flex flex-wrap items-center gap-2">
           <Switch size="sm" checked={sendShots && canShoot !== false} disabled={canShoot === false} onCheckedChange={setSendShots} aria-label="Send screenshots" />
           <Camera className="size-3.5 text-fg-muted" />
-          <span className="min-w-0 flex-1 text-[11px] leading-snug text-fg-muted">
+          <span className="min-w-0 flex-1 text-plain leading-snug text-fg-muted">
             {canShoot === null ? "Checking whether the server can photograph the pages…" : canShoot ? `Send a screenshot of ${shotPages === 1 ? "the first page" : `the first ${shotPages} pages`}, as the live preview shows them` : "This server cannot photograph the pages (no Playwright), so the words go alone: anything Claude says about layout, colour or overflow is inferred from the brief, not seen."}
           </span>
           {canShoot ? (
@@ -790,13 +790,13 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
                 <img src={s.preview} alt="" className="h-16 w-auto shrink-0 rounded-sm border border-border object-cover object-top" />
               </Tooltip>
             ))}
-            <span className="self-center text-[10px] text-fg-faint">{result?.pictures ? `${result.pictures} sent with the last ask` : "taken for the last ask"}</span>
+            <span className="self-center text-small text-fg-faint">{result?.pictures ? `${result.pictures} sent with the last ask` : "taken for the last ask"}</span>
           </div>
         ) : null}
         <div className="flex flex-wrap items-center justify-end gap-2 pt-0.5">
           {busy ? (
             <>
-              <span className="mr-auto flex items-center gap-1.5 text-[11px] text-accent"><Loader2 className="size-3.5 animate-spin" /> {busy}</span>
+              <span className="mr-auto flex items-center gap-1.5 text-plain text-accent"><Loader2 className="size-3.5 animate-spin" /> {busy}</span>
               <Button variant="ghost" size="sm" onClick={() => abort.current?.abort()}><X /> Stop</Button>
             </>
           ) : null}
@@ -841,7 +841,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   );
 
   const banner = note ? (
-    <div data-brief-note="" role="status" className="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-[11px] leading-snug text-fg shadow-pop">
+    <div data-brief-note="" role="status" className="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-plain leading-snug text-fg shadow-pop">
       <Wand2 className="mt-0.5 size-3.5 shrink-0 text-warn" />
       <span>{note}</span>
     </div>
@@ -858,7 +858,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         </>
       }
     >
-      <pre className={cn("overflow-auto whitespace-pre-wrap rounded-md p-2.5 font-mono text-[11px] leading-relaxed", height)} style={{ ...screenFace, color: SCREEN.ink }}>
+      <pre className={cn("overflow-auto whitespace-pre-wrap rounded-md p-2.5 font-mono text-plain leading-relaxed", height)} style={{ ...screenFace, color: SCREEN.ink }}>
         {what || "Nothing on the board yet."}
       </pre>
     </Card>
@@ -870,8 +870,8 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         {files.map((f) => (
           <li key={f.path}>
             <button type="button" onClick={() => setOpenFile(openFile === f.path ? null : f.path)} className="tactile flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-hover">
-              <span className="num min-w-0 flex-1 truncate font-mono text-[11px] text-fg">{f.path}</span>
-              <span className="num text-[10px] text-fg-faint">{fmtBytes(f.content.length)}</span>
+              <span className="num min-w-0 flex-1 truncate font-mono text-plain text-fg">{f.path}</span>
+              <span className="num text-small text-fg-faint">{fmtBytes(f.content.length)}</span>
               <Button variant="ghost" size="xs" onClick={(e) => { e.stopPropagation(); void ctx.copy(f.content, f.path); }}>Copy</Button>
             </button>
             {openFile === f.path ? <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-border bg-panel p-3 font-mono text-[10.5px] leading-relaxed text-fg-muted">{f.content}</pre> : null}
@@ -909,7 +909,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
         <div className="flex flex-wrap items-center gap-2">
           <Input inputSize="sm" value={pubMessage} onChange={(e) => setPubMessage(e.target.value)} placeholder="Commit message" className="min-w-40 flex-1" disabled={!!busy} />
           {pub?.vercel.hook ? (
-            <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+            <label className="flex items-center gap-1.5 text-plain text-fg-muted">
               <Switch size="sm" checked={pubDeploy} onCheckedChange={setPubDeploy} /> deploy
             </label>
           ) : null}
@@ -929,7 +929,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           </Tooltip>
         </div>
         {liveRun ? (
-          <p className={cn("flex flex-wrap items-center gap-1.5 text-[11px]", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
+          <p className={cn("flex flex-wrap items-center gap-1.5 text-plain", liveRun.state === "READY" ? "text-up" : liveRun.state === "ERROR" || liveRun.state === "CANCELED" ? "text-down" : "text-fg-muted")}>
             {liveRun.done ? liveRun.state === "READY" ? <Check className="size-3" /> : <X className="size-3" /> : <Loader2 className="size-3 animate-spin" />}
             {liveRun.state === "READY" ? "Live at" : liveRun.state === "ERROR" ? "The build failed." : liveRun.state === "CANCELED" ? "The build was cancelled." : liveRun.state ? `${liveRun.state.toLowerCase()}…` : "waiting for Vercel to say…"}
             {liveRun.state === "READY" && liveRun.url ? (
@@ -945,7 +945,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           </p>
         ) : null}
         {pubResult ? (
-          <p className="flex flex-wrap items-center gap-1.5 text-[11px] text-up">
+          <p className="flex flex-wrap items-center gap-1.5 text-plain text-up">
             <Check className="size-3" /> {pubResult.files} files committed.
             <a className="underline underline-offset-2" href={pubResult.url} target="_blank" rel="noopener noreferrer">Open the commit <ExternalLink className="inline size-3" /></a>
             {pubResult.deployed ? <span>· Vercel deploy started</span> : pubResult.hook ? <span className="text-warn">· {pubResult.note ?? "the deploy hook was not called"}</span> : <span className="text-fg-faint">· a connected Vercel project deploys on its own</span>}
@@ -956,7 +956,7 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
   );
 
   const foot = (
-    <p className="flex items-center gap-1.5 text-[10px] text-fg-faint">
+    <p className="flex items-center gap-1.5 text-small text-fg-faint">
       <FileJson className="size-3" />
       The brief is self-contained, it explains its own conventions, so any agent can act on it without this app.
     </p>
@@ -1068,14 +1068,14 @@ function Book({ layout, onClose }: { layout: Layout; onClose?: () => void }) {
           // A screen, like every other surface in this app where words are
           // read or typed: the same glass, scanlines and phosphor as the
           // palette's field and the plate's prompt.
-          className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md p-3 font-mono text-[11px] leading-relaxed", busy && "opacity-60")}
+          className={cn("max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-md p-3 font-mono text-plain leading-relaxed", busy && "opacity-60")}
           style={{ ...screenFace, color: SCREEN.ink }}
         >
           {body || "Nothing on the board yet."}
         </pre>
       )}
       {result && view === "result" ? (
-        <p className="text-[10px] text-fg-faint">
+        <p className="text-small text-fg-faint">
           {MODES.find((m) => m.value === result.mode)?.label} · {result.model ?? "Claude"} · {result.pictures ? `${result.pictures} picture${result.pictures === 1 ? "" : "s"} seen` : "words only"}{result.dropped ? ` · ${result.dropped} left out: ${result.droppedWhy}` : ""}
         </p>
       ) : null}

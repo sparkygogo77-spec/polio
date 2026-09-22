@@ -92,7 +92,7 @@ export function SitePreview({ doc, width, height }: SitePreviewProps) {
 
   if (!view) {
     return (
-      <div className="grid size-full place-items-center rounded-[5px] border border-dashed border-border bg-elevated/40 text-[10px] text-fg-faint">
+      <div className="grid size-full place-items-center rounded-[5px] border border-dashed border-border bg-elevated/40 text-small text-fg-faint">
         nothing on it yet
       </div>
     );
@@ -134,7 +134,7 @@ export function SitePreview({ doc, width, height }: SitePreviewProps) {
         {view.veil ? <div className="absolute inset-0" style={{ background: `oklch(0 0 0 / ${view.veil})` }} /> : null}
       </div>
       {bare ? (
-        <span className="absolute inset-0 grid place-items-center text-[10px] text-fg-faint">nothing on it yet</span>
+        <span className="absolute inset-0 grid place-items-center text-small text-fg-faint">nothing on it yet</span>
       ) : null}
       {/* The fold: the page runs on past the card, and says so rather than
           stopping dead on a cut-off part. */}

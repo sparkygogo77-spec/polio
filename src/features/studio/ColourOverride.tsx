@@ -109,7 +109,7 @@ export function ColourOverride({
         />
       </div>
 
-      <p className="text-[10px] leading-snug text-fg-faint">
+      <p className="text-small leading-snug text-fg-faint">
         {overridden
           ? `${overridden} of six changed on this part. Naming a role keeps it inside the palette.`
           : `${ROLE_LABEL[role]} follows the site. Pick a role above to change it here only.`}

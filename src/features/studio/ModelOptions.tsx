@@ -61,7 +61,7 @@ export function ModelOptions({
   onClear: (name: string) => void;
   disabled?: boolean;
 }) {
-  if (!rows.length) return <p className="text-[10px] text-fg-muted">This one takes nothing but the picture.</p>;
+  if (!rows.length) return <p className="text-small text-fg-muted">This one takes nothing but the picture.</p>;
   return (
     <div data-model-options="" className="space-y-2">
       {rows.map((r) => (
@@ -84,12 +84,12 @@ function Row({
   return (
     <div data-model-field={f.name} data-field-kind={f.kind} data-field-from={from} className="space-y-1">
       <div className="flex items-baseline gap-1.5">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-fg-faint">{f.label}</span>
+        <span className="text-small font-medium uppercase tracking-wider text-fg-faint">{f.label}</span>
         {f.managed ? (
           <Tooltip content={`The route sets this from ${MANAGED_MEANS[f.managed]}. Change it and yours is used instead.`}>
             <span
               data-field-managed=""
-              className={cn("rounded-sm px-1 text-[9px]", from === "set" ? "bg-accent/20 text-accent" : "bg-elevated text-fg-muted")}
+              className={cn("rounded-sm px-1 text-fine", from === "set" ? "bg-accent/20 text-accent" : "bg-elevated text-fg-muted")}
             >
               {from === "set" ? "yours" : "routed"}
             </span>
@@ -108,7 +108,7 @@ function Row({
         ) : null}
       </div>
       <Control f={f} value={value} set={set} disabled={disabled} />
-      {f.note ? <p className="text-[10px] leading-snug text-fg-muted">{f.note}</p> : null}
+      {f.note ? <p className="text-small leading-snug text-fg-muted">{f.note}</p> : null}
     </div>
   );
 }
@@ -153,7 +153,7 @@ function Control({
       return (
         <div className="flex items-center gap-2">
           <Switch aria-label={label} disabled={disabled} checked={value === true} onCheckedChange={(v: boolean) => set(v)} />
-          <span className="text-[10px] text-fg-muted">{value === true ? "yes" : "no"}</span>
+          <span className="text-small text-fg-muted">{value === true ? "yes" : "no"}</span>
         </div>
       );
     case "integer":
@@ -203,7 +203,7 @@ function Control({
        * it into the site's own file and publish it.
        */
       return (
-        <p className="rounded-sm border border-border bg-elevated px-2 py-1 text-[10px] text-fg-muted">
+        <p className="rounded-sm border border-border bg-elevated px-2 py-1 text-small text-fg-muted">
           Set in the Keys panel. A key is not kept on the part.
         </p>
       );

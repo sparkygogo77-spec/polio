@@ -26,7 +26,7 @@ export function Kbd({ children, className, raw }: { children: React.ReactNode; c
   return (
     <kbd
       className={cn(
-        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs border border-border bg-elevated px-1 text-[10px] font-medium text-fg-muted shadow-[0_1px_0_var(--border)]",
+        "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs border border-border bg-elevated px-1 text-small font-medium text-fg-muted shadow-[0_1px_0_var(--border)]",
         className,
       )}
     >

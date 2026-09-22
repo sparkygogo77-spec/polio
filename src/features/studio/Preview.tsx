@@ -98,7 +98,7 @@ export function PreviewWindow() {
         }}
       >
         <GripHorizontal className="size-3 shrink-0 text-fg-faint" />
-        <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-fg">
+        <span className="min-w-0 flex-1 truncate text-small font-medium text-fg">
           {open ? `${device === "phone" ? "Phone" : "Tablet"} · ${page.name}` : "Phone"}
         </span>
         {open ? (
@@ -109,7 +109,7 @@ export function PreviewWindow() {
               </Button>
             </Tooltip>
             <Tooltip content="Size">
-              <button type="button" aria-label="Companion size" onClick={() => { play("select"); setSize(size === "s" ? "m" : size === "m" ? "l" : "s"); }} className="tactile rounded-sm px-1 text-[10px] uppercase text-fg-muted hover:bg-hover hover:text-fg">
+              <button type="button" aria-label="Companion size" onClick={() => { play("select"); setSize(size === "s" ? "m" : size === "m" ? "l" : "s"); }} className="tactile rounded-sm px-1 text-small uppercase text-fg-muted hover:bg-hover hover:text-fg">
                 {size}
               </button>
             </Tooltip>
@@ -134,7 +134,7 @@ export function PreviewWindow() {
               </div>
             </div>
           ) : (
-            <div className="p-4 text-center text-[10px] text-fg-muted">The narrow version of this page appears here.</div>
+            <div className="p-4 text-center text-small text-fg-muted">The narrow version of this page appears here.</div>
           )}
         </div>
       ) : null}
