@@ -698,6 +698,12 @@ interface StudioState extends Doc {
   addNode: (featureId: string, x: number, y: number, patch?: Partial<StudioNode>) => string;
   updateNode: (id: string, patch: Partial<StudioNode>) => void;
   updateNodes: (ids: string[], patch: Partial<StudioNode>) => void;
+  /**
+   * Give boxes the heights their words drew at, and move what is under
+   * them down by the growth. One checkpoint for the lot: it is one tidy,
+   * not one per box, and the import it follows is undone as it always was.
+   */
+  fitToWords: (fitted: { id: string; h: number; y: number }[]) => void;
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1455,6 +1461,26 @@ export const useStudio = create<StudioState>()(
           push();
           const set_ = new Set(ids);
           set((s) => ({ nodes: s.nodes.map((n) => (set_.has(n.id) ? { ...n, ...patch } : n)) }));
+        },
+
+        /*
+         * The second half of "captured geometry is a starting size": the
+         * boxes have already grown on screen, because the part draws at the
+         * size its words need, and this writes those heights down and moves
+         * the page under them so nothing overlaps.
+         *
+         * A convenience, NOT the guarantee. These numbers are measured
+         * against whatever face resolved at the moment of the import; the
+         * thing that keeps words visible afterwards is the CSS floor in
+         * `parts/primitives.tsx`, which cannot go stale. Nothing downstream
+         * should read a stored height as the truth about how tall a box has
+         * to be.
+         */
+        fitToWords: (fitted) => {
+          if (!fitted.length) return;
+          push();
+          const by = new Map(fitted.map((f) => [f.id, f]));
+          set((s) => ({ nodes: s.nodes.map((n) => { const f = by.get(n.id); return f ? { ...n, h: f.h, y: f.y } : n; }) }));
         },
 
         raiseNode: (id, toTop) => {

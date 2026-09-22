@@ -2211,7 +2211,10 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       }}
       className={cn("group pointer-events-auto absolute cursor-grab active:cursor-grabbing", node.locked && "cursor-not-allowed", flash && "node-snap")}
       style={{
-        left: node.x, top: node.y, width: node.w, height: node.h,
+        left: node.x, top: node.y, width: node.w,
+        /* A minimum, not a height: the part grows past it when its words
+           need the room. `parts/primitives.tsx` holds the reasoning. */
+        minHeight: node.h, display: "flex", flexDirection: "column",
         /*
          * The aura belongs to the element, not to anything inside it — and
          * on a part cut to a drawn line it belongs to the *line*. A
@@ -2242,7 +2245,16 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
       {/* the part itself, at real size */}
       {/* The selected part runs its own clocks, so you can see what it does. */}
       <div
-        className="absolute inset-0 overflow-hidden"
+        /*
+         * IN THE FLOW, NOT PINNED TO THE BOX. This was `absolute inset-0`,
+         * which is a box exactly as tall as the node and no taller, so a
+         * part whose words needed more room was clipped here whatever the
+         * part itself did. In the flow it grows with what it holds and the
+         * node's `min-height` still keeps it from shrinking below the size
+         * the capture gave it. `flex: 1 0 auto` fills the box when the box
+         * is the taller of the two.
+         */
+        className="relative flex w-full flex-col overflow-hidden"
         data-mode={selected ? "live" : "board"}
         data-lit={lift ? "" : undefined}
         /*
@@ -2261,6 +2273,9 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         data-handling={handsOn ? "" : undefined}
         inert={handsOn ? undefined : true}
         style={{
+          // Fills the node's box when the box is taller, grows past it when
+          // its words need more: see the note on this element above.
+          flex: "1 0 auto",
           pointerEvents: handsOn ? "auto" : "none",
           // The lamp's shadow is put here by one rule in `globals.css`, off
           // the `--lift-shadow` the wrapper carries; the corner is the one the

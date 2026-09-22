@@ -226,7 +226,10 @@ export function LiveSite({ pages, nodes, pageId, device, frameWidth, format, loo
               data-live-node={p.node.id}
               {...nodeProps?.(p.node)}
               style={{
-                position: "absolute", left: p.x, top: p.y, width: p.w, height: p.h,
+                position: "absolute", left: p.x, top: p.y, width: p.w,
+                // The same floor the board gives a box: its words are never
+                // cut off, whatever height the capture measured.
+                minHeight: p.h, display: "flex", flexDirection: "column",
                 ...((auraStyle(p.node.aura, palette, p.node.auraSize, p.node.auraStyle) ?? {}) as React.CSSProperties),
                 // Its entrance. The board draws the finished state; this is the
                 // only place a part is seen arriving.

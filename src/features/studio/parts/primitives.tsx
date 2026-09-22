@@ -16,7 +16,26 @@ export function Fill({
       ref={ref}
       {...rest}
       style={{
-        width: "100%", height: "100%", overflow, boxSizing: "border-box", position: "relative",
+        width: "100%", height: "100%",
+        /*
+         * A BOX THAT HOLDS WORDS IS NEVER SHORTER THAN ITS WORDS.
+         *
+         * `height: 100%` alone made the part exactly as tall as the box it
+         * was given, and a captured box carries the height the page it came
+         * from measured on somebody else's machine. When the words needed
+         * more — they wrapped, or the face resolved wider — they were cut
+         * off or pushed under, invisible. His words: the geometry is a
+         * starting size, never a ceiling.
+         *
+         * Where the box is laid out as a column (the board's parts and the
+         * live page's, which set `min-height` rather than `height` now),
+         * this grows past it and never shrinks below it. Where it is not —
+         * a preview, a card, a part inside another part — the parent has a
+         * definite height, `height: 100%` resolves against it exactly as it
+         * always did, and `flex` says nothing at all.
+         */
+        flex: "1 0 auto",
+        overflow, boxSizing: "border-box", position: "relative",
         color: t.text, fontFamily: t.bodyFamily, fontSize: t.fontPx, lineHeight: t.lineHeight,
         fontWeight: t.fontWeight, letterSpacing: t.letterSpacing,
         // The part's own background if it was given one, otherwise the floor
