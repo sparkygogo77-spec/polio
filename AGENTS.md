@@ -2516,9 +2516,15 @@ Radius is a token too (`--radius`). There is no density mode: compact
 against comfortable moved the body's font size by one pixel and nothing
 else, so it was removed rather than kept as a control that does nothing.
 
-**The four sizes the Builder is written in are tokens** (`--text-fine` 9px,
-`--text-small` 10px, `--text-plain` 11px, `--text-large` 12px), used as
-`text-fine`, `text-small`, `text-plain`, `text-large`. They were 578
+**The four sizes the Builder is written in are tokens** (`--text-fine`
+0.5625rem, `--text-small` 0.625rem, `--text-plain` 0.6875rem,
+`--text-large` 0.75rem — 9, 10, 11 and 12px at the default scale), used as
+`text-fine`, `text-small`, `text-plain`, `text-large`. **In rem, so Font
+scale reaches them**: `html` takes `font-size: calc(100% * var(--font-scale))`,
+so a px size is one that setting cannot touch, and the Builder's own chrome
+was 578 of them. Each fraction is exact in binary, so at scale 1 they are
+exactly the pixel counts they replaced; at the ends of the slider they run
+7.65 to 11.25px (85%) and 11.25 to 15px (125%). They were 578
 arbitrary values across 66 files, which is not a scale, it is one decision
 taken 578 times. Use a name; do not write `text-[10px]` in a component.
 Two things go with them:

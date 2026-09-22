@@ -27,16 +27,34 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "  ok  " : " FAIL "} ${name}${detail ? ` — ${detail}` : ""}`);
 };
 
-const SIZES = [["fine", 9], ["small", 10], ["plain", 11], ["large", 12]];
+/* The name, the px it was swept from, and the rem that is exactly that px
+   at the default scale: 9, 10, 11 and 12 over 16, each exact in binary. */
+const SIZES = [["fine", 9, "0.5625rem"], ["small", 10, "0.625rem"], ["plain", 11, "0.6875rem"], ["large", 12, "0.75rem"]];
+
+/** The ends of the Font scale slider, from `defs.ts`. */
+const SCALE = { min: 0.85, max: 1.25 };
 
 /* ------------------------------------------------------------------ */
 /* 1. The four are declared, once, with the sizes they replaced        */
 /* ------------------------------------------------------------------ */
 
 const css = readFileSync("src/app/globals.css", "utf8");
-for (const [name, px] of SIZES) {
-  check(`--text-${name} is ${px}px, the value it was swept from`, new RegExp(`--text-${name}:\\s*${px}px;`).test(css));
+for (const [name, px, rem] of SIZES) {
+  check(
+    `--text-${name} is ${rem}, which is the ${px}px it was swept from`,
+    new RegExp(`--text-${name}:\\s*${rem};`).test(css) && Math.abs(parseFloat(rem) * 16 - px) < 1e-9,
+  );
 }
+/*
+ * In rem rather than px, and that is the point of them. `html` carries
+ * `font-size: calc(100% * var(--font-scale))`, so a px size is a size the
+ * Font scale setting cannot reach — which is what the Builder's own chrome
+ * was, all 578 of them.
+ */
+check(
+  "the four are in rem, so Font scale reaches the Builder's own chrome",
+  !/--text-(fine|small|plain|large):\s*\d+px;/.test(css),
+);
 check(
   "no line height rides along with them",
   !/--text-(fine|small|plain|large)--line-height/.test(css),
@@ -132,11 +150,36 @@ if (!live) {
     for (const [name, px] of SIZES) {
       const w = worn[name];
       check(
-        `the Builder wears text-${name} and it renders at ${px}px`,
+        `the Builder wears text-${name} and it renders at exactly ${px}px`,
         w.count > 0 && w.sizes.length === 1 && w.sizes[0] === `${px}px`,
         `${w.count} element(s), ${w.sizes.join("/") || "none"}`,
       );
     }
+
+    /*
+     * And the thing the rem was for: the dial moves them. Read at both ends
+     * of the slider, because a size that only grows is half a setting.
+     */
+    for (const end of [SCALE.max, SCALE.min]) {
+      const at = await page.evaluate((scale) => {
+        document.documentElement.style.setProperty("--font-scale", String(scale));
+        const out = {};
+        for (const name of ["fine", "small", "plain", "large"]) {
+          const el = document.querySelector(`.text-${name}`);
+          out[name] = el ? getComputedStyle(el).fontSize : null;
+        }
+        return out;
+      }, end);
+      for (const [name, px] of SIZES) {
+        const want = px * end;
+        check(
+          `at ${Math.round(end * 100)}% Font scale, text-${name} is ${want.toFixed(2)}px`,
+          at[name] !== null && Math.abs(parseFloat(at[name]) - want) < 0.05,
+          `${at[name] ?? "not on screen"}`,
+        );
+      }
+    }
+    await page.evaluate(() => document.documentElement.style.removeProperty("--font-scale"));
     await browser.close();
   }
 }

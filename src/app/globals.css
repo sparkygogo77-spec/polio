@@ -166,11 +166,23 @@
    * No line height is set with them. The classes they replace set the size
    * and nothing else, and a line height added here would move text in
    * hundreds of places under cover of a rename.
+   *
+   * IN REM, AND ON PURPOSE. `html` above takes
+   * `font-size: calc(100% * var(--font-scale))`, so Font scale has always
+   * moved everything measured in rem and nothing measured in px — and the
+   * Builder's own chrome was 578 px values, which is to say the setting did
+   * not reach the app it lives in. It does now.
+   *
+   * 9, 10, 11 and 12 over 16 are 0.5625, 0.625, 0.6875 and 0.75, each one
+   * exact in binary, so at the default scale of 1 these resolve to exactly
+   * the pixel counts they replaced. Nothing renders differently until the
+   * dial is turned, which is the trade as he accepted it. At the ends of
+   * the slider they are 7.65 to 11.25px at 0.85 and 11.25 to 15px at 1.25.
    */
-  --text-fine: 9px;
-  --text-small: 10px;
-  --text-plain: 11px;
-  --text-large: 12px;
+  --text-fine: 0.5625rem;
+  --text-small: 0.625rem;
+  --text-plain: 0.6875rem;
+  --text-large: 0.75rem;
 
   --shadow-panel: var(--shadow-panel);
   --shadow-pop: var(--shadow-pop);
