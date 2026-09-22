@@ -130,7 +130,56 @@ for (const c of CONTROLS) {
 }
 await page.keyboard.press("d");
 await page.waitForTimeout(300);
-check("the ink hues are reachable with the pen in hand", await onScreen(page.locator("[data-ink-hues]")) || (await (async () => { if (!(await more.count())) return false; await more.click(); await page.waitForTimeout(300); const ok = await onScreen(page.locator("[data-toolbar-more-menu] [data-ink-hues]")); await page.keyboard.press("Escape"); return ok; })()));
+/*
+ * THE INK COLOUR, REACHED THE WAY A PERSON REACHES IT.
+ *
+ * This looked for a bare `[data-ink-hues]` sitting in the bar or directly
+ * under More, which is where the eight swatches used to be. They are one
+ * button now that wears the colour it is set to and opens the wheel and the
+ * eight when pressed — his words: "in the places of the colors when i pick
+ * to draw freehand just make the color stay there but only one button
+ * instead of multiple, and when i click the color i can adjust it". So the
+ * hues are popover contents, and a check that wants them on screen without
+ * pressing anything is asking for a design he ruled against.
+ *
+ * What is worth holding is the thing the check was for: on a phone the ink
+ * colour is reachable AND changes the ink. So it is walked — More, then the
+ * colour — and the swatch is pressed and the button's own colour read back.
+ * An assertion that something merely exists would pass with the popover
+ * empty and the control dead.
+ */
+const inkColour = async () => page.locator("[data-toolbar-more-menu] [data-ink-colour], [data-ink-colour]").first().evaluate((el) => getComputedStyle(el).backgroundColor).catch(() => "");
+let inkReach = "hidden, with nothing in its place";
+let inkMoved = false;
+if (await more.count()) {
+  await more.click();
+  await page.waitForTimeout(320);
+  const colour = page.locator("[data-toolbar-more-menu] [data-ink-colour]");
+  if (await onScreen(colour)) {
+    const was = await inkColour();
+    await colour.click();
+    await page.waitForTimeout(360);
+    const hues = page.locator("[data-ink-hues]");
+    if (await onScreen(hues)) {
+      const swatches = hues.locator("button[aria-label^='Ink hue']");
+      const n = await swatches.count();
+      inkReach = `behind More, ${n} hues and the wheel on screen`;
+      // A different one from whatever it is set to, so a press that does
+      // nothing cannot read as a press that worked.
+      for (let i = 0; i < n; i++) {
+        await swatches.nth(i).click();
+        await page.waitForTimeout(300);
+        if ((await inkColour()) !== was) { inkMoved = true; break; }
+        await colour.click();
+        await page.waitForTimeout(250);
+      }
+    }
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+}
+check("the ink colour is reachable with the pen in hand", inkReach !== "hidden, with nothing in its place", inkReach);
+check("…and pressing a hue actually moves the ink, rather than opening a dead panel", inkMoved);
 await page.keyboard.press("v");
 await shot("3-more");
 check("and opening More did not push the page sideways", (await page.evaluate(() => window.scrollX)) === 0 && (await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth))) <= W, `scrolled to ${await page.evaluate(() => window.scrollX)}`);

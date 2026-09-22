@@ -6,7 +6,7 @@ import * as React from "react";
 import { Btn, Fill } from "./primitives";
 import { splitTurn } from "./Hero";
 import { simplify, vectorMarkup } from "../vector";
-import { cardStyle, items, radiusFor, titled } from "./theme";
+import { cardStyle, items, radiusFor, saidRole, titled } from "./theme";
 import { opt, type PartProps } from "./types";
 
 export function Cta({ id, content, options, theme: t, mode, link, vector, onNavigate, emit }: PartProps) {
@@ -42,21 +42,59 @@ export function Cta({ id, content, options, theme: t, mode, link, vector, onNavi
   const outline = variant === "outline";
   const ghost = variant === "ghost";
   const text = id === "follow" && following ? "Following ✓" : done ? "Done ✓" : label;
+  /*
+   * A CAPTURED CONTROL KEEPS ITS OWN CLOTHES, AND STILL WORKS.
+   *
+   * Everything this button drew was its own: the accent behind it, the
+   * accent's contrast colour on top, weight 700, a 2px edge, the words in
+   * the middle. That is right for a button somebody drags out of the
+   * library and has nothing to say about itself, and it is wrong for one
+   * that came off his page, where the sidebar entries are grey at weight
+   * 400, unedged, and set left beside an icon. So a captured control was
+   * either faithful and dead, or working and restyled. His ruling is both.
+   *
+   * The rule, and it is the only rule: **the node where the node spoke, the
+   * button's own where it did not.** `t.said` records which of these he
+   * named (see `NodeSaid`); `t.fontWeight` is already undefined unless he
+   * named a weight, so it needs no flag. A node that said nothing leaves
+   * every one of these at the literal that was here before, which is why a
+   * hand-placed button is unchanged to the pixel.
+   *
+   * The edge is the one that stands ASIDE rather than following. When a node
+   * carries one, `blocks.tsx` wraps the part in a `[data-part-box]` that
+   * draws it; a button drawing its own inside that is two edges 2px apart.
+   * So his edge is the edge, and this draws none — which also gives back the
+   * 4px that `2px solid transparent` was quietly taking out of a 143px box.
+   */
+  const fill = outline ? "transparent" : ghost ? `${t.accent}22` : following ? t.surface : t.accent;
+  const style: React.CSSProperties = {
+    width: "100%", height: "100%", display: "flex", alignItems: "center", cursor: "pointer",
+    fontFamily: t.bodyFamily, fontSize: t.fontPx * (size === "large" ? 1.15 : size === "small" ? 0.85 : 1), whiteSpace: "nowrap",
+    // His weight, else the library's. `t.fontWeight` is only ever his.
+    fontWeight: t.fontWeight ?? 700,
+    // The words sit where he set them, else in the middle. Read off `said`
+    // and not off `t.textAlign`, which carries the SITE's setting and would
+    // un-centre every hand-placed button on a left-set page.
+    justifyContent: t.said?.align === "left" ? "flex-start" : t.said?.align === "right" ? "flex-end" : "center",
+    // A fill he painted is already on the root, by `Fill`: painting the
+    // accent over it is exactly the restyling this is here to stop.
+    background: saidRole(t, "bg") ? "transparent" : fill,
+    // A colour he set his words in beats the accent's contrast colour. A
+    // captured control's words are grey because the page's were.
+    color: saidRole(t, "text") ? t.text : outline || ghost || following ? t.accent : t.accentText,
+    // His edge is drawn by the box round this part; nothing of our own inside it.
+    border: t.said?.edge ? "none" : outline || following ? `2px solid ${t.accent}` : "2px solid transparent",
+    borderRadius: radiusFor(opt(options, "shape", "rounded"), t) || Math.min(t.radius, 14),
+    transition: "transform 120ms ease, background 160ms ease",
+  };
   return (
-    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: style.justifyContent }}>
       <button
         type="button"
         onClick={onClick}
         aria-pressed={id === "follow" ? following : undefined}
-        style={{
-          width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-          fontWeight: 700, fontFamily: t.bodyFamily, fontSize: t.fontPx * (size === "large" ? 1.15 : size === "small" ? 0.85 : 1), whiteSpace: "nowrap",
-          background: outline ? "transparent" : ghost ? `${t.accent}22` : following ? t.surface : t.accent,
-          color: outline || ghost || following ? t.accent : t.accentText,
-          border: outline || following ? `2px solid ${t.accent}` : "2px solid transparent",
-          borderRadius: radiusFor(opt(options, "shape", "rounded"), t) || Math.min(t.radius, 14),
-          transition: "transform 120ms ease, background 160ms ease",
-        }}
+        data-cta-own={[t.fontWeight != null ? "weight" : "", saidRole(t, "text") ? "colour" : "", saidRole(t, "bg") ? "fill" : "", t.said?.align ? "align" : "", t.said?.edge ? "edge" : ""].filter(Boolean).join(" ") || undefined}
+        style={style}
       >
         {glyph ? (
           <span

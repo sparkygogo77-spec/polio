@@ -290,6 +290,42 @@ every part at tablet or phone was stacked into one column and his header,
 his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
 measures the board and Preview at Tablet off a page shaped like his.
 
+**A captured control keeps its own clothes, and still works.** `cta-primary`
+hardcoded how it looked: its words in the accent's contrast colour, weight
+700, a 2px edge in the accent, the label centred. Right for a button dragged
+out of the library; wrong for one off his page, where the sidebar entries are
+grey at weight 400, unedged and set left beside an icon — so a captured
+control was either faithful and dead or working and restyled. His ruling is
+both. The rule is one line: **the node where the node spoke, the part's own
+where it did not.** The obstacle was never the values — `node.colour`,
+`node.font`, `node.edge` and `node.text` all reached the theme already — it is
+that a part could not tell a value the NODE chose from the same value the SITE
+happens to have: `t.textAlign` reads "left" whether he set left or nobody said
+anything, so a button reading it would quietly un-centre every hand-placed
+button on a left-set page. `Theme.said` (`NodeSaid` in `parts/theme.ts`)
+records exactly which of the roles, the alignment and the edge a node named
+for itself; `overrideTheme`, `applyText` and `applyEdge` fill it as they
+apply. Weight and letter-spacing need no entry, because `t.fontWeight` and
+`t.letterSpacing` are set ONLY from a node's own font — `t.fontWeight ?? 700`
+is already "his, else mine". An edge is the one that stands aside rather than
+follows: `blocks.tsx` already draws a node's edge on the `[data-part-box]`
+wrapper, so a part that draws its own inside it makes two edges 2px apart —
+a part sees `t.said.edge` and draws none. A node that says nothing leaves
+`said` undefined and every fallback at the literal that was always there:
+twenty-nine hand-placed buttons, every id, variant, size and shape, came back
+byte-identical across this change. `tests/button-own.mjs` holds both halves,
+and was run red first with the fallbacks reverted.
+
+Only `cta-primary` has been taught this. It is not the only part that
+overrules a node — no part reads `t.fontWeight`, and of the seven a capture
+can become (`recreate.ts`) only `hero-split` and `value-prop` read
+`t.textAlign` — but it is the only one of them whose whole body is a single
+run of words, so it is the only one where "the node's weight" is unambiguous.
+In a composite the node's weight is the BODY weight and a card title's 600 or
+a wordmark's 800 is the part's own hierarchy, which a node does not get to
+flatten. Teach the next part the same way: read `said`, fall back to the
+literal, and change nothing for a node that said nothing.
+
 **A picture draws the picture it holds, and the layer it wears is its own.**
 Two ways a part carries a picture. `node.picture`, a file in this browser's
 storage, the way the split hero and the product page hold theirs: the

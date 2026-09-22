@@ -74,6 +74,12 @@ export interface Theme {
   fontWeight?: number;
   letterSpacing?: string;
   /**
+   * What this node said about itself, as against what the site says. Unset
+   * when the node said nothing, which is every hand-placed part. See
+   * `NodeSaid`.
+   */
+  said?: NodeSaid;
+  /**
    * What the site is called, straight off the brief.
    *
    * The brief binds it: "wherever a logo or wordmark is drawn it reads
@@ -175,6 +181,51 @@ export interface NodeText { align?: "start" | "left" | "center" | "end" | "right
 /** The four, as a node carries them. */
 export interface NodeBox { layout?: NodeLayout | null; pad?: NodePad | null; edge?: NodeEdge | null; text?: NodeText | null }
 
+/**
+ * WHAT THE NODE SAID ABOUT ITSELF, as against what the site says.
+ *
+ * A part draws a captured control two ways and both of them are wrong. It
+ * can be faithful and dead — a picture of his sidebar entry, at weight 400,
+ * grey, unedged, set left, that does nothing when pressed. Or it can be the
+ * library's button, alive, and wearing the accent at weight 700 with a 2px
+ * edge round it and its words in the middle. His ruling is that there is no
+ * choosing between those: a captured control is the one he captured AND it
+ * works.
+ *
+ * The obstacle was never the values — `node.colour`, `node.font`,
+ * `node.edge` and `node.text` all reach the theme already. It is that a
+ * part cannot tell a value the NODE chose from the same value the SITE
+ * happens to have. `t.textAlign` is "left" whether his sidebar entry said
+ * left or nobody said anything at all, so a button reading it would
+ * quietly un-centre every hand-placed button on a left-set site. That is
+ * the difference this records, and nothing more: which of these a node
+ * named for itself.
+ *
+ * Two of them need no entry here, because their absence already says it:
+ * `Theme.fontWeight` and `Theme.letterSpacing` are set ONLY from a node's
+ * own font and are undefined otherwise, so `t.fontWeight ?? 700` is already
+ * "his weight, else mine". The rest are here because the theme has no room
+ * to be silent about them.
+ *
+ * The rule a part follows is one line: **the node where the node spoke, the
+ * part's own where it did not.** A node that says nothing leaves `said`
+ * undefined, every fallback is the literal the part always drew, and a
+ * hand-placed part is untouched to the pixel.
+ */
+export interface NodeSaid {
+  /** The roles this node painted for itself, by name. Empty is not the same as absent. */
+  roles?: readonly RoleId[];
+  /** Where the node said its own words sit. */
+  align?: "left" | "center" | "right" | "justify";
+  /** True when the node named an edge — INCLUDING an edge of "none", which is a choice. */
+  edge?: boolean;
+}
+
+/** Did this node paint that role for itself? */
+export function saidRole(t: Theme, role: RoleId): boolean {
+  return !!t.said?.roles?.includes(role);
+}
+
 /** Does this node say anything about its box? Nothing said, nothing wrapped. */
 export function hasBox(n: NodeBox): boolean {
   return !!(n.layout || n.pad || n.edge || n.text);
@@ -184,7 +235,22 @@ export function hasBox(n: NodeBox): boolean {
 export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
   if (!text?.align) return t;
   const a = text.align;
-  return { ...t, textAlign: a === "center" ? "center" : a === "justify" ? "justify" : a === "end" || a === "right" ? "right" : "left" };
+  const align = a === "center" ? "center" : a === "justify" ? "justify" : a === "end" || a === "right" ? "right" : "left";
+  // Recorded as well as applied: a part that centres its own words needs to
+  // know this alignment is HIS and not the site's default. See `NodeSaid`.
+  return { ...t, textAlign: align, said: { ...t.said, align } };
+}
+
+/**
+ * The theme, told that the node named an edge of its own.
+ *
+ * The edge itself is drawn by the `[data-part-box]` wrapper `blocks.tsx`
+ * puts round a node that says anything about its box, so nothing is painted
+ * here — this only carries the fact, so a part that draws an edge of its own
+ * can stand aside rather than putting a second one inside his.
+ */
+export function applyEdge(t: Theme, edge: NodeEdge | null | undefined): Theme {
+  return edge ? { ...t, said: { ...t.said, edge: true } } : t;
 }
 
 /** The theme, told that the box pads itself: a part that pads its words stops. */
@@ -489,6 +555,7 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
     return parseColor(trimmed) ? trimmed : null;
   };
   const next: Theme = { ...t };
+  const named: RoleId[] = [];
   let touched = false;
   for (const role of ROLES) {
     const raw = colour[role];
@@ -496,6 +563,7 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
     const value = resolve(raw);
     if (!value) continue;
     touched = true;
+    named.push(role);
     next[role] = value;
     if (role === "bg") {
       next.ownBackground = value;
@@ -506,6 +574,10 @@ export function overrideTheme(t: Theme, colour: NodeColour, palette: Palette): T
     if (role === "surface") next.surfacePaint = undefined;
   }
   if (!touched) return t;
+  // Which roles are HIS, so a part painting a role of its own — a button's
+  // fill, the colour of its label — can stand aside for one he named and
+  // keep its own where he named nothing. See `NodeSaid`.
+  next.said = { ...t.said, roles: named };
   /*
    * A ground with nothing standing on it.
    *
