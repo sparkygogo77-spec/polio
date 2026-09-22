@@ -704,6 +704,17 @@ interface StudioState extends Doc {
    * not one per box, and the import it follows is undone as it always was.
    */
   fitToWords: (fitted: { id: string; h: number; y: number }[]) => void;
+  /**
+   * The same repair, kept up rather than done once, and NOT a checkpoint.
+   *
+   * `fitToWords` is an edit: it follows an import, it is his to undo, and it
+   * pushes one. This is the board noticing that a box is drawing taller than
+   * the document says it is and writing down what is already on screen —
+   * restoring the invariant rather than changing the page. Pushing a
+   * checkpoint for each of those would fill the undo stack with steps that
+   * undo nothing a person did, and one of them would put the overlap back.
+   */
+  settleToWords: (fitted: { id: string; h: number; y: number }[]) => void;
   /** Parts draw in list order, so later is on top: one place along is one step forward or back. */
   raiseNode: (id: string, toTop?: boolean) => void;
   lowerNode: (id: string, toBottom?: boolean) => void;
@@ -1481,6 +1492,23 @@ export const useStudio = create<StudioState>()(
           push();
           const by = new Map(fitted.map((f) => [f.id, f]));
           set((s) => ({ nodes: s.nodes.map((n) => { const f = by.get(n.id); return f ? { ...n, h: f.h, y: f.y } : n; }) }));
+        },
+
+        settleToWords: (fitted) => {
+          if (!fitted.length) return;
+          const by = new Map(fitted.map((f) => [f.id, f]));
+          set((s) => {
+            let moved = false;
+            const nodes = s.nodes.map((n) => {
+              const f = by.get(n.id);
+              if (!f || (f.h === n.h && f.y === n.y)) return n;
+              moved = true;
+              return { ...n, h: f.h, y: f.y };
+            });
+            // Nothing to say is said by changing nothing: a new array here
+            // would re-render the board and be measured again for ever.
+            return moved ? { nodes } : {};
+          });
         },
 
         raiseNode: (id, toTop) => {

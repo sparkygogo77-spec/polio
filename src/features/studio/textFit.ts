@@ -31,6 +31,7 @@
  * and moves what sits below down by the growth, so a page reads without him
  * dragging every box taller by hand.
  */
+import * as React from "react";
 import { toRows } from "./live/reflow";
 import type { StudioNode } from "./store";
 
@@ -67,8 +68,12 @@ export interface Fitted {
  * its words comes back empty, which is what makes it safe to run after any
  * import rather than only after a bad one.
  */
-export function fitRows(boxes: readonly Drawn[]): Fitted[] {
-  /* `toRows` reads x, y, w and h and nothing else; these carry all four. */
+export function fitRows(boxes: readonly Drawn[], grows?: (id: string) => boolean): Fitted[] {
+  /* `toRows` reads x, y, w and h and nothing else; these carry all four.
+     Every box is handed in, whether or not it may grow, because what counts
+     as one row is a fact about the page and not about who is allowed to
+     move: leaving a part out here would put the ones beside it in rows of
+     their own and push the page down once for each. */
   const rows = toRows(boxes.map((b) => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) as unknown as StudioNode[]);
   const by = new Map(boxes.map((b) => [b.id, b]));
   const out: Fitted[] = [];
@@ -78,7 +83,10 @@ export function fitRows(boxes: readonly Drawn[]): Fitted[] {
     for (const r of row) {
       const b = by.get(r.id);
       if (!b) continue;
-      const h = Math.max(b.h, Math.round(b.drew));
+      /* A box that may not grow keeps the height it was given and adds
+         nothing to the row's growth. It still travels with the shift: what
+         is below a box that grew is below it however it got there. */
+      const h = !grows || grows(b.id) ? Math.max(b.h, Math.round(b.drew)) : b.h;
       grew = Math.max(grew, h - b.h);
       if (h !== b.h || shift !== 0) out.push({ id: b.id, h, y: Math.round(b.y + shift) });
     }
@@ -123,4 +131,134 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
   const el = document.querySelector(`[data-node-id="${node.id}"]`);
   if (!(el instanceof HTMLElement)) return null;
   return { id: node.id, x: node.x, y: node.y, w: node.w, h: node.h, drew: el.offsetHeight };
+}
+
+/* ------------------------------------------------------------------ */
+/* The push, kept up rather than done once                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A box that grew moves what follows it — every time it grows, not once.
+ *
+ * HIS MEASUREMENT, off the imported Documentation page rather than a
+ * fixture: twenty-one pairs of parts crossing each other where neither
+ * contains the other, all of them the same shape — a 684-wide paragraph
+ * sitting on top of the bullets beneath it by 20 to 40 pixels. The bullets
+ * are at the y the capture recorded; the paragraph above them grew because
+ * its words wrapped, and nothing below moved.
+ *
+ * THE TIDY WAS ALREADY RIGHT AND WIRED TO ONE DOOR. `fitRows` does exactly
+ * the right arithmetic and `tidyToWords` ran it — from `FromASite` and
+ * nowhere else, once, at the end of that one import. So a page that came in
+ * by any other door never had it run at all, and even where it did run the
+ * result was a SNAPSHOT: the heights were written down against whatever
+ * face resolved that day, and the moment words were edited, the frame
+ * changed width, or a face resolved wider, the box grew again and nothing
+ * moved. The guarantee underneath is a runtime one — the CSS floor in
+ * `parts/primitives.tsx` — and a runtime guarantee with a one-shot tidy
+ * over it is the gap he found.
+ *
+ * So the rule is not "tidy after an import". It is: **a box that grew
+ * displaces what follows it, whenever it grows.** His own words for why the
+ * older fix did not cover this: "a box grows as a flex child", and the
+ * paragraphs that overlap are not flex children of anything, so the push
+ * never happened for them. Growth is growth however the box is laid out.
+ *
+ * WHAT IS NOT TOUCHED. A part he placed by hand has no `from` — that field
+ * is the live element a part was recreated from, and it is absent on
+ * everything drawn or placed. Only a captured part GROWS here. And a page
+ * holding no captured part at all never settles: a board he built by hand
+ * cannot move, which is the same guarantee the button work gives, in the
+ * same shape.
+ *
+ * A hand-placed part standing below a captured one that grew DOES travel
+ * with it, and that is a decision rather than an oversight: half a page
+ * moving and half of it staying is worse than either, and a part below a
+ * box belongs below that box whoever put it there. It is one predicate to
+ * flip if that is wrong.
+ *
+ * IT CONVERGES, and that is worth saying because an automatic writer that
+ * does not is a page that never settles. `fitRows` gives every box the
+ * height it DREW at, so the moment it is applied the drawn height and the
+ * written height agree and the next measurement has nothing to say. A shift
+ * moves boxes without resizing them, which no `ResizeObserver` reports, so
+ * moving cannot feed itself. The fingerprint below is the belt to that
+ * brace: the same answer is never applied twice.
+ */
+export function useSettleToWords(
+  nodes: readonly { id: string; x: number; y: number; w: number; h: number; from?: unknown }[],
+  apply: (f: Fitted[]) => void,
+): void {
+  const latest = React.useRef({ nodes, apply });
+  latest.current = { nodes, apply };
+  /** The last answer applied, so an unchanged one is never applied again. */
+  const said = React.useRef("");
+  /** A pointer on the board is a hand mid-gesture; nothing moves under it. */
+  const held = React.useRef(false);
+
+  /* Which parts are on this page, and where. The observer is rebuilt when
+     the set changes; a settle is scheduled when any of the geometry does. */
+  const ids = nodes.map((n) => n.id).join(",");
+  const where = nodes.map((n) => `${n.id}:${n.x},${n.y},${n.w},${n.h}`).join("|");
+
+  const settle = React.useCallback(() => {
+    if (held.current || typeof document === "undefined") return;
+    const ns = latest.current.nodes;
+    // A board with nothing captured on it is not this rule's business.
+    if (!ns.some((n) => n.from)) return;
+    const captured = new Set(ns.filter((n) => n.from).map((n) => n.id));
+    const boxes: Drawn[] = [];
+    for (const n of ns) {
+      const d = drawnOnBoard(n);
+      if (d) boxes.push(d);
+    }
+    if (!boxes.length) return;
+    const fitted = fitRows(boxes, (id) => captured.has(id));
+    if (!fitted.length) { said.current = ""; return; }
+    const print = fitted.map((f) => `${f.id}:${f.h},${f.y}`).join("|");
+    if (print === said.current) return;
+    said.current = print;
+    latest.current.apply(fitted);
+  }, []);
+
+  /* Debounced, and never before the faces have had their chance: a run of
+     words measured while its face is still loading is measured in the
+     fallback, which is the very mistake this is here to repair. */
+  const timer = React.useRef<number | null>(null);
+  const soon = React.useCallback(() => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      timer.current = null;
+      requestAnimationFrame(() => requestAnimationFrame(settle));
+    }, 160);
+  }, [settle]);
+
+  React.useEffect(() => {
+    const down = () => { held.current = true; };
+    const up = () => { held.current = false; soon(); };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+    };
+  }, [soon]);
+
+  React.useEffect(() => {
+    if (typeof document === "undefined" || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(soon);
+    for (const n of latest.current.nodes) {
+      const el = document.querySelector(`[data-node-id="${n.id}"]`);
+      if (el instanceof HTMLElement) ro.observe(el);
+    }
+    const fonts = (document as Document & { fonts?: { ready?: Promise<unknown> } }).fonts;
+    let alive = true;
+    void Promise.race([fonts?.ready ?? Promise.resolve(), new Promise((go) => setTimeout(go, 1500))]).then(() => { if (alive) soon(); });
+    soon();
+    return () => { alive = false; ro.disconnect(); if (timer.current !== null) window.clearTimeout(timer.current); };
+  }, [ids, soon]);
+
+  React.useEffect(() => { soon(); }, [where, soon]);
 }

@@ -290,6 +290,48 @@ every part at tablet or phone was stacked into one column and his header,
 his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
 measures the board and Preview at Tablet off a page shaped like his.
 
+**A box that grew moves what follows it, whenever it grows.** The floor in
+`parts/primitives.tsx` keeps a box's words visible by letting it draw taller
+than the document says. Nothing moved what sat under it unless a flex parent
+happened to be doing the moving — his words, "a box grows as a flex child",
+and the paragraphs on his captured Documentation page are not flex children of
+anything. He counted twenty-one pairs of parts crossing each other where
+neither contains the other, all the same shape: a 684-wide paragraph sitting on
+the bullets beneath it by 20 to 40 pixels, the bullets at the y the capture
+recorded. The arithmetic was never wrong — `fitRows` has always done exactly
+this — it ran from one import door (`FromASite`) and nowhere else, ONCE. And
+one-shot over a runtime guarantee is the gap: the heights were written against
+whatever face resolved that day, so editing words, changing the frame width or
+resolving a wider face grew the box again and nothing moved. `useSettleToWords`
+keeps it up instead, on the board, off a `ResizeObserver`. It converges because
+`fitRows` writes the height a box DREW at, so the next measurement has nothing
+to say, and a shift moves boxes without resizing them, which no observer
+reports. `settleToWords` pushes no undo checkpoint: it restores an invariant
+rather than making an edit, and a checkpoint per settle would fill the stack
+with steps that undo nothing a person did — one of which would put the overlap
+back. Only a part with `from` (the live element it was recreated from, absent
+on everything drawn or placed) GROWS, and a page holding nothing captured never
+settles at all. A hand-placed part below a captured one that grew does travel
+with it: half a page moving is worse than either, and it is one predicate to
+flip. `tests/grew-moves.mjs` counts crossings the way he counted them, and was
+red on the unfixed build at `para×b1 by 18px`.
+
+**A button in the Builder is pressable in the Builder.** His nine captured
+pages were reachable only from the tab bar, which makes a correct import feel
+dead. A second press on a linkable part that has a link follows it —
+deliberately the SAME gesture that opens a solid for handling (`HANDS_ON`),
+because he is one person learning one tool and a second way to press things
+would cost more than it buys. One press still selects and moves; a part with no
+link, or one the library does not make linkable, falls through to the drag
+exactly as before, so the board stays a layout surface. A page is assigned from
+the Element panel's `LinkField`, which already existed. Why his sidebar was dead
+is a measured fact rather than a guess: `box` is registered with neither
+`linkable` nor `linkWhole`, so a link on one is inert on every surface, and the
+same link on a `cta-primary` navigates — held in `tests/press-in-builder.mjs`
+so it cannot quietly stop being true. That is also why the entries could not be
+classified as buttons until the clothes work above landed: doing it sooner
+would have repainted his greys.
+
 **A captured control keeps its own clothes, and still works.** `cta-primary`
 hardcoded how it looked: its words in the accent's contrast colour, weight
 700, a 2px edge in the accent, the label centred. Right for a button dragged
