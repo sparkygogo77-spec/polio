@@ -4,7 +4,7 @@
  * seeded placeholders — but the behaviour (opening, sliding, playing) is real.
  */
 import * as React from "react";
-import { Fill, Placeholder, useTicker } from "./primitives";
+import { Fill, Placeholder, PictureSlot, useTicker } from "./primitives";
 import { hash, rng, sample } from "./sample";
 import { cardStyle, items, standIn, withAlpha } from "./theme";
 import { num, opt, type PartProps } from "./types";
@@ -44,7 +44,22 @@ const swatch = (t: { accent: string; muted: string }, i: number) => {
  * dashed `Unknown` card, which paints the flat surface colour and drops
  * `surfacePaint` on the floor: a part carrying a picture, showing none.
  */
-export function Picture({ id, label, theme: t }: PartProps) {
+export function Picture({ id, label, theme: t, picture, mode }: PartProps) {
+  /*
+   * A picture the node holds as a file (`node.picture`, the way the split
+   * hero and the product page hold theirs) is drawn through `PictureSlot`,
+   * the same as they draw it. It used to be ignored here: the part read
+   * only the texture it might be wearing, so a carried image showed the
+   * stand-in crop with the file's name on a plate, and his logo was missing
+   * from the top of his own page.
+   */
+  if (picture?.pic) {
+    return (
+      <Fill t={t} data-part={id} data-part-picture="" style={{ padding: 0, overflow: "hidden", borderRadius: t.radius }}>
+        <PictureSlot t={t} pic={picture.pic} src={picture.src} label={label || "Picture"} mode={mode} />
+      </Fill>
+    );
+  }
   const painted = !!t.surfacePaint;
   return (
     <Fill

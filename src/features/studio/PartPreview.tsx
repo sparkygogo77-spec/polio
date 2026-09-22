@@ -17,7 +17,7 @@
  * colour before the part is drawn.
  *
  * Off-screen tiles skip their layout and paint entirely (`content-visibility`),
- * so a library of 229 live previews costs about what a list of icons did.
+ * so a library of 230 live previews costs about what a list of icons did.
  */
 import * as React from "react";
 import { Block, themeFrom } from "./blocks";
@@ -47,7 +47,7 @@ export function previewHeight(feature: FeatureDef, width: number): number {
  * once and forget it when i stop hovering."
  *
  * The shelf draws every part in `board` mode, which by the parts contract
- * means the initial state and no timers — the right default for 229 tiles on
+ * means the initial state and no timers — the right default for 230 tiles on
  * one screen, and the reason nothing on the shelf ever moves. `play` puts
  * this one tile into `live` mode, where a part is itself: whatever entrance
  * it has runs, and whatever it does under a pointer it does.

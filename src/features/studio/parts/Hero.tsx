@@ -80,7 +80,7 @@ export function ValueProp({ id, content, options, theme: t }: PartProps) {
   const parts = splitTurn(line, turn);
   const tone = turn === "last word muted" || turn === "second sentence muted" ? t.muted : t.accent;
   return (
-    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.fontPx * 0.5 }}>
+    <Fill t={t} data-part={id} style={{ display: "flex", alignItems: "center", justifyContent: t.textAlign === "center" ? "center" : "flex-start", padding: t.tight ? 0 : t.fontPx * 0.5 }}>
       <p dir="auto" style={{ margin: 0, fontFamily: t.headingFamily, fontWeight: 700, fontSize: t.fontPx * 1.6, lineHeight: 1.2, maxWidth: t.measurePx, textAlign: t.textAlign === "justify" ? "left" : t.textAlign }}>
         {parts.head}
         {parts.tail ? <span style={{ color: tone }}>{parts.tail}</span> : null}

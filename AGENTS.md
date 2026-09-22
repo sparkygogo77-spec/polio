@@ -91,7 +91,7 @@ everything the user sees says Builder. Don't rename the internals for cosmetics.
 
 ```
 src/features/studio/
-  catalog.ts     229 parts in 12 categories, plain names, one f(...) line each;
+  catalog.ts     230 parts in 12 categories, plain names, one f(...) line each;
                  CATEGORY_SIZE + DETAILS give each its real size, options, contents
   blocks.tsx     dispatcher: Block → parts/; the labelled box is the last resort
   parts/         the real components, one archetype file per family; props only,
@@ -204,7 +204,7 @@ site scaled down; `p` opens it full size at `/builder/preview/<page path>`,
   section, so a final prompt that builds the server is written against a list
   the board produced rather than from memory. None of it is domain-specific:
   it is free text plus wires.
-- **All 229 ids are real components.** There is no legacy path: `blocks.tsx`
+- **All 230 ids are real components.** There is no legacy path: `blocks.tsx`
   falls back to a labelled box (`data-part-fallback`) only if an id loses its
   `DEFS` line, and `all.mjs` fails if that ever happens. Every part's root
   carries `data-part={id}`, tier-B roots also carry `data-behaviour`, and the
@@ -253,6 +253,59 @@ own: `store.shelve` hands them to the catalogue, `getFeature` and
 preset into an ordinary node, so the shelf, the wheel, search and "add
 here" all work without knowing where a part came from. A repository with
 no page in it to open says so and names what it found.
+
+**A box on a page is a box.** His captured page landed 126 parts, and 75
+of them — every wrapper with no words of its own: the header, a row, a
+column, a card — were the Idea part, so each wore a dashed edge, an IDEA
+label and a "header · 1 inside" line over his content. `box` (`PlainBox`,
+Layout › Page shape) draws nothing of its own: its colour through `Fill`,
+its edge, padding and layout from the node's box fields (below), and the
+words typed into it, plainly. Nothing typed, nothing drawn — no edge, no
+name, no count. The shelf gives it a line so the tile is not a blank disc.
+`tests/plain-box.mjs` counts the words and the colours inside it, beside an
+Idea part that still says what it is.
+
+**A box carries its layout, its padding, its edge and how its words are
+set, and the reflow keeps a laid-out box's children inside it.** The ledger
+of his captured page — display 37, direction 37, align 33, pad 29, gap 19,
+justify 15, border 13 — all went "nowhere: a node has no layout field".
+`StudioNode` has four optional fields now, typed beside `NodeFont` in
+`parts/theme.ts` so the parts folder still ships whole: `layout` (display,
+direction, align, justify, gap, wrap, columns), `pad` (four sides), `edge`
+(width, style, a colour or a palette role) and `text` (align, transform).
+Margin and icon path geometry stay out: a box already stands where its
+margin put it. `Block` puts them round the part as one `[data-part-box]`
+wrapper, and only when a node says something, so a node that says nothing
+gets the part alone and nothing already on a board moves; `applyText` sets
+the theme's align so a part that reads `t.textAlign` follows it. Board,
+pinned preview, full preview and Build all draw through `Block`, so they
+agree. The blueprint writes them as one `box:` line. In the live page the
+arithmetic of `placeNodes` moved to `live/reflow.ts`, pure, so
+`tests/reflow-same.mjs` can hold it against the trunk algorithm written out
+verbatim (BLACKORB at every device, two hundred random boards): a part
+whose layout says flex or grid is a container, the parts its box holds are
+placed inside its placed box, squeezed across with it, a wrapping row
+wraps and grows past `WRAP_AT`, and what follows moves down — where before
+every part at tablet or phone was stacked into one column and his header,
+his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
+measures the board and Preview at Tablet off a page shaped like his.
+
+**A picture draws the picture it holds, and the layer it wears is its own.**
+Two ways a part carries a picture. `node.picture`, a file in this browser's
+storage, the way the split hero and the product page hold theirs: the
+Picture part ignored the prop and drew its stand-in crop with the file's
+name on a plate; it goes through `PictureSlot` now like they do.
+`node.texture`, an image layer in the look's stack, the way the Builder's
+own shrink-in import and his capture carry theirs: the part wears the layer
+whether or not it is on, and on, the page and every card wore it too — his
+logo came up tiled across the whole ground with the parts unreadable under
+it. `docTake.pictureLayersOff` turns a layer some picture names off for the
+page wherever a document is taken in (`loadDoc`, the persister's merge), and
+the shrink-in import adds its layer off. And a node that carries `pad` says
+its padding is all the padding: `applyPad` sets `t.tight` and a part that
+pads its words (the pitch line, prose's box styles) adds none, because a
+captured box was measured with its padding inside it. `tests/picture-held.mjs`
+holds the three; it was run red against the build before the fix.
 
 **A hand on a vine pulls it; a press takes it apart from the middle.** His
 words: "the line in the middle of the vines is hoverable ... i would rather
@@ -2000,7 +2053,7 @@ a kicker with a rule, and label-and-value rows that copy.
   from `docs/MOTION.md` on the identical timing, and `spec.ts` puts it in the
   blueprint, so the Builder's own pass is the floor and a generator's is the
   ceiling.
-- The parts drawer drills down rather than listing 229 tiles: categories carry
+- The parts drawer drills down rather than listing 230 tiles: categories carry
   an emoji and their category hue, picking one slides the rest away and reveals
   its sub-groups (`SUBGROUPS` in `catalog.ts` — every id belongs to exactly
   one).

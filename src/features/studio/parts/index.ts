@@ -20,7 +20,7 @@ import { MotionPart } from "./Motion";
 import { Cta, InvitePanel } from "./Cta";
 import { Header } from "./Header";
 import { Hero, ProofStrip, ValueProp } from "./Hero";
-import { Breadcrumbs, Footer, Grid, Note, Outline, Overlay, Pagination, Sections, Split } from "./Layout";
+import { Breadcrumbs, Footer, Grid, Note, Outline, Overlay, Pagination, PlainBox, Sections, Split } from "./Layout";
 import { ArticleList, Callout, CodeBlock, Eyebrow, Marquee, Prose } from "./Text";
 import { Art, AvatarStack, BeforeAfter, Carousel, CornerGlow, Gallery, Picture, Player, Viewer } from "./Media";
 import { DatePicker, FileDrop, FilterPanel, Form, Newsletter, Rating } from "./Forms";
@@ -49,6 +49,8 @@ export const DEFS: PartDef[] = [
   { component: Overlay, ids: ["modal", "drawer"], tier: "A" },
   { component: Footer, ids: ["footer", "sitemap-page"], tier: "A", linkable: true },
   { component: Note, ids: ["custom-idea", "wildcard", "note", "mood", "constraint"], tier: "A" },
+  /* A box that draws nothing of its own: what a captured page's wrappers land as. */
+  { component: PlainBox, ids: ["box"], tier: "A" },
 
   /* -------------------------------------------------------- first screen */
   { component: Hero, ids: ["hero-split", "hero-video", "hero-gradient", "hero-typewriter", "hero-particles", "hero-3d", "hero-scroll-cue"], tier: "A", linkable: true },

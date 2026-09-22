@@ -19,7 +19,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { uid } from "@/core/lib/ids";
 import { getFeature, setBrought } from "./catalog";
 import { Boxes } from "lucide-react";
-import { takeDoc } from "./docTake";
+import { takeDoc, pictureLayersOff } from "./docTake";
 import { formatDefaults, type FormatValues } from "./format";
 import { defaultLight, delayMs, emptyLook, lands, newLayer, speedK, type AnimEase, type AuraStyle, type Light, type Look, type TextureLayer } from "./look";
 
@@ -45,7 +45,7 @@ import { newMotion, SLEEVES, type MotionAsset } from "./motion";
 import type { Spend } from "./spend";
 import { useLayoutEffect } from "react";
 import type { NodeLink } from "./parts/types";
-import type { NodeColour, NodeFont } from "./parts/theme";
+import type { NodeColour, NodeEdge, NodeFont, NodeLayout, NodePad, NodeText } from "./parts/theme";
 import { normaliseSketch, type OutlineClip, type Sketch } from "./sketch";
 import type { DrawnKind, DrawnRole } from "./shapeKind";
 import type { DrawKind } from "./drawKinds";
@@ -259,6 +259,22 @@ export interface StudioNode {
    * Absent on every part that was drawn or placed.
    */
   from?: { url: string; host: string; selector: string; at: number } | null;
+  /**
+   * How this box is laid out, padded, edged and set, when a page said so.
+   *
+   * A captured page is mostly boxes, and a box on a page has a layout (a
+   * row, a column, a grid), a padding, an edge and a way its words are set.
+   * None of it could be carried: 37 layouts, 29 paddings and 13 edges went
+   * "nowhere" in the ledger of his page. Optional, so a saved board and the
+   * shelf's preview nodes need nothing added, and absent a part draws
+   * exactly as it did. `blocks.tsx` puts them round the part on every
+   * surface, `placeNodes` keeps a laid-out box's children inside it when
+   * the page reflows, and the blueprint writes them as one `box:` line.
+   */
+  layout?: NodeLayout | null;
+  pad?: NodePad | null;
+  edge?: NodeEdge | null;
+  text?: NodeText | null;
 }
 
 export interface StudioGroup {
@@ -2612,7 +2628,8 @@ function mergeDoc(persisted: unknown, current: StudioState): StudioState {
             return {
               ...look,
               light: { ...defaultLight(), ...(look.light ?? {}) },
-              texture: look.texture.map((l) => ({ ...l, target: l.target ?? look.target ?? "page" })),
+              // A layer a picture wears is the picture's, not the page's (`docTake.ts`).
+              texture: pictureLayersOff(p.nodes ?? current.nodes, look.texture.map((l) => ({ ...l, target: l.target ?? look.target ?? "page" }))),
             };
           })(),
           companion: { ...current.companion, ...(p.companion ?? {}) },

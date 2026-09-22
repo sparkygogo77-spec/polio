@@ -28,6 +28,7 @@ import { resolvePalette } from "./parts/theme";
 import { CUBE_SIDES } from "./parts/cubeFaces";
 import { KIND_MEANS } from "./shapeKind";
 import { describeSketch, isBlankSketch } from "./sketch";
+import { toRows } from "./live/reflow";
 import type { StudioBrief, StudioGroup, StudioNode, StudioPage, StudioShape, TrailEntry } from "./store";
 
 export interface CompileInput {
@@ -65,6 +66,8 @@ interface NodeSpec {
   colour: string | null;
   /** This part's own type, in words, or null when it follows the site. */
   font: string | null;
+  /** How its box is laid out, padded, edged and set, in words, or null when nothing was said. */
+  box: string | null;
   /** How it arrives on the page, and what glows round it. */
   anim: string | null;
   aura: string | null;
@@ -135,26 +138,8 @@ export interface Spec {
   trail?: TrailEntry[];
 }
 
-/** Nodes whose vertical spans overlap are one visual row, read left to right. */
-export function toRows(nodes: StudioNode[]): StudioNode[][] {
-  const sorted = [...nodes].sort((a, b) => a.y - b.y || a.x - b.x);
-  const rows: StudioNode[][] = [];
-  for (const n of sorted) {
-    const row = rows[rows.length - 1];
-    if (row) {
-      const bottom = Math.max(...row.map((r) => r.y + r.h));
-      const top = Math.min(...row.map((r) => r.y));
-      const overlap = Math.min(bottom, n.y + n.h) - Math.max(top, n.y);
-      // More than a third of the shorter element shares a horizontal band.
-      if (overlap > Math.min(n.h, bottom - top) * 0.34) {
-        row.push(n);
-        continue;
-      }
-    }
-    rows.push([n]);
-  }
-  return rows.map((r) => [...r].sort((a, b) => a.x - b.x));
-}
+/** Nodes whose vertical spans overlap are one visual row, read left to right. Held in `live/reflow.ts`, pure, beside the reflow that reads it. */
+export { toRows };
 
 const centre = (n: StudioNode) => ({ x: n.x + n.w / 2, y: n.y + n.h / 2 });
 
@@ -271,6 +256,28 @@ function describeFont(font: StudioNode["font"] | undefined): string | null {
   return bits.length ? bits.join(", ") : null;
 }
 
+/** "a row that wraps, aligned center, 12px apart, padded 16px 24px 16px 24px, edged 1px solid #2d3748, text center, uppercase" — or nothing. */
+function describeBox(n: Pick<StudioNode, "layout" | "pad" | "edge" | "text">): string | null {
+  const bits: string[] = [];
+  const l = n.layout;
+  if (l?.display === "flex" || l?.display === "grid") {
+    bits.push(l.display === "grid" ? `a grid${typeof l.columns === "number" && l.columns > 0 ? ` of ${Math.round(l.columns)} columns` : ""}` : `a ${l.direction === "column" ? "column" : "row"}${l.wrap ? " that wraps" : ""}`);
+    if (l.align && l.align !== "normal") bits.push(`aligned ${l.align}`);
+    if (l.justify && l.justify !== "normal") bits.push(`spread ${l.justify}`);
+    if (typeof l.gap === "number" && l.gap > 0) bits.push(`${l.gap}px apart`);
+  }
+  const p = n.pad;
+  if (p) bits.push(`padded ${[p.top, p.right, p.bottom, p.left].map((v) => `${typeof v === "number" ? v : 0}px`).join(" ")}`);
+  const e = n.edge;
+  if (e && e.style !== "none" && e.width !== 0) {
+    const named = e.colour && (ROLES as readonly string[]).includes(e.colour);
+    bits.push(`edged ${typeof e.width === "number" ? e.width : 1}px ${e.style ?? "solid"}${e.colour ? ` ${named ? `the site's ${ROLE_LABEL[e.colour as RoleId].toLowerCase()}` : e.colour}` : ""}`);
+  }
+  if (n.text?.align) bits.push(`text ${n.text.align}`);
+  if (n.text?.transform && n.text.transform !== "none") bits.push(n.text.transform);
+  return bits.length ? bits.join(", ") : null;
+}
+
 function describeColour(colour: StudioNode["colour"] | undefined): string | null {
   if (!colour) return null;
   const parts = ROLES.filter((r) => colour[r]).map((r) => {
@@ -373,6 +380,7 @@ export function compileSpec(input: CompileInput): Spec {
           link: describeLink(n.link, pages, input.nodes) ?? (isLinkable(n.featureId) ? "nowhere yet, a visible placeholder that says so, never an invented target" : null),
           colour: describeColour(n.colour),
           font: describeFont(n.font),
+          box: describeBox(n),
           anim: n.anim
             ? `${ENTRANCE_WORD[n.anim] ?? n.anim}${describeSpeed(n.animSpeed)}${describeDelay(n.animDelay)}${
               n.animEase && n.animEase !== "smooth" ? ` (${n.animEase} easing)` : ""}`
@@ -657,6 +665,7 @@ export function specToMarkdown(spec: Spec): string {
         if (e.link) L.push(`  - links to: ${e.link}`);
         if (e.colour) L.push(`  - colour, this part only: ${e.colour}`);
         if (e.font) L.push(`  - type, this part only: ${e.font}`);
+        if (e.box) L.push(`  - box: ${e.box}`);
         if (e.aura) L.push(`  - aura: ${e.aura}`);
         if (e.texture) L.push(`  - texture: ${e.texture}`);
         if (e.anim) L.push(`  - on arrival: it ${e.anim}`);

@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
-import { applyFont, liftTheme, overrideTheme } from "./parts/theme";
+import { applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
@@ -127,9 +127,9 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
   const picture = node.picture
     ? { pic: node.picture, src: pictureAt ? pictureAt(node.picture) : found.src }
     : null;
-  // A part can repaint any of the six roles for itself, and set its own type;
-  // everything else follows the site.
-  const painted = applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font);
+  // A part can repaint any of the six roles for itself, set its own type and
+  // say how its words sit; everything else follows the site.
+  const painted = applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font), node.text), node.pad);
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {
@@ -203,6 +203,28 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
    * touches it.
    */
   const watch = [node.prompt ?? "", node.content ?? "", node.data ?? "", JSON.stringify(node.options ?? {}), size?.w ?? node.w, size?.h ?? node.h].join("|");
+  const boxed = hasBox(node);
+  const drawn = (
+    <P
+      id={node.featureId}
+      label={node.label}
+      content={node.content ?? ""}
+      options={node.options}
+      w={size?.w ?? node.w}
+      h={size?.h ?? node.h}
+      link={node.link ?? null}
+      theme={t}
+      mode={mode}
+      cube={node.cube}
+      picture={picture}
+      pick={pick ?? null}
+      mesh={node.mesh}
+      vector={node.vector}
+      surface={surface}
+      onNavigate={onNavigate}
+      emit={emit}
+    />
+  );
   const part = (
     <>
     {drift ? <style data-part-drift={drift.name}>{drift.css}</style> : null}
@@ -235,25 +257,17 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
         your picture
       </span>
     ) : null}
-    <P
-      id={node.featureId}
-      label={node.label}
-      content={node.content ?? ""}
-      options={node.options}
-      w={size?.w ?? node.w}
-      h={size?.h ?? node.h}
-      link={node.link ?? null}
-      theme={t}
-      mode={mode}
-      cube={node.cube}
-      picture={picture}
-      pick={pick ?? null}
-      mesh={node.mesh}
-      vector={node.vector}
-      surface={surface}
-      onNavigate={onNavigate}
-      emit={emit}
-    />
+    {/*
+      The box round the part, when the node says how it is laid out, padded,
+      edged or set. A captured page is mostly boxes and these are what a box
+      has. Only then: a node that says nothing gets the part alone, exactly
+      as before, so nothing already on a board moves by a pixel.
+    */}
+    {boxed ? (
+      <div data-part-box="" style={{ width: "100%", height: "100%", boxSizing: "border-box", overflow: "hidden", ...boxStyle(node, t, palette) }}>
+        {drawn}
+      </div>
+    ) : drawn}
     </>
   );
   /*

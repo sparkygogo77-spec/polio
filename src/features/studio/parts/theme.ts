@@ -58,7 +58,14 @@ export interface Theme {
   fontPx: number;
   lineHeight: number;
   measurePx: number;
-  textAlign: "left" | "center" | "justify";
+  textAlign: "left" | "center" | "right" | "justify";
+  /**
+   * The box's padding is all the padding: a part adds none of its own.
+   * Set when a node carries `pad` — a captured box was measured with its
+   * padding inside it, so a part padding itself again pushed the words out
+   * of the box and cut them off.
+   */
+  tight?: boolean;
   boxStyle: string;
   boxPad: number;
   headingFamily: string;
@@ -134,6 +141,91 @@ export function applyFont(t: Theme, font: NodeFont | null | undefined): Theme {
   if (typeof font.spacing === "number" && Number.isFinite(font.spacing)) next.letterSpacing = `${Math.max(-0.05, Math.min(0.3, font.spacing)).toFixed(3)}em`;
   if (typeof font.leading === "number" && Number.isFinite(font.leading)) next.lineHeight = Math.max(1, Math.min(2, font.leading));
   return next;
+}
+
+/**
+ * How a box is laid out, padded, edged and set, when a page said so.
+ *
+ * A captured page is mostly boxes, and a box on a page has these four
+ * things and nothing else worth carrying: how its inside runs (a row, a
+ * column, a grid), its padding, its edge, and how its words are set. The
+ * ledger of his page sent 37 layouts, 29 paddings and 13 edges "nowhere"
+ * because no node could hold them. Kept beside `NodeFont` so the parts
+ * folder still ships whole. Every field is optional and absent means what
+ * it always meant: the part draws exactly as it did.
+ */
+export interface NodeLayout {
+  display?: "block" | "flex" | "grid";
+  direction?: "row" | "column";
+  /** `align-items` and `justify-content`, as CSS says them. */
+  align?: string;
+  justify?: string;
+  /** Pixels between the children. */
+  gap?: number;
+  wrap?: boolean;
+  /** How many columns, when it is a grid. */
+  columns?: number;
+}
+/** Padding in pixels, clockwise from the top. */
+export interface NodePad { top?: number; right?: number; bottom?: number; left?: number }
+/** An edge on the box: width in pixels, a style, and a colour or the name of a palette role. */
+export interface NodeEdge { width?: number; style?: "solid" | "dashed" | "dotted" | "double" | "none"; colour?: string }
+/** How the words inside are set: where they sit and their case. */
+export interface NodeText { align?: "start" | "left" | "center" | "end" | "right" | "justify"; transform?: "none" | "uppercase" | "lowercase" | "capitalize" }
+/** The four, as a node carries them. */
+export interface NodeBox { layout?: NodeLayout | null; pad?: NodePad | null; edge?: NodeEdge | null; text?: NodeText | null }
+
+/** Does this node say anything about its box? Nothing said, nothing wrapped. */
+export function hasBox(n: NodeBox): boolean {
+  return !!(n.layout || n.pad || n.edge || n.text);
+}
+
+/** The theme, set the way this part's words are set: parts that read `t.textAlign` follow it. */
+export function applyText(t: Theme, text: NodeText | null | undefined): Theme {
+  if (!text?.align) return t;
+  const a = text.align;
+  return { ...t, textAlign: a === "center" ? "center" : a === "justify" ? "justify" : a === "end" || a === "right" ? "right" : "left" };
+}
+
+/** The theme, told that the box pads itself: a part that pads its words stops. */
+export function applyPad(t: Theme, pad: NodePad | null | undefined): Theme {
+  return pad ? { ...t, tight: true } : t;
+}
+
+/**
+ * The box's own style, round the part. Layout, padding and edge are the
+ * box's; alignment and case are inherited by the words inside it, and a
+ * part that sets its own case keeps it.
+ */
+export function boxStyle(n: NodeBox, t: Theme, palette?: Palette): React.CSSProperties {
+  const s: React.CSSProperties = {};
+  const l = n.layout;
+  if (l) {
+    if (l.display) s.display = l.display;
+    if (l.direction) s.flexDirection = l.direction;
+    if (l.align) s.alignItems = l.align;
+    if (l.justify) s.justifyContent = l.justify;
+    if (typeof l.gap === "number" && Number.isFinite(l.gap)) s.gap = Math.max(0, l.gap);
+    if (l.wrap) s.flexWrap = "wrap";
+    if (l.display === "grid" && typeof l.columns === "number" && l.columns > 0) s.gridTemplateColumns = `repeat(${Math.round(l.columns)}, minmax(0, 1fr))`;
+  }
+  const p = n.pad;
+  if (p) {
+    const px = (v: number | undefined) => `${typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0}px`;
+    s.padding = `${px(p.top)} ${px(p.right)} ${px(p.bottom)} ${px(p.left)}`;
+  }
+  const e = n.edge;
+  if (e) {
+    const width = typeof e.width === "number" && Number.isFinite(e.width) ? Math.max(0, e.width) : 1;
+    const style = e.style ?? "solid";
+    const raw = (e.colour ?? "").trim();
+    const colour = raw && (ROLES as readonly string[]).includes(raw) && palette ? palette[raw as RoleId] : raw && parseColor(raw) ? raw : t.line;
+    s.border = style === "none" || width === 0 ? "none" : `${width}px ${style} ${colour}`;
+  }
+  const x = n.text;
+  if (x?.align) s.textAlign = x.align === "start" ? "left" : x.align === "end" ? "right" : x.align;
+  if (x?.transform) s.textTransform = x.transform;
+  return s;
 }
 
 export const FAMILY: Record<string, string> = {
@@ -271,7 +363,7 @@ export function radiusFor(shape: string | undefined, t: Theme): number {
 }
 
 export function boxStyles(t: Theme): React.CSSProperties {
-  const base: React.CSSProperties = { borderRadius: t.radius, padding: t.boxPad };
+  const base: React.CSSProperties = { borderRadius: t.radius, padding: t.tight ? 0 : t.boxPad };
   switch (t.boxStyle) {
     case "bordered": return { ...base, border: `1px solid ${t.line}` };
     case "filled": return { ...base, background: t.surface };
