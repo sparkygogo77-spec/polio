@@ -100,8 +100,25 @@ check("with the other page's own words on it, not a box that looks like one", on
 
 const box = await cube.boundingBox();
 const before = await cube.getAttribute("data-cube-turn");
-/* Select it first: a cube on the board turns once it is the part in hand. */
-await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+/*
+ * OPEN IT FIRST, WHICH IS TWO PRESSES.
+ *
+ * This clicked once and dragged, because a cube on the board used to turn
+ * the moment it was SELECTED. That was a bug of its own, in his words:
+ * "once i selected something i have to click off and then clicck and hold
+ * to drag." Selecting one handed it the pointer, so the press that would
+ * have moved it turned it instead. One press selects and moves now, like
+ * every part on the board; two say "I am turning this one", and the ground
+ * closes it again — `HANDS_ON` and `handsOn` in `Canvas.tsx`, held by
+ * `tests/selected-drags.mjs`, and every other cube suite opens it this way.
+ *
+ * This check was the only one left on the old gesture and it had been red
+ * since. Worth saying how narrowly: the wait below was 500ms and two presses
+ * count as one gesture within 400ms (`DOUBLE_MS`), so a machine a fifth
+ * faster would have opened the cube by accident and this would have passed
+ * without anybody learning that the gesture had changed.
+ */
+await page.mouse.dblclick(box.x + box.width / 2, box.y + box.height / 2);
 await page.waitForTimeout(500);
 const held = await page.locator("[data-cube]").first().boundingBox();
 await page.mouse.move(held.x + held.width / 2, held.y + held.height / 2);

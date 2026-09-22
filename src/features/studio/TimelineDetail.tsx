@@ -558,31 +558,6 @@ export function TimelinePanel() {
   const made = open.madeId ? (nodes.find((n) => n.id === open.madeId) ?? null) : null;
   const u = open.usage;
   const bill = u ? sayBill({ dollars: u.cost ?? 0, ms: u.ms ?? 0, calls: u.calls ?? 0, claude: u.claude, renderer: u.renderer }) : "";
-  /*
-   * Each side leads with the thing and follows with the words.
-   *
-   * The drawing used to sit above both blocks on its own and the output was
-   * a paragraph: "four closed shapes, two of them circles" where the element
-   * itself was two inches away on the board. A description of a thing is not
-   * the thing. So the drawing is *inside* Input, because the drawing is what
-   * went in, and the part is inside Output, live, because the part is what
-   * came out; what Claude said stays under it, as the record of the call.
-   */
-  const Block = ({ head, text, what, show }: { head: "Input" | "Output"; text: string; what: string; show?: React.ReactNode }) => (
-    <section data-panel-block={head.toLowerCase()} className="border-b px-3 py-2.5" style={{ borderColor: skin.rim }}>
-      <div className="mb-1 flex items-center">
-        <span className="text-fine font-medium uppercase tracking-[0.18em]" style={{ color: skin.dim }}>{head}</span>
-        <span className="flex-1" />
-        <Button variant="ghost" size="xs" onClick={() => void ctx.copy(text, what)} style={{ color: skin.dim }}>
-          <Copy className="size-3" />
-        </Button>
-      </div>
-      {show ? <div className="mb-1.5">{show}</div> : null}
-      <p className="whitespace-pre-wrap text-large leading-snug" style={{ color: skin.text }}>
-        {text || `nothing ${head === "Input" ? "was typed with this one" : "came back"}`}
-      </p>
-    </section>
-  );
   return (
     <div data-timeline-panel="" data-timeline-panel-of={open.id} className="flex min-h-0 flex-col">
       <div className="border-b px-3 py-2" style={{ borderColor: skin.rim, background: skin.raised }}>

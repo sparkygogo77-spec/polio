@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 import { resolvePart, type NodeLink, type PartEvent, type PartMode, type Theme } from "./parts";
-import { applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme } from "./parts/theme";
+import { applyEdge, applyFont, applyPad, applyText, boxStyle, hasBox, liftTheme, overrideTheme } from "./parts/theme";
 import { textureCss, type Light, type Palette, type TextureLayer, driftKeyframes } from "./look";
 import { frameDoc, hasBody } from "./snippet";
 import { paintRoles, roleVars } from "./bodyPaint";
@@ -129,7 +129,14 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
     : null;
   // A part can repaint any of the six roles for itself, set its own type and
   // say how its words sit; everything else follows the site.
-  const painted = applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font), node.text), node.pad);
+  //
+  // Each of these records what the node SAID as well as applying it, because
+  // a part cannot otherwise tell his choice from the site's default and so
+  // cannot honour one without overruling the other. `applyEdge` paints
+  // nothing at all — the edge is the box wrapper's below — it only carries
+  // the fact, so a part that draws its own edge can stand aside for his.
+  // See `NodeSaid` in `parts/theme.ts`.
+  const painted = applyEdge(applyPad(applyText(applyFont(node.colour && palette ? overrideTheme(siteTheme, node.colour, palette) : siteTheme, node.font), node.text), node.pad), node.edge);
   // …and wear one texture layer of its own, or none, whatever the site does.
   const worn = node.texture && node.texture !== "none" ? layers?.find((l) => l.id === node.texture) : undefined;
   const dressed = React.useMemo(() => {

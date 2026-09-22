@@ -325,17 +325,38 @@ check("the side panel stays up in the timeline", /\{book && libraryOpen \? \(/.t
 check("and in the timeline it carries the card you clicked", /<TimelinePanel \/>/.test(studio));
 const detail = readFileSync("src/features/studio/TimelineDetail.tsx", "utf8");
 check("that panel reads the open card, and only it", /const open = threads\.find\(\(t\) => t\.id === openId\) \?\? null;/.test(detail.slice(detail.indexOf("export function TimelinePanel"))));
-check("with its own Input and Output, distinctly",
-  /head="Input"\n\s+text=\{open\.ask\}/.test(detail) && /head="Output"\n\s+text=\{open\.answer\}/.test(detail));
 /*
- * And each of them leads with the thing. The drawing sat above both blocks
- * on its own and the output was a paragraph — "four closed shapes, two of
- * them circles" — with the element itself two inches away on the board.
+ * AND THE PANEL IS HIS THREE LINES, NOT A SECOND COPY OF THE CARD.
+ *
+ * These three used to pin an Input block and an Output block in the panel,
+ * with the drawing inside one and the part inside the other. That panel is
+ * gone, on purpose: it was replaced by his three lines, read back to him and
+ * approved in his own words —
+ *
+ *   say what this thing should be, and show me the drawing if i drew one
+ *   pick what makes it, and tell me what it costs before i press anything
+ *   press make, and when it comes back put it on the page
+ *
+ * — and `tests/finish-panel.mjs` holds that shape in depth (the three
+ * blocks, no bill line, one route choice rather than two, a price before the
+ * press). Nothing was lost with the old blocks: Input and Output are on the
+ * CARD, pinned a few lines above this, drawing and part and all. The panel
+ * was carrying a duplicate and the duplicate is what went.
+ *
+ * What is held here is only what this suite is about — that the side panel
+ * reads the open card and leads with the thing rather than words about it.
+ * The shape itself belongs to `finish-panel`, and pinning it twice is how
+ * two suites end up disagreeing about one panel.
  */
-check("…the drawing inside Input, because the drawing is what went in",
-  /show=\{open\.sketch\?\.strokes\?\.length \? \(/.test(detail));
-check("…and the part inside Output, live, because the part is what came out",
-  /show=\{open\.madeId \? <Made thread=\{open\} skin=\{skin\} width=\{186\} height=\{120\} live \/> : null\}/.test(detail));
+check("the panel is his three numbered steps, not a second Input/Output of its own",
+  /data-panel-block=\{mark\}/.test(detail) && /mark="say" n=\{1\}/.test(detail) && /mark="make" n=\{2\}/.test(detail) && /mark="take" n=\{3\}/.test(detail)
+  && !/head="Input"/.test(detail) && !/head="Output"/.test(detail));
+check("…leading with the drawing, because the drawing is what he said it with",
+  /<Step mark="say"[\s\S]{0,400}open\.sketch\?\.strokes\?\.length \? \([\s\S]{0,200}<Drawn sketch=\{open\.sketch\}/.test(detail));
+check("…and saying what a run costs before he presses anything, which is his money rule",
+  /data-panel-price=""/.test(detail) && /function priceAhead\(/.test(detail) && /<Step mark="take"[\s\S]{0,600}data-panel-make=""/.test(detail));
+check("…with nothing of the old panel left behind it: no block component nothing renders",
+  !/const Block = \(\{ head, text, what, show \}/.test(detail));
 check("and says what to do when nothing is open", /data-timeline-panel-empty=""/.test(detail));
 
 /* ------------------------------------------------------------------ */

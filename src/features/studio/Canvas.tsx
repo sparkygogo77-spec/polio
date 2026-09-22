@@ -46,6 +46,7 @@ import { ctxProps } from "@/core/context-menu/ctx";
 import { play } from "@/core/audio/engine";
 import { haptic } from "@/core/feedback/haptics";
 import { openRadial, pageSpot } from "./RadialMenu";
+import { useSettleToWords } from "./textFit";
 
 const GRID = 8;
 
@@ -165,6 +166,19 @@ export function Canvas() {
     });
   }, [news]);
   const nodes = useStudio(useShallow(pageNodes));
+  /*
+   * A BOX THAT GREW MOVES WHAT FOLLOWS IT, WHENEVER IT GROWS.
+   *
+   * The floor in `parts/primitives.tsx` keeps a box's words visible by
+   * letting it draw taller than the document says; nothing moved what sat
+   * under it unless a flex parent happened to be doing the moving, and on
+   * his captured Documentation page twenty-one pairs of parts crossed each
+   * other because of it. The arithmetic already existed and ran once, at
+   * the end of one import; it is kept up here instead. Captured parts only,
+   * and a board with nothing captured on it never settles at all.
+   * See `useSettleToWords`.
+   */
+  useSettleToWords(nodes, React.useCallback((f) => useStudio.getState().settleToWords(f), []));
   const shapes = useStudio(useShallow(pageShapes));
   /* Read here rather than off `getState()` in a handler, because the page's
      own height depends on it: a space drawn below the last part makes the
@@ -930,6 +944,44 @@ export function Canvas() {
         pressed.current = { id, at: e.timeStamp, x: p.x, y: p.y };
         if (again && node && !node.locked && HANDS_ON.has(node.featureId) && ids.length === 1) {
           store.hold(id);
+          return;
+        }
+        /*
+         * A BUTTON IN THE BUILDER IS PRESSABLE IN THE BUILDER.
+         *
+         * His words: a button should be pressable here and take him to the
+         * page it links to. His captured sidebar carries nine pages he could
+         * only reach from the tab bar, which makes a correct import feel
+         * dead.
+         *
+         * The SAME gesture as opening a solid, deliberately — one press
+         * selects and moves, two say "I mean this one" — because he is one
+         * person learning one tool and a second way to press things would
+         * cost him more than it buys. A solid opens for handling; a part
+         * that points somewhere goes there. Nothing else on the board takes
+         * a press, so the board stays a layout surface.
+         *
+         * Only a part that reads its own link (`isLinkable`), and only when
+         * it has one: a double press on anything else still falls through to
+         * the drag below, exactly as it did.
+         */
+        if (again && node && !node.locked && ids.length === 1 && node.link && isLinkable(node.featureId)) {
+          const link = node.link;
+          if (link.kind === "url") {
+            play("confirm");
+            window.open(link.target, "_blank", "noopener");
+            return;
+          }
+          if (link.kind === "node") {
+            const to = store.nodes.find((n) => n.id === link.target);
+            if (to) { play("select"); store.setSelection([to.id]); }
+            return;
+          }
+          /* By id or by name, the way the live page resolves it, so the
+             board and the site cannot disagree about where a link goes. */
+          const to = resolvePageLink(store.pages, link.target);
+          if (to) { play("confirm"); store.setActivePage(to.id); }
+          else news.publish({ key: `studio:link:${id}`, title: "That link points at no page", body: `Nothing here is called “${link.target}” yet.`, level: "warn", source: "studio", toast: { durationMs: 6000 } });
           return;
         }
         capture();
