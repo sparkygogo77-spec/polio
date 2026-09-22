@@ -290,6 +290,35 @@ every part at tablet or phone was stacked into one column and his header,
 his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
 measures the board and Preview at Tablet off a page shaped like his.
 
+**A box displaces only what it actually stands under.** The healing above
+cleared every overlap on his Documentation page and left it full of holes:
+1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost
+exactly the height gained — and of the twelve widest, twelve had no horizontal
+span in common between the pair above and below. A 45px flame at x603-633 was
+pushing "Seamless Token Swapping" at x1309-1457 down by 493px. Zero crossings
+was true and it was not the result: his standing rule is that a capture stays
+true to its size and its ratios, and doubling the page height breaks that more
+visibly than the overlap did. The cause was ONE RUNNING TOTAL: rows were taken
+in order down the page and every growth, and every overlap prised apart, was
+added to a single `shift` that every later row then took, whatever column it
+was in. The floor asked the right question — what does this stand under — and
+the answer was applied to everything below it. The growth path had the same
+fault and had carried it since the first commit. So there is no running total:
+`fitRows` places each box against the boxes it actually stands under (above
+it, sharing some of its width, neither holding the other), keeping the gap the
+capture recorded and clamping it at zero so a pair saved into each other is
+laid apart. Two boxes in different columns share no span and can never
+displace each other. This REPLACES the row banding rather than restoring it —
+rows were never the right unit, only a cheap stand-in for "what is above me",
+and they are why a stored overlap was invisible. Three cards side by side
+still push the page down once, now for a reason: what sits under all three is
+placed against each and keeps the largest answer. Measured the way he measures
+it, in `tests/grew-moves.mjs`: on a three-column page at his own x-spans,
+nothing outside the body column moves and healing opens no empty space inside
+any column. Counting gaps between parts consecutive by top edge is NOT safe
+there — when one column moves, the sequence reorders and pairs that were never
+adjacent get named — so emptiness is measured down each column instead.
+
 **An old board heals itself on load, and a box he moved is his.** Two things
 were wrong with the healing above. Its gate was `from` — the live element a
 part was recreated from — and `from` is written on ONE import door

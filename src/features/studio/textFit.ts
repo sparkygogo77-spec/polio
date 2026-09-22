@@ -32,8 +32,6 @@
  * dragging every box taller by hand.
  */
 import * as React from "react";
-import { toRows } from "./live/reflow";
-import type { StudioNode } from "./store";
 
 /** A box as it stands, and the height it actually drew at. */
 export interface Drawn {
@@ -69,67 +67,73 @@ export interface Fitted {
  * import rather than only after a bad one.
  */
 export function fitRows(boxes: readonly Drawn[], grows?: (id: string) => boolean): Fitted[] {
-  /* `toRows` reads x, y, w and h and nothing else; these carry all four.
-     Every box is handed in, whether or not it may grow, because what counts
-     as one row is a fact about the page and not about who is allowed to
-     move: leaving a part out here would put the ones beside it in rows of
-     their own and push the page down once for each. */
-  const by = new Map(boxes.map((b) => [b.id, b]));
-  const rows = toRows(boxes.map((b) => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) as unknown as StudioNode[])
-    .flatMap((row) => stacked(row.map((r) => by.get(r.id)!).filter(Boolean)));
+  /*
+   * WHAT A BOX STANDS UNDER, NOT WHAT COMES AFTER IT IN THE LIST.
+   *
+   * This carried one running total. Rows were taken in order down the page
+   * and every growth, and every overlap prised apart, was added to a single
+   * `shift` that every later row then took — whatever column it was in. The
+   * floor already asked the right question when it looked for what a row
+   * stood under; the answer was then applied to everything below it on the
+   * page.
+   *
+   * On his three-column Documentation page that was catastrophic and the
+   * numbers say it plainly: 2403px tall became 5323px, sixteen gaps over
+   * 60px totalling 2876px — almost exactly the height gained — and of the
+   * twelve widest gaps, twelve had NO horizontal span in common between the
+   * pair above and below. A 45px flame at x603-633 was pushing "Seamless
+   * Token Swapping" at x1309-1457 down by 493px. Sidebar entries at x303-451
+   * were pushing body paragraphs at x603-1158 down by up to 238. Zero
+   * crossings was true and it was not the result: his standing rule is that
+   * a capture stays true to its size and its ratios, and doubling the height
+   * of the page breaks that more visibly than the overlap it fixed.
+   *
+   * So there is no running total at all. Every box is placed against the
+   * boxes it actually STANDS UNDER — the ones above it that share some of
+   * its width — and against nothing else. Two boxes side by side in
+   * different columns share no span, so neither can ever displace the other,
+   * which is the whole of what was wrong.
+   *
+   * One relation does both jobs. For each box above this one that it stands
+   * under, the gap the capture recorded between them is kept — and clamped
+   * at zero, so a pair that was saved INTO each other is laid apart instead.
+   * Growth propagates because the box above is placed before this one and
+   * its new height is what the gap is measured from. That is why this
+   * replaces the row banding rather than restoring it: rows were never the
+   * right unit, they were a cheap stand-in for "what is above me", and they
+   * are the reason a stored overlap was invisible in the first place.
+   *
+   * Three cards side by side still push the page down once rather than three
+   * times, and now for a reason rather than by grouping: what sits under all
+   * three takes the LOWEST of the three, because it is placed against each
+   * of them and keeps the largest answer.
+   */
+  const order = [...boxes].sort((a, b) => a.y - b.y || a.x - b.x);
+  const put = new Map<string, { y: number; h: number }>();
   const out: Fitted[] = [];
-  /* What has already been given a place, so a row can be laid under it. */
-  const placed: Drawn[] = [];
-  let shift = 0;
-  for (const row of rows) {
-    /*
-     * A ROW STARTS BELOW WHAT IT SITS UNDER.
-     *
-     * Propagating growth was the whole of this, and it only ever repaired an
-     * overlap that growth had CREATED. An overlap already written into the
-     * document — a capture that recorded a box and the one under it 50px
-     * into each other, or heights an older one-shot tidy left behind — was
-     * invisible to it: neither box was drawing taller than it was saved, so
-     * there was no growth to propagate, and `toRows` banded the two into one
-     * row (they share more than a third of the shorter one's height), where
-     * every member takes the same shift and nothing is ever moved apart.
-     * That is what survived on his Documentation page after the rest healed.
-     *
-     * So the floor is carried: a row is laid below the lowest thing already
-     * placed that it stands over. Only what it stands OVER — a part off to
-     * the side is nothing to do with it — and never a box that holds this
-     * one or is held by it, because a captured page is wrappers round
-     * wrappers and prising a child out of its parent would be a far worse
-     * fault than the one being fixed.
-     */
-    const top = Math.min(...row.map((b) => b.y)) + shift;
-    let floor = -Infinity;
-    for (const b of row) for (const p of placed) {
-      if (!across(b, p) || holds(b, p) || holds(p, b)) continue;
-      floor = Math.max(floor, p.y + p.h);
+  for (let i = 0; i < order.length; i++) {
+    const b = order[i]!;
+    const mayMove = !grows || grows(b.id);
+    /* A box that is his is not touched — not grown, not shifted. It still
+       stands on the page, so what comes under it is still laid under it: he
+       put it there and his placement is a decision, where the capture's was
+       an accident of measurement. */
+    const h = mayMove ? Math.max(b.h, Math.round(b.drew)) : b.h;
+    let y = b.y;
+    if (mayMove) {
+      for (let j = 0; j < i; j++) {
+        const p = order[j]!;
+        /* Above it, standing over it, and neither one holding the other —
+           a captured page is wrappers round wrappers, and prising a child
+           out of its parent is far worse than any overlap. */
+        if (p.y >= b.y || !across(b, p) || holds(b, p) || holds(p, b)) continue;
+        const was = put.get(p.id) ?? { y: p.y, h: p.h };
+        const gap = Math.max(0, b.y - (p.y + p.h));
+        y = Math.max(y, was.y + was.h + gap);
+      }
     }
-    if (floor > -Infinity) shift += Math.max(0, floor - top);
-    let grew = 0;
-    for (const b of row) {
-      /*
-       * A BOX THAT IS HIS IS NOT TOUCHED — not grown, not shifted.
-       *
-       * It still stands on the page, so it is still part of its row and
-       * still a floor for what comes under it. What it is not is moved: he
-       * put it there. The cost is that a part of his can end up sitting
-       * over one that grew, and that is the right way round — his placement
-       * is a decision and the capture's was an accident of measurement.
-       */
-      const mayMove = !grows || grows(b.id);
-      const h = mayMove ? Math.max(b.h, Math.round(b.drew)) : b.h;
-      const y = mayMove ? Math.round(b.y + shift) : b.y;
-      grew = Math.max(grew, h - b.h);
-      if (h !== b.h || y !== b.y) out.push({ id: b.id, h, y });
-      /* Placed at where it now is, so the next row is laid under the truth
-         rather than under where this box used to be. */
-      placed.push({ ...b, y, h });
-    }
-    shift += grew;
+    put.set(b.id, { y, h });
+    if (h !== b.h || y !== b.y) out.push({ id: b.id, h, y });
   }
   return out;
 }
@@ -142,33 +146,6 @@ function across(a: Drawn, b: Drawn): boolean {
 /** Does the first hold the second whole? A wrapper and its child, not a clash. */
 function holds(a: Drawn, b: Drawn): boolean {
   return a.x <= b.x + 1 && a.y <= b.y + 1 && a.x + a.w >= b.x + b.w - 1 && a.y + a.h >= b.y + b.h - 1;
-}
-
-/**
- * One of `toRows`'s rows, cut into the things that are actually side by side.
- *
- * `toRows` asks one question — do these share a horizontal band — because
- * that is the right question for the live reflow, where a row is what
- * squeezes across together. Two boxes lying ON each other share a band
- * perfectly, so it calls them a row, and a row moves as one. For laying a
- * page out that is correct; for pulling two boxes off each other it is the
- * blind spot. So the row is cut here, in the tidy, and `toRows` is left
- * alone — it is the live page's, held verbatim against the trunk algorithm
- * by `tests/reflow-same.mjs`, and a change there would be a change to every
- * page at every width.
- *
- * Boxes that hold each other stay together: a wrapper is not stacked on its
- * child, it is round it.
- */
-function stacked(row: readonly Drawn[]): Drawn[][] {
-  if (row.length < 2) return [row as Drawn[]];
-  const out: Drawn[][] = [];
-  for (const b of [...row].sort((m, n) => m.y - n.y || m.x - n.x)) {
-    const beside = out.find((r) => r.every((o) => !across(b, o) || holds(b, o) || holds(o, b)));
-    if (beside) beside.push(b);
-    else out.push([b]);
-  }
-  return out;
 }
 
 /**

@@ -251,6 +251,90 @@ check("a board he laid out himself is not healed, overlaps and all",
   mine.saved.a.y === 100 && mine.saved.a.h === 40 && mine.saved.b.y === 120 && mine.saved.b.h === 60,
   `a y${mine.saved.a.y} h${mine.saved.a.h}, b y${mine.saved.b.y} h${mine.saved.b.h}`);
 
+
+/* ------------------------------------------------------------------ */
+/* 6. A box only ever displaces one it actually stands under           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * HIS PAGE, AND WHY ZERO CROSSINGS WAS NOT THE RESULT.
+ *
+ * The healing cleared every overlap on his Documentation page and left it
+ * full of holes: 1763x2403 became 1763x5323, sixteen gaps over 60px
+ * totalling 2876px — almost exactly the height gained. Of the twelve widest,
+ * TWELVE had no horizontal span in common between the pair above and below.
+ * A 45px flame at x603-633 was pushing "Seamless Token Swapping" at
+ * x1309-1457 down by 493px; sidebar entries at x303-451 were pushing body
+ * paragraphs at x603-1158 down by up to 238.
+ *
+ * The cause was one running total. Rows were taken in order down the page
+ * and every growth, and every overlap prised apart, was added to a single
+ * shift that every later row then took, whatever column it was in. The floor
+ * asked the right question — what does this stand under — and the answer was
+ * applied to everything below it on the page. The growth path had the same
+ * fault and had carried it from the first commit.
+ *
+ * So: three columns at his own x-spans, the two real overlaps in the body,
+ * and six body paragraphs whose words need more than the capture recorded.
+ * Nothing outside the body column may move by a pixel, and healing may not
+ * add a pixel of emptiness inside any column.
+ */
+const SIDE_X = 303, SIDE_W = 148, BODY_X = 603, BODY_W = 555, RAIL_X = 1309, RAIL_W = 148;
+const LONG = "Solana keeps every SPL Token account rent exempt, so the storage cost is paid once and the account lives for as long as the balance stays above the threshold that Jupiter quotes for the pair.";
+const threeUp = [];
+for (let i = 0; i < 14; i++) threeUp.push(node(`side${i}`, "prose", ["INTEGRATIONS","Tokens","LP","Unknown Tab","Swap","Burn","Close","Rent","Fees","Docs","API","Status","Legal","Contact"][i], SIDE_X, 120 + i * 150, SIDE_W, 40, BOXY));
+for (let i = 0; i < 9; i++) threeUp.push(node(`rail${i}`, "prose", ["Seamless Token Swapping","Docs","Support","Changelog","Roadmap","Brand","Press","Jobs","Terms"][i], RAIL_X, 140 + i * 240, RAIL_W, 60, BOXY));
+threeUp.push(node("bwrap", "box", "", BODY_X, 100, BODY_W, 115, BOXY));
+threeUp.push(node("breclaim", "prose", "Reclaim lost SOL by closing empty token accounts", BODY_X, 165, BODY_W, 88, BOXY));
+threeUp.push(node("bflame", "prose", "\u{1F525}", BODY_X, 300, 30, 45, BOXY));
+threeUp.push(node("bsolcin", "prose", "SOLCINERATOR is Solana's original wallet cleanup tool", BODY_X, 400, BODY_W, 96, BOXY));
+threeUp.push(node("bul", "prose", "SPL Token accounts\nstorage costs\nJupiter", BODY_X, 465, BODY_W, 144, BOXY));
+for (let i = 0; i < 6; i++) threeUp.push(node(`body${i}`, "prose", LONG, BODY_X, 700 + i * 280, BODY_W, 36, BOXY));
+
+const columns = JSON.stringify({ state: {
+  pages: [{ id: "p0", name: "Documentation", path: "/", prompt: "", scroll: "inherit" }],
+  nodes: threeUp, groups: [], shapes: [], format: {}, brief: { name: "SOLCINERATOR", gimmick: "", master: "" },
+  frameWidth: 1763, activePageId: "p0", trail: [],
+}, version: 0 });
+
+/* Empty space with nothing in it, measured DOWN A COLUMN. Counting gaps
+   between parts consecutive by top edge is not safe on a three-column page:
+   when one column moves the sequence by top edge reorders and pairs that
+   were never adjacent get named, so the count moves without any space having
+   opened. Parts are grouped by the width they share instead. */
+const emptiness = (list) => {
+  const cols = [];
+  for (const n of [...list].sort((a, b) => a.x - b.x)) {
+    const c = cols.find((col) => col.some((m) => Math.min(m.x + m.w, n.x + n.w) - Math.max(m.x, n.x) > 0));
+    if (c) c.push(n); else cols.push([n]);
+  }
+  let total = 0;
+  for (const col of cols) {
+    const down = [...col].sort((a, b) => a.y - b.y);
+    for (let i = 1; i < down.length; i++) {
+      const floor = Math.max(...down.slice(0, i).map((n) => n.y + n.h));
+      if (down[i].y - floor > 60) total += down[i].y - floor;
+    }
+  }
+  return Math.round(total);
+};
+
+const cols = await open(columns);
+const laidOut = Object.entries(cols.saved).map(([id, b]) => ({ id, ...b }));
+check("the three-column page crosses nowhere", crossings(cols.drawn).length === 0, crossings(cols.drawn).join("; ") || "no pairs cross");
+const strayed = laidOut.filter((n) => !/^(bwrap|breclaim|bflame|bsolcin|bul|body)/.test(n.id))
+  .filter((n) => n.y !== threeUp.find((o) => o.id === n.id).y);
+check("nothing outside the body column moved at all: a part that shares no width with what grew is untouched",
+  strayed.length === 0, strayed.length ? `${strayed.length} moved — ${strayed.slice(0, 8).map((n) => n.id).join(", ")}` : "sidebar and rail exactly where they were");
+const before = emptiness(threeUp), after = emptiness(laidOut);
+check("and healing opened no empty space inside any column", after <= before, `${before}px before, ${after}px after`);
+check("…so the page grew only by what the body's own words needed",
+  Math.max(...laidOut.map((n) => n.y + n.h)) - Math.max(...threeUp.map((n) => n.y + n.h)) < 400,
+  `${Math.max(...threeUp.map((n) => n.y + n.h))} → ${Math.max(...laidOut.map((n) => n.y + n.h))}`);
+check("…while the two real overlaps in the body are still gone",
+  cols.saved.breclaim.y >= cols.saved.bwrap.y + cols.saved.bwrap.h && cols.saved.bul.y >= cols.saved.bsolcin.y + cols.saved.bsolcin.h,
+  `reclaim ${cols.saved.breclaim.y} under ${cols.saved.bwrap.y + cols.saved.bwrap.h}, list ${cols.saved.bul.y} under ${cols.saved.bsolcin.y + cols.saved.bsolcin.h}`);
+
 await browser.close();
 const bad = results.filter((r) => !r).length;
 console.log(`\n${bad ? `${bad} FAILED` : "all good"} — ${results.length - bad}/${results.length}`);
