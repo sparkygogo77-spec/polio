@@ -13,6 +13,7 @@ import { ChevronDown, Circle, CircleDashed, Clapperboard, Ellipsis, Image as Ima
 import { Bakers } from "./Bakers";
 import { Canvas } from "./Canvas";
 import { ImportStrip } from "./FromASite";
+import { BringRepoDoor } from "./RepoPicker";
 import { NewSiteOffer } from "./NewSiteOffer";
 import { placeBring, takeKeptBring } from "./bringRepo";
 import { Workspace } from "./Workspace";
@@ -550,6 +551,15 @@ function Toolbar({ libraryOpen, onToggleLibrary }: { libraryOpen: boolean; onTog
           look at it, then finish it. */}
       <span className="mx-1 h-4 w-px bg-border" />
       {folding ? <MoreTools shape={shape} menuOpen={menuOpen} showWires={showWires} zoom={zoom} tool={tool} inkHue={inkHue} onUpdates={() => setUpdatesOpen(true)} /> : null}
+      {/* THE WAY IN, and it lives in the bar because a row above the board
+          would move the board — which is the one thing the Builder promises
+          not to do, and it moved a drawn space out from under a suite that
+          draws by coordinate. He made a fresh site, went looking for a way
+          to pull a repository into it, searched the palette for "import"
+          and for "site", and there was none: the Builds page's field only
+          binds where Publish pushes, and the GitHub control draws nothing
+          at all until a site already has a repository or a token. */}
+      <BringRepoDoor />
       <UpdatesToggle open={updatesOpen} onOpenChange={setUpdatesOpen} />
       <PreviewToggle />
       <ProcessCounter />

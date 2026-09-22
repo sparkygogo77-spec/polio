@@ -2,6 +2,7 @@ import { Brush, CircleDashed, ClipboardPaste, Copy, Eraser, Eye, EyeOff, Frame, 
 import { defineFeature, type ActionContext, type ContextTarget, type MenuEntry } from "@/core/types";
 import { StudioPage } from "./StudioPage";
 import { GithubButton } from "./GithubButton";
+import { openRepoPicker } from "./RepoPicker";
 import { siteFormatSettings } from "./siteSettings";
 import { QueueStrip } from "./QueueStrip";
 import { PreviewPage } from "./live/PreviewPage";
@@ -164,6 +165,16 @@ export const studio = defineFeature({
 
   commands: [
     { id: "studio.open", label: "Open the Builder", group: "Builder", icon: LayoutTemplate, keywords: ["board", "parts", "design"], run: (c) => c.navigate("/builder") },
+    /* He searched the palette for "import" and for "site" and found nothing
+       but "put every removed part back". Both words are keywords here. */
+    {
+      id: "studio.bringRepo",
+      label: "Builder: bring a repository in",
+      group: "Builder",
+      icon: Link,
+      keywords: ["import", "repo", "repository", "github", "site", "bring", "attach", "connect"],
+      run: (c) => { c.navigate("/builder"); openRepoPicker(); },
+    },
     { id: "studio.library", label: "Builder: show or hide the side panel", group: "Builder", icon: Layers, when: onStudio, run: () => (window as unknown as { __studioToggleLibrary?: () => void }).__studioToggleLibrary?.() },
     { id: "studio.compile", label: "Builder: compile the blueprint", group: "Builder", icon: Send, when: onStudio, run: () => (window as unknown as { __studioOpenBrief?: () => void }).__studioOpenBrief?.() },
     {

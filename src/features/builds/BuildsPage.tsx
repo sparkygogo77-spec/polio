@@ -280,7 +280,7 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
           placeholder="owner/name"
           spellCheck={false}
           className="h-7 w-52 text-xs"
-          aria-label={`Repository for ${project.name}`}
+          aria-label={`Publish ${project.name} to this repository`}
         />
         <span className="text-fg-faint">·</span>
         <Input
@@ -291,11 +291,17 @@ function RepoRow({ project, active }: { project: Project; active: boolean }) {
           placeholder="main"
           spellCheck={false}
           className="h-7 w-28 text-xs"
-          aria-label={`Branch for ${project.name}`}
+          aria-label={`Publish ${project.name} to this branch`}
         />
         <Button size="xs" variant={changed ? "primary" : "outline"} disabled={!changed || (!!draft.trim() && !parsed)} onClick={commit}>
           {saved ? <Check /> : null}
-          {saved ? "Set" : "Use this"}
+          {/* IT IS NOT THE ATTACH CONTROL AND MUST STOP READING LIKE ONE.
+              "Use this" on a field called Repos is what he pressed expecting
+              the repository to come in; it bound where Publish pushes and
+              brought nothing, and the site stayed empty with no word said.
+              Bringing a repository in is its own control now, in the
+              Builder, where the board it lands on is. */}
+          {saved ? "Set" : "Publish here"}
         </Button>
         {project.repo ? (
           <a
