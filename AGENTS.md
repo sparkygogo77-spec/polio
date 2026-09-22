@@ -362,6 +362,31 @@ sitting at zero is a box that is already there and empty. "Haven't seen the
 timeline yet" includes a session that has only just started, which reverses
 the older rule that a reload showed everything as it stood.
 
+**A box that holds words is never shorter than its words** (`textFit.ts`,
+`tests/words-fit.mjs`). A captured part carries the width and height the
+page it came from was measured at, and every renderer treated that as a
+ceiling: "PnL Over Time" came in at 143 by 41, its words needed more than
+41, and they were gone — not deleted, pushed into a scroll region on a board
+nobody can scroll. His rule: captured geometry is a starting size, never a
+ceiling.
+
+The floor is CSS and it is the guarantee. Three boxes used to pin a part to
+the node's height — `Fill` in `parts/primitives.tsx`, the `data-part-box` a
+captured node wears in `blocks.tsx`, and the board's own part wrapper in
+`Canvas.tsx`, which was `absolute inset-0` and so could never be taller than
+the node. They set a minimum now and grow past it, on the board and on the
+live page alike, so the part draws at the size its words need whatever face
+resolved and whatever was typed since.
+
+A height written onto a node is a CONVENIENCE and never the truth. After an
+import the tidy reads back what each box drew at, writes those heights down
+and moves what sits below down by the growth — his words, "the texts should
+follow each other based on full size" — in one undo step, by rows, so three
+cards side by side push the page down once rather than three times. Those
+numbers are measured against whatever face resolved that day; a face that
+resolves wider later makes them too small, and the CSS floor is what keeps
+the words visible when they are.
+
 **A control is dead if the pixels do not move.** That is the test, and the
 light panel is where it was written: `tests/light-alive.mjs` moves every
 control end to end and reads the board back as pixels. Two were dead. "How

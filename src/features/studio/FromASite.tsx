@@ -47,6 +47,7 @@ import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio, type StudioNode } from "./store";
 import { lockNow } from "./surfaceRun";
+import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
 
 type Source =
@@ -591,12 +592,29 @@ export function FromASite({ space }: { space: Space }) {
     const fit = fitToSurface(boundaryBox(live.boundary), got.width, readings.map((r) => r.box));
     // The surface takes the page's proportion at the width it was drawn.
     useStudio.getState().resizeSpace(space.id, fit.surface);
+    const ids: string[] = [];
     const landed = readings.map((reading, i) => {
       const made = recreateFrom(reading);
       const at = fit.places[i]!;
-      useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h, font: scaledType(made.patch.font, fit.scale) });
+      ids.push(useStudio.getState().addNode(String(made.patch.featureId), at.x, at.y, { ...made.patch, w: at.w, h: at.h, font: scaledType(made.patch.font, fit.scale) }));
       return made;
     });
+    /*
+     * THE PAGE FOLLOWS ITS OWN WORDS. A captured box carries the height the
+     * page it came from measured, and the words need what they need here:
+     * a box grows on screen already (the floor in `parts/primitives.tsx`),
+     * and this writes those heights down and moves what is under them down
+     * by the growth, so he is not extending every box by hand. His words:
+     * the texts should follow each other based on full size.
+     *
+     * Not awaited: the import is finished, and the tidy lands a moment
+     * later as one undo step of its own.
+     */
+    void tidyToWords(
+      ids,
+      (id) => { const n = useStudio.getState().nodes.find((x) => x.id === id); return n ? drawnOnBoard(n) : null; },
+      (f) => useStudio.getState().fitToWords(f),
+    );
     /*
      * A repository leaves its elements behind.
      *

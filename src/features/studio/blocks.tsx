@@ -264,7 +264,11 @@ export function Block({ node, t: siteTheme, mode = "board", size, onNavigate, em
       as before, so nothing already on a board moves by a pixel.
     */}
     {boxed ? (
-      <div data-part-box="" style={{ width: "100%", height: "100%", boxSizing: "border-box", overflow: "hidden", ...boxStyle(node, t, palette) }}>
+      // The box grows with what it holds, like the part inside it.
+      // `height: 100%` here was the second clamp on a captured page, and the
+      // one that actually hid the words, because a captured node is exactly
+      // the node that has a box. See `parts/primitives.tsx`.
+      <div data-part-box="" style={{ width: "100%", height: "auto", minHeight: "100%", flex: "1 0 auto", boxSizing: "border-box", overflow: "hidden", ...boxStyle(node, t, palette) }}>
         {drawn}
       </div>
     ) : drawn}
