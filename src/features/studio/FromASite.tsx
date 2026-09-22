@@ -46,6 +46,7 @@ import { heldKeys } from "@/features/keys/store";
 import { allowed, READ_DEADLINE_MS } from "./siteFetch";
 import { boundaryBox, centroid, type Space } from "./space";
 import { useStudio, type StudioNode } from "./store";
+import { holdIncoming } from "./boxEntry";
 import { lockNow } from "./surfaceRun";
 import { drawnOnBoard, tidyToWords } from "./textFit";
 import { fine, fitToSurface, mergeReadings, offered, pageBlocks, saidOf, scaledType, selectorsOf, type Block } from "./zipImport";
@@ -593,6 +594,13 @@ export function FromASite({ space }: { space: Space }) {
     // The surface takes the page's proportion at the width it was drawn.
     useStudio.getState().resizeSpace(space.id, fit.surface);
     const ids: string[] = [];
+    /*
+     * The boxes come up one after another rather than all at once. The run
+     * below is unchanged and still synchronous — one undo still brings the
+     * old board back — and it is the painting of each box that waits its
+     * turn. `boxEntry.ts` holds the reasoning and the number.
+     */
+    holdIncoming(readings.length);
     const landed = readings.map((reading, i) => {
       const made = recreateFrom(reading);
       const at = fit.places[i]!;

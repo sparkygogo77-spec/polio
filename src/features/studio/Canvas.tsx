@@ -32,6 +32,7 @@ import { CarriedFonts } from "./live/CarriedFonts";
 import type { CarriedFont } from "./fonts";
 import { SpaceForming, SpaceInk, SpaceMarks, SpaceRefused, SpaceSide } from "./SpaceLayer";
 import { IMPORT_SETTLE_MS, useArrival, useImportPreview } from "./ImportFlow";
+import { useBoxEntry } from "./boxEntry";
 import { rasterFragment } from "./renderer";
 import { isBoundary, spaceAtLine } from "./space";
 import { Workspace } from "./Workspace";
@@ -2177,6 +2178,13 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
    * neither. Nothing is left behind on the element when it finishes.
    */
   const body = React.useRef<HTMLDivElement>(null);
+  /*
+   * A box out of a captured page waits its turn to be painted: a run of
+   * them comes up .2s apart rather than all in one frame. Only the paint
+   * waits — the part is here, sized and placed, from the moment it was
+   * added — see `boxEntry.ts` for why that distinction is the whole of it.
+   */
+  const held = useBoxEntry(node.id, body);
   const arrive = useArrival(node.id);
   React.useEffect(() => {
     const from = arrive;
@@ -2215,6 +2223,9 @@ const NodeView = React.memo(function NodeView({ node, selected, theme, palette, 
         /* A minimum, not a height: the part grows past it when its words
            need the room. `parts/primitives.tsx` holds the reasoning. */
         minHeight: node.h, display: "flex", flexDirection: "column",
+        // Its turn has not come: not drawn, but holding its place, so
+        // nothing measures a different page while a run is arriving.
+        ...(held ? { opacity: 0 } : {}),
         /*
          * The aura belongs to the element, not to anything inside it — and
          * on a part cut to a drawn line it belongs to the *line*. A

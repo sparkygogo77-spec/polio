@@ -387,6 +387,19 @@ numbers are measured against whatever face resolved that day; a face that
 resolves wider later makes them too small, and the CSS floor is what keeps
 the words visible when they are.
 
+**A captured page's boxes arrive the same way** (`boxEntry.ts`,
+`tests/boxes-land.mjs`). `FromASite` lands every block it read in one
+synchronous loop, and they all appeared in the same frame, which reads as a
+picture being pasted rather than as a page being built. They come up
+`STAGGER_MS` apart now, the same number as the timeline, imported rather
+than written again. What waits is the PAINTING and not the part: every node
+is added in the same run it always was, and a box holds its place in the
+layout at `opacity: 0` until its turn. That is not taste. A part added on a
+timer takes its undo checkpoint on a timer, and a board that is half arrived
+when undo is pressed breaks quietly. The suite pins the ceiling: clearing an
+import costs one press per part and one for the surface, the same with the
+stagger as without it.
+
 **A control is dead if the pixels do not move.** That is the test, and the
 light panel is where it was written: `tests/light-alive.mjs` moves every
 control end to end and reads the board back as pixels. Two were dead. "How
