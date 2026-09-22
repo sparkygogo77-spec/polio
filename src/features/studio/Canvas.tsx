@@ -1394,7 +1394,10 @@ export function Canvas() {
           style={{
             width: frameWidth,
             height: frameH,
-            ...(theme.surfaceStyle ?? { background: theme.backdrop, backgroundSize: "24px 24px" }),
+            /* No size patched on here. The backdrop carries its own now —
+               a grid arrived unsized, so this tiled it at 24px while the
+               swatch said 8 and the live page drew a hairline. */
+            ...(theme.surfaceStyle ?? { background: theme.backdrop }),
             // The page is marked in the far side of its own colour, like a
             // part: an accent-blue box round the whole frame was the loudest
             // thing on a board whose whole subject is what the page looks like.
