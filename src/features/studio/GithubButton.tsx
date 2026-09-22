@@ -31,7 +31,7 @@ import { useStudio } from "@/features/studio/store";
 import { nameRefusal, repoNameFor } from "@/features/studio/repoName";
 import { heldKeys, useKeys } from "@/features/keys/store";
 import { readRepo, repoName, REPO_REFUSAL_SAYS } from "@/features/studio/repoImport";
-import { boardIsHere, keepBringForBoard, placeBring } from "@/features/studio/bringRepo";
+import { bringRepoIn } from "@/features/studio/bringRepo";
 import { staleBuild, staleSays } from "@/core/shell/BuildGuard";
 import { useActions } from "@/core/actions";
 import { useRouter } from "next/navigation";
@@ -371,37 +371,22 @@ function RepoPanel({ own, branch, canPush, onDone }: { own: string | null; branc
    * without touching the board.
    */
   const startBring = (want: string) => {
-    if (!want || pulling) return;
-    /* Never quietly on a stale page: a press on an older build than the
-       server loads code the server no longer has, and ends in nothing. */
-    if (staleBuild()) { setSaid(staleSays()); return; }
-    const repo = readRepo(want);
-    /* A bound site brings in its own repository and no other. */
-    if (repo && own && `${repo.owner}/${repo.name}`.toLowerCase() !== own.toLowerCase()) { setSaid(`This site belongs to ${own}. Make a new site to bring ${repo.owner}/${repo.name} in.`); return; }
-    if (!repo) { setSaid(REPO_REFUSAL_SAYS["not-a-repo"]); return; }
-    if (!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN) { setSaid(REPO_REFUSAL_SAYS["no-token"]); return; }
+    if (pulling) return;
     setPulling(true);
     try {
-      /* The surface it lands on, made here so he does not have to draw one
-         first. The importer resizes it to the page's own proportion. */
-      /*
-       * ON THE BOARD, OR ON THE WAY TO IT. This control is on every page's
-       * top bar, the Builds page included, and pressed there it used to put
-       * a space into a store that was not loaded, with no board to show it
-       * and no panel to run the import: nothing landed and nothing was
-       * said. Now the request is placed when the board is here, and kept
-       * for the board and the Builder opened when it is not. Said as a
-       * toast either way, because this panel closes and the space's own
-       * panel is a narrow aside he may not be looking at.
-       */
-      if (boardIsHere()) {
-        placeBring(want);
-        ctx.publish({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands in a space on the board, and the space's panel says how it is going.", level: "info", source: "studio", toast: { durationMs: 5000 } });
-      } else {
-        keepBringForBoard(want);
-        ctx.publish({ key: `studio:repo:${repo.name}`, title: `Opening the board to bring ${repoName(repo)} in`, body: "It lands in a space there, and the space's panel says how it is going.", level: "info", source: "studio", toast: { durationMs: 5000 } });
-        router.push("/builder");
-      }
+      /* One door, shared with the Builder's own repo picker. This used to
+         hold the whole decision — the stale check, the refusals, the space,
+         the toast, the navigation — and the picker would have been a second
+         copy of it, which is the bug this repository names most often. */
+      const out = bringRepoIn(want, {
+        own,
+        say: (n) => ctx.publish({ ...n, level: "info", source: "studio", toast: { durationMs: 5000 } }),
+        toBoard: () => router.push("/builder"),
+        stale: () => !!staleBuild(),
+        staleSays,
+        hasToken: () => !!heldKeys(["GITHUB_TOKEN"]).GITHUB_TOKEN,
+      });
+      if (!out.ok) { setSaid(out.says ?? "It could not be brought in."); return; }
       onDone();
     } finally {
       setPulling(false);

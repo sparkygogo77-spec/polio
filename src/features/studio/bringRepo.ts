@@ -18,7 +18,7 @@
  * space, and the space is picked so its panel mounts and runs the import.
  */
 import { useStudio } from "./store";
-import { readRepo, repoName } from "./repoImport";
+import { readRepo, repoName, REPO_REFUSAL_SAYS } from "./repoImport";
 import { clearImportLine } from "./FromASite";
 
 /** Where a request waits for the board: this tab only, and taken once. */
@@ -62,4 +62,74 @@ export function takeKeptBring(): string | null {
   } catch {
     return null;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* The one door                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Bring a repository in, from wherever it was chosen.
+ *
+ * ATTACHING IS IMPORTING — his ruling, and it shipped once, in the GitHub
+ * control's own panel. It never reached the Builds page, which has a
+ * repository field of its own whose button binds where Publish pushes and
+ * brings nothing in. So the ruling was true in one place and not in the
+ * place he used, and a fresh site made on the Builds page had no way in at
+ * all: the GitHub control draws nothing until a site has a repository or a
+ * token, and the importer itself lives on a drawn space's panel.
+ *
+ * So the decision lives here, once, and every door calls it. The checks are
+ * in the order that tells him the most useful thing first: a stale page
+ * before anything else, because nothing that follows would work; then
+ * whether it reads as a repository at all; then whether the site is already
+ * bound to a different one; then the token, which is the one a person can
+ * fix on the spot.
+ *
+ * Nothing about the token reaches our server. It is read in his browser by
+ * the importer, exactly as a publish reads it.
+ */
+export interface Bringing {
+  /** The repository this site is bound to, if it is bound. */
+  own?: string | null;
+  /** How this surface says things out loud. */
+  say: (n: { key: string; title: string; body: string }) => void;
+  /** Take him to the board, when he is not on it. */
+  toBoard: () => void;
+  /** True when the page is older than the build the server is serving. */
+  stale: () => boolean;
+  /** What to say about that. */
+  staleSays: () => string;
+  /** Has he a GitHub token in this browser? */
+  hasToken: () => boolean;
+}
+
+export function bringRepoIn(want: string, o: Bringing): { ok: boolean; says?: string } {
+  const asked = want.trim();
+  if (!asked) return { ok: false, says: "Name a repository first." };
+  if (o.stale()) return { ok: false, says: o.staleSays() };
+  const repo = readRepo(asked);
+  if (!repo) return { ok: false, says: REPO_REFUSAL_SAYS["not-a-repo"] };
+  const full = `${repo.owner}/${repo.name}`;
+  /* A bound site brings in its own repository and no other: one site is one
+     repository, and bringing a second in would quietly replace the first. */
+  if (o.own && full.toLowerCase() !== o.own.toLowerCase()) {
+    return { ok: false, says: `This site belongs to ${o.own}. Make a new site to bring ${full} in.` };
+  }
+  if (!o.hasToken()) return { ok: false, says: REPO_REFUSAL_SAYS["no-token"] };
+  /*
+   * On the board, or on the way to it. A press somewhere without a board
+   * used to put a space into a store that was not loaded, with no panel to
+   * run the import and nothing said. The request is kept for the board
+   * instead, and the Builder opened.
+   */
+  if (boardIsHere()) {
+    placeBring(asked);
+    o.say({ key: `studio:repo:${repo.name}`, title: `Reading ${repoName(repo)}`, body: "It lands in a space on the board, and the space's panel says how it is going." });
+  } else {
+    keepBringForBoard(asked);
+    o.say({ key: `studio:repo:${repo.name}`, title: `Opening the board to bring ${repoName(repo)} in`, body: "It lands in a space there, and the space's panel says how it is going." });
+    o.toBoard();
+  }
+  return { ok: true };
 }

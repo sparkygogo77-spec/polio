@@ -290,6 +290,33 @@ every part at tablet or phone was stacked into one column and his header,
 his strip of cards and his footer came out as a pile. `tests/box-fields.mjs`
 measures the board and Preview at Tablet off a page shaped like his.
 
+**Choosing a repository is what brings it in, and there is a way in.** He
+made a fresh site on the Builds page, typed a repository into its Repos field
+and pressed the button: it bound where Publish pushes and imported nothing,
+the site stayed empty, and searching the palette for "import" and for "site"
+found neither. "Attaching is importing" HAD shipped — inside `GithubButton`'s
+own panel, whose list runs the import — but it never reached the Builds page's
+separate repository field, and `GithubButton` returns null outright when a
+site has neither a repository nor a token (`if (!url && !canPush) return
+null`), so on a fresh site there was no door on screen anywhere. Nothing undid
+it: it landed in one place and the place he used was an older control.
+His ruling: typing an exact name is the wrong shape — choose from the
+repositories he has, from inside the Builder, and choosing is what brings it
+in. `RepoPicker` lists `/api/studio/repo` (the same list the GitHub panel
+shows) and every press goes through `bringRepoIn` in `bringRepo.ts`, the one
+door that holds the whole decision — stale build, is it a repository, is this
+site bound elsewhere, is there a token, then place it or keep it and open the
+board. `GithubButton` delegates to the same function; an importer is the worst
+thing in this repository to have two of. The control lives in the Builder's
+BAR, not above the board: a row above the board moves the board, which is the
+one thing the Builder promises not to do, and it moved a drawn space out from
+under `repo-lands`, which draws by coordinate. The Builds page's button now
+reads "Publish here" and its labels say publishing, because the two are
+different actions and one of them was pretending to be the other.
+`tests/bring-repo-door.mjs` holds it, and reports a missing file as a failed
+check rather than a stack trace so it can be run red against a tree without
+the picker.
+
 **A box displaces only what it actually stands under.** The healing above
 cleared every overlap on his Documentation page and left it full of holes:
 1763x2403 became 1763x5323, sixteen gaps over 60px totalling 2876px — almost
