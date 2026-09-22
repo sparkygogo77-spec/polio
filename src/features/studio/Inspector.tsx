@@ -859,7 +859,16 @@ export function Inspector() {
   const feature = getFeature(node.featureId);
   const cat = feature ? categoryOf(feature.category) : null;
   const group = groups.find((g) => g.id === node.groupId);
-  const update = (patch: Parameters<ReturnType<typeof store>["updateNode"]>[1]) => useStudio.getState().updateNode(node.id, patch);
+  /*
+   * Typing a number into X, Y, W or H is his hand on the box exactly as a
+   * drag is, so it marks the part his and the healing leaves it alone from
+   * then on. Only the four: setting a colour or a prompt says nothing about
+   * where the box belongs. See `StudioNode.byHand`.
+   */
+  const update = (patch: Parameters<ReturnType<typeof store>["updateNode"]>[1]) => {
+    const movesTheBox = patch && ("x" in patch || "y" in patch || "w" in patch || "h" in patch);
+    useStudio.getState().updateNode(node.id, movesTheBox && !node.byHand ? { ...patch, byHand: true } : patch);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">

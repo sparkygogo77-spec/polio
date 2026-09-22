@@ -74,23 +74,99 @@ export function fitRows(boxes: readonly Drawn[], grows?: (id: string) => boolean
      as one row is a fact about the page and not about who is allowed to
      move: leaving a part out here would put the ones beside it in rows of
      their own and push the page down once for each. */
-  const rows = toRows(boxes.map((b) => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) as unknown as StudioNode[]);
   const by = new Map(boxes.map((b) => [b.id, b]));
+  const rows = toRows(boxes.map((b) => ({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h })) as unknown as StudioNode[])
+    .flatMap((row) => stacked(row.map((r) => by.get(r.id)!).filter(Boolean)));
   const out: Fitted[] = [];
+  /* What has already been given a place, so a row can be laid under it. */
+  const placed: Drawn[] = [];
   let shift = 0;
   for (const row of rows) {
+    /*
+     * A ROW STARTS BELOW WHAT IT SITS UNDER.
+     *
+     * Propagating growth was the whole of this, and it only ever repaired an
+     * overlap that growth had CREATED. An overlap already written into the
+     * document — a capture that recorded a box and the one under it 50px
+     * into each other, or heights an older one-shot tidy left behind — was
+     * invisible to it: neither box was drawing taller than it was saved, so
+     * there was no growth to propagate, and `toRows` banded the two into one
+     * row (they share more than a third of the shorter one's height), where
+     * every member takes the same shift and nothing is ever moved apart.
+     * That is what survived on his Documentation page after the rest healed.
+     *
+     * So the floor is carried: a row is laid below the lowest thing already
+     * placed that it stands over. Only what it stands OVER — a part off to
+     * the side is nothing to do with it — and never a box that holds this
+     * one or is held by it, because a captured page is wrappers round
+     * wrappers and prising a child out of its parent would be a far worse
+     * fault than the one being fixed.
+     */
+    const top = Math.min(...row.map((b) => b.y)) + shift;
+    let floor = -Infinity;
+    for (const b of row) for (const p of placed) {
+      if (!across(b, p) || holds(b, p) || holds(p, b)) continue;
+      floor = Math.max(floor, p.y + p.h);
+    }
+    if (floor > -Infinity) shift += Math.max(0, floor - top);
     let grew = 0;
-    for (const r of row) {
-      const b = by.get(r.id);
-      if (!b) continue;
-      /* A box that may not grow keeps the height it was given and adds
-         nothing to the row's growth. It still travels with the shift: what
-         is below a box that grew is below it however it got there. */
-      const h = !grows || grows(b.id) ? Math.max(b.h, Math.round(b.drew)) : b.h;
+    for (const b of row) {
+      /*
+       * A BOX THAT IS HIS IS NOT TOUCHED — not grown, not shifted.
+       *
+       * It still stands on the page, so it is still part of its row and
+       * still a floor for what comes under it. What it is not is moved: he
+       * put it there. The cost is that a part of his can end up sitting
+       * over one that grew, and that is the right way round — his placement
+       * is a decision and the capture's was an accident of measurement.
+       */
+      const mayMove = !grows || grows(b.id);
+      const h = mayMove ? Math.max(b.h, Math.round(b.drew)) : b.h;
+      const y = mayMove ? Math.round(b.y + shift) : b.y;
       grew = Math.max(grew, h - b.h);
-      if (h !== b.h || shift !== 0) out.push({ id: b.id, h, y: Math.round(b.y + shift) });
+      if (h !== b.h || y !== b.y) out.push({ id: b.id, h, y });
+      /* Placed at where it now is, so the next row is laid under the truth
+         rather than under where this box used to be. */
+      placed.push({ ...b, y, h });
     }
     shift += grew;
+  }
+  return out;
+}
+
+/** Do these two stand over each other at all, left to right? */
+function across(a: Drawn, b: Drawn): boolean {
+  return a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1;
+}
+
+/** Does the first hold the second whole? A wrapper and its child, not a clash. */
+function holds(a: Drawn, b: Drawn): boolean {
+  return a.x <= b.x + 1 && a.y <= b.y + 1 && a.x + a.w >= b.x + b.w - 1 && a.y + a.h >= b.y + b.h - 1;
+}
+
+/**
+ * One of `toRows`'s rows, cut into the things that are actually side by side.
+ *
+ * `toRows` asks one question — do these share a horizontal band — because
+ * that is the right question for the live reflow, where a row is what
+ * squeezes across together. Two boxes lying ON each other share a band
+ * perfectly, so it calls them a row, and a row moves as one. For laying a
+ * page out that is correct; for pulling two boxes off each other it is the
+ * blind spot. So the row is cut here, in the tidy, and `toRows` is left
+ * alone — it is the live page's, held verbatim against the trunk algorithm
+ * by `tests/reflow-same.mjs`, and a change there would be a change to every
+ * page at every width.
+ *
+ * Boxes that hold each other stay together: a wrapper is not stacked on its
+ * child, it is round it.
+ */
+function stacked(row: readonly Drawn[]): Drawn[][] {
+  if (row.length < 2) return [row as Drawn[]];
+  const out: Drawn[][] = [];
+  for (const b of [...row].sort((m, n) => m.y - n.y || m.x - n.x)) {
+    const beside = out.find((r) => r.every((o) => !across(b, o) || holds(b, o) || holds(o, b)));
+    if (beside) beside.push(b);
+    else out.push([b]);
   }
   return out;
 }
@@ -186,7 +262,7 @@ export function drawnOnBoard(node: { id: string; x: number; y: number; w: number
  * brace: the same answer is never applied twice.
  */
 export function useSettleToWords(
-  nodes: readonly { id: string; x: number; y: number; w: number; h: number; from?: unknown }[],
+  nodes: readonly { id: string; x: number; y: number; w: number; h: number; byHand?: boolean }[],
   apply: (f: Fitted[]) => void,
 ): void {
   const latest = React.useRef({ nodes, apply });
@@ -204,16 +280,28 @@ export function useSettleToWords(
   const settle = React.useCallback(() => {
     if (held.current || typeof document === "undefined") return;
     const ns = latest.current.nodes;
-    // A board with nothing captured on it is not this rule's business.
-    if (!ns.some((n) => n.from)) return;
-    const captured = new Set(ns.filter((n) => n.from).map((n) => n.id));
+    /*
+     * WHOSE BOARD IS THIS.
+     *
+     * The gate was `from` — the live element a part was recreated from —
+     * and it was wrong in the way that mattered: `from` is written on one
+     * import door only, so every board that came in by another one looked
+     * hand-placed and was never healed at all. His nine captured pages were
+     * that board. The question is asked the other way round now: a part is
+     * the machine's unless somebody moved it (`StudioNode.byHand`), which is
+     * set when a part is added from the library, dragged, resized or typed
+     * into, and settled once on hydration for a document older than the
+     * field. A page where every part is his is not this rule's business.
+     */
+    if (!ns.some((n) => !n.byHand)) return;
+    const machines = new Set(ns.filter((n) => !n.byHand).map((n) => n.id));
     const boxes: Drawn[] = [];
     for (const n of ns) {
       const d = drawnOnBoard(n);
       if (d) boxes.push(d);
     }
     if (!boxes.length) return;
-    const fitted = fitRows(boxes, (id) => captured.has(id));
+    const fitted = fitRows(boxes, (id) => machines.has(id));
     if (!fitted.length) { said.current = ""; return; }
     const print = fitted.map((f) => `${f.id}:${f.h},${f.y}`).join("|");
     if (print === said.current) return;

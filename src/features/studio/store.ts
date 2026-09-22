@@ -260,6 +260,29 @@ export interface StudioNode {
    */
   from?: { url: string; host: string; selector: string; at: number } | null;
   /**
+   * HIS HAND PUT THIS BOX WHERE IT IS.
+   *
+   * The healing in `textFit.ts` moves boxes that were written down by a
+   * machine — a capture's geometry, an older tidy's heights — and it must
+   * never move one he placed himself. `from` was the first answer to "whose
+   * is this box", and it is the wrong one: it is set only on the From-a-site
+   * door, so a part that arrived any other way looked hand-placed and was
+   * left to overlap for ever, which is exactly the board he was looking at.
+   *
+   * The question is asked the other way round now. A part is the machine's
+   * unless somebody moved it: this is set when a part is added from the
+   * library, the wheel or "add here", and when a part's box is dragged,
+   * resized or typed into. A node carrying it is never grown, never shifted,
+   * and never pushes anything.
+   *
+   * Optional, because a document saved before this existed carries it on
+   * nothing. Those are settled once on hydration — see `onRehydrateStorage`
+   * — which is what lets an old board heal itself rather than be
+   * re-imported, and re-importing is what he ruled against: it throws away
+   * everything he has changed since.
+   */
+  byHand?: boolean;
+  /**
    * How this box is laid out, padded, edged and set, when a page said so.
    *
    * A captured page is mostly boxes, and a box on a page has a layout (a
@@ -1404,6 +1427,10 @@ export const useStudio = create<StudioState>()(
           const id = uid("n");
           push();
           set((s) => {
+            /* Whose box this is. Everything added through the library, the
+               wheel or "add here" is his; only a part carrying the page it
+               was read off is the machine's, and only those are healed. */
+            const mine = !patch?.from;
             const w = patch?.w ?? feature?.w ?? 132;
             const h = patch?.h ?? feature?.h ?? 76;
             const home = placeInFrame(x, y, w, s.frameWidth);
@@ -1424,6 +1451,7 @@ export const useStudio = create<StudioState>()(
                 h,
                 groupId: null,
                 options: {},
+                ...(mine ? { byHand: true } : {}),
                 priority: "must",
                 custom: featureId === "custom-idea",
                 glyph: null,
@@ -2555,6 +2583,34 @@ export const useStudio = create<StudioState>()(
         state.brought ??= [];
         state.broughtParts ??= [];
         shelve(state.brought, state.broughtParts);
+        /*
+         * WHOSE BOXES ARE THESE, ON A DOCUMENT THAT PREDATES THE QUESTION.
+         *
+         * Nothing saved before `byHand` carries it, so without this every
+         * board that already exists would be treated as the machine's and
+         * healed — including one he laid out entirely by hand, where two
+         * parts deliberately over each other is a design and not a fault.
+         *
+         * So the document is asked once whether it came off a page at all. A
+         * repository or site brought into it, a part carrying the element it
+         * was read from, or a box carrying a layout, a padding, an edge or a
+         * way its words are set — those four are written by a capture and by
+         * nothing else in the app. No sign of any of it and the board is his:
+         * every part is marked and nothing will ever move.
+         *
+         * A board that DID come off a page heals, and its parts are left
+         * unmarked even if he moved some of them before today, because
+         * nothing recorded that he did. That is the one place this cannot
+         * keep its promise, and it is bounded: the healing only ever moves a
+         * part DOWN, to clear what is above it. It cannot put a part back
+         * where the capture had it, and from now on every move he makes is
+         * marked as his.
+         */
+        {
+          const cameOffAPage = (state.brought?.length ?? 0) > 0
+            || (state.nodes ?? []).some((n) => n.from || n.layout || n.pad || n.edge || n.text);
+          if (!cameOffAPage) for (const n of state.nodes ?? []) if (n.byHand === undefined) n.byHand = true;
+        }
         const stuck = state.threads.some((t) => t.state === "running");
         if (stuck) state.threads = state.threads.map((t) => (t.state === "running" ? { ...t, state: "cut" as const } : t));
       },
